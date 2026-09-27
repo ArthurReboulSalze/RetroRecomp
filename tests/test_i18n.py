@@ -20,7 +20,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_packaged_export_keeps_the_project_workspace_and_shared_data(self):
         with tempfile.TemporaryDirectory() as folder:
-            project = Path(folder)
+            project = Path(folder).resolve()
             (project / 'smsrecomp').mkdir()
             (project / 'RetroRecomp.py').write_text('')
             (project / 'smsrecomp/core.py').write_text('')
@@ -34,7 +34,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_moved_standalone_converter_does_not_add_a_second_export_folder(self):
         with tempfile.TemporaryDirectory() as folder:
-            application = Path(folder) / 'Portable'
+            application = Path(folder).resolve() / 'Portable'
             with patch('smsrecomp.paths.sys.frozen', True, create=True), \
                     patch('smsrecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
                 self.assertEqual(workspace_directory(), application)
@@ -43,7 +43,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_saving_preferences_keeps_local_output_relative(self):
         with tempfile.TemporaryDirectory() as folder:
-            directory = Path(folder)
+            directory = Path(folder).resolve()
             with patch('smsrecomp.paths.ROOT', directory):
                 save_preferences({'output': str(directory / 'Export'), 'language': 'fr'})
                 saved = json.loads((directory / 'Export/datas/Retro-Recomp.json').read_text())
