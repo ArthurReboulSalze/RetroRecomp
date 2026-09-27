@@ -1,0 +1,20 @@
+# Optional profile for a ROM supplied locally.
+# Replace identities with values reported by RetroRecomp.py inspect.
+[game]
+output_prefix = "game"
+platform = "sms"
+rom = "rom.sms"
+crc32 = 0x00000000
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[mapper]
+kind = "sega"
+
+[functions]
+extra = []
+blacklist = []
+
+[jump_tables]
+addr = []
+bank = []
+count = []

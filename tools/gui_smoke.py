@@ -1,0 +1,64 @@
+"""Check that the desktop form initializes with a ROM without showing a window."""
+from pathlib import Path
+import sys
+import tkinter as tk
+import tempfile
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from smsrecomp.gui import launch
+from smsrecomp.library import list_games
+
+
+def smoke(window):
+    window.withdraw()
+    window.update_idletasks()
+    assert window.title() == "Retro-Recomp"
+    application = window._retro_application
+    assert len(application.items) == len(list(application.table.get_children())) >= 5
+    assert application.banner is not None and application.banner_label is not None
+    assert application.banner.width() <= 600 and application.banner.height() < 175
+    assert application.banner_label.winfo_x() == 0
+    assert application.tagline.master is application.footer_label.master
+    initial_tuning = application.frames.get(), application.passes.get()
+    before = len(application.items)
+    application.add_paths([item.path for item in application.items.values()])
+    assert len(application.items) == before
+    content = window
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    assert application.language in ('en', 'fr') and application.extended.get()
+    assert len(application.tooltips) >= 16
+    application.memory_button.invoke()
+    panel = next(widget for widget in window.winfo_children() if isinstance(widget, tk.Toplevel))
+    panel.withdraw()
+    table = next(widget for widget in descendants(panel) if widget.winfo_class() == "Treeview")
+    assert len(table.get_children()) == len(list_games())
+    old_output = application.output.get()
+    with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.gui.save_preferences') as save:
+        application.output.set(folder)
+        application.language_name.set('Français')
+        application.change_language()
+        assert save.call_args.args[0]['language'] == 'fr'
+        assert 'language=fr' in (Path(folder)/'datas/Retro-Recomp.ini').read_text()
+        assert application.table.heading('title', 'text') == application.tr('game')
+        application.language_name.set('English')
+        application.change_language()
+        assert save.call_args.args[0]['language'] == 'en'
+    application.output.set(old_output)
+    for language in ('fr', 'en'):
+        application.language = language
+        application.refresh_language()
+        assert application.start_button.cget('text') == application.tr('start')
+        assert len(application.items) == before
+        assert application.extended_control.cget('text') == application.tr('extended')
+        assert (application.frames.get(), application.passes.get()) == initial_tuning
+    panel.destroy()
+    print("PASS: English/French, extended default, hover hints, batch queue, left-aligned banner, duplicates, library; size", window.geometry())
+    window.destroy()
+
+
+tk.Tk.mainloop = smoke
+launch()
