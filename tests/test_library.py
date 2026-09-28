@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 import os
 
-from smsrecomp.core import read_rom
+from smsrecomp.core import default_config, read_rom, set_video_standard
 from smsrecomp.library import GameMemory, classify, read_observations, read_code_patterns
 
 
@@ -129,6 +129,44 @@ class LibraryTests(unittest.TestCase):
         metadata["recipe"]["toml"] += "corrupted"
         self.memory.record.write_text(json.dumps(metadata), encoding="utf-8")
         self.assertIsNone(self.memory.recipe("engine1"))
+
+    def test_explicit_video_choice_survives_engine_changes_and_rom_rename(self):
+        report = {"created_utc": "test", "version": "0.10.17", "engine_revision": "old-engine",
+                  "executable": "game.exe", "final_checks": [], "strict_checks": [],
+                  "learning": {}, "reference_vdp_trace_match": False,
+                  "system": {"id": "sms"}, "video_model": {"standard": "ntsc"}}
+        config = set_video_standard(default_config(self.rom), "ntsc")
+        self.memory.remember("Same name", config, report, "compiler1")
+        self.assertIsNone(self.memory.recipe("new-engine"))
+        self.assertEqual(self.memory.video_standard(), "ntsc")
+        renamed = dataclasses.replace(self.rom, path=self.root / "Same_name (Europe).sms")
+        self.assertEqual(GameMemory(renamed, self.root / "library").video_standard(), "ntsc")
+        changed = self.rom.data[:-1] + b"\x02"
+        other = dataclasses.replace(self.rom, data=changed, sha256=hashlib.sha256(changed).hexdigest())
+        self.assertIsNone(GameMemory(other, self.root / "library").video_standard())
+        metadata = self.memory.metadata()
+        metadata["recipe"]["toml"] += "\n# stale compiler recipe"
+        self.memory.record.write_text(json.dumps(metadata), encoding="utf-8")
+        self.assertEqual(self.memory.video_standard(), "ntsc")
+
+    def test_legacy_video_choice_requires_an_intact_rom_matched_recipe(self):
+        report = {"created_utc": "test", "version": "0.10.16", "engine_revision": "old-engine",
+                  "executable": "game.exe", "final_checks": [], "strict_checks": [],
+                  "learning": {}, "reference_vdp_trace_match": False}
+        config = set_video_standard(default_config(self.rom), "pal")
+        self.memory.remember("Same name", config, report, "compiler1")
+        self.assertIsNone(self.memory.recipe("new-engine"))
+        self.assertEqual(self.memory.video_standard(), "pal")
+        metadata = self.memory.metadata()
+        self.assertNotIn("video_selection", metadata)
+        metadata["recipe"]["toml"] += "\n# changed"
+        self.memory.record.write_text(json.dumps(metadata), encoding="utf-8")
+        self.assertIsNone(self.memory.video_standard())
+        metadata["recipe"]["toml"] = metadata["recipe"]["toml"].replace(
+            f"crc32 = 0x{self.rom.crc32:08X}", "crc32 = 0x00000000")
+        metadata["recipe"]["sha256"] = hashlib.sha256(metadata["recipe"]["toml"].encode()).hexdigest()
+        self.memory.record.write_text(json.dumps(metadata), encoding="utf-8")
+        self.assertIsNone(self.memory.video_standard())
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
+from .paths import ASSETS
 
 REPOSITORY = "libretro-thumbnails/Sega_-_Master_System_-_Mark_III"
 RAW_BASE = f"https://raw.githubusercontent.com/{REPOSITORY}/master/Named_Boxarts/"
@@ -29,6 +30,13 @@ CATALOG_URL = f"https://api.github.com/repos/{REPOSITORY}/contents/Named_Boxarts
 SOURCE_PAGE = f"https://github.com/{REPOSITORY}"
 FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
+# Stable tag IDs are separate from artwork filenames and peripheral detection.
+ICON_TAGS = {"shooting": "tag-shooting.png"}
+ICON_TAG_LAYOUT = {
+    "anchor": "bottom_left_of_visible_cover", "size_ratio": 0.189,
+    "minimum_size": 4, "margin_ratio": 0.025, "halo_pixels": 1,
+    "opacity": 0.8, "left_overhang_ratio": 0.15, "rendered_per_size": True,
+}
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_PIXELS = 16 * 1024 * 1024
 TIMEOUT = 6
@@ -228,14 +236,41 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
     raise ArtworkError("Aucune cover locale correspondante ; téléchargement désactivé.")
 
 
+def tagged_icon_image(square: Image.Image, size: int, tags: list[Image.Image]) -> Image.Image:
+    """Compose a discreet badge at the cover's bottom-left, at each ICO size."""
+    image = square.resize((size, size), Image.Resampling.LANCZOS)
+    visible = image.getchannel("A").point(lambda a: 255 if a >= 32 else 0).getbbox()
+    if not visible:
+        return image
+    # 30% smaller than the initial 27% badge, rounded to whole icon pixels.
+    edge = max(ICON_TAG_LAYOUT["minimum_size"], round(size * ICON_TAG_LAYOUT["size_ratio"]))
+    margin = max(1, round(size * ICON_TAG_LAYOUT["margin_ratio"]))
+    y = visible[3] - margin
+    for tag in tags:
+        badge = ImageOps.contain(tag, (edge, edge), Image.Resampling.LANCZOS)
+        halo = Image.new("RGBA", (badge.width+2, badge.height+2), (255, 255, 255, 0))
+        mask = Image.new("L", halo.size)
+        mask.paste(badge.getchannel("A"), (1, 1))
+        halo.putalpha(mask.filter(ImageFilter.MaxFilter(3)))
+        halo.alpha_composite(badge, (1, 1))
+        # Fade the entire badge, including the halo, leaving the cover intact.
+        halo.putalpha(halo.getchannel("A").point(lambda a: round(a * ICON_TAG_LAYOUT["opacity"])))
+        x = max(0, visible[0] - round(halo.width * ICON_TAG_LAYOUT["left_overhang_ratio"]))
+        y -= halo.height
+        image.alpha_composite(halo, (x, max(0, y)))
+        y -= margin
+    return image
+
+
 def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, explicit: Path | None = None,
-                 online: bool = True, enabled: bool = True, cache_directory: Path | None = None, emit=print) -> dict:
+                 online: bool = True, enabled: bool = True, cache_directory: Path | None = None,
+                 tags: tuple[str, ...] = (), tag_directory: Path | None = None, emit=print) -> dict:
     resource, icon = game / "game_resources.rc", game / "game.ico"
     # Always replace the generated resource description, including when a
     # formerly covered game is reconverted with --no-cover or without its art.
     resource.write_text("/* Generated optional game icon. */\n", encoding="ascii")
     report = {"embedded": False, "source": "disabled" if not enabled else "missing",
-        "online_enabled": online, "image": None, "url": None}
+        "online_enabled": online, "image": None, "url": None, "tags": [], "requested_tags": list(tags)}
     if not enabled:
         return report
     try:
@@ -247,8 +282,30 @@ def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, exp
         image = ImageOps.contain(image, (256, 256), Image.Resampling.LANCZOS)
         square = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         square.alpha_composite(image, ((256-image.width)//2, (256-image.height)//2))
+        tag_images, tag_sources = [], []
+        for tag_id in dict.fromkeys(tags):
+            try:
+                filename = ICON_TAGS.get(tag_id)
+                if filename is None:
+                    raise ArtworkError(f"Tag inconnu : {tag_id}")
+                data = _read_image((tag_directory or ASSETS / "assets") / filename)
+                tag = _image(data)
+                tag_images.append(tag.crop(tag.getchannel("A").getbbox()))
+                tag_sources.append({"id": tag_id, "asset_sha256": hashlib.sha256(data).hexdigest()})
+            except (ArtworkError, OSError) as exc:
+                report.setdefault("tag_warnings", []).append(str(exc))
+                emit(f"Tag d'icône indisponible : {exc}. La cover reste utilisée.")
         buffer = BytesIO()
-        square.save(buffer, format="ICO", sizes=[(n, n) for n in ICON_SIZES])
+        if tag_images:
+            frames = [tagged_icon_image(square, n, tag_images) for n in ICON_SIZES]
+            square = frames[-1]
+            # Explicit frames prevent the 16/32px badge halo being downsampled
+            # from the largest image. Preserve the badge at every resource size.
+            square.save(buffer, format="ICO", sizes=[(n, n) for n in ICON_SIZES], append_images=frames[:-1])
+            report.update(tags=[s["id"] for s in tag_sources], tag_assets=tag_sources,
+                          tag_layout=dict(ICON_TAG_LAYOUT))
+        else:
+            square.save(buffer, format="ICO", sizes=[(n, n) for n in ICON_SIZES])
         _atomic(icon, buffer.getvalue())
         # Unicode RC input encoded explicitly; filename is generated, fixed and
         # relative to GAME_DIR so user image paths never enter RC source text.
@@ -259,6 +316,8 @@ def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, exp
             icon_sha256=hashlib.sha256(buffer.getvalue()).hexdigest(), sizes=list(ICON_SIZES),
             resource_id=101, fit="preserve_aspect_trim_transparent_margins")
         emit(f"Icône : {cover['path'].name} ({cover['source']}).")
+        if report["tags"]:
+            emit("Tags de l'icône : " + ", ".join(report["tags"]) + ".")
     except (ArtworkError, OSError, urllib.error.URLError, ValueError, subprocess.TimeoutExpired) as exc:
         if explicit is not None:
             raise ArtworkError(f"Impossible d'utiliser la cover choisie : {exc}") from exc

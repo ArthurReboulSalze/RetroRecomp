@@ -17,6 +17,7 @@ from .i18n import STRINGS, tr, extended_default, log_text
 from .tooltips import Tooltip
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
+from .systems import MASTER_SYSTEM, get_profile
 
 
 class Application:
@@ -67,6 +68,7 @@ class Application:
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
+        self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
         header = tk.Frame(app, bg='#04112b', padx=24, pady=0)
@@ -99,7 +101,7 @@ class Application:
         header_controls.grid(row=0, column=1, sticky='ne', padx=(24, 0), pady=(8, 0))
         badge = tk.Frame(header_controls, bg='#0e254b', padx=16, pady=10, highlightbackground='#285896', highlightthickness=1)
         badge.pack(anchor='e')
-        tk.Label(badge, text='MASTER SYSTEM', bg='#0e254b', fg='#26d7ff', font=('Segoe UI', 10, 'bold')).pack()
+        tk.Label(badge, text=MASTER_SYSTEM.name.upper(), bg='#0e254b', fg='#26d7ff', font=('Segoe UI', 10, 'bold')).pack()
         tk.Label(badge, text='Windows x64', bg='#0e254b', fg='#a9bcdc', font=('Segoe UI', 9)).pack()
         language_frame = tk.Frame(header_controls, bg='#04112b')
         language_frame.pack(anchor='e', pady=(16, 0))
@@ -136,8 +138,10 @@ class Application:
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew')
-        self.table = ttk.Treeview(table_frame, columns=('title', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=8)
-        for key, caption, width in [('title', self.tr('game'), 430), ('size', 'ROM', 70), ('cover', self.tr('cover'), 100), ('status', self.tr('conversion'), 250)]:
+        self.table = ttk.Treeview(table_frame, columns=('title', 'system', 'video', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=8)
+        for key, caption, width in [('title', self.tr('game'), 350), ('system', self.tr('console'), 125),
+                                    ('video', self.tr('video_timing'), 115), ('size', 'ROM', 70),
+                                    ('cover', self.tr('cover'), 100), ('status', self.tr('conversion'), 210)]:
             self.table.heading(key, text=caption)
             self.table.column(key, width=width, minwidth=60, stretch=key in ('title', 'status'))
         self.table.tag_configure('error', foreground='#ffb4c2')
@@ -157,6 +161,14 @@ class Application:
         self.play_button = ttk.Button(selection, text=self.tr('play'), command=self.play, state='disabled')
         self.play_button.pack(side='left')
         self.hint(self.play_button, 'tip_play')
+        ttk.Label(selection, text=self.tr('video_timing')).pack(side='left', padx=(18, 6))
+        self.video_name = tk.StringVar(value=self.tr('auto'))
+        self.video_field = ttk.Combobox(selection, textvariable=self.video_name,
+                                        values=(self.tr('auto'), 'PAL', 'NTSC'), width=8, state='disabled')
+        self.video_field.pack(side='left')
+        self.video_field.bind('<<ComboboxSelected>>', self.change_video)
+        self.controls.append(self.video_field)
+        self.hint(self.video_field, 'tip_video_timing')
         self.memory_button = ttk.Button(selection, text=self.tr('memory'), command=self.show_library)
         self.memory_button.pack(side='right')
         self.hint(self.memory_button, 'tip_memory')
@@ -173,12 +185,13 @@ class Application:
 
         options = ttk.Frame(body)
         options.grid(row=5, column=0, sticky='ew', pady=(0, 8))
-        for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended')]:
+        for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('icon_tags'), self.icon_tags, 'tip_icon_tags'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended')]:
             control = ttk.Checkbutton(options, text=text, variable=variable)
-            control.pack(side='left', padx=(0, 16))
+            control.pack(side='left', padx=(0, 8))
             self.controls.append(control)
             self.hint(control, hint)
             if variable is self.extended: self.extended_control = control
+            if variable is self.icon_tags: self.icon_tags_control = control
         tuning = ttk.Frame(body)
         tuning.grid(row=6, column=0, sticky='ew', pady=(0, 12))
         ttk.Label(tuning, text=self.tr('passes')).pack(side='left')
@@ -244,6 +257,8 @@ class Application:
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' — ' + self.tr('memory'))
         for row, item in self.items.items():
+            self.table.set(row, 'system', get_profile(item.system).name if not item.error else '—')
+            self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
             self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '—')
             self.table.set(row, 'cover', self.tr('chosen' if item.cover else 'auto'))
             self.table.set(row, 'status', self.tr(self.row_status[row]))
@@ -268,13 +283,44 @@ class Application:
         elif command == self.choose_output: self.hint(button, 'tip_output')
         return button
 
+    def video_display(self, item: BatchItem, result: dict | None = None) -> str:
+        if item.error or not item.video_hint:
+            return '—'
+        if item.standard_override:
+            return self.tr('video_selected', standard=item.standard_override.upper())
+        if result and result.get('video_standard'):
+            return result['video_standard'].upper()
+        return self.tr('video_guess', standard=item.video_hint.upper())
+
+    def change_video(self, event=None):
+        rows = self.table.selection()
+        if self.busy or len(rows) != 1:
+            return
+        row = rows[0]
+        item = self.items[row]
+        selected = self.video_name.get().lower()
+        item.standard_override = selected if selected in get_profile(item.system).video_modes else None
+        result = self.results.get(row)
+        if result and item.standard_override and result.get('video_standard') != item.standard_override:
+            self.results.pop(row)
+            self.row_status[row] = 'waiting'
+            self.table.set(row, 'status', self.tr('waiting'))
+            self.table.item(row, tags=())
+        self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
+        self.selection_changed()
+
     def add_paths(self, paths):
         existing = {item.path for item in self.items.values()}
         for path in paths:
             if Path(path).resolve() in existing:
                 continue
             item = identify(Path(path))
-            row = self.table.insert('', 'end', values=(item.title, self.tr('size', value=item.size//1024) if item.size else '—', self.tr('auto'), self.tr('invalid') if item.error else self.tr('waiting')), tags=('error',) if item.error else ())
+            row = self.table.insert('', 'end', values=(item.title,
+                get_profile(item.system).name if not item.error else '—',
+                self.video_display(item),
+                self.tr('size', value=item.size//1024) if item.size else '—',
+                self.tr('auto'), self.tr('invalid') if item.error else self.tr('waiting')),
+                tags=('error',) if item.error else ())
             self.items[row] = item
             self.row_status[row] = 'invalid' if item.error else 'waiting'
             folder = Path(self.output.get()).expanduser()
@@ -292,6 +338,8 @@ class Application:
                         reference_vdp_trace_match=report['reference_vdp_trace_match'])
                     self.row_status[row] = 'pending_install' if is_pending(target) else 'created'
                     self.table.set(row, 'status', self.tr(self.row_status[row]))
+                    self.results[row]['video_standard'] = report.get('video_model', {}).get('standard', item.video_hint)
+                    self.table.set(row, 'video', self.video_display(item, self.results[row]))
                     self.table.item(row, tags=('success',))
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 pass
@@ -351,19 +399,26 @@ class Application:
         rows = self.table.selection()
         result = self.results.get(rows[0], {}) if len(rows) == 1 else {}
         self.play_button.configure(state='normal' if not self.busy and result.get('status') == 'success' and not result.get('pending_install') else 'disabled')
+        item = self.items[rows[0]] if len(rows) == 1 else None
+        if item and not item.error:
+            self.video_field.configure(values=(self.tr('auto'),
+                *(mode.upper() for mode in get_profile(item.system).video_modes)))
+        self.video_name.set((item.standard_override.upper() if item and item.standard_override
+                             else self.tr('auto')))
+        self.video_field.configure(state='readonly' if item and not item.error and not self.busy else 'disabled')
         if len(rows) == 1:
-            item = self.items[rows[0]]
             text = log_text(item.error or result.get('message') or str(item.path), self.language)
             if item.cover:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 text = self.tr('fallback', percent=result['interpreter_percent'], comparison=self.tr('vdp_equal' if result['reference_vdp_trace_match'] else 'vdp_different'))
+            text += ' · ' + self.video_display(item, result)
             self.detail.set(text)
         else:
             self.detail.set(self.tr('shared'))
 
     def preferences(self):
-        return dict(language=self.language, coverage_default_revision=2, output=self.output.get(), backend='banked' if self.extended.get() else 'functions', passes=self.passes.get(), frames=self.frames.get(), use_cover=self.use_cover.get(), online_cover=self.online.get())
+        return dict(language=self.language, coverage_default_revision=2, output=self.output.get(), backend='banked' if self.extended.get() else 'functions', passes=self.passes.get(), frames=self.frames.get(), use_cover=self.use_cover.get(), online_cover=self.online.get(), icon_tags=self.icon_tags.get())
 
     def start(self):
         if self.busy:
@@ -442,6 +497,7 @@ class Application:
                 elif kind == 'result':
                     row, result = self.active_rows[event[1]], event[2]
                     self.results[row] = result
+                    self.table.set(row, 'video', self.video_display(self.items[row], result))
                     text = {'success': self.tr('created'), 'error': self.tr('error'), 'duplicate': self.tr('duplicate')}[result['status']]
                     self.row_status[row] = {'success': 'created', 'error': 'error', 'duplicate': 'duplicate'}[result['status']]
                     if result.get('pending_install'):

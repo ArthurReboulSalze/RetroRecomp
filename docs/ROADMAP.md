@@ -1,7 +1,7 @@
 # Roadmap
 
 Only Master System with the Sega mapper and Windows x64 output is implemented
-in 0.10.4. These are goals/research directions, not current support or delivery
+in 0.10.17. These are goals/research directions, not current support or delivery
 commitments.
 
 ## Game systems

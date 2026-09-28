@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from smsrecomp.artwork import ICON_SIZES
-from smsrecomp.core import ROOT, ASSETS, dependencies, run
+from smsrecomp.core import ROOT, ASSETS, dependencies, run, slug
 from smsrecomp.paths import games_directory
 
 
@@ -79,7 +79,7 @@ def main():
     run([cmake, "-S", source, "-B", build, "-G", generator, "-A", "x64",
         f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
         f"-DSMSRECOMP_BANKED_AOT={'ON' if report['backend']=='banked' else 'OFF'}",
-        f"-DGAME_NAME={output.stem}", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}",
+        f"-DGAME_NAME={slug(Path(report['executable']).stem)}", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}",
         "-DSMSRECOMP_ICON_CHECKS=ON"])
     run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_icon_checks", "--parallel", "4"])
     print(run([build / "Release/smsrecomp_icon_checks.exe"]).strip())

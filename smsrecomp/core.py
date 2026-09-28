@@ -22,7 +22,9 @@ from . import __version__
 from .i18n import log_text
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
+from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
+from .systems import MASTER_SYSTEM
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
@@ -65,6 +67,48 @@ def read_rom(path: Path) -> Rom:
     if region in (5, 6, 7):
         raise ConversionError("Cette ROM est identifiée comme Game Gear ; cette version cible la Master System.")
     return Rom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), copier, header, region)
+
+
+def video_standard(rom: Rom) -> str:
+    """Compatibility wrapper for the Master System console profile."""
+    return MASTER_SYSTEM.default_video_mode(rom.path)
+
+
+def set_video_standard(config: str, standard: str) -> str:
+    """Set one profile's [video] timing while preserving its other sections."""
+    if standard not in MASTER_SYSTEM.video_modes:
+        raise ConversionError("Le profil vidéo doit préciser ntsc ou pal.")
+    import tomllib
+    parsed = tomllib.loads(config)
+    if "video" in parsed and not isinstance(parsed["video"], dict):
+        raise ConversionError("Section [video] invalide dans le profil.")
+    lines = config.splitlines(keepends=True)
+    section_start = section_end = None
+    for index, line in enumerate(lines):
+        if re.match(r"^\s*\[video\]\s*(?:#.*)?$", line.strip()):
+            section_start = index
+            continue
+        if section_start is not None and section_end is None and re.match(r"^\s*\[", line):
+            section_end = index
+            break
+    if section_start is None:
+        if "video" in parsed:
+            raise ConversionError("Le profil vidéo doit utiliser la section [video].")
+        result = config.rstrip("\r\n") + f'\n\n[video]\nstandard = "{standard}"\n'
+    else:
+        end = section_end if section_end is not None else len(lines)
+        matches = [i for i in range(section_start + 1, end)
+                   if re.match(r"^\s*standard\s*=", lines[i])]
+        if len(matches) > 1:
+            raise ConversionError("Le profil vidéo contient plusieurs valeurs standard.")
+        if matches:
+            lines[matches[0]] = f'standard = "{standard}"\n'
+        else:
+            lines.insert(section_start + 1, f'standard = "{standard}"\n')
+        result = "".join(lines)
+    if tomllib.loads(result).get("video", {}).get("standard") != standard:
+        raise ConversionError("Impossible d'enregistrer le profil vidéo.")
+    return result
 
 
 def slug(title: str) -> str:
@@ -219,12 +263,28 @@ def replace_once(source: str, old: str, new: str) -> str:
     return source.replace(old, new, 1)
 
 
-def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path) -> None:
+def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: str = "ntsc") -> None:
+    if standard not in ("ntsc", "pal"):
+        raise ConversionError("Video standard must be 'ntsc' or 'pal'.")
+    clocks = (engine / "runner/include/sms_clocks.h").read_text(encoding="utf-8")
+    clocks = replace_once(clocks, "#define SMS_VBLANK_LINE       192", "#define SMS_VBLANK_LINE       193")
+    clocks = clocks.replace("the frame (VBlank) interrupt latches at the start of line 192.",
+                            "the frame (VBlank) interrupt latches at the start of line 193.")
+    if standard == "pal":
+        clocks = replace_once(clocks, "#define SMS_Z80_HZ            3579545u", "#define SMS_Z80_HZ            3546893u")
+        clocks = replace_once(clocks, "#define SMS_LINES_PER_FRAME   262", "#define SMS_LINES_PER_FRAME   313")
+        clocks = clocks.replace("Z80 clock (NTSC)", "Z80 clock (PAL)")
+        clocks = clocks.replace("SMS_LINES_PER_FRAME   313        /* NTSC", "SMS_LINES_PER_FRAME   313        /* PAL ")
+        clocks = clocks.replace("NTSC: 262 lines/frame, ~228 Z80 T-states/line", "PAL: 313 lines/frame, ~228 Z80 T-states/line")
+        clocks = clocks.replace("SMS PAL detection is a later concern - NTSC is\n * the bring-up target (the Sonic SMS/GG titles are NTSC-timed in practice).",
+                                "The PAL Master System uses 313 lines per frame and a roughly 3.547 MHz Z80.")
+    (game / "sms_clocks.h").write_text(clocks, encoding="utf-8")
     header = '''#include <stdint.h>\n#include <stddef.h>\nextern const uint8_t sms_rom[];
 extern const size_t sms_rom_size;\nextern const uint32_t sms_rom_crc32;
 extern const char sms_game_title[];\nint smsrecomp_interpreter_active(void);
 extern const char sms_rom_sha256[];
 extern const char sms_game_slug[];
+extern const int sms_light_phaser, sms_light_phaser_hcounter_offset, sms_light_phaser_trigger_p2;
 uint64_t smsrecomp_interpreter_cycles(void);\n'''
     (game / "embedded_rom.h").write_text(header, encoding="utf-8")
     with (game / "embedded_rom.c").open("w", encoding="utf-8") as out:
@@ -235,9 +295,69 @@ uint64_t smsrecomp_interpreter_cycles(void);\n'''
         out.write(f"const char sms_game_title[] = {json.dumps(title, ensure_ascii=True)};\n")
         out.write(f'const char sms_rom_sha256[] = "{rom.sha256}";\n')
         out.write(f'const char sms_game_slug[] = "{slug(title)}";\n')
+        phaser = light_phaser_game(rom.crc32, rom.path.name)
+        out.write(f'const int sms_light_phaser = {int(phaser is not None)};\n')
+        out.write(f'const int sms_light_phaser_hcounter_offset = {phaser.hcounter_offset if phaser else 20};\n')
+        out.write(f'const int sms_light_phaser_trigger_p2 = {int(bool(phaser and phaser.trigger_on_p2))};\n')
     prepare_cpu_headers(game, engine)
     prepare_reference(game, engine)
     glue = (engine / "runner/glue.c").read_text(encoding="utf-8")
+    glue = '#include "video_frame.h"\n#include "lightphaser.h"\n#include "embedded_rom.h"\n' + glue
+    glue = replace_once(glue, '#include "include/sms_clocks.h"', '#include "sms_clocks.h"')
+    glue = replace_once(glue, 'uint8_t sms_io_in(uint8_t p){', '''static void advance_vdp(uint64_t cyc);
+static bool smsrecomp_in_io, smsrecomp_stop_pending;
+static void sync_vdp_for_io(uint64_t cyc) {
+    /* Ports must see the current raster line, but a host/frame stop must not
+     * unwind an unfinished IN/OUT instruction or its reference callback. */
+    smsrecomp_in_io = true;
+    advance_vdp(cyc);
+    smsrecomp_in_io = false;
+}
+uint8_t sms_io_in(uint8_t p){
+    if (p >= 0x40 && p < 0xC0) sync_vdp_for_io(g_z80.cyc);''')
+    glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){', '''void sms_io_out(uint8_t p, uint8_t v){
+    if (p >= 0x40 && p < 0xC0) sync_vdp_for_io(g_z80.cyc);''')
+    glue = replace_once(glue, 'longjmp(g_quit_env, 1);      /* user closed the window */',
+        'smsrecomp_stop_pending = true; /* finish the current CPU instruction */')
+    glue = replace_once(glue, '''    if (g_frame_limit && g_frame >= g_frame_limit && g_running)
+        longjmp(g_quit_env, 1);''', '''    if (g_frame_limit && g_frame >= g_frame_limit && g_running)
+        smsrecomp_stop_pending = true;''')
+    glue = replace_once(glue, '    while (cyc >= g_next_line_cyc){',
+        '    while (cyc >= g_next_line_cyc && !smsrecomp_stop_pending){')
+    glue = replace_once(glue, '''        if (g_vdp.line == 0) frame_completed();
+    }
+}''', '''        if (g_vdp.line == 0) frame_completed();
+    }
+    if (smsrecomp_stop_pending && g_running && !smsrecomp_in_io)
+        longjmp(g_quit_env, 1); /* only at a completed CPU step */
+}''')
+    if glue.count('vdp_render_frame(g_fb);') != 2:
+        raise ConversionError("L'interface de présentation vidéo du moteur a changé.")
+    glue = glue.replace('vdp_render_frame(g_fb);', 'smsrecomp_video_present(g_fb);')
+    glue = replace_once(glue, 'frame,vram_h,cram_h,reg_h,r8,r9,r0,r1\\n',
+        'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h\\n')
+    glue = replace_once(glue, '%02X,%02X,%02X,%02X,%04X\\n",',
+        '%02X,%02X,%02X,%02X,%04X,%016llx\\n",')
+    glue = replace_once(glue, 'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp);',
+        'g_vdp.reg[8], g_vdp.reg[9], g_vdp.reg[0], g_vdp.reg[1], g_z80.sp, (unsigned long long)smsrecomp_video_hash());')
+    glue = replace_once(glue, 'static uint8_t   g_pad1, g_pad2;', '''static uint8_t   g_pad1, g_pad2;
+static void (*g_host_input_refresh)(void);
+void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh = refresh; }''')
+    glue = replace_once(glue, '    g_io_in_count[p]++;', '''    g_io_in_count[p]++;
+    /* Only live host input opts in. Other machine ports and deterministic
+     * scripted/headless runs retain their existing timing and state. */
+    if ((p >= 0xC0 || (g_is_gg && p == 0x00)) && g_host_input_refresh)
+        g_host_input_refresh();''')
+    glue = replace_once(glue, '            return vdp_hcounter(sub);', '''            if (lightphaser_enabled()) return lightphaser_hcounter(g_z80.cyc);
+            return vdp_hcounter(sub);''')
+    glue = replace_once(glue, '    /* $C0-$FF controller ports, active low (0 = pressed).', '''    if (lightphaser_enabled())
+        return (p & 1) ? lightphaser_dd(g_pad2, g_z80.cyc) : lightphaser_dc(g_pad1, g_pad2);
+    /* $C0-$FF controller ports, active low (0 = pressed).''')
+    glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){', '''void sms_io_out(uint8_t p, uint8_t v){
+    if (lightphaser_enabled() && p < 0x40 && (p & 1)) {
+        int sub = (int)((int64_t)g_z80.cyc - ((int64_t)g_next_line_cyc - SMS_CYC_PER_LINE));
+        lightphaser_control(v, g_z80.cyc, vdp_hcounter(sub));
+    }''')
     glue = replace_once(glue, '#include "external/superzazu/z80.h"', '#include "runtime_reference.h"')
     glue = replace_once(glue, 'static bool g_hz_init;', 'static bool g_hz_init;\nstatic uint64_t reference_cycle_base;')
     glue = replace_once(glue, 'static uint8_t hyb_in   (z80 *z, uint8_t p){ (void)z; return sms_io_in(p); }', '''static uint8_t hyb_in(z80 *z, uint8_t p){
@@ -257,9 +377,9 @@ uint64_t smsrecomp_interpreter_cycles(void);\n'''
     glue = '#include "paths.h"\n' + glue
     glue = replace_once(glue, 'static const char *g_miss_path = "dispatch_misses.log";', '')
     glue = replace_once(glue, 'FILE *f = fopen(g_miss_path, "a");',
-        'FILE *f = retro_game_file(L"-dispatch-misses.log", L"a");')
+        'FILE *f = NULL; /* fallback is counted/reported; no duplicate disk log */')
     glue = replace_once(glue, 'remove(g_miss_path);',
-        'retro_game_file_reset(L"-dispatch-misses.log");')
+        '/* Existing logs are preserved; normal startup writes nothing. */')
     start = glue.index("typedef struct { uint16_t addr; uint8_t b0,b1,b2; uint32_t crc; } ManifestSig;")
     end = glue.index("\nstatic void mb_dump(void){", start)
     glue = glue[:start] + (ASSETS / "native/manifest.inc").read_text(encoding="utf-8") + glue[end:]
@@ -291,8 +411,11 @@ bool glue_load_rom(const char *path){
     # Count in-flight interpreter work too: a frame limit can longjmp out of a
     # routine before it returns, so upstream's end-of-routine tally misses it.
     glue = replace_once(glue, "static void advance_vdp(uint64_t cyc){", """static uint64_t smsrecomp_total_cycles;
+static uint64_t smsrecomp_measured_guest_cycles;
 static void advance_vdp(uint64_t cyc){
-    smsrecomp_total_cycles = cyc;""")
+    if (cyc >= smsrecomp_measured_guest_cycles)
+        smsrecomp_total_cycles += cyc - smsrecomp_measured_guest_cycles;
+    smsrecomp_measured_guest_cycles = cyc;""")
     glue = replace_once(glue,
         "g_z80.cyc ? 100.0 * (double)g_hybrid_cyc / (double)g_z80.cyc : 0.0,",
         "smsrecomp_total_cycles ? 100.0 * (double)g_hybrid_cyc / (double)smsrecomp_total_cycles : 0.0,")
@@ -317,6 +440,9 @@ static void advance_vdp(uint64_t cyc){
 #endif
 }
 uint64_t smsrecomp_interpreter_cycles(void){ return g_hybrid_cyc; }\n'''
+    glue += '''\nuint64_t smsrecomp_input_time_us(void) {
+    return g_z80.cyc / SMS_Z80_HZ * 1000000 + g_z80.cyc % SMS_Z80_HZ * 1000000 / SMS_Z80_HZ;
+}\n'''
     glue = '''#ifdef SMSRECOMP_BANKED_AOT
 static int banked_last_interpreted;
 static void smsrecomp_banked_run(void);
@@ -324,6 +450,9 @@ static void smsrecomp_banked_fallback(unsigned short addr);
 static void smsrecomp_banked_stats(void);
 #endif
 static void smsrecomp_cpu_record(void);
+static int smsrecomp_state_pending;
+static void (*smsrecomp_state_callback)(int, int);
+static void smsrecomp_state_service(void);
 ''' + glue
     glue = replace_once(glue, "    hybrid_interpret(addr);", '''#ifdef SMSRECOMP_BANKED_AOT
     smsrecomp_banked_fallback(addr);
@@ -345,6 +474,7 @@ static void smsrecomp_cpu_record(void);
     fprintf(stderr, "[interp] reference run stopped after %llu frames\\n",''')
     # The debug harness references the function-form dispatcher; it is not
     # active in this backend, whose production loop always uses the guest PC.
+    glue += "\n" + (ASSETS / "native/gamestate.inc").read_text(encoding="utf-8")
     glue += "\n" + (ASSETS / "native/banked_runtime.inc").read_text(encoding="utf-8")
     # A reset exits through the runtime's existing longjmp, discarding all
     # generated C continuations. Also reset every execution/callback state that
@@ -354,6 +484,8 @@ static void smsrecomp_cpu_record(void);
     g_sync_depth = g_sync_maxdepth = 0;
     g_running = false;
     g_frame_cb = NULL; g_input_cb = NULL; g_audio_sink = NULL;
+    g_host_input_refresh = NULL;
+    lightphaser_reset(sms_light_phaser != 0, sms_light_phaser_hcounter_offset);
     g_dump_frame = (uint64_t)-1; g_dump_path = NULL;
     glue_set_vdp_trace(NULL); glue_psg_log_close();
     memset(g_io_out_count, 0, sizeof(g_io_out_count));
@@ -361,6 +493,9 @@ static void smsrecomp_cpu_record(void);
     memset(g_fb, 0, sizeof(g_fb));
     memset(&g_hz, 0, sizeof(g_hz)); g_hz_init = false;
     smsrecomp_interp_depth = 0; smsrecomp_total_cycles = 0;
+    smsrecomp_measured_guest_cycles = 0;
+    smsrecomp_state_pending = 0; smsrecomp_state_callback = NULL;
+    smsrecomp_in_io = smsrecomp_stop_pending = false;
     g_mb_pos = 0; memset(g_interp_cyc, 0, sizeof(g_interp_cyc));
     g_in_diff = 0; g_diff_freeze = g_diff_active = 0; g_diff_icount = 0;
     g_enter_pos = 0; g_dbg_pc = 0;
@@ -368,31 +503,57 @@ static void smsrecomp_cpu_record(void);
 """)
     (game / "runtime_glue.c").write_text(glue, encoding="utf-8")
     video = (engine / "runner/video/sms_vdp.c").read_text(encoding="utf-8")
-    # Blanking is the final pixel mux: sprites must not overwrite the masked
-    # column. Adapt a local copy; the pinned dependency stays untouched.
-    blank_column = '''    /* mask leftmost 8 pixels with backdrop (reg0 bit5) */
-    if (r0 & 0x20)
-        for (int y = 0; y < SMS_SCREEN_H; y++)
-            for (int x = 0; x < 8; x++)
-                fb[y * SMS_SCREEN_W + x] = backdrop;
-'''
-    video = replace_once(video, blank_column, '')
-    video = '#include "video_frame.h"\n' + video
-    video = replace_once(video, 'void vdp_render_frame(uint32_t *fb){', '''static int frame_left_border;
-int smsrecomp_frame_left_border(void) { return frame_left_border; }
+    # Keep the pinned port/IRQ core. Replace its end-of-frame snapshot renderer
+    # in a local copy with our raster renderer; never edit the dependency.
+    marker = '/* ---- mode-4 rendering ---- */'
+    if video.count(marker) != 1:
+        raise ConversionError("L'interface vidéo du moteur a changé.")
+    video = video[:video.index(marker)] + (ASSETS / "native/video_mode4.inc").read_text(encoding="utf-8")
+    video = video.replace("Frame interrupt latches at the start of line 192", "Frame interrupt latches at the start of line 193")
+    video = video.replace("/* SMS NTSC mode-4 V-counter: 0x00..0xDA, then a jump-back to 0xD5 (line 219)\n     * running to 0xFF (line 261) — total 262 lines. Matches GPGX vc_table\n     * {0xDA,0xF2}. (Active display is lines 0..191 < 0xDA, so this only changes\n     * vblank-region reads — but it's now hardware-correct everywhere.) */",
+       "/* Master System mode-4 V-counter: both standards wrap in vertical blank. */")
+    if standard == "pal":
+        video = replace_once(video, "l <= 0xDA ? l : l - 6", "l <= 0xF2 ? l : l - 57")
+    old_counter = '''    /* Line-interrupt counter: active across lines 0..192, reload otherwise. */
+    if (g_vdp.line <= SMS_ACTIVE_LINES){
+        if (g_vdp.line_counter == 0){
+            g_vdp.line_counter = g_vdp.reg[10];
+            g_vdp.line_irq = true;
+        } else {
+            g_vdp.line_counter--;
+        }
+    } else {
+        g_vdp.line_counter = g_vdp.reg[10];
+    }
 
-void vdp_render_frame(uint32_t *fb){''')
-    video = replace_once(video, '    const uint8_t r0 = g_vdp.reg[0], r1 = g_vdp.reg[1];', '''    const uint8_t r0 = g_vdp.reg[0], r1 = g_vdp.reg[1];
-    frame_left_border = !g_vdp.is_gg && (r0 & 0x24) == 0x24 ? 8 : 0;''')
-    closing = video.rfind('\n}')
-    blank_column = blank_column.replace('if (r0 & 0x20)', 'if ((r0 & 0x24) == 0x24)')
-    video = video[:closing] + '\n' + blank_column + video[closing:]
+'''
+    video = replace_once(video, old_counter, "")
+    video = replace_once(video, '''    if (g_vdp.line >= SMS_LINES_PER_FRAME){
+        g_vdp.line = 0;
+    }''', '''    if (g_vdp.line >= SMS_LINES_PER_FRAME){
+        g_vdp.line = 0;
+    }
+''' + old_counter.rstrip())
+    video = '#include "video_frame.h"\n' + video
+    video = replace_once(video, '    g_vdp.line_counter = 0xFF;', '''    g_vdp.line_counter = 0xFF;
+    smsrecomp_video_reset();''')
+    video = replace_once(video, 'void vdp_step_line(void){', '''void vdp_step_line(void){
+    smsrecomp_video_end_line(g_vdp.line);''')
+    video = replace_once(video, '        g_vdp.line = 0;\n    }', '''        g_vdp.line = 0;
+    }
+    smsrecomp_video_begin_line(g_vdp.line);''')
     (game / "runtime_video.c").write_text(video, encoding="utf-8")
+    audio = (engine / "runner/audio/sn76489.c").read_text(encoding="utf-8")
+    audio = replace_once(audio, '#include "sn76489.h"', '#include "audio/sn76489.h"')
+    audio += "\n" + (ASSETS / "native/psg_state.inc").read_text(encoding="utf-8")
+    (game / "runtime_audio.c").write_text(audio, encoding="utf-8")
     main = (engine / "runner/main.c").read_text(encoding="utf-8")
     main = replace_once(main, '#include "host_sdl.h"', '#include "host_sdl.h"\n#include "host_control.h"')
     main = replace_once(main, '    glue_set_pad1(host_get_pad1());     /* push this frame\'s keyboard state to the CPU */',
         '    glue_set_pad1(host_get_pad1());\n    glue_set_pad2(host_get_pad2());')
     main = replace_once(main, 'is_gg ? "Sonic (GG) - recompiled" : "Sonic 1 (SMS) - recompiled"', "sms_game_title")
+    main = replace_once(main, '            glue_set_frame_callback(sdl_frame_cb);', '''            glue_set_frame_callback(sdl_frame_cb);
+            if (!g_press_n) smsrecomp_set_input_refresh(host_refresh_input);''')
     main = '#include "embedded_rom.h"\n' + main
     main = replace_once(main, "int main(int argc, char **argv){", """int main(int argc, char **argv){
     g_press_n = 0;
@@ -447,6 +608,7 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
     # reference interpreter or diagnostic launches.
     env["SMSRECOMP_LIBRARY_DIR"] = str(directory / "learning")
     env["RETRO_RECOMP_LIBRARY_DIR"] = str(directory / "learning")
+    env["RETRO_RECOMP_LEARNING"] = "1"
     started = time.perf_counter()
     result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -509,7 +671,8 @@ def import_previous(rom: Rom, destination: Path, memory: GameMemory) -> int:
 
 def compiler_signature(game: Path) -> str:
     digest = hashlib.sha256()
-    for source in [game / "runtime_glue.c", game / "runtime_main.c", game / "runtime_video.c", game / "game.toml",
+    for source in [game / "runtime_glue.c", game / "runtime_main.c", game / "runtime_video.c", game / "runtime_audio.c", game / "sms_clocks.h", game / "game.toml",
+                   game / "embedded_rom.c", game / "embedded_rom.h",
                    game / "runtime_reference.c", game / "runtime_reference.h", game / "sms_runtime.h", game / "z80_ops.h",
                    *sorted((game / "generated").glob("*.c")), ROOT / ".deps/recompiler-src/src/rom_parser.c",
                    ROOT / ".deps/recompiler-src/src/code_generator.c", ROOT / ".deps/recompiler-src/src/main_sms.c",
@@ -525,7 +688,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             profile: Path | None = None, passes: int = 3, frames: int = 1200,
             backend: str = "banked", language: str = "en",
             cover: Path | None = None, boxart_dir: Path | None = None,
-            online_cover: bool = True, use_cover: bool = True,
+            online_cover: bool = True, use_cover: bool = True, icon_tags: bool = True,
+            standard_override: str | None = None,
             emit: Callable[[str], None] = print) -> Path:
     if output is None:
         # Single-ROM exports use the same names, reports and replacement policy
@@ -538,7 +702,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         item.cover = cover
         result = convert_batch([item], games_directory(), profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
-            boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
+            boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
+            standard_override=standard_override,
             emit=emit)['games'][0]
         if result['status'] != 'success':
             raise ConversionError(result['message'])
@@ -561,7 +726,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     emit(f"ROM : {title}, {len(rom.data) // 1024} Ko, CRC32 {rom.crc32:08X}")
     try:
         artwork = prepare_icon(game, rom.path, title, (boxart_dir or ROOT / "BoxArt").resolve(),
-            explicit=cover, online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt', emit=emit)
+            explicit=cover, online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt',
+            tags=game_tags(rom.crc32, rom.path.name) if icon_tags else (), emit=emit)
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc
     engine, sdl, cmake, generator = dependencies(emit)
@@ -574,6 +740,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     emit(f"Mémoire du jeu : {memory_before['rom_entries']} entrées ROM vérifiées, "
          f"{memory_before['ram_entries']} observations RAM ; {imported} importées des anciennes parties.")
     (game / "rom.sms").write_bytes(rom.data)
+    saved_recipe = None
     if profile:
         import tomllib
         config = profile.read_text(encoding="utf-8")
@@ -585,8 +752,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if parsed["game"].get("output_prefix") != "game" or parsed["game"].get("rom") != "rom.sms":
             raise ConversionError('Le profil doit utiliser output_prefix="game" et rom="rom.sms".')
     else:
-        config = memory.recipe(ENGINE_REV) or default_config(rom)
-        if memory.recipe(ENGINE_REV):
+        saved_recipe = memory.recipe(ENGINE_REV)
+        config = saved_recipe or default_config(rom)
+        if saved_recipe:
             emit("Profil de compilation reconnu dans la bibliothèque.")
     import tomllib
     parsed = tomllib.loads(config)
@@ -595,10 +763,37 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         raise ConversionError("Profil mémorisé incompatible avec cette ROM ; choisis un profil explicite.")
     if banked and parsed.get("mapper", {}).get("kind", "sega") != "sega":
         raise ConversionError("La couverture native étendue prend en charge le mapper Sega uniquement.")
+    standard = parsed.get("video", {}).get("standard")
+    if standard_override is not None:
+        standard = standard_override
+        config = set_video_standard(config, standard)
+        standard_source = "user_override"
+    elif profile and standard is not None:
+        standard_source = "explicit_profile"
+    elif saved_recipe and standard is not None:
+        standard_source = "saved_profile"
+    else:
+        remembered_standard = memory.video_standard()
+        if remembered_standard is not None:
+            standard = remembered_standard
+            standard_source = "saved_video_selection"
+        elif standard is not None:
+            standard_source = "bundled_profile"
+        else:
+            standard = video_standard(rom)
+            standard_source = "filename_default"
+        config = set_video_standard(config, standard)
+    if standard not in MASTER_SYSTEM.video_modes:
+        raise ConversionError("Le profil vidéo doit préciser ntsc ou pal.")
+    emit(f"Master System video timing: {standard.upper()} ({standard_source}).")
+    from .metadata import write_game_metadata
+    windows_metadata = write_game_metadata(game, title, executable_name(title),
+        light_phaser=light_phaser_game(rom.crc32, rom.path.name) is not None,
+        icon=artwork['embedded'], standard=standard)
     (game / "game.toml").write_text(config, encoding="utf-8")
     # Rebuild seeds from byte-verified facts, never from stale .build contents.
     write_manifest(game / "dispatch_manifest.txt", memory.seeds())
-    prepare_runtime(game, rom, title, engine)
+    prepare_runtime(game, rom, title, engine, standard)
     # A onefile GUI extracts ASSETS to a different temporary directory on every
     # launch. CMake must always see a stable source path, also when switching
     # between Python source and the packaged converter.
@@ -734,7 +929,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
                                                     else strict['exit_code'] == 3)
             result['passed'] = all(result['checks'].values())
             comparisons.append(result)
-        validation = {'policy': 'banked-release-v1', 'passed': all(c['passed'] for c in comparisons),
+        validation = {'policy': 'banked-release-v2-raster', 'passed': all(c['passed'] for c in comparisons),
                       'scenarios': comparisons, 'hardware_accuracy': False, 'full_game': False}
         (game / 'checks/native-validation.json').write_text(json.dumps(validation, indent=2), encoding='utf-8')
         if not validation['passed']:
@@ -749,11 +944,25 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     report = {"tool": "Retro-Recomp", "version": __version__, "created_utc": datetime.now(timezone.utc).isoformat(),
         "runtime_data": {"directory": "datas", "shared_config": "datas/Retro-Recomp.ini",
             "game_directory": f"datas/games/{name}-{rom.sha256[:12]}",
-            "log": f"datas/games/{name}-{rom.sha256[:12]}/{name}-last-run.log",
-            "library_identity": rom.sha256, "library": "datas/library/<nom-du-jeu>-<SHA256>"},
+            "log": None, "diagnostics": "explicit --log only", "lazy_creation": True,
+            "quicksave": f"datas/games/{name}-{rom.sha256[:12]}/{name}-quicksave.state" if banked else None,
+            "library_identity": rom.sha256, "runtime_learning": False},
         "backend": backend, "native_coverage": coverage, "native_validation": validation, "input_players": 2,
+        "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
+            "schema": 1, "machine": 2 if standard == "pal" else 1, "rom_identity": "sha256", "legacy_and_reference_supported": False},
+        "system": {"id": MASTER_SYSTEM.id, "name": MASTER_SYSTEM.name},
+        "video_model": {"name": f"mode4-{standard}-scanline-v2", "standard": standard,
+            "selection_source": standard_source,
+            "lines_per_frame": 313 if standard == "pal" else 262,
+            "palette_and_vram": "per_scanline",
+            "horizontal_scroll": "line_latch", "vertical_scroll": "frame_latch",
+            "sprite_limit": 8, "pixel_clock_accuracy_validated": False},
         "ui_languages": ["en", "fr"], "default_language": "en",
         "artwork": artwork,
+        "windows_metadata": windows_metadata,
+        "game_tags": list(game_tags(rom.crc32, rom.path.name)),
+        "peripheral": {"type": "light_phaser" if light_phaser_game(rom.crc32, rom.path.name) else "joypad",
+            "selection": "explicit_game_catalogue", "mouse_player": 1, "hardware_accuracy_validated": False},
         "conversion_wall_seconds": round(time.perf_counter() - compilation_started, 6),
         "executable_bytes": executable.stat().st_size,
         "build_executable": str(executable),

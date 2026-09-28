@@ -7,10 +7,14 @@ def vdp_states(path: Path) -> list:
     # The legacy trace appends RAM hashes and SP under a shorter header.
     # Compare VDP and RAM on every frame; CPU registers are compared separately.
     with path.open(newline='', encoding='utf-8') as source:
-        rows = list(csv.reader(source))[1:]
+        data = list(csv.reader(source))
+    header, rows = data[0], data[1:]
     if any(len(row) < 9 for row in rows):
         raise ValueError('Incomplete VDP trace')
-    return [row[:9] for row in rows]
+    pixels = header.index('pixels_h') if 'pixels_h' in header else None
+    if pixels is not None and any(len(row) <= pixels or not row[pixels] for row in rows):
+        raise ValueError('Incomplete raster frame evidence')
+    return [row[:9] + ([row[pixels]] if pixels is not None else []) for row in rows]
 
 
 def compare_execution(native: dict, reference: dict, native_dir: Path, reference_dir: Path) -> dict:

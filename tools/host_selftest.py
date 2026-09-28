@@ -75,18 +75,18 @@ def main():
         result = subprocess.run([str(path), *args, "--log", str(log)], cwd=artifacts, env=env, timeout=10)
         assert result.returncode == 0, result.returncode
     launch(first, artifacts / "shared-first.log")
+    assert not ini.exists(), "Simply starting a game must not create an INI."
+    ini.parent.mkdir(parents=True, exist_ok=True)
+    ini.write_text('[Clavier]\r\nbouton1=C\r\n[ClavierJ2]\r\nbouton1=V\r\n[Video]\r\nfiltre=3\r\n', encoding='ascii')
     text = ini.read_text(encoding="ascii")
-    assert "masquer_bord_gauche" not in text and "F7" not in text
-    assert "bouton1=a" in text and "bouton2=b" in text and "[ClavierJ2]" in text and "[ManetteJ2]" in text
-    assert 'bouton1=Keypad 8' in text and 'start=Keypad 7' in text and 'select=Keypad 4' not in text
-    assert 'start=start' in text and 'select=back' in text
+    assert "masquer_bord_gauche" not in text
     text = text.replace("bouton1=Z", "bouton1=C").replace("bouton1=Keypad 8", "bouton1=V").replace("filtre=0", "filtre=3")
     ini.write_text(text, encoding="ascii")
     before = ini.read_bytes()
     launch(second, artifacts / "shared-second.log")
     assert ini.read_bytes() == before
     assert not (shared / "Retro-Recomp.ini").exists()
-    print("PASS: renamed standalone games in a Unicode directory share and preserve datas/Retro-Recomp.ini from another cwd.")
+    print("PASS: renamed games create no startup INI and preserve an explicitly saved shared INI from another cwd.")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,7 @@ static void manifest_load(void) {
 }
 
 static void manifest_record(uint16_t addr) {
+    if (!smsrecomp_learning_enabled()) return;
     uint8_t b0 = (uint8_t)g_bank[0], b1 = (uint8_t)g_bank[1], b2 = (uint8_t)g_bank[2];
     uint32_t crc = mb_code_crc(addr);
     if (manifest_has(addr, b0, b1, b2, crc) || g_manifest_n >= MANIFEST_MAX) return;

@@ -1,6 +1,7 @@
 /* Small cached glyph atlas. Menus pause the game; no text work in its CPU path. */
 #include "ui.h"
 #include "controls.h"
+#include "embedded_rom.h"
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -108,6 +109,23 @@ static void text(SDL_Renderer *r, int x, int y, const char *s, int red, int gree
     }
 }
 
+/* Both the preview and in-game reticle use the same console pixel grid.
+ * A cross has one-pixel strokes, with each arm `size` pixels long. */
+void ui_phaser_reticle(SDL_Renderer *r, int x, int y, int scale) {
+    int size = controls.phaser_dot_size;
+    int color = controls.phaser_color;
+    SDL_SetRenderDrawColor(r, color == PHASER_GREEN ? 0 : 255,
+        color == PHASER_RED ? 0 : 255, color == PHASER_WHITE ? 255 : 0, 255);
+    if (controls.phaser_shape == PHASER_CROSS) {
+        SDL_Rect horizontal = {x - size*scale, y, (size*2+1)*scale, scale};
+        SDL_Rect vertical = {x, y - size*scale, scale, (size*2+1)*scale};
+        SDL_RenderFillRect(r, &horizontal); SDL_RenderFillRect(r, &vertical);
+    } else {
+        SDL_Rect dot = {x - (size/2)*scale, y - (size/2)*scale, size*scale, size*scale};
+        SDL_RenderFillRect(r, &dot);
+    }
+}
+
 void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool capture, const char *name, const char *status) {
     ui_layout(r, &ox, &oy, &unit);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
@@ -115,23 +133,46 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
     box(r, 6, 6, 244, 180, 7, 23, 50, 255);
     box(r, 6, 6, 122, 2, 170, 102, 255, 255);
     box(r, 128, 6, 122, 2, 38, 215, 255, 255);
-    text(r, 14, 15, kind == 1 ? TR("Retro-Recomp - Help", "Retro-Recomp - Aide") : kind == 3 ? "Retro-Recomp - Pause" :
+    text(r, 14, 15, kind == 4 ? "Retro-Recomp - Light Phaser" : kind == 1 ? TR("Retro-Recomp - Help", "Retro-Recomp - Aide") : kind == 3 ? "Retro-Recomp - Pause" :
         TR("Retro-Recomp - Controls", "Retro-Recomp - Commandes"), 38, 215, 255);
-    if (kind == 3) {
+    if (kind == 4) {
+        char lines[3][48];
+        const char *shape = controls.phaser_shape == PHASER_DOT ? TR("Dot", "Point") : TR("Cross", "Croix");
+        const char *color = controls.phaser_color == PHASER_WHITE ? TR("White", "Blanc") :
+            controls.phaser_color == PHASER_GREEN ? TR("Pure green", "Vert pur") : TR("Red", "Rouge");
+        snprintf(lines[0], sizeof(lines[0]), TR("Shape: %s", "Forme : %s"), shape);
+        snprintf(lines[1], sizeof(lines[1]), TR("Size: %d / 5", "Taille : %d / 5"), controls.phaser_dot_size);
+        snprintf(lines[2], sizeof(lines[2]), TR("Color: %s", "Couleur : %s"), color);
+        for (int i = 0; i < 3; ++i) {
+            int y = 34 + i*24;
+            box(r, 14, y, 226, 22, i == row ? 40 : 14, i == row ? 63 : 35, i == row ? 81 : 58, 255);
+            text(r, 22, y+5, "<", 38, 215, 255); text(r, 48, y+5, lines[i], 233, 239, 247);
+            text(r, 224, y+5, ">", 38, 215, 255);
+        }
+        ui_phaser_reticle(r, ox + 128*unit, oy + 119*unit, unit);
+        text(r, 14, 135, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), 233, 239, 247);
+        text(r, 14, 147, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), 233, 239, 247);
+        text(r, 14, 159, TR("Up/Down: row | Left/Right: change", "Haut/Bas : ligne | Gauche/Droite"), 157, 173, 194);
+        text(r, 14, 173, TR("F5 / Esc: close | Shared settings", "F5 / Echap : fermer | Reglages communs"), 157, 173, 194);
+    } else if (kind == 3) {
         text(r, 14, 62, TR("Game paused", "Jeu en pause"), 233, 239, 247);
         text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), 233, 239, 247);
         text(r, 14, 118, TR("F1: restart", "F1 : redemarrer"), 157, 173, 194);
         text(r, 14, 140, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), 157, 173, 194);
         text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
     } else if (kind == 1) {
+        char autofire[64];
+        snprintf(autofire, sizeof(autofire), TR("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), controls.autofire ? "ON" : "OFF");
         const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
-            TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Fullscreen / window", "F4  Plein ecran / fenetre"),
-            "F6  English / Francais",
+            TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
+            autofire, "F7  English / Francais",
+            TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             TR("P / Enter  Pause", "P / Entree  Pause"),
-            TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), TR("Xbox: D-pad / left stick, A / B", "Xbox : croix / stick gauche, A / B"),
+            TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"),
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             text(r, 14, 31 + 12 * i, lines[i], 233, 239, 247);
+        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F5: options", "Gun : souris/clic gauche | F5 : options"), 38, 215, 255);
         text(r, 14, 174, TR("H / Esc: close help", "H / Echap : fermer l'aide"), 157, 173, 194);
     } else {
         char heading[64]; snprintf(heading, sizeof(heading), TR("Player %d  [Left/Right: P1/P2]", "Joueur %d  [Gauche/Droite : J1/J2]"), player + 1);
@@ -146,7 +187,9 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         }
         const char *hint = gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");
         text(r, 14, 157, status && *status ? status : hint, 233, 239, 247);
-        text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") : TR("Up/Down: select | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
+        text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
+            sms_light_phaser ? TR("G/F5: gun | Up/Down: select", "G/F5 : gun | Haut/Bas : choisir") :
+            TR("Up/Down: select | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
     }
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }

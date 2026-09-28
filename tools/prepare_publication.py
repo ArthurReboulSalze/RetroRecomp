@@ -12,14 +12,16 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.10.4"
+VERSION = "0.10.17"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md
-docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md
+docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
+MEDIAS/RetroRecomp_UI.png MEDIAS/RC_Windows_Screen.png
+MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico
 assets/Retro-Recomp-icon-16.png assets/Retro-Recomp-icon-20.png
@@ -35,22 +37,34 @@ smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py
 smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
+smsrecomp/peripherals.py
+smsrecomp/metadata.py tests/test_metadata.py
+smsrecomp/systems/__init__.py smsrecomp/systems/master_system.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
 native/controls.c native/controls.h native/host.c native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
-native/video_frame.h
+native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
+native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
+native/frame_stop_checks.c
+native/gamestate.h native/gamestate.inc native/state_io.h native/psg_state.inc
+native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
+native/lazy_data_checks.c tools/lazy_data_selftest.py
+native/presentation_checks.c tools/presentation_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_rom.py
 tests/test_validation.py tests/test_publication.py
+tests/test_peripherals.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py
 tools/banked_vector_selftest.py tools/banked_verify.py tools/cpu_selftest.py
 tools/data_selftest.py tools/fetch_z80_vectors.py tools/gui_smoke.py
 tools/host_selftest.py tools/icon_selftest.py tools/install_converter.py
 tools/learning_selftest.py tools/package.ps1 tools/player2_selftest.py
 tools/prepare_logo.py tools/publishing_selftest.py tools/prepare_publication.py
+tools/lightphaser_selftest.py tools/video_selftest.py docs/LIGHT_PHASER.md docs/VIDEO.md
+tools/frame_stop_selftest.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 LEGAL_FILES = tuple(p for p in PUBLIC_FILES if p.startswith("licenses/"))

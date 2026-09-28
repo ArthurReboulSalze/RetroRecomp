@@ -30,12 +30,13 @@ class BatchTests(unittest.TestCase):
         exe = output / "Same_title.exe"
         exe.write_bytes(path.read_bytes())
         (output / "conversion-report.json").write_text(json.dumps({"executable": exe.name,
+            "video_model": {"standard": options.get('standard_override') or 'pal'},
             "final_checks": [{"interpreter_percent": 0}], "reference_vdp_trace_match": True}))
         return exe
 
     def test_flat_folder_isolates_same_title_editions_and_deduplicates_exact_rom(self):
         first, second, alias = self.item("one", 1), self.item("two", 2), self.item("alias", 1)
-        with patch("smsrecomp.batch.convert", side_effect=self.compiler) as compiler:
+        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
             record = convert_batch([first, second, alias], self.output, emit=lambda text: None)
         self.assertEqual((record["succeeded"], record["duplicates"]), (2, 1))
         self.assertEqual(compiler.call_count, 2)
@@ -45,7 +46,7 @@ class BatchTests(unittest.TestCase):
             report = self.output / "datas/reports" / item.key / "conversion-report.json"
             self.assertEqual(json.loads(report.read_text())["executable"], filename)
         # Reversed order in a later conversion must preserve revision/name pairing.
-        with patch('smsrecomp.batch.convert', side_effect=self.compiler):
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             repeated = convert_batch([second, first], self.output, emit=lambda text: None)
         self.assertEqual([Path(game['executable']).name for game in repeated['games']],
                          ['Same title (2).exe', 'Same title.exe'])
@@ -59,7 +60,7 @@ class BatchTests(unittest.TestCase):
             if path == first.path:
                 raise ConversionError("Invalid encoding")
             return self.compiler(path, **options)
-        with patch("smsrecomp.batch.convert", side_effect=compile):
+        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=compile):
             result = convert_batch([first, second], self.output, emit=lambda text: None)
         self.assertEqual((result["failed"], result["succeeded"]), (1, 1))
         self.assertEqual(old.read_bytes(), b"previous good executable")
@@ -70,13 +71,13 @@ class BatchTests(unittest.TestCase):
         def event(kind, index, value):
             if kind == "result":
                 stop.set()
-        with patch("smsrecomp.batch.convert", side_effect=self.compiler) as compiler:
+        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
             result = convert_batch([first, second], self.output, cancel=stop, on_event=event, emit=lambda text: None)
         self.assertEqual(compiler.call_count, 1)
         self.assertTrue(result["cancelled"])
         self.assertEqual(result["pending"], 1)
         first.path.write_bytes(bytes([9])*8192)
-        with patch("smsrecomp.batch.convert", side_effect=AssertionError("modified ROM must not compile")):
+        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=AssertionError("modified ROM must not compile")):
             result = convert_batch([first], self.output, emit=lambda text: None)
         self.assertEqual(result["failed"], 1)
 
@@ -89,7 +90,7 @@ class BatchTests(unittest.TestCase):
             if path.name == "conversion-report.json":
                 raise PermissionError("report is locked")
             return atomic_json(path, value)
-        with patch("smsrecomp.batch.convert", side_effect=self.compiler), patch("smsrecomp.batch.atomic_json", side_effect=write_report):
+        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler), patch("smsrecomp.batch.atomic_json", side_effect=write_report):
             result = convert_batch([item], self.output, emit=lambda text: None)
         self.assertEqual(result["failed"], 1)
         self.assertEqual(old.read_bytes(), b"previous good executable")
@@ -111,7 +112,7 @@ class BatchTests(unittest.TestCase):
         reports.mkdir(parents=True)
         (reports / 'conversion-report.json').write_text(json.dumps({
             'executable': legacy.name, 'rom': {'sha256': item.sha256}}))
-        with patch('smsrecomp.batch.convert', side_effect=self.compiler):
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.output, emit=lambda text: None)
         self.assertEqual(result['succeeded'], 1)
         self.assertEqual(Path(result['games'][0]['executable']).name, 'Same title (2).exe')
@@ -121,7 +122,7 @@ class BatchTests(unittest.TestCase):
 
     def test_renamed_game_replaces_its_previous_export_without_keeping_copies(self):
         item = self.item('one', 1)
-        with patch('smsrecomp.batch.convert', side_effect=self.compiler):
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             convert_batch([item], self.output, emit=lambda text: None)
             item.title = 'New game title'
             result = convert_batch([item], self.output, emit=lambda text: None)
@@ -129,14 +130,57 @@ class BatchTests(unittest.TestCase):
         self.assertEqual({p.name for p in self.output.glob('*.exe')}, {'New game title.exe'})
         self.assertFalse((self.output / 'datas/previous-executables').exists())
 
+    def test_missing_reports_recover_embedded_rom_identity_and_retire_duplicate(self):
+        first, second = self.item('one', 1), self.item('two', 2)
+        self.output.mkdir()
+        # Authored binary fixtures model the runtime's brand/identity strings.
+        def generated(item):
+            return b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00'
+        base = self.output / 'Same title.exe'
+        base.write_bytes(generated(first))
+        revision = self.output / 'Same title (2).exe'
+        revision.write_bytes(generated(second))
+        duplicate = self.output / 'Same title (3).exe'
+        duplicate.write_bytes(generated(first))
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            result = convert_batch([second, first], self.output, emit=lambda text: None)
+        self.assertEqual([Path(game['executable']).name for game in result['games']],
+                         ['Same title (2).exe', 'Same title.exe'])
+        self.assertEqual(result['succeeded'], 2)
+        self.assertFalse(duplicate.exists())
+
+    def test_embedded_hash_without_runtime_brand_does_not_claim_an_unknown_file(self):
+        item = self.item('one', 1)
+        self.output.mkdir()
+        unknown = self.output / 'Same title.exe'
+        original = b'MZ\x00' + item.sha256.encode('ascii') + b'\x00'
+        unknown.write_bytes(original)
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            result = convert_batch([item], self.output, emit=lambda text: None)
+        self.assertEqual(Path(result['games'][0]['executable']).name, 'Same title (2).exe')
+        self.assertEqual(unknown.read_bytes(), original)
+
     def test_single_rom_default_uses_the_shared_folder_and_keeps_custom_options(self):
         item = self.item('one', 1)
         import smsrecomp.core as core
         with patch('smsrecomp.core.games_directory', return_value=self.output), \
-                patch('smsrecomp.batch.convert', side_effect=self.compiler) as compiler:
+                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
             executable = core.convert(item.path, title='Custom title', frames=5, passes=2,
-                                      online_cover=False, use_cover=False)
+                                      online_cover=False, use_cover=False, icon_tags=False)
         self.assertEqual(executable, self.output / 'Custom title.exe')
         self.assertEqual(compiler.call_args.kwargs['frames'], 5)
         self.assertEqual(compiler.call_args.kwargs['passes'], 2)
+        self.assertFalse(compiler.call_args.kwargs['icon_tags'])
         self.assertEqual({p.name for p in self.output.iterdir()}, {'Custom title.exe', 'datas'})
+
+    def test_each_rom_keeps_its_own_video_override_in_a_mixed_batch(self):
+        first, second = self.item('one', 1), self.item('two', 2)
+        self.assertEqual((first.system, first.video_hint), ('sms', 'pal'))
+        first.standard_override = 'ntsc'
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+                   side_effect=self.compiler) as compiler:
+            record = convert_batch([first, second], self.output, emit=lambda text: None)
+        self.assertEqual(record['succeeded'], 2)
+        self.assertEqual([game['video_standard'] for game in record['games']], ['ntsc', 'pal'])
+        self.assertEqual(compiler.call_args_list[0].kwargs['standard_override'], 'ntsc')
+        self.assertNotIn('standard_override', compiler.call_args_list[1].kwargs)

@@ -1,5 +1,6 @@
 """Prepare the app icon and UI banner from MEDIAS; preserve the originals."""
 from pathlib import Path
+import shutil
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image, ImageOps
@@ -32,6 +33,7 @@ def main():
         banner = banner.crop((max(0, left-4), max(0, top-4),
                               min(banner.width, right+4), min(banner.height, bottom+4)))
     banner.save(directory / "Retro-Recomp-banner.png")
+    shutil.copyfile(ROOT / "MEDIAS/TAG_SHOOTING.png", directory / "tag-shooting.png")
     print(directory / "Retro-Recomp.ico")
 
 if __name__ == "__main__":

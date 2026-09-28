@@ -78,10 +78,10 @@ frozen converter. Then audit its decompressed assets and create the release:
 
 ```powershell
 powershell -File .build/publication/repository/tools/package.ps1
-python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --release Export/Releases/RetroRecomp-v0.10.4-windows-x64.zip
+python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --release Export/Releases/RetroRecomp-v0.10.17-windows-x64.zip
 ```
 
 The ZIP contains only the converter and legal notices. Keep source staging and
 release audit reports private. The publication tool checks an explicit allowlist
 and common credential patterns; review the outgoing diff as well. Public CI
-runs the same checks on all tracked files and 48 ROM-free Python tests.
+runs the same checks on all tracked files and 66 ROM-free Python tests.

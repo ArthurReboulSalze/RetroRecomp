@@ -8,13 +8,27 @@
 /* The dummy video driver cannot focus a window. Supply only that OS result;
  * controller sampling, events, presentation and the production bridge run. */
 static SDL_Window *test_focus;
+static uint32_t test_mouse_buttons;
+static int test_mouse_x, test_mouse_y;
+static uint32_t test_mouse_state(int *x, int *y) { *x = test_mouse_x; *y = test_mouse_y; return test_mouse_buttons; }
+static bool use_input_test_clock;
+static uint64_t input_test_clock;
+static uint64_t input_clock(void) {
+    return use_input_test_clock ? input_test_clock : SDL_GetPerformanceCounter();
+}
 static SDL_bool test_game_controller(int index) {
     return SDL_JoystickIsVirtual(index) ? SDL_IsGameController(index) : SDL_FALSE;
 }
 #define SDL_GetKeyboardFocus() test_focus
+#define SDL_GetMouseFocus() test_focus
+#define SDL_GetMouseState test_mouse_state
 #define SDL_IsGameController test_game_controller
+#define SDL_GetPerformanceCounter input_clock
 #include "host.c"
+#undef SDL_GetPerformanceCounter
 #undef SDL_GetKeyboardFocus
+#undef SDL_GetMouseFocus
+#undef SDL_GetMouseState
 #undef SDL_IsGameController
 #define main smsrecomp_test_backend_main
 #include "runtime_main.c"
@@ -144,7 +158,7 @@ static void check_vdp_blank_column(void) {
     assert(sample[10*256+8] == 0xFF00FF00 && sample[10*256+12] == 0xFFFF0000);
     g_vdp.reg[7] = 3; vdp_render_frame(sample);
     assert(sample[10*256+4] == 0xFFFFFFFF); /* backdrop color is not hard-coded black */
-    g_vdp.reg[0] = 0x06; vdp_render_frame(sample);
+    g_vdp.reg[0] = 0x06; vdp_render_frame(sample); update_viewport();
     assert(smsrecomp_frame_left_border() == 0);
     assert(sample[10*256+4] == 0xFF00FF00 && sample[0] == 0xFFFF0000);
     g_vdp.reg[0] = 0x20; vdp_render_frame(sample);
@@ -174,12 +188,13 @@ int main(int argc, char **argv) {
     assert(controls.keys[1][CONTROL_PAUSE] == SDL_SCANCODE_KP_7 && controls.keys[1][CONTROL_RESET] == SDL_SCANCODE_UNKNOWN);
     assert(controls.buttons[1][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_INVALID);
     char disabled[128];
-    read_name(L"ClavierJ2", L"select", disabled, sizeof(disabled)); assert(!disabled[0]);
-    read_name(L"ManetteJ2", L"select", disabled, sizeof(disabled)); assert(!disabled[0]);
+    read_name(L"ClavierJ2", L"select", disabled, sizeof(disabled)); assert(!strcmp(disabled, "Keypad 4"));
+    read_name(L"ManetteJ2", L"select", disabled, sizeof(disabled)); assert(!strcmp(disabled, "back"));
     assert(controls.language == 0);
-    char old_border[128]; read_name(L"Video", L"masquer_bord_gauche", old_border, sizeof(old_border)); assert(!old_border[0]);
+    assert(controls.phaser_shape == PHASER_CROSS && controls.phaser_color == PHASER_RED && controls.phaser_dot_size == 1);
+    char old_border[128]; read_name(L"Video", L"masquer_bord_gauche", old_border, sizeof(old_border)); assert(!strcmp(old_border, "0"));
     assert(controls.filter == FILTER_SCANLINES);
-    char migrated[128]; read_name(L"ClavierJ2", L"bouton2", migrated, sizeof(migrated)); assert(!strcmp(migrated, "Keypad 9"));
+    char migrated[128]; read_name(L"ClavierJ2", L"bouton2", migrated, sizeof(migrated)); assert(!strcmp(migrated, "M"));
     for (int p = 0; p < CONTROL_PLAYERS; ++p) assert(controls_defaults(p, false) && controls_defaults(p, true));
     assert(controls_filter(0));
     SDL_VirtualJoystickDesc desc; SDL_zero(desc);
@@ -321,9 +336,9 @@ int main(int argc, char **argv) {
     uint8_t system_keys[SDL_NUM_SCANCODES] = {0};
     system_keys[SDL_SCANCODE_KP_7] = system_keys[SDL_SCANCODE_KP_4] = 1;
     assert(read_controls(1, NULL, true, system_keys) == 0);
-    key(SDL_SCANCODE_F6); assert(controls.language == 1);
+    key(SDL_SCANCODE_F7); assert(controls.language == 1);
     controls_load(); assert(controls.language == 1);
-    key(SDL_SCANCODE_F6); assert(controls.language == 0);
+    key(SDL_SCANCODE_F7); assert(controls.language == 0);
 
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 1);
@@ -340,6 +355,42 @@ int main(int argc, char **argv) {
     SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 0);
     SDL_JoystickSetVirtualButton(joystick2, SDL_CONTROLLER_BUTTON_B, 0);
     SDL_GameControllerUpdate();
+
+    /* A new state after the frame snapshot reaches the very next input-port
+     * read once the 1ms poll budget expires, without advancing a guest frame.
+     * SDL virtual devices publish pending changes only when actually pumped. */
+    use_input_test_clock = true;
+    input_test_clock = SDL_GetPerformanceFrequency();
+    input_sample_counter = 0;
+    test_focus = window;
+    uint64_t input_frame = glue_frame_count();
+    smsrecomp_set_input_refresh(host_refresh_input);
+    assert(sms_io_in(0xDC) == 0xFF && sms_io_in(0xDD) == 0xFF);
+    uint64_t first_sample = input_sample_counter;
+    SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 1);
+    SDL_JoystickSetVirtualButton(joystick2, SDL_CONTROLLER_BUTTON_B, 1);
+    input_test_clock += input_poll_period - 1;
+    assert(sms_io_in(0xDC) == 0xFF && input_sample_counter == first_sample);
+    ++input_test_clock;
+    sms_io_in(0x7F); /* VDP reads must not trigger host input work. */
+    assert(input_sample_counter == first_sample);
+    assert(sms_io_in(0xDC) == 0xEF && sms_io_in(0xDD) == 0xF7);
+    assert(input_sample_counter == input_test_clock && glue_frame_count() == input_frame);
+    test_focus = NULL;
+    input_test_clock += input_poll_period;
+    assert(sms_io_in(0xDC) == 0xFF && sms_io_in(0xDD) == 0xFF);
+    test_focus = window;
+    input_test_clock += input_poll_period;
+    assert(sms_io_in(0xDC) == 0xEF && sms_io_in(0xDD) == 0xF7);
+    glue_init(false, 600); /* Reset must detach the live host callback. */
+    input_test_clock += input_poll_period;
+    assert(sms_io_in(0xDC) == 0xFF && sms_io_in(0xDD) == 0xFF);
+    SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 0);
+    SDL_JoystickSetVirtualButton(joystick2, SDL_CONTROLLER_BUTTON_B, 0);
+    SDL_GameControllerUpdate();
+    use_input_test_clock = false;
+    input_sample_counter = 0;
+    puts("PASS: live port reads refresh both players within a frame; bounded polling, focus, reset and headless isolation.");
 
     for (int y = 0; y < 192; ++y) for (int x = 0; x < 256; ++x)
         sample[y*256+x] = 0xFF000000 | ((x/16)%2 ? 0x2458A0 : 0xFFFFFF);
@@ -371,12 +422,12 @@ int main(int argc, char **argv) {
     assert(k == 5 && r.w == 1240 && r.h == 960 && r.x == 340 && r.y == 60);
     assert(sample[0] == 0xFF000000 && g_vdp.reg[0] == 0x26);
     screenshot("border-cropped.bmp");
-    /* A previous manual value and F7 no longer change automatic behaviour. */
+    /* A previous manual value no longer changes automatic behaviour. */
     assert(write_name(L"Video", L"masquer_bord_gauche", "0"));
-    key(SDL_SCANCODE_F7); controls_load();
+    controls_load();
     toast_until = 0; draw_game(sample, 256, 192);
     assert(crop.x == 8 && crop.w == 248);
-    read_name(L"Video", L"masquer_bord_gauche", old_border, sizeof(old_border)); assert(!old_border[0]);
+    read_name(L"Video", L"masquer_bord_gauche", old_border, sizeof(old_border)); assert(!strcmp(old_border, "0"));
     /* Register writes after rendering must not reinterpret the pending image. */
     g_vdp.reg[0] = 0x06; draw_game(sample, 256, 192); assert(crop.x == 8);
     r = game_rect(500, 400, &k); assert(k == 1 && r.w == 248);
@@ -410,6 +461,7 @@ int main(int argc, char **argv) {
         assert(crop.w == (i & 1 ? 248 : 256));
         assert(memcmp(&restore, &saved_window, sizeof(restore)) == 0);
     }
+    key(SDL_SCANCODE_F4); assert(fullscreen && fullscreen_fit);
     key(SDL_SCANCODE_F4); assert(!fullscreen);
     SDL_GetWindowSize(window, &window_w, &window_h); assert(window_w == 768 && window_h == 576);
     SDL_SetWindowSize(window, 500, 400);
@@ -441,9 +493,95 @@ int main(int argc, char **argv) {
     fullscreen = false; _putenv_s("SMSRECOMP_REFERENCE", ""); previous_interpreter_state = -1;
     check_vdp_blank_column();
     puts("PASS: automatic frame-based crop, obsolete setting ignored, stable window/scale, cropped filters and clean fullscreen.");
+    /* Use the production pointer mapping and presentation with authored
+     * pixels. A HiDPI output has different mouse/window and renderer units. */
+    lightphaser_reset(true, 20);
+    memset(g_vdp.cram, 0, sizeof(g_vdp.cram));
+    g_vdp.reg[0] = 0x06; vdp_render_frame(sample); update_viewport();
+    int gx, gy;
+    assert(gun_coordinates(960, 540, 1920, 1080, 1920, 1080, &gx, &gy) && gx == 128 && gy == 96);
+    assert(gun_coordinates(480, 270, 960, 540, 1920, 1080, &gx, &gy) && gx == 128 && gy == 96);
+    assert(!gun_coordinates(319, 60, 1920, 1080, 1920, 1080, &gx, &gy));
+    g_vdp.reg[0] = 0x26; vdp_render_frame(sample); update_viewport();
+    assert(gun_coordinates(340, 60, 1920, 1080, 1920, 1080, &gx, &gy) && gx == 8 && gy == 0);
+    assert(gun_coordinates(1579, 1019, 1920, 1080, 1920, 1080, &gx, &gy) && gx == 255 && gy == 191);
+    assert(!gun_coordinates(1580, 1019, 1920, 1080, 1920, 1080, &gx, &gy));
+    g_vdp.reg[0] = 0x06; vdp_render_frame(sample); update_viewport();
+    for (int i=0;i<256*192;++i) sample[i] = 0xFF345678;
+    assert(controls_phaser_dot_size(1));
+    test_focus = window; test_mouse_x = 384; test_mouse_y = 288;
+    test_mouse_buttons = SDL_BUTTON_LMASK; gun_trigger_blocked = false; sample_controls();
+    bool trigger; lightphaser_position(&gx, &gy, &trigger);
+    assert(gx == 128 && gy == 96 && trigger);
+    draw_game(sample, 256, 192);
+    assert(pixel(384, 288) == 0xFF0000 && pixel(381, 288) == 0xFF0000 && pixel(384, 285) == 0xFF0000);
+    assert(pixel(380, 288) == 0x345678 && pixel(381, 285) == 0x345678 && sample[96*256+128] == 0xFF345678);
+    screenshot("lightphaser-cross.bmp");
+    assert(controls_phaser_shape(PHASER_DOT)); draw_game(sample, 256, 192);
+    assert(pixel(384, 288) == 0xFF0000 && pixel(383, 288) == 0x345678);
+    screenshot("lightphaser-dot.bmp");
+    for (int shape=0;shape<PHASER_SHAPE_COUNT;++shape) for (int color=0;color<PHASER_COLOR_COUNT;++color) {
+        assert(controls_phaser_shape(shape) && controls_phaser_color(color) && controls_phaser_dot_size(5));
+        controls_load(); assert(controls.phaser_shape == shape && controls.phaser_color == color && controls.phaser_dot_size == 5);
+        uint32_t rgb = color == PHASER_RED ? 0xFF0000 : color == PHASER_WHITE ? 0xFFFFFF : 0x00FF00;
+        draw_game(sample, 256, 192); assert(pixel(384, 288) == rgb);
+        if (shape == PHASER_CROSS) {
+            assert(pixel(369, 288) == rgb && pixel(384, 273) == rgb && pixel(368, 288) == 0x345678);
+            assert(pixel(369, 273) == 0x345678);
+        } else assert(pixel(378, 282) == rgb && pixel(377, 282) == 0x345678);
+        /* Clip arms at the game edge, never paint into the letterbox. */
+        g_vdp.reg[0] = 0x26; vdp_render_frame(sample);
+        for (int i=0;i<256*192;++i) sample[i] = 0xFF345678;
+        gun_x=8; gun_y=0; draw_game(sample,256,192);
+        assert(crop.x == 8 && pixel(12,0) == rgb && pixel(11,0) == 0);
+        g_vdp.reg[0] = 0x06; vdp_render_frame(sample);
+        for (int i=0;i<256*192;++i) sample[i] = 0xFF345678;
+        gun_x=128; gun_y=96;
+    }
+    assert(controls_phaser_dot_size(1) && controls_phaser_shape(PHASER_CROSS) && controls_phaser_color(PHASER_RED));
+    key(SDL_SCANCODE_F5); assert(menu == 4);
+    key(SDL_SCANCODE_RIGHT); assert(controls.phaser_dot_size == 2);
+    controls_load(); assert(controls.phaser_dot_size == 2);
+    SDL_Event dot_click; SDL_zero(dot_click); dot_click.type=SDL_MOUSEBUTTONDOWN;
+    dot_click.button.button=SDL_BUTTON_LEFT; dot_click.button.x=660; dot_click.button.y=195;
+    assert(handle_event(&dot_click) && controls.phaser_dot_size == 3);
+    key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RIGHT); assert(controls.phaser_shape == PHASER_DOT);
+    key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_LEFT); assert(controls.phaser_color == PHASER_GREEN);
+    key(SDL_SCANCODE_RIGHT); assert(controls.phaser_color == PHASER_RED);
+    SDL_Event gun_pad = button_event(0, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    assert(handle_event(&gun_pad) && controls.phaser_color == PHASER_WHITE);
+    dot_click.button.y=3*44; assert(handle_event(&dot_click) && controls.phaser_shape == PHASER_CROSS);
+    dot_click.button.y=3*92; assert(handle_event(&dot_click) && controls.phaser_color == PHASER_GREEN);
+    controls_load(); assert(controls.phaser_shape == PHASER_CROSS && controls.phaser_color == PHASER_GREEN && controls.phaser_dot_size == 3);
+    draw_game(sample, 256, 192); ui_menu(renderer, 4, 0, gun_option_row, false, false, NULL, NULL);
+    assert(pixel(384,357) == 0x00FF00); /* Same reticle renderer in the preview. */
+    screenshot("lightphaser-options.bmp");
+    assert(controls_language(1)); draw_game(sample,256,192); ui_menu(renderer,4,0,gun_option_row,false,false,NULL,NULL);
+    screenshot("lightphaser-options-fr.bmp"); assert(controls_language(0));
+    key(SDL_SCANCODE_F5); assert(!menu);
+    draw_game(sample,256,192); screenshot("lightphaser-cross-green.bmp");
+    test_mouse_buttons = SDL_BUTTON_RMASK; sample_controls(); lightphaser_position(&gx, &gy, &trigger);
+    assert(gx == -1 && gy == -1 && trigger);
+    test_focus = NULL; sample_controls(); lightphaser_position(&gx, &gy, &trigger);
+    assert(gx == -1 && gy == -1 && !trigger);
+    test_focus = window; test_mouse_buttons = 0;
+    assert(!controls_phaser_dot_size(0) && !controls_phaser_dot_size(6));
+    assert(!controls_phaser_shape(-1) && !controls_phaser_shape(PHASER_SHAPE_COUNT));
+    assert(!controls_phaser_color(-1) && !controls_phaser_color(PHASER_COLOR_COUNT));
+    assert(write_name(L"LightPhaser",L"shape","invalid") && write_name(L"LightPhaser",L"color","invalid"));
+    controls_load(); assert(controls.phaser_shape == PHASER_CROSS && controls.phaser_color == PHASER_RED);
+    assert(controls_phaser_dot_size(1) && controls_phaser_shape(PHASER_CROSS) && controls_phaser_color(PHASER_RED));
+    /* Preserve the game's original full-palette white sensor flash. */
+    gun_x=gun_y=-1; g_vdp.reg[0]=0x06; memset(g_vdp.cram,0x3F,32);
+    vdp_render_frame(sample); draw_game(sample,256,192);
+    assert(crop.x==0 && sample[0]==0xFFFFFFFF && pixel(0,0)==0xFFFFFF);
+    memset(g_vdp.cram,0,32);
+    lightphaser_reset(false, 20); gun_x = gun_y = -1;
+    puts("PASS: gun aim/focus/offscreen; pixel-aligned cross/dot, three pure colors, shared options and clipped arms without framebuffer changes.");
     for (int i = 0; i < FILTER_COUNT; ++i) key(SDL_SCANCODE_F3);
     assert(controls.filter == FILTER_NEAREST);
-    key(SDL_SCANCODE_F4); assert(fullscreen); key(SDL_SCANCODE_F4); assert(!fullscreen);
+    key(SDL_SCANCODE_F4); assert(fullscreen); key(SDL_SCANCODE_F4); assert(fullscreen && fullscreen_fit);
+    key(SDL_SCANCODE_F4); assert(!fullscreen);
     draw_game(sample, 256, 192); ui_menu(renderer, 1, 0, 0, false, false, NULL, NULL); screenshot("help.bmp");
     for (int p = 0; p < CONTROL_PLAYERS; ++p) {
         draw_game(sample, 256, 192); ui_menu(renderer, 2, p, 4, false, false, SDL_GameControllerName(controllers[p]), NULL);

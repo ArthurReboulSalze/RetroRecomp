@@ -1,6 +1,7 @@
 """Per-ROM learning, separate from generated files and game preferences.
 
-The native game appends observations to a SHA256 directory. The converter
+The converter's headless probes append observations to a SHA256 directory;
+game executables do not learn during gameplay. The converter
 rechecks every ROM byte signature, then regenerates code with the current
 compiler. No generated machine code is cached here. RAM windows are only data
 for conversion; native execution requires exact live-byte guards.
@@ -16,6 +17,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
+import tomllib
 import unicodedata
 from .paths import data_directory
 
@@ -44,9 +46,14 @@ def write_code_patterns(path: Path, patterns: set[bytes]) -> None:
     path.write_text("".join(raw.hex().upper() + "\n" for raw in sorted(patterns)), encoding="ascii")
 
 
-def library_root() -> Path:
+def library_root(system_id: str = "sms") -> Path:
+    from .systems import get_profile
+    get_profile(system_id)
     custom = os.environ.get("RETRO_RECOMP_LIBRARY_DIR") or os.environ.get("SMSRECOMP_LIBRARY_DIR")
-    return Path(custom).expanduser().resolve() if custom else data_directory() / "library"
+    base = Path(custom).expanduser().resolve() if custom else data_directory() / "library"
+    # Preserve the existing Master System library; future backends get an
+    # explicit namespace rather than sharing the same ROM-hash directory.
+    return base if system_id == "sms" else base / system_id
 
 
 def read_observations(path: Path) -> set[tuple[int, int, int, int, int]]:
@@ -246,6 +253,39 @@ class GameMemory:
             return text
         return None
 
+    def video_standard(self) -> str | None:
+        """Keep the selected SMS console timing across compiler revisions.
+
+        The full compilation recipe is engine-scoped. For records written
+        before video selection had its own field, recover only the timing from
+        an intact, ROM-matched recipe; never reuse its compiler settings.
+        """
+        from .systems import MASTER_SYSTEM
+        metadata = self.metadata()
+        choice = metadata.get("video_selection", {})
+        if (isinstance(choice, dict) and choice.get("system_id") == MASTER_SYSTEM.id and
+                choice.get("standard") in MASTER_SYSTEM.video_modes):
+            return choice["standard"]
+        recipe = metadata.get("recipe", {})
+        if not isinstance(recipe, dict):
+            return None
+        text = recipe.get("toml")
+        if not isinstance(text, str) or recipe.get("sha256") != hashlib.sha256(text.encode()).hexdigest():
+            return None
+        try:
+            parsed = tomllib.loads(text)
+            game = parsed.get("game", {})
+            video = parsed.get("video", {})
+            if (not isinstance(game, dict) or not isinstance(video, dict) or
+                    game.get("platform") != MASTER_SYSTEM.id or
+                    game.get("crc32") != self.rom.crc32 or
+                    game.get("sha256", self.rom.sha256) != self.rom.sha256):
+                return None
+            standard = video.get("standard")
+            return standard if standard in MASTER_SYSTEM.video_modes else None
+        except (tomllib.TOMLDecodeError, TypeError, ValueError):
+            return None
+
     def remember(self, title: str, config: str, report: dict, compiler_signature: str) -> None:
         with entry_lock(self.directory):
             metadata = self.metadata()
@@ -267,6 +307,14 @@ class GameMemory:
                 "recipe": {"toml": config, "sha256": hashlib.sha256(config.encode()).hexdigest(),
                            "engine_revision": report["engine_revision"]},
                 "total_generations": total + 1, "generations": generations[-100:]}
+            from .systems import MASTER_SYSTEM
+            system = report.get("system", {})
+            video = report.get("video_model", {})
+            if (isinstance(system, dict) and isinstance(video, dict) and
+                    system.get("id") == MASTER_SYSTEM.id and
+                    video.get("standard") in MASTER_SYSTEM.video_modes):
+                metadata["video_selection"] = {"system_id": MASTER_SYSTEM.id,
+                                               "standard": video["standard"]}
             atomic_json(self.record, metadata)
 
 

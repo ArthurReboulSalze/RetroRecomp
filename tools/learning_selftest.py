@@ -46,6 +46,7 @@ def main():
         shutil.copy2(first, standalone)
         env = os.environ.copy()
         env["SMSRECOMP_LIBRARY_DIR"] = str(Path(temp)/"mémoire native")
+        env["RETRO_RECOMP_LEARNING"] = "1" # Explicit headless diagnostic, never normal gameplay.
         native_log = Path(temp)/"native.log"
         native_memory = GameMemory(read_rom(rom_path), Path(env["SMSRECOMP_LIBRARY_DIR"]))
         with entry_lock(native_memory.directory):

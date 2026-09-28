@@ -3,12 +3,13 @@
 </p>
 
 <h1 align="center">RetroRecomp</h1>
-<p align="center"><strong>Less emulation. No FPGA. As native as possible.</strong></p>
-<p align="center">Turn your own retro game ROMs into standalone executables.<br>
-Compile ahead of time. Learn from new execution paths. Regenerate better builds.</p>
+<p align="center"><strong>Your Master System games, ready to launch.</strong></p>
+<p align="center">Add a ROM or a whole folder, convert, and play standalone Windows games.<br>
+More work happens before launch, so playing stays simple and responsive.</p>
+<p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.10.4-0879fa" alt="Version 0.10.4">
+  <img src="https://img.shields.io/badge/version-0.10.17-0879fa" alt="Version 0.10.17">
   <img src="https://img.shields.io/badge/current_system-Master_System-26d7ff" alt="Master System">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -21,19 +22,41 @@ Compile ahead of time. Learn from new execution paths. Regenerate better builds.
   <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a>
 </p>
 
-## The idea
+## Why RetroRecomp?
+
+- **Simple from conversion to play.** Choose one ROM or batch a folder, then
+  launch each game from its own executable. Playing needs no Python, separate
+  ROM file or external SDL2 DLL. Regenerating a game replaces its previous
+  export instead of filling the folder with numbered builds.
+- **Native-first performance.** RetroRecomp translates the game's Z80 program
+  ahead of time and prepares extended ROM-bank coverage by default. Covered
+  CPU paths run as compiled host code; any use of the reference interpreter
+  is counted and reported. This reduces interpretation work during play and
+  is designed to feel responsive even on a modest PC.
+- **A practical Master System experience.** The Master System backend is now
+  viable for everyday play with supported Sega-mapper ROMs. It includes two
+  players, gamepad mapping, fullscreen and lightweight display filters,
+  PAL/NTSC timing choices, quick states and mouse Light Phaser support for
+  known gun games. Recent exports have also been reviewed in gameplay, while
+  full-catalogue compatibility and exact hardware behavior remain open work.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp batch conversion interface showing Master System games and validation progress" width="1000">
+</p>
+<p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games.</em></p>
+
+## How it works
 
 RetroRecomp converts the Z80 program inside a Sega Master System ROM into C,
 then compiles it into a Windows executable. The resulting game contains its
 own ROM data and runtime, so playing it does not require Python, a separate
 ROM file, or an external SDL2 DLL.
 
-The goal is to run as much of the game's CPU program as possible as native
-host code, while keeping the original game's behavior. Video, sound, memory,
-inputs, bank switching and interrupts are still reproduced by a hardware
-runtime. **This is static CPU recompilation with a hardware runtime and a
-reported fallback interpreter.** It is not a claim of entirely eliminating
-emulation, perfect fidelity, or zero physical latency.
+Video, sound, memory, inputs, bank switching and interrupts are still
+reproduced by a hardware runtime. **This is static CPU recompilation with a
+hardware runtime and a reported fallback interpreter.** Native coverage,
+CPU agreement, hardware fidelity, gameplay and physical latency are separate
+questions; none is proved by the others.
 
 ### Compile more. Discover less at runtime.
 
@@ -44,7 +67,8 @@ still require the reference interpreter; its use is counted and reported.
 
 ### Each generation can improve the next
 
-Execution discoveries are saved locally against the game's identity. A later
+Discoveries made during the converter's automated tests are saved locally
+against the game's identity. A later
 conversion verifies those observations against the ROM, compiles additional
 RAM instruction variants with byte guards, and checks the candidate build
 before replacing the previous executable. An unknown variant remains a
@@ -65,12 +89,32 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 | Interface | English and French, with contextual help and conversion log |
 | Inputs | Two players, separate keyboard mappings, Xbox/XInput-style gamepads |
 | Presentation | Integer-scaled fullscreen, sharp pixels, bilinear, Scale2x, scanlines |
-| Game icons | Optional local box art, with optional online lookup |
+| Video timing | Per-ROM PAL/NTSC selection; the saved choice survives compiler updates |
+| Light Phaser | Mouse aiming in catalogue-selected gun games; configurable reticle |
+| Quick states | F8 save and F9 load, including after restarting the game |
+| Game icons | Optional local/online box art and automatic shooting badges |
 | Files | Shared `datas` folder; game-specific data isolated by identity |
 | Regeneration | Same game filename; replacement deferred if the executable is running |
 
-**No ROMs, commercial game executables, box art, screenshots of games or
-personal compilation libraries are distributed in this repository or release.**
+<p align="center">
+  <img src="MEDIAS/RC_Windows_Screen.png" alt="Windows Explorer displaying generated Master System game executables with box-art icons and shooting badges" width="1100">
+</p>
+<p align="center"><em>Your generated games remain easy to recognize in Windows Explorer.</em></p>
+
+Version 0.10.17 adds scanline-aware video, PAL/NTSC timing choices, strict
+CPU/VDP comparisons and persistent quick states. Its Light Phaser mode uses
+mouse aiming for known gun games; the reticle and automatic icon badges are
+configurable. See [video timing](docs/VIDEO.md),
+[Light Phaser support](docs/LIGHT_PHASER.md),
+[game states](docs/GAME_STATES.md) and
+[console profiles](docs/SYSTEM_PROFILES.md) for the details and limits.
+
+Generated games create no `datas` folder, default INI or diagnostic log just
+from being launched. Settings and quick states are saved only when requested;
+the converter keeps its separate learning library for future generations.
+The screenshots above show locally generated icons; the repository and ZIP
+contain **no ROMs, game executables, separate box-art files, gameplay captures
+or personal compilation libraries**.
 Use your own ROMs and artwork that you are entitled to use. Generated game
 executables embed the ROM and must not be treated as redistributable merely
 because RetroRecomp generated them.
@@ -97,7 +141,7 @@ RetroRecomp/
   Games/
     Master System/
       Your game.exe              created from your own ROM
-      datas/                     shared controls, per-game memory and reports
+      datas/                     saved controls/states; conversion reports when generated
 ```
 
 The release starts clean: it contains no saved settings, games or learned
@@ -111,16 +155,21 @@ including when launched from a different working directory.
 | F1 | Restart |
 | F2 | Configure keyboard/gamepad mappings, including Start/Menu and J1 Select/Reset |
 | F3 | Next filter |
-| F4 | Fullscreen/window |
-| F6 | English/French |
+| F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
+| F6 | Gamepad autofire on/off |
+| F7 | English/French |
+| F8 | Save/replace this game's quick state |
+| F9 | Load it, including after quitting and restarting |
 | H | Help |
 | P / Enter | Pause/resume; Enter retains its binding role inside F2 |
 | Esc | Close the current menu, then quit |
 
 Gamepad Start/Menu pauses by default. Select/Back restarts for player 1 only;
 player 2 cannot reset. Fullscreen keeps interpreter diagnostics out of the
-game image, while counters and logs remain available. There are no save states
-in this release. See [controls](docs/CONTROLS.md).
+game image, while counters remain available and logs require explicit
+diagnostics. Games exported before quick states were added need regeneration
+to gain F8/F9. See [controls](docs/CONTROLS.md)
+and [state storage and compatibility](docs/GAME_STATES.md).
 
 ## What has been verified
 
@@ -128,17 +177,15 @@ The measurements are deliberately separate:
 
 | Area | Evidence and limit |
 | --- | --- |
-| Native execution | Five locally supplied games passed two 3,600-frame scenarios each with zero fallback cycles on those scenarios. This is not full-game coverage. |
-| CPU fidelity | The native CPU changes were checked against 51,328 cases from a pinned independent Z80 vector corpus at version 0.10.0. These CPU checks were not rerun for the 0.10.4 UI changes. |
-| Reference comparison | Current conversion checks compare CPU, RAM, final image and VDP traces with the corrected reference CPU. Both paths share the same hardware runtime. |
-| Hardware fidelity | Complete console fidelity has not been established. |
-| Gameplay | Full playthroughs and physical two-controller sessions have not been established. |
+| Native execution | Several local games reached zero fallback cycles in their tested demo and scripted-play scenarios. This does not cover every game path. |
+| CPU fidelity | Independent Z80 checks covered 51,328 cases for the native CPU work; current conversions also compare observed CPU results with the reference interpreter. |
+| Reference comparison | Conversion checks compare CPU, RAM, image hashes and VDP traces on observed scenarios. Both paths share the same hardware runtime. |
+| Hardware fidelity | Authored NTSC/PAL and scanline checks pass; complete console fidelity, including pixel-clock effects, is not established. |
+| Gameplay | Recent exports have been reviewed in play, but full-catalogue playthroughs and physical two-controller sessions are not established. |
 | Physical latency | Not measured; no zero-latency guarantee. |
 
-Version 0.10.4 also passed 43 application tests, five publication privacy checks,
-and native SDL checks with two virtual
-controllers, including 4,096 simultaneous input states, remapping, pause,
-restart and fullscreen. Validation files and game captures stay local; they
+Version 0.10.17 passes 66 Python tests and authored native checks for video,
+input and state handling. Validation files and game captures stay local; they
 are not bundled with this public repository.
 
 See [compatibility and limitations](docs/COMPATIBILITY.md) before assuming

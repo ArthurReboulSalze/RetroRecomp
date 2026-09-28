@@ -8,9 +8,11 @@ static uint64_t banked_prefix_fragments;
 static uint8_t banked_seen[3][256];
 
 static void smsrecomp_banked_fallback(uint16_t addr) {
-    uint8_t bytes[4];
-    for (unsigned i = 0; i < 4; ++i) bytes[i] = sms_read8((uint16_t)(addr + i));
-    smsrecomp_observe_code(bytes);
+    if (smsrecomp_learning_enabled()) {
+        uint8_t bytes[4];
+        for (unsigned i = 0; i < 4; ++i) bytes[i] = sms_read8((uint16_t)(addr + i));
+        smsrecomp_observe_code(bytes);
+    }
     if (!g_hz_init) {
         z80_init(&g_hz);
         g_hz.read_byte = hyb_read; g_hz.write_byte = hyb_write;
@@ -76,6 +78,7 @@ static void smsrecomp_banked_run(void) {
         }
         advance_vdp(g_z80.cyc);
         g_sync_deadline = g_next_line_cyc;
+        smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */
     }
 }
 

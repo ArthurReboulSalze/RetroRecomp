@@ -30,3 +30,20 @@ class NativeValidationTests(unittest.TestCase):
                     (reference / filename).write_bytes(original)
             changed = dict(state, passed=False)
             self.assertFalse(compare_execution(state, changed, native, reference)['passed'])
+
+    def test_rejects_raster_differences_with_identical_final_registers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            native, reference = Path(tmp) / 'native', Path(tmp) / 'reference'
+            header = 'frame,vram_h,cram_h,reg_h,ram_h,r8,r9,r0,r1,sp,pixels_h\n'
+            for directory in (native, reference):
+                directory.mkdir()
+                (directory / 'frame.png').write_bytes(b'image')
+                (directory / 'frame.png.ram').write_bytes(b'ram')
+                (directory / 'vdp.csv').write_text(header + '1,2,3,4,5,6,7,8,9,10,abcd\n')
+            state = dict(passed=True, completed_frames=1, requested_frames=1, final_cpu={'pc': 123})
+            self.assertTrue(compare_execution(state, state, native, reference)['passed'])
+            for row in ('1,2,3,4,5,6,7,8,9,10,dcba\n', '1,2,3,4,5,6,7,8,9,10\n'):
+                (reference / 'vdp.csv').write_text(header + row)
+                result = compare_execution(state, state, native, reference)
+                self.assertFalse(result['checks']['vdp_trace'])
+                self.assertFalse(result['passed'])

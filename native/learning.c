@@ -10,13 +10,25 @@
 #include <wchar.h>
 #include <string.h>
 
-static wchar_t journal[32768], code_journal[32768], lock_path[32768];
+static wchar_t journal[32768], code_journal[32768], lock_path[32768], directory[32768];
 static int initialized, available, warned;
 
+int smsrecomp_learning_enabled(void) {
+    static int enabled = -1;
+    if (enabled < 0) {
+        const wchar_t *setting = _wgetenv(L"RETRO_RECOMP_LEARNING");
+        enabled = setting && !wcscmp(setting, L"1");
+    }
+    return enabled;
+}
+
 static int initialize(void) {
+    /* Only converter probes opt in. A distributed game neither reads nor
+     * writes a compilation library during ordinary gameplay. */
+    if (!smsrecomp_learning_enabled()) return 0;
     if (initialized) return available;
     initialized = 1;
-    wchar_t root[32768], directory[32768], sha[65], label[128], pattern[32768];
+    wchar_t root[32768], sha[65], label[128], pattern[32768];
     const wchar_t *custom = _wgetenv(L"RETRO_RECOMP_LIBRARY_DIR");
     if (!custom || !*custom) custom = _wgetenv(L"SMSRECOMP_LIBRARY_DIR");
     if (custom && *custom) {
@@ -51,7 +63,6 @@ static int initialize(void) {
             swprintf(directory, 32768, L"%s\\%s-%s", root, label, sha);
         }
     }
-    if (!retro_make_directories(directory)) return 0;
     swprintf(journal, 32768, L"%s\\observations.log", directory);
     swprintf(code_journal, 32768, L"%s\\native.patterns", directory);
     swprintf(lock_path, 32768, L"%s\\entry.lock", directory);
@@ -65,8 +76,9 @@ FILE *smsrecomp_observations_read(void) {
 }
 
 static int append_record(const wchar_t *path, const char *line) {
+    if (!initialize()) return 0;
     int ok = 0;
-    if (initialize()) {
+    if (initialize() && retro_make_directories(directory)) {
         HANDLE lock = CreateFileW(lock_path, GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (lock != INVALID_HANDLE_VALUE) {

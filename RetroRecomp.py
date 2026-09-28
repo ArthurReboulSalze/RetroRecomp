@@ -8,6 +8,7 @@ from smsrecomp.library import GameMemory, list_games, library_root
 from smsrecomp.paths import ROOT, save_game_language, games_directory
 from smsrecomp.i18n import log_text
 from smsrecomp.batch import identify, convert_batch
+from smsrecomp.systems import MASTER_SYSTEM, profile_for_path
 
 
 def main() -> int:
@@ -25,6 +26,8 @@ def main() -> int:
     build.add_argument("--title")
     build.add_argument("--output", type=Path)
     build.add_argument("--profile", type=Path)
+    build.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes), default="auto",
+        help="Master System console timing; auto uses the saved ROM choice or filename proposal.")
     build.add_argument("--passes", type=int, default=3,
         help="Build/test/learn pass limit (1–10, default 3).")
     build.add_argument("--frames", type=int, default=1200)
@@ -35,6 +38,7 @@ def main() -> int:
     covers.add_argument("--no-cover", action="store_true", help="Build without box art icons.")
     build.add_argument("--boxart-dir", type=Path, help="Box art folder (default: BoxArt beside Retro-Recomp.exe).")
     build.add_argument("--no-online-cover", action="store_true", help="Use local box art only, without network access.")
+    build.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
     batch.add_argument("roms", type=Path, nargs="*")
     batch.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
@@ -43,9 +47,12 @@ def main() -> int:
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
     batch.add_argument("--passes", type=int, default=3)
     batch.add_argument("--frames", type=int, default=3600)
+    batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes), default="auto",
+        help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)
     batch.add_argument("--no-cover", action="store_true")
     batch.add_argument("--no-online-cover", action="store_true")
+    batch.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
     inspect = sub.add_parser("inspect", help="Identify a ROM without modifying it.")
     inspect.add_argument("rom", type=Path)
     sub.add_parser("setup", help="Prepare dependencies and compiler.")
@@ -59,7 +66,11 @@ def main() -> int:
             from smsrecomp.gui import launch
             launch()
         elif args.command == "inspect":
-            print(json.dumps(read_rom(args.rom).metadata(), indent=2, ensure_ascii=False))
+            system = profile_for_path(args.rom)
+            rom = system.read_rom(args.rom)
+            print(json.dumps({**rom.metadata(), "system": system.id,
+                "video_default": system.default_video_mode(args.rom),
+                "video_default_source": "filename_only"}, indent=2, ensure_ascii=False))
         elif args.command == "setup":
             dependencies()
         elif args.command == "memory":
@@ -86,7 +97,9 @@ def main() -> int:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 record = convert_batch([identify(p) for p in paths], args.output,
                     passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
-                    boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover)
+                    boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
+                    icon_tags=not args.no_icon_tags,
+                    standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 save_game_language(args.output, args.language)
                 print(json.dumps(record, indent=2, ensure_ascii=False))
                 return 1 if record["failed"] else 0
@@ -94,10 +107,11 @@ def main() -> int:
                 executable = convert(args.rom, title=args.title, output=args.output, profile=args.profile,
                         passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
                         cover=args.cover, boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
-                        use_cover=not args.no_cover)
+                        use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
+                        standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 save_game_language(executable.parent, args.language)
         return 0
-    except (ConversionError, OSError, TimeoutError) as exc:
+    except (ConversionError, OSError, TimeoutError, ValueError) as exc:
         print("Retro-Recomp: " + log_text(str(exc), getattr(args, "language", "en")), file=sys.stderr)
         return 1
 

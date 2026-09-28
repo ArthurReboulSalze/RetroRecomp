@@ -10,6 +10,10 @@ sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
 [mapper]
 kind = "sega"
 
+# Master System console timing. Change to "pal" for a PAL target.
+[video]
+standard = "ntsc"
+
 [functions]
 extra = []
 blacklist = []

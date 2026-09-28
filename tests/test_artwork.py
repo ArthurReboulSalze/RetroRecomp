@@ -107,6 +107,55 @@ class ArtworkTests(unittest.TestCase):
         self.assertFalse(report["embedded"])
         self.assertNotIn("101 ICON", (self.game / "game_resources.rc").read_text())
 
+    def test_shooting_tag_preserves_source_and_composes_bottom_left_at_each_size(self):
+        self.art.mkdir()
+        cover = self.art / "Game (Europe).png"
+        with Image.open(BytesIO(png())) as blue:
+            blue.paste((20,80,240,255), (20,10,80,190))
+            buffer = BytesIO(); blue.save(buffer, format="PNG")
+        cover.write_bytes(buffer.getvalue())
+        before = cover.read_bytes()
+        prepare_icon(self.game, self.rom, "Game", self.art, online=False)
+        old_icon = (self.game / "game.ico").read_bytes()
+        with Image.open(BytesIO(old_icon)) as source:
+            originals = {n: source.ico.getimage((n,n)).copy() for n in ICON_SIZES}
+        report = prepare_icon(self.game, self.rom, "Game", self.art, online=False, tags=("shooting",))
+        self.assertEqual(report["tags"], ["shooting"])
+        self.assertNotEqual(old_icon, (self.game / "game.ico").read_bytes())
+        self.assertEqual(cover.read_bytes(), before)
+        with Image.open(self.game / "game.ico") as source:
+            self.assertEqual(source.ico.sizes(), {(n,n) for n in ICON_SIZES})
+            for n in ICON_SIZES:
+                result = source.ico.getimage((n,n)).convert("RGBA")
+                changed = [(x,y) for y in range(n) for x in range(n)
+                           if result.getpixel((x,y)) != originals[n].getpixel((x,y))]
+                self.assertTrue(changed, n)
+                self.assertGreater(min(y for x,y in changed), n//2-1)
+                self.assertLess(min(x for x,y in changed), n//2)
+                self.assertEqual(result.crop((0,0,n,n//2)).tobytes(), originals[n].crop((0,0,n,n//2)).tobytes())
+                if n >= 32:
+                    # The outward portion is translucent, without an opaque backing.
+                    self.assertTrue(any(0 < result.getpixel((x,y))[3] <= 204 and originals[n].getpixel((x,y))[3] == 0
+                                        for y in range(n//2,n) for x in range(n//2)), n)
+        # Switching tags off regenerates a clean cover, with no accumulated tag.
+        clean = prepare_icon(self.game, self.rom, "Game", self.art, online=False)
+        self.assertEqual(clean["tags"], [])
+        self.assertEqual((self.game / "game.ico").read_bytes(), old_icon)
+
+    def test_missing_or_invalid_tag_preserves_cover_and_disabled_icons_skip_tags(self):
+        self.art.mkdir()
+        (self.art / "Game (Europe).png").write_bytes(png())
+        for tags in (("shooting",), ("../unknown",)):
+            report = prepare_icon(self.game, self.rom, "Game", self.art, online=False,
+                                  tags=tags, tag_directory=self.root / "missing-tags")
+            self.assertTrue(report["embedded"])
+            self.assertEqual(report["tags"], [])
+            self.assertIn("tag_warnings", report)
+        disabled = prepare_icon(self.game, self.rom, "Game", self.art, enabled=False, tags=("shooting",))
+        self.assertFalse(disabled["embedded"])
+        self.assertEqual(disabled["tags"], [])
+        self.assertNotIn("101 ICON", (self.game / "game_resources.rc").read_text())
+
     def test_frozen_windows_https_transport_checks_status_and_size(self):
         body = png()
         success = subprocess.CompletedProcess([], 0, body + b"200", b"")

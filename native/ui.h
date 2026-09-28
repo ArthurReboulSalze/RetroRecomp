@@ -9,4 +9,5 @@ void ui_menu(SDL_Renderer *renderer, int kind, int player, int row, bool gamepad
 void ui_toast(SDL_Renderer *renderer, const char *text);
 void ui_status(SDL_Renderer *renderer, const char *text);
 void ui_layout(SDL_Renderer *renderer, int *x, int *y, int *scale);
+void ui_phaser_reticle(SDL_Renderer *renderer, int x, int y, int scale);
 #endif

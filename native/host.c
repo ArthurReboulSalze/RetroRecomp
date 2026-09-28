@@ -10,6 +10,8 @@
 #include "video_frame.h"
 #include "embedded_rom.h"
 #include "icon.h"
+#include "lightphaser.h"
+#include "gamestate.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,16 +25,22 @@ static uint32_t enlarged[512 * 384];
 static uint8_t pads[CONTROL_PLAYERS];
 static double frequency, period;
 static uint64_t deadline;
+static uint64_t input_sample_counter, input_poll_period;
 static SDL_AudioDeviceID audio_device;
 static SDL_AudioStream *audio_stream;
 static uint64_t previous_interpreter_cycles;
 static int previous_interpreter_state = -1;
 static bool fullscreen, reset_requested, back_latched[CONTROL_PLAYERS];
+static bool fullscreen_fit;
 static int menu, parent_menu, selected_row, selected_player;
 static int controller_order_player;
 static bool bind_gamepad, capturing;
 static char menu_status[80], toast[80];
 static uint64_t toast_until;
+static int gun_x = -1, gun_y = -1;
+static bool gun_trigger_blocked;
+static int gun_option_row = 1;
+static void state_completed(int operation, int result);
 
 int smsrecomp_take_reset_request(void) {
     bool requested = reset_requested; reset_requested = false; return requested;
@@ -73,6 +81,7 @@ static void apply_controller_order(void) {
     SDL_GameController *old = controllers[0]; controllers[0] = controllers[1]; controllers[1] = old;
     bool held = back_latched[0]; back_latched[0] = back_latched[1]; back_latched[1] = held;
     memset(pads, 0, sizeof(pads));
+    controls_reset_autofire();
     controller_order_player = controls.first_controller_player;
     for (int p = 0; p < CONTROL_PLAYERS; ++p) if (controllers[p]) SDL_GameControllerSetPlayerIndex(controllers[p], p);
 }
@@ -84,6 +93,12 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_SetHint(SDL_HINT_XINPUT_ENABLED, "1");
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+#ifdef _WIN32
+    /* SDL's D3D11 backend caps queued frames at one. Keep SDL's automatic
+     * fallback and allow an explicit SDL_RENDER_DRIVER override. */
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "direct3d11", SDL_HINT_DEFAULT);
+    SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_THREAD, "1", SDL_HINT_DEFAULT);
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "[host] SDL: %s\n", SDL_GetError()); return false;
     }
@@ -105,6 +120,10 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) return false;
+    SDL_RendererInfo renderer_info;
+    if (SDL_GetRendererInfo(renderer, &renderer_info) == 0)
+        fprintf(stderr, "[host] renderer=%s, vsync=%s; physical latency is unmeasured\n",
+            renderer_info.name, renderer_info.flags & SDL_RENDERER_PRESENTVSYNC ? "on" : "off");
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, crop_w, crop_h);
     texture2x = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, crop_w * 2, crop_h * 2);
     if (x == 0 && crop_w == SMS_SCREEN_W) {
@@ -117,9 +136,19 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     }
     open_controllers();
     memset(pads, 0, sizeof(pads));
+    controls_reset_autofire();
+    input_sample_counter = 0;
+    input_poll_period = SDL_GetPerformanceFrequency() / 1000;
+    if (!input_poll_period) input_poll_period = 1;
     menu = parent_menu = selected_row = selected_player = 0; capturing = bind_gamepad = false;
     menu_status[0] = 0; previous_interpreter_state = -1; previous_interpreter_cycles = 0;
-    notice(controls_text("H: help | P / Enter: pause", "H : aide | P / Entree : pause"));
+    gun_x = gun_y = -1; gun_trigger_blocked = false;
+    gun_option_row = 1;
+    smsrecomp_set_state_callback(state_completed);
+    notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F5: options", "Light Phaser : souris | F5 : options") :
+        controls_text("H: help | P / Enter: pause", "H : aide | P / Entree : pause"));
+    if (sms_light_phaser) fprintf(stderr, "[host] Light Phaser: mouse, left=trigger, right=off-screen; reticle=%s size=%d color=%d\n",
+        controls.phaser_shape == PHASER_DOT ? "dot" : "cross", controls.phaser_dot_size, controls.phaser_color);
     return true;
 }
 
@@ -155,9 +184,19 @@ static void scale2x(const uint32_t *src, int w, int h, int stride, uint32_t *dst
     }
 }
 
-/* Integer destination rectangles avoid uneven pixels, including on HiDPI.
- * Scale2x also requires an integer multiplier for its doubled pixel grid. */
+/* Windowed/first-fullscreen modes keep integer pixels. The second fullscreen
+ * mode fills the output using the visible image's aspect ratio. */
 static SDL_Rect game_rect(int out_w, int out_h, int *scale) {
+    if (fullscreen && fullscreen_fit) {
+        int width, height;
+        if ((int64_t)out_w * crop.h <= (int64_t)out_h * crop.w) {
+            width = out_w; height = SDL_max(1, (int)((int64_t)out_w * crop.h / crop.w));
+        } else {
+            height = out_h; width = SDL_max(1, (int)((int64_t)out_h * crop.w / crop.h));
+        }
+        *scale = SDL_max(1, SDL_min(width / crop.w, height / crop.h));
+        return (SDL_Rect){(out_w-width)/2, (out_h-height)/2, width, height};
+    }
     /* Keep the scale stable when a game enables/disables left-column blanking,
      * including width-limited windows near an integer-scale threshold. */
     int k = SDL_min(out_w / full_crop.w, out_h / full_crop.h);
@@ -174,6 +213,49 @@ static void update_viewport(void) {
     if (full_crop.x == 0 && full_crop.w == SMS_SCREEN_W && smsrecomp_frame_left_border() == 8) {
         crop.x += 8; crop.w -= 8;
     }
+}
+
+/* SDL mouse coordinates are in window units; the renderer can be HiDPI.
+ * Inverse-map the exact same cropped/scaled rectangle as the image.
+ * Letterbox clicks remain off-screen instead of snapping to an edge. */
+static bool gun_coordinates(int mouse_x, int mouse_y, int win_w, int win_h,
+                            int out_w, int out_h, int *x, int *y) {
+    if (win_w <= 0 || win_h <= 0) return false;
+    int k; SDL_Rect dest = game_rect(out_w, out_h, &k);
+    int px = (int)((int64_t)mouse_x * out_w / win_w);
+    int py = (int)((int64_t)mouse_y * out_h / win_h);
+    if (mouse_x < 0 || mouse_y < 0 || px < dest.x || px >= dest.x + dest.w || py < dest.y || py >= dest.y + dest.h) return false;
+    *x = crop.x + (int)((int64_t)(px - dest.x) * crop.w / dest.w);
+    *y = crop.y + (int)((int64_t)(py - dest.y) * crop.h / dest.h);
+    return true;
+}
+
+static void sample_phaser(bool focused) {
+    if (!lightphaser_enabled()) return;
+    int mx, my, win_w, win_h, out_w, out_h;
+    uint32_t buttons = SDL_GetMouseState(&mx, &my);
+    if (!(buttons & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK))) gun_trigger_blocked = false;
+    SDL_GetWindowSize(window, &win_w, &win_h);
+    SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
+    gun_x = gun_y = -1;
+    bool inside = focused && !menu && SDL_GetMouseFocus() == window &&
+        gun_coordinates(mx, my, win_w, win_h, out_w, out_h, &gun_x, &gun_y);
+    bool pressed = focused && !menu && !gun_trigger_blocked &&
+        (buttons & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK));
+    bool offscreen = !inside || (buttons & SDL_BUTTON_RMASK);
+    lightphaser_pointer(offscreen ? -1 : gun_x, offscreen ? -1 : gun_y, pressed);
+    SDL_ShowCursor(inside ? SDL_DISABLE : SDL_ENABLE);
+    /* Laser Ghost selects its original gun mode through a P2 trigger.
+     * Supply that alias as well as P1 TL; no cartridge code is patched. */
+    if (pressed && sms_light_phaser_trigger_p2) pads[1] |= SMS_PAD_B1;
+}
+
+static void draw_phaser(const SDL_Rect *dest, int scale) {
+    if (!lightphaser_enabled() || menu || gun_x < crop.x || gun_y < crop.y) return;
+    SDL_RenderSetClipRect(renderer, dest);
+    ui_phaser_reticle(renderer, dest->x + (int)((int64_t)(gun_x - crop.x)*dest->w/crop.w),
+        dest->y + (int)((int64_t)(gun_y - crop.y)*dest->h/crop.h), scale);
+    SDL_RenderSetClipRect(renderer, NULL);
 }
 
 static void draw_game(const uint32_t *fb, int w, int h) {
@@ -197,11 +279,14 @@ static void draw_game(const uint32_t *fb, int w, int h) {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 95);
         for (int y = 0; y < crop.h; ++y) {
-            SDL_Rect line = {dest.x, dest.y + y*k + k - k/2, dest.w, k/2};
+            int top = (int)((int64_t)y * dest.h / crop.h);
+            int bottom = (int)((int64_t)(y+1) * dest.h / crop.h);
+            SDL_Rect line = {dest.x, dest.y + bottom - (bottom-top)/2, dest.w, (bottom-top)/2};
             SDL_RenderFillRect(renderer, &line);
         }
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
     }
+    draw_phaser(&dest, k);
 }
 
 static void clear_audio(void) {
@@ -209,7 +294,26 @@ static void clear_audio(void) {
     if (audio_stream) SDL_AudioStreamClear(audio_stream);
 }
 
+static void state_completed(int operation, int result) {
+    if (result == RR_STATE_OK) {
+        if (operation == RR_QUICKLOAD) {
+            clear_audio(); deadline = input_sample_counter = 0;
+            controls_reset_autofire(); previous_interpreter_state = -1;
+        }
+        notice(operation == RR_QUICKSAVE ? controls_text("Game state saved", "Etat du jeu sauvegarde") :
+            controls_text("Game state loaded", "Etat du jeu charge"));
+    } else if (result == RR_STATE_MISSING) notice(controls_text("No saved game state yet", "Aucun etat sauvegarde"));
+    else if (result == RR_STATE_INCOMPATIBLE) notice(controls_text("Game state incompatible", "Etat du jeu incompatible"));
+    else if (result == RR_STATE_INVALID) notice(controls_text("Game state invalid; game unchanged", "Etat invalide ; jeu inchange"));
+    else notice(controls_text("Cannot read/write game state", "Impossible de lire/ecrire l'etat"));
+}
+
 static void toggle_fullscreen(void) {
+    if (fullscreen && !fullscreen_fit) {
+        fullscreen_fit = true;
+        notice(controls_text("Fullscreen - fit, original ratio", "Plein ecran ajuste - ratio conserve"));
+        deadline = 0; return;
+    }
     bool wanted = !fullscreen;
     if (wanted) {
         SDL_GetWindowPosition(window, &saved_window.x, &saved_window.y);
@@ -217,6 +321,7 @@ static void toggle_fullscreen(void) {
     }
     if (SDL_SetWindowFullscreen(window, wanted ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) == 0) {
         fullscreen = wanted;
+        fullscreen_fit = false;
         if (!fullscreen && saved_window.w) {
             SDL_SetWindowPosition(window, saved_window.x, saved_window.y);
             SDL_SetWindowSize(window, saved_window.w, saved_window.h);
@@ -227,9 +332,20 @@ static void toggle_fullscreen(void) {
 }
 
 static void toggle_menu(int kind) {
+    controls_reset_autofire();
     capturing = false; menu_status[0] = 0;
     if (menu == kind) { menu = parent_menu; parent_menu = 0; }
     else { if (menu == 3) parent_menu = 3; menu = kind; }
+}
+
+static void change_gun_option(int change) {
+    bool ok;
+    if (gun_option_row == 0)
+        ok = controls_phaser_shape((controls.phaser_shape + change + PHASER_SHAPE_COUNT) % PHASER_SHAPE_COUNT);
+    else if (gun_option_row == 1)
+        ok = controls_phaser_dot_size(SDL_clamp(controls.phaser_dot_size + change, 1, 5));
+    else ok = controls_phaser_color((controls.phaser_color + change + PHASER_COLOR_COUNT) % PHASER_COLOR_COUNT);
+    if (!ok) notice(controls_text("Config unavailable", "Config inaccessible"));
 }
 
 static bool handle_event(const SDL_Event *e) {
@@ -252,6 +368,17 @@ static bool handle_event(const SDL_Event *e) {
     bool keyboard = e->type == SDL_KEYDOWN && !e->key.repeat;
     bool gamepad = e->type == SDL_CONTROLLERBUTTONDOWN;
     if (!keyboard && !gamepad) {
+        if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == 4) {
+            int ox, oy, unit, out_w, out_h, win_w, win_h;
+            ui_layout(renderer, &ox, &oy, &unit); SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
+            SDL_GetWindowSize(window, &win_w, &win_h);
+            int x = (e->button.x * out_w / win_w - ox) / unit;
+            int y = (e->button.y * out_h / win_h - oy) / unit;
+            if (x >= 14 && x < 240 && y >= 34 && y < 106 && (y-34)%24 < 22) {
+                gun_option_row = (y-34)/24;
+                change_gun_option(x < 42 ? -1 : 1);
+            }
+        }
         if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == 2 && !capturing) {
             int ox, oy, unit, out_w, out_h, win_w, win_h;
             ui_layout(renderer, &ox, &oy, &unit); SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
@@ -316,11 +443,37 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     if (key == SDL_SCANCODE_F4) { toggle_fullscreen(); return true; }
+    if (lightphaser_enabled() && (key == SDL_SCANCODE_F5 || (menu == 2 && !capturing && key == SDL_SCANCODE_G))) {
+        controls_load(); toggle_menu(4); return true;
+    }
     if (key == SDL_SCANCODE_F6) {
+        if (controls_autofire(!controls.autofire))
+            notice(controls.autofire ? controls_text("Gamepad autofire ON - hold buttons 1/2", "Autofire manette ON - maintenir 1/2") :
+                controls_text("Gamepad autofire OFF", "Autofire manette OFF"));
+        else notice(controls_text("Config unavailable", "Config inaccessible"));
+        return true;
+    }
+    if (key == SDL_SCANCODE_F7) {
         if (controls_language(!controls.language)) {
             previous_interpreter_state = -1;
             notice(controls_text("Language: English", "Langue : francais"));
         }
+        return true;
+    }
+    if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
+        if (smsrecomp_request_state(key == SDL_SCANCODE_F8 ? RR_QUICKSAVE : RR_QUICKLOAD)) {
+            menu = parent_menu = 0; capturing = false;
+        } else notice(controls_text("Game states need the native banked backend", "Etats : moteur natif par banques requis"));
+        return true;
+    }
+    if (menu == 4) {
+        if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP)
+            gun_option_row = (gun_option_row + 2) % 3;
+        if (key == SDL_SCANCODE_DOWN || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN)
+            gun_option_row = (gun_option_row + 1) % 3;
+        int change = key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_MINUS || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT ? -1 :
+            key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_EQUALS || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? 1 : 0;
+        if (change) change_gun_option(change);
         return true;
     }
     if (menu != 2) return true;
@@ -360,6 +513,29 @@ static bool handle_event(const SDL_Event *e) {
 uint8_t host_get_pad1(void) { return pads[0]; }
 uint8_t host_get_pad2(void) { return pads[1]; }
 
+static void sample_controls(void) {
+    bool focused = SDL_GetKeyboardFocus() == window;
+    for (int p = 0; p < CONTROL_PLAYERS; ++p) {
+        SDL_GameController *controller = controllers[p];
+        if (controller && !SDL_GameControllerGetAttached(controller)) controller = NULL;
+        pads[p] = controls_read(p, controller, focused);
+    }
+    sample_phaser(focused);
+    input_sample_counter = SDL_GetPerformanceCounter();
+}
+
+void host_refresh_input(void) {
+    if (!window || menu) return;
+    uint64_t now = SDL_GetPerformanceCounter();
+    if (input_sample_counter && now - input_sample_counter < input_poll_period) return;
+    /* Main thread only. Refresh both players and keyboard/gamepads together;
+     * a busy guest polling its ports cannot force an OS poll per instruction.
+     * System actions remain in the frame event loop so reset can unwind safely. */
+    SDL_PumpEvents();
+    sample_controls();
+    glue_set_pad1(pads[0]); glue_set_pad2(pads[1]);
+}
+
 bool host_present(const uint32_t *fb, int width, int height) {
     if (!texture) return false;
     uint64_t interpreted = smsrecomp_interpreter_cycles();
@@ -383,10 +559,14 @@ bool host_present(const uint32_t *fb, int width, int height) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) if (!handle_event(&e)) { keep = false; break; }
     if (menu && keep) {
+        if (sms_light_phaser) {
+            lightphaser_pointer(-1, -1, false); gun_x = gun_y = -1;
+            gun_trigger_blocked = true; SDL_ShowCursor(SDL_ENABLE);
+        }
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 1);
         while (menu && keep) {
             draw_game(fb, width, height);
-            ui_menu(renderer, menu, selected_player, selected_row, bind_gamepad, capturing,
+            ui_menu(renderer, menu, selected_player, menu == 4 ? gun_option_row : selected_row, bind_gamepad, capturing,
                 controllers[selected_player] ? SDL_GameControllerName(controllers[selected_player]) : NULL, menu_status);
             SDL_RenderPresent(renderer);
             if (SDL_WaitEventTimeout(&e, 16)) keep = handle_event(&e);
@@ -394,8 +574,8 @@ bool host_present(const uint32_t *fb, int width, int height) {
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 0);
         deadline = 0;
     }
+    sample_controls();
     for (int p = 0; p < CONTROL_PLAYERS; ++p) {
-        pads[p] = controls_read(p, controllers[p], SDL_GetKeyboardFocus() == window);
         int reset_button = controls.buttons[p][CONTROL_RESET];
         if (keep && (reset_button < 0 || !controllers[p] || !SDL_GameControllerGetButton(controllers[p], reset_button))) back_latched[p] = false;
     }
@@ -434,6 +614,10 @@ void host_audio_shutdown(void) {
 }
 
 void host_shutdown(void) {
+    if (sms_light_phaser) { lightphaser_pointer(-1, -1, false); SDL_ShowCursor(SDL_ENABLE); }
+    smsrecomp_set_input_refresh(NULL);
+    smsrecomp_set_state_callback(NULL);
+    input_sample_counter = 0;
     if (window && !fullscreen) {
         SDL_GetWindowPosition(window, &saved_window.x, &saved_window.y);
         SDL_GetWindowSize(window, &saved_window.w, &saved_window.h);

@@ -7,20 +7,24 @@ import re
 import shutil
 from threading import Event
 
-from .core import convert, read_rom, slug, executable_name, ConversionError
+from .core import slug, executable_name, ConversionError
 from .library import atomic_json
 from . import __version__
 from .publishing import publish_executable
+from .systems import profile_for_path, get_profile
 
 
 @dataclass
 class BatchItem:
     path: Path
     title: str
+    system: str = ""
     sha256: str = ""
     size: int = 0
     error: str = ""
     cover: Path | None = None
+    video_hint: str = ""
+    standard_override: str | None = None
 
     @property
     def key(self) -> str:
@@ -31,30 +35,50 @@ def identify(path: Path) -> BatchItem:
     path = path.resolve()
     title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", path.stem).strip() or path.stem
     try:
-        rom = read_rom(path)
-        return BatchItem(path, title, rom.sha256, len(rom.data))
-    except (ConversionError, OSError) as exc:
+        system = profile_for_path(path)
+        rom = system.read_rom(path)
+        return BatchItem(path, title, system.id, rom.sha256, len(rom.data),
+                         video_hint=system.default_video_mode(path))
+    except (ConversionError, OSError, ValueError) as exc:
         return BatchItem(path, title, error=str(exc))
 
 
 def _export_records(output: Path):
-    """Read only report-owned executable names, scoped to the exact ROM."""
+    """Recover exact ROM ownership from reports or branded generated EXEs."""
+    reported = set()
     for path in (output / 'datas/reports').glob('*/conversion-report.json'):
         try:
             report = json.loads(path.read_text(encoding='utf-8'))
             name, identity = report['executable'], report['rom']['sha256']
             if Path(name).name != name or not name.lower().endswith('.exe'):
                 continue
+            reported.add(name.casefold())
             yield name, identity
         except (OSError, ValueError, KeyError, TypeError):
             continue
+    # Reports can be deleted while games and the converter library remain.
+    # Every generated runtime embeds its full null-terminated ROM SHA256.
+    # Require our runtime marker and a unique identity; preserve unknown files.
+    for path in output.glob('*.exe'):
+        if path.name.casefold() in reported:
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        if not data.startswith(b'MZ') or b'[Retro-Recomp]' not in data:
+            continue
+        identities = set(re.findall(rb'(?<![0-9a-f])[0-9a-f]{64}\x00', data))
+        if len(identities) == 1:
+            yield path.name, identities.pop()[:-1].decode('ascii')
 
 
 def export_target(item: BatchItem, output: Path) -> Path:
     """Readable filenames; only identical titles need a numeric suffix.
 
     Keep existing files of unknown ownership and other cartridge revisions.
-    Reports retain the full ROM identity, so reconversion reuses the same name.
+    Reports and generated EXEs retain the full ROM identity, so reconversion
+    reuses the same name even after deleting the reports.
     """
     owners = {}
     own_names = []
@@ -63,7 +87,7 @@ def export_target(item: BatchItem, output: Path) -> Path:
         if identity == item.sha256:
             own_names.append(name)
     base = executable_name(item.title)
-    for name in own_names:
+    for name in sorted(own_names, key=lambda name: (name.casefold() != base.casefold(), name.casefold())):
         # Upgrade legacy hash/underscore filenames to the current readable form.
         if name == base or re.fullmatch(re.escape(Path(base).stem) + r' \(\d+\)\.exe', name):
             if owners.get(name.casefold()) == {item.sha256}:
@@ -88,11 +112,15 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
             stopped = True
             break
         on_event("start", index, item.title)
-        result = {"rom": str(item.path), "title": item.title, "sha256": item.sha256}
+        result = {"rom": str(item.path), "title": item.title, "system": item.system,
+                  "sha256": item.sha256}
         try:
             if item.error:
                 raise ConversionError(item.error)
-            if read_rom(item.path).sha256 != item.sha256:
+            system = get_profile(item.system)
+            if profile_for_path(item.path).id != system.id:
+                raise ConversionError("La console de cette ROM a changé depuis son ajout au lot.")
+            if system.read_rom(item.path).sha256 != item.sha256:
                 raise ConversionError("La ROM a changé depuis son ajout au lot ; ajoute-la à nouveau.")
             if item.sha256 in seen:
                 result.update(status="duplicate", message="Même ROM déjà présente dans le lot.")
@@ -104,8 +132,11 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     owned_names.setdefault(output / previous_name, set()).add(identity)
                 previous_executables = [path for path, identities in owned_names.items()
                     if identities == {item.sha256} and path != target]
-                executable = convert(item.path, title=item.title, output=reports, cover=item.cover,
-                    emit=lambda text: emit(f"[{index+1}/{len(items)} · {item.title}] {text}"), **options)
+                settings = dict(options)
+                if item.standard_override is not None:
+                    settings['standard_override'] = item.standard_override
+                executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
+                    emit=lambda text: emit(f"[{index+1}/{len(items)} · {item.title}] {text}"), **settings)
                 temporary = reports / "published-executable.tmp"
                 report_path = reports / "conversion-report.json"
                 report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -135,6 +166,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     pass  # Optional cleanup in datas cannot invalidate a published game.
                 result.update(status="success", executable=str(target), report=str(report_path),
                     pending_install=pending,
+                    video_standard=report.get('video_model', {}).get('standard', item.video_hint),
                     interpreter_percent=max((c.get("interpreter_percent") or 0) for c in report["final_checks"]),
                     reference_vdp_trace_match=report["reference_vdp_trace_match"])
                 seen.add(item.sha256)

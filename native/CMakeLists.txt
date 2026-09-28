@@ -24,10 +24,11 @@ else()
 endif()
 set(RUNTIME_SOURCES
   paths.c
+  lightphaser.c
   learning.c
   "${GAME_DIR}/runtime_glue.c"
   "${GAME_DIR}/embedded_rom.c"
-  "${GAME_DIR}/runtime_video.c" "${RUNNER}/audio/sn76489.c"
+  "${GAME_DIR}/runtime_video.c" "${GAME_DIR}/runtime_audio.c"
   "${GAME_DIR}/runtime_reference.c"
   ${CPU_SOURCES}
   "${GENERATED}/game_layout.c")
@@ -54,12 +55,85 @@ endif()
 option(SMSRECOMP_HOST_CHECKS "Build local native integration checks" OFF)
 option(SMSRECOMP_INPUT_CHECKS "Build authored two-player CPU input checks" OFF)
 option(SMSRECOMP_CPU_CHECKS "Build differential banked instruction checks" OFF)
+option(SMSRECOMP_FRAME_STOP_CHECKS "Build authored headless I/O frame-stop checks" OFF)
+option(SMSRECOMP_STATE_CHECKS "Build persistent game-state checks without video or commercial ROMs" OFF)
+option(SMSRECOMP_LAZY_DATA_CHECKS "Build lazy storage checks without SDL video" OFF)
+option(SMSRECOMP_PRESENTATION_CHECKS "Build numeric fullscreen and virtual input checks without video" OFF)
 option(SMSRECOMP_ICON_CHECKS "Build hidden Windows icon integration checks" OFF)
+option(SMSRECOMP_PHASER_CHECKS "Build authored Light Phaser port and CPU checks" OFF)
+option(SMSRECOMP_VIDEO_PROBE "Build headless raster-write diagnostics" OFF)
+option(SMSRECOMP_VIDEO_CHECKS "Build authored VDP raster checks without CPU/SDL" OFF)
+if(SMSRECOMP_VIDEO_CHECKS)
+  add_executable(smsrecomp_video_checks video_checks.c "${GAME_DIR}/runtime_video.c")
+  target_compile_definitions(smsrecomp_video_checks PRIVATE _CRT_SECURE_NO_WARNINGS)
+  target_include_directories(smsrecomp_video_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+endif()
+if(SMSRECOMP_VIDEO_PROBE)
+  add_executable(smsrecomp_video_probe video_probe.c ${RUNTIME_SOURCES})
+  target_compile_definitions(smsrecomp_video_probe PRIVATE
+    SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS)
+  target_include_directories(smsrecomp_video_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_video_probe PRIVATE gdi32)
+  if(MSVC)
+    target_compile_options(smsrecomp_video_probe PRIVATE /MP4 /W2)
+  endif()
+endif()
+if(SMSRECOMP_PHASER_CHECKS)
+  add_executable(smsrecomp_phaser_checks lightphaser_checks.c ${RUNTIME_SOURCES})
+  target_compile_definitions(smsrecomp_phaser_checks PRIVATE
+    SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
+  target_include_directories(smsrecomp_phaser_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_phaser_checks PRIVATE gdi32)
+endif()
 if(SMSRECOMP_ICON_CHECKS)
   add_executable(smsrecomp_icon_checks icon_checks.c icon.c ${ICON_RESOURCE})
   target_compile_definitions(smsrecomp_icon_checks PRIVATE _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
   target_include_directories(smsrecomp_icon_checks PRIVATE "${GAME_DIR}")
   target_link_libraries(smsrecomp_icon_checks PRIVATE SDL2::SDL2-static)
+endif()
+if(SMSRECOMP_FRAME_STOP_CHECKS AND SMSRECOMP_BANKED_AOT)
+  set(STOP_CHECK_SOURCES ${RUNTIME_SOURCES})
+  list(REMOVE_ITEM STOP_CHECK_SOURCES "${GAME_DIR}/runtime_glue.c")
+  add_executable(smsrecomp_frame_stop_checks frame_stop_checks.c ${STOP_CHECK_SOURCES})
+  target_compile_definitions(smsrecomp_frame_stop_checks PRIVATE SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS)
+  target_include_directories(smsrecomp_frame_stop_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_frame_stop_checks PRIVATE gdi32)
+  if(MSVC)
+    target_compile_options(smsrecomp_frame_stop_checks PRIVATE /MP4 /W2)
+  endif()
+endif()
+if(SMSRECOMP_STATE_CHECKS AND SMSRECOMP_BANKED_AOT)
+  set(STATE_CHECK_SOURCES ${RUNTIME_SOURCES})
+  list(REMOVE_ITEM STATE_CHECK_SOURCES "${GAME_DIR}/runtime_glue.c")
+  add_executable(smsrecomp_state_checks gamestate_checks.c ${STATE_CHECK_SOURCES})
+  target_compile_definitions(smsrecomp_state_checks PRIVATE SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS)
+  target_include_directories(smsrecomp_state_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_state_checks PRIVATE gdi32)
+  if(MSVC)
+    target_compile_options(smsrecomp_state_checks PRIVATE /MP4 /W2)
+  endif()
+endif()
+if(SMSRECOMP_LAZY_DATA_CHECKS AND SMSRECOMP_BANKED_AOT)
+  set(LAZY_CHECK_SOURCES ${RUNTIME_SOURCES})
+  list(REMOVE_ITEM LAZY_CHECK_SOURCES "${GAME_DIR}/runtime_glue.c")
+  add_executable(smsrecomp_lazy_data_checks lazy_data_checks.c ${LAZY_CHECK_SOURCES})
+  target_compile_definitions(smsrecomp_lazy_data_checks PRIVATE SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
+  target_include_directories(smsrecomp_lazy_data_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_lazy_data_checks PRIVATE SDL2::SDL2-static gdi32)
+endif()
+if(SMSRECOMP_PRESENTATION_CHECKS)
+  add_executable(smsrecomp_presentation_checks presentation_checks.c ui.c icon.c ${ICON_RESOURCE} ${RUNTIME_SOURCES})
+  target_compile_definitions(smsrecomp_presentation_checks PRIVATE
+    SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
+  target_include_directories(smsrecomp_presentation_checks PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
+  target_link_libraries(smsrecomp_presentation_checks PRIVATE SDL2::SDL2-static gdi32)
 endif()
 if(SMSRECOMP_CPU_CHECKS AND SMSRECOMP_BANKED_AOT)
   set(CHECK_SOURCES ${RUNTIME_SOURCES})

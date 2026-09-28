@@ -28,12 +28,14 @@ def export_directory() -> Path:
     return Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT / 'Export'
 
 
-def games_directory(saved: str | None = None) -> Path:
+def games_directory(saved: str | None = None, *, system_id: str = "sms") -> Path:
     """Resolve portable preferences against the converter, never the launch cwd."""
+    from .systems import get_profile
+    system = get_profile(system_id)
     if saved:
         path = Path(saved).expanduser()
         return path.resolve() if path.is_absolute() else (export_directory() / path).resolve()
-    return export_directory() / 'Games' / 'Master System'
+    return export_directory() / 'Games' / system.export_folder
 
 
 def data_directory(root: Path | None = None) -> Path:

@@ -32,6 +32,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command, int sh
         args[count++] = "--window";
         args[count++] = "3";
     }
+    if (!headless) _putenv_s("RETRO_RECOMP_LEARNING", "");
     if (!headless) {
         wchar_t executable_path[32768];
         if (GetModuleFileNameW(NULL, executable_path, 32768)) {
@@ -40,11 +41,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command, int sh
         }
     }
     if (!log_requested) {
-        wchar_t directory[RETRO_PATH_CAP], log_path[RETRO_PATH_CAP], slug[128];
-        if (retro_game_directory(directory) && MultiByteToWideChar(CP_UTF8, 0, sms_game_slug, -1, slug, 128)) {
-            swprintf(log_path, RETRO_PATH_CAP, L"%s\\%s-last-run.log", directory, slug);
-            if (!_wfreopen(log_path, L"w", stderr)) OutputDebugStringW(L"Retro-Recomp: journal indisponible\n");
-        }
+        /* Normal gameplay has no persistent diagnostic log. --log is reserved
+         * for explicitly requested diagnostics and converter checks. */
+        _wfreopen(L"NUL", L"w", stderr);
     }
     fprintf(stderr, "[Retro-Recomp] %s | ROM CRC32 %08X | embedded ROM\n",
             sms_game_title, sms_rom_crc32);

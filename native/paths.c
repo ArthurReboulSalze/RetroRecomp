@@ -26,7 +26,7 @@ int retro_executable_directory(wchar_t *out) {
 int retro_data_directory(wchar_t *out) {
     if (!retro_executable_directory(out)) return 0;
     wcscat(out, L"\\datas");
-    return retro_make_directories(out);
+    return 1; /* Resolve only. Reading a setting/state must not create folders. */
 }
 
 int retro_game_directory(wchar_t *out) {
@@ -35,7 +35,7 @@ int retro_game_directory(wchar_t *out) {
     if (!MultiByteToWideChar(CP_UTF8, 0, sms_game_slug, -1, slug, 128) ||
         !MultiByteToWideChar(CP_UTF8, 0, sms_rom_sha256, -1, sha, 65)) return 0;
     swprintf(out, RETRO_PATH_CAP, L"%s\\games\\%s-%.12s", root, slug, sha);
-    return retro_make_directories(out);
+    return 1;
 }
 
 static int game_file_path(wchar_t *out, const wchar_t *suffix) {
@@ -47,10 +47,21 @@ static int game_file_path(wchar_t *out, const wchar_t *suffix) {
 
 FILE *retro_game_file(const wchar_t *suffix, const wchar_t *mode) {
     wchar_t path[RETRO_PATH_CAP];
-    return game_file_path(path, suffix) ? _wfopen(path, mode) : NULL;
+    if (!game_file_path(path, suffix)) return NULL;
+    if (mode[0] == L'w' || mode[0] == L'a') {
+        wchar_t directory[RETRO_PATH_CAP];
+        if (!retro_game_directory(directory) || !retro_make_directories(directory)) return NULL;
+    }
+    return _wfopen(path, mode);
 }
 
 void retro_game_file_reset(const wchar_t *suffix) {
     wchar_t path[RETRO_PATH_CAP];
     if (game_file_path(path, suffix)) _wremove(path);
+}
+
+int retro_game_file_replace(const wchar_t *temporary, const wchar_t *destination) {
+    wchar_t from[RETRO_PATH_CAP], to[RETRO_PATH_CAP];
+    return game_file_path(from, temporary) && game_file_path(to, destination) &&
+        MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
 }

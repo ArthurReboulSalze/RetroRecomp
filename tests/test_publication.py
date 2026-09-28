@@ -16,6 +16,8 @@ class PublicationTests(unittest.TestCase):
 
     def test_only_approved_branding_is_allowed(self):
         check_public_file("MEDIAS/RetroRecomp_ban.png", b"synthetic banner")
+        check_public_file("MEDIAS/TAG_SHOOTING.png", b"synthetic tag")
+        check_public_file("assets/tag-shooting.png", b"synthetic tag")
         with self.assertRaises(ValueError):
             check_public_file("assets/Retro-Recomp-logo.png", b"stale image")
 
