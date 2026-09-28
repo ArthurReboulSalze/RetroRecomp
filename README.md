@@ -45,6 +45,11 @@ More work happens before launch, so playing stays simple and responsive.</p>
 </p>
 <p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games.</em></p>
 
+<p align="center">
+  <img src="MEDIAS/RC_Windows_Screen.png" alt="Windows Explorer displaying generated Master System game executables with box-art icons and shooting badges" width="1100">
+</p>
+<p align="center"><em>Your generated games remain easy to recognize in Windows Explorer.</em></p>
+
 ## How it works
 
 RetroRecomp converts the Z80 program inside a Sega Master System ROM into C,
@@ -95,11 +100,6 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 | Game icons | Optional local/online box art and automatic shooting badges |
 | Files | Shared `datas` folder; game-specific data isolated by identity |
 | Regeneration | Same game filename; replacement deferred if the executable is running |
-
-<p align="center">
-  <img src="MEDIAS/RC_Windows_Screen.png" alt="Windows Explorer displaying generated Master System game executables with box-art icons and shooting badges" width="1100">
-</p>
-<p align="center"><em>Your generated games remain easy to recognize in Windows Explorer.</em></p>
 
 Version 0.10.17 adds scanline-aware video, PAL/NTSC timing choices, strict
 CPU/VDP comparisons and persistent quick states. Its Light Phaser mode uses
