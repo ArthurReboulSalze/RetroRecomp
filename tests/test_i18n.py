@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from smsrecomp.i18n import tr, extended_default, log_text
 from smsrecomp.paths import save_game_language
-from smsrecomp.paths import games_directory, ROOT, save_preferences, export_directory, workspace_directory, data_directory
+from smsrecomp.paths import games_directory, games_root, preferred_games_root, ROOT, save_preferences, export_directory, workspace_directory, data_directory
 import json
 from unittest.mock import patch
 
@@ -14,6 +14,7 @@ class LanguageTests(unittest.TestCase):
         with patch('smsrecomp.paths.sys.frozen', True, create=True), \
                 patch('smsrecomp.paths.sys.executable', str(ROOT / 'Export/Retro-Recomp.exe')):
             self.assertEqual(games_directory(), ROOT / 'Export/Games/Master System')
+            self.assertEqual(games_root(), ROOT / 'Export/Games')
             self.assertEqual(games_directory('.'), ROOT / 'Export')
             self.assertEqual(games_directory('Jeux'), ROOT / 'Export/Jeux')
         self.assertEqual(games_directory(), ROOT / 'Export/Games/Master System')
@@ -39,7 +40,17 @@ class LanguageTests(unittest.TestCase):
                     patch('smsrecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
                 self.assertEqual(workspace_directory(), application)
                 self.assertEqual(games_directory(), application / 'Games/Master System')
+                self.assertEqual(games_root(), application / 'Games')
                 self.assertEqual(data_directory(), application / 'datas')
+
+    def test_output_preference_migrates_old_default_and_preserves_custom_root(self):
+        self.assertEqual(preferred_games_root({}), (games_root(), False))
+        self.assertEqual(preferred_games_root({'output': 'Games/Master System'}),
+                         (games_root(), False))
+        custom = export_directory() / 'My games'
+        self.assertEqual(preferred_games_root({'output': 'My games'}), (custom, True))
+        self.assertEqual(preferred_games_root({'output': 'My games', 'custom_output': False}),
+                         (games_root(), False))
 
     def test_saving_preferences_keeps_local_output_relative(self):
         with tempfile.TemporaryDirectory() as folder:

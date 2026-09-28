@@ -24,10 +24,13 @@ import urllib.request
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 from .paths import ASSETS
 
-REPOSITORY = "libretro-thumbnails/Sega_-_Master_System_-_Mark_III"
-RAW_BASE = f"https://raw.githubusercontent.com/{REPOSITORY}/master/Named_Boxarts/"
-CATALOG_URL = f"https://api.github.com/repos/{REPOSITORY}/contents/Named_Boxarts"
-SOURCE_PAGE = f"https://github.com/{REPOSITORY}"
+REPOSITORIES = {
+    'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
+    'gg': 'libretro-thumbnails/Sega_-_Game_Gear',
+    'gb': 'libretro-thumbnails/Nintendo_-_Game_Boy',
+    'nes': 'libretro-thumbnails/Nintendo_-_Nintendo_Entertainment_System',
+}
+REPOSITORY = REPOSITORIES['sms']  # Keep the existing SMS artwork source stable.
 FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 # Stable tag IDs are separate from artwork filenames and peripheral detection.
@@ -77,6 +80,15 @@ def choose_cover(names: list[str], rom_name: str, title: str) -> str | None:
         winners = [n for n, score in scores.items() if score == best]
         if best and len(winners) == 1:
             return winners[0]
+        if best and len(winners) > 1:
+            # No-Intro thumbnails may duplicate one regional cover with an
+            # extra language suffix. Prefer the least qualified edition only
+            # when that rule selects one candidate unambiguously.
+            groups = {n: len(re.findall(r"\([^)]*\)|\[[^]]*\]", Path(n).stem)) for n in winners}
+            least = min(groups.values())
+            shorter = [n for n in winners if groups[n] == least]
+            if len(shorter) == 1:
+                return shorter[0]
         raise ArtworkError("Plusieurs éditions de la cover correspondent ; choisis une image explicitement.")
     return None
 
@@ -146,19 +158,21 @@ def _get(url: str, maximum: int) -> bytes:
     return data
 
 
-def _catalog(directory: Path) -> list[str]:
+def _catalog(directory: Path, system_id: str = 'sms') -> list[str]:
+    repository = REPOSITORIES[system_id]
+    catalog_url = f"https://api.github.com/repos/{repository}/contents/Named_Boxarts"
     cache = directory / "Downloaded/libretro-catalog.json"
     try:
         record = json.loads(cache.read_text(encoding="utf-8"))
-        if record.get("repository") == REPOSITORY and time.time() - record["downloaded_at"] < 7 * 86400:
+        if record.get("repository") == repository and time.time() - record["downloaded_at"] < 7 * 86400:
             return _catalog_names(record["names"])
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         pass
-    rows = json.loads(_get(CATALOG_URL, 2 * 1024 * 1024))
+    rows = json.loads(_get(catalog_url, 2 * 1024 * 1024))
     if not isinstance(rows, list):
         raise ArtworkError("Catalogue Libretro indisponible.")
     names = _catalog_names([r.get("name", "") for r in rows if isinstance(r, dict) and r.get("type") == "file"])
-    _atomic(cache, json.dumps({"repository": REPOSITORY, "downloaded_at": time.time(), "names": names}).encode())
+    _atomic(cache, json.dumps({"repository": repository, "downloaded_at": time.time(), "names": names}).encode())
     return names
 
 
@@ -169,10 +183,12 @@ def _catalog_names(names) -> list[str]:
         and not any(c in n for c in ('/', '\\', '\x00')) and len(n) < 240]
 
 
-def _download(rom_name: str, title: str, directory: Path, emit) -> tuple[Path, str]:
+def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms') -> tuple[Path, str]:
+    repository = REPOSITORIES[system_id]
+    raw_base = f"https://raw.githubusercontent.com/{repository}/master/Named_Boxarts/"
     # Libretro replaces filename-restricted characters (including &) with _.
     filename = re.sub(r'[&*/:`<>?\\|"\x00-\x1f]', "_", rom_name) + ".png"
-    url = RAW_BASE + urllib.parse.quote(filename, safe="")
+    url = raw_base + urllib.parse.quote(filename, safe="")
     emit("Cover locale absente : recherche sur Libretro…")
     try:
         data = _get(url, MAX_IMAGE_BYTES)
@@ -180,11 +196,11 @@ def _download(rom_name: str, title: str, directory: Path, emit) -> tuple[Path, s
         if exc.code != 404:
             raise
         exc.close()
-        match = choose_cover(_catalog(directory), rom_name, title)
+        match = choose_cover(_catalog(directory, system_id), rom_name, title)
         if not match:
             raise ArtworkError("Aucune cover Libretro trouvée pour ce titre.")
         filename = match
-        url = RAW_BASE + urllib.parse.quote(filename, safe="")
+        url = raw_base + urllib.parse.quote(filename, safe="")
         data = _get(url, MAX_IMAGE_BYTES)
     image = _image(data)
     # Store validated PNG content, regardless of the server's content-type.
@@ -192,13 +208,14 @@ def _download(rom_name: str, title: str, directory: Path, emit) -> tuple[Path, s
     path = directory / "Downloaded" / filename
     _atomic(path, buffer.getvalue())
     _atomic(path.with_suffix(".png.json"), json.dumps({"provider": "libretro", "url": url,
-        "source_page": SOURCE_PAGE, "sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
+        "source_page": f"https://github.com/{repository}", "sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
         "downloaded_utc": datetime.now(timezone.utc).isoformat()}, indent=2).encode())
     return path, url
 
 
 def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path | None = None,
-                  online: bool = True, cache_directory: Path | None = None, emit=print) -> dict:
+                  online: bool = True, cache_directory: Path | None = None,
+                  system_id: str = 'sms', emit=print) -> dict:
     if explicit is not None:
         path = explicit.resolve()
         data = _read_image(path)  # Explicit selection errors must be actionable.
@@ -227,11 +244,12 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             return {"path": path, "source": "libretro_cache" if downloaded else "local", "url": url, "data": data}
     if cache_directory is not None and cache_directory.resolve() != directory.resolve():
         try:
-            return resolve_cover(rom_path, title, cache_directory, online=False, emit=emit)
+            return resolve_cover(rom_path, title, cache_directory, online=False,
+                                 system_id=system_id, emit=emit)
         except ArtworkError:
             pass
     if online:
-        path, url = _download(rom_path.stem, title, cache_directory or directory, emit)
+        path, url = _download(rom_path.stem, title, cache_directory or directory, emit, system_id)
         return {"path": path, "source": "libretro", "url": url, "data": _read_image(path)}
     raise ArtworkError("Aucune cover locale correspondante ; téléchargement désactivé.")
 
@@ -264,7 +282,8 @@ def tagged_icon_image(square: Image.Image, size: int, tags: list[Image.Image]) -
 
 def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, explicit: Path | None = None,
                  online: bool = True, enabled: bool = True, cache_directory: Path | None = None,
-                 tags: tuple[str, ...] = (), tag_directory: Path | None = None, emit=print) -> dict:
+                 tags: tuple[str, ...] = (), tag_directory: Path | None = None,
+                 system_id: str = 'sms', emit=print) -> dict:
     resource, icon = game / "game_resources.rc", game / "game.ico"
     # Always replace the generated resource description, including when a
     # formerly covered game is reconverted with --no-cover or without its art.
@@ -274,7 +293,8 @@ def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, exp
     if not enabled:
         return report
     try:
-        cover = resolve_cover(rom_path, title, directory, explicit=explicit, online=online, cache_directory=cache_directory, emit=emit)
+        cover = resolve_cover(rom_path, title, directory, explicit=explicit, online=online,
+                              cache_directory=cache_directory, system_id=system_id, emit=emit)
         image = _image(cover["data"])
         original_size = list(image.size)
         # Trim only empty alpha margins, retaining the entire box and its ratio.

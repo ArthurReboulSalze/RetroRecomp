@@ -1,7 +1,7 @@
-# Master System roadmap
+# RetroRecomp roadmap
 
-RetroRecomp 0.10.17 converts supported Master System ROMs into Windows x64
-executables. The priorities below describe areas to improve, not compatibility
+RetroRecomp 0.13.0 converts supported Master System, Game Gear and original
+Game Boy ROMs, and has an experimental NES profile. The priorities below describe areas to improve, not compatibility
 or delivery promises.
 
 | Priority | Work needed |

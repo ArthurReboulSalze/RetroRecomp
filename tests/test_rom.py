@@ -52,14 +52,12 @@ class RomTests(unittest.TestCase):
                 self.assertEqual(rom.region, 4)
                 self.assertEqual(video_standard(rom), expected)
 
-    def test_master_system_is_registered_without_claiming_other_consoles(self):
+    def test_master_system_stays_separate_from_nes_profile(self):
         self.assertIs(get_profile('sms'), MASTER_SYSTEM)
         self.assertIs(profile_for_path(self.path), MASTER_SYSTEM)
         self.assertEqual(MASTER_SYSTEM.video_modes, ('ntsc', 'pal'))
-        with self.assertRaises(ValueError):
-            profile_for_path(self.path.with_suffix('.nes'))
-        with self.assertRaises(ValueError):
-            get_profile('nes')
+        self.assertIs(profile_for_path(self.path.with_suffix('.nes')), get_profile('nes'))
+        self.assertIsNot(get_profile('nes'), MASTER_SYSTEM)
 
     def test_video_choice_is_written_once_and_preserves_other_profile_sections(self):
         profile = '[game]\nplatform = "sms"\n\n[video]\nstandard = "ntsc"\n\n[mapper]\nkind = "sega"\n'

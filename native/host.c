@@ -52,7 +52,12 @@ static void notice(const char *s) {
 }
 
 static int controller_player(SDL_JoystickID instance) {
-    for (int p = 0; p < CONTROL_PLAYERS; ++p)
+#ifdef RETRO_GAME_GEAR
+    const int active_players = 1;
+#else
+    const int active_players = CONTROL_PLAYERS;
+#endif
+    for (int p = 0; p < active_players; ++p)
         if (controllers[p] && instance == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controllers[p]))) return p;
     return -1;
 }
@@ -61,14 +66,20 @@ static void open_controllers(void) {
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (!SDL_IsGameController(i) || controller_player(SDL_JoystickGetDeviceInstanceID(i)) >= 0) continue;
         int p = controller_order_player;
+#ifndef RETRO_GAME_GEAR
         if (controllers[p]) p ^= 1;
+#endif
         if (controllers[p]) return;
         controllers[p] = SDL_GameControllerOpen(i);
         if (controllers[p]) {
             SDL_GameControllerSetPlayerIndex(controllers[p], p);
             const char *menu_button = SDL_GameControllerGetStringForButton(controls.buttons[p][CONTROL_PAUSE]);
             const char *reset_button = SDL_GameControllerGetStringForButton(controls.buttons[p][CONTROL_RESET]);
+#ifdef RETRO_GAME_GEAR
+            fprintf(stderr, "[host] player %d controller: %s; menu=%s, cartridge_start=%s\n",
+#else
             fprintf(stderr, "[host] player %d controller: %s; menu=%s, reset=%s\n",
+#endif
                 p + 1, SDL_GameControllerName(controllers[p]),
                 menu_button ? menu_button : "unassigned",
                 p == 0 ? (reset_button ? reset_button : "unassigned") : "disabled");
@@ -77,6 +88,9 @@ static void open_controllers(void) {
 }
 
 static void apply_controller_order(void) {
+#ifdef RETRO_GAME_GEAR
+    return;
+#else
     if (controller_order_player == controls.first_controller_player) return;
     SDL_GameController *old = controllers[0]; controllers[0] = controllers[1]; controllers[1] = old;
     bool held = back_latched[0]; back_latched[0] = back_latched[1]; back_latched[1] = held;
@@ -84,6 +98,7 @@ static void apply_controller_order(void) {
     controls_reset_autofire();
     controller_order_player = controls.first_controller_player;
     for (int p = 0; p < CONTROL_PLAYERS; ++p) if (controllers[p]) SDL_GameControllerSetPlayerIndex(controllers[p], p);
+#endif
 }
 
 bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
@@ -386,8 +401,10 @@ static bool handle_event(const SDL_Event *e) {
             int x = (e->button.x * out_w / win_w - ox) / unit;
             int y = (e->button.y * out_h / win_h - oy) / unit;
             if (x >= 12 && x < 244 && y >= 30 && y < 42) {
+#ifndef RETRO_GAME_GEAR
                 selected_player ^= 1; menu_status[0] = 0;
                 selected_row = SDL_min(selected_row, controls_action_count(selected_player) - 1);
+#endif
             } else if (x >= 12 && x < 244 && y >= 58 && y < 58 + 12 * controls_action_count(selected_player)) {
                 selected_row = (y-58)/12; capturing = true;
             }
@@ -479,15 +496,19 @@ static bool handle_event(const SDL_Event *e) {
     if (menu != 2) return true;
     if (!capturing && (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT ||
         button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER || button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+#ifndef RETRO_GAME_GEAR
         selected_player ^= 1; selected_row = SDL_min(selected_row, controls_action_count(selected_player) - 1);
+#endif
         menu_status[0] = 0; return true;
     }
+#ifndef RETRO_GAME_GEAR
     if (!capturing && bind_gamepad && key == SDL_SCANCODE_C) {
         if (controls_controller_order(controller_order_player ^ 1)) {
             apply_controller_order(); snprintf(menu_status, sizeof(menu_status), "%s", controls_text("P1/P2 controllers swapped", "Manettes J1/J2 inversees"));
         } else snprintf(menu_status, sizeof(menu_status), "%s", controls_text("Config unavailable", "Config inaccessible"));
         return true;
     }
+#endif
     if (gamepad && event_player != selected_player) return true;
     if (capturing) {
         if ((bind_gamepad && !gamepad) || (!bind_gamepad && !keyboard)) return true;
@@ -511,15 +532,29 @@ static bool handle_event(const SDL_Event *e) {
 }
 
 uint8_t host_get_pad1(void) { return pads[0]; }
-uint8_t host_get_pad2(void) { return pads[1]; }
+uint8_t host_get_pad2(void) {
+#ifdef RETRO_GAME_GEAR
+    return 0;
+#else
+    return pads[1];
+#endif
+}
 
 static void sample_controls(void) {
     bool focused = SDL_GetKeyboardFocus() == window;
-    for (int p = 0; p < CONTROL_PLAYERS; ++p) {
+#ifdef RETRO_GAME_GEAR
+    const int active_players = 1;
+#else
+    const int active_players = CONTROL_PLAYERS;
+#endif
+    for (int p = 0; p < active_players; ++p) {
         SDL_GameController *controller = controllers[p];
         if (controller && !SDL_GameControllerGetAttached(controller)) controller = NULL;
         pads[p] = controls_read(p, controller, focused);
     }
+#ifdef RETRO_GAME_GEAR
+    pads[1] = 0;
+#endif
     sample_phaser(focused);
     input_sample_counter = SDL_GetPerformanceCounter();
 }

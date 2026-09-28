@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <windows.h>
 #define RR_STATE_SCHEMA 1u
-#define RR_STATE_MACHINE (SMS_LINES_PER_FRAME == 313 ? 2u : 1u)
+#define RR_STATE_MACHINE (g_is_gg ? 3u : (SMS_LINES_PER_FRAME == 313 ? 2u : 1u))
 #define RR_STATE_HEADER 88u
 #define RR_STATE_CAPACITY (1024u * 1024u)
 

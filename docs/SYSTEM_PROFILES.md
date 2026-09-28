@@ -1,16 +1,37 @@
 # Console profiles and video standards
 
-RetroRecomp currently converts **Master System** cartridges only. Its profile
-is implemented in `smsrecomp/systems/master_system.py` and registered through
+RetroRecomp has **Master System**, **Game Gear**, **Game Boy** and experimental
+**Nintendo NES** profiles, registered through
 `smsrecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM
 reader, converter, export category and supported video modes. Unknown formats
-are rejected; they are never passed through the Master System backend.
+are rejected; ZIP inputs must contain exactly one `.sms`, `.gg`, `.gb`, `.nes`, `.bin`
+or `.rom` cartridge.
+
+The batch queue scans mixed folders recursively and routes recognized games to
+the correct console folder below `Games`, even when a custom output root is
+chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,
+without preventing other games in the batch from converting. Automatic mode
+uses the known extension or a recognizable header for `.bin`/`.rom` dumps;
+manual mode can resolve headerless `.bin`/`.rom` files. A selected console does
+not override a conflicting named `.sms`, `.gg` or `.gb` cartridge. These checks
+identify a plausible console, not hardware fidelity or successful gameplay.
 
 The Master System profile uses `sms` as its stable system ID, `.sms` inputs,
 `Export/Games/Master System` output and an existing converter library below
-`Export/datas/library`. Future profiles will receive their own output category
-and library namespace. They must implement their own ROM parser, CPU/hardware
-runtime, timing choices, validation and save-state model before registration.
+`Export/datas/library`. The Game Gear profile uses `gg`, `.gg` input,
+`Export/Games/Game Gear` output and an isolated library namespace. It uses
+Game Gear's 12-bit CRAM and Start/stereo ports, a one-player runtime, a
+160 × 144 LCD output and a separate save-state machine ID. The wider internal
+VDP raster is never exposed in this version; see [Game Gear](GAME_GEAR.md).
+The original Game Boy profile uses `gb`, `.gb` input,
+`Export/Games/Game Boy` output, a separate SM83 compiler, a DMG 160 × 144
+runtime and ROM-specific trace memory. Game Boy Color-only ROMs are rejected;
+see [Game Boy](GAME_BOY.md).
+The NES profile uses `nes`, `.nes` input, `Export/Games/Nintendo NES` output,
+a separate 6502 compiler, its own verified ROM entry library and an NTSC-only
+runtime. NES 2.0 PAL/Dendy timing is identified but rejected for now; see
+[NES](NES.md). Game Boy's DMG profile has no PAL/NTSC selection.
+Future profiles require their own hardware/timing and validation decisions.
 There is no shared assumption that every console has exactly PAL and NTSC modes.
 
 ## Cartridge region versus console timing
@@ -35,12 +56,15 @@ proposal. An explicit choice is applied to that ROM only. A supplied
 standard = "pal"
 ```
 
-The CLI accepts `--video-standard auto|pal|ntsc` for one conversion or a whole
+The CLI accepts `--video-standard auto|pal|ntsc|dmg` for one conversion or a whole
 batch. An explicit CLI choice overrides a saved or supplied profile. The
-converter log and private conversion report record the effective timing and
-its selection source. New game EXEs include the selected standard in Windows
-version information. A regenerated game keeps the same ROM identity and
-readable filename; PAL and NTSC states have distinct machine identifiers.
+`dmg` choice applies only to Game Boy; Game Gear accepts only NTSC, and the
+PAL/NTSC choices apply only to Master System. Master System records the
+effective timing and its selection source in its compilation library. Game
+Gear and Game Boy use their fixed console modes. New game EXEs include the
+console and mode in Windows version information. A regenerated game keeps
+the same ROM identity and readable filename; PAL and NTSC Master System
+states have distinct machine identifiers.
 
 Validation remains separate: native coverage and reference-CPU agreement do
 not prove the chosen console timing matches original hardware, whole-game

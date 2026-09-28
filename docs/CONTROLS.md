@@ -1,5 +1,10 @@
 # Controls
 
+The shortcut table below applies to Master System, Game Gear and Game Boy.
+Console-specific F5 functions and cartridge buttons are described below.
+The experimental NES profile shares the menu canvas and most shortcuts;
+F8/F9 quick states are unavailable there. See [NES controls](NES.md).
+
 | Key | Action |
 | --- | --- |
 | F1 | Restart |
@@ -12,14 +17,38 @@
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | H | Help |
-| P / Enter / keypad Enter | Pause/resume |
+| P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
 | Esc | Close a menu or quit |
 
-In F2, Enter selects a binding instead of pausing. Left/Right chooses the
-player, Tab switches keyboard/gamepad, Up/Down selects a row, and Enter begins
+In F2, Enter selects a binding instead of pausing. On Master System,
+Left/Right chooses the player. Tab switches keyboard/gamepad, Up/Down selects a row, and Enter begins
 capture. Press the desired key or the selected player's controller button.
 Esc cancels capture; D restores that player's defaults for the input type.
-C on the gamepad page swaps controller assignments.
+C on the Master System gamepad page swaps controller assignments.
+
+Game Gear has one player and no gun. Arrows and Z/X control the game; **S** is
+the cartridge Start button. On a gamepad, A/B are the two game buttons,
+Start reaches the cartridge and Back opens the pause/menu. **P** and Enter also
+open that menu, while F1 restarts the game. F2 maps the single player's keys
+and buttons; there is no second-player or Light Phaser page. Game Gear key
+bindings have their own INI sections so they do not overwrite Master System
+controls when games share an executable folder.
+
+Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
+**Enter** is cartridge Start and either **Shift** is cartridge Select.
+These letter bindings follow the active keyboard layout. On a controller, the
+D-pad/left stick moves, the two primary face buttons are A/B, Start and
+Back are cartridge Start/Select, and a left-stick click opens pause. Game Boy
+uses the same RetroRecomp menu layout as the Sega profiles. F3 cycles all four
+filters, including Scale2x and scanlines; F4 keeps the same three display
+modes. F5 selects pseudo black-and-white monochrome (the default) or classic
+green. F6 toggles autofire for held gamepad A/B, F7 changes menu language,
+and F8/F9 use one quick state. P pauses, F2 maps controls, and H opens
+help. Enter selects a binding inside F2. Escape closes a menu or quits.
+Fallback stays visible in the window title and pause menu, with no overlay
+in fullscreen. Game Boy settings use a separate shared INI file.
+
+Master System defaults:
 
 | Player | Directions | Buttons | Menu | Restart |
 | --- | --- | --- | --- | --- |

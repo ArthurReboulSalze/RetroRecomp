@@ -15,16 +15,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
-from .library import GameMemory, read_observations, write_manifest, write_code_patterns
+from .library import GameMemory, library_root, read_observations, write_manifest, write_code_patterns
 from .artwork import ArtworkError, prepare_icon
-from .paths import ROOT, ASSETS, games_directory, data_directory
+from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
 from . import __version__
 from .i18n import log_text
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
-from .systems import MASTER_SYSTEM
+from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
@@ -43,19 +43,27 @@ class Rom:
     copier_header: bool
     header_offset: int | None
     region: int | None
+    system_id: str = "sms"
 
     def metadata(self) -> dict:
         return {"name": self.path.name, "bytes": len(self.data),
                 "crc32": f"{self.crc32:08X}", "sha256": self.sha256,
                 "copier_header_removed": self.copier_header,
-                "header_offset": self.header_offset, "region": self.region}
+                "header_offset": self.header_offset, "region": self.region,
+                "system_id": self.system_id}
 
 
-def read_rom(path: Path) -> Rom:
+def _read_rom(path: Path, system_id: str) -> Rom:
     path = path.resolve()
-    if path.suffix.lower() != ".sms":
-        raise ConversionError("Choisis une ROM Master System au format .sms.")
-    data = path.read_bytes()
+    suffix = ".gg" if system_id == "gg" else ".sms"
+    if path.suffix.lower() not in (suffix, '.zip', '.bin', '.rom'):
+        raise ConversionError(f"Choisis une ROM au format {suffix}.")
+    if path.suffix.lower() == '.zip':
+        archived_suffix, data = archive_rom(path)
+        if archived_suffix not in (suffix, '.bin', '.rom'):
+            raise ConversionError(f"Ce ZIP ne contient pas de ROM {suffix}.")
+    else:
+        data = path.read_bytes()
     copier = len(data) % 16384 == 512
     if copier:
         data = data[512:]
@@ -64,9 +72,19 @@ def read_rom(path: Path) -> Rom:
     header = next((offset for offset in (0x7FF0, 0x3FF0, 0x1FF0)
                    if data[offset:offset + 8] == b"TMR SEGA"), None)
     region = data[header + 15] >> 4 if header is not None else None
-    if region in (5, 6, 7):
+    if system_id == "sms" and region in (5, 6, 7):
         raise ConversionError("Cette ROM est identifiée comme Game Gear ; cette version cible la Master System.")
-    return Rom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), copier, header, region)
+    if system_id == "gg" and region in (3, 4):
+        raise ConversionError("L'en-tête indique une ROM Master System, pas Game Gear.")
+    return Rom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), copier, header, region, system_id)
+
+
+def read_rom(path: Path) -> Rom:
+    return _read_rom(path, "sms")
+
+
+def read_game_gear_rom(path: Path) -> Rom:
+    return _read_rom(path, "gg")
 
 
 def video_standard(rom: Rom) -> str:
@@ -295,7 +313,7 @@ uint64_t smsrecomp_interpreter_cycles(void);\n'''
         out.write(f"const char sms_game_title[] = {json.dumps(title, ensure_ascii=True)};\n")
         out.write(f'const char sms_rom_sha256[] = "{rom.sha256}";\n')
         out.write(f'const char sms_game_slug[] = "{slug(title)}";\n')
-        phaser = light_phaser_game(rom.crc32, rom.path.name)
+        phaser = light_phaser_game(rom.crc32, rom.path.name) if rom.system_id == "sms" else None
         out.write(f'const int sms_light_phaser = {int(phaser is not None)};\n')
         out.write(f'const int sms_light_phaser_hcounter_offset = {phaser.hcounter_offset if phaser else 20};\n')
         out.write(f'const int sms_light_phaser_trigger_p2 = {int(bool(phaser and phaser.trigger_on_p2))};\n')
@@ -567,8 +585,8 @@ static void smsrecomp_state_service(void);
 
 
 def default_config(rom: Rom) -> str:
-    known = ASSETS / "profiles" / f"alex_kidd_{rom.crc32:08x}.toml"
-    if known.exists():
+    known = ASSETS / "profiles" / f"alex_kidd_{rom.crc32:08x}.toml" if rom.system_id == "sms" else Path()
+    if known.is_file():
         import tomllib
         config = known.read_text(encoding="utf-8")
         if tomllib.loads(config).get("game", {}).get("sha256") == rom.sha256:
@@ -576,8 +594,8 @@ def default_config(rom: Rom) -> str:
     return f'''# Experimental discovery profile; compatibility unverified.
 [game]
 output_prefix = "game"
-platform = "sms"
-rom = "rom.sms"
+platform = "{rom.system_id}"
+rom = "rom.{rom.system_id}"
 crc32 = 0x{rom.crc32:08X}
 [mapper]
 kind = "sega"
@@ -690,7 +708,23 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             cover: Path | None = None, boxart_dir: Path | None = None,
             online_cover: bool = True, use_cover: bool = True, icon_tags: bool = True,
             standard_override: str | None = None,
+            publish_result: bool = True,
             emit: Callable[[str], None] = print) -> Path:
+    system = profile_for_path(rom_path)
+    if system.id == "gb":
+        from .gameboy import convert_game_boy
+        return convert_game_boy(rom_path, title=title, output=output, profile=profile,
+            passes=passes, frames=frames, backend=backend, language=language,
+            cover=cover, boxart_dir=boxart_dir, online_cover=online_cover,
+            use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
+            emit=emit)
+    if system.id == "nes":
+        from .nes import convert_nes
+        return convert_nes(rom_path, title=title, output=output, profile=profile,
+            passes=passes, frames=frames, backend=backend, language=language,
+            cover=cover, boxart_dir=boxart_dir, online_cover=online_cover,
+            use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
+            emit=emit)
     if output is None:
         # Single-ROM exports use the same names, reports and replacement policy
         # as the GUI/batch. The batch invokes this compiler with an explicit
@@ -700,7 +734,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if title:
             item.title = title
         item.cover = cover
-        result = convert_batch([item], games_directory(), profile=profile,
+        result = convert_batch([item], games_root(), profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
             standard_override=standard_override,
@@ -715,23 +749,26 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
         raise ConversionError("Choisis 1 à 10 passes et 1 à 10000 images par test.")
     banked = backend == "banked"
-    rom = read_rom(rom_path)
+    rom = system.read_rom(rom_path)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
     name = slug(title)
     destination = output.resolve()
-    game = ROOT / ".build" / (f"{name}_{rom.crc32:08X}_{rom.sha256[:12]}" + ("_banked" if banked else ""))
+    game = ROOT / ".build" / (f"{system.id}_{name}_{rom.crc32:08X}_{rom.sha256[:12]}" + ("_banked" if banked else ""))
     game.mkdir(parents=True, exist_ok=True)
     destination.mkdir(parents=True, exist_ok=True)
     log = game / "build.log"
     emit(f"ROM : {title}, {len(rom.data) // 1024} Ko, CRC32 {rom.crc32:08X}")
     try:
-        artwork = prepare_icon(game, rom.path, title, (boxart_dir or ROOT / "BoxArt").resolve(),
-            explicit=cover, online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt',
-            tags=game_tags(rom.crc32, rom.path.name) if icon_tags else (), emit=emit)
+        default_art = ROOT / 'BoxArt' / ('Game Gear' if system.id == 'gg' else '')
+        cache_art = data_directory() / 'BoxArt' / (system.id if system.id != 'sms' else '')
+        artwork = prepare_icon(game, rom.path, title, (boxart_dir or default_art).resolve(),
+            explicit=cover, online=online_cover, enabled=use_cover, cache_directory=cache_art,
+            tags=game_tags(rom.crc32, rom.path.name) if icon_tags and system.id == "sms" else (),
+            system_id=system.id, emit=emit)
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc
     engine, sdl, cmake, generator = dependencies(emit)
-    memory = GameMemory(rom)
+    memory = GameMemory(rom, library_root(system.id) if system.id != "sms" else None)
     imported = import_previous(rom, destination, memory)
     saved_manifest = ASSETS / "profiles" / f"{rom.crc32:08x}.manifest"
     if saved_manifest.exists():
@@ -739,7 +776,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     memory_before = memory.summary()
     emit(f"Mémoire du jeu : {memory_before['rom_entries']} entrées ROM vérifiées, "
          f"{memory_before['ram_entries']} observations RAM ; {imported} importées des anciennes parties.")
-    (game / "rom.sms").write_bytes(rom.data)
+    rom_filename = f"rom.{system.id}"
+    (game / rom_filename).write_bytes(rom.data)
     saved_recipe = None
     if profile:
         import tomllib
@@ -749,8 +787,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             raise ConversionError("Le profil ne correspond pas au CRC32 de cette ROM.")
         if parsed["game"].get("sha256", rom.sha256) != rom.sha256:
             raise ConversionError("Le profil ne correspond pas au SHA256 de cette ROM.")
-        if parsed["game"].get("output_prefix") != "game" or parsed["game"].get("rom") != "rom.sms":
-            raise ConversionError('Le profil doit utiliser output_prefix="game" et rom="rom.sms".')
+        if (parsed["game"].get("output_prefix") != "game" or parsed["game"].get("rom") != rom_filename or
+                parsed["game"].get("platform") != system.id):
+            raise ConversionError(f'Le profil doit cibler {system.name} et rom="{rom_filename}".')
     else:
         saved_recipe = memory.recipe(ENGINE_REV)
         config = saved_recipe or default_config(rom)
@@ -759,7 +798,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     import tomllib
     parsed = tomllib.loads(config)
     if (parsed.get("game", {}).get("crc32") != rom.crc32 or parsed["game"].get("sha256", rom.sha256) != rom.sha256 or
-        parsed["game"].get("output_prefix") != "game" or parsed["game"].get("rom") != "rom.sms"):
+        parsed["game"].get("output_prefix") != "game" or parsed["game"].get("rom") != rom_filename or
+        parsed["game"].get("platform") != system.id):
         raise ConversionError("Profil mémorisé incompatible avec cette ROM ; choisis un profil explicite.")
     if banked and parsed.get("mapper", {}).get("kind", "sega") != "sega":
         raise ConversionError("La couverture native étendue prend en charge le mapper Sega uniquement.")
@@ -773,23 +813,25 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     elif saved_recipe and standard is not None:
         standard_source = "saved_profile"
     else:
-        remembered_standard = memory.video_standard()
+        remembered_standard = memory.video_standard() if system.id == "sms" else None
         if remembered_standard is not None:
             standard = remembered_standard
             standard_source = "saved_video_selection"
         elif standard is not None:
             standard_source = "bundled_profile"
         else:
-            standard = video_standard(rom)
+            standard = system.default_video_mode(rom.path)
             standard_source = "filename_default"
         config = set_video_standard(config, standard)
-    if standard not in MASTER_SYSTEM.video_modes:
-        raise ConversionError("Le profil vidéo doit préciser ntsc ou pal.")
-    emit(f"Master System video timing: {standard.upper()} ({standard_source}).")
+    if standard not in system.video_modes:
+        raise ConversionError(f"Unsupported {system.name} video timing: {standard}.")
+    emit(f"{system.name} video timing: {standard.upper()} ({standard_source}).")
+    if system.id == "gg":
+        emit("Game Gear display: original LCD 160x144.")
     from .metadata import write_game_metadata
     windows_metadata = write_game_metadata(game, title, executable_name(title),
-        light_phaser=light_phaser_game(rom.crc32, rom.path.name) is not None,
-        icon=artwork['embedded'], standard=standard)
+        light_phaser=system.id == "sms" and light_phaser_game(rom.crc32, rom.path.name) is not None,
+        icon=artwork['embedded'], standard=standard, system_id=system.id)
     (game / "game.toml").write_text(config, encoding="utf-8")
     # Rebuild seeds from byte-verified facts, never from stale .build contents.
     write_manifest(game / "dispatch_manifest.txt", memory.seeds())
@@ -807,7 +849,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             shutil.copy2(source, target)
     build = game / "build-native"
     executable = build / "Release" / f"{name}.exe"
-    scenarios = [("demo", []), ("play", ["120:B", "125:", "240:R", "360:RA", "390:R", "600:"])]
+    scenarios = [("demo", []), ("play", ["60:S", "65:", "120:B", "125:", "240:R", "360:RA", "390:R", "600:"])
+                 if system.id == "gg" else
+                 ("play", ["120:B", "125:", "240:R", "360:RA", "390:R", "600:"])]
     history = []
     compilation_started = time.perf_counter()
     coverage = None
@@ -836,7 +880,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         run([cmake, "-S", native_source, "-B", build, "-G", generator, "-A", "x64",
             f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
             f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
-            f"-DGAME_NAME={name}", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
+            f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
+            f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
         run([cmake, "--build", build, "--config", "Release", "--parallel", "4"], log=log)
         added = 0
         patterns_added = 0
@@ -947,22 +992,26 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "log": None, "diagnostics": "explicit --log only", "lazy_creation": True,
             "quicksave": f"datas/games/{name}-{rom.sha256[:12]}/{name}-quicksave.state" if banked else None,
             "library_identity": rom.sha256, "runtime_learning": False},
-        "backend": backend, "native_coverage": coverage, "native_validation": validation, "input_players": 2,
+        "backend": backend, "native_coverage": coverage, "native_validation": validation,
+        "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
-            "schema": 1, "machine": 2 if standard == "pal" else 1, "rom_identity": "sha256", "legacy_and_reference_supported": False},
-        "system": {"id": MASTER_SYSTEM.id, "name": MASTER_SYSTEM.name},
-        "video_model": {"name": f"mode4-{standard}-scanline-v2", "standard": standard,
+            "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,
+            "rom_identity": "sha256", "legacy_and_reference_supported": False},
+        "system": {"id": system.id, "name": system.name},
+        "video_model": {"name": f"mode4-{system.id}-{standard}-scanline-v2", "standard": standard,
             "selection_source": standard_source,
             "lines_per_frame": 313 if standard == "pal" else 262,
+            "visible_pixels": [256, 192] if system.id == "sms" else [160, 144],
             "palette_and_vram": "per_scanline",
             "horizontal_scroll": "line_latch", "vertical_scroll": "frame_latch",
             "sprite_limit": 8, "pixel_clock_accuracy_validated": False},
         "ui_languages": ["en", "fr"], "default_language": "en",
         "artwork": artwork,
         "windows_metadata": windows_metadata,
-        "game_tags": list(game_tags(rom.crc32, rom.path.name)),
-        "peripheral": {"type": "light_phaser" if light_phaser_game(rom.crc32, rom.path.name) else "joypad",
-            "selection": "explicit_game_catalogue", "mouse_player": 1, "hardware_accuracy_validated": False},
+        "game_tags": list(game_tags(rom.crc32, rom.path.name)) if system.id == "sms" else [],
+        "peripheral": {"type": "light_phaser" if system.id == "sms" and light_phaser_game(rom.crc32, rom.path.name) else "joypad",
+            "selection": "explicit_game_catalogue" if system.id == "sms" else "console_profile",
+            "mouse_player": 1 if system.id == "sms" else None, "hardware_accuracy_validated": False},
         "conversion_wall_seconds": round(time.perf_counter() - compilation_started, 6),
         "executable_bytes": executable.stat().st_size,
         "build_executable": str(executable),
@@ -1015,7 +1064,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     write_manifest(export, memory.seeds())
     if banked:
         write_code_patterns(destination / "native.patterns", memory.code_patterns())
-    pending = publish_executable(executable, final_executable)
+    if not publish_result:
+        return executable
+    pending = publish_executable(executable, final_executable, compact=True)
     if pending:
         emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {final_executable}")
     else:

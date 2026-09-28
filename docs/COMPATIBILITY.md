@@ -2,15 +2,40 @@
 
 ## Current scope
 
-RetroRecomp 0.10.17 builds Windows x64 games from Master System ROMs using the
-Sega mapper. Extended native coverage, selectable PAL/NTSC console timing,
-quick states and catalogue-selected Light Phaser input are available within
-that scope. Game Gear ROMs are rejected. Codemasters mapper, cartridge saves,
+RetroRecomp 0.13.0 builds Windows x64 games from Master System, Game Gear,
+original Game Boy and experimental Nintendo NES ROMs. The two Sega profiles use the Sega mapper and offer
+extended native coverage and quick states. Selectable PAL/NTSC timing, two players and
+catalogue-selected Light Phaser input apply to Master System. Game Gear uses
+one controller, Start input, NTSC timing and the 160 × 144 LCD view.
+The native LCD window is always used; games are not patched.
+See [Game Gear](GAME_GEAR.md). For the Sega profiles, Codemasters mapper, cartridge saves,
 FM sound, hardware Pause/NMI and complete pixel-clock raster effects are not
 validated or supported. PAL and NTSC timing support is not a claim of exact
 hardware fidelity; see [video evidence](VIDEO.md).
 
-Keyboard/gamepad pause suspends execution and audio in the host. It is not
+The Game Boy profile uses a separate pinned SM83 compiler and runtime. It
+supports `.gb` and single-ROM ZIP input, but rejects Game Boy Color-only
+cartridges. Local Tetris, MBC1 Super Mario Land and MBC2
+Lazlos' Leap 120-frame boot scenarios reached zero reported fallback cycles
+in their final exports; each matched a 30-frame generated/reference CPU comparison. Super
+Mario Land first showed 76 fallback cycles, then a ROM-specific entry trace
+eliminated them in the repeat boot test. An isolated Lazlos' Leap launch
+created no folder despite its battery RAM remaining unchanged. No full-game, cartridge-peripheral,
+independent hardware, or physical latency validation follows from these checks.
+Later Super Mario Land checks cover boot and two scripted 3600-frame input
+paths. Extra short-branch discovery removes a missing bank-3 JP relay, reducing
+the two input runs from 44,272 / 60,656 fallback cycles to zero while preserving
+their final guest-state dumps. These remain specific tested paths.
+See [Game Boy](GAME_BOY.md).
+
+The experimental Nintendo NES profile uses a separate 6502 cycle backend and
+accepts headered `.nes` cartridges. Conversion tests count native and fallback
+CPU cycles, then compare short frame hashes with the engine's internal
+interpreter. Only NTSC timing is supported at present; NES 2.0 PAL/Dendy
+cartridges are rejected. Mapper support and complete gameplay vary by title.
+See [NES](NES.md).
+
+On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.
 
 ## Local game regression set
@@ -49,13 +74,13 @@ See [video evidence](VIDEO.md) and [console profiles](SYSTEM_PROFILES.md).
 
 | Area | What the evidence establishes |
 | --- | --- |
-| Native coverage | Execution on a specified path, not a whole-game compatibility score. |
+| Native coverage | Execution on a specified path, not a whole-game compatibility score. Game Boy reports fallback cycles but no percentage denominator. |
 | CPU fidelity | 51,328 cases from 1,604 independent Z80 vector families passed for the 0.10.0 CPU work. The pinned corpus is not a console capture. |
 | Hardware fidelity | Native/reference paths share hardware code; agreement does not independently verify the console. |
 | Gameplay | Full playthroughs and physical two-player sessions remain unvalidated. |
 | Physical latency | Device, OS, display and game response have not been measured. |
 
-The current version passes 66 Python tests. Earlier input/presentation work
+The current version passes 72 Python tests. Earlier input/presentation work
 also passed SDL host checks with two virtual controllers and 4,096 simultaneous
 input states. Actual
 game CPU/RAM/VDP/PCM states are compared across pause/restart. These checks

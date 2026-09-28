@@ -3,16 +3,24 @@ from pathlib import Path
 from . import __version__
 
 
-def game_metadata(title: str, light_phaser: bool, standard: str | None = None) -> dict[str, str]:
+def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
+                  system_id: str = 'sms') -> dict[str, str]:
+    if system_id not in ('sms', 'gg', 'gb', 'nes'):
+        raise ValueError('Unsupported console')
+    if system_id != 'sms' and light_phaser:
+        raise ValueError('This console has no Light Phaser')
     controls = 'Mouse (Light Phaser); keyboard/gamepad controls' if light_phaser else 'Keyboard or gamepad'
-    if standard is not None and standard not in ('pal', 'ntsc'):
-        raise ValueError('Unsupported Master System video standard')
-    console = 'Master System' + (f' {standard.upper()}' if standard else '')
+    modes = {'sms': ('pal', 'ntsc'), 'gg': ('ntsc',), 'gb': ('dmg',), 'nes': ('ntsc',)}
+    if standard is not None and standard not in modes[system_id]:
+        raise ValueError('Unsupported console video standard')
+    console_name = {'sms': 'Master System', 'gg': 'Game Gear', 'gb': 'Game Boy',
+                    'nes': 'Nintendo NES'}[system_id]
+    console = console_name + (f' {standard.upper()}' if standard and system_id == 'sms' else '')
     values = {'CompanyName': 'RetroRecomp', 'ProductName': title,
         'FileDescription': f'{title} | {console} | {controls}',
         'FileVersion': __version__, 'ProductVersion': f'RetroRecomp {__version__}',
         'Comments': f'Console: {console}. Controls: {controls}. Generated with RetroRecomp {__version__}.',
-        'Console': 'Master System', 'Controls': controls, 'RetroRecompVersion': __version__}
+        'Console': console_name, 'Controls': controls, 'RetroRecompVersion': __version__}
     if standard:
         values['VideoStandard'] = standard.upper()
     return values
@@ -27,8 +35,9 @@ def _rc_string(value: str) -> str:
 
 
 def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: bool,
-                        icon: bool, standard: str | None = None) -> dict[str, str]:
-    metadata = game_metadata(title, light_phaser, standard)
+                        icon: bool, standard: str | None = None,
+                        system_id: str = 'sms') -> dict[str, str]:
+    metadata = game_metadata(title, light_phaser, standard, system_id)
     metadata.update(InternalName=Path(filename).stem, OriginalFilename=filename)
     version = [int(p) for p in __version__.split('.')]
     version += [0] * (4 - len(version))

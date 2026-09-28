@@ -14,6 +14,41 @@ their own parser, runtime and timing vocabulary. A video mode belongs to its
 console profile, never to a global PAL/NTSC switch. See
 [console profiles](SYSTEM_PROFILES.md).
 
+Game Gear shares the Sega Z80 toolchain with its own VDP/control profile.
+Original Game Boy uses a separate pinned SM83 recompiler and runtime; its
+converter-only ROM entry traces live under a `gb` library namespace. Its
+fallback report has instruction/cycle counts but no comparable cycle
+percentage, and its CPU differential check does not validate the PPU/APU.
+`gameboy_coverage.py` adds short ROM branch candidates to the compiler's
+heuristic scan. Every pass probes boot and two scripted input paths; observed
+ROM entries are deduplicated and merged across passes and conversions.
+Static hints and observed entries remain distinct in the conversion report.
+The default reference CPU comparison covers up to 30 boot frames; opt-in
+deep validation adds up to 240 frames for each input path. These slower
+instruction-by-instruction checks are independent of native discovery and
+the three coverage probes, which run in both modes. Reports identify the
+validation mode, checked scenarios and elapsed time for each conversion stage.
+
+Nintendo NES uses a pinned 6502 cycle recompiler and a separate NTSC hardware
+runtime. Its converter first compiles discovered ROM instruction starts, then
+probes boot and two scripted inputs. Interpreter ROM misses are retained under
+`library/nes/<ROM SHA256>/<engine revision>` for the next pass or regeneration.
+The final short internal differential compares frame hashes of native execution
+with the same runtime's interpreter. The report keeps exact remaining fallback
+cycles; this is distinct from independent hardware fidelity and gameplay.
+The source ROM, license notices and Windows icon are embedded as resources in
+the game executable, while the engine checkout remains untouched. Battery
+saves are written only after NVRAM changes.
+
+Generated games share the RetroRecomp SDL menu canvas in `native/retro_menu.c`:
+the 256 × 192 layout, pixel font and blue/fuchsia frame are independent of the
+console CPU backend. The Sega `ui.c`, Game Boy `gb_menu.inc` and NES
+`nes_host_ui.c` supply their
+own actions and labels to that canvas. Game Boy builds copy these files into
+each generated project's private runtime; the pinned upstream checkout is
+untouched. Future compiler adapters can reuse the canvas rather than exposing
+an imported runtime's settings panel.
+
 The default banked backend translates supported instruction starts across
 physical ROM banks. Guest PC and mapper state select the appropriate native
 body, reducing dependence on discovering every indirect destination. The

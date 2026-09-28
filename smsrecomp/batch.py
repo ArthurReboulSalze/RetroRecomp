@@ -1,4 +1,4 @@
-"""Sequential ROM queue, isolated reports and atomic flat executable exports."""
+"""Sequential mixed-console ROM queue and atomic per-console exports."""
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -11,7 +11,7 @@ from .core import slug, executable_name, ConversionError
 from .library import atomic_json
 from . import __version__
 from .publishing import publish_executable
-from .systems import profile_for_path, get_profile
+from .systems import profile_for_path, get_profile, UnsupportedConsoleError, ConsoleMismatchError
 
 
 @dataclass
@@ -25,22 +25,32 @@ class BatchItem:
     cover: Path | None = None
     video_hint: str = ""
     standard_override: str | None = None
+    selected_system: str = ""
+    unknown: bool = False
+    skipped: bool = False
 
     @property
     def key(self) -> str:
         return f"{slug(self.title)}-{self.sha256[:12]}"
 
 
-def identify(path: Path) -> BatchItem:
+def identify(path: Path, selected_system: str | None = None) -> BatchItem:
     path = path.resolve()
     title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", path.stem).strip() or path.stem
     try:
-        system = profile_for_path(path)
+        system = profile_for_path(path, selected_system)
         rom = system.read_rom(path)
         return BatchItem(path, title, system.id, rom.sha256, len(rom.data),
-                         video_hint=system.default_video_mode(path))
+                         video_hint=system.default_video_mode(path),
+                         selected_system=selected_system or "")
+    except ConsoleMismatchError as exc:
+        return BatchItem(path, title, system=exc.detected_system, error=str(exc),
+                         selected_system=selected_system or "", skipped=True)
+    except UnsupportedConsoleError as exc:
+        return BatchItem(path, title, error=str(exc), unknown=True,
+                         selected_system=selected_system or "")
     except (ConversionError, OSError, ValueError) as exc:
-        return BatchItem(path, title, error=str(exc))
+        return BatchItem(path, title, error=str(exc), selected_system=selected_system or "")
 
 
 def _export_records(output: Path):
@@ -101,6 +111,11 @@ def export_target(item: BatchItem, output: Path) -> Path:
     return output / candidate
 
 
+def system_output(output: Path, system_id: str) -> Path:
+    """Route every batch, including a custom destination, by console."""
+    return output.resolve() / get_profile(system_id).export_folder
+
+
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,
                   on_event=lambda kind, index, value: None, emit=print, **options) -> dict:
     output = output.resolve()
@@ -115,26 +130,46 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
         result = {"rom": str(item.path), "title": item.title, "system": item.system,
                   "sha256": item.sha256}
         try:
+            if item.skipped:
+                result.update(status="skipped", message=item.error)
+                emit(f"{item.title} : {item.error}")
+                results.append(result)
+                on_event("result", index, result)
+                continue
+            if item.unknown:
+                result.update(status="unrecognized", message=item.error)
+                emit(f"{item.title} : {item.error}")
+                results.append(result)
+                on_event("result", index, result)
+                continue
             if item.error:
                 raise ConversionError(item.error)
             system = get_profile(item.system)
-            if profile_for_path(item.path).id != system.id:
+            if profile_for_path(item.path, item.selected_system or None).id != system.id:
                 raise ConversionError("La console de cette ROM a changé depuis son ajout au lot.")
             if system.read_rom(item.path).sha256 != item.sha256:
                 raise ConversionError("La ROM a changé depuis son ajout au lot ; ajoute-la à nouveau.")
-            if item.sha256 in seen:
+            if (system.id, item.sha256) in seen:
                 result.update(status="duplicate", message="Même ROM déjà présente dans le lot.")
             else:
-                reports = output / "datas/reports" / item.key
-                target = export_target(item, output)
+                game_output = system_output(output, system.id)
+                game_output.mkdir(parents=True, exist_ok=True)
+                reports = game_output / "datas/reports" / item.key
+                target = export_target(item, game_output)
                 owned_names = {}
-                for previous_name, identity in _export_records(output):
-                    owned_names.setdefault(output / previous_name, set()).add(identity)
+                for previous_name, identity in _export_records(game_output):
+                    owned_names.setdefault(game_output / previous_name, set()).add(identity)
                 previous_executables = [path for path, identities in owned_names.items()
                     if identities == {item.sha256} and path != target]
                 settings = dict(options)
+                if system.id != 'gb':
+                    settings.pop('gb_deep_validation', None)
                 if item.standard_override is not None:
                     settings['standard_override'] = item.standard_override
+                if system.id in ('sms', 'gg'):
+                    # The batch owns final publication; the Sega compiler only
+                    # needs to leave its validated build in the private cache.
+                    settings['publish_result'] = False
                 executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
                     emit=lambda text: emit(f"[{index+1}/{len(items)} · {item.title}] {text}"), **settings)
                 temporary = reports / "published-executable.tmp"
@@ -142,12 +177,14 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                 report = json.loads(report_path.read_text(encoding="utf-8"))
                 shutil.copy2(Path(report.get('build_executable', executable)), temporary)
                 report.setdefault('rom', {})['sha256'] = item.sha256
-                report.update(executable=target.name, published_directory=str(output))
+                report.update(executable=target.name, published_directory=str(game_output))
                 atomic_json(report_path, report)
                 # Complete the conversion report before replacing a user's
                 # working executable. Failure here leaves the previous game.
-                pending = publish_executable(temporary, target)
-                temporary.unlink(missing_ok=True)
+                try:
+                    pending = publish_executable(temporary, target, compact=True)
+                finally:
+                    temporary.unlink(missing_ok=True)
                 if pending:
                     emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
                 # Regeneration keeps one executable, without archiving an old
@@ -160,16 +197,18 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                         except OSError as exc:
                             emit(f"Ancien exécutable conservé : {previous_executable.name} : {exc}")
                 try:
-                    if executable != target:
+                    if executable != target and executable != Path(report.get('build_executable', '')):
                         executable.unlink()
                 except OSError:
                     pass  # Optional cleanup in datas cannot invalidate a published game.
+                measured = [c.get("interpreter_percent") for c in report["final_checks"]]
                 result.update(status="success", executable=str(target), report=str(report_path),
                     pending_install=pending,
                     video_standard=report.get('video_model', {}).get('standard', item.video_hint),
-                    interpreter_percent=max((c.get("interpreter_percent") or 0) for c in report["final_checks"]),
-                    reference_vdp_trace_match=report["reference_vdp_trace_match"])
-                seen.add(item.sha256)
+                    interpreter_percent=max((p for p in measured if p is not None), default=None),
+                    interpreter_cycles=max((c.get("interpreter_cycles", 0) for c in report["final_checks"]), default=0),
+                    reference_vdp_trace_match=report.get("reference_vdp_trace_match"))
+                seen.add((system.id, item.sha256))
         except Exception as exc:
             result.update(status="error", message=str(exc))
             emit(f"{item.title} : {exc}")
@@ -180,6 +219,8 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
         "requested": len(items), "cancelled": stopped, "pending": len(items)-len(results),
         "succeeded": sum(r["status"] == "success" for r in results),
         "failed": sum(r["status"] == "error" for r in results),
+        "unrecognized": sum(r["status"] == "unrecognized" for r in results),
+        "skipped": sum(r["status"] == "skipped" for r in results),
         "duplicates": sum(r["status"] == "duplicate" for r in results), "games": results}
     record['pending_installations'] = sum(r.get('pending_install', False) for r in results)
     directory = output / "datas"

@@ -1,23 +1,53 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 import queue
+import random
 import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from .batch import BatchItem, identify, convert_batch
+from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
-from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_directory
+from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root
 from .i18n import STRINGS, tr, extended_default, log_text
 from .tooltips import Tooltip
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
-from .systems import MASTER_SYSTEM, get_profile
+from .systems import PROFILES, discover_roms, get_profile
+
+
+PLATFORMS = {'windows-x64': 'Windows x64'}
+
+
+TILE_SIZE = 128
+# These hex colors occur in the supplied logo; the square geometry below is
+# drawn afresh by Tk and does not reuse pixels or cutouts from the artwork.
+SQUARE_COLORS = ('#01C9FC', '#075EFB', '#B733FB', '#FD2EFD')
+SQUARE_SIZES = (3, 4, 5, 6, 8, 10, 12)
+HATCH_SPACING = 8
+
+
+def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
+    """Blend a procedural decoration over the canvas background."""
+    channel = lambda color, at: int(color[at:at + 2], 16)
+    values = [round(channel(base, at) * (1 - visibility) +
+                    channel(foreground, at) * visibility) for at in (1, 3, 5)]
+    return '#{:02x}{:02x}{:02x}'.format(*values)
+
+
+def _rotated_square(x: int, y: int, size: int, angle: float) -> tuple[float, ...]:
+    half = size / 2
+    cosine, sine = math.cos(angle), math.sin(angle)
+    corners = ((-half, -half), (half, -half), (half, half), (-half, half))
+    return tuple(coordinate for dx, dy in corners
+                 for coordinate in (x + dx * cosine - dy * sine,
+                                    y + dx * sine + dy * cosine))
 
 
 class Application:
@@ -36,7 +66,7 @@ class Application:
         self.language = preferences.get('language') if preferences.get('language') in ('en', 'fr') else 'en'
         app.title(APP_NAME)
         app.geometry('1120x940')
-        app.minsize(960, 840)
+        app.minsize(980, 840)
         app.configure(bg='#071732')
         style = ttk.Style(app)
         style.theme_use('clam')
@@ -63,27 +93,34 @@ class Application:
         self.status = tk.StringVar(value=self.tr('ready'))
         self.count = tk.StringVar(value='0 ROM')
         self.detail = tk.StringVar(value=self.tr('shared'))
-        self.output = tk.StringVar(value=str(games_directory(preferences.get('output'))))
+        chosen_output, custom_output = preferred_games_root(preferences)
+        self.output = tk.StringVar(value=str(chosen_output))
+        self.custom_output = tk.BooleanVar(value=custom_output)
+        self.custom_output_path = chosen_output if custom_output else None
+        self.system_mode = preferences.get('system_mode', 'auto')
+        if self.system_mode not in ('auto', *(profile.id for profile in PROFILES)):
+            self.system_mode = 'auto'
+        self.platform_id = preferences.get('platform', 'windows-x64')
+        if self.platform_id not in PLATFORMS:
+            self.platform_id = 'windows-x64'
         self.extended = tk.BooleanVar(value=extended_default(preferences))
+        self.gb_deep_validation = tk.BooleanVar(value=bool(preferences.get('gb_deep_validation', False)))
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
-        header = tk.Frame(app, bg='#04112b', padx=24, pady=0)
+        header = tk.Canvas(app, height=157, bg='#04112b', highlightthickness=0,
+                           borderwidth=0)
+        self.header = header
         header.pack(fill='x')
-        header.columnconfigure(0, weight=1)
-        branding = tk.Frame(header, bg='#04112b')
-        branding.grid(row=0, column=0, sticky='w')
         banner_path = ASSETS / 'assets/Retro-Recomp-banner.png'
         try:
             self.banner = tk.PhotoImage(file=str(banner_path))
-            self.banner_label = tk.Label(branding, image=self.banner, bg='#04112b', borderwidth=0, highlightthickness=0)
-            self.banner_label.pack(anchor='w')
+            header.create_image(24, 0, image=self.banner, anchor='nw', tags='banner')
         except (OSError, tk.TclError):
             self.banner = None
-            self.banner_label = None
         try:
             icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')
             app.iconbitmap(icon_path)
@@ -97,20 +134,32 @@ class Application:
             app.iconphoto(True, *self.window_icons)
         except (OSError, tk.TclError):
             self.window_icons = []
-        header_controls = tk.Frame(header, bg='#04112b')
-        header_controls.grid(row=0, column=1, sticky='ne', padx=(24, 0), pady=(8, 0))
-        badge = tk.Frame(header_controls, bg='#0e254b', padx=16, pady=10, highlightbackground='#285896', highlightthickness=1)
-        badge.pack(anchor='e')
-        tk.Label(badge, text=MASTER_SYSTEM.name.upper(), bg='#0e254b', fg='#26d7ff', font=('Segoe UI', 10, 'bold')).pack()
-        tk.Label(badge, text='Windows x64', bg='#0e254b', fg='#a9bcdc', font=('Segoe UI', 9)).pack()
-        language_frame = tk.Frame(header_controls, bg='#04112b')
-        language_frame.pack(anchor='e', pady=(16, 0))
-        tk.Label(language_frame, text=self.tr('language'), bg='#04112b', fg='#a9bcdc', font=('Segoe UI', 9)).pack(anchor='w')
+        self.system_name = tk.StringVar(value=self.system_display())
+        self.system_field = ttk.Combobox(header, textvariable=self.system_name,
+            values=self.system_choices(), width=15, state='readonly')
+        self.system_field.bind('<<ComboboxSelected>>', self.change_system)
+        self.hint(self.system_field, 'tip_console_format')
+
+        self.platform_name = tk.StringVar(value=PLATFORMS[self.platform_id])
+        self.platform_field = ttk.Combobox(header, textvariable=self.platform_name,
+            values=tuple(PLATFORMS.values()), width=12, state='readonly')
+        self.platform_field.bind('<<ComboboxSelected>>', self.change_platform)
+        self.hint(self.platform_field, 'tip_platform')
+
         self.language_name = tk.StringVar(value='Français' if self.language == 'fr' else 'English')
-        self.language_field = ttk.Combobox(language_frame, textvariable=self.language_name, values=('English', 'Français'), width=10, state='readonly')
-        self.language_field.pack(pady=(4, 0))
+        self.language_field = ttk.Combobox(header, textvariable=self.language_name,
+                                           values=('English', 'Français'), width=9, state='readonly')
         self.language_field.bind('<<ComboboxSelected>>', self.change_language)
         self.hint(self.language_field, 'tip_language')
+        self.header_fields = (self.system_field, self.platform_field, self.language_field)
+        self.header_labels = {
+            key: header.create_text(0, 10, text=self.tr(key), anchor='nw',
+                                    fill='#a9bcdc', font=('Segoe UI', 9), tags='selector_label')
+            for key in ('console_format', 'platform', 'language')
+        }
+        self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='nw')
+                                    for field in self.header_fields)
+        header.bind('<Configure>', self.layout_header)
         stripe = tk.Canvas(app, height=3, bg='#0879fa', highlightthickness=0)
         stripe.pack(fill='x')
         def gradient(event):
@@ -123,13 +172,15 @@ class Application:
                 stripe.create_rectangle(i*event.width/128, 0, (i+1)*event.width/128+1, 3, fill=color, outline=color)
         stripe.bind('<Configure>', gradient)
 
-        body = ttk.Frame(app, padding=(24, 16))
+        body = tk.Canvas(app, bg='#071732', highlightthickness=0, borderwidth=0)
+        self.body = body
+        body.bind('<Configure>', self.draw_background)
         body.pack(fill='both', expand=True)
         body.columnconfigure(0, weight=1)
         body.rowconfigure(1, weight=3, minsize=105)
         body.rowconfigure(10, weight=1, minsize=45)
         toolbar = ttk.Frame(body)
-        toolbar.grid(row=0, column=0, sticky='ew', pady=(0, 10))
+        toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
         self.button(toolbar, self.tr('add_roms'), self.choose_roms).pack(side='left')
         self.button(toolbar, self.tr('add_folder'), self.choose_directory).pack(side='left', padx=8)
         self.button(toolbar, self.tr('remove'), self.remove_selected).pack(side='left')
@@ -137,7 +188,7 @@ class Application:
         ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel').pack(side='right')
 
         table_frame = ttk.Frame(body)
-        table_frame.grid(row=1, column=0, sticky='nsew')
+        table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
         self.table = ttk.Treeview(table_frame, columns=('title', 'system', 'video', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=8)
         for key, caption, width in [('title', self.tr('game'), 350), ('system', self.tr('console'), 125),
                                     ('video', self.tr('video_timing'), 115), ('size', 'ROM', 70),
@@ -155,7 +206,7 @@ class Application:
         self.table.bind('<Double-1>', lambda event: self.play())
 
         selection = ttk.Frame(body)
-        selection.grid(row=2, column=0, sticky='ew', pady=(8, 12))
+        selection.grid(row=2, column=0, sticky='ew', padx=24, pady=(8, 12))
         self.button(selection, self.tr('choose_cover'), self.choose_cover).pack(side='left')
         self.button(selection, self.tr('auto_cover'), self.automatic_cover).pack(side='left', padx=8)
         self.play_button = ttk.Button(selection, text=self.tr('play'), command=self.play, state='disabled')
@@ -172,19 +223,24 @@ class Application:
         self.memory_button = ttk.Button(selection, text=self.tr('memory'), command=self.show_library)
         self.memory_button.pack(side='right')
         self.hint(self.memory_button, 'tip_memory')
-        ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', pady=(0, 12))
+        ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=24, pady=(0, 12))
 
         output_row = ttk.Frame(body)
-        output_row.grid(row=4, column=0, sticky='ew', pady=(0, 12))
-        ttk.Label(output_row, text=self.tr('output')).pack(side='left', padx=(0, 10))
+        output_row.grid(row=4, column=0, sticky='ew', padx=24, pady=(0, 12))
+        self.custom_output_control = ttk.Checkbutton(output_row, text=self.tr('custom_output'),
+            variable=self.custom_output, command=self.change_output_mode)
+        self.custom_output_control.pack(side='left', padx=(0, 10))
+        self.hint(self.custom_output_control, 'tip_custom_output')
         self.output_field = ttk.Entry(output_row, textvariable=self.output)
         self.output_field.pack(side='left', fill='x', expand=True)
-        self.controls.append(self.output_field)
         self.hint(self.output_field, 'tip_output')
-        self.button(output_row, self.tr('browse'), self.choose_output).pack(side='left', padx=(8, 0))
+        self.output_field.bind('<FocusOut>', lambda event: self.reload_queue())
+        self.output_browse = self.button(output_row, self.tr('browse'), self.choose_output)
+        self.output_browse.pack(side='left', padx=(8, 0))
+        self.update_output_controls()
 
         options = ttk.Frame(body)
-        options.grid(row=5, column=0, sticky='ew', pady=(0, 8))
+        options.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
         for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('icon_tags'), self.icon_tags, 'tip_icon_tags'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended')]:
             control = ttk.Checkbutton(options, text=text, variable=variable)
             control.pack(side='left', padx=(0, 8))
@@ -193,7 +249,7 @@ class Application:
             if variable is self.extended: self.extended_control = control
             if variable is self.icon_tags: self.icon_tags_control = control
         tuning = ttk.Frame(body)
-        tuning.grid(row=6, column=0, sticky='ew', pady=(0, 12))
+        tuning.grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 12))
         ttk.Label(tuning, text=self.tr('passes')).pack(side='left')
         self.pass_field = ttk.Combobox(tuning, textvariable=self.passes, values=list(range(1, 11)), width=4, state='readonly')
         self.pass_field.pack(side='left', padx=(6, 20))
@@ -202,10 +258,15 @@ class Application:
         self.frame_field = ttk.Spinbox(tuning, textvariable=self.frames, from_=1, to=10000, width=7)
         self.frame_field.pack(side='left', padx=6)
         self.hint(self.frame_field, 'tip_frames')
+        self.gb_deep_control = ttk.Checkbutton(tuning, text=self.tr('gb_deep_validation'),
+                                              variable=self.gb_deep_validation)
+        self.gb_deep_control.pack(side='left', padx=(12, 6))
+        self.controls.append(self.gb_deep_control)
+        self.hint(self.gb_deep_control, 'tip_gb_deep_validation')
         ttk.Label(tuning, text=self.tr('sequential'), style='Muted.TLabel').pack(side='right')
 
         actions = ttk.Frame(body)
-        actions.grid(row=7, column=0, sticky='ew', pady=(0, 8))
+        actions.grid(row=7, column=0, sticky='ew', padx=24, pady=(0, 8))
         self.start_button = ttk.Button(actions, text=self.tr('start'), command=self.start, style='Primary.TButton')
         self.start_button.pack(side='left')
         self.hint(self.start_button, 'tip_start')
@@ -216,12 +277,12 @@ class Application:
         open_button.pack(side='right')
         self.hint(open_button, 'tip_open_folder')
         self.progress = ttk.Progressbar(body, mode='determinate')
-        self.progress.grid(row=8, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=9, column=0, sticky='ew', pady=(0, 8))
+        self.progress.grid(row=8, column=0, sticky='ew', padx=24, pady=(0, 8))
+        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=9, column=0, sticky='ew', padx=24, pady=(0, 8))
         self.log = tk.Text(body, height=12, font=('Consolas', 9), bg='#04112b', fg='#b8dbff', relief='flat', padx=12, pady=10, state='disabled', wrap='word')
-        self.log.grid(row=10, column=0, sticky='nsew')
+        self.log.grid(row=10, column=0, sticky='nsew', padx=24)
         footer = ttk.Frame(body)
-        footer.grid(row=11, column=0, sticky='ew', pady=(10, 0))
+        footer.grid(row=11, column=0, sticky='ew', padx=24, pady=(10, 16))
         self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel')
         self.footer_label.pack(side='left')
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=('Segoe UI', 9))
@@ -232,6 +293,100 @@ class Application:
     def tr(self, key, **values):
         return tr(key, self.language, **values)
 
+    def layout_header(self, event):
+        self.draw_background(event)
+        widths = [field.winfo_reqwidth() for field in self.header_fields]
+        left = max(24, event.width - 24 - sum(widths) - 16)
+        for key, window, width in zip(self.header_labels, self.header_windows, widths):
+            self.header.coords(self.header_labels[key], left, 10)
+            self.header.coords(window, left, 29)
+            left += width + 8
+
+    def draw_background(self, event):
+        canvas = event.widget
+        self.queue_background(canvas)
+
+    def queue_background(self, canvas):
+        pending = getattr(canvas, '_background_pending', None)
+        if pending is not None:
+            canvas.after_cancel(pending)
+        # Tk lays out the nested controls on its idle pass. A short delay also
+        # coalesces resize events before we measure the text bounds.
+        canvas._background_pending = canvas.after(20, lambda: self.paint_background(canvas))
+
+    def protected_square_areas(self, canvas):
+        padding = 10
+        areas = []
+        if canvas is self.header:
+            for label in self.header_labels.values():
+                box = canvas.bbox(label)
+                if box:
+                    areas.append((box[0]-padding, box[1]-padding,
+                                  box[2]+padding, box[3]+padding))
+        else:
+            stack = list(canvas.winfo_children())
+            origin_x, origin_y = canvas.winfo_rootx(), canvas.winfo_rooty()
+            while stack:
+                widget = stack.pop()
+                stack.extend(widget.winfo_children())
+                if widget.winfo_class() not in ('TLabel', 'TCheckbutton', 'TButton',
+                                               'TCombobox', 'TSpinbox', 'TEntry'):
+                    continue
+                if widget.winfo_width() < 2 or widget.winfo_height() < 2:
+                    continue
+                left = widget.winfo_rootx() - origin_x
+                top = widget.winfo_rooty() - origin_y
+                areas.append((left-padding, top-padding,
+                              left+widget.winfo_width()+padding,
+                              top+widget.winfo_height()+padding))
+        return tuple(areas)
+
+    def paint_background(self, canvas):
+        canvas._background_pending = None
+        if not canvas.winfo_exists():
+            return
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        protected = self.protected_square_areas(canvas)
+        extent = (width, height, protected)
+        if extent == getattr(canvas, '_background_extent', None):
+            return
+        canvas._background_extent = extent
+        canvas.delete('background_motif')
+        base = canvas.cget('bg')
+        colors = tuple(_tint(base, color) for color in SQUARE_COLORS)
+        # Anchor every diagonal to the same eight-pixel grid. Rounding the
+        # starting offset keeps the pattern aligned when the canvas resizes.
+        hatch = _tint(base, '#66a8ff', 0.075)
+        first_offset = -((height + HATCH_SPACING - 1) // HATCH_SPACING) * HATCH_SPACING
+        for offset in range(first_offset, width + HATCH_SPACING, HATCH_SPACING):
+            canvas.create_line(offset, 0, offset + height, height,
+                               fill=hatch, width=1,
+                               tags=('background_motif', 'background_hatch'))
+        columns = (width + TILE_SIZE - 1) // TILE_SIZE
+        rows = (height + TILE_SIZE - 1) // TILE_SIZE
+        surface_seed = 0x52455452 if canvas is self.header else 0x434F4D50
+        for row in range(rows):
+            for column in range(columns):
+                rng = random.Random(surface_seed ^ (column * 73856093) ^ (row * 19349663))
+                for _ in range(rng.randint(4, 6)):
+                    x = column * TILE_SIZE + rng.randrange(12, TILE_SIZE - 12)
+                    y = row * TILE_SIZE + rng.randrange(12, TILE_SIZE - 12)
+                    size = rng.choice(SQUARE_SIZES)
+                    angle = math.radians(rng.uniform(-45, 45))
+                    points = _rotated_square(x, y, size, angle)
+                    color = colors[rng.randrange(len(colors))]
+                    # Canvas includes a one-pixel raster fringe around polygons.
+                    left, right = min(points[::2])-2, max(points[::2])+2
+                    top, bottom = min(points[1::2])-2, max(points[1::2])+2
+                    if any(left < x2 and right > x1 and top < y2 and bottom > y1
+                           for x1, y1, x2, y2 in protected):
+                        continue
+                    canvas.create_polygon(*points,
+                                          fill=color,
+                                          outline='',
+                                          tags=('background_motif', 'background_square'))
+        canvas.tag_lower('background_motif')
+
     def hint(self, widget, key):
         self.tooltips.append(Tooltip(widget, lambda: self.tr(key)))
 
@@ -239,8 +394,67 @@ class Application:
         self.status_key, self.status_values = key, values
         self.status.set(self.tr(key, **values))
 
+    def system_choices(self):
+        return (self.tr('automatic'), *(profile.name for profile in PROFILES))
+
+    def system_display(self):
+        return self.tr('automatic') if self.system_mode == 'auto' else get_profile(self.system_mode).name
+
+    def change_system(self, event=None):
+        if self.busy:
+            return
+        selected = self.system_name.get()
+        self.system_mode = next((profile.id for profile in PROFILES if profile.name == selected), 'auto')
+        self.reload_queue()
+
+    def change_platform(self, event=None):
+        self.platform_id = next((key for key, name in PLATFORMS.items()
+                                 if name == self.platform_name.get()), 'windows-x64')
+
+    def update_output_controls(self):
+        state = 'normal' if self.custom_output.get() and not self.busy else 'disabled'
+        self.output_field.configure(state=state)
+        self.output_browse.configure(state=state)
+
+    def change_output_mode(self):
+        if self.busy:
+            return
+        if self.custom_output.get():
+            self.output.set(str(self.custom_output_path or games_root()))
+        else:
+            self.custom_output_path = Path(self.output.get()).expanduser()
+            self.output.set(str(games_root()))
+        self.update_output_controls()
+        self.reload_queue()
+
+    def reload_queue(self):
+        if self.busy or not self.items:
+            return
+        previous = [(item.path, item.cover, item.standard_override, item.system)
+                    for item in self.items.values()]
+        selected = {self.items[row].path for row in self.table.selection()}
+        self.table.delete(*self.table.get_children())
+        self.items.clear(); self.results.clear(); self.row_status.clear()
+        self.add_paths(path for path, _, _, _ in previous)
+        remembered = {path: (cover, override, system) for path, cover, override, system in previous}
+        for row, item in self.items.items():
+            cover, override, system = remembered[item.path]
+            item.cover = cover
+            if not item.error and item.system == system:
+                item.standard_override = override
+            self.table.set(row, 'cover', self.tr('chosen' if cover else 'auto'))
+            self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
+            if item.path in selected:
+                self.table.selection_add(row)
+        self.selection_changed()
+
     def refresh_language(self):
         self.language_name.set('Français' if self.language == 'fr' else 'English')
+        self.system_field.configure(values=self.system_choices())
+        self.system_name.set(self.system_display())
+        self.platform_name.set(PLATFORMS[self.platform_id])
+        for key, item in self.header_labels.items():
+            self.header.itemconfigure(item, text=self.tr(key))
         reverse = {value: key for key, pair in STRINGS.items() for value in pair if '{' not in value}
         def update(widget):
             if not widget.winfo_exists(): return
@@ -257,13 +471,15 @@ class Application:
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' — ' + self.tr('memory'))
         for row, item in self.items.items():
-            self.table.set(row, 'system', get_profile(item.system).name if not item.error else '—')
+            self.table.set(row, 'system', get_profile(item.system).name if item.system else self.tr('unknown_console'))
             self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
             self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '—')
             self.table.set(row, 'cover', self.tr('chosen' if item.cover else 'auto'))
             self.table.set(row, 'status', self.tr(self.row_status[row]))
         self.status.set(self.tr(self.status_key, **self.status_values))
         self.selection_changed()
+        self.queue_background(self.header)
+        self.queue_background(self.body)
 
     def change_language(self, event=None):
         self.language = 'fr' if self.language_name.get() == 'Français' else 'en'
@@ -271,7 +487,11 @@ class Application:
         self.refresh_language()
         try:
             save_preferences(self.preferences())
-            save_game_language(Path(self.output.get()).expanduser(), self.language)
+            output = Path(self.output.get()).expanduser()
+            for profile in PROFILES:
+                folder = system_output(output, profile.id)
+                if folder.is_dir():
+                    save_game_language(folder, self.language)
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
@@ -312,18 +532,28 @@ class Application:
     def add_paths(self, paths):
         existing = {item.path for item in self.items.values()}
         for path in paths:
-            if Path(path).resolve() in existing:
+            path = Path(path)
+            if path.is_dir():
+                self.add_paths(discover_roms(path))
+                existing = {item.path for item in self.items.values()}
                 continue
-            item = identify(Path(path))
+            if path.resolve() in existing:
+                continue
+            item = identify(path, None if self.system_mode == 'auto' else self.system_mode)
+            status = ('skipped' if item.skipped else 'unrecognized' if item.unknown
+                      else 'invalid' if item.error else 'waiting')
             row = self.table.insert('', 'end', values=(item.title,
-                get_profile(item.system).name if not item.error else '—',
+                get_profile(item.system).name if item.system else self.tr('unknown_console'),
                 self.video_display(item),
                 self.tr('size', value=item.size//1024) if item.size else '—',
-                self.tr('auto'), self.tr('invalid') if item.error else self.tr('waiting')),
+                self.tr('auto'), self.tr(status)),
                 tags=('error',) if item.error else ())
             self.items[row] = item
-            self.row_status[row] = 'invalid' if item.error else 'waiting'
-            folder = Path(self.output.get()).expanduser()
+            self.row_status[row] = status
+            if item.error:
+                existing.add(item.path)
+                continue
+            folder = system_output(Path(self.output.get()).expanduser(), item.system)
             report_path = folder / 'datas/reports' / item.key / 'conversion-report.json'
             try:
                 report = json.loads(report_path.read_text(encoding='utf-8'))
@@ -332,10 +562,12 @@ class Application:
                     raise ValueError('Invalid executable filename in report')
                 target = folder / filename
                 if not item.error and target.is_file() and report.get('rom', {}).get('sha256') == item.sha256:
+                    measured = [c.get('interpreter_percent') for c in report['final_checks']]
                     self.results[row] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
                         pending_install=is_pending(target),
-                        interpreter_percent=max((c.get('interpreter_percent') or 0 for c in report['final_checks']), default=0),
-                        reference_vdp_trace_match=report['reference_vdp_trace_match'])
+                        interpreter_percent=max((p for p in measured if p is not None), default=None),
+                        interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
+                        reference_vdp_trace_match=report.get('reference_vdp_trace_match'))
                     self.row_status[row] = 'pending_install' if is_pending(target) else 'created'
                     self.table.set(row, 'status', self.tr(self.row_status[row]))
                     self.results[row]['video_standard'] = report.get('video_model', {}).get('standard', item.video_hint)
@@ -347,13 +579,15 @@ class Application:
         self.count.set(f'{len(self.items)} ROM' + ('s' if len(self.items) != 1 else ''))
 
     def choose_roms(self):
-        paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS', filetypes=[('Master System', '*.sms')])
+        paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
+            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.md *.gen *.pce'),
+                       ('All files', '*.*')])
         self.add_paths(paths)
 
     def choose_directory(self):
         path = filedialog.askdirectory(title=self.tr('pick_folder'), initialdir=ROOT / 'ROMS')
         if path:
-            self.add_paths(sorted(p for p in Path(path).rglob('*') if p.is_file() and p.suffix.lower() == '.sms'))
+            self.add_paths([Path(path)])
 
     def remove_selected(self):
         if self.busy:
@@ -374,8 +608,8 @@ class Application:
         path = filedialog.askdirectory(title=self.tr('pick_output'), initialdir=self.output.get())
         if path:
             self.output.set(path)
-            try: save_game_language(Path(path), self.language)
-            except OSError as exc: messagebox.showerror(APP_NAME, str(exc))
+            self.custom_output_path = Path(path)
+            self.reload_queue()
 
     def choose_cover(self):
         rows = self.table.selection()
@@ -411,14 +645,25 @@ class Application:
             if item.cover:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
-                text = self.tr('fallback', percent=result['interpreter_percent'], comparison=self.tr('vdp_equal' if result['reference_vdp_trace_match'] else 'vdp_different'))
+                comparison = result.get('reference_vdp_trace_match')
+                if result.get('interpreter_percent') is None or comparison is None:
+                    text = self.tr('fallback_cycles', cycles=result.get('interpreter_cycles', 0))
+                else:
+                    text = self.tr('fallback', percent=result['interpreter_percent'],
+                                   comparison=self.tr('vdp_equal' if comparison else 'vdp_different'))
             text += ' · ' + self.video_display(item, result)
             self.detail.set(text)
         else:
             self.detail.set(self.tr('shared'))
 
     def preferences(self):
-        return dict(language=self.language, coverage_default_revision=2, output=self.output.get(), backend='banked' if self.extended.get() else 'functions', passes=self.passes.get(), frames=self.frames.get(), use_cover=self.use_cover.get(), online_cover=self.online.get(), icon_tags=self.icon_tags.get())
+        return dict(language=self.language, coverage_default_revision=2,
+            output=self.output.get(), custom_output=self.custom_output.get(),
+            system_mode=self.system_mode, platform=self.platform_id,
+            backend='banked' if self.extended.get() else 'functions',
+            gb_deep_validation=self.gb_deep_validation.get(),
+            passes=self.passes.get(), frames=self.frames.get(), use_cover=self.use_cover.get(),
+            online_cover=self.online.get(), icon_tags=self.icon_tags.get())
 
     def start(self):
         if self.busy:
@@ -434,7 +679,9 @@ class Application:
                 raise ValueError(self.tr('need_output'))
             output = Path(options.pop('output')).expanduser().resolve()
             options.pop('coverage_default_revision')
-            save_game_language(output, self.language)
+            options.pop('custom_output')
+            options.pop('system_mode')
+            options.pop('platform')
             save_preferences(self.preferences())
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
@@ -457,6 +704,9 @@ class Application:
                 record = convert_batch(items, output, cancel=self.cancel, **options,
                     emit=lambda text: self.messages.put(('log', text)),
                     on_event=lambda kind, index, value: self.messages.put((kind, index, value)))
+                for folder in {Path(game['executable']).parent for game in record['games']
+                               if game['status'] == 'success'}:
+                    save_game_language(folder, self.language)
                 self.messages.put(('done', record))
             except Exception as exc:
                 self.messages.put(('fatal', str(exc)))
@@ -470,6 +720,10 @@ class Application:
         self.start_button.configure(state='normal' if enabled else 'disabled')
         self.stop_button.configure(state='disabled' if enabled else 'normal')
         self.language_field.configure(state='readonly' if enabled else 'disabled')
+        self.system_field.configure(state='readonly' if enabled else 'disabled')
+        self.platform_field.configure(state='readonly' if enabled else 'disabled')
+        self.custom_output_control.configure(state='normal' if enabled else 'disabled')
+        self.update_output_controls()
         self.selection_changed()
 
     def stop(self):
@@ -498,13 +752,16 @@ class Application:
                     row, result = self.active_rows[event[1]], event[2]
                     self.results[row] = result
                     self.table.set(row, 'video', self.video_display(self.items[row], result))
-                    text = {'success': self.tr('created'), 'error': self.tr('error'), 'duplicate': self.tr('duplicate')}[result['status']]
-                    self.row_status[row] = {'success': 'created', 'error': 'error', 'duplicate': 'duplicate'}[result['status']]
+                    status_key = {'success': 'created', 'error': 'error',
+                                  'duplicate': 'duplicate', 'unrecognized': 'unrecognized',
+                                  'skipped': 'skipped'}[result['status']]
+                    text = self.tr(status_key)
+                    self.row_status[row] = status_key
                     if result.get('pending_install'):
                         self.row_status[row] = 'pending_install'
                         text = self.tr('pending_install')
                     self.table.set(row, 'status', text)
-                    self.table.item(row, tags=(result['status'],))
+                    self.table.item(row, tags=('error',) if result['status'] in ('error', 'unrecognized', 'skipped') else (result['status'],))
                     self.progress.configure(value=event[1]+1)
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
@@ -558,8 +815,16 @@ class Application:
         for column, caption, width in [('game', self.tr('game'), 390), ('identity', self.tr('identity'), 150), ('entries', self.tr('observations'), 110)]:
             table.heading(column, text=caption)
             table.column(column, width=width, stretch=column == 'game')
-        for game in list_games():
+        for game in [*list_games(), *list_games(library_root('gg'))]:
             table.insert('', 'end', values=(game['title'], game['sha256'][:12], game['observations']))
+        from .gameboy import list_memory
+        for game in list_memory():
+            table.insert('', 'end', values=(f"Game Boy · {game['title']}", game['sha256'][:12],
+                                            f"{game['trace_bytes']} B trace"))
+        from .nes import list_memory as list_nes_memory
+        for game in list_nes_memory():
+            table.insert('', 'end', values=(f"Nintendo NES · {game['sha256'][:12]}",
+                                            game['sha256'][:12], game['entries']))
         table.pack(fill='both', expand=True)
         def open_library():
             path = library_root()
@@ -582,6 +847,8 @@ def launch():
     set_converter_identity()
     app = tk.Tk()
     application = Application(app)
-    application.add_paths(sorted((ROOT / 'ROMS').glob('*.sms')))
+    roms = ROOT / 'ROMS'
+    if roms.is_dir():
+        application.add_paths(discover_roms(roms))
     app._retro_application = application
     app.mainloop()

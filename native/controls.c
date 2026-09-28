@@ -10,24 +10,44 @@
 #include <string.h>
 
 Controls controls;
+#ifdef RETRO_GAME_GEAR
+static const char *labels[2][CONTROL_ACTIONS] = {
+    {"Up", "Down", "Left", "Right", "Button 1", "Button 2", "Pause/Menu", "Game Start"},
+    {"Haut", "Bas", "Gauche", "Droite", "Bouton 1", "Bouton 2", "Pause/Menu", "Start jeu"}};
+static const wchar_t *key_sections[CONTROL_PLAYERS] = {L"ClavierGameGear", L"ClavierGameGearJ2"};
+static const wchar_t *button_sections[CONTROL_PLAYERS] = {L"ManetteGameGear", L"ManetteGameGearJ2"};
+static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"menu", L"start"};
+#else
 static const char *labels[2][CONTROL_ACTIONS] = {
     {"Up", "Down", "Left", "Right", "Button 1", "Button 2", "Start/Menu", "Select/Reset"},
     {"Haut", "Bas", "Gauche", "Droite", "Bouton 1", "Bouton 2", "Start/Menu", "Select/Reset"}};
+static const wchar_t *key_sections[CONTROL_PLAYERS] = {L"Clavier", L"ClavierJ2"};
+static const wchar_t *button_sections[CONTROL_PLAYERS] = {L"Manette", L"ManetteJ2"};
+static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"start", L"select"};
+#endif
 static const char *filters[2][FILTER_COUNT] = {
     {"Sharp pixels", "Bilinear smoothing", "Scale2x", "Scanlines"},
     {"Pixels nets", "Lissage bilineaire", "Scale2x", "Scanlines"}};
-static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"start", L"select"};
-static const wchar_t *key_sections[CONTROL_PLAYERS] = {L"Clavier", L"ClavierJ2"};
-static const wchar_t *button_sections[CONTROL_PLAYERS] = {L"Manette", L"ManetteJ2"};
 static const SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
+#ifdef RETRO_GAME_GEAR
+    {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
+     SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_S},
+#else
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
      SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_F1},
+#endif
     {SDL_SCANCODE_KP_5, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_3,
      SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_9, SDL_SCANCODE_KP_7, SDL_SCANCODE_UNKNOWN}};
 static const SDL_GameControllerButton default_buttons[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
+#ifdef RETRO_GAME_GEAR
+    {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+     SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+     SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START},
+#else
     {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN,
      SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
      SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_BACK},
+#endif
     {SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN,
      SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
      SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_INVALID}};
@@ -62,8 +82,17 @@ static uint8_t pulse_gamepad(int player, uint8_t buttons, uint64_t time_us) {
 const char *controls_text(const char *english, const char *french) { return controls.language ? french : english; }
 const char *controls_label(int row) { return labels[controls.language][row]; }
 const char *controls_filter_label(int filter) { return filters[controls.language][filter]; }
-int controls_action_count(int player) { return player == 0 ? CONTROL_ACTIONS : player == 1 ? CONTROL_RESET : 0; }
+int controls_action_count(int player) {
+#ifdef RETRO_GAME_GEAR
+    return player == 0 ? CONTROL_ACTIONS : 0;
+#else
+    return player == 0 ? CONTROL_ACTIONS : player == 1 ? CONTROL_RESET : 0;
+#endif
+}
 bool controls_system_key(SDL_Scancode key, int action) {
+#ifdef RETRO_GAME_GEAR
+    if (action == CONTROL_RESET) return false; /* F1 is the only reset shortcut. */
+#endif
     if (key == SDL_SCANCODE_UNKNOWN || (action != CONTROL_PAUSE && action != CONTROL_RESET)) return false;
     for (int p = 0; p < CONTROL_PLAYERS; ++p)
         if (action < controls_action_count(p) && controls.keys[p][action] == key) return true;
@@ -71,9 +100,28 @@ bool controls_system_key(SDL_Scancode key, int action) {
 }
 
 bool controls_system_button(int player, int button, int action) {
+#ifdef RETRO_GAME_GEAR
+    if (action == CONTROL_RESET) return false; /* Start belongs to the cartridge. */
+#endif
     return player >= 0 && player < CONTROL_PLAYERS && action >= CONTROL_PAUSE &&
         action < controls_action_count(player) && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX &&
         controls.buttons[player][action] == button;
+}
+
+static bool controls_guest_start_key(int player, SDL_Scancode key) {
+#ifdef RETRO_GAME_GEAR
+    return player == 0 && key != SDL_SCANCODE_UNKNOWN && controls.keys[0][CONTROL_RESET] == key;
+#else
+    (void)player; (void)key; return false;
+#endif
+}
+
+static bool controls_guest_start_button(int player, int button) {
+#ifdef RETRO_GAME_GEAR
+    return player == 0 && button >= 0 && controls.buttons[0][CONTROL_RESET] == button;
+#else
+    (void)player; (void)button; return false;
+#endif
 }
 
 bool controls_reserved(SDL_Scancode key) {
@@ -170,20 +218,24 @@ void controls_load(void) {
         if (p == 1 && old_layout) snprintf(value, sizeof(value), "%s", SDL_GetScancodeName(default_keys[p][i]));
         SDL_Scancode key = SDL_GetScancodeFromName(value);
         controls.keys[p][i] = controls_reserved(key) || controls_system_key(key, CONTROL_PAUSE) ||
-            controls_system_key(key, CONTROL_RESET) ? default_keys[p][i] : key;
-        if (controls_system_key(controls.keys[p][i], CONTROL_PAUSE) || controls_system_key(controls.keys[p][i], CONTROL_RESET))
+            controls_system_key(key, CONTROL_RESET) || controls_guest_start_key(p, key) ? default_keys[p][i] : key;
+        if (controls_system_key(controls.keys[p][i], CONTROL_PAUSE) || controls_system_key(controls.keys[p][i], CONTROL_RESET) ||
+                controls_guest_start_key(p, controls.keys[p][i]))
             controls.keys[p][i] = SDL_SCANCODE_UNKNOWN;
         read_name(button_sections[p], entries[i], value, sizeof(value));
         SDL_GameControllerButton button = SDL_GameControllerGetButtonFromString(value);
         controls.buttons[p][i] = button == SDL_CONTROLLER_BUTTON_INVALID || controls_system_button(p, button, CONTROL_PAUSE) ||
-            controls_system_button(p, button, CONTROL_RESET) ? default_buttons[p][i] : button;
-        if (controls_system_button(p, controls.buttons[p][i], CONTROL_PAUSE) || controls_system_button(p, controls.buttons[p][i], CONTROL_RESET))
+            controls_system_button(p, button, CONTROL_RESET) || controls_guest_start_button(p, button) ? default_buttons[p][i] : button;
+        if (controls_system_button(p, controls.buttons[p][i], CONTROL_PAUSE) || controls_system_button(p, controls.buttons[p][i], CONTROL_RESET) ||
+                controls_guest_start_button(p, controls.buttons[p][i]))
             controls.buttons[p][i] = SDL_CONTROLLER_BUTTON_INVALID;
     }
     int filter = (int)GetPrivateProfileIntW(L"Video", L"filtre", 0, read_path());
     controls.filter = filter >= 0 && filter < FILTER_COUNT ? filter : FILTER_NEAREST;
     /* Obsolete border/J2-reset settings are ignored without rewriting the INI. */
+#ifndef RETRO_GAME_GEAR
     controls.first_controller_player = GetPrivateProfileIntW(L"Manettes", L"premier_joueur", 1, read_path()) == 2 ? 1 : 0;
+#endif
     controls.autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, read_path()) == 1;
     read_name(L"Interface", L"language", value, sizeof(value));
     controls.language = !strcmp(value, "fr");
@@ -200,10 +252,12 @@ bool controls_bind(int player, int row, bool gamepad, int value) {
     if (player < 0 || player >= CONTROL_PLAYERS || row < 0 || row >= controls_action_count(player)) return false;
     if (gamepad) {
         if (value < 0 || value >= SDL_CONTROLLER_BUTTON_MAX) return false;
-        if (row < CONTROL_GAME_ACTIONS && (controls_system_button(player, value, CONTROL_PAUSE) || controls_system_button(player, value, CONTROL_RESET))) return false;
+        if (row < CONTROL_GAME_ACTIONS && (controls_system_button(player, value, CONTROL_PAUSE) ||
+            controls_system_button(player, value, CONTROL_RESET) || controls_guest_start_button(player, value))) return false;
         if (row >= CONTROL_PAUSE) {
             int other = row == CONTROL_PAUSE ? CONTROL_RESET : CONTROL_PAUSE;
-            if (controls_system_button(player, value, other)) return false;
+            if (controls_system_button(player, value, other) ||
+                    (row == CONTROL_PAUSE && controls_guest_start_button(player, value))) return false;
             for (int i = 0; i < CONTROL_GAME_ACTIONS; ++i) if (controls.buttons[player][i] == value) return false;
         }
         if (!write_name(button_sections[player], entries[row], SDL_GameControllerGetStringForButton(value))) return false;
@@ -212,11 +266,17 @@ bool controls_bind(int player, int row, bool gamepad, int value) {
         if (value < 0 || value >= SDL_NUM_SCANCODES) return false;
         SDL_Scancode key = (SDL_Scancode)value;
         bool system_alias = row == CONTROL_PAUSE && (key == SDL_SCANCODE_P || key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER);
+#ifdef RETRO_GAME_GEAR
+        if (controls_reserved(key) && !system_alias) return false;
+#else
         if (controls_reserved(key) && !system_alias && !(row == CONTROL_RESET && key == SDL_SCANCODE_F1)) return false;
-        if (row < CONTROL_GAME_ACTIONS && (controls_system_key(key, CONTROL_PAUSE) || controls_system_key(key, CONTROL_RESET))) return false;
+#endif
+        if (row < CONTROL_GAME_ACTIONS && (controls_system_key(key, CONTROL_PAUSE) ||
+            controls_system_key(key, CONTROL_RESET) || controls_guest_start_key(player, key))) return false;
         if (row >= CONTROL_PAUSE) {
             int other = row == CONTROL_PAUSE ? CONTROL_RESET : CONTROL_PAUSE;
-            if (controls_system_key(key, other)) return false;
+            if (controls_system_key(key, other) ||
+                    (row == CONTROL_PAUSE && controls_guest_start_key(player, key))) return false;
             for (int p = 0; p < CONTROL_PLAYERS; ++p) for (int i = 0; i < CONTROL_GAME_ACTIONS; ++i)
                 if (controls.keys[p][i] == key) return false;
         }
@@ -254,6 +314,9 @@ bool controls_filter(int filter) {
 }
 
 bool controls_controller_order(int first_player) {
+#ifdef RETRO_GAME_GEAR
+    if (first_player != 0) return false;
+#endif
     if (first_player < 0 || first_player >= CONTROL_PLAYERS) return false;
     if (!write_name(L"Manettes", L"premier_joueur", first_player ? "2" : "1")) return false;
     controls.first_controller_player = first_player;
@@ -308,6 +371,15 @@ static uint8_t read_controls(int player, SDL_GameController *controller, bool fo
         if (y < -12000) gamepad |= SMS_PAD_UP;
         if (y > 12000) gamepad |= SMS_PAD_DOWN;
     }
+#ifdef RETRO_GAME_GEAR
+    if (player == 0) {
+        if (controls.keys[0][CONTROL_RESET] != SDL_SCANCODE_UNKNOWN && keys[controls.keys[0][CONTROL_RESET]])
+            result |= SMS_PAD_START;
+        if (controller && controls.buttons[0][CONTROL_RESET] >= 0 &&
+                SDL_GameControllerGetButton(controller, controls.buttons[0][CONTROL_RESET]))
+            result |= SMS_PAD_START;
+    }
+#endif
     return result | pulse_gamepad(player, gamepad, controls.autofire ? smsrecomp_input_time_us() : 0);
 }
 

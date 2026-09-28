@@ -38,6 +38,27 @@ def games_directory(saved: str | None = None, *, system_id: str = "sms") -> Path
     return export_directory() / 'Games' / system.export_folder
 
 
+def games_root(saved: str | None = None) -> Path:
+    """Root containing one export directory per console, beside the converter."""
+    if saved:
+        path = Path(saved).expanduser()
+        return path.resolve() if path.is_absolute() else (export_directory() / path).resolve()
+    return export_directory() / 'Games'
+
+
+def preferred_games_root(preferences: dict) -> tuple[Path, bool]:
+    """Upgrade the old default SMS path without losing an explicit custom path."""
+    saved = preferences.get('output')
+    chosen = games_root(saved)
+    old_default = games_directory()
+    if chosen == old_default:
+        chosen = games_root()
+    custom = preferences.get('custom_output')
+    if custom is None:
+        custom = bool(saved) and chosen != games_root()
+    return (chosen if custom else games_root()), bool(custom)
+
+
 def data_directory(root: Path | None = None) -> Path:
     return (root or export_directory()) / "datas"
 
@@ -53,7 +74,7 @@ def load_preferences() -> dict:
 def save_preferences(value: dict) -> None:
     value = dict(value)
     if value.get('output'):
-        output = games_directory(value['output'])
+        output = games_root(value['output'])
         try:
             value['output'] = str(output.relative_to(export_directory()))
         except ValueError:

@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .library import atomic_json
+from .packing import compact_executable
 from .windows import refresh_executable_icon
 
 
@@ -124,7 +125,8 @@ def _start_installer(marker: Path, token: str):
     return child
 
 
-def publish_executable(source: Path, target: Path, *, start_worker=True) -> bool:
+def publish_executable(source: Path, target: Path, *, start_worker=True,
+                       compact=False) -> bool:
     """Return True when installation is waiting for a running/locked game.
 
     Copies are staged on the destination volume. Ordinary reconversion silently
@@ -139,6 +141,8 @@ def publish_executable(source: Path, target: Path, *, start_worker=True) -> bool
     shutil.copy2(source, staged)
     pending = False
     try:
+        if compact:
+            compact_executable(staged)
         with publication_lock(target):
             previous = None
             try:

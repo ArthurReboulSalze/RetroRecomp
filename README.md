@@ -3,14 +3,16 @@
 </p>
 
 <h1 align="center">RetroRecomp</h1>
-<p align="center"><strong>Your Master System games, ready to launch.</strong></p>
+<p align="center"><strong>Your retro cartridges, ready to launch.</strong></p>
 <p align="center">Add a ROM or a whole folder, convert, and play standalone Windows games.<br>
 More work happens before launch, so playing stays simple and responsive.</p>
+<p align="center">One converter for multiple consoles. Windows x64 is the current
+output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.10.17-0879fa" alt="Version 0.10.17">
-  <img src="https://img.shields.io/badge/current_system-Master_System-26d7ff" alt="Master System">
+  <img src="https://img.shields.io/badge/release-0.13.0-0879fa" alt="Release version 0.13.0">
+  <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
 </p>
@@ -22,26 +24,50 @@ More work happens before launch, so playing stays simple and responsive.</p>
   <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a>
 </p>
 
+**The current Windows release includes four console profiles.** Master System,
+Game Gear and original Game Boy are playable; the new NES profile remains
+experimental. Each has its own hardware runtime and validation limits.
+
 ## Why RetroRecomp?
 
-- **Simple from conversion to play.** Choose one ROM or batch a folder, then
+- **Simple from conversion to play.** Choose one ROM or add mixed folders, then
   launch each game from its own executable. Playing needs no Python, separate
   ROM file or external SDL2 DLL. Regenerating a game replaces its previous
-  export instead of filling the folder with numbered builds.
-- **Native-first performance.** RetroRecomp translates the game's Z80 program
-  ahead of time and prepares extended ROM-bank coverage by default. Covered
-  CPU paths run as compiled host code; any use of the reference interpreter
-  is counted and reported. This reduces interpretation work during play and
-  is designed to feel responsive even on a modest PC.
+  export instead of filling the folder with numbered builds. The converter
+  recognizes supported consoles and sorts games into their own folders;
+  unknown formats are listed and skipped. Newly generated games are compacted
+  into smaller standalone executables before export.
+- **Native-first performance.** RetroRecomp translates Z80, SM83 or 6502 game
+  code ahead of time, depending on the console. Supported Sega ROM-bank
+  positions are prepared by default; the Game Boy and NES profiles combine
+  static discovery with conversion-time probes. Covered CPU paths run as
+  compiled host code, while interpreter fallback remains counted and reported.
 - **A practical Master System experience.** The Master System backend is now
   viable for everyday play with supported Sega-mapper ROMs. It includes two
   players, gamepad mapping, fullscreen and lightweight display filters,
   PAL/NTSC timing choices, quick states and mouse Light Phaser support for
   known gun games. Recent exports have also been reviewed in gameplay, while
   full-catalogue compatibility and exact hardware behavior remain open work.
+- **Game Gear.** The shared Sega Z80 backend uses Game Gear's
+  12-bit colors, Start button and stereo port, with one player and the native
+  160 × 144 LCD window. ROMs are not patched or expanded beyond the visible
+  screen. The profile is playable; complete catalogue compatibility and
+  hardware fidelity are not established. See the [Game Gear profile](docs/GAME_GEAR.md).
+- **Game Boy.** Original `.gb` cartridges use a separate SM83
+  compiler and 160 × 144 DMG runtime. Short branch discovery and three
+  conversion probes reduce fallback on tested paths; a slower CPU comparison
+  is optional. The profile is playable, with targeted Tetris and Super Mario
+  Land checks; complete catalogue and hardware behavior remain unverified. Game Boy Color-only games are
+  not supported. See the [Game Boy profile](docs/GAME_BOY.md).
+- **NES (experimental).** `.nes` cartridges use a separate 6502 backend and a
+  per-ROM library of observed code entries. The current NTSC profile has two
+  controller ports but no quick states or Zapper. Super Mario Bros. has passed
+  scripted conversion checks with a small amount of remaining interpreter
+  fallback; broad mapper and gameplay validation are still open. The upstream
+  engine uses a noncommercial license. See the [NES profile](docs/NES.md).
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp batch conversion interface showing Master System games and validation progress" width="1000">
+  <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp interface with automatic console selection, platform and language selectors, and a batch conversion queue" width="1000">
 </p>
 <p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games.</em></p>
 
@@ -52,8 +78,9 @@ More work happens before launch, so playing stays simple and responsive.</p>
 
 ## How it works
 
-RetroRecomp converts the Z80 program inside a Sega Master System ROM into C,
-then compiles it into a Windows executable. The resulting game contains its
+RetroRecomp converts the Z80 program inside a Master System or Game Gear ROM,
+the SM83 program inside an original Game Boy ROM, or the 6502 program inside an
+NES ROM into C and then a Windows executable. The resulting game contains its
 own ROM data and runtime, so playing it does not require Python, a separate
 ROM file, or an external SDL2 DLL.
 
@@ -65,19 +92,24 @@ questions; none is proved by the others.
 
 ### Compile more. Discover less at runtime.
 
-Extended native coverage is enabled by default. It prepares supported
-instruction positions across ROM banks before play, so indirect jumps and
-bank changes can reach precompiled code. Unknown or changed RAM code can
-still require the reference interpreter; its use is counted and reported.
+Extended native coverage is enabled by default for the Sega profiles. It
+prepares supported instruction positions across ROM banks before play, so
+indirect jumps and bank changes can reach precompiled code. Game Boy combines
+an all-bank SM83 scan, short branch discovery and scripted conversion tests.
+NES feeds observed ROM misses into another conversion pass. Unknown paths can
+still require the appropriate reference interpreter; its use is reported.
+
+Game Boy keeps all three coverage tests in its default conversion. Optional
+**Deep Game Boy validation (slow)** adds longer reference CPU checks and can
+take several extra minutes per game, without changing native discovery.
 
 ### Each generation can improve the next
 
 Discoveries made during the converter's automated tests are saved locally
-against the game's identity. A later
-conversion verifies those observations against the ROM, compiles additional
-RAM instruction variants with byte guards, and checks the candidate build
-before replacing the previous executable. An unknown variant remains a
-reported fallback rather than being treated as known code.
+against the game's identity. The Sega profiles can compile observed RAM
+instruction variants with byte guards; Game Boy and NES reuse observed ROM
+entry points. Each generation checks its candidate before replacing an older
+executable. Unknown code remains a reported fallback.
 
 This memory is a compilation library, not an AI model. An optional local AI
 player to explore more paths is a future research direction; it is not part
@@ -85,23 +117,26 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 
 ## Available today
 
-| Capability | Current release |
+| Capability | Current source build |
 | --- | --- |
-| Game system | Sega Master System, Sega mapper |
+| Game system | Master System, Game Gear and original Game Boy; experimental NES profile |
 | Output | Standalone Windows x64 game executable |
-| Conversion | Single ROM or batch; extended coverage enabled by default |
-| Improvement | Verified observations and guarded RAM variants reused on regeneration |
+| Conversion | Single ROM or mixed-console batch; extended Sega coverage enabled by default |
+| Improvement | ROM-specific entry observations; guarded RAM variants on Sega profiles |
 | Interface | English and French, with contextual help and conversion log |
-| Inputs | Two players, separate keyboard mappings, Xbox/XInput-style gamepads |
+| Inputs | Master System: two players and optional gun; Game Gear and Game Boy: one player; NES: two joypads |
 | Presentation | Integer-scaled fullscreen, sharp pixels, bilinear, Scale2x, scanlines |
-| Video timing | Per-ROM PAL/NTSC selection; the saved choice survives compiler updates |
-| Light Phaser | Mouse aiming in catalogue-selected gun games; configurable reticle |
-| Quick states | F8 save and F9 load, including after restarting the game |
-| Game icons | Optional local/online box art and automatic shooting badges |
+| Video timing | Master System: per-ROM PAL/NTSC; Game Gear: NTSC 160 × 144 LCD; Game Boy: DMG 160 × 144; NES: NTSC only for now |
+| Light Phaser | Master System only: mouse aiming in catalogue-selected gun games; configurable reticle |
+| Quick states | F8 save and F9 load on Sega and Game Boy profiles; not yet available on NES |
+| Game icons | Optional local/online box art; automatic shooting badges for known Master System gun games |
 | Files | Shared `datas` folder; game-specific data isolated by identity |
 | Regeneration | Same game filename; replacement deferred if the executable is running |
 
-Version 0.10.17 adds scanline-aware video, PAL/NTSC timing choices, strict
+Version 0.13.0 adds the experimental NES profile and packages it alongside
+Master System, Game Gear and original Game Boy. The earlier v0.10.17 release
+added scanline-aware video, PAL/NTSC
+timing choices, strict
 CPU/VDP comparisons and persistent quick states. Its Light Phaser mode uses
 mouse aiming for known gun games; the reticle and automatic icon badges are
 configurable. See [video timing](docs/VIDEO.md),
@@ -109,9 +144,10 @@ configurable. See [video timing](docs/VIDEO.md),
 [game states](docs/GAME_STATES.md) and
 [console profiles](docs/SYSTEM_PROFILES.md) for the details and limits.
 
-Generated games create no `datas` folder, default INI or diagnostic log just
-from being launched. Settings and quick states are saved only when requested;
-the converter keeps its separate learning library for future generations.
+Generated games create no default INI or diagnostic log just from being
+launched. Settings and quick states are saved only when requested; changed
+cartridge battery RAM may write a per-game save on exit. The converter keeps
+its separate learning library for future generations.
 The screenshots above show locally generated icons; the repository and ZIP
 contain **no ROMs, game executables, separate box-art files, gameplay captures
 or personal compilation libraries**.
@@ -121,10 +157,19 @@ because RetroRecomp generated them.
 
 ## Getting started on Windows
 
-1. Download and extract the Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
+1. Download the v0.13.0 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
 2. Install Git and Visual Studio Build Tools with **Desktop development with C++**, including x64 tools, CMake and a Windows SDK. Python is unnecessary for the packaged converter.
-3. Run `Retro-Recomp.exe`, choose **Add ROMs** or **Add folder**, then **Convert / regenerate**.
+3. Run `Retro-Recomp.exe`, choose **Add ROMs** or add one or more folders. Console detection is **Automatic** by default. Review unknown rows, then choose **Convert / regenerate**.
 4. Select a successful result and choose **Play game**.
+
+The converter creates `Games` beside `Retro-Recomp.exe` by default and adds a
+subfolder for Master System, Game Gear, Game Boy or Nintendo NES as needed. Check **Custom
+export folder** to choose a different root; the console subfolders are still
+created there. `.sms`, `.gg`, `.gb`, `.nes` and single-ROM ZIP files are recognized by
+their format. For `.bin` and `.rom` dumps, Automatic uses a recognizable
+cartridge header; if the console remains unknown, choose it explicitly in the
+top-right selector. Unrecognized ROMs are shown in the queue and batch report,
+and are never compiled as another console. Original ROM files are only read.
 
 The first conversion downloads pinned build dependencies and compiles them.
 Internet access is required for that setup. Afterward, cached dependencies can
@@ -142,6 +187,15 @@ RetroRecomp/
     Master System/
       Your game.exe              created from your own ROM
       datas/                     saved controls/states; conversion reports when generated
+    Game Gear/
+      Another game.exe           separate Game Gear export category
+      datas/
+    Game Boy/
+      Third game.exe             separate Game Boy export category
+      datas/
+    Nintendo NES/
+      Fourth game.exe            experimental NES export category
+      datas/
 ```
 
 The release starts clean: it contains no saved settings, games or learned
@@ -153,19 +207,28 @@ including when launched from a different working directory.
 | Key | Action |
 | --- | --- |
 | F1 | Restart |
-| F2 | Configure keyboard/gamepad mappings, including Start/Menu and J1 Select/Reset |
+| F2 | Configure keyboard/gamepad mappings, including console-specific buttons |
 | F3 | Next filter |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F6 | Gamepad autofire on/off |
 | F7 | English/French |
-| F8 | Save/replace this game's quick state |
-| F9 | Load it, including after quitting and restarting |
+| F8 | Save/replace this game's quick state (not yet on NES) |
+| F9 | Load it, including after quitting and restarting (not yet on NES) |
 | H | Help |
-| P / Enter | Pause/resume; Enter retains its binding role inside F2 |
+| P / Enter | Pause/resume on Sega profiles; Game Boy uses P for pause and Enter for cartridge Start |
 | Esc | Close the current menu, then quit |
 
-Gamepad Start/Menu pauses by default. Select/Back restarts for player 1 only;
-player 2 cannot reset. Fullscreen keeps interpreter diagnostics out of the
+On Master System, gamepad Start/Menu pauses by default and Select/Back restarts
+for player 1 only; player 2 cannot reset. On Game Gear, Start goes to the
+cartridge and Back opens the menu. Game Gear has no player 2 or Light Phaser.
+Game Boy uses the same menu style and shortcuts; W/X are A/B, Enter is
+cartridge Start, either Shift is Select, and P pauses. F5 chooses between its
+default grayscale image and classic green. Its controller
+Start and Back remain cartridge buttons, with left-stick click for pause.
+NES uses Z/X for A/B, Enter and right Shift for cartridge Start/Select, and
+P for pause. Its second player uses the keypad. See [NES](docs/NES.md) for
+the experimental profile's controls and limitations.
+Fullscreen keeps interpreter diagnostics out of the
 game image, while counters remain available and logs require explicit
 diagnostics. Games exported before quick states were added need regeneration
 to gain F8/F9. See [controls](docs/CONTROLS.md)
@@ -184,9 +247,10 @@ The measurements are deliberately separate:
 | Gameplay | Recent exports have been reviewed in play, but full-catalogue playthroughs and physical two-controller sessions are not established. |
 | Physical latency | Not measured; no zero-latency guarantee. |
 
-Version 0.10.17 passes 66 Python tests and authored native checks for video,
-input and state handling. Validation files and game captures stay local; they
-are not bundled with this public repository.
+ROM-free Python and native self-tests cover conversion, video, input and state
+handling. Targeted Game Gear, Game Boy and NES checks are documented in their
+profile pages. Validation files and game captures stay local; they are not
+bundled with this public repository.
 
 See [compatibility and limitations](docs/COMPATIBILITY.md) before assuming
 a game, mapper or platform is supported.

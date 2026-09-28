@@ -36,6 +36,10 @@ RetroRecomp's MIT license does not remove those limitations.
 | superzazu/z80 reference interpreter | MIT; copyright Nicolas Allemand | [Full text](licenses/superzazu-z80.md) |
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
+| arcanite24/gb-recompiled (Game Boy compiler and generated runtime) | MIT; copyright arcanite24 | [Full text](licenses/gb-recompiled.md) |
+| Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
+| mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |
+| emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
 
 Game toolchain source and test vectors are not bundled in the converter ZIP.
 Generated games contain parts of that toolchain and the user's ROM. They are
@@ -50,6 +54,7 @@ not automatically covered by the root MIT license and are not distributed here.
 | Pillow and bundled image codecs | 12.3.0; MIT-CMU and component licenses | [Full text](licenses/Pillow.md) |
 | PyInstaller | 6.22.3; GPLv2+ with distribution exception | [Full text and exception](licenses/PyInstaller.md) |
 | PyInstaller hooks | 2026.7; component terms in the hook package | [Full text](licenses/PyInstaller-hooks.md) |
+| UPX executable packer | 5.2.1; GPL with special exception for packed executables | [Full text and exception](licenses/UPX.md), [corresponding source](licenses/upx-5.2.1-src.tar.xz) |
 | OpenSSL | 3.0.20; Apache 2.0 | [Full text](licenses/OpenSSL.md) |
 | zlib / zlib-ng | zlib terms; CPython uses zlib-ng 2.2.4 | [zlib](licenses/zlib.md), [zlib-ng](licenses/zlib-ng.md) |
 

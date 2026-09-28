@@ -12,13 +12,13 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.10.17"
+VERSION = "0.13.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md
-docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md
+docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_UI.png MEDIAS/RC_Windows_Screen.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
@@ -29,23 +29,36 @@ assets/Retro-Recomp-icon-24.png assets/Retro-Recomp-icon-32.png
 assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
+assets/tools/upx.exe
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md
+licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
+licenses/UPX.md
+licenses/upx-5.2.1-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py
-smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py
+smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
 smsrecomp/peripherals.py
 smsrecomp/metadata.py tests/test_metadata.py
 smsrecomp/systems/__init__.py smsrecomp/systems/master_system.py
+smsrecomp/systems/game_gear.py smsrecomp/systems/game_boy.py
+smsrecomp/gameboy.py smsrecomp/gameboy_runtime.py
+smsrecomp/gameboy_timing.py
+smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
+smsrecomp/nes.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
 native/controls.c native/controls.h native/host.c native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
+native/retro_menu.c native/retro_menu.h native/gb_menu.inc
+native/nes_host_ui.c
+native/gb_input_refresh.inc
+native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
@@ -65,12 +78,13 @@ tools/learning_selftest.py tools/package.ps1 tools/player2_selftest.py
 tools/prepare_logo.py tools/publishing_selftest.py tools/prepare_publication.py
 tools/lightphaser_selftest.py tools/video_selftest.py docs/LIGHT_PHASER.md docs/VIDEO.md
 tools/frame_stop_selftest.py
+tests/test_game_gear.py tests/test_game_boy.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 LEGAL_FILES = tuple(p for p in PUBLIC_FILES if p.startswith("licenses/"))
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/")))
-TEXT_EXTENSIONS = {".py", ".md", ".c", ".h", ".inc", ".ps1", ".toml", ".yml"}
+TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
     "private network path": re.compile(r"\\\\(?:\d{1,3}\.){3}\d{1,3}\\"),
@@ -166,7 +180,7 @@ def audit_executable(executable: Path, source: Path) -> dict:
             if data != (source / name).read_bytes():
                 raise ValueError(f"Executable payload differs from public source: {name}")
             bundled[name] = digest(data)
-        if name.lower().endswith((".sms", ".gg", ".rom", ".manifest", ".patterns")):
+        if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".manifest", ".patterns")):
             raise ValueError(f"Game data in executable: {name}")
     if set(bundled) != BUNDLED_FILES:
         raise ValueError("The executable is missing public resources.")

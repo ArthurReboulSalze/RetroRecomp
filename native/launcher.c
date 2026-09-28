@@ -16,7 +16,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command, int sh
     if (!args) return 1;
     int count = 0, headless = 0, window = 0, log_requested = 0;
     args[count++] = __argv[0];
+#ifdef RETRO_GAME_GEAR
+    args[count++] = "embedded.gg";
+#else
     args[count++] = "embedded.sms";
+#endif
     for (int i = 1; i < __argc; ++i) {
         if (strcmp(__argv[i], "--strict") == 0) { _putenv_s("SMSRECOMP_STRICT", "1"); continue; }
         if (strcmp(__argv[i], "--headless") == 0) { headless = 1; continue; }

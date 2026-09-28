@@ -43,6 +43,23 @@ class PublishingTests(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), self.source.read_bytes())
         self.assertFalse(is_pending(self.target))
 
+    def test_compaction_happens_on_staged_copy_before_replacement(self):
+        def compact(staged):
+            self.assertEqual(self.source.read_bytes(), b'new generation')
+            staged.write_bytes(b'compact generation')
+        with patch('smsrecomp.publishing.compact_executable', side_effect=compact) as packer:
+            self.assertFalse(publish_executable(self.source, self.target, compact=True))
+        packer.assert_called_once()
+        self.assertEqual(self.target.read_bytes(), b'compact generation')
+        self.assertEqual(self.source.read_bytes(), b'new generation')
+
+    def test_compaction_failure_preserves_previous_executable(self):
+        with patch('smsrecomp.publishing.compact_executable', side_effect=RuntimeError('UPX failed')):
+            with self.assertRaisesRegex(RuntimeError, 'UPX failed'):
+                publish_executable(self.source, self.target, compact=True)
+        self.assertEqual(self.target.read_bytes(), b'previous generation')
+        self.assertFalse(is_pending(self.target))
+
     @unittest.skipUnless(os.name == 'nt', 'Windows sharing lock')
     def test_locked_game_queues_and_only_latest_generation_is_installed(self):
         with locked_file(self.target):

@@ -1,3 +1,64 @@
+# RetroRecomp v0.13.0 — multi-console Windows x64 preview
+
+The Windows converter now includes four profiles in one interface. It accepts
+mixed ROM folders, detects recognized formats, and exports games into separate
+Master System, Game Gear, Game Boy and Nintendo NES folders. Master System,
+Game Gear and original Game Boy are playable; the new NES profile remains
+experimental.
+Only the converter and legal notices are in the release ZIP: no ROMs, covers,
+generated games or personal conversion library are included.
+
+Game Gear keeps the native 160 × 144 LCD crop, 12-bit palette and one-player
+controls. Original Game Boy uses a separate SM83 recompiler, DMG presentation
+and an optional deep CPU validation mode. Game Boy Color-only cartridges are
+unsupported. Generated games are compacted before export. Fallback remains
+measured and reported; native coverage alone does not prove CPU, hardware or
+gameplay fidelity, nor physical input latency.
+
+An experimental Nintendo NES profile now identifies `.nes` and single-ROM
+ZIP cartridges, recompiles observed 6502 paths with pinned NESRecomp, and
+exports standalone Windows games under `Games/Nintendo NES`. The converter
+keeps ROM-specific entry observations, reports exact native/interpreted CPU
+cycles and compares short frame hashes with the same engine's interpreter.
+The generated game embeds its ROM and legal notices. Its menu uses the shared
+RetroRecomp canvas with two players and the main display shortcuts. NES is
+NTSC-only for now; F8/F9 states, broad mapper/gameplay validation and
+independent hardware comparison remain open. The NES engine is licensed
+PolyForm Noncommercial 1.0.0. Review [third-party notices](../THIRD_PARTY_NOTICES.md)
+before redistribution.
+
+# RetroRecomp v0.12.0 — source development build, no release ZIP
+
+Original Game Boy `.gb` and single-ROM ZIP inputs now use a separate pinned
+SM83 recompiler and Game Boy runtime. Converted games go into
+`Export/Games/Game Boy`, support one player and native 160 × 144 output,
+and keep settings and saves lazy in `datas`. The report counts fallback
+instructions/cycles without inventing a native percentage. The initial local
+Tetris, MBC1 Super Mario Land and battery-backed MBC2 Lazlos' Leap boot tests
+ran 120 frames with zero fallback cycles in their final exports; a 30-frame
+generated/reference CPU comparison matched for each. Super Mario Land first had 76 fallback cycles; reusing its
+observed entry trace removed them on this boot path. Unchanged battery RAM
+does not create a data folder on launch/quit. This is not independent hardware
+or whole-game validation. This historical source development build was not
+packaged as a GitHub release; Game Boy is included in v0.13.0.
+
+Game Boy also seeds short ROM branches and learns from boot plus two scripted
+play paths. The default CPU validation keeps a short mandatory boot check;
+**Deep Game Boy validation (slow)** optionally adds the much longer per-play
+comparisons. Native discovery and coverage tests stay the same in both modes.
+Reports now identify validation scope and time spent on each conversion stage.
+
+# RetroRecomp v0.11.0 — source development build, no release ZIP
+
+Game Gear cartridge conversion was first introduced as a console
+profile. `.gg` and single-ROM ZIP inputs use Game Gear colors, Start, stereo
+port, one-player controls and separate game exports. The original 160 × 144 LCD
+view is the only presentation mode. No ROM patch or expanded view is used.
+Factory Panic passed targeted
+120-frame native/reference checks; whole-game and visual verification remain
+open. This historical development build was not published as a GitHub release;
+Game Gear is included in v0.13.0.
+
 # RetroRecomp v0.10.17 — Master System for Windows x64
 
 Convert your own Master System ROMs into standalone Windows games. This preview

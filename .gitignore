@@ -20,10 +20,15 @@ __pycache__/
 *.py[cod]
 *.spec
 *.exe
+!assets/tools/upx.exe
 *.dll
 *.pyd
 *.sms
 *.gg
+*.gb
+*.gbc
+*.nes
+*.fds
 *.rom
 *.bin
 *.zip
@@ -55,6 +60,9 @@ docs/*
 !docs/VIDEO.md
 !docs/GAME_STATES.md
 !docs/SYSTEM_PROFILES.md
+!docs/GAME_GEAR.md
+!docs/GAME_BOY.md
+!docs/NES.md
 !docs/ROADMAP.md
 !docs/RELEASE_NOTES.md
 profiles/*

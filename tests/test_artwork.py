@@ -54,6 +54,10 @@ class ArtworkTests(unittest.TestCase):
         with self.assertRaises(ArtworkError):
             choose_cover(["Game (USA).png", "Game (Japan).png"], "Game", "Game")
         self.assertEqual(choose_cover(["Game (USA).png", "Game (Japan).png"], "Game (USA, Europe)", "Game"), "Game (USA).png")
+        self.assertEqual(choose_cover(["Factory Panic (Europe, Brazil) (En).png",
+                                       "Factory Panic (Europe, Brazil).png"],
+                                      "Factory Panic (Europe)", "Factory Panic"),
+                         "Factory Panic (Europe, Brazil).png")
 
     def test_online_download_is_cached_and_then_works_offline(self):
         with patch("smsrecomp.artwork._get", return_value=png()) as request:
