@@ -5,11 +5,10 @@
 RetroRecomp 0.10.17 builds Windows x64 games from Master System ROMs using the
 Sega mapper. Extended native coverage, selectable PAL/NTSC console timing,
 quick states and catalogue-selected Light Phaser input are available within
-that scope. Game Gear ROMs are rejected. Linux, macOS and Android builds are
-not provided yet. Codemasters mapper, cartridge saves, FM sound, hardware
-Pause/NMI and complete pixel-clock raster effects are not validated or
-supported. PAL and NTSC timing support is not a claim of exact hardware
-fidelity; see [video evidence](VIDEO.md).
+that scope. Game Gear ROMs are rejected. Codemasters mapper, cartridge saves,
+FM sound, hardware Pause/NMI and complete pixel-clock raster effects are not
+validated or supported. PAL and NTSC timing support is not a claim of exact
+hardware fidelity; see [video evidence](VIDEO.md).
 
 Keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.

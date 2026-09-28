@@ -34,8 +34,6 @@ The ZIP contains the converter and legal notices only: no ROMs, generated
 games, separate box art, settings or compilation library. Git and Visual
 Studio C++ Build Tools are needed to convert games; neither Python nor a
 development toolchain is needed to play a generated game. See the
-[README](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v0.10.17/README.md),
-[compatibility notes](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v0.10.17/docs/COMPATIBILITY.md)
-and [third-party licensing notices](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v0.10.17/THIRD_PARTY_NOTICES.md).
-
-Linux, macOS, Android and additional consoles remain future work.
+[README](https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/README.md),
+[compatibility notes](https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/COMPATIBILITY.md)
+and [third-party licensing notices](https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/THIRD_PARTY_NOTICES.md).

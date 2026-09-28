@@ -191,16 +191,11 @@ are not bundled with this public repository.
 See [compatibility and limitations](docs/COMPATIBILITY.md) before assuming
 a game, mapper or platform is supported.
 
-## Where we want to go
+## Next for Master System
 
-RetroRecomp is designed to grow beyond the Master System. Future work includes
-additional consoles and native outputs for **Linux, macOS and Android**.
-Game Gear and other retro consoles are candidates; Neo Geo AES/MVS and Amiga
-A1200/AGA are longer-term research directions.
-
-These are roadmap goals, **not available platforms or compatibility promises**.
-New processors, graphics/audio hardware, build toolchains and validation are
-required. There is no announced delivery date. [Explore the roadmap](docs/ROADMAP.md).
+Work continues on game coverage, hardware behavior and validation of more
+gameplay paths. The [roadmap](docs/ROADMAP.md) tracks these Master System
+priorities without promising compatibility for every cartridge.
 
 ## Development and credits
 
