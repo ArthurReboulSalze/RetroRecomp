@@ -1,3 +1,14 @@
+# RetroRecomp v0.14.4 — concurrent batch conversion (unreleased)
+
+Mixed-console batches can now convert up to eight different games in parallel.
+The GUI and `batch` command default to three concurrent games; choose one for
+the previous sequential behavior or adjust the setting for available CPU and
+memory. Export names are reserved before builds begin, so editions with the
+same title keep separate executables and per-ROM reports. Stopping a batch
+allows active conversions to finish without starting more games. Shared
+dependency setup is serialized. This changes conversion throughput only;
+runtime responsiveness and game validation have not been remeasured.
+
 # RetroRecomp v0.14.3 — clearer update errors (unreleased)
 
 Connection and firewall failures during the manual update check or download

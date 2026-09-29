@@ -23,7 +23,7 @@ python RetroRecomp.py setup
 python RetroRecomp.py convert "ROMS/your-game.sms" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.gb" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.nes" --no-online-cover
-python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --no-online-cover
+python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 3 --no-online-cover
 python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --system auto
 ```
 
@@ -35,6 +35,10 @@ identification routes supported ROMs into `Master System`, `Game Gear`,
 selects another Games root, and `--system sms|gg|gb|nes` resolves ambiguous
 `.bin`/`.rom` dumps when their console is known to the user. The GUI offers
 the same Automatic/manual console selector and an opt-in custom export folder.
+Batch conversion runs three games at once by default for any mix of supported
+consoles. Set **Concurrent games** in the GUI or use `batch --jobs 1..8` to
+control CPU and memory use. `--jobs 1` runs sequentially. Stopping waits for
+already active games and leaves the rest of the queue untouched.
 
 Game Boy keeps its all-bank discovery and three coverage scenarios enabled.
 Its default reference CPU check covers up to 30 boot frames. To add the much

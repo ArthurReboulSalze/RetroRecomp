@@ -12,7 +12,7 @@ from typing import Callable
 
 from . import __version__
 from .artwork import ArtworkError, prepare_icon
-from .core import ConversionError, dependencies, executable_name, run, slug
+from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug
 from .gameboy_runtime import adapt_generated_project
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries)
@@ -70,6 +70,7 @@ def read_game_boy_rom(path: Path) -> GameBoyRom:
     return GameBoyRom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), title, cgb_flag)
 
 
+@serialized_setup
 def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, str]:
     # Reuse the already-pinned SDL2 static build. The Game Boy compiler and
     # runtime remain separate from the Master System/ Game Gear CPU backend.

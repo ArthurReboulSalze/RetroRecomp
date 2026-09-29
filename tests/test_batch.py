@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import tempfile
-from threading import Event
+from threading import Barrier, Event
 import unittest
 from unittest.mock import patch
 
@@ -88,6 +88,53 @@ class BatchTests(unittest.TestCase):
         with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=AssertionError("modified ROM must not compile")):
             result = convert_batch([first], self.games_root, emit=lambda text: None)
         self.assertEqual(result["failed"], 1)
+
+    def test_parallel_batch_overlaps_mixed_consoles_and_reserves_same_title_names(self):
+        first, second = self.item('one', 1), self.item('two', 2)
+        gear = self.root / 'Same title.gg'
+        gear.write_bytes(bytes(32768))
+        third = identify(gear)
+        rendezvous = Barrier(3)
+
+        def compile(path, **options):
+            rendezvous.wait(timeout=5)  # All three conversions must overlap.
+            return self.compiler(path, **options)
+
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile), \
+                patch('smsrecomp.systems.game_gear.GameGearProfile.convert', side_effect=compile):
+            record = convert_batch([first, second, third], self.games_root,
+                                   jobs=3, emit=lambda text: None)
+        self.assertEqual(record['succeeded'], 3)
+        self.assertEqual(record['jobs'], 3)
+        self.assertEqual([game['sha256'] for game in record['games']],
+                         [first.sha256, second.sha256, third.sha256])
+        self.assertEqual([Path(game['executable']).name for game in record['games']],
+                         ['Same title.exe', 'Same title (2).exe', 'Same title.exe'])
+        self.assertEqual({Path(game['executable']).parent.name for game in record['games']},
+                         {'Master System', 'Game Gear'})
+
+    def test_parallel_stop_finishes_started_games_without_launching_next(self):
+        items = [self.item(str(index), index) for index in range(1, 4)]
+        stop = Event()
+        rendezvous = Barrier(2)
+        starts = []
+
+        def event(kind, index, value):
+            if kind == 'start':
+                starts.append(index)
+                if len(starts) == 2:
+                    stop.set()
+
+        def compile(path, **options):
+            rendezvous.wait(timeout=5)
+            return self.compiler(path, **options)
+
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+            record = convert_batch(items, self.games_root, jobs=2, cancel=stop,
+                                   on_event=event, emit=lambda text: None)
+        self.assertEqual(compiler.call_count, 2)
+        self.assertEqual(starts, [0, 1])
+        self.assertEqual((record['succeeded'], record['pending'], record['cancelled']), (2, 1, True))
 
     def test_report_write_failure_does_not_replace_a_working_game(self):
         item = self.item("one", 1)

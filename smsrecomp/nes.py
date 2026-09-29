@@ -18,7 +18,7 @@ from typing import Callable
 
 from . import __version__
 from .artwork import ArtworkError, prepare_icon
-from .core import ConversionError, dependencies, executable_name, run, slug, toolchain
+from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .library import atomic_json, library_root
 from .metadata import write_game_metadata
 from .nes_runtime import prepare_host
@@ -91,6 +91,7 @@ def read_nes_rom(path: Path) -> NesRom:
                   mapper, nes2, standard)
 
 
+@serialized_setup
 def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, str]:
     cmake, generator = toolchain()
     sdl = ROOT / '.deps/SDL/install'

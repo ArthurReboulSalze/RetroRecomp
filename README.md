@@ -121,7 +121,7 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 | --- | --- |
 | Game system | Master System, Game Gear and original Game Boy; experimental NES profile |
 | Output | Standalone Windows x64 game executable |
-| Conversion | Single ROM or mixed-console batch; extended Sega coverage enabled by default |
+| Conversion | Single ROM or mixed-console batch, three concurrent games by default (1–8 adjustable); extended Sega coverage enabled by default |
 | Improvement | ROM-specific entry observations; guarded RAM variants on Sega profiles |
 | Interface | English and French, with contextual help and conversion log |
 | Inputs | Master System: two players and optional gun; Game Gear and Game Boy: one player; NES: two joypads |

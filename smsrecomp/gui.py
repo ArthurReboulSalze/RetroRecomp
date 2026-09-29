@@ -97,6 +97,8 @@ class Application:
         self.messages = queue.Queue()
         self.controls = []
         self.active_rows = []
+        self.running_jobs: set[int] = set()
+        self.completed_jobs = 0
         self.row_status, self.tooltips, self.library_panels = {}, [], []
         self.credits_panel = None
         self.status_key, self.status_values = 'ready', {}
@@ -145,6 +147,8 @@ class Application:
         self.gb_deep_validation = tk.BooleanVar(value=bool(preferences.get('gb_deep_validation', False)))
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
+        saved_jobs = preferences.get('jobs', 3)
+        self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else 3)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
@@ -306,7 +310,10 @@ class Application:
         self.gb_deep_control.pack(side='left', padx=(12, 6))
         self.controls.append(self.gb_deep_control)
         self.hint(self.gb_deep_control, 'tip_gb_deep_validation')
-        ttk.Label(tuning, text=self.tr('sequential'), style='Muted.TLabel').pack(side='right')
+        self.jobs_field = ttk.Spinbox(tuning, textvariable=self.jobs, from_=1, to=8, width=4)
+        self.jobs_field.pack(side='right', padx=(6, 0))
+        self.hint(self.jobs_field, 'tip_jobs')
+        ttk.Label(tuning, text=self.tr('jobs')).pack(side='right')
 
         actions = ttk.Frame(body)
         actions.grid(row=7, column=0, sticky='ew', padx=24, pady=(0, 8))
@@ -707,7 +714,8 @@ class Application:
             system_mode=self.system_mode, platform=self.platform_id,
             backend='banked' if self.extended.get() else 'functions',
             gb_deep_validation=self.gb_deep_validation.get(),
-            passes=self.passes.get(), frames=self.frames.get(), use_cover=self.use_cover.get(),
+            passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
+            use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get())
 
     def start(self):
@@ -718,7 +726,8 @@ class Application:
             return
         try:
             options = self.preferences()
-            if not 1 <= options['passes'] <= 10 or not 1 <= options['frames'] <= 10000:
+            if (not 1 <= options['passes'] <= 10 or not 1 <= options['frames'] <= 10000
+                    or not 1 <= options['jobs'] <= 8):
                 raise ValueError(self.tr('invalid_limits'))
             if not self.output.get().strip():
                 raise ValueError(self.tr('need_output'))
@@ -734,6 +743,8 @@ class Application:
         self.busy = True
         self.cancel.clear()
         self.active_rows = list(self.table.get_children())
+        self.running_jobs.clear()
+        self.completed_jobs = 0
         items = [self.items[row] for row in self.active_rows]
         for row in self.active_rows:
             self.table.set(row, 'status', self.tr('waiting'))
@@ -762,6 +773,7 @@ class Application:
             control.configure(state='normal' if enabled else 'disabled')
         self.pass_field.configure(state='readonly' if enabled else 'disabled')
         self.frame_field.configure(state='normal' if enabled else 'disabled')
+        self.jobs_field.configure(state='normal' if enabled else 'disabled')
         self.start_button.configure(state='normal' if enabled else 'disabled')
         self.stop_button.configure(state='disabled' if enabled else 'normal')
         self.language_field.configure(state='readonly' if enabled else 'disabled')
@@ -854,13 +866,17 @@ class Application:
                     self.log.configure(state='disabled')
                 elif kind == 'start':
                     row = self.active_rows[event[1]]
+                    self.running_jobs.add(event[1])
                     self.table.set(row, 'status', self.tr('converting'))
                     self.row_status[row] = 'converting'
                     self.table.see(row)
                     if not self.cancel.is_set():
-                        self.status.set(f'{event[1]+1}/{len(self.active_rows)} · {event[2]}')
+                        self.set_status('batch_running', completed=self.completed_jobs,
+                                        total=len(self.active_rows), active=len(self.running_jobs))
                 elif kind == 'result':
                     row, result = self.active_rows[event[1]], event[2]
+                    self.running_jobs.discard(event[1])
+                    self.completed_jobs += 1
                     self.results[row] = result
                     self.table.set(row, 'video', self.video_display(self.items[row], result))
                     status_key = {'success': 'created', 'error': 'error',
@@ -873,7 +889,10 @@ class Application:
                         text = self.tr('pending_install')
                     self.table.set(row, 'status', text)
                     self.table.item(row, tags=('error',) if result['status'] in ('error', 'unrecognized', 'skipped') else (result['status'],))
-                    self.progress.configure(value=event[1]+1)
+                    self.progress.configure(value=self.completed_jobs)
+                    if not self.cancel.is_set():
+                        self.set_status('batch_running', completed=self.completed_jobs,
+                                        total=len(self.active_rows), active=len(self.running_jobs))
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
                     self.busy = False

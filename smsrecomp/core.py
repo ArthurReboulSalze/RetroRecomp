@@ -11,6 +11,8 @@ import csv
 import unicodedata
 import zlib
 import time
+from functools import wraps
+from threading import RLock
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +30,16 @@ from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
+_SHARED_SETUP_LOCK = RLock()
+
+
+def serialized_setup(function):
+    """Protect shared toolchain checkouts and builds during a parallel batch."""
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        with _SHARED_SETUP_LOCK:
+            return function(*args, **kwargs)
+    return wrapper
 
 
 class ConversionError(RuntimeError):
@@ -185,6 +197,7 @@ def toolchain() -> tuple[Path, str]:
     raise ConversionError("Il faut Visual Studio Build Tools (C++ x64 et CMake). Aucun compilateur compatible trouvé.")
 
 
+@serialized_setup
 def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path, str]:
     cmake, generator = toolchain()
     dep = ROOT / ".deps"
@@ -273,6 +286,20 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         run([cmake, "--build", sdl / "build", "--config", "Release", "--parallel", "4"], log=log)
         run([cmake, "--install", sdl / "build", "--config", "Release"], log=log)
     return engine, prefix, cmake, generator
+
+
+@serialized_setup
+def prepare_native_source() -> Path:
+    """Stage the common runtime before any game's CMake build reads it."""
+    native_source = ROOT / ".build/native-source"
+    native_source.mkdir(parents=True, exist_ok=True)
+    for source in (ASSETS / "native").iterdir():
+        if not source.is_file():
+            continue
+        target = native_source / source.name
+        if not target.exists() or target.read_bytes() != source.read_bytes():
+            shutil.copy2(source, target)
+    return native_source
 
 
 def replace_once(source: str, old: str, new: str) -> str:
@@ -839,14 +866,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     # A onefile GUI extracts ASSETS to a different temporary directory on every
     # launch. CMake must always see a stable source path, also when switching
     # between Python source and the packaged converter.
-    native_source = ROOT / ".build/native-source"
-    native_source.mkdir(parents=True, exist_ok=True)
-    for source in (ASSETS / "native").iterdir():
-        if not source.is_file():
-            continue
-        target = native_source / source.name
-        if not target.exists() or target.read_bytes() != source.read_bytes():
-            shutil.copy2(source, target)
+    native_source = prepare_native_source()
     build = game / "build-native"
     executable = build / "Release" / f"{name}.exe"
     scenarios = [("demo", []), ("play", ["60:S", "65:", "120:B", "125:", "240:R", "360:RA", "390:R", "600:"])
