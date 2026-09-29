@@ -237,6 +237,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         settings = dict(options)
         if system.id != 'gb':
             settings.pop('gb_deep_validation', None)
+            settings.pop('gb_parallel_games', None)
         if item.standard_override is not None:
             settings['standard_override'] = item.standard_override
         if system.id in ('sms', 'gg'):
@@ -287,6 +288,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                   **options) -> dict:
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
+    options = {**options, 'gb_parallel_games': jobs}
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     results: list[dict | None] = [None] * len(items)

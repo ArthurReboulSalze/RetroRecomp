@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.14.5-0879fa" alt="Release version 0.14.5">
+  <img src="https://img.shields.io/badge/release-0.15.0-0879fa" alt="Release version 0.15.0">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -25,7 +25,7 @@ output platform; more game systems and host platforms are planned.</p>
 </p>
 
 **The current Windows release includes four console profiles.** Master System,
-Game Gear and original Game Boy are playable; the new NES profile remains
+Game Gear and original Game Boy are supported for everyday use; NES remains
 experimental. Each has its own hardware runtime and validation limits.
 
 ## Why RetroRecomp?
@@ -53,11 +53,12 @@ experimental. Each has its own hardware runtime and validation limits.
   160 × 144 LCD window. ROMs are not patched or expanded beyond the visible
   screen. The profile is playable; complete catalogue compatibility and
   hardware fidelity are not established. See the [Game Gear profile](docs/GAME_GEAR.md).
-- **Game Boy.** Original `.gb` cartridges use a separate SM83
+- **Game Boy (fully supported profile).** Original `.gb` cartridges use a separate SM83
   compiler and 160 × 144 DMG runtime. Short branch discovery and three
-  conversion probes reduce fallback on tested paths; a slower CPU comparison
-  is optional. The profile is playable, with targeted Tetris and Super Mario
-  Land checks; complete catalogue and hardware behavior remain unverified. Game Boy Color-only games are
+  conversion probes reduce fallback on tested paths. Deep reference CPU checks
+  now run by default, while the faster standard check remains available. The
+  profile is no longer alpha; targeted Tetris and Super Mario Land checks pass.
+  Complete catalogue and hardware behavior remain unverified. Game Boy Color-only games are
   not supported. See the [Game Boy profile](docs/GAME_BOY.md).
 - **NES (experimental).** `.nes` cartridges use a separate 6502 backend and a
   per-ROM library of observed code entries. The current NTSC profile has two
@@ -69,7 +70,7 @@ experimental. Each has its own hardware runtime and validation limits.
 <p align="center">
   <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp interface with automatic console selection, platform and language selectors, and a batch conversion queue" width="1000">
 </p>
-<p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games.</em></p>
+<p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games. In v0.15.0, conversion settings have moved into Options.</em></p>
 
 <p align="center">
   <img src="MEDIAS/RC_Windows_Screen.png" alt="Windows Explorer displaying generated Master System game executables with box-art icons and shooting badges" width="1100">
@@ -99,9 +100,19 @@ an all-bank SM83 scan, short branch discovery and scripted conversion tests.
 NES feeds observed ROM misses into another conversion pass. Unknown paths can
 still require the appropriate reference interpreter; its use is reported.
 
-Game Boy keeps all three coverage tests in its default conversion. Optional
-**Deep Game Boy validation (slow)** adds longer reference CPU checks and can
-take several extra minutes per game, without changing native discovery.
+Game Boy keeps all three coverage tests and **Deep Game Boy validation** in its
+default conversion. The latter adds longer reference CPU checks without
+changing native discovery. Uncheck it under Options → Game Boy for the faster
+standard check. The common export and batch settings live under Options → Common;
+the Sega native coverage option appears under both Sega console tabs.
+
+For one local Super Mario Land conversion with a populated entry library, deep
+validation took 55.8 seconds after these optimizations, versus a historical
+deep run of about 750 seconds (over 10× less time). The runs used different
+cache and implementation conditions, so this is a historical comparison, not
+a controlled benchmark or a time guarantee for other games. With an empty
+entry library, the current deep conversion took 84.5 seconds. See the
+[Game Boy measurements](docs/GAME_BOY.md) for validation scope and timings.
 
 ### Each generation can improve the next
 

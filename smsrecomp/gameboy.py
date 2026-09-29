@@ -1,10 +1,12 @@
 """Game Boy (DMG) conversion using a pinned SM83 static recompiler."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import time
 import zlib
@@ -141,11 +143,17 @@ def _cpu_compare(executable: Path, build: Path, frames: int,
     if scenario.input_script:
         command += ['--input', scenario.input_script]
     output = run(command,
-                 cwd=build, log=build / "validation.log", timeout=600)
+                 cwd=build, log=build / f"validation-cpu-{scenario.name}.log", timeout=600)
     match = CPU_MATCH.search(output)
     if not match or int(match.group(2)) != frames:
         raise ConversionError("Game Boy CPU comparison did not report a completed match.")
     return match.group(0)
+
+
+def _gb_parallelism(parallel_games: int) -> tuple[int, int]:
+    """Bound compiler processes and independent CPU checks during batch work."""
+    per_game = max(1, (os.cpu_count() or 1) // parallel_games)
+    return min(4, per_game), 3 if per_game >= 6 else 2 if per_game >= 4 else 1
 
 
 def _verified_trace(rom: GameBoyRom) -> Path | None:
@@ -211,7 +219,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                      backend: str = "banked", language: str = "en", cover: Path | None = None,
                      boxart_dir: Path | None = None, online_cover: bool = True,
                      use_cover: bool = True, icon_tags: bool = True,
-                     gb_deep_validation: bool = False,
+                     gb_deep_validation: bool = True,
+                     gb_parallel_games: int = 1,
                      standard_override: str | None = None,
                      emit: Callable[[str], None] = print) -> Path:
     from .batch import convert_batch, identify
@@ -234,6 +243,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         raise ConversionError("This Game Boy profile supports original DMG hardware only.")
     if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
         raise ConversionError("Choose 1–10 passes and 1–10000 frames per test.")
+    if not 1 <= gb_parallel_games <= 8:
+        raise ConversionError("Concurrent games must be between 1 and 8.")
+    compile_jobs, cpu_workers = _gb_parallelism(gb_parallel_games)
     started = time.perf_counter()
     stage_seconds = dict(setup=0.0, discovery=0.0, translation=0.0, build=0.0,
                          coverage_probes=0.0, cpu_validation=0.0)
@@ -248,7 +260,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     emit(f"ROM: {title}, {len(rom.data) // 1024} KB, CRC32 {rom.crc32:08X}; Game Boy DMG.")
     if gb_deep_validation:
         emit("Game Boy deep CPU validation enabled: extra instruction-by-instruction play checks "
-             "can add several minutes per game. Native discovery is unchanged.")
+             "add conversion time depending on the game. Native discovery is unchanged.")
     try:
         artwork = prepare_icon(project, rom.path, title,
             (boxart_dir or ROOT / "BoxArt/Game Boy").resolve(), explicit=cover,
@@ -304,9 +316,10 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         stage_started = time.perf_counter()
         run([cmake, "-S", project, "-B", project / "build", "-G", generator, "-A", "x64",
              "-DGBRECOMP_GENERATED_OPT_LEVEL=2",
+             f"-DGBRECOMP_GENERATED_COMPILE_JOBS={compile_jobs}",
              f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"],
             log=project / "build.log", timeout=600)
-        run([cmake, "--build", project / "build", "--config", "Release", "--parallel", "4"],
+        run([cmake, "--build", project / "build", "--config", "Release", "--parallel", str(compile_jobs)],
             log=project / "build.log", timeout=1800)
         if not executable.is_file():
             raise ConversionError("Game Boy generated project produced no executable.")
@@ -337,18 +350,28 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         emit(f"Game Boy: adding {len(new_entries)} observed ROM entries to the next pass.")
     validation_mode = 'deep' if gb_deep_validation else 'standard'
     emit(f"Comparing generated execution with the reference CPU ({validation_mode})…")
-    cpu_checks = []
-    for scenario, comparison_frames in cpu_validation_scenarios(frames, deep=gb_deep_validation):
+    comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation)
+    for scenario, comparison_frames in comparison_scenarios:
         emit(f"Game Boy CPU {scenario.name}: comparing {comparison_frames} frames "
              "instruction by instruction…")
-        stage_started = time.perf_counter()
+
+    def compare_one(item: tuple[ProbeScenario, int]) -> dict:
+        scenario, comparison_frames = item
+        check_started = time.perf_counter()
         cpu_comparison = _cpu_compare(executable, project, comparison_frames, scenario)
-        elapsed = time.perf_counter() - stage_started
-        stage_seconds['cpu_validation'] += elapsed
-        cpu_checks.append({'scenario': scenario.name, 'frames': comparison_frames,
-                           'input_script': scenario.input_script, 'result': cpu_comparison,
-                           'wall_seconds': round(elapsed, 6)})
-        emit(f"Game Boy CPU {scenario.name}: matching for {comparison_frames} frames.")
+        return {'scenario': scenario.name, 'frames': comparison_frames,
+                'input_script': scenario.input_script, 'result': cpu_comparison,
+                'wall_seconds': round(time.perf_counter() - check_started, 6)}
+
+    stage_started = time.perf_counter()
+    if gb_deep_validation and cpu_workers > 1 and len(comparison_scenarios) > 1:
+        with ThreadPoolExecutor(max_workers=cpu_workers) as executor:
+            cpu_checks = list(executor.map(compare_one, comparison_scenarios))
+    else:
+        cpu_checks = [compare_one(item) for item in comparison_scenarios]
+    stage_seconds['cpu_validation'] += time.perf_counter() - stage_started
+    for check in cpu_checks:
+        emit(f"Game Boy CPU {check['scenario']}: matching for {check['frames']} frames.")
     _remember_trace(rom, trace_out)
     generated = json.loads((project / "game_metadata.json").read_text(encoding="utf-8"))
     report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": "gb", "name": "Game Boy"},

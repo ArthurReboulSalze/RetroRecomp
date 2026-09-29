@@ -102,11 +102,11 @@ write learning logs, and the interpreter remains available and reported.
 
 The fallback percentage is deliberately left unknown because the upstream
 report does not provide a defensible total cycle denominator. Before export,
-the default CPU check compares generated and reference execution instruction
+the mandatory CPU check compares generated and reference execution instruction
 by instruction for up to 30 boot frames. **Deep Game Boy validation (slow)**
-adds up to 240 frames per input scenario. This option is off by default and
-can add several minutes per game; it is useful when investigating a CPU
-discrepancy or validating compiler changes. Both modes require the requested
+adds up to 240 frames per input scenario. This option is on by default and
+adds conversion time depending on the game. Uncheck it under Options → Game Boy
+for a faster standard check. Both modes require the requested
 comparison frames to finish and reject a mismatch. Matching results do not
 independently validate PPU, APU, input timing, cartridge peripherals, complete
 gameplay or physical latency.
@@ -114,18 +114,64 @@ gameplay or physical latency.
 The option only changes the scope of reference CPU validation. Native ROM
 discovery, the converter library, the three coverage probes and the pass limit
 are identical in both modes. **Frames per test** controls the coverage probes,
-not the deep CPU comparison budget. From the CLI, add `--gb-deep-validation`
-to `convert` or `batch`; it is ignored for other consoles. The conversion
+not the deep CPU comparison budget. From the CLI, use `--no-gb-deep-validation`
+to opt out for `convert` or `batch`; it is ignored for other consoles. The conversion
 report records `native_validation.mode`, each completed comparison and
 `stage_seconds` for setup, discovery, translation, build, coverage probes and
 CPU validation. Conversion timing excludes final executable compression and
 publication; first-time dependency downloads/builds are included in setup.
 
-A local Super Mario Land conversion with dependencies already installed and
-an empty game-entry library took 135 seconds in standard mode: two passes,
-three final 3600-frame probes with zero fallback, and a matching 30-frame
+A pre-optimization Super Mario Land conversion with dependencies already
+installed and an empty game-entry library took 135 seconds in standard mode:
+two passes, three final 3600-frame probes with zero fallback, and a matching 30-frame
 CPU comparison. The earlier deep-validation conversion took 750 seconds.
-These are local measurements, not a time limit for every ROM or computer.
+The differential validator now uses a fast byte comparison for the common
+matching case, while still checking all mutable memory and framebuffer bytes
+after every instruction and locating the first differing byte on failure.
+On the same generated Mario build, a 30-frame CPU comparison fell from 45.7
+to 4.5 seconds. A new deep conversion took 103.9 seconds total with a populated
+entry library and warm build cache: 57.7 seconds for 30 + 240 + 240 CPU frames,
+and three 3600-frame coverage probes with zero fallback cycles. The earlier
+full-conversion conditions differed, so those totals are not a controlled
+speedup ratio. These are local measurements, not a time limit for every ROM
+or computer.
+
+To isolate the effect of learned ROM entries after this optimization, the same
+deep conversion was repeated with an initially empty `RETRO_RECOMP_LIBRARY_DIR`
+and the same local Mario ROM, installed dependencies and per-game build
+directory. It imported **0 entries**, discovered 1,122 during the first pass,
+and needed **2 passes**: 147.8 seconds total, including 70.2 seconds of C
+builds, 17.0 seconds of coverage probes and 57.0 seconds of CPU comparisons.
+With 1,150 entries imported, it took 103.9 seconds and one pass. The library
+saved 43.9 seconds here by avoiding a second build and probe round; it did not
+skip the 30 + 240 + 240 CPU comparison frames. Both final runs had zero
+fallback cycles in their three 3600-frame coverage probes. The library test
+began empty but still used the normal static ROM discovery.
+
+On Windows, generated C files now compile with a bounded MSVC `/MP` job count
+shared among concurrent games. The independent deep CPU scenarios run in
+parallel when enough logical processors are available; every scenario still
+compares the same frames, instructions and mutable memory. The converter keeps
+the job count low when several games are processed together. On this 24-thread
+machine, a full Mario build of the same generated sources took 30.7 seconds
+without `/MP` and 14.2 seconds with `/MP4`. Parallel CPU scenarios took about
+27 seconds of wall time instead of 57 seconds sequentially.
+
+End-to-end Mario measurements with this change, installed dependencies and
+three 3600-frame coverage probes per pass: **84.5 seconds** in deep mode from
+an empty entry library (two passes), **55.8 seconds** in deep mode with 1,150
+entries imported (one pass), and **33.0 seconds** in standard mode with those
+entries. All final probes reported zero fallback cycles, and all requested CPU
+comparisons matched the internal reference. Other games, full gameplay,
+hardware behavior and physical input latency were not measured here.
+
+Deep validation is the default from v0.15.0, including existing GUI installs:
+previous preferences saved the old unchecked default automatically, so that
+value migrates once. A user who unchecks it afterward keeps that choice. The
+historical 750-second deep run versus the 55.8-second populated-library run is
+over 10× shorter, but the cache and implementation conditions differ; it is
+not a controlled speedup measurement across games. An empty-library deep run
+under the current implementation took 84.5 seconds.
 
 On Super Mario Land, two local 3600-frame input runs previously reported
 44,272 and 60,656 interpreted cycles, all at ROM bank 3, address 7FF0. Extended

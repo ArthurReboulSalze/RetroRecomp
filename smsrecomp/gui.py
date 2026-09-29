@@ -18,7 +18,7 @@ from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
 from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root
-from .i18n import STRINGS, tr, extended_default, log_text
+from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
 from .tooltips import Tooltip
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
@@ -101,6 +101,9 @@ class Application:
         self.completed_jobs = 0
         self.row_status, self.tooltips, self.library_panels = {}, [], []
         self.credits_panel = None
+        self.options_panel = None
+        self.output_field = None
+        self.output_browse = None
         self.status_key, self.status_values = 'ready', {}
         preferences = load_preferences()
         self.language = preferences.get('language') if preferences.get('language') in ('en', 'fr') else 'en'
@@ -123,6 +126,10 @@ class Application:
         style.configure('TScrollbar', background='#173763', troughcolor='#0b2143', arrowcolor='#a9bcdc')
         style.configure('Vertical.TScrollbar', background='#173763', troughcolor='#0b2143', arrowcolor='#a9bcdc', bordercolor='#285896')
         style.map('Vertical.TScrollbar', background=[('active', '#22518e')])
+        style.configure('TNotebook', background='#071732', bordercolor='#31568c')
+        style.configure('TNotebook.Tab', padding=(14, 8), background='#102b52', foreground='#a9bcdc')
+        style.map('TNotebook.Tab', background=[('selected', '#173763'), ('active', '#22518e')],
+                  foreground=[('selected', '#eef6ff')])
         style.configure('Primary.TButton', background='#0879fa', foreground='white', padding=(18, 9))
         style.map('Primary.TButton', background=[('active', '#1265d0'), ('disabled', '#334a68')])
         style.configure('Treeview', background='#0b2143', fieldbackground='#0b2143', rowheight=31, borderwidth=0, bordercolor='#285896', lightcolor='#285896', darkcolor='#285896')
@@ -144,7 +151,7 @@ class Application:
         if self.platform_id not in PLATFORMS:
             self.platform_id = 'windows-x64'
         self.extended = tk.BooleanVar(value=extended_default(preferences))
-        self.gb_deep_validation = tk.BooleanVar(value=bool(preferences.get('gb_deep_validation', False)))
+        self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         saved_jobs = preferences.get('jobs', 3)
@@ -220,8 +227,8 @@ class Application:
         body.bind('<Configure>', self.draw_background)
         body.pack(fill='both', expand=True)
         body.columnconfigure(0, weight=1)
-        body.rowconfigure(1, weight=3, minsize=105)
-        body.rowconfigure(10, weight=1, minsize=45)
+        body.rowconfigure(1, weight=4, minsize=180)
+        body.rowconfigure(7, weight=2, minsize=80)
         toolbar = ttk.Frame(body)
         toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
         self.button(toolbar, self.tr('add_roms'), self.choose_roms).pack(side='left')
@@ -229,9 +236,11 @@ class Application:
         self.button(toolbar, self.tr('remove'), self.remove_selected).pack(side='left')
         self.button(toolbar, self.tr('clear'), self.clear).pack(side='left', padx=8)
         ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel').pack(side='right')
+        self.button(toolbar, self.tr('credits'), self.show_credits).pack(side='right', padx=(0, 12))
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
-        self.update_button.pack(side='right', padx=(0, 12))
-        self.button(toolbar, self.tr('credits'), self.show_credits).pack(side='right', padx=(0, 8))
+        self.update_button.pack(side='right', padx=(0, 8))
+        self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
+        self.options_button.pack(side='right', padx=(0, 8))
         ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
                   font=('Segoe UI', 9)).pack(side='right', padx=(0, 12))
 
@@ -273,51 +282,8 @@ class Application:
         self.hint(self.memory_button, 'tip_memory')
         ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=24, pady=(0, 12))
 
-        output_row = ttk.Frame(body)
-        output_row.grid(row=4, column=0, sticky='ew', padx=24, pady=(0, 12))
-        self.custom_output_control = ttk.Checkbutton(output_row, text=self.tr('custom_output'),
-            variable=self.custom_output, command=self.change_output_mode)
-        self.custom_output_control.pack(side='left', padx=(0, 10))
-        self.hint(self.custom_output_control, 'tip_custom_output')
-        self.output_field = ttk.Entry(output_row, textvariable=self.output)
-        self.output_field.pack(side='left', fill='x', expand=True)
-        self.hint(self.output_field, 'tip_output')
-        self.output_field.bind('<FocusOut>', lambda event: self.reload_queue())
-        self.output_browse = self.button(output_row, self.tr('browse'), self.choose_output)
-        self.output_browse.pack(side='left', padx=(8, 0))
-        self.update_output_controls()
-
-        options = ttk.Frame(body)
-        options.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
-        for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('icon_tags'), self.icon_tags, 'tip_icon_tags'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended'), (self.tr('overwrite'), self.overwrite, 'tip_overwrite')]:
-            control = ttk.Checkbutton(options, text=text, variable=variable)
-            control.pack(side='left', padx=(0, 8))
-            self.controls.append(control)
-            self.hint(control, hint)
-            if variable is self.extended: self.extended_control = control
-            if variable is self.icon_tags: self.icon_tags_control = control
-        tuning = ttk.Frame(body)
-        tuning.grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 12))
-        ttk.Label(tuning, text=self.tr('passes')).pack(side='left')
-        self.pass_field = ttk.Combobox(tuning, textvariable=self.passes, values=list(range(1, 11)), width=4, state='readonly')
-        self.pass_field.pack(side='left', padx=(6, 20))
-        self.hint(self.pass_field, 'tip_passes')
-        ttk.Label(tuning, text=self.tr('frames')).pack(side='left')
-        self.frame_field = ttk.Spinbox(tuning, textvariable=self.frames, from_=1, to=10000, width=7)
-        self.frame_field.pack(side='left', padx=6)
-        self.hint(self.frame_field, 'tip_frames')
-        self.gb_deep_control = ttk.Checkbutton(tuning, text=self.tr('gb_deep_validation'),
-                                              variable=self.gb_deep_validation)
-        self.gb_deep_control.pack(side='left', padx=(12, 6))
-        self.controls.append(self.gb_deep_control)
-        self.hint(self.gb_deep_control, 'tip_gb_deep_validation')
-        self.jobs_field = ttk.Spinbox(tuning, textvariable=self.jobs, from_=1, to=8, width=4)
-        self.jobs_field.pack(side='right', padx=(6, 0))
-        self.hint(self.jobs_field, 'tip_jobs')
-        ttk.Label(tuning, text=self.tr('jobs')).pack(side='right')
-
         actions = ttk.Frame(body)
-        actions.grid(row=7, column=0, sticky='ew', padx=24, pady=(0, 8))
+        actions.grid(row=4, column=0, sticky='ew', padx=24, pady=(0, 8))
         self.start_button = ttk.Button(actions, text=self.tr('start'), command=self.start, style='Primary.TButton')
         self.start_button.pack(side='left')
         self.hint(self.start_button, 'tip_start')
@@ -328,12 +294,12 @@ class Application:
         open_button.pack(side='right')
         self.hint(open_button, 'tip_open_folder')
         self.progress = ttk.Progressbar(body, mode='determinate')
-        self.progress.grid(row=8, column=0, sticky='ew', padx=24, pady=(0, 8))
-        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=9, column=0, sticky='ew', padx=24, pady=(0, 8))
+        self.progress.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
+        ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 8))
         self.log = tk.Text(body, height=12, font=('Consolas', 9), bg='#04112b', fg='#b8dbff', relief='flat', padx=12, pady=10, state='disabled', wrap='word')
-        self.log.grid(row=10, column=0, sticky='nsew', padx=24)
+        self.log.grid(row=7, column=0, sticky='nsew', padx=24)
         footer = ttk.Frame(body)
-        footer.grid(row=11, column=0, sticky='ew', padx=24, pady=(10, 16))
+        footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(10, 16))
         self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel')
         self.footer_label.pack(side='left')
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=('Segoe UI', 9))
@@ -463,6 +429,8 @@ class Application:
                                  if name == self.platform_name.get()), 'windows-x64')
 
     def update_output_controls(self):
+        if self.output_field is None or not self.output_field.winfo_exists():
+            return
         state = 'normal' if self.custom_output.get() and not self.busy else 'disabled'
         self.output_field.configure(state=state)
         self.output_browse.configure(state=state)
@@ -718,6 +686,7 @@ class Application:
 
     def preferences(self):
         return dict(language=self.language, coverage_default_revision=2,
+            gb_validation_default_revision=1,
             output=self.output.get(), custom_output=self.custom_output.get(),
             system_mode=self.system_mode, platform=self.platform_id,
             backend='banked' if self.extended.get() else 'functions',
@@ -742,6 +711,7 @@ class Application:
                 raise ValueError(self.tr('need_output'))
             output = Path(options.pop('output')).expanduser().resolve()
             options.pop('coverage_default_revision')
+            options.pop('gb_validation_default_revision')
             options.pop('custom_output')
             options.pop('system_mode')
             options.pop('platform')
@@ -780,15 +750,14 @@ class Application:
     def set_controls(self, enabled):
         for control in self.controls:
             control.configure(state='normal' if enabled else 'disabled')
-        self.pass_field.configure(state='readonly' if enabled else 'disabled')
-        self.frame_field.configure(state='normal' if enabled else 'disabled')
-        self.jobs_field.configure(state='normal' if enabled else 'disabled')
+        if self.options_panel is not None and self.options_panel.winfo_exists():
+            for control, active_state in self.option_controls:
+                control.configure(state=active_state if enabled else 'disabled')
         self.start_button.configure(state='normal' if enabled else 'disabled')
         self.stop_button.configure(state='disabled' if enabled else 'normal')
         self.language_field.configure(state='readonly' if enabled else 'disabled')
         self.system_field.configure(state='readonly' if enabled else 'disabled')
         self.platform_field.configure(state='readonly' if enabled else 'disabled')
-        self.custom_output_control.configure(state='normal' if enabled else 'disabled')
         self.update_output_controls()
         self.selection_changed()
 
@@ -951,6 +920,129 @@ class Application:
         path = Path(self.output.get()).expanduser().resolve()
         path.mkdir(parents=True, exist_ok=True)
         os.startfile(path)
+
+    def show_options(self):
+        if self.busy:
+            return
+        if self.options_panel is not None and self.options_panel.winfo_exists():
+            self.options_panel.lift()
+            self.options_panel.focus_set()
+            return
+
+        panel = tk.Toplevel(self.app)
+        self.options_panel = panel
+        self.option_controls = []
+        self.option_tooltips_start = len(self.tooltips)
+        panel.title(APP_NAME + ' — ' + self.tr('options'))
+        panel.configure(bg='#071732')
+        panel.transient(self.app)
+        panel.geometry('700x510')
+        panel.minsize(630, 460)
+
+        notebook = ttk.Notebook(panel)
+        notebook.pack(fill='both', expand=True, padx=18, pady=(18, 8))
+
+        def tab(key):
+            page = ttk.Frame(notebook, padding=18)
+            notebook.add(page, text=self.tr(key))
+            return page
+
+        def checkbox(parent, key, variable, hint):
+            control = ttk.Checkbutton(parent, text=self.tr(key), variable=variable)
+            control.pack(anchor='w', pady=(0, 8))
+            self.option_controls.append((control, 'normal'))
+            self.hint(control, hint)
+            return control
+
+        common = tab('options_common')
+        common.columnconfigure(0, weight=1)
+        ttk.Label(common, text=self.tr('output')).grid(row=0, column=0, sticky='w', pady=(0, 8))
+        self.custom_output_control = ttk.Checkbutton(common, text=self.tr('custom_output'),
+            variable=self.custom_output, command=self.change_output_mode)
+        self.custom_output_control.grid(row=1, column=0, sticky='w', pady=(0, 8))
+        self.option_controls.append((self.custom_output_control, 'normal'))
+        self.hint(self.custom_output_control, 'tip_custom_output')
+        output_row = ttk.Frame(common)
+        output_row.grid(row=2, column=0, sticky='ew', pady=(0, 16))
+        output_row.columnconfigure(0, weight=1)
+        self.output_field = ttk.Entry(output_row, textvariable=self.output)
+        self.output_field.grid(row=0, column=0, sticky='ew')
+        self.output_field.bind('<FocusOut>', lambda event: self.reload_queue())
+        self.hint(self.output_field, 'tip_output')
+        self.output_browse = ttk.Button(output_row, text=self.tr('browse'), command=self.choose_output)
+        self.output_browse.grid(row=0, column=1, padx=(8, 0))
+        self.hint(self.output_browse, 'tip_output')
+        self.update_output_controls()
+
+        shared = ttk.Frame(common)
+        shared.grid(row=3, column=0, sticky='w')
+        self.icon_tags_control = None
+        for key, variable, hint in (('icon', self.use_cover, 'tip_icon'),
+                                     ('icon_tags', self.icon_tags, 'tip_icon_tags'),
+                                     ('online', self.online, 'tip_online'),
+                                     ('overwrite', self.overwrite, 'tip_overwrite')):
+            control = checkbox(shared, key, variable, hint)
+            if key == 'icon_tags':
+                self.icon_tags_control = control
+
+        limits = ttk.Frame(common)
+        limits.grid(row=4, column=0, sticky='w', pady=(12, 0))
+        for column, (key, variable, hint, limit, kind) in enumerate((
+                ('passes', self.passes, 'tip_passes', 10, 'combo'),
+                ('frames', self.frames, 'tip_frames', 10000, 'spin'),
+                ('jobs', self.jobs, 'tip_jobs', 8, 'spin'))):
+            ttk.Label(limits, text=self.tr(key)).grid(row=0, column=column, sticky='w', padx=(0, 22))
+            control = (ttk.Combobox(limits, textvariable=variable, values=list(range(1, limit + 1)),
+                                     width=6, state='readonly') if kind == 'combo' else
+                       ttk.Spinbox(limits, textvariable=variable, from_=1, to=limit, width=8))
+            control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
+            self.option_controls.append((control, 'readonly' if kind == 'combo' else 'normal'))
+            self.hint(control, hint)
+
+        for key in ('sms', 'gg'):
+            profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
+            control = checkbox(profile_page, 'extended', self.extended, 'tip_extended')
+            if key == 'sms':
+                self.extended_control = control
+            ttk.Label(profile_page, text=self.tr('options_sega_note'), style='Muted.TLabel').pack(anchor='w')
+
+        game_boy = tab('options_game_boy')
+        self.gb_deep_control = checkbox(game_boy, 'gb_deep_validation',
+                                        self.gb_deep_validation, 'tip_gb_deep_validation')
+        ttk.Label(game_boy, text=self.tr('options_gb_note'), style='Muted.TLabel').pack(anchor='w')
+
+        nes = tab('options_nes')
+        ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
+
+        buttons = ttk.Frame(panel)
+        buttons.pack(fill='x', padx=18, pady=(0, 18))
+        ttk.Button(buttons, text=self.tr('close'), command=self.close_options).pack(side='right')
+        panel.protocol('WM_DELETE_WINDOW', self.close_options)
+        panel.bind('<Escape>', lambda _event: self.close_options())
+        panel.grab_set()
+        panel.focus_set()
+
+    def close_options(self):
+        panel = self.options_panel
+        if panel is None or not panel.winfo_exists():
+            return
+        try:
+            options = self.preferences()
+            if (not 1 <= options['passes'] <= 10 or not 1 <= options['frames'] <= 10000
+                    or not 1 <= options['jobs'] <= 8 or not options['output'].strip()):
+                raise ValueError(self.tr('invalid_limits'))
+            save_preferences(options)
+        except (ValueError, tk.TclError, OSError) as exc:
+            messagebox.showerror(APP_NAME, str(exc), parent=panel)
+            return
+        for hint in self.tooltips[self.option_tooltips_start:]:
+            hint.hide()
+        del self.tooltips[self.option_tooltips_start:]
+        panel.grab_release()
+        panel.destroy()
+        self.options_panel = None
+        self.output_field = self.output_browse = None
+        self.option_controls = []
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():

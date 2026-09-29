@@ -12,6 +12,17 @@ STRINGS = {
     'remove': ('Remove', 'Retirer'),
     'clear': ('Clear list', 'Vider la liste'),
     'check_updates': ('Check for updates', 'Vérifier les mises à jour'),
+    'options': ('Options', 'Options'),
+    'options_common': ('Common', 'Commun'),
+    'options_sega': ('Master System / Game Gear', 'Master System / Game Gear'),
+    'options_master_system': ('Master System', 'Master System'),
+    'options_game_gear': ('Game Gear', 'Game Gear'),
+    'options_game_boy': ('Game Boy', 'Game Boy'),
+    'options_nes': ('Nintendo NES', 'Nintendo NES'),
+    'options_nes_note': ('NES is experimental. It has no console-specific conversion setting yet.', 'La NES est expérimentale. Elle n’a pas encore de réglage de conversion spécifique.'),
+    'options_sega_note': ('Shared by the Master System and Game Gear profiles.', 'Réglage commun aux profils Master System et Game Gear.'),
+    'options_gb_note': ('Checks more gameplay CPU instructions; native discovery is unchanged.', 'Compare davantage d’instructions CPU en jeu ; la découverte du code natif ne change pas.'),
+    'tip_options': ('Configure shared export and batch settings, then console-specific conversion checks.', 'Règle les exports et lots communs, puis les contrôles propres à chaque console.'),
     'credits': ('Credits', 'Crédits'),
     'credits_intro': ('RetroRecomp brings several independent programs together: console-specific recompilers and runtimes, with one shared conversion interface.', 'RetroRecomp réunit plusieurs programmes indépendants : recompileurs et moteurs propres à chaque console, dans une interface de conversion commune.'),
     'credits_author': ('Created and integrated by', 'Créé et intégré par'),
@@ -122,7 +133,7 @@ STRINGS = {
     'tip_passes': ('Maximum compile → test → learn cycles. Stops early at zero fallback on the tested scenarios or when no new variants are found. These tests do not explore every level.', 'Maximum de cycles compilation → test → apprentissage. Arrêt anticipé à zéro secours sur les scénarios testés ou sans nouvelles variantes. Ces tests n’explorent pas tous les niveaux.'),
     'tip_frames': ('Length of each automated scenario, in video frames. More frames test a longer run and increase conversion time. This does not change game speed.', 'Durée de chaque scénario automatique, en images vidéo. Plus d’images teste un parcours plus long et prolonge la conversion. Cela ne change pas la vitesse du jeu.'),
     'tip_jobs': ('Run 1–8 different games at once, across all console profiles. Default: 3. More jobs can use more CPU and memory; each game retains its own reports and executable.', 'Convertit 1 à 8 jeux différents à la fois, toutes consoles confondues. Par défaut : 3. Davantage de jeux peuvent utiliser plus de processeur et de mémoire ; chaque jeu garde ses rapports et son exécutable.'),
-    'tip_gb_deep_validation': ('Off by default. Adds instruction-by-instruction reference CPU comparisons during two Game Boy play scenarios (up to 240 frames each). Can add several minutes per game. Both modes keep the same native discovery, game memory and three coverage tests; a short boot CPU comparison remains mandatory. Ignored for other consoles.', 'Désactivée par défaut. Ajoute des comparaisons CPU instruction par instruction pendant deux parcours Game Boy (jusqu’à 240 images chacun). Peut ajouter plusieurs minutes par jeu. Les deux modes conservent la même découverte native, la mémoire et les trois tests de couverture ; une courte comparaison CPU au démarrage reste obligatoire. Sans effet sur les autres consoles.'),
+    'tip_gb_deep_validation': ('On by default. Adds instruction-by-instruction reference CPU comparisons during two Game Boy play scenarios (up to 240 frames each). This increases conversion time depending on the game. Both modes keep the same native discovery, game memory and three coverage tests; a short boot CPU comparison remains mandatory. Ignored for other consoles.', 'Activée par défaut. Ajoute des comparaisons CPU instruction par instruction pendant deux parcours Game Boy (jusqu’à 240 images chacun). Cela allonge la conversion selon le jeu. Les deux modes conservent la même découverte native, la mémoire et les trois tests de couverture ; une courte comparaison CPU au démarrage reste obligatoire. Sans effet sur les autres consoles.'),
     'tip_start': ('Convert every ROM in the queue. Existing games are regenerated when Overwrite is enabled. An open game is updated when it closes; failed builds preserve the previous game.', 'Convertit les ROMs de la liste. Les jeux existants sont régénérés si Remplacer est activé. Un jeu ouvert est mis à jour à sa fermeture ; un échec préserve l’ancien jeu.'),
     'tip_overwrite': ('On by default. Regenerate and replace an executable already exported from the same ROM. Turn off for a large batch to keep finished executables and convert only missing ones. Identical ROM bytes under a different filename are reported, not mislabelled as another game.', 'Activé par défaut. Régénère et écrase un exécutable déjà exporté depuis la même ROM. Désactive-le pour un grand lot : seuls les exécutables manquants seront convertis. Des octets de ROM identiques sous un autre nom sont signalés, sans présenter le même jeu comme un autre.'),
     'tip_stop': ('Do not launch more games. Conversions already running finish before the batch stops.', 'Ne lance plus de jeux. Les conversions déjà en cours se terminent avant l’arrêt du lot.'),
@@ -142,6 +153,12 @@ def extended_default(preferences: dict) -> bool:
     # Apply the user's new default once to old preferences; later explicit
     # choices (including opting out) remain persistent.
     return preferences.get('backend') == 'banked' if preferences.get('coverage_default_revision') == 2 else True
+
+
+def game_boy_validation_default(preferences: dict) -> bool:
+    # Old preferences saved the former unchecked default even if the user never
+    # touched it. Apply the new default once, then preserve subsequent opt-outs.
+    return bool(preferences.get('gb_deep_validation', True)) if preferences.get('gb_validation_default_revision') == 1 else True
 
 
 LOG_TRANSLATIONS = {

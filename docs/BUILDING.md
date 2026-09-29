@@ -47,11 +47,12 @@ version A/B labels. Identical ROM bytes under different names are reported
 with the existing name and are not exported as a different game.
 
 Game Boy keeps its all-bank discovery and three coverage scenarios enabled.
-Its default reference CPU check covers up to 30 boot frames. To add the much
-slower instruction-by-instruction play comparisons, enable **Deep Game Boy
-validation (slow)** in the GUI or pass `--gb-deep-validation` to `convert` or
-`batch`. Allow several extra minutes per Game Boy game; other consoles ignore
-this flag. The conversion log and report show timings and validation scope.
+**Deep Game Boy validation (slow)** is now on by default: it adds two longer
+instruction-by-instruction play comparisons to the mandatory boot CPU check.
+For a faster standard validation, uncheck it under Options → Game Boy or pass
+`--no-gb-deep-validation` to `convert` or `batch`. Native discovery is the same
+in both modes; other consoles ignore this setting. The conversion log and
+report show timings and validation scope.
 
 ## Pinned game dependencies
 

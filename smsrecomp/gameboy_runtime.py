@@ -13,6 +13,42 @@ from .core import replace_once
 from .paths import ASSETS
 
 
+def adapt_differential(project: Path) -> None:
+    """Keep byte-exact checks while making their common equal case fast."""
+    path = project / 'runtime/src/differential.c'
+    source = path.read_text(encoding='utf-8')
+    source = replace_once(source, '''    for (size_t i = 0; i < size; i++) {
+        if (generated[i] != interpreted[i]) {
+            snprintf(message, message_size,
+                     "%s mismatch at offset 0x%zX: %02X != %02X",
+                     name, i, generated[i], interpreted[i]);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool gb_diff_compare_ppu''', '''    // Validate every byte at every step. Locate the first mismatch only on failure.
+    if (memcmp(generated, interpreted, size) == 0) {
+        return true;
+    }
+    for (size_t i = 0; i < size; i++) {
+        if (generated[i] != interpreted[i]) {
+            snprintf(message, message_size,
+                     "%s mismatch at offset 0x%zX: %02X != %02X",
+                     name, i, generated[i], interpreted[i]);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool gb_diff_compare_ppu''')
+    path.write_text(source, encoding='utf-8')
+
+
 def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, title: str) -> None:
     # Keep the compiler checkout pristine. Each generated game carries the same
     # menu drawing code as the Sega runtimes and a small Game Boy action bridge.
@@ -605,6 +641,12 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     source += '\n# RetroRecomp Windows identity and box-art icon.\n'
     source += 'if(WIN32)\n    target_sources(game PRIVATE game_resources.rc)\nendif()\n'
     source += 'if(WIN32)\n    set_target_properties(game PROPERTIES WIN32_EXECUTABLE TRUE)\nendif()\n'
+    # MSBuild's project-level --parallel does not parallelize these large C
+    # translation units. /MP uses the bounded job count passed by the converter.
+    source += ('if(MSVC AND GBRECOMP_GENERATED_COMPILE_JOBS GREATER 1)\n'
+               '    target_compile_options(game PRIVATE "/MP${GBRECOMP_GENERATED_COMPILE_JOBS}")\n'
+               'endif()\n')
     cmake.write_text(source, encoding="utf-8")
     from .gameboy_timing import adapt_timing
     adapt_timing(project)
+    adapt_differential(project)

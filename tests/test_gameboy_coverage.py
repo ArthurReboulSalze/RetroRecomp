@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from smsrecomp.core import ConversionError
-from smsrecomp.gameboy import (GameBoyRom, _cpu_compare, _probe, _remember_trace,
+from smsrecomp.gameboy import (GameBoyRom, _cpu_compare, _gb_parallelism, _probe, _remember_trace,
                               _verified_trace, convert_game_boy)
 from smsrecomp.gameboy_coverage import (branch_entries, cpu_validation_scenarios,
                                       probe_scenarios, read_entries, write_entries)
@@ -101,6 +101,15 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(budgets(75, deep=True), [('boot', 30), ('play_r', 75), ('play_l', 75)])
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
 
+    def test_parallelism_respects_batch_cpu_share(self):
+        with patch('smsrecomp.gameboy.os.cpu_count', return_value=24):
+            self.assertEqual(_gb_parallelism(1), (4, 3))
+            self.assertEqual(_gb_parallelism(3), (4, 3))
+            self.assertEqual(_gb_parallelism(8), (3, 1))
+        with patch('smsrecomp.gameboy.os.cpu_count', return_value=4):
+            self.assertEqual(_gb_parallelism(1), (4, 2))
+            self.assertEqual(_gb_parallelism(3), (1, 1))
+
     def test_zero_boot_fallback_does_not_skip_learning_from_play(self):
         rom = bytearray(65536)
         path = self.root / 'fixture.gb'
@@ -148,15 +157,15 @@ class CoverageTests(unittest.TestCase):
                     probes.clear()
                     comparisons.clear()
                     messages = []
-                    options = {'gb_deep_validation': True} if deep else {}  # Exercise the actual default.
+                    options = {} if deep else {'gb_deep_validation': False}  # Exercise the actual default.
                     convert_game_boy(path, output=self.root/'report', passes=3, frames=360,
                                      emit=messages.append, **options)
                     self.assertEqual(len(generations), 2)
                     self.assertIn((2, 0x4567), generations[1])
                     self.assertIn((1, 0x4000), generations[1])
                     self.assertEqual(probes, [(i, s) for i in (1, 2) for s in ('boot', 'play_r', 'play_l')])
-                    self.assertEqual(comparisons, [('boot', 30)] + ([('play_r', 240), ('play_l', 240)] if deep else []))
-                    self.assertEqual(any('several minutes' in message for message in messages), deep)
+                    self.assertCountEqual(comparisons, [('boot', 30)] + ([('play_r', 240), ('play_l', 240)] if deep else []))
+                    self.assertEqual(any('add conversion time' in message for message in messages), deep)
                     report = json.loads((self.root/'report/conversion-report.json').read_text())
                     self.assertEqual(report['native_validation']['mode'], 'deep' if deep else 'standard')
                     self.assertEqual(len(report['final_checks']), 3)

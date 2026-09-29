@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.14.5"
+VERSION = "0.15.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md

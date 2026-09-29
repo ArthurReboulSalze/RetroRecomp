@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from smsrecomp.gui import launch
 from smsrecomp.library import library_root, list_games
 from smsrecomp.gameboy import list_memory
+from smsrecomp.nes import list_memory as list_nes_memory
 
 
 def smoke(window):
@@ -18,6 +19,8 @@ def smoke(window):
     application = window._retro_application
     assert len(application.items) == len(list(application.table.get_children())) >= 5
     assert 'system' in application.table['columns'] and 'video' in application.table['columns']
+    assert application.body.grid_rowconfigure(1)['weight'] == 4
+    assert application.body.grid_rowconfigure(7)['weight'] == 2
     assert application.banner is not None
     assert application.banner.width() <= 600 and application.banner.height() < 175
     banner_items = application.header.find_withtag('banner')
@@ -49,6 +52,11 @@ def smoke(window):
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
     assert application.preferences()['gb_deep_validation'] == initial_deep
+    application.show_options()
+    options_panel = application.options_panel
+    notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
+    assert len(notebook.tabs()) == 5
+    assert notebook.tab(0, 'text') == application.tr('options_common')
     application.gb_deep_control.invoke()
     assert application.preferences()['gb_deep_validation'] != initial_deep
     application.gb_deep_control.invoke()
@@ -57,12 +65,20 @@ def smoke(window):
     assert application.preferences()['icon_tags'] != initial_tags
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] == initial_tags
-    assert len(application.tooltips) >= 16
+    application.set_controls(False)
+    assert str(application.gb_deep_control.cget('state')) == 'disabled'
+    application.set_controls(True)
+    assert str(application.gb_deep_control.cget('state')) == 'normal'
+    with patch('smsrecomp.gui.save_preferences'):
+        application.close_options()
+    assert application.options_panel is None
+    assert len(application.tooltips) >= 10
     application.memory_button.invoke()
     panel = next(widget for widget in window.winfo_children() if isinstance(widget, tk.Toplevel))
     panel.withdraw()
     table = next(widget for widget in descendants(panel) if widget.winfo_class() == "Treeview")
-    assert len(table.get_children()) == len(list_games()) + len(list_games(library_root('gg'))) + len(list_memory())
+    assert len(table.get_children()) == (len(list_games()) + len(list_games(library_root('gg')))
+                                         + len(list_memory()) + len(list_nes_memory()))
     old_output = application.output.get()
     with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.gui.save_preferences') as save:
         application.output.set(folder)
@@ -80,18 +96,10 @@ def smoke(window):
         application.refresh_language()
         assert application.start_button.cget('text') == application.tr('start')
         assert len(application.items) == before
-        assert application.extended_control.cget('text') == application.tr('extended')
-        assert application.icon_tags_control.cget('text') == application.tr('icon_tags')
-        assert application.gb_deep_control.cget('text') == application.tr('gb_deep_validation')
-        assert application.icon_tags_control.master.winfo_reqwidth() <= 960-48
+        assert application.options_button.cget('text') == application.tr('options')
         window.update_idletasks()
-        assert application.gb_deep_control.master.winfo_reqwidth() <= 980-48, application.gb_deep_control.master.winfo_reqwidth()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
     panel.destroy()
-    application.set_controls(False)
-    assert str(application.gb_deep_control.cget('state')) == 'disabled'
-    application.set_controls(True)
-    assert str(application.gb_deep_control.cget('state')) == 'normal'
     print("PASS: English/French, extended default, hover hints, batch queue, left-aligned banner, duplicates, library; size", window.geometry())
     window.destroy()
 

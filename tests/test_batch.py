@@ -310,6 +310,9 @@ class BatchTests(unittest.TestCase):
         self.assertNotIn('gb_deep_validation', sms_compiler.call_args.kwargs)
         self.assertNotIn('gb_deep_validation', gg_compiler.call_args.kwargs)
         self.assertTrue(gb_compiler.call_args.kwargs['gb_deep_validation'])
+        self.assertNotIn('gb_parallel_games', sms_compiler.call_args.kwargs)
+        self.assertNotIn('gb_parallel_games', gg_compiler.call_args.kwargs)
+        self.assertEqual(gb_compiler.call_args.kwargs['gb_parallel_games'], 1)
 
     def test_mixed_folders_route_by_console_and_report_unknown_without_touching_sources(self):
         source = self.root / 'incoming'

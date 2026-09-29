@@ -51,8 +51,8 @@ def main() -> int:
     build.add_argument("--passes", type=int, default=3,
         help="Build/test/learn pass limit (1–10, default 3).")
     build.add_argument("--frames", type=int, default=1200)
-    build.add_argument("--gb-deep-validation", action="store_true",
-        help="Extra Game Boy CPU checks during play; can add several minutes per game. Native discovery is unchanged.")
+    build.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
+        help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Native discovery is unchanged.")
     build.add_argument("--backend", choices=("functions", "banked"), default="banked",
         help="banked (default): extended native ROM coverage and learned RAM variants, Sega mapper.")
     covers = build.add_mutually_exclusive_group()
@@ -76,8 +76,8 @@ def main() -> int:
         help="Concurrent game conversions across all console profiles (1–8, default 3).")
     batch.add_argument("--no-overwrite", action="store_true",
         help="Skip an already generated game instead of regenerating it.")
-    batch.add_argument("--gb-deep-validation", action="store_true",
-        help="Extra Game Boy CPU checks during play; can add several minutes per game. Ignored for other consoles.")
+    batch.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
+        help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
         help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)

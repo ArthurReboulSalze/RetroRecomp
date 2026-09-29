@@ -2,7 +2,7 @@
 
 ## Current scope
 
-RetroRecomp 0.14.2 builds Windows x64 games from Master System, Game Gear,
+RetroRecomp 0.15.0 builds Windows x64 games from Master System, Game Gear,
 original Game Boy and experimental Nintendo NES ROMs. The two Sega profiles use the Sega mapper and offer
 extended native coverage and quick states. Selectable PAL/NTSC timing, two players and
 catalogue-selected Light Phaser input apply to Master System. Game Gear uses

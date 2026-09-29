@@ -1,3 +1,30 @@
+# RetroRecomp v0.15.0 — faster Game Boy conversion and a cleaner workspace
+
+Original Game Boy is now a supported everyday-use profile rather than an alpha
+feature. Deep reference CPU validation is enabled by default, including once
+for existing GUI preferences; it can still be disabled under Options → Game Boy
+or with `--no-gb-deep-validation`. This changes the depth of CPU checks, not
+native ROM discovery or the interpreter fallback policy.
+
+The converter's Options window groups shared export, artwork, batch and
+overwrite settings under Common, with separate Master System, Game Gear,
+Game Boy and NES tabs for console-specific settings. The Credits and Check for
+updates buttons have exchanged places. The ROM list uses the space freed by
+removing conversion settings from the main window.
+
+Game Boy now compares matching CPU memory blocks efficiently, builds generated
+C code with bounded MSVC parallelism, and runs independent deep comparison
+scenarios concurrently. On one local Super Mario Land conversion with a
+populated entry library, deep validation took 55.8 seconds; a historical deep
+run took about 750 seconds, over 10× longer. Those runs had different cache
+and implementation conditions, so this is not a controlled across-game
+speedup. An empty-library deep run under the new code took 84.5 seconds.
+All three final 3600-frame probes reported zero fallback cycles and the
+requested CPU comparisons matched the internal reference. These results do
+not establish complete-game compatibility, independent hardware fidelity,
+gameplay quality or physical latency. Existing games were not regenerated.
+NES remains experimental and Game Boy Color-only cartridges remain unsupported.
+
 # RetroRecomp v0.14.5 — edition names and optional regeneration
 
 Batch conversion now distinguishes different ROM revisions with source-derived

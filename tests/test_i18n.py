@@ -2,7 +2,7 @@ from pathlib import Path
 import configparser
 import tempfile
 import unittest
-from smsrecomp.i18n import tr, extended_default, log_text
+from smsrecomp.i18n import tr, extended_default, game_boy_validation_default, log_text
 from smsrecomp.paths import save_game_language
 from smsrecomp.paths import games_directory, games_root, preferred_games_root, ROOT, save_preferences, export_directory, workspace_directory, data_directory
 import json
@@ -65,6 +65,14 @@ class LanguageTests(unittest.TestCase):
         self.assertTrue(extended_default({'backend': 'functions'}))
         self.assertFalse(extended_default({'backend': 'functions', 'coverage_default_revision': 2}))
         self.assertTrue(extended_default({'backend': 'banked', 'coverage_default_revision': 2}))
+
+    def test_game_boy_validation_default_migrates_saved_off_value_once(self):
+        self.assertTrue(game_boy_validation_default({}))
+        self.assertTrue(game_boy_validation_default({'gb_deep_validation': False}))
+        self.assertTrue(game_boy_validation_default({'gb_deep_validation': True,
+                                                     'gb_validation_default_revision': 1}))
+        self.assertFalse(game_boy_validation_default({'gb_deep_validation': False,
+                                                      'gb_validation_default_revision': 1}))
 
     def test_user_messages_keep_variables_and_switch_language(self):
         for lang in ('en', 'fr'):
