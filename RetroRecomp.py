@@ -12,6 +12,24 @@ from smsrecomp.systems import MASTER_SYSTEM, discover_roms, profile_for_path
 
 
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == '_verify-update':
+        from smsrecomp import __version__
+
+        return 0 if __version__ == sys.argv[2] else 1
+    if len(sys.argv) == 4 and sys.argv[1] == '_apply-update':
+        from smsrecomp.updater import apply_update
+
+        return apply_update(Path(sys.argv[2]), sys.argv[3])
+    if len(sys.argv) == 5 and sys.argv[1] == '_finish-update':
+        from smsrecomp.updater import finish_update
+        from smsrecomp.gui import launch
+
+        try:
+            error = finish_update(Path(sys.argv[2]), sys.argv[3], int(sys.argv[4]))
+        except Exception as exc:
+            error = str(exc)
+        launch(update_error=error)
+        return 0
     if len(sys.argv) == 4 and sys.argv[1] == '_install-pending':
         from smsrecomp.publishing import install_pending
         return install_pending(Path(sys.argv[2]), sys.argv[3])

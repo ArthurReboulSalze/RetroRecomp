@@ -1,3 +1,18 @@
+# RetroRecomp v0.14.0 — manual in-app updates
+
+The Windows converter now has a **Check for updates** button. It makes no
+update request on startup. A click checks this project's GitHub releases,
+including previews, and offers a newer Windows x64 package. On acceptance it
+downloads and verifies the ZIP, then uses a temporary helper to replace the
+converter after it closes and restart the updated version. A failed file
+replacement restores the previous converter. Existing games, preferences,
+saved states and compilation memory are left in place. Earlier versions need
+one manual installation of v0.14.0 to gain this updater.
+
+The release contains the converter and legal notices only. Master System,
+Game Gear and original Game Boy remain the playable profiles; NES remains
+experimental. This release does not regenerate any game executables.
+
 # RetroRecomp v0.13.0 — multi-console Windows x64 preview
 
 The Windows converter now includes four profiles in one interface. It accepts

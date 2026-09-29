@@ -7,6 +7,7 @@ from pathlib import Path
 import queue
 import random
 import subprocess
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -56,6 +57,7 @@ class Application:
         self.items: dict[str, BatchItem] = {}
         self.results: dict[str, dict] = {}
         self.busy = False
+        self.updating = False
         self.cancel = threading.Event()
         self.messages = queue.Queue()
         self.controls = []
@@ -186,6 +188,8 @@ class Application:
         self.button(toolbar, self.tr('remove'), self.remove_selected).pack(side='left')
         self.button(toolbar, self.tr('clear'), self.clear).pack(side='left', padx=8)
         ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel').pack(side='right')
+        self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
+        self.update_button.pack(side='right', padx=(0, 12))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
@@ -666,7 +670,7 @@ class Application:
             online_cover=self.online.get(), icon_tags=self.icon_tags.get())
 
     def start(self):
-        if self.busy:
+        if self.busy or self.updating:
             return
         if not self.items:
             messagebox.showinfo(APP_NAME, self.tr('need_rom'))
@@ -731,6 +735,72 @@ class Application:
         self.stop_button.configure(state='disabled')
         self.set_status('stopping')
 
+    def check_updates(self):
+        """Only the button starts a network request; startup never checks."""
+        if self.busy or self.updating:
+            return
+        self.updating = True
+        self.update_button.configure(state='disabled')
+        self.set_status('checking_updates')
+        def worker():
+            try:
+                from .updater import check_for_update
+                self.messages.put(('update_check', check_for_update()))
+            except Exception as exc:
+                self.messages.put(('update_error', str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _offer_update(self, update):
+        self.updating = False
+        self.update_button.configure(state='normal')
+        self.set_status('ready')
+        if update is None:
+            messagebox.showinfo(APP_NAME, self.tr('update_current'))
+            return
+        if not getattr(sys, 'frozen', False):
+            messagebox.showinfo(APP_NAME, self.tr('update_source', version=update.version,
+                                                 page=update.page))
+            return
+        if not messagebox.askyesno(APP_NAME, self.tr('update_available',
+                                                    version=update.version,
+                                                    megabytes=round(update.size / 1048576, 1))):
+            return
+        self.updating = True
+        self.update_button.configure(state='disabled')
+        self.start_button.configure(state='disabled')
+        self.set_status('downloading_update', version=update.version)
+        def worker():
+            try:
+                from .updater import prepare_update
+                self.messages.put(('update_ready', *prepare_update(update, Path(sys.executable))))
+            except Exception as exc:
+                self.messages.put(('update_error', str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _start_prepared_update(self, job_dir: Path, token: str):
+        from .updater import discard_update, start_update_helper
+        try:
+            start_update_helper(job_dir, token)
+        except Exception as exc:
+            try:
+                discard_update(job_dir, Path(sys.executable))
+            except OSError:
+                pass
+            self._update_error(str(exc))
+            return
+        try:
+            save_preferences(self.preferences())
+        except (OSError, tk.TclError, ValueError):
+            pass
+        self.app.destroy()
+
+    def _update_error(self, error: str):
+        self.updating = False
+        self.update_button.configure(state='normal')
+        self.start_button.configure(state='normal')
+        self.set_status('ready')
+        messagebox.showerror(APP_NAME, self.tr('update_failed', error=error))
+
     def drain(self):
         try:
             while True:
@@ -772,6 +842,13 @@ class Application:
                     else:
                         record = event[1]
                         self.set_status('summary', **record)
+                elif kind == 'update_check':
+                    self._offer_update(event[1])
+                elif kind == 'update_ready':
+                    self._start_prepared_update(event[1], event[2])
+                    return
+                elif kind == 'update_error':
+                    self._update_error(event[1])
         except queue.Empty:
             pass
         for row, result in self.results.items():
@@ -833,6 +910,9 @@ class Application:
         ttk.Button(body, text=self.tr('open_memory'), command=open_library).pack(anchor='w', pady=(12, 0))
 
     def close(self):
+        if self.updating:
+            messagebox.showinfo(APP_NAME, self.tr('wait_update'))
+            return
         if self.busy:
             messagebox.showinfo(APP_NAME, self.tr('wait_close'))
             return
@@ -843,7 +923,7 @@ class Application:
         self.app.destroy()
 
 
-def launch():
+def launch(update_error: str | None = None):
     set_converter_identity()
     app = tk.Tk()
     application = Application(app)
@@ -851,4 +931,7 @@ def launch():
     if roms.is_dir():
         application.add_paths(discover_roms(roms))
     app._retro_application = application
+    if update_error:
+        app.after(200, lambda: messagebox.showerror(APP_NAME,
+            application.tr('update_failed', error=update_error)))
     app.mainloop()

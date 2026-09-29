@@ -5,20 +5,24 @@ It does not relicense third-party code, upstream excerpts used by adapters,
 ROMs, artwork, or generated games. Project branding identifies RetroRecomp;
 the software license does not grant trademark rights.
 
-## Outstanding upstream licensing issue
+## SMS/GG upstream permission and limits
 
 RetroRecomp depends on **mstan/smsggrecomp** at revision
 `224d5bb2c150a2c295033d35dec629ef9ee42940`. Its
 [pinned README](https://github.com/mstan/smsggrecomp/tree/224d5bb2c150a2c295033d35dec629ef9ee42940#license)
 states that its license is **not yet declared**. Public availability on GitHub
-is not a general redistribution license. No additional permission from that
-author has been obtained for this release candidate.
+is not a general redistribution license. The RetroRecomp project owner reports
+receiving the author's explicit permission to use the engine in a
+**noncommercial capacity**, with a request for attribution. We credit
+[mstan/smsggrecomp](https://github.com/mstan/smsggrecomp) here and in the
+[README](README.md). This is a permission communicated to the project owner,
+not a published license for all downstream users or commercial use.
 
 The full engine is downloaded during local setup rather than bundled in the
 converter ZIP. Adapters reference and replace portions of upstream code; any
-upstream-derived material remains subject to its author's rights. An explicit
-engine license or permission is still needed to resolve this issue. Do not
-interpret the MIT badge as clearing the entire toolchain for redistribution.
+upstream-derived material remains subject to its author's rights. The author's
+message does not specify general downstream licensing terms; do not interpret
+the MIT badge as clearing the entire toolchain for unrestricted redistribution.
 
 The engine's shared **z80-recomp-core** at revision
 `0e6606a41245d54c5fd0c3dc322ef9d6890d3923` uses
@@ -31,7 +35,7 @@ RetroRecomp's MIT license does not remove those limitations.
 
 | Component | Terms | Included notice |
 | --- | --- | --- |
-| smsggrecomp | Not declared at the pinned revision | Outstanding issue above |
+| smsggrecomp | No public license declared at the pinned revision; project owner reports explicit noncommercial permission with attribution | Limits above |
 | z80-recomp-core | PolyForm Noncommercial 1.0.0 and author clarification | [Full text](licenses/z80-recomp-core.md) |
 | superzazu/z80 reference interpreter | MIT; copyright Nicolas Allemand | [Full text](licenses/superzazu-z80.md) |
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |

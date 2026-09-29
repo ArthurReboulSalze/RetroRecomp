@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.13.0-0879fa" alt="Release version 0.13.0">
+  <img src="https://img.shields.io/badge/release-0.14.0-0879fa" alt="Release version 0.14.0">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -157,7 +157,7 @@ because RetroRecomp generated them.
 
 ## Getting started on Windows
 
-1. Download the v0.13.0 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
+1. Download the v0.14.0 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
 2. Install Git and Visual Studio Build Tools with **Desktop development with C++**, including x64 tools, CMake and a Windows SDK. Python is unnecessary for the packaged converter.
 3. Run `Retro-Recomp.exe`, choose **Add ROMs** or add one or more folders. Console detection is **Automatic** by default. Review unknown rows, then choose **Convert / regenerate**.
 4. Select a successful result and choose **Play game**.
@@ -201,6 +201,13 @@ RetroRecomp/
 The release starts clean: it contains no saved settings, games or learned
 observations. Files are resolved relative to the application and games,
 including when launched from a different working directory.
+
+To update the converter, click **Check for updates** in its toolbar. RetroRecomp
+does not contact GitHub for updates on startup. If you accept a newer Windows
+release, it verifies the download, closes, replaces the converter and legal
+notices, then restarts. Existing `Games` and `datas` are preserved. Builds
+older than v0.14.0 need this version installed manually once before in-app
+updates become available.
 
 ### Game shortcuts
 
@@ -275,10 +282,11 @@ RetroRecomp builds on [mstan/smsggrecomp](https://github.com/mstan/smsggrecomp),
 [SingleStepTests/z80](https://github.com/SingleStepTests/z80) for independent CPU validation.
 
 **Original RetroRecomp contributions are licensed under [MIT](LICENSE).**
-Third-party material retains its own terms. The pinned upstream engine states
-that its license is not yet declared; the shared Z80 core uses PolyForm
+Third-party material retains its own terms. The pinned upstream SMS/GG engine
+has no declared public license; its author has granted the RetroRecomp project
+owner noncommercial use with attribution. The shared Z80 core uses PolyForm
 Noncommercial 1.0.0. MIT does not override those terms or grant rights to ROMs
-or artwork. See [third-party notices and the outstanding licensing issue](THIRD_PARTY_NOTICES.md).
+or artwork. See [third-party notices and licensing limits](THIRD_PARTY_NOTICES.md).
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), and do not
 attach commercial ROMs, generated game binaries, copyrighted box art or private logs.

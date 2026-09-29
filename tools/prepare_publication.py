@@ -12,7 +12,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.13.0"
+VERSION = "0.14.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -38,7 +38,7 @@ licenses/SingleStepTests-z80.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
-smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py
+smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py smsrecomp/updater.py
 smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
 smsrecomp/peripherals.py
@@ -67,7 +67,7 @@ native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
-tests/test_library.py tests/test_publishing.py tests/test_rom.py
+tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py
