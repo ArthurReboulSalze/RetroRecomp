@@ -59,6 +59,8 @@ STRINGS = {
     'update_current': ('RetroRecomp is up to date.', 'RetroRecomp est à jour.'),
     'update_source': ('Version {version} is available at {page}\nInstall it from the packaged Windows converter.', 'La version {version} est disponible sur {page}\nInstalle-la depuis le convertisseur Windows emballé.'),
     'update_available': ('Version {version} is available ({megabytes} MB). Download it, close RetroRecomp and restart with the update?', 'La version {version} est disponible ({megabytes} Mo). La télécharger, fermer RetroRecomp puis redémarrer avec la mise à jour ?'),
+    'update_connection_failed': ('Could not connect to GitHub. Check your internet connection or firewall, then try again.', 'Connexion à GitHub impossible. Vérifie ta connexion Internet ou ton pare-feu, puis réessaie.'),
+    'update_service_failed': ('GitHub could not provide the update right now. Please try again later.', 'GitHub ne peut pas fournir la mise à jour pour le moment. Réessaie plus tard.'),
     'update_failed': ('The update could not be installed. Your previous converter is preserved.\n{error}', 'La mise à jour n’a pas pu être installée. L’ancien convertisseur est conservé.\n{error}'),
     'wait_update': ('Wait for the update download to finish.', 'Attends la fin du téléchargement de la mise à jour.'),
     'shared': ('Games of each console share settings in datas beside their executables.', 'Les jeux d’une même console partagent leurs réglages dans datas, à côté des exécutables.'),

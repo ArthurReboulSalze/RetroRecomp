@@ -23,12 +23,23 @@ from .tooltips import Tooltip
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
 from .systems import PROFILES, discover_roms, get_profile
+from .updater import UpdateConnectionError, UpdateServiceError
 
 
 PLATFORMS = {'windows-x64': 'Windows x64'}
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
                   'e522cbde7ca6e7e6eccc0c901389a4178492e6d7/'
                   'licenses/upx-5.2.1-src.tar.xz')
+
+
+def update_error_text(error: Exception | str, language: str) -> str:
+    """Keep network diagnostics out of the player-facing update dialog."""
+    if isinstance(error, UpdateConnectionError):
+        return tr('update_connection_failed', language)
+    if isinstance(error, UpdateServiceError):
+        return tr('update_service_failed', language)
+    return tr('update_failed', language, error=str(error))
+
 
 UPSTREAM_CREDITS = (
     ('Master System', (
@@ -777,7 +788,7 @@ class Application:
                 from .updater import check_for_update
                 self.messages.put(('update_check', check_for_update()))
             except Exception as exc:
-                self.messages.put(('update_error', str(exc)))
+                self.messages.put(('update_error', exc))
         threading.Thread(target=worker, daemon=True).start()
 
     def _offer_update(self, update):
@@ -804,7 +815,7 @@ class Application:
                 from .updater import prepare_update
                 self.messages.put(('update_ready', *prepare_update(update, Path(sys.executable))))
             except Exception as exc:
-                self.messages.put(('update_error', str(exc)))
+                self.messages.put(('update_error', exc))
         threading.Thread(target=worker, daemon=True).start()
 
     def _start_prepared_update(self, job_dir: Path, token: str):
@@ -824,12 +835,12 @@ class Application:
             pass
         self.app.destroy()
 
-    def _update_error(self, error: str):
+    def _update_error(self, error: Exception | str):
         self.updating = False
         self.update_button.configure(state='normal')
         self.start_button.configure(state='normal')
         self.set_status('ready')
-        messagebox.showerror(APP_NAME, self.tr('update_failed', error=error))
+        messagebox.showerror(APP_NAME, update_error_text(error, self.language))
 
     def drain(self):
         try:

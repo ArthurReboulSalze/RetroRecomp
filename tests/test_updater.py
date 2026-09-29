@@ -6,8 +6,11 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import urllib.error
 
-from smsrecomp.updater import (Update, _install_files, apply_update,
+from smsrecomp.gui import update_error_text
+from smsrecomp.updater import (Update, UpdateConnectionError, UpdateServiceError,
+                               _install_files, apply_update, check_for_update,
                                discard_update, finish_update, prepare_update, select_update)
 
 
@@ -36,6 +39,46 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(update.version, "0.14.2")
         self.assertTrue(update.url.endswith("/Retro-Recomp.exe"))
         self.assertIsNone(select_update(releases, current="0.14.2"))
+
+    def test_firewall_block_uses_a_plain_localized_message(self):
+        raw = urllib.error.URLError(PermissionError(13, "raw access denied 10013"))
+        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+            with self.assertRaises(UpdateConnectionError) as caught:
+                check_for_update()
+        self.assertIs(caught.exception.__cause__, raw)
+        english = update_error_text(caught.exception, "en")
+        french = update_error_text(caught.exception, "fr")
+        self.assertIn("internet connection or firewall", english)
+        self.assertIn("connexion Internet ou ton pare-feu", french)
+        self.assertNotIn("10013", english + french)
+
+        update = Update("0.14.3", "https://github.com/example/Retro-Recomp.exe",
+                        "page", "0" * 64, 123)
+        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+            with self.assertRaises(UpdateConnectionError):
+                prepare_update(update, self.exe)
+        self.assertEqual(list(self.root.iterdir()), [self.exe])
+
+    def test_http_service_error_is_not_reported_as_a_firewall_block(self):
+        raw = urllib.error.HTTPError("https://github.com/example", 503,
+                                     "Service Unavailable", {}, None)
+        self.addCleanup(raw.close)
+        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+            with self.assertRaises(UpdateServiceError) as caught:
+                check_for_update()
+        english = update_error_text(caught.exception, "en")
+        self.assertIn("try again later", english)
+        self.assertNotIn("firewall", english)
+
+    def test_connection_failure_while_reading_response_is_friendly(self):
+        class BlockedResponse(io.BytesIO):
+            def read(self, _size=-1):
+                raise PermissionError(13, "raw read access denied")
+
+        with patch("smsrecomp.updater.urllib.request.urlopen", return_value=BlockedResponse()):
+            with self.assertRaises(UpdateConnectionError) as caught:
+                check_for_update()
+        self.assertNotIn("raw read", update_error_text(caught.exception, "en"))
 
     def test_verified_update_stages_only_executable_beside_converter(self):
         job_dir, token = self._prepare()

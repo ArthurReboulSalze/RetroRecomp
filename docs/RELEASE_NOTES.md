@@ -1,3 +1,10 @@
+# RetroRecomp v0.14.3 — clearer update errors (unreleased)
+
+Connection and firewall failures during the manual update check or download
+now show a short English or French message instead of the raw network exception.
+HTTP service errors use a separate retry-later message. Download checks and
+rollback behavior remain unchanged.
+
 # RetroRecomp v0.14.2 — standalone converter download
 
 The Windows converter is now distributed as one `Retro-Recomp.exe`. Its Credits

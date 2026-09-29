@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import ctypes
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 import uuid
 
@@ -24,6 +26,32 @@ RELEASE_BASE = f"https://github.com/{REPOSITORY}/releases"
 VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 UPDATE_PREFIX = ".RetroRecomp-update-"
+
+
+class UpdateConnectionError(Exception):
+    """The release server could not be reached through the current network."""
+
+
+class UpdateServiceError(Exception):
+    """The release server responded, but could not serve the request."""
+
+
+def _open_release_url(request: urllib.request.Request, timeout: int):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.HTTPError as error:
+        if error.code in (401, 403, 407):
+            raise UpdateConnectionError() from error
+        raise UpdateServiceError() from error
+    except OSError as error:
+        raise UpdateConnectionError() from error
+
+
+def _read_release_bytes(response, size: int) -> bytes:
+    try:
+        return response.read(size)
+    except (OSError, http.client.IncompleteRead) as error:
+        raise UpdateConnectionError() from error
 
 
 @dataclass(frozen=True)
@@ -69,8 +97,8 @@ def check_for_update() -> Update | None:
         "Accept": "application/vnd.github+json",
         "User-Agent": f"RetroRecomp/{__version__}",
     })
-    with urllib.request.urlopen(request, timeout=15) as response:
-        payload = response.read(2 * 1024 * 1024 + 1)
+    with _open_release_url(request, timeout=15) as response:
+        payload = _read_release_bytes(response, 2 * 1024 * 1024 + 1)
     if len(payload) > 2 * 1024 * 1024:
         raise ValueError("GitHub release response is too large")
     releases = json.loads(payload)
@@ -107,8 +135,8 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
         request = urllib.request.Request(update.url, headers={"User-Agent": f"RetroRecomp/{__version__}"})
         digest = hashlib.sha256()
         size = 0
-        with urllib.request.urlopen(request, timeout=60) as response, archive_path.open("wb") as output:
-            while chunk := response.read(1024 * 1024):
+        with _open_release_url(request, timeout=60) as response, archive_path.open("wb") as output:
+            while chunk := _read_release_bytes(response, 1024 * 1024):
                 size += len(chunk)
                 if size > MAX_ARCHIVE_BYTES:
                     raise ValueError("Release download is too large")
