@@ -64,7 +64,7 @@ STRINGS = {
     'start': ('Convert / regenerate', 'Convertir / régénérer'),
     'stop': ('Stop after active games', 'Arrêter après les jeux en cours'),
     'open_folder': ('Open folder', 'Ouvrir le dossier'),
-    'footer': ('Fallback use stays visible in every game. Master System, Game Gear and Game Boy profiles.', 'Le secours reste signalé dans chaque jeu. Profils Master System, Game Gear et Game Boy.'),
+    'footer': ('Fallback use stays visible in every game.', 'Le secours reste signalé dans chaque jeu.'),
     'ready': ('Add ROMs, then convert your batch.', 'Ajoute tes ROMs, puis convertis ton lot.'),
     'checking_updates': ('Checking GitHub releases…', 'Recherche des nouvelles versions sur GitHub…'),
     'downloading_update': ('Downloading version {version}…', 'Téléchargement de la version {version}…'),
