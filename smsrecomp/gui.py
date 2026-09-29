@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 from .batch import BatchItem, identify, convert_batch, system_output
@@ -24,6 +25,25 @@ from .systems import PROFILES, discover_roms, get_profile
 
 
 PLATFORMS = {'windows-x64': 'Windows x64'}
+
+UPSTREAM_CREDITS = (
+    ('Master System', (
+        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_recompiler'),
+        ('mstan/z80-recomp-core', 'https://github.com/mstan/z80-recomp-core', 'credits_native_core'),
+        ('superzazu/z80', 'https://github.com/superzazu/z80', 'credits_reference_cpu'),
+    )),
+    ('Game Gear', (
+        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_recompiler'),
+        ('mstan/z80-recomp-core', 'https://github.com/mstan/z80-recomp-core', 'credits_native_core'),
+        ('superzazu/z80', 'https://github.com/superzazu/z80', 'credits_reference_cpu'),
+    )),
+    ('Game Boy', (
+        ('arcanite24/gb-recompiled', 'https://github.com/arcanite24/gb-recompiled', 'credits_recompiler'),
+    )),
+    ('Nintendo NES', (
+        ('mstan/nesrecomp', 'https://github.com/mstan/nesrecomp', 'credits_recompiler'),
+    )),
+)
 
 
 TILE_SIZE = 128
@@ -63,6 +83,7 @@ class Application:
         self.controls = []
         self.active_rows = []
         self.row_status, self.tooltips, self.library_panels = {}, [], []
+        self.credits_panel = None
         self.status_key, self.status_values = 'ready', {}
         preferences = load_preferences()
         self.language = preferences.get('language') if preferences.get('language') in ('en', 'fr') else 'en'
@@ -190,6 +211,7 @@ class Application:
         ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel').pack(side='right')
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
         self.update_button.pack(side='right', padx=(0, 12))
+        self.button(toolbar, self.tr('credits'), self.show_credits).pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
@@ -474,6 +496,8 @@ class Application:
         update(self.app)
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' — ' + self.tr('memory'))
+        if self.credits_panel is not None and self.credits_panel.winfo_exists():
+            self.credits_panel.title(APP_NAME + ' — ' + self.tr('credits'))
         for row, item in self.items.items():
             self.table.set(row, 'system', get_profile(item.system).name if item.system else self.tr('unknown_console'))
             self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
@@ -878,6 +902,108 @@ class Application:
         path = Path(self.output.get()).expanduser().resolve()
         path.mkdir(parents=True, exist_ok=True)
         os.startfile(path)
+
+    def show_credits(self):
+        if self.credits_panel is not None and self.credits_panel.winfo_exists():
+            self.credits_panel.lift()
+            self.credits_panel.focus_set()
+            return
+
+        panel = tk.Toplevel(self.app)
+        self.credits_panel = panel
+        panel.title(APP_NAME + ' — ' + self.tr('credits'))
+        panel.configure(bg='#071732')
+        panel.resizable(True, True)
+        panel.transient(self.app)
+        self.app.update_idletasks()
+        width, height = 760, 700
+        x = self.app.winfo_rootx() + max(0, (self.app.winfo_width() - width) // 2)
+        y = self.app.winfo_rooty() + max(0, (self.app.winfo_height() - height) // 2)
+        panel.geometry(f'{width}x{height}+{x}+{y}')
+        panel.minsize(650, 550)
+
+        content = tk.Frame(panel, bg='#071732', padx=24, pady=18)
+        content.pack(fill='both', expand=True)
+        tk.Label(content, text='RETRORECOMP', bg='#071732', fg='#26d7ff',
+                 font=('Segoe UI', 9, 'bold')).pack(anchor='center')
+        tk.Label(content, text=self.tr('credits'), bg='#071732', fg='#eef6ff',
+                 font=('Segoe UI', 23, 'bold')).pack(anchor='center', pady=(0, 3))
+        tk.Label(content, text=self.tr('credits_intro'), bg='#071732', fg='#a9bcdc',
+                 font=('Segoe UI', 10), justify='center',
+                 wraplength=630).pack(anchor='center', pady=(0, 13))
+
+        tk.Label(content, text=self.tr('credits_author'), bg='#071732', fg='#a9bcdc',
+                 font=('Segoe UI', 9)).pack(anchor='center')
+        author_link = tk.Label(content, text='Arthur Reboul Salze', bg='#071732',
+                               fg='#26d7ff', cursor='hand2',
+                               font=('Segoe UI', 16, 'bold', 'underline'))
+        author_link.pack(anchor='center', pady=(1, 13))
+        author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
+            'https://github.com/ArthurReboulSalze'))
+
+        tk.Frame(content, bg='#31568c', height=1).pack(fill='x', padx=120, pady=(0, 11))
+        tk.Label(content, text=self.tr('credits_repositories'), bg='#071732',
+                 fg='#eef6ff', font=('Segoe UI', 10, 'bold')).pack(anchor='center')
+        tk.Label(content, text=self.tr('credits_open_link'), bg='#071732',
+                 fg='#a9bcdc', font=('Segoe UI', 9)).pack(anchor='center', pady=(1, 9))
+
+        scroll_area = tk.Frame(content, bg='#071732')
+        scroll_area.pack(fill='both', expand=True)
+        scrollbar = ttk.Scrollbar(scroll_area, orient='vertical')
+        scrollbar.pack(side='right', fill='y')
+        canvas = tk.Canvas(scroll_area, bg='#071732', highlightthickness=0,
+                           yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.configure(command=canvas.yview)
+        cards = tk.Frame(canvas, bg='#071732')
+        cards_window = canvas.create_window((0, 0), window=cards, anchor='nw')
+        cards.bind('<Configure>', lambda _event: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind('<Configure>', lambda event: canvas.itemconfigure(cards_window, width=event.width))
+        panel.bind('<MouseWheel>', lambda event: canvas.yview_scroll(
+            -1 if event.delta > 0 else 1, 'units') if event.delta else None)
+        panel.bind('<Button-4>', lambda _event: canvas.yview_scroll(-1, 'units'))
+        panel.bind('<Button-5>', lambda _event: canvas.yview_scroll(1, 'units'))
+        cards.grid_columnconfigure(0, weight=1)
+        for index, (system, repositories) in enumerate(UPSTREAM_CREDITS):
+            card = tk.Frame(cards, bg='#0d2549', highlightthickness=1,
+                            highlightbackground='#285896')
+            card.grid(row=index, column=0, sticky='ew', padx=48, pady=(0, 13))
+            accent = ('#26d7ff', '#aa66ff', '#fd2efd', '#0879fa')[index % 4]
+            tk.Frame(card, height=3, bg=accent).pack(fill='x')
+            tk.Label(card, text=system.upper(), bg='#0d2549', fg='#eef6ff',
+                     font=('Segoe UI', 12, 'bold')).pack(anchor='center', pady=(11, 6))
+            for repository, url, role in repositories:
+                link = tk.Label(card, text=repository, bg='#0d2549', fg='#26d7ff',
+                                activeforeground='#aa66ff', cursor='hand2',
+                                font=('Segoe UI', 10, 'underline'))
+                link.pack(anchor='center')
+                link.bind('<Button-1>', lambda _event, address=url: webbrowser.open_new_tab(address))
+                tk.Label(card, text=self.tr(role), bg='#0d2549', fg='#a9bcdc',
+                         font=('Segoe UI', 9)).pack(anchor='center', pady=(0, 7))
+
+        bottom = tk.Frame(content, bg='#071732')
+        bottom.pack(fill='x', pady=(9, 0))
+        tk.Label(bottom, text=self.tr('credits_license'), bg='#071732',
+                 fg='#a9bcdc', font=('Segoe UI', 9),
+                 wraplength=650, justify='center').pack(anchor='center')
+        notices = tk.Label(bottom, text=self.tr('credits_notices'), bg='#071732',
+                           fg='#26d7ff', cursor='hand2',
+                           font=('Segoe UI', 9, 'underline'))
+        notices.pack(anchor='center', pady=(3, 0))
+        notices.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
+            'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/THIRD_PARTY_NOTICES.md'))
+
+        def close_credits():
+            panel.grab_release()
+            panel.destroy()
+            self.credits_panel = None
+
+        ttk.Button(bottom, text=self.tr('close'), command=close_credits).pack(
+            anchor='center', pady=(10, 0))
+        panel.protocol('WM_DELETE_WINDOW', close_credits)
+        panel.bind('<Escape>', lambda _event: close_credits())
+        panel.grab_set()
+        panel.focus_set()
 
     def show_library(self):
         panel = tk.Toplevel(self.app)

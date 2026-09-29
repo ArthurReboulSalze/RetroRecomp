@@ -101,7 +101,7 @@ frozen converter. Then audit its decompressed assets and create the release:
 
 ```powershell
 powershell -File .build/publication/repository/tools/package.ps1
-python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --release Export/Releases/RetroRecomp-v0.14.0-windows-x64.zip
+python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --release Export/Releases/RetroRecomp-v0.14.1-windows-x64.zip
 ```
 
 The ZIP contains only the converter and legal notices. Keep source staging and

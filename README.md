@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.14.0-0879fa" alt="Release version 0.14.0">
+  <img src="https://img.shields.io/badge/release-0.14.1-0879fa" alt="Release version 0.14.1">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -157,7 +157,7 @@ because RetroRecomp generated them.
 
 ## Getting started on Windows
 
-1. Download the v0.14.0 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
+1. Download the v0.14.1 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
 2. Install Git and Visual Studio Build Tools with **Desktop development with C++**, including x64 tools, CMake and a Windows SDK. Python is unnecessary for the packaged converter.
 3. Run `Retro-Recomp.exe`, choose **Add ROMs** or add one or more folders. Console detection is **Automatic** by default. Review unknown rows, then choose **Convert / regenerate**.
 4. Select a successful result and choose **Play game**.
@@ -206,8 +206,12 @@ To update the converter, click **Check for updates** in its toolbar. RetroRecomp
 does not contact GitHub for updates on startup. If you accept a newer Windows
 release, it verifies the download, closes, replaces the converter and legal
 notices, then restarts. Existing `Games` and `datas` are preserved. Builds
-older than v0.14.0 need this version installed manually once before in-app
+older than v0.14.0 need v0.14.0 or newer installed manually once before in-app
 updates become available.
+
+The **Credits** button names the creator and links the independent upstream
+recompilers and runtimes used for each console profile. The list scrolls as new
+consoles are added. It also links the third-party licensing notices.
 
 ### Game shortcuts
 
@@ -270,6 +274,8 @@ priorities without promising compatibility for every cartridge.
 
 ## Development and credits
 
+RetroRecomp was created and integrated by [Arthur Reboul Salze](https://github.com/ArthurReboulSalze).
+It brings several independent recompilers and runtimes together in one converter.
 The desktop application is written in Python; the generated games and host
 runtime use C and SDL2. [Build instructions](docs/BUILDING.md) cover source
 usage, packaging and reproducible dependency revisions.

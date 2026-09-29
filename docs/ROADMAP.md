@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-RetroRecomp 0.14.0 converts supported Master System, Game Gear and original
+RetroRecomp 0.14.1 converts supported Master System, Game Gear and original
 Game Boy ROMs, and has an experimental NES profile. The priorities below describe areas to improve, not compatibility
 or delivery promises.
 

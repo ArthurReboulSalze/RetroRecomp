@@ -1,3 +1,17 @@
+# RetroRecomp v0.14.1 — visible upstream credits
+
+The converter now has a **Credits** button. It explains that RetroRecomp
+combines several independent console-specific recompilers and runtimes in one
+application, credits creator and integrator Arthur Reboul Salze, and links the
+upstream repositories used for Master System, Game Gear, Game Boy and NES.
+The console list scrolls to accommodate future profiles. Licensing notices
+remain available from the same window.
+
+The v0.14.0 converter can install this version through its manual **Check for
+updates** button. The release includes only the converter and legal notices;
+it does not regenerate games or bundle ROMs, covers, settings or game data.
+The NES profile remains experimental.
+
 # RetroRecomp v0.14.0 — manual in-app updates
 
 The Windows converter now has a **Check for updates** button. It makes no
