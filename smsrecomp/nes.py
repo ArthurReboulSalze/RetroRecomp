@@ -21,6 +21,7 @@ from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .library import atomic_json, library_root
 from .metadata import write_game_metadata
+from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
 from .paths import ROOT, data_directory, games_root
 from .systems import archive_rom
@@ -110,15 +111,7 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
         run(['git', '-C', engine, 'checkout', '--detach', ENGINE_REV])
     if run(['git', '-C', engine, 'rev-parse', 'HEAD']).strip() != ENGINE_REV:
         raise ConversionError('Unexpected NESRecomp revision.')
-    compiler = engine / 'build-retrorecomp/Release/NESRecomp.exe'
-    if not compiler.is_file():
-        emit('Building the NES 6502 recompiler…')
-        run([cmake, '-S', engine / 'recompiler', '-B', engine / 'build-retrorecomp',
-             '-G', generator, '-A', 'x64'], timeout=600)
-        run([cmake, '--build', engine / 'build-retrorecomp', '--config', 'Release',
-             '--parallel', '4'], timeout=1800)
-    if not compiler.is_file():
-        raise ConversionError('NESRecomp produced no compiler executable.')
+    compiler = prepare_compiler(engine, cmake, generator, emit)
     return engine, compiler, sdl, cmake, generator
 
 
@@ -128,6 +121,22 @@ def _seed_sites(path: Path) -> set[str]:
                 if (match := SEED.match(line))}
     except FileNotFoundError:
         return set()
+
+
+def _native_rom_positions(project: Path, mapper: int) -> tuple[int, int] | None:
+    if mapper != 0:
+        return None
+    cycle = project / 'cycle'
+    manifest = (cycle / 'sources.cmake').read_text(encoding='utf-8')
+    generated = next((path for path in cycle.glob('*/generated/game_cyc.c')
+                      if path.as_posix() in manifest), None)
+    if generated is None:
+        raise ConversionError('NES compiler generated no selected native source.')
+    log = (generated.parent.parent / 'codegen.log').read_text(encoding='utf-8')
+    coverage = re.search(r'NROM native ROM positions: (\d+)/(\d+)', log)
+    if coverage is None:
+        raise ConversionError('NES compiler did not report full NROM ROM coverage.')
+    return int(coverage[1]), int(coverage[2])
 
 
 def memory_summary(rom: NesRom) -> dict:
@@ -168,6 +177,10 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
     rom_cycles, ram_cycles = (int(interpreted[1]), int(interpreted[2])) if interpreted else (0, 0)
     other = OTHER.search(output)
     other_cycles = int(other[1]) if other else 0
+    interpreter_cycles = rom_cycles + ram_cycles + other_cycles
+    non_dispatch_cycles = total - native - interpreter_cycles
+    if non_dispatch_cycles < 0:
+        raise ConversionError(f'NES {scenario} reported inconsistent native/interpreter cycle totals.')
     if differential:
         reference_command: list[str | Path] = [exe, '--frames', str(frames), '--interp-only',
             '--hash-out', work / f'{scenario}-reference.hash']
@@ -182,9 +195,30 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             'native_cycles': native, 'native_percent': 100 * native / total if total else 0,
             'interpreter_rom_cycles': rom_cycles, 'interpreter_ram_cycles': ram_cycles,
             'interpreter_other_cycles': other_cycles,
-            'interpreter_cycles': rom_cycles + ram_cycles + other_cycles,
-            'interpreter_percent': 100 * (rom_cycles + ram_cycles + other_cycles) / total if total else 0,
+            'interpreter_cycles': interpreter_cycles,
+            'interpreter_percent': 100 * interpreter_cycles / total if total else 0,
+            'non_dispatch_cycles': non_dispatch_cycles,
             'internal_differential': differential}
+
+
+def _write_probe_scripts(project: Path, frames: int) -> dict[str, Path | None]:
+    """Keep exercising inputs after boot instead of idling for most of a test."""
+    scripts: dict[str, Path | None] = {'boot': None}
+    # Different Start timings cover titles that need a few seconds to become
+    # interactive. Never pulse Start repeatedly: many games use it to pause.
+    for name, direction, start in (('play_right', 'RIGHT', 180),
+                                    ('play_left', 'LEFT', 20)):
+        move = start + 120
+        held = direction + '+B'
+        events = {start: 'START', start + 12: '-', move: held}
+        for frame in range(move + 60, frames, 64):
+            events[frame] = held + '+A'
+            events[frame + 20] = held
+        script = project / (name.replace('_', '-') + '.input')
+        script.write_text(''.join(f'{frame} {keys}\n' for frame, keys in sorted(events.items())
+                                  if frame < frames), encoding='ascii')
+        scripts[name] = script
+    return scripts
 
 
 def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None = None,
@@ -253,20 +287,25 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         seed.write_text('', encoding='ascii')
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries from previous runs.')
-    scripts = {'boot': None, 'play_right': project / 'play-right.input',
-               'play_left': project / 'play-left.input'}
-    scripts['play_right'].write_text('20 START\n22 -\n90 RIGHT\n160 RIGHT+A\n240 A\n300 -\n', encoding='ascii')
-    scripts['play_left'].write_text('20 START\n22 -\n90 LEFT\n160 LEFT+B\n240 B\n300 -\n', encoding='ascii')
+    scripts = _write_probe_scripts(project, frames)
     executable = project / 'build/Release/game.exe'
     history: list[dict] = []
     final_checks: list[dict] = []
+    native_rom_positions: tuple[int, int] | None = None
     for number in range(1, passes + 1):
         prior = _seed_sites(seed)
         emit(f'NES pass {number}/{passes}: generating and compiling native 6502 paths…')
-        run([sys.executable, engine / 'tools/cyc/prepare_project.py',
+        bridge_command = ([sys.executable, '_nes-prepare-project', engine]
+                          if getattr(sys, 'frozen', False) else
+                          [sys.executable, engine / 'tools/cyc/prepare_project.py'])
+        run([*bridge_command,
              '--rom', project / 'rom.nes', '--recompiler', compiler,
              '--out', project / 'cycle', '--seeds', seed], cwd=project,
             log=project / 'build.log', timeout=600)
+        native_rom_positions = _native_rom_positions(project, rom.mapper)
+        if native_rom_positions:
+            emit(f'NES NROM native ROM entry positions: '
+                 f'{native_rom_positions[0]}/{native_rom_positions[1]}.')
         run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
              f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], cwd=project,
             log=project / 'build.log', timeout=600)
@@ -283,10 +322,11 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             emit(f"NES {scenario}: {check['native_percent']:.4f}% native; "
                  f"{check['interpreter_cycles']} interpreted CPU cycles in {frames} frames.")
         new = _seed_sites(seed) - prior
+        if all(check['interpreter_cycles'] == 0 for check in final_checks):
+            emit('NES: no fallback cycles on the tested scenarios.')
+            break
         if not new:
             emit('NES: no new seedable ROM sites; remaining fallback stays reported.')
-            break
-        if all(check['interpreter_cycles'] == 0 for check in final_checks):
             break
         emit(f'NES: {len(new)} new ROM entry sites for the next pass.')
     # Validate the final generated code against the reference interpreter in
@@ -294,7 +334,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     # hardware or full-game validation.
     cpu_checks = []
     for scenario, script in scripts.items():
-        comparison = _probe(executable, project, scenario, min(frames, 120), seed,
+        # Include input-driven execution after the delayed Start; 120 frames
+        # alone would compare only boot for the late-start gameplay scenario.
+        comparison = _probe(executable, project, scenario, min(frames, 600 if script else 120), seed,
                             script, differential=True)
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state comparison matches '
@@ -305,9 +347,12 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'},
         'rom': rom.metadata(), 'backend': 'nesrecomp-cycle-accurate',
         'compiler': {'url': ENGINE_URL, 'revision': ENGINE_REV,
-                     'license': 'PolyForm Noncommercial 1.0.0'},
+                     'license': 'PolyForm Noncommercial 1.0.0',
+                     'adapter': 'full NROM fixed-bank ROM entry coverage and boundary operands'},
         'native_coverage': {'imported_entries': imported, 'observed_entries': len(_seed_sites(seed)),
-                            'tested_scenarios': list(scripts)},
+                            'tested_scenarios': list(scripts),
+                            'precompiled_rom_positions': native_rom_positions[0] if native_rom_positions else None,
+                            'rom_address_positions': native_rom_positions[1] if native_rom_positions else None},
         'final_checks': final_checks, 'history': history,
         'native_validation': {'passed': True, 'method': 'internal interpreter frame hashes',
                               'scenarios': cpu_checks, 'independent_cpu_oracle': False,

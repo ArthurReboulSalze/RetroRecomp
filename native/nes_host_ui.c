@@ -181,7 +181,9 @@ int cyc_sdl_main(const char *title, int scale) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
     if (scale < 1) scale = 3;
-    SDL_Window *win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    char caption[256];
+    snprintf(caption, sizeof(caption), "%s | %s", title, tr("Native code", "Code natif"));
+    SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         256 * scale, 240 * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;
     if (!ren && win) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
@@ -196,8 +198,9 @@ int cyc_sdl_main(const char *title, int scale) {
     if (audio && cyc_audio_enable(have.freq)) SDL_PauseAudioDevice(audio, 0);
     open_pads();
     const Uint64 frequency = SDL_GetPerformanceFrequency();
-    Uint64 next = SDL_GetPerformanceCounter(), mark = next;
-    uint64_t frame = 0, native_mark = cyc_run_native_cycles, cycle_mark = cyc_cycle_count();
+    Uint64 next = SDL_GetPerformanceCounter();
+    uint64_t frame = 0;
+    int title_state = french ? 2 : 0;
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -214,7 +217,6 @@ int cyc_sdl_main(const char *title, int scale) {
             if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK &&
                     pads[0] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[0]))) {
                 cyc_power_on(0); cyc_run_power_on(); if (audio) SDL_ClearQueuedAudio(audio);
-                native_mark = cyc_run_native_cycles; cycle_mark = cyc_cycle_count();
             }
             if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
             SDL_Scancode key = event.key.keysym.scancode;
@@ -230,7 +232,6 @@ int cyc_sdl_main(const char *title, int scale) {
             if (key == SDL_SCANCODE_ESCAPE) { if (menu) menu = 0; else running = false; }
             else if (key == SDL_SCANCODE_F1) {
                 cyc_power_on(0); cyc_run_power_on(); if (audio) SDL_ClearQueuedAudio(audio);
-                native_mark = cyc_run_native_cycles; cycle_mark = cyc_cycle_count();
             } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
@@ -289,18 +290,19 @@ int cyc_sdl_main(const char *title, int scale) {
             }
             SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
         }
+        int current_title_state =
+            (cyc_run_interp_rom_cycles || cyc_run_interp_ram_cycles || cyc_run_interp_other_cycles ? 1 : 0) |
+            (french ? 2 : 0);
+        if (current_title_state != title_state) {
+            snprintf(caption, sizeof(caption), "%s | %s", title,
+                     tr(current_title_state & 1 ? "Interpreter fallback" : "Native code",
+                        current_title_state & 1 ? "Interpreteur de secours" : "Code natif"));
+            SDL_SetWindowTitle(win, caption);
+            title_state = current_title_state;
+        }
         draw_menu(ren);
         SDL_RenderPresent(ren);
         Uint64 now = SDL_GetPerformanceCounter();
-        if (now - mark >= frequency) {
-            uint64_t cycles = cyc_cycle_count() - cycle_mark;
-            double percent = cycles ? 100.0 * (cyc_run_native_cycles - native_mark) / cycles : 0.0;
-            char caption[256];
-            snprintf(caption, sizeof(caption), "%s | NES | %.4f%% native | ROM fallback %llu cycles",
-                     title, percent, (unsigned long long)cyc_run_interp_rom_cycles);
-            SDL_SetWindowTitle(win, caption);
-            mark = now; cycle_mark = cyc_cycle_count(); native_mark = cyc_run_native_cycles;
-        }
         if (menu) { next = now; SDL_Delay(16); continue; }
         next += (Uint64)((1.0 / 60.0988) * frequency);
         if (next > now) {

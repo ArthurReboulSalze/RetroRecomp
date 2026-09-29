@@ -2,7 +2,7 @@
 
 ## Current scope
 
-RetroRecomp 0.15.0 builds Windows x64 games from Master System, Game Gear,
+RetroRecomp 0.16.0 builds Windows x64 games from Master System, Game Gear,
 original Game Boy and experimental Nintendo NES ROMs. The two Sega profiles use the Sega mapper and offer
 extended native coverage and quick states. Selectable PAL/NTSC timing, two players and
 catalogue-selected Light Phaser input apply to Master System. Game Gear uses
@@ -31,7 +31,11 @@ See [Game Boy](GAME_BOY.md).
 The experimental Nintendo NES profile uses a separate 6502 cycle backend and
 accepts headered `.nes` cartridges. Conversion tests count native and fallback
 CPU cycles, then compare short frame hashes with the engine's internal
-interpreter. Only NTSC timing is supported at present; NES 2.0 PAL/Dendy
+interpreter. For NROM cartridges, the compiler also prepares every ROM position
+that can start a complete instruction, including unobserved indirect targets.
+The local Super Mario Bros. conversion compiled 32,767 of 32,768 positions and
+used zero fallback cycles on three 3,600-frame scripted paths; this does not
+cover all gameplay. Only NTSC timing is supported at present; NES 2.0 PAL/Dendy
 cartridges are rejected. Mapper support and complete gameplay vary by title.
 See [NES](NES.md).
 

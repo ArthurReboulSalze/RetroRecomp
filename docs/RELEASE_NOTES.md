@@ -1,3 +1,36 @@
+# RetroRecomp v0.16.0 — broader native NES coverage
+
+The experimental NES profile now compiles every NROM (mapper 0) ROM position
+that can begin a complete instruction, including targets not found by scripted
+exploration. An instruction crossing `$FFFF` still uses the reported fallback;
+bank-switching mappers retain their existing discovery-based compilation. The
+upstream NESRecomp checkout is unchanged: RetroRecomp stages a private compiler
+adapter during conversion.
+
+On the local Super Mario Bros. cartridge, 32,767 of 32,768 potential CPU ROM
+entry positions were compiled. Boot and two scripted input runs of 3,600 frames
+each used zero interpreter cycles. The generated game matched the **same
+engine's internal interpreter** for 120 boot frames and 600 frames of each
+input run; an additional 3,600-frame gameplay comparison also matched. One
+private first conversion took about 2 minutes 44 seconds, and the packed Mario
+game grew from about 1.33 MB to 2.42 MB. These are measurements of one cartridge
+and bounded paths, not proof of complete-game or independent hardware fidelity.
+Physical input latency was not measured. The NES profile remains experimental.
+
+NES game windows now show only the game name and `Native code` or `Interpreter
+fallback`, matching the compact status used by other profiles. Any ROM, RAM or
+other CPU fallback keeps the fallback status visible until the game closes.
+Gameplay probes also keep exercising inputs beyond the first 300 frames, and
+the in-app fallback footer is shorter. Only Super Mario Bros. was regenerated
+locally; other games were not rebuilt for this release.
+
+The Windows x64 download is a standalone `Retro-Recomp.exe`. Existing installs
+can use the manual **Check for updates** button. The release contains no ROMs,
+covers, generated game executables, settings or personal observation library.
+The original RetroRecomp code remains MIT; the NES backend retains its PolyForm
+Noncommercial terms and attribution. See the [NES profile](NES.md) and
+[third-party notices](../THIRD_PARTY_NOTICES.md).
+
 # RetroRecomp v0.15.0 — faster Game Boy conversion and a cleaner workspace
 
 Original Game Boy is now a supported everyday-use profile rather than an alpha

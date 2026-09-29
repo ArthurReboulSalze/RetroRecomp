@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.15.0"
+VERSION = "0.16.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -47,7 +47,7 @@ smsrecomp/systems/game_gear.py smsrecomp/systems/game_boy.py
 smsrecomp/gameboy.py smsrecomp/gameboy_runtime.py
 smsrecomp/gameboy_timing.py
 smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
-smsrecomp/nes.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py
+smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
 native/controls.c native/controls.h native/host.c native/host_checks.c

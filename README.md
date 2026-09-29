@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.15.0-0879fa" alt="Release version 0.15.0">
+  <img src="https://img.shields.io/badge/release-0.16.0-0879fa" alt="Release version 0.16.0">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -39,8 +39,9 @@ experimental. Each has its own hardware runtime and validation limits.
   into smaller standalone executables before export.
 - **Native-first performance.** RetroRecomp translates Z80, SM83 or 6502 game
   code ahead of time, depending on the console. Supported Sega ROM-bank
-  positions are prepared by default; the Game Boy and NES profiles combine
-  static discovery with conversion-time probes. Covered CPU paths run as
+  positions are prepared by default; fixed-bank NES NROM games also prepare
+  nearly every ROM entry position, while Game Boy and other NES layouts use
+  discovery and conversion-time probes. Covered CPU paths run as
   compiled host code, while interpreter fallback remains counted and reported.
 - **A practical Master System experience.** The Master System backend is now
   viable for everyday play with supported Sega-mapper ROMs. It includes two
@@ -61,16 +62,18 @@ experimental. Each has its own hardware runtime and validation limits.
   Complete catalogue and hardware behavior remain unverified. Game Boy Color-only games are
   not supported. See the [Game Boy profile](docs/GAME_BOY.md).
 - **NES (experimental).** `.nes` cartridges use a separate 6502 backend and a
-  per-ROM library of observed code entries. The current NTSC profile has two
-  controller ports but no quick states or Zapper. Super Mario Bros. has passed
-  scripted conversion checks with a small amount of remaining interpreter
-  fallback; broad mapper and gameplay validation are still open. The upstream
+  per-ROM library of observed code entries. For fixed-bank NROM cartridges,
+  the converter also compiles nearly every possible ROM entry position ahead
+  of time. The current NTSC profile has two controller ports but no quick states
+  or Zapper. Super Mario Bros. has passed scripted conversion checks with zero
+  interpreter cycles on the tested paths; broad mapper and gameplay validation
+  are still open. The upstream
   engine uses a noncommercial license. See the [NES profile](docs/NES.md).
 
 <p align="center">
   <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp interface with automatic console selection, platform and language selectors, and a batch conversion queue" width="1000">
 </p>
-<p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games. In v0.15.0, conversion settings have moved into Options.</em></p>
+<p align="center"><em>Choose your ROMs, convert a batch, and launch the finished games. Conversion settings are grouped in Options.</em></p>
 
 <p align="center">
   <img src="MEDIAS/RC_Windows_Screen.png" alt="Windows Explorer displaying generated Master System game executables with box-art icons and shooting badges" width="1100">

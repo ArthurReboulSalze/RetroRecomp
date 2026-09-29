@@ -12,6 +12,21 @@ from smsrecomp.systems import MASTER_SYSTEM, discover_roms, profile_for_path
 
 
 def main() -> int:
+    if len(sys.argv) >= 3 and sys.argv[1] == '_nes-prepare-project':
+        # A frozen converter is not a Python command-line interpreter. Run the
+        # pinned bridge in this dedicated child so parallel games do not share
+        # argparse/sys.argv state, and no installed Python is required.
+        import runpy
+
+        bridge = Path(sys.argv[2]) / 'tools/cyc/prepare_project.py'
+        sys.argv = [str(bridge), *sys.argv[3:]]
+        try:
+            runpy.run_path(str(bridge), run_name='__main__')
+        except Exception as exc:
+            if sys.stderr is not None:
+                print(str(exc), file=sys.stderr)
+            return 1
+        return 0
     if len(sys.argv) == 3 and sys.argv[1] == '_verify-update':
         from smsrecomp import __version__
 
