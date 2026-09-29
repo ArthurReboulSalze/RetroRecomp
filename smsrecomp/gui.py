@@ -924,22 +924,18 @@ class Application:
 
         content = tk.Frame(panel, bg='#071732', padx=24, pady=18)
         content.pack(fill='both', expand=True)
-        tk.Label(content, text='RETRORECOMP', bg='#071732', fg='#26d7ff',
-                 font=('Segoe UI', 9, 'bold')).pack(anchor='center')
+        try:
+            panel.credits_logo = tk.PhotoImage(
+                file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'), master=panel)
+            tk.Label(content, image=panel.credits_logo, bg='#071732').pack(
+                anchor='center', pady=(0, 2))
+        except (OSError, tk.TclError):
+            pass
         tk.Label(content, text=self.tr('credits'), bg='#071732', fg='#eef6ff',
                  font=('Segoe UI', 23, 'bold')).pack(anchor='center', pady=(0, 3))
         tk.Label(content, text=self.tr('credits_intro'), bg='#071732', fg='#a9bcdc',
                  font=('Segoe UI', 10), justify='center',
                  wraplength=630).pack(anchor='center', pady=(0, 13))
-
-        tk.Label(content, text=self.tr('credits_author'), bg='#071732', fg='#a9bcdc',
-                 font=('Segoe UI', 9)).pack(anchor='center')
-        author_link = tk.Label(content, text='Arthur Reboul Salze', bg='#071732',
-                               fg='#26d7ff', cursor='hand2',
-                               font=('Segoe UI', 16, 'bold', 'underline'))
-        author_link.pack(anchor='center', pady=(1, 13))
-        author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
-            'https://github.com/ArthurReboulSalze'))
 
         tk.Frame(content, bg='#31568c', height=1).pack(fill='x', padx=120, pady=(0, 11))
         tk.Label(content, text=self.tr('credits_repositories'), bg='#071732',
@@ -998,8 +994,21 @@ class Application:
             panel.destroy()
             self.credits_panel = None
 
-        ttk.Button(bottom, text=self.tr('close'), command=close_credits).pack(
-            anchor='center', pady=(10, 0))
+        actions = tk.Frame(bottom, bg='#071732', height=38)
+        actions.pack(fill='x', pady=(10, 0))
+        actions.pack_propagate(False)
+        ttk.Button(actions, text=self.tr('close'), command=close_credits).place(
+            relx=0.5, rely=0.5, anchor='center')
+        author = tk.Frame(actions, bg='#071732')
+        author.place(relx=1.0, rely=0.5, anchor='e')
+        tk.Label(author, text=self.tr('credits_author'), bg='#071732', fg='#7590b3',
+                 font=('Segoe UI', 8)).pack(side='left', padx=(0, 4))
+        author_link = tk.Label(author, text='Arthur Reboul Salze', bg='#071732',
+                               fg='#8faecf', cursor='hand2',
+                               font=('Segoe UI', 8, 'underline'))
+        author_link.pack(side='left')
+        author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
+            'https://github.com/ArthurReboulSalze'))
         panel.protocol('WM_DELETE_WINDOW', close_credits)
         panel.bind('<Escape>', lambda _event: close_credits())
         panel.grab_set()
