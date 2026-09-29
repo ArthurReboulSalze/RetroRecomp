@@ -13,6 +13,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
+from . import __version__
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
@@ -212,6 +213,8 @@ class Application:
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
         self.update_button.pack(side='right', padx=(0, 12))
         self.button(toolbar, self.tr('credits'), self.show_credits).pack(side='right', padx=(0, 8))
+        ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
+                  font=('Segoe UI', 9)).pack(side='right', padx=(0, 12))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)

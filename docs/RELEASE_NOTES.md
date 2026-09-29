@@ -5,7 +5,8 @@ combines several independent console-specific recompilers and runtimes in one
 application, credits creator and integrator Arthur Reboul Salze, and links the
 upstream repositories used for Master System, Game Gear, Game Boy and NES.
 The console list scrolls to accommodate future profiles. Licensing notices
-remain available from the same window.
+remain available from the same window. The main toolbar also shows the
+installed RetroRecomp version beside the Credits and update controls.
 
 The v0.14.0 converter can install this version through its manual **Check for
 updates** button. The release includes only the converter and legal notices;
