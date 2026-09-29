@@ -37,6 +37,7 @@ class BatchTests(unittest.TestCase):
         exe = output / "Same_title.exe"
         exe.write_bytes(path.read_bytes())
         (output / "conversion-report.json").write_text(json.dumps({"executable": exe.name,
+            "rom": {"name": path.name},
             "video_model": {"standard": options.get('standard_override') or 'pal'},
             "final_checks": [{"interpreter_percent": 0}], "reference_vdp_trace_match": True}))
         return exe
@@ -49,15 +50,22 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(compiler.call_count, 2)
         self.assertFalse(compiler.call_args.kwargs['publish_result'])
         self.assertFalse(list(self.output.rglob('*.txt')))
-        self.assertEqual({p.name for p in self.output.iterdir()}, {'Same title.exe', 'Same title (2).exe', 'datas'})
-        for item, filename in ((first, 'Same title.exe'), (second, 'Same title (2).exe')):
+        names = {item.sha256: f'Same title (Europe, version {letter}).exe'
+                 for letter, item in zip('AB', sorted((first, second), key=lambda game: game.sha256))}
+        self.assertEqual({p.name for p in self.output.iterdir()}, {*names.values(), 'datas'})
+        for item in (first, second):
             report = self.output / "datas/reports" / item.key / "conversion-report.json"
-            self.assertEqual(json.loads(report.read_text())["executable"], filename)
+            self.assertEqual(json.loads(report.read_text())["executable"], names[item.sha256])
         # Reversed order in a later conversion must preserve revision/name pairing.
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             repeated = convert_batch([second, first], self.games_root, emit=lambda text: None)
         self.assertEqual([Path(game['executable']).name for game in repeated['games']],
-                         ['Same title (2).exe', 'Same title.exe'])
+                         [names[second.sha256], names[first.sha256]])
+        # Regenerating only one edition must not discard its region/version label.
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            alone = convert_batch([first], self.games_root, emit=lambda text: None)
+        self.assertEqual(Path(alone['games'][0]['executable']).name, names[first.sha256])
+        self.assertEqual({path.name for path in self.output.glob('*.exe')}, set(names.values()))
 
     def test_failure_preserves_previous_executable_and_next_rom_still_runs(self):
         first, second = self.item("one", 1), self.item("two", 2)
@@ -109,7 +117,9 @@ class BatchTests(unittest.TestCase):
         self.assertEqual([game['sha256'] for game in record['games']],
                          [first.sha256, second.sha256, third.sha256])
         self.assertEqual([Path(game['executable']).name for game in record['games']],
-                         ['Same title.exe', 'Same title (2).exe', 'Same title.exe'])
+                         [f'Same title (Europe, version {"A" if first.sha256 < second.sha256 else "B"}).exe',
+                          f'Same title (Europe, version {"A" if second.sha256 < first.sha256 else "B"}).exe',
+                          'Same title.exe'])
         self.assertEqual({Path(game['executable']).parent.name for game in record['games']},
                          {'Master System', 'Game Gear'})
 
@@ -135,6 +145,48 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(compiler.call_count, 2)
         self.assertEqual(starts, [0, 1])
         self.assertEqual((record['succeeded'], record['pending'], record['cancelled']), (2, 1, True))
+
+    def test_identical_bytes_under_a_sequel_name_reports_the_actual_source(self):
+        first_path = self.root / 'Strider.sms'
+        sequel_path = self.root / 'Strider II.sms'
+        first_path.write_bytes(bytes([7]) * 8192)
+        sequel_path.write_bytes(first_path.read_bytes())
+        first, sequel = identify(first_path), identify(sequel_path)
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
+            record = convert_batch([first, sequel], self.games_root, jobs=2,
+                                   emit=lambda message: None)
+        self.assertEqual(compiler.call_count, 1)
+        self.assertEqual((record['succeeded'], record['duplicates']), (1, 1))
+        self.assertEqual(record['games'][1]['duplicate_of'], 'Strider')
+        self.assertEqual({path.name for path in self.output.glob('*.exe')}, {'Strider.exe'})
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+                   side_effect=AssertionError('Do not relabel identical ROM bytes')):
+            again = convert_batch([sequel], self.games_root, emit=lambda message: None)
+        self.assertEqual(again['games'][0]['duplicate_of'], 'Strider')
+
+    def test_distinct_region_editions_use_their_source_labels(self):
+        paths = [self.root / f'Game ({region}).sms' for region in ('USA', 'Europe')]
+        for value, path in enumerate(paths, 1):
+            path.write_bytes(bytes([value]) * 8192)
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            record = convert_batch([identify(path) for path in paths], self.games_root,
+                                   jobs=2, emit=lambda message: None)
+        self.assertEqual([Path(game['executable']).name for game in record['games']],
+                         ['Game (USA).exe', 'Game (Europe).exe'])
+
+    def test_disabling_overwrite_skips_a_finished_game_without_touching_its_executable(self):
+        item = self.item('one', 1)
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            first = convert_batch([item], self.games_root, emit=lambda message: None)
+        executable = Path(first['games'][0]['executable'])
+        before = executable.read_bytes()
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+                   side_effect=AssertionError('Existing game must not be recompiled')):
+            record = convert_batch([item], self.games_root, overwrite=False,
+                                   emit=lambda message: None)
+        self.assertEqual((record['existing'], record['succeeded'], record['failed']), (1, 0, 0))
+        self.assertEqual(record['games'][0]['executable'], str(executable))
+        self.assertEqual(executable.read_bytes(), before)
 
     def test_report_write_failure_does_not_replace_a_working_game(self):
         item = self.item("one", 1)
@@ -199,10 +251,13 @@ class BatchTests(unittest.TestCase):
         duplicate.write_bytes(generated(first))
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([second, first], self.games_root, emit=lambda text: None)
+        names = {item.sha256: f'Same title (Europe, version {letter}).exe'
+                 for letter, item in zip('AB', sorted((first, second), key=lambda game: game.sha256))}
         self.assertEqual([Path(game['executable']).name for game in result['games']],
-                         ['Same title (2).exe', 'Same title.exe'])
+                         [names[second.sha256], names[first.sha256]])
         self.assertEqual(result['succeeded'], 2)
         self.assertFalse(duplicate.exists())
+        self.assertEqual({p.name for p in self.output.glob('*.exe')}, set(names.values()))
 
     def test_embedded_hash_without_runtime_brand_does_not_claim_an_unknown_file(self):
         item = self.item('one', 1)

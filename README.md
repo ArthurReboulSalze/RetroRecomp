@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.14.2-0879fa" alt="Release version 0.14.2">
+  <img src="https://img.shields.io/badge/release-0.14.5-0879fa" alt="Release version 0.14.5">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -132,6 +132,7 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 | Game icons | Optional local/online box art; automatic shooting badges for known Master System gun games |
 | Files | Shared `datas` folder; game-specific data isolated by identity |
 | Regeneration | Same game filename; replacement deferred if the executable is running |
+| Batch overwrite | On by default; disable to skip already exported games without rebuilding them |
 
 Version 0.13.0 adds the experimental NES profile and packages it alongside
 Master System, Game Gear and original Game Boy. The earlier v0.10.17 release

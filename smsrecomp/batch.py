@@ -1,5 +1,6 @@
 """Bounded mixed-console ROM queue and atomic per-console exports."""
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -52,6 +53,47 @@ def identify(path: Path, selected_system: str | None = None) -> BatchItem:
                          selected_system=selected_system or "")
     except (ConversionError, OSError, ValueError) as exc:
         return BatchItem(path, title, error=str(exc), selected_system=selected_system or "")
+
+
+def _edition_hint(item: BatchItem) -> str:
+    """Use source labels as labels, never as proof of PAL/NTSC timing."""
+    return ', '.join(re.findall(r'[\(\[]([^\)\]]+)[\)\]]', item.path.stem)).strip()
+
+
+def _version_letter(number: int) -> str:
+    label = ''
+    while number >= 0:
+        label = chr(65 + number % 26) + label
+        number = number // 26 - 1
+    return label
+
+
+def _variant_titles(items: list[BatchItem]) -> dict[int, str]:
+    """Name distinct ROM editions from source labels, then stable A/B labels."""
+    groups = defaultdict(list)
+    for index, item in enumerate(items):
+        if item.system and item.sha256 and not item.error:
+            groups[(item.system, item.title.casefold())].append((index, item))
+    result = {}
+    for group in groups.values():
+        if len({item.sha256 for _, item in group}) < 2:
+            continue
+        editions = {}
+        for index, item in group:
+            editions.setdefault(item.sha256, (index, item))
+        hints = defaultdict(list)
+        for sha, (index, item) in editions.items():
+            hints[_edition_hint(item).casefold()].append((sha, index, item))
+        for members in hints.values():
+            for number, (_, index, item) in enumerate(sorted(members, key=lambda entry: entry[0])):
+                hint = _edition_hint(item)
+                suffix = (hint + ', ' if hint else '') + 'version ' + _version_letter(number) \
+                    if len(members) > 1 or not hint else hint
+                result[index] = f'{item.title} ({suffix})'
+        # Every alias of one SHA uses the same destination title.
+        for index, item in group:
+            result[index] = result[editions[item.sha256][0]]
+    return result
 
 
 def _export_records(output: Path):
@@ -124,18 +166,42 @@ class _OutputNames:
         self.output = output
         self.owners: dict[str, set[str]] = {}
         self.original: list[tuple[Path, str]] = []
+        self.sources: dict[str, str] = {}
+        for path in (output / 'datas/reports').glob('*/conversion-report.json'):
+            try:
+                report = json.loads(path.read_text(encoding='utf-8'))
+                name = report['executable']
+                source = report['rom']['name']
+                if Path(name).name == name and isinstance(source, str):
+                    self.sources[name.casefold()] = source
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
         for name, identity in _export_records(output):
             self.owners.setdefault(name.casefold(), set()).add(identity)
             self.original.append((output / name, identity))
         self.existing = {path.name.casefold() for path in output.iterdir()}
         self.reserved: dict[str, str] = {}
 
-    def reserve(self, item: BatchItem) -> tuple[Path, list[Path]]:
-        base = executable_name(item.title)
+    def matching_export(self, item: BatchItem) -> Path | None:
+        return next((path for path, identity in self.original
+                     if identity == item.sha256 and path.is_file()), None)
+
+    def same_source_name(self, item: BatchItem, previous: Path) -> bool:
+        original = self.sources.get(previous.name.casefold())
+        return (Path(original).stem.casefold() == item.path.stem.casefold() if original else
+                previous.stem.casefold() == item.title.casefold() or
+                previous.stem.casefold().startswith(item.title.casefold() + ' (') or
+                previous.stem.casefold() == item.key.casefold())
+
+    def reserve(self, item: BatchItem, export_title: str | None = None) -> tuple[Path, list[Path]]:
+        base = executable_name(export_title or item.title)
         own_names = [path.name for path, identity in self.original if identity == item.sha256]
         target = None
         for name in sorted(own_names, key=lambda value: (value.casefold() != base.casefold(), value.casefold())):
-            if (name == base or re.fullmatch(re.escape(Path(base).stem) + r' \(\d+\)\.exe', name)) and \
+            preserved_edition = (export_title is None and
+                re.fullmatch(re.escape(Path(base).stem) + r' \([^)]*\)\.exe', name))
+            if (name == base or preserved_edition or
+                    re.fullmatch(re.escape(Path(base).stem) + r' \(\d+\)\.exe', name)) and \
                     self.owners.get(name.casefold()) == {item.sha256} and \
                     name.casefold() not in self.reserved:
                 target = self.output / name
@@ -217,15 +283,17 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
 
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,
                   on_event=lambda kind, index, value: None, emit=print, jobs: int = 1,
+                  overwrite: bool = True,
                   **options) -> dict:
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     results: list[dict | None] = [None] * len(items)
-    seen: set[tuple[str, str]] = set()
+    seen: dict[tuple[str, str], str] = {}
     active: set[tuple[str, str]] = set()
     names: dict[str, _OutputNames] = {}
+    variant_titles = _variant_titles(items)
     emit_lock = Lock()
     original_emit = emit
 
@@ -262,20 +330,33 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                         if system.read_rom(item.path).sha256 != item.sha256:
                             raise ConversionError("La ROM a changé depuis son ajout au lot ; ajoute-la à nouveau.")
                         if identity in seen:
-                            result.update(status="duplicate", message="Même ROM déjà présente dans le lot.")
+                            result.update(status="duplicate", duplicate_of=seen[identity],
+                                message=f"Contenu ROM identique à « {seen[identity]} » malgré le nom différent.")
+                            emit(f"{item.title} : {result['message']}")
                         else:
                             game_output = system_output(output, system.id)
                             game_output.mkdir(parents=True, exist_ok=True)
                             if system.id not in names:
                                 names[system.id] = _OutputNames(game_output)
-                            target, previous = names[system.id].reserve(item)
-                            reports = game_output / "datas/reports" / item.key
-                            future = executor.submit(_convert_one, index, item, len(items), system,
-                                game_output, reports, target, previous, emit, options)
-                            pending[future] = (index, identity, target)
-                            active.add(identity)
-                            next_index += 1
-                            continue
+                            previous_export = names[system.id].matching_export(item)
+                            if previous_export and not names[system.id].same_source_name(item, previous_export):
+                                result.update(status='duplicate', duplicate_of=previous_export.stem,
+                                    message=f"Contenu ROM identique à « {previous_export.stem} » malgré le nom différent.")
+                                emit(f"{item.title} : {result['message']}")
+                            elif previous_export and not overwrite:
+                                result.update(status='existing', executable=str(previous_export),
+                                    message='Jeu déjà généré ; remplacement désactivé.')
+                                seen[identity] = item.title
+                                emit(f"{item.title} : {result['message']}")
+                            else:
+                                target, previous = names[system.id].reserve(item, variant_titles.get(index))
+                                reports = game_output / "datas/reports" / item.key
+                                future = executor.submit(_convert_one, index, item, len(items), system,
+                                    game_output, reports, target, previous, emit, options)
+                                pending[future] = (index, identity, target)
+                                active.add(identity)
+                                next_index += 1
+                                continue
                 except Exception as exc:
                     result.update(status="error", message=str(exc))
                     emit(f"{item.title} : {exc}")
@@ -291,7 +372,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     succeeded = result['status'] == 'success'
                     names[identity[0]].finish(target, identity[1], succeeded)
                     if succeeded:
-                        seen.add(identity)
+                        seen[identity] = items[index].title
                     results[index] = result
                     on_event("result", index, result)
             elif cancel and cancel.is_set():
@@ -307,6 +388,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
         "unrecognized": sum(r["status"] == "unrecognized" for r in completed),
         "skipped": sum(r["status"] == "skipped" for r in completed),
         "duplicates": sum(r["status"] == "duplicate" for r in completed), "games": completed}
+    record['existing'] = sum(r['status'] == 'existing' for r in completed)
     record['pending_installations'] = sum(r.get('pending_install', False) for r in completed)
     directory = output / "datas"
     directory.mkdir(parents=True, exist_ok=True)

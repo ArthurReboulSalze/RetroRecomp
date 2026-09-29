@@ -25,6 +25,7 @@ python RetroRecomp.py convert "ROMS/your-game.gb" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.nes" --no-online-cover
 python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 3 --no-online-cover
 python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --system auto
+python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 ```
 
 `ROMS` is a local folder for your own ROMs; it is not committed. Source usage
@@ -39,6 +40,11 @@ Batch conversion runs three games at once by default for any mix of supported
 consoles. Set **Concurrent games** in the GUI or use `batch --jobs 1..8` to
 control CPU and memory use. `--jobs 1` runs sequentially. Stopping waits for
 already active games and leaves the rest of the queue untouched.
+**Overwrite existing games** is enabled by default; disable it to keep already
+exported games when running a large batch. Distinct ROM bytes with the same
+base title receive region/revision labels from filenames when available, or
+version A/B labels. Identical ROM bytes under different names are reported
+with the existing name and are not exported as a different game.
 
 Game Boy keeps its all-bank discovery and three coverage scenarios enabled.
 Its default reference CPU check covers up to 30 boot frames. To add the much

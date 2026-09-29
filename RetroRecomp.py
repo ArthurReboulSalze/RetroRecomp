@@ -74,6 +74,8 @@ def main() -> int:
     batch.add_argument("--frames", type=int, default=3600)
     batch.add_argument("--jobs", type=int, default=3,
         help="Concurrent game conversions across all console profiles (1–8, default 3).")
+    batch.add_argument("--no-overwrite", action="store_true",
+        help="Skip an already generated game instead of regenerating it.")
     batch.add_argument("--gb-deep-validation", action="store_true",
         help="Extra Game Boy CPU checks during play; can add several minutes per game. Ignored for other consoles.")
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
@@ -152,7 +154,8 @@ def main() -> int:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 record = convert_batch([identify(p, None if args.system == 'auto' else args.system)
                                         for p in paths], args.output,
-                    jobs=args.jobs, passes=args.passes, frames=args.frames,
+                    jobs=args.jobs, overwrite=not args.no_overwrite,
+                    passes=args.passes, frames=args.frames,
                     backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,

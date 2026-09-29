@@ -1,4 +1,22 @@
-# RetroRecomp v0.14.4 — concurrent batch conversion (unreleased)
+# RetroRecomp v0.14.5 — edition names and optional regeneration
+
+Batch conversion now distinguishes different ROM revisions with source-derived
+region/revision labels, or stable version A/B labels when the filenames do not
+identify the difference. Roman numerals and sequel numbers in titles remain
+part of the game name. Identical ROM bytes under different filenames are
+reported with the existing game's name; they cannot produce a different game.
+The new **Overwrite existing executables** option is on by default. Turning it off
+skips already exported games while converting missing ones, including in mixed
+console batches. No game was regenerated for this converter change.
+
+The local converter library was audited after a large Master System batch:
+6,893,562 bytes in 581 files, but only 101 ROM entries were verified for
+reuse, all for one Alex Kidd cartridge (2,631 bytes in a compact JSON pack).
+The remaining observations are RAM-related and cannot be shared as verified
+ROM entries. The library stays local; no personal paths, ROM-derived code
+patterns or conversion histories are bundled into this build.
+
+# RetroRecomp v0.14.4 — concurrent batch conversion (included in v0.14.5)
 
 Mixed-console batches can now convert up to eight different games in parallel.
 The GUI and `batch` command default to three concurrent games; choose one for
@@ -9,7 +27,7 @@ allows active conversions to finish without starting more games. Shared
 dependency setup is serialized. This changes conversion throughput only;
 runtime responsiveness and game validation have not been remeasured.
 
-# RetroRecomp v0.14.3 — clearer update errors (unreleased)
+# RetroRecomp v0.14.3 — clearer update errors (included in v0.14.5)
 
 Connection and firewall failures during the manual update check or download
 now show a short English or French message instead of the raw network exception.

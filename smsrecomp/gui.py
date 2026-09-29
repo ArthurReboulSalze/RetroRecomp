@@ -150,6 +150,7 @@ class Application:
         saved_jobs = preferences.get('jobs', 3)
         self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else 3)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
+        self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
@@ -288,7 +289,7 @@ class Application:
 
         options = ttk.Frame(body)
         options.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
-        for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('icon_tags'), self.icon_tags, 'tip_icon_tags'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended')]:
+        for text, variable, hint in [(self.tr('icon'), self.use_cover, 'tip_icon'), (self.tr('icon_tags'), self.icon_tags, 'tip_icon_tags'), (self.tr('online'), self.online, 'tip_online'), (self.tr('extended'), self.extended, 'tip_extended'), (self.tr('overwrite'), self.overwrite, 'tip_overwrite')]:
             control = ttk.Checkbutton(options, text=text, variable=variable)
             control.pack(side='left', padx=(0, 8))
             self.controls.append(control)
@@ -527,7 +528,10 @@ class Application:
             self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
             self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '—')
             self.table.set(row, 'cover', self.tr('chosen' if item.cover else 'auto'))
-            self.table.set(row, 'status', self.tr(self.row_status[row]))
+            result = self.results.get(row, {})
+            self.table.set(row, 'status', self.tr('same_rom', title=result['duplicate_of'])
+                if self.row_status[row] == 'duplicate' and result.get('duplicate_of')
+                else self.tr(self.row_status[row]))
         self.status.set(self.tr(self.status_key, **self.status_values))
         self.selection_changed()
         self.queue_background(self.header)
@@ -684,7 +688,7 @@ class Application:
     def selection_changed(self):
         rows = self.table.selection()
         result = self.results.get(rows[0], {}) if len(rows) == 1 else {}
-        self.play_button.configure(state='normal' if not self.busy and result.get('status') == 'success' and not result.get('pending_install') else 'disabled')
+        self.play_button.configure(state='normal' if not self.busy and result.get('status') in ('success', 'existing') and not result.get('pending_install') else 'disabled')
         item = self.items[rows[0]] if len(rows) == 1 else None
         if item and not item.error:
             self.video_field.configure(values=(self.tr('auto'),
@@ -694,6 +698,10 @@ class Application:
         self.video_field.configure(state='readonly' if item and not item.error and not self.busy else 'disabled')
         if len(rows) == 1:
             text = log_text(item.error or result.get('message') or str(item.path), self.language)
+            if result.get('status') == 'duplicate' and result.get('duplicate_of'):
+                text = self.tr('same_rom', title=result['duplicate_of'])
+            elif result.get('status') == 'existing':
+                text = self.tr('existing')
             if item.cover:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
@@ -716,7 +724,8 @@ class Application:
             gb_deep_validation=self.gb_deep_validation.get(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
-            online_cover=self.online.get(), icon_tags=self.icon_tags.get())
+            online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
+            overwrite=self.overwrite.get())
 
     def start(self):
         if self.busy or self.updating:
@@ -877,12 +886,16 @@ class Application:
                     row, result = self.active_rows[event[1]], event[2]
                     self.running_jobs.discard(event[1])
                     self.completed_jobs += 1
+                    if result['status'] == 'existing' and self.results.get(row, {}).get('status') == 'success':
+                        result = {**self.results[row], **result}
                     self.results[row] = result
                     self.table.set(row, 'video', self.video_display(self.items[row], result))
                     status_key = {'success': 'created', 'error': 'error',
                                   'duplicate': 'duplicate', 'unrecognized': 'unrecognized',
-                                  'skipped': 'skipped'}[result['status']]
-                    text = self.tr(status_key)
+                                  'skipped': 'skipped', 'existing': 'existing'}[result['status']]
+                    text = (self.tr('same_rom', title=result['duplicate_of'])
+                            if result['status'] == 'duplicate' and result.get('duplicate_of')
+                            else self.tr(status_key))
                     self.row_status[row] = status_key
                     if result.get('pending_install'):
                         self.row_status[row] = 'pending_install'
