@@ -13,7 +13,9 @@ try {
     $resourceArguments = @()
     foreach ($resourcePath in $resourcePaths) {
         $resourceArguments += '--add-data'
-        $resourceDestination = [System.IO.Path]::GetDirectoryName($resourcePath).Replace('\', '/')
+        $resourceDestination = [System.IO.Path]::GetDirectoryName($resourcePath)
+        if ([string]::IsNullOrEmpty($resourceDestination)) { $resourceDestination = '.' }
+        $resourceDestination = $resourceDestination.Replace('\', '/')
         $resourceArguments += ((Join-Path $projectRoot $resourcePath) + ';' + $resourceDestination)
     }
     python -m PyInstaller --noconfirm --onefile --windowed --name Retro-Recomp `

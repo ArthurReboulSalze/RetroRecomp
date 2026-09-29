@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.14.1-0879fa" alt="Release version 0.14.1">
+  <img src="https://img.shields.io/badge/release-0.14.2-0879fa" alt="Release version 0.14.2">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -148,7 +148,7 @@ Generated games create no default INI or diagnostic log just from being
 launched. Settings and quick states are saved only when requested; changed
 cartridge battery RAM may write a per-game save on exit. The converter keeps
 its separate learning library for future generations.
-The screenshots above show locally generated icons; the repository and ZIP
+The screenshots above show locally generated icons; the repository and converter download
 contain **no ROMs, game executables, separate box-art files, gameplay captures
 or personal compilation libraries**.
 Use your own ROMs and artwork that you are entitled to use. Generated game
@@ -157,7 +157,7 @@ because RetroRecomp generated them.
 
 ## Getting started on Windows
 
-1. Download the v0.14.1 Windows x64 ZIP from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
+1. Download `Retro-Recomp.exe` for Windows x64 from [Releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases). The [source build instructions](docs/BUILDING.md) are also available.
 2. Install Git and Visual Studio Build Tools with **Desktop development with C++**, including x64 tools, CMake and a Windows SDK. Python is unnecessary for the packaged converter.
 3. Run `Retro-Recomp.exe`, choose **Add ROMs** or add one or more folders. Console detection is **Automatic** by default. Review unknown rows, then choose **Convert / regenerate**.
 4. Select a successful result and choose **Play game**.
@@ -179,9 +179,6 @@ cover lookup: it uses the game title.
 ```text
 RetroRecomp/
   Retro-Recomp.exe
-  LICENSE
-  THIRD_PARTY_NOTICES.md
-  licenses/
   datas/                         created locally when needed
   Games/
     Master System/
@@ -204,14 +201,14 @@ including when launched from a different working directory.
 
 To update the converter, click **Check for updates** in its toolbar. RetroRecomp
 does not contact GitHub for updates on startup. If you accept a newer Windows
-release, it verifies the download, closes, replaces the converter and legal
-notices, then restarts. Existing `Games` and `datas` are preserved. Builds
-older than v0.14.0 need v0.14.0 or newer installed manually once before in-app
-updates become available.
+release, it verifies the EXE download, closes, replaces the converter, then
+restarts. Existing `Games` and `datas` are preserved. Builds through v0.14.1
+need one manual replacement to use the single-EXE update format.
 
 The **Credits** button names the creator and links the independent upstream
 recompilers and runtimes used for each console profile. The list scrolls as new
-consoles are added. It also links the third-party licensing notices.
+consoles are added. Its licensing viewer contains the complete bundled notices
+and lets you save the bundled UPX source archive on request.
 
 ### Game shortcuts
 

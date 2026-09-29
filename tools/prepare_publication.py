@@ -9,10 +9,9 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.14.1"
+VERSION = "0.14.2"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -81,9 +80,9 @@ tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
-LEGAL_FILES = tuple(p for p in PUBLIC_FILES if p.startswith("licenses/"))
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
-                          if p.startswith(("native/", "assets/", "profiles/")))
+                          if p.startswith(("native/", "assets/", "profiles/", "licenses/"))
+                          or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
 TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
@@ -173,7 +172,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
     bundled = {}
     for original in archive.toc:
         name = original.replace("\\", "/")
-        if name.startswith(("native/", "assets/", "profiles/")):
+        if name.startswith(("native/", "assets/", "profiles/", "licenses/")) or name in {
+                "LICENSE", "THIRD_PARTY_NOTICES.md"}:
             if name not in BUNDLED_FILES:
                 raise ValueError(f"Unexpected executable payload: {name}")
             data = archive.extract(original)
@@ -205,35 +205,16 @@ def audit_executable(executable: Path, source: Path) -> dict:
             "modules": modules, "sha256": digest(executable.read_bytes())}
 
 
-def make_release(source: Path, executable: Path, target: Path) -> dict:
+def make_standalone(source: Path, executable: Path, target: Path) -> dict:
+    """Publish the converter as a single EXE with notices and UPX source inside."""
     proof = audit_executable(executable, source)
-    contents = {"Retro-Recomp.exe": executable.read_bytes()}
-    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", *LEGAL_FILES):
-        data = (source / name).read_bytes()
-        check_public_file(name, data)
-        contents[name] = data
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(".zip.pending")
-    with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED,
-                         compresslevel=9) as archive:
-        for name, data in sorted(contents.items()):
-            info = zipfile.ZipInfo(f"RetroRecomp/{name}", date_time=(2026, 9, 27, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, data)
-    with zipfile.ZipFile(temporary) as archive:
-        if archive.testzip() is not None:
-            raise ValueError("Release ZIP CRC check failed.")
-        expected = {f"RetroRecomp/{name}" for name in contents}
-        if set(archive.namelist()) != expected:
-            raise ValueError("Unexpected release ZIP member.")
-        for name, data in contents.items():
-            if archive.read(f"RetroRecomp/{name}") != data:
-                raise ValueError(f"Release member differs: {name}")
+    temporary = target.with_suffix('.exe.pending')
+    shutil.copyfile(executable, temporary)
     temporary.replace(target)
     sha = digest(target.read_bytes())
-    target.with_suffix(".zip.sha256").write_text(f"{sha}  {target.name}\n", encoding="ascii")
-    return {"zip": str(target), "sha256": sha, "bytes": target.stat().st_size,
-            "contents": sorted(contents), "executable": proof}
+    return {"exe": str(target), "sha256": sha, "bytes": target.stat().st_size,
+            "executable": proof}
 
 
 def main() -> None:
@@ -242,8 +223,8 @@ def main() -> None:
     parser.add_argument("--stage", type=Path, help="Create an allowlisted public source snapshot.")
     parser.add_argument("--staged", action="store_true", help="Audit outgoing Git index files.")
     parser.add_argument("--tracked", action="store_true", help="Audit all tracked public files (CI).")
-    parser.add_argument("--exe", type=Path, help="Clean converter to inspect for --release.")
-    parser.add_argument("--release", type=Path, help="Write converter ZIP and SHA256 beside it.")
+    parser.add_argument("--exe", type=Path, help="Clean converter to inspect for --standalone.")
+    parser.add_argument("--standalone", type=Path, help="Write a single-file converter.")
     parser.add_argument("--report", type=Path, help="Write a local JSON audit (never bundled).")
     args = parser.parse_args()
     root = args.source.resolve()
@@ -254,18 +235,18 @@ def main() -> None:
         report["tracked"] = audit_tracked(root)
     if args.stage:
         report["snapshot"] = stage_sources(root, args.stage.resolve())
-    if args.release:
+    if args.standalone:
         if not args.exe:
-            parser.error("--release requires --exe")
-        report["release"] = make_release(root, args.exe.resolve(), args.release.resolve())
+            parser.error("--standalone requires --exe")
+        report["standalone"] = make_standalone(root, args.exe.resolve(), args.standalone.resolve())
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"public_files": report["source"]["count"],
                       "snapshot": str(args.stage) if args.stage else None,
                       "staged_files": report.get("git", {}).get("staged_count"),
-                      "release": report.get("release", {}).get("zip"),
-                      "sha256": report.get("release", {}).get("sha256")}, indent=2))
+                      "standalone": report.get("standalone", {}).get("exe"),
+                      "sha256": report.get("standalone", {}).get("sha256")}, indent=2))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import ctypes
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -14,7 +14,6 @@ import sys
 import tempfile
 import urllib.request
 import uuid
-import zipfile
 
 from . import __version__
 
@@ -24,8 +23,6 @@ API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=100"
 RELEASE_BASE = f"https://github.com/{REPOSITORY}/releases"
 VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
-MAX_UNPACKED_BYTES = 400 * 1024 * 1024
-MAX_MEMBERS = 100
 UPDATE_PREFIX = ".RetroRecomp-update-"
 
 
@@ -54,17 +51,16 @@ def select_update(releases: list[dict], current: str = __version__) -> Update | 
         if not number or number <= installed or release.get("draft"):
             continue
         # Pre-releases are intentional in this project; GitHub's /latest omits them.
-        name = f"RetroRecomp-{tag}-windows-x64.zip"
         for asset in release.get("assets", []):
+            name = asset.get("name")
             digest = asset.get("digest", "")
             size = asset.get("size", 0)
-            if (asset.get("name") == name and asset.get("state") == "uploaded"
+            if (name == "Retro-Recomp.exe" and asset.get("state") == "uploaded"
                     and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
                     and isinstance(size, int) and 0 < size <= MAX_ARCHIVE_BYTES):
                 candidates.append((number, Update(tag[1:],
                     f"{RELEASE_BASE}/download/{tag}/{name}",
                     f"{RELEASE_BASE}/tag/{tag}", digest[7:].lower(), size)))
-                break
     return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
 
@@ -81,21 +77,6 @@ def check_for_update() -> Update | None:
     if not isinstance(releases, list):
         raise ValueError("Invalid GitHub release response")
     return select_update(releases)
-
-
-def _release_member(name: str) -> str:
-    path = PurePosixPath(name)
-    if (path.is_absolute() or "\\" in name or not path.parts or path.parts[0] != "RetroRecomp"
-            or any(part in ("", ".", "..") for part in path.parts)):
-        raise ValueError("Unsafe release ZIP path")
-    relative = "/".join(path.parts[1:])
-    if name != "RetroRecomp/" + relative:
-        raise ValueError("Unsafe release ZIP path")
-    if relative in ("Retro-Recomp.exe", "LICENSE", "THIRD_PARTY_NOTICES.md"):
-        return relative
-    if re.fullmatch(r"licenses/[A-Za-z0-9._+-]+(?:\.md|\.tar\.xz)", relative):
-        return relative
-    raise ValueError("Unexpected release ZIP member")
 
 
 def _safe_job_dir(job_dir: Path, target: Path) -> Path:
@@ -115,45 +96,13 @@ def discard_update(job_dir: Path, executable: Path) -> None:
     _remove_job_dir(job_dir, executable)
 
 
-def _unpack(archive_path: Path, destination: Path) -> dict[str, str]:
-    files = {}
-    total = 0
-    with zipfile.ZipFile(archive_path) as archive:
-        infos = archive.infolist()
-        if len(infos) > MAX_MEMBERS:
-            raise ValueError("Too many release ZIP members")
-        for info in infos:
-            relative = _release_member(info.filename)
-            if relative in files or info.is_dir() or info.flag_bits & 1:
-                raise ValueError("Invalid release ZIP member")
-            if (info.external_attr >> 16) & 0o170000 == 0o120000:
-                raise ValueError("Release ZIP contains a link")
-            total += info.file_size
-            if total > MAX_UNPACKED_BYTES:
-                raise ValueError("Release ZIP is too large")
-            target = destination / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            digest = hashlib.sha256()
-            with archive.open(info) as source, target.open("wb") as output:
-                while chunk := source.read(1024 * 1024):
-                    digest.update(chunk)
-                    output.write(chunk)
-            files[relative] = digest.hexdigest()
-    if not {"Retro-Recomp.exe", "LICENSE", "THIRD_PARTY_NOTICES.md"}.issubset(files):
-        raise ValueError("Release ZIP is incomplete")
-    with (destination / "Retro-Recomp.exe").open("rb") as executable:
-        if executable.read(2) != b"MZ":
-            raise ValueError("Release does not contain a Windows executable")
-    return files
-
-
 def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
     """Download only after a click; stage on the install volume without touching games."""
     executable = executable.resolve()
     if executable.name.casefold() != "retro-recomp.exe":
         raise ValueError("Update is only available in the packaged converter")
     job_dir = Path(tempfile.mkdtemp(prefix=UPDATE_PREFIX, dir=executable.parent)).resolve()
-    archive_path = job_dir / "release.zip"
+    archive_path = job_dir / "download.exe"
     try:
         request = urllib.request.Request(update.url, headers={"User-Agent": f"RetroRecomp/{__version__}"})
         digest = hashlib.sha256()
@@ -167,7 +116,13 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
                 digest.update(chunk)
         if size != update.size or digest.hexdigest() != update.digest:
             raise ValueError("Downloaded release checksum does not match GitHub")
-        files = _unpack(archive_path, job_dir / "files")
+        staged = job_dir / "files/Retro-Recomp.exe"
+        staged.parent.mkdir(parents=True)
+        archive_path.replace(staged)
+        with staged.open("rb") as candidate:
+            if candidate.read(2) != b"MZ":
+                raise ValueError("Release does not contain a Windows executable")
+        files = {"Retro-Recomp.exe": update.digest}
         if getattr(sys, "frozen", False):
             environment = os.environ.copy()
             environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
@@ -227,19 +182,18 @@ def _wait_for_process(pid: int, timeout_ms: int = 120000) -> None:
 
 
 def _install_files(job_dir: Path, target: Path, files: dict[str, str]) -> None:
-    """Replace release-owned files only; reverse every change if installation fails."""
+    """Replace only the converter; reverse the change if installation fails."""
     staged = job_dir / "files"
     backup = job_dir / "backup"
+    if set(files) != {"Retro-Recomp.exe"}:
+        raise ValueError("Invalid update manifest")
     changed = []
     try:
         for relative, expected in files.items():
-            if _release_member("RetroRecomp/" + relative) != relative:
-                raise ValueError("Invalid update manifest")
             source = staged / relative
             if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
                 raise ValueError("Staged update changed after verification")
-        # Update notices first, executable last. The previous EXE remains
-        # recoverable in the job directory until the restarted app cleans up.
+        # The previous EXE remains recoverable until the restarted app cleans up.
         for relative in sorted(files, key=lambda item: item == "Retro-Recomp.exe"):
             destination = target.parent / relative
             previous = backup / relative

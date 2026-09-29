@@ -88,7 +88,7 @@ powershell -File tools/package.ps1
 
 Packaging derives icon/banner resources from the two project branding images
 and writes `Export/Retro-Recomp.exe`. `tools/prepare_publication.py` stages an
-explicit list of public files, audits it and prepares a clean release ZIP.
+explicit list of public files, audits it and prepares a standalone release EXE.
 It never pushes or uploads. See `--help` for source and release preparation.
 
 ```powershell
@@ -101,10 +101,11 @@ frozen converter. Then audit its decompressed assets and create the release:
 
 ```powershell
 powershell -File .build/publication/repository/tools/package.ps1
-python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --release Export/Releases/RetroRecomp-v0.14.1-windows-x64.zip
+python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --standalone Export/Releases/Retro-Recomp.exe
 ```
 
-The ZIP contains only the converter and legal notices. Keep source staging and
+The EXE contains the converter, its legal notices and the UPX source archive.
+No loose license files are needed beside it. Keep source staging and
 release audit reports private. The publication tool checks an explicit allowlist
 and common credential patterns; review the outgoing diff as well. Public CI
 runs the same checks on all tracked files and ROM-free Python tests.

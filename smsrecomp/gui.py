@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import queue
 import random
+import shutil
 import subprocess
 import sys
 import threading
@@ -989,8 +990,7 @@ class Application:
                            fg='#26d7ff', cursor='hand2',
                            font=('Segoe UI', 9, 'underline'))
         notices.pack(anchor='center', pady=(3, 0))
-        notices.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
-            'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/THIRD_PARTY_NOTICES.md'))
+        notices.bind('<Button-1>', lambda _event: self.show_legal_notices())
 
         def close_credits():
             panel.grab_release()
@@ -1014,6 +1014,87 @@ class Application:
             'https://github.com/ArthurReboulSalze'))
         panel.protocol('WM_DELETE_WINDOW', close_credits)
         panel.bind('<Escape>', lambda _event: close_credits())
+        panel.grab_set()
+        panel.focus_set()
+
+    def show_legal_notices(self):
+        """Show the complete bundled licenses without creating sidecar files."""
+        parent = self.credits_panel if self.credits_panel and self.credits_panel.winfo_exists() else self.app
+        resources = [ASSETS / 'LICENSE', ASSETS / 'THIRD_PARTY_NOTICES.md']
+        resources.extend(sorted((ASSETS / 'licenses').glob('*.md'), key=lambda path: path.name.lower()))
+        resources = [path for path in resources if path.is_file()]
+        panel = tk.Toplevel(parent)
+        panel.title(APP_NAME + ' — ' + self.tr('credits_notices'))
+        panel.configure(bg='#071732')
+        panel.geometry('880x630')
+        panel.minsize(650, 420)
+        panel.transient(parent)
+        body = tk.Frame(panel, bg='#071732', padx=16, pady=16)
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('credits_notices'), bg='#071732', fg='#eef6ff',
+                 font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 10))
+        row = tk.Frame(body, bg='#071732')
+        row.pack(fill='both', expand=True)
+        listing = tk.Listbox(row, width=29, exportselection=False, bg='#0d2549',
+                             fg='#eef6ff', selectbackground='#285896',
+                             selectforeground='#ffffff', relief='flat',
+                             font=('Segoe UI', 10))
+        listing.pack(side='left', fill='y', padx=(0, 10))
+        for path in resources:
+            listing.insert('end', path.name)
+        scrollbar = ttk.Scrollbar(row, orient='vertical')
+        scrollbar.pack(side='right', fill='y')
+        viewer = tk.Text(row, wrap='word', bg='#0d2549', fg='#eef6ff',
+                         insertbackground='#eef6ff', relief='flat', padx=10, pady=10,
+                         font=('Consolas', 10), yscrollcommand=scrollbar.set)
+        viewer.pack(side='left', fill='both', expand=True)
+        scrollbar.configure(command=viewer.yview)
+
+        def show_selected(_event=None):
+            if not listing.curselection():
+                return
+            content = resources[listing.curselection()[0]].read_text(encoding='utf-8-sig')
+            viewer.configure(state='normal')
+            viewer.delete('1.0', 'end')
+            viewer.insert('1.0', content)
+            viewer.configure(state='disabled')
+            viewer.yview_moveto(0)
+
+        listing.bind('<<ListboxSelect>>', show_selected)
+        if resources:
+            listing.selection_set(0)
+            show_selected()
+
+        actions = tk.Frame(body, bg='#071732')
+        actions.pack(fill='x', pady=(12, 0))
+
+        def export_upx_source():
+            source = ASSETS / 'licenses/upx-5.2.1-src.tar.xz'
+            if not source.is_file():
+                messagebox.showerror(APP_NAME, self.tr('upx_source_missing'), parent=panel)
+                return
+            destination = filedialog.asksaveasfilename(parent=panel,
+                title=self.tr('export_upx_source'), initialfile=source.name,
+                defaultextension='.xz')
+            if destination:
+                try:
+                    if Path(destination).resolve() != source.resolve():
+                        shutil.copyfile(source, destination)
+                except OSError as error:
+                    messagebox.showerror(APP_NAME, str(error), parent=panel)
+
+        ttk.Button(actions, text=self.tr('export_upx_source'),
+                   command=export_upx_source).pack(side='left')
+
+        def close():
+            panel.grab_release()
+            panel.destroy()
+            if parent.winfo_exists():
+                parent.grab_set()
+
+        ttk.Button(actions, text=self.tr('close'), command=close).pack(side='right')
+        panel.protocol('WM_DELETE_WINDOW', close)
+        panel.bind('<Escape>', lambda _event: close())
         panel.grab_set()
         panel.focus_set()
 

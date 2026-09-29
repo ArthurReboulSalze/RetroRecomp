@@ -1,3 +1,15 @@
+# RetroRecomp v0.14.2 — standalone converter download
+
+The Windows converter is now distributed as one `Retro-Recomp.exe`. Its Credits
+window displays the bundled project license and complete third-party notices;
+the matching UPX source archive can be saved from that window when needed.
+The download does not place license folders or source archives beside the EXE.
+
+The manual updater now downloads and verifies that single EXE, replaces the
+converter after it closes, and restarts it. Versions through v0.14.1 need one
+manual replacement to adopt the new update format. Games and user settings are
+preserved. No game executable was regenerated for this packaging change.
+
 # RetroRecomp v0.14.1 — visible upstream credits
 
 The converter now has a **Credits** button. It explains that RetroRecomp

@@ -19,7 +19,7 @@ receiving the author's explicit permission to use the engine in a
 not a published license for all downstream users or commercial use.
 
 The full engine is downloaded during local setup rather than bundled in the
-converter ZIP. Adapters reference and replace portions of upstream code; any
+converter executable. Adapters reference and replace portions of upstream code; any
 upstream-derived material remains subject to its author's rights. The author's
 message does not specify general downstream licensing terms; do not interpret
 the MIT badge as clearing the entire toolchain for unrestricted redistribution.
@@ -45,7 +45,7 @@ RetroRecomp's MIT license does not remove those limitations.
 | mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |
 | emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
 
-Game toolchain source and test vectors are not bundled in the converter ZIP.
+Game toolchain source and test vectors are not bundled in the converter executable.
 Generated games contain parts of that toolchain and the user's ROM. They are
 not automatically covered by the root MIT license and are not distributed here.
 
@@ -68,6 +68,8 @@ change those dependencies' licenses. Python and Pillow notices include the
 additional components shipped with their respective distributions.
 
 Full notice files are reproduced from the installed packages or the pinned
-upstream sources. Their `.md` filenames keep the export free of `.txt` guides;
-their license text is retained. No ROMs, box art, personal settings, compilation
+upstream sources. They and the matching UPX source archive are bundled inside
+`Retro-Recomp.exe`; the Credits window displays the notices and can save the
+UPX source archive on request. The same materials remain in the public source
+repository. No ROMs, box art, personal settings, compilation
 memories or generated commercial game executables accompany this release.
