@@ -68,8 +68,9 @@ change those dependencies' licenses. Python and Pillow notices include the
 additional components shipped with their respective distributions.
 
 Full notice files are reproduced from the installed packages or the pinned
-upstream sources. They and the matching UPX source archive are bundled inside
-`Retro-Recomp.exe`; the Credits window displays the notices and can save the
-UPX source archive on request. The same materials remain in the public source
-repository. No ROMs, box art, personal settings, compilation
+upstream sources and bundled inside `Retro-Recomp.exe`. The matching
+[UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz)
+is maintained separately in the public repository and linked from Credits.
+The executable download page must also link to that archive. No ROMs, box art,
+personal settings, compilation
 memories or generated commercial game executables accompany this release.

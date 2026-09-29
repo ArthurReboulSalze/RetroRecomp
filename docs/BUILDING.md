@@ -104,8 +104,11 @@ powershell -File .build/publication/repository/tools/package.ps1
 python tools/prepare_publication.py --source .build/publication/repository --exe .build/publication/repository/Export/Retro-Recomp.exe --standalone Export/Releases/Retro-Recomp.exe
 ```
 
-The EXE contains the converter, its legal notices and the UPX source archive.
-No loose license files are needed beside it. Keep source staging and
+The EXE contains the converter and its legal notices. The matching
+[UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz)
+stays in the public repository. Link it clearly beside the EXE on every
+download page. No loose license files are needed beside the local EXE.
+Keep source staging and
 release audit reports private. The publication tool checks an explicit allowlist
 and common credential patterns; review the outgoing diff as well. Public CI
 runs the same checks on all tracked files and ROM-free Python tests.

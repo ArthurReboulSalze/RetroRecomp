@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import queue
 import random
-import shutil
 import subprocess
 import sys
 import threading
@@ -27,6 +26,9 @@ from .systems import PROFILES, discover_roms, get_profile
 
 
 PLATFORMS = {'windows-x64': 'Windows x64'}
+UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
+                  'e522cbde7ca6e7e6eccc0c901389a4178492e6d7/'
+                  'licenses/upx-5.2.1-src.tar.xz')
 
 UPSTREAM_CREDITS = (
     ('Master System', (
@@ -1068,28 +1070,13 @@ class Application:
         actions = tk.Frame(body, bg='#071732')
         actions.pack(fill='x', pady=(12, 0))
 
-        def export_upx_source():
-            source = ASSETS / 'licenses/upx-5.2.1-src.tar.xz'
-            if not source.is_file():
-                messagebox.showerror(APP_NAME, self.tr('upx_source_missing'), parent=panel)
-                return
-            destination = filedialog.asksaveasfilename(parent=panel,
-                title=self.tr('export_upx_source'), initialfile=source.name,
-                defaultextension='.xz')
-            if destination:
-                try:
-                    if Path(destination).resolve() != source.resolve():
-                        shutil.copyfile(source, destination)
-                except OSError as error:
-                    messagebox.showerror(APP_NAME, str(error), parent=panel)
-
-        ttk.Button(actions, text=self.tr('export_upx_source'),
-                   command=export_upx_source).pack(side='left')
+        ttk.Button(actions, text=self.tr('upx_source_link'),
+                   command=lambda: webbrowser.open_new_tab(UPX_SOURCE_URL)).pack(side='left')
 
         def close():
             panel.grab_release()
             panel.destroy()
-            if parent.winfo_exists():
+            if parent is self.credits_panel and parent.winfo_exists():
                 parent.grab_set()
 
         ttk.Button(actions, text=self.tr('close'), command=close).pack(side='right')

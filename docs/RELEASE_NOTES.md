@@ -1,8 +1,8 @@
 # RetroRecomp v0.14.2 — standalone converter download
 
 The Windows converter is now distributed as one `Retro-Recomp.exe`. Its Credits
-window displays the bundled project license and complete third-party notices;
-the matching UPX source archive can be saved from that window when needed.
+window displays the bundled project license and complete third-party notices,
+with a link to the matching [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz).
 The download does not place license folders or source archives beside the EXE.
 
 The manual updater now downloads and verifies that single EXE, replaces the

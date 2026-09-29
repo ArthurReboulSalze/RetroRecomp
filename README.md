@@ -208,7 +208,7 @@ need one manual replacement to use the single-EXE update format.
 The **Credits** button names the creator and links the independent upstream
 recompilers and runtimes used for each console profile. The list scrolls as new
 consoles are added. Its licensing viewer contains the complete bundled notices
-and lets you save the bundled UPX source archive on request.
+and links to the matching [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz).
 
 ### Game shortcuts
 

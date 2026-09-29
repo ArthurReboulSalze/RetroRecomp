@@ -81,7 +81,8 @@ tests/test_game_gear.py tests/test_game_boy.py
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
-                          if p.startswith(("native/", "assets/", "profiles/", "licenses/"))
+                          if p.startswith(("native/", "assets/", "profiles/"))
+                          or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
 TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml"}
 SENSITIVE = {
@@ -206,7 +207,7 @@ def audit_executable(executable: Path, source: Path) -> dict:
 
 
 def make_standalone(source: Path, executable: Path, target: Path) -> dict:
-    """Publish the converter as a single EXE with notices and UPX source inside."""
+    """Publish the converter as a single EXE with linked source and bundled notices."""
     proof = audit_executable(executable, source)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix('.exe.pending')
