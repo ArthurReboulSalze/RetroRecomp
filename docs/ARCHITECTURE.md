@@ -64,6 +64,10 @@ does not overlay interpreter diagnostics on gameplay.
 
 ## Input freshness and presentation
 
+The Sega host's [audio output](AUDIO.md) uses a short causal sample-rate filter
+and a bounded callback ring. Its buffering is separate from guest timing,
+native CPU coverage and physical latency measurements.
+
 Starting with 0.10.5, live windows expose an optional input-refresh callback
 to the machine runtime. The Master System adapter calls it when the CPU reads
 a controller port. The host refreshes keyboard and both gamepads together on

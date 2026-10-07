@@ -11,12 +11,12 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.16.0"
+VERSION = "0.17.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
-docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md
+docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_UI.png MEDIAS/RC_Windows_Screen.png
@@ -37,6 +37,7 @@ licenses/SingleStepTests-z80.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
+smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py smsrecomp/updater.py
 smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
@@ -65,6 +66,7 @@ native/gamestate.h native/gamestate.inc native/state_io.h native/psg_state.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py
+native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
 tests/test_validation.py tests/test_publication.py

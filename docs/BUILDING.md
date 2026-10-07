@@ -92,6 +92,9 @@ are not part of the ROM-free public CI; games and reports are not distributed.
 
 ## Package the converter
 
+For ROM-free numeric Sega audio checks, including an optional silent run on
+the default sound device, see [AUDIO.md](AUDIO.md).
+
 ```powershell
 python -m pip install "PyInstaller==6.22.3"
 powershell -File tools/package.ps1

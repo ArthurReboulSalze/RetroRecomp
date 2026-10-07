@@ -55,8 +55,11 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    assert len(notebook.tabs()) == 5
+    assert len(notebook.tabs()) == 6
     assert notebook.tab(0, 'text') == application.tr('options_common')
+    assert notebook.tab(5, 'text') == application.tr('options_boxart')
+    assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
+    assert application.cover_3d.get()
     application.gb_deep_control.invoke()
     assert application.preferences()['gb_deep_validation'] != initial_deep
     application.gb_deep_control.invoke()

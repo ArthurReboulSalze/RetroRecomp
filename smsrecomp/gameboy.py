@@ -20,7 +20,7 @@ from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_v
                                probe_scenarios, read_entries, write_entries)
 from .library import atomic_json, library_root
 from .metadata import write_game_metadata
-from .paths import ROOT, data_directory, games_root
+from .paths import ROOT, ASSETS, data_directory, games_root
 from .systems import archive_rom
 
 
@@ -279,7 +279,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                                 ("gb-recompiled", "licenses/gb-recompiled.md"),
                                 ("Dear ImGui", "licenses/dear-imgui.md"),
                                 ("SDL2", "licenses/SDL2.md")):
-        notice += f"## {component}\n\n" + (ROOT / filename).read_text(encoding="utf-8") + "\n\n"
+        notice += f"## {component}\n\n" + (ASSETS / filename).read_text(encoding="utf-8") + "\n\n"
     (project / "game_legal.md").write_text(notice, encoding="utf-8")
     with (project / "game_resources.rc").open("a", encoding="utf-8") as resource:
         resource.write('102 RCDATA "game_legal.md"\n')

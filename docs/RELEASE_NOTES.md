@@ -1,3 +1,43 @@
+# RetroRecomp v0.17.0 — improved Sega audio and better box-art icons
+
+Master System and Game Gear exports now use an audio path with shorter
+sample-rate conversion staging and a bounded output buffer. It accepts the
+Windows device's actual callback period and primes playback to accommodate
+PAL/NTSC frame delivery. Pause, restart and state load clear queued sound.
+Console clocks, input handling and PSG sound synthesis are unchanged.
+
+ROM-free numeric checks passed for PAL/NTSC timing, stereo separation, filter
+response, buffer bounds and callback scheduling. Silent WASAPI output checks
+also passed. On the local Alex Kidd cartridge, two 600-frame scenarios kept
+identical raw PSG sound, VDP traces and final CPU states before/after the change,
+with matching reference CPU states and zero fallback. These are bounded
+technical checks; total physical audio latency has not been measured.
+See [audio details](AUDIO.md).
+
+**Options → Box art** adds user-configured ScreenScraper, TheGamesDB and IGDB
+access. API credentials are stored separately with Windows account protection;
+ordinary website accounts alone are not enough for these services. Local
+artwork remains first priority, with the public Libretro library as a no-key
+fallback. ArcadeItalia is listed for reference; its MAME API does not serve
+the current console profiles.
+
+Real three-quarter box images are preferred. When one is unavailable, the
+front cover stays flat: no artificial spine or perspective is added. Original
+or HD sources are requested when available, and all nine ICO sizes, up to
+256 × 256, are rendered directly from the source. Older API thumbnail caches
+can be checked again for a better source. Portable Game Boy and NES builds
+also locate their bundled licensing notices correctly. See [box-art setup](BOXART.md).
+
+Install the standalone Windows x64 `Retro-Recomp.exe`, or use the manual
+**Check for updates** button. **Regenerate a game to apply the new audio path
+or icons**; installing the converter does not rewrite existing games.
+Master System, Game Gear and original Game Boy remain supported profiles;
+NES remains experimental. Authenticated artwork APIs have fixture coverage
+but still need live validation with user-supplied developer credentials.
+The download contains no ROMs, cover downloads, generated game executables,
+settings or personal compilation library. Licensing and upstream attributions
+are unchanged.
+
 # RetroRecomp v0.16.0 — broader native NES coverage
 
 The experimental NES profile now compiles every NROM (mapper 0) ROM position

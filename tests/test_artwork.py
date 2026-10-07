@@ -83,14 +83,16 @@ class ArtworkTests(unittest.TestCase):
 
     def test_catalog_fallback_keeps_exact_title(self):
         missing = urllib.error.HTTPError("url", 404, "Not Found", {}, None)
-        catalog = json.dumps([{"type": "file", "name": "Game (World).png"},
-            {"type": "file", "name": "Game II (World).png"},
-            {"type": "file", "name": "../escape.png"}]).encode()
+        catalog = json.dumps({'truncated': False, 'tree': [
+            {"type": "blob", "path": "Named_Boxarts/Game (World).png"},
+            {"type": "blob", "path": "Named_Boxarts/Game II (World).png"},
+            {"type": "blob", "path": "Named_Boxarts/../escape.png"}]}).encode()
         with patch("smsrecomp.artwork._get", side_effect=[missing, catalog, png()]) as request:
             report = prepare_icon(self.game, self.rom, "Game", self.art)
         self.assertTrue(report["embedded"])
         self.assertEqual(Path(report["image"]).name, "Game (World).png")
         self.assertEqual(request.call_count, 3)
+        self.assertIn('git/trees/master?recursive=1', request.call_args_list[1].args[0])
 
     def test_invalid_remote_image_and_network_failure_do_not_block_conversion(self):
         for failure in (b"<html>not a cover</html>", urllib.error.URLError("offline")):

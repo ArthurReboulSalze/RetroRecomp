@@ -55,6 +55,8 @@ docs/*
 !docs/ARCHITECTURE.md
 !docs/BUILDING.md
 !docs/COMPATIBILITY.md
+!docs/BOXART.md
+!docs/AUDIO.md
 !docs/CONTROLS.md
 !docs/LIGHT_PHASER.md
 !docs/VIDEO.md

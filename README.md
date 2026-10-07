@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.16.0-0879fa" alt="Release version 0.16.0">
+  <img src="https://img.shields.io/badge/release-0.17.0-0879fa" alt="Release version 0.17.0">
   <img src="https://img.shields.io/badge/systems-Master_System_%7C_Game_Gear_%7C_Game_Boy_%7C_NES-26d7ff" alt="Master System, Game Gear, Game Boy and experimental NES">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -94,6 +94,14 @@ hardware runtime and a reported fallback interpreter.** Native coverage,
 CPU agreement, hardware fidelity, gameplay and physical latency are separate
 questions; none is proved by the others.
 
+Version 0.17.0 improves the Master System / Game Gear audio output path with
+shorter conversion staging and bounded buffering, while preserving console
+timing and sound synthesis. It also adds configurable cover services and
+higher-quality box-art icons. Regenerate a game to apply these changes;
+updating the converter preserves existing game executables.
+See [audio checks and limits](docs/AUDIO.md),
+[box-art setup](docs/BOXART.md) and [release notes](docs/RELEASE_NOTES.md).
+
 ### Compile more. Discover less at runtime.
 
 Extended native coverage is enabled by default for the Sega profiles. It
@@ -166,6 +174,17 @@ its separate learning library for future generations.
 The screenshots above show locally generated icons; the repository and converter download
 contain **no ROMs, game executables, separate box-art files, gameplay captures
 or personal compilation libraries**.
+
+Under **Options → Box art**, configure ScreenScraper, TheGamesDB or IGDB for
+missing artwork. Local covers remain first priority, with public Libretro
+downloads available without an API key. Real three-quarter boxes are preferred
+by default; when unavailable, the front cover stays flat, with no generated
+spine or perspective. Source images are requested at original or HD resolution
+when available, and each Windows icon size is generated directly from the source.
+ArcadeItalia is referenced
+in the same panel; its public MAME API does not cover the current console
+profiles. See [box-art sources and setup](docs/BOXART.md).
+
 Use your own ROMs and artwork that you are entitled to use. Generated game
 executables embed the ROM and must not be treated as redistributable merely
 because RetroRecomp generated them.
@@ -188,8 +207,9 @@ and are never compiled as another console. Original ROM files are only read.
 
 The first conversion downloads pinned build dependencies and compiles them.
 Internet access is required for that setup. Afterward, cached dependencies can
-be reused; missing-cover downloads are optional. No ROM is uploaded by the
-cover lookup: it uses the game title.
+be reused; missing-cover downloads are optional. Cover lookup uploads no ROM
+bytes. It uses the title and console; ScreenScraper can also use the filename,
+file size and ROM hashes to identify the correct edition.
 
 ```text
 RetroRecomp/

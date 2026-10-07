@@ -22,6 +22,8 @@ from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, lo
 from .tooltips import Tooltip
 from .windows import set_converter_identity
 from .artwork import ICON_SIZES
+from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings
+from .cover_sources import PROVIDERS as COVER_PROVIDERS
 from .systems import PROFILES, discover_roms, get_profile
 from .updater import UpdateConnectionError, UpdateServiceError
 
@@ -1014,6 +1016,8 @@ class Application:
         nes = tab('options_nes')
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
 
+        self.build_cover_options(tab('options_boxart'), checkbox)
+
         buttons = ttk.Frame(panel)
         buttons.pack(fill='x', padx=18, pady=(0, 18))
         ttk.Button(buttons, text=self.tr('close'), command=self.close_options).pack(side='right')
@@ -1021,6 +1025,57 @@ class Application:
         panel.bind('<Escape>', lambda _event: self.close_options())
         panel.grab_set()
         panel.focus_set()
+
+    def build_cover_options(self, page, checkbox):
+        self.cover_settings = load_cover_settings()
+        self.cover_3d = tk.BooleanVar(value=self.cover_settings['box_3d'])
+        checkbox(page, 'cover_box_3d', self.cover_3d, 'tip_cover_box_3d')
+        ttk.Label(page, text=self.tr('cover_sources_note'), style='Muted.TLabel',
+                  wraplength=610).pack(anchor='w', pady=(0, 12))
+        providers = list(COVER_PROVIDERS)
+        self.cover_source = tk.StringVar(value=COVER_PROVIDERS[providers[0]][0])
+        selector = ttk.Combobox(page, textvariable=self.cover_source,
+            values=[COVER_PROVIDERS[p][0] for p in providers], state='readonly', width=24)
+        selector.pack(anchor='w', pady=(0, 8))
+        self.option_controls.append((selector, 'readonly'))
+        host = ttk.Frame(page)
+        host.pack(fill='both', expand=True)
+        self.cover_accounts = {}
+        cards = {}
+        for provider in providers:
+            card = ttk.Frame(host)
+            cards[provider] = card
+            ttk.Label(card, text=self.tr('cover_note_' + provider), style='Muted.TLabel',
+                      wraplength=610).pack(anchor='w', pady=(0, 10))
+            fields = ttk.Frame(card)
+            fields.pack(fill='x')
+            fields.columnconfigure(1, weight=1)
+            self.cover_accounts[provider] = {}
+            for row, field in enumerate(COVER_FIELDS.get(provider, ())):
+                variable = tk.StringVar(value=self.cover_settings['accounts'][provider][field])
+                self.cover_accounts[provider][field] = variable
+                ttk.Label(fields, text=self.tr('cover_field_' + field)).grid(
+                    row=row, column=0, sticky='w', padx=(0, 14), pady=4)
+                entry = ttk.Entry(fields, textvariable=variable,
+                    show='' if field in ('devid', 'ssid', 'client_id') else '•')
+                entry.grid(row=row, column=1, sticky='ew', pady=4)
+                self.option_controls.append((entry, 'normal'))
+            link = ttk.Button(card, text=self.tr('cover_api_link'),
+                command=lambda url=COVER_PROVIDERS[provider][1]: webbrowser.open(url))
+            link.pack(anchor='w', pady=(10, 0))
+            self.option_controls.append((link, 'normal'))
+
+        def select(_event=None):
+            for provider, card in cards.items():
+                card.pack_forget()
+                if self.cover_source.get() == COVER_PROVIDERS[provider][0]:
+                    card.pack(fill='both', expand=True)
+        selector.bind('<<ComboboxSelected>>', select)
+        select()
+        ttk.Label(page, text=self.tr('cover_secrets_note'), style='Muted.TLabel',
+                  wraplength=610).pack(anchor='w', pady=(8, 0))
+        if self.cover_settings.get('credential_error'):
+            ttk.Label(page, text=self.tr('cover_unlock_failed'), wraplength=610).pack(anchor='w')
 
     def close_options(self):
         panel = self.options_panel
@@ -1032,6 +1087,12 @@ class Application:
                     or not 1 <= options['jobs'] <= 8 or not options['output'].strip()):
                 raise ValueError(self.tr('invalid_limits'))
             save_preferences(options)
+            covers = {'box_3d': self.cover_3d.get(), 'accounts': {
+                provider: {field: variable.get().strip() for field, variable in fields.items()}
+                for provider, fields in self.cover_accounts.items() if fields}}
+            previous = {key: self.cover_settings[key] for key in ('box_3d', 'accounts')}
+            if covers != previous:
+                save_cover_settings(covers)
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc), parent=panel)
             return

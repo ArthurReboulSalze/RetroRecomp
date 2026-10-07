@@ -27,7 +27,7 @@ static double frequency, period;
 static uint64_t deadline;
 static uint64_t input_sample_counter, input_poll_period;
 static SDL_AudioDeviceID audio_device;
-static SDL_AudioStream *audio_stream;
+static void audio_output_clear(void);
 static uint64_t previous_interpreter_cycles;
 static int previous_interpreter_state = -1;
 static bool fullscreen, reset_requested, back_latched[CONTROL_PLAYERS];
@@ -305,8 +305,7 @@ static void draw_game(const uint32_t *fb, int w, int h) {
 }
 
 static void clear_audio(void) {
-    if (audio_device) SDL_ClearQueuedAudio(audio_device);
-    if (audio_stream) SDL_AudioStreamClear(audio_stream);
+    audio_output_clear();
 }
 
 static void state_completed(int operation, int result) {
@@ -617,36 +616,7 @@ bool host_present(const uint32_t *fb, int width, int height) {
     return keep;
 }
 
-bool host_audio_init(uint32_t rate) {
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return false;
-    SDL_AudioSpec want, have; SDL_zero(want);
-    want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
-    audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-    if (!audio_device) return false;
-    audio_stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, (int)rate, have.format, have.channels, have.freq);
-    if (!audio_stream) { SDL_CloseAudioDevice(audio_device); audio_device = 0; return false; }
-    SDL_PauseAudioDevice(audio_device, 0);
-    fprintf(stderr, "[host] audio %d Hz, %u samples; latency is unmeasured\n", have.freq, have.samples);
-    return true;
-}
-
-void host_audio_submit(const int16_t *samples, size_t count) {
-    if (!audio_stream || !audio_device) return;
-    SDL_AudioStreamPut(audio_stream, samples, (int)(count * 2 * sizeof(int16_t)));
-    uint8_t buffer[8192]; int available;
-    while ((available = SDL_AudioStreamAvailable(audio_stream)) > 0) {
-        int size = available < (int)sizeof(buffer) ? available : (int)sizeof(buffer);
-        int got = SDL_AudioStreamGet(audio_stream, buffer, size);
-        if (got <= 0) break;
-        SDL_QueueAudio(audio_device, buffer, (uint32_t)got);
-    }
-}
-
-void host_audio_shutdown(void) {
-    if (audio_stream) SDL_FreeAudioStream(audio_stream);
-    if (audio_device) SDL_CloseAudioDevice(audio_device);
-    audio_stream = NULL; audio_device = 0;
-}
+#include "audio_output.inc"
 
 void host_shutdown(void) {
     if (sms_light_phaser) { lightphaser_pointer(-1, -1, false); SDL_ShowCursor(SDL_ENABLE); }
