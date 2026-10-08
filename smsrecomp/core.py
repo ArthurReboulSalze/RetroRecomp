@@ -738,6 +738,12 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             publish_result: bool = True,
             emit: Callable[[str], None] = print) -> Path:
     system = profile_for_path(rom_path)
+    if system.id in ('md', 'snes'):
+        from .console16 import convert16
+        return convert16(rom_path, system_id=system.id, title=title, output=output,
+            profile=profile, passes=passes, frames=frames, backend=backend, language=language,
+            cover=cover, boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
+            icon_tags=icon_tags, standard_override=standard_override, publish_result=publish_result, emit=emit)
     if system.id == "gb":
         from .gameboy import convert_game_boy
         return convert_game_boy(rom_path, title=title, output=output, profile=profile,

@@ -1,3 +1,72 @@
+# RetroRecomp v0.18.0 — Mega Drive expansion and broader NES support
+
+The Windows converter now includes **six console profiles**. Master System,
+Game Gear and original Game Boy remain supported for everyday use. NES,
+Mega Drive and Super Nintendo are experimental, with explicit compatibility
+limits and separate native, reference-CPU, hardware, gameplay and latency evidence.
+
+## Mega Drive and Super Nintendo
+
+Mega Drive accepts exact qualified NTSC revisions of **Sonic the Hedgehog,
+Columns, Golden Axe and Castle of Illusion**. A new instruction-level compiler
+for the latter three follows the real 68000 PC, stack and interrupt frames.
+Conversion passes learn missing ROM entries and RAM instruction variants;
+native RAM code checks every instruction byte before running. Changed or
+unknown code uses the reported fallback. Failed reference comparison preserves
+the previous export.
+
+With an empty converter library, each of those three games reached zero
+interpreted 68000 opcodes in two passes, on demo and scripted-play tests of
+3,600 frames each. The complete visible-frame sequences and final CPU/memory/
+VDP state matched the internal reference. Cold conversions took about 65–78
+seconds per title with two concurrent jobs on the development machine;
+these are local measurements, not a speed guarantee. Authored fixtures passed
+6,208 instruction/state comparisons, plus stack and modified-RAM guard checks.
+The VDP's H32/H40 mode selects the correct 256/320-pixel display width.
+
+The Mega Drive sound Z80 remains interpreted. Sonic retains its earlier
+compiler route and reference divergence. The experimental Super Nintendo
+profile accepts only the qualified USA revision of **Super Mario World**;
+it retains substantial 65816 fallback, interpreted SPC700 sound and reference
+divergence. Both profiles share RetroRecomp's menus, controls, filters,
+fullscreen, cover icons and compressed exports. PAL and F8/F9 are not enabled
+for either profile; persistent SNES cartridge saves are also not implemented.
+SNES conversion additionally needs an installed stable Rust toolchain >= 1.85.
+See [qualified cartridges, dependencies and evidence](CONSOLES_16BIT.md).
+
+## NES
+
+Native coverage now prepares every physical PRG ROM entry, including
+bank-switched cartridges, with dispatch following live mappings and operands
+read from the live bus at bank boundaries. RAM execution and unstable mappings
+keep their fallback safeguards. Authored NROM/MMC1/UxROM/CNROM/MMC3 checks passed
+332,800 instruction cases across NTSC and PAL. Targeted Super Mario Bros. 3,
+Mega Man 2 and Mega Man probes reached zero fallback on three 1,800-frame paths.
+
+The NES profile adds selectable PAL timing, persistent F8/F9 quick states and
+mouse Zapper input for known gun games, with a configurable red cross by
+default. States verify ROM identity, timing, ABI and corruption before loading;
+failed loads leave the running game intact. Normal launch/quit and loading a
+missing state create no data folder. The full 256 × 240 NES picture remains
+visible. See [NES scope and limits](NES.md).
+
+## Controls and update
+
+Key labels and letter defaults follow the active keyboard layout, including
+AZERTY, in the Master System, Game Gear, NES and new 16-bit menus. Saved custom
+mappings retain their physical key positions; Game Boy already handled this.
+
+Download the standalone Windows x64 **Retro-Recomp.exe**, or use the manual
+**Check for updates** button. Regenerate a game to apply runtime changes;
+updating the converter preserves existing game executables and settings.
+No ROMs, downloaded covers, generated games, settings or personal compilation
+library are included. Third-party terms and notices are retained, including
+the 16-bit engines' PolyForm Noncommercial licences.
+
+Native/reference agreement is bounded software evidence using shared engine
+semantics, not an independent hardware oracle or a full-game playthrough.
+Physical latency has not been measured. Gameplay review remains separate.
+
 # RetroRecomp v0.17.0 — improved Sega audio and better box-art icons
 
 Master System and Game Gear exports now use an audio path with shorter

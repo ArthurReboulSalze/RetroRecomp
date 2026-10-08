@@ -13,12 +13,16 @@ MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
                           '.gg': 4 * 1024 * 1024 + 512,
                           '.gb': 8 * 1024 * 1024,
                           '.nes': 128 * 1024 * 1024 + 528,
+                          '.md': 8 * 1024 * 1024,
+                          '.gen': 8 * 1024 * 1024,
+                          '.sfc': 8 * 1024 * 1024 + 512,
+                          '.smc': 8 * 1024 * 1024 + 512,
                           '.bin': 8 * 1024 * 1024,
                           '.rom': 8 * 1024 * 1024}
 
 ROM_CANDIDATE_EXTENSIONS = frozenset({
     '.sms', '.gg', '.gb', '.zip', '.bin', '.rom', '.gbc', '.gba', '.nes',
-    '.fds', '.sfc', '.smc', '.n64', '.z64', '.v64', '.md', '.gen', '.pce',
+    '.fds', '.sfc', '.smc', '.n64', '.z64', '.v64', '.md', '.gen', '.smd', '.pce',
     '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
 })
 
@@ -51,7 +55,7 @@ def archive_rom(path: Path) -> tuple[str, bytes]:
                 raise UnsupportedConsoleError(
                     'Unknown console in ZIP: no supported cartridge extension found.')
             if len(candidates) != 1:
-                raise ValueError('ZIP must contain exactly one .sms, .gg, .gb, .nes, .bin or .rom cartridge.')
+                raise ValueError('ZIP must contain exactly one supported cartridge.')
             entry = candidates[0]
             suffix = Path(entry.filename).suffix.casefold()
             maximum = MAX_ARCHIVED_ROM_BYTES[suffix]
@@ -90,8 +94,9 @@ from .master_system import MASTER_SYSTEM  # noqa: E402
 from .game_gear import GAME_GEAR  # noqa: E402
 from .game_boy import GAME_BOY  # noqa: E402
 from .nes import NES  # noqa: E402
+from .console16 import MEGA_DRIVE, SUPER_NINTENDO  # noqa: E402
 
-PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES)
+PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO)
 
 
 def get_profile(system_id: str) -> SystemProfile:
@@ -120,11 +125,14 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
         with path.open('rb') as source:
             data = source.read(8 * 1024 * 1024 + 513)
     detected = None
+    from ..cartridge16 import is_megadrive, snes_header
+    if is_megadrive(data):
+        detected = MEGA_DRIVE
     if data.startswith(b'NES\x1a'):
         detected = NES
     offset = 512 if len(data) % 16384 == 512 else 0
     sega = data[offset:]
-    for header in (0x7ff0, 0x3ff0, 0x1ff0):
+    for header in (() if detected is not None else (0x7ff0, 0x3ff0, 0x1ff0)):
         if sega[header:header + 8] == b'TMR SEGA':
             region = sega[header + 15] >> 4
             if region in (3, 4):
@@ -133,6 +141,8 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
                 detected = GAME_GEAR
             if detected is not None:
                 break
+    if detected is None and snes_header(sega) is not None:
+        detected = SUPER_NINTENDO
     if detected is None and len(data) >= 0x8000 and len(data) % 0x4000 == 0:
         checksum = 0
         for value in data[0x134:0x14d]:

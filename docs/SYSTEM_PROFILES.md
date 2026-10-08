@@ -1,11 +1,13 @@
 # Console profiles and video standards
 
-RetroRecomp has **Master System**, **Game Gear**, **Game Boy** and experimental
-**Nintendo NES** profiles, registered through
+RetroRecomp 0.18.0 has **Master System**, **Game Gear**, **Game Boy** and experimental
+**Nintendo NES**, **Mega Drive** (`md`) and **Super Nintendo** (`snes`) profiles; see
+[16-bit scope](CONSOLES_16BIT.md). All profiles are registered through
 `smsrecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM
 reader, converter, export category and supported video modes. Unknown formats
-are rejected; ZIP inputs must contain exactly one `.sms`, `.gg`, `.gb`, `.nes`, `.bin`
-or `.rom` cartridge.
+are rejected; ZIP inputs must contain exactly one supported cartridge, including
+`.sms`, `.gg`, `.gb`, `.nes`, `.bin`, `.rom`, linear `.md`/`.gen` and validated
+`.sfc`/`.smc` images. The 16-bit profiles require an exact qualified NTSC revision.
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
@@ -28,8 +30,9 @@ The original Game Boy profile uses `gb`, `.gb` input,
 runtime and ROM-specific trace memory. Game Boy Color-only ROMs are rejected;
 see [Game Boy](GAME_BOY.md).
 The NES profile uses `nes`, `.nes` input, `Export/Games/Nintendo NES` output,
-a separate 6502 compiler, its own verified ROM entry library and an NTSC-only
-runtime. NES 2.0 PAL/Dendy timing is identified but rejected for now; see
+a separate 6502 compiler, its own verified ROM entry library and PAL/NTSC
+runtimes. NES 2.0 timing is identified; legacy filename hints can be overridden
+per game. Dendy remains unsupported; see
 [NES](NES.md). Game Boy's DMG profile has no PAL/NTSC selection.
 Future profiles require their own hardware/timing and validation decisions.
 There is no shared assumption that every console has exactly PAL and NTSC modes.
@@ -59,7 +62,8 @@ standard = "pal"
 The CLI accepts `--video-standard auto|pal|ntsc|dmg` for one conversion or a whole
 batch. An explicit CLI choice overrides a saved or supplied profile. The
 `dmg` choice applies only to Game Boy; Game Gear accepts only NTSC, and the
-PAL/NTSC choices apply only to Master System. Master System records the
+PAL/NTSC choices apply to Master System and NES. The 16-bit proofs accept only
+NTSC. Master System records the
 effective timing and its selection source in its compilation library. Game
 Gear and Game Boy use their fixed console modes. New game EXEs include the
 console and mode in Windows version information. A regenerated game keeps

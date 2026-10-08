@@ -7,13 +7,19 @@ import shutil
 
 from .core import replace_once, slug
 from .paths import ASSETS
+from .nes_machine import prepare_machine
 
 
-def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str) -> None:
+def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
+                 *, standard: str = 'ntsc', zapper: bool = False) -> None:
+    machine = prepare_machine(project, engine)
+    (project / 'retro_nes_config.h').write_text(
+        f'#define RR_NES_ROM_SHA "{rom_sha256}"\n'
+        f'#define RR_NES_STATE_NAME L"{slug(title)}-{rom_sha256[:12]}"\n', encoding='utf-8')
     host = (engine / 'runner/cyc/cyc_host.c').read_text(encoding='utf-8')
     host = replace_once(host, '#include "../../common/nes_cart.h"', '#include "nes_cart.h"')
     host = replace_once(host, '#include <string.h>',
-        '#include <string.h>\n#include <windows.h>\n'
+        '#include <string.h>\n#include <windows.h>\n#include "retro_nes.h"\n'
         'static char retro_save_dir[4096], retro_games_dir[4096], retro_save_file[4096];\n'
         'static int retro_auto_save;\nstatic uint8_t *retro_initial_save;\nstatic size_t retro_initial_size;')
     host = replace_once(host, 'static uint8_t *read_file(const char *path, size_t *size) {',
@@ -56,6 +62,33 @@ def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str) -> No
         '        retro_initial_save = (uint8_t *)malloc(retro_initial_size);\n'
         '        if (retro_initial_save) cyc_nvram_export(0, retro_initial_save, retro_initial_size);\n'
         '    }')
+    # Headless hooks exercise the same codec and file I/O as F8/F9, including
+    # resume in a fresh process. They never run during normal GUI startup.
+    host = replace_once(host, 'int main(int argc, char **argv) {', '''
+static bool retro_quick_file(const char *name, bool load) {
+    wchar_t path[32768];
+    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, path, 32768)) return false;
+    return rr_nes_state_file(path, load);
+}
+int main(int argc, char **argv) {
+    const char *quick_load = NULL, *quick_save = NULL;
+    long quick_frame = -1;
+''')
+    host = replace_once(host, '        else if (!strcmp(argv[i], "--headless")) headless = true;', '''
+        else if (!strcmp(argv[i], "--quick-load") && i + 1 < argc) quick_load = argv[++i], headless = true;
+        else if (!strcmp(argv[i], "--quick-save") && i + 1 < argc) quick_save = argv[++i], headless = true;
+        else if (!strcmp(argv[i], "--quick-save-frame") && i + 1 < argc) quick_frame = atol(argv[++i]);
+        else if (!strcmp(argv[i], "--headless")) headless = true;''')
+    host = replace_once(host, '    AccCoinDriver drv;', '''
+    if (quick_load && !retro_quick_file(quick_load, true)) {
+        fprintf(stderr, "Quick state load failed\\n"); return 2;
+    }
+    AccCoinDriver drv;''')
+    host = replace_once(host, '        frame++;', '''
+        if (quick_save && frame == quick_frame && !retro_quick_file(quick_save, false)) {
+            fprintf(stderr, "Quick state save failed\\n"); return 2;
+        }
+        frame++;''')
     (project / 'cyc_host.c').write_text(host, encoding='utf-8')
     saves = (engine / 'runner/cyc/cyc_save.inc').read_text(encoding='utf-8')
     saves = replace_once(saves, '    bool ok=cyc_nvram_export(region,buffer,n);\n    int fd=-1;',
@@ -76,18 +109,20 @@ def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str) -> No
     shutil.copy2(engine / 'common/nes_known_dumps.inc', project / 'nes_known_dumps.inc')
     cmake = f'''cmake_minimum_required(VERSION 3.20)
 project(RetroRecompNES C)
-set(NESRECOMP_CYC_DIR "{(engine / 'runner/cyc').as_posix()}")
+set(NESRECOMP_CYC_DIR "{machine.as_posix()}")
 set(RETRO_NATIVE_DIR "{(ASSETS / 'native').as_posix()}")
 include("${{NESRECOMP_CYC_DIR}}/cyc.cmake")
 include("${{CMAKE_CURRENT_SOURCE_DIR}}/cycle/sources.cmake")
 list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c")
 add_executable(game ${{NESRECOMP_CYC_SOURCES}} ${{CYC_PROJECT_SOURCES}}
     cyc_host.c ${{RETRO_NATIVE_DIR}}/nes_host_ui.c
+    ${{RETRO_NATIVE_DIR}}/nes_state.c
     ${{RETRO_NATIVE_DIR}}/retro_menu.c game_resources.rc)
-target_include_directories(game PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}})
+target_include_directories(game PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO_NATIVE_DIR}} "${{CMAKE_CURRENT_SOURCE_DIR}}")
 target_link_libraries(game PRIVATE ${{NESRECOMP_CYC_LIBRARIES}} gdi32)
 target_compile_features(game PRIVATE c_std_11)
 target_compile_definitions(game PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL)
+target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
 if(MSVC)
     target_compile_options(game PRIVATE /bigobj /utf-8)
     set_property(TARGET game PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

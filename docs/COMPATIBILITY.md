@@ -2,8 +2,20 @@
 
 ## Current scope
 
-RetroRecomp 0.17.0 builds Windows x64 games from Master System, Game Gear,
-original Game Boy and experimental Nintendo NES ROMs. The two Sega profiles use the Sega mapper and offer
+RetroRecomp 0.18.0 includes experimental Mega Drive integration for Sonic
+the Hedgehog, Columns, Golden Axe and Castle of Illusion, and a Super Mario World
+SNES integration, restricted to exact qualified NTSC ROMs.
+They retain interpreted sound CPUs, and the SNES proof retains substantial
+main-CPU fallback. The three new Mega Drive profiles use instruction AOT with
+real PC/stack/interrupt frames and byte-guarded RAM code. Their internal CPU,
+memory and visible-frame comparisons match the reference on the tested paths;
+Sonic and SMW retain earlier reference divergences. These tests do not establish
+independent hardware accuracy or full-game compatibility; see
+[16-bit proof scope and evidence](CONSOLES_16BIT.md).
+
+The supported 8-bit profiles build Windows x64 games from Master System,
+Game Gear, original Game Boy and experimental Nintendo NES ROMs. The two
+SMS/GG profiles use the Sega mapper and offer
 extended native coverage and quick states. Selectable PAL/NTSC timing, two players and
 catalogue-selected Light Phaser input apply to Master System. Game Gear uses
 one controller, Start input, NTSC timing and the 160 × 144 LCD view.
@@ -31,12 +43,13 @@ See [Game Boy](GAME_BOY.md).
 The experimental Nintendo NES profile uses a separate 6502 cycle backend and
 accepts headered `.nes` cartridges. Conversion tests count native and fallback
 CPU cycles, then compare short frame hashes with the engine's internal
-interpreter. For NROM cartridges, the compiler also prepares every ROM position
-that can start a complete instruction, including unobserved indirect targets.
-The local Super Mario Bros. conversion compiled 32,767 of 32,768 positions and
-used zero fallback cycles on three 3,600-frame scripted paths; this does not
-cover all gameplay. Only NTSC timing is supported at present; NES 2.0 PAL/Dendy
-cartridges are rejected. Mapper support and complete gameplay vary by title.
+interpreter. Native bodies cover every physical PRG ROM position, with live
+bank dispatch and boundary operands. Authored NTSC/PAL compiler checks pass
+332,800 instruction cases on five mapper families. PAL timing, F8/F9 states
+and catalogue-selected mouse Zapper input are included. Dendy and dual guns
+remain unsupported. RAM execution and unstable PRG windows can still fall
+back. Mapper support and complete gameplay vary by title; these tests do not
+establish original-hardware fidelity or full-catalogue compatibility.
 See [NES](NES.md).
 
 On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
@@ -84,7 +97,7 @@ See [video evidence](VIDEO.md) and [console profiles](SYSTEM_PROFILES.md).
 | Gameplay | Full playthroughs and physical two-player sessions remain unvalidated. |
 | Physical latency | Device, OS, display and game response have not been measured. |
 
-The current version passes 72 Python tests. Earlier input/presentation work
+The current development build passes 134 Python tests. Earlier input/presentation work
 also passed SDL host checks with two virtual controllers and 4,096 simultaneous
 input states. Actual
 game CPU/RAM/VDP/PCM states are compared across pause/restart. These checks

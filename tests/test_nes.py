@@ -8,6 +8,8 @@ from smsrecomp.batch import identify
 from smsrecomp.core import ConversionError, run, toolchain
 from smsrecomp.nes import _probe, _write_probe_scripts, read_nes_rom
 from smsrecomp.nes_codegen import prepare_compiler
+from smsrecomp.nes_catalog import zapper_game
+from smsrecomp.metadata import game_metadata
 from smsrecomp.paths import ROOT
 from smsrecomp.systems import profile_for_path
 
@@ -55,6 +57,36 @@ class NesProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, 'declares'):
             read_nes_rom(source)
 
+    def test_nes_timing_priority_and_uncertainty(self):
+        cases = [('Sample (Europe).nes', cartridge(), 'pal', 'filename_region'),
+                 ('Sample (USA, Europe).nes', cartridge(), 'ntsc', 'filename_region'),
+                 ('Sample.nes', cartridge(), 'ntsc', 'default_guess'),
+                 ('Sample (Europe).nes', cartridge(nes2=True), 'ntsc', 'nes2_header'),
+                 ('Sample.nes', cartridge(nes2=True,timing=2), 'multi', 'nes2_header'),
+                 ('Sample.nes', cartridge(nes2=True,timing=3), 'dendy', 'nes2_header')]
+        for name, data, standard, origin in cases:
+            with self.subTest(name=name, standard=standard, origin=origin):
+                path=self.root/name; path.write_bytes(data)
+                rom=read_nes_rom(path)
+                self.assertEqual((rom.video_standard,rom.timing_source),(standard,origin))
+        data=bytearray(cartridge()); data[9]=1
+        path=self.root/'Sample (USA).nes'; path.write_bytes(data)
+        self.assertEqual(read_nes_rom(path).timing_source,'ines_header')
+        self.assertEqual(read_nes_rom(path).video_standard,'pal')
+
+    def test_zapper_catalogue_exact_names_header_and_metadata(self):
+        for name in ('Duck Hunt (World).zip', "Hogan's Alley.nes", 'Super Mario Bros. + Duck Hunt (USA).nes'):
+            self.assertTrue(zapper_game(cartridge(),name))
+        for name in ('Super Mario Bros.nes','Duck Tales.nes','Duck Hunt Fan Sequel.nes'):
+            self.assertFalse(zapper_game(cartridge(),name))
+        data=bytearray(cartridge(nes2=True));data[15]=8
+        self.assertTrue(zapper_game(bytes(data),'Unlabelled.nes'))
+        data[15]=9  # Dual Zapper is a separate, unsupported accessory.
+        self.assertFalse(zapper_game(bytes(data),'Unlabelled.nes'))
+        info=game_metadata('Duck Hunt',False,'pal','nes',zapper=True)
+        self.assertIn('Nintendo NES PAL',info['FileDescription'])
+        self.assertIn('Zapper',info['Controls'])
+
     def test_probe_accepts_zero_fallback_and_counts_other_interpretation(self):
         executable = self.root / 'game.exe'
         seed = self.root / 'seeds.trace'
@@ -67,7 +99,7 @@ class NesProfileTests(unittest.TestCase):
             self.assertEqual(result['interpreter_cycles'], 9)
             self.assertEqual(result['non_dispatch_cycles'], 1)
 
-    def test_nrom_boundary_instructions_compile_but_switchable_slots_do_not(self):
+    def test_all_banks_have_native_entries_with_live_boundary_operands(self):
         engine = ROOT / '.deps/nesrecomp'
         if not (engine / 'recompiler/src/cyc_codegen.c').is_file():
             self.skipTest('Pinned NESRecomp checkout unavailable')
@@ -90,8 +122,8 @@ class NesProfileTests(unittest.TestCase):
                 rom.write_bytes(header + prg + bytes(8192))
                 out = self.root / f'mapper{mapper}-{prg_banks}'
                 out.mkdir()
-                run([compiler, rom, '--game', config, '--cycle-accurate',
-                     '--cycle-seed-file', seeds, '--output-prefix', 'game'], cwd=out)
+                log = run([compiler, rom, '--game', config, '--cycle-accurate',
+                           '--cycle-seed-file', seeds, '--output-prefix', 'game'], cwd=out)
                 generated = '\n'.join(path.read_text(encoding='utf-8')
                                       for path in (out / 'generated').glob('game_cyc_b*.c'))
                 for address in ('8FFE', '9FFF'):
@@ -99,13 +131,17 @@ class NesProfileTests(unittest.TestCase):
                         self.assertIn(f'case 0x{address}:', generated)
                     else:
                         self.assertNotIn(f'case 0x{address}:', generated)
-                # A123 is not a vector, traced site, or successor of the loop.
-                # Full NROM coverage must still compile a later indirect entry.
-                if mapper == 0:
-                    self.assertIn('case 0xA123:', generated)
-                else:
-                    self.assertNotIn('case 0xA123:', generated)
+                # Unobserved positions now use compact native bodies. They do
+                # not require an address-specific hot block or another pass.
+                self.assertTrue('case 0x8123:' not in generated)
                 self.assertNotIn('case 0xFFFE:', generated)
+                self.assertIn(f'Native PRG ROM positions: {len(prg)}/{len(prg)}', log)
+                dense = '\n'.join(path.read_text(encoding='utf-8')
+                                  for path in (out / 'generated').glob('game_cyc_dense_*.c'))
+                self.assertIn('cpu_fetch_rom(pc, 0xA9)', dense)
+                self.assertIn('cpu_read((uint16_t)(pc + 1)', dense)
+                self.assertNotIn('cpu_interp_step', dense)
+                self.assertNotIn('switch (opcode)', dense)
 
     def test_gameplay_probes_keep_exercising_inputs_without_repeated_start(self):
         for frames in (12, 1800):

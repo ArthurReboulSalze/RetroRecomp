@@ -1,0 +1,92 @@
+"""Converter memory and cartridge isolation checks with authored data."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+from smsrecomp import megadrive
+from smsrecomp.megadrive_codegen import translated_body, operation_name
+from smsrecomp.core import ConversionError
+
+
+class MegaDriveMemoryTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name)
+        env = patch.dict(os.environ, RETRO_RECOMP_LIBRARY_DIR=str(self.root / 'library'))
+        env.start(); self.addCleanup(env.stop)
+        data = bytearray(range(256)) * 16
+        for offset, value in ((0, 0xffc000), (4, 0x200), (0x70, 0x220), (0x78, 0x240)):
+            data[offset:offset + 4] = value.to_bytes(4, 'big')
+        self.rom = SimpleNamespace(data=data, sha256=hashlib.sha256(data).hexdigest())
+        profiles = patch.dict(megadrive.PROFILES, {self.rom.sha256:
+            {'id': 'authored', 'title': 'Authored test', 'prefix': 'game', 'sonic': False}})
+        profiles.start(); self.addCleanup(profiles.stop)
+
+    def test_library_filters_misaligned_outside_and_stale_rom_entries(self):
+        check = {'rom_entries': [0x200, 0x220, 0x221, 0xff0000, len(self.rom.data)]}
+        self.assertEqual(megadrive.learn_entries(self.rom, [check]), 2)
+        self.assertEqual(megadrive.read_entries(self.rom), {0x200, 0x220})
+        self.rom.data[0x220] ^= 1
+        self.assertEqual(megadrive.read_entries(self.rom), {0x200})
+
+    def test_library_isolated_by_exact_rom_hash(self):
+        megadrive.learn_entries(self.rom, [{'rom_entries': [0x200]}])
+        record = megadrive.memory_file(self.rom)
+        data = json.loads(record.read_text()); data['rom_sha256'] = '0' * 64
+        record.write_text(json.dumps(data))
+        self.assertEqual(megadrive.read_entries(self.rom), set())
+
+    def test_ram_variants_merge_without_losing_previous_rom_observations(self):
+        megadrive.learn_entries(self.rom, [{'rom_entries': [0x200]}])
+        first = {'address': 0xff8000, 'bytes': '7001'}
+        second = {'address': 0xff8000, 'bytes': '70ff'}
+        invalid = [{'address': 0x200, 'bytes': '7001'}, {'address': 0xff8001, 'bytes': '7001'},
+                   {'address': 0xff8000, 'bytes': 'zzzz'}, {'address': 0xff8000, 'bytes': '700'}]
+        self.assertEqual(megadrive.learn_entries(self.rom, [{'ram_variants': [first, *invalid]}]), 1)
+        self.assertEqual(megadrive.learn_entries(self.rom, [{'ram_variants': [first, second]}]), 1)
+        self.assertEqual(megadrive.read_ram_variants(self.rom), [first, second])
+        self.assertEqual(megadrive.read_entries(self.rom), {0x200})
+
+    def test_observed_interior_pcs_are_not_made_function_entries(self):
+        megadrive.write_profile(self.root, self.root, self.rom, {0x208, 0x20a, 0x20c})
+        import tomllib
+        profile = tomllib.loads((self.root / 'game.toml').read_text())
+        self.assertNotIn(0x208, profile['functions']['extra'])
+        self.assertEqual(profile['ram_layout']['initial_ssp'], 0xffc000)
+
+    def test_other_cartridge_is_not_compiled_as_a_known_title(self):
+        self.rom.sha256 = '0' * 64
+        with self.assertRaises(ConversionError):
+            megadrive.profile_for(self.rom)
+
+    def test_invalid_stack_and_odd_interrupt_vectors_rejected(self):
+        self.rom.data[0:4] = (0x80000).to_bytes(4, 'big')
+        with self.assertRaises(ConversionError):
+            megadrive.vectors(self.rom)
+        self.rom.data[0:4] = (0xffc000).to_bytes(4, 'big')
+        self.rom.data[0x78:0x7c] = (0x241).to_bytes(4, 'big')
+        with self.assertRaises(ConversionError):
+            megadrive.vectors(self.rom)
+
+    def test_native_body_contains_selected_operation_and_literal_operands(self):
+        instruction = {'addr': 0xff8000, 'mnemonic': 2, 'size': 2,
+            'words': [0x7001] + [0] * 7, 'word_count': 1, 'byte_length': 2, 'src_ea': -1,
+            'dst_ea': -1, 'reg': 0, 'imm32': 1, 'target_addr': 0, 'has_target': 0,
+            'dst_is_ea': 0, 'predec_mem_form': 0, 'mem_shift': 0}
+        body = translated_body(instruction, 'MN_MOVEQ', 'g_cpu.D[ins->reg] = ins->imm32; return M68KI_OK;')
+        self.assertIn('g_cpu.D[(0)] = (1)', body)
+        self.assertNotIn('m68k_decode(', body)
+        self.assertNotIn('exec_one(', body)
+        self.assertEqual(operation_name(instruction), 'rr_md_op_ff8000_7001')
+        instruction['words'][0] = 0x70ff
+        self.assertEqual(operation_name(instruction), 'rr_md_op_ff8000_70ff')
+
+
+if __name__ == '__main__':
+    unittest.main()

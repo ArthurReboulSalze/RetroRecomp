@@ -23,6 +23,7 @@ from .library import atomic_json, library_root
 from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
+from .nes_catalog import zapper_game
 from .paths import ROOT, ASSETS, data_directory, games_root
 from .systems import archive_rom
 
@@ -44,13 +45,15 @@ class NesRom:
     mapper: int
     nes2: bool
     video_standard: str
+    timing_source: str = 'default_guess'
     system_id: str = "nes"
 
     def metadata(self) -> dict:
         return {"name": self.path.name, "bytes": len(self.data),
                 "crc32": f"{self.crc32:08X}", "sha256": self.sha256,
                 "mapper": self.mapper, "nes2": self.nes2,
-                "header_timing": self.video_standard, "system_id": self.system_id}
+                "video_standard": self.video_standard, "timing_source": self.timing_source,
+                "system_id": self.system_id}
 
 
 def _nes_size(low: int, high: int, unit: int) -> int:
@@ -86,10 +89,21 @@ def read_nes_rom(path: Path) -> NesRom:
     mapper = (header[6] >> 4) | (header[7] & 0xF0)
     if nes2:
         mapper |= (header[8] & 15) << 8
-    timing = header[12] & 3 if nes2 else 0
-    standard = {0: 'ntsc', 1: 'pal', 2: 'multi', 3: 'dendy'}[timing]
+    if nes2:
+        standard = {0: 'ntsc', 1: 'pal', 2: 'multi', 3: 'dendy'}[header[12] & 3]
+        timing_source = 'nes2_header'
+    elif header[9] == 1 and not any(header[10:16]):
+        standard, timing_source = 'pal', 'ines_header'
+    else:
+        # A zero in an old iNES timing byte often means unspecified. Region
+        # tags are a useful hint, not a verified cartridge database identity.
+        tags = ' '.join(a or b for a, b in re.findall(r'\(([^)]*)\)|\[([^]]*)\]', path.stem))
+        pal = re.search(r'\b(Europe|Australia|France|Germany|Italy|Spain|Sweden|Finland|PAL)\b', tags, re.I)
+        ntsc = re.search(r'\b(USA|Japan|Canada|NTSC|World)\b', tags, re.I)
+        standard = 'pal' if pal and not ntsc else 'ntsc'
+        timing_source = 'filename_region' if pal or ntsc else 'default_guess'
     return NesRom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(),
-                  mapper, nes2, standard)
+                  mapper, nes2, standard, timing_source)
 
 
 @serialized_setup
@@ -124,8 +138,6 @@ def _seed_sites(path: Path) -> set[str]:
 
 
 def _native_rom_positions(project: Path, mapper: int) -> tuple[int, int] | None:
-    if mapper != 0:
-        return None
     cycle = project / 'cycle'
     manifest = (cycle / 'sources.cmake').read_text(encoding='utf-8')
     generated = next((path for path in cycle.glob('*/generated/game_cyc.c')
@@ -133,9 +145,9 @@ def _native_rom_positions(project: Path, mapper: int) -> tuple[int, int] | None:
     if generated is None:
         raise ConversionError('NES compiler generated no selected native source.')
     log = (generated.parent.parent / 'codegen.log').read_text(encoding='utf-8')
-    coverage = re.search(r'NROM native ROM positions: (\d+)/(\d+)', log)
+    coverage = re.search(r'Native PRG ROM positions: (\d+)/(\d+)', log)
     if coverage is None:
-        raise ConversionError('NES compiler did not report full NROM ROM coverage.')
+        raise ConversionError('NES compiler did not report bank-independent ROM coverage.')
     return int(coverage[1]), int(coverage[2])
 
 
@@ -247,26 +259,31 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         raise ConversionError('Choose 1–10 passes and 1–10000 frames per test.')
     started = time.perf_counter()
     rom = read_nes_rom(rom_path)
-    if rom.video_standard != 'ntsc' or standard_override not in (None, 'ntsc'):
-        raise ConversionError('The current NES cycle runtime supports NTSC only; PAL/Dendy ROMs need a separate timing backend.')
+    if rom.video_standard == 'dendy' or standard_override not in (None, 'ntsc', 'pal'):
+        raise ConversionError('Choose NTSC or PAL for NES; Dendy timing is not supported.')
+    standard = standard_override or ('ntsc' if rom.video_standard == 'multi' else rom.video_standard)
+    gun = zapper_game(rom.data, rom.path.name)
     title = title or re.sub(r'\s*\([^)]*\)', '', rom.path.stem).strip()
-    project = ROOT / '.build' / f'nes_{slug(title)}_{rom.sha256[:12]}_{ENGINE_REV[:8]}'
+    project = ROOT / '.build' / f'nes_{slug(title)}_{rom.sha256[:12]}_{ENGINE_REV[:8]}_{standard}'
     project.mkdir(parents=True, exist_ok=True)
     destination = output.resolve()
     destination.mkdir(parents=True, exist_ok=True)
     emit(f'NES ROM: {title}, {len(rom.data) // 1024} KB, mapper {rom.mapper}, CRC32 {rom.crc32:08X}.')
+    emit(f'NES video timing: {standard.upper()} ({"manual" if standard_override else rom.timing_source}).')
+    if gun:
+        emit('NES Zapper enabled: mouse aim and trigger on controller port 2.')
     try:
         artwork = prepare_icon(project, rom.path, title,
             (boxart_dir or ROOT / 'BoxArt/Nintendo NES').resolve(), explicit=cover,
             online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt/nes',
-            tags=(), system_id='nes', emit=emit)
+            tags=('shooting',) if gun and icon_tags else (), system_id='nes', emit=emit)
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
     (project / 'rom.nes').write_bytes(rom.data)
-    prepare_host(project, engine, rom.sha256, title)
+    prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun)
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
-        icon=artwork['embedded'], standard='ntsc', system_id='nes')
+        icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
     notice = 'NES executable: component license notices.\n\n'
     for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
                               ('NESRecomp', engine / 'LICENSE'),
@@ -304,7 +321,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             log=project / 'build.log', timeout=600)
         native_rom_positions = _native_rom_positions(project, rom.mapper)
         if native_rom_positions:
-            emit(f'NES NROM native ROM entry positions: '
+            emit(f'NES native physical PRG entry positions: '
                  f'{native_rom_positions[0]}/{native_rom_positions[1]}.')
         run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
              f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], cwd=project,
@@ -348,8 +365,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'rom': rom.metadata(), 'backend': 'nesrecomp-cycle-accurate',
         'compiler': {'url': ENGINE_URL, 'revision': ENGINE_REV,
                      'license': 'PolyForm Noncommercial 1.0.0',
-                     'adapter': 'full NROM fixed-bank ROM entry coverage and boundary operands'},
+                     'adapter': 'bank-independent ROM-specialized native bodies with live boundary operands'},
         'native_coverage': {'imported_entries': imported, 'observed_entries': len(_seed_sites(seed)),
+                            'position_unit': 'physical PRG byte, shared across CPU slots',
                             'tested_scenarios': list(scripts),
                             'precompiled_rom_positions': native_rom_positions[0] if native_rom_positions else None,
                             'rom_address_positions': native_rom_positions[1] if native_rom_positions else None},
@@ -358,9 +376,11 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                               'scenarios': cpu_checks, 'independent_cpu_oracle': False,
                               'hardware_accuracy': False, 'full_game': False},
         'reference_vdp_trace_match': None,
-        'video_model': {'standard': 'ntsc', 'visible_pixels': [256, 240],
+        'video_model': {'standard': standard, 'timing_source': 'manual' if standard_override else rom.timing_source,
+                        'visible_pixels': [256, 240],
                         'hardware_accuracy_validated': False},
-        'input_players': 2, 'game_states': {'supported': False},
+        'input_players': 2, 'zapper': gun,
+        'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
         'artwork': artwork, 'windows_metadata': metadata,
         'runtime_learning': False, 'library_identity': rom.sha256,
         'physical_latency_measured': False,

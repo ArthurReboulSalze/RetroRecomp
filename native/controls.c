@@ -4,6 +4,7 @@
 #include "glue.h"
 #include "host_control.h"
 #include "paths.h"
+#include "retro_keyboard.h"
 #include <windows.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -28,13 +29,13 @@ static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"
 static const char *filters[2][FILTER_COUNT] = {
     {"Sharp pixels", "Bilinear smoothing", "Scale2x", "Scanlines"},
     {"Pixels nets", "Lissage bilineaire", "Scale2x", "Scanlines"}};
-static const SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
+static SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
 #ifdef RETRO_GAME_GEAR
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-     SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_S},
+     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_S},
 #else
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-     SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_F1},
+     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_F1},
 #endif
     {SDL_SCANCODE_KP_5, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_3,
      SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_9, SDL_SCANCODE_KP_7, SDL_SCANCODE_UNKNOWN}};
@@ -172,7 +173,13 @@ static bool write_name(const wchar_t *section, const wchar_t *key, const char *n
     return WritePrivateProfileStringW(section, key, value, config_path) != 0;
 }
 
+static void keyboard_defaults(void) {
+    default_keys[0][4] = rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W);
+    default_keys[0][5] = rr_keyboard_letter(SDLK_x, SDL_SCANCODE_X);
+}
+
 void controls_load(void) {
+    keyboard_defaults();
     controls.filter = FILTER_NEAREST; controls.first_controller_player = 0; controls.language = 0;
     controls.autofire = false;
     controls.phaser_dot_size = 1;
@@ -288,6 +295,7 @@ bool controls_bind(int player, int row, bool gamepad, int value) {
 
 bool controls_defaults(int player, bool gamepad) {
     if (player < 0 || player >= CONTROL_PLAYERS) return false;
+    keyboard_defaults();
     bool ok = true;
     /* A complete preset can free a button currently used by a custom system
      * action; validating against the old layout would reject its own defaults. */

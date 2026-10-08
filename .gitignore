@@ -29,6 +29,10 @@ __pycache__/
 *.gbc
 *.nes
 *.fds
+*.sfc
+*.smc
+*.gen
+*.smd
 *.rom
 *.bin
 *.zip
@@ -65,6 +69,7 @@ docs/*
 !docs/GAME_GEAR.md
 !docs/GAME_BOY.md
 !docs/NES.md
+!docs/CONSOLES_16BIT.md
 !docs/ROADMAP.md
 !docs/RELEASE_NOTES.md
 profiles/*

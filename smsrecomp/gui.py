@@ -60,6 +60,14 @@ UPSTREAM_CREDITS = (
     ('Nintendo NES', (
         ('mstan/nesrecomp', 'https://github.com/mstan/nesrecomp', 'credits_recompiler'),
     )),
+    ('Mega Drive (experimental)', (
+        ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_recompiler'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_native_core'),
+    )),
+    ('Super Nintendo (experimental)', (
+        ('RetroPortingToolKit/snesrecomp', 'https://github.com/RetroPortingToolKit/snesrecomp', 'credits_recompiler'),
+        ('mstan/SuperMarioWorldRecomp', 'https://github.com/mstan/SuperMarioWorldRecomp', 'credits_recompiler'),
+    )),
 )
 
 
@@ -590,11 +598,16 @@ class Application:
                 if not item.error and target.is_file() and report.get('rom', {}).get('sha256') == item.sha256:
                     measured = [c.get('interpreter_percent') for c in report['final_checks']]
                     self.results[row] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
+                        conversion_stage=report.get('status'),
+                        main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+                        audio_cpu=report.get('audio_cpu'),
                         pending_install=is_pending(target),
                         interpreter_percent=max((p for p in measured if p is not None), default=None),
                         interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
                         reference_vdp_trace_match=report.get('reference_vdp_trace_match'))
                     self.row_status[row] = 'pending_install' if is_pending(target) else 'created'
+                    if report.get('status') == 'experimental' and not is_pending(target):
+                        self.row_status[row] = 'created_experimental'
                     self.table.set(row, 'status', self.tr(self.row_status[row]))
                     self.results[row]['video_standard'] = report.get('video_model', {}).get('standard', item.video_hint)
                     self.table.set(row, 'video', self.video_display(item, self.results[row]))
@@ -676,7 +689,9 @@ class Application:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
-                if result.get('interpreter_percent') is None or comparison is None:
+                if result.get('conversion_stage') == 'experimental' and result.get('audio_cpu') == 'interpreted':
+                    text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0))
+                elif result.get('interpreter_percent') is None or comparison is None:
                     text = self.tr('fallback_cycles', cycles=result.get('interpreter_cycles', 0))
                 else:
                     text = self.tr('fallback', percent=result['interpreter_percent'],
@@ -864,6 +879,8 @@ class Application:
                     status_key = {'success': 'created', 'error': 'error',
                                   'duplicate': 'duplicate', 'unrecognized': 'unrecognized',
                                   'skipped': 'skipped', 'existing': 'existing'}[result['status']]
+                    if result['status'] == 'success' and result.get('conversion_stage') == 'experimental':
+                        status_key = 'created_experimental'
                     text = (self.tr('same_rom', title=result['duplicate_of'])
                             if result['status'] == 'duplicate' and result.get('duplicate_of')
                             else self.tr(status_key))
@@ -938,8 +955,8 @@ class Application:
         panel.title(APP_NAME + ' — ' + self.tr('options'))
         panel.configure(bg='#071732')
         panel.transient(self.app)
-        panel.geometry('700x510')
-        panel.minsize(630, 460)
+        panel.geometry('900x510')
+        panel.minsize(860, 460)
 
         notebook = ttk.Notebook(panel)
         notebook.pack(fill='both', expand=True, padx=18, pady=(18, 8))
@@ -1015,6 +1032,10 @@ class Application:
 
         nes = tab('options_nes')
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
+        for console in ('md', 'snes'):
+            page = tab('options_' + console)
+            ttk.Label(page, text=self.tr('options_' + console + '_note'),
+                      style='Muted.TLabel', wraplength=590).pack(anchor='w')
 
         self.build_cover_options(tab('options_boxart'), checkbox)
 

@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     } else if (existing) {
         assert(controls.keys[0][4] == SDL_SCANCODE_C && controls.filter == FILTER_SCANLINES);
     } else {
-        assert(controls.keys[0][4] == SDL_SCANCODE_Z && controls.keys[1][4] == SDL_SCANCODE_KP_8);
+        assert(controls.keys[0][4] == rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W) && controls.keys[1][4] == SDL_SCANCODE_KP_8);
         assert(!controls.language && !controls.autofire && controls.phaser_shape == PHASER_CROSS);
     }
     assert(!smsrecomp_observations_read());

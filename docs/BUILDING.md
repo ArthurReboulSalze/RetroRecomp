@@ -7,12 +7,14 @@
 - Visual Studio Build Tools 2022 or a detected supported Visual Studio
   installation, with x64 C++ tools, CMake and Windows SDK.
 - Internet for first-time dependency setup; optional for missing-cover lookup.
+- For the experimental SNES proof only: installed stable Rust >= 1.85.
 
 The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
 The converter bundles UPX 5.2.1 and compacts each validated Windows game
 executable before replacing the previous export. This applies to Master
-System, Game Gear, Game Boy and NES; only newly generated games are affected.
+System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo; only newly
+generated games are affected.
 The UPX license and packed-executable exception are in
 [licenses/UPX.md](../licenses/UPX.md).
 

@@ -44,6 +44,9 @@ RetroRecomp's MIT license does not remove those limitations.
 | Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
 | mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |
 | emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
+| segagenesisrecomp and m68k-recomp-core (experimental Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
+| RetroPortingToolKit/snesrecomp (experimental SNES) | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences | [Notices](licenses/snesrecomp.md) |
+| SuperMarioWorldRecomp game analysis | PolyForm Noncommercial 1.0.0 | [Full text](licenses/SuperMarioWorldRecomp.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.
 Generated games contain parts of that toolchain and the user's ROM. They are

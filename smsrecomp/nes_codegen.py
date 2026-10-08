@@ -1,11 +1,9 @@
-"""Build a private NESRecomp compiler with full NROM native ROM coverage.
+"""Build a private NESRecomp compiler with bank-independent native ROM coverage.
 
-The pinned dependency checkout remains untouched. Its cycle backend treats any
-instruction crossing a 4 KiB PRG slot as interpreted. For NROM, the next
-slot's bank is permanently wired, so its operand bytes are known at compile
-time and can use the same native instruction templates as other ROM code. NROM
-also has one known byte at every CPU ROM address, so every valid instruction
-start can be compiled ahead of time, including paths no scripted probe reaches.
+Hot discovered paths use upstream native blocks. Every remaining PRG position
+has a ROM-specialized native body, shared across equivalent bytes and mapper
+slots. Boundary operands are read on the live bus. The pinned checkout is
+never edited.
 """
 from __future__ import annotations
 
@@ -14,13 +12,74 @@ from pathlib import Path
 import shutil
 
 from .core import ConversionError, replace_once, run
-from .paths import ROOT
+from .paths import ROOT, ASSETS
 
 
 def _replace_count(source: str, old: str, new: str, count: int) -> str:
     if source.count(old) != count:
         raise ConversionError(f'Pinned NES codegen changed around {old!r}.')
     return source.replace(old, new)
+
+
+def _dense_codegen(source: str) -> str:
+    # The dynamic-PC mode reuses the proven bus-cycle templates, but selects
+    # the opcode and specializes operands at conversion time. It does not emit
+    # or call an opcode decoder. Each body returns before remapping is possible.
+    source = replace_once(source, '    uint8_t        opcode;\n} Emit;',
+        '    uint8_t        opcode;\n'
+        '    bool           dense;\n'
+        '    uint8_t        dense_known, dense_bytes[2];\n} Emit;')
+    source = replace_once(source, '#define INTERP(e) ((e)->p == NULL)',
+                          '#define INTERP(e) ((e)->p == NULL || (e)->dense)')
+    source = replace_once(source,
+        'static void read_operand(Emit *e, int k, int f) {\n    if (INTERP(e))',
+        '''static void read_operand(Emit *e, int k, int f) {
+    if (e->dense && (e->dense_known & (1u << (k - 1))))
+        ln(e, "b%d = cpu_read_rom((uint16_t)(pc + %d), 0x%02X, %s);",
+           k, k, e->dense_bytes[k - 1], flags(f));
+    else if (INTERP(e))''')
+    source = replace_once(source,
+        'static const char *operand(Emit *e, int k) {\n    if (INTERP(e))',
+        '''static const char *operand(Emit *e, int k) {
+    if (e->dense && (e->dense_known & (1u << (k - 1))))
+        return str("0x%02X", e->dense_bytes[k - 1]);
+    if (INTERP(e))''')
+    source = replace_once(source,
+        'static const char *operand16(Emit *e) {\n    if (INTERP(e))',
+        '''static const char *operand16(Emit *e) {
+    if (e->dense) return str("(uint16_t)(%s | %s << 8)", operand(e, 1), operand(e, 2));
+    if (INTERP(e))''')
+    source = replace_once(source,
+        'static void emit_imm(Emit *e, const OpDef *d) {\n    if (INTERP(e))',
+        '''static void emit_imm(Emit *e, const OpDef *d) {
+    if (e->dense && (e->dense_known & 1))
+        ln(e, "uint8_t v = cpu_read_rom((uint16_t)(pc + 1), 0x%02X, CYC_POLL | CYC_DONE);", e->dense_bytes[0]);
+    else if (INTERP(e))''')
+    source = replace_once(source,
+        '        ln(e, "b1 = cpu_read((uint16_t)(pc + 1), CYC_POLL);");\n'
+        '        ln(e, "uint16_t next = (uint16_t)(pc + 2), target = (uint16_t)(next + (int8_t)b1);");',
+        '        read_operand(e, 1, POLL);\n'
+        '        ln(e, "uint16_t next = (uint16_t)(pc + 2), target = (uint16_t)(next + (int8_t)%s);", operand(e, 1));')
+    source = replace_once(source, 'static void emit_umbrella(',
+        (ASSETS / 'native/nes_dense_codegen.inc').read_text(encoding='utf-8') + '\nstatic void emit_umbrella(')
+    source = replace_once(source,
+        '    for (uint32_t bank = 0; bank < p->banks; bank++)\n'
+        '        for (uint32_t slot = 0; slot < SLOT_COUNT; slot++)\n'
+        '            if (slot_used(p, bank, slot))',
+        '    emit_dense_rom(p, f, prefix);\n\n'
+        '    for (uint32_t bank = 0; bank < p->banks; bank++)\n'
+        '        for (uint32_t slot = 0; slot < SLOT_COUNT; slot++)\n'
+        '            if (slot_used(p, bank, slot))')
+    source = replace_once(source,
+        '        "    return v && ((v->bits[k >> 3] >> (k & 7)) & 1);\\n"',
+        '        "    return (v && ((v->bits[k >> 3] >> (k & 7)) & 1)) || dense_has(addr);\\n"')
+    source = replace_once(source,
+        '        "        if (!v || !((v->bits[k >> 3] >> (k & 7)) & 1)) return;\\n"',
+        '        "        if (!v || !((v->bits[k >> 3] >> (k & 7)) & 1)) {\\n"\n'
+        '        "            if (!dense_has(pc)) return;\\n"\n'
+        '        "            dense_step(pc); continue;\\n"\n'
+        '        "        }\\n"')
+    return source
 
 
 def patched_codegen(source: str) -> str:
@@ -69,27 +128,7 @@ static uint8_t insn_byte(const Program *p, const Pos *at, uint32_t delta) {
     source = replace_once(source,
                           'An instruction\'s own operand bytes. fits_in_slot() kept the whole\n * instruction inside one slot, so these are always the block\'s own bank.',
                           'An instruction\'s own operand bytes, possibly in the next NROM slot.')
-    source = replace_once(source, '    discover(p, seeds, n);\n    free(seeds);',
-        '''    discover(p, seeds, n);
-    free(seeds);
-    if (p->mapper == 0) {
-        /* NROM has a permanent bank in every CPU ROM slot. The entry point
-         * can be any byte, including a computed-jump target or an offset in
-         * data. Compiling all positions is safe: dispatch still checks the
-         * live ROM mapping and uses the same per-opcode cycle templates. */
-        uint32_t covered = 0;
-        for (uint32_t slot = 0; slot < SLOT_COUNT; slot++) {
-            uint32_t bank = (uint32_t)p->fixed[slot];
-            for (uint32_t k = 0; k < SLOT_SIZE; k++) {
-                Pos at = { bank, slot, k };
-                if (!fits_in_slot(p, &at, op_length(prg_byte(p, bank, k)))) continue;
-                p->is_insn[POS_PACK(bank, slot, k)] = 1;
-                covered++;
-            }
-        }
-        printf("[NESRecomp] NROM native ROM positions: %u/%u\\n",
-               covered, SLOT_COUNT * SLOT_SIZE);
-    }''')
+    source = _dense_codegen(source)
     return source
 
 
@@ -112,7 +151,7 @@ def prepare_compiler(engine: Path, cmake: str | Path, generator: str, emit) -> P
     build = stage / 'build'
     compiler = build / 'Release/NESRecomp.exe'
     if source_changed or not compiler.is_file():
-        emit('Building NES compiler with full native NROM coverage…')
+        emit('Building NES compiler with bank-independent native ROM coverage…')
         run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64'], timeout=600)
         run([cmake, '--build', build, '--config', 'Release', '--parallel', '4'], timeout=1800)
     if not compiler.is_file():

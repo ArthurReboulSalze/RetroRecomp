@@ -17,6 +17,12 @@ def smoke(window):
     window.update_idletasks()
     assert window.title() == "Retro-Recomp"
     application = window._retro_application
+    # The check must not depend on a user's local ROM collection or queue.
+    fixtures = tempfile.TemporaryDirectory()
+    for number in range(5):
+        path = Path(fixtures.name) / f'Synthetic {number} (Europe).sms'
+        path.write_bytes(bytes([number + 1]) * 8192)
+    application.add_paths(Path(fixtures.name).glob('*.sms'))
     assert len(application.items) == len(list(application.table.get_children())) >= 5
     assert 'system' in application.table['columns'] and 'video' in application.table['columns']
     assert application.body.grid_rowconfigure(1)['weight'] == 4
@@ -55,9 +61,9 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    assert len(notebook.tabs()) == 6
+    assert len(notebook.tabs()) == 8
     assert notebook.tab(0, 'text') == application.tr('options_common')
-    assert notebook.tab(5, 'text') == application.tr('options_boxart')
+    assert notebook.tab(7, 'text') == application.tr('options_boxart')
     assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
     assert application.cover_3d.get()
     application.gb_deep_control.invoke()
@@ -105,7 +111,10 @@ def smoke(window):
     panel.destroy()
     print("PASS: English/French, extended default, hover hints, batch queue, left-aligned banner, duplicates, library; size", window.geometry())
     window.destroy()
+    fixtures.cleanup()
 
 
 tk.Tk.mainloop = smoke
-launch()
+with patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
+        patch('smsrecomp.gui.save_preferences'):
+    launch()

@@ -1,5 +1,10 @@
 # Persistent game states
 
+This page describes the Sega state format. Game Boy has its own codec;
+NES now supports F8/F9 through a separate ABI-bound machine snapshot in
+`datas/states/<game-slug>-<rom-sha12>.rrstate`. See the
+[NES state format and validation](NES.md#controls-quick-states-and-zapper).
+
 Starting with version 0.10.12, F8 saves one quick state and F9 loads it.
 Quit, restart the same executable, and press F9 to continue at the saved point.
 F8 replaces that game's existing slot; F9 without a slot displays a notice.

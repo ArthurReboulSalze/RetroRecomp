@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.17.0"
+VERSION = "0.18.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -32,6 +32,7 @@ assets/tools/upx.exe
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md
+licenses/segagenesisrecomp.md licenses/snesrecomp.md licenses/SuperMarioWorldRecomp.md
 licenses/upx-5.2.1-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
@@ -55,8 +56,18 @@ native/controls.c native/controls.h native/host.c native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
-native/retro_menu.c native/retro_menu.h native/gb_menu.inc
-native/nes_host_ui.c
+native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
+native/nes_host_ui.c native/nes_dense_codegen.inc
+native/nes_dense_checks.c tools/nes_native_selftest.py
+native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
+native/nes_machine_checks.c tools/nes_machine_selftest.py
+tools/nes_state_selftest.py
+smsrecomp/nes_machine.py smsrecomp/nes_catalog.py
+smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
+native/retro_console16.h native/console16_main.c native/console16_host_ui.c
+native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_step_dispatch.c
+native/md_native_checks.c tools/megadrive_native_selftest.py tests/test_megadrive.py
+native/snes_backend.c tests/test_console16.py docs/CONSOLES_16BIT.md
 native/gb_input_refresh.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
@@ -183,7 +194,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
             if data != (source / name).read_bytes():
                 raise ValueError(f"Executable payload differs from public source: {name}")
             bundled[name] = digest(data)
-        if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".manifest", ".patterns")):
+        if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".bin",
+                                  ".sfc", ".smc", ".gen", ".smd", ".manifest", ".patterns")):
             raise ValueError(f"Game data in executable: {name}")
     if set(bundled) != BUNDLED_FILES:
         raise ValueError("The executable is missing public resources.")

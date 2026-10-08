@@ -30,9 +30,10 @@ PROVIDERS = {
     'arcadeitalia': ('ArcadeItalia', 'https://adb.arcadeitalia.net/service_scraper.php'),
 }
 # IDs verified against the providers' own platform pages.
-SS_SYSTEMS = {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3}
-TGDB_SYSTEMS = {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7}
-IGDB_SLUGS = {'sms': 'sms', 'gg': 'game-gear', 'gb': 'gb', 'nes': 'nes'}
+SS_SYSTEMS = {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4}
+TGDB_SYSTEMS = {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6}
+IGDB_SLUGS = {'sms': 'sms', 'gg': 'game-gear', 'gb': 'gb', 'nes': 'nes',
+              'md': 'genesis-slash-megadrive', 'snes': 'snes'}
 REGIONS = {'eu': 'Europe', 'us': 'USA', 'jp': 'Japan', 'br': 'Brazil',
            'wor': 'World', 'kr': 'Korea'}
 _locks = {name: threading.Lock() for name in PROVIDERS}

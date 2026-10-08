@@ -1,9 +1,13 @@
 # Controls
 
-The shortcut table below applies to Master System, Game Gear and Game Boy.
+The shortcut table below applies to Master System, Game Gear, Game Boy and NES.
 Console-specific F5 functions and cartridge buttons are described below.
-The experimental NES profile shares the menu canvas and most shortcuts;
-F8/F9 quick states are unavailable there. See [NES controls](NES.md).
+Keyboard labels use the active Windows layout: pressing W on an AZERTY
+keyboard displays W in F2. Unsaved letter defaults also follow that layout.
+Saved mappings keep their physical key positions; changing the UI language
+does not change the keyboard layout or overwrite custom controls.
+The NES profile shares the menu canvas, F8/F9 quick states and display modes.
+F5 opens Zapper options on recognised gun games. See [NES controls](NES.md).
 
 | Key | Action |
 | --- | --- |
@@ -26,7 +30,7 @@ capture. Press the desired key or the selected player's controller button.
 Esc cancels capture; D restores that player's defaults for the input type.
 C on the Master System gamepad page swaps controller assignments.
 
-Game Gear has one player and no gun. Arrows and Z/X control the game; **S** is
+Game Gear has one player and no gun. Arrows and W/X control the game; **S** is
 the cartridge Start button. On a gamepad, A/B are the two game buttons,
 Start reaches the cartridge and Back opens the pause/menu. **P** and Enter also
 open that menu, while F1 restarts the game. F2 maps the single player's keys
@@ -52,7 +56,7 @@ Master System defaults:
 
 | Player | Directions | Buttons | Menu | Restart |
 | --- | --- | --- | --- | --- |
-| J1 keyboard | Arrows | Z / X | P; Enter also available | F1 |
+| J1 keyboard | Arrows | W / X | P; Enter also available | F1 |
 | J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 | Disabled |
 | Each gamepad | D-pad / left stick | A / B | Start/Menu | Select/Back, J1 only |
 

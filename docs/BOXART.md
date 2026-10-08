@@ -1,7 +1,7 @@
 # Box art and 3D game icons
 
 RetroRecomp uses the same icon pipeline for Master System, Game Gear, Game Boy
-and NES. Select **Options → Box art** to configure online sources and the
+and NES, plus the development Mega Drive and SNES proofs. Select **Options → Box art** to configure online sources and the
 real three-quarter 3D boxes with a flat front-cover fallback. Icons are embedded during conversion;
 existing game executables need regeneration to receive a different icon.
 

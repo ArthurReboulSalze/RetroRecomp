@@ -11,13 +11,15 @@
 #include "cyc_core.h"
 #include "cyc_run.h"
 #include "retro_menu.h"
+#include "retro_keyboard.h"
+#include "retro_nes.h"
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const uint8_t bits[ACTIONS] = {128, 64, 32, 16, 8, 4, 2, 1};
 static const char *names[ACTIONS] = {"A", "B", "Select", "Start", "Up", "Down", "Left", "Right"};
 static const wchar_t *settings[ACTIONS] = {L"A", L"B", L"Select", L"Start", L"Up", L"Down", L"Left", L"Right"};
 static SDL_Scancode keys[2][ACTIONS] = {
-    {SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_RSHIFT, SDL_SCANCODE_RETURN,
+    {SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RSHIFT, SDL_SCANCODE_RETURN,
      SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT},
     {SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_9, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_7,
      SDL_SCANCODE_KP_5, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_3}
@@ -34,6 +36,8 @@ static SDL_GameController *pads[2];
 static wchar_t ini_file[32768], data_dir[32768];
 static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire;
 static char status[80];
+static Uint64 status_until;
+static int gun_x = -1, gun_y = -1, gun_shape, gun_size = 3, gun_color;
 
 static const char *tr(const char *en, const char *fr) { return french ? fr : en; }
 
@@ -52,6 +56,8 @@ static void section(wchar_t *out, int p, bool pad) {
 }
 
 static void load_bindings(void) {
+    keys[0][A] = rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W);
+    keys[0][B] = rr_keyboard_letter(SDLK_x, SDL_SCANCODE_X);
     settings_path();
     if (!ini_file[0]) return;
     wchar_t sec[64];
@@ -68,6 +74,20 @@ static void load_bindings(void) {
     GetPrivateProfileStringW(L"Interface", L"language", L"en", language, 12, ini_file);
     french = wcscmp(language, L"fr") == 0;
     autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, ini_file) != 0;
+    gun_shape = GetPrivateProfileIntW(L"NES.Zapper", L"shape", 0, ini_file) == 1;
+    gun_size = (int)GetPrivateProfileIntW(L"NES.Zapper", L"size", 3, ini_file);
+    if (gun_size < 1 || gun_size > 8) gun_size = 3;
+    gun_color = (int)GetPrivateProfileIntW(L"NES.Zapper", L"color", 0, ini_file);
+    if (gun_color < 0 || gun_color > 2) gun_color = 0;
+}
+
+static void store_gun(void) {
+    if (!ini_file[0]) return;
+    CreateDirectoryW(data_dir, NULL);
+    wchar_t value[16];
+    swprintf_s(value, 16, L"%d", gun_shape); WritePrivateProfileStringW(L"NES.Zapper", L"shape", value, ini_file);
+    swprintf_s(value, 16, L"%d", gun_size); WritePrivateProfileStringW(L"NES.Zapper", L"size", value, ini_file);
+    swprintf_s(value, 16, L"%d", gun_color); WritePrivateProfileStringW(L"NES.Zapper", L"color", value, ini_file);
 }
 
 static void store_binding(void) {
@@ -98,7 +118,7 @@ static uint8_t controller_input(int p, uint64_t frame) {
     for (int a = 0; a < ACTIONS; ++a) {
         if (state[keys[p][a]]) value |= bits[a];
         if (pads[p] && SDL_GameControllerGetButton(pads[p], buttons[p][a])) {
-            if (!autofire || a > B || ((frame * 80 / 60) & 1) == 0) value |= bits[a];
+            if (!autofire || a > B || (((uint64_t)(frame * 80.0 * RR_FRAME_SECONDS)) & 1) == 0) value |= bits[a];
         }
     }
     if (pads[p]) {
@@ -137,6 +157,43 @@ static SDL_Rect game_rect(SDL_Renderer *renderer) {
     return rect;
 }
 
+static void sample_gun(SDL_Window *win, SDL_Renderer *ren) {
+    if (!RR_NES_ZAPPER) return;
+    int x, y, w, h, rw, rh;
+    Uint32 pressed = SDL_GetMouseState(&x, &y);
+    SDL_GetWindowSize(win, &w, &h); SDL_GetRendererOutputSize(ren, &rw, &rh);
+    SDL_Rect r = game_rect(ren);
+    x = w ? x * rw / w : -1; y = h ? y * rh / h : -1;
+    bool outside = x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h ||
+        !(SDL_GetWindowFlags(win) & SDL_WINDOW_MOUSE_FOCUS);
+    gun_x = outside ? -1 : (x - r.x) * 256 / r.w;
+    gun_y = outside ? -1 : (y - r.y) * 240 / r.h;
+    bool right = (pressed & SDL_BUTTON_RMASK) != 0;
+    rr_nes_zapper_aim(gun_x, gun_y, (pressed & SDL_BUTTON_LMASK) != 0 || right, outside || right);
+}
+
+static void draw_gun(SDL_Renderer *ren, SDL_Rect r) {
+    if (!RR_NES_ZAPPER || menu || gun_x < 0 || gun_y < 0) return;
+    Uint8 red = gun_color == 2 ? 0 : 255;
+    Uint8 green = gun_color == 0 ? 0 : 255, blue = gun_color == 1 ? 255 : 0;
+    SDL_SetRenderDrawColor(ren, red, green, blue, 255);
+    int px = r.w / 256; if (px < 1) px = 1;
+    int py = r.h / 240; if (py < 1) py = 1;
+    int x = r.x + gun_x * r.w / 256, y = r.y + gun_y * r.h / 240;
+    SDL_RenderSetClipRect(ren, &r);
+    SDL_Rect horizontal = {x - gun_size * px, y, (2 * gun_size + 1) * px, py};
+    if (gun_shape) {
+        horizontal.y -= gun_size * py;
+        horizontal.h = (2 * gun_size + 1) * py;
+    }
+    SDL_RenderFillRect(ren, &horizontal);
+    if (!gun_shape) {
+        SDL_Rect vertical = {x, y - gun_size * py, px, (2 * gun_size + 1) * py};
+        SDL_RenderFillRect(ren, &vertical);
+    }
+    SDL_RenderSetClipRect(ren, NULL);
+}
+
 static void draw_menu(SDL_Renderer *ren) {
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
@@ -149,9 +206,26 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(56, tr("F3 Filter  F4 Fullscreen", "F3 Filtre  F4 Plein ecran"));
         RR_NES_TEXT(70, tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"));
         RR_NES_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
-        RR_NES_TEXT(108, tr("NES: arrows + Z/X; Enter Start", "NES : fleches + Z/X; Entree Start"));
+        RR_NES_TEXT(108, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
         RR_NES_TEXT(122, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
-        RR_NES_TEXT(146, tr("F8/F9 states: not yet available", "F8/F9 etats : pas encore dispo"));
+        RR_NES_TEXT(146, tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"));
+        if (RR_NES_ZAPPER) {
+            RR_NES_TEXT(160, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
+            RR_NES_TEXT(96, tr("F5 Zapper options", "F5 Options du Zapper"));
+        }
+    } else if (menu == 2 && gamepad_page == 2) {
+        char line[96];
+        RR_NES_TEXT(38, tr("Zapper | Tab: controls", "Zapper | Tab : commandes"));
+        const char *labels[] = {tr("Shape", "Forme"), tr("Size", "Taille"), tr("Color", "Couleur")};
+        const char *colors[] = {tr("Red", "Rouge"), tr("White", "Blanc"), tr("Green", "Vert")};
+        for (int a = 0; a < 3; a++) {
+            char size[16]; snprintf(size, sizeof(size), "%d", gun_size);
+            const char *value = a == 0 ? (gun_shape ? tr("Dot", "Point") : tr("Cross", "Croix")) : a == 1 ? size : colors[gun_color];
+            if (row == a) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 23, 232, 20, 35, 74, 110, 255);
+            snprintf(line, sizeof(line), "%c %s: %s", row == a ? '>' : ' ', labels[a], value);
+            RR_NES_TEXT(58 + a * 23, line);
+        }
+        RR_NES_TEXT(150, tr("Up/Down: select | Left/Right: change", "Haut/Bas : choisir | Gauche/Droite : changer"));
     } else if (menu == 2) {
         char line[96];
         snprintf(line, sizeof(line), "Player %d  |  %s  |  Tab / Left-Right", player + 1,
@@ -160,7 +234,7 @@ static void draw_menu(SDL_Renderer *ren) {
         for (int a = 0; a < ACTIONS; ++a) {
             if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 13, 232, 12, 35, 74, 110, 255);
             const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
-                SDL_GetScancodeName(keys[player][a]);
+                rr_keyboard_name(keys[player][a]);
             snprintf(line, sizeof(line), "%c %-7s %s", a == row ? '>' : ' ', names[a],
                      capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : bound);
             RR_NES_TEXT(53 + a * 13, line);
@@ -180,6 +254,7 @@ int cyc_sdl_main(const char *title, int scale) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
+    wchar_t state_path[32768]; rr_nes_state_path(state_path, 32768);
     if (scale < 1) scale = 3;
     char caption[256];
     snprintf(caption, sizeof(caption), "%s | %s", title, tr("Native code", "Code natif"));
@@ -245,6 +320,8 @@ int cyc_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_F4) {
                 fullscreen = (fullscreen + 1) % 3;
                 SDL_SetWindowFullscreen(win, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+            } else if (key == SDL_SCANCODE_F5 && RR_NES_ZAPPER) {
+                menu = 2; gamepad_page = 2; row = capturing = 0;
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
                 if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
@@ -255,10 +332,27 @@ int cyc_sdl_main(const char *title, int scale) {
                 if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
                     WritePrivateProfileStringW(L"Interface", L"language", french ? L"fr" : L"en", ini_file); }
             } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
-                snprintf(status, sizeof(status), "%s", tr("NES quick states are not available yet", "Etats NES indisponibles pour le moment"));
-                if (!menu) menu = 3;
+                bool load = key == SDL_SCANCODE_F9;
+                bool ok = rr_nes_state_file(state_path, load);
+                const char *message = ok ? (load ? tr("Quick state loaded", "Partie chargee") : tr("Quick state saved", "Partie sauvegardee")) :
+                    (load ? tr("No compatible quick state to load", "Aucune sauvegarde compatible") : tr("Unable to save quick state", "Impossible de sauvegarder"));
+                snprintf(status, sizeof(status), "%s", message);
+                status_until = SDL_GetTicks64() + 1800;
+                if (ok) { menu = 0; capturing = 0; }
+                if (ok && load) { if (audio) SDL_ClearQueuedAudio(audio); next = SDL_GetPerformanceCounter(); }
             } else if (menu == 2) {
-                if (key == SDL_SCANCODE_TAB) gamepad_page = !gamepad_page;
+                if (key == SDL_SCANCODE_TAB) { gamepad_page = (gamepad_page + 1) % (RR_NES_ZAPPER ? 3 : 2); row = 0; }
+                else if (gamepad_page == 2) {
+                    if (key == SDL_SCANCODE_UP) row = (row + 2) % 3;
+                    else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % 3;
+                    else if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_RETURN) {
+                        int delta = key == SDL_SCANCODE_LEFT ? -1 : 1;
+                        if (row == 0) gun_shape = !gun_shape;
+                        else if (row == 1) gun_size = (gun_size - 1 + delta + 8) % 8 + 1;
+                        else gun_color = (gun_color + delta + 3) % 3;
+                        store_gun();
+                    }
+                }
                 else if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT) player = !player;
                 else if (key == SDL_SCANCODE_UP) row = (row + ACTIONS - 1) % ACTIONS;
                 else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % ACTIONS;
@@ -266,7 +360,9 @@ int cyc_sdl_main(const char *title, int scale) {
             }
         }
         if (!running) break;
+        SDL_ShowCursor(RR_NES_ZAPPER && !menu ? SDL_DISABLE : SDL_ENABLE);
         if (!menu) {
+            sample_gun(win, ren);
             cyc_set_controller(0, controller_input(0, frame));
             cyc_set_controller(1, controller_input(1, frame));
             cyc_run_frame(); ++frame;
@@ -290,6 +386,7 @@ int cyc_sdl_main(const char *title, int scale) {
             }
             SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
         }
+        draw_gun(ren, dst);
         int current_title_state =
             (cyc_run_interp_rom_cycles || cyc_run_interp_ram_cycles || cyc_run_interp_other_cycles ? 1 : 0) |
             (french ? 2 : 0);
@@ -301,10 +398,14 @@ int cyc_sdl_main(const char *title, int scale) {
             title_state = current_title_state;
         }
         draw_menu(ren);
+        if (!menu && status[0] && SDL_GetTicks64() < status_until) {
+            int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
+            rr_menu_text(ren, ox, oy, unit, 8, 183, status, 240, 240, 240);
+        }
         SDL_RenderPresent(ren);
         Uint64 now = SDL_GetPerformanceCounter();
         if (menu) { next = now; SDL_Delay(16); continue; }
-        next += (Uint64)((1.0 / 60.0988) * frequency);
+        next += (Uint64)(RR_FRAME_SECONDS * frequency);
         if (next > now) {
             Uint32 ms = (Uint32)((next - now) * 1000 / frequency);
             if (ms > 1) SDL_Delay(ms - 1);

@@ -12,6 +12,40 @@ from smsrecomp.systems import MASTER_SYSTEM, discover_roms, profile_for_path
 
 
 def main() -> int:
+    if len(sys.argv) >= 3 and sys.argv[1] == '_snes-generate':
+        import runpy
+        engine = Path(sys.argv[2]).resolve()
+        bridge = engine / 'snesrecomp_cli.py'
+        sys.path.insert(0, str(engine))
+        sys.argv = [str(bridge), *sys.argv[3:]]
+        # This upstream bridge resolves sources through _MEIPASS when frozen.
+        # Our pinned sources live in .deps, outside the converter bundle.
+        bundle = getattr(sys, '_MEIPASS', None)
+        if bundle is not None:
+            del sys._MEIPASS
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        child_log = None
+        if old_stdout is None or old_stderr is None:
+            directory = ROOT / '.build'
+            directory.mkdir(parents=True, exist_ok=True)
+            child_log = (directory / 'snes-generator-child.log').open('w', encoding='utf-8')
+            if old_stdout is None:
+                sys.stdout = child_log
+            if old_stderr is None:
+                sys.stderr = child_log
+        try:
+            runpy.run_path(str(bridge), run_name='__main__')
+        except Exception as error:
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            return 1
+        finally:
+            if bundle is not None:
+                sys._MEIPASS = bundle
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+            if child_log is not None:
+                child_log.close()
+        return 0
     if len(sys.argv) >= 3 and sys.argv[1] == '_nes-prepare-project':
         # A frozen converter is not a Python command-line interpreter. Run the
         # pinned bridge in this dedicated child so parallel games do not share
@@ -51,14 +85,14 @@ def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    parser = argparse.ArgumentParser(description="Retro-Recomp: Master System / Game Gear / Game Boy / NES ROM → Windows x64 executable.")
+    parser = argparse.ArgumentParser(description="Retro-Recomp: multi-console ROM → Windows x64 executable.")
     sub = parser.add_subparsers(dest="command")
     build = sub.add_parser("convert", help="Convert a ROM into a standalone executable.")
     build.add_argument("rom", type=Path)
     build.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
     build.add_argument("--title")
     build.add_argument("--output", type=Path)
-    build.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes"), default="auto",
+    build.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes", "md", "snes"), default="auto",
         help="Automatic console detection or an explicit choice for ambiguous .bin/.rom dumps.")
     build.add_argument("--profile", type=Path)
     build.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
@@ -81,7 +115,7 @@ def main() -> int:
     batch.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
     batch.add_argument("--rom-dir", type=Path, action="append", default=[],
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
-    batch.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes"), default="auto")
+    batch.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes", "md", "snes"), default="auto")
     batch.add_argument("--output", type=Path, default=games_root(),
         help="Games root (default: Games beside the converter). Console folders are added automatically.")
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
@@ -116,7 +150,8 @@ def main() -> int:
             rom = system.read_rom(args.rom)
             print(json.dumps({**rom.metadata(), "system": system.id,
                 "video_default": system.default_video_mode(args.rom),
-                "video_default_source": "filename_only" if system.id == 'sms' else "console_fixed"},
+                "video_default_source": "cartridge_header" if system.id in ('md', 'snes') else
+                    "filename_only" if system.id == 'sms' else "console_fixed"},
                 indent=2, ensure_ascii=False))
         elif args.command == "setup":
             dependencies()
@@ -127,6 +162,16 @@ def main() -> int:
         elif args.command == "memory":
             if args.rom:
                 system = profile_for_path(args.rom)
+                if system.id in ('md', 'snes'):
+                    if args.import_manifest:
+                        raise ConversionError('16-bit proofs do not import Z80 observation manifests.')
+                    from smsrecomp.console16 import qualified_rom, REPOSITORIES
+                    rom = qualified_rom(args.rom, system.id)
+                    print(json.dumps({'system': system.id, 'sha256': rom.sha256,
+                        'engine_revision': REPOSITORIES[system.id][1],
+                        'analysis': 'pinned game roots and exact-ROM generated-source cache',
+                        'runtime_learning': False}, indent=2))
+                    return 0
                 if system.id == 'gb':
                     if args.import_manifest:
                         raise ConversionError("Game Boy uses verified entry traces, not Sega observation manifests.")

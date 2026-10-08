@@ -271,6 +271,9 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             pass
         measured = [check.get("interpreter_percent") for check in report["final_checks"]]
         result.update(status="success", executable=str(target), report=str(report_path),
+            conversion_stage=report.get('status'),
+            main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+            audio_cpu=report.get('audio_cpu'),
             pending_install=pending,
             video_standard=report.get('video_model', {}).get('standard', item.video_hint),
             interpreter_percent=max((p for p in measured if p is not None), default=None),

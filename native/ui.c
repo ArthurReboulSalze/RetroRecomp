@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "controls.h"
 #include "retro_menu.h"
+#include "retro_keyboard.h"
 #include "embedded_rom.h"
 #include <stdio.h>
 #include <string.h>
@@ -47,7 +48,7 @@ static const char *key_name(SDL_Scancode key) {
     case SDL_SCANCODE_KP_7: return "Num 7";
     case SDL_SCANCODE_KP_8: return "Num 8";
     case SDL_SCANCODE_KP_9: return "Num 9";
-    default: return SDL_GetScancodeName(key);
+    default: return rr_keyboard_name(key);
     }
 }
 

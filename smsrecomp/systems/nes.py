@@ -11,14 +11,15 @@ class NesProfile(SystemProfile):
     name = "Nintendo NES"
     extensions = (".nes",)
     export_folder = "Nintendo NES"
-    video_modes = ("ntsc",)
+    video_modes = ("ntsc", "pal")
 
     def read_rom(self, path: Path):
         from ..nes import read_nes_rom
         return read_nes_rom(path)
 
     def default_video_mode(self, path: Path) -> str:
-        return self.read_rom(path).video_standard
+        value = self.read_rom(path).video_standard
+        return 'ntsc' if value == 'multi' else value
 
     def convert(self, path: Path, **options) -> Path:
         from ..nes import convert_nes
