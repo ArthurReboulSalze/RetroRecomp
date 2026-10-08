@@ -78,6 +78,8 @@ python -m unittest discover -s tests
 python tools/player2_selftest.py
 python tools/banked_vector_selftest.py
 python tools/gameboy_latency_selftest.py
+python tools/megadrive_native_selftest.py
+python tools/snes_native_selftest.py
 ```
 
 Python tests use temporary synthetic fixtures and require no commercial ROM.

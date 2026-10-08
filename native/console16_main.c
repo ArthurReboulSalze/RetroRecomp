@@ -65,12 +65,8 @@ int main(int argc, char **argv) {
     puts(summary);
     if (report) {
         FILE *f = fopen(report, "wb"); if (!f) return 3;
-#if RR16_MD
         summary[strlen(summary) - 1] = 0;
         fputs(summary, f); rr16_report_details(f); fputs("}", f);
-#else
-        fputs(summary, f);
-#endif
         fclose(f);
     }
     rr16_shutdown(); return completed != frames ? 4 : !reset_matches ? 6 : 0;

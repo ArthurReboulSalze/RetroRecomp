@@ -1,3 +1,68 @@
+# RetroRecomp v0.19.0 — more native 16-bit execution and refined scanlines
+
+## Mega Drive
+
+Sonic the Hedgehog now uses the same instruction-AOT path as Columns,
+Golden Axe and Castle of Illusion, preserving the real 68000 PC, stack and
+interrupt frames. The earlier Sonic-specific callbacks are no longer used
+on this path. After learning four missing ROM entries, demo and scripted-play
+checks of 3,600 frames each completed with zero interpreted main-CPU opcodes.
+Their complete visible-frame sequences and final CPU, memory and VDP state
+match the internal reference. Golden Axe also passes the same full-length
+regression check. The sound Z80 remains interpreted.
+
+## Super Nintendo
+
+Super Mario World now has a compiled 65816 operation map for every physical
+ROM byte, with live LoROM mapping, real PC/stack control flow, timed operand
+reads and register-width handling. Conversion tests learn RAM helpers in
+a library scoped to the exact cartridge hash; each native helper verifies
+its PC and four live bytes before running. Modified or unknown code keeps
+the reported fallback. Games never write this learning library themselves.
+
+The first ROM-only pass reported 372,060 interpreted instructions in demo and
+100,750 in play. Learning 130 RAM variants reduced both to zero over the next
+two 3,600-frame checks, about 49 million retired instructions per scenario.
+Visible-frame sequences, final CPU/memory state and CPU/master/APU clocks
+match the internal reference. The earlier reference divergence is resolved
+on these tested paths. Authored fixtures pass 16,544 instruction/state/bus
+comparisons, including register widths and changed-code guards.
+The SPC700 sound processor remains interpreted.
+
+## Scanlines and validation
+
+Mega Drive and SNES scanlines now draw a fine translucent gap for each guest
+raster row instead of darkening every other game row. A cached mask follows
+the actual display height, including fractional fullscreen scaling and HiDPI;
+below 2x, the effect stays off to preserve readability. Framebuffers and guest
+timing are unchanged. Numeric presentation checks pass, and both compressed
+test exports launch with the filter active without creating files or folders.
+
+Both 16-bit converters compare native and reference execution over the full
+requested demo/play length. Missing diagnostics or differences reject the
+candidate and preserve the previous export. The memory command also reports
+the MD/SNES converter's ROM entries, guarded RAM variants and library size.
+162 ROM-free Python tests pass. Native/reference agreement uses shared engine
+semantics; independent hardware fidelity, complete gameplay and physical
+latency remain separate evidence.
+
+## Scope and update
+
+Mega Drive and SNES remain experimental. Compatibility is still restricted
+to the four exact qualified NTSC Mega Drive revisions and the qualified USA
+revision of Super Mario World. Other games, PAL execution and F8/F9 states
+are not enabled for these profiles; SNES cartridge-save persistence is also
+unfinished. SNES conversion needs installed stable Rust >= 1.85.
+See [qualified cartridges and evidence](CONSOLES_16BIT.md).
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Regenerate games to receive the new execution paths and scanlines; updating
+the converter preserves existing game exports and settings. No ROMs, downloaded
+covers, generated games, settings or personal compilation library are bundled.
+Component terms and notices remain in the EXE, including the imported
+frameworks' PolyForm Noncommercial licences. The matching
+[UPX 5.2.1 source archive](../licenses/upx-5.2.1-src.tar.xz) remains in the repository.
+
 # RetroRecomp v0.18.0 — Mega Drive expansion and broader NES support
 
 The Windows converter now includes **six console profiles**. Master System,

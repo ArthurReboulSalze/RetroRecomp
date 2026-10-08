@@ -2,6 +2,7 @@
 #undef NDEBUG
 #include <assert.h>
 #include "host_control.h"
+#include "scanlines.h"
 #include "include/sms_runtime.h"
 static uint64_t test_time_us;
 #define smsrecomp_input_time_us() test_time_us
@@ -69,6 +70,37 @@ static void sizes(void) {
     assert(fake_x==30 && fake_y==40 && fake_w==800 && fake_h==600);
     puts("PASS: F4 window/integer/fit cycle, repeated keys, failed transition, restored window, four filters/eight display sizes, aspect and HiDPI/cropped gun coordinates.");
 }
+static void scanlines(void) {
+    const int rows[] = {192, 224, 240, 448};
+    for (unsigned n = 0; n < sizeof(rows) / sizeof(rows[0]); ++n) {
+        int source = rows[n];
+        /* Native display stays untouched. A 3x pixel is two bright output
+         * rows and one translucent gap, rather than a discarded game row. */
+        unsigned bands = 0;
+        for (int y = 0; y < source * 3; ++y) {
+            assert(rr_scanline_alpha(y, source * 3, source) == (y % 3 == 2 ? 85 : 0));
+            if (rr_scanline_alpha(y, source * 3, source)) ++bands;
+        }
+        assert(bands == (unsigned)source);
+        for (int y = 0; y < source; ++y) assert(!rr_scanline_alpha(y, source, source));
+    }
+    const int heights[] = {448, 672, 720, 896, 1008, 1080, 1440, 2160};
+    for (unsigned n = 0; n < sizeof(heights) / sizeof(heights[0]); ++n) {
+        unsigned total = 0;
+        for (int y = 0; y < heights[n]; ++y) {
+            unsigned alpha = rr_scanline_alpha(y, heights[n], 224);
+            assert(alpha <= 85); total += alpha;
+        }
+        /* Fractional zoom retains the same average brightness within the
+         * half-alpha rounding allowance of each physical output pixel. */
+        assert(abs((int)(total * 3) - heights[n] * 85) <= heights[n] * 3 / 2);
+    }
+    assert(!rr_scanline_alpha(0, 0, 224));
+    assert(!rr_scanline_alpha(-1, 672, 224));
+    assert(!rr_scanline_alpha(672, 672, 224));
+    assert(!rr_scanline_alpha(0, 672, 0));
+    puts("PASS: CRT gaps follow each guest row; native image intact, 3x detail preserved, fractional/fullscreen zoom brightness stable.");
+}
 static void autofire(void) {
     SDL_VirtualJoystickDesc desc; SDL_zero(desc);
     desc.version=SDL_VIRTUAL_JOYSTICK_DESC_VERSION; desc.type=SDL_JOYSTICK_TYPE_GAMECONTROLLER;
@@ -130,7 +162,7 @@ int main(int argc,char **argv) {
     assert(argc==2 && SDL_Init(SDL_INIT_GAMECONTROLLER|SDL_INIT_TIMER)==0);
     assert(MultiByteToWideChar(CP_UTF8,0,argv[1],-1,config_path,RETRO_PATH_CAP));
     controls_load(); window=(SDL_Window*)(uintptr_t)1;
-    sizes(); autofire(); window=NULL;
+    sizes(); scanlines(); autofire(); window=NULL;
     menu=3; parent_menu=1; capturing=true;
     key(SDL_SCANCODE_F8,0); assert(menu==0 && parent_menu==0 && !capturing);
     menu=3; key(SDL_SCANCODE_F9,1); assert(menu==3);

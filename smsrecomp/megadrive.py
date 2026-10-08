@@ -179,7 +179,7 @@ def write_spec(project: Path, rom, title: str) -> None:
         f'#define RR_MD_HBLANK 0x{v["hblank"]:06x}u\n'
         f'#define RR_MD_SONIC {int(profile["sonic"])}\n', encoding='utf-8')
     with (project / 'retro_md_game.h').open('a', encoding='utf-8') as output:
-        output.write(f'#define RR_MD_STEP_AOT {int(not profile["sonic"])}\n')
+        output.write('#define RR_MD_STEP_AOT 1\n')
 
 
 def analysis_identity(project: Path, engine_revision: str, rom) -> dict:

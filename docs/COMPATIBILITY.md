@@ -2,15 +2,17 @@
 
 ## Current scope
 
-RetroRecomp 0.18.0 includes experimental Mega Drive integration for Sonic
+RetroRecomp 0.19.0 includes experimental Mega Drive integration for Sonic
 the Hedgehog, Columns, Golden Axe and Castle of Illusion, and a Super Mario World
 SNES integration, restricted to exact qualified NTSC ROMs.
-They retain interpreted sound CPUs, and the SNES proof retains substantial
-main-CPU fallback. The three new Mega Drive profiles use instruction AOT with
-real PC/stack/interrupt frames and byte-guarded RAM code. Their internal CPU,
-memory and visible-frame comparisons match the reference on the tested paths;
-Sonic and SMW retain earlier reference divergences. These tests do not establish
-independent hardware accuracy or full-game compatibility; see
+Version 0.19.0 extends instruction AOT to Sonic and replaces
+SMW's earlier C-call bridge with static ROM-PC operations and guarded RAM code.
+Both reach zero interpreted main-CPU instructions on demo and scripted-play
+tests of 3,600 frames each. Their internal CPU, memory and visible-frame
+comparisons match the reference over those complete paths. The earlier
+Sonic/SMW reference divergences are resolved on these tested paths.
+Sound CPUs remain interpreted. These tests do not establish independent
+hardware accuracy or full-game compatibility; see
 [16-bit proof scope and evidence](CONSOLES_16BIT.md).
 
 The supported 8-bit profiles build Windows x64 games from Master System,

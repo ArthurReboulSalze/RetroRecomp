@@ -11,6 +11,7 @@
 #include "retro_console16.h"
 #include "retro_menu.h"
 #include "retro_keyboard.h"
+#include "scanlines.h"
 
 
 #if RR16_MD
@@ -159,6 +160,33 @@ static SDL_Rect game_rect(SDL_Renderer *renderer) {
     return rect;
 }
 
+typedef struct ScanlineMask {
+    SDL_Texture *texture;
+    int height;
+} ScanlineMask;
+
+static void draw_scanlines(SDL_Renderer *renderer, ScanlineMask *mask, const SDL_Rect *dst) {
+    if (dst->h < 2 * RR16_HEIGHT || dst->w <= 0) return;
+    if (!mask->texture || mask->height != dst->h) {
+        uint32_t *pixels = (uint32_t *)malloc((size_t)dst->h * sizeof(uint32_t));
+        if (!pixels) return;
+        for (int y = 0; y < dst->h; ++y)
+            pixels[y] = (uint32_t)rr_scanline_alpha(y, dst->h, RR16_HEIGHT) << 24;
+        SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+            SDL_TEXTUREACCESS_STATIC, 1, dst->h);
+        bool ready = texture && SDL_UpdateTexture(texture, NULL, pixels, sizeof(uint32_t)) == 0 &&
+            SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND) == 0 &&
+            SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) == 0;
+        free(pixels);
+        if (!ready) { if (texture) SDL_DestroyTexture(texture); return; }
+        if (mask->texture) SDL_DestroyTexture(mask->texture);
+        mask->texture = texture;
+        mask->height = dst->h;
+    }
+    /* Cached 1-pixel-wide mask: one GPU copy, only regenerated on resize. */
+    SDL_RenderCopy(renderer, mask->texture, NULL, dst);
+}
+
 static void draw_menu(SDL_Renderer *ren) {
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
@@ -234,8 +262,11 @@ int rr16_sdl_main(const char *title, int scale) {
     uint64_t frame = 0;
     int title_state = -1;
     bool running = true;
+    ScanlineMask scanlines = {0};
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     unsigned test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
+    const char *test_filter = test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
+    if (test_filter && !strcmp(test_filter, "3")) filter = 3;
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -322,16 +353,7 @@ int rr16_sdl_main(const char *title, int scale) {
         int texture_scale = filter == 2 ? 2 : 1;
         SDL_Rect source = {0, 0, rr16_visible_width() * texture_scale, RR16_HEIGHT * texture_scale};
         SDL_RenderCopy(ren, tex, &source, &dst);
-        if (filter == 3) {
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(ren, 0, 0, 0, 85);
-            for (int y = 1; y < RR16_HEIGHT; y += 2) {
-                SDL_Rect line = {dst.x, dst.y + y * dst.h / RR16_HEIGHT, dst.w,
-                                 dst.h / RR16_HEIGHT > 0 ? dst.h / RR16_HEIGHT : 1};
-                SDL_RenderFillRect(ren, &line);
-            }
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-        }
+        if (filter == 3) draw_scanlines(ren, &scanlines, &dst);
 
         int current_title_state =
             1 /* Sound CPU currently interpreted on both 16-bit engines. */ |
@@ -361,5 +383,6 @@ int rr16_sdl_main(const char *title, int scale) {
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
+    if (scanlines.texture) SDL_DestroyTexture(scanlines.texture);
     SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); return 0;
 }

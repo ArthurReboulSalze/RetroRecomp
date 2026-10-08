@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <wchar.h>
+#include <stdio.h>
 #if RR16_MD
 #define RR16_WIDTH 320
 #define RR16_HEIGHT 224
@@ -31,10 +32,9 @@ void rr16_shutdown(void);
 bool rr16_state_file(const wchar_t *path, bool load);
 int rr16_sdl_main(const char *title, int scale);
 #if RR16_MD
-#include <stdio.h>
 int rr16_visible_width(void);
-void rr16_report_details(FILE *file);
 #else
 #define rr16_visible_width() RR16_WIDTH
 #endif
+void rr16_report_details(FILE *file);
 #endif

@@ -11,7 +11,7 @@ output platform; more game systems and host platforms are planned.</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.18.0-0879fa" alt="Release version 0.18.0">
+  <img src="https://img.shields.io/badge/release-0.19.0-0879fa" alt="Release version 0.19.0">
   <img src="https://img.shields.io/badge/console_profiles-6-26d7ff" alt="Six console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
@@ -71,18 +71,25 @@ and validation limits.
   mapper, hardware and gameplay validation are still open. The upstream
   engine uses a noncommercial license. See the [NES profile](docs/NES.md).
 - **Mega Drive (experimental).** Qualified NTSC revisions of Sonic the Hedgehog,
-  Columns, Golden Axe and Castle of Illusion can be converted. A new instruction
-  compiler gives the latter three games native 68000 execution on both tested
+  Columns, Golden Axe and Castle of Illusion can be converted. The instruction
+  compiler gives all four games native 68000 execution on both tested
   demo and play paths, including guarded code in RAM. The sound Z80 remains
   interpreted. Menus, mapping, filters and fullscreen match the other profiles.
   Wider game compatibility, PAL and F8/F9 states remain open.
   See the [qualified cartridges and evidence](docs/CONSOLES_16BIT.md).
 - **Super Nintendo (experimental).** The qualified USA revision of Super Mario
-  World uses generated 65816 code and the same RetroRecomp menus. Main-CPU
-  fallback and interpreted SPC700 sound remain; reference divergence still
-  needs investigation. Other games, PAL, F8/F9 and persistent cartridge saves
+  World uses compiled 65816 operations and the same RetroRecomp menus. The
+  converter prepares every ROM position and learns guarded RAM helpers,
+  reaching zero main-CPU fallback in two 3,600-frame tests. Internal CPU,
+  memory and visible-frame comparisons match the reference on these paths.
+  SPC700 sound remains interpreted. Other games, PAL, F8/F9 and persistent cartridge saves
   are not enabled yet.
   See the [16-bit integration scope](docs/CONSOLES_16BIT.md).
+
+Version 0.19.0 includes these Sonic and Super Mario World instruction paths,
+plus scanlines aligned to each guest raster row and the actual display scale.
+Native/reference agreement checks the adapters, not independent hardware
+accuracy or complete gameplay.
 
 <p align="center">
   <img src="MEDIAS/RetroRecomp_UI.png" alt="RetroRecomp interface with automatic console selection, platform and language selectors, and a batch conversion queue" width="1000">
@@ -109,10 +116,11 @@ hardware runtime and a reported fallback interpreter.** Native coverage,
 CPU agreement, hardware fidelity, gameplay and physical latency are separate
 questions; none is proved by the others.
 
-Version 0.18.0 adds the experimental 16-bit profiles, extends native NES
-coverage to bank-switched cartridges, and brings NES PAL timing, quick states
-and Zapper input. Keyboard labels and letter defaults now follow the active
-layout, including AZERTY. Regenerate a game to apply runtime changes;
+Version 0.19.0 extends native instruction execution to Sonic and prepares every
+ROM position plus guarded RAM helpers for Super Mario World. Both now match
+the internal reference on the complete tested scenarios. Mega Drive and SNES
+scanlines follow the guest resolution in windowed and fullscreen modes.
+Regenerate a game to apply runtime changes;
 updating the converter preserves existing game executables.
 See the [release notes](docs/RELEASE_NOTES.md), [NES profile](docs/NES.md)
 and [16-bit scope](docs/CONSOLES_16BIT.md).
@@ -124,9 +132,10 @@ prepares supported instruction positions across ROM banks before play, so
 indirect jumps and bank changes can reach precompiled code. Game Boy combines
 an all-bank SM83 scan, short branch discovery and scripted conversion tests.
 NES prepares native entries across physical PRG banks and follows live bank
-mapping. The three newer Mega Drive profiles learn missing instruction starts
+mapping. All four qualified Mega Drive profiles learn missing instruction starts
 and guarded RAM variants during conversion, then regenerate code in another
-pass. Unknown paths can still require the appropriate reference interpreter;
+pass. Super Mario World prepares every ROM byte and learns guarded RAM
+helpers during its conversion tests. Unknown paths can still require the appropriate reference interpreter;
 its use is reported.
 
 Game Boy keeps all three coverage tests and **Deep Game Boy validation** in its
@@ -162,7 +171,7 @@ of the current release. See [the architecture](docs/ARCHITECTURE.md).
 | Game system | Master System, Game Gear and original Game Boy; experimental NES, Mega Drive and Super Nintendo profiles |
 | Output | Standalone Windows x64 game executable |
 | Conversion | Single ROM or mixed-console batch, three concurrent games by default (1–8 adjustable); extended SMS/GG coverage enabled by default |
-| Improvement | ROM-specific entry observations; guarded RAM variants on SMS/GG and the three newer Mega Drive profiles |
+| Improvement | ROM-specific entry observations; guarded RAM variants on SMS/GG, all four qualified Mega Drive profiles and Super Mario World |
 | Interface | English and French, with contextual help and conversion log |
 | Inputs | Master System: two players and optional gun; Game Gear and Game Boy: one player; NES: two joypads or mouse Zapper; Mega Drive/SNES: two controller ports |
 | Presentation | Integer-scaled fullscreen, sharp pixels, bilinear, Scale2x, scanlines |

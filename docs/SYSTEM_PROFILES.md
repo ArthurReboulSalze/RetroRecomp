@@ -1,6 +1,6 @@
 # Console profiles and video standards
 
-RetroRecomp 0.18.0 has **Master System**, **Game Gear**, **Game Boy** and experimental
+RetroRecomp 0.19.0 has **Master System**, **Game Gear**, **Game Boy** and experimental
 **Nintendo NES**, **Mega Drive** (`md`) and **Super Nintendo** (`snes`) profiles; see
 [16-bit scope](CONSOLES_16BIT.md). All profiles are registered through
 `smsrecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM

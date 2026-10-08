@@ -43,16 +43,16 @@ static void interrupt(uint32_t pc) {
 }
 static void vblank(void) { interrupt(RR_MD_VBLANK); }
 static void hblank(void) { interrupt(RR_MD_HBLANK); }
-#if RR_MD_SONIC
+#if RR_MD_SONIC && !RR_MD_STEP_AOT
 static void periodic(void) { recomp_call_addr(0x001642u); }
 static void post_reset(void) { g_ram[0xf009] = 0x80; }
 #endif
 const GameSpec g_game_spec = {
     .display_name = RR_MD_TITLE, .short_name = RR_MD_KEY,
     .expected_rom_crc32 = RR_MD_CRC32, .expected_rom_size = RR_MD_ROM_BYTES,
-    .logical_players = 2, .tier3_floor_default = !RR_MD_SONIC,
+    .logical_players = 2, .tier3_floor_default = RR_MD_STEP_AOT || !RR_MD_SONIC,
     .call_entry_point = entry, .call_vblank = vblank, .call_hblank = hblank,
-#if RR_MD_SONIC
+#if RR_MD_SONIC && !RR_MD_STEP_AOT
     .call_periodic = periodic, .on_post_reset = post_reset,
     .resume_main_loop_pc = 0x003ae2u, .dispatch_main_loop_pc = 0x000388u,
 #endif

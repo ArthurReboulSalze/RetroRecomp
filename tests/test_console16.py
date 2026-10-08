@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from zipfile import ZipFile
 from smsrecomp.cartridge16 import read_megadrive_rom, read_snes_rom
-from smsrecomp.console16 import qualified_rom
+from smsrecomp.console16 import qualified_rom, reference_differences
 from smsrecomp.core import ConversionError
 from smsrecomp.systems import profile_for_path, discover_roms
 from smsrecomp.batch import identify, system_output
@@ -113,3 +113,23 @@ class Console16Tests(unittest.TestCase):
             metadata = game_metadata('Game', False, 'ntsc', system)
             self.assertEqual(metadata['Console'], console)
             self.assertIn(console + ' NTSC', metadata['FileDescription'])
+
+    def test_empty_reports_cannot_validate_native_execution(self):
+        for system in ('md', 'snes'):
+            differences = reference_differences(system, {}, {})
+            self.assertIn('cpu_hash', differences)
+            self.assertIn('sequence_hash', differences)
+            self.assertIn('retired_instruction_count', differences)
+
+    def test_validation_rejects_memory_timing_and_retired_count_differences(self):
+        fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
+                  'cpu_pc', 'vsram_hash', 'vdp_register_hash', 'oam_hash', 'high_oam_hash',
+                  'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles')
+        native = dict.fromkeys(fields, 1) | {'native_entries': 100, 'interpreted_opcodes': 0}
+        reference = native | {'native_entries': 0, 'interpreted_opcodes': 100}
+        for system, key in (('md', 'vdp_register_hash'), ('snes', 'master_cycles'), ('snes', 'oam_hash')):
+            self.assertEqual(reference_differences(system, native, reference), [])
+            self.assertIn(key, reference_differences(system, native, reference | {key: 2}))
+            self.assertIn(key, reference_differences(system, native, reference | {key: None}))
+            self.assertIn('retired_instruction_count', reference_differences(system, native,
+                reference | {'interpreted_opcodes': 99}))

@@ -82,7 +82,7 @@ def dependencies16(system_id: str, emit):
 
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str) -> None:
-    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', 'scanlines.h', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
     native = project / 'native'
     native.mkdir(exist_ok=True)
@@ -157,12 +157,22 @@ target_compile_definitions(game PRIVATE RR16_MD=1 OWN_BACKEND=1 ENABLE_RECOMPILE
 target_link_options(game PRIVATE /CETCOMPAT:NO)
 '''
     else:
+        from .snes_codegen import generate, adapt_core, adapt_bridge
+        from .cartridge16 import read_snes_rom
+        generate(engine, project, read_snes_rom(project / 'smw.sfc'))
+        shutil.copy2(ASSETS / 'native/snes_native_steps.h', project / 'snes_native_steps.h')
         shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
         # Upstream uses one GCC alignment annotation in its PPU header.
         # Preserve the required alignment on MSVC in a private runtime copy.
         staged = project / 'engine'
         for directory in ('runner', 'third_party'):
             shutil.copytree(engine / directory, staged / directory, dirs_exist_ok=True)
+        (staged / 'runner/src/snes/interp816.c').write_text(
+            adapt_core((engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')),
+            encoding='utf-8')
+        (staged / 'runner/src/snes/interp_bridge.c').write_text(
+            adapt_bridge((engine / 'runner/src/snes/interp_bridge.c').read_text(encoding='utf-8')),
+            encoding='utf-8')
         ppu = staged / 'runner/src/snes/ppu.h'
         text = ppu.read_text(encoding='utf-8')
         text = text.replace('typedef struct PpuPixelPrioBufs {',
@@ -227,11 +237,11 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
                    [sys.executable, engine / 'snesrecomp_cli.py'])
         run([*command, *arguments], log=project / 'generate.log', timeout=1200)
     atomic_json(cache, identity)
-    if system_id == 'md' and not md_profile['sonic']:
+    if system_id == 'md':
         import re
         from .megadrive_codegen import generate_steps
         static_pcs = {int(value, 16) for value in re.findall(r'\{0x([0-9A-Fa-f]+)u,',
-            (project / 'generated/game_cycles.c').read_text(encoding='utf-8'))}
+            (project / f'generated/{md_profile["prefix"]}_cycles.c').read_text(encoding='utf-8'))}
         analysis = generate_steps(engine, project, rom, static_pcs | entries | set(megadrive.vectors(rom)['roots']),
                                   megadrive.read_ram_variants(rom))
         emit(f'{analysis["translated_instructions"]} native instructions, '
@@ -287,10 +297,11 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
     import subprocess
     env = os.environ.copy()
     if reference:
-        env.update(GENESIS_FORCE_INTERP='1', SNESRECOMP_LLE_BOUNCE='0')
+        env.update(GENESIS_FORCE_INTERP='1', SNESRECOMP_LLE_BOUNCE='0', RR_SNES_FORCE_INTERP='1')
     else:
         env.pop('GENESIS_FORCE_INTERP', None)
         env.pop('SNESRECOMP_LLE_BOUNCE', None)
+        env.pop('RR_SNES_FORCE_INTERP', None)
     result = subprocess.run([str(arg) for arg in command], cwd=directory, env=env,
         capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW)
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
@@ -301,6 +312,20 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
     if data.get('frames') != frames:
         raise ConversionError('16-bit probe did not complete the requested frames.')
     return {'scenario': scenario, **data}
+
+
+def reference_differences(system_id: str, native: dict, reference: dict) -> list[str]:
+    """Require every diagnostic field; absent data must never validate an export."""
+    fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'cpu_pc')
+    fields += (('vsram_hash', 'vdp_register_hash') if system_id == 'md' else
+               ('oam_hash', 'high_oam_hash', 'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles'))
+    differences = [field for field in fields if native.get(field) is None or reference.get(field) is None
+                   or native[field] != reference[field]]
+    counters = ('native_entries', 'interpreted_opcodes')
+    if (any(check.get(key) is None for check in (native, reference) for key in counters)
+            or sum(native[key] for key in counters) != sum(reference[key] for key in counters)):
+        differences.append('retired_instruction_count')
+    return differences
 
 
 def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profile=None,
@@ -348,69 +373,56 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         with (project / 'game_resources.rc').open('a', encoding='utf-8') as rc:
             rc.write('102 RCDATA "game_legal.md"\n' + f'103 RCDATA "{rom_file.name}"\n' +
                      '104 RCDATA "game_identity.bin"\n')
-    step_aot = system_id == 'md' and not megadrive.profile_for(rom)['sonic']
+    from . import supernintendo
+    learn = megadrive.learn_entries if system_id == 'md' else supernintendo.learn_ram_variants
     history, comparisons = [], []
-    for attempt in range(passes if step_aot else 1):
+    for attempt in range(passes):
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources)
         checks_dir = executable.parents[2] / 'checks'
         checks_dir.mkdir(exist_ok=True)
         checks = []
         for play in (False, True):
             check = probe16(executable, checks_dir, frames, play=play)
-            check['native_counter_unit'] = 'main CPU opcodes' if system_id == 'md' else 'compiled bridge entries'
+            check['native_counter_unit'] = 'main CPU opcodes'
             checks.append(check)
             emit(f"{name} {check['scenario']}: {check['frames']} frames, "
                  f"{check['interpreted_opcodes']} interpreted main CPU opcodes. Sound CPU: interpreted.")
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes')} for check in checks]})
-        if not step_aot:
-            break
         if not any(check.get('rom_entries') or check.get('ram_variants') for check in checks) or attempt + 1 == passes:
             break
-        added = megadrive.learn_entries(rom, checks)
+        added = learn(rom, checks)
         if not added:
             break
-        emit(f'Pass {attempt + 1}/{passes}: {added} ROM entries/RAM byte variants learned; regenerating native code.')
-    reference_frames = frames if step_aot else min(frames, 120)
+        observations = 'ROM entries/RAM byte variants' if system_id == 'md' else 'RAM byte variants'
+        emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
     reference_dir = checks_dir / 'reference'
     reference_dir.mkdir(exist_ok=True)
-    if step_aot:
-        fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash',
-                  'cram_hash', 'vsram_hash', 'vdp_register_hash')
-        for native in checks:
-            reference = probe16(executable, reference_dir, frames,
-                                play=native['scenario'] == 'play', reference=True)
-            differing = [field for field in fields if native.get(field) != reference.get(field)]
-            if native['native_entries'] + native['interpreted_opcodes'] != reference['native_entries'] + reference['interpreted_opcodes']:
-                differing.append('retired_instruction_count')
-            comparisons.append({'scenario': native['scenario'], 'frames': frames, 'differences': differing})
-        matches = not any(result['differences'] for result in comparisons)
-        if not matches:
-            atomic_json(checks_dir / 'native-validation.json', {'comparisons': comparisons})
-            raise ConversionError('Mega Drive native CPU/VDP reference comparison failed. '
-                                  f'Previous export preserved; see {checks_dir}.')
-        megadrive.learn_entries(rom, checks)
-    else:
-        native = probe16(executable, reference_dir, reference_frames)
-        reference = probe16(executable, reference_dir, reference_frames, reference=True)
-        matches = native['sequence_hash'] == reference['sequence_hash']
-    emit(('Internal CPU/memory/visible-frame reference comparison: ' if step_aot else
-          'Internal visible-frame reference comparison: ') + ('matches.' if matches else
-         'differs; this export remains experimental. CPU and hardware fidelity are not validated.'))
+    for native in checks:
+        reference = probe16(executable, reference_dir, frames,
+                            play=native['scenario'] == 'play', reference=True)
+        comparisons.append({'scenario': native['scenario'], 'frames': frames,
+                            'differences': reference_differences(system_id, native, reference)})
+    if any(result['differences'] for result in comparisons):
+        atomic_json(checks_dir / 'native-validation.json', {'comparisons': comparisons})
+        raise ConversionError(f'{name} native CPU/video reference comparison failed. '
+                              f'Previous export preserved; see {checks_dir}.')
+    learn(rom, checks)
+    emit('Internal CPU/memory/visible-frame reference comparison: matches.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': 'experimental',
         'system': {'id': system_id, 'name': name}, 'rom': rom.metadata(),
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
-        'native_validation': {'passed': matches if step_aot else None, 'visible_sequence_match': matches,
+        'native_validation': {'passed': True, 'visible_sequence_match': True,
                               'comparisons': comparisons,
-                              'reference_frames': reference_frames, 'cpu_fidelity_validated': False,
+                              'reference_frames': frames, 'reference_kind': 'internal_shared_semantics',
+                              'cpu_fidelity_validated': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False},
         'video_model': {'standard': 'ntsc', 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256, 224]},
-        'audio_cpu': 'interpreted', 'native_percentage': ([round(100 * check['native_entries'] /
-            max(1, check['native_entries'] + check['interpreted_opcodes']), 6) for check in checks]
-            if system_id == 'md' else None),
+        'audio_cpu': 'interpreted', 'native_percentage': [round(100 * check['native_entries'] /
+            max(1, check['native_entries'] + check['interpreted_opcodes']), 6) for check in checks],
         'game_states': {'supported': False}, 'runtime_learning': False,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable),

@@ -1,10 +1,12 @@
 # Experimental Mega Drive and Super Nintendo profiles
 
-RetroRecomp 0.18.0 includes two separate experimental console profiles. This
+RetroRecomp includes two separate experimental console profiles. This
 does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identified
 from its console header, then its SHA-256 must match a qualified game revision
 before code generation starts. A different revision, PAL ROM or unsupported
 title is rejected rather than compiled with another game's roots.
+This document describes release 0.19.0, including the Sonic and Super Mario
+World instruction paths and scanline corrections added since release 0.18.0.
 
 | Profile | Qualified cartridge | Timing | Visible image |
 | --- | --- | --- | --- |
@@ -29,6 +31,12 @@ F6 autofire and F7 English/French. Two controller ports are wired; the
 selected game determines whether two-player gameplay exists. Controller
 left-stick click pauses; player one's right-stick click restarts.
 
+The scanline filter places a translucent gap between every guest raster row,
+using the actual displayed height. Its cached mask accounts for fractional
+fullscreen scaling and HiDPI output, without darkening alternate game rows.
+Below 2x vertical scaling, the image stays intact because those gaps cannot
+be resolved. Only presentation changes; game pixels and timing remain untouched.
+
 Mega Drive defaults to arrows, W/X/C for A/B/C and Enter for Start. SNES
 defaults to arrows, W/X/A/S for A/B/X/Y, Q/E for L/R, right Shift for Select
 and Enter for Start. Player two uses the numeric keypad and has no reset
@@ -46,17 +54,13 @@ private build directories and are created only by explicit conversion tests.
 
 ## Native coverage and validation
 
-Sonic's 68000 paths use static generated C; its sound Z80 remains interpreted.
-The compiler rejects unsupported dispatch sites during generation.
-Super Mario World uses generated 65816 C and an instruction interpreter for
-remaining paths; its SPC700 sound processor remains interpreted.
-
-Columns, Golden Axe and Castle of Illusion use a new instruction-level AOT
-adapter. Each known ROM instruction emits its selected C operation with literal
+All four qualified Mega Drive games use instruction-level AOT.
+Each known ROM instruction emits its selected C operation with literal
 operands. Execution follows the real 68000 PC and stack, including computed
 jumps, changed return addresses and hardware-shaped interrupt frames. It does
 not dispatch covered instructions through an opcode interpreter. This avoids
-the C-function call model's unsafe stack exits found when extending beyond Sonic.
+the earlier C-function call model's unsafe stack exits and Sonic-specific
+callbacks. Its sound Z80 remains interpreted.
 
 The converter's demo/play probes collect missing ROM instruction starts and
 RAM code variants. Later passes regenerate static code from those observations.
@@ -66,31 +70,57 @@ to the exact ROM hash in the converter's `datas/library/md` namespace. Generated
 games keep diagnostic observations in memory and never write a learning library.
 H32 and H40 output uses the VDP's active 256- or 320-pixel width at presentation.
 
+Super Mario World uses a separate 65816 adapter. The converter selects one
+compiled operation for every physical ROM byte and writes a ROM-PC dispatch
+map. LoROM mirrors follow the live cartridge mapping. Covered operations bypass
+the opcode-switch interpreter while retaining the real PC, stack, opcode-fetch
+timing and live operand reads. Register-width flags, bank wrapping and memory
+accesses therefore retain the pinned engine's semantics. Operands are not
+specialized into literals as they are in the Mega Drive adapter.
+
+SNES RAM helpers are learned during converter probes, then compiled with an
+exact PC and four-byte live-code guard, covering the longest 65816 instruction.
+Changed bytes or an unobserved helper use the counted interpreter. Up to
+2,048 variants are stored in `datas/library/snes/<rom-sha256>/native-ram.json`.
+Generated games keep observations in memory only. The SPC700 sound processor
+remains interpreted. Both native and reference tests use the real PC/stack
+instruction scheduler instead of the previous paired C-call bridge.
+
 The converter records interpreted main-CPU **opcodes**, separately from the
-sound-CPU status. The Mega Drive native counter counts main-CPU opcodes; the
-SNES native counter counts compiled bridge entries. These different units
-are deliberately not combined into a misleading native percentage. The
-window title signals interpreter use, including the sound CPU, and H explains
-that status.
+sound-CPU status. Both native counters now count retired main-CPU opcodes, so
+reported native percentages refer only to the main CPU. The window title
+signals interpreter use, including the sound CPU, and H explains that status.
 
-Earlier demo and scripted-play probes complete 1,800 frames for Sonic and SMW. Sonic
-reported zero interpreted 68000 opcodes in those two runs; SMW still reported
-millions of interpreted 65816 opcodes. The internal visible-frame sequences
-differed from the reference execution over a 120-frame boot comparison.
-The three new Mega Drive games complete demo and scripted-play probes of
-3,600 frames each with **zero interpreted 68000 instructions** on those tested
-paths, including the learned RAM helpers. Their visible-frame sequence, final
-CPU registers, RAM, VRAM, CRAM, VSRAM, VDP registers and retired instruction
-counts match the separate reference execution over the same complete probes.
-Authored fixtures additionally exercise 6,208 instruction/state comparisons,
-guest-stack return modification, RTE exception frames, byte stack alignment
-and self-modifying RAM guard rejection.
-An empty-library conversion of all three titles reaches these results in two
-passes per title, using the default 3,600-frame tests. Prior observations are
-not required for this measured result.
+Demo and scripted-play probes cover 3,600 frames per scenario. Columns, Golden
+Axe and Castle of Illusion already reached **zero interpreted 68000 instructions**
+with matching internal reference results in release 0.18.0. The new Sonic path
+now reaches the same result after learning four missing ROM starts in a second
+pass; Golden Axe also passes a repeat check after this shared-path change.
+Mega Drive comparisons cover the visible-frame sequence, final CPU registers,
+PC, RAM, VRAM, CRAM, VSRAM, VDP registers and retired instruction totals.
+Authored Mega Drive fixtures exercise 6,208 instruction/state comparisons,
+guest-stack return modification, RTE frames, byte stack alignment and
+self-modifying RAM guard rejection.
 
-The instruction adapter and reference share the pinned decoder and semantic
-helpers. Agreement checks the adapter, not an independent hardware oracle.
+Super Mario World's first ROM-only pass reported 372,060 interpreted main-CPU
+instructions in demo and 100,750 in play. Learning 130 RAM variants and
+regenerating reduced both to **zero**, over approximately 49 million retired
+instructions per scenario. Both full-length reference comparisons match:
+visible-frame sequence, final CPU registers/PC, RAM, VRAM, CGRAM, OAM,
+high OAM, APU RAM and CPU/master/APU clocks. Authored SNES fixtures pass
+16,544 instruction/state/bus comparisons across all 256 operations, register
+widths, emulation/native modes, decimal arithmetic, LoROM mirrors and changed
+RAM/ROM guard rejection. Boot/reset/repeated 600-frame image sequences also
+match for Sonic and SMW.
+
+Every conversion compares native and reference execution over the full
+requested demo/play length. Missing diagnostics or differing state, images,
+timing or instruction totals reject the candidate and preserve the previous
+export. Sonic and SMW's earlier reference divergences are resolved on these
+bounded paths; this is not a claim that every game path has been explored.
+
+The instruction adapters and references share pinned semantic helpers.
+Agreement checks the adapters, not an independent hardware oracle.
 Untested gameplay may still encounter interpreter fallback. Hardware
 accuracy, full-game compatibility, sound quality and physical latency remain
 unvalidated. User gameplay review is still required.
@@ -122,6 +152,6 @@ MIT licence does not replace them. See [Genesis notices](../licenses/segagenesis
 [SNES notices](../licenses/snesrecomp.md) and [SMW notices](../licenses/SuperMarioWorldRecomp.md).
 
 The next stages are broader Mega Drive gameplay and mapper qualification,
-reference-divergence diagnosis for the earlier proofs, reduced 65816 fallback,
-state/SRAM integration, PAL timing qualification and additional structurally
+broader SNES RAM/gameplay coverage, state/SRAM integration, PAL timing
+qualification and additional structurally
 different titles. Recognition alone does not grant conversion compatibility.

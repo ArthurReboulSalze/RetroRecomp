@@ -167,9 +167,17 @@ def main() -> int:
                         raise ConversionError('16-bit proofs do not import Z80 observation manifests.')
                     from smsrecomp.console16 import qualified_rom, REPOSITORIES
                     rom = qualified_rom(args.rom, system.id)
+                    from smsrecomp import megadrive, supernintendo
+                    entries = megadrive.read_entries(rom) if system.id == 'md' else set()
+                    ram = (megadrive.read_ram_variants(rom) if system.id == 'md' else
+                           supernintendo.read_ram_variants(rom))
+                    record = (megadrive.memory_file(rom) if system.id == 'md' else
+                              supernintendo.memory_file(rom))
                     print(json.dumps({'system': system.id, 'sha256': rom.sha256,
                         'engine_revision': REPOSITORIES[system.id][1],
-                        'analysis': 'pinned game roots and exact-ROM generated-source cache',
+                        'analysis': 'instruction AOT and exact-ROM converter observations',
+                        'rom_entries': len(entries), 'ram_variants': len(ram),
+                        'library_bytes': record.stat().st_size if record.is_file() else 0,
                         'runtime_learning': False}, indent=2))
                     return 0
                 if system.id == 'gb':

@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.18.0"
+VERSION = "0.19.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -64,10 +64,12 @@ native/nes_machine_checks.c tools/nes_machine_selftest.py
 tools/nes_state_selftest.py
 smsrecomp/nes_machine.py smsrecomp/nes_catalog.py
 smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
-native/retro_console16.h native/console16_main.c native/console16_host_ui.c
+native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
 native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_step_dispatch.c
 native/md_native_checks.c tools/megadrive_native_selftest.py tests/test_megadrive.py
-native/snes_backend.c tests/test_console16.py docs/CONSOLES_16BIT.md
+native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
+smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
+tools/snes_native_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md
 native/gb_input_refresh.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
