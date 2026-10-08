@@ -5,8 +5,9 @@ does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identifie
 from its console header, then its SHA-256 must match a qualified game revision
 before code generation starts. A different revision, PAL ROM or unsupported
 title is rejected rather than compiled with another game's roots.
-This document describes release 0.19.0, including the Sonic and Super Mario
-World instruction paths and scanline corrections added since release 0.18.0.
+This document describes release 0.20.0, including the native instruction
+paths, resolution-aware scanlines and three qualified lightgun cartridges;
+see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 
 | Profile | Qualified cartridge | Timing | Visible image |
 | --- | --- | --- | --- |
@@ -14,7 +15,10 @@ World instruction paths and scanline corrections added since release 0.18.0.
 | Mega Drive | Columns, CRC32 D783C244 | NTSC | 320 × 224 |
 | Mega Drive | Golden Axe, CRC32 665D7DF9 | NTSC | 256 × 224 (H32) |
 | Mega Drive | Castle of Illusion, CRC32 BA4E9FD0 | NTSC | 320 × 224 |
+| Mega Drive | Menacer 6-Game Cartridge, CRC32 936B85F7 | NTSC | 320 × 224 |
+| Mega Drive | T2 - The Arcade Game, CRC32 A1264F17 | NTSC | 320 × 224 |
 | Super Nintendo | Super Mario World, USA, CRC32 B19ED489 | NTSC | 256 × 224 |
+| Super Nintendo | Super Scope 6, USA, CRC32 B141EA99 | NTSC | 256 × 224 |
 
 The original ROMs remain read-only. Linear `.md`/`.gen` and validated
 `.sfc`/`.smc` images, single-cartridge ZIPs, and identifiable `.bin`/`.rom`
@@ -30,6 +34,7 @@ scanlines, F4 window/integer fullscreen/aspect-preserving fullscreen,
 F6 autofire and F7 English/French. Two controller ports are wired; the
 selected game determines whether two-player gameplay exists. Controller
 left-stick click pauses; player one's right-stick click restarts.
+Gun games use the mouse on port 2, a small red cross, and F5 gun settings.
 
 The scanline filter places a translucent gap between every guest raster row,
 using the actual displayed height. Its cached mask accounts for fractional
@@ -54,7 +59,7 @@ private build directories and are created only by explicit conversion tests.
 
 ## Native coverage and validation
 
-All four qualified Mega Drive games use instruction-level AOT.
+All qualified Mega Drive games use instruction-level AOT.
 Each known ROM instruction emits its selected C operation with literal
 operands. Execution follows the real 68000 PC and stack, including computed
 jumps, changed return addresses and hardware-shaped interrupt frames. It does
@@ -136,9 +141,11 @@ These profiles use pinned sources downloaded into `.deps` on first conversion:
 | [SuperMarioWorldRecomp](https://github.com/mstan/SuperMarioWorldRecomp) | `8dedb2869414f20d1d86d34081be26594560cc15` |
 
 The existing Windows C++ toolchain is required for conversion. The SNES
-analyzer additionally requires an installed stable Rust toolchain, minimum
+function analyzer for Super Mario World additionally requires an installed stable Rust toolchain, minimum
 1.85; this integration does not install Rust automatically. Generated games
 need none of those development tools to run.
+Super Scope 6's instruction map does not require that function analyzer or
+the separate SuperMarioWorldRecomp dependency.
 
 Generated-source analysis is cached for the exact ROM, pinned engine/game
 profile, adapter revision and verified observations. Changes to that identity

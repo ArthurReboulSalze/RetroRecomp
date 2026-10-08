@@ -2,10 +2,13 @@
 
 ## Current scope
 
-RetroRecomp 0.19.0 includes experimental Mega Drive integration for Sonic
-the Hedgehog, Columns, Golden Axe and Castle of Illusion, and a Super Mario World
-SNES integration, restricted to exact qualified NTSC ROMs.
-Version 0.19.0 extends instruction AOT to Sonic and replaces
+RetroRecomp 0.20.0 includes experimental Mega Drive integration for Sonic
+the Hedgehog, Columns, Golden Axe, Castle of Illusion, Menacer 6-Game Cartridge
+and T2 - The Arcade Game. Super Nintendo supports Super Mario World and
+Super Scope 6. Both profiles are restricted to exact qualified NTSC ROMs.
+Mouse Menacer/Super Scope input and shared gun settings are included;
+see [16-bit gun controls and validation](GUNS_16BIT.md).
+The instruction adapters introduced in version 0.19.0 extend AOT to Sonic and replace
 SMW's earlier C-call bridge with static ROM-PC operations and guarded RAM code.
 Both reach zero interpreted main-CPU instructions on demo and scripted-play
 tests of 3,600 frames each. Their internal CPU, memory and visible-frame
@@ -99,7 +102,7 @@ See [video evidence](VIDEO.md) and [console profiles](SYSTEM_PROFILES.md).
 | Gameplay | Full playthroughs and physical two-player sessions remain unvalidated. |
 | Physical latency | Device, OS, display and game response have not been measured. |
 
-The current development build passes 134 Python tests. Earlier input/presentation work
+Release 0.20.0 passes 168 Python tests. Earlier input/presentation work
 also passed SDL host checks with two virtual controllers and 4,096 simultaneous
 input states. Actual
 game CPU/RAM/VDP/PCM states are compared across pause/restart. These checks

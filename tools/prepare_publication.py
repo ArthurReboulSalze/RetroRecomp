@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.19.0"
+VERSION = "0.20.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -69,6 +69,9 @@ native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_s
 native/md_native_checks.c tools/megadrive_native_selftest.py tests/test_megadrive.py
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
 smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
+smsrecomp/guns16.py smsrecomp/gun16_runtime.py
+native/gun16.h native/gun16.c native/gun16_checks.c
+tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
 tools/snes_native_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md
 native/gb_input_refresh.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py

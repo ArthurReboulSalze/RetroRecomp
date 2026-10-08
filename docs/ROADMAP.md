@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-RetroRecomp 0.19.0 converts supported Master System, Game Gear and original
+RetroRecomp 0.20.0 converts supported Master System, Game Gear and original
 Game Boy ROMs, and includes experimental NES, Mega Drive and Super Nintendo
 profiles. The 16-bit profiles accept only qualified game revisions. The
 priorities below describe areas to improve, not compatibility or delivery promises.
@@ -12,8 +12,8 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |
 | Input response | Measure end-to-end controller latency before making performance claims. |
 | NES | Extend mapper, PAL, peripheral and gameplay validation beyond the existing bounded checks. |
-| Mega Drive | Extend gameplay validation of all four instruction-AOT profiles, qualify more cartridges, and add PAL and persistent states. |
-| Super Nintendo | Extend guarded RAM coverage and gameplay checks beyond the validated SMW paths, then qualify more games, timing modes and saves. |
+| Mega Drive | Extend gameplay and peripheral validation of all six qualified profiles, qualify more cartridges, and add PAL and persistent states. |
+| Super Nintendo | Extend guarded RAM, gameplay and peripheral checks beyond Super Mario World and Super Scope 6, then qualify more games, timing modes and saves. |
 
 ## Improvement loop
 

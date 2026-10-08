@@ -1,3 +1,46 @@
+# RetroRecomp v0.20.0 — lightguns across more consoles
+
+## Play with the mouse
+
+Mega Drive now supports Menacer aiming in **Menacer 6-Game Cartridge** and
+**T2 - The Arcade Game**. Super Nintendo adds **Super Scope 6**. Move the mouse
+to aim, left-click to fire, and use **F5** to choose the cross or dot, size and
+color. The default red cross has thicker strokes for better visibility.
+Original controller-selection and calibration screens remain intact.
+
+T2's gun detection and CPU/audio scheduling have been corrected. Gun input in
+all three games has been confirmed by the user after the fix.
+
+## One app, six consoles
+
+The README is shorter and focuses on the multiconsole experience: mixed-folder
+batches, compact standalone games and shared menus. Master System, Game Gear
+and original Game Boy are supported. NES, Mega Drive and Super Nintendo remain
+experimental; the 16-bit profiles accept six qualified Mega Drive revisions
+and two Super Nintendo revisions. See the [current game list](CONSOLES_16BIT.md)
+and [gun controls](GUNS_16BIT.md). Other gun games are not automatically enabled.
+PAL execution and F8/F9 states are still unavailable on the 16-bit profiles.
+
+## Validation
+
+168 ROM-free Python tests and 127 authored native gun checks pass. Each new gun
+cartridge passes 3,600-frame demo and scripted-play comparisons with the internal
+reference, with zero interpreted main-CPU instructions on those tested paths.
+The sound processors remain interpreted. CPU agreement, hardware fidelity,
+complete gameplay and physical latency are separate measures; these checks do
+not establish complete hardware accuracy or zero latency.
+
+## Update
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Regenerate the affected games to receive the gun improvements. Updating the
+converter preserves existing games and settings. No ROMs, downloaded covers,
+generated games, personal settings or compilation library are bundled.
+Component notices remain embedded in the EXE; their own licensing terms apply.
+The matching [UPX source archive](../licenses/upx-5.2.1-src.tar.xz) is in the repository.
+
+---
+
 # RetroRecomp v0.19.0 — more native 16-bit execution and refined scanlines
 
 ## Mega Drive

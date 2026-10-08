@@ -11,7 +11,7 @@ from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
 from .library import atomic_json
-from . import megadrive
+from . import megadrive, supernintendo, guns16
 
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
@@ -31,23 +31,21 @@ def qualified_rom(path: Path, system_id: str, standard_override: str | None = No
     if system_id == 'md':
         megadrive.profile_for(rom)
         megadrive.vectors(rom)
-    elif rom.sha256 != SUPPORTED[system_id][0]:
-        raise ConversionError(f'{system_id.upper()} integration is experimental: only the verified '
-                              f'{SUPPORTED[system_id][1]} ROM is currently supported. '
-                              'This cartridge was identified, but will not be compiled with another game\'s profile.')
+    else:
+        supernintendo.profile_for(rom)
     if standard_override and standard_override != 'ntsc':
         raise ConversionError('This 16-bit integration proof is qualified for NTSC only; PAL is not enabled yet.')
     return rom
 
 
 @serialized_setup
-def dependencies16(system_id: str, emit):
+def dependencies16(system_id: str, emit, *, legacy_smw=True):
     cmake, generator = toolchain()
     sdl = ROOT / '.deps/SDL/install'
     if not (sdl / 'lib/SDL2-static.lib').is_file():
         from .core import dependencies
         _, sdl, cmake, generator = dependencies(emit)
-    names = (system_id, 'smw') if system_id == 'snes' else (system_id,)
+    names = (system_id, 'smw') if system_id == 'snes' and legacy_smw else (system_id,)
     for key in names:
         repo, revision, directory = REPOSITORIES[key]
         checkout = ROOT / '.deps' / directory
@@ -70,7 +68,7 @@ def dependencies16(system_id: str, emit):
             run([cmake, '--build', build, '--config', 'Release', '--parallel', '4'], log=build / 'build.log')
     else:
         compiler = engine / 'recompiler-rs/target/release/snesrecomp-analyze.exe'
-        if not compiler.is_file():
+        if legacy_smw and not compiler.is_file():
             # Use the installed stable toolchain instead of silently downloading
             # the upstream development pin. The crate requires Rust >= 1.85.
             emit('Building the SNES native analyzer with installed Rust…')
@@ -82,7 +80,7 @@ def dependencies16(system_id: str, emit):
 
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str) -> None:
-    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', 'scanlines.h', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', 'scanlines.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
     native = project / 'native'
     native.mkdir(exist_ok=True)
@@ -116,6 +114,8 @@ find_package(SDL2 REQUIRED)
         if step_aot:
             from .megadrive_codegen import adapt_irq_glue
             glue = adapt_irq_glue(glue)
+            from .gun16_runtime import md_glue
+            glue = md_glue(glue)
             glue = glue.replace('    if (genesis_force_interp()) {\n        uint32_t entry',
                 '    if (genesis_force_interp() || RR_MD_STEP_AOT) {\n        uint32_t entry', 1)
             glue = glue.replace('        /* NOTE: no per-instruction check_cycle_budget()',
@@ -127,6 +127,8 @@ find_package(SDL2 REQUIRED)
         if step_aot:
             from .megadrive_codegen import adapt_interpreter
             interp = adapt_interpreter(interp)
+            from .gun16_runtime import md_interpreter
+            interp = md_interpreter(interp)
         (native / 'm68k_interp.c').write_text(interp, encoding='utf-8')
         audio = (engine / 'runner/audio.c').read_text(encoding='utf-8')
         audio = audio.replace('want.samples  = 1024;', 'want.samples  = 512;')
@@ -138,16 +140,20 @@ find_package(SDL2 REQUIRED)
                    'rb_state.c',
                    'cosim_state.c', 'cosim_cycles.c', 'audio/event_queue.c', 'audio/ym2612_ymfm.cpp',
                    'audio/sn76489.c', 'audio/mixer.c', 'audio/observability.c', 'audio/audio_shadow.c',
-                   'audio/fm_shadow.cpp', 'video/color_lut.c', 'video/genesis_vdp.c', 'video/genesis_bus.c',
-                   'video/genesis_machine.c', 'external/superzazu/z80.c']
+                   'audio/fm_shadow.cpp', 'video/color_lut.c', 'external/superzazu/z80.c']
+        from .gun16_runtime import md_bus, md_vdp, md_machine
+        for name, adapt in (('genesis_bus', md_bus), ('genesis_vdp', md_vdp), ('genesis_machine', md_machine)):
+            (native / f'{name}.c').write_text(adapt((engine / f'runner/video/{name}.c').read_text(encoding='utf-8')),
+                                           encoding='utf-8')
         sources += [f'external/ymfm/src/{name}.cpp' for name in ('ymfm_opn', 'ymfm_ssg', 'ymfm_adpcm', 'ymfm_pcm')]
         source_text = '\n'.join(f'  "{prefix}/runner/{source}"' for source in sources)
         generated_glob = ('"steps/*.c" "generated/*_layout.c"' if step_aot else
                           '"generated/*_part*.c" "generated/*_dispatch.c" "generated/*_layout.c"')
         step_sources = 'md_step_dispatch.c' if step_aot else ''
         common += f'''file(GLOB GENERATED CONFIGURE_DEPENDS {generated_glob})
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c md_backend.c
-  native/glue.c native/m68k_interp.c native/audio.c game_resources.rc {step_sources} ${{GENERATED}}
+add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c md_backend.c
+  native/glue.c native/m68k_interp.c native/audio.c native/genesis_bus.c native/genesis_vdp.c
+  native/genesis_machine.c game_resources.rc {step_sources} ${{GENERATED}}
 {source_text}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(game PRIVATE . "{prefix}/runner" "{prefix}/runner/include"
@@ -159,9 +165,13 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
     else:
         from .snes_codegen import generate, adapt_core, adapt_bridge
         from .cartridge16 import read_snes_rom
-        generate(engine, project, read_snes_rom(project / 'smw.sfc'))
+        rom = read_snes_rom(project / ('smw.sfc' if (project / 'smw.sfc').exists() else 'cartridge.sfc'))
+        generate(engine, project, rom)
         shutil.copy2(ASSETS / 'native/snes_native_steps.h', project / 'snes_native_steps.h')
-        shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
+        if supernintendo.profile_for(rom)['legacy_functions']:
+            shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
+        else:
+            (project / 'variables.h').write_text('/* No foreign game RAM aliases. */\n', encoding='ascii')
         # Upstream uses one GCC alignment annotation in its PPU header.
         # Preserve the required alignment on MSVC in a private runtime copy.
         staged = project / 'engine'
@@ -173,6 +183,10 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
         (staged / 'runner/src/snes/interp_bridge.c').write_text(
             adapt_bridge((engine / 'runner/src/snes/interp_bridge.c').read_text(encoding='utf-8')),
             encoding='utf-8')
+        from .gun16_runtime import snes_joypad, snes_bus, snes_ppu
+        for name, adapt in (('joypad', snes_joypad), ('snes', snes_bus), ('ppu', snes_ppu)):
+            (staged / f'runner/src/snes/{name}.c').write_text(
+                adapt((engine / f'runner/src/snes/{name}.c').read_text(encoding='utf-8')), encoding='utf-8')
         ppu = staged / 'runner/src/snes/ppu.h'
         text = ppu.read_text(encoding='utf-8')
         text = text.replace('typedef struct PpuPixelPrioBufs {',
@@ -185,7 +199,7 @@ set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c snes_backend.c
+add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c
   game_resources.rc ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})
@@ -204,13 +218,18 @@ target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4
 
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None):
     rom = qualified_rom(path, system_id)
-    engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit)
-    md_profile = megadrive.profile_for(rom) if system_id == 'md' else None
-    project = ROOT / '.build' / ('md-' + md_profile['id'] if md_profile else 'snes-smw')
+    cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
+    legacy_smw = cartridge_profile.get('legacy_functions', False)
+    engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit, legacy_smw=legacy_smw)
+    md_profile = cartridge_profile if system_id == 'md' else None
+    project = ROOT / '.build' / (system_id + '-' + cartridge_profile['id'])
     project.mkdir(parents=True, exist_ok=True)
-    rom_file = project / ('cartridge.bin' if system_id == 'md' else 'smw.sfc')
+    rom_file = project / ('cartridge.bin' if system_id == 'md' else 'smw.sfc' if legacy_smw else 'cartridge.sfc')
     rom_file.write_bytes(rom.data)
-    title = title or (md_profile['title'] if md_profile else SUPPORTED[system_id][1])
+    title = title or cartridge_profile['title']
+    guns16.write_header(project, rom)
+    if system_id == 'snes':
+        supernintendo.write_profile(project, rom, title)
     cache = project / 'generation-identity.json'
     identity = {'rom': rom.sha256, 'engine': REPOSITORIES[system_id][1],
                 'game': REPOSITORIES['smw'][1] if system_id == 'snes' else REPOSITORIES['md'][1],
@@ -227,8 +246,8 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     if reuse:
         emit('Reusing native source analysis for this exact ROM and pinned engine.')
     elif system_id == 'md':
-        megadrive.generate(compiler, project, rom_file)
-    else:
+        megadrive.generate(compiler, project, rom_file, instruction_map=True)
+    elif legacy_smw:
         arguments = ['generate', '--rom', rom_file, '--cfg-dir', ROOT / '.deps/smwrecomp/recomp',
                      '--out-dir', project / 'generated', '--funcs-h', project / 'funcs.h',
                      '--project-root', ROOT / '.deps/smwrecomp', '--cfg-roots', '--json-progress',
@@ -258,7 +277,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     return project / 'build/Release/game.exe'
 
 
-def _notice(engine: Path, system_id: str) -> str:
+def _notice(engine: Path, system_id: str, *, legacy_smw=True) -> str:
     components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'),
                   ('UPX', ASSETS / 'licenses/UPX.md')]
     if system_id == 'md':
@@ -275,8 +294,9 @@ def _notice(engine: Path, system_id: str) -> str:
         assembly_notice = header[first:header.index('*/', first)]
     else:
         components += [('SNESRecomp', engine / 'LICENSE'),
-                       ('SuperMarioWorldRecomp', ROOT / '.deps/smwrecomp/LICENSE'),
                        ('SNES third-party attribution', engine / 'THIRD_PARTY_ATTRIBUTION.md')]
+        if legacy_smw:
+            components += [('SuperMarioWorldRecomp', ROOT / '.deps/smwrecomp/LICENSE')]
         components += [('Color-science core ' + name, engine / 'third_party/psxrecomp_color_lut' / name)
                        for name in ('LICENSE-MIT.txt', 'LICENSE-APACHE-2.0.txt',
                                     'LICENSE-POLYFORM-NONCOMMERCIAL-1.0.0.txt')]
@@ -286,13 +306,15 @@ def _notice(engine: Path, system_id: str) -> str:
             '\n\n' + assembly_notice)
 
 
-def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False) -> dict:
+def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False, gun_menu=None) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
     scenario = 'play' if play else 'demo'
     report = directory / f'{scenario}{"-reference" if reference else ""}.json'
     command = [executable, '--frames', str(frames), '--report', report]
     if play:
         command.append('--play')
+        if gun_menu:
+            command.extend(('--gun-menu', gun_menu))
     import os
     import subprocess
     env = os.environ.copy()
@@ -311,6 +333,9 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
     data = json.loads(report.read_text(encoding='utf-8'))
     if data.get('frames') != frames:
         raise ConversionError('16-bit probe did not complete the requested frames.')
+    if play and gun_menu == 't2' and frames >= 3000:
+        if not all(data.get(key, 0) > 0 for key in ('gun_light_hits', 'gun_interrupts', 'gun_trigger_packets')):
+            raise ConversionError('T2 gun test did not receive aim interrupts and trigger packets. Previous export preserved.')
     return {'scenario': scenario, **data}
 
 
@@ -319,6 +344,13 @@ def reference_differences(system_id: str, native: dict, reference: dict) -> list
     fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'cpu_pc')
     fields += (('vsram_hash', 'vdp_register_hash') if system_id == 'md' else
                ('oam_hash', 'high_oam_hash', 'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles'))
+    if 'gun_kind' in native or 'gun_kind' in reference:
+        fields += ('gun_kind', 'gun_light_hits', 'gun_interrupts', 'gun_button_reads')
+        fields += (('gun_latched_hv', 'gun_buttons_latched', 'gun_button_packets', 'gun_trigger_packets') if system_id == 'md' else
+                   ('gun_packet', 'gun_latched_h', 'gun_latched_v'))
+        if native.get('gun_kind') or reference.get('gun_kind'):
+            fields += (('gun_port_control', 'gun_external_irq_enabled') if system_id == 'md' else
+                       ('gun_latch_enabled',))
     differences = [field for field in fields if native.get(field) is None or reference.get(field) is None
                    or native[field] != reference[field]]
     counters = ('native_entries', 'interpreted_opcodes')
@@ -341,10 +373,12 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     if not 1 <= frames <= 10000 or not 1 <= passes <= 10:
         raise ConversionError('Choose 1–10 passes and 1–10000 frames per test.')
     rom = qualified_rom(rom_path, system_id, standard_override)
+    cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
+    gun = guns16.gun_game(system_id, rom.crc32, rom.path.name)
     if output is None:
         from .batch import identify, convert_batch
         item = identify(rom_path, system_id)
-        item.title = title or (megadrive.profile_for(rom)['title'] if system_id == 'md' else SUPPORTED[system_id][1])
+        item.title = title or cartridge_profile['title']
         item.cover = cover
         result = convert_batch([item], games_root(), frames=frames, passes=passes,
             language=language, boxart_dir=boxart_dir, online_cover=online_cover,
@@ -353,7 +387,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             raise ConversionError(result['games'][0]['message'])
         return Path(result['games'][0]['executable'])
     started = time.perf_counter()
-    title = title or (megadrive.profile_for(rom)['title'] if system_id == 'md' else SUPPORTED[system_id][1])
+    title = title or cartridge_profile['title']
     name = 'Mega Drive' if system_id == 'md' else 'Super Nintendo'
     emit(f'{name}: experimental {title} NTSC integration; exact cartridge profile verified.')
     emit('Sound CPU remains interpreted. Native CPU coverage and hardware fidelity are separate checks.')
@@ -365,16 +399,18 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         artwork.update(prepare_icon(project, cartridge.path, title,
             (boxart_dir or ROOT / 'BoxArt' / name).resolve(), explicit=cover,
             online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt' / system_id,
-            system_id=system_id, emit=emit))
+            system_id=system_id, tags=('shooting',) if gun and icon_tags else (), emit=emit))
         metadata.update(write_game_metadata(project, title, executable_name(title),
-            light_phaser=False, icon=artwork['embedded'], standard='ntsc', system_id=system_id))
-        (project / 'game_legal.md').write_text(_notice(engine, system_id), encoding='utf-8')
+            light_phaser=False, icon=artwork['embedded'], standard='ntsc', system_id=system_id,
+            gun_device=gun.device if gun else None))
+        (project / 'game_legal.md').write_text(_notice(engine, system_id,
+            legacy_smw=cartridge_profile.get('legacy_functions', False)), encoding='utf-8')
         (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
         with (project / 'game_resources.rc').open('a', encoding='utf-8') as rc:
             rc.write('102 RCDATA "game_legal.md"\n' + f'103 RCDATA "{rom_file.name}"\n' +
                      '104 RCDATA "game_identity.bin"\n')
-    from . import supernintendo
     learn = megadrive.learn_entries if system_id == 'md' else supernintendo.learn_ram_variants
+    gun_menu = 't2' if gun and gun.system == 'md' and gun.title == 'T2 - The Arcade Game' else None
     history, comparisons = [], []
     for attempt in range(passes):
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources)
@@ -382,7 +418,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         checks_dir.mkdir(exist_ok=True)
         checks = []
         for play in (False, True):
-            check = probe16(executable, checks_dir, frames, play=play)
+            check = probe16(executable, checks_dir, frames, play=play, gun_menu=gun_menu)
             check['native_counter_unit'] = 'main CPU opcodes'
             checks.append(check)
             emit(f"{name} {check['scenario']}: {check['frames']} frames, "
@@ -401,7 +437,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     reference_dir.mkdir(exist_ok=True)
     for native in checks:
         reference = probe16(executable, reference_dir, frames,
-                            play=native['scenario'] == 'play', reference=True)
+                            play=native['scenario'] == 'play', reference=True, gun_menu=gun_menu)
         comparisons.append({'scenario': native['scenario'], 'frames': frames,
                             'differences': reference_differences(system_id, native, reference)})
     if any(result['differences'] for result in comparisons):
@@ -423,6 +459,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'video_model': {'standard': 'ntsc', 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256, 224]},
         'audio_cpu': 'interpreted', 'native_percentage': [round(100 * check['native_entries'] /
             max(1, check['native_entries'] + check['interpreted_opcodes']), 6) for check in checks],
+        'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': False}, 'runtime_learning': False,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable),

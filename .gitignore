@@ -70,6 +70,7 @@ docs/*
 !docs/GAME_BOY.md
 !docs/NES.md
 !docs/CONSOLES_16BIT.md
+!docs/GUNS_16BIT.md
 !docs/ROADMAP.md
 !docs/RELEASE_NOTES.md
 profiles/*

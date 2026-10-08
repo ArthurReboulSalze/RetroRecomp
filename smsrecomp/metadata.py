@@ -4,12 +4,18 @@ from . import __version__
 
 
 def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
-                  system_id: str = 'sms', *, zapper: bool = False) -> dict[str, str]:
+                  system_id: str = 'sms', *, zapper: bool = False, gun_device: str | None = None) -> dict[str, str]:
     if system_id not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes'):
         raise ValueError('Unsupported console')
     if system_id != 'sms' and light_phaser:
         raise ValueError('This console has no Light Phaser')
     controls = 'Mouse (Light Phaser); keyboard/gamepad controls' if light_phaser else 'Keyboard or gamepad'
+    if gun_device:
+        from .guns16 import LABELS
+        if ((system_id, gun_device) not in (('md', 'menacer'), ('md', 'justifier'), ('snes', 'super_scope'))
+                or light_phaser or zapper):
+            raise ValueError('Unsupported console gun')
+        controls = f'Mouse ({LABELS[gun_device]}); keyboard/gamepad controls'
     if zapper:
         if system_id != 'nes':
             raise ValueError('Zapper requires NES')
@@ -41,8 +47,8 @@ def _rc_string(value: str) -> str:
 
 def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: bool,
                         icon: bool, standard: str | None = None,
-                        system_id: str = 'sms', zapper: bool = False) -> dict[str, str]:
-    metadata = game_metadata(title, light_phaser, standard, system_id, zapper=zapper)
+                        system_id: str = 'sms', zapper: bool = False, gun_device: str | None = None) -> dict[str, str]:
+    metadata = game_metadata(title, light_phaser, standard, system_id, zapper=zapper, gun_device=gun_device)
     metadata.update(InternalName=Path(filename).stem, OriginalFilename=filename)
     version = [int(p) for p in __version__.split('.')]
     version += [0] * (4 - len(version))

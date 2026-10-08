@@ -16,11 +16,13 @@ static uint64_t fingerprint(void) {
 }
 int main(int argc, char **argv) {
     unsigned frames = 0; bool play = false, reset_check = false;
+    bool t2_gun_menu = false;
     const char *report = NULL;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--play")) play = true;
         else if (!strcmp(argv[i], "--reset-check")) reset_check = true;
+        else if (!strcmp(argv[i], "--gun-menu") && i + 1 < argc) t2_gun_menu = !strcmp(argv[++i], "t2");
         else if (!strcmp(argv[i], "--report") && i + 1 < argc) report = argv[++i];
     }
     if (reset_check && !frames) frames = 120;
@@ -38,12 +40,38 @@ int main(int argc, char **argv) {
         if (play && completed >= 480 && completed < 482) input = 128;
         if (play && completed >= 660 && completed < 662) input = 128;
         if (play && completed >= 800) input = 8 | ((completed % 90 < 15) ? 16 : 0);
+        if (RR16_GUN && play && completed >= 900 && completed < 1800 && completed % 360 < 2) input = 128;
+        if (RR16_GUN && play && completed >= 1800 && completed % 240 >= 30 && completed % 240 < 32) input |= 64;
+        if (RR16_GUN && play && t2_gun_menu) {
+            /* Use the original controller menu: two Down presses select the
+             * one-player Menacer entry. No guest RAM or ROM is patched. */
+            input = 0;
+            static const unsigned start_frames[] = {300,480,660,900,1200,1500,1800,2100,2400,2700};
+            for (unsigned n=0; n<sizeof start_frames/sizeof *start_frames; ++n)
+                if (completed >= start_frames[n] && completed < start_frames[n] + 2) input = 128;
+            if ((completed >= 1600 && completed < 1602) || (completed >= 1640 && completed < 1642)) input = 2;
+        }
 #else
         if (play && completed >= 180 && completed < 182) input = 8;
         if (play && completed >= 400 && completed < 402) input = 8;
         if (play && completed >= 550 && completed < 552) input = 8;
         if (play && completed >= 720) input = 128 | ((completed % 90 < 15) ? 1 : 0);
 #endif
+        if (RR16_GUN && play) {
+            /* Calibration aim is held centrally before moving through a grid.
+             * The guest keeps its original start/calibration menus and flashes. */
+            int width = rr16_visible_width();
+            Rr16GunInput gun = {.x = width / 2, .y = RR16_HEIGHT / 2};
+            if (completed >= (t2_gun_menu ? 2400u : 1800u)) {
+                gun.x = 32 + (completed / 90 % 4) * (width - 64) / 3;
+                gun.y = 40 + (completed / 360 % 3) * 64;
+            }
+            gun.fire = completed >= 300 && completed % 180 >= 10 && completed % 180 < 18;
+            gun.turbo = RR16_GUN == RR_GUN_SCOPE;
+            gun.aux = completed >= 1200 && completed % 300 < 8;
+            gun.start = (input & (RR16_MD ? 128 : 8)) != 0;
+            rr16_gun_input(gun);
+        }
         if (!rr16_frame(input, 0)) break;
         sequence ^= fingerprint(); sequence *= 1099511628211ull;
     }

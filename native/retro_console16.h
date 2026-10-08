@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <wchar.h>
 #include <stdio.h>
+#include "retro_gun_game.h"
+#include "gun16.h"
 #if RR16_MD
 #define RR16_WIDTH 320
 #define RR16_HEIGHT 224

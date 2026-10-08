@@ -6,6 +6,58 @@ import re
 from .library import atomic_json, entry_lock, library_root
 
 RAM_VARIANT_LIMIT = 2048
+PROFILES = {
+    '0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b':
+        {'id': 'smw', 'title': 'Super Mario World', 'legacy_functions': True},
+    '7a8ffaf8bb549b400ec2f0bda9f3c0dbf5852c38618cdb21cd783c368383e2c7':
+        {'id': 'super-scope-6', 'title': 'Super Scope 6', 'legacy_functions': False},
+}
+
+
+def profile_for(rom):
+    from .core import ConversionError
+    profile = PROFILES.get(rom.sha256)
+    if profile is None:
+        raise ConversionError('SNES integration is experimental. This cartridge was '
+            'identified, but will not be compiled with another game\'s profile. '
+            'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
+    if rom.mapping != 'lorom' or rom.standard != 'ntsc':
+        raise ConversionError('This qualified SNES profile requires its NTSC LoROM cartridge.')
+    return profile
+
+
+def write_profile(project: Path, rom, title: str) -> None:
+    """Identity for a per-instruction program; no foreign game's function tree."""
+    profile = profile_for(rom)
+    (project / 'retro_snes_game.h').write_text(
+        f'#define RR_SN_TITLE {json.dumps(title, ensure_ascii=True)}\n'
+        f'#define RR_SN_ROM_BYTES {len(rom.data)}u\n'
+        f'#define RR_SN_SMW {int(profile["legacy_functions"])}\n', encoding='ascii')
+    if profile['legacy_functions']:
+        return
+    generated = project / 'generated'
+    generated.mkdir(exist_ok=True)
+    digest = ','.join(str(byte) for byte in bytes.fromhex(rom.sha256))
+    # The operation map is generated separately for every ROM byte. The old
+    # function-level dispatcher is unused, with its bridge disabled on both
+    # paths. Empty metadata here never replaces any guest instruction body.
+    (generated / 'instruction_program.c').write_text(f'''/* Original program identity. Guest operations are in snes_native_ops.inc. */
+#include "cpu_state.h"
+#include "program_module.h"
+const DispatchEntry g_dispatch_table[] = {{{{0xffffffffu, {{NULL,NULL,NULL,NULL}}, 0}}}};
+const unsigned g_dispatch_table_count = 0;
+const RamRoutineGuard g_ram_routine_guards[] = {{{{0xffffffffu, 0, 0}}}};
+const unsigned g_ram_routine_guard_count = 0;
+static SnesProgramModule rr_program = {{
+    .id = "main", .symbol_prefix = "", .dispatch = g_dispatch_table,
+    .dispatch_count = 0, .guards = g_ram_routine_guards, .guard_count = 0,
+    .rom_size = {len(rom.data)}u, .rom_sha256 = {{{digest}}},
+    .program_digest = "{rom.sha256}", .build_digest = "rr-instruction-map-v1"
+}};
+SNES_PROGRAM_MODULE_CONSTRUCTOR(rr_register_instruction_program) {{
+    snes_program_module_register(&rr_program);
+}}
+''', encoding='ascii')
 
 
 def wram_offset(address: int) -> int | None:

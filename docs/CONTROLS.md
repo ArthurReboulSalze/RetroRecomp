@@ -8,6 +8,8 @@ Saved mappings keep their physical key positions; changing the UI language
 does not change the keyboard layout or overwrite custom controls.
 The NES profile shares the menu canvas, F8/F9 quick states and display modes.
 F5 opens Zapper options on recognised gun games. See [NES controls](NES.md).
+On qualified Mega Drive and SNES gun profiles, F5 opens the same cross/dot,
+size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 
 | Key | Action |
 | --- | --- |

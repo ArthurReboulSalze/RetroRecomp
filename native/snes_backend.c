@@ -13,6 +13,7 @@
 #include "snes/snes.h"
 #include "desktop/config.h"
 #include "snes_native_steps.h"
+#include "retro_snes_game.h"
 
 static uint32_t pixels[RR16_WIDTH * 240];
 static uint64_t interpreted, native_entries;
@@ -41,19 +42,20 @@ void rr16_snes_observe_fallback(uint32_t pc) {
     memcpy(ram_variants[ram_variant_count++].bytes, bytes, 4);
 }
 static const RtlGameInfo game_info = {
-    .title = "Super Mario World",
+    .title = RR_SN_TITLE,
     .run_frame = snes_beam_frame_driver_run_frame,
     .draw_ppu_frame = snes_beam_frame_driver_draw_ppu_frame,
     .hardware_reset = snes_beam_frame_driver_reset,
     .session_reset = snes_beam_frame_driver_reset,
-    .save_name_prefix = "Super Mario World",
+    .save_name_prefix = RR_SN_TITLE,
 };
 bool rr16_init(bool headless) {
     HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
-    if (!rom || SizeofResource(NULL, resource) != 0x80000) return false;
+    if (!rom || SizeofResource(NULL, resource) != RR_SN_ROM_BYTES) return false;
     RtlRegisterGame(&game_info);
-    if (!SnesInit(rom, 0x80000)) return false;
+    if (!SnesInit(rom, RR_SN_ROM_BYTES)) return false;
+    rr16_gun_reset();
     g_interp_bridge_pc_hook = NULL;
     g_interp_bridge_bounce_hook = NULL;
     const char *reference = getenv("RR_SNES_FORCE_INTERP");
@@ -61,7 +63,7 @@ bool rr16_init(bool headless) {
     RtlEnableExtendedFrameTiming(); RtlSetAudioOutputRate(48000);
     return true;
 }
-void rr16_reset(void) { RtlReset(1); audio_fraction = 0; interpreted = native_entries = 0; ram_variant_count = 0; }
+void rr16_reset(void) { RtlReset(1); rr16_gun_reset(); audio_fraction = 0; interpreted = native_entries = 0; ram_variant_count = 0; }
 bool rr16_frame(uint16_t p1, uint16_t p2) {
     RtlRunFrame(p1 | ((uint32_t)p2 << 12));
     PpuBeginDrawing(g_ppu, (uint8_t *)pixels, RR16_WIDTH * 4, 0);
@@ -71,8 +73,8 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
 const uint32_t *rr16_pixels(void) { return pixels; }
 uint64_t rr16_interpreted(void) { return interpreted; }
 uint64_t rr16_native_entries(void) { return native_entries; }
-unsigned rr16_game_mode(void) { return g_ram[0x100]; }
-unsigned rr16_player_x(void) { return g_ram[0x94] | (g_ram[0x95] << 8); }
+unsigned rr16_game_mode(void) { return RR_SN_SMW ? g_ram[0x100] : 0; }
+unsigned rr16_player_x(void) { return RR_SN_SMW ? g_ram[0x94] | (g_ram[0x95] << 8) : 0; }
 static uint64_t bytes_hash(const void *data, size_t size) {
     uint64_t hash = 14695981039346656037ull;
     const uint8_t *bytes = data;
@@ -80,6 +82,7 @@ static uint64_t bytes_hash(const void *data, size_t size) {
     return hash;
 }
 void rr16_report_details(FILE *file) {
+    rr16_gun_report(file);
     /* Explicit architectural fields: never hash pointers or host padding. */
     uint16_t registers[] = {g_cpu.A, g_cpu.X, g_cpu.Y, g_cpu.S, g_cpu.D,
         g_cpu.DB, g_cpu.PB, g_cpu.P, g_cpu.m_flag, g_cpu.x_flag, g_cpu.emulation,

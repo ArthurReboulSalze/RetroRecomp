@@ -23,6 +23,10 @@ PROFILES = {
         {'id': 'golden-axe', 'title': 'Golden Axe', 'prefix': 'game', 'sonic': False},
     '2d535ff7eda650a64a9093ba6fabf8d5ac87801b898a76b591db41a1c8e47c4f':
         {'id': 'castle-of-illusion', 'title': 'Castle of Illusion', 'prefix': 'game', 'sonic': False},
+    '7f6f00dbe774cee92cb91d0f1d26e898a199e5a5a8b77bf199a1b7f8a0d44b7b':
+        {'id': 'menacer', 'title': 'Menacer 6-Game Cartridge', 'prefix': 'game', 'sonic': False},
+    'cd2fbb02b42cb0f4e26b4aa5fa1c79ba798c48233ae4e02e19012b08c6848071':
+        {'id': 't2-arcade', 'title': 'T2 - The Arcade Game', 'prefix': 'game', 'sonic': False},
 }
 
 
@@ -31,7 +35,7 @@ def profile_for(rom):
     if profile is None:
         raise ConversionError('Mega Drive integration is experimental. This cartridge was '
             'identified, but will not be compiled with another game\'s profile. '
-            'Qualified titles: Sonic the Hedgehog, Columns, Golden Axe and Castle of Illusion.')
+            'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
     return profile
 
 
@@ -41,11 +45,16 @@ def vectors(rom) -> dict:
               for name, p in (('ssp', 0), ('entry', 4), ('hblank', 0x70), ('vblank', 0x78))}
     if not 0xff0000 <= values['ssp'] <= 0xffffff or values['ssp'] & 1:
         raise ConversionError('Mega Drive reset stack is outside writable RAM.')
-    if any(not 0x200 <= values[name] < len(data) or values[name] & 1
-           for name in ('entry', 'hblank', 'vblank')):
+    if not 0x200 <= values['entry'] < len(data) or values['entry'] & 1:
         raise ConversionError('Mega Drive reset/interrupt vectors are not valid ROM entries.')
+    # Menacer installs its V-int handler in RAM and has a low-ROM RTE stub.
+    # Validate the bus address, rather than requiring every IRQ to be in ROM.
+    for name in ('hblank', 'vblank'):
+        pc = values[name]
+        if pc & 1 or not (8 <= pc < len(data) or 0xff0000 <= pc <= 0xfffffe):
+            raise ConversionError('Mega Drive interrupt vector is outside mapped ROM/RAM.')
     candidates = {int.from_bytes(data[p:p + 4], 'big') & 0xffffff for p in range(4, 0x100, 4)}
-    values['roots'] = sorted(value for value in candidates if 0x200 <= value < len(data) and not value & 1)
+    values['roots'] = sorted(value for value in candidates if 8 <= value < len(data) and not value & 1)
     return values
 
 
@@ -130,7 +139,7 @@ def write_profile(project: Path, engine: Path, rom, entries: set[int]) -> str:
     return profile['prefix']
 
 
-def generate(compiler: Path, project: Path, rom_file: Path) -> None:
+def generate(compiler: Path, project: Path, rom_file: Path, *, instruction_map=False) -> None:
     """Reject unsupported translation. Retry only false mid-instruction roots.
 
     The emitter proves these speculative entries overlap an existing decoded
@@ -138,6 +147,20 @@ def generate(compiler: Path, project: Path, rom_file: Path) -> None:
     stream; this does not permit unsupported opcode bodies or skip live code.
     """
     import tomllib
+    if instruction_map:
+        # The old function emitter supplies discovery/cycle-address metadata
+        # only. Its C bodies are not linked into the instruction-AOT executable.
+        # Speculative function aliases therefore must not reject a different
+        # translator. Live instructions still go through byte-checked native
+        # bodies, fallback accounting, and the mandatory reference gate.
+        log = project / 'discovery.log'
+        run([compiler, rom_file.name, '--game', 'game.toml', '--output-dir', project / 'generated'],
+            cwd=project, log=log, timeout=600)
+        atomic_json(project / 'discovery-audit.json', {'schema': 2,
+            'mode': 'instruction_aot', 'function_bodies_linked': False,
+            'discovery_diagnostics': re.findall(r'^\s+([A-Z_]+)\s+@ \$([0-9A-Fa-f]+)',
+                                               log.read_text(encoding='utf-8', errors='replace'), re.M)})
+        return
     config = project / 'game.toml'
     initial = config.read_text(encoding='utf-8')
     protected = set(tomllib.loads(initial).get('functions', {}).get('extra', []))

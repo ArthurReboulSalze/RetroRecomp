@@ -44,6 +44,8 @@ static wchar_t ini_file[32768], data_dir[32768];
 static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire;
 static char status[80];
 static Uint64 status_until;
+static int gun_shape, gun_size = 3, gun_color, scope_turbo = 1;
+static Rr16GunInput mouse_gun;
 static const char *tr(const char *en, const char *fr) { return french ? fr : en; }
 
 static void settings_path(void) {
@@ -89,6 +91,25 @@ static void load_bindings(void) {
     GetPrivateProfileStringW(L"Interface", L"language", L"en", language, 12, ini_file);
     french = wcscmp(language, L"fr") == 0;
     autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, ini_file) != 0;
+    gun_shape = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"shape", 0, ini_file) == 1;
+    gun_size = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"size", 3, ini_file);
+    if (gun_size < 1 || gun_size > 12) gun_size = 3;
+    gun_color = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"color", 0, ini_file);
+    if (gun_color < 0 || gun_color > 2) gun_color = 0;
+    scope_turbo = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"turbo", 1, ini_file) != 0;
+}
+
+static void gun_option(int direction) {
+    if (row == 0) gun_shape = !gun_shape;
+    if (row == 1) gun_size = (gun_size - 1 + direction + 12) % 12 + 1;
+    if (row == 2) gun_color = (gun_color + direction + 3) % 3;
+    if (row == 3) scope_turbo = !scope_turbo;
+    if (!ini_file[0]) return;
+    const wchar_t *labels[] = {L"shape", L"size", L"color", L"turbo"};
+    int values[] = {gun_shape, gun_size, gun_color, scope_turbo};
+    wchar_t value[16]; swprintf_s(value, 16, L"%d", values[row]);
+    CreateDirectoryW(data_dir, NULL);
+    WritePrivateProfileStringW(RR16_SECTION L".Gun", labels[row], value, ini_file);
 }
 
 static void store_binding(void) {
@@ -160,6 +181,54 @@ static SDL_Rect game_rect(SDL_Renderer *renderer) {
     return rect;
 }
 
+static void sample_gun(SDL_Window *window, SDL_Renderer *renderer, uint16_t pad) {
+    Rr16GunInput in = {.x = -1, .y = -1, .offscreen = true};
+    int x, y, w, h, rw, rh;
+    Uint32 buttons = SDL_GetMouseState(&x, &y);
+    SDL_GetWindowSize(window, &w, &h);
+    SDL_GetRendererOutputSize(renderer, &rw, &rh);
+    SDL_Rect dst = game_rect(renderer);
+    if (!menu && w > 0 && h > 0 &&
+        (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) &&
+        (SDL_GetWindowFlags(window) & SDL_WINDOW_MOUSE_FOCUS)) {
+        x = (int)((int64_t)x * rw / w); y = (int)((int64_t)y * rh / h);
+        in.offscreen = x < dst.x || y < dst.y || x >= dst.x + dst.w || y >= dst.y + dst.h;
+        if (!in.offscreen && dst.w > 0 && dst.h > 0) {
+            in.x = (int)((int64_t)(x - dst.x) * rr16_visible_width() / dst.w);
+            in.y = (int)((int64_t)(y - dst.y) * RR16_HEIGHT / dst.h);
+        }
+        in.fire = (buttons & SDL_BUTTON_LMASK) != 0;
+        in.aux = (buttons & SDL_BUTTON_RMASK) != 0;
+        in.secondary = (buttons & SDL_BUTTON_MMASK) != 0;
+        in.start = (pad & bits[START]) != 0;
+        in.pause = in.secondary || in.start;
+        in.turbo = scope_turbo != 0;
+    }
+    mouse_gun = in;
+    rr16_gun_input(in);
+    SDL_ShowCursor(in.offscreen || menu ? SDL_ENABLE : SDL_DISABLE);
+}
+
+static void draw_gun(SDL_Renderer *renderer, const SDL_Rect *dst) {
+    if (!RR16_GUN || menu || mouse_gun.offscreen) return;
+    int x = dst->x + (int)((mouse_gun.x + 0.5) * dst->w / rr16_visible_width());
+    int y = dst->y + (int)((mouse_gun.y + 0.5) * dst->h / RR16_HEIGHT);
+    int sx = (int)((double)gun_size * dst->w / rr16_visible_width());
+    int sy = (int)((double)gun_size * dst->h / RR16_HEIGHT);
+    if (sx < 1) sx = 1; if (sy < 1) sy = 1;
+    SDL_RenderSetClipRect(renderer, dst);
+    SDL_SetRenderDrawColor(renderer, gun_color == 2 ? 0 : 255, gun_color ? 255 : 0, gun_color == 1 ? 255 : 0, 255);
+    if (gun_shape == 1) {
+        SDL_Rect dot = {x - sx / 2, y - sy / 2, sx, sy}; SDL_RenderFillRect(renderer, &dot);
+    } else {
+        SDL_Rect horizontal = {x - sx, y - 1, sx * 2 + 1, 2};
+        SDL_Rect vertical = {x - 1, y - sy, 2, sy * 2 + 1};
+        SDL_RenderFillRect(renderer, &horizontal);
+        SDL_RenderFillRect(renderer, &vertical);
+    }
+    SDL_RenderSetClipRect(renderer, NULL);
+}
+
 typedef struct ScanlineMask {
     SDL_Texture *texture;
     int height;
@@ -193,20 +262,26 @@ static void draw_menu(SDL_Renderer *ren) {
     rr_menu_begin(ren, ox, oy, unit);
 #define RR16_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,230,240,250)
     RR16_TEXT(15, menu == 1 ? tr("RetroRecomp - Help", "RetroRecomp - Aide") :
-         menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") : "RetroRecomp - Pause");
+         menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") :
+         menu == 4 ? tr("RetroRecomp - Gun", "RetroRecomp - Pistolet") : "RetroRecomp - Pause");
     if (menu == 1) {
         RR16_TEXT(42, tr("F1 Restart  F2 Controls", "F1 Recommencer  F2 Commandes"));
         RR16_TEXT(56, tr("F3 Filter  F4 Fullscreen", "F3 Filtre  F4 Plein ecran"));
         RR16_TEXT(70, tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"));
         RR16_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
-#if RR16_MD
+#if !RR16_GUN && RR16_MD
         RR16_TEXT(108, tr("Arrows + W/X/C; Enter Start", "Fleches + W/X/C; Entree Start"));
         RR16_TEXT(122, tr("Two controllers supported", "Deux manettes disponibles"));
-#else
+#elif !RR16_GUN
         RR16_TEXT(108, tr("Arrows + W/X/A/S; Q/E shoulders", "Fleches + W/X/A/S; Q/E gachettes"));
         RR16_TEXT(122, tr("Enter Start; Shift Select", "Entree Start; Maj Select"));
 #endif
-        RR16_TEXT(146, tr("Quick states: coming soon", "Sauvegardes rapides : a venir"));
+        if (RR16_GUN) {
+            RR16_TEXT(108, tr("Mouse: aim | Left: fire", "Souris : viser | Gauche : tirer"));
+            RR16_TEXT(122, RR16_GUN == RR_GUN_SCOPE ? tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
+                tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
+            RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
+        } else RR16_TEXT(146, tr("Quick states: coming soon", "Sauvegardes rapides : a venir"));
         RR16_TEXT(160, tr("Sound CPU: interpreted", "CPU audio : interprete"));
     } else if (menu == 2) {
         char line[96];
@@ -222,6 +297,19 @@ static void draw_menu(SDL_Renderer *ren) {
             RR16_TEXT(53 + (a % 8) * 13, line);
         }
         RR16_TEXT(164, tr("Enter: remap | Esc: close", "Entree : attribuer | Esc : fermer"));
+    } else if (menu == 4) {
+        char line[100];
+        const char *colors[] = {"Red / Rouge", "White / Blanc", "Green / Vert"};
+        const int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
+        for (int i = 0; i < rows; ++i) {
+            if (row == i) rr_menu_box(ren, ox, oy, unit, 12, 49 + 23 * i, 232, 20, 35, 74, 110, 255);
+            if (i == 0) snprintf(line, sizeof line, "%s: %s", tr("Shape", "Forme"), gun_shape ? tr("Dot", "Point") : tr("Cross", "Croix"));
+            if (i == 1) snprintf(line, sizeof line, "%s: %d", tr("Size", "Taille"), gun_size);
+            if (i == 2) snprintf(line, sizeof line, "%s: %s", tr("Color", "Couleur"), colors[gun_color]);
+            if (i == 3) snprintf(line, sizeof line, "Scope turbo: %s", scope_turbo ? "On" : "Off");
+            RR16_TEXT(53 + 23 * i, line);
+        }
+        RR16_TEXT(164, tr("Arrows: change | Tab: controls", "Fleches : regler | Tab : commandes"));
     } else {
         RR16_TEXT(58, tr("Game paused", "Jeu en pause"));
         RR16_TEXT(83, tr("P or gamepad left-stick click: resume", "P ou clic stick gauche : reprendre"));
@@ -272,7 +360,7 @@ int rr16_sdl_main(const char *title, int scale) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) open_pads();
-            if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page) {
+            if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page == 1) {
                 buttons[player][row] = (SDL_GameControllerButton)event.cbutton.button;
                 store_binding(); capturing = 0; status[0] = 0; continue;
             }
@@ -310,6 +398,8 @@ int rr16_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_F4) {
                 fullscreen = (fullscreen + 1) % 3;
                 SDL_SetWindowFullscreen(win, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+            } else if (key == SDL_SCANCODE_F5 && RR16_GUN) {
+                menu = menu == 4 ? 0 : 4; row = 0; capturing = 0;
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
                 if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
@@ -328,8 +418,19 @@ int rr16_sdl_main(const char *title, int scale) {
                 status_until = SDL_GetTicks64() + 1800;
                 if (ok) { menu = 0; capturing = 0; }
                 if (ok && load) { if (audio) SDL_ClearQueuedAudio(audio); next = SDL_GetPerformanceCounter(); }
+            } else if (menu == 4) {
+                int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
+                if (key == SDL_SCANCODE_TAB) { menu = 2; gamepad_page = 0; row = 0; capturing = 0; }
+                else if (key == SDL_SCANCODE_UP) row = (row + rows - 1) % rows;
+                else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % rows;
+                else if (key == SDL_SCANCODE_LEFT) gun_option(-1);
+                else if (key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_RETURN) gun_option(1);
             } else if (menu == 2) {
-                if (key == SDL_SCANCODE_TAB) { gamepad_page = (gamepad_page + 1) % (2); row = 0; }
+                if (key == SDL_SCANCODE_TAB) {
+                    if (gamepad_page && RR16_GUN) { menu = 4; gamepad_page = 0; }
+                    else gamepad_page = !gamepad_page;
+                    row = 0; capturing = 0;
+                }
                 else if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT) player = !player;
                 else if (key == SDL_SCANCODE_UP) row = (row + ACTIONS - 1) % ACTIONS;
                 else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % ACTIONS;
@@ -338,8 +439,10 @@ int rr16_sdl_main(const char *title, int scale) {
         }
         if (!running) break;
         rr16_pause(menu != 0);
+        uint16_t pad1 = controller_input(0, frame);
+        if (RR16_GUN) sample_gun(win, ren, pad1);
         if (!menu) {
-            if (!rr16_frame(controller_input(0, frame), controller_input(1, frame))) { running = false; break; }
+            if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, frame))) { running = false; break; }
             ++frame;
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
             if (n && audio && SDL_GetQueuedAudioSize(audio) < (Uint32)(have.freq / 50) * 4)
@@ -354,6 +457,7 @@ int rr16_sdl_main(const char *title, int scale) {
         SDL_Rect source = {0, 0, rr16_visible_width() * texture_scale, RR16_HEIGHT * texture_scale};
         SDL_RenderCopy(ren, tex, &source, &dst);
         if (filter == 3) draw_scanlines(ren, &scanlines, &dst);
+        draw_gun(ren, &dst);
 
         int current_title_state =
             1 /* Sound CPU currently interpreted on both 16-bit engines. */ |
@@ -384,5 +488,6 @@ int rr16_sdl_main(const char *title, int scale) {
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
     if (scanlines.texture) SDL_DestroyTexture(scanlines.texture);
+    SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); return 0;
 }

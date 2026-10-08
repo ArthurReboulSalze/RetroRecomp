@@ -114,6 +114,7 @@ bool rr16_init(bool headless) {
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
     if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
     machine_init(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
+    rr16_gun_reset();
     genesis_sim_set_tick_count(0);
     crash_report_set_log_path(NULL);
     size_t size = genesis_rb_bound();
@@ -128,6 +129,7 @@ bool rr16_init(bool headless) {
     return true;
 }
 void rr16_reset(void) {
+    rr16_gun_reset();
     /* The engine snapshot includes private scheduler globals and the live
      * fiber. Reinitializing only CPU/RAM would leave old timing behind. */
     reset_ok = cold_length && genesis_rb_load(cold_state, cold_length);
@@ -167,6 +169,7 @@ static uint64_t bytes_hash(const void *data, size_t size) {
     return hash;
 }
 void rr16_report_details(FILE *file) {
+    rr16_gun_report(file);
     fprintf(file, ",\"visible_width\":%d,\"cpu_pc\":%u,\"execution_fault\":%s,"
             "\"rom_fallback_opcodes\":%llu,\"ram_fallback_opcodes\":%llu,"
             "\"cpu_hash\":\"%016llx\",\"ram_hash\":\"%016llx\",\"vram_hash\":\"%016llx\","
