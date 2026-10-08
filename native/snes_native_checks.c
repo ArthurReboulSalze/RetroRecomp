@@ -25,6 +25,8 @@ void rr16_snes_observe_fallback(uint32_t pc) { (void)pc; }
 int interp816_opcode_hook(uint32_t pc) { (void)pc; return 0; }
 uint8_t *cart_getRomPtr(Cart *c, uint8_t bank, uint16_t address) {
     if (bank == 0x7e || bank == 0x7f || (address < 0x8000 && (bank & 0x7f) < 0x40)) return NULL;
+    if (c->type == CART_HIROM)
+        return c->rom + ((((uint32_t)(bank & 0x3f) << 16) | address) % c->romSize);
     return c->rom + ((((uint32_t)(bank & 0x7f) << 15) | (address & 0x7fff)) % c->romSize);
 }
 static void trace(uint32_t address, uint8_t value, bool write) {
@@ -70,7 +72,8 @@ static void compare(Interp816 input, bool should_native) {
 }
 int main(void) {
     memcpy(cartridge, fixture_rom, sizeof cartridge);
-    cart.type = CART_LOROM; cart.rom = cartridge; cart.romSize = sizeof cartridge;
+    cart.type = FIXTURE_CART_TYPE; cart.rom = cartridge; cart.romSize = sizeof cartridge;
+    cart.romImageSize = FIXTURE_IMAGE_BYTES;
     machine.cart = &cart;
     unsigned cases = 0;
     for (unsigned mode = 0; mode < 32; ++mode) {
@@ -98,9 +101,29 @@ int main(void) {
         g_ram[0x100] = 0xea; compare(cpu, false); ++cases;
         g_ram[0x100] = 0xa9; g_ram[0x101] ^= 0x40; compare(cpu, false); ++cases;
         /* A changed ROM opcode must not run the original compiled operation. */
-        cpu.k = 0; cpu.pc = 0x8000; cartridge[0] = 0xea;
-        compare(cpu, false); ++cases; cartridge[0] = fixture_rom[0];
+        cpu.k = 0; cpu.pc = 0x8000;
+        uint8_t *start = cart_getRomPtr(&cart, cpu.k, cpu.pc);
+        uint8_t saved = *start; *start = 0xea;
+        compare(cpu, false); ++cases; *start = saved;
     }
-    puts("{\"instruction_state_bus_comparisons\":16544,\"ram_guards\":\"passed\",\"rom_mutation_guard\":\"passed\",\"passed\":true}");
-    return cases != 16544;
+    /* The first byte of mirrored storage remains natively covered; changing
+     * that byte must reject its original operation. */
+    Interp816 cpu = {0}; cpu.read = read_byte; cpu.write = write_byte;
+    cpu.sp = 0x1ff; cpu.e = cpu.mf = cpu.xf = true;
+    cpu.k = cart.type == CART_LOROM ? 0xc3 : 0xc1; cpu.pc = 0x8000;
+    if (cart_getRomPtr(&cart, cpu.k, cpu.pc) != cartridge + FIXTURE_IMAGE_BYTES) return 3;
+    compare(cpu, true); ++cases;
+    uint8_t *mirror = cart_getRomPtr(&cart, cpu.k, cpu.pc);
+    uint8_t saved = *mirror; *mirror = 0xa9;
+    compare(cpu, false); ++cases; *mirror = saved;
+    /* Mapping and both image/storage lengths must match the generated map. */
+    cpu.k = 0; cpu.pc = 0x8000;
+    cart.type = cart.type == CART_LOROM ? CART_HIROM : CART_LOROM;
+    compare(cpu, false); ++cases; cart.type = FIXTURE_CART_TYPE;
+    ++cart.romImageSize; compare(cpu, false); ++cases; --cart.romImageSize;
+    ++cart.romSize; compare(cpu, false); ++cases; --cart.romSize;
+    printf("{\"instruction_state_bus_comparisons\":%u,\"ram_guards\":\"passed\","
+           "\"rom_mutation_guard\":\"passed\",\"mapping_and_size_guards\":\"passed\","
+           "\"mirrored_storage\":\"passed\",\"passed\":true}\n", cases);
+    return cases != 16549;
 }

@@ -102,6 +102,8 @@ def main() -> int:
     build.add_argument("--frames", type=int, default=1200)
     build.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Native discovery is unchanged.")
+    build.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
+        help='Add a longer Mega Drive input replay and reference checks to each learning pass (default: off).')
     build.add_argument("--backend", choices=("functions", "banked"), default="banked",
         help="banked (default): extended native ROM coverage and learned RAM variants, Sega mapper.")
     covers = build.add_mutually_exclusive_group()
@@ -127,6 +129,8 @@ def main() -> int:
         help="Skip an already generated game instead of regenerating it.")
     batch.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
+    batch.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
+        help='Extra Mega Drive coverage scan (default: off); ignored for other consoles.')
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
         help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)
@@ -173,11 +177,23 @@ def main() -> int:
                            supernintendo.read_ram_variants(rom))
                     record = (megadrive.memory_file(rom) if system.id == 'md' else
                               supernintendo.memory_file(rom))
+                    if system.id == 'snes':
+                        from smsrecomp import snes_spc
+                        masks = snes_spc.read_masks(rom)
+                        sound_record = snes_spc.memory_file(rom)
+                        sound = {'cpu': 'SPC700', 'guarded_opcode_variants': sum(value.bit_count() for value in masks),
+                                 'library_bytes': sound_record.stat().st_size if sound_record.is_file() else 0}
+                    else:
+                        from smsrecomp import megadrive_z80
+                        sound_record = megadrive_z80.memory_file(rom)
+                        sound = {'cpu': 'Z80', 'guarded_opcode_variants': len(megadrive_z80.read_variants(rom)),
+                                 'library_bytes': sound_record.stat().st_size if sound_record.is_file() else 0}
                     print(json.dumps({'system': system.id, 'sha256': rom.sha256,
                         'engine_revision': REPOSITORIES[system.id][1],
                         'analysis': 'instruction AOT and exact-ROM converter observations',
                         'rom_entries': len(entries), 'ram_variants': len(ram),
                         'library_bytes': record.stat().st_size if record.is_file() else 0,
+                        'sound_cpu': sound,
                         'runtime_learning': False}, indent=2))
                     return 0
                 if system.id == 'gb':
@@ -227,6 +243,7 @@ def main() -> int:
                     backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
+                    md_advanced_scan=args.md_advanced_scan,
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
@@ -243,6 +260,7 @@ def main() -> int:
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
                     use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
                     gb_deep_validation=args.gb_deep_validation,
+                    md_advanced_scan=args.md_advanced_scan,
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
                 if result['status'] != 'success':

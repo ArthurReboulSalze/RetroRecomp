@@ -74,6 +74,27 @@ class MegaDriveMemoryTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             megadrive.vectors(self.rom)
 
+    def test_empty_stack_at_bus_wrap_preserves_full_address_register(self):
+        for stack in (0, 0x1000000, 0xffff0000, 0xfffffffe):
+            with self.subTest(stack=stack):
+                self.rom.data[:4] = stack.to_bytes(4, 'big')
+                self.assertEqual(megadrive.vectors(self.rom)['ssp'], stack)
+        for stack in (1, 2, 0x1000001, 0xffff0001):
+            with self.subTest(invalid_stack=stack):
+                self.rom.data[:4] = stack.to_bytes(4, 'big')
+                with self.assertRaises(ConversionError):
+                    megadrive.vectors(self.rom)
+
+    def test_console_region_uses_header_and_not_game_title(self):
+        self.rom.crc32 = 0x12345678
+        for header, overseas in ((b'J', 0), (b'U', 1), (b'JUE', 1), (b'1', 0),
+                                  (b'4', 1), (b'9', 0), (b'F', 1)):
+            with self.subTest(header=header):
+                self.rom.data[0x1f0:0x200] = header.ljust(16, b' ')
+                megadrive.write_spec(self.root, self.rom, 'Unrelated title')
+                spec = (self.root / 'retro_md_game.h').read_text()
+                self.assertIn(f'#define RR_MD_OVERSEAS {overseas}\n', spec)
+
     def test_native_body_contains_selected_operation_and_literal_operands(self):
         instruction = {'addr': 0xff8000, 'mnemonic': 2, 'size': 2,
             'words': [0x7001] + [0] * 7, 'word_count': 1, 'byte_length': 2, 'src_ea': -1,

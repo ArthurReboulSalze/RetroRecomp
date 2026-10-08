@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 from io import BytesIO
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -24,7 +25,7 @@ import urllib.parse
 import urllib.request
 
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
-from .paths import ASSETS, data_directory
+from .paths import ASSETS, boxart_cache_directory
 from .cover_settings import load_settings, configured
 from .cover_sources import PROVIDERS, CoverServiceError, fetch
 
@@ -40,6 +41,7 @@ REPOSITORY = REPOSITORIES['sms']  # Keep the existing SMS artwork source stable.
 FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 IMAGE_SOURCE_POLICY = 2  # Prefer original/HD provider images over older thumbnails.
+PUBLIC_MEDIA = {'Named_Boxarts': 'front', 'Named_Titles': 'title', 'Named_Snaps': 'snapshot'}
 # Stable tag IDs are separate from artwork filenames and peripheral detection.
 ICON_TAGS = {"shooting": "tag-shooting.png"}
 ICON_TAG_LAYOUT = {
@@ -63,7 +65,9 @@ def normalized(name: str, *, base: bool = False) -> str:
         # No-Intro names may have several trailing tags, including languages.
         while re.search(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", name):
             name = re.sub(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", "", name)
-        name = re.sub(r"^(.+),\s*(The|A|An)$", r"\2 \1", name, flags=re.I)
+    # Keep the edition tags while moving No-Intro's trailing article. This
+    # allows "The Game (USA)" to select "Game, The (USA)" unambiguously.
+    name = re.sub(r'^(.+),\s*(The|A|An)(?=\s*(?:\(|\[|$))', r'\2 \1', name, flags=re.I)
     name = unicodedata.normalize("NFKD", name).casefold()
     return "".join(c for c in name if c.isalnum())
 
@@ -126,6 +130,116 @@ def _read_image(path: Path) -> bytes:
     return data
 
 
+def _rom_key(path: Path) -> str | None:
+    try:
+        with path.open('rb') as rom:
+            return hashlib.file_digest(rom, 'sha256').hexdigest()
+    except OSError:
+        return None
+
+
+def _saved_cover(directory: Path, key: str | None, system_id: str, prefer3d: bool,
+                 online: bool) -> dict | None:
+    if key is None:
+        return None
+    choices = (prefer3d,) if online else (prefer3d, not prefer3d)
+    for choice in choices:
+        record_path = directory / 'Saved' / (key + ('-box3d.json' if choice else '-front.json'))
+        try:
+            record = json.loads(record_path.read_text(encoding='utf-8'))
+            if (record.get('format') != 1 or record.get('system_id') != system_id
+                    or record.get('rom_sha256') != key):
+                continue
+            relative = Path(record['image'])
+            if relative.is_absolute() or not relative.parts or relative.parts[0] != 'Downloaded':
+                continue
+            path = (directory / relative).resolve()
+            if not path.is_relative_to(directory.resolve()):
+                continue
+            data = _read_image(path)
+            if record['sha256'] != hashlib.sha256(data).hexdigest():
+                continue
+            if online and not prefer3d and record.get('style') == 'box3d':
+                continue
+            provider = record.get('provider')
+            if provider not in (*PROVIDERS, 'libretro'):
+                continue
+            return {'path': path, 'data': data, 'source': provider + '_cache',
+                    'url': _public_url(record.get('url')), 'style': record.get('style', 'front'),
+                    'source_page': _public_url(record.get('source_page'))}
+        except (OSError, ArtworkError, ValueError, KeyError, TypeError, AttributeError):
+            pass  # Missing or damaged artwork can be recovered by the usual search.
+    return None
+
+
+def _remember_cover(cover: dict, directory: Path, key: str | None, system_id: str,
+                    prefer3d: bool) -> dict:
+    if key is None or directory.drive.startswith('\\\\'):
+        return cover
+    provider = cover['source'].removesuffix('_cache')
+    if provider not in (*PROVIDERS, 'libretro'):
+        return cover
+    try:
+        relative = cover['path'].resolve().relative_to(directory.resolve())
+        if not relative.parts or relative.parts[0] != 'Downloaded':
+            return cover
+        record = {'format': 1, 'system_id': system_id, 'rom_sha256': key,
+                  'image': relative.as_posix(), 'provider': provider,
+                  'sha256': hashlib.sha256(cover['data']).hexdigest(),
+                  'style': cover.get('style', 'front'), 'url': _public_url(cover.get('url')),
+                  'source_page': _public_url(cover.get('source_page'))}
+        _atomic(directory / 'Saved' / (key + ('-box3d.json' if prefer3d else '-front.json')),
+                json.dumps(record, indent=2).encode())
+    except (OSError, ValueError):
+        pass  # A read-only cache must not prevent conversion.
+    return cover
+
+
+def _store_download(directory: Path, filename: str, data: bytes, record: dict) -> Path:
+    digest = hashlib.sha256(data).hexdigest()
+    style = record.get('style', 'front')
+    if style not in ('front', 'box3d', 'title', 'snapshot'):
+        raise ArtworkError('Unsupported downloaded artwork style.')
+    # Different providers/styles cannot overwrite an image used by another ROM.
+    path = directory / 'Downloaded' / style / digest / filename
+    if not path.is_file() or path.stat().st_size != len(data) or path.read_bytes() != data:
+        _atomic(path, data)
+    _atomic(path.with_suffix('.png.json'), json.dumps({**record, 'sha256': digest}, indent=2).encode())
+    return path
+
+
+def _downloaded_cover(path: Path) -> dict:
+    data = _read_image(path)
+    record = {}
+    try:
+        loaded = json.loads(path.with_suffix('.png.json').read_text(encoding='utf-8'))
+        if isinstance(loaded, dict):
+            if loaded.get('sha256') != hashlib.sha256(data).hexdigest():
+                raise ArtworkError('Cached image does not match its saved checksum.')
+            record = loaded
+    except ArtworkError:
+        raise
+    except (OSError, ValueError):
+        pass
+    provider = record.get('provider', 'libretro')
+    if provider not in (*PROVIDERS, 'libretro'):
+        provider = 'libretro'
+    return {'path': path, 'data': data, 'source': provider + '_cache',
+            'url': _public_url(record.get('url')), 'source_page': _public_url(record.get('source_page')),
+            'style': record.get('style', 'front' if provider == 'libretro' else 'auto'),
+            'checked_box_3d': record.get('checked_box_3d')}
+
+
+def _download_style(path: Path) -> str:
+    try:
+        record = json.loads(path.with_suffix('.png.json').read_text(encoding='utf-8'))
+        if isinstance(record, dict):
+            return record.get('style', 'front')
+    except (OSError, ValueError):
+        pass
+    return 'title' if 'Named_Titles' in path.parts else 'snapshot' if 'Named_Snaps' in path.parts else 'front'
+
+
 def _atomic(path: Path, data: bytes) -> None:
     if path.drive.startswith('\\\\'):
         raise ArtworkError('Cover downloads and generated artwork must use a local cache.')
@@ -168,16 +282,52 @@ def _get(url: str, maximum: int) -> bytes:
     return data
 
 
-def _catalog(directory: Path, system_id: str = 'sms') -> list[str]:
+def _public_base(system_id: str, category: str) -> str:
+    console = REPOSITORIES[system_id].split('/')[-1].replace('_', ' ')
+    return 'https://thumbnails.libretro.com/' + urllib.parse.quote(console, safe='') + f'/{category}/'
+
+
+def _public_get(url: str, maximum: int, unavailable: set[str]) -> bytes:
+    """Do not repeat a blocked host's timeout for every fallback image type."""
+    host = urllib.parse.urlsplit(url).hostname
+    if host in unavailable:
+        raise ArtworkError('Public artwork server unavailable for this search.')
+    try:
+        return _get(url, maximum)
+    except (ArtworkError, OSError, subprocess.TimeoutExpired) as exc:
+        if not isinstance(exc, urllib.error.HTTPError) or exc.code in (403, 429) or exc.code >= 500:
+            unavailable.add(host)
+        raise
+
+
+class _DirectoryLinks(HTMLParser):
+    """Read only filenames from the public thumbnail server's directory index."""
+    def __init__(self):
+        super().__init__()
+        self.names = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            href = dict(attrs).get('href', '')
+            parts = urllib.parse.urlsplit(href)
+            if not parts.scheme and not parts.netloc and not parts.query and not parts.fragment:
+                self.names.append(urllib.parse.unquote(parts.path))
+
+
+def _catalog(directory: Path, system_id: str = 'sms', category: str = 'Named_Boxarts',
+             unavailable: set[str] | None = None) -> list[str]:
     with _catalog_locks[system_id]:
-        return _load_catalog(directory, system_id)
+        return _load_catalog(directory, system_id, category, unavailable)
 
 
-def _load_catalog(directory: Path, system_id: str) -> list[str]:
+def _load_catalog(directory: Path, system_id: str, category: str = 'Named_Boxarts',
+                  unavailable: set[str] | None = None) -> list[str]:
+    unavailable = unavailable if unavailable is not None else set()
     repository = REPOSITORIES[system_id]
     # Contents listings stop at 1,000 files. Game Boy exceeds that limit.
     catalog_url = f"https://api.github.com/repos/{repository}/git/trees/master?recursive=1"
-    cache = directory / "Downloaded/libretro-catalog.json"
+    cache = directory / 'Downloaded' / ('libretro-catalog.json' if category == 'Named_Boxarts'
+                                      else f'libretro-{category}-catalog.json')
     try:
         record = json.loads(cache.read_text(encoding="utf-8"))
         if (record.get("repository") == repository and record.get('format') == 2
@@ -185,11 +335,20 @@ def _load_catalog(directory: Path, system_id: str) -> list[str]:
             return _catalog_names(record["names"])
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         pass
-    record = json.loads(_get(catalog_url, 8 * 1024 * 1024))
-    if not isinstance(record, dict) or record.get('truncated') or not isinstance(record.get('tree'), list):
-        raise ArtworkError("Catalogue Libretro indisponible.")
-    names = _catalog_names([r['path'].removeprefix('Named_Boxarts/') for r in record['tree']
-        if isinstance(r, dict) and r.get('type') == 'blob' and str(r.get('path', '')).startswith('Named_Boxarts/')])
+    try:
+        record = json.loads(_public_get(catalog_url, 8 * 1024 * 1024, unavailable))
+        if not isinstance(record, dict) or record.get('truncated') or not isinstance(record.get('tree'), list):
+            raise ArtworkError('Catalogue Libretro indisponible.')
+        names = _catalog_names([r['path'].removeprefix(category + '/') for r in record['tree']
+            if isinstance(r, dict) and r.get('type') == 'blob' and str(r.get('path', '')).startswith(category + '/')])
+    except (ArtworkError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        if isinstance(exc, urllib.error.HTTPError):
+            exc.close()
+        parser = _DirectoryLinks()
+        parser.feed(_public_get(_public_base(system_id, category), 8 * 1024 * 1024, unavailable).decode('utf-8'))
+        names = _catalog_names(parser.names)
+        if not names:
+            raise ArtworkError('Catalogue public Libretro indisponible.')
     _atomic(cache, json.dumps({"repository": repository, 'format': 2,
                              "downloaded_at": time.time(), "names": names}).encode())
     return names
@@ -202,34 +361,41 @@ def _catalog_names(names) -> list[str]:
         and not any(c in n for c in ('/', '\\', '\x00')) and len(n) < 240]
 
 
-def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms') -> tuple[Path, str]:
+def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms',
+              category: str = 'Named_Boxarts', unavailable: set[str] | None = None) -> tuple[Path, str]:
+    unavailable = unavailable if unavailable is not None else set()
     repository = REPOSITORIES[system_id]
-    raw_base = f"https://raw.githubusercontent.com/{repository}/master/Named_Boxarts/"
+    raw_base = f'https://raw.githubusercontent.com/{repository}/master/{category}/'
+    bases = (raw_base, _public_base(system_id, category))
     # Libretro replaces filename-restricted characters (including &) with _.
     filename = re.sub(r'[&*/:`<>?\\|"\x00-\x1f]', "_", rom_name) + ".png"
-    url = raw_base + urllib.parse.quote(filename, safe="")
-    emit("Cover locale absente : recherche sur Libretro…")
-    try:
-        data = _get(url, MAX_IMAGE_BYTES)
-    except urllib.error.HTTPError as exc:
-        if exc.code != 404:
-            raise
-        exc.close()
-        match = choose_cover(_catalog(directory, system_id), rom_name, title)
+    emit(f'Artwork: searching Libretro ({PUBLIC_MEDIA[category]})…')
+
+    def retrieve(name):
+        for base in bases:
+            url = base + urllib.parse.quote(name, safe='')
+            try:
+                return _image(_public_get(url, MAX_IMAGE_BYTES, unavailable)), url
+            except (ArtworkError, OSError, subprocess.TimeoutExpired) as exc:
+                if isinstance(exc, urllib.error.HTTPError):
+                    exc.close()
+        return None
+
+    result = retrieve(filename)
+    if result is None:
+        match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title)
         if not match:
-            raise ArtworkError("Aucune cover Libretro trouvée pour ce titre.")
+            raise ArtworkError('No matching artwork in this Libretro collection.')
         filename = match
-        url = raw_base + urllib.parse.quote(filename, safe="")
-        data = _get(url, MAX_IMAGE_BYTES)
-    image = _image(data)
+        result = retrieve(filename)
+    if result is None:
+        raise ArtworkError('No usable image from either Libretro server.')
+    image, url = result
     # Store validated PNG content, regardless of the server's content-type.
     buffer = BytesIO(); image.save(buffer, format="PNG")
-    path = directory / "Downloaded" / filename
-    _atomic(path, buffer.getvalue())
-    _atomic(path.with_suffix(".png.json"), json.dumps({"provider": "libretro", "url": url,
-        "source_page": f"https://github.com/{repository}", 'style': 'front',
-        "sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
-        "downloaded_utc": datetime.now(timezone.utc).isoformat()}, indent=2).encode())
+    path = _store_download(directory, filename, buffer.getvalue(), {"provider": "libretro", "url": url,
+        'source_page': f'https://github.com/{repository}', 'style': PUBLIC_MEDIA[category],
+        "downloaded_utc": datetime.now(timezone.utc).isoformat()})
     return path, url
 
 
@@ -241,26 +407,86 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
         data = _read_image(path)  # Explicit selection errors must be actionable.
         return {"path": path, "source": "explicit", "url": None, "data": data}
     if cache_directory is None and directory.drive.startswith('\\\\'):
-        cache_directory = data_directory() / 'BoxArt' / system_id
+        cache_directory = boxart_cache_directory(system_id)
     settings = settings if settings is not None else load_settings()
+    prefer3d = settings.get('box_3d', False) is True
     active = [p for p in ('screenscraper', 'thegamesdb', 'igdb')
               if configured(p, settings.get('accounts', {}).get(p, {}))]
     cached = None
+    local = None
+    storage = cache_directory or directory
+    key = _rom_key(rom_path)
+
+    def remember(cover):
+        return _remember_cover(cover, storage, key, system_id, prefer3d)
+
+    saved = _saved_cover(storage, key, system_id, prefer3d, online)
+    if saved is not None:
+        emit('Box art: reusing the saved download.')
+        return saved
+
+    def style_matches(cover):
+        return prefer3d or cover.get('style') != 'box3d'
 
     def fresh(cover):
-        # Configuring a new service should also improve previously downloaded
-        # flat covers. Real/local boxes and offline use never need a request.
-        return (not online or not active or
-                (cover.get('checked_image_policy') == IMAGE_SOURCE_POLICY and
-                 (cover.get('style') == 'box3d' or
-                  (cover.get('checked_sources') == active and
-                   cover.get('settings_revision', '') == settings.get('revision', '')))))
+        if online and not style_matches(cover):
+            return False  # A completed search cannot make a 3D box a front cover.
+        # Regeneration reuses downloaded art, even after account changes.
+        # A new explicit 3D preference may try once for a real box instead.
+        return (not online or not prefer3d or cover.get('style') == 'box3d'
+                or cover.get('checked_box_3d') is True)
+
+    if cache_directory is not None and cache_directory.resolve() != directory.resolve():
+        try:
+            cover = resolve_cover(rom_path, title, cache_directory, online=False,
+                                  system_id=system_id, settings=settings, emit=emit)
+            if cover['source'].endswith('_cache') and fresh(cover):
+                return remember(cover)
+            if cover['source'].endswith('_cache'):
+                cached = cover
+        except ArtworkError:
+            pass
+        # SMS downloads previously lived at BoxArt/Downloaded, beside the
+        # newer per-console folders. Import only that directory, never another
+        # console's artwork or the read-only ROM/boxart library.
+        legacy = cache_directory.parent / 'Downloaded'
+        if system_id == 'sms' and cache_directory.name == 'sms' and legacy.is_dir():
+            names = [p for p in legacy.rglob('*') if p.is_file() and p.suffix.lower() in FORMATS]
+            try:
+                match = choose_cover([str(p.relative_to(legacy)) for p in names], rom_path.stem, title)
+                if match:
+                    cover = _downloaded_cover(legacy / match)
+                    if fresh(cover):
+                        record = {k: cover.get(k) for k in ('style', 'url', 'source_page')}
+                        record['provider'] = cover['source'].removesuffix('_cache')
+                        try:
+                            cover['path'] = _store_download(storage, cover['path'].name, cover['data'], record)
+                        except (ArtworkError, OSError):
+                            return cover  # Still use the old download if migration cannot write.
+                        return remember(cover)
+            except (ArtworkError, OSError):
+                pass
     paths = sorted((p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in FORMATS),
         key=lambda p: ("Downloaded" in p.relative_to(directory).parts, str(p).casefold())) if directory.exists() else []
-    # Manual covers take priority over downloaded editions of the same game.
-    for downloaded in (False, True):
+    # Explicit selections were handled above. Automatic local matches may be
+    # Batocera mixed-media compositions, so prefer online boxes when enabled.
+    for downloaded in (True, False):
         pool = [p for p in paths if ("Downloaded" in p.relative_to(directory).parts) == downloaded]
-        match = choose_cover([str(p.relative_to(directory)) for p in pool], rom_path.stem, title)
+        match = None
+        groups = (('box3d', 'front', 'auto', 'title', 'snapshot') if prefer3d else
+                  ('front', 'auto', 'box3d', 'title', 'snapshot')) if downloaded else (None,)
+        for category in groups:
+            candidates = [p for p in pool if not downloaded or
+                (_download_style(p) == category and (not online or prefer3d or category != 'box3d'))]
+            try:
+                match = choose_cover([str(p.relative_to(directory)) for p in candidates], rom_path.stem, title)
+            except ArtworkError:
+                if not online:
+                    raise
+                emit('Box art: ambiguous local editions; continuing the online search.')
+                continue
+            if match:
+                break
         if match:
             path = directory / match
             try:
@@ -268,40 +494,19 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             except (OSError, ArtworkError) as exc:
                 emit(f"Cover locale inutilisable : {exc}")
                 continue
-            url, style, source_page = None, 'auto', None
-            provider = 'libretro'
-            record = {}
             if downloaded:
                 try:
-                    loaded = json.loads(path.with_suffix(".png.json").read_text(encoding='utf-8'))
-                    if isinstance(loaded, dict) and loaded.get("sha256") == hashlib.sha256(data).hexdigest():
-                        record = loaded
-                        provider = record.get('provider', 'libretro')
-                        if provider not in (*PROVIDERS, 'libretro'):
-                            provider = 'libretro'
-                        # Older/private sidecars must never leak authenticated URLs.
-                        url = _public_url(record.get('url'))
-                        source_page = _public_url(record.get('source_page'))
-                        style = record.get('style', 'front' if provider == 'libretro' else 'auto')
-                except (OSError, ValueError, AttributeError):
-                    pass
-            cover = {"path": path, "source": provider + '_cache' if downloaded else "local",
-                     "url": url, "data": data, 'style': style, 'source_page': source_page,
-                     'checked_sources': record.get('checked_sources', []),
-                     'checked_image_policy': record.get('checked_image_policy'),
-                     'settings_revision': record.get('settings_revision', '')}
+                    cover = _downloaded_cover(path)
+                except ArtworkError:
+                    continue
+            else:
+                cover = {'path': path, 'source': 'local', 'url': None, 'data': data, 'style': 'auto'}
+            if not downloaded and online:
+                local = cover
+                continue
             if not downloaded or fresh(cover):
-                return cover
+                return remember(cover)
             cached = cover
-    if cache_directory is not None and cache_directory.resolve() != directory.resolve():
-        try:
-            cover = resolve_cover(rom_path, title, cache_directory, online=False,
-                                  system_id=system_id, settings=settings, emit=emit)
-            if not cover['source'].endswith('_cache') or fresh(cover):
-                return cover
-            cached = cover
-        except ArtworkError:
-            pass
     if online:
         for provider in active:
             account = settings.get('accounts', {}).get(provider, {})
@@ -310,34 +515,59 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             emit(f"Box art: searching {PROVIDERS[provider][0]}…")
             try:
                 cover = fetch(provider, account, rom_path, title, system_id,
-                              prefer3d=settings.get('box_3d', True), normalize=normalized)
+                              prefer3d=prefer3d, normalize=normalized)
                 if cover is None:
+                    continue
+                if not prefer3d and cover.style == 'box3d':
+                    emit(f"Box art · {PROVIDERS[provider][0]}: no front cover; trying the next source.")
                     continue
                 image = _image(cover.data)
                 buffer = BytesIO(); image.save(buffer, format='PNG')
                 filename = re.sub(r'[&*/:`<>?\\|"\x00-\x1f]', '_', rom_path.stem) + '.png'
-                path = (cache_directory or directory) / 'Downloaded' / filename
                 data = buffer.getvalue()
-                _atomic(path, data)
                 record = {'provider': provider, 'source_page': _public_url(cover.source_page),
                           'url': _public_url(cover.url), 'style': cover.style,
                           'checked_sources': active, 'settings_revision': settings.get('revision', ''),
+                          'checked_box_3d': prefer3d,
                           'checked_image_policy': IMAGE_SOURCE_POLICY,
                           'sha256': hashlib.sha256(data).hexdigest(),
                           'downloaded_utc': datetime.now(timezone.utc).isoformat()}
-                _atomic(path.with_suffix('.png.json'), json.dumps(record, indent=2).encode())
-                return {'path': path, 'source': provider, 'data': data, 'url': record['url'],
-                        'source_page': record['source_page'], 'style': cover.style}
+                path = _store_download(storage, filename, data, record)
+                return remember({'path': path, 'source': provider, 'data': data, 'url': record['url'],
+                                 'source_page': record['source_page'], 'style': cover.style})
             except CoverServiceError as exc:
                 emit(f"Box art · {PROVIDERS[provider][0]}: {exc}")
             except (ArtworkError, OSError):
                 emit(f"Box art · {PROVIDERS[provider][0]}: unusable image; trying the next source.")
-        if cached is not None:
+        if (cached is not None and cached.get('style') not in ('title', 'snapshot')
+                and style_matches(cached)):
             _checked_cache(cached['path'], active, settings)
-            return cached
-        path, url = _download(rom_path.stem, title, cache_directory or directory, emit, system_id)
-        _checked_cache(path, active, settings)
-        return {"path": path, "source": "libretro", "url": url, "data": _read_image(path), 'style': 'front'}
+            return remember(cached)
+        unavailable = set()
+        for category, style in PUBLIC_MEDIA.items():
+            try:
+                path, url = _download(rom_path.stem, title, cache_directory or directory,
+                                      emit, system_id, category, unavailable)
+            except (ArtworkError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                if isinstance(exc, urllib.error.HTTPError):
+                    exc.close()
+                # Only boxes matching the requested style beat a screenshot.
+                # Keep an incompatible 3D image on disk for offline/3D use.
+                if cached is not None and style_matches(cached) and (
+                        cached.get('style') not in ('title', 'snapshot') or
+                        (category == 'Named_Titles' and cached.get('style') == 'title')):
+                    _checked_cache(cached['path'], active, settings)
+                    return remember(cached)
+                if category == 'Named_Boxarts' and local is not None:
+                    emit('Box art: online boxes unavailable; using the matching local image.')
+                    return local
+                continue
+            _checked_cache(path, active, settings)
+            return remember({'path': path, 'source': 'libretro', 'url': url, 'data': _read_image(path),
+                             'style': style, 'source_page': f'https://github.com/{REPOSITORIES[system_id]}'})
+        if cached is not None and style_matches(cached):
+            return remember(cached)
+        raise ArtworkError('No box art, title screen or game image found for this title.')
     raise ArtworkError("Aucune cover locale correspondante ; téléchargement désactivé.")
 
 
@@ -348,6 +578,7 @@ def _checked_cache(path, active, settings):
     try:
         record = json.loads(record_path.read_text(encoding='utf-8'))
         record.update(checked_sources=active, settings_revision=settings.get('revision', ''),
+                      checked_box_3d=settings.get('box_3d', False) is True,
                       checked_image_policy=IMAGE_SOURCE_POLICY)
         record['url'] = _public_url(record.get('url'))
         record['source_page'] = _public_url(record.get('source_page'))
@@ -463,8 +694,11 @@ def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, exp
             icon_sha256=hashlib.sha256(buffer.getvalue()).hexdigest(), sizes=list(ICON_SIZES),
             resource_id=101, fit="preserve_aspect_trim_transparent_margins")
         report.update(source_page=cover.get('source_page'),
+                      media_style=style,
                       box_style='source_3d' if style == 'box3d' else 'original')
         emit(f"Icône : {cover['path'].name} ({cover['source']}).")
+        if style in ('title', 'snapshot'):
+            emit(f'Icon fallback: {"title screen" if style == "title" else "in-game image"}; no box art found.')
         if report["tags"]:
             emit("Tags de l'icône : " + ", ".join(report["tags"]) + ".")
     except (ArtworkError, OSError, urllib.error.URLError, ValueError, subprocess.TimeoutExpired) as exc:

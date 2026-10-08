@@ -1,4 +1,4 @@
-"""Experimental NES conversion using the pinned NESRecomp cycle backend.
+"""NES conversion using the pinned NESRecomp cycle backend.
 
 The dependency is PolyForm Noncommercial, independently of RetroRecomp's MIT
 code. Each generated game retains the exact license in a Windows resource.
@@ -12,6 +12,7 @@ import json
 import re
 import shutil
 import sys
+import tempfile
 import time
 import zlib
 from typing import Callable
@@ -24,7 +25,7 @@ from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
 from .nes_catalog import zapper_game
-from .paths import ROOT, ASSETS, data_directory, games_root
+from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 
 ENGINE_URL = "https://github.com/mstan/nesrecomp.git"
@@ -171,6 +172,18 @@ def list_memory() -> list[dict]:
     return sorted(rows, key=lambda row: row['sha256'])
 
 
+def _run_probe(command: list[str | Path], work: Path) -> str:
+    # The standalone host stores battery RAM beside its EXE, regardless of cwd.
+    # Each invocation needs a clean cartridge, including the reference run.
+    # Copying into a private directory also leaves any existing saves untouched
+    # and works for mapper-specific NVRAM without guessing its layout here.
+    with tempfile.TemporaryDirectory(prefix='nes-probe-', dir=work) as temporary:
+        executable = Path(temporary) / Path(command[0]).name
+        shutil.copy2(command[0], executable)
+        return run([executable, *command[1:]], cwd=work,
+                   log=work / 'validation.log', timeout=600)
+
+
 def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
            script: Path | None = None, *, differential: bool = False) -> dict:
     command: list[str | Path] = [exe, '--frames', str(frames)]
@@ -179,7 +192,7 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
     command += ['--miss-log', seed]
     if differential:
         command += ['--hash-out', work / f'{scenario}-native.hash']
-    output = run(command, cwd=work, log=work / 'validation.log', timeout=600)
+    output = _run_probe(command, work)
     summary, interpreted = SUMMARY.search(output), INTERPRETED.search(output)
     if not summary or int(summary[1]) != frames:
         raise ConversionError(f'NES {scenario} probe did not complete {frames} frames.\n{output[-1000:]}')
@@ -198,7 +211,7 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             '--hash-out', work / f'{scenario}-reference.hash']
         if script:
             reference_command += ['--input', script]
-        run(reference_command, cwd=work, log=work / 'validation.log', timeout=600)
+        _run_probe(reference_command, work)
         native_hash = (work / f'{scenario}-native.hash').read_bytes()
         reference_hash = (work / f'{scenario}-reference.hash').read_bytes()
         if native_hash != reference_hash or len(native_hash.splitlines()) != frames:
@@ -275,7 +288,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     try:
         artwork = prepare_icon(project, rom.path, title,
             (boxart_dir or ROOT / 'BoxArt/Nintendo NES').resolve(), explicit=cover,
-            online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt/nes',
+            online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory('nes'),
             tags=('shooting',) if gun and icon_tags else (), system_id='nes', emit=emit)
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc

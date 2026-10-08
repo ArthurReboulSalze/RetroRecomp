@@ -93,8 +93,8 @@ void rr16_md_gun_line(int line) {
 bool rr16_md_gun_pending(void) { return RR16_GUN && pending_irq; }
 void rr16_md_gun_irq_begin(void) { pending_irq = false; irq_active = true; ++interrupt_count; }
 void rr16_md_gun_irq_end(void) { irq_active = false; }
-void rr16_md_gun_instruction(bool active) { instruction_active = RR16_GUN && active; }
-bool rr16_md_gun_instruction_busy(void) { return instruction_active; }
+void rr16_md_instruction(bool active) { instruction_active = active; }
+bool rr16_md_instruction_busy(void) { return instruction_active; }
 uint16_t rr16_md_gun_hv(uint16_t fallback) {
     /* The engine schedules whole scanlines. Non-latching games receive the
      * sensor estimate during their level-2 handler only, not a frozen clock. */

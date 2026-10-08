@@ -14,7 +14,7 @@ from smsrecomp.gun16_runtime import snes_joypad
 
 def main():
     results = []
-    for kind in (1, 2, 3):
+    for kind in (0, 1, 2, 3):
         project = ROOT / '.build' / f'gun16-checks-{kind}'
         project.mkdir(parents=True, exist_ok=True)
         for name in ('gun16.h', 'gun16.c', 'retro_console16.h', 'gun16_checks.c'):

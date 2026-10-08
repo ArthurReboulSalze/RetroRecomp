@@ -16,6 +16,9 @@
 #include "runtime_evidence.h"
 #include "crash_report.h"
 #include "rb_state.h"
+#include "md_ym_timers.h"
+#include "md_z80_native.h"
+#include "md_native_steps.h"
 
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
 static bool audible, headless_mode;
@@ -24,6 +27,27 @@ static void *cold_state;
 static size_t cold_length;
 static bool reset_ok = true;
 static bool execution_fault;
+/* Probe-only PCM evidence, before host resampling/output. No playback cost. */
+static uint64_t fm_samples, psg_samples, fm_nonzero, psg_nonzero;
+static uint64_t fm_hash = 14695981039346656037ull, psg_hash = 14695981039346656037ull;
+static unsigned fm_peak, psg_peak, frame_fm_nonzero, frame_psg_nonzero;
+static uint64_t fm_active_frames, psg_active_frames;
+static bool pcm_changes(const int16_t *pcm, size_t count, size_t channels) {
+    for (size_t i = channels; i < count; ++i)
+        if (pcm[i] != pcm[i - channels]) return true;
+    return false;
+}
+static void audio_evidence(const int16_t *pcm, size_t count, uint64_t *samples,
+                           uint64_t *nonzero, uint64_t *hash, unsigned *peak,
+                           unsigned *frame_nonzero) {
+    *samples += count; *frame_nonzero = 0;
+    for (size_t i = 0; i < count; ++i) {
+        unsigned amplitude = pcm[i] < 0 ? -(int)pcm[i] : pcm[i];
+        if (amplitude) { ++*nonzero; ++*frame_nonzero; }
+        if (amplitude > *peak) *peak = amplitude;
+        *hash ^= (uint16_t)pcm[i]; *hash *= 1099511628211ull;
+    }
+}
 uint64_t g_cosim_cycle;
 void rr16_note_interpreted(void) { ++interpreted; }
 void rr16_note_fault(void) { execution_fault = true; }
@@ -110,10 +134,13 @@ static void line_sink(void *ctx, int line, const uint32_t *row, int width) {
 }
 bool rr16_init(bool headless) {
     headless_mode = headless;
+    rr_md_cpu_stopped = 0;
+    rr_md_z80_reset_evidence();
     HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
     if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
-    machine_init(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
+    machine_init(); rr16_md_ym_reset(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
+    g_machine.bus.version = RR_MD_OVERSEAS ? 0x80 : 0x00;
     rr16_gun_reset();
     genesis_sim_set_tick_count(0);
     crash_report_set_log_path(NULL);
@@ -130,11 +157,17 @@ bool rr16_init(bool headless) {
 }
 void rr16_reset(void) {
     rr16_gun_reset();
+    rr_md_z80_reset_evidence();
     /* The engine snapshot includes private scheduler globals and the live
      * fiber. Reinitializing only CPU/RAM would leave old timing behind. */
     reset_ok = cold_length && genesis_rb_load(cold_state, cold_length);
+    rr16_md_ym_reset();
     execution_fault = false;
     interpreted = rom_fallback = ram_fallback = 0;
+    fm_samples = psg_samples = fm_nonzero = psg_nonzero = 0;
+    fm_hash = psg_hash = 14695981039346656037ull;
+    fm_peak = psg_peak = frame_fm_nonzero = frame_psg_nonzero = 0;
+    fm_active_frames = psg_active_frames = 0;
     ram_variant_count = 0;
     memset(evidence, 0, sizeof evidence);
     memset(evidence_counts, 0, sizeof evidence_counts);
@@ -148,11 +181,35 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
     GenesisSimAudio audio = {fm, 4096, &fn, psg, 16384, &pn};
     GenesisSimHooks hooks = {0}; hooks.sink = line_sink;
     int ok = genesis_sim_step(&in, &audio, &hooks);
+    if (headless_mode) {
+        audio_evidence(fm, fn * 2, &fm_samples, &fm_nonzero, &fm_hash, &fm_peak, &frame_fm_nonzero);
+        audio_evidence(psg, pn, &psg_samples, &psg_nonzero, &psg_hash, &psg_peak, &frame_psg_nonzero);
+        fm_active_frames += pcm_changes(fm, fn * 2, 2);
+        psg_active_frames += pcm_changes(psg, pn, 1);
+    }
     if (audible) audio_flush(genesis_sim_tick_count(), 1, fm, fn, psg, pn);
     return ok != 0 && !execution_fault;
 }
 const uint32_t *rr16_pixels(void) { return pixels; }
 uint64_t rr16_interpreted(void) { return interpreted; }
+uint64_t rr16_audio_interpreted(void) { return rr_md_z80_fallback_opcodes(); }
+const char *rr16_audio_cpu(void) {
+    return rr_md_z80_fallback_opcodes() ? (rr_md_z80_native_opcodes() ? "hybrid" : "interpreted") :
+           rr_md_z80_native_opcodes() ? "native" : "not_run";
+}
+extern int genesis_force_interp(void);
+int rr_md_z80_force_reference(void) { return genesis_force_interp(); }
+int rr_md_z80_probe(void) { return headless_mode && !genesis_force_interp(); }
+int rr_md_z80_peek(uint16_t pc, uint8_t *value) {
+    if (pc < 0x4000u) { *value = g_machine.bus.z80_ram[pc & 0x1fffu]; return 1; }
+    if (pc >= 0x8000u) {
+        uint32_t address = ((uint32_t)g_machine.bus.z80_bank << 15) + pc - 0x8000u;
+        if (address < RR_MD_ROM_BYTES || (address >= 0xff0000u && address <= 0xffffffu)) {
+            *value = gbus_peek8(&g_machine.bus, address); return 1;
+        }
+    }
+    return 0; /* Opcode guards must never duplicate an I/O register read. */
+}
 uint64_t rr16_native_entries(void) {
     extern uint64_t g_native_insn_count;
     /* The upstream interpreter increments the total too. Report only actual
@@ -170,11 +227,26 @@ static uint64_t bytes_hash(const void *data, size_t size) {
 }
 void rr16_report_details(FILE *file) {
     rr16_gun_report(file);
-    fprintf(file, ",\"visible_width\":%d,\"cpu_pc\":%u,\"execution_fault\":%s,"
+    rr_md_z80_report(file);
+    z80 cpu = g_machine.z80;
+    cpu.read_byte = NULL; cpu.write_byte = NULL; cpu.port_in = NULL; cpu.port_out = NULL; cpu.userdata = NULL;
+    fprintf(file, ",\"fm_samples\":%llu,\"fm_nonzero\":%llu,\"fm_peak\":%u,\"fm_hash\":\"%016llx\","
+            "\"psg_samples\":%llu,\"psg_nonzero\":%llu,\"psg_peak\":%u,\"psg_hash\":\"%016llx\","
+            "\"fm_active_frames\":%llu,\"psg_active_frames\":%llu,"
+            "\"z80_pc\":%u,\"z80_slice_cycles\":%llu,\"z80_ram_hash\":\"%016llx\","
+            "\"z80_cpu_hash\":\"%016llx\",\"ym_timer_hash\":\"%016llx\"",
+            fm_samples, fm_nonzero, fm_peak, fm_hash, psg_samples, psg_nonzero, psg_peak, psg_hash,
+            fm_active_frames, psg_active_frames,
+            g_machine.z80.pc, (uint64_t)g_machine.z80.cyc,
+            bytes_hash(g_machine.bus.z80_ram, sizeof g_machine.bus.z80_ram),
+            bytes_hash(&cpu, sizeof cpu),
+            bytes_hash(rr16_md_ym_state(), sizeof(RrMdYmTimers)));
+    fprintf(file, ",\"visible_width\":%d,\"cpu_pc\":%u,\"cpu_sr\":%u,\"cpu_usp\":%u,\"cpu_ssp\":%u,\"cpu_stopped\":%u,\"console_version\":%u,\"execution_fault\":%s,"
             "\"rom_fallback_opcodes\":%llu,\"ram_fallback_opcodes\":%llu,"
             "\"cpu_hash\":\"%016llx\",\"ram_hash\":\"%016llx\",\"vram_hash\":\"%016llx\","
             "\"cram_hash\":\"%016llx\",\"vsram_hash\":\"%016llx\",\"vdp_register_hash\":\"%016llx\",\"rom_entries\":[",
-            rr16_visible_width(), g_cpu.PC & 0xffffffu, execution_fault ? "true" : "false",
+            rr16_visible_width(), g_cpu.PC & 0xffffffu, g_cpu.SR, rr_md_user_sp(), rr_md_supervisor_sp(),
+            rr_md_cpu_stopped, g_machine.bus.version, execution_fault ? "true" : "false",
             rom_fallback, ram_fallback, bytes_hash(&g_cpu, sizeof g_cpu), bytes_hash(g_ram, sizeof g_ram),
             bytes_hash(g_machine.vdp.vram, sizeof g_machine.vdp.vram),
             bytes_hash(g_machine.vdp.cram, sizeof g_machine.vdp.cram),
@@ -193,6 +265,15 @@ void rr16_report_details(FILE *file) {
         fputs("\"}", file);
     }
     fputs("]", file);
+}
+void rr16_trace_details(FILE *file) {
+    fprintf(file, ",%06x,%04x,%08x,%04x,%d,%d,%u,%u",
+            g_cpu.PC & 0xffffffu, g_cpu.SR, g_cpu.A[7], g_machine.z80.pc,
+            g_machine.bus.z80_busreq, g_machine.bus.z80_reset_off,
+            frame_fm_nonzero, frame_psg_nonzero);
+}
+uint64_t rr16_audio_fingerprint(void) {
+    return fm_hash ^ (psg_hash * 1099511628211ull) ^ fm_samples ^ (psg_samples << 1);
 }
 size_t rr16_audio(int16_t *pcm, size_t capacity) { return 0; }
 void rr16_pause(bool paused) { if (audible) audio_set_playback_enabled(!paused); }

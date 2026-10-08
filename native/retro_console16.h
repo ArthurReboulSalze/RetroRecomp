@@ -33,8 +33,12 @@ void rr16_pause(bool paused);
 void rr16_shutdown(void);
 bool rr16_state_file(const wchar_t *path, bool load);
 int rr16_sdl_main(const char *title, int scale);
+uint64_t rr16_audio_interpreted(void);
+const char *rr16_audio_cpu(void);
+uint64_t rr16_audio_fingerprint(void);
 #if RR16_MD
 int rr16_visible_width(void);
+void rr16_trace_details(FILE *file);
 #else
 #define rr16_visible_width() RR16_WIDTH
 #endif

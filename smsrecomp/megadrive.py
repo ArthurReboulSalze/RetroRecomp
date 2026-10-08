@@ -12,6 +12,7 @@ import re
 import shutil
 
 from .core import ConversionError, run
+from .cartridge16 import megadrive_regions
 from .library import atomic_json, entry_lock, library_root
 
 PROFILES = {
@@ -27,6 +28,38 @@ PROFILES = {
         {'id': 'menacer', 'title': 'Menacer 6-Game Cartridge', 'prefix': 'game', 'sonic': False},
     'cd2fbb02b42cb0f4e26b4aa5fa1c79ba798c48233ae4e02e19012b08c6848071':
         {'id': 't2-arcade', 'title': 'T2 - The Arcade Game', 'prefix': 'game', 'sonic': False},
+    '121b5e2a0fc03816dc5d42e3069ef41120efc9a7d3728363c91449e762e7b7cc':
+        {'id': 'aladdin-japan', 'title': 'Aladdin', 'prefix': 'game', 'sonic': False},
+    '4a314edbfee92282850fe95c4c764921916efd9d3c2277fdec2581279b1369b1':
+        {'id': 'streets-of-rage-2', 'title': 'Streets of Rage 2', 'prefix': 'game', 'sonic': False},
+    'd2163f1cc7a200075e1129f038a245c421688e2d62afca9934fedeffdf833cf5':
+        {'id': 'revenge-of-shinobi', 'title': 'The Revenge of Shinobi', 'prefix': 'game', 'sonic': False},
+    '549b1731062c24195ae7fa8ca84ad34ae5bfa2972c9eb2535df880d06880ea86':
+        {'id': 'gunstar-heroes-japan', 'title': 'Gunstar Heroes', 'prefix': 'game', 'sonic': False},
+    '48b280520c4f1b36d43a252d4a137443a714f78832e17b729811ac0d28eefef7':
+        {'id': 'ecco', 'title': 'Ecco the Dolphin', 'prefix': 'game', 'sonic': False},
+    'deae2e33345244707c62dbc8ed1b087899463e67e217843a4b6c8b4d9c8b47c4':
+        {'id': 'desert-strike', 'title': 'Desert Strike - Return to the Gulf', 'prefix': 'game', 'sonic': False},
+    'eb19bda4982366a2fd43d65ab8a7f9709d83a8cc902c14a682c088c16359c263':
+        {'id': 'beyond-oasis', 'title': 'Beyond Oasis', 'prefix': 'game', 'sonic': False},
+    'ec6cee3af3cc7cc6113d1443d5b5c27f18c2506d5ef61a453a42d6655c5e07c4':
+        {'id': 'comix-zone-japan', 'title': 'Comix Zone', 'prefix': 'game', 'sonic': False},
+    'f8feee8e3f2768bec97419c3b278a87827e248fa4d5ae35a1af46a14366c6856':
+        {'id': 'contra-hard-corps', 'title': 'Contra - Hard Corps', 'prefix': 'game', 'sonic': False},
+    '697af64f489935f9d2ca5f1b89b2467c042a0113edfbe913e354f4765ce221e0':
+        {'id': 'dynamite-headdy', 'title': 'Dynamite Headdy', 'prefix': 'game', 'sonic': False},
+    '040b833996c84e1ac30711287f38c0264c4370cd45fa4d30138e6e972c4d50bc':
+        {'id': 'rocket-knight-japan', 'title': 'Rocket Knight Adventures', 'prefix': 'game', 'sonic': False},
+    'ae07a6fd26590571d4bfc73b678e1aa38cb1a1466cf93f3af3714a45cad4bf60':
+        {'id': 'street-fighter-2-japan', 'title': "Street Fighter II' Plus - Champion Edition", 'prefix': 'game', 'sonic': False},
+    '1950560594416d2bba700c05c6ce21591647c59863fa4afe2d10f871f290679d':
+        {'id': 'thunder-force-4-japan', 'title': 'Thunder Force IV', 'prefix': 'game', 'sonic': False},
+    '65ea2386f5f4eda45335d8298ab30bc19d38b9bd5483ffa592818b645c14c163':
+        {'id': 'toejam-and-earl', 'title': 'ToeJam & Earl', 'prefix': 'game', 'sonic': False},
+    '8d167aa613cbc17377314c920642a9d7bc8d4204eead3cfbc84dbc23c86a6e09':
+        {'id': 'vectorman', 'title': 'Vectorman', 'prefix': 'game', 'sonic': False},
+    '6b2ac36f624f914ad26e32baa87d1253aea9dcfc13d2a5842ecdd2bd4a7a43b9':
+        {'id': 'wonder-boy-monster-world', 'title': 'Wonder Boy in Monster World', 'prefix': 'game', 'sonic': False},
 }
 
 
@@ -43,7 +76,11 @@ def vectors(rom) -> dict:
     data = rom.data
     values = {name: int.from_bytes(data[p:p + 4], 'big') & 0xffffff
               for name, p in (('ssp', 0), ('entry', 4), ('hblank', 0x70), ('vblank', 0x78))}
-    if not 0xff0000 <= values['ssp'] <= 0xffffff or values['ssp'] & 1:
+    # A7 is 32-bit; only bus accesses discard its upper byte. An empty stack
+    # at zero is valid: predecrement pushes wrap to $FFFFFC in work RAM.
+    values['ssp'] = int.from_bytes(data[:4], 'big')
+    stack_bus = values['ssp'] & 0xffffff
+    if (stack_bus != 0 and not 0xff0000 <= stack_bus <= 0xffffff) or stack_bus & 1:
         raise ConversionError('Mega Drive reset stack is outside writable RAM.')
     if not 0x200 <= values['entry'] < len(data) or values['entry'] & 1:
         raise ConversionError('Mega Drive reset/interrupt vectors are not valid ROM entries.')
@@ -203,6 +240,9 @@ def write_spec(project: Path, rom, title: str) -> None:
         f'#define RR_MD_SONIC {int(profile["sonic"])}\n', encoding='utf-8')
     with (project / 'retro_md_game.h').open('a', encoding='utf-8') as output:
         output.write('#define RR_MD_STEP_AOT 1\n')
+        # Prefer overseas NTSC when supported; Japan-only cartridges need
+        # the domestic version bit. Match hardware, without patching checks.
+        output.write(f'#define RR_MD_OVERSEAS {int(bool(megadrive_regions(rom.data) & 4))}\n')
 
 
 def analysis_identity(project: Path, engine_revision: str, rom) -> dict:

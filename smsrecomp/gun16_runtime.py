@@ -30,7 +30,7 @@ def md_vdp(source):
 
 
 def md_machine(source):
-    source = '#include "retro_gun_game.h"\n#include "gun16.h"\n' + source
+    source = '#include "retro_md_game.h"\n#include "retro_gun_game.h"\n#include "gun16.h"\n' + source
     source = replace(source, 'static uint32_t s_z80_off     = 0;',
         'static uint32_t rr_gun_slice_base = 0;\nextern uint32_t g_audio_cycle_counter;\n'
         'static uint32_t s_z80_off     = 0;')
@@ -40,10 +40,10 @@ def md_machine(source):
         '        unsigned irq = gvdp_begin_scanline(&m->vdp, line);\n'
         '        rr16_md_gun_line(line);')
     source = replace(source, '        glue_run_game_chunk(M68K_PER_LINE);', '''        rr_gun_slice_base = 0;
-        if (RR16_GUN) {
-            /* T2 briefly releases BUSREQ inside its audio mailbox loop.
+        if (RR_MD_STEP_AOT || RR16_GUN) {
+            /* Audio mailbox loops can release BUSREQ only briefly.
              * Sampling only at a whole-line boundary can miss every release
-             * and starve the Z80 forever, with IRQ2 masked by the waiting ISR.
+             * and starve the Z80 forever while the 68000 polls its reply.
              * Split the existing line budgets; never add audio CPU cycles.
              * Carry 68000 instruction overshoot between slices. */
             uint32_t before = g_audio_cycle_counter;
@@ -62,30 +62,28 @@ def md_machine(source):
             glue_run_game_chunk(M68K_PER_LINE);
         }''')
     return replace(source, '        step_z80(m, Z80_PER_LINE);',
-        '        if (!RR16_GUN) step_z80(m, Z80_PER_LINE);')
+        '        if (!RR_MD_STEP_AOT && !RR16_GUN) step_z80(m, Z80_PER_LINE);')
 
 
 def md_glue(source):
     source = '#include "retro_gun_game.h"\n#include "gun16.h"\n' + source
     source = replace(source, 'static void check_cycle_budget(void)\n{',
         'static void check_cycle_budget(void)\n{\n'
-        '    if (rr16_md_gun_instruction_busy()) return;')
+        '    if (rr16_md_instruction_busy()) return;')
     source = replace(source, 'static inline void spin_check(uint32_t byte_addr, int is_write)\n{',
         'static inline void spin_check(uint32_t byte_addr, int is_write)\n{\n'
-        '    if (rr16_md_gun_instruction_busy()) return;')
+        '    if (rr16_md_instruction_busy()) return;')
     source = replace(source,
         '    if (byte_addr == 0xA01FFDu || byte_addr == 0xA01FFFu || byte_addr == 0xA11100u) {',
-        '    if (!RR16_GUN && (byte_addr == 0xA01FFDu || byte_addr == 0xA01FFFu || byte_addr == 0xA11100u)) {')
+        '    if (!RR_MD_STEP_AOT && !RR16_GUN && (byte_addr == 0xA01FFDu || byte_addr == 0xA01FFFu || byte_addr == 0xA11100u)) {')
     source = replace(source,
         'static void rr_md_service_irq(int level, uint32_t vector, GVDP *vdp) {',
         'static void rr_md_service_irq(int level, uint32_t vector, GVDP *vdp) {\n'
-        '    if (RR16_GUN) {\n'
-        '        /* Execute the handler on the normal instruction fiber: a gun\n'
+        '    if (RR_MD_STEP_AOT || RR16_GUN) {\n'
+        '        /* Execute the handler on the normal instruction fiber: any\n'
         '         * IRQ may wait for audio, so the Z80/VDP must keep progressing. */\n'
         '        uint16_t sr = g_cpu.SR; uint32_t pc = g_cpu.PC;\n'
-        '        g_cpu.A[7] -= 4; m68k_write32(g_cpu.A[7], pc);\n'
-        '        g_cpu.A[7] -= 2; m68k_write16(g_cpu.A[7], sr);\n'
-        '        g_cpu.SR = (uint16_t)((sr & ~0x8700u) | 0x2000u | ((unsigned)level << 8));\n'
+        '        rr_md_exception_frame(sr, pc, (uint16_t)((sr & ~0x8700u) | 0x2000u | ((unsigned)level << 8)));\n'
         '        g_cpu.PC = m68k_read32(vector) & 0xffffffu;\n'
         '        g_audio_cycle_counter += 44; g_cycle_accumulator += 44;\n'
         '        s_game_yielded_vblank = 0; return;\n'
@@ -113,9 +111,9 @@ def md_interpreter(source):
 M68kiStatus m68k_interp_step(void) {
     /* The scheduler may inject a real exception frame only between retired
      * instructions, including when an instruction performs a stalled DMA. */
-    rr16_md_gun_instruction(true);
+    rr16_md_instruction(true);
     M68kiStatus status = rr_md_instruction_body();
-    rr16_md_gun_instruction(false);
+    rr16_md_instruction(false);
     return status;
 }
 '''

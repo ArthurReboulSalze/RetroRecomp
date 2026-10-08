@@ -38,9 +38,9 @@ class CoverSourceTests(unittest.TestCase):
         self.patch_clock = patch.object(api.time, 'sleep')
         self.patch_clock.start(); self.addCleanup(self.patch_clock.stop)
 
-    def fetch(self, provider, account, responses):
+    def fetch(self, provider, account, responses, **options):
         with patch.object(api, 'request', side_effect=responses) as client:
-            result = api.fetch(provider, account, self.rom, 'Game', 'gb', normalize=normalized)
+            result = api.fetch(provider, account, self.rom, 'Game', 'gb', normalize=normalized, **options)
         return result, client
 
     def ss_game(self, **overrides):
@@ -53,6 +53,7 @@ class CoverSourceTests(unittest.TestCase):
 
     def test_default_settings_create_no_files_and_skip_unconfigured_services(self):
         self.assertEqual(load_settings(self.root), defaults())
+        self.assertFalse(load_settings(self.root)['box_3d'])
         self.assertFalse((self.root / CONFIG_NAME).exists())
         with patch.object(api, 'request', side_effect=AssertionError('no API credentials')):
             for provider in api.PROVIDERS:
@@ -81,7 +82,7 @@ class CoverSourceTests(unittest.TestCase):
 
     def test_screen_scraper_prefers_real_3d_and_never_returns_authenticated_url(self):
         account = {'devid': 'id', 'devpassword': 'secret'}
-        result, client = self.fetch('screenscraper', account, [self.ss_game(), png(transparent=True)])
+        result, client = self.fetch('screenscraper', account, [self.ss_game(), png(transparent=True)], prefer3d=True)
         self.assertEqual(result.style, 'box3d')
         self.assertIsNone(result.url)
         self.assertNotIn('secret', result.source_page)
@@ -99,7 +100,7 @@ class CoverSourceTests(unittest.TestCase):
     def test_screen_scraper_accepts_documented_nested_box_groups(self):
         response = self.ss_game(medias={'media_boitiers': {'media_boitiers_3d': {
             'media_boitier_3d_eu': 'https://api.screenscraper.fr/box'}}})
-        result, _ = self.fetch('screenscraper', {'devid': 'id', 'devpassword': 'test'}, [response, png()])
+        result, _ = self.fetch('screenscraper', {'devid': 'id', 'devpassword': 'test'}, [response, png()], prefer3d=True)
         self.assertEqual(result.style, 'box3d')
 
     def test_screenscraper_prefers_larger_real_box_and_drops_thumbnail_limits(self):
@@ -111,7 +112,7 @@ class CoverSourceTests(unittest.TestCase):
             {'type': 'box-2D', 'region': 'eu', 'width': '1600', 'height': '2400',
              'url': 'https://api.screenscraper.fr/front'}])
         result, client = self.fetch('screenscraper', {'devid': 'id', 'devpassword': 'test'},
-                                    [response, png(size=(800, 1200))])
+                                    [response, png(size=(800, 1200))], prefer3d=True)
         self.assertEqual(result.style, 'box3d')
         url = client.call_args.args[0]
         self.assertIn('/large?', url)
@@ -122,9 +123,20 @@ class CoverSourceTests(unittest.TestCase):
     def test_screenscraper_uses_front_when_no_real_box_exists(self):
         response = self.ss_game(medias=[{'type': 'box-2D', 'region': 'eu',
                                'url': 'https://api.screenscraper.fr/front'}])
-        result, client = self.fetch('screenscraper', {'devid': 'id', 'devpassword': 'test'}, [response, png()])
+        result, client = self.fetch('screenscraper', {'devid': 'id', 'devpassword': 'test'}, [response, png()], prefer3d=True)
         self.assertEqual(result.style, 'front')
         self.assertTrue(client.call_args.args[0].endswith('/front'))
+
+    def test_screenscraper_defaults_to_front_and_skips_3d_only_media(self):
+        account = {'devid': 'id', 'devpassword': 'test'}
+        cover, client = self.fetch('screenscraper', account, [self.ss_game(), png()])
+        self.assertEqual(cover.style, 'front')
+        self.assertTrue(client.call_args.args[0].endswith('/front'))
+        only_box = self.ss_game(medias=[{'type': 'box-3D', 'region': 'eu',
+                                       'url': 'https://api.screenscraper.fr/box'}])
+        cover, client = self.fetch('screenscraper', account, [only_box])
+        self.assertIsNone(cover)
+        self.assertEqual(client.call_count, 1)
 
     def tgdb(self, images=None, platform=4, title='Game'):
         return json.dumps({'data': {'games': [{'id': 7, 'platform': platform, 'game_title': title}]},
@@ -203,6 +215,7 @@ class CoverSourceTests(unittest.TestCase):
         self.assertEqual(report['icon_sha256'], cached['icon_sha256'])
 
     def test_real_3d_cache_retains_shape_and_sanitized_provenance(self):
+        self.settings['box_3d'] = True
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'synthetic-secret'}
         remote = api.RemoteCover('screenscraper', png(transparent=True),
             'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
@@ -217,7 +230,8 @@ class CoverSourceTests(unittest.TestCase):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(cached['source'], 'screenscraper_cache')
 
-    def test_configuring_a_service_upgrades_a_flat_cache_without_redownloading_public_art(self):
+    def test_configuring_a_service_keeps_the_saved_download_without_network_requests(self):
+        self.settings['box_3d'] = True
         with patch('smsrecomp.artwork._get', return_value=png()):
             initial = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(initial['source'], 'libretro')
@@ -228,8 +242,9 @@ class CoverSourceTests(unittest.TestCase):
                 patch('smsrecomp.artwork._get', side_effect=AssertionError('public cache already exists')):
             upgraded = resolve_cover(self.rom, 'Game', self.root / 'empty', cache_directory=self.art,
                                      settings=self.settings)
-        self.assertEqual(fetch.call_count, 1)
-        self.assertEqual(upgraded['source'], 'screenscraper')
+        self.assertEqual(fetch.call_count, 0)
+        self.assertEqual(upgraded['source'], 'libretro_cache')
+        self.assertEqual(upgraded['data'], initial['data'])
 
     def test_api_upgrade_failure_keeps_the_valid_existing_cover(self):
         with patch('smsrecomp.artwork._get', return_value=png()):
@@ -242,7 +257,8 @@ class CoverSourceTests(unittest.TestCase):
         with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('configuration already checked')):
             resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
 
-    def test_previous_thumbnail_cache_is_checked_once_for_an_hd_source(self):
+    def test_previous_thumbnail_cache_remains_usable_without_a_new_download(self):
+        self.settings['box_3d'] = True
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
         small = api.RemoteCover('screenscraper', png(transparent=True),
                     'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
@@ -256,12 +272,88 @@ class CoverSourceTests(unittest.TestCase):
                     small.source_page, 'box3d')
         with patch('smsrecomp.artwork.fetch', return_value=large) as client:
             upgraded = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
-        self.assertEqual(client.call_count, 1)
+        self.assertEqual(client.call_count, 0)
         with Image.open(BytesIO(upgraded['data'])) as image:
-            self.assertEqual(image.size, (800, 1200))
+            self.assertEqual(image.size, (120, 180))
         with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('HD source already checked')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(upgraded['data'], cached['data'])
+
+    def cached_box(self):
+        self.settings['box_3d'] = True
+        self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
+        remote = api.RemoteCover('screenscraper', png(transparent=True),
+                                 'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
+        with patch('smsrecomp.artwork.fetch', return_value=remote):
+            return resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
+
+    def test_style_change_downloads_missing_front_and_reuses_the_original_box(self):
+        box = self.cached_box()
+        for requested, style in ((False, 'front'), (True, 'box3d')):
+            self.settings['box_3d'] = requested
+            remote = api.RemoteCover('screenscraper', png(transparent=requested), box['source_page'], style)
+            with patch('smsrecomp.artwork.fetch', return_value=remote) as client:
+                cover = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
+            self.assertEqual(cover['style'], style)
+            self.assertEqual(client.call_count, 0 if requested else 1)
+            if not requested:
+                self.assertIs(client.call_args.kwargs['prefer3d'], requested)
+            else:
+                self.assertEqual(cover['data'], box['data'])
+            with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('choice already checked')):
+                cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
+            self.assertEqual(cached['data'], cover['data'])
+
+    def test_cached_box_can_be_replaced_with_public_front_without_accounts(self):
+        self.cached_box()
+        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('no accounts')), \
+                patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))) as client:
+            cover = resolve_cover(self.rom, 'Game', self.root / 'empty',
+                                  cache_directory=self.art, settings=defaults())
+        self.assertEqual(cover['source'], 'libretro')
+        self.assertEqual(cover['style'], 'front')
+        self.assertEqual(client.call_count, 1)
+        with patch('smsrecomp.artwork._get', side_effect=AssertionError('already downloaded')):
+            cached = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
+        self.assertEqual(cached['style'], 'front')
+
+    def test_front_refresh_failure_keeps_box_on_disk_but_does_not_reuse_it(self):
+        initial = self.cached_box()
+        with patch('smsrecomp.artwork._get', side_effect=urllib.error.URLError('offline')):
+            with self.assertRaises(ArtworkError):
+                resolve_cover(self.rom, 'Game', self.art, settings=defaults())
+        self.assertEqual(initial['path'].read_bytes(), initial['data'])
+        record = json.loads(initial['path'].with_suffix('.png.json').read_text())
+        self.assertEqual(record['style'], 'box3d')
+        self.assertTrue(record['checked_box_3d'])
+        with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline use')):
+            offline = resolve_cover(self.rom, 'Game', self.art, online=False, settings=defaults())
+        self.assertEqual(offline['data'], initial['data'])
+        with patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+            front = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
+        self.assertEqual(front['style'], 'front')
+
+    def test_previous_failed_style_check_cannot_make_a_3d_cache_fresh(self):
+        initial = self.cached_box()
+        sidecar = initial['path'].with_suffix('.png.json')
+        record = json.loads(sidecar.read_text())
+        record.update(checked_box_3d=False, checked_sources=[], settings_revision='')
+        sidecar.write_text(json.dumps(record))
+        with patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+            front = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
+        self.assertEqual(front['style'], 'front')
+        self.assertNotEqual(front['data'], initial['data'])
+
+    def test_front_request_ignores_a_provider_returning_a_3d_box(self):
+        self.settings['box_3d'] = False
+        self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
+        remote = api.RemoteCover('screenscraper', png(transparent=True),
+            'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
+        with patch('smsrecomp.artwork.fetch', return_value=remote), \
+                patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+            front = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
+        self.assertEqual(front['source'], 'libretro')
+        self.assertEqual(front['style'], 'front')
 
     def test_front_fallback_keeps_shape_and_pixels_without_a_fabricated_spine(self):
         self.art.mkdir(); (self.art / 'Game (Europe).png').write_bytes(png())

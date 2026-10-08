@@ -36,6 +36,20 @@ static void setup(unsigned mapping, uint16_t pc, unsigned variant) {
         cpu_write(0x8001, (uint8_t)(mapping + 1), 0);
         cpu_write(0x8000, (uint8_t)(7 | ((mapping & 1) << 6)), 0);
         cpu_write(0x8001, (uint8_t)(mapping + 2), 0);
+    } else if (hw_cart.mapper == 5) {
+        cpu_write(0x5100, (uint8_t)mapping, 0);
+        for (unsigned bank = 0; bank < 4; bank++)
+            cpu_write((uint16_t)(0x5114 + bank), (uint8_t)(0x80 | ((bank + mapping) & 7)), 0);
+    } else if (hw_cart.mapper == 7) {
+        /* The authored byte here is $EA: bank bit 1 survives bus conflicts. */
+        cpu_write(0xBFF0, (uint8_t)((mapping & 2) | ((mapping & 1) << 4)), 0);
+    } else if (hw_cart.mapper == 9) {
+        cpu_write(0xA000, (uint8_t)mapping, 0);
+    } else if (hw_cart.mapper == 69) {
+        for (unsigned bank = 0; bank < 3; bank++) {
+            cpu_write(0x8000, (uint8_t)(9 + bank), 0);
+            cpu_write(0xA000, (uint8_t)((bank + mapping) & 7), 0);
+        }
     }
     memset(&cpu, 0, sizeof(cpu));
     cpu.pc = pc;

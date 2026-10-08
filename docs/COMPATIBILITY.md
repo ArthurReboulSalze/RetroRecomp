@@ -2,10 +2,19 @@
 
 ## Current scope
 
-RetroRecomp 0.20.0 includes experimental Mega Drive integration for Sonic
+The current development tree includes experimental Mega Drive integration for Sonic
 the Hedgehog, Columns, Golden Axe, Castle of Illusion, Menacer 6-Game Cartridge
-and T2 - The Arcade Game. Super Nintendo supports Super Mario World and
-Super Scope 6. Both profiles are restricted to exact qualified NTSC ROMs.
+and T2 - The Arcade Game, plus Aladdin (Japan), Streets of Rage 2 and
+The Revenge of Shinobi, Gunstar Heroes (Japan), Ecco the Dolphin and Desert
+Strike. Ten further revisions qualify Beyond Oasis, Comix Zone, Contra - Hard
+Corps, Dynamite Headdy, Rocket Knight Adventures, Street Fighter II' Plus,
+Thunder Force IV, ToeJam & Earl, Vectorman and Wonder Boy in Monster World.
+Their qualification also adds user/supervisor stack switching and STOP/IRQ
+handling to the common 68000 adapter. Super Nintendo qualifies six exact NTSC
+revisions: Super Mario World, Super Scope 6, The Legend of Zelda - A Link to the
+Past, Super Metroid, Donkey Kong Country and Super Castlevania IV. Its native map
+supports LoROM and HiROM with the cartridge's actual storage mirroring.
+Both 16-bit profiles remain restricted to qualified NTSC ROMs.
 Mouse Menacer/Super Scope input and shared gun settings are included;
 see [16-bit gun controls and validation](GUNS_16BIT.md).
 The instruction adapters introduced in version 0.19.0 extend AOT to Sonic and replace
@@ -14,12 +23,17 @@ Both reach zero interpreted main-CPU instructions on demo and scripted-play
 tests of 3,600 frames each. Their internal CPU, memory and visible-frame
 comparisons match the reference over those complete paths. The earlier
 Sonic/SMW reference divergences are resolved on these tested paths.
-Sound CPUs remain interpreted. These tests do not establish independent
+Mega Drive now recompiles the Z80 sound driver as well as the 68000, with
+separate fallback counters and guarded RAM operations. Super Nintendo now also
+recompiles the SPC700 sound program with PC-directed opcode guards. Its probes
+consume the same audio blocks as the game and compare PCM, SPC/DSP state and
+port/timer scheduling against the internal reference before learning.
+These tests do not establish independent
 hardware accuracy or full-game compatibility; see
 [16-bit proof scope and evidence](CONSOLES_16BIT.md).
 
 The supported 8-bit profiles build Windows x64 games from Master System,
-Game Gear, original Game Boy and experimental Nintendo NES ROMs. The two
+Game Gear, original Game Boy and Nintendo NES ROMs. The two
 SMS/GG profiles use the Sega mapper and offer
 extended native coverage and quick states. Selectable PAL/NTSC timing, two players and
 catalogue-selected Light Phaser input apply to Master System. Game Gear uses
@@ -45,12 +59,18 @@ the two input runs from 44,272 / 60,656 fallback cycles to zero while preserving
 their final guest-state dumps. These remain specific tested paths.
 See [Game Boy](GAME_BOY.md).
 
-The experimental Nintendo NES profile uses a separate 6502 cycle backend and
+The supported Nintendo NES profile uses a separate 6502 cycle backend and
 accepts headered `.nes` cartridges. Conversion tests count native and fallback
 CPU cycles, then compare short frame hashes with the engine's internal
 interpreter. Native bodies cover every physical PRG ROM position, with live
 bank dispatch and boundary operands. Authored NTSC/PAL compiler checks pass
-332,800 instruction cases on five mapper families. PAL timing, F8/F9 states
+599,040 recorded instruction cases across nine mapper families, including
+266,240 additional MMC5/AxROM/MMC2/FME-7 cases. Eight additional cartridges
+convert successfully; six have zero fallback on the checked paths, while
+Kirby and Zelda still execute some RAM code through the reported interpreter.
+Fresh isolated cartridge memory prevents battery saves from contaminating
+native/reference comparisons. See the [per-game evidence](NES.md#broader-cartridge-validation).
+PAL timing, F8/F9 states
 and catalogue-selected mouse Zapper input are included. Dendy and dual guns
 remain unsupported. RAM execution and unstable PRG windows can still fall
 back. Mapper support and complete gameplay vary by title; these tests do not

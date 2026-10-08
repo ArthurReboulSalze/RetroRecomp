@@ -64,9 +64,15 @@ int main(void) {
     CHECK(packet == 0x80ff); CHECK(rr_scope_serial(&scope)==1);
     rr16_gun_reset();
 #if RR16_MD
-    CHECK(!rr16_md_gun_instruction_busy()); rr16_md_gun_instruction(true);
-    CHECK(rr16_md_gun_instruction_busy()); rr16_md_gun_instruction(false);
-    CHECK(!rr16_md_gun_instruction_busy());
+    CHECK(!rr16_md_instruction_busy()); rr16_md_instruction(true);
+    CHECK(rr16_md_instruction_busy()); rr16_md_instruction(false);
+    CHECK(!rr16_md_instruction_busy());
+    if (RR16_GUN == 0) {
+        rr16_md_instruction(true); rr16_gun_reset();
+        CHECK(!rr16_md_instruction_busy());
+        printf("{\"kind\":0,\"checks\":%u,\"passed\":true}\n", checks);
+        return 0;
+    }
     if (RR16_GUN==1) {
         rr16_gun_input((Rr16GunInput){.x=100,.y=80,.start=true});
         rr16_md_gun_io_write(0,0x40);

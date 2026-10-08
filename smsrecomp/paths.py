@@ -63,6 +63,12 @@ def data_directory(root: Path | None = None) -> Path:
     return (root or export_directory()) / "datas"
 
 
+def boxart_cache_directory(system_id: str) -> Path:
+    """Keep downloaded covers beside the converter, separate for each console."""
+    from .systems import get_profile
+    return data_directory() / 'BoxArt' / get_profile(system_id).id
+
+
 def load_preferences() -> dict:
     try:
         value = json.loads((data_directory() / "Retro-Recomp.json").read_text(encoding="utf-8"))

@@ -89,6 +89,7 @@ class NesProfileTests(unittest.TestCase):
 
     def test_probe_accepts_zero_fallback_and_counts_other_interpretation(self):
         executable = self.root / 'game.exe'
+        executable.write_bytes(b'fixture executable')
         seed = self.root / 'seeds.trace'
         with patch('smsrecomp.nes.run', return_value='mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'):
             self.assertEqual(_probe(executable, self.root, 'boot', 1, seed)['interpreter_cycles'], 0)
@@ -98,6 +99,43 @@ class NesProfileTests(unittest.TestCase):
             result = _probe(executable, self.root, 'boot', 1, seed)
             self.assertEqual(result['interpreter_cycles'], 9)
             self.assertEqual(result['non_dispatch_cycles'], 1)
+
+    def test_probes_isolate_battery_saves_and_keep_differential_checks(self):
+        executable = self.root / 'game.exe'
+        executable.write_bytes(b'fixture executable')
+        save_relative = Path('datas/games/cartridge.sav')
+        existing_save = self.root / save_relative
+        existing_save.parent.mkdir(parents=True)
+        existing_save.write_bytes(b'existing player progress')
+        launches = []
+        mismatch = False
+
+        def simulate_game(command, **kwargs):
+            launched = Path(command[0])
+            launches.append(launched.parent)
+            self.assertEqual(launched.read_bytes(), executable.read_bytes())
+            save = launched.parent / save_relative
+            self.assertFalse(save.exists(), 'A probe inherited another run\'s battery RAM')
+            save.parent.mkdir(parents=True)
+            save.write_bytes(b'changed cartridge RAM')
+            if '--hash-out' in command:
+                output = Path(command[command.index('--hash-out') + 1])
+                different = mismatch and '--interp-only' in command
+                output.write_bytes(b'mismatch\n' if different else b'same state\n')
+            return 'mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'
+
+        with patch('smsrecomp.nes.run', side_effect=simulate_game):
+            _probe(executable, self.root, 'coverage', 1, self.root / 'seeds.trace')
+            result = _probe(executable, self.root, 'compare', 1,
+                            self.root / 'seeds.trace', differential=True)
+            self.assertTrue(result['internal_differential'])
+            mismatch = True
+            with self.assertRaisesRegex(ConversionError, 'frame states differ'):
+                _probe(executable, self.root, 'different', 1,
+                       self.root / 'seeds.trace', differential=True)
+        self.assertEqual(existing_save.read_bytes(), b'existing player progress')
+        self.assertEqual(len(set(launches)), 5)
+        self.assertTrue(all(not folder.exists() for folder in launches))
 
     def test_all_banks_have_native_entries_with_live_boundary_operands(self):
         engine = ROOT / '.deps/nesrecomp'

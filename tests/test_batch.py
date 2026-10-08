@@ -314,6 +314,23 @@ class BatchTests(unittest.TestCase):
         self.assertNotIn('gb_parallel_games', gg_compiler.call_args.kwargs)
         self.assertEqual(gb_compiler.call_args.kwargs['gb_parallel_games'], 1)
 
+    def test_advanced_md_scan_is_filtered_out_of_other_console_compilers(self):
+        from tests.test_console16 import md, snes
+        master = self.item('sms', 1)
+        genesis = self.root / 'Authored.md'
+        genesis.write_bytes(md(b'U'))
+        super_nintendo = self.root / 'Authored.sfc'
+        super_nintendo.write_bytes(snes())
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as sms_compiler, \
+                patch('smsrecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler) as md_compiler, \
+                patch('smsrecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler) as snes_compiler:
+            record = convert_batch([master, identify(genesis), identify(super_nintendo)], self.games_root,
+                                   md_advanced_scan=True, emit=lambda text: None)
+        self.assertEqual(record['succeeded'], 3)
+        self.assertNotIn('md_advanced_scan', sms_compiler.call_args.kwargs)
+        self.assertNotIn('md_advanced_scan', snes_compiler.call_args.kwargs)
+        self.assertTrue(md_compiler.call_args.kwargs['md_advanced_scan'])
+
     def test_mixed_folders_route_by_console_and_report_unknown_without_touching_sources(self):
         source = self.root / 'incoming'
         source.mkdir()

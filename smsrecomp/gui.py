@@ -162,6 +162,7 @@ class Application:
             self.platform_id = 'windows-x64'
         self.extended = tk.BooleanVar(value=extended_default(preferences))
         self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
+        self.md_advanced_scan = tk.BooleanVar(value=preferences.get('md_advanced_scan', False) is True)
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         saved_jobs = preferences.get('jobs', 3)
@@ -601,6 +602,7 @@ class Application:
                         conversion_stage=report.get('status'),
                         main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
                         audio_cpu=report.get('audio_cpu'),
+                        audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
                         pending_install=is_pending(target),
                         interpreter_percent=max((p for p in measured if p is not None), default=None),
                         interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
@@ -689,8 +691,9 @@ class Application:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
-                if result.get('conversion_stage') == 'experimental' and result.get('audio_cpu') == 'interpreted':
-                    text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0))
+                if item.system in ('md', 'snes'):
+                    text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0),
+                        audio_opcodes=result.get('audio_interpreted_opcodes', 0))
                 elif result.get('interpreter_percent') is None or comparison is None:
                     text = self.tr('fallback_cycles', cycles=result.get('interpreter_cycles', 0))
                 else:
@@ -708,6 +711,7 @@ class Application:
             system_mode=self.system_mode, platform=self.platform_id,
             backend='banked' if self.extended.get() else 'functions',
             gb_deep_validation=self.gb_deep_validation.get(),
+            md_advanced_scan=self.md_advanced_scan.get(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
@@ -1034,6 +1038,9 @@ class Application:
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
         for console in ('md', 'snes'):
             page = tab('options_' + console)
+            if console == 'md':
+                self.md_scan_control = checkbox(page, 'md_advanced_scan',
+                                                self.md_advanced_scan, 'tip_md_advanced_scan')
             ttk.Label(page, text=self.tr('options_' + console + '_note'),
                       style='Muted.TLabel', wraplength=590).pack(anchor='w')
 

@@ -15,7 +15,8 @@ class MegaDriveProfile(SystemProfile):
         return read_megadrive_rom(path)
 
     def default_video_mode(self, path: Path) -> str:
-        return 'pal' if self.read_rom(path).standard == 'pal' else 'ntsc'
+        standard = self.read_rom(path).standard
+        return 'ntsc' if standard == 'multi' else standard
 
     def convert(self, path: Path, **options) -> Path:
         from ..console16 import convert16

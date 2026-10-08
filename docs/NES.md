@@ -1,5 +1,10 @@
 # Nintendo NES profile
 
+**Status: supported within the validated cartridge and peripheral scope.**
+The profile is no longer labelled experimental. Compatibility remains specific
+to cartridge layouts and tested paths; this is not a whole-catalogue guarantee
+or a claim that every game runs without interpreter fallback.
+
 RetroRecomp accepts `.nes`, headered `.bin`/`.rom`, and single-ROM ZIP files.
 It generates standalone Windows games in `Games/Nintendo NES`, with no change
 to the source ROM. The converter keeps its ROM entry library under
@@ -35,16 +40,62 @@ Conversion runs boot and two sustained input scenarios, counts native and
 interpreted cycles separately, then compares generated execution with the
 **same engine's internal interpreter** for 120 boot frames and up to 600
 frames of each input path. Reset cycles outside instruction dispatch are
-reported separately. This detects compiler divergence, not complete gameplay
+reported separately. Each invocation runs a private copy of the standalone
+EXE, so it starts with fresh cartridge memory. Its temporary battery save is
+discarded after the test; existing player saves are never loaded or changed.
+This also gives the native and reference runs identical starting conditions.
+This detects compiler divergence, not complete gameplay
 or independently certified hardware fidelity.
 
 `python tools/nes_native_selftest.py` compares all 256 opcodes across eight
 CPU slots, four mapper configurations and four flag/alignment variants,
 including page crossings, boundary operands, wrapping PC, NMI and IRQ.
-The local NROM/MMC1/UxROM/CNROM/MMC3 matrix passes **332,800 instruction cases**
-across NTSC and PAL. Super Mario Bros. 3, Mega Man 2 and Mega Man also reached
+The earlier NROM/MMC1/UxROM/CNROM/MMC3 matrix passed **332,800 instruction cases**
+across NTSC and PAL. The extended MMC5/AxROM/MMC2/FME-7 matrix adds **266,240
+passing cases**, bringing the recorded total to **599,040** across nine mapper
+families. The default self-test includes all nine families. Super Mario Bros. 3, Mega Man 2 and Mega Man also reached
 zero fallback on three 1,800-frame scripted paths. These are bounded results,
 not a full-catalogue compatibility claim.
+
+## Broader cartridge validation
+
+The 8 October 2026 qualification expands generation beyond the earlier Mario
+and Mega Man examples. All eight cartridges below build and pass the conversion
+checks. Each has three 3,600-frame coverage scenarios: boot and two sustained
+input scripts. The table records the highest interpreted-cycle proportion
+across those paths, including RAM and cartridge RAM execution.
+
+| Cartridge | Mapper | Timing | Maximum fallback |
+| --- | --- | --- | --- |
+| Excitebike (Japan, USA) | 0 / NROM | NTSC | 0% |
+| DuckTales (USA) | 2 / UxROM | NTSC | 0% |
+| The Legend of Zelda (USA) | 1 / MMC1 | NTSC | 2.91% |
+| Kirby's Adventure (USA) | 4 / MMC3 | NTSC | < 0.05% |
+| Battletoads (USA) | 7 / AxROM | NTSC | 0% |
+| Mike Tyson's Punch-Out!! (Japan, USA) | 9 / MMC2 | NTSC | 0% |
+| Castlevania III: Dracula's Curse (USA) | 5 / MMC5 | NTSC | 0% |
+| Mr. Gimmick (Europe) | 69 / FME-7 | PAL | 0% |
+
+For this qualification, native/reference comparisons were extended to the full
+3,600 frames of each scenario: **86,400 matching frame pairs** across the eight
+games, including CPU state, memory, bus trace and hardware/framebuffer hashes.
+All eight also passed save/close/relaunch checks with 180 resumed frames,
+matching continued machine state and PCM, rejection of corrupt states, and
+no files created on ordinary one-frame startup or a missing-state load.
+The four added mapper families pass 266,240 authored instruction cases; the
+Python regression suite passes 173 tests.
+
+These are scripted startup/input paths, not complete playthroughs. The source
+ROMs remain unchanged and are not distributed. Kirby's remaining fallback is
+in internal RAM; Zelda's is in the cartridge address range below `$8000`.
+Guarded compilation of runtime-loaded code remains a separate improvement.
+
+The wider tests exposed a validation isolation bug: a native run could save
+battery RAM that the next reference run would then load. CPU registers and
+bus traces could match while the initial memory hash differed. Every probe
+now starts a separate private EXE copy with fresh battery memory. Existing
+player saves are preserved, and genuine comparison differences still block
+the export. This changes the converter's tests, not normal in-game persistence.
 
 ## PAL and NTSC
 

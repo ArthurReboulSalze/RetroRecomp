@@ -20,9 +20,9 @@ from smsrecomp.nes_machine import prepare_machine
 
 
 def fixture(mapper: int) -> bytes:
-    banks = 2 if mapper in (0, 3) else 4
+    banks = 2 if mapper in (0, 3) else 8 if mapper == 7 else 4
     header = bytearray(b'NES\x1a' + bytes(12))
-    header[4:8] = bytes((banks, 1, mapper << 4, 0))
+    header[4:8] = bytes((banks, 1, (mapper & 15) << 4, mapper & 0xF0))
     prg = bytearray([0xEA] * (banks * 16384))
     for bank in range(banks * 4):
         base = bank * 4096
@@ -43,7 +43,7 @@ def fixture(mapper: int) -> bytes:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--mappers', nargs='+', type=int, default=[0, 1, 2, 3, 4])
+    ap.add_argument('--mappers', nargs='+', type=int, default=[0, 1, 2, 3, 4, 5, 7, 9, 69])
     ap.add_argument('--standards', nargs='+', choices=['ntsc', 'pal'], default=['ntsc', 'pal'])
     args = ap.parse_args()
     cmake, generator = toolchain()

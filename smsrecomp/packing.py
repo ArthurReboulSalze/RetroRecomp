@@ -18,7 +18,10 @@ def compact_executable(path: Path) -> None:
     if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
         raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    for args in (("--best", "--compress-resources=0", "--compress-icons=0", str(path)),
+    # The exhaustive --best search can spend minutes on large native ROM-PC
+    # tables. Level 9 retains the same transparent loader and most of the
+    # size reduction with a bounded conversion time.
+    for args in (("-9", "--compress-resources=0", "--compress-icons=0", str(path)),
                  ("-t", str(path))):
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,

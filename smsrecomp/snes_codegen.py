@@ -46,7 +46,29 @@ def cycle_costs(source: str) -> list[int]:
     return values
 
 
-def native_source(source: str, rom: bytes, ram_variants=()) -> str:
+def mirrored_rom(rom: bytes) -> bytes:
+    """Match the pinned loader's power-of-two storage without changing inputs.
+
+    Repeat the last populated block, not the entire ROM modulo its size.
+    In particular, a 3 MiB image maps its final MiB again in the fourth MiB.
+    """
+    if not rom or len(rom) % 256:
+        raise ConversionError('SNES native ROM map requires complete 256-byte pages.')
+    size = max(0x8000, 1 << (len(rom) - 1).bit_length())
+    data = bytearray(rom)
+    block = 1
+    while len(data) != size:
+        if len(data) & block:
+            data.extend(data[-block:])
+        block <<= 1
+    return bytes(data)
+
+
+def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom') -> str:
+    if mapping not in ('lorom', 'hirom'):
+        raise ConversionError('SNES native lookup supports qualified LoROM and HiROM only.')
+    bus_rom = mirrored_rom(rom)
+    cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     bodies, cycles = operation_bodies(source), cycle_costs(source)
     functions = []
     for opcode in range(256):
@@ -60,8 +82,8 @@ static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_o
 ''')
     pages, page_ids = [], {}
     slots = []
-    for offset in range(0, len(rom), 256):
-        page = bytes(rom[offset:offset + 256])
+    for offset in range(0, len(bus_rom), 256):
+        page = bytes(bus_rom[offset:offset + 256])
         if page not in page_ids:
             page_ids[page] = len(pages)
             pages.append(page)
@@ -100,12 +122,13 @@ bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
     return true;
 }}
 const RrSnesNativeOp *rr_snes_native_lookup(Interp816 *cpu) {{
-    if (!rr_sn_enabled || !g_snes || !g_snes->cart || g_snes->cart->type != CART_LOROM ||
-        g_snes->cart->romSize != {len(rom)}u) return NULL;
+    if (!rr_sn_enabled || !g_snes || !g_snes->cart || g_snes->cart->type != {cart_type} ||
+        g_snes->cart->romSize != {len(bus_rom)}u ||
+        g_snes->cart->romImageSize != {len(rom)}u) return NULL;
     uint8_t *mapped = cart_getRomPtr(g_snes->cart, cpu->k, cpu->pc);
     {ram_lookup}
     size_t offset = (size_t)(mapped - g_snes->cart->rom);
-    if (offset >= {len(rom)}u) return NULL;
+    if (offset >= {len(bus_rom)}u) return NULL;
     const RrSnesNativeOp *operation = rr_sn_pages[offset >> 8][offset & 255u];
     /* A modified cartridge byte never selects another compiled operation. */
     return *mapped == operation->opcode ? operation : NULL;
@@ -140,7 +163,40 @@ def adapt_bridge(source: str) -> str:
     marker = 'if (bounce_ok && has_body) {'
     if source.count(marker) != 1:
         raise ConversionError('Pinned 65816 call bridge changed.')
-    return source.replace(marker, 'if (0 && bounce_ok && has_body) {', 1)
+    source = source.replace(marker, 'if (0 && bounce_ok && has_body) {', 1)
+    # Architectural interrupts can span a field or reach WAI after changing
+    # their stack. Keep the real PC/stack and return control to the beam driver
+    # at its deadline instead of running to RTI/the 250,000-step cap.
+    deadline = ('        if (auto_quiescent && s_lle_master_deadline &&\n'
+                '            cpu->master_cycles >= s_lle_master_deadline) {')
+    waiting = ('if (auto_quiescent || yield_pc) {\n'
+               '                lle_resume_set(((uint32_t)in.k << 16) | in.pc, INTERP_RESUME_SITE_WAI, in.sp);')
+    if source.count(deadline) != 1 or source.count(waiting) != 1:
+        raise ConversionError('Pinned SNES interrupt deadline/WAI boundary changed.')
+    source = source.replace(deadline, deadline.replace('auto_quiescent &&',
+        '(auto_quiescent || stop_on_rti) &&'), 1)
+    source = source.replace(waiting, waiting.replace('auto_quiescent || yield_pc',
+        'auto_quiescent || yield_pc || (stop_on_rti && s_lle_master_deadline)'), 1)
+    # RTI may restore a different PC/stack: cartridges use architectural
+    # interrupt frames to switch guest threads. The host must resume the
+    # popped destination, not the PC it suspended before the interrupt.
+    returned = '        if (stop_on_rti && op == 0x40) {\n            sync_interp_to_cpu(&in, cpu);'
+    if source.count(returned) != 1:
+        raise ConversionError('Pinned SNES architectural RTI boundary changed.')
+    return source.replace(returned,
+        '        if (stop_on_rti && op == 0x40) {\n'
+        '            lle_resume_set(((uint32_t)in.k << 16) | in.pc, INTERP_RESUME_SITE_EXTERNAL, in.sp);\n'
+        '            sync_interp_to_cpu(&in, cpu);', 1)
+
+
+def adapt_frame_driver(source: str) -> str:
+    marker = '  update_resume_pc();\n}\n\nvoid snes_beam_frame_driver_run_frame(void) {'
+    if source.count(marker) != 1:
+        raise ConversionError('Pinned SNES interrupt scheduler boundary changed.')
+    return source.replace(marker,
+        '  update_resume_pc();\n'
+        '  if (interp_bridge_lle_took_wai()) s_wai_halted = true;\n'
+        '}\n\nvoid snes_beam_frame_driver_run_frame(void) {', 1)
 
 
 def generate(engine: Path, project: Path, rom) -> dict:
@@ -149,9 +205,10 @@ def generate(engine: Path, project: Path, rom) -> dict:
     source = (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
     from .supernintendo import read_ram_variants
     ram = read_ram_variants(rom)
-    write_changed(project / 'snes_native_ops.inc', native_source(source, rom.data, ram))
+    write_changed(project / 'snes_native_ops.inc', native_source(source, rom.data, ram, mapping=rom.mapping))
     report = {'schema': 1, 'rom_sha256': rom.sha256, 'native_rom_positions': len(rom.data),
               'compiled_operations': 256,
+              'mapping': rom.mapping, 'native_bus_positions': len(mirrored_rom(rom.data)),
               'guarded_ram_variants': len(ram),
               'semantics_sha256': hashlib.sha256(source.encode()).hexdigest(),
               'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}

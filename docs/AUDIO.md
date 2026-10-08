@@ -1,4 +1,4 @@
-# Sega host audio
+# Audio output
 
 Master System and Game Gear exports synthesize the PSG from guest CPU cycles.
 The host output is a separate stage: reducing its delay must not change the
@@ -75,3 +75,39 @@ were unchanged. Native CPU states also matched the reference CPU, with zero
 fallback steps in those tested scenarios. Raw PSG identity does not establish
 identical resampled waveforms or complete hardware fidelity. Listening/gameplay
 validation and an external input-to-sound measurement remain separate checks.
+
+## Super Nintendo
+
+The SNES adapter initializes the APU's absolute timeline at power-on and reset,
+before the first CPU port exchange. Otherwise frame-boundary synchronization
+does nothing during an early loader without port I/O: the remaining relative
+catch-up can produce fewer DSP samples than the completed guest frame requires.
+Authored WAI/interrupt fixtures exercise this without any commercial ROM or
+APU port access. Each forty-frame run advances 683,520 APU cycles, with no
+missing or discarded PCM frames and agreement with the reference CPU path.
+
+The Windows host queues every prepared stereo block at 48 kHz. Its initial
+reserve and upper pacing threshold include one guest frame plus the obtained
+device callback period. A fixed 20 ms threshold previously allowed a whole
+callback to drain much of that reserve before a more expensive frame ran.
+The presentation sleep also ends early when waiting longer would consume the
+reserve needed by the next frame. Input is sampled afterwards; the sound thread
+does not execute CPU/APU instructions. The normal video deadline remains in use
+when enough sound is queued, and the guest DSP buffer is unchanged.
+
+With the tested 512-frame device period, the host threshold is about 27.3 ms.
+This is a software queue budget, not end-to-end latency. SDL's queue count
+excludes samples already passed to Windows and the device; see the
+[SDL queue measurement contract](https://wiki.libsdl.org/SDL2/SDL_GetQueuedAudioSize).
+
+Local muted WASAPI tests on 8 October 2026 exercised 1,200 frames each of Zelda,
+Super Metroid and Donkey Kong Country. A test-only counted consumer, equivalent
+to SDL's queue draining and feeding silence to the real device, recorded no
+missing frames after the corrections. The earlier host recorded 54, 6 and 23
+partial requests respectively in those runs; that does not imply every missing
+sample was audible. The corrected runs also had no DSP underflows or ring drops.
+Separate 600-frame native/reference comparisons matched for all three games.
+Zelda and Super Metroid also matched on a 6,000-frame varied-input replay,
+including CPU, video and PCM fingerprints, with no main-CPU or SPC fallback.
+Reset checks reproduced the same picture sequence and PCM output after restart.
+These checks measure sample delivery, not listening quality or physical latency.

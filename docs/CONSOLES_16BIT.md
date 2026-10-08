@@ -5,8 +5,9 @@ does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identifie
 from its console header, then its SHA-256 must match a qualified game revision
 before code generation starts. A different revision, PAL ROM or unsupported
 title is rejected rather than compiled with another game's roots.
-This document describes release 0.20.0, including the native instruction
-paths, resolution-aware scanlines and three qualified lightgun cartridges;
+This document describes the development tree after release 0.20.0, including
+twenty-two Mega Drive revisions, native instruction paths, resolution-aware scanlines
+and three qualified lightgun cartridges;
 see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 
 | Profile | Qualified cartridge | Timing | Visible image |
@@ -17,14 +18,44 @@ see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 | Mega Drive | Castle of Illusion, CRC32 BA4E9FD0 | NTSC | 320 × 224 |
 | Mega Drive | Menacer 6-Game Cartridge, CRC32 936B85F7 | NTSC | 320 × 224 |
 | Mega Drive | T2 - The Arcade Game, CRC32 A1264F17 | NTSC | 320 × 224 |
+| Mega Drive | Aladdin, Japan, CRC32 FB5AACF0 | NTSC | 320 × 224 |
+| Mega Drive | Streets of Rage 2, USA, CRC32 E01FA526 | NTSC | 320 × 224 |
+| Mega Drive | The Revenge of Shinobi, JUE, CRC32 4D35EBE4 | NTSC tested | 320 × 224 |
+| Mega Drive | Gunstar Heroes, Japan, CRC32 1CFD0383 | NTSC Japan | 320 × 224 |
+| Mega Drive | Ecco the Dolphin, USA, CRC32 45547390 | NTSC | 320 × 224 |
+| Mega Drive | Desert Strike - Return to the Gulf, USA, CRC32 67A9860B | NTSC | 320 × 224 |
+| Mega Drive | Beyond Oasis, USA, CRC32 C4728225 | NTSC | 320 × 224 |
+| Mega Drive | Comix Zone, Japan, CRC32 7A6027B8 | NTSC Japan | 320 × 224 |
+| Mega Drive | Contra - Hard Corps, USA/Japan, CRC32 C579F45E | NTSC | 320 × 224 |
+| Mega Drive | Dynamite Headdy, USA/Europe, CRC32 3DFEEB77 | NTSC tested | 320 × 224 |
+| Mega Drive | Rocket Knight Adventures, Japan, CRC32 D1C8C1C5 | NTSC Japan | 256/320 × 224 |
+| Mega Drive | Street Fighter II' Plus - Champion Edition, Japan, CRC32 2E487EE3 | NTSC Japan | 256 × 224 |
+| Mega Drive | Thunder Force IV, Japan, CRC32 8D606480 | NTSC Japan | 320 × 224 |
+| Mega Drive | ToeJam & Earl, USA, CRC32 7A588F4B | NTSC | 320 × 224 |
+| Mega Drive | Vectorman, multi-region, CRC32 D38B3354 | NTSC tested | 320 × 224 |
+| Mega Drive | Wonder Boy in Monster World, USA/Europe, CRC32 1592F5B0 | NTSC tested | 256 × 224 |
 | Super Nintendo | Super Mario World, USA, CRC32 B19ED489 | NTSC | 256 × 224 |
 | Super Nintendo | Super Scope 6, USA, CRC32 B141EA99 | NTSC | 256 × 224 |
+| Super Nintendo | The Legend of Zelda - A Link to the Past, USA, CRC32 777AAC2F | NTSC LoROM | 256 × 224 |
+| Super Nintendo | Super Metroid, Japan/USA, CRC32 D63ED5F8 | NTSC LoROM | 256 × 224 |
+| Super Nintendo | Donkey Kong Country, USA, CRC32 762AF827 | NTSC HiROM | 256 × 224 |
+| Super Nintendo | Super Castlevania IV, USA, CRC32 B64FFB12 | NTSC LoROM | 256 × 224 |
 
 The original ROMs remain read-only. Linear `.md`/`.gen` and validated
 `.sfc`/`.smc` images, single-cartridge ZIPs, and identifiable `.bin`/`.rom`
 files are recognized. A SNES copier header is removed only from the in-memory
 build input. Interleaved SMD, PAL execution and additional cartridge profiles
 are not enabled in these proofs. No ROM patches or widescreen mode are applied.
+Mega Drive region headers take precedence over misleading filenames: a
+PAL-only header cannot be forced through this NTSC-only integration. A reset
+stack pointer of zero is valid: the first predecrement push wraps onto work RAM.
+Region parsing accepts the original J/U/E letters and the later ASCII hex mask
+in the three defined region bytes. Reserved header bytes do not affect it;
+unknown codes are reported and rejected before conversion. A lone E retains
+the original PAL meaning. Japan-only cartridges now select the domestic NTSC
+version register; multi-region cartridges prefer overseas NTSC when available.
+The ROM's region checks stay intact. See the author's
+[region-header reference](https://plutiedev.com/rom-header).
 
 ## Shared game interface
 
@@ -65,19 +96,29 @@ operands. Execution follows the real 68000 PC and stack, including computed
 jumps, changed return addresses and hardware-shaped interrupt frames. It does
 not dispatch covered instructions through an opcode interpreter. This avoids
 the earlier C-function call model's unsafe stack exits and Sonic-specific
-callbacks. Its sound Z80 remains interpreted.
+callbacks. The sound Z80 now has its own guarded instruction-AOT path.
+
+Before probing, a bounded work queue follows direct calls, both conditional
+branches and fallthrough from verified instruction starts. It stops at returns,
+unknown indirect targets and invalid bytes. This extends static coverage; it
+does not claim that arbitrary ROM data is code or cover every computed target.
+On the three new revisions it added hundreds of instructions, but did not
+reduce the measured first-pass fallback or the two-pass cold conversion count.
 
 The converter's demo/play probes collect missing ROM instruction starts and
 RAM code variants. Later passes regenerate static code from those observations.
-Every RAM variant requires an exact live match of all instruction bytes;
+Every 68000 RAM variant requires an exact live match of all instruction bytes;
 unseen or modified code uses the visible reference fallback. Records are scoped
 to the exact ROM hash in the converter's `datas/library/md` namespace. Generated
 games keep diagnostic observations in memory and never write a learning library.
 H32 and H40 output uses the VDP's active 256- or 320-pixel width at presentation.
 
-Super Mario World uses a separate 65816 adapter. The converter selects one
+Qualified SNES cartridges use a separate 65816 adapter. The converter selects one
 compiled operation for every physical ROM byte and writes a ROM-PC dispatch
-map. LoROM mirrors follow the live cartridge mapping. Covered operations bypass
+map. LoROM and HiROM mirrors follow the live cartridge mapping. Non-power-of-two
+images match the loader's repeated final block: a 3 MiB image repeats its final
+MiB in the fourth MiB. Both original image size and padded storage size are
+checked without changing the supplied ROM. Covered operations bypass
 the opcode-switch interpreter while retaining the real PC, stack, opcode-fetch
 timing and live operand reads. Register-width flags, bank wrapping and memory
 accesses therefore retain the pinned engine's semantics. Operands are not
@@ -87,13 +128,13 @@ SNES RAM helpers are learned during converter probes, then compiled with an
 exact PC and four-byte live-code guard, covering the longest 65816 instruction.
 Changed bytes or an unobserved helper use the counted interpreter. Up to
 2,048 variants are stored in `datas/library/snes/<rom-sha256>/native-ram.json`.
-Generated games keep observations in memory only. The SPC700 sound processor
-remains interpreted. Both native and reference tests use the real PC/stack
+Generated games never persist learning observations. The SPC700 sound processor
+also uses guarded native operations, described below. Both native and reference tests use the real PC/stack
 instruction scheduler instead of the previous paired C-call bridge.
 
 The converter records interpreted main-CPU **opcodes**, separately from the
-sound-CPU status. Both native counters now count retired main-CPU opcodes, so
-reported native percentages refer only to the main CPU. The window title
+sound-CPU opcode and cycle counters. Main-CPU percentages refer only to that
+CPU; both sound processors have separate cycle-based percentages. The window title
 signals interpreter use, including the sound CPU, and H explains that status.
 
 Demo and scripted-play probes cover 3,600 frames per scenario. Columns, Golden
@@ -103,9 +144,230 @@ now reaches the same result after learning four missing ROM starts in a second
 pass; Golden Axe also passes a repeat check after this shared-path change.
 Mega Drive comparisons cover the visible-frame sequence, final CPU registers,
 PC, RAM, VRAM, CRAM, VSRAM, VDP registers and retired instruction totals.
-Authored Mega Drive fixtures exercise 6,208 instruction/state comparisons,
+They now also require matching FM/PSG sample counts and hashes, audio activity,
+Z80 registers, PC, RAM, total instructions/cycles and CPU-visible timer state.
+Main-CPU comparisons also include SR, both stack pointers and the STOP latch. Constant nonzero DAC output is not
+counted as changing audio. A shared silent-driver bug can still match a
+reference, so dedicated sound regressions also require sustained activity.
+Authored Mega Drive fixtures now exercise 7,616 instruction/state comparisons,
 guest-stack return modification, RTE frames, byte stack alignment and
-self-modifying RAM guard rejection.
+self-modifying RAM guard rejection. Additional authored checks exercise static
+control-flow discovery and timer start/stop, overflow, flags, reload and long
+clock spans. The three new revisions reach zero interpreted 68000 instructions
+in both 3,600-frame scenarios, with complete CPU/video/PCM reference agreement.
+
+The subsequent qualification of Gunstar Heroes, Ecco and Desert Strike also
+reaches zero interpreted 68000 opcodes in both 3,600-frame scenarios. Gunstar
+initially passed CPU agreement while remaining on the game's region-lock
+screen: both paths presented the wrong overseas console to a Japanese ROM.
+Selecting domestic hardware changes the video sequence, restores input-driven
+progression and produces changing FM/PSG samples over 3,040/2,968 play frames.
+Ecco and Desert Strike produce changing FM samples over 3,296 and 3,243 play
+frames respectively. These are numerical activity checks, not listening tests.
+The conversion comparison now includes the console version register.
+
+Ecco also exposed an unimplemented TRAP #0 in its RAM interrupt stub. All sixteen
+TRAP forms are now translated to native operations that fetch
+the live vector, clear the trace bit and preserve the old SR/following PC on the
+guest's six-byte exception frame. RTE unwinds that frame, including nesting and
+stack wrap. Independent fixture expectations check the 34-clock TRAP cost and
+frame contents against Motorola's
+[MC68000 manual, sections 6.3.5 and 8.12](https://www.nxp.com/docs/en/reference-manual/MC68000UM.pdf).
+Further cartridge checks exposed a user-mode TRAP in Street Fighter II and
+STOP in Thunder Force IV, both of which halted the earlier runtime at boot.
+SR writes now select the correct active stack; TRAP and accepted IRQs switch
+to SSP before writing their frame. RTE reads the entire frame on SSP before
+restoring user mode. The pinned active/shadow stack layout is retained in
+rollback snapshots. STOP loads SR, retires once and advances the scheduler
+without fetching more instructions until an accepted IRQ wakes it. The
+STOP latch is also saved and restored by the CPU snapshot section.
+Independent fixtures cover mode transitions, IRQ/TRAP frames, STOP waiting,
+instruction counts and snapshot restoration against the
+[MC68000 manual, sections 6.1–6.3 and 8.11](https://www.nxp.com/docs/en/reference-manual/MC68000UM.pdf).
+Privileged instructions encountered in user mode are explicitly refused;
+their privilege-violation exceptions are not implemented. Trace and complete
+bus/address-error handling also remain unimplemented. This is not complete
+68000 exception support. RAM stubs retain exact-byte guards and visible fallback.
+
+## Mega Drive sound scheduling
+
+Every instruction-AOT profile alternates the 68000 and Z80 sixteen times per
+scanline, dividing the existing cycle budgets. Interrupt handlers execute on
+the normal instruction fiber, allowing the audio CPU and VDP to progress during
+guest polling loops. Yielding and interrupt injection happen between retired
+instructions. Legacy forced-zero mailbox responses are disabled for this path.
+This prevents short BUSREQ releases from being missed indefinitely; it is not
+a game-specific mailbox patch or an audio-CPU speed multiplier.
+
+The CPU-visible YM2612 model now implements timers A and B, based on the
+[Sega YM2612 register documentation](https://www.smspower.org/maxim/Documents/YM2612)
+and the clock/reload behavior of the already bundled BSD-licensed
+[ymfm timer implementation](https://github.com/aaronsgiles/ymfm/blob/main/src/ymfm_fm.ipp).
+Timer A ticks every 1,008 master clocks; B every 16,128. Flag clearing does not
+restart a running timer, and frequency changes take effect at reload. F1
+resets this additional timer state. BUSY status and timer-driven CSM synthesis
+are not fully implemented; no claim of complete YM2612 fidelity is made.
+
+Aladdin's sound driver previously waited forever for the absent timer-A flag.
+The new model produces sustained changing FM/PSG samples. Streets of Rage 2
+previously stopped responding while switching BGM tracks because the Z80 could
+not clear the mailbox. A 7,300-frame replay now exercises 28 track selections
+and a later sound-effect selection; native/reference PCM and CPU/video state
+agree, and each checked menu change still responds. Its extra observed ROM
+starts are learned by the converter, keeping this tested sound-menu path native.
+
+The headless runner accepts an explicit `--input-script` with increasing
+`frame player1_mask player2_mask` decimal rows; input is held until the next
+row. `--trace` writes an explicitly requested diagnostic CSV. Normal launches
+still create neither. Reproduce the local cartridge checks with:
+
+```powershell
+python tools/megadrive_audio_selftest.py "path/to/Streets of Rage 2.exe" --scenario sor2-music --output .build/sor2-sound-check
+python tools/megadrive_audio_selftest.py "path/to/Aladdin.exe" --scenario aladdin-audio --output .build/aladdin-sound-check
+```
+
+The music replay follows the [official Sega manual](https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/71165/manuals/04%20SOR2_PC_MG_EFIGS_US_v6.pdf).
+These tests inspect digital samples, not loudspeakers, subjective sound quality
+or physical audio latency. Z80 fallback is measured independently of 68000 coverage.
+
+## Mega Drive native sound CPU
+
+The converter now generates fixed-operation C bodies for the Z80. Lookup uses
+the live PC and converter-generated opcode guards; a covered operation never
+enters the reference opcode decoder. Base, CB, ED, DD/FD and indexed-CB forms
+are specialized during conversion. The pinned MIT SuperZazu ALU helpers are
+retained, together with their notice; this is internal semantic agreement,
+not an independent hardware oracle.
+
+Sound drivers execute from mutable RAM. Guards check the bytes that choose the
+operation, including prefixes and the indexed-CB opcode. Immediate values and
+index displacements remain live bus reads, so changing sample pointers or loop
+parameters does not invalidate native code. Changed operation bytes use the
+counted reference path. Both RAM mirrors and banked code use the actual bus
+view; I/O registers are never peeked to satisfy a native guard.
+
+Conversion probes capture up to four uploaded 8 KiB driver images when the Z80
+reset is released. Every supported position is precompiled, including paths
+the demo did not take. Unobserved uploads, changed opcodes and prefix chains
+beyond the four-byte guard window can still require fallback. The converter
+stores at most 32,768 PC/opcode variants in the exact ROM's
+`datas/library/md/<rom-sha256>/z80-native-entries.json`. Driver images and
+game-derived observations remain local and are not bundled in the converter.
+Games keep diagnostic evidence in memory and create no learning files.
+
+IRQ acceptance, EI delay, HALT refresh and instruction cycles retain the
+existing scheduler's boundaries. F1 restores the original machine and clears
+both CPUs' counters. The title reports actual fallback use by either CPU;
+sound processing is no longer labelled interpreted unconditionally.
+
+Authored fixtures cover 28,544 instruction/state and ordered-write comparisons,
+plus independent checks for mutable operands, opcode changes, missing code,
+bank changes, PC wrap, EI, HALT and IM1 stack/cycles. Run them without game data:
+
+```powershell
+python tools/megadrive_z80_selftest.py
+```
+
+Gunstar Heroes, Aladdin Japan and Streets of Rage 2 each reach **zero
+interpreted 68000 and Z80 instructions** in 3,600-frame demo and play probes.
+The same result holds for Sonic in a private regression build. CPU state,
+memory, visible-frame sequences and FM/PSG PCM agree with the internal
+reference. The 7,300-frame Streets of Rage 2 sound-menu replay also stays native
+through 29 selections. Packed exports pass repeated F1/video/PCM checks and an
+isolated launch without extra files. These are bounded scenarios, not a promise
+that every later path or other cartridge will remain at zero fallback.
+
+Ten additional qualified cartridges were checked over three scenarios each:
+3,600 demo frames, 3,600 play frames and a 6,000-frame replay with varied
+directions, action buttons, Start transitions and second-player inputs.
+The longer replay exposed 2,807 additional ROM/RAM observations, which were
+verified and learned by the local converter before regenerating these ten
+exports. All three scenarios then reached **zero interpreted instructions on
+both the 68000 and Z80**, with matching CPU/memory, visible-frame sequences
+and FM/PSG PCM against the internal reference. The packed executables also
+passed a 1,200-frame reset comparison and isolated launch without extra files.
+These checks cover 13,200 frames per cartridge; they do not certify complete
+gameplay, independent hardware fidelity or physical latency. Visual and
+listening review remains with the user.
+
+## Further validation scope
+
+### Optional advanced Mega Drive scan
+
+Enable **Options → Mega Drive → Advanced Mega Drive scan** to add a varied-input
+replay to every compile/test/learn pass. It runs for at least 6,000 frames, or the
+configured **Frames per test** when that is higher. Directions, A/B/C, Start and
+player-two controls are exercised; qualified six-button games also use X/Y/Z.
+The T2 profile preserves its original Menacer menu selection and mouse test.
+
+All three scenarios are compared against the internal CPU/video/audio reference
+before new 68000 ROM/RAM entries or Z80 opcode variants enter the local library.
+The converter regenerates code while verified observations are added, within
+the existing **Maximum passes** limit. It stops when no new paths are found.
+The final report records the scan mode, each scenario's budget, fallback counters
+and reference comparisons. Reaching the pass limit can still leave counted fallback.
+
+The option is off by default and applies only to Mega Drive. It increases
+conversion time and broadens tested coverage; it cannot explore every level or
+certify independent hardware accuracy. Standard mode retains its two reference
+checked scenarios. Use `--md-advanced-scan` with `convert` or `batch` in the CLI.
+
+A cold-library Comix Zone check on 8 October 2026 completed in 152.352 seconds
+and two passes, reaching zero interpreted 68000 and Z80 instructions on all
+three scenarios (3,600 + 3,600 + 6,000 frames). CPU/memory, visible-frame sequence
+and FM/PSG PCM matched the internal reference. This is one measured cartridge
+on the development machine; conversion time and later gameplay vary by title.
+
+### SPC700 sound-program recompilation
+
+The Super Nintendo sound CPU now follows a separate PC-directed AOT path.
+Conversion selects fixed SPC700 operation bodies and builds guarded address
+tables for uploaded sound programs. Live opcode checks reject changed code;
+immediate operands and data accesses still use the existing APU bus. The boot
+overlay has its own mapping, so underlying RAM is selected only when the
+guest disables that overlay. Volatile I/O instruction fetches retain the
+counted reference path instead of attempting a side-effecting guard.
+
+Probes collect exact misses and up to four sound-RAM images, allowing the next
+pass to cover driver positions it has not executed yet. A compressed, bounded
+opcode map in `datas/library/snes/<rom-sha256>/spc-native.json` stores that
+converter knowledge. Ordinary play retains counters only and creates no files.
+The converter's `memory` command reports sound-map size and variant count.
+
+Native execution uses the live SPC registers and preserves instruction costs,
+taken-branch penalties, stopping, timers, DSP access and CPU/APU port scheduling.
+Stopped scheduler ticks are recorded separately from retired opcodes. Unknown
+code still uses the visible, counted reference fallback; the window title
+reflects either CPU's fallback use.
+
+Every SNES conversion pass compares the native and fully interpreted paths
+before teaching the library. Headless tests consume the same one-frame audio
+blocks as interactive play and compare PCM, SPC registers, APU RAM/timers/ports,
+DSP state, instruction counts and cycle totals, alongside the existing
+main-CPU and video checks. These are internal shared-semantics comparisons,
+not independent hardware measurements or complete-game validation.
+
+The ROM-free SPC700 self-test covers all 256 operations across all status-flag
+combinations, PC wrapping, the boot overlay, opcode replacement, volatile
+fetches and bus ordering: 65,860 differential cases, with nine additional
+assertions for live operands, branch cycles, read-to-clear timers and stopping.
+
+With an empty sound bank, two conversion passes reduced fallback as follows
+on 8 October 2026. Each demo and play scenario runs for 3,600 frames; existing
+65816 RAM observations were reused. Both CPUs finish at zero fallback on all
+four tested paths, with matching PCM and CPU/APU/DSP/video state.
+
+| Qualified NTSC revision | SPC700 fallback in first sound pass, demo / play | Final fallback, demo / play |
+| --- | ---: | ---: |
+| Super Mario World | 15,845,354 / 15,646,412 | 0 / 0 |
+| Super Scope 6 | 14,919,382 / 14,985,769 | 0 / 0 |
+
+The two compressed sound maps total 185,522 bytes. Reset checks repeat the
+same 600-frame image and PCM sequence on both games. The host adapter resets
+the architectural CPU state and clocks as well as the sound-delivery history
+when restarting, while preserving cartridge save RAM.
+
+### 65816 and shared comparison limits
 
 Super Mario World's first ROM-only pass reported 372,060 interpreted main-CPU
 instructions in demo and 100,750 in play. Learning 130 RAM variants and
@@ -113,10 +375,55 @@ regenerating reduced both to **zero**, over approximately 49 million retired
 instructions per scenario. Both full-length reference comparisons match:
 visible-frame sequence, final CPU registers/PC, RAM, VRAM, CGRAM, OAM,
 high OAM, APU RAM and CPU/master/APU clocks. Authored SNES fixtures pass
-16,544 instruction/state/bus comparisons across all 256 operations, register
-widths, emulation/native modes, decimal arithmetic, LoROM mirrors and changed
+33,098 instruction/state/bus comparisons across all 256 operations, register
+widths, emulation/native modes, decimal arithmetic, LoROM/HiROM mirrors and changed
 RAM/ROM guard rejection. Boot/reset/repeated 600-frame image sequences also
 match for Sonic and SMW.
+
+The SNES interrupt scheduler now yields at the field deadline or WAI, retaining
+the architectural stack and continuation. An interrupt routine can outlive one
+field or park inside the handler. RTI also publishes the actual popped return
+address: a game can use a modified interrupt frame to switch guest tasks.
+Discarding that destination skipped Zelda's polygon worker even while both
+native and reference tests agreed. Three ROM-free fixtures separately check
+WAI, a long interrupt and RTI task switching against explicit clock and PC
+expectations (`python tools/snes_scheduler_selftest.py`).
+
+Four additional NTSC revisions were checked on 8 October 2026: A Link to the
+Past, Super Metroid, Donkey Kong Country and Super Castlevania IV. Each completed
+3,600 demo frames, 3,600 standard input frames and 6,000 frames with varied
+controller input, with zero interpreted instructions on both CPUs and matching
+internal CPU/memory/video/PCM diagnostics. Donkey Kong Country exercises HiROM;
+Super Metroid also exercises the 3 MiB-to-4 MiB cartridge mirror.
+
+Reset testing exposed a separate FastROM issue: the upstream MEMSEL shadow
+survived restart, changing early boot bus costs and the audio handshake. The
+host now clears it with the architectural CPU state and clocks. All four
+packed exports repeat their 600-frame image and PCM sequence after reset,
+without erasing cartridge SRAM. Packed/raw startup diagnostics match, and a
+short isolated launch creates no extra files. Visual, listening and complete
+gameplay acceptance remain user checks.
+
+The SDL SNES audio host queues every generated PCM block. Catch-up after a host
+scheduling delay waits briefly for room before the next input sample/frame;
+it no longer consumes and silently drops a whole block above the 20 ms queue
+target. Opening and resuming the device waits for its first block. A 600-frame
+dummy-device test with four injected 35 ms delays formerly dropped 3,194 stereo
+frames (about 66.5 ms); the corrected host queued all 479,536 frames. Peak queued
+PCM was about 36.3 ms and the existing DSP cushion was unchanged. These are
+digital queue checks, not a listening test or a physical latency measurement.
+
+The separately maintained [sp00nznet/snesrecomp](https://github.com/sp00nznet/snesrecomp)
+was also inspected at `644c7647a9b2a6f286abe14ff07e1751e98c4a17`. It packages
+LakeSnes hardware behind a bus/platform adapter for separately recompiled game
+code. Its scheduling, graphics and audio integration provide useful comparison
+points; both projects have LakeSnes ancestry, so it is not an independent
+hardware oracle. No source from that project was added to these builds.
+
+Game packing uses UPX level 9 rather than its exhaustive `--best` search. Private
+large-SNES tests compacted approximately 33.5 MB to 7.0 MB in 26.3 seconds and
+47.3 MB to 10.0 MB in 36.8 seconds. Integrity verification still precedes atomic
+replacement of an existing export. These timings depend on the build and host.
 
 Every conversion compares native and reference execution over the full
 requested demo/play length. Missing diagnostics or differing state, images,
@@ -144,7 +451,7 @@ The existing Windows C++ toolchain is required for conversion. The SNES
 function analyzer for Super Mario World additionally requires an installed stable Rust toolchain, minimum
 1.85; this integration does not install Rust automatically. Generated games
 need none of those development tools to run.
-Super Scope 6's instruction map does not require that function analyzer or
+The five other qualified SNES instruction maps do not require that function analyzer or
 the separate SuperMarioWorldRecomp dependency.
 
 Generated-source analysis is cached for the exact ROM, pinned engine/game

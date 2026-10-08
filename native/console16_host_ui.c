@@ -282,7 +282,8 @@ static void draw_menu(SDL_Renderer *ren) {
                 tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
             RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
         } else RR16_TEXT(146, tr("Quick states: coming soon", "Sauvegardes rapides : a venir"));
-        RR16_TEXT(160, tr("Sound CPU: interpreted", "CPU audio : interprete"));
+        RR16_TEXT(160, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
+                                                tr("Sound CPU: native code", "CPU audio : code natif"));
     } else if (menu == 2) {
         char line[96];
         snprintf(line, sizeof(line), "Player %d  |  %s  |  Tab / Left-Right", player + 1,
@@ -320,6 +321,13 @@ static void draw_menu(SDL_Renderer *ren) {
     rr_menu_end(ren);
 }
 
+static void pause_audio_output(SDL_AudioDeviceID audio, bool *playing) {
+    if (!audio) return;
+    SDL_PauseAudioDevice(audio, 1);
+    SDL_ClearQueuedAudio(audio);
+    *playing = false;
+}
+
 int rr16_sdl_main(const char *title, int scale) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
@@ -343,7 +351,12 @@ int rr16_sdl_main(const char *title, int scale) {
 #if !RR16_MD
     audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 #endif
-    if (audio) SDL_PauseAudioDevice(audio, 0);
+    /* One guest frame is shorter than two device callbacks. Start with a
+     * frame plus one device period, so a callback at an unlucky phase does
+     * not exhaust the queue before the next frame can provide its sound.
+     * This is output priming only; the guest DSP buffer is unchanged. */
+    Uint32 audio_preroll = ((Uint32)(have.freq * RR16_FRAME_SECONDS) + have.samples) * 4;
+    bool audio_playing = false;
     open_pads();
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
@@ -356,6 +369,17 @@ int rr16_sdl_main(const char *title, int scale) {
     const char *test_filter = test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
     if (test_filter && !strcmp(test_filter, "3")) filter = 3;
     while (running) {
+        /* Preserve every produced block. If the host catches up after a
+         * scheduling delay, wait for a little room before sampling inputs
+         * and running the next frame instead of discarding ~17 ms of sound.
+         * SDL drains whole device periods. Keep a guest frame plus one such
+         * period before starting work: a fixed 20 ms threshold could lose
+         * 10.7 ms in one callback and leave too little for a costly frame. */
+        if (audio && audio_playing && !menu) {
+            Uint64 until = SDL_GetTicks64() + 20;
+            while (SDL_GetQueuedAudioSize(audio) > audio_preroll && SDL_GetTicks64() < until)
+                SDL_Delay(1);
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = false;
@@ -369,7 +393,7 @@ int rr16_sdl_main(const char *title, int scale) {
             }
             if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK &&
                     pads[0] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[0]))) {
-                rr16_reset(); if (audio) SDL_ClearQueuedAudio(audio);
+                rr16_reset(); pause_audio_output(audio, &audio_playing);
             }
             if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
             SDL_Scancode key = event.key.keysym.scancode;
@@ -384,7 +408,7 @@ int rr16_sdl_main(const char *title, int scale) {
             }
             if (key == SDL_SCANCODE_ESCAPE) { if (menu) menu = 0; else running = false; }
             else if (key == SDL_SCANCODE_F1) {
-                rr16_reset(); if (audio) SDL_ClearQueuedAudio(audio);
+                rr16_reset(); pause_audio_output(audio, &audio_playing);
             } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
@@ -417,7 +441,7 @@ int rr16_sdl_main(const char *title, int scale) {
                 snprintf(status, sizeof(status), "%s", message);
                 status_until = SDL_GetTicks64() + 1800;
                 if (ok) { menu = 0; capturing = 0; }
-                if (ok && load) { if (audio) SDL_ClearQueuedAudio(audio); next = SDL_GetPerformanceCounter(); }
+                if (ok && load) { pause_audio_output(audio, &audio_playing); next = SDL_GetPerformanceCounter(); }
             } else if (menu == 4) {
                 int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
                 if (key == SDL_SCANCODE_TAB) { menu = 2; gamepad_page = 0; row = 0; capturing = 0; }
@@ -445,10 +469,15 @@ int rr16_sdl_main(const char *title, int scale) {
             if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, frame))) { running = false; break; }
             ++frame;
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
-            if (n && audio && SDL_GetQueuedAudioSize(audio) < (Uint32)(have.freq / 50) * 4)
-                SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t)));
+            if (n && audio) {
+                if (SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t))) != 0) {
+                    SDL_CloseAudioDevice(audio); audio = 0; audio_playing = false;
+                } else if (!audio_playing && SDL_GetQueuedAudioSize(audio) >= audio_preroll) {
+                    SDL_PauseAudioDevice(audio, 0); audio_playing = true;
+                }
+            }
             if (test_frames && frame >= test_frames) running = false;
-        } else if (audio) SDL_ClearQueuedAudio(audio);
+        } else if (audio_playing) pause_audio_output(audio, &audio_playing);
         if (filter == 2) { scale2x(rr16_pixels(), upscaled); SDL_UpdateTexture(tex, NULL, upscaled, RR16_WIDTH * 2 * 4); }
         else SDL_UpdateTexture(tex, NULL, rr16_pixels(), RR16_WIDTH * 4);
         SDL_Rect dst = game_rect(ren);
@@ -460,7 +489,7 @@ int rr16_sdl_main(const char *title, int scale) {
         draw_gun(ren, &dst);
 
         int current_title_state =
-            1 /* Sound CPU currently interpreted on both 16-bit engines. */ |
+            ((rr16_interpreted() || rr16_audio_interpreted()) ? 1 : 0) |
             (french ? 2 : 0);
         if (current_title_state != title_state) {
             snprintf(caption, sizeof(caption), "%s | %s", title,
@@ -478,6 +507,17 @@ int rr16_sdl_main(const char *title, int scale) {
         Uint64 now = SDL_GetPerformanceCounter();
         if (menu) { next = now; SDL_Delay(16); continue; }
         next += (Uint64)(RR16_FRAME_SECONDS * frequency);
+        if (audio && audio_playing) {
+            /* Video and the sound device have independent clocks. Do not
+             * sleep through the remaining audio reserve: recover the lead
+             * before the next guest frame instead of inserting silence or
+             * making the DSP run ahead. Retain the normal video deadline
+             * whenever the device queue has enough sound. */
+            Uint32 queued = SDL_GetQueuedAudioSize(audio);
+            Uint64 spare = queued > audio_preroll ? queued - audio_preroll : 0;
+            Uint64 audio_deadline = now + spare * frequency / ((Uint64)have.freq * 4);
+            if (next > audio_deadline) next = audio_deadline;
+        }
         if (next > now) {
             Uint32 ms = (Uint32)((next - now) * 1000 / frequency);
             if (ms > 1) SDL_Delay(ms - 1);

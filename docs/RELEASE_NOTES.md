@@ -1,3 +1,41 @@
+# RetroRecomp v0.21.0 — saved covers and expanded 16-bit support
+
+## Your artwork, ready for regeneration
+
+Downloaded covers are saved in `datas/BoxArt` beside the converter, separated by
+console. Regenerating a game reuses its validated image without another network
+request, including after a ROM rename or a change of export folder. Front and
+three-quarter versions are retained separately, and existing downloads are reused.
+Changing API credentials keeps your artwork. Title-screen and screenshot fallbacks
+are retained too. Missing or damaged images use the normal search.
+
+## More 16-bit coverage and smoother audio
+
+Mega Drive now includes twenty-two qualified NTSC revisions and an optional
+advanced scan. Both its 68000 and sound Z80, and the Super Nintendo's 65816 and
+SPC700, use guarded native paths. Super Nintendo adds four qualified revisions
+for six in total, with improvements to interrupt scheduling and audio delivery.
+See the [current compatibility limits](CONSOLES_16BIT.md).
+
+Box-art searches prefer Internet front covers by default, with alternate public
+hosts and fallback images when a box is unavailable. The SNES audio host now keeps
+a reserve suited to the output device and initializes its audio clock from boot.
+
+## Update
+
+Use **Check for updates** or download the single Windows x64 **Retro-Recomp.exe**.
+Your games, settings, learning library and downloaded artwork stay local and are
+preserved by an update. Regenerate games to receive runtime improvements.
+No ROMs, downloaded artwork, generated games or private settings are bundled.
+Component notices are embedded; the matching [UPX sources](../licenses/upx-5.2.1-src.tar.xz)
+remain available in the repository.
+
+Native coverage, agreement with the internal reference, hardware fidelity,
+gameplay validation and physical latency remain separate measures. Mega Drive
+and Super Nintendo remain experimental; the other four console profiles are supported.
+
+---
+
 # RetroRecomp v0.20.0 — lightguns across more consoles
 
 ## Play with the mouse

@@ -735,6 +735,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             cover: Path | None = None, boxart_dir: Path | None = None,
             online_cover: bool = True, use_cover: bool = True, icon_tags: bool = True,
             standard_override: str | None = None,
+            md_advanced_scan: bool = False,
             publish_result: bool = True,
             emit: Callable[[str], None] = print) -> Path:
     system = profile_for_path(rom_path)
@@ -743,7 +744,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         return convert16(rom_path, system_id=system.id, title=title, output=output,
             profile=profile, passes=passes, frames=frames, backend=backend, language=language,
             cover=cover, boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
-            icon_tags=icon_tags, standard_override=standard_override, publish_result=publish_result, emit=emit)
+            icon_tags=icon_tags, standard_override=standard_override, md_advanced_scan=md_advanced_scan,
+            publish_result=publish_result, emit=emit)
     if system.id == "gb":
         from .gameboy import convert_game_boy
         return convert_game_boy(rom_path, title=title, output=output, profile=profile,
@@ -793,7 +795,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     emit(f"ROM : {title}, {len(rom.data) // 1024} Ko, CRC32 {rom.crc32:08X}")
     try:
         default_art = ROOT / 'BoxArt' / ('Game Gear' if system.id == 'gg' else '')
-        cache_art = data_directory() / 'BoxArt' / (system.id if system.id != 'sms' else '')
+        from .paths import boxart_cache_directory
+        cache_art = boxart_cache_directory(system.id)
         artwork = prepare_icon(game, rom.path, title, (boxart_dir or default_art).resolve(),
             explicit=cover, online=online_cover, enabled=use_cover, cache_directory=cache_art,
             tags=game_tags(rom.crc32, rom.path.name) if icon_tags and system.id == "sms" else (),

@@ -52,14 +52,35 @@ def is_megadrive(data: bytes) -> bool:
     return len(data) >= 0x400 and data[0x100:0x104] == b'SEGA'
 
 
+def megadrive_regions(data: bytes) -> int:
+    """Read letter codes or the ASCII hexadecimal region bit mask.
+
+    Only the three region bytes are defined; the rest of $1F0-$1FF is reserved.
+    A lone E is ambiguous between the two formats and retains its usual PAL
+    meaning. See https://plutiedev.com/rom-header.
+    """
+    regions = ''.join(data[0x1f0:0x1f3].decode('ascii', errors='replace')
+                      .upper().replace('\0', ' ').split())
+    if len(regions) == 1 and regions in '0123456789ABCDF':
+        return int(regions, 16)
+    if regions and all(letter in 'JUE' for letter in regions):
+        return (1 if 'J' in regions else 0) | (4 if 'U' in regions else 0) | (8 if 'E' in regions else 0)
+    return 0
+
+
+def megadrive_standard(data: bytes) -> str:
+    mask = megadrive_regions(data)
+    ntsc, pal = bool(mask & 5), bool(mask & 10)
+    return 'multi' if ntsc and pal else 'pal' if pal else 'ntsc' if ntsc else 'unknown'
+
+
 def read_megadrive_rom(path: Path) -> Cartridge16:
     from .core import ConversionError
     path = path.resolve()
     data = cartridge_bytes(path, ('.md', '.gen', '.bin', '.rom'))
     if len(data) < 0x8000 or len(data) > 8 * 1024 * 1024 or len(data) % 2 or not is_megadrive(data):
         raise ConversionError('Expected a linear Mega Drive cartridge with a SEGA header; interleaved SMD is not supported.')
-    regions = data[0x1f0:0x200].decode('ascii', errors='replace').strip('\0 ')
-    standard = 'multi' if 'E' in regions and any(r in regions for r in 'JU') else 'pal' if 'E' in regions else 'ntsc'
+    standard = megadrive_standard(data)
     title = data[0x150:0x180].decode('ascii', errors='replace').strip('\0 ') or path.stem
     return Cartridge16(path, data, 'md', ' '.join(title.split()), standard, 'linear')
 

@@ -10,6 +10,7 @@ from smsrecomp.gui import launch
 from smsrecomp.library import library_root, list_games
 from smsrecomp.gameboy import list_memory
 from smsrecomp.nes import list_memory as list_nes_memory
+from smsrecomp.cover_settings import defaults as cover_defaults
 
 
 def smoke(window):
@@ -58,6 +59,8 @@ def smoke(window):
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
     assert application.preferences()['gb_deep_validation'] == initial_deep
+    initial_md_scan = application.md_advanced_scan.get()
+    assert application.preferences()['md_advanced_scan'] == initial_md_scan
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
@@ -65,19 +68,25 @@ def smoke(window):
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_boxart')
     assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
-    assert application.cover_3d.get()
+    assert not application.cover_3d.get()
     application.gb_deep_control.invoke()
     assert application.preferences()['gb_deep_validation'] != initial_deep
     application.gb_deep_control.invoke()
     assert application.preferences()['gb_deep_validation'] == initial_deep
+    application.md_scan_control.invoke()
+    assert application.preferences()['md_advanced_scan'] != initial_md_scan
+    application.md_scan_control.invoke()
+    assert application.preferences()['md_advanced_scan'] == initial_md_scan
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] != initial_tags
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] == initial_tags
     application.set_controls(False)
     assert str(application.gb_deep_control.cget('state')) == 'disabled'
+    assert str(application.md_scan_control.cget('state')) == 'disabled'
     application.set_controls(True)
     assert str(application.gb_deep_control.cget('state')) == 'normal'
+    assert str(application.md_scan_control.cget('state')) == 'normal'
     with patch('smsrecomp.gui.save_preferences'):
         application.close_options()
     assert application.options_panel is None
@@ -116,5 +125,7 @@ def smoke(window):
 
 tk.Tk.mainloop = smoke
 with patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
+        patch('smsrecomp.gui.load_cover_settings', side_effect=cover_defaults), \
+        patch('smsrecomp.gui.save_cover_settings'), \
         patch('smsrecomp.gui.save_preferences'):
     launch()

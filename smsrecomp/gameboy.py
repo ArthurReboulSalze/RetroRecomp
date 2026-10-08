@@ -20,7 +20,7 @@ from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_v
                                probe_scenarios, read_entries, write_entries)
 from .library import atomic_json, library_root
 from .metadata import write_game_metadata
-from .paths import ROOT, ASSETS, data_directory, games_root
+from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 
 
@@ -265,7 +265,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         artwork = prepare_icon(project, rom.path, title,
             (boxart_dir or ROOT / "BoxArt/Game Boy").resolve(), explicit=cover,
             online=online_cover, enabled=use_cover,
-            cache_directory=data_directory() / "BoxArt/gb",
+            cache_directory=boxart_cache_directory('gb'),
             tags=(), system_id="gb", emit=emit)
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc

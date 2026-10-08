@@ -22,12 +22,19 @@ SUPPORTED = {
     'md': ('46160baa06362c711c9f1a5017cb7371026444936c8af5e93a78996cf32ff2a6', 'Sonic the Hedgehog'),
     'snes': ('0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b', 'Super Mario World'),
 }
+MD_AUDIO_FIELDS = ('fm_samples', 'fm_nonzero', 'fm_peak', 'fm_hash', 'fm_active_frames',
+                   'psg_samples', 'psg_nonzero', 'psg_peak', 'psg_hash', 'psg_active_frames',
+                   'z80_pc', 'z80_slice_cycles', 'z80_ram_hash', 'z80_cpu_hash', 'ym_timer_hash')
 
 
 def qualified_rom(path: Path, system_id: str, standard_override: str | None = None):
     if system_id not in SUPPORTED:
         raise ConversionError('Unknown 16-bit console profile.')
     rom = (read_megadrive_rom if system_id == 'md' else read_snes_rom)(path)
+    if system_id == 'md' and rom.standard == 'pal':
+        raise ConversionError('This Mega Drive cartridge declares PAL timing; PAL execution is not enabled yet.')
+    if system_id == 'md' and rom.standard == 'unknown':
+        raise ConversionError('This Mega Drive cartridge has an unrecognized region header; timing cannot be qualified yet.')
     if system_id == 'md':
         megadrive.profile_for(rom)
         megadrive.vectors(rom)
@@ -93,6 +100,14 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 find_package(SDL2 REQUIRED)
 '''
     if system_id == 'md':
+        shutil.copy2(ASSETS / 'native/md_ym_timers.h', project / 'md_ym_timers.h')
+        from . import megadrive_z80
+        rom = read_megadrive_rom(project / 'cartridge.bin')
+        megadrive_z80.generate(project, engine, megadrive_z80.read_variants(rom))
+        for name in ('md_z80_native.h', 'md_z80_runtime.c'):
+            shutil.copy2(ASSETS / 'native' / name, project / name)
+        (native / 'z80_reference.c').write_text(megadrive_z80.adapt_reference(
+            (engine / 'runner/external/superzazu/z80.c').read_text(encoding='utf-8')), encoding='utf-8')
         step_aot = '#define RR_MD_STEP_AOT 1' in (project / 'retro_md_game.h').read_text(encoding='utf-8')
         if step_aot:
             for name in ('md_native_steps.h', 'md_step_dispatch.c'):
@@ -125,8 +140,10 @@ find_package(SDL2 REQUIRED)
         interp = interp.replace('static void cov_mark(uint32_t pc) {',
             'extern void rr16_note_interpreted(void);\nstatic void cov_mark(uint32_t pc) {\n    rr16_note_interpreted();', 1)
         if step_aot:
-            from .megadrive_codegen import adapt_interpreter
+            from .megadrive_codegen import adapt_interpreter, adapt_cpu_snapshot
             interp = adapt_interpreter(interp)
+            (native / 'rb_state.c').write_text(adapt_cpu_snapshot(
+                (engine / 'runner/rb_state.c').read_text(encoding='utf-8')), encoding='utf-8')
             from .gun16_runtime import md_interpreter
             interp = md_interpreter(interp)
         (native / 'm68k_interp.c').write_text(interp, encoding='utf-8')
@@ -137,23 +154,31 @@ find_package(SDL2 REQUIRED)
         audio = audio.replace('a ~200 ms boot pre-roll', 'a 25 ms boot pre-roll')
         (native / 'audio.c').write_text(audio, encoding='utf-8')
         sources = ['sim_step.c', 'fiber_compat.c', 'crash_report.c', 'chip_trace.c', 'cmd_server_stub.c',
-                   'rb_state.c',
+                   *([] if step_aot else ['rb_state.c']),
                    'cosim_state.c', 'cosim_cycles.c', 'audio/event_queue.c', 'audio/ym2612_ymfm.cpp',
                    'audio/sn76489.c', 'audio/mixer.c', 'audio/observability.c', 'audio/audio_shadow.c',
-                   'audio/fm_shadow.cpp', 'video/color_lut.c', 'external/superzazu/z80.c']
+                   'audio/fm_shadow.cpp', 'video/color_lut.c']
         from .gun16_runtime import md_bus, md_vdp, md_machine
-        for name, adapt in (('genesis_bus', md_bus), ('genesis_vdp', md_vdp), ('genesis_machine', md_machine)):
-            (native / f'{name}.c').write_text(adapt((engine / f'runner/video/{name}.c').read_text(encoding='utf-8')),
-                                           encoding='utf-8')
+        from .megadrive_runtime import ym_bus
+        for name, adapt in (('genesis_bus', lambda s: ym_bus(md_bus(s))), ('genesis_vdp', md_vdp), ('genesis_machine', md_machine)):
+            text = adapt((engine / f'runner/video/{name}.c').read_text(encoding='utf-8'))
+            if name == 'genesis_machine':
+                from .gun16_runtime import replace
+                text = '#include "md_z80_native.h"\n' + replace(text,
+                    '        z80_step(&m->z80);', '        rr_md_z80_step(&m->z80);')
+                text = replace(text, '        m->bus.z80_reset_pending = 0;',
+                    '        rr_md_z80_capture_driver();\n        m->bus.z80_reset_pending = 0;')
+            (native / f'{name}.c').write_text(text, encoding='utf-8')
         sources += [f'external/ymfm/src/{name}.cpp' for name in ('ymfm_opn', 'ymfm_ssg', 'ymfm_adpcm', 'ymfm_pcm')]
         source_text = '\n'.join(f'  "{prefix}/runner/{source}"' for source in sources)
         generated_glob = ('"steps/*.c" "generated/*_layout.c"' if step_aot else
                           '"generated/*_part*.c" "generated/*_dispatch.c" "generated/*_layout.c"')
-        step_sources = 'md_step_dispatch.c' if step_aot else ''
+        step_sources = 'md_step_dispatch.c native/rb_state.c' if step_aot else ''
         common += f'''file(GLOB GENERATED CONFIGURE_DEPENDS {generated_glob})
 add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c md_backend.c
   native/glue.c native/m68k_interp.c native/audio.c native/genesis_bus.c native/genesis_vdp.c
-  native/genesis_machine.c game_resources.rc {step_sources} ${{GENERATED}}
+  native/genesis_machine.c native/z80_reference.c md_z80_runtime.c md_z80_generated.c
+  game_resources.rc {step_sources} ${{GENERATED}}
 {source_text}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(game PRIVATE . "{prefix}/runner" "{prefix}/runner/include"
@@ -163,11 +188,15 @@ target_compile_definitions(game PRIVATE RR16_MD=1 OWN_BACKEND=1 ENABLE_RECOMPILE
 target_link_options(game PRIVATE /CETCOMPAT:NO)
 '''
     else:
-        from .snes_codegen import generate, adapt_core, adapt_bridge
+        from .snes_codegen import generate, adapt_core, adapt_bridge, adapt_frame_driver
         from .cartridge16 import read_snes_rom
         rom = read_snes_rom(project / ('smw.sfc' if (project / 'smw.sfc').exists() else 'cartridge.sfc'))
         generate(engine, project, rom)
         shutil.copy2(ASSETS / 'native/snes_native_steps.h', project / 'snes_native_steps.h')
+        from . import snes_spc
+        snes_spc.generate(engine, project, rom)
+        for name in ('snes_spc_native.h', 'snes_spc_runtime.c'):
+            shutil.copy2(ASSETS / 'native' / name, project / name)
         if supernintendo.profile_for(rom)['legacy_functions']:
             shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
         else:
@@ -182,6 +211,15 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
             encoding='utf-8')
         (staged / 'runner/src/snes/interp_bridge.c').write_text(
             adapt_bridge((engine / 'runner/src/snes/interp_bridge.c').read_text(encoding='utf-8')),
+            encoding='utf-8')
+        (staged / 'runner/src/beam_frame_driver.c').write_text(
+            adapt_frame_driver((engine / 'runner/src/beam_frame_driver.c').read_text(encoding='utf-8')),
+            encoding='utf-8')
+        (staged / 'runner/src/snes/spc.c').write_text(
+            snes_spc.adapt_core((engine / 'runner/src/snes/spc.c').read_text(encoding='utf-8')),
+            encoding='utf-8')
+        (staged / 'runner/src/common_rtl.c').write_text(
+            snes_spc.adapt_audio_reset((engine / 'runner/src/common_rtl.c').read_text(encoding='utf-8')),
             encoding='utf-8')
         from .gun16_runtime import snes_joypad, snes_bus, snes_ppu
         for name, adapt in (('joypad', snes_joypad), ('snes', snes_bus), ('ppu', snes_ppu)):
@@ -199,7 +237,7 @@ set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c
+add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c
   game_resources.rc ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})
@@ -266,6 +304,15 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
         emit(f'{analysis["translated_instructions"]} native instructions, '
              f'{analysis["guarded_ram_variants"]} guarded RAM variants; exact PC/stack control flow.')
     _write_build(project, engine, system_id, title)
+    if system_id == 'md':
+        audio_analysis = json.loads((project / 'z80-native-analysis.json').read_text(encoding='utf-8'))
+        emit(f"Z80 sound: {audio_analysis['guarded_positions']} guarded positions, "
+             f"{audio_analysis['shared_native_bodies']} shared native bodies.")
+    else:
+        audio_analysis = json.loads((project / 'spc-native-analysis.json').read_text(encoding='utf-8'))
+        emit(f"SPC700 sound: {audio_analysis['guarded_ram_variants']} opcode variants at "
+             f"{audio_analysis['guarded_ram_addresses']} RAM positions, "
+             f"{audio_analysis['boot_positions']} boot positions.")
     if resources:
         resources(project, engine, rom, rom_file)
     else:
@@ -306,11 +353,43 @@ def _notice(engine: Path, system_id: str, *, legacy_smw=True) -> str:
             '\n\n' + assembly_notice)
 
 
-def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False, gun_menu=None) -> dict:
+def _md_scan_script(directory: Path, frames: int, *, six_buttons=False, gun_menu=None) -> Path:
+    """Reproducible host input only: never patch guest memory or game code."""
+    events = {0: (0, 0)}
+    starts = (300, 480, 660, 900, 1200, 1500, 1800, 2100, 2400, 2700) if gun_menu == 't2' else (300, 480, 660)
+    for frame in starts:
+        events[frame] = (128, 0)
+        events[frame + 2] = (0, 0)
+    if gun_menu == 't2':
+        for frame in (1600, 1640):
+            events[frame] = (2, 0)
+            events[frame + 2] = (0, 0)
+    begin = 2800 if gun_menu == 't2' else 800
+    for frame in range(begin, frames, 12):
+        phase = (frame - begin) // 12
+        direction = (8, 4, 8, 1, 8, 2)[(phase // 40) % 6]
+        button = (64, 16, 32, 0)[phase % 4]
+        extra = (256, 512, 1024, 0)[phase % 4] if six_buttons else 0
+        p2 = (4 if direction == 8 else 8) | (32 if phase % 3 == 0 else 0)
+        events[frame] = (direction | button | extra, p2)
+    if gun_menu != 't2':
+        events[1000], events[1002] = (0, 128), (0, 0)
+        for frame in (4800, 4860):
+            events[frame], events[frame + 2] = (128, 0), (0, 0)
+    path = directory / 'advanced-inputs.txt'
+    path.write_text(''.join(f'{frame} {p1} {p2}\n' for frame, (p1, p2) in sorted(events.items())
+                            if frame < frames), encoding='ascii')
+    return path
+
+
+def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False,
+            gun_menu=None, scenario=None, input_script=None) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
-    scenario = 'play' if play else 'demo'
+    scenario = scenario or ('play' if play else 'demo')
     report = directory / f'{scenario}{"-reference" if reference else ""}.json'
     command = [executable, '--frames', str(frames), '--report', report]
+    if input_script is not None:
+        command.extend(('--input-script', Path(input_script).resolve()))
     if play:
         command.append('--play')
         if gun_menu:
@@ -339,11 +418,22 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
     return {'scenario': scenario, **data}
 
 
+SNES_AUDIO_FIELDS = ('spc_pc', 'spc_cpu_hash', 'apu_state_hash', 'dsp_state_hash',
+                     'pcm_samples', 'pcm_nonzero', 'pcm_peak', 'pcm_hash', 'spc_idle_cycles',
+                     'audio_output_underflows', 'audio_output_missing_frames', 'audio_output_priming',
+                     'audio_ring_dropped', 'audio_ring_dropped_audible',
+                     'audio_ring_highwater', 'audio_ring_current')
+
+
 def reference_differences(system_id: str, native: dict, reference: dict) -> list[str]:
     """Require every diagnostic field; absent data must never validate an export."""
     fields = ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash', 'cpu_pc')
     fields += (('vsram_hash', 'vdp_register_hash') if system_id == 'md' else
                ('oam_hash', 'high_oam_hash', 'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles'))
+    if system_id == 'md':
+        fields += MD_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped')
+    else:
+        fields += SNES_AUDIO_FIELDS
     if 'gun_kind' in native or 'gun_kind' in reference:
         fields += ('gun_kind', 'gun_light_hits', 'gun_interrupts', 'gun_button_reads')
         fields += (('gun_latched_hv', 'gun_buttons_latched', 'gun_button_packets', 'gun_trigger_packets') if system_id == 'md' else
@@ -357,17 +447,23 @@ def reference_differences(system_id: str, native: dict, reference: dict) -> list
     if (any(check.get(key) is None for check in (native, reference) for key in counters)
             or sum(native[key] for key in counters) != sum(reference[key] for key in counters)):
         differences.append('retired_instruction_count')
+    cpu = 'z80' if system_id == 'md' else 'spc'
+    for keys, label in ((('audio_native_opcodes', 'audio_interpreted_opcodes'), f'{cpu}_instruction_count'),
+                        (('audio_native_cycles', 'audio_interpreted_cycles'), f'{cpu}_cycle_count')):
+        if (any(check.get(key) is None for check in (native, reference) for key in keys)
+                or sum(native[key] for key in keys) != sum(reference[key] for key in keys)):
+            differences.append(label)
     return differences
 
 
 def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profile=None,
               passes=3, frames=3600, backend='banked', language='en', cover=None,
               boxart_dir=None, online_cover=True, use_cover=True, icon_tags=True,
-              standard_override=None, publish_result=True, emit=print) -> Path:
+              standard_override=None, md_advanced_scan=False, publish_result=True, emit=print) -> Path:
     from .artwork import prepare_icon
     from .core import executable_name
     from .metadata import write_game_metadata
-    from .paths import data_directory, games_root
+    from .paths import data_directory, games_root, boxart_cache_directory
     if profile is not None:
         raise ConversionError('16-bit profiles use pinned game-specific analysis, not Sega Z80 TOML files.')
     if not 1 <= frames <= 10000 or not 1 <= passes <= 10:
@@ -375,6 +471,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     rom = qualified_rom(rom_path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     gun = guns16.gun_game(system_id, rom.crc32, rom.path.name)
+    advanced = system_id == 'md' and bool(md_advanced_scan)
     if output is None:
         from .batch import identify, convert_batch
         item = identify(rom_path, system_id)
@@ -382,7 +479,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         item.cover = cover
         result = convert_batch([item], games_root(), frames=frames, passes=passes,
             language=language, boxart_dir=boxart_dir, online_cover=online_cover,
-            use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override, emit=emit)
+            use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
+            md_advanced_scan=advanced, emit=emit)
         if result['failed']:
             raise ConversionError(result['games'][0]['message'])
         return Path(result['games'][0]['executable'])
@@ -390,7 +488,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     title = title or cartridge_profile['title']
     name = 'Mega Drive' if system_id == 'md' else 'Super Nintendo'
     emit(f'{name}: experimental {title} NTSC integration; exact cartridge profile verified.')
-    emit('Sound CPU remains interpreted. Native CPU coverage and hardware fidelity are separate checks.')
+    emit('68000 and Z80 sound CPU use guarded native code.' if system_id == 'md' else
+         '65816 and SPC700 sound CPU use guarded native code. Hardware fidelity is a separate check.')
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     artwork = {}
@@ -398,7 +497,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     def resources(project, engine, cartridge, rom_file):
         artwork.update(prepare_icon(project, cartridge.path, title,
             (boxart_dir or ROOT / 'BoxArt' / name).resolve(), explicit=cover,
-            online=online_cover, enabled=use_cover, cache_directory=data_directory() / 'BoxArt' / system_id,
+            online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory(system_id),
             system_id=system_id, tags=('shooting',) if gun and icon_tags else (), emit=emit))
         metadata.update(write_game_metadata(project, title, executable_name(title),
             light_phaser=False, icon=artwork['embedded'], standard='ntsc', system_id=system_id,
@@ -411,53 +510,103 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                      '104 RCDATA "game_identity.bin"\n')
     learn = megadrive.learn_entries if system_id == 'md' else supernintendo.learn_ram_variants
     gun_menu = 't2' if gun and gun.system == 'md' and gun.title == 'T2 - The Arcade Game' else None
+    advanced_frames = max(frames, 6000) if advanced else 0
+    if advanced:
+        emit(f'Mega Drive advanced scan: adds a {advanced_frames}-frame varied-input replay on every pass, '
+             'with reference CPU/video/audio comparison before learning. Conversion takes longer.')
     history, comparisons = [], []
+    reference_before_learning = advanced or system_id == 'snes'
+
+    def compare(checks, directory, script):
+        directory.mkdir(exist_ok=True)
+        comparisons = []
+        for native in checks:
+            options = dict(play=native['scenario'] != 'demo', reference=True, gun_menu=gun_menu)
+            if native['scenario'] == 'advanced':
+                options.update(scenario='advanced', input_script=script)
+            reference = probe16(executable, directory, native['frames'], **options)
+            comparisons.append({'scenario': native['scenario'], 'frames': native['frames'],
+                                'differences': reference_differences(system_id, native, reference)})
+        if any(result['differences'] for result in comparisons):
+            atomic_json(checks_dir / 'native-validation.json', {'comparisons': comparisons})
+            raise ConversionError(f'{name} native CPU/video/audio reference comparison failed. '
+                                  f'Previous export preserved; see {checks_dir}.')
+        return comparisons
+
     for attempt in range(passes):
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources)
         checks_dir = executable.parents[2] / 'checks'
         checks_dir.mkdir(exist_ok=True)
         checks = []
-        for play in (False, True):
-            check = probe16(executable, checks_dir, frames, play=play, gun_menu=gun_menu)
+        scenarios = [(frames, dict(play=play, gun_menu=gun_menu)) for play in (False, True)]
+        script = None
+        if advanced:
+            script = _md_scan_script(checks_dir, advanced_frames,
+                six_buttons='street-fighter' in cartridge_profile['id'], gun_menu=gun_menu)
+            scenarios.append((advanced_frames, dict(play=True, gun_menu=gun_menu,
+                                                   scenario='advanced', input_script=script)))
+        for budget, options in scenarios:
+            check = probe16(executable, checks_dir, budget, **options)
             check['native_counter_unit'] = 'main CPU opcodes'
             checks.append(check)
             emit(f"{name} {check['scenario']}: {check['frames']} frames, "
-                 f"{check['interpreted_opcodes']} interpreted main CPU opcodes. Sound CPU: interpreted.")
+                 f"{check['interpreted_opcodes']} interpreted main CPU opcodes. Sound CPU: " +
+                 f"{check['audio_interpreted_opcodes']} interpreted {'Z80' if system_id == 'md' else 'SPC700'} opcodes.")
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
-             'rom_fallback_opcodes', 'ram_fallback_opcodes')} for check in checks]})
-        if not any(check.get('rom_entries') or check.get('ram_variants') for check in checks) or attempt + 1 == passes:
+             'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
+             'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles')} for check in checks]})
+        if reference_before_learning:
+            comparisons = compare(checks, checks_dir / 'reference', script)
+        if not any(check.get('rom_entries') or check.get('ram_variants') or check.get('z80_variants') or check.get('z80_driver_images')
+                   or check.get('spc_variants') or check.get('spc_driver_images')
+                   for check in checks) or attempt + 1 == passes:
             break
         added = learn(rom, checks)
+        if system_id == 'md':
+            from .megadrive_z80 import learn_variants
+            added += learn_variants(rom, checks)
+        else:
+            from .snes_spc import learn as learn_spc
+            added += learn_spc(rom, checks)
         if not added:
             break
-        observations = 'ROM entries/RAM byte variants' if system_id == 'md' else 'RAM byte variants'
+        observations = '68000 ROM/RAM entries and Z80 opcode variants' if system_id == 'md' else '65816 RAM and SPC700 opcode variants'
         emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
-    reference_dir = checks_dir / 'reference'
-    reference_dir.mkdir(exist_ok=True)
-    for native in checks:
-        reference = probe16(executable, reference_dir, frames,
-                            play=native['scenario'] == 'play', reference=True, gun_menu=gun_menu)
-        comparisons.append({'scenario': native['scenario'], 'frames': frames,
-                            'differences': reference_differences(system_id, native, reference)})
-    if any(result['differences'] for result in comparisons):
-        atomic_json(checks_dir / 'native-validation.json', {'comparisons': comparisons})
-        raise ConversionError(f'{name} native CPU/video reference comparison failed. '
-                              f'Previous export preserved; see {checks_dir}.')
+    if not reference_before_learning:
+        comparisons = compare(checks, checks_dir / 'reference', None)
     learn(rom, checks)
-    emit('Internal CPU/memory/visible-frame reference comparison: matches.')
+    if system_id == 'md':
+        from .megadrive_z80 import learn_variants
+        learn_variants(rom, checks)
+    else:
+        from .snes_spc import learn as learn_spc
+        learn_spc(rom, checks)
+    emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': 'experimental',
         'system': {'id': system_id, 'name': name}, 'rom': rom.metadata(),
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
+        'advanced_scan': {'enabled': advanced, 'additional_frames': advanced_frames,
+                          'scenario': 'advanced' if advanced else None,
+                          'reference_before_learning': advanced},
         'native_validation': {'passed': True, 'visible_sequence_match': True,
+                              'audio_pcm_match': True,
                               'comparisons': comparisons,
-                              'reference_frames': frames, 'reference_kind': 'internal_shared_semantics',
+                              'reference_frames': max(check['frames'] for check in checks),
+                              'reference_kind': 'internal_shared_semantics',
+                              'reference_before_learning': reference_before_learning,
                               'cpu_fidelity_validated': False,
                               'hardware_fidelity_validated': False, 'full_game_validated': False},
-        'video_model': {'standard': 'ntsc', 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256, 224]},
-        'audio_cpu': 'interpreted', 'native_percentage': [round(100 * check['native_entries'] /
+        'video_model': {'standard': 'ntsc', 'visible_pixels': [checks[-1].get('visible_width', 320) if system_id == 'md' else 256, 224],
+                        'console_version': checks[-1].get('console_version') if system_id == 'md' else None},
+        'audio_cpu': checks[-1].get('audio_cpu', 'interpreted'),
+        'audio_counter_unit': 'sound CPU cycles',
+        'audio_native_percentage': [round(100 * check.get('audio_native_cycles', 0) /
+            max(1, check.get('audio_native_cycles', 0) + check.get('audio_interpreted_cycles', 0)), 6)
+            for check in checks],
+        'native_percentage': [round(100 * check['native_entries'] /
             max(1, check['native_entries'] + check['interpreted_opcodes']), 6) for check in checks],
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': False}, 'runtime_learning': False,

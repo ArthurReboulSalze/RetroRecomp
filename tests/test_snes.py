@@ -38,6 +38,53 @@ class SnesNativeTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             snes_codegen.cycle_costs(source_fixture().replace('2,2,2', '2,2', 1))
 
+    def test_mirroring_repeats_the_last_block_without_modifying_the_source(self):
+        blocks = [bytes([n]) * 0x8000 for n in range(7)]
+        for count, expected in ((1, [0]), (3, [0, 1, 2, 2]),
+                                (5, [0, 1, 2, 3, 4, 4, 4, 4]),
+                                (6, [0, 1, 2, 3, 4, 5, 4, 5]),
+                                (7, [0, 1, 2, 3, 4, 5, 6, 6])):
+            original = b''.join(blocks[:count])
+            with self.subTest(blocks=count):
+                self.assertEqual(snes_codegen.mirrored_rom(original),
+                                 b''.join(blocks[n] for n in expected))
+                self.assertEqual(original, b''.join(blocks[:count]))
+
+    def test_mapping_and_actual_image_size_are_guarded(self):
+        rom = bytes(0x18000)
+        for mapping, cart in (('lorom', 'CART_LOROM'), ('hirom', 'CART_HIROM')):
+            with self.subTest(mapping=mapping):
+                text = snes_codegen.native_source(source_fixture(), rom, mapping=mapping)
+                self.assertIn('g_snes->cart->type != ' + cart, text)
+                self.assertIn('g_snes->cart->romSize != 131072u', text)
+                self.assertIn('g_snes->cart->romImageSize != 98304u', text)
+        with self.assertRaises(ConversionError):
+            snes_codegen.native_source(source_fixture(), rom, mapping='exhirom')
+
+    def test_interrupts_keep_the_armed_deadline_and_wai_scheduler_handoff(self):
+        bridge = ('if (bounce_ok && has_body) { }\n'
+                  '        if (auto_quiescent && s_lle_master_deadline &&\n'
+                  '            cpu->master_cycles >= s_lle_master_deadline) { }\n'
+                  'if (auto_quiescent || yield_pc) {\n'
+                  '                lle_resume_set(((uint32_t)in.k << 16) | in.pc, INTERP_RESUME_SITE_WAI, in.sp); }\n'
+                  '        if (stop_on_rti && op == 0x40) {\n            sync_interp_to_cpu(&in, cpu); }')
+        adapted = snes_codegen.adapt_bridge(bridge)
+        self.assertIn('(auto_quiescent || stop_on_rti) && s_lle_master_deadline', adapted)
+        self.assertIn('(stop_on_rti && s_lle_master_deadline)', adapted)
+        self.assertIn('in.pc, INTERP_RESUME_SITE_EXTERNAL, in.sp);', adapted)
+        for old in ('if (bounce_ok && has_body) {',
+                    'if (auto_quiescent && s_lle_master_deadline &&\n',
+                    'if (auto_quiescent || yield_pc) {',
+                    'if (stop_on_rti && op == 0x40) {'):
+            with self.subTest(boundary=old):
+                with self.assertRaises(ConversionError):
+                    snes_codegen.adapt_bridge(bridge.replace(old, 'changed'))
+        frame = '  update_resume_pc();\n}\n\nvoid snes_beam_frame_driver_run_frame(void) {'
+        self.assertIn('if (interp_bridge_lle_took_wai()) s_wai_halted = true;',
+                      snes_codegen.adapt_frame_driver(frame))
+        with self.assertRaises(ConversionError):
+            snes_codegen.adapt_frame_driver('changed')
+
     def test_ram_code_requires_all_four_live_bytes_and_exact_pc(self):
         source = snes_codegen.native_source(source_fixture(), bytes(range(256)),
             [{'address': 0x7e0100, 'bytes': 'a93412ea'}])
@@ -86,6 +133,22 @@ class SnesMemoryTests(unittest.TestCase):
         self.assertEqual(supernintendo.read_ram_variants(self.rom), [])
         self.assertEqual(supernintendo.learn_ram_variants(self.rom, []), 0)
         self.assertFalse(self.root.joinpath('library').exists())
+
+
+class SnesQualificationTests(unittest.TestCase):
+    def test_exact_profile_identity_mapping_and_region_are_required(self):
+        profiles = {'authored': {'id': 'fixture', 'title': 'Authored',
+                                'legacy_functions': False, 'mapping': 'hirom'}}
+        with patch.dict(supernintendo.PROFILES, profiles, clear=True):
+            self.assertEqual(supernintendo.profile_for(SimpleNamespace(
+                sha256='authored', mapping='hirom', standard='ntsc'))['id'], 'fixture')
+            for sha, mapping, standard in (('other', 'hirom', 'ntsc'),
+                                         ('authored', 'lorom', 'ntsc'),
+                                         ('authored', 'hirom', 'pal')):
+                with self.subTest(sha=sha, mapping=mapping, standard=standard):
+                    with self.assertRaises(ConversionError):
+                        supernintendo.profile_for(SimpleNamespace(
+                            sha256=sha, mapping=mapping, standard=standard))
 
 
 if __name__ == '__main__':

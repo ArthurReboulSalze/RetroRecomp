@@ -235,6 +235,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
               "sha256": item.sha256}
     try:
         settings = dict(options)
+        if system.id != 'md':
+            settings.pop('md_advanced_scan', None)
         if system.id != 'gb':
             settings.pop('gb_deep_validation', None)
             settings.pop('gb_parallel_games', None)
@@ -274,6 +276,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             conversion_stage=report.get('status'),
             main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
             audio_cpu=report.get('audio_cpu'),
+            audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
             pending_install=pending,
             video_standard=report.get('video_model', {}).get('standard', item.video_hint),
             interpreter_percent=max((p for p in measured if p is not None), default=None),

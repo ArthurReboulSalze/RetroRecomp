@@ -195,7 +195,7 @@ def _screenscraper(account, rom, title, system, prefer3d, normalize):
                     if match:
                         yield {'type': 'box-' + match[1].upper(), 'region': match[2], 'url': value}
         media = list(walk(media))
-    desired = ['box-3d', 'box-2d'] if prefer3d else ['box-2d', 'box-3d']
+    desired = ['box-3d', 'box-2d'] if prefer3d else ['box-2d']
     region_order = [key for key, name in REGIONS.items() if name.casefold() in rom.stem.casefold()]
     region_order += [key for key in ('wor', 'eu', 'us', 'jp') if key not in region_order]
     images = [m for m in media if isinstance(m, dict) and str(m.get('type', '')).casefold() in desired and m.get('url')]
@@ -281,7 +281,7 @@ def _igdb(account, rom, title, system, normalize):
     return RemoteCover('igdb', request(url, 8 * 1024 * 1024), page, 'front', url)
 
 
-def fetch(provider, account, rom: Path, title: str, system: str, *, prefer3d=True, normalize):
+def fetch(provider, account, rom: Path, title: str, system: str, *, prefer3d=False, normalize):
     if system not in SS_SYSTEMS or not configured(provider, account):
         return None
     credential_id = hashlib.sha256(json.dumps(account, sort_keys=True).encode()).hexdigest()

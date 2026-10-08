@@ -8,7 +8,7 @@ from smsrecomp.guns16 import gun_game, write_header
 from smsrecomp.gun16_runtime import replace
 from smsrecomp.metadata import game_metadata
 from smsrecomp.supernintendo import profile_for, write_profile
-from smsrecomp.console16 import reference_differences
+from smsrecomp.console16 import reference_differences, MD_AUDIO_FIELDS
 
 
 class Gun16Tests(unittest.TestCase):
@@ -56,12 +56,16 @@ class Gun16Tests(unittest.TestCase):
             game_metadata('Game', False, 'ntsc', 'snes', gun_device='menacer')
 
     def test_reference_gate_detects_missing_or_changed_gun_state(self):
-        fields = ('frame_hash','sequence_hash','cpu_hash','ram_hash','vram_hash','cram_hash',
+        fields = MD_AUDIO_FIELDS + ('console_version','cpu_sr','cpu_usp','cpu_ssp','cpu_stopped','frame_hash','sequence_hash','cpu_hash','ram_hash','vram_hash','cram_hash',
             'cpu_pc','vsram_hash','vdp_register_hash','gun_kind','gun_light_hits',
             'gun_interrupts','gun_button_reads','gun_latched_hv','gun_buttons_latched',
             'gun_button_packets','gun_trigger_packets','gun_port_control','gun_external_irq_enabled')
-        native = dict.fromkeys(fields, 1) | {'native_entries':100, 'interpreted_opcodes':0}
-        reference = native | {'native_entries':0, 'interpreted_opcodes':100}
+        native = dict.fromkeys(fields, 1) | {'native_entries':100, 'interpreted_opcodes':0,
+            'audio_native_opcodes':100, 'audio_interpreted_opcodes':0,
+            'audio_native_cycles':1000, 'audio_interpreted_cycles':0}
+        reference = native | {'native_entries':0, 'interpreted_opcodes':100,
+            'audio_native_opcodes':0, 'audio_interpreted_opcodes':100,
+            'audio_native_cycles':0, 'audio_interpreted_cycles':1000}
         self.assertEqual(reference_differences('md',native,reference), [])
         self.assertIn('gun_latched_hv', reference_differences('md',native, reference | {'gun_latched_hv':2}))
         reference.pop('gun_light_hits')

@@ -11,6 +11,16 @@ PROFILES = {
         {'id': 'smw', 'title': 'Super Mario World', 'legacy_functions': True},
     '7a8ffaf8bb549b400ec2f0bda9f3c0dbf5852c38618cdb21cd783c368383e2c7':
         {'id': 'super-scope-6', 'title': 'Super Scope 6', 'legacy_functions': False},
+    '66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb':
+        {'id': 'zelda-alttp', 'title': 'The Legend of Zelda - A Link to the Past',
+         'legacy_functions': False},
+    '12b77c4bc9c1832cee8881244659065ee1d84c70c3d29e6eaf92e6798cc2ca72':
+        {'id': 'super-metroid', 'title': 'Super Metroid', 'legacy_functions': False},
+    '628147468c3539283197f58f03b94df49758a332831857481ea9cc31645f0527':
+        {'id': 'donkey-kong-country', 'title': 'Donkey Kong Country',
+         'legacy_functions': False, 'mapping': 'hirom'},
+    '0ef6f4cce5a2273fa49fe1ce724e0048a8e39c91da6b00dbb693fe1ba909177d':
+        {'id': 'super-castlevania-iv', 'title': 'Super Castlevania IV', 'legacy_functions': False},
 }
 
 
@@ -21,8 +31,9 @@ def profile_for(rom):
         raise ConversionError('SNES integration is experimental. This cartridge was '
             'identified, but will not be compiled with another game\'s profile. '
             'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
-    if rom.mapping != 'lorom' or rom.standard != 'ntsc':
-        raise ConversionError('This qualified SNES profile requires its NTSC LoROM cartridge.')
+    mapping = profile.get('mapping', 'lorom')
+    if rom.mapping != mapping or rom.standard != 'ntsc':
+        raise ConversionError(f'This qualified SNES profile requires its NTSC {mapping} cartridge.')
     return profile
 
 

@@ -24,7 +24,7 @@ CONFIG_NAME = 'cover-sources.json'
 
 
 def defaults() -> dict:
-    return {'box_3d': True, 'accounts': {name: dict.fromkeys(fields, '')
+    return {'box_3d': False, 'accounts': {name: dict.fromkeys(fields, '')
             for name, fields in FIELDS.items()}}
 
 
@@ -77,7 +77,7 @@ def load_settings(directory: Path | None = None) -> dict:
         record = json.loads(((directory or data_directory()) / CONFIG_NAME).read_text(encoding='utf-8'))
         if not isinstance(record, dict):
             return result
-        result['box_3d'] = record.get('box_3d', True) is not False
+        result['box_3d'] = record.get('box_3d', False) is True
         if isinstance(record.get('revision'), str):
             result['revision'] = record['revision']
         if record.get('protected_accounts'):
@@ -93,7 +93,7 @@ def load_settings(directory: Path | None = None) -> dict:
 
 def save_settings(value: dict, directory: Path | None = None) -> None:
     accounts = _accounts(value.get('accounts', {}))
-    record = {'version': 1, 'box_3d': bool(value.get('box_3d', True)), 'revision': uuid.uuid4().hex}
+    record = {'version': 1, 'box_3d': bool(value.get('box_3d', False)), 'revision': uuid.uuid4().hex}
     if any(text for fields in accounts.values() for text in fields.values()):
         raw = json.dumps(accounts, ensure_ascii=False).encode('utf-8')
         record['protected_accounts'] = base64.b64encode(_protect(raw)).decode('ascii')

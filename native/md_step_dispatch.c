@@ -5,6 +5,7 @@
 #include <stddef.h>
 extern void rr16_note_fault(void);
 int g_split_sp_popped;
+uint32_t rr_md_cpu_stopped;
 int game_instruction_hook_site(uint32_t pc) { (void)pc; return 0; }
 void recomp_call_addr(uint32_t pc) { (void)pc; rr16_note_fault(); }
 void recomp_call_func(RecompFuncPtr fn) { (void)fn; rr16_note_fault(); }

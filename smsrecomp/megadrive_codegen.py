@@ -89,14 +89,17 @@ target_compile_options(md_decode PRIVATE /utf-8 /wd4996)
     return project / 'build/Release/md_decode.exe'
 
 
-def decode(engine: Path, project: Path, rom_file: Path, addresses: set[int], ram_variants=()) -> list[dict]:
+def decode(engine: Path, project: Path, rom_file: Path, addresses: set[int], ram_variants=(),
+           *, follow_flow=True) -> list[dict]:
     listing = project / 'instruction-pcs.txt'
     ram = sorted({(item['address'], item['bytes']) for item in ram_variants})
     listing.write_text(''.join(f'{pc:06x}\n' for pc in sorted(addresses)) +
                        ''.join(f'{pc:06x}:{raw}\n' for pc, raw in ram), encoding='ascii')
-    run([decoder_tool(engine), rom_file, listing, project / 'decoded-instructions.json'],
+    run([decoder_tool(engine), rom_file, listing, project / 'decoded-instructions.json',
+         *(['--follow-flow'] if follow_flow else [])],
         cwd=project, log=project / 'decode.log')
-    return json.loads((project / 'decoded-instructions.json').read_text(encoding='utf-8'))
+    decoded = json.loads((project / 'decoded-instructions.json').read_text(encoding='utf-8'))
+    return sorted(decoded, key=lambda ins: (ins['addr'], ins['words']))
 
 
 def instruction_literal(ins: dict, name: str) -> str:
@@ -132,6 +135,55 @@ def operation_name(ins: dict) -> str:
 
 
 def adapt_semantics(source: str) -> str:
+    # MC68000 TRAP #n is a vectored exception, not a host C-function call.
+    # Games install RAM IRQ stubs using it; RTE must see the nested 6-byte
+    # SR/PC frame on SSP, including a trap from user mode. The existing CPU
+    # layout keeps the active A7 and inactive stack slot together in snapshots.
+    anchor = '    case MN_NOP:\n        return M68KI_OK;'
+    trap = '''    case MN_TRAP: {
+        uint16_t saved_sr = g_cpu.SR;
+        rr_md_exception_frame(saved_sr, fall, (uint16_t)((saved_sr & ~0x8000u) | 0x2000u));
+        *next_pc = m68k_read32((32u + (ins->words[0] & 15u)) * 4u);
+        return M68KI_OK;
+    }
+
+'''
+    if source.count(anchor) != 1:
+        raise ConversionError('Pinned 68000 instruction semantics changed; TRAP adaptation refused.')
+    stop = '''    case MN_STOP:
+        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+        rr_md_set_sr((uint16_t)ins->imm32);
+        rr_md_cpu_stopped = 1;
+        return M68KI_OK;
+
+'''
+    source = source.replace(anchor, trap + stop + anchor, 1)
+    old_rte = '''        g_cpu.SR = pop16() & 0xA71Fu;     /* mask to valid SR bits (T,S,I,CCR) */
+        *next_pc = pop32();'''
+    if source.count(old_rte) != 1:
+        raise ConversionError('Pinned 68000 RTE operation changed; stack-mode adaptation refused.')
+    source = source.replace(old_rte, '''        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+        uint16_t restored_sr = pop16();
+        *next_pc = pop32(); /* Read the entire frame on SSP, then select A7. */
+        rr_md_set_sr(restored_sr);''', 1)
+    old_move = 'if (!ins->dst_is_ea) g_cpu.SR = (uint16_t)(read_ea(ins, ins->src_ea, M68K_SIZE_W, &er) & 0xA71Fu);'
+    if source.count(old_move) != 1:
+        raise ConversionError('Pinned 68000 MOVE to SR changed; stack-mode adaptation refused.')
+    source = source.replace(old_move, '''if (!ins->dst_is_ea) {
+            if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+            uint16_t value = (uint16_t)read_ea(ins, ins->src_ea, M68K_SIZE_W, &er);
+            rr_md_set_sr(value);
+        }''', 1)
+    for mnemonic, operator in (('ORI', '|'), ('ANDI', '&'), ('EORI', '^')):
+        pattern = rf'case MN_{mnemonic}_TO_SR:[^\n]+'
+        body = (f'case MN_{mnemonic}_TO_SR:\n'
+                '        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;\n'
+                f'        rr_md_set_sr((uint16_t)(g_cpu.SR {operator} ins->imm32)); return M68KI_OK;')
+        source, matches = re.subn(pattern, body, source)
+        if matches != 1:
+            raise ConversionError('Pinned 68000 SR operation changed; stack-mode adaptation refused.')
+    source = source.replace('    case MN_MOVE_USP:\n',
+        '    case MN_MOVE_USP:\n        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;\n', 1)
     # Byte accesses via A7 still move the stack by a word on MC68000.
     source = source.replace('int mode = (ea >> 3) & 7, reg = ea & 7, sb = szbytes(sz);',
         'int mode = (ea >> 3) & 7, reg = ea & 7, sb = szbytes(sz);\n'
@@ -143,7 +195,8 @@ def adapt_semantics(source: str) -> str:
     return source
 
 
-def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=()) -> dict:
+def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=(),
+                   *, follow_flow=True) -> dict:
     source = adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
@@ -152,7 +205,8 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
         '#pragma once\n#include "md_native_steps.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_md_illegal_ea\nstatic void discover(uint32_t pc) {(void)pc;}\n' + helper)
     write_changed(project / 'md_step_semantics.h', helper)
-    decoded = decode(engine, project, project / 'cartridge.bin', addresses, ram_variants)
+    decoded = decode(engine, project, project / 'cartridge.bin', addresses, ram_variants,
+                     follow_flow=follow_flow)
     instructions = [ins for ins in decoded if names[ins['mnemonic']] in bodies]
     if not instructions:
         raise ConversionError('No supported 68000 operations found for native translation.')
@@ -221,9 +275,12 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
 '''
     write_changed(generated / 'md_step_index.c', '#include "md_native_steps.h"\n#include <stddef.h>\n' +
                   declarations + table + mapping + ram + lookup)
-    audit = {'schema': 1, 'translated_instructions': len(instructions),
+    accepted_seeds = sum(ins['addr'] in addresses or ins['addr'] >= 0xff0000 for ins in instructions)
+    audit = {'schema': 2, 'translated_instructions': len(instructions),
              'guarded_ram_variants': len(ram_indices),
-             'rejected_or_unimplemented': len(addresses) + len(ram_variants) - len(instructions),
+             'requested_rom_entries': len(addresses), 'follow_static_flow': follow_flow,
+             'additional_rom_instructions': len(instructions) - accepted_seeds,
+             'rejected_or_unimplemented': len(addresses) + len(ram_variants) - accepted_seeds,
              'rom_sha256': rom.sha256, 'semantics_sha256': hashlib.sha256(source.encode()).hexdigest()}
     atomic_json(project / 'step-analysis.json', audit)
     return audit
@@ -274,7 +331,38 @@ def adapt_interpreter(source: str) -> str:
     source = source.replace('if (pc >= ROM_SIZE)', 'if (!pc_fetchable(pc))')
     source = source.replace('if (depth == 0 && ins.mnemonic == MN_RTE)',
                             'if (ins.mnemonic == MN_RTE)')
+    source = source.replace('M68kiStatus m68k_interp_step(void) {', '''M68kiStatus m68k_interp_step(void) {
+    if (rr_md_cpu_stopped) {
+        /* Advance the scheduler without fetching or retiring an instruction.
+         * An unmasked IRQ selects its vector and clears STOP in the frame helper. */
+        g_audio_cycle_counter += 4; g_cycle_accumulator += 4;
+        if (g_cycle_accumulator >= g_vblank_threshold) glue_check_vblank();
+        GEN_COSIM_TICK(4);
+        return M68KI_OK;
+    }''', 1)
     return source
+
+
+def adapt_cpu_snapshot(source: str) -> str:
+    """Include STOP in rollback/F1 state without changing the pinned CPU ABI."""
+    from .gun16_runtime import replace
+    start = source.index('static size_t sec_cpu_save(')
+    end = source.index('static size_t sec_ram_save(', start)
+    original = source[start:end]
+    adapted = original.replace('sizeof g_cpu', '(sizeof g_cpu + sizeof rr_md_cpu_stopped)')
+    # Copy CPU and latch separately; they are not adjacent globals.
+    adapted = replace(adapted,
+        '    memcpy(dst, &g_cpu, (sizeof g_cpu + sizeof rr_md_cpu_stopped));',
+        '    memcpy(dst, &g_cpu, sizeof g_cpu);\n'
+        '    memcpy((uint8_t *)dst + sizeof g_cpu, &rr_md_cpu_stopped, sizeof rr_md_cpu_stopped);')
+    adapted = replace(adapted,
+        '    memcpy(&g_cpu, src, (sizeof g_cpu + sizeof rr_md_cpu_stopped));',
+        '    uint32_t stopped;\n'
+        '    memcpy(&stopped, (const uint8_t *)src + sizeof g_cpu, sizeof stopped);\n'
+        '    if (stopped > 1) return 0;\n'
+        '    memcpy(&g_cpu, src, sizeof g_cpu);\n'
+        '    rr_md_cpu_stopped = stopped;')
+    return '#include "md_native_steps.h"\n' + source[:start] + adapted + source[end:]
 
 
 def adapt_irq_glue(source: str) -> str:
@@ -287,9 +375,7 @@ def adapt_irq_glue(source: str) -> str:
     g_68k_stamp_rebase = machine_z80_stamp() - g_audio_cycle_counter * 7u;
     uint16_t sr = g_cpu.SR;
     uint32_t pc = g_cpu.PC;
-    g_cpu.A[7] -= 4; m68k_write32(g_cpu.A[7], pc);
-    g_cpu.A[7] -= 2; m68k_write16(g_cpu.A[7], sr);
-    g_cpu.SR = (uint16_t)((sr & ~0x8700u) | 0x2000u | ((unsigned)level << 8));
+    rr_md_exception_frame(sr, pc, (uint16_t)((sr & ~0x8700u) | 0x2000u | ((unsigned)level << 8)));
     s_in_vblank_service = 1;
     uint8_t vb = vdp->in_vblank;
     if (level == 6) vdp->in_vblank = 1;
@@ -310,6 +396,7 @@ def adapt_irq_glue(source: str) -> str:
 }
 
 '''
+    source = '#include "md_native_steps.h"\n' + source
     source = source.replace('static void own_deliver_vint(GVDP *vdp)\n{',
         irq + 'static void own_deliver_vint(GVDP *vdp)\n{\n    rr_md_service_irq(6, 0x78, vdp); return;', 1)
     source = source.replace('} else if (level == 4 && imask < 4) {',
