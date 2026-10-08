@@ -183,7 +183,7 @@ class ArtworkTests(unittest.TestCase):
             reused = resolve_cover(self.rom, 'Game', self.art, cache_directory=moved,
                                    settings=defaults(), emit=lambda _: None)
         self.assertEqual(reused['data'], original['data'])
-        self.assertTrue(reused['path'].is_relative_to(moved))
+        self.assertTrue(reused['path'].is_relative_to(moved.resolve()))
 
     def test_damaged_saved_images_are_recovered_by_a_new_download(self):
         self.rom.write_bytes(b'authored ROM for cover integrity')
