@@ -14,7 +14,7 @@
   16-bit support. Mega Drive now covers 27 qualified revisions and Super Nintendo
   12, including selected PAL revisions. Both 16-bit profiles remain experimental.
 
-233 ROM-free Python tests pass in the development checkout. Fresh-process
+234 ROM-free Python tests pass in the development checkout. Fresh-process
 quick-state replay matches the uninterrupted image, sound and machine state on
 eight tested Mega Drive/SNES games. Display persistence and fractional scanline
 geometry are checked separately. These checks do not establish complete gameplay,

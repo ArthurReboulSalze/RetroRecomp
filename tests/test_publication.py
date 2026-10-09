@@ -3,10 +3,33 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tools.prepare_publication import check_public_file, audit_staged
+from tools.prepare_publication import PUBLIC_FILES, check_public_file, audit_staged
 
 
 class PublicationTests(unittest.TestCase):
+    def test_audit_cli_validates_knowledge_without_cwd_or_pythonpath(self):
+        import gzip
+        import json
+        import subprocess
+        import sys
+
+        script = Path(__file__).resolve().parents[1] / 'tools/prepare_publication.py'
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            source = folder / 'synthetic-public'
+            for name in PUBLIC_FILES:
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'synthetic public fixture\n')
+            knowledge = source / 'assets/compilation-knowledge.json.gz'
+            knowledge.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {}}).encode()))
+            report = folder / 'audit.json'
+            result = subprocess.run([sys.executable, '-I', str(script), '--source', str(source),
+                                     '--report', str(report)], cwd=folder, capture_output=True,
+                                    text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(report.read_text())['source']['count'], len(PUBLIC_FILES))
+
     def test_game_files_and_private_histories_are_not_public(self):
         for name in ("ROMS/game.sms", "boxart/game.png", "Export/game.exe",
                      "profiles/12345678.manifest", "docs/PROJECT_STATE.md",
