@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_ban.png" alt="RetroRecomp — multiconsole game recompilation" width="900">
+  <img src="MEDIAS/RetroRecomp_ban.png?v=58348142d122" alt="RetroRecomp — multiconsole game recompilation" width="900">
 </p>
 
 <h1 align="center">RetroRecomp</h1>
@@ -60,7 +60,7 @@ More consoles and output platforms are planned.
 
 ## From conversion to your game collection
 
-![RetroRecomp converter](MEDIAS/RetroRecomp_UI.png)
+![RetroRecomp converter](MEDIAS/RetroRecomp_UI.png?v=3f29b62f5679)
 
 *The refreshed charcoal-and-gold interface keeps mixed-console batches, options and updates together.*
 
