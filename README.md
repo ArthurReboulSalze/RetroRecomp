@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_ban.png?v=58348142d122" alt="RetroRecomp — multiconsole game recompilation" width="900">
+  <img src="MEDIAS/RetroRecomp_logo_outlined.png?v=fc0562b26c7c" alt="RetroRecomp logo" width="260">
 </p>
 
 <h1 align="center">RetroRecomp</h1>
