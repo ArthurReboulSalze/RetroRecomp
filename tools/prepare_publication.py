@@ -11,7 +11,7 @@ import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.21.0"
+VERSION = "0.22.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -40,7 +40,8 @@ licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
 smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py smsrecomp/updater.py
-smsrecomp/library.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
+smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
+assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
 smsrecomp/peripherals.py
 smsrecomp/metadata.py tests/test_metadata.py
@@ -57,6 +58,7 @@ native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
+native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/nes_host_ui.c native/nes_dense_codegen.inc
 native/nes_dense_checks.c tools/nes_native_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
@@ -65,14 +67,22 @@ tools/nes_state_selftest.py
 smsrecomp/nes_machine.py smsrecomp/nes_catalog.py
 smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
 native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
+native/scanline_sdl.h native/display_settings.h
+native/display_settings_checks.c tools/display_settings_selftest.py
+tools/gameboy_display_selftest.py
+native/console16_state.c native/console16_state.h native/md_portable_state.inc
+smsrecomp/console16_state.py tools/console16_state_selftest.py
 native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_step_dispatch.c
 native/md_native_checks.c tools/megadrive_native_selftest.py tests/test_megadrive.py
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
 smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
+smsrecomp/snes_timing.py native/snes_timing.h
+native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
 smsrecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py
 smsrecomp/guns16.py smsrecomp/gun16_runtime.py
-smsrecomp/megadrive_runtime.py native/md_ym_timers.h tools/megadrive_audio_selftest.py
+smsrecomp/megadrive_runtime.py native/md_ym_timers.h native/md_timing.h tools/megadrive_audio_selftest.py
+native/md_timing_checks.c tools/megadrive_timing_selftest.py
 smsrecomp/megadrive_z80.py native/md_z80_native.h native/md_z80_runtime.c
 native/md_z80_checks.c tools/megadrive_z80_selftest.py tests/test_megadrive_z80.py
 native/gun16.h native/gun16.c native/gun16_checks.c
@@ -124,6 +134,14 @@ def check_public_file(name: str, data: bytes) -> None:
     """Fail with the rule name only, without printing sensitive contents."""
     if name not in PUBLIC_SET:
         raise ValueError(f"Not on the public allowlist: {name}")
+    if name == 'assets/compilation-knowledge.json.gz':
+        import gzip, io
+        from smsrecomp.knowledge import MAX_BYTES, validate_payload
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            raw = stream.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES:
+            raise ValueError('Compilation knowledge exceeds its size limit.')
+        validate_payload(json.loads(raw))
     if Path(name).suffix.lower() in TEXT_EXTENSIONS or name == "LICENSE":
         content = data.decode("utf-8-sig")
         for label, pattern in SENSITIVE.items():
@@ -203,6 +221,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
             data = archive.extract(original)
             if data != (source / name).read_bytes():
                 raise ValueError(f"Executable payload differs from public source: {name}")
+            if name == 'assets/compilation-knowledge.json.gz':
+                check_public_file(name, data)
             bundled[name] = digest(data)
         if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".bin",
                                   ".sfc", ".smc", ".gen", ".smd", ".manifest", ".patterns")):

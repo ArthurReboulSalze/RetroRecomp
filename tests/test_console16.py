@@ -143,7 +143,7 @@ class Console16Tests(unittest.TestCase):
                 audio_native_opcodes=0 if reference else 200, audio_interpreted_opcodes=200 if reference else 0,
                 audio_native_cycles=0 if reference else 800, audio_interpreted_cycles=800 if reference else 0,
                 rom_entries=[{'offset': 42}] if fallback else [], audio_cpu='native')
-            if fail_reference and reference and scenario == 'advanced':
+            if fail_reference and reference and (not advanced or scenario == 'advanced'):
                 data['cpu_hash'] = 2
             return data
 
@@ -185,6 +185,13 @@ class Console16Tests(unittest.TestCase):
         self.assertNotIn('native:advanced', events)
         self.assertFalse(report['advanced_scan']['enabled'])
         self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30])
+        self.assertEqual(events[:5], ['build', 'native:demo', 'native:play', 'reference:demo', 'reference:play'])
+        self.assertTrue(report['native_validation']['reference_before_learning'])
+
+    def test_standard_md_divergence_does_not_enter_the_memory_library(self):
+        events, report = self.scan_conversion(advanced=False, fail_reference=True)
+        self.assertIsNone(report)
+        self.assertNotIn('learn', events)
 
     def test_snes_validates_sound_before_learning_and_regeneration(self):
         project = self.root / 'snes-project'
@@ -269,10 +276,26 @@ class Console16Tests(unittest.TestCase):
         with patch('smsrecomp.megadrive.profile_for') as profile:
             for region in (b'E', b'8', b'A', b'2'):
                 path = self.source('Game (USA).md', md(region))
-                for override in (None, 'ntsc'):
-                    with self.assertRaisesRegex(ConversionError, 'declares PAL'):
-                        qualified_rom(path, 'md', override)
+                with self.assertRaisesRegex(ConversionError, 'declares PAL'):
+                    qualified_rom(path, 'md', 'ntsc')
             profile.assert_not_called()
+
+    def test_md_timing_requires_both_header_and_revision_qualification(self):
+        from smsrecomp.megadrive import video_standard
+        for header in (b'E', b'8', b'A', b'2'):
+            rom = read_megadrive_rom(self.source('Game (USA).md', md(header)))
+            with patch('smsrecomp.megadrive.profile_for', return_value={'standards': ('pal',)}):
+                self.assertEqual(video_standard(rom), 'pal')
+                self.assertEqual(video_standard(rom, 'pal'), 'pal')
+                with self.assertRaisesRegex(ConversionError, 'cannot be forced'):
+                    video_standard(rom, 'ntsc')
+        rom = read_megadrive_rom(self.source('Game.md', md()))
+        with patch('smsrecomp.megadrive.profile_for', return_value={}):
+            self.assertEqual(video_standard(rom), 'ntsc')
+            with self.assertRaisesRegex(ConversionError, 'not been qualified'):
+                video_standard(rom, 'pal')
+        with patch('smsrecomp.megadrive.profile_for', return_value={'standards': ('ntsc', 'pal')}):
+            self.assertEqual(video_standard(rom, 'pal'), 'pal')
 
     def test_md_unknown_region_rejected_before_profile_analysis(self):
         with patch('smsrecomp.megadrive.profile_for') as profile:
@@ -280,6 +303,24 @@ class Console16Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ConversionError, 'unrecognized region'):
                     qualified_rom(self.source('Game (USA).md', md(b'???')), 'md', override)
             profile.assert_not_called()
+
+    def test_md_legacy_region_exception_is_bound_to_the_entire_rom(self):
+        from smsrecomp import megadrive
+        for header, mask in ((b'   ', 1), (b'US ', 4)):
+            rom = read_megadrive_rom(self.source('Legacy (Europe).md', md(header)))
+            profile = {'legacy_region_mask': mask}
+            with patch.dict(megadrive.PROFILES, {rom.sha256: profile}):
+                self.assertEqual(megadrive.video_standard(rom), 'ntsc')
+                self.assertEqual(profile_for_path(rom.path).default_video_mode(rom.path), 'ntsc')
+                self.assertEqual(megadrive.region_mask(rom), mask)
+                with self.assertRaisesRegex(ConversionError, 'cannot be forced'):
+                    megadrive.video_standard(rom, 'pal')
+                modified = bytearray(rom.data)
+                modified[0x300] ^= 1
+                other = read_megadrive_rom(self.source('Legacy 2 (USA).md', modified))
+                self.assertEqual(megadrive.region_mask(other), 0)
+                with self.assertRaisesRegex(ConversionError, 'unrecognized region'):
+                    megadrive.video_standard(other)
 
     def test_unsupported_md_formats_not_silently_deinterleaved(self):
         path = self.source('Game.smd', bytes(32768))

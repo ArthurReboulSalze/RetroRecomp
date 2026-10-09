@@ -14,16 +14,20 @@ import shutil
 from .core import ConversionError, run
 from .cartridge16 import megadrive_regions
 from .library import atomic_json, entry_lock, library_root
+from .knowledge import record_for, ram_variants as shared_ram_variants
 
 PROFILES = {
     '46160baa06362c711c9f1a5017cb7371026444936c8af5e93a78996cf32ff2a6':
         {'id': 'sonic', 'title': 'Sonic the Hedgehog', 'prefix': 'sonic', 'sonic': True},
     '85c1cbf2eb0a40d1c33dbe05576676381995c4fdab70726e7ea0aa50016eafa7':
-        {'id': 'columns', 'title': 'Columns', 'prefix': 'game', 'sonic': False},
+        {'id': 'columns', 'title': 'Columns', 'prefix': 'game', 'sonic': False,
+         'legacy_region_mask': 1},
     'e9f5340ecf8151253eb6fcda136c4d4d8940e373340ce2eeb2bf24f9f6c1004d':
-        {'id': 'golden-axe', 'title': 'Golden Axe', 'prefix': 'game', 'sonic': False},
+        {'id': 'golden-axe', 'title': 'Golden Axe', 'prefix': 'game', 'sonic': False,
+         'legacy_region_mask': 1},
     '2d535ff7eda650a64a9093ba6fabf8d5ac87801b898a76b591db41a1c8e47c4f':
-        {'id': 'castle-of-illusion', 'title': 'Castle of Illusion', 'prefix': 'game', 'sonic': False},
+        {'id': 'castle-of-illusion', 'title': 'Castle of Illusion', 'prefix': 'game', 'sonic': False,
+         'legacy_region_mask': 4},
     '7f6f00dbe774cee92cb91d0f1d26e898a199e5a5a8b77bf199a1b7f8a0d44b7b':
         {'id': 'menacer', 'title': 'Menacer 6-Game Cartridge', 'prefix': 'game', 'sonic': False},
     'cd2fbb02b42cb0f4e26b4aa5fa1c79ba798c48233ae4e02e19012b08c6848071':
@@ -60,6 +64,19 @@ PROFILES = {
         {'id': 'vectorman', 'title': 'Vectorman', 'prefix': 'game', 'sonic': False},
     '6b2ac36f624f914ad26e32baa87d1253aea9dcfc13d2a5842ecdd2bd4a7a43b9':
         {'id': 'wonder-boy-monster-world', 'title': 'Wonder Boy in Monster World', 'prefix': 'game', 'sonic': False},
+    '193bc4064ce0daf27ea9e908ed246d87ec576cc294833badebb590b6ad8e8f6b':
+        {'id': 'sonic-2', 'title': 'Sonic the Hedgehog 2', 'prefix': 'game', 'sonic': False},
+    'c452d3306a1f2f040f6b04ce876c6cd14cb1c5d072ff41ba791bbd3797fe9113':
+        {'id': 'earthworm-jim-pal', 'title': 'Earthworm Jim', 'prefix': 'game', 'sonic': False,
+         'standards': ('pal',)},
+    'e8d4514ebcb91e09ffa636268660e7b3e24317e95179c3a9572f58c40866b747':
+        {'id': 'mortal-kombat-2', 'title': 'Mortal Kombat II', 'prefix': 'game', 'sonic': False,
+         'six_buttons': True},
+    'c7a609019b1f052bcee6204a3a09ea77a5150a748de90b51382fedf4df207848':
+        {'id': 'road-rash-2', 'title': 'Road Rash II', 'prefix': 'game', 'sonic': False},
+    '3802900c87d0c62cfd0f75f9922f16713f30c7616843af6c946995451040234c':
+        {'id': 'shining-force-2-pal', 'title': 'Shining Force II', 'prefix': 'game', 'sonic': False,
+         'standards': ('pal',)},
 }
 
 
@@ -70,6 +87,32 @@ def profile_for(rom):
             'identified, but will not be compiled with another game\'s profile. '
             'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
     return profile
+
+
+def region_mask(rom):
+    """Keep exact qualified legacy headers separate from general detection.
+
+    The qualified Columns and Golden Axe images have empty headers; Castle of Illusion
+    uses the older US code. Only their complete SHA-256 identities supply
+    this exception; another image or a filename cannot inherit it.
+    """
+    return megadrive_regions(rom.data) or PROFILES.get(rom.sha256, {}).get('legacy_region_mask', 0)
+
+
+def video_standard(rom, override=None):
+    """Timing is cartridge-specific and must have an explicit qualification."""
+    regions = region_mask(rom)
+    if not regions:
+        raise ConversionError('This Mega Drive cartridge has an unrecognized region header; timing cannot be qualified yet.')
+    standard = override or ('ntsc' if regions & 5 else 'pal')
+    if standard not in ('ntsc', 'pal'):
+        raise ConversionError('Unknown Mega Drive video timing.')
+    if not regions & (5 if standard == 'ntsc' else 10):
+        raise ConversionError(f'This Mega Drive cartridge declares {"PAL" if standard == "ntsc" else "NTSC"} timing; '
+                              f'it cannot be forced to {standard.upper()}.')
+    if standard not in profile_for(rom).get('standards', ('ntsc',)):
+        raise ConversionError(f'This Mega Drive revision has not been qualified for {standard.upper()} timing.')
+    return standard
 
 
 def vectors(rom) -> dict:
@@ -106,15 +149,18 @@ def memory_file(rom) -> Path:
 
 
 def read_entries(rom) -> set[int]:
+    from .console16 import REPOSITORIES
+    shared = {address for (address,) in record_for('md', rom, REPOSITORIES['md'][1]).get('rom_entries', [])
+              if _entry_signature(rom, address) is not None}
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') not in (1, 2) or record.get('rom_sha256') != rom.sha256:
-            return set()
-        return {item['address'] for item in record.get('entries', [])
+            return shared
+        return shared | {item['address'] for item in record.get('entries', [])
                 if _entry_signature(rom, item.get('address')) == item.get('bytes')
                 and item.get('bytes') is not None}
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
-        return set()
+        return shared
 
 
 def valid_ram_variant(item):
@@ -127,13 +173,17 @@ def valid_ram_variant(item):
 
 
 def read_ram_variants(rom) -> list[dict]:
+    from .console16 import REPOSITORIES
+    shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1])
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 2 or record.get('rom_sha256') != rom.sha256:
-            return []
-        return [item for item in record.get('ram_variants', []) if valid_ram_variant(item)][:2048]
+            record = {}
     except (OSError, ValueError, TypeError, AttributeError):
-        return []
+        record = {}
+    items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item)]
+    return [{'address': addr, 'bytes': raw} for addr, raw in
+            sorted({(item['address'], item['bytes'].lower()) for item in items})[:2048]]
 
 
 def learn_entries(rom, checks) -> int:
@@ -225,7 +275,7 @@ def generate(compiler: Path, project: Path, rom_file: Path, *, instruction_map=F
                 ','.join(hex(value) for value in sorted(rejected)) + ']\n', encoding='utf-8')
 
 
-def write_spec(project: Path, rom, title: str) -> None:
+def write_spec(project: Path, rom, title: str, standard='ntsc') -> None:
     profile = profile_for(rom)
     v = vectors(rom)
     (project / 'retro_md_game.h').write_text(
@@ -240,9 +290,11 @@ def write_spec(project: Path, rom, title: str) -> None:
         f'#define RR_MD_SONIC {int(profile["sonic"])}\n', encoding='utf-8')
     with (project / 'retro_md_game.h').open('a', encoding='utf-8') as output:
         output.write('#define RR_MD_STEP_AOT 1\n')
-        # Prefer overseas NTSC when supported; Japan-only cartridges need
-        # the domestic version bit. Match hardware, without patching checks.
-        output.write(f'#define RR_MD_OVERSEAS {int(bool(megadrive_regions(rom.data) & 4))}\n')
+        # The video-standard and domestic/overseas bits are separate hardware
+        # choices. Region checks remain untouched in the cartridge.
+        output.write(f'#define RR_MD_PAL {int(standard == "pal")}\n')
+        output.write(f'#define RR_MD_SIX_BUTTONS {int(profile.get("six_buttons", "street-fighter" in profile["id"]))}\n')
+        output.write(f'#define RR_MD_OVERSEAS {int(bool(region_mask(rom) & (8 if standard == "pal" else 4)))}\n')
 
 
 def analysis_identity(project: Path, engine_revision: str, rom) -> dict:

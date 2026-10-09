@@ -1,3 +1,35 @@
+# RetroRecomp v0.22.0 — remembered display and 16-bit quick states
+
+- Generated games remember their last display mode and filter, including
+  pixel-perfect and aspect-fit fullscreen. Settings remain shared per console.
+- F8/F9 quick states now work on qualified Mega Drive and Super Nintendo
+  profiles, including after closing the game. Missing loads create no folders.
+- The same proportional scanline mask is used across all six consoles.
+- Window execution-status text stays in English with either menu language.
+- A compact compilation-knowledge library is included in the converter, with
+  verified hints for 327 exact cartridge revisions across all six consoles.
+  It contains no ROM bytes, artwork or personal settings. New discoveries stay
+  local and normal validation remains enabled.
+- Broader cartridge checks and guarded RAM execution improve Game Boy, NES and
+  16-bit support. Mega Drive now covers 27 qualified revisions and Super Nintendo
+  12, including selected PAL revisions. Both 16-bit profiles remain experimental.
+
+233 ROM-free Python tests pass in the development checkout. Fresh-process
+quick-state replay matches the uninterrupted image, sound and machine state on
+eight tested Mega Drive/SNES games. Display persistence and fractional scanline
+geometry are checked separately. These checks do not establish complete gameplay,
+independent hardware fidelity or physical latency.
+
+Regenerate games to receive these runtime changes. State compatibility requires
+the same ROM, video standard and compatible runtime ABI. See
+[state formats and validation](GAME_STATES.md).
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Updating the converter preserves your existing games, settings and cached artwork.
+Original component notices remain embedded; their own licensing terms apply.
+
+---
+
 # RetroRecomp v0.21.0 — saved covers and expanded 16-bit support
 
 ## Your artwork, ready for regeneration

@@ -8,14 +8,20 @@ class MegaDriveProfile(SystemProfile):
     name = 'Mega Drive'
     extensions = ('.md', '.gen')
     export_folder = 'Mega Drive'
-    video_modes = ('ntsc',)
+    video_modes = ('ntsc', 'pal')
 
     def read_rom(self, path: Path):
         from ..cartridge16 import read_megadrive_rom
         return read_megadrive_rom(path)
 
     def default_video_mode(self, path: Path) -> str:
-        standard = self.read_rom(path).standard
+        rom = self.read_rom(path)
+        standard = rom.standard
+        if standard == 'unknown':
+            from ..megadrive import region_mask
+            mask = region_mask(rom)
+            if mask:
+                return 'ntsc' if mask & 5 else 'pal'
         return 'ntsc' if standard == 'multi' else standard
 
     def convert(self, path: Path, **options) -> Path:
@@ -28,7 +34,7 @@ class SnesProfile(SystemProfile):
     name = 'Super Nintendo'
     extensions = ('.sfc', '.smc')
     export_folder = 'Super Nintendo'
-    video_modes = ('ntsc',)
+    video_modes = ('ntsc', 'pal')
 
     def read_rom(self, path: Path):
         from ..cartridge16 import read_snes_rom

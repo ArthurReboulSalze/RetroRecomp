@@ -72,6 +72,10 @@ def main():
         payload[0x80 + vector * 4:0x84 + vector * 4] = positions['4e73'].to_bytes(4, 'big')
     payload[0xb00:0xb04] = bytes.fromhex('4e722500'); pcs.add(0xb00)
     payload[0xb10:0xb14] = bytes.fromhex('4e720700'); pcs.add(0xb10)
+    # Keep peripheral-transfer fixtures away from the exception/return code.
+    for index, raw in enumerate(('0108fff0', '0148fff0', '0188fff0', '01c8fff0')):
+        pc = 0xc00 + index * 16
+        payload[pc:pc + 4] = bytes.fromhex(raw); pcs.add(pc)
     (project / 'cartridge.bin').write_bytes(payload)
     rom = SimpleNamespace(data=payload, sha256=hashlib.sha256(payload).hexdigest())
     stats = generate_steps(engine, project, rom, pcs,
@@ -89,6 +93,7 @@ def main():
         header += f'#define TEST_{label} {positions[raw]}u\n'
     header += '#define TEST_TRAP 0x900u\n'
     header += '#define TEST_STOP 0xb00u\n#define TEST_STOP_USER 0xb10u\n'
+    header += '#define TEST_MOVEP 0xc00u\n'
     (project / 'fixture_data.h').write_text(header, encoding='ascii')
     shutil.copy2(ROOT / 'native/md_native_steps.h', project / 'md_native_steps.h')
     (project / 'retro_md_game.h').write_text('#define RR_MD_STEP_AOT 1\n', encoding='ascii')

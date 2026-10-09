@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import re
 from .library import atomic_json, entry_lock, library_root
+from .knowledge import ram_variants as shared_ram_variants
 
 RAM_VARIANT_LIMIT = 2048
 PROFILES = {
@@ -21,6 +22,21 @@ PROFILES = {
          'legacy_functions': False, 'mapping': 'hirom'},
     '0ef6f4cce5a2273fa49fe1ce724e0048a8e39c91da6b00dbb693fe1ba909177d':
         {'id': 'super-castlevania-iv', 'title': 'Super Castlevania IV', 'legacy_functions': False},
+    'bf16c3c867c58e2ab061c70de9295b6930d63f29f81cc986f5ecae03e0ad18d2':
+        {'id': 'f-zero', 'title': 'F-Zero', 'legacy_functions': False},
+    'b8f70a6e7fb93819f79693578887e2c11e196bdf1ac6ddc7cb924b1ad0be2d32':
+        {'id': 'mega-man-x', 'title': 'Mega Man X', 'legacy_functions': False},
+    '06d1c2b06b716052c5596aaa0c2e5632a027fee1a9a28439e509f813c30829a9':
+        {'id': 'chrono-trigger', 'title': 'Chrono Trigger', 'legacy_functions': False,
+         'mapping': 'hirom'},
+    '4efab3f49cbe91ec77b6cba747ddfedfdc0b080c755a8b6ba51234f0676c000f':
+        {'id': 'super-bomberman', 'title': 'Super Bomberman', 'legacy_functions': False,
+         'mapping': 'hirom'},
+    'a9e3e57d591e995e8e0dd228b619b6aed42205eaf55316fa8ff33f236b3a32b3':
+        {'id': 'super-mario-all-stars', 'title': 'Super Mario All-Stars', 'legacy_functions': False},
+    '979572fe92501a409207399817911d04438f4078bc6832cbc851e98eb2f1c2d2':
+        {'id': 'popn-twinbee-pal', 'title': "Pop'n TwinBee", 'legacy_functions': False,
+         'standard': 'pal', 'video_scope': 'progressive_224'},
 }
 
 
@@ -32,9 +48,38 @@ def profile_for(rom):
             'identified, but will not be compiled with another game\'s profile. '
             'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
     mapping = profile.get('mapping', 'lorom')
-    if rom.mapping != mapping or rom.standard != 'ntsc':
-        raise ConversionError(f'This qualified SNES profile requires its NTSC {mapping} cartridge.')
+    standard = profile.get('standard', 'ntsc')
+    if rom.mapping != mapping or rom.standard != standard:
+        raise ConversionError(f'This qualified SNES profile requires its {standard.upper()} {mapping} cartridge.')
     return profile
+
+
+def video_standard(rom, override=None):
+    from .core import ConversionError
+    standard = profile_for(rom).get('standard', 'ntsc')
+    if override and override != standard:
+        raise ConversionError(f'This qualified SNES cartridge requires {standard.upper()} timing.')
+    return standard
+
+
+def validate_activity(profile, checks):
+    """An internal CPU comparison must not qualify a silent or blank PAL run.
+
+    This first PAL stage covers the progressive 224-line display only. Mode
+    evidence is gathered on active raster lines, excluding screen-off setup.
+    Short user-selected probes may finish before the intro produces sound.
+    """
+    if profile.get('video_scope') != 'progressive_224':
+        return
+    from .core import ConversionError
+    for check in checks:
+        for mode in ('overscan_seen', 'interlace_seen', 'hires_seen'):
+            if check.get(mode) is None or check[mode]:
+                raise ConversionError('This SNES profile requires a progressive 256 x 224 display. '
+                    'The tested raster uses an unsupported or unverified video mode; previous export preserved.')
+        if check.get('frames', 0) >= 3600 and (not check.get('visible_frames') or not check.get('pcm_nonzero')):
+            raise ConversionError('SNES validation found no active picture or audible samples in a long test. '
+                'The cartridge remains unqualified; previous export preserved.')
 
 
 def write_profile(project: Path, rom, title: str) -> None:
@@ -43,7 +88,8 @@ def write_profile(project: Path, rom, title: str) -> None:
     (project / 'retro_snes_game.h').write_text(
         f'#define RR_SN_TITLE {json.dumps(title, ensure_ascii=True)}\n'
         f'#define RR_SN_ROM_BYTES {len(rom.data)}u\n'
-        f'#define RR_SN_SMW {int(profile["legacy_functions"])}\n', encoding='ascii')
+        f'#define RR_SN_SMW {int(profile["legacy_functions"])}\n'
+        f'#define RR_SN_PAL {int(video_standard(rom) == "pal")}\n', encoding='ascii')
     if profile['legacy_functions']:
         return
     generated = project / 'generated'
@@ -96,14 +142,23 @@ def memory_file(rom) -> Path:
     return library_root('snes') / rom.sha256 / 'native-ram.json'
 
 
+def knowledge_engine(rom) -> str:
+    """The CPU/runtime revision recorded by SNES conversion reports."""
+    from .console16 import REPOSITORIES
+    return REPOSITORIES['snes'][1]
+
+
 def read_ram_variants(rom) -> list[dict]:
+    shared = shared_ram_variants('snes', rom, knowledge_engine(rom))
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:
-            return []
-        return [item for item in record.get('ram_variants', []) if valid_ram_variant(item)][:RAM_VARIANT_LIMIT]
+            record = {}
     except (OSError, ValueError, TypeError, AttributeError):
-        return []
+        record = {}
+    items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item)]
+    return [{'address': addr, 'bytes': raw} for addr, raw in
+            sorted({(item['address'], item['bytes'].lower()) for item in items})[:RAM_VARIANT_LIMIT]]
 
 
 def learn_ram_variants(rom, checks) -> int:

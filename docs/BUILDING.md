@@ -25,7 +25,7 @@ python RetroRecomp.py setup
 python RetroRecomp.py convert "ROMS/your-game.sms" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.gb" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.nes" --no-online-cover
-python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 3 --no-online-cover
+python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 8 --no-online-cover
 python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --system auto
 python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 ```
@@ -48,9 +48,11 @@ base title receive region/revision labels from filenames when available, or
 version A/B labels. Identical ROM bytes under different names are reported
 with the existing name and are not exported as a different game.
 
-Game Boy keeps its all-bank discovery and three coverage scenarios enabled.
-**Deep Game Boy validation (slow)** is now on by default: it adds two longer
-instruction-by-instruction play comparisons to the mandatory boot CPU check.
+Game Boy keeps its all-bank discovery and four coverage scenarios enabled
+(boot, left/right play and varied input for tests of at least 750 frames).
+**Deep Game Boy validation (slow)** is now on by default: it adds three longer
+instruction-by-instruction play comparisons, including varied input, to the
+mandatory boot CPU check.
 For a faster standard validation, uncheck it under Options → Game Boy or pass
 `--no-gb-deep-validation` to `convert` or `batch`. Native discovery is the same
 in both modes; other consoles ignore this setting. The conversion log and
@@ -78,6 +80,7 @@ python -m unittest discover -s tests
 python tools/player2_selftest.py
 python tools/banked_vector_selftest.py
 python tools/gameboy_latency_selftest.py
+python tools/gameboy_ram_selftest.py
 python tools/megadrive_native_selftest.py
 python tools/snes_native_selftest.py
 ```
@@ -108,6 +111,12 @@ Packaging derives icon/banner resources from the two project branding images
 and writes `Export/Retro-Recomp.exe`. `tools/prepare_publication.py` stages an
 explicit list of public files, audits it and prepares a standalone release EXE.
 It never pushes or uploads. See `--help` for source and release preparation.
+
+After qualifying new cartridge cases, refresh the ROM-free compressed hint
+snapshot before packaging. The snapshot is included in the converter and
+combines with the user's local observations; validation remains mandatory.
+See the [compilation library workflow](COMPILATION_LIBRARY.md), including how
+to disable local and bundled hints for a cold timing comparison.
 
 ```powershell
 python tools/prepare_publication.py --stage .build/publication/repository

@@ -42,6 +42,9 @@ FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 IMAGE_SOURCE_POLICY = 2  # Prefer original/HD provider images over older thumbnails.
 PUBLIC_MEDIA = {'Named_Boxarts': 'front', 'Named_Titles': 'title', 'Named_Snaps': 'snapshot'}
+# Export titles may omit a subtitle that the artwork catalogue spells out.
+# These are exact aliases, never a prefix/fuzzy rule that could merge sequels.
+TITLE_ALIASES = {'castleofillusion': 'Castle of Illusion Starring Mickey Mouse'}
 # Stable tag IDs are separate from artwork filenames and peripheral detection.
 ICON_TAGS = {"shooting": "tag-shooting.png"}
 ICON_TAG_LAYOUT = {
@@ -67,12 +70,12 @@ def normalized(name: str, *, base: bool = False) -> str:
             name = re.sub(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", "", name)
     # Keep the edition tags while moving No-Intro's trailing article. This
     # allows "The Game (USA)" to select "Game, The (USA)" unambiguously.
-    name = re.sub(r'^(.+),\s*(The|A|An)(?=\s*(?:\(|\[|$))', r'\2 \1', name, flags=re.I)
+    name = re.sub(r'^(.+?),\s*(The|A|An)(?=\s*(?:-|\(|\[|$))', r'\2 \1', name, flags=re.I)
     name = unicodedata.normalize("NFKD", name).casefold()
     return "".join(c for c in name if c.isalnum())
 
 
-def choose_cover(names: list[str], rom_name: str, title: str) -> str | None:
+def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False) -> str | None:
     """Exact names first, then an unambiguous title. Never fuzzy-match sequels."""
     for query in (rom_name, title):
         matches = [n for n in names if normalized(Path(n).stem) == normalized(query)]
@@ -81,6 +84,7 @@ def choose_cover(names: list[str], rom_name: str, title: str) -> str | None:
         if len(matches) > 1:
             raise ArtworkError("Plusieurs covers portent le même nom ; choisis une image explicitement.")
     keys = {normalized(rom_name, base=True), normalized(title, base=True)} - {""}
+    keys |= {normalized(TITLE_ALIASES[key]) for key in tuple(keys) if key in TITLE_ALIASES}
     matches = [n for n in names if normalized(Path(n).stem, base=True) in keys]
     if len(matches) == 1:
         return matches[0]
@@ -101,6 +105,21 @@ def choose_cover(names: list[str], rom_name: str, title: str) -> str | None:
             shorter = [n for n in winners if groups[n] == least]
             if len(shorter) == 1:
                 return shorter[0]
+        if regional_fallback:
+            # Online collections often have only a World cover, or several
+            # retail revisions of the same regional box. Reuse that game's
+            # front instead of falling through to a screenshot. This never
+            # relaxes the exact base-title match or affects local selections.
+            candidates = winners if best else matches
+            retail = [n for n in candidates if not re.search(
+                r'\b(?:mini|hack|alpha|beta|demo|prototype)\b', n, re.I)]
+            if retail:
+                candidates = retail
+            def rank(name):
+                regions = set(re.findall(r'europe|usa|japan|brazil|world|korea', name.casefold()))
+                return (0 if best or 'world' in regions else 1,
+                        len(re.findall(r'\([^)]*\)|\[[^]]*\]', Path(name).stem)), name.casefold())
+            return min(candidates, key=rank)
         raise ArtworkError("Plusieurs éditions de la cover correspondent ; choisis une image explicitement.")
     return None
 
@@ -383,7 +402,8 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
 
     result = retrieve(filename)
     if result is None:
-        match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title)
+        match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title,
+                             regional_fallback=True)
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')
         filename = match

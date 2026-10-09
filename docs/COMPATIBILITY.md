@@ -10,11 +10,20 @@ Strike. Ten further revisions qualify Beyond Oasis, Comix Zone, Contra - Hard
 Corps, Dynamite Headdy, Rocket Knight Adventures, Street Fighter II' Plus,
 Thunder Force IV, ToeJam & Earl, Vectorman and Wonder Boy in Monster World.
 Their qualification also adds user/supervisor stack switching and STOP/IRQ
-handling to the common 68000 adapter. Super Nintendo qualifies six exact NTSC
+handling to the common 68000 adapter. Five additional profiles cover Sonic 2,
+Earthworm Jim, Mortal Kombat II, Road Rash II and Shining Force II: 27 Mega Drive
+revisions in total, including two explicitly qualified PAL images. The common
+compiler now also translates MOVEP and the two six-button games expose their
+complete controls. Super Nintendo qualifies 11 exact NTSC
 revisions: Super Mario World, Super Scope 6, The Legend of Zelda - A Link to the
-Past, Super Metroid, Donkey Kong Country and Super Castlevania IV. Its native map
+Past, Super Metroid, Donkey Kong Country and Super Castlevania IV, plus F-Zero,
+Mega Man X, Chrono Trigger, Super Bomberman and Super Mario All-Stars. Its native map
 supports LoROM and HiROM with the cartridge's actual storage mirroring.
-Both 16-bit profiles remain restricted to qualified NTSC ROMs.
+Pop'n TwinBee adds an exact European PAL LoROM revision, bringing the SNES
+catalogue to 12 revisions. Its 312-line raster and independent audio clock
+are qualified for the progressive 256 x 224 display.
+Both 16-bit profiles remain restricted to qualified revisions and timing modes.
+SNES PAL overscan, interlace and 512-pixel display modes remain unqualified.
 Mouse Menacer/Super Scope input and shared gun settings are included;
 see [16-bit gun controls and validation](GUNS_16BIT.md).
 The instruction adapters introduced in version 0.19.0 extend AOT to Sonic and replace
@@ -59,17 +68,28 @@ the two input runs from 44,272 / 60,656 fallback cycles to zero while preserving
 their final guest-state dumps. These remain specific tested paths.
 See [Game Boy](GAME_BOY.md).
 
+Ten more Game Boy cartridge cases now pass production CPU checks, 6,000-frame
+varied-input probes and save/close/relaunch state comparisons. Eight report zero
+fallback on the longer probes; Donkey Kong Land and Wario Land II retain reported
+RAM fallback. Common fixes add guarded native RAM helpers and bounded host-stack
+dispatch. This broadens the evidence to MBC3/MBC5 without certifying RTC or complete
+gameplay. Large cold C builds can still take much longer than the earlier Mario
+benchmark. See [the expanded Game Boy checks](GAME_BOY.md#broader-cartridge-cases--9-october-2026).
+
 The supported Nintendo NES profile uses a separate 6502 cycle backend and
 accepts headered `.nes` cartridges. Conversion tests count native and fallback
 CPU cycles, then compare short frame hashes with the engine's internal
 interpreter. Native bodies cover every physical PRG ROM position, with live
 bank dispatch and boundary operands. Authored NTSC/PAL compiler checks pass
-599,040 recorded instruction cases across nine mapper families, including
-266,240 additional MMC5/AxROM/MMC2/FME-7 cases. Eight additional cartridges
+931,840 recorded instruction cases across fourteen mapper families, including
+332,800 added Color Dreams/VRC6/GxROM/Camerica/mapper-78 cases. Eight earlier cartridges
 convert successfully; six have zero fallback on the checked paths, while
 Kirby and Zelda still execute some RAM code through the reported interpreter.
 Fresh isolated cartridge memory prevents battery saves from contaminating
-native/reference comparisons. See the [per-game evidence](NES.md#broader-cartridge-validation).
+native/reference comparisons. Ten further cartridges pass another 108,000
+matching frame pairs and state-resume checks; eight have zero fallback, while
+Wizards & Warriors and Micro Machines retain small RAM fallback. See the
+[per-game evidence](NES.md#ten-further-cartridge-cases--9-october-2026).
 PAL timing, F8/F9 states
 and catalogue-selected mouse Zapper input are included. Dendy and dual guns
 remain unsupported. RAM execution and unstable PRG windows can still fall
@@ -89,7 +109,10 @@ for final CPU/RAM/image state and VDP traces.
 
 These checks cover startup, attract paths and scripted inputs. They do not
 establish that all levels, multiplayer modes or RAM variants are covered.
-No binaries, ROMs, captures or private observations from these runs ship here.
+No game binaries, ROMs, captures or private histories from these runs ship here.
+The converter can include verified numeric hints and ROM offsets in its compact
+[shared compilation library](COMPILATION_LIBRARY.md); these reconstruct guarded
+patterns from the user's own exact ROM and never bypass validation.
 
 ## Separate validation areas
 

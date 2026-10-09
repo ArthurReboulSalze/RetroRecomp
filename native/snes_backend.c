@@ -16,13 +16,19 @@
 #include "snes_spc_native.h"
 #include "audio_trace.h"
 #include "retro_snes_game.h"
+#include "console16_state.h"
+#include "snes/saveload.h"
 
 static uint32_t pixels[RR16_WIDTH * 240];
 static uint64_t interpreted, native_entries;
 static double audio_fraction;
 static bool headless_mode;
+static bool overscan_seen, interlace_seen, hires_seen;
+static uint64_t visible_frames;
+static bool field_visible;
 static uint64_t pcm_samples, pcm_nonzero, pcm_hash = 14695981039346656037ull;
 static unsigned pcm_peak;
+static uint64_t frame_audio_hash;
 static struct { uint32_t pc; uint8_t bytes[4]; } ram_variants[2048];
 static unsigned ram_variant_count;
 void debug_on_wram_write_byte(uint32_t addr, uint8_t old_val, uint8_t val) {}
@@ -46,6 +52,9 @@ void rr16_snes_observe_fallback(uint32_t pc) {
     ram_variants[ram_variant_count].pc = pc;
     memcpy(ram_variants[ram_variant_count++].bytes, bytes, 4);
 }
+static void save_state_extra(SaveLoadInfo *sli);
+static void load_state_extra(SaveLoadInfo *sli, uint32_t version);
+static void state_loaded(uint32_t version);
 static const RtlGameInfo game_info = {
     .title = RR_SN_TITLE,
     .run_frame = snes_beam_frame_driver_run_frame,
@@ -53,6 +62,9 @@ static const RtlGameInfo game_info = {
     .hardware_reset = snes_beam_frame_driver_reset,
     .session_reset = snes_beam_frame_driver_reset,
     .save_name_prefix = RR_SN_TITLE,
+    .state_save_extra = save_state_extra,
+    .state_load_extra = load_state_extra,
+    .on_state_loaded = state_loaded,
 };
 static void start_audio_timeline(void) {
     /* The APU clock runs from power-on, even before the first CPU port write.
@@ -94,11 +106,24 @@ void rr16_reset(void) {
     RtlReset(1); start_audio_timeline(); rr16_gun_reset(); audio_fraction = 0;
     pcm_samples = pcm_nonzero = pcm_peak = 0; pcm_hash = 14695981039346656037ull;
     interpreted = native_entries = 0; ram_variant_count = 0;
+    overscan_seen = interlace_seen = hires_seen = false;
+    visible_frames = 0;
+}
+static void observe_video_mode(const Ppu *ppu, unsigned line, void *context) {
+    /* Boot code can briefly write every mode bit while the screen is off.
+     * Observe the replayed visible lines, not that unused register state. */
+    if (PPU_forcedBlank(ppu) || !PPU_brightness(ppu)) return;
+    field_visible = true;
+    overscan_seen |= PPU_overscan(ppu);
+    interlace_seen |= PPU_interlace(ppu);
+    hires_seen |= PPU_pseudoHires(ppu) || PPU_mode(ppu) == 5 || PPU_mode(ppu) == 6;
 }
 bool rr16_frame(uint16_t p1, uint16_t p2) {
     RtlRunFrame(p1 | ((uint32_t)p2 << 12));
     PpuBeginDrawing(g_ppu, (uint8_t *)pixels, RR16_WIDTH * 4, 0);
-    snes_beam_frame_driver_draw_ppu_frame();
+    field_visible = false;
+    snes_beam_frame_driver_draw_ppu_frame_observed(observe_video_mode, NULL);
+    visible_frames += field_visible;
     /* Probes consume the same one-frame audio block as the interactive host,
      * without opening a sound device. This exercises the live SPC/DSP clock. */
     if (headless_mode) { int16_t pcm[4096]; rr16_audio(pcm, sizeof pcm / sizeof *pcm); }
@@ -128,6 +153,13 @@ static void hash_state(SaveLoadInfo *stream, void *data, size_t size) {
     for (size_t i = 0; i < size; ++i) { out->hash ^= bytes[i]; out->hash *= 1099511628211ull; }
 }
 void rr16_report_details(FILE *file) {
+    fprintf(file, ",\"video_standard\":\"%s\",\"field_lines\":%u,\"ppu_pal\":%u,"
+        "\"overscan_seen\":%u,\"interlace_seen\":%u,\"hires_seen\":%u,"
+        "\"beam_line\":%u,\"beam_column\":%u,\"irq_latches\":%u,\"irq_overshot\":%u,"
+        "\"visible_frames\":%llu",
+        RR_SN_PAL ? "pal" : "ntsc", RR_SN_LINES, RR_SN_PAL,
+        overscan_seen, interlace_seen, hires_seen, g_snes->vPos, g_snes->hPos,
+        g_snes->dbgIrqLatches, g_snes->dbgIrqOvershot, visible_frames);
     rr16_gun_report(file);
     rr_spc_report(file);
     AudioTraceStats audio;
@@ -195,16 +227,62 @@ size_t rr16_audio(int16_t *pcm, size_t capacity) {
     audio_fraction -= frames;
     RtlRenderAudio(pcm, (int)frames, 2);
     if (headless_mode) {
+        frame_audio_hash = 14695981039346656037ull;
         pcm_samples += frames * 2;
         for (size_t i = 0; i < frames * 2; ++i) {
             unsigned amplitude = pcm[i] < 0 ? -(int)pcm[i] : pcm[i];
             pcm_nonzero += amplitude != 0;
             if (amplitude > pcm_peak) pcm_peak = amplitude;
             pcm_hash ^= (uint16_t)pcm[i]; pcm_hash *= 1099511628211ull;
+            frame_audio_hash ^= (uint16_t)pcm[i]; frame_audio_hash *= 1099511628211ull;
         }
     }
     return frames * 2;
 }
 void rr16_pause(bool paused) {}
+uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
 void rr16_shutdown(void) { if (g_snes) snes_free(g_snes); }
-bool rr16_state_file(const wchar_t *path, bool load) { return false; }
+extern void rr_snes_save_delivery(SaveLoadInfo *sli);
+extern void rr_snes_load_delivery(SaveLoadInfo *sli);
+extern void rr_snes_apply_delivery(void);
+extern void rr_snes_driver_save(uint32_t state[2]);
+extern bool rr_snes_driver_load(const uint32_t state[2]);
+static bool loaded_execution_ok;
+static uint8_t loaded_gun[256];
+static uint32_t loaded_driver[2];
+static double loaded_fraction;
+static void save_state_extra(SaveLoadInfo *sli) {
+    uint32_t magic=0x31535252; sli->func(sli,&magic,4);
+    RtlSaveExecutionState(sli); rr_snes_save_delivery(sli);
+    uint32_t driver[2]; rr_snes_driver_save(driver); sli->func(sli,driver,sizeof driver);
+    sli->func(sli,&audio_fraction,sizeof audio_fraction);
+    uint8_t gun[256]; size_t n=rr16_gun_state_save(NULL,0);
+    if (n<=sizeof gun) { rr16_gun_state_save(gun,n); sli->func(sli,gun,n); }
+}
+static void load_state_extra(SaveLoadInfo *sli, uint32_t version) {
+    uint32_t magic=0; sli->func(sli,&magic,4);
+    loaded_execution_ok=magic==0x31535252 && RtlLoadExecutionState(sli);
+    if (!loaded_execution_ok) return;
+    rr_snes_load_delivery(sli); sli->func(sli,loaded_driver,sizeof loaded_driver);
+    sli->func(sli,&loaded_fraction,sizeof loaded_fraction);
+    size_t n=rr16_gun_state_save(NULL,0);
+    if (n>sizeof loaded_gun) { loaded_execution_ok=false; return; }
+    sli->func(sli,loaded_gun,n);
+}
+static void state_loaded(uint32_t version) {
+    if (!loaded_execution_ok) return;
+    RtlApuLock(); RtlApplyExecutionState(); rr_snes_apply_delivery(); RtlApuUnlock();
+    loaded_execution_ok=rr_snes_driver_load(loaded_driver) &&
+        rr16_gun_state_load(loaded_gun,rr16_gun_state_save(NULL,0));
+    audio_fraction=loaded_fraction;
+}
+uint8_t *rr16_state_capture(size_t *size) {
+    *size=RtlSaveSnapshotToMemory(NULL,0);
+    uint8_t *data=*size ? malloc(*size) : NULL;
+    if (data && RtlSaveSnapshotToMemory(data,*size)!=*size) { free(data); data=NULL; *size=0; }
+    return data;
+}
+bool rr16_state_restore(const uint8_t *data, size_t size) {
+    loaded_execution_ok=false;
+    return RtlLoadSnapshotFromMemory(data,size) && loaded_execution_ok;
+}

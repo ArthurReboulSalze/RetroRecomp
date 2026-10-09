@@ -12,6 +12,7 @@ typedef struct {
     SDL_Scancode keys[CONTROL_PLAYERS][CONTROL_ACTIONS];
     SDL_GameControllerButton buttons[CONTROL_PLAYERS][CONTROL_ACTIONS];
     int filter;
+    int display_mode; /* 0 window, 1 integer fullscreen, 2 aspect-fit fullscreen */
     int first_controller_player;
     int language; /* 0 English, 1 French */
     bool autofire; /* Both mapped gamepad fire buttons, while held. */
@@ -26,6 +27,7 @@ const char *controls_text(const char *english, const char *french);
 void controls_load(void);
 bool controls_bind(int player, int row, bool gamepad, int value);
 bool controls_filter(int filter);
+bool controls_display_mode(int mode);
 bool controls_controller_order(int first_player);
 bool controls_language(int language);
 bool controls_autofire(bool enabled);

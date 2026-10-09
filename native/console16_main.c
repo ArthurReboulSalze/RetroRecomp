@@ -6,6 +6,7 @@
 #include <string.h>
 #include <limits.h>
 #include "retro_console16.h"
+#include "console16_state.h"
 #ifndef RR_GAME_TITLE
 #define RR_GAME_TITLE "RetroRecomp"
 #endif
@@ -39,12 +40,18 @@ static bool load_replay(const char *path, unsigned frames) {
     fclose(file); return valid;
 }
 int main(int argc, char **argv) {
-    unsigned frames = 0; bool play = false, reset_check = false;
+    unsigned frames = 0, frame_offset = 0; bool play = false, reset_check = false;
+    bool ignore_load_error = false;
+    const char *save_state = NULL, *load_state = NULL;
     bool t2_gun_menu = false;
     const char *report = NULL;
     const char *input_script = NULL, *trace_path = NULL;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = (unsigned)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--frame-offset") && i + 1 < argc) frame_offset = (unsigned)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
+        else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
+        else if (!strcmp(argv[i], "--ignore-load-error")) ignore_load_error = true;
         else if (!strcmp(argv[i], "--play")) play = true;
         else if (!strcmp(argv[i], "--reset-check")) reset_check = true;
         else if (!strcmp(argv[i], "--gun-menu") && i + 1 < argc) t2_gun_menu = !strcmp(argv[++i], "t2");
@@ -53,16 +60,21 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace_path = argv[++i];
     }
     if (reset_check && !frames) frames = 120;
-    if (frames > 1000000) return 2;
+    if (frames > 1000000 || frame_offset > 1000000 || ((save_state || load_state) && !frames)) return 2;
     if ((input_script || trace_path) && (!frames || reset_check)) return 2;
-    if (input_script && !load_replay(input_script, frames)) return 2;
+    if (input_script && !load_replay(input_script, frames + frame_offset)) return 2;
     SDL_SetMainReady();
     if (!frames && SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return 1;
     if (!rr16_init(frames != 0)) return 1;
+    if (load_state) {
+        wchar_t path[32768];
+        bool ok=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,load_state,-1,path,32768) && rr16_state_file(path,true);
+        if (!ok && !ignore_load_error) { rr16_shutdown(); return 7; }
+    }
     if (!frames) { int status = rr16_sdl_main(RR_GAME_TITLE, 3); rr16_shutdown(); SDL_Quit(); return status; }
     FILE *trace = trace_path ? fopen(trace_path, "wb") : NULL;
     if (trace_path && !trace) { rr16_shutdown(); return 3; }
-    if (trace) fputs("frame,frame_hash,native,interpreted"
+    if (trace) fputs("frame,frame_hash,native,interpreted,audio_hash"
 #if RR16_MD
                      ",pc,sr,sp,z80_pc,busreq,reset_off,fm_nonzero,psg_nonzero"
 #endif
@@ -71,46 +83,47 @@ int main(int argc, char **argv) {
     unsigned completed = 0;
     uint64_t sequence = 14695981039346656037ull;
     for (; completed < frames; ++completed) {
+        unsigned logical_frame = completed + frame_offset;
         uint16_t input = 0;
 #if RR16_MD
-        if (play && completed >= 300 && completed < 302) input = 128; /* Start */
-        if (play && completed >= 480 && completed < 482) input = 128;
-        if (play && completed >= 660 && completed < 662) input = 128;
-        if (play && completed >= 800) input = 8 | ((completed % 90 < 15) ? 16 : 0);
-        if (RR16_GUN && play && completed >= 900 && completed < 1800 && completed % 360 < 2) input = 128;
-        if (RR16_GUN && play && completed >= 1800 && completed % 240 >= 30 && completed % 240 < 32) input |= 64;
+        if (play && logical_frame >= 300 && logical_frame < 302) input = 128; /* Start */
+        if (play && logical_frame >= 480 && logical_frame < 482) input = 128;
+        if (play && logical_frame >= 660 && logical_frame < 662) input = 128;
+        if (play && logical_frame >= 800) input = 8 | ((logical_frame % 90 < 15) ? 16 : 0);
+        if (RR16_GUN && play && logical_frame >= 900 && logical_frame < 1800 && logical_frame % 360 < 2) input = 128;
+        if (RR16_GUN && play && logical_frame >= 1800 && logical_frame % 240 >= 30 && logical_frame % 240 < 32) input |= 64;
         if (RR16_GUN && play && t2_gun_menu) {
             /* Use the original controller menu: two Down presses select the
              * one-player Menacer entry. No guest RAM or ROM is patched. */
             input = 0;
             static const unsigned start_frames[] = {300,480,660,900,1200,1500,1800,2100,2400,2700};
             for (unsigned n=0; n<sizeof start_frames/sizeof *start_frames; ++n)
-                if (completed >= start_frames[n] && completed < start_frames[n] + 2) input = 128;
-            if ((completed >= 1600 && completed < 1602) || (completed >= 1640 && completed < 1642)) input = 2;
+                if (logical_frame >= start_frames[n] && logical_frame < start_frames[n] + 2) input = 128;
+            if ((logical_frame >= 1600 && logical_frame < 1602) || (logical_frame >= 1640 && logical_frame < 1642)) input = 2;
         }
 #else
-        if (play && completed >= 180 && completed < 182) input = 8;
-        if (play && completed >= 400 && completed < 402) input = 8;
-        if (play && completed >= 550 && completed < 552) input = 8;
-        if (play && completed >= 720) input = 128 | ((completed % 90 < 15) ? 1 : 0);
+        if (play && logical_frame >= 180 && logical_frame < 182) input = 8;
+        if (play && logical_frame >= 400 && logical_frame < 402) input = 8;
+        if (play && logical_frame >= 550 && logical_frame < 552) input = 8;
+        if (play && logical_frame >= 720) input = 128 | ((logical_frame % 90 < 15) ? 1 : 0);
 #endif
         if (RR16_GUN && play) {
             /* Calibration aim is held centrally before moving through a grid.
              * The guest keeps its original start/calibration menus and flashes. */
             int width = rr16_visible_width();
             Rr16GunInput gun = {.x = width / 2, .y = RR16_HEIGHT / 2};
-            if (completed >= (t2_gun_menu ? 2400u : 1800u)) {
-                gun.x = 32 + (completed / 90 % 4) * (width - 64) / 3;
-                gun.y = 40 + (completed / 360 % 3) * 64;
+            if (logical_frame >= (t2_gun_menu ? 2400u : 1800u)) {
+                gun.x = 32 + (logical_frame / 90 % 4) * (width - 64) / 3;
+                gun.y = 40 + (logical_frame / 360 % 3) * 64;
             }
-            gun.fire = completed >= 300 && completed % 180 >= 10 && completed % 180 < 18;
+            gun.fire = logical_frame >= 300 && logical_frame % 180 >= 10 && logical_frame % 180 < 18;
             gun.turbo = RR16_GUN == RR_GUN_SCOPE;
-            gun.aux = completed >= 1200 && completed % 300 < 8;
+            gun.aux = logical_frame >= 1200 && logical_frame % 300 < 8;
             gun.start = (input & (RR16_MD ? 128 : 8)) != 0;
             rr16_gun_input(gun);
         }
         if (input_script) {
-            if (replay_index < replay_count && replay[replay_index].frame == completed) {
+            while (replay_index < replay_count && replay[replay_index].frame <= logical_frame) {
                 script_p1 = replay[replay_index].p1; script_p2 = replay[replay_index++].p2;
             }
             input = script_p1;
@@ -118,13 +131,18 @@ int main(int argc, char **argv) {
         if (!rr16_frame(input, script_p2)) break;
         sequence ^= fingerprint(); sequence *= 1099511628211ull;
         if (trace) {
-            fprintf(trace, "%u,%016llx,%llu,%llu", completed + 1, fingerprint(),
-                    rr16_native_entries(), rr16_interpreted());
+            fprintf(trace, "%u,%016llx,%llu,%llu,%016llx", logical_frame + 1, fingerprint(),
+                    rr16_native_entries(), rr16_interpreted(), rr16_audio_frame_fingerprint());
 #if RR16_MD
             rr16_trace_details(trace);
 #endif
             fputc('\n', trace); fflush(trace);
         }
+    }
+    if (save_state) {
+        wchar_t path[32768];
+        bool ok=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,save_state,-1,path,32768) && rr16_state_file(path,false);
+        if (!ok) { if (trace) fclose(trace); rr16_shutdown(); return 8; }
     }
     bool reset_matches = true, reset_sequence_matches = true, reset_audio_matches = true;
     uint64_t reset_first_audio = 0;

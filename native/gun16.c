@@ -22,9 +22,52 @@ static uint64_t button_packets, trigger_packets;
 static RrScope scope;
 static unsigned last_h, last_v;
 #endif
+/* Pointer-free peripheral state, including partially shifted gun packets. */
+typedef struct RrGunState {
+    Rr16GunInput input;
+    uint64_t light_hits, interrupt_count, button_reads;
+#if RR16_MD
+    bool hv_valid, pending_irq, irq_active;
+    uint16_t latched_hv;
+    RrMenacer menacer;
+    uint64_t button_packets, trigger_packets;
+#else
+    RrScope scope;
+    unsigned last_h, last_v;
+#endif
+} RrGunState;
+size_t rr16_gun_state_save(void *data, size_t capacity) {
+    if (!data) return sizeof(RrGunState);
+    if (capacity < sizeof(RrGunState)) return 0;
+    RrGunState state; memset(&state,0,sizeof state);
+    state.input=input; state.light_hits=light_hits;
+    state.interrupt_count=interrupt_count; state.button_reads=button_reads;
+#if RR16_MD
+    state.hv_valid=hv_valid; state.pending_irq=pending_irq; state.irq_active=irq_active;
+    state.latched_hv=latched_hv; state.menacer=menacer;
+    state.button_packets=button_packets; state.trigger_packets=trigger_packets;
+#else
+    state.scope=scope; state.last_h=last_h; state.last_v=last_v;
+#endif
+    memcpy(data,&state,sizeof state); return sizeof state;
+}
+bool rr16_gun_state_load(const void *data, size_t size) {
+    if (!data || size != sizeof(RrGunState)) return false;
+    RrGunState state; memcpy(&state,data,sizeof state);
+    input=state.input; light_hits=state.light_hits;
+    interrupt_count=state.interrupt_count; button_reads=state.button_reads;
+#if RR16_MD
+    hv_valid=state.hv_valid; pending_irq=state.pending_irq; irq_active=state.irq_active;
+    instruction_active=false; latched_hv=state.latched_hv; menacer=state.menacer;
+    button_packets=state.button_packets; trigger_packets=state.trigger_packets;
+#else
+    scope=state.scope; last_h=state.last_h; last_v=state.last_v;
+#endif
+    return true;
+}
 void rr16_gun_input(Rr16GunInput value) {
     input = value;
-    if (value.x < 0 || value.y < 0 || value.x >= rr16_visible_width() || value.y >= RR16_HEIGHT)
+    if (value.x < 0 || value.y < 0 || value.x >= rr16_visible_width() || value.y >= rr16_visible_height())
         input.offscreen = true;
 #if !RR16_MD
     rr_scope_input(&scope, input);
@@ -80,7 +123,7 @@ uint8_t rr16_md_gun_read(uint8_t data, uint8_t control) {
     return rr_md_gun_port(RR16_GUN, &pins, data, control, light);
 }
 void rr16_md_gun_line(int line) {
-    if (!RR16_GUN || input.offscreen || line != input.y + RR16_GUN_Y_OFFSET || line >= RR16_HEIGHT) return;
+    if (!RR16_GUN || input.offscreen || line != input.y + RR16_GUN_Y_OFFSET || line >= rr16_visible_height()) return;
     GenesisBus *bus = &g_machine.bus;
     if (!(bus->io_ctrl[1] & 0x80) || (bus->io_ctrl[1] & 0x40)) return;
     if (RR16_GUN == RR_GUN_JUSTIFIER && (bus->io_data[1] & bus->io_ctrl[1] & 0x30)) return;

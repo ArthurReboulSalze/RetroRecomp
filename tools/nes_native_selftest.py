@@ -37,13 +37,17 @@ def fixture(mapper: int) -> bytes:
             low = 0 if op == 0x8D else 0xFF if op & 1 else 0x01
             prg[offset:offset + 3] = bytes((op, low, high))
         prg[base + 0xFFE:base + 0x1000] = b'\xad\xa9'
+        if mapper in (11, 26, 66, 71, 78):
+            # A conflict-safe register-write site outside opcode fixtures.
+            prg[base + 0xFE0] = 0xFF
     prg[-6:-2] = b'\x00\x80' * 2  # NMI/reset; leave IRQ bytes for wrap tests.
     return bytes(header + prg + bytes(8192))
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--mappers', nargs='+', type=int, default=[0, 1, 2, 3, 4, 5, 7, 9, 69])
+    ap.add_argument('--mappers', nargs='+', type=int,
+                    default=[0, 1, 2, 3, 4, 5, 7, 9, 11, 26, 66, 69, 71, 78])
     ap.add_argument('--standards', nargs='+', choices=['ntsc', 'pal'], default=['ntsc', 'pal'])
     args = ap.parse_args()
     cmake, generator = toolchain()

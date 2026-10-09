@@ -44,4 +44,5 @@ static void rr_md_ym_write(RrMdYmTimers *t, uint8_t reg, uint8_t value, uint64_t
 }
 void rr16_md_ym_reset(void);
 const RrMdYmTimers *rr16_md_ym_state(void);
+void rr16_md_ym_restore(const RrMdYmTimers *state);
 #endif

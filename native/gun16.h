@@ -4,8 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stddef.h>
 
 enum { RR_GUN_NONE, RR_GUN_MENACER, RR_GUN_JUSTIFIER, RR_GUN_SCOPE };
+size_t rr16_gun_state_save(void *data, size_t capacity);
+bool rr16_gun_state_load(const void *data, size_t size);
 typedef struct Rr16GunInput {
     int x, y;
     bool fire, aux, secondary, start, turbo, pause, offscreen;

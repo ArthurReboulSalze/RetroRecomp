@@ -8,6 +8,7 @@ static unsigned checks;
 #include "video/genesis_machine.h"
 GenesisMachine g_machine;
 int rr16_visible_width(void) { return (g_machine.vdp.reg[12] & 1) ? 320 : 256; }
+int rr16_visible_height(void) { return (g_machine.vdp.reg[1] & 8) ? 240 : 224; }
 #else
 #include "snes/snes.h"
 #include "snes/ppu.h"
@@ -105,6 +106,21 @@ int main(void) {
     if(RR16_GUN==2) {
         g_machine.bus.io_ctrl[1]=0xa0; g_machine.bus.io_data[1]=0x20;
         rr16_md_gun_line(80); CHECK(!rr16_md_gun_pending());
+    }
+    /* The host reserves 240 rows even in V28. The sensor must use the actual
+     * display height, so a shot beyond row 223 cannot latch the blank border. */
+    for (unsigned v30 = 0; v30 < 2; ++v30) {
+        memset(&g_machine,0,sizeof g_machine);
+        g_machine.vdp.reg[1]=v30 ? 8 : 0;
+        g_machine.vdp.reg[12]=1; g_machine.vdp.reg[11]=8;
+        g_machine.bus.io_ctrl[1]=0x80;
+        int height=v30 ? 240 : 224;
+        rr16_gun_reset();
+        rr16_gun_input((Rr16GunInput){.x=100,.y=height-1,.fire=true});
+        rr16_md_gun_line(height-1); CHECK(rr16_md_gun_pending());
+        rr16_gun_reset();
+        rr16_gun_input((Rr16GunInput){.x=100,.y=height,.fire=true});
+        rr16_md_gun_line(height); CHECK(!rr16_md_gun_pending());
     }
 #else
     joypad_reset_state(); joypad_write_iobit(g_snes,0xff);

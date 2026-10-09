@@ -81,23 +81,30 @@ class CoverageTests(unittest.TestCase):
 
     def test_scripts_explore_beyond_start_without_system_actions(self):
         scenarios = probe_scenarios(3600)
-        self.assertEqual(len(scenarios), 3)
-        for scenario in scenarios[1:]:
+        self.assertEqual(len(scenarios), 4)
+        for scenario in scenarios[1:3]:
             entries = scenario.input_script.split(',')
             self.assertIn('60:S:2', entries)
             self.assertGreater(len(entries), 20)
+        varied = scenarios[-1].input_script.split(',')
+        self.assertIn('180:S:4', varied)
+        self.assertIn('1000:D:20', varied)
+        self.assertIn('2300:L:700', varied)
+        for scenario in scenarios[1:]:
+            entries = scenario.input_script.split(',')
             for entry in entries:
                 frame, buttons, duration = entry.split(':')
                 self.assertLess(int(frame), 3600)
                 self.assertGreater(int(duration), 0)
                 self.assertLessEqual(set(buttons), set('UDLRABS'))
+                self.assertLessEqual(int(frame) + int(duration), 3600)
         self.assertEqual(len(probe_scenarios(30)), 1)
 
     def test_cpu_validation_budgets_leave_coverage_scenarios_unchanged(self):
         def budgets(frames, **options):
             return [(scenario.name, count) for scenario, count in cpu_validation_scenarios(frames, **options)]
         self.assertEqual(budgets(3600), [('boot', 30)])
-        self.assertEqual(budgets(3600, deep=True), [('boot', 30), ('play_r', 240), ('play_l', 240)])
+        self.assertEqual(budgets(3600, deep=True), [('boot', 30), ('play_r', 240), ('play_l', 240), ('varied', 240)])
         self.assertEqual(budgets(75, deep=True), [('boot', 30), ('play_r', 75), ('play_l', 75)])
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
 

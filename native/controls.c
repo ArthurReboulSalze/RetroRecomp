@@ -12,6 +12,7 @@
 
 Controls controls;
 #ifdef RETRO_GAME_GEAR
+static const wchar_t *video_section = L"GameGear.Video";
 static const char *labels[2][CONTROL_ACTIONS] = {
     {"Up", "Down", "Left", "Right", "Button 1", "Button 2", "Pause/Menu", "Game Start"},
     {"Haut", "Bas", "Gauche", "Droite", "Bouton 1", "Bouton 2", "Pause/Menu", "Start jeu"}};
@@ -19,6 +20,7 @@ static const wchar_t *key_sections[CONTROL_PLAYERS] = {L"ClavierGameGear", L"Cla
 static const wchar_t *button_sections[CONTROL_PLAYERS] = {L"ManetteGameGear", L"ManetteGameGearJ2"};
 static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"menu", L"start"};
 #else
+static const wchar_t *video_section = L"MasterSystem.Video";
 static const char *labels[2][CONTROL_ACTIONS] = {
     {"Up", "Down", "Left", "Right", "Button 1", "Button 2", "Start/Menu", "Select/Reset"},
     {"Haut", "Bas", "Gauche", "Droite", "Bouton 1", "Bouton 2", "Start/Menu", "Select/Reset"}};
@@ -180,7 +182,8 @@ static void keyboard_defaults(void) {
 
 void controls_load(void) {
     keyboard_defaults();
-    controls.filter = FILTER_NEAREST; controls.first_controller_player = 0; controls.language = 0;
+    controls.filter = FILTER_NEAREST; controls.display_mode = 0;
+    controls.first_controller_player = 0; controls.language = 0;
     controls.autofire = false;
     controls.phaser_dot_size = 1;
     controls.phaser_shape = PHASER_CROSS;
@@ -238,6 +241,10 @@ void controls_load(void) {
             controls.buttons[p][i] = SDL_CONTROLLER_BUTTON_INVALID;
     }
     int filter = (int)GetPrivateProfileIntW(L"Video", L"filtre", 0, read_path());
+    int mode = (int)GetPrivateProfileIntW(L"Video", L"display_mode", 0, read_path());
+    filter = (int)GetPrivateProfileIntW(video_section, L"filter", filter, read_path());
+    mode = (int)GetPrivateProfileIntW(video_section, L"display_mode", mode, read_path());
+    controls.display_mode = mode >= 0 && mode < 3 ? mode : 0;
     controls.filter = filter >= 0 && filter < FILTER_COUNT ? filter : FILTER_NEAREST;
     /* Obsolete border/J2-reset settings are ignored without rewriting the INI. */
 #ifndef RETRO_GAME_GEAR
@@ -316,9 +323,16 @@ bool controls_defaults(int player, bool gamepad) {
 bool controls_filter(int filter) {
     if (filter < 0 || filter >= FILTER_COUNT) return false;
     char value[16]; snprintf(value, sizeof(value), "%d", filter);
-    if (!write_name(L"Video", L"filtre", value)) return false;
+    if (!write_name(video_section, L"filter", value)) return false;
     controls.filter = filter;
     return true;
+}
+
+bool controls_display_mode(int mode) {
+    if (mode < 0 || mode > 2) return false;
+    char value[16]; snprintf(value, sizeof(value), "%d", mode);
+    if (!write_name(video_section, L"display_mode", value)) return false;
+    controls.display_mode = mode; return true;
 }
 
 bool controls_controller_order(int first_player) {

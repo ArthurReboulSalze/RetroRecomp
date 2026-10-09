@@ -44,8 +44,10 @@ static void sizes(void) {
     int k; SDL_Rect r = game_rect(1920,1080,&k);
     assert(r.w==1280 && r.h==960 && k==5);
     key(SDL_SCANCODE_F4,0); assert(fullscreen && !fullscreen_fit && fullscreen_calls==1);
+    controls_load(); assert(controls.display_mode==1);
     key(SDL_SCANCODE_F4,1); assert(fullscreen && !fullscreen_fit && fullscreen_calls==1);
     key(SDL_SCANCODE_F4,0); assert(fullscreen && fullscreen_fit && fullscreen_calls==1);
+    controls_load(); assert(controls.display_mode==2);
     r=game_rect(1920,1080,&k); assert(r.w==1440 && r.h==1080 && r.x==240 && r.y==0);
     for (int border=0; border<=8; border+=8) for (unsigned i=0; i<sizeof(outputs)/sizeof(outputs[0]); ++i) {
         crop=(SDL_Rect){border,0,256-border,192};
@@ -66,12 +68,14 @@ static void sizes(void) {
     crop=full_crop; controls.filter=FILTER_NEAREST;
     int gx,gy; assert(gun_coordinates(480,270,960,540,1920,1080,&gx,&gy) && gx==128 && gy==96);
     fail_fullscreen=1; key(SDL_SCANCODE_F4,0); assert(fullscreen && fullscreen_fit);
+    controls_load(); assert(controls.display_mode==2);
     fail_fullscreen=0; key(SDL_SCANCODE_F4,0); assert(!fullscreen && !fullscreen_fit);
+    controls_load(); assert(controls.display_mode==0);
     assert(fake_x==30 && fake_y==40 && fake_w==800 && fake_h==600);
     puts("PASS: F4 window/integer/fit cycle, repeated keys, failed transition, restored window, four filters/eight display sizes, aspect and HiDPI/cropped gun coordinates.");
 }
 static void scanlines(void) {
-    const int rows[] = {192, 224, 240, 448};
+    const int rows[] = {144, 192, 224, 240, 448};
     for (unsigned n = 0; n < sizeof(rows) / sizeof(rows[0]); ++n) {
         int source = rows[n];
         /* Native display stays untouched. A 3x pixel is two bright output

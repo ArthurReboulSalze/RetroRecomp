@@ -12,6 +12,8 @@
 #include "cyc_run.h"
 #include "retro_menu.h"
 #include "retro_keyboard.h"
+#include "display_settings.h"
+#include "scanline_sdl.h"
 #include "retro_nes.h"
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
@@ -60,6 +62,7 @@ static void load_bindings(void) {
     keys[0][B] = rr_keyboard_letter(SDLK_x, SDL_SCANCODE_X);
     settings_path();
     if (!ini_file[0]) return;
+    rr_display_load(ini_file, L"NES.Video", &filter, &fullscreen);
     wchar_t sec[64];
     for (int p = 0; p < 2; ++p) for (int mode = 0; mode < 2; ++mode) {
         section(sec, p, mode != 0);
@@ -257,15 +260,17 @@ int cyc_sdl_main(const char *title, int scale) {
     wchar_t state_path[32768]; rr_nes_state_path(state_path, 32768);
     if (scale < 1) scale = 3;
     char caption[256];
-    snprintf(caption, sizeof(caption), "%s | %s", title, tr("Native code", "Code natif"));
+    snprintf(caption, sizeof(caption), "%s | %s", title, "Native code");
     SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         256 * scale, 240 * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    if (win && fullscreen && SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) fullscreen = 0;
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;
     if (!ren && win) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
     SDL_Texture *tex = ren ? SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STREAMING, 256, 240) : NULL;
+        SDL_TEXTUREACCESS_STREAMING, filter == 2 ? 512 : 256, filter == 2 ? 480 : 240) : NULL;
     uint32_t *upscaled = (uint32_t *)malloc(512 * 480 * sizeof(uint32_t));
     if (!tex || !upscaled) { free(upscaled); if (ren) SDL_DestroyRenderer(ren); if (win) SDL_DestroyWindow(win); SDL_Quit(); return 1; }
+    SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
     rr_menu_init(ren);
     SDL_AudioSpec want = {0}, have = {0};
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 512;
@@ -277,6 +282,7 @@ int cyc_sdl_main(const char *title, int scale) {
     uint64_t frame = 0;
     int title_state = french ? 2 : 0;
     bool running = true;
+    RrScanlineMask scanlines = {0};
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -317,9 +323,10 @@ int cyc_sdl_main(const char *title, int scale) {
                     filter == 2 ? 512 : 256, filter == 2 ? 480 : 240);
                 if (!tex) { running = false; break; }
                 SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+                if (!rr_display_save(ini_file, data_dir, L"NES.Video", L"filter", filter)) snprintf(status, sizeof(status), "%s", tr("Config unavailable", "Config inaccessible"));
             } else if (key == SDL_SCANCODE_F4) {
-                fullscreen = (fullscreen + 1) % 3;
-                SDL_SetWindowFullscreen(win, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                int changed=rr_display_cycle(win,&fullscreen,ini_file,data_dir,L"NES.Video");
+                if (changed<0) snprintf(status,sizeof(status),"%s",tr("Config unavailable","Config inaccessible"));
             } else if (key == SDL_SCANCODE_F5 && RR_NES_ZAPPER) {
                 menu = 2; gamepad_page = 2; row = capturing = 0;
             } else if (key == SDL_SCANCODE_F6) {
@@ -376,24 +383,12 @@ int cyc_sdl_main(const char *title, int scale) {
         SDL_Rect dst = game_rect(ren);
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
         SDL_RenderCopy(ren, tex, NULL, &dst);
-        if (filter == 3) {
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(ren, 0, 0, 0, 85);
-            for (int y = 1; y < 240; y += 2) {
-                SDL_Rect line = {dst.x, dst.y + y * dst.h / 240, dst.w,
-                                 dst.h / 240 > 0 ? dst.h / 240 : 1};
-                SDL_RenderFillRect(ren, &line);
-            }
-            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-        }
+        if (filter == 3) rr_scanlines_draw(ren, &scanlines, &dst, 240);
         draw_gun(ren, dst);
-        int current_title_state =
-            (cyc_run_interp_rom_cycles || cyc_run_interp_ram_cycles || cyc_run_interp_other_cycles ? 1 : 0) |
-            (french ? 2 : 0);
+        int current_title_state = (cyc_run_interp_rom_cycles || cyc_run_interp_ram_cycles || cyc_run_interp_other_cycles ? 1 : 0);
         if (current_title_state != title_state) {
             snprintf(caption, sizeof(caption), "%s | %s", title,
-                     tr(current_title_state & 1 ? "Interpreter fallback" : "Native code",
-                        current_title_state & 1 ? "Interpreteur de secours" : "Code natif"));
+                     current_title_state ? "Interpreter fallback" : "Native code");
             SDL_SetWindowTitle(win, caption);
             title_state = current_title_state;
         }
@@ -414,6 +409,7 @@ int cyc_sdl_main(const char *title, int scale) {
     }
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
+    rr_scanlines_destroy(&scanlines);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit(); return 0;
 }

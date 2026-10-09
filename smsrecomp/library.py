@@ -152,6 +152,11 @@ class GameMemory:
         self.journal = self.directory / "observations.log"
         self.record = self.directory / "compilation.json"
         self.code_journal = self.directory / PATTERN_FILE
+        from .knowledge import record_for
+        from .core import ENGINE_REV
+        system = getattr(rom, 'system_id', 'sms')
+        self.bundled = (record_for(system, rom, ENGINE_REV)
+                        if root is None or root == library_root(system) else {})
         old_patterns = self.directory / "native-patterns.txt"
         if old_patterns.is_file():
             with entry_lock(self.directory):
@@ -180,7 +185,7 @@ class GameMemory:
                         pass
 
     def summary(self) -> dict:
-        entries = read_observations(self.journal)
+        entries = read_observations(self.journal) | {tuple(e) for e in self.bundled.get('rom_entries', [])}
         counts = {kind: 0 for kind in ("rom", "ram", "rejected")}
         for entry in entries:
             counts[classify(self.rom, entry)] += 1
@@ -190,6 +195,7 @@ class GameMemory:
                 "ram_entries": counts["ram"], "rejected_entries": counts["rejected"],
                 "generations": metadata.get("total_generations", len(metadata.get("generations", []))),
                 "native_pattern_windows": len(self.code_patterns()),
+                "bundled_rom_entries": len(self.bundled.get('rom_entries', [])),
                 "known": bool(entries or metadata or self.code_patterns())}
 
     def metadata(self) -> dict:
@@ -219,10 +225,13 @@ class GameMemory:
         return self.import_entries(read_observations(path))
 
     def seeds(self) -> set:
-        return {entry for entry in read_observations(self.journal) if classify(self.rom, entry) == "rom"}
+        entries = read_observations(self.journal) | {tuple(e) for e in self.bundled.get('rom_entries', [])}
+        return {entry for entry in entries if classify(self.rom, entry) == "rom"}
 
     def code_patterns(self) -> set[bytes]:
-        return read_code_patterns(self.code_journal)
+        local = read_code_patterns(self.code_journal)
+        shared = {self.rom.data[offset:offset+4] for (offset,) in self.bundled.get('pattern_refs', [])}
+        return local | set(sorted(shared - local)[:max(0, PATTERN_LIMIT - len(local))])
 
     def import_code_patterns(self, path: Path) -> int:
         incoming = read_code_patterns(path)

@@ -19,6 +19,7 @@ from .gameboy_runtime import adapt_generated_project
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries)
 from .library import atomic_json, library_root
+from .knowledge import record_for
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
@@ -187,11 +188,20 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
         "entry_count": len(entries), "kind": "headless_observed_entries"})
 
 
+def _known_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
+    shared = record_for('gb', rom, ENGINE_REV).get('rom_entries', [])
+    return read_entries(_verified_trace(rom), len(rom.data)) | {
+        (bank, address) for bank, address in shared
+        if bank < len(rom.data) // 0x4000 and address < 0x8000}
+
+
 def memory_summary(rom: GameBoyRom) -> dict:
     trace = _verified_trace(rom)
     return {"sha256": rom.sha256, "directory": str(library_root("gb") / rom.sha256),
             "trace_bytes": trace.stat().st_size if trace else 0,
-            "known": trace is not None, "kind": "headless_observed_entries"}
+            "known": bool(_known_entries(rom)),
+            "bundled_rom_entries": len(record_for('gb', rom, ENGINE_REV).get('rom_entries', [])),
+            "kind": "headless_observed_entries"}
 
 
 def list_memory() -> list[dict]:
@@ -286,10 +296,10 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     stage_seconds['setup'] = time.perf_counter() - started
     stage_started = time.perf_counter()
     trace_input = _verified_trace(rom)
-    observed_entries = read_entries(trace_input, len(rom.data))
+    observed_entries = _known_entries(rom)
     static_entries = branch_entries(rom.data)
     imported_entries = len(observed_entries)
-    if trace_input:
+    if imported_entries:
         emit("Verified ROM-specific Game Boy entry trace found in the converter library.")
     emit(f"Game Boy extended discovery: {len(static_entries)} ROM branch entries; "
          f"{imported_entries} previously observed entries.")
@@ -381,6 +391,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "static_scan": "all_banks_and_short_branches", "percent": None,
             "static_branch_entries": len(static_entries), "imported_entries": imported_entries,
             "observed_rom_entries": len(observed_entries)},
+        "writable_native_helpers": {"guard": "complete live byte signature per instruction",
+            "scope": "WRAM/HRAM store-and-increment helper; unknown/changed code keeps fallback"},
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
             "mode": validation_mode, "scenarios": cpu_checks,

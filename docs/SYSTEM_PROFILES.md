@@ -8,7 +8,8 @@ RetroRecomp has supported **Master System**, **Game Gear**, **Game Boy** and
 reader, converter, export category and supported video modes. Unknown formats
 are rejected; ZIP inputs must contain exactly one supported cartridge, including
 `.sms`, `.gg`, `.gb`, `.nes`, `.bin`, `.rom`, linear `.md`/`.gen` and validated
-`.sfc`/`.smc` images. The 16-bit profiles require an exact qualified NTSC revision.
+`.sfc`/`.smc` images. The 16-bit profiles require an exact qualified revision
+and its validated video standard.
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
@@ -63,8 +64,10 @@ standard = "pal"
 The CLI accepts `--video-standard auto|pal|ntsc|dmg` for one conversion or a whole
 batch. An explicit CLI choice overrides a saved or supplied profile. The
 `dmg` choice applies only to Game Boy; Game Gear accepts only NTSC, and the
-PAL/NTSC choices apply to Master System and NES. The 16-bit proofs accept only
-NTSC. Master System records the
+PAL/NTSC choices apply to Master System, NES and qualified 16-bit revisions.
+Mega Drive and SNES use the cartridge header and exact profile; an incompatible
+override is rejected before compilation. Only the specifically qualified PAL
+cartridges are enabled. Master System records the
 effective timing and its selection source in its compilation library. Game
 Gear and Game Boy use their fixed console modes. New game EXEs include the
 console and mode in Windows version information. A regenerated game keeps

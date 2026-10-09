@@ -12,11 +12,13 @@
 #include "icon.h"
 #include "lightphaser.h"
 #include "gamestate.h"
+#include "scanline_sdl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static SDL_Window *window;
+static RrScanlineMask scanline_mask;
 static SDL_Renderer *renderer;
 static SDL_Texture *texture, *texture2x, *texture_cropped, *texture_cropped2x;
 static SDL_GameController *controllers[CONTROL_PLAYERS];
@@ -118,6 +120,8 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
         fprintf(stderr, "[host] SDL: %s\n", SDL_GetError()); return false;
     }
     controls_load();
+    fullscreen = controls.display_mode != 0;
+    fullscreen_fit = controls.display_mode == 2;
     controller_order_player = controls.first_controller_player;
     full_crop = crop = (SDL_Rect){x, y, crop_w, crop_h};
     if (scale < 1) scale = 1;
@@ -290,17 +294,7 @@ static void draw_game(const uint32_t *fb, int w, int h) {
     SDL_SetTextureScaleMode(image, controls.filter == FILTER_LINEAR ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, image, NULL, &dest);
-    if (controls.filter == FILTER_SCANLINES && k >= 2) {
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 95);
-        for (int y = 0; y < crop.h; ++y) {
-            int top = (int)((int64_t)y * dest.h / crop.h);
-            int bottom = (int)((int64_t)(y+1) * dest.h / crop.h);
-            SDL_Rect line = {dest.x, dest.y + bottom - (bottom-top)/2, dest.w, (bottom-top)/2};
-            SDL_RenderFillRect(renderer, &line);
-        }
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-    }
+    if (controls.filter == FILTER_SCANLINES) rr_scanlines_draw(renderer, &scanline_mask, &dest, crop.h);
     draw_phaser(&dest, k);
 }
 
@@ -325,6 +319,7 @@ static void state_completed(int operation, int result) {
 static void toggle_fullscreen(void) {
     if (fullscreen && !fullscreen_fit) {
         fullscreen_fit = true;
+        if (!controls_display_mode(2)) notice(controls_text("Config unavailable", "Config inaccessible"));
         notice(controls_text("Fullscreen - fit, original ratio", "Plein ecran ajuste - ratio conserve"));
         deadline = 0; return;
     }
@@ -336,6 +331,7 @@ static void toggle_fullscreen(void) {
     if (SDL_SetWindowFullscreen(window, wanted ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) == 0) {
         fullscreen = wanted;
         fullscreen_fit = false;
+        if (!controls_display_mode(fullscreen ? 1 : 0)) notice(controls_text("Config unavailable", "Config inaccessible"));
         if (!fullscreen && saved_window.w) {
             SDL_SetWindowPosition(window, saved_window.x, saved_window.y);
             SDL_SetWindowSize(window, saved_window.w, saved_window.h);
@@ -579,9 +575,9 @@ bool host_present(const uint32_t *fb, int width, int height) {
     if (state != previous_interpreter_state) {
         char title[320];
         snprintf(title, sizeof(title), "%s | %s", sms_game_title,
-            reference ? controls_text("Reference interpreter", "Interpreteur de reference") :
-                (active ? controls_text("Fallback interpreter ACTIVE", "Interpreteur de secours ACTIF") :
-                (interpreted ? controls_text("Native code | fallback used earlier", "Code natif | secours deja utilise") : controls_text("Native code", "Code natif"))));
+            reference ? "Reference interpreter" :
+                (active ? "Fallback interpreter ACTIVE" :
+                (interpreted ? "Native code | fallback used earlier" : "Native code")));
         SDL_SetWindowTitle(window, title); previous_interpreter_state = state;
     }
     previous_interpreter_cycles = interpreted;
@@ -635,6 +631,7 @@ void host_shutdown(void) {
     if (texture_cropped2x) SDL_DestroyTexture(texture_cropped2x);
     if (texture_cropped) SDL_DestroyTexture(texture_cropped);
     if (texture2x) SDL_DestroyTexture(texture2x);
+    rr_scanlines_destroy(&scanline_mask);
     if (texture) SDL_DestroyTexture(texture);
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);

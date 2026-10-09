@@ -73,6 +73,28 @@ class ArtworkTests(unittest.TestCase):
         self.assertEqual(cached["source"], "libretro_cache")
         self.assertEqual(cached["icon_sha256"], report["icon_sha256"])
 
+    def test_online_regional_front_fallback_never_confuses_sequels(self):
+        names = ['Mortal Kombat (World).png', 'Mortal Kombat II (Europe).png',
+                 'Mortal Kombat II (Japan).png', 'Mortal Kombat II (World).png']
+        self.assertEqual(choose_cover(names, 'Mortal Kombat II (USA)', 'Mortal Kombat II',
+                                     regional_fallback=True), 'Mortal Kombat II (World).png')
+        self.assertIsNone(choose_cover(names, 'Mortal Kombat 3 (USA)', 'Mortal Kombat 3',
+                                      regional_fallback=True))
+        road = ['Road Rash II (USA) (Genesis Mini).png',
+                'Road Rash II (USA, Europe) (RR206).png',
+                'Road Rash II (USA, Europe) (RR205).png']
+        self.assertEqual(choose_cover(road, 'Road Rash II (USA)', 'Road Rash II',
+                                     regional_fallback=True), road[2])
+        with self.assertRaises(ArtworkError):
+            choose_cover(names, 'Mortal Kombat II (USA)', 'Mortal Kombat II')
+        self.assertEqual(choose_cover(['Castle of Illusion Starring Mickey Mouse (World).png'],
+                                      'Castle of Illusion', 'Castle of Illusion'),
+                         'Castle of Illusion Starring Mickey Mouse (World).png')
+        self.assertEqual(choose_cover(['Legend of Zelda, The - A Link to the Past (USA).png'],
+                                      'The Legend of Zelda - A Link to the Past (USA)',
+                                      'The Legend of Zelda - A Link to the Past'),
+                         'Legend of Zelda, The - A Link to the Past (USA).png')
+
     def test_automatic_online_cover_beats_local_composition_and_is_reused(self):
         self.art.mkdir()
         source = self.art / 'Game (Europe).png'

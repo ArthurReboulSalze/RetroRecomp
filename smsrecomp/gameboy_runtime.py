@@ -6,6 +6,7 @@ per-game build and fail if an upstream source marker changes.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from shutil import copyfile
 
@@ -56,15 +57,19 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('retro_menu.h', project / 'runtime/include/retro_menu.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
         ('gb_menu.inc', project / 'runtime/src/gb_menu.inc'),
+        ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
+        ('scanlines.h', project / 'runtime/include/scanlines.h'),
+        ('scanline_sdl.h', project / 'runtime/include/scanline_sdl.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
     runtime = project / "runtime/src/platform_sdl.cpp"
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
-                          '#include "platform_sdl.h"\n#include "retro_menu.h"')
+                          '#include "platform_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"')
     source = replace_once(source, 'static SDL_Texture* g_texture = NULL;',
                           '''static SDL_Texture* g_texture = NULL;
 static SDL_Texture* g_rr_scale2x_texture = NULL;
+static RrScanlineMask g_rr_scanlines = {};
 static uint32_t g_rr_scale2x_pixels[GB_SCREEN_WIDTH * GB_SCREEN_HEIGHT * 4];''')
     source = replace_once(source, 'static bool g_show_menu = false;',
                           '''static bool g_show_menu = false;
@@ -165,10 +170,20 @@ static void set_default_input_bindings(void) {''')
     g_savestate_status.clear();''', '''    g_savestate_slot = 0;
     g_palette_idx = 1; /* DMG monochrome is the RetroRecomp default. */
     g_render_filter_mode = GB_RENDER_FILTER_NEAREST;
+    g_fullscreen = false;
+    g_render_scaling_mode = GB_RENDER_SCALING_PIXEL_PERFECT;
     g_rr_language = 0;
     g_rr_autofire = false;
     g_savestate_status.clear();''')
-    source = replace_once(source, '''                if (strcmp(key, "audio.enabled") == 0) {''', '''                if (strcmp(key, "video.filter") == 0) {
+    source = replace_once(source, '''                if (strcmp(key, "audio.enabled") == 0) {''', '''                if (strcmp(key, "video.display_mode") == 0) {
+                    long parsed = strtol(value, NULL, 10);
+                    if (parsed >= 0 && parsed < 3) {
+                        g_fullscreen = parsed != 0;
+                        g_render_scaling_mode = parsed == 2 ? GB_RENDER_SCALING_ASPECT_FIT : GB_RENDER_SCALING_PIXEL_PERFECT;
+                    }
+                    continue;
+                }
+                if (strcmp(key, "video.filter") == 0) {
                     long parsed = strtol(value, NULL, 10);
                     if (parsed >= 0 && parsed <= GB_RENDER_FILTER_SCANLINES)
                         g_render_filter_mode = (GBRenderFilterMode)parsed;
@@ -189,6 +204,7 @@ static void set_default_input_bindings(void) {''')
                 if (strcmp(key, "audio.enabled") == 0) {''')
     source = replace_once(source, '''    fprintf(file, "audio.enabled=%d\\n", g_audio_output_enabled ? 1 : 0);''',
         '''    fprintf(file, "video.filter=%d\\n", (int)g_render_filter_mode);
+    fprintf(file, "video.display_mode=%d\\n", g_fullscreen ? (g_render_scaling_mode == GB_RENDER_SCALING_PIXEL_PERFECT ? 1 : 2) : 0);
     fprintf(file, "video.palette=%s\\n", g_palette_idx == 1 ? "mono" : "green");
     fprintf(file, "ui.language=%s\\n", g_rr_language ? "fr" : "en");
     fprintf(file, "input.autofire=%d\\n", g_rr_autofire ? 1 : 0);
@@ -336,6 +352,7 @@ static void binding_to_config_value''')
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
     }
+    rr_scanlines_destroy(&g_rr_scanlines);
     if (g_rr_scale2x_texture) {
         SDL_DestroyTexture(g_rr_scale2x_texture);
         g_rr_scale2x_texture = NULL;
@@ -370,18 +387,8 @@ static void binding_to_config_value''')
     ImGui_ImplSDLRenderer2_NewFrame();''', '''    SDL_RenderCopy(g_renderer,
         rr_scale2x_active ? g_rr_scale2x_texture : g_texture,
         NULL, &g_game_viewport);
-    if (g_render_filter_mode == GB_RENDER_FILTER_SCANLINES && g_game_viewport.h >= GB_SCREEN_HEIGHT * 2) {
-        SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 95);
-        for (int y = 0; y < GB_SCREEN_HEIGHT; ++y) {
-            int top = (int)((int64_t)y * g_game_viewport.h / GB_SCREEN_HEIGHT);
-            int bottom = (int)((int64_t)(y + 1) * g_game_viewport.h / GB_SCREEN_HEIGHT);
-            SDL_Rect line = {g_game_viewport.x, g_game_viewport.y + bottom - (bottom - top) / 2,
-                             g_game_viewport.w, (bottom - top) / 2};
-            SDL_RenderFillRect(g_renderer, &line);
-        }
-        SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_NONE);
-    }
+    if (g_render_filter_mode == GB_RENDER_FILTER_SCANLINES)
+        rr_scanlines_draw(g_renderer, &g_rr_scanlines, &g_game_viewport, GB_SCREEN_HEIGHT);
 
     ImGui_ImplSDLRenderer2_NewFrame();''')
     menu_start = '    if (g_show_menu) {\n        const float ui_scale = imgui_io.FontGlobalScale;'
@@ -417,6 +424,7 @@ static void binding_to_config_value''')
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
     }
+    rr_scanlines_destroy(&g_rr_scanlines);
     if (g_rr_scale2x_texture) {
         SDL_DestroyTexture(g_rr_scale2x_texture);
         g_rr_scale2x_texture = NULL;
@@ -597,6 +605,28 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
         '    return ram_result && rtc_result;\n}',
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     runtime_cpu.write_text(source, encoding="utf-8")
+
+    # Writable code keeps live byte guards, one instruction per dispatch and
+    # the normal interrupt/frame safepoints. Unknown or modified RAM stays
+    # observable through the original interpreter path.
+    game = project / 'game.c'
+    source = game.read_text(encoding='utf-8')
+    source = replace_once(source, '#include "game_internal.h"',
+                          '#include "game_internal.h"\n#include "gb_ram_helpers.h"')
+    source = replace_once(source, 'if (gbrt_try_execute_ram_stub(ctx, addr)) {',
+                          'if (rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr)) {')
+    source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
+                          '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
+    game.write_text(source, encoding='utf-8')
+
+    # Cross-body guest jumps/calls must not consume the host C stack. The
+    # emitter has already set PC and performed the timed guest stack/bus work.
+    # Yield to the outer ROM-PC dispatch loop; wrappers still enter their body.
+    for generated in project.glob('game_funcs_*.c'):
+        source = generated.read_text(encoding='utf-8')
+        source = re.sub(r'\bfunc_[A-Za-z0-9_]+\(ctx\);',
+                        'return; /* next native body via outer PC dispatch */', source)
+        generated.write_text(source, encoding='utf-8')
 
     main = project / "game_main.c"
     source = main.read_text(encoding="utf-8")

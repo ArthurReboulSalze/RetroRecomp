@@ -63,6 +63,7 @@ static void rr_gb_cycle_fullscreen(void) {
         set_fullscreen_enabled(false);
         rr_gb_notice(rr_gb_tr("Windowed", "Fenetre"));
     }
+    save_runtime_preferences();
 }
 
 static void rr_gb_palette_change(void) {

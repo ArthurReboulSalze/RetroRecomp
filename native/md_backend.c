@@ -27,6 +27,9 @@ static void *cold_state;
 static size_t cold_length;
 static bool reset_ok = true;
 static bool execution_fault;
+extern void rr_md_portable_restart(uint32_t pc);
+static uint64_t frame_audio_hash;
+static uint64_t bytes_hash(const void *data, size_t size);
 /* Probe-only PCM evidence, before host resampling/output. No playback cost. */
 static uint64_t fm_samples, psg_samples, fm_nonzero, psg_nonzero;
 static uint64_t fm_hash = 14695981039346656037ull, psg_hash = 14695981039346656037ull;
@@ -140,7 +143,7 @@ bool rr16_init(bool headless) {
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
     if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
     machine_init(); rr16_md_ym_reset(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
-    g_machine.bus.version = RR_MD_OVERSEAS ? 0x80 : 0x00;
+    g_machine.bus.version = (RR_MD_OVERSEAS ? 0x80 : 0x00) | (RR_MD_PAL ? 0x40 : 0x00);
     rr16_gun_reset();
     genesis_sim_set_tick_count(0);
     crash_report_set_log_path(NULL);
@@ -152,7 +155,7 @@ bool rr16_init(bool headless) {
     if (!cold_length || !genesis_rb_load(cold_state, cold_length)) {
         free(cold_state); cold_state = NULL; glue_shutdown(); return false;
     }
-    audible = !headless && audio_init(223721) == 0;
+    audible = !headless && audio_init(RR_MD_PSG_HZ) == 0;
     return true;
 }
 void rr16_reset(void) {
@@ -160,6 +163,9 @@ void rr16_reset(void) {
     rr_md_z80_reset_evidence();
     /* The engine snapshot includes private scheduler globals and the live
      * fiber. Reinitializing only CPU/RAM would leave old timing behind. */
+#if RR_MD_STEP_AOT
+    rr_md_portable_restart(0);
+#endif
     reset_ok = cold_length && genesis_rb_load(cold_state, cold_length);
     rr16_md_ym_reset();
     execution_fault = false;
@@ -177,10 +183,13 @@ void rr16_reset(void) {
 bool rr16_frame(uint16_t p1, uint16_t p2) {
     if (!reset_ok) return false;
     GenesisSimInput in = {0}; in.pad[0] = p1; in.pad[1] = p2; in.human_mask = 1;
+    in.pad_type[0] = in.pad_type[1] = RR_MD_SIX_BUTTONS;
     int16_t fm[8192], psg[16384]; size_t fn = 0, pn = 0;
     GenesisSimAudio audio = {fm, 4096, &fn, psg, 16384, &pn};
     GenesisSimHooks hooks = {0}; hooks.sink = line_sink;
     int ok = genesis_sim_step(&in, &audio, &hooks);
+    if (headless_mode) frame_audio_hash = bytes_hash(fm,fn*2*sizeof *fm) ^
+        (bytes_hash(psg,pn*sizeof *psg)*1099511628211ull);
     if (headless_mode) {
         audio_evidence(fm, fn * 2, &fm_samples, &fm_nonzero, &fm_hash, &fm_peak, &frame_fm_nonzero);
         audio_evidence(psg, pn, &psg_samples, &psg_nonzero, &psg_hash, &psg_peak, &frame_psg_nonzero);
@@ -219,6 +228,7 @@ uint64_t rr16_native_entries(void) {
 unsigned rr16_game_mode(void) { return RR_MD_SONIC ? g_ram[0xf600] : 0; }
 unsigned rr16_player_x(void) { return RR_MD_SONIC ? (g_ram[0xd008] << 8) | g_ram[0xd009] : 0; }
 int rr16_visible_width(void) { return (g_machine.vdp.reg[12] & 1) ? 320 : 256; }
+int rr16_visible_height(void) { return gvdp_screen_height(&g_machine.vdp); }
 static uint64_t bytes_hash(const void *data, size_t size) {
     uint64_t hash = 14695981039346656037ull;
     const uint8_t *bytes = data;
@@ -241,11 +251,12 @@ void rr16_report_details(FILE *file) {
             bytes_hash(g_machine.bus.z80_ram, sizeof g_machine.bus.z80_ram),
             bytes_hash(&cpu, sizeof cpu),
             bytes_hash(rr16_md_ym_state(), sizeof(RrMdYmTimers)));
-    fprintf(file, ",\"visible_width\":%d,\"cpu_pc\":%u,\"cpu_sr\":%u,\"cpu_usp\":%u,\"cpu_ssp\":%u,\"cpu_stopped\":%u,\"console_version\":%u,\"execution_fault\":%s,"
+    fprintf(file, ",\"visible_width\":%d,\"visible_height\":%d,\"raster_lines\":%u,\"frame_master_clocks\":%u,\"master_clock_hz\":%u,\"cpu_pc\":%u,\"cpu_sr\":%u,\"cpu_usp\":%u,\"cpu_ssp\":%u,\"cpu_stopped\":%u,\"console_version\":%u,\"execution_fault\":%s,"
             "\"rom_fallback_opcodes\":%llu,\"ram_fallback_opcodes\":%llu,"
             "\"cpu_hash\":\"%016llx\",\"ram_hash\":\"%016llx\",\"vram_hash\":\"%016llx\","
             "\"cram_hash\":\"%016llx\",\"vsram_hash\":\"%016llx\",\"vdp_register_hash\":\"%016llx\",\"rom_entries\":[",
-            rr16_visible_width(), g_cpu.PC & 0xffffffu, g_cpu.SR, rr_md_user_sp(), rr_md_supervisor_sp(),
+            rr16_visible_width(), rr16_visible_height(), RR_MD_LINES, RR_MD_FRAME_MASTER, RR_MD_MASTER_HZ,
+            g_cpu.PC & 0xffffffu, g_cpu.SR, rr_md_user_sp(), rr_md_supervisor_sp(),
             rr_md_cpu_stopped, g_machine.bus.version, execution_fault ? "true" : "false",
             rom_fallback, ram_fallback, bytes_hash(&g_cpu, sizeof g_cpu), bytes_hash(g_ram, sizeof g_ram),
             bytes_hash(g_machine.vdp.vram, sizeof g_machine.vdp.vram),
@@ -275,7 +286,51 @@ void rr16_trace_details(FILE *file) {
 uint64_t rr16_audio_fingerprint(void) {
     return fm_hash ^ (psg_hash * 1099511628211ull) ^ fm_samples ^ (psg_samples << 1);
 }
+uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
 size_t rr16_audio(int16_t *pcm, size_t capacity) { return 0; }
 void rr16_pause(bool paused) { if (audible) audio_set_playback_enabled(!paused); }
 void rr16_shutdown(void) { if (audible) audio_close(); free(cold_state); cold_state = NULL; cold_length = 0; glue_shutdown(); }
-bool rr16_state_file(const wchar_t *path, bool load) { return false; }
+#include "console16_state.h"
+extern size_t rr_md_portable_bound(void);
+extern size_t rr_md_portable_save(void *data, size_t capacity);
+extern int rr_md_portable_load(const void *data, size_t size);
+extern void rr_md_portable_restart(uint32_t pc);
+uint8_t *rr16_state_capture(size_t *size) {
+#if RR_MD_STEP_AOT
+    size_t core=rr_md_portable_bound(), gun=rr16_gun_state_save(NULL,0);
+    *size=4+core+sizeof(RrMdYmTimers)+gun;
+    uint8_t *data=malloc(*size); if (!data) return NULL;
+    uint32_t length=(uint32_t)core; memcpy(data,&length,4);
+    if (rr_md_portable_save(data+4,core)!=core ||
+        rr16_gun_state_save(data+4+core+sizeof(RrMdYmTimers),gun)!=gun) {
+        free(data); *size=0; return NULL;
+    }
+    memcpy(data+4+core,rr16_md_ym_state(),sizeof(RrMdYmTimers));
+    return data;
+#else
+    *size=0; return NULL;
+#endif
+}
+bool rr16_state_restore(const uint8_t *data, size_t size) {
+#if RR_MD_STEP_AOT
+    if (!data || size<4) return false;
+    uint32_t core; memcpy(&core,data,4);
+    size_t gun=rr16_gun_state_save(NULL,0);
+    if ((size_t)core+4+sizeof(RrMdYmTimers)+gun!=size) return false;
+    if (!rr_md_portable_load(data+4,core)) return false;
+    if (!genesis_sim_tick_count()) {
+        /* F8 can be pressed before the first frame. Recreate the current
+         * process's cold fiber instead of starting at uninitialized PC zero. */
+        rr_md_portable_restart(0);
+        if (!genesis_rb_load(cold_state,cold_length)) return false;
+    }
+    RrMdYmTimers timers; memcpy(&timers,data+4+core,sizeof timers);
+    rr16_md_ym_restore(&timers);
+    if (!rr16_gun_state_load(data+4+core+sizeof timers,gun)) return false;
+    reset_ok=true; execution_fault=false;
+    if (audible) audio_discard_playback();
+    return true;
+#else
+    return false;
+#endif
+}

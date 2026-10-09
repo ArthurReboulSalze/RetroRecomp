@@ -78,6 +78,43 @@ Listening tests and physical input-to-display latency remain separate.
 
 ## Evidence and limits
 
+### Broader cartridge cases — 9 October 2026
+
+Ten additional cartridges build successfully: Kirby's Dream Land, Super Mario
+Land 2, Wario Land, Donkey Kong Land, Kirby's Dream Land 2, Link's Awakening,
+Metroid II, Pokemon Red, Pokemon Yellow and Wario Land II. This expands the
+local cases to MBC1, battery-backed MBC3 and MBC5; it does not exercise MBC3 RTC
+or Game Boy Color-only behavior.
+
+All ten pass the mandatory instruction-by-instruction boot and deep left/right
+CPU comparisons. Regenerated cases also check the added varied path. Each export
+passes an additional 6,000-frame varied-input probe and a save/close/relaunch
+comparison of the entire serialized state after 180 resumed frames. Eight have
+zero fallback cycles in that longer probe. Donkey Kong Land and Wario Land II
+still execute some writable RAM code through the reported interpreter.
+
+These cases improved the common runtime in two ways. A guarded native helper
+handles a small writable store/increment routine, checking all live bytes and
+the normal DMA/HALT boundaries; 5,777 authored CPU/memory/timing checks pass.
+Generated cross-body jumps and calls now return to the native PC dispatch loop
+instead of recursively consuming the host C stack. An authored loop completes
+65,535 guest calls/returns with bounded host stack, matching 409,631 reference
+steps and reporting no fallback. Pokemon Yellow exposed this stack overflow.
+
+The varied input path also found ROM entries missing from the simpler scripts
+in Wario Land and Link's Awakening. Late reference comparisons matched before
+learning; their regenerated exports then reported zero fallback on that path.
+Their observations are included in the [shared library](COMPILATION_LIBRARY.md).
+The checks remain scripted paths, not completed games or independent PPU/APU
+validation. The user performs visual, gameplay and listening checks.
+
+Cold build time is still a limitation for large cartridges. In this parallel
+batch, Wario Land II took about 24 minutes and Pokemon Yellow's corrected cold
+conversion about 23 minutes, mostly compiling large generated C files over two
+passes. The earlier Mario measurements below do not represent every cartridge.
+Bundled observations can avoid rediscovery and another pass, but do not remove
+the cost of the first C build. Reducing duplicate/generated C is future work.
+
 The standard all-bank scan uses heuristics and can miss short functions.
 RetroRecomp also examines unconditional ROM JP/JR entries independently,
 including short relays and overlapping instruction starts, then feeds these
@@ -86,8 +123,9 @@ bank boundary are excluded from this extra scan. ROM contents and mapper
 behavior are preserved. These candidates are discovery hints, not a claim
 that every ROM byte is code or every entry has been tested.
 
-Each pass runs a boot scenario plus two reproducible input scenarios: Start,
-left/right movement and button presses. The selected frame count applies to
+Each normal-length pass runs a boot scenario plus three reproducible input
+scenarios: left/right play and a varied menu/movement/button sequence. The varied
+path is included from 750 frames onward. The selected frame count applies to
 each scenario. Very short tests ending before Start keep only the boot test.
 All scenarios must reach zero fallback before stopping early; otherwise their
 new ROM entries feed the next pass, up to the selected pass limit. Reports
@@ -112,7 +150,7 @@ independently validate PPU, APU, input timing, cartridge peripherals, complete
 gameplay or physical latency.
 
 The option only changes the scope of reference CPU validation. Native ROM
-discovery, the converter library, the three coverage probes and the pass limit
+discovery, the converter library, the coverage probes and the pass limit
 are identical in both modes. **Frames per test** controls the coverage probes,
 not the deep CPU comparison budget. From the CLI, use `--no-gb-deep-validation`
 to opt out for `convert` or `batch`; it is ignored for other consoles. The conversion
@@ -179,7 +217,7 @@ discovery compiles that JP relay before testing: both runs and the 3600-frame
 boot reach zero fallback. The before/after state dumps match except for the
 fallback counter. This is evidence for those paths, not whole-game coverage.
 
-Three targeted local cartridges have been checked for 120 boot frames each:
+The earliest three targeted local cartridges were checked for 120 boot frames each:
 Tetris (no bank switching), Super Mario Land (MBC1), and Lazlos' Leap
 (MBC2 with battery RAM). Tetris and Lazlos' Leap reported zero
 fallback cycles. Super Mario Land first reported one fallback at bank 0,

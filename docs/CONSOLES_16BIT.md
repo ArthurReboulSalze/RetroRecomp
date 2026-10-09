@@ -3,10 +3,10 @@
 RetroRecomp includes two separate experimental console profiles. This
 does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identified
 from its console header, then its SHA-256 must match a qualified game revision
-before code generation starts. A different revision, PAL ROM or unsupported
+before code generation starts. A different revision, unqualified timing mode or unsupported
 title is rejected rather than compiled with another game's roots.
-This document describes the development tree after release 0.20.0, including
-twenty-two Mega Drive revisions, native instruction paths, resolution-aware scanlines
+This document describes the development tree after release 0.21.0, including
+27 Mega Drive and 12 Super Nintendo revisions, native instruction paths, resolution-aware scanlines
 and three qualified lightgun cartridges;
 see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 
@@ -34,28 +34,90 @@ see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 | Mega Drive | ToeJam & Earl, USA, CRC32 7A588F4B | NTSC | 320 × 224 |
 | Mega Drive | Vectorman, multi-region, CRC32 D38B3354 | NTSC tested | 320 × 224 |
 | Mega Drive | Wonder Boy in Monster World, USA/Europe, CRC32 1592F5B0 | NTSC tested | 256 × 224 |
+| Mega Drive | Sonic the Hedgehog 2, CRC32 7B905383 | NTSC tested | 320 × 224 |
+| Mega Drive | Earthworm Jim, CRC32 1C07B337 | PAL | 320 × 224 |
+| Mega Drive | Mortal Kombat II, CRC32 A9E013D8 | NTSC tested, six-button pad | 320 × 224 |
+| Mega Drive | Road Rash II, CRC32 0876E992 | NTSC tested | 320 × 224 |
+| Mega Drive | Shining Force II, CRC32 83CB46D1 | PAL | 320 × 224 |
 | Super Nintendo | Super Mario World, USA, CRC32 B19ED489 | NTSC | 256 × 224 |
 | Super Nintendo | Super Scope 6, USA, CRC32 B141EA99 | NTSC | 256 × 224 |
 | Super Nintendo | The Legend of Zelda - A Link to the Past, USA, CRC32 777AAC2F | NTSC LoROM | 256 × 224 |
 | Super Nintendo | Super Metroid, Japan/USA, CRC32 D63ED5F8 | NTSC LoROM | 256 × 224 |
 | Super Nintendo | Donkey Kong Country, USA, CRC32 762AF827 | NTSC HiROM | 256 × 224 |
 | Super Nintendo | Super Castlevania IV, USA, CRC32 B64FFB12 | NTSC LoROM | 256 × 224 |
+| Super Nintendo | F-Zero, USA, CRC32 AA0E31DE | NTSC LoROM | 256 × 224 |
+| Super Nintendo | Mega Man X, USA, CRC32 DED53C64 | NTSC LoROM | 256 × 224 |
+| Super Nintendo | Chrono Trigger, USA, CRC32 2D206BF7 | NTSC HiROM | 256 × 224 |
+| Super Nintendo | Super Bomberman, USA, CRC32 63A8E2C6 | NTSC HiROM | 256 × 224 |
+| Super Nintendo | Super Mario All-Stars, USA, CRC32 925637C7 | NTSC LoROM | 256 × 224 |
+| Super Nintendo | Pop'n TwinBee, Europe, CRC32 588A9707 | PAL LoROM | 256 × 224 |
 
 The original ROMs remain read-only. Linear `.md`/`.gen` and validated
 `.sfc`/`.smc` images, single-cartridge ZIPs, and identifiable `.bin`/`.rom`
 files are recognized. A SNES copier header is removed only from the in-memory
-build input. Interleaved SMD, PAL execution and additional cartridge profiles
+build input. Interleaved SMD and additional unqualified cartridge profiles
 are not enabled in these proofs. No ROM patches or widescreen mode are applied.
 Mega Drive region headers take precedence over misleading filenames: a
-PAL-only header cannot be forced through this NTSC-only integration. A reset
+PAL-only header cannot be forced to NTSC. A reset
 stack pointer of zero is valid: the first predecrement push wraps onto work RAM.
 Region parsing accepts the original J/U/E letters and the later ASCII hex mask
 in the three defined region bytes. Reserved header bytes do not affect it;
-unknown codes are reported and rejected before conversion. A lone E retains
+unknown codes are reported and rejected before conversion. Three exact legacy
+revisions have explicit qualified NTSC region hints: Columns and Golden Axe
+have empty headers; Castle of Illusion uses the older US code. Their complete
+SHA-256 identities bind these exceptions; a filename or modified ROM cannot
+inherit them. A lone E retains
 the original PAL meaning. Japan-only cartridges now select the domestic NTSC
 version register; multi-region cartridges prefer overseas NTSC when available.
 The ROM's region checks stay intact. See the author's
 [region-header reference](https://plutiedev.com/rom-header).
+
+Qualified PAL Mega Drive builds use 313 raster lines and a 53,203,424 Hz master
+clock; NTSC builds use 262 lines and 53,693,175 Hz. Video, audio-chip clocks,
+console region/status bits and the host deadline use the same selected standard.
+One raster spans 3,420 master clocks per line, yielding approximately 49.70146
+PAL or 59.92274 NTSC frames per second. The progressive vertical-counter jump
+sequences are covered by authored fixtures. These checks do not certify
+sub-scanline CPU budgets, DMA/FIFO contention or interlaced/NTSC V30 behavior.
+See [hardware measurements](https://www.plutiedev.com/mirror/kabuto-hardware-notes).
+The two new PAL images are named USA in the supplied collection; qualification
+uses their actual cartridge bytes. Multi-region revisions remain NTSC-only
+unless that exact profile has also passed PAL checks.
+
+### Super Nintendo PAL timing
+
+The first European revision uses 312 lines of 1,364 master clocks and
+a 21,281,370 Hz video oscillator: approximately 50.00698 fields per second.
+The PPU's $213F region bit, raster journal chronology, vblank polling and IRQ
+comparators use the same region. PAL includes the longer vblank interval;
+an authored interrupt on line 300 verifies that it is not truncated at the
+NTSC field boundary.
+
+The SPC oscillator remains 1,025,280 Hz, producing 32,040 native DSP samples
+per second. Fractional cycles carry between host iterations, including long
+loaders; switching to PAL does not slow the sound driver to 50/60 of its
+original rate. Existing qualified NTSC audio scheduling is retained in this
+stage. Timing constants were checked against the primary ares implementation:
+[system clocks](https://github.com/ares-emulator/ares/blob/master/ares/sfc/system/system.cpp),
+[APU oscillator](https://github.com/ares-emulator/ares/blob/master/ares/sfc/system/system.hpp)
+and [PPU field geometry](https://github.com/ares-emulator/ares/blob/master/ares/sfc/ppu/ppu.cpp).
+
+This initial PAL scope is progressive 256 x 224. Overscan, interlace and
+512-pixel modes are not qualified. The converter checks the actual active
+raster, excluding screen-off register initialization. Long qualification
+runs also require picture and PCM activity, in addition to internal
+native/reference agreement. A silent or unsupported-display result must
+not become a qualified export merely because both CPU paths agree.
+
+The PAL cartridge passes demo/play tests of 3,600 images and a varied
+6,000-image input replay with zero interpreted main or sound CPU operations.
+These checks establish the tested paths and internal agreement; independent
+full hardware fidelity, physical latency and complete gameplay remain separate.
+
+Additional European probes did not qualify: Terranigma remained silent, while
+The Firemen and Smash Tennis exercised hires on active lines during extended
+input replays. These results identify work for the audio/512-pixel stages;
+none of these cartridges is enabled or exported by this PAL stage.
 
 ## Shared game interface
 
@@ -73,15 +135,22 @@ fullscreen scaling and HiDPI output, without darkening alternate game rows.
 Below 2x vertical scaling, the image stays intact because those gaps cannot
 be resolved. Only presentation changes; game pixels and timing remain untouched.
 
-Mega Drive defaults to arrows, W/X/C for A/B/C and Enter for Start. SNES
+Mega Drive defaults to arrows, W/X/C for A/B/C and Enter for Start. The qualified
+Street Fighter II' Plus and Mortal Kombat II profiles expose X/Y/Z and Mode in
+F2, using A/S/D and right Shift by default. Their two controller ports use the
+six-button protocol; other profiles retain three-button pads. SNES
 defaults to arrows, W/X/A/S for A/B/X/Y, Q/E for L/R, right Shift for Select
 and Enter for Start. Player two uses the numeric keypad and has no reset
 shortcut. F2 exposes the console's actual controls.
 Letter defaults and F2 key labels follow the active keyboard layout,
 including AZERTY. Saved custom mappings retain their physical key positions.
 
-F8/F9 states and SNES battery-backed save persistence are not implemented yet.
-Do not rely on these test builds to preserve a saved adventure.
+F8/F9 quick states are implemented for the qualified instruction-based profiles,
+including PAL. They survive closing and restarting the game and are stored in
+`datas/states/<game-slug>-<rom-sha12>.rrstate`. A runtime ABI or ROM mismatch is
+rejected. See [captured state and validation](GAME_STATES.md#mega-drive-and-super-nintendo).
+Independent SNES cartridge battery-save files remain unimplemented; use F8/F9
+to preserve progress in these builds.
 
 Ordinary launch/quit creates no data directory or log. Changing a saved
 setting creates `datas/Retro-Recomp.ini` beside the games, with separate
@@ -149,12 +218,19 @@ Z80 registers, PC, RAM, total instructions/cycles and CPU-visible timer state.
 Main-CPU comparisons also include SR, both stack pointers and the STOP latch. Constant nonzero DAC output is not
 counted as changing audio. A shared silent-driver bug can still match a
 reference, so dedicated sound regressions also require sustained activity.
-Authored Mega Drive fixtures now exercise 7,616 instruction/state comparisons,
+Authored Mega Drive fixtures now exercise 7,872 instruction/state comparisons,
 guest-stack return modification, RTE frames, byte stack alignment and
 self-modifying RAM guard rejection. Additional authored checks exercise static
 control-flow discovery and timer start/stop, overflow, flags, reload and long
 clock spans. The three new revisions reach zero interpreted 68000 instructions
 in both 3,600-frame scenarios, with complete CPU/video/PCM reference agreement.
+
+The common 68000 compiler also implements all four MOVEP transfers. Byte accesses
+visit alternating bus addresses, word loads preserve the upper half of the
+destination register, and flags remain unchanged. Independent expectations
+check signed displacements, odd addresses, 24-bit bus wrap and the 16/24-clock
+cost, in addition to the native/reference comparison. See Motorola's
+[programming reference](https://www.nxp.com/docs/en/reference-manual/M68000PRM.pdf).
 
 The subsequent qualification of Gunstar Heroes, Ecco and Desert Strike also
 reaches zero interpreted 68000 opcodes in both 3,600-frame scenarios. Gunstar
@@ -437,6 +513,36 @@ Untested gameplay may still encounter interpreter fallback. Hardware
 accuracy, full-game compatibility, sound quality and physical latency remain
 unvalidated. User gameplay review is still required.
 
+## Expanded qualification after 0.21.0
+
+The five additional Mega Drive revisions pass demo/play checks of 3,600 frames
+each and an advanced 6,000-frame replay, with zero interpreted 68000 or Z80
+opcodes on the final tested paths. The five additional SNES revisions pass the
+two 3,600-frame scenarios and a varied 6,000-frame replay. Chrono Trigger's
+additional RAM paths were learned only after matching the reference and the
+regenerated replay finishes without fallback. Each comparison covers CPU state, memory,
+visible-frame sequences and audio PCM. Standard Mega Drive conversion now also
+compares against the internal reference before admitting any observations to
+the library; that gate is no longer limited to advanced scans.
+
+The regeneration checks reuse front covers with artwork network transports
+blocked, compare packed and unpacked exports over 600 frames, and verify reset
+video/audio under equivalent memory conditions. F-Zero and Super Mario All-Stars
+initialize cartridge SRAM on their first boot; a normal reset preserves it and
+can therefore change the boot timing, PCM or visible sequence. Their native
+resets match the reference resets with preserved SRAM; replaying with the same
+initial SRAM also reproduces the original video and PCM. No save RAM is cleared
+by the player's reset to force a match. Short isolated launches create no extra files. These
+checks complement the authored instruction and raster fixtures; the internal
+reference still shares the hardware model.
+
+Hidden SDL pacing measurements use dummy devices. A PAL export completed
+1,200 frames in 24.144120 seconds against 24.144160 expected; a SNES export
+completed 1,200 in 20.015378 against 19.967116 expected under conversion load.
+An NTSC Mega Drive sample completed 1,800 in 30.038580 against 30.038678 expected.
+These measurements check the presentation deadline, not physical input/audio
+latency or the accuracy of an in-game timer.
+
 ## Build and dependency contract
 
 These profiles use pinned sources downloaded into `.deps` on first conversion:
@@ -451,7 +557,7 @@ The existing Windows C++ toolchain is required for conversion. The SNES
 function analyzer for Super Mario World additionally requires an installed stable Rust toolchain, minimum
 1.85; this integration does not install Rust automatically. Generated games
 need none of those development tools to run.
-The five other qualified SNES instruction maps do not require that function analyzer or
+The ten other qualified SNES instruction maps do not require that function analyzer or
 the separate SuperMarioWorldRecomp dependency.
 
 Generated-source analysis is cached for the exact ROM, pinned engine/game
@@ -466,6 +572,6 @@ MIT licence does not replace them. See [Genesis notices](../licenses/segagenesis
 [SNES notices](../licenses/snesrecomp.md) and [SMW notices](../licenses/SuperMarioWorldRecomp.md).
 
 The next stages are broader Mega Drive gameplay and mapper qualification,
-broader SNES RAM/gameplay coverage, state/SRAM integration, PAL timing
-qualification and additional structurally
+broader SNES RAM/gameplay coverage, state/SRAM integration, SNES PAL and wider
+Mega Drive PAL qualification, and additional structurally
 different titles. Recognition alone does not grant conversion compatibility.

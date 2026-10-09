@@ -53,7 +53,10 @@ including page crossings, boundary operands, wrapping PC, NMI and IRQ.
 The earlier NROM/MMC1/UxROM/CNROM/MMC3 matrix passed **332,800 instruction cases**
 across NTSC and PAL. The extended MMC5/AxROM/MMC2/FME-7 matrix adds **266,240
 passing cases**, bringing the recorded total to **599,040** across nine mapper
-families. The default self-test includes all nine families. Super Mario Bros. 3, Mega Man 2 and Mega Man also reached
+families. The 9 October expansion adds Color Dreams, VRC6, GxROM, Camerica and
+mapper 78: **332,800 additional passing cases**, for **931,840 recorded cases**
+across fourteen families. The default self-test includes all fourteen families.
+Super Mario Bros. 3, Mega Man 2 and Mega Man also reached
 zero fallback on three 1,800-frame scripted paths. These are bounded results,
 not a full-catalogue compatibility claim.
 
@@ -97,7 +100,32 @@ now starts a separate private EXE copy with fresh battery memory. Existing
 player saves are preserved, and genuine comparison differences still block
 the export. This changes the converter's tests, not normal in-game persistence.
 
-## PAL and NTSC
+## Ten further cartridge cases — 9 October 2026
+
+Ten additional NTSC cartridges build successfully. Each passed full internal
+native/reference comparisons on three 3,600-frame scenarios: **108,000 matching
+frame pairs**. Save/close/relaunch checks also matched state and PCM over 180
+resumed frames, including lazy file creation and corrupt-state rejection.
+
+| Cartridge | Mapper | Maximum fallback on those paths |
+| --- | --- | --- |
+| Contra | 2 | 0% |
+| Super C | 4 | 0% |
+| Metroid | 1 | 0% |
+| Gradius | 3 | 0% |
+| Wizards & Warriors | 7 | < 0.49% — RAM execution |
+| Crystal Mines | 11 | 0% |
+| Holy Diver | 78 | 0% |
+| Micro Machines | 71 | < 0.011% — RAM execution |
+| Gumshoe | 66 | 0% |
+| Esper Dream 2 | 26 | 0% |
+
+These broaden the tested cartridge cases; they do not establish full gameplay
+or independently validate the shared hardware runtime. Gumshoe uses the Zapper;
+its aiming and visual review still require user testing. Useful ROM entries join
+the [shared compilation library](COMPILATION_LIBRARY.md).
+
+## PAL and NTSC timing
 
 NES 2.0 timing metadata takes priority. A clean legacy iNES PAL flag is also
 accepted; otherwise regional filename tags provide a hint. Unlabelled and

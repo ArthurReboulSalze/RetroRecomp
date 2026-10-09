@@ -15,6 +15,7 @@ import zlib
 
 from .core import ConversionError
 from .library import atomic_json, entry_lock, library_root
+from .knowledge import record_for
 from .megadrive_codegen import _masked, write_changed
 from .snes_codegen import cycle_costs
 
@@ -26,18 +27,23 @@ def memory_file(rom):
 
 
 def read_masks(rom):
+    from .supernintendo import knowledge_engine
+    shared = bytearray(MASK_BYTES)
+    for pc, offset in record_for('snes', rom, knowledge_engine(rom)).get('spc_refs', []):
+        opcode = rom.data[offset]
+        shared[pc * 32 + opcode // 8] |= 1 << (opcode & 7)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:
-            return bytes(MASK_BYTES)
+            return bytes(shared)
         raw = base64.b64decode(record['opcode_masks'], validate=True)
         stream = zlib.decompressobj()
         masks = stream.decompress(raw, MASK_BYTES + 1)
         if len(masks) != MASK_BYTES or not stream.eof or stream.unused_data:
-            return bytes(MASK_BYTES)
-        return masks
+            return bytes(shared)
+        return bytes(a | b for a, b in zip(masks, shared))
     except (OSError, ValueError, TypeError, KeyError, AttributeError, zlib.error):
-        return bytes(MASK_BYTES)
+        return bytes(shared)
 
 
 def valid_variant(item):

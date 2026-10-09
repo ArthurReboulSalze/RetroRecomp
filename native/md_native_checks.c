@@ -15,6 +15,9 @@ uint32_t rr_md_cpu_stopped;
 static int force_reference;
 static unsigned fallback, cases;
 static unsigned bus_reads;
+static unsigned watched_writes;
+static uint32_t write_addresses[4];
+static int watch_writes;
 int genesis_force_interp(void) { return force_reference; }
 void rr16_note_interpreted(void) { ++fallback; }
 void rr16_note_rom_fallback(uint32_t pc) { (void)pc; }
@@ -29,7 +32,14 @@ uint8_t m68k_read8(uint32_t pc) {
 }
 uint16_t m68k_read16(uint32_t pc) { return ((unsigned)m68k_read8(pc) << 8) | m68k_read8(pc + 1); }
 uint32_t m68k_read32(uint32_t pc) { return ((uint32_t)m68k_read16(pc) << 16) | m68k_read16(pc + 2); }
-void m68k_write8(uint32_t pc, uint8_t v) { pc &= 0xffffffu; if (pc >= 0xff0000u) g_ram[pc & 65535] = v; }
+void m68k_write8(uint32_t pc, uint8_t v) {
+    pc &= 0xffffffu;
+    if (watch_writes) {
+        if (watched_writes < 4) write_addresses[watched_writes] = pc;
+        ++watched_writes;
+    }
+    if (pc >= 0xff0000u) g_ram[pc & 65535] = v;
+}
 void m68k_write16(uint32_t pc, uint16_t v) { m68k_write8(pc, v >> 8); m68k_write8(pc + 1, v); }
 void m68k_write32(uint32_t pc, uint32_t v) { m68k_write16(pc, v >> 16); m68k_write16(pc + 2, v); }
 
@@ -64,6 +74,55 @@ static void differential(uint32_t pc, unsigned seed) {
         fprintf(stderr, "CPU mismatch pc=%06x seed=%u native=%d reference=%d\n", pc, seed, ns, rs); exit(1);
     }
     ++cases;
+}
+/* Independent byte lanes, ordering, register and clock expectations from
+ * the Motorola programming manual, beyond the shared reference semantics. */
+static void movep_checks(void) {
+    for (int reference = 0; reference <= 1; ++reference) {
+        force_reference = reference;
+        for (unsigned form = 0; form < 4; ++form) {
+            unsigned count = (form & 1) ? 4 : 2;
+            for (unsigned odd = 0; odd < 2; ++odd) {
+                memset(&g_cpu, 0, sizeof g_cpu); memset(g_ram, 0x5a, sizeof g_ram);
+                g_cpu.PC = TEST_MOVEP + form * 16; g_cpu.A[0] = 0xff0110 + odd;
+                g_cpu.D[0] = 0x89abcdef; g_cpu.SR = 0xa71f;
+                uint32_t address = g_cpu.A[0] - 16;
+                g_ram[address & 65535] = 0x12; g_ram[(address + 2) & 65535] = 0x34;
+                g_ram[(address + 4) & 65535] = 0x56; g_ram[(address + 6) & 65535] = 0x78;
+                watched_writes = 0; watch_writes = 1; fallback = 0;
+                g_cycle_accumulator = g_audio_cycle_counter = 0;
+                REQUIRE(m68k_interp_step() == M68KI_OK, "MOVEP executes");
+                watch_writes = 0;
+                REQUIRE(g_cpu.PC == TEST_MOVEP + form * 16 + 4 && g_cpu.A[0] == 0xff0110 + odd
+                        && g_cpu.SR == 0xa71f && fallback == (unsigned)reference,
+                        "MOVEP preserves address and flags, advances past displacement");
+                REQUIRE(g_audio_cycle_counter == (count == 2 ? 16 : 24)
+                        && g_cycle_accumulator == g_audio_cycle_counter, "MOVEP takes 16/24 clocks");
+                if (form < 2) {
+                    REQUIRE(g_cpu.D[0] == (count == 2 ? 0x89ab1234u : 0x12345678u)
+                            && !watched_writes, "MOVEP load and word upper-half preservation");
+                } else {
+                    REQUIRE(g_cpu.D[0] == 0x89abcdef && watched_writes == count, "MOVEP store byte count");
+                    for (unsigned i = 0; i < count; ++i)
+                        REQUIRE(write_addresses[i] == address + i * 2
+                                && g_ram[(address + i * 2) & 65535] ==
+                                   (uint8_t)(0x89abcdefu >> ((count - 1 - i) * 8))
+                                && g_ram[(address + i * 2 + 1) & 65535] == 0x5a,
+                                "MOVEP writes big-endian bytes in order, preserving intervening lanes");
+                }
+            }
+        }
+        memset(&g_cpu, 0, sizeof g_cpu);
+        g_cpu.PC = TEST_MOVEP + 48; g_cpu.SR = 0x2015;
+        g_cpu.A[0] = 0x0100000d; g_cpu.D[0] = 0x12345678;
+        watched_writes = 0; watch_writes = 1;
+        REQUIRE(m68k_interp_step() == M68KI_OK, "MOVEP wrapped peripheral address");
+        watch_writes = 0;
+        REQUIRE(watched_writes == 4 && write_addresses[0] == 0xfffffd
+                && write_addresses[1] == 0xffffff && write_addresses[2] == 1 && write_addresses[3] == 3
+                && g_cpu.A[0] == 0x0100000d && g_cpu.SR == 0x2015,
+                "MOVEP sign-extends displacement and wraps the 24-bit bus, keeping 32-bit An");
+    }
 }
 static void stop_checks(void) {
     for (int reference = 0; reference <= 1; ++reference) {
@@ -298,9 +357,10 @@ int main(void) {
     for (unsigned seed = 1; seed <= 64; ++seed) differential(0xff8060, seed);
     for (unsigned seed = 1; seed <= 64; ++seed) differential(0xff8080, seed);
     architectural_checks();
+    movep_checks();
     trap_checks();
     stop_checks();
     timer_checks();
-    printf("{\"instruction_state_comparisons\":%u,\"architecture_checks\":\"passed\",\"ym_timer_checks\":\"passed\",\"passed\":true}\n", cases);
+    printf("{\"instruction_state_comparisons\":%u,\"architecture_checks\":\"passed\",\"movep_checks\":\"passed\",\"ym_timer_checks\":\"passed\",\"passed\":true}\n", cases);
     return 0;
 }

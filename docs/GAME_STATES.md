@@ -1,6 +1,6 @@
 # Persistent game states
 
-This page describes the Sega state format. Game Boy has its own codec;
+The first sections describe the Master System / Game Gear format. Game Boy has its own codec;
 NES now supports F8/F9 through a separate ABI-bound machine snapshot in
 `datas/states/<game-slug>-<rom-sha12>.rrstate`. See the
 [NES state format and validation](NES.md#controls-quick-states-and-zapper).
@@ -73,3 +73,34 @@ They do not establish original-hardware fidelity, physical input latency or
 gameplay correctness for every game. The current mode-4, mapper and
 peripheral limitations still apply. Future consoles need their own complete
 machine state and model identifiers before supporting these shortcuts.
+
+## Mega Drive and Super Nintendo
+
+Qualified instruction-based 16-bit exports support F8/F9, with one slot in
+`datas/states/<game-slug>-<rom-sha12>.rrstate`. Launching a game or trying F9
+without a slot creates nothing. F8 flushes a temporary file before atomically
+replacing the previous state. The header checks the complete ROM SHA-256,
+console, PAL/NTSC mode, runtime ABI, bounded payload size and an integrity hash.
+Different cartridges, timing modes or incompatible runtime builds are rejected.
+These are Windows x64 runtime snapshots, not a format shared with other tools.
+
+Mega Drive stores the architectural 68000 state (including STOP and stack
+modes), scheduler, RAM, VDP, bus/Z80, FM/PSG chip state and pending audio events,
+controller latches, additional YM timer phases and gun protocol state. Disk
+states exclude the engine's in-process fiber stack. Cooperative instruction
+yields wait for retirement; loading rebuilds the fiber at the stored guest PC
+and preserves the guest stack instead of restoring process addresses.
+
+SNES uses its guest snapshot codec plus pointer-free CPU/execution residue,
+beam-driver resume PC and WAI latch, APU scheduling and PAL clock fractions,
+audio resampler phase, memory/PPU/DSP/cartridge state and Super Scope packet
+latches. The game's existing video modes and timing are retained. Host device
+audio is cleared on loading, and display pacing starts again on the new timeline.
+Diagnostics remain cumulative within a process; rewinding does not hide fallback.
+
+`python tools/console16_state_selftest.py <game.exe>` checks save, process exit,
+reload and replay against continuous execution, including each video/PCM frame
+and final CPU/memory/hardware hashes. It also checks missing files, corruption,
+ROM/region/ABI mismatches and malformed inner payloads without guest mutation.
+This proves serialization and replay for the tested scenarios, not complete
+gameplay or original-hardware fidelity. Regenerate games to receive this feature.

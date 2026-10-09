@@ -71,6 +71,19 @@ class ProbeScenario:
     input_script: str = ''
 
 
+def varied_scenario(frames: int) -> ProbeScenario:
+    """Explore menu choices and released/reversed controls as well as movement."""
+    actions = [(180, 'S', 4), (450, 'S', 4), (600, 'S', 4), (750, 'A', 8),
+               (1000, 'D', 20), (1050, 'A', 8), (1200, 'S', 4),
+               (1500, 'R', 800), (2300, 'L', 700), (3200, 'R', 1000),
+               (4300, 'L', 800), (5250, 'R', 700)]
+    actions += [(i, 'A', 8) for i in range(1600, frames, 73)]
+    actions += [(i, 'B', 10) for i in range(1650, frames, 131)]
+    script = ','.join(f'{start}:{buttons}:{min(duration, frames-start)}'
+                      for start, buttons, duration in actions if start < frames)
+    return ProbeScenario('varied', script)
+
+
 def probe_scenarios(frames: int) -> tuple[ProbeScenario, ...]:
     scenarios = [ProbeScenario('boot')]
     for direction in ('R', 'L'):
@@ -82,6 +95,8 @@ def probe_scenarios(frames: int) -> tuple[ProbeScenario, ...]:
             actions.extend(f'{frame}:B:8' for frame in range(230, frames, 120))
         if actions:
             scenarios.append(ProbeScenario(f'play_{direction.lower()}', ','.join(actions)))
+    if frames >= 750:
+        scenarios.append(varied_scenario(frames))
     return tuple(scenarios)
 
 

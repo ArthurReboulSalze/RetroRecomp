@@ -13,6 +13,7 @@ import re
 
 from .core import ConversionError
 from .library import atomic_json, entry_lock, library_root
+from .knowledge import ram_variants as shared_ram_variants
 
 LIMIT = 32768
 
@@ -61,13 +62,16 @@ def memory_file(rom):
 
 
 def read_variants(rom):
+    from .console16 import REPOSITORIES
+    shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1], field='z80_refs')
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:
-            return []
-        return [item for item in record.get('variants', []) if valid_variant(item)][:LIMIT]
+            record = {}
     except (OSError, ValueError, TypeError, AttributeError):
-        return []
+        record = {}
+    items = [item for item in record.get('variants', []) + shared if valid_variant(item)]
+    return [{'address': pc, 'bytes': raw} for pc, _, raw in normalize(items)]
 
 
 def normalize(items):

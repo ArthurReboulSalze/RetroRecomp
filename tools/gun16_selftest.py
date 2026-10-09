@@ -17,8 +17,11 @@ def main():
     for kind in (0, 1, 2, 3):
         project = ROOT / '.build' / f'gun16-checks-{kind}'
         project.mkdir(parents=True, exist_ok=True)
-        for name in ('gun16.h', 'gun16.c', 'retro_console16.h', 'gun16_checks.c'):
+        for name in ('gun16.h', 'gun16.c', 'retro_console16.h', 'md_timing.h', 'snes_timing.h', 'gun16_checks.c'):
             shutil.copy2(ROOT / 'native' / name, project / name)
+        (project / 'retro_md_game.h').write_text(
+            '#define RR_MD_PAL 0\n#define RR_MD_SIX_BUTTONS 0\n', encoding='ascii')
+        (project / 'retro_snes_game.h').write_text('#define RR_SN_PAL 0\n', encoding='ascii')
         (project / 'retro_gun_game.h').write_text(
             f'#define RR16_GUN {kind}\n#define RR16_GUN_X_OFFSET {82 if kind == 1 else 0}\n'
             '#define RR16_GUN_Y_OFFSET 0\n', encoding='ascii')

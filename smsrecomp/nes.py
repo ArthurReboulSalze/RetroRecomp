@@ -21,6 +21,7 @@ from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .library import atomic_json, library_root
+from .knowledge import record_for
 from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
@@ -311,10 +312,10 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     library = library_root('nes') / rom.sha256 / ENGINE_REV
     previous = library / 'cycle-seeds.trace'
     seed = project / 'cycle-seeds.trace'
-    if previous.is_file():
-        shutil.copy2(previous, seed)
-    else:
-        seed.write_text('', encoding='ascii')
+    shared = record_for('nes', rom, ENGINE_REV).get('rom_entries', [])
+    entries = _seed_sites(previous) | {f'4k:{bank:X}:{address:04X}'
+        for bank, address in shared if bank < len(rom.data) // 4096 and 0x8000 <= address <= 0xffff}
+    seed.write_text(''.join(e + '\n' for e in sorted(entries)), encoding='ascii')
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries from previous runs.')
     scripts = _write_probe_scripts(project, frames)

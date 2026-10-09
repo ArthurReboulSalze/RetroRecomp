@@ -1,6 +1,6 @@
 # Controls
 
-The shortcut table below applies to Master System, Game Gear, Game Boy and NES.
+The shortcut table below applies to all six console profiles.
 Console-specific F5 functions and cartridge buttons are described below.
 Keyboard labels use the active Windows layout: pressing W on an AZERTY
 keyboard displays W in F2. Unsaved letter defaults also follow that layout.
@@ -80,6 +80,23 @@ aspect ratio; some letterboxing remains when the display has a different
 ratio. Press it a third time to restore the previous window size and position.
 The fit mode also supports all filters and mouse aiming, including HiDPI and
 the automatically cropped left hardware border.
+
+The last F4 mode and F3 filter are saved when changed and restored on the next
+launch. Settings are shared by games of the same console. Master System,
+Game Gear, NES, Mega Drive and SNES use distinct video sections in their shared
+`datas/Retro-Recomp.ini`; Game Boy uses `datas/Retro-Recomp-GameBoy.ini`, including
+its monochrome/green palette. Reading settings creates no folders or files.
+Older Sega `[Video] filtre` entries remain readable until an explicit change.
+
+Scanlines use one gap per original console raster row. Fractional fullscreen
+scaling integrates partial opacity, keeping the bands proportional to the
+image instead of snapping them to uneven thicknesses. Below 2× resolution the
+mask is omitted to preserve game detail. Window status text always uses English
+("Native code", "Interpreter fallback"); menu language remains configurable.
+
+F8/F9 also save and restore the qualified 16-bit games after closing the EXE.
+Each quick state uses the game's name and exact ROM identity in `datas/states`.
+See [state formats and compatibility](GAME_STATES.md#mega-drive-and-super-nintendo).
 
 F6 autofire is off by default. It pulses both mapped gamepad fire buttons
 while they are held, independently for each player/button. New presses fire

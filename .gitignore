@@ -57,6 +57,7 @@ AGENTS.md
 .codex/
 docs/*
 !docs/ARCHITECTURE.md
+!docs/COMPILATION_LIBRARY.md
 !docs/BUILDING.md
 !docs/COMPATIBILITY.md
 !docs/BOXART.md

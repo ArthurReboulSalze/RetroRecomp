@@ -157,7 +157,28 @@ def adapt_semantics(source: str) -> str:
         return M68KI_OK;
 
 '''
-    source = source.replace(anchor, trap + stop + anchor, 1)
+    # MOVEP is a peripheral transfer: each successive byte is two bus
+    # addresses apart. Word loads keep the upper half of Dn; neither form
+    # changes CCR or An. MC68000 allows an odd peripheral address.
+    movep = '''    case MN_MOVEP: {
+        uint32_t address = g_cpu.A[ins->words[0] & 7u] + (int16_t)ins->words[1];
+        unsigned count = ins->size == M68K_SIZE_L ? 4u : 2u;
+        if (ins->words[0] & 0x80u) {
+            uint32_t value = g_cpu.D[ins->reg];
+            for (unsigned i = 0; i < count; ++i)
+                m68k_write8((address + i * 2u) & 0xffffffu,
+                           (uint8_t)(value >> ((count - 1u - i) * 8u)));
+        } else {
+            uint32_t value = 0;
+            for (unsigned i = 0; i < count; ++i)
+                value = (value << 8) | m68k_read8((address + i * 2u) & 0xffffffu);
+            g_cpu.D[ins->reg] = count == 2u ? (g_cpu.D[ins->reg] & 0xffff0000u) | value : value;
+        }
+        return M68KI_OK;
+    }
+
+'''
+    source = source.replace(anchor, trap + stop + movep + anchor, 1)
     old_rte = '''        g_cpu.SR = pop16() & 0xA71Fu;     /* mask to valid SR bits (T,S,I,CCR) */
         *next_pc = pop32();'''
     if source.count(old_rte) != 1:

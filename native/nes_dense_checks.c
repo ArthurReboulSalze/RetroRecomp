@@ -50,6 +50,21 @@ static void setup(unsigned mapping, uint16_t pc, unsigned variant) {
             cpu_write(0x8000, (uint8_t)(9 + bank), 0);
             cpu_write(0xA000, (uint8_t)((bank + mapping) & 7), 0);
         }
+    } else if (hw_cart.mapper == 11) {
+        cpu_write(0xBFE0, (uint8_t)(mapping | (mapping << 4)), 0);
+    } else if (hw_cart.mapper == 26) {
+        cpu_write(0x8000, (uint8_t)mapping, 0);
+        cpu_write(0xC000, (uint8_t)(mapping + 1), 0);
+        cpu_write(0x9000, (uint8_t)(0x80 | mapping), 0); /* VRC6 pulse control. */
+        cpu_write(0x9001, (uint8_t)(0x30 + mapping), 0);
+        cpu_write(0x9002, 0x80, 0);
+    } else if (hw_cart.mapper == 66) {
+        cpu_write(0xBFE0, (uint8_t)((mapping << 4) | mapping), 0);
+    } else if (hw_cart.mapper == 71) {
+        cpu_write(0x9000, (uint8_t)((mapping & 1) << 4), 0);
+        cpu_write(0xC000, (uint8_t)mapping, 0);
+    } else if (hw_cart.mapper == 78) {
+        cpu_write(0xBFE0, (uint8_t)(mapping | ((mapping & 1) << 3) | (mapping << 4)), 0);
     }
     memset(&cpu, 0, sizeof(cpu));
     cpu.pc = pc;

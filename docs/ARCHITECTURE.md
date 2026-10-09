@@ -7,6 +7,12 @@ prepares local adaptations of pinned dependencies and emits C. CMake/MSVC
 builds a game with ROM data, CPU code, hardware runtime and SDL2 host.
 No JIT compiler is added to the resulting game.
 
+The converter combines its local observations with the compressed, ROM-free
+snapshot embedded in `Retro-Recomp.exe`. Records are bound to the console,
+exact ROM SHA256, byte size and engine revision. Numeric hints and ROM offsets
+do not bypass validation or live-memory guards. See the
+[compilation library](COMPILATION_LIBRARY.md) for its schema and refresh workflow.
+
 `smsrecomp/systems` registers a console profile before a ROM reaches the batch
 compiler. The Master System profile owns `.sms` identification, its PAL/NTSC
 default, output category and backend adapter. New console modules must supply
@@ -20,16 +26,17 @@ converter-only ROM entry traces live under a `gb` library namespace. Its
 fallback report has instruction/cycle counts but no comparable cycle
 percentage, and its CPU differential check does not validate the PPU/APU.
 `gameboy_coverage.py` adds short ROM branch candidates to the compiler's
-heuristic scan. Every pass probes boot and two scripted input paths; observed
+heuristic scan. Every normal-length pass probes boot and three scripted input paths; observed
 ROM entries are deduplicated and merged across passes and conversions.
 Static hints and observed entries remain distinct in the conversion report.
-The default reference CPU comparison covers up to 30 boot frames; opt-in
-deep validation adds up to 240 frames for each input path. These slower
+The mandatory reference CPU comparison covers up to 30 boot frames;
+deep validation, enabled by default, adds up to 240 frames for each of the three
+input paths. These slower
 instruction-by-instruction checks are independent of native discovery and
-the three coverage probes, which run in both modes. Reports identify the
+the coverage probes, which run in both modes. Reports identify the
 validation mode, checked scenarios and elapsed time for each conversion stage.
 
-Nintendo NES uses a pinned 6502 cycle recompiler and a separate NTSC hardware
+Nintendo NES uses a pinned 6502 cycle recompiler and a separate NTSC/PAL hardware
 runtime. Its converter first compiles discovered ROM instruction starts, then
 probes boot and two scripted inputs. Interpreter ROM misses are retained under
 `library/nes/<ROM SHA256>/<engine revision>` for the next pass or regeneration.
