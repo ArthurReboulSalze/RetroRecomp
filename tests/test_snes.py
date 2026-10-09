@@ -142,8 +142,12 @@ class SnesQualificationTests(unittest.TestCase):
         with patch.dict(supernintendo.PROFILES, profiles, clear=True):
             self.assertEqual(supernintendo.profile_for(SimpleNamespace(
                 sha256='authored', mapping='hirom', standard='ntsc'))['id'], 'fixture')
-            for sha, mapping, standard in (('other', 'hirom', 'ntsc'),
-                                         ('authored', 'lorom', 'ntsc'),
+            other = supernintendo.profile_for(SimpleNamespace(
+                sha256='other', mapping='hirom', standard='ntsc', title='Another cartridge'))
+            self.assertEqual(other['source'], 'cartridge')
+            self.assertFalse(other['legacy_functions'])
+            self.assertNotEqual(other['id'], 'fixture')
+            for sha, mapping, standard in (('authored', 'lorom', 'ntsc'),
                                          ('authored', 'hirom', 'pal')):
                 with self.subTest(sha=sha, mapping=mapping, standard=standard):
                     with self.assertRaises(ConversionError):

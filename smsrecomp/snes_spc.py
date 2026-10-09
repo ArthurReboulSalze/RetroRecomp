@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 import zlib
 
-from .core import ConversionError
+from .core import ConversionError, module_fingerprint
 from .library import atomic_json, entry_lock, library_root
 from .knowledge import record_for
 from .megadrive_codegen import _masked, write_changed
@@ -210,6 +210,6 @@ def generate(engine: Path, project: Path, rom):
         'guarded_ram_addresses': addresses,
         'boot_positions': 64, 'compiled_operations': 256, 'runtime_opcode_decoder': False,
         'mutable_operands': True, 'semantics_sha256': hashlib.sha256(source.encode()).hexdigest(),
-        'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+        'adapter_sha256': module_fingerprint(__name__)}
     atomic_json(project / 'spc-native-analysis.json', report)
     return report

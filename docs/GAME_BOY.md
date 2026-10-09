@@ -1,5 +1,27 @@
 # Game Boy (original DMG) profile
 
+## Collection qualification, October 2026
+
+The full supplied DMG collection is being qualified with eight concurrent
+conversions, up to six discovery passes and four 7,200-frame input scenarios.
+Deep CPU checks compare instructions and memory for 30 boot frames and 240
+frames of each of the three input scenarios. These checks do not cover all
+gameplay, certify hardware fidelity or measure physical latency.
+
+The campaign also exposed an interrupt-bracketed sprite DMA helper in HRAM.
+The shared guarded native helper now handles its DI/EI instructions, checking
+the complete instruction shape at every added dispatch. The DMA source page
+remains live. Existing instruction timing and interrupt/frame safepoints are
+preserved; unknown or modified code keeps the visible fallback. Authored
+fixtures compare CPU, memory and timing and exercise modified-code, boundary,
+HALT-bug and DMA guards, including complete 86-instruction transfers. Private
+end-of-scenario states allow additional late CPU checks on affected exports.
+
+Only exact-ROM observations backed by successful CPU qualification are
+promoted into the ROM-free compilation snapshot. Previous console records
+are retained. Source ROMs and private RAM dumps are never part of that
+shared resource.
+
 RetroRecomp 0.12.0 introduced the original Game Boy profile for `.gb` cartridges
 and ZIP files containing exactly one `.gb`. It generates one Windows x64 EXE
 under `Export/Games/Game Boy`. Conversion and regeneration use the same

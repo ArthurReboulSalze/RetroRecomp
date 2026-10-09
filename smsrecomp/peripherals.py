@@ -20,7 +20,8 @@ class LightPhaserGame:
 LIGHT_PHASER_GAMES = (
     LightPhaserGame("Assault City", (0x861B6E79,)),
     LightPhaserGame("Gangster Town", (0x5FC74D2A,), 16),
-    LightPhaserGame("Hang-On & Safari Hunt", (0xE167A561, 0xA120B77F, 0x91E93385)),
+    # C5083000 is a documented, working overdump; preserve the supplied ROM.
+    LightPhaserGame("Hang-On & Safari Hunt", (0xE167A561, 0xA120B77F, 0x91E93385, 0xC5083000)),
     LightPhaserGame("Laser Ghost", (0x0CA95637,), trigger_on_p2=True),
     LightPhaserGame("Marksman Shooting & Trap Shooting", (0xE8EA842C,)),
     LightPhaserGame("Marksman Shooting / Trap Shooting / Safari Hunt", (0xE8215C2E,)),
@@ -32,6 +33,14 @@ LIGHT_PHASER_GAMES = (
     LightPhaserGame("Space Gun", (0xA908CFF5,)),
     LightPhaserGame("Wanted", (0x5359762D,), 16),
     LightPhaserGame("3D Gunner", (0x56DCB2D4,), 20),
+    # SMS Power's peripheral catalogue and authors' manuals document these.
+    # Selection is not a claim of gameplay qualification for these programs.
+    LightPhaserGame("Die Hard 2", ()),  # Unreleased; no verified ROM identity yet.
+    LightPhaserGame("Color & Switch Test", (0x7253C3EC,)),  # Sega diagnostic cartridge.
+    LightPhaserGame("Porkpolis", ()),
+    LightPhaserGame("Shootagem", ()),
+    LightPhaserGame("Shooting Stars", ()),
+    LightPhaserGame("SMS-A-Sketch 1.2", ()),
 )
 
 
@@ -50,12 +59,19 @@ def light_phaser_game(crc32: int, filename: str) -> LightPhaserGame | None:
             return game
     stem = Path(filename).stem
     title = _name(stem)
+    if title == "smsasketch":
+        # Light-gun support was added in 1.2. Do not tag older/bare filenames.
+        if re.search(r"\b(?:v|version\s*)?1[._]2\b", stem, re.I):
+            return next(g for g in LIGHT_PHASER_GAMES if g.title == "SMS-A-Sketch 1.2")
+        return None
     if title == "assaultcity":
         return LIGHT_PHASER_GAMES[0] if re.search(r"light[ _-]*phaser", stem, re.I) else None
     aliases = {"safarihunt": 2, "marksmanshooting": 4, "trapshooting": 4,
                "rambo3": 8, "shootingg": 10}
     if title in aliases:
         return LIGHT_PHASER_GAMES[aliases[title]]
+    if title == "m4padchk":
+        return next(g for g in LIGHT_PHASER_GAMES if g.title == "Color & Switch Test")
     return next((game for game in LIGHT_PHASER_GAMES if _name(game.title) == title), None)
 
 

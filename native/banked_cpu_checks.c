@@ -34,6 +34,77 @@ static int same_cpu(const Z80State *a, const Z80State *b) {
         a->im == b->im && a->halted == b->halted && a->cyc == b->cyc &&
         a->wz == b->wz && a->q == b->q && a->p == b->p && a->ei_block == b->ei_block;
 }
+static unsigned reference_writes;
+static void counted_write(void *u, uint16_t a, uint8_t v) {
+    ++reference_writes; hyb_write(u, a, v);
+}
+static unsigned check_bit_bus(void) {
+    unsigned failed = 0, cases = 0;
+    /* Assert bus transactions as well as RAM contents. A write of the same
+     * value to FFFE changes the mapped bank, so a final-RAM check misses it.
+     * BIT b,(HL) and every DD/FD CB BIT alias must remain read-only; RES/SET
+     * and rotates must still perform their memory write. */
+    for (unsigned family = 0; family < 3; ++family) {
+        for (unsigned address = 0xfffc; address <= 0xffff; ++address) {
+            for (unsigned bit = 0; bit < 8; ++bit) {
+                for (unsigned reg = 0; reg < (family ? 8u : 1u); ++reg) {
+                    reset_case(initial_cpu(0xc100, 0));
+                    g_z80.h = 0xff; g_z80.l = (uint8_t)address;
+                    g_z80.ix = g_z80.iy = (uint16_t)address;
+                    g_bank[0] = 5; g_bank[1] = 6; g_bank[2] = 7;
+                    unsigned i = 0;
+                    if (family) g_ram[0x100 + i++] = family == 1 ? 0xdd : 0xfd;
+                    g_ram[0x100 + i++] = 0xcb;
+                    if (family) g_ram[0x100 + i++] = 0;
+                    g_ram[0x100 + i] = (uint8_t)(0x40 | (bit << 3) | (family ? reg : 6));
+                    state_to_hz(); g_hz.pc = g_z80.pc; g_hz.cyc = 0;
+                    g_hz.write_byte = counted_write; reference_writes = 0;
+                    z80_step(&g_hz); ++cases;
+                    if (reference_writes || g_bank[0] != 5 || g_bank[1] != 6 || g_bank[2] != 7 ||
+                            g_hz.cyc != (family ? 20u : 12u)) ++failed;
+                }
+            }
+        }
+    }
+    for (unsigned opcode = 0; opcode < 256; ++opcode) {
+        if ((opcode & 7) != 6 || (opcode >> 6) == 1) continue;
+        reset_case(initial_cpu(0xc100, 0));
+        g_ram[0x100] = 0xcb; g_ram[0x101] = (uint8_t)opcode;
+        state_to_hz(); g_hz.pc = g_z80.pc; g_hz.cyc = 0;
+        g_hz.write_byte = counted_write; reference_writes = 0;
+        z80_step(&g_hz); ++cases;
+        if (reference_writes != 1 || g_hz.cyc != 15) ++failed;
+    }
+    g_hz.write_byte = hyb_write;
+    printf("BIT_BUS_CHECKS=%u FAILED=%u\n", cases, failed);
+    return failed;
+}
+static unsigned check_irq_bus(void) {
+    unsigned failed = 0;
+    for (unsigned line_irq = 0; line_irq < 2; ++line_irq) {
+        for (unsigned withdraw = 0; withdraw < 2; ++withdraw) {
+            reset_case(initial_cpu(0xc100, 0));
+            g_vdp.reg[0] = 0x10; g_vdp.reg[1] = 0x20;
+            g_vdp.line_irq = line_irq != 0; g_vdp.frame_irq = line_irq == 0;
+            /* DI; [IN A,(VDP status)]; EI; NOP. A withdrawn interrupt must
+             * stay withdrawn. A held level must interrupt after EI's delay. */
+            unsigned length = 0;
+            g_ram[0x100 + length++] = 0xf3;
+            if (withdraw) { g_ram[0x100 + length++] = 0xdb; g_ram[0x100 + length++] = 0xbf; }
+            g_ram[0x100 + length++] = 0xfb; g_ram[0x100 + length++] = 0;
+            state_to_hz(); g_hz.pc = g_z80.pc; g_hz.cyc = 0; reference_cycle_base = 0;
+            for (unsigned step = 0; step < (withdraw ? 4u : 3u); ++step) {
+                reference_sample_irq(); z80_step(&g_hz);
+            }
+            if (withdraw ? (g_hz.pc != 0xc100 + length || g_hz.sp != 0xdff0 ||
+                            !g_hz.iff1 || g_hz.cyc != 23 || g_hz.int_pending) :
+                           (g_hz.pc != 0x38 || g_hz.sp != 0xdfee ||
+                            g_hz.iff1 || g_hz.cyc != 25)) ++failed;
+        }
+    }
+    printf("IRQ_BUS_CHECKS=4 FAILED=%u\n", failed);
+    return failed;
+}
 int main(void) {
     if (!glue_load_rom("embedded")) return 2;
     z80_init(&g_hz); g_hz_init = true;
@@ -82,5 +153,7 @@ int main(void) {
         if (errors[p][op]) { kinds++; failed += errors[p][op]; }
     }
     printf("CHECKS=%u MISSES=%u FAILED=%u OPCODE_KINDS=%u\n", checks, misses, failed, kinds);
+    failed += check_bit_bus();
+    failed += check_irq_bus();
     return failed || misses ? 1 : 0;
 }

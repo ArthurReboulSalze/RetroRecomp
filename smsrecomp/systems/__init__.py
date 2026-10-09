@@ -106,6 +106,17 @@ def get_profile(system_id: str) -> SystemProfile:
     raise ValueError(f"Unsupported console profile: {system_id}")
 
 
+def _sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
+    offset = 512 if byte_size % 16384 == 512 else 0
+    sega = data[offset:]
+    for header in (0x7ff0, 0x3ff0, 0x1ff0):
+        if sega[header:header + 8] == b'TMR SEGA' and len(sega) > header + 15:
+            region = sega[header + 15] >> 4
+            if region in (3, 4): return MASTER_SYSTEM
+            if region in (5, 6, 7): return GAME_GEAR
+    return None
+
+
 def profile_for_path(path: Path, selected_system: str | None = None) -> SystemProfile:
     suffix = path.suffix.casefold()
     data = None
@@ -114,6 +125,16 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
     matches = [profile for profile in PROFILES if suffix in profile.extensions]
     if len(matches) == 1:
         profile = matches[0]
+        if profile.id in ('sms', 'gg') and (data is not None or path.is_file()):
+            # These consoles share a cartridge format. A known header is
+            # stronger evidence than a misnamed extension, also inside ZIPs.
+            if data is None:
+                byte_size = path.stat().st_size
+                with path.open('rb') as source:
+                    data = source.read(0x8000 + 512)
+            else:
+                byte_size = len(data)
+            profile = _sega_profile(data, byte_size) or profile
         if selected_system and selected_system != profile.id:
             raise ConsoleMismatchError(
                 f'Detected {profile.name}; selected {get_profile(selected_system).name}. '
@@ -132,15 +153,8 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
         detected = NES
     offset = 512 if len(data) % 16384 == 512 else 0
     sega = data[offset:]
-    for header in (() if detected is not None else (0x7ff0, 0x3ff0, 0x1ff0)):
-        if sega[header:header + 8] == b'TMR SEGA':
-            region = sega[header + 15] >> 4
-            if region in (3, 4):
-                detected = MASTER_SYSTEM
-            if region in (5, 6, 7):
-                detected = GAME_GEAR
-            if detected is not None:
-                break
+    if detected is None:
+        detected = _sega_profile(data, len(data))
     if detected is None and snes_header(sega) is not None:
         detected = SUPER_NINTENDO
     if detected is None and len(data) >= 0x8000 and len(data) % 0x4000 == 0:

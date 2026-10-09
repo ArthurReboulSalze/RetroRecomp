@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 from smsrecomp import supernintendo, snes_timing
 from smsrecomp.cartridge16 import read_snes_rom
-from smsrecomp.console16 import qualified_rom, reference_differences
+from smsrecomp.console16 import conversion_rom, reference_differences
 from smsrecomp.core import ConversionError
 from smsrecomp.systems import profile_for_path
 
@@ -41,11 +41,11 @@ class SnesTimingTests(unittest.TestCase):
                         profile = dict(id='authored', title='Authored', legacy_functions=False,
                                        mapping=mapping, standard=standard)
                         with patch.dict(supernintendo.PROFILES, {rom.sha256: profile}):
-                            self.assertEqual(qualified_rom(path, 'snes').standard, standard)
+                            self.assertEqual(conversion_rom(path, 'snes').standard, standard)
                             self.assertEqual(supernintendo.video_standard(rom, standard), standard)
                             wrong = 'ntsc' if standard == 'pal' else 'pal'
                             with self.assertRaisesRegex(ConversionError, f'requires {standard.upper()} timing'):
-                                qualified_rom(path, 'snes', wrong)
+                                conversion_rom(path, 'snes', wrong)
                             supernintendo.write_profile(root, rom, 'Authored')
                             header = (root / 'retro_snes_game.h').read_text()
                             self.assertIn(f'#define RR_SN_PAL {int(standard == "pal")}', header)

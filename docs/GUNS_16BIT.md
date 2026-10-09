@@ -2,9 +2,9 @@
 
 Release 0.20.0 adds mouse Menacer input on Mega Drive and mouse
 Super Scope input on Super Nintendo. Recognition is based on an explicit
-per-console catalogue. CPU conversion remains restricted to qualified ROM
-SHA-256 identities; a familiar gun-game filename does not authorize a different
-cartridge's native code. These additions are experimental.
+per-console catalogue. CPU conversion builds a separate profile for each ROM;
+a familiar gun-game filename never selects a different cartridge's native code.
+These additions are experimental.
 
 ## Qualified test cartridges
 
@@ -14,7 +14,8 @@ cartridge's native code. These additions are experimental.
 | Mega Drive | T2 - The Arcade Game | A1264F17 | Menacer |
 | Super Nintendo | Super Scope 6, USA | B141EA99 | Super Scope |
 
-All three use the current NTSC profiles. PAL variants are not enabled.
+All three were tested with NTSC profiles. PAL variants may be converted when
+their hardware is supported, but are not covered by these three test results.
 Menacer and T2 have separate native analysis and RAM observations. Super Scope
 6 uses a generic per-ROM 65816 operation map and its own cartridge identity;
 no Super Mario World function tree or game RAM aliases are used.
@@ -22,9 +23,9 @@ no Super Mario World function tree or game RAM aliases are used.
 The catalogue also identifies Body Count and the two Mega Drive Lethal
 Enforcers games, and SNES Scope titles such as Yoshi's Safari, Battle Clash,
 Metal Combat, Bazooka Blitzkrieg, X Zone and Tin Star. Catalogue recognition
-does not mean these additional ROMs are qualified. Mega Drive Justifier pins,
+does not mean these additional ROMs have been gameplay-tested. Mega Drive Justifier pins,
 detection and gun selection have authored tests, but no Justifier cartridge
-is enabled yet. The SNES Justifier has a different serial protocol and is
+has been gameplay-validated yet. The SNES Justifier has a different serial protocol and is
 catalogued only. This build exposes one mouse gun on controller port 2;
 the standard controller remains on port 1.
 

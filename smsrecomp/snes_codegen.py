@@ -1,4 +1,4 @@
-"""Static ROM-PC to compiled 65816 operations for qualified SNES cartridges.
+"""Static ROM-PC to compiled 65816 operations for SNES cartridges.
 
 The selected LakeSnes-derived operation bodies retain their upstream notices.
 ROM positions select their operation at conversion time. Live operand reads
@@ -11,7 +11,7 @@ import hashlib
 from pathlib import Path
 import re
 
-from .core import ConversionError
+from .core import ConversionError, module_fingerprint
 from .megadrive_codegen import _masked, write_changed
 from .library import atomic_json
 
@@ -66,7 +66,7 @@ def mirrored_rom(rom: bytes) -> bytes:
 
 def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom') -> str:
     if mapping not in ('lorom', 'hirom'):
-        raise ConversionError('SNES native lookup supports qualified LoROM and HiROM only.')
+        raise ConversionError('SNES native lookup supports ordinary LoROM and HiROM only.')
     bus_rom = mirrored_rom(rom)
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     bodies, cycles = operation_bodies(source), cycle_costs(source)
@@ -211,6 +211,6 @@ def generate(engine: Path, project: Path, rom) -> dict:
               'mapping': rom.mapping, 'native_bus_positions': len(mirrored_rom(rom.data)),
               'guarded_ram_variants': len(ram),
               'semantics_sha256': hashlib.sha256(source.encode()).hexdigest(),
-              'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+              'adapter_sha256': module_fingerprint(__name__)}
     atomic_json(project / 'snes-step-analysis.json', report)
     return report

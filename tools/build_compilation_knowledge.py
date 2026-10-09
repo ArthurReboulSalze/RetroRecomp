@@ -5,6 +5,7 @@ Failed exports and private logs/configuration are not copied into the resource.
 """
 from pathlib import Path
 import argparse
+from datetime import datetime
 import gzip
 import hashlib
 import json
@@ -14,22 +15,43 @@ sys.path.insert(0, str(ROOT))
 from smsrecomp import core, gameboy, nes, megadrive, megadrive_z80, supernintendo, snes_spc
 from smsrecomp.batch import identify
 from smsrecomp.console16 import REPOSITORIES
-from smsrecomp.knowledge import RESOURCE, FIELDS, validate_payload
-from smsrecomp.library import GameMemory, library_root, read_code_patterns
+from smsrecomp.knowledge import RESOURCE, FIELDS, load, validate_payload
+from smsrecomp.library import GameMemory, library_root
 from smsrecomp.gameboy_coverage import read_entries
 from smsrecomp.systems import get_profile
 
 
-def build(roms, *, reports: Path, output: Path) -> dict:
+def _journals_qualified(memory, report: dict) -> bool:
+    """Do not promote observations appended after the last successful run."""
+    try:
+        qualified_at = datetime.fromisoformat(report['created_utc']).timestamp()
+        return all(not path.exists() or path.stat().st_mtime <= qualified_at
+                   for path in (memory.journal, memory.code_journal))
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+
+
+def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dict:
     engines = {'sms': core.ENGINE_REV, 'gg': core.ENGINE_REV, 'gb': gameboy.ENGINE_REV,
                'nes': nes.ENGINE_REV, 'md': REPOSITORIES['md'][1], 'snes': REPOSITORIES['snes'][1]}
+    # A collection may be regenerated one console at a time, or its old
+    # reports deleted. Keep previously qualified hints from the supplied
+    # snapshot; new observations still need their normal qualification gate.
     consoles = {system: {} for system in engines}
+    if base is not None:
+        for system, records in load(base)['consoles'].items():
+            consoles[system].update(records)
+    retained = {system: set(records) for system, records in consoles.items()}
+    refreshed = {system: set() for system in engines}
     qualified = {}
     for path in reports.glob('*/datas/reports/*/conversion-report.json'):
         try:
             report = json.loads(path.read_text(encoding='utf-8'))
             if report.get('native_validation', {}).get('passed'):
-                qualified[(report['system']['id'], report['rom']['sha256'])] = report
+                key = (report['system']['id'], report['rom']['sha256'])
+                previous = qualified.get(key, {})
+                if report.get('created_utc', '') >= previous.get('created_utc', ''):
+                    qualified[key] = report
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             continue
     seen = set()
@@ -46,13 +68,26 @@ def build(roms, *, reports: Path, output: Path) -> dict:
             memory = GameMemory(rom, library_root(item.system))
             metadata = memory.metadata()
             generations = metadata.get('generations', [])
-            if not (generations and generations[-1].get('engine_revision') == engines[item.system]
+            report = qualified.get(key)
+            # Probe journals are additive, including observations made during
+            # a later failed conversion. Old metadata alone must not qualify
+            # their current contents for a new shared snapshot.
+            if not (report and report.get('engine_revision') == engines[item.system]
+                    and report.get('backend') == 'banked'
+                    and generations and generations[-1].get('checks')
+                    and generations[-1].get('created_utc') == report.get('created_utc')
+                    and generations[-1].get('engine_revision') == engines[item.system]
                     and generations[-1].get('reference_vdp_trace_match') is True
-                    and all(c.get('passed') for c in generations[-1].get('checks', []))):
+                    and all(c.get('passed') for c in generations[-1].get('checks', []))
+                    and _journals_qualified(memory, report)):
                 omitted['unqualified'] += 1; continue
             record['rom_entries'] = [list(e) for e in sorted(memory.seeds())]
-            refs = {rom.data.find(raw) for raw in read_code_patterns(memory.code_journal)}
-            record['pattern_refs'] = [[offset] for offset in sorted(refs) if offset >= 0]
+            # The conversion used both bundled and local byte-checked windows.
+            # Keep that qualified union; reading only the private journal would
+            # silently drop shared windows that needed no new fallback.
+            offsets = [rom.data.find(raw) for raw in memory.code_patterns()]
+            omitted['ram_without_rom_source'] += sum(offset < 0 for offset in offsets)
+            record['pattern_refs'] = [[offset] for offset in sorted(set(offsets)) if offset >= 0]
         else:
             report = qualified.get(key)
             expected_engine = supernintendo.knowledge_engine(rom) if item.system == 'snes' else engines[item.system]
@@ -105,6 +140,7 @@ def build(roms, *, reports: Path, output: Path) -> dict:
                         else: omitted['ram_without_rom_source'] += 1
                     record['z80_refs'] = refs
         consoles[item.system][rom.sha256] = record
+        refreshed[item.system].add(rom.sha256)
     payload = validate_payload({'schema': 1, 'consoles': consoles})
     raw = json.dumps(payload, separators=(',', ':'), sort_keys=True).encode('ascii')
     if len(raw) > 32*1024*1024: raise ValueError('Knowledge size budget exceeded.')
@@ -112,8 +148,14 @@ def build(roms, *, reports: Path, output: Path) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix+'.tmp')
     temporary.write_bytes(packed);temporary.replace(output)
+    load.cache_clear()
     return {'rom_free': True, 'raw_bytes': len(raw), 'compressed_bytes': len(packed),
             'sha256': hashlib.sha256(packed).hexdigest(), 'omitted': omitted,
+            'refresh': {system: {
+                'retained': len(retained[system] - refreshed[system]),
+                'requalified': len(retained[system] & refreshed[system]),
+                'added': len(refreshed[system] - retained[system])}
+                for system in engines},
             'consoles': {system: {'games': len(games),
                 'entries': sum(sum(len(r.get(f, [])) for f in FIELDS[system]) for r in games.values())}
                 for system,games in consoles.items()}}
@@ -124,11 +166,13 @@ def main():
     parser.add_argument('--rom-dir', action='append', type=Path, required=True)
     parser.add_argument('--reports', type=Path, default=ROOT/'Export/Games')
     parser.add_argument('--output', type=Path, default=ROOT/RESOURCE)
+    parser.add_argument('--base', type=Path,
+        help='Previously qualified ROM-free snapshot to retain when refreshing a partial collection.')
     args = parser.parse_args()
     suffixes = {'.zip','.sms','.gg','.gb','.nes','.bin','.rom','.sfc','.smc','.md','.gen'}
     paths = sorted({p for folder in args.rom_dir for p in folder.rglob('*')
                     if p.is_file() and p.suffix.casefold() in suffixes})
-    print(json.dumps(build(paths,reports=args.reports,output=args.output),indent=2))
+    print(json.dumps(build(paths,reports=args.reports,output=args.output,base=args.base),indent=2))
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,4 @@
-"""Qualified Mega Drive cartridges and ROM-verified discovery inputs.
+"""Mega Drive cartridge-derived profiles and ROM-verified discovery inputs.
 
 No game-specific RAM guesses are shared between titles. Probe observations
 belong to the converter, never to a launched game's working directory.
@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import shutil
 
-from .core import ConversionError, run
+from .core import ConversionError, run, module_fingerprint
 from .cartridge16 import megadrive_regions
 from .library import atomic_json, entry_lock, library_root
 from .knowledge import record_for, ram_variants as shared_ram_variants
@@ -81,12 +81,31 @@ PROFILES = {
 
 
 def profile_for(rom):
+    limitations = []
+    # EEPROM is not ordinary SRAM. Keep conversion available (including games
+    # already tested), but never imply their original cartridge saves work.
+    # https://www.plutiedev.com/rom-header
+    if rom.data[0x1b0:0x1b2] == b'RA' and rom.data[0x1b3] == 0x40:
+        limitations.append('EEPROM cartridge saves are not implemented; use F8/F9 quick states.')
     profile = PROFILES.get(rom.sha256)
-    if profile is None:
-        raise ConversionError('Mega Drive integration is experimental. This cartridge was '
-            'identified, but will not be compiled with another game\'s profile. '
-            'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
-    return profile
+    if profile is not None:
+        return dict(profile, source='catalogue', limitations=limitations)
+    # A catalogue entry is an optional exact-ROM override, not permission to
+    # compile. Generic discovery reads this cartridge's vectors and bytes.
+    return {'id': 'rom-' + rom.sha256, 'title': rom.title, 'prefix': 'game',
+            'sonic': False, 'six_buttons': b'6' in rom.data[0x190:0x1a0],
+            'source': 'cartridge', 'limitations': limitations}
+
+
+def validate_cartridge(rom):
+    """Reject known hardware gaps before allocating/building native tables."""
+    if len(rom.data) > 0x400000:
+        raise ConversionError('Mega Drive cartridges above 4 MiB require a bank mapper '
+                              'that this runtime does not support yet.')
+    system = rom.data[0x100:0x110].decode('ascii', errors='replace').strip('\0 ').upper()
+    if any(marker in system for marker in ('32X', 'PICO', 'TERA', 'SSF', 'MEGAWIFI')):
+        raise ConversionError(f'The cartridge declares {system} hardware; '
+                              'the Mega Drive runtime does not support this extension yet.')
 
 
 def region_mask(rom):
@@ -100,7 +119,7 @@ def region_mask(rom):
 
 
 def video_standard(rom, override=None):
-    """Timing is cartridge-specific and must have an explicit qualification."""
+    """Use the declared cartridge regions, independently of test history."""
     regions = region_mask(rom)
     if not regions:
         raise ConversionError('This Mega Drive cartridge has an unrecognized region header; timing cannot be qualified yet.')
@@ -110,8 +129,6 @@ def video_standard(rom, override=None):
     if not regions & (5 if standard == 'ntsc' else 10):
         raise ConversionError(f'This Mega Drive cartridge declares {"PAL" if standard == "ntsc" else "NTSC"} timing; '
                               f'it cannot be forced to {standard.upper()}.')
-    if standard not in profile_for(rom).get('standards', ('ntsc',)):
-        raise ConversionError(f'This Mega Drive revision has not been qualified for {standard.upper()} timing.')
     return standard
 
 
@@ -279,7 +296,7 @@ def write_spec(project: Path, rom, title: str, standard='ntsc') -> None:
     profile = profile_for(rom)
     v = vectors(rom)
     (project / 'retro_md_game.h').write_text(
-        '/* Generated from the qualified cartridge, never from another game. */\n'
+        '/* Generated from this exact cartridge, never from another game. */\n'
         f'#define RR_MD_TITLE {json.dumps(title, ensure_ascii=True)}\n'
         f'#define RR_MD_KEY "{profile["id"]}"\n'
         f'#define RR_MD_ROM_BYTES {len(rom.data)}u\n'
@@ -303,6 +320,6 @@ def analysis_identity(project: Path, engine_revision: str, rom) -> dict:
     config_hash = hashlib.sha256((project / 'game.toml').read_bytes()).hexdigest()
     from . import megadrive_codegen
     return {'rom': rom.sha256, 'engine': engine_revision, 'config': config_hash,
-            'adapter': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-            'codegen': hashlib.sha256(Path(megadrive_codegen.__file__).read_bytes()).hexdigest(),
+            'adapter': module_fingerprint(__name__),
+            'codegen': module_fingerprint(megadrive_codegen.__name__),
             'entries': sorted(read_entries(rom)), 'ram_variants': read_ram_variants(rom), 'schema': 4}

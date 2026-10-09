@@ -4,7 +4,23 @@
 #include <stdio.h>
 
 int retro_make_directories(wchar_t *path) {
-    for (size_t i = 3; path[i]; ++i) if (path[i] == L'\\') {
+    size_t start = 3;
+    if (!wcsncmp(path, L"\\\\?\\UNC\\", 8) ||
+            (!wcsncmp(path, L"\\\\", 2) && wcsncmp(path, L"\\\\?\\", 4))) {
+        /* A server/share root already exists; never try to create the server
+         * name, share name or the special extended-path prefix. */
+        start = !wcsncmp(path, L"\\\\?\\UNC\\", 8) ? 8 : 2;
+        for (unsigned component = 0; component < 2; ++component) {
+            if (!path[start]) return 0;
+            while (path[start] && path[start] != L'\\') ++start;
+            if (!path[start]) { if (!component) return 0; break; }
+            ++start;
+        }
+    } else if (!wcsncmp(path, L"\\\\?\\", 4)) {
+        if (wcslen(path) < 7 || path[5] != L':' || path[6] != L'\\') return 0;
+        start = 7;
+    }
+    for (size_t i = start; path[i]; ++i) if (path[i] == L'\\') {
         path[i] = 0;
         int ok = CreateDirectoryW(path, NULL) || GetLastError() == ERROR_ALREADY_EXISTS;
         path[i] = L'\\'; if (!ok) return 0;

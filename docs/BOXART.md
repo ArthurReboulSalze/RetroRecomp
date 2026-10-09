@@ -9,15 +9,17 @@ existing game executables need regeneration to receive a different icon.
 ## Source order
 
 1. An explicitly selected image.
-2. Previously validated online covers in the converter's `datas/BoxArt/<console>`,
+2. A reviewed online reference for the exact console and ROM identity or full
+   edition name, reusing its cached download whenever available.
+3. Previously validated online covers in the converter's `datas/BoxArt/<console>`,
    matching the console, ROM identity and requested style.
-3. Configured services: ScreenScraper, TheGamesDB, then IGDB.
-4. The public Libretro `Named_Boxarts` library on GitHub, with the
+4. Configured services: ScreenScraper, TheGamesDB, then IGDB.
+5. The public Libretro `Named_Boxarts` library on GitHub, with the
    [Libretro thumbnail server](https://docs.libretro.com/guides/roms-playlists-thumbnails/#thumbnails)
    as an alternative host for both images and catalogue lookup.
-5. Matching local artwork in the console's BoxArt directory, if online boxes
+6. Matching local artwork in the console's BoxArt directory, if online boxes
    are unavailable.
-6. If no usable box art exists, the matching console's `Named_Titles` image,
+7. If no usable box art exists, the matching console's `Named_Titles` image,
    then its `Named_Snaps` image. No API credentials are needed for these sources.
 
 Configured APIs select only box/front-cover media. Fan art, logos, cartridge
@@ -67,6 +69,34 @@ settings or an older image-policy marker do not trigger another download. A manu
 image selection always overrides saved artwork. Missing, damaged or checksum-mismatched
 images fall back to the regular search; empty cache lookups create no files.
 To request artwork again, remove that game's cached image and its `Saved` record.
+
+## Reviewed online references
+
+`assets/cover-references.json` supplies small, reviewed corrections when an
+automatic search misses a subtitle, regional alias or homebrew cover. It contains
+**public HTTPS links and metadata only**: console, exact ROM SHA-256 identities,
+full edition names, image style and source page. No cover bitmap, ROM data,
+credential or local filesystem path is included in this file or bundled with
+the converter. The publication audit enforces this restricted schema.
+
+Before adding a reference, retrieve the actual image into a private review/cache
+directory, confirm its console and edition, and have its appearance reviewed.
+Use a real front image by default; do not invent a box spine or substitute a
+game screenshot for an approved cover. Rejected candidates stay outside the
+shared references. The initial references use the Libretro Master System front
+collection and a front image from LaunchBox for Digger Chan.
+The twelve approved references include Golvellius and Shooting Gallery; their
+480 × 680 front scans replace older gameplay/title images. The shared catalogue
+stores their URLs, not the downloaded scans. Existing reviewed Shadow Dancer and
+World Cup Italia '90 fronts were also verified in the published EXE resources.
+
+A reviewed link can replace an older wrong `Saved` choice. The approved download
+is retained in the local converter cache and associated with the reference's
+metadata revision. Regeneration, ROM renaming and other revisions with an exact
+listed name reuse it without another download. A changed reference requests its
+new image; an explicit user-selected image keeps priority. Offline mode never
+contacts reference hosts. An unavailable reference falls through to the regular
+sources and does not prevent conversion. This mechanism is shared by all consoles.
 
 ## Official service access
 

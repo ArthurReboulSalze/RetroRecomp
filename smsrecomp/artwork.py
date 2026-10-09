@@ -28,6 +28,7 @@ from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 from .paths import ASSETS, boxart_cache_directory
 from .cover_settings import load_settings, configured
 from .cover_sources import PROVIDERS, CoverServiceError, fetch
+from .cover_references import find as cover_reference
 
 REPOSITORIES = {
     'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
@@ -181,11 +182,12 @@ def _saved_cover(directory: Path, key: str | None, system_id: str, prefer3d: boo
             if online and not prefer3d and record.get('style') == 'box3d':
                 continue
             provider = record.get('provider')
-            if provider not in (*PROVIDERS, 'libretro'):
+            if provider not in (*PROVIDERS, 'libretro', 'reference'):
                 continue
             return {'path': path, 'data': data, 'source': provider + '_cache',
                     'url': _public_url(record.get('url')), 'style': record.get('style', 'front'),
-                    'source_page': _public_url(record.get('source_page'))}
+                    'source_page': _public_url(record.get('source_page')),
+                    'reference_revision': record.get('reference_revision')}
         except (OSError, ArtworkError, ValueError, KeyError, TypeError, AttributeError):
             pass  # Missing or damaged artwork can be recovered by the usual search.
     return None
@@ -196,7 +198,7 @@ def _remember_cover(cover: dict, directory: Path, key: str | None, system_id: st
     if key is None or directory.drive.startswith('\\\\'):
         return cover
     provider = cover['source'].removesuffix('_cache')
-    if provider not in (*PROVIDERS, 'libretro'):
+    if provider not in (*PROVIDERS, 'libretro', 'reference'):
         return cover
     try:
         relative = cover['path'].resolve().relative_to(directory.resolve())
@@ -206,7 +208,8 @@ def _remember_cover(cover: dict, directory: Path, key: str | None, system_id: st
                   'image': relative.as_posix(), 'provider': provider,
                   'sha256': hashlib.sha256(cover['data']).hexdigest(),
                   'style': cover.get('style', 'front'), 'url': _public_url(cover.get('url')),
-                  'source_page': _public_url(cover.get('source_page'))}
+                  'source_page': _public_url(cover.get('source_page')),
+                  'reference_revision': cover.get('reference_revision')}
         _atomic(directory / 'Saved' / (key + ('-box3d.json' if prefer3d else '-front.json')),
                 json.dumps(record, indent=2).encode())
     except (OSError, ValueError):
@@ -241,12 +244,13 @@ def _downloaded_cover(path: Path) -> dict:
     except (OSError, ValueError):
         pass
     provider = record.get('provider', 'libretro')
-    if provider not in (*PROVIDERS, 'libretro'):
+    if provider not in (*PROVIDERS, 'libretro', 'reference'):
         provider = 'libretro'
     return {'path': path, 'data': data, 'source': provider + '_cache',
             'url': _public_url(record.get('url')), 'source_page': _public_url(record.get('source_page')),
             'style': record.get('style', 'front' if provider == 'libretro' else 'auto'),
-            'checked_box_3d': record.get('checked_box_3d')}
+            'checked_box_3d': record.get('checked_box_3d'),
+            'reference_revision': record.get('reference_revision')}
 
 
 def _download_style(path: Path) -> str:
@@ -419,6 +423,48 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
     return path, url
 
 
+def _referenced_cover(reference: dict, storage: Path, *, online: bool) -> dict | None:
+    """Reuse a reviewed download, including after a previously wrong cache entry."""
+    metadata = storage / 'References' / (reference['id'] + '.json')
+    try:
+        record = json.loads(metadata.read_text(encoding='utf-8'))
+        relative = Path(record['image'])
+        path = (storage / relative).resolve()
+        if (relative.is_absolute() or not relative.parts or relative.parts[0] != 'Downloaded'
+                or not path.is_relative_to(storage.resolve())
+                or record['revision'] != reference['revision']):
+            raise ValueError('Stale cover reference.')
+        cover = _downloaded_cover(path)
+        if (record['sha256'] != hashlib.sha256(cover['data']).hexdigest()
+                or cover['url'] not in reference['image_urls']
+                or cover.get('style') != reference['style']):
+            raise ValueError('Stale cover download.')
+        cover.update(source='reference_cache', reference_revision=reference['revision'])
+        return cover
+    except (OSError, ArtworkError, ValueError, KeyError, TypeError, AttributeError):
+        pass
+    if not online:
+        return None
+    for url in reference['image_urls']:
+        try:
+            image = _image(_get(url, MAX_IMAGE_BYTES))
+            buffer = BytesIO(); image.save(buffer, format='PNG')
+            data = buffer.getvalue()
+            record = {'provider': 'reference', 'url': url, 'source_page': reference['source_page'],
+                      'style': reference['style'], 'reference_revision': reference['revision'],
+                      'downloaded_utc': datetime.now(timezone.utc).isoformat()}
+            path = _store_download(storage, reference['id'] + '.png', data, record)
+            _atomic(metadata, json.dumps({'revision': reference['revision'],
+                'image': path.relative_to(storage).as_posix(),
+                'sha256': hashlib.sha256(data).hexdigest()}, indent=2).encode())
+            return {'path': path, 'data': data, 'source': 'reference', **{k: record[k]
+                    for k in ('url', 'source_page', 'style', 'reference_revision')}}
+        except (ArtworkError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+            if isinstance(exc, urllib.error.HTTPError):
+                exc.close()
+    return None
+
+
 def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path | None = None,
                   online: bool = True, cache_directory: Path | None = None,
                   system_id: str = 'sms', settings: dict | None = None, emit=print) -> dict:
@@ -441,6 +487,19 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
         return _remember_cover(cover, storage, key, system_id, prefer3d)
 
     saved = _saved_cover(storage, key, system_id, prefer3d, online)
+    reference = cover_reference(system_id, key, rom_path.stem, prefer3d=prefer3d)
+    if reference is not None:
+        if (saved is not None and saved.get('reference_revision') == reference['revision']
+                and saved.get('url') in reference['image_urls']
+                and saved.get('style') == reference['style']):
+            emit('Box art: reusing the reviewed cover download.')
+            return saved
+        reviewed = _referenced_cover(reference, storage, online=online)
+        if reviewed is not None:
+            emit('Box art: using a reviewed online reference.')
+            return remember(reviewed)
+        if online:
+            emit('Box art: reviewed source unavailable; continuing the usual search.')
     if saved is not None:
         emit('Box art: reusing the saved download.')
         return saved
@@ -714,6 +773,7 @@ def prepare_icon(game: Path, rom_path: Path, title: str, directory: Path, *, exp
             icon_sha256=hashlib.sha256(buffer.getvalue()).hexdigest(), sizes=list(ICON_SIZES),
             resource_id=101, fit="preserve_aspect_trim_transparent_margins")
         report.update(source_page=cover.get('source_page'),
+                      reference_revision=cover.get('reference_revision'),
                       media_style=style,
                       box_style='source_3d' if style == 'box3d' else 'original')
         emit(f"Icône : {cover['path'].name} ({cover['source']}).")

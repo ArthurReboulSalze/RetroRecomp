@@ -44,21 +44,43 @@ def profile_for(rom):
     from .core import ConversionError
     profile = PROFILES.get(rom.sha256)
     if profile is None:
-        raise ConversionError('SNES integration is experimental. This cartridge was '
-            'identified, but will not be compiled with another game\'s profile. '
-            'Qualified titles: ' + ', '.join(p['title'] for p in PROFILES.values()) + '.')
+        profile = {'id': 'rom-' + rom.sha256, 'title': rom.title,
+                   'legacy_functions': False, 'mapping': rom.mapping,
+                   'standard': rom.standard, 'source': 'cartridge'}
+        if rom.standard == 'pal':
+            profile['video_scope'] = 'progressive_224'
+        return profile
     mapping = profile.get('mapping', 'lorom')
     standard = profile.get('standard', 'ntsc')
     if rom.mapping != mapping or rom.standard != standard:
         raise ConversionError(f'This qualified SNES profile requires its {standard.upper()} {mapping} cartridge.')
-    return profile
+    return dict(profile, source='catalogue')
+
+
+def validate_cartridge(rom):
+    """The native map handles ordinary LoROM/HiROM, not enhancement chips."""
+    from .core import ConversionError
+    from .cartridge16 import snes_header
+    header = snes_header(rom.data)
+    if not header:
+        raise ConversionError('SNES cartridge header could not be validated.')
+    offset, mapping = header
+    mode, chip = rom.data[offset + 21], rom.data[offset + 22]
+    if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
+        raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
+                              'are not supported by the native runtime yet.')
+    if mode not in (0x20, 0x21, 0x30, 0x31) or chip not in (0, 1, 2):
+        raise ConversionError(f'This SNES cartridge uses an unsupported enhancement chip or mapping '
+                              f'(map ${mode:02X}, cartridge type ${chip:02X}). '
+                              'The native runtime currently supports ordinary LoROM/HiROM cartridges, '
+                              'with or without RAM/battery.')
 
 
 def video_standard(rom, override=None):
     from .core import ConversionError
-    standard = profile_for(rom).get('standard', 'ntsc')
+    standard = rom.standard
     if override and override != standard:
-        raise ConversionError(f'This qualified SNES cartridge requires {standard.upper()} timing.')
+        raise ConversionError(f'This SNES cartridge requires {standard.upper()} timing.')
     return standard
 
 

@@ -44,6 +44,11 @@ def prepare_reference(game: Path, engine: Path) -> None:
     (game / 'runtime_reference.h').write_text(header, encoding='utf-8')
     source = (original / 'z80.c').read_text(encoding='utf-8')
     source = replace(source, '#include "z80.h"', '#include "runtime_reference.h"')
+    # BIT (HL) is a read-only bus operation. Rewriting the same byte is not
+    # harmless at Sega mapper registers (FFFC-FFFF), even when RAM is unchanged.
+    # Zilog UM008011-0816, BIT b,(HL), page 245.
+    source = replace(source, '  if (reg == &hl) {',
+                     '  if (reg == &hl && x_ != 1) {')
     source = replace(source, '  z->cyc = 0;', '  z->cyc = 0; z->q = z->p = 0;')
     source = replace(source, 'case 0x18: z->pc += (int8_t) nextb(z); break;',
                      'case 0x18: { int8_t d = (int8_t)nextb(z); jr(z, d); } break;')

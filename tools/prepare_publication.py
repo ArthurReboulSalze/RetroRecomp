@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "0.22.0"
+VERSION = "0.23.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -21,10 +21,12 @@ RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
+MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI.png MEDIAS/RC_Windows_Screen.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico
+assets/Retro-Recomp-consoles.png
 assets/Retro-Recomp-icon-16.png assets/Retro-Recomp-icon-20.png
 assets/Retro-Recomp-icon-24.png assets/Retro-Recomp-icon-32.png
 assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
@@ -41,7 +43,8 @@ licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
 smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.py
-smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/i18n.py smsrecomp/updater.py
+smsrecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
+smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/branding.py smsrecomp/i18n.py smsrecomp/updater.py
 smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
@@ -119,7 +122,7 @@ BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
-TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml"}
+TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
     "private network path": re.compile(r"\\\\(?:\d{1,3}\.){3}\d{1,3}\\"),
@@ -136,6 +139,11 @@ def check_public_file(name: str, data: bytes) -> None:
     """Fail with the rule name only, without printing sensitive contents."""
     if name not in PUBLIC_SET:
         raise ValueError(f"Not on the public allowlist: {name}")
+    if name == 'assets/cover-references.json':
+        from smsrecomp.cover_references import MAX_BYTES, validate_payload
+        if len(data) > MAX_BYTES:
+            raise ValueError('Cover references exceed their size limit.')
+        validate_payload(json.loads(data))
     if name == 'assets/compilation-knowledge.json.gz':
         import gzip, io
         from smsrecomp.knowledge import MAX_BYTES, validate_payload
@@ -223,7 +231,7 @@ def audit_executable(executable: Path, source: Path) -> dict:
             data = archive.extract(original)
             if data != (source / name).read_bytes():
                 raise ValueError(f"Executable payload differs from public source: {name}")
-            if name == 'assets/compilation-knowledge.json.gz':
+            if name in ('assets/compilation-knowledge.json.gz', 'assets/cover-references.json'):
                 check_public_file(name, data)
             bundled[name] = digest(data)
         if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".bin",

@@ -39,6 +39,21 @@ static int initialize(void) {
         wcscat(root, L"\\library");
     }
     for (int i = 0; root[i]; ++i) if (root[i] == L'/') root[i] = L'\\';
+    /* Compiler probe paths include the build/scenario and full ROM identity.
+     * Wide Win32 calls still hit MAX_PATH without an extended path, even on
+     * machines where Python itself can create the same long directories. */
+    if (wcsncmp(root, L"\\\\?\\", 4)) {
+        size_t length = wcslen(root);
+        if (length > 32490) return 0;
+        if (root[0] == L'\\' && root[1] == L'\\') {
+            memmove(root + 8, root + 2, (length - 1) * sizeof(wchar_t));
+            wmemcpy(root, L"\\\\?\\UNC\\", 8);
+        } else {
+            if (length < 3 || root[1] != L':' || root[2] != L'\\') return 0;
+            memmove(root + 4, root, (length + 1) * sizeof(wchar_t));
+            wmemcpy(root, L"\\\\?\\", 4);
+        }
+    }
     MultiByteToWideChar(CP_UTF8, 0, sms_rom_sha256, -1, sha, 65);
     if (wcslen(root) > 32500) return 0;
     /* Find by full embedded identity, so ROM/executable renames keep memory. */

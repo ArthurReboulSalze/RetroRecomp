@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
 from smsrecomp.cartridge16 import read_megadrive_rom, read_snes_rom
-from smsrecomp.console16 import qualified_rom, reference_differences, convert16, MD_AUDIO_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script
-from smsrecomp.core import ConversionError
+from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script
+from smsrecomp.core import ConversionError, module_fingerprint
 from smsrecomp.systems import profile_for_path, discover_roms
 from smsrecomp.batch import identify, system_output
 from smsrecomp.metadata import game_metadata
@@ -15,6 +15,8 @@ from smsrecomp.metadata import game_metadata
 
 def md(region=b'JUE'):
     data = bytearray(32768)
+    for offset, value in ((0, 0xffc000), (4, 0x200), (0x70, 0x220), (0x78, 0x240)):
+        data[offset:offset + 4] = value.to_bytes(4, 'big')
     data[0x100:0x104] = b'SEGA'
     data[0x150:0x158] = b'TEST ROM'
     data[0x1f0:0x1f0 + len(region)] = region
@@ -43,6 +45,23 @@ class Console16Tests(unittest.TestCase):
         path = self.root / name
         path.write_bytes(payload)
         return path
+
+    def test_bundled_compiler_fingerprint_needs_no_source_file(self):
+        import sys
+        from types import SimpleNamespace
+        name = 'retro_test_bundled_adapter'
+        body = 'def generate():\n    return lambda: 42\n'
+        loader = SimpleNamespace(get_code=lambda name: compile(body, 'bundle-one/adapter.py', 'exec'))
+        module = SimpleNamespace(__file__=str(self.root / 'absent.py'), __loader__=loader)
+        with patch.dict(sys.modules, {name: module}):
+            original = module_fingerprint(name)
+            loader.get_code = lambda name: compile(body, 'bundle-two/adapter.py', 'exec')
+            self.assertEqual(module_fingerprint(name), original)
+            loader.get_code = lambda name: compile(body.replace('42', '43'), 'adapter.py', 'exec')
+            self.assertNotEqual(module_fingerprint(name), original)
+            loader.get_code = lambda name: None
+            with self.assertRaises(ConversionError):
+                module_fingerprint(name)
 
     def test_md_header_identifies_linear_bin_and_region(self):
         for region, expected in ((b'J', 'ntsc'), (b'U', 'ntsc'), (b'E', 'pal'), (b'JUE', 'multi')):
@@ -104,11 +123,57 @@ class Console16Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             profile_for_path(path, 'snes')
 
-    def test_unqualified_rom_is_rejected_before_dependencies(self):
+    def test_unknown_rom_gets_its_own_profile_without_a_catalogue_entry(self):
+        from smsrecomp import megadrive, supernintendo
         for system, path in (('md', self.source('Game.md', md())),
                              ('snes', self.source('Game.sfc', snes()))):
-            with self.assertRaisesRegex(ConversionError, 'identified, but will not be compiled'):
-                qualified_rom(path, system)
+            adapter = megadrive if system == 'md' else supernintendo
+            rom = conversion_rom(path, system)
+            self.assertNotIn(rom.sha256, adapter.PROFILES)
+            profile = adapter.profile_for(rom)
+            self.assertEqual(profile['source'], 'cartridge')
+            self.assertEqual(profile['id'], 'rom-' + rom.sha256)
+            self.assertEqual(profile['title'], rom.title)
+            self.assertFalse(profile.get('sonic', profile.get('legacy_functions')))
+            original = path.read_bytes()
+            changed = bytearray(original); changed[0x300] ^= 1
+            other = conversion_rom(self.source('Other' + path.suffix, changed), system)
+            self.assertNotEqual(adapter.profile_for(other)['id'], profile['id'])
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_unsupported_16bit_hardware_rejected_before_dependencies(self):
+        payload = bytearray(snes()); payload[0x7fd6] = 0x13
+        with patch('smsrecomp.console16.dependencies16') as dependencies:
+            from smsrecomp.console16 import prepare16
+            with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
+                prepare16(self.source('SuperFX.sfc', payload), 'snes')
+            large = md() + bytes(0x400000)
+            with self.assertRaisesRegex(ConversionError, 'bank mapper'):
+                prepare16(self.source('Banked.md', large), 'md')
+            payload = bytearray(md()); payload[0x100:0x110] = b'SEGA 32X'.ljust(16, b' ')
+            with self.assertRaisesRegex(ConversionError, '32X'):
+                prepare16(self.source('32X.md', payload), 'md')
+            dependencies.assert_not_called()
+
+    def test_eeprom_save_limitation_does_not_disable_game_conversion(self):
+        from smsrecomp import megadrive
+        payload = bytearray(md()); payload[0x1b0:0x1b4] = b'RA\xe8\x40'
+        rom = conversion_rom(self.source('EEPROM.md', payload), 'md')
+        self.assertIn('EEPROM', megadrive.profile_for(rom)['limitations'][0])
+
+    def test_unknown_snes_lorom_hirom_and_regions_use_instruction_maps(self):
+        from smsrecomp import supernintendo
+        for mapping in ('lorom', 'hirom'):
+            for region, standard in ((1, 'ntsc'), (2, 'pal')):
+                with self.subTest(mapping=mapping, standard=standard):
+                    path = self.source('Unknown.sfc', snes(region, mapping, fast=True))
+                    rom = conversion_rom(path, 'snes')
+                    self.assertEqual(supernintendo.video_standard(rom), standard)
+                    supernintendo.write_profile(self.root, rom, 'Unknown')
+                    header = (self.root / 'retro_snes_game.h').read_text()
+                    self.assertIn('#define RR_SN_SMW 0', header)
+                    self.assertIn(f'#define RR_SN_PAL {int(standard == "pal")}', header)
+                    self.assertIn(rom.sha256, (self.root / 'generated/instruction_program.c').read_text())
 
     def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True):
         """Exercise real conversion scheduling/gates with authored probe results."""
@@ -151,9 +216,7 @@ class Console16Tests(unittest.TestCase):
             events.append('learn')
             return int(any(check['rom_entries'] for check in checks))
 
-        with patch('smsrecomp.console16.qualified_rom', return_value=rom), \
-                patch('smsrecomp.megadrive.profile_for', return_value={'title': 'Authored', 'id': 'authored'}), \
-                patch('smsrecomp.console16.prepare16', side_effect=prepare), \
+        with patch('smsrecomp.console16.prepare16', side_effect=prepare), \
                 patch('smsrecomp.console16.probe16', side_effect=probe), \
                 patch('smsrecomp.megadrive.learn_entries', side_effect=learn), \
                 patch('smsrecomp.megadrive_z80.learn_variants', return_value=0):
@@ -187,6 +250,8 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30])
         self.assertEqual(events[:5], ['build', 'native:demo', 'native:play', 'reference:demo', 'reference:play'])
         self.assertTrue(report['native_validation']['reference_before_learning'])
+        self.assertEqual(report['cartridge_profile']['source'], 'cartridge')
+        self.assertFalse(report['cartridge_profile']['catalogue_required'])
 
     def test_standard_md_divergence_does_not_enter_the_memory_library(self):
         events, report = self.scan_conversion(advanced=False, fail_reference=True)
@@ -229,9 +294,7 @@ class Console16Tests(unittest.TestCase):
 
         for fail in (True, False):
             events.clear(); passes[0] = 0
-            with patch('smsrecomp.console16.qualified_rom', return_value=rom), \
-                    patch('smsrecomp.supernintendo.profile_for', return_value={'title': 'Authored'}), \
-                    patch('smsrecomp.console16.prepare16', side_effect=prepare), \
+            with patch('smsrecomp.console16.prepare16', side_effect=prepare), \
                     patch('smsrecomp.console16.probe16', side_effect=probe), \
                     patch('smsrecomp.supernintendo.learn_ram_variants', return_value=0), \
                     patch('smsrecomp.snes_spc.learn', side_effect=learn), \
@@ -277,10 +340,10 @@ class Console16Tests(unittest.TestCase):
             for region in (b'E', b'8', b'A', b'2'):
                 path = self.source('Game (USA).md', md(region))
                 with self.assertRaisesRegex(ConversionError, 'declares PAL'):
-                    qualified_rom(path, 'md', 'ntsc')
+                    conversion_rom(path, 'md', 'ntsc')
             profile.assert_not_called()
 
-    def test_md_timing_requires_both_header_and_revision_qualification(self):
+    def test_md_timing_uses_header_without_requiring_revision_qualification(self):
         from smsrecomp.megadrive import video_standard
         for header in (b'E', b'8', b'A', b'2'):
             rom = read_megadrive_rom(self.source('Game (USA).md', md(header)))
@@ -292,8 +355,7 @@ class Console16Tests(unittest.TestCase):
         rom = read_megadrive_rom(self.source('Game.md', md()))
         with patch('smsrecomp.megadrive.profile_for', return_value={}):
             self.assertEqual(video_standard(rom), 'ntsc')
-            with self.assertRaisesRegex(ConversionError, 'not been qualified'):
-                video_standard(rom, 'pal')
+            self.assertEqual(video_standard(rom, 'pal'), 'pal')
         with patch('smsrecomp.megadrive.profile_for', return_value={'standards': ('ntsc', 'pal')}):
             self.assertEqual(video_standard(rom, 'pal'), 'pal')
 
@@ -301,7 +363,7 @@ class Console16Tests(unittest.TestCase):
         with patch('smsrecomp.megadrive.profile_for') as profile:
             for override in (None, 'ntsc'):
                 with self.assertRaisesRegex(ConversionError, 'unrecognized region'):
-                    qualified_rom(self.source('Game (USA).md', md(b'???')), 'md', override)
+                    conversion_rom(self.source('Game (USA).md', md(b'???')), 'md', override)
             profile.assert_not_called()
 
     def test_md_legacy_region_exception_is_bound_to_the_entire_rom(self):

@@ -1,0 +1,199 @@
+{
+  "format": 1,
+  "entries": [
+    {
+      "id": "sms-aztec-adventure---the-golden-road-to-paradise",
+      "system_id": "sms",
+      "rom_sha256": [
+        "b3fd2d4d5bd30e7419080d1e4368cf4a47f9f892df188eb165435354f9e59531"
+      ],
+      "rom_names": [
+        "Aztec Adventure - The Golden Road to Paradise (World)",
+        "Aztec Adventure (World)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Aztec%20Adventure%20%28World%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Aztec%20Adventure%20%28World%29.png"
+    },
+    {
+      "id": "sms-digger-chan",
+      "system_id": "sms",
+      "rom_sha256": [
+        "9b4e5123b6528a369841205715551388b93d77755f63dd60397efa43f3bc550b"
+      ],
+      "rom_names": [
+        "Digger Chan (Aypok)",
+        "Digger Chan"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/022d435b-a423-45f2-bd6c-5d377cec3acf.png"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/33578-digger-chan"
+    },
+    {
+      "id": "sms-e-swat---city-under-siege",
+      "system_id": "sms",
+      "rom_sha256": [
+        "884564b0937565596046b2b59b966b004df1bb7fd9278452c06a8578f22b4fa4"
+      ],
+      "rom_names": [
+        "E-SWAT - City Under Siege (USA, Europe)",
+        "E-SWAT (USA, Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/E-SWAT%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/E-SWAT%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-fantasy-zone-ii---the-tears-of-opa-opa",
+      "system_id": "sms",
+      "rom_sha256": [
+        "e9a448b889b41746a1921a633cd6408f38f7bc88938c797b0177a225ecf5dc9e"
+      ],
+      "rom_names": [
+        "Fantasy Zone II - The Tears of Opa-Opa (USA, Europe)",
+        "Fantasy Zone II (USA, Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Fantasy%20Zone%20II%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Fantasy%20Zone%20II%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-rainbow-islands---the-story-of-bubble-bobble-2",
+      "system_id": "sms",
+      "rom_sha256": [
+        "3ca05749d952c8b1a6d772f08dc520cac7acd6a1e4698d163c6fc580af1b850f"
+      ],
+      "rom_names": [
+        "Rainbow Islands - The Story of Bubble Bobble 2 (Europe)",
+        "Rainbow Islands (Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Rainbow%20Islands%20%28Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Rainbow%20Islands%20%28Europe%29.png"
+    },
+    {
+      "id": "sms-shadow-dancer---the-secret-of-shinobi",
+      "system_id": "sms",
+      "rom_sha256": [
+        "81cb3c9a7e59f642da20b189f238928381d6518c8151f2b7c7c3971ff4bd2d0b"
+      ],
+      "rom_names": [
+        "Shadow Dancer - The Secret of Shinobi (Europe)",
+        "Shadow Dancer - The Secret of Shinobi _ Shadow Dancer (Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Shadow%20Dancer%20-%20The%20Secret%20of%20Shinobi%20_%20Shadow%20Dancer%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Shadow%20Dancer%20-%20The%20Secret%20of%20Shinobi%20_%20Shadow%20Dancer%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-spider-man-vs--the-kingpin",
+      "system_id": "sms",
+      "rom_sha256": [
+        "cbc3ccef0f16d33153239f2f6ce7bc96059b23383da06cd99f93b40316b8bfbe"
+      ],
+      "rom_names": [
+        "Spider-Man vs. The Kingpin (USA, Europe)",
+        "Spider-Man (USA, Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Spider-Man%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Spider-Man%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-tennis-ace",
+      "system_id": "sms",
+      "rom_sha256": [
+        "1caaf2690b7edcdadcb3a874fac8fb5349222c6fb60245e74eb73826be1ed1cb"
+      ],
+      "rom_names": [
+        "Tennis Ace (Europe)",
+        "Tennis Ace _ Super Tennis (Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Tennis%20Ace%20_%20Super%20Tennis%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Tennis%20Ace%20_%20Super%20Tennis%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-winter-olympics---lillehammer--94",
+      "system_id": "sms",
+      "rom_sha256": [
+        "a5cae978782f9c01b877f45888976bd58458acb905dd9e2f0ac5a8faa2b8c364"
+      ],
+      "rom_names": [
+        "Winter Olympics - Lillehammer '94 (Europe)",
+        "Winter Olympics (Europe) (En,Fr,De,Es,It,Pt,Sv,No)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Winter%20Olympics%20%28Europe%29%20%28En%2CFr%2CDe%2CEs%2CIt%2CPt%2CSv%2CNo%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Winter%20Olympics%20%28Europe%29%20%28En%2CFr%2CDe%2CEs%2CIt%2CPt%2CSv%2CNo%29.png"
+    },
+    {
+      "id": "sms-world-cup-italia--90",
+      "system_id": "sms",
+      "rom_sha256": [
+        "6c93a8792a253e3d3a6170c1bd694ed40ba2659600189f296149e23052b1559a"
+      ],
+      "rom_names": [
+        "World Cup Italia '90 (Europe)",
+        "World Cup Italia '90 _ Super Futebol II (Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/World%20Cup%20Italia%20%2790%20_%20Super%20Futebol%20II%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/World%20Cup%20Italia%20%2790%20_%20Super%20Futebol%20II%20%28Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-golvellius",
+      "system_id": "sms",
+      "rom_sha256": [
+        "ea45667366805f640c87a056b0f66fc55ac5b4d022d0b08e4f6c5346fab8284e"
+      ],
+      "rom_names": [
+        "Golvellius (USA, Europe)",
+        "Golvellius - Valley of Doom (USA, Europe, Brazil) (En)",
+        "Golvellius (USA, Europe, Brazil)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Golvellius%20-%20Valley%20of%20Doom%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Golvellius%20-%20Valley%20of%20Doom%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "sms-shooting-gallery",
+      "system_id": "sms",
+      "rom_sha256": [
+        "56c02428e158a6791844c0e95c12befe73af127f64124d80137b8b349d3ac8c0"
+      ],
+      "rom_names": [
+        "Shooting Gallery (USA, Europe)",
+        "Shooting Gallery (USA, Europe, Brazil) (En)",
+        "Shooting Gallery - Shooting G. (USA, Europe, Brazil) (En)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Shooting%20Gallery%20_%20Shooting%20G.%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Shooting%20Gallery%20_%20Shooting%20G.%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    }
+  ]
+}

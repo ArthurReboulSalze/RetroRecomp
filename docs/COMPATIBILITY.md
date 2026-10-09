@@ -22,7 +22,10 @@ supports LoROM and HiROM with the cartridge's actual storage mirroring.
 Pop'n TwinBee adds an exact European PAL LoROM revision, bringing the SNES
 catalogue to 12 revisions. Its 312-line raster and independent audio clock
 are qualified for the progressive 256 x 224 display.
-Both 16-bit profiles remain restricted to qualified revisions and timing modes.
+These tested revisions are a regression catalogue, not a conversion allowlist.
+New ordinary Mega Drive and SNES LoROM/HiROM cartridges receive their own
+ROM-derived profiles and undergo native/reference validation before export.
+Unsupported hardware is reported separately; see [current hardware scope](CONSOLES_16BIT.md).
 SNES PAL overscan, interlace and 512-pixel display modes remain unqualified.
 Mouse Menacer/Super Scope input and shared gun settings are included;
 see [16-bit gun controls and validation](GUNS_16BIT.md).

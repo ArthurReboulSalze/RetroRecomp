@@ -23,6 +23,8 @@ class PublicationTests(unittest.TestCase):
                 path.write_bytes(b'synthetic public fixture\n')
             knowledge = source / 'assets/compilation-knowledge.json.gz'
             knowledge.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {}}).encode()))
+            (source / 'assets/cover-references.json').write_text(
+                json.dumps({'format': 1, 'entries': []}), encoding='utf-8')
             report = folder / 'audit.json'
             result = subprocess.run([sys.executable, '-I', str(script), '--source', str(source),
                                      '--report', str(report)], cwd=folder, capture_output=True,

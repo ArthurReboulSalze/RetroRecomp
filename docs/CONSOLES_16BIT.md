@@ -2,9 +2,24 @@
 
 RetroRecomp includes two separate experimental console profiles. This
 does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identified
-from its console header, then its SHA-256 must match a qualified game revision
-before code generation starts. A different revision, unqualified timing mode or unsupported
-title is rejected rather than compiled with another game's roots.
+from its console header, then receives a profile generated from its own ROM.
+The regression catalogue is **not an allowlist**: an unknown title or revision
+can be converted without adding it to the source code first. Exact-ROM catalogue
+entries supply optional overrides; compilation knowledge remains bound to the
+full SHA-256 and engine revision. No other game's roots or RAM aliases are borrowed.
+
+The generic Mega Drive path accepts linear cartridges up to 4 MiB. Known extra
+hardware declarations (32X, Pico, extended mappers) receive a hardware
+limitation message. EEPROM save support is reported as a limitation without
+blocking game conversion; quick states remain available. The generic SNES path accepts ordinary LoROM/HiROM up to
+4 MiB, including FastROM and RAM/battery variants; extended mappings and
+enhancement chips are not yet integrated into the native adapter. PAL/NTSC
+comes from the cartridge header. A multi-region Mega Drive ROM can be tested
+in either declared standard, without requiring a pre-existing PAL record.
+
+Every conversion still compares native and reference CPU, memory, image and
+audio before learning or export. A mismatch preserves the previous export.
+Passing this internal check does not prove full gameplay or hardware fidelity.
 This document describes the development tree after release 0.21.0, including
 27 Mega Drive and 12 Super Nintendo revisions, native instruction paths, resolution-aware scanlines
 and three qualified lightgun cartridges;
@@ -55,8 +70,8 @@ see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 The original ROMs remain read-only. Linear `.md`/`.gen` and validated
 `.sfc`/`.smc` images, single-cartridge ZIPs, and identifiable `.bin`/`.rom`
 files are recognized. A SNES copier header is removed only from the in-memory
-build input. Interleaved SMD and additional unqualified cartridge profiles
-are not enabled in these proofs. No ROM patches or widescreen mode are applied.
+build input. Interleaved SMD remains unsupported. No ROM patches or widescreen
+mode are applied. The table records previous tests, not the conversion scope.
 Mega Drive region headers take precedence over misleading filenames: a
 PAL-only header cannot be forced to NTSC. A reset
 stack pointer of zero is valid: the first predecrement push wraps onto work RAM.
@@ -81,8 +96,8 @@ sequences are covered by authored fixtures. These checks do not certify
 sub-scanline CPU budgets, DMA/FIFO contention or interlaced/NTSC V30 behavior.
 See [hardware measurements](https://www.plutiedev.com/mirror/kabuto-hardware-notes).
 The two new PAL images are named USA in the supplied collection; qualification
-uses their actual cartridge bytes. Multi-region revisions remain NTSC-only
-unless that exact profile has also passed PAL checks.
+uses their actual cartridge bytes. A new timing selection is validated during
+that conversion; earlier NTSC evidence is not presented as PAL evidence.
 
 ### Super Nintendo PAL timing
 
@@ -557,7 +572,7 @@ The existing Windows C++ toolchain is required for conversion. The SNES
 function analyzer for Super Mario World additionally requires an installed stable Rust toolchain, minimum
 1.85; this integration does not install Rust automatically. Generated games
 need none of those development tools to run.
-The ten other qualified SNES instruction maps do not require that function analyzer or
+Ordinary SNES instruction maps do not require that function analyzer or
 the separate SuperMarioWorldRecomp dependency.
 
 Generated-source analysis is cached for the exact ROM, pinned engine/game
@@ -565,6 +580,9 @@ profile, adapter revision and verified observations. Changes to that identity
 invalidate the cache. Both conversions use
 the existing batch queue, clean filenames, per-console folders, atomic
 replacement, Windows metadata, cover icons and executable compression.
+The packaged converter fingerprints embedded bytecode when Python source files
+are absent. Temporary extraction paths are excluded from those fingerprints,
+so restarting the converter does not invalidate unchanged compiler inputs.
 
 Component licences and notices are embedded in each game EXE. The imported
 frameworks retain their **PolyForm Noncommercial 1.0.0** terms; RetroRecomp's

@@ -169,8 +169,8 @@ def main() -> int:
                 if system.id in ('md', 'snes'):
                     if args.import_manifest:
                         raise ConversionError('16-bit proofs do not import Z80 observation manifests.')
-                    from smsrecomp.console16 import qualified_rom, REPOSITORIES
-                    rom = qualified_rom(args.rom, system.id)
+                    from smsrecomp.console16 import conversion_rom, REPOSITORIES
+                    rom = conversion_rom(args.rom, system.id)
                     from smsrecomp import megadrive, supernintendo
                     entries = megadrive.read_entries(rom) if system.id == 'md' else set()
                     ram = (megadrive.read_ram_variants(rom) if system.id == 'md' else

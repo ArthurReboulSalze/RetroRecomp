@@ -25,10 +25,11 @@ def main():
     prepare_runtime(directory, rom, 'Authored lazy data fixture', engine)
     log = directory / 'build.log'
     run([ROOT / '.deps/recompiler-build/Release/SmsRecomp.exe', '--game', directory / 'game.toml', '--banked-step'], log=log)
-    source = ROOT / '.build/native-source'; source.mkdir(parents=True, exist_ok=True)
+    # Keep the fixture's staged source separate from an active batch build.
+    source = directory / 'native-source'; source.mkdir(parents=True, exist_ok=True)
     for file in (ASSETS / 'native').iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
-    build = directory / 'build'
+    build = directory / 'build-isolated'
     run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={directory.as_posix()}',
          '-DGAME_NAME=AuthoredLazy', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
@@ -72,6 +73,19 @@ def main():
                 assert {Path(p).name for p in created}=={'entry.lock','observations.log','native.patterns'},created
                 assert all(p.startswith('datas/library/') for p in created)
             results[mode]=sorted(set(after)-set(before))
+        # The converter's per-scenario library can exceed MAX_PATH for long
+        # game titles. Check the real C writer, not just Python file access.
+        root=work/'long-learning';root.mkdir();exe=root/'renamed.exe'
+        shutil.copy2(build/'Release/smsrecomp_lazy_data_checks.exe',exe)
+        library=root/('mémoire-'+('a'*90))/('sondes-'+('b'*90))
+        assert len(str(library)) > 260
+        probe_env=env.copy();probe_env['RETRO_RECOMP_LEARNING']='1'
+        probe_env['RETRO_RECOMP_LIBRARY_DIR']=str(library)
+        launch(exe,['learn'],probe_env)
+        created=files(library)
+        assert {Path(p).name for p in created}=={'entry.lock','observations.log','native.patterns'},created
+        results['long_unicode_learning']={'root_characters':len(str(library)),
+                                         'files':sorted(created)}
         # Exercise the real shipped launcher, normal headless boot and explicit --log.
         root=work/'standalone';root.mkdir();exe=root/'game.exe';shutil.copy2(build/'Release/AuthoredLazy.exe',exe)
         before=files(root);launch(exe,['--headless','--frames','2','--mute']);assert files(root)==before

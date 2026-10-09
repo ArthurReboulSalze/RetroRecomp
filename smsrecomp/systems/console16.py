@@ -1,4 +1,4 @@
-"""Separate experimental 16-bit profiles; conversion remains ROM-qualified."""
+"""Separate experimental 16-bit profiles with cartridge-derived analysis."""
 from pathlib import Path
 from . import SystemProfile
 

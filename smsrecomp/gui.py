@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 from pathlib import Path
 import queue
-import random
 import subprocess
 import sys
 import threading
@@ -26,6 +24,7 @@ from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
 from .systems import PROFILES, discover_roms, get_profile
 from .updater import UpdateConnectionError, UpdateServiceError
+from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
 
 
 PLATFORMS = {'windows-x64': 'Windows x64'}
@@ -71,12 +70,7 @@ UPSTREAM_CREDITS = (
 )
 
 
-TILE_SIZE = 128
-# These hex colors occur in the supplied logo; the square geometry below is
-# drawn afresh by Tk and does not reuse pixels or cutouts from the artwork.
-SQUARE_COLORS = ('#01C9FC', '#075EFB', '#B733FB', '#FD2EFD')
-SQUARE_SIZES = (3, 4, 5, 6, 8, 10, 12)
-HATCH_SPACING = 8
+HATCH_SPACING = 4
 
 
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
@@ -85,15 +79,6 @@ def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     values = [round(channel(base, at) * (1 - visibility) +
                     channel(foreground, at) * visibility) for at in (1, 3, 5)]
     return '#{:02x}{:02x}{:02x}'.format(*values)
-
-
-def _rotated_square(x: int, y: int, size: int, angle: float) -> tuple[float, ...]:
-    half = size / 2
-    cosine, sine = math.cos(angle), math.sin(angle)
-    corners = ((-half, -half), (half, -half), (half, half), (-half, half))
-    return tuple(coordinate for dx, dy in corners
-                 for coordinate in (x + dx * cosine - dy * sine,
-                                    y + dx * sine + dy * cosine))
 
 
 class Application:
@@ -119,34 +104,9 @@ class Application:
         self.language = preferences.get('language') if preferences.get('language') in ('en', 'fr') else 'en'
         app.title(APP_NAME)
         app.geometry('1120x940')
-        app.minsize(980, 840)
-        app.configure(bg='#071732')
-        style = ttk.Style(app)
-        style.theme_use('clam')
-        style.configure('.', font=('Segoe UI', 10), background='#071732', foreground='#eef6ff')
-        style.configure('TButton', padding=(12, 7), background='#173763', bordercolor='#31568c', lightcolor='#173763', darkcolor='#173763')
-        style.map('TButton', background=[('active', '#22518e'), ('disabled', '#122749')], foreground=[('disabled', '#7590b3')])
-        style.configure('TCheckbutton', background='#071732', foreground='#eef6ff')
-        style.map('TCheckbutton', background=[('active', '#102b52')], foreground=[('disabled', '#7590b3')])
-        style.configure('TEntry', fieldbackground='#102b52', foreground='#eef6ff', bordercolor='#31568c', insertcolor='#eef6ff')
-        style.configure('TCombobox', fieldbackground='#102b52', foreground='#eef6ff', background='#173763', arrowcolor='#26d7ff')
-        style.map('TCombobox', fieldbackground=[('readonly', '#102b52')], foreground=[('readonly', '#eef6ff')])
-        style.configure('TSpinbox', fieldbackground='#102b52', foreground='#eef6ff', arrowcolor='#26d7ff')
-        style.configure('Horizontal.TProgressbar', background='#26d7ff', troughcolor='#102b52', bordercolor='#25456c')
-        style.configure('TScrollbar', background='#173763', troughcolor='#0b2143', arrowcolor='#a9bcdc')
-        style.configure('Vertical.TScrollbar', background='#173763', troughcolor='#0b2143', arrowcolor='#a9bcdc', bordercolor='#285896')
-        style.map('Vertical.TScrollbar', background=[('active', '#22518e')])
-        style.configure('TNotebook', background='#071732', bordercolor='#31568c')
-        style.configure('TNotebook.Tab', padding=(14, 8), background='#102b52', foreground='#a9bcdc')
-        style.map('TNotebook.Tab', background=[('selected', '#173763'), ('active', '#22518e')],
-                  foreground=[('selected', '#eef6ff')])
-        style.configure('Primary.TButton', background='#0879fa', foreground='white', padding=(18, 9))
-        style.map('Primary.TButton', background=[('active', '#1265d0'), ('disabled', '#334a68')])
-        style.configure('Treeview', background='#0b2143', fieldbackground='#0b2143', rowheight=31, borderwidth=0, bordercolor='#285896', lightcolor='#285896', darkcolor='#285896')
-        style.configure('Treeview.Heading', background='#153461', padding=(8, 8), font=('Segoe UI', 10, 'bold'), bordercolor='#285896', lightcolor='#285896', darkcolor='#285896')
-        style.map('Treeview.Heading', background=[('active', '#22518e')])
-        style.map('Treeview', background=[('selected', '#164da2')], foreground=[('selected', '#eef6ff')])
-        style.configure('Muted.TLabel', foreground='#a9bcdc')
+        app.minsize(1060, 780)
+        self.style = apply_theme(app)
+        self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
         self.count = tk.StringVar(value='0 ROM')
         self.detail = tk.StringVar(value=self.tr('shared'))
@@ -172,7 +132,7 @@ class Application:
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
-        header = tk.Canvas(app, height=157, bg='#04112b', highlightthickness=0,
+        header = tk.Canvas(app, height=132, bg=COLORS['header'], highlightthickness=0,
                            borderwidth=0)
         self.header = header
         header.pack(fill='x')
@@ -182,6 +142,12 @@ class Application:
             header.create_image(24, 0, image=self.banner, anchor='nw', tags='banner')
         except (OSError, tk.TclError):
             self.banner = None
+        try:
+            self.console_art = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-consoles.png'))
+        except (OSError, tk.TclError):
+            self.console_art = None
+        self.brand_tagline = header.create_text(196, 96, text=self.tr('brand_tagline'),
+            anchor='nw', fill=COLORS['text'], font=('Segoe UI', 8), tags='brand_tagline')
         try:
             icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')
             app.iconbitmap(icon_path)
@@ -215,34 +181,30 @@ class Application:
         self.header_fields = (self.system_field, self.platform_field, self.language_field)
         self.header_labels = {
             key: header.create_text(0, 10, text=self.tr(key), anchor='nw',
-                                    fill='#a9bcdc', font=('Segoe UI', 9), tags='selector_label')
+                                    fill=COLORS['muted'], font=('Segoe UI', 9), tags='selector_label')
             for key in ('console_format', 'platform', 'language')
         }
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='nw')
                                     for field in self.header_fields)
         header.bind('<Configure>', self.layout_header)
-        stripe = tk.Canvas(app, height=3, bg='#0879fa', highlightthickness=0)
+        stripe = tk.Canvas(app, height=2, bg=COLORS['subtle_border'], highlightthickness=0)
         stripe.pack(fill='x')
         def gradient(event):
             stripe.delete('all')
-            colors = [(170, 102, 255), (8, 121, 250), (38, 215, 255)]
-            for i in range(128):
-                progress = i / 127 * 2
-                segment = min(1, int(progress)); fraction = progress - segment
-                color = '#%02x%02x%02x' % tuple(int(a*(1-fraction)+b*fraction) for a,b in zip(colors[segment], colors[segment+1]))
-                stripe.create_rectangle(i*event.width/128, 0, (i+1)*event.width/128+1, 3, fill=color, outline=color)
+            stripe.create_rectangle(24, 0, 174, 2, fill=COLORS['gold'], outline='')
         stripe.bind('<Configure>', gradient)
 
-        body = tk.Canvas(app, bg='#071732', highlightthickness=0, borderwidth=0)
+        body = tk.Canvas(app, bg=COLORS['background'], highlightthickness=0, borderwidth=0)
         self.body = body
         body.bind('<Configure>', self.draw_background)
         body.pack(fill='both', expand=True)
         body.columnconfigure(0, weight=1)
-        body.rowconfigure(1, weight=4, minsize=180)
-        body.rowconfigure(7, weight=2, minsize=80)
+        body.rowconfigure(1, weight=4, minsize=240)
+        body.rowconfigure(7, weight=2, minsize=110)
         toolbar = ttk.Frame(body)
+        self.toolbar = toolbar
         toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
-        self.button(toolbar, self.tr('add_roms'), self.choose_roms).pack(side='left')
+        self.button(toolbar, self.tr('add_roms'), self.choose_roms, primary=True).pack(side='left')
         self.button(toolbar, self.tr('add_folder'), self.choose_directory).pack(side='left', padx=8)
         self.button(toolbar, self.tr('remove'), self.remove_selected).pack(side='left')
         self.button(toolbar, self.tr('clear'), self.clear).pack(side='left', padx=8)
@@ -263,8 +225,8 @@ class Application:
                                     ('cover', self.tr('cover'), 100), ('status', self.tr('conversion'), 210)]:
             self.table.heading(key, text=caption)
             self.table.column(key, width=width, minwidth=60, stretch=key in ('title', 'status'))
-        self.table.tag_configure('error', foreground='#ffb4c2')
-        self.table.tag_configure('success', foreground='#81e7ba')
+        self.table.tag_configure('error', foreground=COLORS['error'])
+        self.table.tag_configure('success', foreground=COLORS['success'])
         scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.table.yview)
         self.table.configure(yscrollcommand=scrollbar.set)
         self.table.pack(side='left', fill='both', expand=True)
@@ -272,12 +234,25 @@ class Application:
         scrollbar.pack(side='right', fill='y')
         self.table.bind('<<TreeviewSelect>>', lambda event: self.selection_changed())
         self.table.bind('<Double-1>', lambda event: self.play())
+        self.empty_state = tk.Frame(self.table, bg=COLORS['field'], cursor='hand2')
+        self.empty_art = tk.Canvas(self.empty_state, width=72, height=48,
+                                   bg=COLORS['field'], highlightthickness=0)
+        self.empty_art.pack()
+        for path in ICON_PATHS['gamepad']:
+            self.empty_art.create_line(*(6+v*4 if i % 2 == 0 else 1+v*3 for i,v in enumerate(path)),
+                                       fill=COLORS['disabled'], width=3)
+        ttk.Label(self.empty_state, text=self.tr('empty_title'), style='EmptyTitle.TLabel').pack(pady=(8, 2))
+        ttk.Label(self.empty_state, text=self.tr('empty_hint'), style='Empty.TLabel').pack()
+        for widget in (self.empty_state, *self.empty_state.winfo_children()):
+            widget.bind('<Button-1>', lambda event: self.choose_roms())
+        self.update_empty_state()
 
         selection = ttk.Frame(body)
         selection.grid(row=2, column=0, sticky='ew', padx=24, pady=(8, 12))
         self.button(selection, self.tr('choose_cover'), self.choose_cover).pack(side='left')
         self.button(selection, self.tr('auto_cover'), self.automatic_cover).pack(side='left', padx=8)
         self.play_button = ttk.Button(selection, text=self.tr('play'), command=self.play, state='disabled')
+        self.decorate_button(self.play_button, 'play')
         self.play_button.pack(side='left')
         self.hint(self.play_button, 'tip_play')
         ttk.Label(selection, text=self.tr('video_timing')).pack(side='left', padx=(18, 6))
@@ -289,6 +264,7 @@ class Application:
         self.controls.append(self.video_field)
         self.hint(self.video_field, 'tip_video_timing')
         self.memory_button = ttk.Button(selection, text=self.tr('memory'), command=self.show_library)
+        self.decorate_button(self.memory_button, 'gamepad')
         self.memory_button.pack(side='right')
         self.hint(self.memory_button, 'tip_memory')
         ttk.Label(body, textvariable=self.detail, style='Muted.TLabel', wraplength=850).grid(row=3, column=0, sticky='ew', padx=24, pady=(0, 12))
@@ -296,30 +272,48 @@ class Application:
         actions = ttk.Frame(body)
         actions.grid(row=4, column=0, sticky='ew', padx=24, pady=(0, 8))
         self.start_button = ttk.Button(actions, text=self.tr('start'), command=self.start, style='Primary.TButton')
+        self.decorate_button(self.start_button, 'refresh', primary=True)
         self.start_button.pack(side='left')
         self.hint(self.start_button, 'tip_start')
         self.stop_button = ttk.Button(actions, text=self.tr('stop'), command=self.stop, state='disabled')
+        self.decorate_button(self.stop_button, 'stop')
         self.stop_button.pack(side='left', padx=8)
         self.hint(self.stop_button, 'tip_stop')
         open_button = ttk.Button(actions, text=self.tr('open_folder'), command=self.open_output)
+        self.decorate_button(open_button, 'folder')
         open_button.pack(side='right')
         self.hint(open_button, 'tip_open_folder')
         self.progress = ttk.Progressbar(body, mode='determinate')
         self.progress.grid(row=5, column=0, sticky='ew', padx=24, pady=(0, 8))
         ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 8))
-        self.log = tk.Text(body, height=12, font=('Consolas', 9), bg='#04112b', fg='#b8dbff', relief='flat', padx=12, pady=10, state='disabled', wrap='word')
-        self.log.grid(row=7, column=0, sticky='nsew', padx=24)
+        log_frame = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['border'])
+        log_frame.grid(row=7, column=0, sticky='nsew', padx=24)
+        self.log = tk.Text(log_frame, height=10, font=('Consolas', 9), bg=COLORS['field'],
+                           fg=COLORS['muted'], relief='flat', padx=10, pady=9,
+                           state='disabled', wrap='word', insertbackground=COLORS['gold'])
+        log_scroll = ttk.Scrollbar(log_frame, orient='vertical', command=self.log.yview)
+        self.log.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side='right', fill='y')
+        self.log.pack(side='left', fill='both', expand=True)
         footer = ttk.Frame(body)
         footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(10, 16))
-        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel')
+        status_dot = tk.Canvas(footer, width=12, height=14, bg=COLORS['background'], highlightthickness=0)
+        status_dot.create_oval(1, 3, 9, 11, fill=COLORS['green'], outline='')
+        status_dot.pack(side='left', padx=(0, 6))
+        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel', font=('Segoe UI', 9))
         self.footer_label.pack(side='left')
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=('Segoe UI', 9))
         self.tagline.pack(side='right', padx=(12, 0))
         app.protocol('WM_DELETE_WINDOW', self.close)
+        app.after_idle(self.fit_minimum_width)
         app.after(100, self.drain)
 
     def tr(self, key, **values):
         return tr(key, self.language, **values)
+
+    def fit_minimum_width(self):
+        # French labels and a large ROM count must keep every action visible.
+        self.app.minsize(max(1060, self.toolbar.winfo_reqwidth() + 72), 780)
 
     def layout_header(self, event):
         self.draw_background(event)
@@ -381,38 +375,24 @@ class Application:
         canvas._background_extent = extent
         canvas.delete('background_motif')
         base = canvas.cget('bg')
-        colors = tuple(_tint(base, color) for color in SQUARE_COLORS)
-        # Anchor every diagonal to the same eight-pixel grid. Rounding the
-        # starting offset keeps the pattern aligned when the canvas resizes.
-        hatch = _tint(base, '#66a8ff', 0.075)
+        # Continuous, very quiet diagonal texture. The opaque table and terminal
+        # keep their own flat surfaces, like the supplied identity board.
+        hatch = _tint(base, '#bdbdbd', 0.035 if canvas is self.header else 0.012)
         first_offset = -((height + HATCH_SPACING - 1) // HATCH_SPACING) * HATCH_SPACING
         for offset in range(first_offset, width + HATCH_SPACING, HATCH_SPACING):
             canvas.create_line(offset, 0, offset + height, height,
                                fill=hatch, width=1,
                                tags=('background_motif', 'background_hatch'))
-        columns = (width + TILE_SIZE - 1) // TILE_SIZE
-        rows = (height + TILE_SIZE - 1) // TILE_SIZE
-        surface_seed = 0x52455452 if canvas is self.header else 0x434F4D50
-        for row in range(rows):
-            for column in range(columns):
-                rng = random.Random(surface_seed ^ (column * 73856093) ^ (row * 19349663))
-                for _ in range(rng.randint(4, 6)):
-                    x = column * TILE_SIZE + rng.randrange(12, TILE_SIZE - 12)
-                    y = row * TILE_SIZE + rng.randrange(12, TILE_SIZE - 12)
-                    size = rng.choice(SQUARE_SIZES)
-                    angle = math.radians(rng.uniform(-45, 45))
-                    points = _rotated_square(x, y, size, angle)
-                    color = colors[rng.randrange(len(colors))]
-                    # Canvas includes a one-pixel raster fringe around polygons.
-                    left, right = min(points[::2])-2, max(points[::2])+2
-                    top, bottom = min(points[1::2])-2, max(points[1::2])+2
-                    if any(left < x2 and right > x1 and top < y2 and bottom > y1
-                           for x1, y1, x2, y2 in protected):
-                        continue
-                    canvas.create_polygon(*points,
-                                          fill=color,
-                                          outline='',
-                                          tags=('background_motif', 'background_square'))
+        if canvas is self.header:
+            if self.console_art is not None:
+                canvas.create_image(max(550, width-555), 56, image=self.console_art,
+                                    anchor='nw', tags=('background_motif', 'hardware'))
+            for x, y, size in ((width-80, 104, 10), (width-67, 91, 12)):
+                if any(x < x2 and x+size > x1 and y < y2 and y+size > y1
+                       for x1, y1, x2, y2 in protected):
+                    continue
+                canvas.create_rectangle(x, y, x+size, y+size, fill=COLORS['gold'],
+                                        outline='', tags=('background_motif', 'background_square'))
         canvas.tag_lower('background_motif')
 
     def hint(self, widget, key):
@@ -483,6 +463,7 @@ class Application:
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
         self.platform_name.set(PLATFORMS[self.platform_id])
+        self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         for key, item in self.header_labels.items():
             self.header.itemconfigure(item, text=self.tr(key))
         reverse = {value: key for key, pair in STRINGS.items() for value in pair if '{' not in value}
@@ -515,6 +496,7 @@ class Application:
         self.selection_changed()
         self.queue_background(self.header)
         self.queue_background(self.body)
+        self.app.after_idle(self.fit_minimum_width)
 
     def change_language(self, event=None):
         self.language = 'fr' if self.language_name.get() == 'Français' else 'en'
@@ -530,13 +512,37 @@ class Application:
         except (OSError, ValueError, tk.TclError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def button(self, parent, text, command):
-        button = ttk.Button(parent, text=text, command=command)
+    def decorate_button(self, button, symbol, primary=False):
+        key = (symbol, primary)
+        if key not in self.button_images:
+            self.button_images[key] = (
+                make_icon(self.app, symbol, COLORS['gold_text'] if primary else COLORS['text']),
+                make_icon(self.app, symbol, COLORS['disabled']))
+        normal, disabled = self.button_images[key]
+        button.configure(image=(normal, 'disabled', disabled), compound='left')
+
+    def button(self, parent, text, command, primary=False):
+        style = 'Primary.TButton' if primary else 'TButton'
+        if parent is self.toolbar:
+            style = 'Toolbar.' + style
+        button = ttk.Button(parent, text=text, command=command, style=style)
+        symbol = {'choose_roms': 'folder', 'choose_directory': 'add_folder',
+                  'remove_selected': 'remove', 'clear': 'clear', 'check_updates': 'refresh',
+                  'show_options': 'options', 'show_credits': 'info',
+                  'choose_cover': 'image', 'automatic_cover': 'auto'}.get(command.__name__)
+        if symbol:
+            self.decorate_button(button, symbol, primary)
         self.controls.append(button)
         key = next((key for key, pair in STRINGS.items() if text in pair and 'tip_'+key in STRINGS), None)
         if key: self.hint(button, 'tip_'+key)
         elif command == self.choose_output: self.hint(button, 'tip_output')
         return button
+
+    def update_empty_state(self):
+        if self.items:
+            self.empty_state.place_forget()
+        else:
+            self.empty_state.place(relx=0.5, rely=0.5, y=18, anchor='center')
 
     def video_display(self, item: BatchItem, result: dict | None = None) -> str:
         if item.error or not item.video_hint:
@@ -618,6 +624,8 @@ class Application:
                 pass
             existing.add(item.path)
         self.count.set(f'{len(self.items)} ROM' + ('s' if len(self.items) != 1 else ''))
+        self.update_empty_state()
+        self.app.after_idle(self.fit_minimum_width)
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
@@ -957,7 +965,7 @@ class Application:
         self.option_controls = []
         self.option_tooltips_start = len(self.tooltips)
         panel.title(APP_NAME + ' — ' + self.tr('options'))
-        panel.configure(bg='#071732')
+        panel.configure(bg=COLORS['background'])
         panel.transient(self.app)
         panel.geometry('900x510')
         panel.minsize(860, 460)
@@ -1142,7 +1150,7 @@ class Application:
         panel = tk.Toplevel(self.app)
         self.credits_panel = panel
         panel.title(APP_NAME + ' — ' + self.tr('credits'))
-        panel.configure(bg='#071732')
+        panel.configure(bg=COLORS['background'])
         panel.resizable(True, True)
         panel.transient(self.app)
         self.app.update_idletasks()
@@ -1152,36 +1160,36 @@ class Application:
         panel.geometry(f'{width}x{height}+{x}+{y}')
         panel.minsize(650, 550)
 
-        content = tk.Frame(panel, bg='#071732', padx=24, pady=18)
+        content = tk.Frame(panel, bg=COLORS['background'], padx=24, pady=18)
         content.pack(fill='both', expand=True)
         try:
             panel.credits_logo = tk.PhotoImage(
                 file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'), master=panel)
-            tk.Label(content, image=panel.credits_logo, bg='#071732').pack(
+            tk.Label(content, image=panel.credits_logo, bg=COLORS['background']).pack(
                 anchor='center', pady=(0, 2))
         except (OSError, tk.TclError):
             pass
-        tk.Label(content, text=self.tr('credits'), bg='#071732', fg='#eef6ff',
+        tk.Label(content, text=self.tr('credits'), bg=COLORS['background'], fg=COLORS['text'],
                  font=('Segoe UI', 23, 'bold')).pack(anchor='center', pady=(0, 3))
-        tk.Label(content, text=self.tr('credits_intro'), bg='#071732', fg='#a9bcdc',
+        tk.Label(content, text=self.tr('credits_intro'), bg=COLORS['background'], fg=COLORS['muted'],
                  font=('Segoe UI', 10), justify='center',
                  wraplength=630).pack(anchor='center', pady=(0, 13))
 
-        tk.Frame(content, bg='#31568c', height=1).pack(fill='x', padx=120, pady=(0, 11))
-        tk.Label(content, text=self.tr('credits_repositories'), bg='#071732',
-                 fg='#eef6ff', font=('Segoe UI', 10, 'bold')).pack(anchor='center')
-        tk.Label(content, text=self.tr('credits_open_link'), bg='#071732',
-                 fg='#a9bcdc', font=('Segoe UI', 9)).pack(anchor='center', pady=(1, 9))
+        tk.Frame(content, bg=COLORS['border'], height=1).pack(fill='x', padx=120, pady=(0, 11))
+        tk.Label(content, text=self.tr('credits_repositories'), bg=COLORS['background'],
+                 fg=COLORS['text'], font=('Segoe UI', 10, 'bold')).pack(anchor='center')
+        tk.Label(content, text=self.tr('credits_open_link'), bg=COLORS['background'],
+                 fg=COLORS['muted'], font=('Segoe UI', 9)).pack(anchor='center', pady=(1, 9))
 
-        scroll_area = tk.Frame(content, bg='#071732')
+        scroll_area = tk.Frame(content, bg=COLORS['background'])
         scroll_area.pack(fill='both', expand=True)
         scrollbar = ttk.Scrollbar(scroll_area, orient='vertical')
         scrollbar.pack(side='right', fill='y')
-        canvas = tk.Canvas(scroll_area, bg='#071732', highlightthickness=0,
+        canvas = tk.Canvas(scroll_area, bg=COLORS['background'], highlightthickness=0,
                            yscrollcommand=scrollbar.set)
         canvas.pack(side='left', fill='both', expand=True)
         scrollbar.configure(command=canvas.yview)
-        cards = tk.Frame(canvas, bg='#071732')
+        cards = tk.Frame(canvas, bg=COLORS['background'])
         cards_window = canvas.create_window((0, 0), window=cards, anchor='nw')
         cards.bind('<Configure>', lambda _event: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.bind('<Configure>', lambda event: canvas.itemconfigure(cards_window, width=event.width))
@@ -1191,29 +1199,29 @@ class Application:
         panel.bind('<Button-5>', lambda _event: canvas.yview_scroll(1, 'units'))
         cards.grid_columnconfigure(0, weight=1)
         for index, (system, repositories) in enumerate(UPSTREAM_CREDITS):
-            card = tk.Frame(cards, bg='#0d2549', highlightthickness=1,
-                            highlightbackground='#285896')
+            card = tk.Frame(cards, bg=COLORS['panel'], highlightthickness=1,
+                            highlightbackground=COLORS['border'])
             card.grid(row=index, column=0, sticky='ew', padx=48, pady=(0, 13))
-            accent = ('#26d7ff', '#aa66ff', '#fd2efd', '#0879fa')[index % 4]
+            accent = COLORS['gold']
             tk.Frame(card, height=3, bg=accent).pack(fill='x')
-            tk.Label(card, text=system.upper(), bg='#0d2549', fg='#eef6ff',
+            tk.Label(card, text=system.upper(), bg=COLORS['panel'], fg=COLORS['text'],
                      font=('Segoe UI', 12, 'bold')).pack(anchor='center', pady=(11, 6))
             for repository, url, role in repositories:
-                link = tk.Label(card, text=repository, bg='#0d2549', fg='#26d7ff',
-                                activeforeground='#aa66ff', cursor='hand2',
+                link = tk.Label(card, text=repository, bg=COLORS['panel'], fg=COLORS['gold'],
+                                activeforeground=COLORS['gold_hover'], cursor='hand2',
                                 font=('Segoe UI', 10, 'underline'))
                 link.pack(anchor='center')
                 link.bind('<Button-1>', lambda _event, address=url: webbrowser.open_new_tab(address))
-                tk.Label(card, text=self.tr(role), bg='#0d2549', fg='#a9bcdc',
+                tk.Label(card, text=self.tr(role), bg=COLORS['panel'], fg=COLORS['muted'],
                          font=('Segoe UI', 9)).pack(anchor='center', pady=(0, 7))
 
-        bottom = tk.Frame(content, bg='#071732')
+        bottom = tk.Frame(content, bg=COLORS['background'])
         bottom.pack(fill='x', pady=(9, 0))
-        tk.Label(bottom, text=self.tr('credits_license'), bg='#071732',
-                 fg='#a9bcdc', font=('Segoe UI', 9),
+        tk.Label(bottom, text=self.tr('credits_license'), bg=COLORS['background'],
+                 fg=COLORS['muted'], font=('Segoe UI', 9),
                  wraplength=650, justify='center').pack(anchor='center')
-        notices = tk.Label(bottom, text=self.tr('credits_notices'), bg='#071732',
-                           fg='#26d7ff', cursor='hand2',
+        notices = tk.Label(bottom, text=self.tr('credits_notices'), bg=COLORS['background'],
+                           fg=COLORS['gold'], cursor='hand2',
                            font=('Segoe UI', 9, 'underline'))
         notices.pack(anchor='center', pady=(3, 0))
         notices.bind('<Button-1>', lambda _event: self.show_legal_notices())
@@ -1223,17 +1231,17 @@ class Application:
             panel.destroy()
             self.credits_panel = None
 
-        actions = tk.Frame(bottom, bg='#071732', height=38)
+        actions = tk.Frame(bottom, bg=COLORS['background'], height=38)
         actions.pack(fill='x', pady=(10, 0))
         actions.pack_propagate(False)
         ttk.Button(actions, text=self.tr('close'), command=close_credits).place(
             relx=0.5, rely=0.5, anchor='center')
-        author = tk.Frame(actions, bg='#071732')
+        author = tk.Frame(actions, bg=COLORS['background'])
         author.place(relx=1.0, rely=0.5, anchor='e')
-        tk.Label(author, text=self.tr('credits_author'), bg='#071732', fg='#7590b3',
+        tk.Label(author, text=self.tr('credits_author'), bg=COLORS['background'], fg=COLORS['disabled'],
                  font=('Segoe UI', 8)).pack(side='left', padx=(0, 4))
-        author_link = tk.Label(author, text='Arthur Reboul Salze', bg='#071732',
-                               fg='#8faecf', cursor='hand2',
+        author_link = tk.Label(author, text='Arthur Reboul Salze', bg=COLORS['background'],
+                               fg=COLORS['muted'], cursor='hand2',
                                font=('Segoe UI', 8, 'underline'))
         author_link.pack(side='left')
         author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
@@ -1251,18 +1259,18 @@ class Application:
         resources = [path for path in resources if path.is_file()]
         panel = tk.Toplevel(parent)
         panel.title(APP_NAME + ' — ' + self.tr('credits_notices'))
-        panel.configure(bg='#071732')
+        panel.configure(bg=COLORS['background'])
         panel.geometry('880x630')
         panel.minsize(650, 420)
         panel.transient(parent)
-        body = tk.Frame(panel, bg='#071732', padx=16, pady=16)
+        body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
-        tk.Label(body, text=self.tr('credits_notices'), bg='#071732', fg='#eef6ff',
+        tk.Label(body, text=self.tr('credits_notices'), bg=COLORS['background'], fg=COLORS['text'],
                  font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 10))
-        row = tk.Frame(body, bg='#071732')
+        row = tk.Frame(body, bg=COLORS['background'])
         row.pack(fill='both', expand=True)
-        listing = tk.Listbox(row, width=29, exportselection=False, bg='#0d2549',
-                             fg='#eef6ff', selectbackground='#285896',
+        listing = tk.Listbox(row, width=29, exportselection=False, bg=COLORS['panel'],
+                             fg=COLORS['text'], selectbackground=COLORS['border'],
                              selectforeground='#ffffff', relief='flat',
                              font=('Segoe UI', 10))
         listing.pack(side='left', fill='y', padx=(0, 10))
@@ -1270,8 +1278,8 @@ class Application:
             listing.insert('end', path.name)
         scrollbar = ttk.Scrollbar(row, orient='vertical')
         scrollbar.pack(side='right', fill='y')
-        viewer = tk.Text(row, wrap='word', bg='#0d2549', fg='#eef6ff',
-                         insertbackground='#eef6ff', relief='flat', padx=10, pady=10,
+        viewer = tk.Text(row, wrap='word', bg=COLORS['panel'], fg=COLORS['text'],
+                         insertbackground=COLORS['text'], relief='flat', padx=10, pady=10,
                          font=('Consolas', 10), yscrollcommand=scrollbar.set)
         viewer.pack(side='left', fill='both', expand=True)
         scrollbar.configure(command=viewer.yview)
@@ -1291,7 +1299,7 @@ class Application:
             listing.selection_set(0)
             show_selected()
 
-        actions = tk.Frame(body, bg='#071732')
+        actions = tk.Frame(body, bg=COLORS['background'])
         actions.pack(fill='x', pady=(12, 0))
 
         ttk.Button(actions, text=self.tr('upx_source_link'),
@@ -1314,7 +1322,7 @@ class Application:
         panel.title(APP_NAME + ' — ' + self.tr('memory'))
         self.library_panels.append(panel)
         panel.geometry('800x420')
-        panel.configure(bg='#071732')
+        panel.configure(bg=COLORS['background'])
         body = ttk.Frame(panel, padding=18)
         body.pack(fill='both', expand=True)
         ttk.Label(body, text=self.tr('memory_intro')).pack(anchor='w', pady=(0, 12))

@@ -1,3 +1,33 @@
+# RetroRecomp v0.23.0 — a new look and stronger conversion support
+
+- New charcoal-and-gold identity, cartridge logo, outlined console artwork
+  and refreshed English/French interface. The ROM list has a clear empty state,
+  and the log panel includes its own scrollbar.
+- Parallel batches keep available workers busy when duplicate inputs are waiting.
+- Cartridge headers improve Master System/Game Gear detection, including
+  renamed files and ZIP archives.
+- Eligible Mega Drive and Super Nintendo cartridges can be analyzed even when
+  absent from the regression catalogue. Unsupported cartridge hardware is still
+  reported, and both profiles remain experimental.
+- The bundled compilation library now includes verified Master System hints
+  for 258 exact cartridges, with 338 cartridge identities across all six consoles.
+  Reference CPU bus/interrupt fixes and long-path support improve new conversions.
+- Game Boy adds guarded native support for a common sprite-DMA helper.
+- Twelve reviewed front-cover references improve artwork selection and replace
+  known incorrect cached images. Only public links and metadata are bundled.
+
+The Master System qualification scenarios used 7,200 frames each for demo and
+scripted play, with strict native and reference comparisons. Native coverage,
+CPU agreement, hardware fidelity, gameplay and physical latency remain separate
+measures. These checks do not guarantee complete compatibility with every game.
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Updates preserve your games, settings, compilation library and downloaded covers.
+Regenerate a game to receive runtime changes. No ROMs, downloaded artwork,
+generated games or private settings are included in this release.
+
+---
+
 # RetroRecomp v0.22.0 — remembered display and 16-bit quick states
 
 - Generated games remember their last display mode and filter, including

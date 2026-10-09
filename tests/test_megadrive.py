@@ -62,8 +62,13 @@ class MegaDriveMemoryTests(unittest.TestCase):
 
     def test_other_cartridge_is_not_compiled_as_a_known_title(self):
         self.rom.sha256 = '0' * 64
-        with self.assertRaises(ConversionError):
-            megadrive.profile_for(self.rom)
+        self.rom.title = 'Another cartridge'
+        profile = megadrive.profile_for(self.rom)
+        self.assertEqual(profile['title'], self.rom.title)
+        self.assertEqual(profile['source'], 'cartridge')
+        self.assertFalse(profile['sonic'])
+        megadrive.write_profile(self.root, self.root, self.rom, set())
+        self.assertIn('output_prefix="game"', (self.root / 'game.toml').read_text())
 
     def test_invalid_stack_and_odd_interrupt_vectors_rejected(self):
         self.rom.data[0:4] = (0x80000).to_bytes(4, 'big')

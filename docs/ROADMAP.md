@@ -2,7 +2,8 @@
 
 RetroRecomp converts supported Master System, Game Gear, original Game Boy
 and NES ROMs, and includes experimental Mega Drive and Super Nintendo
-profiles. The 16-bit profiles accept only qualified game revisions. The
+profiles. The 16-bit profiles analyze new cartridges automatically within
+their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
 
 | Priority | Work needed |
@@ -12,8 +13,8 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |
 | Input response | Measure end-to-end controller latency before making performance claims. |
 | NES | Compile guarded RAM code and extend mapper, PAL, peripheral and gameplay validation beyond the qualified scope. |
-| Mega Drive | Extend gameplay and peripheral validation of the 27 qualified profiles, widen PAL coverage, and add persistent states and cartridge saves. |
-| Super Nintendo | Extend checks of the 12 qualified revisions, widen PAL coverage and display modes, and add persistent saves. |
+| Mega Drive | Broaden gameplay, peripheral and mapper validation; widen PAL evidence and add persistent cartridge saves. |
+| Super Nintendo | Broaden gameplay checks, PAL display modes and coprocessor support; add persistent cartridge saves. |
 
 ## Recompilation priorities after 0.21.0
 
@@ -46,12 +47,11 @@ TRAP and IRQ entries use the real
 supervisor stack, RTE restores the correct mode stack, and STOP waits for an
 accepted IRQ. Authored fixtures include these mode/stack/wait/snapshot cases;
 additional CPU exception classes still need implementation and independent checks.
-The priority is a generic
-cartridge qualification path: derive inputs from the cartridge's vectors,
-exercise different execution paths, and admit more revisions only after the
-CPU/video checks succeed. Removing the identity gate alone is not support for
-the full catalogue. Banked or unusual cartridges need their own hardware checks.
-Expand the initial PAL qualification, then add F8/F9 states and cartridge-save
+The generic cartridge path now derives inputs from each cartridge's vectors
+and checks native/reference execution before export. Continue exercising
+different gameplay paths; removing the catalogue gate does not establish
+support for every hardware variant. Banked or unusual cartridges need their own hardware checks.
+Expand PAL qualification and F8/F9 regression coverage, then add cartridge-save
 persistence where required. Sub-scanline timing and unusual cartridge hardware
 still require independent checks.
 The sound Z80 now uses guarded native operations and extended uploaded-driver
@@ -70,8 +70,8 @@ headers or having upstream code is not proof that RetroRecomp supports them.
 PAL now has 312 raster lines, the PPU region bit, full-field IRQ scheduling and
 a fractional audio-clock mapping independent of video. Its first qualification
 covers progressive 224-line output; overscan, interlace, hires and further PAL
-revisions remain to validate. F8/F9 and persistent cartridge saves remain
-unfinished. The sound SPC700
+revisions remain to validate. F8/F9 quick states are implemented; persistent
+cartridge saves remain unfinished. The sound SPC700
 now uses guarded native operations; extend varied-input sound-driver checks
 alongside the main CPU coverage. Broader graphics, DMA and interrupt checks must
 accompany each expansion of the cartridge scope.

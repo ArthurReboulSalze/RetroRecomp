@@ -46,6 +46,27 @@ class ConversionError(RuntimeError):
     pass
 
 
+def module_fingerprint(name: str) -> str:
+    """Hash compiler inputs even when PyInstaller stores code without .py files."""
+    import marshal
+    from types import CodeType
+    module = sys.modules[name]
+    path = getattr(module, '__file__', None)
+    if path and Path(path).is_file():
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    loader = getattr(module, '__loader__', None)
+    code = loader.get_code(name) if loader and hasattr(loader, 'get_code') else None
+    if not isinstance(code, CodeType):
+        raise ConversionError(f'Cannot verify the bundled compiler module: {name}.')
+    def portable(value):
+        if not isinstance(value, CodeType):
+            return value
+        return value.replace(co_filename='', co_consts=tuple(portable(c) for c in value.co_consts))
+    # PyInstaller extraction folders vary on each launch. Neither they nor a
+    # developer's source path may invalidate otherwise identical cache inputs.
+    return hashlib.sha256(marshal.dumps(portable(code))).hexdigest()
+
+
 @dataclass(frozen=True)
 class Rom:
     path: Path
@@ -68,14 +89,16 @@ class Rom:
 def _read_rom(path: Path, system_id: str) -> Rom:
     path = path.resolve()
     suffix = ".gg" if system_id == "gg" else ".sms"
-    if path.suffix.lower() not in (suffix, '.zip', '.bin', '.rom'):
+    if path.suffix.lower() not in ('.sms', '.gg', '.zip', '.bin', '.rom'):
         raise ConversionError(f"Choisis une ROM au format {suffix}.")
     if path.suffix.lower() == '.zip':
         archived_suffix, data = archive_rom(path)
-        if archived_suffix not in (suffix, '.bin', '.rom'):
+        if archived_suffix not in ('.sms', '.gg', '.bin', '.rom'):
             raise ConversionError(f"Ce ZIP ne contient pas de ROM {suffix}.")
+        source_suffix = archived_suffix
     else:
         data = path.read_bytes()
+        source_suffix = path.suffix.lower()
     copier = len(data) % 16384 == 512
     if copier:
         data = data[512:]
@@ -88,6 +111,9 @@ def _read_rom(path: Path, system_id: str) -> Rom:
         raise ConversionError("Cette ROM est identifiée comme Game Gear ; cette version cible la Master System.")
     if system_id == "gg" and region in (3, 4):
         raise ConversionError("L'en-tête indique une ROM Master System, pas Game Gear.")
+    if (source_suffix in ('.sms', '.gg') and source_suffix != suffix
+            and region not in ((5, 6, 7) if system_id == 'gg' else (3, 4))):
+        raise ConversionError(f"Choisis une ROM au format {suffix} : aucun en-tête ne confirme la console.")
     return Rom(path, data, zlib.crc32(data), hashlib.sha256(data).hexdigest(), copier, header, region, system_id)
 
 
@@ -308,6 +334,30 @@ def replace_once(source: str, old: str, new: str) -> str:
     return source.replace(old, new, 1)
 
 
+def prepare_reference_irq(glue: str) -> str:
+    """Sample the shared VDP interrupt level afresh for every CPU step."""
+    glue = replace_once(glue, 'static uint64_t reference_cycle_base;', '''static uint64_t reference_cycle_base;
+static bool reference_sample_irq(void) {
+    /* /INT is a level input. A request blocked by DI/EI must not survive a
+     * later VDP status read that deasserts it. Preserve the same start-of-step
+     * sampling contract as banked native execution. */
+    g_hz.int_pending = 0;
+    if (vdp_irq_asserted() && g_hz.iff1) {
+        z80_gen_int(&g_hz, 0xFF);
+        return true;
+    }
+    return false;
+}''')
+    glue = replace_once(glue,
+        'if (!g_diff_freeze && vdp_irq_asserted() && g_hz.iff1 && !g_hz.int_pending){',
+        'if (!g_diff_freeze && reference_sample_irq()){')
+    glue = replace_once(glue,
+        '            if (vdp_irq_asserted() && g_hz.iff1 && !g_hz.int_pending)\n'
+        '                z80_gen_int(&g_hz, 0xFF);          /* IM1 vector 0x0038 */',
+        '            reference_sample_irq();             /* IM1 vector 0x0038 */')
+    return glue
+
+
 def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: str = "ntsc") -> None:
     if standard not in ("ntsc", "pal"):
         raise ConversionError("Video standard must be 'ntsc' or 'pal'.")
@@ -405,6 +455,7 @@ void smsrecomp_set_input_refresh(void (*refresh)(void)) { g_host_input_refresh =
     }''')
     glue = replace_once(glue, '#include "external/superzazu/z80.h"', '#include "runtime_reference.h"')
     glue = replace_once(glue, 'static bool g_hz_init;', 'static bool g_hz_init;\nstatic uint64_t reference_cycle_base;')
+    glue = prepare_reference_irq(glue)
     glue = replace_once(glue, 'static uint8_t hyb_in   (z80 *z, uint8_t p){ (void)z; return sms_io_in(p); }', '''static uint8_t hyb_in(z80 *z, uint8_t p){
     uint64_t saved = g_z80.cyc; g_z80.cyc = reference_cycle_base + z->cyc;
     uint8_t value = sms_io_in(p); g_z80.cyc = saved; return value;

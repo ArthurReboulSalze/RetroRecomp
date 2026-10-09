@@ -84,10 +84,51 @@ from `artwork.tags` (badges actually embedded).
 | Space Gun | Gun input |
 | Wanted | Gun input |
 | 3D Gunner | Known unreleased prototype; not validated gameplay |
+| Die Hard 2 | Unreleased; exact-title selection, no verified CRC or gameplay qualification |
+| Color & Switch Test | Sega diagnostic cartridge, CRC32 `7253C3EC`; not a retail game |
+| Porkpolis | Homebrew; author documents gun or P1 pad input |
+| Shootagem | Homebrew; author documents gun on port 1 |
+| Shooting Stars | Homebrew; author documents gun or P1 pad input |
+| SMS-A-Sketch 1.2 | Homebrew drawing demo; light-gun support added in 1.2 |
 
 Standalone Safari Hunt, Marksman Shooting and Trap Shooting filenames are
 accepted as catalogue aliases. A catalogue entry identifies a peripheral;
 it is not a full-game compatibility certificate.
+
+### Catalogue audit, 9 October 2026
+
+The thirteen retail cartridge entries above cover the released Light Phaser
+games, including the two Marksman/Trap compilations and Hang-On/Safari Hunt.
+3D Gunner and Die Hard 2 are unreleased programs; Color & Switch Test is a
+diagnostic tool. The four homebrew entries come from their authors' descriptions
+and manuals. These additional entries select the peripheral but have not been
+qualified for gameplay. SMS-A-Sketch needs an explicit 1.2 filename; earlier
+versions and unidentified filenames are not assumed to support a gun.
+New homebrew releases may require further entries: this is not a closed list of
+every future Light Phaser program.
+
+**T2: The Arcade Game on Master System uses a Control Pad, not the Light Phaser.**
+Terminator 2: Judgment Day is also a pad game. Their gun adaptations on other
+consoles must not enable a Master System gun or icon badge. Assault City has
+separate joypad and gun cartridges; identifying one does not qualify the other.
+
+The October SMS campaign now contains all thirteen retail gun cartridge entries:
+Assault City (Light Phaser edition), Gangster Town, Hang-On & Safari Hunt,
+Laser Ghost, both Marksman/Trap compilations, Missile Defense 3-D, Operation Wolf,
+Rambo III, Rescue Mission, Shooting Gallery, Space Gun and Wanted. The two missing
+editions were qualified separately using CRC32 `861B6E79` and `E8215C2E`, with
+matching MAME SHA-1 identities. Strict execution and reference comparisons
+passed; both 7,200-frame scripted scenarios had zero fallback cycles. Their
+exports select gun input and carry the shooting badge. The original joypad
+Assault City and two-game Marksman/Trap exports remain separate and unchanged.
+This is scripted qualification, not validation of every gun gameplay sequence.
+The unreleased programs and additional homebrew programs remain unexported;
+do not substitute another cartridge's data for them.
+
+CRC32 `C5083000` identifies the documented working Hang-On/Safari Hunt overdump
+used in this batch. The catalogue now recognizes it even after a ROM rename.
+MEKA marks that dump as bad because it has duplicated data and fails the original
+checksum; the supplied file is preserved rather than silently rewritten.
 
 ## Hardware boundary and limits
 
@@ -118,6 +159,9 @@ they never become distributable fixtures.
 - [Light Phaser connections and raster behavior](https://www.smspower.org/Development/LightPhaser).
 - [MEKA verified cartridge catalogue](https://github.com/ocornut/meka/blob/master/meka/meka.nam), including Assault City's two editions and Laser Ghost's selection.
 - [Genesis Plus GX's SMS cartridge catalogue](https://github.com/ekeeke/Genesis-Plus-GX/blob/master/core/cart_hw/sms_cart.c), used to cross-check identities and documented coordinate offsets.
+- [SMS Power's Light Phaser catalogue](https://www.smspower.org/Tags/LightPhaser), including unreleased software and homebrew.
+- [T2: The Arcade Game cartridge page and Control Pad selection](https://www.smspower.org/Games/T2TheArcadeGame-SMS).
+- [Porkpolis author manual](https://www.smspower.org/Homebrew/Porkpolis-SMS), [Shootagem author description](https://www.smspower.org/Homebrew/Shootagem-SMS), [Shooting Stars author manual](https://www.smspower.org/Homebrew/ShootingStars-SMS), and [SMS-A-Sketch version notes](https://www.smspower.org/Homebrew/SMSASketch-SMS).
 
 No emulator implementation code or commercial game data is copied into this
 adapter or its public tests.

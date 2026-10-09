@@ -164,6 +164,42 @@ class BatchTests(unittest.TestCase):
             again = convert_batch([sequel], self.games_root, emit=lambda message: None)
         self.assertEqual(again['games'][0]['duplicate_of'], 'Strider')
 
+    def test_waiting_duplicate_does_not_block_an_unrelated_parallel_conversion(self):
+        first, alias, other = self.item('first', 1), self.item('alias', 1), self.item('other', 2)
+        rendezvous = Barrier(2)
+
+        def compile(path, **options):
+            # Only different ROMs may enter the compiler, and both must overlap.
+            self.assertNotEqual(path, alias.path)
+            rendezvous.wait(timeout=5)
+            return self.compiler(path, **options)
+
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+            record = convert_batch([first, alias, other], self.games_root, jobs=2,
+                                   emit=lambda message: None)
+        self.assertEqual(compiler.call_count, 2)
+        self.assertEqual((record['succeeded'], record['duplicates'], record['failed']), (2, 1, 0))
+        self.assertEqual([entry['status'] for entry in record['games']], ['success', 'duplicate', 'success'])
+
+    def test_waiting_duplicate_can_retry_after_the_first_copy_fails(self):
+        first, alias, other = self.item('first', 1), self.item('alias', 1), self.item('other', 2)
+        other_started = Event()
+
+        def compile(path, **options):
+            if path == first.path:
+                self.assertTrue(other_started.wait(timeout=5))
+                raise ConversionError('Authored first attempt failure')
+            if path == other.path:
+                other_started.set()
+            return self.compiler(path, **options)
+
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+            record = convert_batch([first, alias, other], self.games_root, jobs=2,
+                                   emit=lambda message: None)
+        self.assertEqual(compiler.call_count, 3)
+        self.assertEqual((record['succeeded'], record['duplicates'], record['failed']), (2, 0, 1))
+        self.assertEqual([entry['status'] for entry in record['games']], ['error', 'success', 'success'])
+
     def test_distinct_region_editions_use_their_source_labels(self):
         paths = [self.root / f'Game ({region}).sms' for region in ('USA', 'Europe')]
         for value, path in enumerate(paths, 1):
@@ -385,3 +421,32 @@ class BatchTests(unittest.TestCase):
         game_boy[0x14d] = checksum
         path.write_bytes(game_boy)
         self.assertEqual(identify(path).system, 'gb')
+
+    def test_sega_header_overrides_misnamed_extensions_and_zipped_members(self):
+        from zipfile import ZipFile
+        game_gear = bytearray(65536)
+        game_gear[0x7ff0:0x7ff8] = b'TMR SEGA'
+        game_gear[0x7fff] = 0x70
+        path = self.root / 'Misnamed.sms'
+        path.write_bytes(game_gear)
+        self.assertEqual(identify(path).system, 'gg')
+        mismatch = identify(path, 'sms')
+        self.assertEqual((mismatch.system, mismatch.skipped, mismatch.unknown), ('gg', True, False))
+        original = path.read_bytes()
+        archive = self.root / 'Misnamed.zip'
+        with ZipFile(archive, 'w') as zipped:
+            zipped.writestr('Misnamed.sms', game_gear)
+        self.assertEqual(identify(archive).system, 'gg')
+        self.assertTrue(identify(archive, 'sms').skipped)
+        # Account for an optional copier header and a ROM bigger than the
+        # limited identification read; headerless games keep their extension.
+        path.write_bytes(bytes(512) + game_gear)
+        self.assertEqual(identify(path).system, 'gg')
+        game_gear[0x7fff] = 0x40
+        sms = self.root / 'Misnamed.gg'
+        sms.write_bytes(game_gear)
+        self.assertEqual(identify(sms).system, 'sms')
+        path.write_bytes(bytes(8192))
+        self.assertEqual(identify(path).system, 'sms')
+        path.write_bytes(original)
+        self.assertEqual(path.read_bytes(), original)

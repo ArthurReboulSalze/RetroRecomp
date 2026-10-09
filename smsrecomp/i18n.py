@@ -3,6 +3,9 @@ import re
 
 LANGUAGES = ('en', 'fr')
 STRINGS = {
+    'brand_tagline': ('YOUR ROMS. EVERY PLATFORM. MADE SIMPLE.', 'VOS ROMS. TOUTES LES PLATEFORMES. SIMPLEMENT.'),
+    'empty_title': ('No ROMs in the list', 'Aucune ROM dans la liste'),
+    'empty_hint': ('Add ROMs to get started', 'Ajoute des ROMs pour commencer'),
     'tagline': ('Less emulation. No FPGA. As native as possible.', 'Moins d’émulation. Sans FPGA. Le plus natif possible.'),
     'library': ('GAME LIBRARY', 'BIBLIOTHÈQUE'),
     'language': ('Language', 'Langue'),
@@ -41,8 +44,8 @@ STRINGS = {
     'created_experimental': ('Created · experimental', 'Créé · expérimental'),
     'fallback16': ('Experimental · Main CPU: {opcodes} fallback instructions · Sound CPU: {audio_opcodes} fallback instructions', 'Expérimental · CPU principal : {opcodes} instructions de secours · CPU audio : {audio_opcodes} instructions de secours'),
     'options_snes': ('Super Nintendo', 'Super Nintendo'),
-    'options_md_note': ('Experimental profile for qualified cartridges, including selected PAL games. F5 configures the mouse gun on supported games. F8/F9 save and reload a quick state, including after closing the game.', 'Profil expérimental pour les cartouches qualifiées, dont certains jeux PAL. F5 règle le gun à la souris sur les jeux compatibles. F8/F9 sauvegarde et recharge une partie, même après fermeture du jeu.'),
-    'options_snes_note': ('Experimental profile for qualified LoROM/HiROM cartridges, including selected PAL games. F5 configures Super Scope on supported games. F8/F9 save and reload a quick state, including after closing the game.', 'Profil expérimental pour les cartouches LoROM/HiROM qualifiées, dont certains jeux PAL. F5 règle le Super Scope sur les jeux compatibles. F8/F9 sauvegarde et recharge une partie, même après fermeture du jeu.'),
+    'options_md_note': ('Experimental conversion of standard cartridges up to 4 MiB, in PAL or NTSC. New games are analyzed automatically; no catalogue entry is required. F5 configures the gun on supported games. F8/F9 save and reload a quick state.', 'Conversion expérimentale des cartouches standard jusqu’à 4 Mio, en PAL ou NTSC. Les nouveaux jeux sont analysés automatiquement, sans inscription préalable dans un catalogue. F5 règle le gun sur les jeux compatibles. F8/F9 sauvegarde et recharge une partie.'),
+    'options_snes_note': ('Experimental conversion of ordinary LoROM/HiROM cartridges, in PAL or NTSC. New games are analyzed automatically; enhancement chips are not supported yet. F5 configures Super Scope on supported games. F8/F9 save and reload a quick state.', 'Conversion expérimentale des cartouches LoROM/HiROM ordinaires, en PAL ou NTSC. Les nouveaux jeux sont analysés automatiquement ; les puces additionnelles ne sont pas encore prises en charge. F5 règle le Super Scope sur les jeux compatibles. F8/F9 sauvegarde et recharge une partie.'),
     'options_nes_note': ('Extended native ROM coverage is automatic. PAL/NTSC can be selected per game.\nF8/F9 quick states and automatic Zapper profiles are included in NES exports.', 'La couverture native étendue des ROM est automatique. PAL/NTSC se règle par jeu.\nLes exports NES incluent F8/F9 et les profils Zapper automatiques.'),
     'options_sega_note': ('Shared by the Master System and Game Gear profiles.', 'Réglage commun aux profils Master System et Game Gear.'),
     'options_gb_note': ('Checks more gameplay CPU instructions; native discovery is unchanged.', 'Compare davantage d’instructions CPU en jeu ; la découverte du code natif ne change pas.'),

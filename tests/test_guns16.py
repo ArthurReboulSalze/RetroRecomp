@@ -21,9 +21,13 @@ class Gun16Tests(unittest.TestCase):
         self.assertIsNone(gun_game('snes', 0, 'Super Mario World.sfc'))
 
     def test_gun_title_does_not_authorize_a_foreign_cpu_profile(self):
-        rom = SimpleNamespace(sha256='0' * 64, path=Path('Super Scope 6.sfc'))
-        with self.assertRaises(ConversionError):
-            profile_for(rom)
+        rom = SimpleNamespace(sha256='0' * 64, path=Path('Super Scope 6.sfc'),
+                              title='Another cartridge', mapping='lorom', standard='ntsc')
+        profile = profile_for(rom)
+        self.assertEqual(profile['source'], 'cartridge')
+        self.assertEqual(profile['title'], 'Another cartridge')
+        self.assertEqual(profile['id'], 'rom-' + rom.sha256)
+        self.assertFalse(profile['legacy_functions'])
 
     def test_scope_uses_own_identity_and_no_smw_function_code(self):
         sha = '7a8ffaf8bb549b400ec2f0bda9f3c0dbf5852c38618cdb21cd783c368383e2c7'

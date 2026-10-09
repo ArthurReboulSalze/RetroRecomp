@@ -142,5 +142,104 @@ class KnowledgeTests(unittest.TestCase):
         self.assertNotIn('bytes', record)
         self.assertNotIn(str(self.root), gzip.decompress(destination.read_bytes()).decode())
 
+    def test_partial_refresh_keeps_other_consoles_and_requires_new_validation(self):
+        from tools.build_compilation_knowledge import build
+        record = {'engine': gameboy.ENGINE_REV, 'rom_bytes': len(self.rom.data),
+                  'rom_entries': [[1, 0x4567]]}
+        other_sha = 'a' * 64
+        other_record = {'engine': '1' * 40, 'rom_bytes': len(self.rom.data),
+                        'rom_entries': [[0, 0x8000]]}
+        base = self.root / 'base.json.gz'
+        base.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {
+            'gb': {self.rom.sha256: record}, 'nes': {other_sha: other_record}}}).encode(), mtime=0))
+        before = base.read_bytes()
+        output = self.root / 'refresh.json.gz'
+        reports = self.root / 'reports'
+        report_path = reports / 'Game Boy/datas/reports/fixture/conversion-report.json'
+        report_path.parent.mkdir(parents=True)
+        report = {'system': {'id': 'gb'}, 'rom': {'sha256': self.rom.sha256},
+                  'native_validation': {'passed': False},
+                  'compiler': {'revision': gameboy.ENGINE_REV}}
+        report_path.write_text(json.dumps(report), encoding='utf-8')
+        trace = self.root / 'entries.trace'
+        trace.write_text('2:6000\n', encoding='ascii')
+        item = SimpleNamespace(system='gb', sha256=self.rom.sha256, error=None)
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        with patch('tools.build_compilation_knowledge.identify', return_value=item), \
+                patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
+                patch('smsrecomp.gameboy._verified_trace', return_value=trace):
+            summary = build([self.rom.path], reports=reports, output=output, base=base)
+            self.assertEqual(knowledge.load(output)['consoles']['gb'][self.rom.sha256], record)
+            self.assertEqual(summary['refresh']['gb'], {'retained': 1, 'requalified': 0, 'added': 0})
+            self.assertEqual(summary['omitted']['unqualified'], 1)
+            report['native_validation']['passed'] = True
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            summary = build([self.rom.path], reports=reports, output=output, base=base)
+        payload = knowledge.load(output)
+        self.assertEqual(payload['consoles']['gb'][self.rom.sha256]['rom_entries'], [[2, 0x6000]])
+        self.assertEqual(payload['consoles']['nes'][other_sha], other_record)
+        self.assertEqual(summary['refresh']['gb'], {'retained': 0, 'requalified': 1, 'added': 0})
+        self.assertEqual(summary['refresh']['nes']['retained'], 1)
+        self.assertEqual(base.read_bytes(), before)
+
+    def test_partial_refresh_rejects_private_base_before_replacing_output(self):
+        from tools.build_compilation_knowledge import build
+        base = self.root / 'private.json.gz'
+        base.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {
+            'gb': {self.rom.sha256: {'engine': gameboy.ENGINE_REV,
+                'rom_bytes': len(self.rom.data), 'private_path': 'K:/private'}}}}).encode(), mtime=0))
+        output = self.root / 'unchanged.json.gz'
+        output.write_bytes(b'previous resource')
+        with self.assertRaises(ValueError):
+            build([], reports=self.root/'reports', output=output, base=base)
+        self.assertEqual(output.read_bytes(), b'previous resource')
+
+    def test_sega_builder_requires_matching_native_report_and_nonempty_checks(self):
+        from tools.build_compilation_knowledge import build
+        reports = self.root / 'reports'
+        report_path = reports / 'Master System/datas/reports/fixture/conversion-report.json'
+        report_path.parent.mkdir(parents=True)
+        report = {'system': {'id': 'sms'}, 'rom': {'sha256': self.rom.sha256},
+            'created_utc': '2026-10-09T00:00:00+00:00', 'backend': 'banked',
+            'native_validation': {'passed': False}, 'engine_revision': core.ENGINE_REV}
+        generation = {'created_utc': report['created_utc'], 'engine_revision': core.ENGINE_REV,
+            'reference_vdp_trace_match': True, 'checks': [{'passed': True}]}
+        memory = SimpleNamespace(metadata=lambda: {'generations': [generation]},
+            seeds=lambda: set(), journal=self.root/'observations.log',
+            code_journal=self.root/'patterns',
+            code_patterns=lambda: {self.rom.data[10:14], b'\xff' * 4})
+        item = SimpleNamespace(system='sms', sha256=self.rom.sha256, error=None)
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        output = self.root / 'snapshot.json.gz'
+        with patch('tools.build_compilation_knowledge.identify', return_value=item), \
+                patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
+                patch('tools.build_compilation_knowledge.GameMemory', return_value=memory):
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
+            report['native_validation']['passed'] = True
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            summary = build([self.rom.path], reports=reports, output=output)
+            self.assertEqual(summary['consoles']['sms']['games'], 1)
+            # Include qualified shared windows even when no local journal was
+            # needed; dynamic patterns without ROM bytes stay private.
+            record = knowledge.load(output)['consoles']['sms'][self.rom.sha256]
+            self.assertEqual(record['pattern_refs'], [[10]])
+            self.assertEqual(summary['omitted']['ram_without_rom_source'], 1)
+            generation['created_utc'] = 'old qualification'
+            self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
+            generation['created_utc'] = report['created_utc']
+            generation['checks'] = []
+            self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
+            generation['checks'] = [{'passed': True}]
+            # A failed later attempt leaves the old successful report intact,
+            # but may have appended new observations to the local journal.
+            memory.code_journal.write_text('01020304\n', encoding='ascii')
+            from datetime import datetime
+            qualified_at = datetime.fromisoformat(report['created_utc']).timestamp()
+            os.utime(memory.code_journal, (qualified_at - 1, qualified_at - 1))
+            self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 1)
+            os.utime(memory.code_journal, (qualified_at + 1, qualified_at + 1))
+            self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
+
 
 if __name__=='__main__':unittest.main()

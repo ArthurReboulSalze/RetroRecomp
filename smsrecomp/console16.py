@@ -18,24 +18,23 @@ REPOSITORIES = {
     'snes': ('RetroPortingToolKit/snesrecomp', 'a00df26a87831113fec91b9225bf16b049d40775', 'snesrecomp'),
     'smw': ('mstan/SuperMarioWorldRecomp', '8dedb2869414f20d1d86d34081be26594560cc15', 'smwrecomp'),
 }
-SUPPORTED = {
-    'md': ('46160baa06362c711c9f1a5017cb7371026444936c8af5e93a78996cf32ff2a6', 'Sonic the Hedgehog'),
-    'snes': ('0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b', 'Super Mario World'),
-}
+SUPPORTED_SYSTEMS = ('md', 'snes')
 MD_AUDIO_FIELDS = ('fm_samples', 'fm_nonzero', 'fm_peak', 'fm_hash', 'fm_active_frames',
                    'psg_samples', 'psg_nonzero', 'psg_peak', 'psg_hash', 'psg_active_frames',
                    'z80_pc', 'z80_slice_cycles', 'z80_ram_hash', 'z80_cpu_hash', 'ym_timer_hash')
 
 
-def qualified_rom(path: Path, system_id: str, standard_override: str | None = None):
-    if system_id not in SUPPORTED:
+def conversion_rom(path: Path, system_id: str, standard_override: str | None = None):
+    """Check cartridge hardware, not membership in the regression catalogue."""
+    if system_id not in SUPPORTED_SYSTEMS:
         raise ConversionError('Unknown 16-bit console profile.')
     rom = (read_megadrive_rom if system_id == 'md' else read_snes_rom)(path)
+    adapter = megadrive if system_id == 'md' else supernintendo
+    adapter.validate_cartridge(rom)
+    adapter.video_standard(rom, standard_override)
+    adapter.profile_for(rom)
     if system_id == 'md':
-        megadrive.video_standard(rom, standard_override)
         megadrive.vectors(rom)
-    else:
-        supernintendo.video_standard(rom, standard_override)
     return rom
 
 
@@ -274,7 +273,7 @@ target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4
 
 
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None, standard_override=None):
-    rom = qualified_rom(path, system_id, standard_override)
+    rom = conversion_rom(path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     legacy_smw = cartridge_profile.get('legacy_functions', False)
     engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit, legacy_smw=legacy_smw)
@@ -491,7 +490,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         raise ConversionError('16-bit profiles use pinned game-specific analysis, not Sega Z80 TOML files.')
     if not 1 <= frames <= 10000 or not 1 <= passes <= 10:
         raise ConversionError('Choose 1–10 passes and 1–10000 frames per test.')
-    rom = qualified_rom(rom_path, system_id, standard_override)
+    rom = conversion_rom(rom_path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     standard = (megadrive if system_id == 'md' else supernintendo).video_standard(rom, standard_override)
     gun = guns16.gun_game(system_id, rom.crc32, rom.path.name)
@@ -511,9 +510,13 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     started = time.perf_counter()
     title = title or cartridge_profile['title']
     name = 'Mega Drive' if system_id == 'md' else 'Super Nintendo'
-    emit(f'{name}: experimental {title} {standard.upper()} integration; exact cartridge profile verified.')
+    emit(f'{name}: experimental {title} {standard.upper()} conversion; '
+         + ('using exact-ROM catalogue settings.' if cartridge_profile.get('source') == 'catalogue'
+            else 'generating a profile from this cartridge; no catalogue entry required.'))
     emit('68000 and Z80 sound CPU use guarded native code.' if system_id == 'md' else
          '65816 and SPC700 sound CPU use guarded native code. Hardware fidelity is a separate check.')
+    for limitation in cartridge_profile.get('limitations', ()):
+        emit('Limitation: ' + limitation)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     artwork = {}
@@ -613,6 +616,10 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': 'experimental',
         'system': {'id': system_id, 'name': name}, 'rom': rom.metadata(),
+        'cartridge_profile': {'source': cartridge_profile.get('source', 'cartridge'),
+                              'id': cartridge_profile.get('id'),
+                              'catalogue_required': False,
+                              'limitations': cartridge_profile.get('limitations', [])},
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,

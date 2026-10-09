@@ -1,5 +1,6 @@
 """Non-blocking, bounded Tk hover hints; text is resolved when shown."""
 import tkinter as tk
+from .branding import COLORS
 
 
 class Tooltip:
@@ -25,8 +26,8 @@ class Tooltip:
         self.window.overrideredirect(True)
         self.window.transient(self.widget.winfo_toplevel())
         self.window.attributes('-topmost', True)
-        self.window.configure(bg='#26d7ff', padx=1, pady=1)
-        tk.Label(self.window, text=self.text(), bg='#102b52', fg='#eef6ff', font=('Segoe UI', 10),
+        self.window.configure(bg=COLORS['gold'], padx=1, pady=1)
+        tk.Label(self.window, text=self.text(), bg=COLORS['field'], fg=COLORS['text'], font=('Segoe UI', 10),
                  padx=14, pady=10, justify='left', wraplength=420).pack()
         self.window.update_idletasks()
         x = min(self.widget.winfo_rootx() + 12, self.window.winfo_screenwidth() - self.window.winfo_reqwidth() - 8)

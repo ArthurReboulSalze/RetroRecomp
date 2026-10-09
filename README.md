@@ -8,10 +8,10 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.22.0-0879fa" alt="Release version 0.22.0">
-  <img src="https://img.shields.io/badge/console_profiles-6-26d7ff" alt="Six console profiles">
-  <img src="https://img.shields.io/badge/current_platform-Windows_x64-0879fa" alt="Windows x64">
-  <img src="https://img.shields.io/badge/original_code-MIT-aa66ff" alt="Original contributions: MIT">
+  <img src="https://img.shields.io/badge/release-0.23.0-d4a737" alt="Release version 0.23.0">
+  <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
+  <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
+  <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
 
 <p align="center">
@@ -50,8 +50,8 @@ execution as possible, without dedicated FPGA hardware.
 | Game Gear | Supported; native handheld display and colors |
 | Game Boy | Supported; original Game Boy, quick states, grayscale or classic green |
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
-| Mega Drive | Experimental; 27 qualified revisions, NTSC and selected PAL games, quick states and Menacer |
-| Super Nintendo | Experimental; 12 qualified revisions, NTSC and initial PAL support, quick states and Super Scope |
+| Mega Drive | Experimental; automatic cartridge analysis, PAL/NTSC, quick states and Menacer |
+| Super Nintendo | Experimental; automatic LoROM/HiROM analysis, PAL/NTSC, quick states and Super Scope |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
@@ -62,7 +62,7 @@ More consoles and output platforms are planned.
 
 ![RetroRecomp converter](MEDIAS/RetroRecomp_UI.png)
 
-*One interface for mixed-console batches, options and updates.*
+*The refreshed charcoal-and-gold interface keeps mixed-console batches, options and updates together.*
 
 ![Standalone game executables in Windows Explorer](MEDIAS/RC_Windows_Screen.png)
 

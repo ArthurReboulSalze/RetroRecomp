@@ -310,17 +310,21 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
             original_emit(message)
 
     stopped = False
-    next_index = 0
+    queued = list(range(len(items)))
     with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix='retro-recomp') as executor:
         pending = {}
-        while next_index < len(items) or pending:
-            while next_index < len(items) and len(pending) < jobs and not (cancel and cancel.is_set()):
-                index, item = next_index, items[next_index]
-                identity = (item.system, item.sha256)
+        while queued or pending:
+            while queued and len(pending) < jobs and not (cancel and cancel.is_set()):
                 # A second copy of the same ROM waits for the first result: if
                 # the first failed, the later copy is still allowed to retry.
-                if identity in active:
+                # It must not prevent unrelated ROMs from using vacant workers.
+                position = next((p for p, i in enumerate(queued)
+                    if (items[i].system, items[i].sha256) not in active), None)
+                if position is None:
                     break
+                index = queued.pop(position)
+                item = items[index]
+                identity = (item.system, item.sha256)
                 on_event("start", index, item.title)
                 result = {"rom": str(item.path), "title": item.title, "system": item.system,
                           "sha256": item.sha256}
@@ -363,14 +367,12 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                                     game_output, reports, target, previous, emit, options)
                                 pending[future] = (index, identity, target)
                                 active.add(identity)
-                                next_index += 1
                                 continue
                 except Exception as exc:
                     result.update(status="error", message=str(exc))
                     emit(f"{item.title} : {exc}")
                 results[index] = result
                 on_event("result", index, result)
-                next_index += 1
             if pending:
                 finished, _ = wait(pending, return_when=FIRST_COMPLETED)
                 for future in sorted(finished, key=lambda value: pending[value][0]):
@@ -384,7 +386,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     results[index] = result
                     on_event("result", index, result)
             elif cancel and cancel.is_set():
-                stopped = next_index < len(items)
+                stopped = bool(queued)
                 break
     completed = [result for result in results if result is not None]
     record = {"tool": "Retro-Recomp", "version": __version__,

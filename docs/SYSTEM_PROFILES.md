@@ -8,16 +8,20 @@ RetroRecomp has supported **Master System**, **Game Gear**, **Game Boy** and
 reader, converter, export category and supported video modes. Unknown formats
 are rejected; ZIP inputs must contain exactly one supported cartridge, including
 `.sms`, `.gg`, `.gb`, `.nes`, `.bin`, `.rom`, linear `.md`/`.gen` and validated
-`.sfc`/`.smc` images. The 16-bit profiles require an exact qualified revision
-and its validated video standard.
+`.sfc`/`.smc` images. The 16-bit profiles derive analysis from each cartridge;
+an unknown revision does not require a catalogue entry. Hardware limits and
+native/reference validation still apply before export.
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
 chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,
 without preventing other games in the batch from converting. Automatic mode
-uses the known extension or a recognizable header for `.bin`/`.rom` dumps;
+uses the known extension or a recognizable header for `.bin`/`.rom` dumps.
+For Master System and Game Gear, a recognized Sega cartridge header also
+corrects a misleading `.sms`/`.gg` extension, including ZIP members;
 manual mode can resolve headerless `.bin`/`.rom` files. A selected console does
-not override a conflicting named `.sms`, `.gg` or `.gb` cartridge. These checks
+not override a conflicting detected console. Headerless `.sms`/`.gg` files keep
+their extension-based profile. These checks
 identify a plausible console, not hardware fidelity or successful gameplay.
 
 The Master System profile uses `sms` as its stable system ID, `.sms` inputs,
@@ -64,10 +68,10 @@ standard = "pal"
 The CLI accepts `--video-standard auto|pal|ntsc|dmg` for one conversion or a whole
 batch. An explicit CLI choice overrides a saved or supplied profile. The
 `dmg` choice applies only to Game Boy; Game Gear accepts only NTSC, and the
-PAL/NTSC choices apply to Master System, NES and qualified 16-bit revisions.
-Mega Drive and SNES use the cartridge header and exact profile; an incompatible
-override is rejected before compilation. Only the specifically qualified PAL
-cartridges are enabled. Master System records the
+PAL/NTSC choices apply to Master System, NES and eligible 16-bit cartridges.
+Mega Drive and SNES use the cartridge header and exact-ROM overrides; an incompatible
+override is rejected before compilation. Multi-region Mega Drive cartridges
+can select either declared standard, with fresh conversion checks. Master System records the
 effective timing and its selection source in its compilation library. Game
 Gear and Game Boy use their fixed console modes. New game EXEs include the
 console and mode in Windows version information. A regenerated game keeps

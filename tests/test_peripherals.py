@@ -26,6 +26,27 @@ class PeripheralTests(unittest.TestCase):
         self.assertTrue(light_phaser_game(0x0CA95637, "Laser Ghost.sms").trigger_on_p2)
         self.assertFalse(light_phaser_game(0x5FC74D2A, "Gangster Town.sms").trigger_on_p2)
 
+    def test_known_overdump_retains_gun_support_after_rename(self):
+        game = light_phaser_game(0xC5083000, 'renamed.sms')
+        self.assertEqual(game.title, 'Hang-On & Safari Hunt')
+
+    def test_t2_sms_and_other_pad_shooters_are_not_gun_games(self):
+        for crc, name in [(0x93CA8152, 'T2 - The Arcade Game (Europe).sms'),
+                          (0xAC56104F, 'Terminator 2 - Judgment Day (Europe).sms'),
+                          (0x0BD8DA96, 'Assault City (Light Phaser).sms')]:
+            with self.subTest(name=name):
+                self.assertIsNone(light_phaser_game(crc, name))
+                self.assertEqual(game_tags(crc, name), ())
+
+    def test_documented_homebrew_and_diagnostics_do_not_tag_old_versions(self):
+        for name in ('Porkpolis.sms', 'Shootagem.sms', 'Shooting Stars.sms',
+                     'Die Hard 2.sms', 'SMS-A-Sketch (v1.2).sms'):
+            with self.subTest(name=name):
+                self.assertIsNotNone(light_phaser_game(0, name))
+        self.assertEqual(light_phaser_game(0x7253C3EC, 'renamed.sms').title, 'Color & Switch Test')
+        for name in ('SMS-A-Sketch.sms', 'SMS-A-Sketch (v1.1).sms', 'Shootagem 2.sms'):
+            self.assertIsNone(light_phaser_game(0, name))
+
     def test_tags_identify_gun_support_not_shooter_genre_or_cover_title(self):
         self.assertEqual(game_tags(0x5FC74D2A, "renamed.sms"), ("shooting",))
         self.assertEqual(game_tags(0, "Wanted (Europe).sms"), ("shooting",))
