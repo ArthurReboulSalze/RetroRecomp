@@ -33,6 +33,27 @@ skipped rather than selecting the first search result.
 Trailing articles keep their regional tags during exact matching:
 `The Game (USA)` can select `Game, The (USA)` without confusing other editions.
 
+The same title matcher is shared by all six consoles, local/downloaded artwork,
+Libretro and the configured cover APIs. Exact names remain first. Additional
+matches tolerate accents, punctuation, article placement, optional Disney
+branding, `Bros.`/`Brothers`, `vs`/`versus`, Roman sequel numerals and a missing
+subtitle when the catalogue identifies one clear game. Long-form spelling aliases
+also cover verified naming mistakes such as `A Ressha de Gyoukou MD`.
+Small spelling errors allow one edit or adjacent letter swap; titles of at least
+16 letters can allow two edits. Titles shorter than six letters are not guessed.
+
+Sequel numbers, compilation counts and years must agree; `Mega Man X` remains
+distinct from `Mega Man 10`. A truncated export label cannot drop a sequel number
+from the ROM's name. Full-title spelling matches beat matches to a longer subtitle;
+hacks, Redux/DX editions, compilations and previews must be requested by name.
+Equally plausible different titles are skipped. Region and
+edition preferences apply only after choosing the game. TheGamesDB and IGDB can
+try up to three search strings after a miss, including verified aliases, subtitles
+and Roman/digit variants; successful first lookups make no additional requests.
+Console filters, front-only media selection and the existing cache rules remain
+in force. These relaxed rules apply only to artwork, never ROM identification,
+duplicate detection or compilation knowledge.
+
 Local images are read without changing them. Downloaded images are validated,
 limited to 8 MiB and 16 million pixels, converted to PNG and cached locally.
 **Prefer online box art** is enabled by default. Automatic matches from local
@@ -103,7 +124,7 @@ sources and does not prevent conversion. This mechanism is shared by all console
 | Source | Access needed | Artwork used |
 | --- | --- | --- |
 | [ScreenScraper](https://www.screenscraper.fr/webapi2.php) | Developer ID and developer password; optional user name/password | Front covers by default; optional real 3D boxes with a front fallback; region preference follows the ROM name |
-| [TheGamesDB](https://api.thegamesdb.net/) | TheGamesDB API key | Front box art for the matching console and exact title |
+| [TheGamesDB](https://api.thegamesdb.net/) | TheGamesDB API key | Front box art for the matching console and an unambiguous title |
 | [IGDB](https://api-docs.igdb.com/#account-creation) | Twitch application Client ID and Client Secret | Platform-filtered front covers |
 | [ArcadeItalia](https://adb.arcadeitalia.net/service_scraper.php) | Its documented MAME API is public; no key is required | Reference only for now: the current console profiles are outside this API's scope |
 | [Libretro](https://github.com/libretro-thumbnails/libretro-thumbnails) | None | Console-specific front box art; title screen or game image as last resort; GitHub and public thumbnail server |

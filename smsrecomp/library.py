@@ -134,7 +134,17 @@ def atomic_json(path: Path, value: dict) -> None:
             file.write("\n")
             file.flush()
             os.fsync(file.fileno())
-        os.replace(temp, path)
+        deadline = time.monotonic() + 2
+        while True:
+            try:
+                os.replace(temp, path)
+                break
+            except PermissionError as error:
+                # Windows readers and scanners can briefly deny replacement.
+                # Keep the old JSON intact and propagate persistent failures.
+                if getattr(error, 'winerror', None) not in (5, 32, 33) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
     finally:
         if os.path.exists(temp):
             os.unlink(temp)

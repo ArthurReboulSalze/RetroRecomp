@@ -19,7 +19,6 @@ import threading
 import time
 import subprocess
 import sys
-import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +28,7 @@ from .paths import ASSETS, boxart_cache_directory
 from .cover_settings import load_settings, configured
 from .cover_sources import PROVIDERS, CoverServiceError, fetch
 from .cover_references import find as cover_reference
+from .cover_titles import matching_indices, normalized, sequence_numbers
 
 REPOSITORIES = {
     'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
@@ -43,9 +43,6 @@ FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 IMAGE_SOURCE_POLICY = 2  # Prefer original/HD provider images over older thumbnails.
 PUBLIC_MEDIA = {'Named_Boxarts': 'front', 'Named_Titles': 'title', 'Named_Snaps': 'snapshot'}
-# Export titles may omit a subtitle that the artwork catalogue spells out.
-# These are exact aliases, never a prefix/fuzzy rule that could merge sequels.
-TITLE_ALIASES = {'castleofillusion': 'Castle of Illusion Starring Mickey Mouse'}
 # Stable tag IDs are separate from artwork filenames and peripheral detection.
 ICON_TAGS = {"shooting": "tag-shooting.png"}
 ICON_TAG_LAYOUT = {
@@ -63,30 +60,18 @@ class ArtworkError(ValueError):
     pass
 
 
-def normalized(name: str, *, base: bool = False) -> str:
-    if base:
-        name = re.sub(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", "", name)
-        # No-Intro names may have several trailing tags, including languages.
-        while re.search(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", name):
-            name = re.sub(r"\s*(?:\([^)]*\)|\[[^]]*\])\s*$", "", name)
-    # Keep the edition tags while moving No-Intro's trailing article. This
-    # allows "The Game (USA)" to select "Game, The (USA)" unambiguously.
-    name = re.sub(r'^(.+?),\s*(The|A|An)(?=\s*(?:-|\(|\[|$))', r'\2 \1', name, flags=re.I)
-    name = unicodedata.normalize("NFKD", name).casefold()
-    return "".join(c for c in name if c.isalnum())
-
-
 def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False) -> str | None:
-    """Exact names first, then an unambiguous title. Never fuzzy-match sequels."""
+    """Exact names first, then a clear title match with protected sequel numbers."""
     for query in (rom_name, title):
+        if sequence_numbers(rom_name) and sequence_numbers(query) != sequence_numbers(rom_name):
+            continue
         matches = [n for n in names if normalized(Path(n).stem) == normalized(query)]
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
             raise ArtworkError("Plusieurs covers portent le même nom ; choisis une image explicitement.")
-    keys = {normalized(rom_name, base=True), normalized(title, base=True)} - {""}
-    keys |= {normalized(TITLE_ALIASES[key]) for key in tuple(keys) if key in TITLE_ALIASES}
-    matches = [n for n in names if normalized(Path(n).stem, base=True) in keys]
+    indices = matching_indices([Path(n).stem for n in names], rom_name, title)
+    matches = [names[i] for i in indices]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
@@ -110,7 +95,7 @@ def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallba
             # Online collections often have only a World cover, or several
             # retail revisions of the same regional box. Reuse that game's
             # front instead of falling through to a screenshot. This never
-            # relaxes the exact base-title match or affects local selections.
+            # changes the selected game or affects local edition ambiguity.
             candidates = winners if best else matches
             retail = [n for n in candidates if not re.search(
                 r'\b(?:mini|hack|alpha|beta|demo|prototype)\b', n, re.I)]

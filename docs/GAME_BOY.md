@@ -2,11 +2,25 @@
 
 ## Collection qualification, October 2026
 
-The full supplied DMG collection is being qualified with eight concurrent
+The supplied DMG collection was qualified with 6 concurrent
 conversions, up to six discovery passes and four 7,200-frame input scenarios.
 Deep CPU checks compare instructions and memory for 30 boot frames and 240
 frames of each of the three input scenarios. These checks do not cover all
 gameplay, certify hardware fidelity or measure physical latency.
+
+Initial batch: 592 qualified exact cartridges from 638 input files, 28 successful
+exact-copy extras skipped and 18 failed input attempts (17 distinct cartridges).
+Among qualified exports, 487 had zero fallback cycles on the scripted scenarios
+and 105 retained reported fallback. That snapshot embedded 773,878 verified
+ROM entry hints for these 592 identities, about 1.92 MiB compressed, while keeping
+failures and their diagnostics local. See [the compilation library](COMPILATION_LIBRARY.md)
+for the qualification and sharing rules.
+
+The targeted October 10 follow-up below resolves 14 of the 17 failed identities.
+The current snapshot contains **793,352 ROM entry hints for 606 exact cartridges**.
+Across the original campaign and these targeted qualifications, 500 identities
+have zero fallback in their checked scenarios and 106 retain reported fallback.
+These are cumulative qualification results, not a fresh full-collection run.
 
 The campaign also exposed an interrupt-bracketed sprite DMA helper in HRAM.
 The shared guarded native helper now handles its DI/EI instructions, checking
@@ -69,6 +83,10 @@ is flushed on exit only after a changed RAM value; a game's own automatic
 save can therefore create this folder without a manual state save. Games in the
 Game Boy folder share settings, while per-game saves are identified by ROM.
 Converter observations are separate, in `Export/datas/library/gb`.
+
+The imported ImGui debug layout is not saved: generated games never create an
+`imgui.ini` in the executable folder or the working directory. Actual settings
+remain shared in the console's `datas` folder and are created only on change.
 
 ## Audio and input scheduling
 
@@ -135,7 +153,89 @@ batch, Wario Land II took about 24 minutes and Pokemon Yellow's corrected cold
 conversion about 23 minutes, mostly compiling large generated C files over two
 passes. The earlier Mario measurements below do not represent every cartridge.
 Bundled observations can avoid rediscovery and another pass, but do not remove
-the cost of the first C build. Reducing duplicate/generated C is future work.
+the cost of the first C build. The October 10 follow-up below reduces generated
+C and preserves unchanged build inputs; large cartridges can still take longer
+than the small Mario example.
+
+### Build and correctness follow-up — 10 October 2026
+
+Build reductions keep the original generated instruction bodies and `/O2`:
+regular dispatch pages use immutable native-function tables, and trivial entry
+wrappers call their shared body directly. Custom/native replacement hooks are
+left in place. Function declarations are local to the C files that use them,
+so discovering another entry does not invalidate every file through the common
+header. Generated entry selectors also avoid an MSVC 19.44 switch/goto codegen
+failure reproduced in a cartridge's multi-entry body. Large entry sets use a
+balanced tree; they must never become a linear chain of thousands of tests.
+An authored 1,024-entry fixture checks all 65,536 possible PCs, including the
+unchanged default path, under the native compiler.
+
+The emitter still regenerates and adapts the complete project. An exact
+SHA-256/content check restores modification times only for unchanged final
+sources, allowing the C build system to retain their objects between passes
+and regenerations. Changed sources, runtime headers and build options still
+invalidate the corresponding objects. Qualification is always run again:
+no saved result replaces the normal coverage or CPU comparisons.
+
+Explicit diagnostic entry traces now record each `(bank, PC)` once per run.
+A lazy 4 MiB bitset replaces repeated writes, including traces that previously
+grew into gigabytes. No instructions, frames, fallback counts or distinct
+entries are skipped. Exported interactive games still do not enable learning
+or create these traces automatically.
+
+Instructions spanning `3FFF/4000` or `7FFF/8000` now read their operands from
+the live mapped bus instead of baking bytes from an adjacent physical ROM
+bank. Supported forms stay native; an unsupported boundary form uses the
+counted fallback rather than executing an assumed operand. Authored fixtures
+exercise **47,104** CPU/memory/timing comparisons, including conditional calls
+and jumps, multiple bank selections, flags and PPU phases.
+
+Additional live-guarded native RAM helpers cover unrolled byte copies,
+LCD-safe copy/fill loops and HRAM DMA page selection. Every added instruction
+checks its complete live routine signature; operands remain live and changed
+code keeps fallback. **28,277** authored checks pass, in addition to the
+65,535-call bounded-host-stack regression. These helpers reduce reported
+fallback without relabelling arbitrary interpreted instructions as native.
+
+Controlled local build measurements used the same ROMs, installed dependencies,
+`/O2` and `/MP4`. Donkey Kong Land's clean **C compilation** fell from 155.45 to
+130.22 seconds (16.2% shorter); Super Mario Land's smaller build was essentially
+unchanged at 24.69 versus 25.31 seconds. These timings cover C compilation, not
+the entire conversion. Both before/after builds produced identical complete
+state dumps after the same 7,200-frame input replay. Runtime replay times stayed
+within 0.5% (about 5.6 and 6.0 seconds respectively), and the final builds passed
+240-frame instruction comparisons. This does not measure physical latency.
+
+Two consecutive full Mario regenerations, with a populated entry library,
+took **80.02 and 62.25 seconds**. The first rebuilt changed sources; the second
+reused every C object, reducing its build stage from 16.46 to **1.28 seconds**.
+Both still completed four 7,200-frame coverage probes and all four deep CPU
+comparisons (30 + 240 + 240 + 240 frames), with zero fallback in their probes.
+The second run also reused discovery data; this is a regeneration result, not
+an empty-library or first-time compilation benchmark.
+
+Of the 17 exact cartridges rejected by the initial collection campaign, **14
+now pass the complete targeted qualification**, 13 with zero fallback in their
+four final probes. Max passes CPU comparison but retains writable-code fallback.
+The bank-boundary correction resolves the five original operand mismatches and
+a later CALL mismatch in TaleSpin. Captain America and the Avengers exposed
+the native compiler selector failure described above; its final conversion
+completed in 101.87 seconds with matching deep CPU comparisons and zero fallback.
+
+Three exact cartridges remain unqualified: **Paperboy 2**, **Spiritual Warfare**
+and **The Ren & Stimpy Show: Veediots!**. Their probes still hit the unchanged
+600-second timeout, so their observations are not added to shared knowledge.
+A timeout is retained as a symptom, not labelled as a proven CPU or mapper bug.
+
+Additional qualified RAM-helper checks reduced the worst final-scenario fallback
+cycle counts from 35,968,580 to 3,613,140 in Castlevania Legends, from 55,974,392
+to 15,647,464 in TMNT III: Radical Rescue, and from 62,096,888 to 28,786,996 in
+Track & Field. All three retain visible fallback; every deep CPU comparison
+matched. No full-playthrough, independent hardware or listening validation is
+claimed for this follow-up. Existing game exports were not replaced; regenerating
+an affected cartridge uses the new compiler and runtime adaptations.
+
+### Discovery and validation budgets
 
 The standard all-bank scan uses heuristics and can miss short functions.
 RetroRecomp also examines unconditional ROM JP/JR entries independently,

@@ -1,7 +1,8 @@
 # Experimental Mega Drive and Super Nintendo profiles
 
 RetroRecomp includes two separate experimental console profiles. This
-does **not** enable arbitrary Mega Drive or SNES games. A cartridge is identified
+status describes incomplete hardware and gameplay coverage, not a fixed game list.
+A cartridge is identified
 from its console header, then receives a profile generated from its own ROM.
 The regression catalogue is **not an allowlist**: an unknown title or revision
 can be converted without adding it to the source code first. Exact-ROM catalogue
@@ -20,10 +21,29 @@ in either declared standard, without requiring a pre-existing PAL record.
 Every conversion still compares native and reference CPU, memory, image and
 audio before learning or export. A mismatch preserves the previous export.
 Passing this internal check does not prove full gameplay or hardware fidelity.
-This document describes the development tree after release 0.21.0, including
-27 Mega Drive and 12 Super Nintendo revisions, native instruction paths, resolution-aware scanlines
+Release 0.24.0 includes verified compilation hints for **51 exact Mega Drive
+cartridges and 15 exact Super Nintendo cartridges**. These are regression
+observations, not a full-catalogue compatibility score. Mega Drive's recent
+20-cartridge batch passed four scenarios per cartridge with no reported main
+or sound CPU fallback, plus internal CPU, memory, video and PCM comparisons.
+The two profiles provide native instruction paths, resolution-aware scanlines
 and three qualified lightgun cartridges;
 see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
+
+## What experimental means in this release
+
+| Profile | Available today | Work still needed |
+| --- | --- | --- |
+| Mega Drive | Automatic analysis of standard linear cartridges, native 68000 and sound Z80 paths, PAL/NTSC, shared controls, quick states and Menacer | Unusual/banked cartridge hardware, independent timing and exception checks, EEPROM saves and broader gameplay coverage |
+| Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states and Super Scope | Enhancement chips/extended mappings, hires/interlace/overscan, remaining PAL/audio cases, cartridge save files and broader gameplay coverage |
+
+An eligible unlisted cartridge receives its own analysis and must pass the
+normal execution checks before export. Identification alone is not qualification.
+Zero fallback on the tested scenarios does not establish complete gameplay or
+original-hardware fidelity. Remaining failures stay recorded locally for follow-up;
+the full 16-bit collection campaigns remain paused while the common adapters improve.
+
+## Earlier regression examples
 
 | Profile | Qualified cartridge | Timing | Visible image |
 | --- | --- | --- | --- |
@@ -72,20 +92,40 @@ The original ROMs remain read-only. Linear `.md`/`.gen` and validated
 files are recognized. A SNES copier header is removed only from the in-memory
 build input. Interleaved SMD remains unsupported. No ROM patches or widescreen
 mode are applied. The table records previous tests, not the conversion scope.
+SNES header titles accept the ASCII and single-byte katakana ranges of
+[JIS X 0201](https://github.com/alekmaul/pvsneslib/wiki/SNES-ROM-Header).
+The title is decoded without changing the cartridge bytes. Invalid title bytes,
+ambiguous headers and inconsistent checksum pairs still fail identification;
+unsupported chips or mappings still fail conversion preflight. This recovered
+90 prematurely rejected files in the supplied SNES collection, which still need
+the usual execution validation.
 Mega Drive region headers take precedence over misleading filenames: a
 PAL-only header cannot be forced to NTSC. A reset
 stack pointer of zero is valid: the first predecrement push wraps onto work RAM.
 Region parsing accepts the original J/U/E letters and the later ASCII hex mask
-in the three defined region bytes. Reserved header bytes do not affect it;
-unknown codes are reported and rejected before conversion. Three exact legacy
-revisions have explicit qualified NTSC region hints: Columns and Golden Axe
-have empty headers; Castle of Illusion uses the older US code. Their complete
+in the three defined region bytes. An exact, padded `JAPAN`, `USA` or `EUROPE`
+label in the complete region field is also supported; unrelated reserved bytes
+do not affect the ordinary three-byte parser. Unknown codes are reported and
+rejected before conversion. Exact legacy revisions have explicit NTSC region
+hints: Columns and Golden Axe have empty headers; Castle of Illusion uses the
+older US code. The Japanese Alex Kidd: Tenkuu Majou image also has an empty
+region field; its CRC32/MD5/SHA1 match the Japan entry in the
+[Libretro/No-Intro DAT](https://github.com/libretro/libretro-database/blob/master/metadat/no-intro/Sega%20-%20Mega%20Drive%20-%20Genesis.dat).
+Its exception selects NTSC Japanese hardware. Their complete
 SHA-256 identities bind these exceptions; a filename or modified ROM cannot
 inherit them. A lone E retains
 the original PAL meaning. Japan-only cartridges now select the domestic NTSC
 version register; multi-region cartridges prefer overseas NTSC when available.
 The ROM's region checks stay intact. See the author's
 [region-header reference](https://plutiedev.com/rom-header).
+
+An unused horizontal-interrupt vector (`0` or `0xFFFFFF`) is preserved without
+being treated as an analysis entry point. The actual vector remains in the
+generated machine; this does not invent an interrupt handler or change the
+game. Reset and vertical-interrupt destinations retain their existing checks.
+Other invalid horizontal-interrupt addresses still fail preflight. These common
+preflight changes recovered 19 prematurely rejected files in the supplied
+collection; conversion and native/reference validation are still required.
 
 Qualified PAL Mega Drive builds use 313 raster lines and a 53,203,424 Hz master
 clock; NTSC builds use 262 lines and 53,693,175 Hz. Video, audio-chip clocks,
@@ -233,7 +273,7 @@ Z80 registers, PC, RAM, total instructions/cycles and CPU-visible timer state.
 Main-CPU comparisons also include SR, both stack pointers and the STOP latch. Constant nonzero DAC output is not
 counted as changing audio. A shared silent-driver bug can still match a
 reference, so dedicated sound regressions also require sustained activity.
-Authored Mega Drive fixtures now exercise 7,872 instruction/state comparisons,
+Authored Mega Drive fixtures now exercise 8,064 instruction/state comparisons,
 guest-stack return modification, RTE frames, byte stack alignment and
 self-modifying RAM guard rejection. Additional authored checks exercise static
 control-flow discovery and timer start/stop, overflow, flags, reload and long
@@ -321,6 +361,18 @@ The music replay follows the [official Sega manual](https://shared.fastly.steams
 These tests inspect digital samples, not loudspeakers, subjective sound quality
 or physical audio latency. Z80 fallback is measured independently of 68000 coverage.
 
+## Mega Drive instructions at the end of work RAM
+
+The converter now learns and translates instructions in the final sixteen bytes
+of 68000 work RAM, including a six-byte jump at `0xFFFFFA` or a one-word
+instruction at `0xFFFFFE`. The previous maximum-size reservation excluded these
+valid starts, so interrupt stubs there kept using fallback on every pass.
+Collection, stored observations and offline decoding now check the instruction's
+actual length against the end of RAM. All instruction words still participate
+in the live guard; changing an operand cannot execute stale native code.
+Instructions whose byte window crosses the 24-bit bus boundary remain excluded.
+This is a common compiler correction, with no title-specific RAM patch.
+
 ## Mega Drive native sound CPU
 
 The converter now generates fixed-operation C bodies for the Z80. Lookup uses
@@ -391,7 +443,14 @@ configured **Frames per test** when that is higher. Directions, A/B/C, Start and
 player-two controls are exercised; qualified six-button games also use X/Y/Z.
 The T2 profile preserves its original Menacer menu selection and mouse test.
 
-All three scenarios are compared against the internal CPU/video/audio reference
+An additional 1,800-frame replay presses Start shortly after a fresh boot, then
+tries the main action buttons. The previous demo, play and advanced scripts all
+waited at least 300 frames before starting. Skipping an intro or entering a menu
+earlier can expose ROM paths those scripts miss; merely increasing their length
+does not address this input-timing gap. The early-start replay remains ordinary
+controller input, without guest memory edits.
+
+All four scenarios are compared against the internal CPU/video/audio reference
 before new 68000 ROM/RAM entries or Z80 opcode variants enter the local library.
 The converter regenerates code while verified observations are added, within
 the existing **Maximum passes** limit. It stops when no new paths are found.

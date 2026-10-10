@@ -7,7 +7,7 @@
 - Visual Studio Build Tools 2022 or a detected supported Visual Studio
   installation, with x64 C++ tools, CMake and Windows SDK.
 - Internet for first-time dependency setup; optional for missing-cover lookup.
-- For the experimental SNES proof only: installed stable Rust >= 1.85.
+- For Super Nintendo conversion: installed stable Rust >= 1.85.
 
 The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
@@ -34,8 +34,9 @@ python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 exports to `Export`; build files and dependencies stay in `.build` and `.deps`.
 The packaged converter creates `Games` beside its executable. Automatic
 identification routes supported ROMs into `Master System`, `Game Gear`,
-`Game Boy` or `Nintendo NES` subfolders; unknown formats are reported and skipped. `--output`
-selects another Games root, and `--system sms|gg|gb|nes` resolves ambiguous
+`Game Boy`, `Nintendo NES`, `Mega Drive` or `Super Nintendo` subfolders;
+unknown formats are reported and skipped. `--output`
+selects another Games root, and `--system sms|gg|gb|nes|md|snes` resolves ambiguous
 `.bin`/`.rom` dumps when their console is known to the user. The GUI offers
 the same Automatic/manual console selector and an opt-in custom export folder.
 Batch conversion runs three games at once by default for any mix of supported
@@ -57,6 +58,11 @@ For a faster standard validation, uncheck it under Options → Game Boy or pass
 `--no-gb-deep-validation` to `convert` or `batch`. Native discovery is the same
 in both modes; other consoles ignore this setting. The conversion log and
 report show timings and validation scope.
+
+Game Boy's optimized C generation and reuse of byte-identical generated files
+reduce build work without changing native discovery or the CPU comparisons.
+An initial conversion still compiles new code; repeat-build timings should not
+be presented as cold-build timings. See [Game Boy build evidence](GAME_BOY.md).
 
 ## Pinned game dependencies
 

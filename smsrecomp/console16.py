@@ -400,6 +400,19 @@ def _md_scan_script(directory: Path, frames: int, *, six_buttons=False, gun_menu
     return path
 
 
+def _md_early_start_script(directory: Path, frames: int) -> Path:
+    """Explore skipped intros and early menu entry from a fresh boot."""
+    events = {0: 0}
+    for frame in (10, 60, 120, 240, 360, 480, 600, 720, 840, 960, 1080):
+        events[frame], events[frame + 2] = 128, 0
+    events.update({1200: 8, 1260: 24, 1290: 8, 1380: 40, 1410: 8,
+                   1500: 72, 1530: 8, 1650: 24, 1680: 8})
+    path = directory / 'early-start-inputs.txt'
+    path.write_text(''.join(f'{frame} {buttons} 0\n' for frame, buttons in sorted(events.items())
+                            if frame < frames), encoding='ascii')
+    return path
+
+
 def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False,
             gun_menu=None, scenario=None, input_script=None) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
@@ -538,19 +551,22 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     learn = megadrive.learn_entries if system_id == 'md' else supernintendo.learn_ram_variants
     gun_menu = 't2' if gun and gun.system == 'md' and gun.title == 'T2 - The Arcade Game' else None
     advanced_frames = max(frames, 6000) if advanced else 0
+    early_start_frames = 1800 if advanced else 0
     if advanced:
-        emit(f'Mega Drive advanced scan: adds a {advanced_frames}-frame varied-input replay on every pass, '
+        emit(f'Mega Drive advanced scan: adds a {advanced_frames}-frame varied-input replay '
+             f'and a {early_start_frames}-frame early-start replay on every pass, '
              'with reference CPU/video/audio comparison before learning. Conversion takes longer.')
     history, comparisons = [], []
     reference_before_learning = True
 
-    def compare(checks, directory, script):
+    def compare(checks, directory, scripts):
         directory.mkdir(exist_ok=True)
         comparisons = []
         for native in checks:
-            options = dict(play=native['scenario'] != 'demo', reference=True, gun_menu=gun_menu)
-            if native['scenario'] == 'advanced':
-                options.update(scenario='advanced', input_script=script)
+            scenario = native['scenario']
+            options = dict(play=scenario != 'demo', reference=True, gun_menu=gun_menu, scenario=scenario)
+            if scenario in scripts:
+                options['input_script'] = scripts[scenario]
             reference = probe16(executable, directory, native['frames'], **options)
             comparisons.append({'scenario': native['scenario'], 'frames': native['frames'],
                                 'differences': reference_differences(system_id, native, reference)})
@@ -567,13 +583,16 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         checks_dir.mkdir(exist_ok=True)
         checks = []
         scenarios = [(frames, dict(play=play, gun_menu=gun_menu)) for play in (False, True)]
-        script = None
+        scripts = {}
         if advanced:
-            script = _md_scan_script(checks_dir, advanced_frames,
+            scripts['advanced'] = _md_scan_script(checks_dir, advanced_frames,
                 six_buttons=cartridge_profile.get('six_buttons', 'street-fighter' in cartridge_profile['id']),
                 gun_menu=gun_menu)
+            scripts['early-start'] = _md_early_start_script(checks_dir, early_start_frames)
             scenarios.append((advanced_frames, dict(play=True, gun_menu=gun_menu,
-                                                   scenario='advanced', input_script=script)))
+                                                   scenario='advanced', input_script=scripts['advanced'])))
+            scenarios.append((early_start_frames, dict(play=True, gun_menu=gun_menu,
+                scenario='early-start', input_script=scripts['early-start'])))
         for budget, options in scenarios:
             check = probe16(executable, checks_dir, budget, **options)
             check['native_counter_unit'] = 'main CPU opcodes'
@@ -586,7 +605,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
              'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles')} for check in checks]})
         if reference_before_learning:
-            comparisons = compare(checks, checks_dir / 'reference', script)
+            comparisons = compare(checks, checks_dir / 'reference', scripts)
         if system_id == 'snes':
             supernintendo.validate_activity(cartridge_profile, checks)
         if not any(check.get('rom_entries') or check.get('ram_variants') or check.get('z80_variants') or check.get('z80_driver_images')
@@ -605,7 +624,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         observations = '68000 ROM/RAM entries and Z80 opcode variants' if system_id == 'md' else '65816 RAM and SPC700 opcode variants'
         emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
     if not reference_before_learning:
-        comparisons = compare(checks, checks_dir / 'reference', None)
+        comparisons = compare(checks, checks_dir / 'reference', {})
     learn(rom, checks)
     if system_id == 'md':
         from .megadrive_z80 import learn_variants
@@ -623,8 +642,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
-        'advanced_scan': {'enabled': advanced, 'additional_frames': advanced_frames,
+        'advanced_scan': {'enabled': advanced, 'additional_frames': advanced_frames + early_start_frames,
                           'scenario': 'advanced' if advanced else None,
+                          'scenario_frames': {'advanced': advanced_frames, 'early-start': early_start_frames} if advanced else {},
                           'reference_before_learning': advanced},
         'native_validation': {'passed': True, 'visible_sequence_match': True,
                               'audio_pcm_match': True,

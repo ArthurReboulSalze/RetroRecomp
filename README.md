@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.23.0-d4a737" alt="Release version 0.23.0">
+  <img src="https://img.shields.io/badge/release-0.24.0-d4a737" alt="Release version 0.24.0">
   <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -38,9 +38,11 @@ execution as possible, without dedicated FPGA hardware.
 - **Make games easy to find.** Optional box-art icons and shooting tags distinguish
   your exports. Mouse aiming is available for supported lightgun games.
   Downloaded artwork is saved and reused when you regenerate games.
+  Cover searches handle common title variations while keeping sequels distinct.
 - **Reuse compilation knowledge.** The converter includes useful cartridge
   hints and keeps new discoveries locally. See the
   [shared library guide](docs/COMPILATION_LIBRARY.md).
+  Game Boy builds also reuse unchanged generated files, with the same validation checks.
 
 ## Console support
 
@@ -50,12 +52,15 @@ execution as possible, without dedicated FPGA hardware.
 | Game Gear | Supported; native handheld display and colors |
 | Game Boy | Supported; original Game Boy, quick states, grayscale or classic green |
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
-| Mega Drive | Experimental; automatic cartridge analysis, PAL/NTSC, quick states and Menacer |
-| Super Nintendo | Experimental; automatic LoROM/HiROM analysis, PAL/NTSC, quick states and Super Scope |
+| Mega Drive | Experimental, with expanded native coverage; standard cartridges, PAL/NTSC, quick states and Menacer |
+| Super Nintendo | Experimental; standard LoROM/HiROM cartridges, PAL/NTSC, quick states and Super Scope |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
 [16-bit support](docs/CONSOLES_16BIT.md) for the current limits.
+The 16-bit profiles analyze new games automatically; there is no fixed game list.
+They remain experimental while unusual cartridge hardware and remaining display,
+audio and gameplay cases are being qualified.
 More consoles and output platforms are planned.
 
 ## From conversion to your game collection

@@ -2,47 +2,41 @@
 
 ## Current scope
 
-The current development tree includes experimental Mega Drive integration for Sonic
-the Hedgehog, Columns, Golden Axe, Castle of Illusion, Menacer 6-Game Cartridge
-and T2 - The Arcade Game, plus Aladdin (Japan), Streets of Rage 2 and
-The Revenge of Shinobi, Gunstar Heroes (Japan), Ecco the Dolphin and Desert
-Strike. Ten further revisions qualify Beyond Oasis, Comix Zone, Contra - Hard
-Corps, Dynamite Headdy, Rocket Knight Adventures, Street Fighter II' Plus,
-Thunder Force IV, ToeJam & Earl, Vectorman and Wonder Boy in Monster World.
-Their qualification also adds user/supervisor stack switching and STOP/IRQ
-handling to the common 68000 adapter. Five additional profiles cover Sonic 2,
-Earthworm Jim, Mortal Kombat II, Road Rash II and Shining Force II: 27 Mega Drive
-revisions in total, including two explicitly qualified PAL images. The common
-compiler now also translates MOVEP and the two six-button games expose their
-complete controls. Super Nintendo qualifies 11 exact NTSC
-revisions: Super Mario World, Super Scope 6, The Legend of Zelda - A Link to the
-Past, Super Metroid, Donkey Kong Country and Super Castlevania IV, plus F-Zero,
-Mega Man X, Chrono Trigger, Super Bomberman and Super Mario All-Stars. Its native map
-supports LoROM and HiROM with the cartridge's actual storage mirroring.
-Pop'n TwinBee adds an exact European PAL LoROM revision, bringing the SNES
-catalogue to 12 revisions. Its 312-line raster and independent audio clock
-are qualified for the progressive 256 x 224 display.
-These tested revisions are a regression catalogue, not a conversion allowlist.
-New ordinary Mega Drive and SNES LoROM/HiROM cartridges receive their own
-ROM-derived profiles and undergo native/reference validation before export.
-Unsupported hardware is reported separately; see [current hardware scope](CONSOLES_16BIT.md).
-SNES PAL overscan, interlace and 512-pixel display modes remain unqualified.
-Mouse Menacer/Super Scope input and shared gun settings are included;
-see [16-bit gun controls and validation](GUNS_16BIT.md).
-The instruction adapters introduced in version 0.19.0 extend AOT to Sonic and replace
-SMW's earlier C-call bridge with static ROM-PC operations and guarded RAM code.
-Both reach zero interpreted main-CPU instructions on demo and scripted-play
-tests of 3,600 frames each. Their internal CPU, memory and visible-frame
-comparisons match the reference over those complete paths. The earlier
-Sonic/SMW reference divergences are resolved on these tested paths.
-Mega Drive now recompiles the Z80 sound driver as well as the 68000, with
-separate fallback counters and guarded RAM operations. Super Nintendo now also
-recompiles the SPC700 sound program with PC-directed opcode guards. Its probes
-consume the same audio blocks as the game and compare PCM, SPC/DSP state and
-port/timer scheduling against the internal reference before learning.
-These tests do not establish independent
-hardware accuracy or full-game compatibility; see
-[16-bit proof scope and evidence](CONSOLES_16BIT.md).
+Release 0.24.0 provides six console profiles. Master System, Game Gear,
+original Game Boy and NES are supported within their documented scope.
+**Mega Drive and Super Nintendo remain experimental**: their standard cartridge
+paths work, but unusual hardware and remaining gameplay, display and audio cases
+still need qualification. Experimental does not mean a fixed game list.
+
+The shared snapshot contains verified hints for **51 exact Mega Drive cartridges
+and 15 exact Super Nintendo cartridges**. New eligible cartridges receive their
+own ROM-derived profiles and undergo native/reference validation before export;
+neither this snapshot nor the regression catalogue is an allowlist. Unsupported
+hardware is reported separately, and another game's profile is never substituted.
+
+The latest 20-cartridge Mega Drive batch used four final scenarios per cartridge:
+7,200 frames each for demo, play and varied input, plus 1,800 early-start frames.
+All 80 scenarios finished without interpreted 68000 or Z80 instructions and
+matched internal CPU, memory, visible-frame and PCM comparisons. The compressed
+exports also passed 1,800-frame early-start checks. Native work-RAM tail
+instructions and early input discovery remove repeatedly observed fallback sites.
+These are path-specific results, not a claim of interpreter-free full gameplay.
+
+Mega Drive supports standard linear cartridges, region-driven PAL/NTSC,
+three/six-button controls, quick states and qualified Menacer input. Extra or
+banked cartridge hardware, some CPU exceptions and EEPROM saves remain outside
+the implemented scope. Super Nintendo supports ordinary LoROM/HiROM, native
+main and sound CPU paths, PAL/NTSC, quick states and qualified Super Scope input.
+Enhancement chips, extended mappings, hires/interlace/overscan and independent
+cartridge save files remain unfinished. Recognizing valid Japanese header titles
+recovers rejected inputs; it does not qualify those cartridges for gameplay.
+See [16-bit scope and remaining work](CONSOLES_16BIT.md) and
+[gun controls](GUNS_16BIT.md).
+
+Both profiles count main and sound CPU fallback separately and compare CPU,
+memory, video and digital sound before learning. Passing the internal reference
+checks does not establish independent hardware accuracy, complete gameplay or
+physical latency.
 
 The supported 8-bit profiles build Windows x64 games from Master System,
 Game Gear, original Game Boy and Nintendo NES ROMs. The two
@@ -78,6 +72,15 @@ RAM fallback. Common fixes add guarded native RAM helpers and bounded host-stack
 dispatch. This broadens the evidence to MBC3/MBC5 without certifying RTC or complete
 gameplay. Large cold C builds can still take much longer than the earlier Mario
 benchmark. See [the expanded Game Boy checks](GAME_BOY.md#broader-cartridge-cases--9-october-2026).
+
+The subsequent collection campaign qualified 606 exact Game Boy cartridges:
+500 with zero fallback on the tested scenarios and 106 retaining reported
+fallback. Three cartridges remain refused after execution timeouts. Recent
+bank-boundary, native-entry selection and guarded RAM-helper corrections recover
+fourteen previously failing cases; thirteen have zero fallback in their new
+four-scenario checks. Optimized generated C and byte-identical object reuse reduce
+build work without changing CPU validation. See [current Game Boy evidence](GAME_BOY.md)
+and [included compilation hints](COMPILATION_LIBRARY.md).
 
 The supported Nintendo NES profile uses a separate 6502 cycle backend and
 accepts headered `.nes` cartridges. Conversion tests count native and fallback
@@ -148,7 +151,7 @@ See [video evidence](VIDEO.md) and [console profiles](SYSTEM_PROFILES.md).
 | Gameplay | Full playthroughs and physical two-player sessions remain unvalidated. |
 | Physical latency | Device, OS, display and game response have not been measured. |
 
-Release 0.20.0 passes 168 Python tests. Earlier input/presentation work
+ROM-free automated tests accompany each release. Earlier input/presentation work
 also passed SDL host checks with two virtual controllers and 4,096 simultaneous
 input states. Actual
 game CPU/RAM/VDP/PCM states are compared across pause/restart. These checks

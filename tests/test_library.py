@@ -4,12 +4,13 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 import os
 
 from smsrecomp.core import default_config, read_rom, set_video_standard
-from smsrecomp.library import GameMemory, classify, read_observations, read_code_patterns
+from smsrecomp.library import GameMemory, atomic_json, classify, read_observations, read_code_patterns
 
 
 def fnv(data):
@@ -40,6 +41,31 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(result, {"added": 3, "verified": 1, "ram": 2, "rejected": 1})
         self.assertEqual(self.memory.seeds(), {self.good})
         self.assertEqual(self.memory.import_entries({self.good})["added"], 0)
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows sharing lock')
+    def test_atomic_checkpoint_waits_for_a_brief_reader_lock(self):
+        from tests.test_publishing import locked_file
+        path = self.root / 'progress.json'
+        atomic_json(path, {'completed': 128})
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with locked_file(path):
+                future = executor.submit(atomic_json, path, {'completed': 129})
+                time.sleep(0.15)
+                self.assertEqual(json.loads(path.read_text()), {'completed': 128})
+            future.result(timeout=3)
+        self.assertEqual(json.loads(path.read_text()), {'completed': 129})
+        self.assertFalse(list(self.root.glob('progress.json.*.tmp')))
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows sharing lock')
+    def test_persistent_checkpoint_lock_keeps_the_previous_data_and_reports_failure(self):
+        from tests.test_publishing import locked_file
+        path = self.root / 'progress.json'
+        atomic_json(path, {'completed': 128})
+        with locked_file(path):
+            with self.assertRaises(PermissionError):
+                atomic_json(path, {'completed': 129})
+            self.assertEqual(json.loads(path.read_text()), {'completed': 128})
+        self.assertFalse(list(self.root.glob('progress.json.*.tmp')))
 
     def test_identity_does_not_depend_on_name_crc_or_build_folder(self):
         self.memory.import_entries({self.good})

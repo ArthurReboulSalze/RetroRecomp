@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "0.23.0"
+VERSION = "0.24.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -43,6 +43,7 @@ licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
 smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.py
+smsrecomp/cover_titles.py tests/test_cover_titles.py
 smsrecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/branding.py smsrecomp/i18n.py smsrecomp/updater.py
 smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
@@ -53,6 +54,8 @@ smsrecomp/metadata.py tests/test_metadata.py
 smsrecomp/systems/__init__.py smsrecomp/systems/master_system.py
 smsrecomp/systems/game_gear.py smsrecomp/systems/game_boy.py
 smsrecomp/gameboy.py smsrecomp/gameboy_runtime.py
+smsrecomp/gameboy_build.py smsrecomp/gameboy_boundary.py tests/test_gameboy_build.py
+native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
 smsrecomp/gameboy_timing.py
 smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py

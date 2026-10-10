@@ -35,6 +35,14 @@ def discovery_checks(engine, project):
     expected = {0x200, 0x206, 0x208, 0x210, 0x212, 0x218, 0x300, 0x304, 0x312, 0x314}
     assert len(followed) == len(expected) and {ins['addr'] for ins in followed} == expected, \
         'Static control flow must follow both branches/calls, terminate loops, and stop at returns/indirect jumps'
+    tail = decode(engine, project, rom, set(),
+        [{'address': 0xfffff4, 'bytes': '4ef900000800'},
+         {'address': 0xfffffa, 'bytes': '4ef900000800'},
+         {'address': 0xfffffe, 'bytes': '4e71'},
+         {'address': 0xfffffc, 'bytes': '4ef900000800'},
+         {'address': 0xfffffe, 'bytes': '4e710000'}])
+    assert {ins['addr'] for ins in tail} == {0xfffff4, 0xfffffa, 0xfffffe} and len(tail) == 3, \
+        'Accept instructions ending at the RAM boundary; reject byte windows crossing the bus end'
     return len(expected)
 
 
@@ -81,7 +89,10 @@ def main():
     stats = generate_steps(engine, project, rom, pcs,
         [{'address': 0xff8000, 'bytes': '7001'}, {'address': 0xff8000, 'bytes': '70ff'},
          {'address': 0xff8040, 'bytes': '4eba0008'}, {'address': 0xff8060, 'bytes': '4eb900000800'},
-         {'address': 0xff8080, 'bytes': '4e40'}],
+         {'address': 0xff8080, 'bytes': '4e40'},
+         {'address': 0xfffff4, 'bytes': '4ef900000800'},
+         {'address': 0xfffffa, 'bytes': '4ef900000800'},
+         {'address': 0xfffffe, 'bytes': '4e71'}],
         follow_flow=False)
     if stats['rejected_or_unimplemented']:
         raise RuntimeError(f'Authored fixture was not translated: {stats}')

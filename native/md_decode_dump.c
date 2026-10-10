@@ -77,8 +77,10 @@ int main(int argc, char **argv) {
         RamBytes bytes = {0}; GenesisRom view = rom;
         int fields = sscanf(line, "%x:%32s", &pc, raw);
         unsigned available = 0;
-        if (fields == 2 && pc >= 0xff0000 && pc <= 0xfffff0) {
+        if (fields == 2 && pc >= 0xff0000 && pc <= 0xfffffe) {
             bytes.pc = pc; available = (unsigned)strlen(raw) / 2;
+            if (strlen(raw) % 4 || available < 2 || available > sizeof bytes.bytes
+                || available > 0x1000000u - pc) continue;
             for (unsigned n = 0; n < available && n < 16; ++n) {
                 unsigned byte;
                 if (sscanf(raw + n * 2, "%2x", &byte) != 1) return 5;

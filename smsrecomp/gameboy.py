@@ -16,6 +16,8 @@ from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug
 from .gameboy_runtime import adapt_generated_project
+from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch
+from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries)
 from .library import atomic_json, library_root
@@ -320,8 +322,12 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         if compilation_entries:
             command += ["--use-trace", trace_input]
         stage_started = time.perf_counter()
-        run(command, log=project / "build.log", timeout=1800)
-        adapt_generated_project(project, storage_id, rom.sha256, title)
+        with preserve_unchanged_sources(project):
+            run(command, log=project / "build.log", timeout=1800)
+            adapt_generated_project(project, storage_id, rom.sha256, title)
+            boundary = adapt_bank_boundaries(project)
+            shared_bodies = share_native_bodies(project)
+            compact_dispatch = compact_generated_dispatch(project)
         stage_seconds['translation'] += time.perf_counter() - stage_started
         stage_started = time.perf_counter()
         run([cmake, "-S", project, "-B", project / "build", "-G", generator, "-A", "x64",
@@ -391,8 +397,10 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "static_scan": "all_banks_and_short_branches", "percent": None,
             "static_branch_entries": len(static_entries), "imported_entries": imported_entries,
             "observed_rom_entries": len(observed_entries)},
+        "generated_build": {"shared_bodies": shared_bodies, "dispatch": compact_dispatch,
+                            "bank_boundaries": boundary, "reuse_identical_sources": True},
         "writable_native_helpers": {"guard": "live instruction signature per added instruction; data operands remain live",
-            "scope": "WRAM/HRAM store-and-increment and HRAM interrupt-bracketed sprite DMA helpers; unknown/changed code keeps fallback"},
+            "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers; unknown/changed code keeps fallback"},
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
             "mode": validation_mode, "scenarios": cpu_checks,

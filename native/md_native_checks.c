@@ -61,6 +61,9 @@ static void differential(uint32_t pc, unsigned seed) {
     m68k_write32(0xff8040, 0x4eba0008u);
     m68k_write16(0xff8060, 0x4eb9); m68k_write32(0xff8062, 0x800);
     m68k_write16(0xff8080, 0x4e40);
+    m68k_write16(0xfffff4, 0x4ef9); m68k_write32(0xfffff6, 0x800);
+    m68k_write16(0xfffffa, 0x4ef9); m68k_write32(0xfffffc, 0x800);
+    if (pc == 0xfffffe) m68k_write16(pc, 0x4e71);
     M68KState initial = g_cpu; memcpy(before, g_ram, sizeof before);
     force_reference = 0; fallback = 0; rr_md_cpu_stopped = 0;
     M68kiStatus ns = m68k_interp_step();
@@ -309,6 +312,23 @@ static void architectural_checks(void) {
     REQUIRE(rr_md_native_lookup(g_cpu.PC) == NULL, "changed extension operand rejected");
     REQUIRE(m68k_interp_step() == M68KI_OK && g_cpu.PC == 0x822 && fallback == 1,
             "changed extension operand executes live bytes");
+    /* Real interrupt stubs can occupy the very last six bytes of work RAM. */
+    M68KInstr tail = {0}; tail.addr = 0xfffffau; tail.word_count = 3; tail.byte_length = 6;
+    REQUIRE(rr_md_ram_instruction_recordable(&tail), "final six-byte RAM instruction can be learned");
+    tail.addr = 0xfffffeu; tail.word_count = 1; tail.byte_length = 2;
+    REQUIRE(rr_md_ram_instruction_recordable(&tail), "final RAM word can be learned");
+    tail.word_count = 2; tail.byte_length = 4;
+    REQUIRE(!rr_md_ram_instruction_recordable(&tail), "RAM observation must not cross bus end");
+    tail.addr = 0xff8000u; tail.byte_length = 2;
+    REQUIRE(!rr_md_ram_instruction_recordable(&tail), "inconsistent decoded lengths rejected");
+    g_cpu.PC = 0xfffffa; m68k_write16(g_cpu.PC, 0x4ef9); m68k_write32(g_cpu.PC + 2, 0x800);
+    fallback = 0;
+    REQUIRE(m68k_interp_step() == M68KI_OK && g_cpu.PC == 0x800 && !fallback,
+            "final RAM interrupt jump executes a native body");
+    g_cpu.PC = 0xfffffa; m68k_write32(g_cpu.PC + 2, 0x822); fallback = 0;
+    REQUIRE(rr_md_native_lookup(g_cpu.PC) == NULL, "last operand word participates in the live guard");
+    REQUIRE(m68k_interp_step() == M68KI_OK && g_cpu.PC == 0x822 && fallback == 1,
+            "modified final RAM operand uses reference fallback");
 }
 /* These tests use independent boundary values from the documented clocks,
  * including flag clears that must not reload a running counter. */
@@ -356,6 +376,9 @@ int main(void) {
     for (unsigned seed = 1; seed <= 64; ++seed) differential(0xff8040, seed);
     for (unsigned seed = 1; seed <= 64; ++seed) differential(0xff8060, seed);
     for (unsigned seed = 1; seed <= 64; ++seed) differential(0xff8080, seed);
+    for (unsigned seed = 1; seed <= 64; ++seed) differential(0xfffff4, seed);
+    for (unsigned seed = 1; seed <= 64; ++seed) differential(0xfffffa, seed);
+    for (unsigned seed = 1; seed <= 64; ++seed) differential(0xfffffe, seed);
     architectural_checks();
     movep_checks();
     trap_checks();

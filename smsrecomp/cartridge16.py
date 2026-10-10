@@ -59,6 +59,11 @@ def megadrive_regions(data: bytes) -> int:
     A lone E is ambiguous between the two formats and retains its usual PAL
     meaning. See https://plutiedev.com/rom-header.
     """
+    # Some older commercial headers spell out one region. Accept only the
+    # complete, padded label seen in cartridge bytes, never a filename guess.
+    legacy_region = data[0x1f0:0x200].rstrip(b'\0 ').upper()
+    if legacy_region in (b'JAPAN', b'USA', b'EUROPE'):
+        return {b'JAPAN': 1, b'USA': 4, b'EUROPE': 8}[legacy_region]
     regions = ''.join(data[0x1f0:0x1f3].decode('ascii', errors='replace')
                       .upper().replace('\0', ' ').split())
     if len(regions) == 1 and regions in '0123456789ABCDF':
@@ -85,19 +90,27 @@ def read_megadrive_rom(path: Path) -> Cartridge16:
     return Cartridge16(path, data, 'md', ' '.join(title.split()), standard, 'linear')
 
 
+def snes_title(data: bytes) -> str | None:
+    """Validate the header's JIS X 0201 ASCII and single-byte katakana title."""
+    raw = data.rstrip(b'\0 ')
+    if not raw or not all(0x20 <= value <= 0x7e or 0xa1 <= value <= 0xdf for value in raw):
+        return None
+    return raw.decode('shift_jis')
+
+
 def snes_header(data: bytes) -> tuple[int, str] | None:
     """Require a credible title, ROM map, reset vector and checksum pair."""
     matches = []
     for offset, mapping in ((0x7fc0, 'lorom'), (0xffc0, 'hirom'), (0x40ffc0, 'exhirom')):
         if offset + 64 > len(data):
             continue
-        title = data[offset:offset + 21].rstrip(b'\0 ')
+        title = snes_title(data[offset:offset + 21])
         mode = data[offset + 21] & 0x2f
         allowed = (0x20, 0x22) if mapping == 'lorom' else (0x21,) if mapping == 'hirom' else (0x25,)
         complement = int.from_bytes(data[offset + 28:offset + 30], 'little')
         checksum = int.from_bytes(data[offset + 30:offset + 32], 'little')
         vector = int.from_bytes(data[offset + 60:offset + 62], 'little')
-        if (title and all(32 <= v < 127 for v in title) and mode in allowed
+        if (title and mode in allowed
                 and checksum ^ complement == 0xffff and checksum != 0
                 and vector >= 0x8000 and data[offset + 23] <= 13):
             matches.append((offset, mapping))
@@ -117,5 +130,6 @@ def read_snes_rom(path: Path) -> Cartridge16:
     offset, mapping = header
     region = data[offset + 25]
     standard = 'ntsc' if region in (0, 1, 13, 15, 16) else 'pal'
-    title = data[offset:offset + 21].decode('ascii').strip('\0 ')
+    title = snes_title(data[offset:offset + 21])
+    assert title is not None  # The same title was validated in snes_header.
     return Cartridge16(path, data, 'snes', title, standard, mapping, copier)

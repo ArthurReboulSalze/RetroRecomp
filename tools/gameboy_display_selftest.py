@@ -12,14 +12,17 @@ def check(project):
 #include "runtime/src/platform_sdl.cpp"
 extern "C" void gb_dispatch(GBContext *, uint16_t) { assert(false && "No guest CPU in display fixture"); }
 int main() {
-    SDL_SetMainReady(); assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)==0);
-    load_runtime_preferences();
+    SDL_SetMainReady();
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "software", SDL_HINT_OVERRIDE);
+    assert(gb_platform_init(1));
     const fs::path path(runtime_preferences_path());
+    assert(path.filename()=="Retro-Recomp-GameBoy.ini" && path.parent_path().filename()=="datas");
     assert(!fs::exists(path.parent_path()));
     assert(!g_fullscreen && g_render_filter_mode==GB_RENDER_FILTER_NEAREST);
-    g_window=SDL_CreateWindow("Dummy settings fixture",0,0,160,144,SDL_WINDOW_HIDDEN);
-    g_renderer=SDL_CreateRenderer(g_window,-1,SDL_RENDERER_SOFTWARE);
-    assert(g_window && g_renderer);
+    assert(ImGui::GetIO().IniFilename==nullptr);
+    gb_platform_shutdown();
+    assert(!fs::exists(path.parent_path()) && !fs::exists("imgui.ini"));
+    assert(gb_platform_init(1));
     for (int cycle=0;cycle<6;++cycle) {
         rr_gb_cycle_fullscreen();
         int mode=(cycle+1)%3;
@@ -37,8 +40,13 @@ int main() {
     assert(g_rr_language==1 && g_rr_autofire);
     assert(g_keyboard_bindings[GB_INPUT_ACTION_START][0].code==SDL_SCANCODE_RETURN);
     assert(g_keyboard_bindings[GB_INPUT_ACTION_SELECT][0].code==SDL_SCANCODE_LSHIFT);
-    SDL_DestroyRenderer(g_renderer); SDL_DestroyWindow(g_window); SDL_Quit();
-    puts("PASS: GB actual F3/F4 menu actions, all display modes/filters retained, palette/language/autofire, lazy initial read; dummy driver only.");
+    gb_platform_shutdown();
+    assert(fs::exists(path) && !fs::exists("imgui.ini"));
+    assert(!fs::exists(fs::current_path()/"Retro-Recomp-GameBoy.ini"));
+    assert(gb_platform_init(1));
+    assert(g_rr_language==1 && g_rr_autofire);
+    gb_platform_shutdown();
+    puts("PASS: GB actual startup/close leaves no files; ImGui persistence disabled; settings written only in EXE datas, all display modes/filters retained after reopen; dummy driver only.");
     return 0;
 }
 ''',encoding='utf-8')
@@ -56,8 +64,12 @@ target_compile_options(rr_display_checks PRIVATE /utf-8)
     with tempfile.TemporaryDirectory(prefix='rr-gb-display-') as temp:
         exe=Path(temp)/'checks.exe'; shutil.copy2(project/'build/Release/rr_display_checks.exe',exe)
         env=os.environ.copy(); env['SDL_VIDEODRIVER']='dummy'; env['SDL_AUDIODRIVER']='dummy'
-        result=subprocess.run([exe],env=env,capture_output=True,text=True,timeout=30)
+        env.pop('GBRECOMP_BENCHMARK',None)
+        launch=Path(temp)/'unrelated-working-folder'; launch.mkdir()
+        result=subprocess.run([exe],cwd=launch,env=env,capture_output=True,text=True,timeout=30)
         if result.returncode: raise AssertionError(result.stdout+result.stderr)
+        assert not list(launch.iterdir()), 'Launching from another folder created stray runtime files'
+        assert sorted(p.name for p in Path(temp).iterdir())==['checks.exe','datas','unrelated-working-folder']
         print(result.stdout.strip())
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('generated_project',type=Path)

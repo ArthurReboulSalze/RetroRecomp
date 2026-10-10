@@ -1,3 +1,45 @@
+# RetroRecomp v0.24.0 — broader native coverage and smarter cover searches
+
+- Game Boy uses more efficient generated C and reuses byte-identical build
+  files, preserving native discovery, optimization and CPU validation. Bank
+  boundaries, shared native entry selection and additional guarded RAM helpers
+  improve previously failing conversions. Fourteen targeted cartridges now
+  pass their checks; thirteen have no fallback on the tested paths.
+- Mega Drive learns native instructions at the end of work RAM and tests
+  early-start gameplay paths. The latest 20-cartridge batch passes all four
+  scenarios per cartridge without main or sound CPU fallback, including
+  internal CPU/memory/video/PCM comparisons.
+- Cartridge identification accepts additional valid Mega Drive region headers
+  and Japanese Super Nintendo header titles, without guessing another game's
+  profile or accepting unsupported cartridge hardware.
+- Shared cover searches handle articles, punctuation, abbreviations, Roman
+  numerals, subtitles and small typos across all six consoles. Sequels, years
+  and special editions stay distinct; ambiguous results are not guessed.
+- The converter includes 34 reviewed front-cover references and verified,
+  ROM-free compilation hints for 954 exact cartridge revisions. The compressed
+  knowledge snapshot occupies about 7.4 MiB. No cover images are bundled.
+- Game Boy's unused debug layout no longer writes an `imgui.ini` beside games.
+  Existing game settings remain in `datas`, as on the other profiles.
+
+**Mega Drive and Super Nintendo remain experimental.** Standard eligible
+cartridges are analyzed automatically, with no fixed game allowlist. Broader
+native coverage does not certify unusual cartridge hardware, all display/audio
+modes or complete gameplay. See [16-bit support and remaining work](CONSOLES_16BIT.md).
+Native coverage, CPU agreement, hardware fidelity, gameplay and physical latency
+remain separate measures. Game Boy build timings distinguish cold builds from
+repeat conversions; the validation scope has not been reduced.
+
+Validation passes 282 ROM-free Python tests, 8,064 authored Mega Drive
+instruction/state comparisons, 47,104 Game Boy bank-boundary comparisons,
+65,536 native-entry selector checks and 28,277 guarded RAM-helper checks.
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Updates preserve games, settings, local compilation knowledge and downloaded
+covers. Regenerate affected games to receive compiler/runtime changes. No ROMs,
+downloaded artwork, generated games or private settings are included.
+
+---
+
 # RetroRecomp v0.23.0 — a new look and stronger conversion support
 
 - New charcoal-and-gold identity, cartridge logo, outlined console artwork

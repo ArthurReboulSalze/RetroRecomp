@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
 from smsrecomp.cartridge16 import read_megadrive_rom, read_snes_rom
-from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script
+from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script
 from smsrecomp.core import ConversionError, module_fingerprint
 from smsrecomp.systems import profile_for_path, discover_roms
 from smsrecomp.batch import identify, system_output
@@ -82,6 +82,19 @@ class Console16Tests(unittest.TestCase):
             timing = {b' U ': 'ntsc', b'J E': 'multi', b'juE': 'multi'}.get(letters, 'unknown')
             self.assertEqual(read_megadrive_rom(self.source('Game.md', md(letters))).standard, timing)
 
+    def test_full_region_labels_override_a_misleading_filename_without_patching_rom(self):
+        for label, expected in ((b'EUROPE', 'pal'), (b'Europe', 'pal'), (b'JAPAN', 'ntsc')):
+            with self.subTest(label=label):
+                payload = md(label)
+                path = self.source('Wrong region (USA).md', payload)
+                self.assertEqual(identify(path).video_hint, expected)
+                self.assertEqual(conversion_rom(path, 'md').standard, expected)
+                self.assertEqual(path.read_bytes(), payload)
+        for label in (b'EUROPE???', b'JAPAN???'):
+            path = self.source('Malformed (USA).md', md(label))
+            with self.assertRaisesRegex(ConversionError, 'region header'):
+                conversion_rom(path, 'md')
+
     def test_snes_header_identifies_pal_ntsc_and_fastrom(self):
         for mapping in ('lorom', 'hirom'):
             for region, expected in ((1, 'ntsc'), (2, 'pal')):
@@ -97,6 +110,39 @@ class Console16Tests(unittest.TestCase):
         self.assertTrue(rom.copier_header)
         self.assertEqual(rom.data, snes())
         self.assertEqual(path.read_bytes(), payload)
+
+    def test_snes_japanese_header_titles_keep_identity_timing_and_hardware_checks(self):
+        for mapping in ('lorom', 'hirom'):
+            for region, standard in ((0, 'ntsc'), (2, 'pal')):
+                with self.subTest(mapping=mapping, region=region):
+                    payload = bytearray(snes(region, mapping, fast=True))
+                    offset = 0x7fc0 if mapping == 'lorom' else 0xffc0
+                    title = 'SFC ｶﾀｶﾅ'.encode('shift_jis')
+                    payload[offset:offset+21] = title.ljust(21, b' ')
+                    path = self.source('Japanese.sfc', payload)
+                    self.assertEqual(profile_for_path(path).id, 'snes')
+                    rom = conversion_rom(path, 'snes')
+                    self.assertEqual((rom.title, rom.mapping, rom.standard), ('SFC ｶﾀｶﾅ', mapping, standard))
+                    self.assertEqual(rom.data, payload)
+                    self.assertEqual(path.read_bytes(), payload)
+                    payload[offset+22] = 0x13
+                    with patch('smsrecomp.console16.dependencies16') as dependencies:
+                        with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
+                            conversion_rom(self.source('Japanese SuperFX.sfc', payload), 'snes')
+                        dependencies.assert_not_called()
+
+    def test_snes_header_titles_reject_non_jis_bytes_and_still_reject_bad_checksums(self):
+        for invalid in (0x00, 0x1f, 0x7f, 0x80, 0xa0, 0xe0, 0xff):
+            with self.subTest(byte=invalid):
+                payload = bytearray(snes())
+                payload[0x7fc3] = invalid
+                with self.assertRaises(ConversionError):
+                    read_snes_rom(self.source('Invalid title.sfc', payload))
+        payload = bytearray(snes())
+        payload[0x7fc0:0x7fd5] = 'ｶﾀｶﾅ'.encode('shift_jis').ljust(21, b' ')
+        payload[0x7fde] ^= 1
+        with self.assertRaises(ConversionError):
+            read_snes_rom(self.source('Invalid checksum.sfc', payload))
 
     def test_corrupt_or_ambiguous_snes_header_rejected(self):
         broken = bytearray(snes())
@@ -175,7 +221,7 @@ class Console16Tests(unittest.TestCase):
                     self.assertIn(f'#define RR_SN_PAL {int(standard == "pal")}', header)
                     self.assertIn(rom.sha256, (self.root / 'generated/instruction_program.c').read_text())
 
-    def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True):
+    def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced'):
         """Exercise real conversion scheduling/gates with authored probe results."""
         project = self.root / 'project'
         executable = project / 'build/Release/game.exe'
@@ -184,6 +230,7 @@ class Console16Tests(unittest.TestCase):
         source = self.source('Authored.md', md())
         rom = read_megadrive_rom(source)
         events = []
+        scripts = {}
         pass_number = 0
 
         def prepare(*args, **options):
@@ -198,17 +245,22 @@ class Console16Tests(unittest.TestCase):
             events.append(('reference:' if reference else 'native:') + scenario)
             if input_script is not None:
                 self.assertTrue(input_script.is_file())
+                if reference:
+                    self.assertEqual(input_script.read_bytes(), scripts[scenario])
+                else:
+                    scripts[scenario] = input_script.read_bytes()
             fields = MD_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped',
                 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
                 'cpu_pc', 'vsram_hash', 'vdp_register_hash')
-            fallback = int(learn_new and scenario == 'advanced' and pass_number == 1)
+            fallback = int(learn_new and scenario == learned_scenario and pass_number == 1)
             data = dict.fromkeys(fields, 1)
             data.update(scenario=scenario, frames=frames, native_entries=0 if reference else 100 - fallback,
                 interpreted_opcodes=100 if reference else fallback,
                 audio_native_opcodes=0 if reference else 200, audio_interpreted_opcodes=200 if reference else 0,
                 audio_native_cycles=0 if reference else 800, audio_interpreted_cycles=800 if reference else 0,
                 rom_entries=[{'offset': 42}] if fallback else [], audio_cpu='native')
-            if fail_reference and reference and (not advanced or scenario == 'advanced'):
+            failed_scenario = fail_reference if isinstance(fail_reference, str) else 'advanced'
+            if fail_reference and reference and (not advanced or scenario == failed_scenario):
                 data['cpu_hash'] = 2
             return data
 
@@ -234,11 +286,12 @@ class Console16Tests(unittest.TestCase):
 
     def test_advanced_md_scan_validates_new_paths_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True)
-        self.assertEqual(events[:8], ['build', 'native:demo', 'native:play', 'native:advanced',
-                                     'reference:demo', 'reference:play', 'reference:advanced', 'learn'])
+        self.assertEqual(events[:10], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
+                                      'reference:demo', 'reference:play', 'reference:advanced', 'reference:early-start', 'learn'])
         self.assertEqual(events.count('build'), 2)
-        self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30, 6000])
-        self.assertEqual(report['native_percentage'], [100.0, 100.0, 100.0])
+        self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30, 6000, 1800])
+        self.assertEqual(report['native_percentage'], [100.0] * 4)
+        self.assertEqual(report['advanced_scan']['additional_frames'], 7800)
         self.assertTrue(report['advanced_scan']['reference_before_learning'])
         self.assertTrue(report['native_validation']['passed'])
 
@@ -317,6 +370,25 @@ class Console16Tests(unittest.TestCase):
 
     def test_failed_advanced_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference=True)
+
+    def test_early_start_is_validated_before_learning_and_regeneration(self):
+        events, report = self.scan_conversion(advanced=True, learned_scenario='early-start')
+        self.assertEqual(events.count('build'), 2)
+        self.assertLess(events.index('reference:early-start'), events.index('learn'))
+        self.assertEqual(report['native_percentage'], [100.0] * 4)
+
+    def test_failed_early_start_reference_never_teaches_the_library(self):
+        self.scan_conversion(advanced=True, fail_reference='early-start')
+
+    def test_early_start_uses_fresh_boot_inputs_with_released_start(self):
+        for frames in (30, 1800):
+            script = _md_early_start_script(self.root, frames)
+            rows = [tuple(map(int, line.split())) for line in script.read_text().splitlines()]
+            self.assertEqual(rows[0], (0, 0, 0))
+            self.assertTrue(all(0 <= frame < frames and p2 == 0 for frame, p1, p2 in rows))
+            self.assertEqual([row[0] for row in rows], sorted(set(row[0] for row in rows)))
+            self.assertEqual(rows[1:3], [(10, 128, 0), (12, 0, 0)])
+        self.assertTrue(any(p1 & 8 and p1 & 64 for frame, p1, p2 in rows))
 
     def test_advanced_scan_stops_when_no_new_paths_are_found(self):
         events, report = self.scan_conversion(advanced=True, learn_new=False)

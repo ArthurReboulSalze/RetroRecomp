@@ -28,6 +28,12 @@ PROFILES = {
     '2d535ff7eda650a64a9093ba6fabf8d5ac87801b898a76b591db41a1c8e47c4f':
         {'id': 'castle-of-illusion', 'title': 'Castle of Illusion', 'prefix': 'game', 'sonic': False,
          'legacy_region_mask': 4},
+    # Empty region field; exact image matched to the Libretro/No-Intro Japan
+    # record (CRC 8A5ED856, SHA1 0BD83099EDD3938A0F127ED399CB01046E36AC32).
+    # https://github.com/libretro/libretro-database/blob/master/metadat/no-intro/Sega%20-%20Mega%20Drive%20-%20Genesis.dat
+    'bd412e0c8861db976e3ed7ded7389080e54fc29895e4325295297786fdac519e':
+        {'id': 'alex-kidd-japan', 'title': 'Alex Kidd - Tenkuu Majou', 'prefix': 'game', 'sonic': False,
+         'legacy_region_mask': 1},
     '7f6f00dbe774cee92cb91d0f1d26e898a199e5a5a8b77bf199a1b7f8a0d44b7b':
         {'id': 'menacer', 'title': 'Menacer 6-Game Cartridge', 'prefix': 'game', 'sonic': False},
     'cd2fbb02b42cb0f4e26b4aa5fa1c79ba798c48233ae4e02e19012b08c6848071':
@@ -111,8 +117,8 @@ def validate_cartridge(rom):
 def region_mask(rom):
     """Keep exact qualified legacy headers separate from general detection.
 
-    The qualified Columns and Golden Axe images have empty headers; Castle of Illusion
-    uses the older US code. Only their complete SHA-256 identities supply
+    Columns, Golden Axe and the verified Japanese Alex Kidd image have empty
+    headers; Castle of Illusion uses the older US code. Only complete SHA-256 identities supply
     this exception; another image or a filename cannot inherit it.
     """
     return megadrive_regions(rom.data) or PROFILES.get(rom.sha256, {}).get('legacy_region_mask', 0)
@@ -148,6 +154,11 @@ def vectors(rom) -> dict:
     # Validate the bus address, rather than requiring every IRQ to be in ROM.
     for name in ('hblank', 'vblank'):
         pc = values[name]
+        # Disabled H-int vectors are often unpopulated (zero or all ones).
+        # Do not seed them as native code. If the game enables that interrupt,
+        # keep its actual vector and let the normal execution checks report it.
+        if name == 'hblank' and pc in (0, 0xffffff):
+            continue
         if pc & 1 or not (8 <= pc < len(data) or 0xff0000 <= pc <= 0xfffffe):
             raise ConversionError('Mega Drive interrupt vector is outside mapped ROM/RAM.')
     candidates = {int.from_bytes(data[p:p + 4], 'big') & 0xffffff for p in range(4, 0x100, 4)}
@@ -184,8 +195,9 @@ def valid_ram_variant(item):
     if not isinstance(item, dict):
         return False
     address, raw = item.get('address'), item.get('bytes')
-    return (isinstance(address, int) and 0xff0000 <= address <= 0xfffff0 and not address & 1
+    return (isinstance(address, int) and 0xff0000 <= address <= 0xfffffe and not address & 1
             and isinstance(raw, str) and 4 <= len(raw) <= 32 and len(raw) % 4 == 0
+            and address + len(raw) // 2 <= 0x1000000
             and re.fullmatch('[0-9a-fA-F]+', raw) is not None)
 
 

@@ -94,8 +94,7 @@ static uint64_t rom_fallback, ram_fallback;
 static M68KInstr ram_variants[RAM_VARIANT_LIMIT];
 static unsigned ram_variant_count;
 void rr16_note_ram_instruction(const M68KInstr *ins) {
-    if (ins->addr < 0xff0000u || ins->addr > 0xfffff0u || (ins->addr & 1u)
-        || ins->word_count < 1 || ins->word_count > 8) return;
+    if (!rr_md_ram_instruction_recordable(ins)) return;
     for (unsigned i = 0; i < ram_variant_count; ++i) {
         const M68KInstr *other = &ram_variants[i];
         if (other->addr == ins->addr && other->word_count == ins->word_count &&

@@ -16,7 +16,7 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | Mega Drive | Broaden gameplay, peripheral and mapper validation; widen PAL evidence and add persistent cartridge saves. |
 | Super Nintendo | Broaden gameplay checks, PAL display modes and coprocessor support; add persistent cartridge saves. |
 
-## Recompilation priorities after 0.21.0
+## Recompilation priorities after 0.24.0
 
 ### NES
 
@@ -35,7 +35,8 @@ priority, followed by Super Nintendo.
 
 ### Mega Drive
 
-The 27 qualified revisions (25 NTSC and two PAL) use the same instruction compiler, with
+The shared snapshot now contains verified hints for 51 exact cartridges using
+the same instruction compiler, with
 static branch/call discovery, observed ROM entries and guarded RAM variants.
 All use instruction-boundary CPU/audio scheduling, and CPU-visible FM timers
 A/B are implemented. Conversion now compares raw FM/PSG samples as well as
@@ -57,11 +58,19 @@ still require independent checks.
 The sound Z80 now uses guarded native operations and extended uploaded-driver
 coverage. Continue varied play and sound-menu comparisons; remaining interpreter
 use is counted separately for the 68000 and the Z80.
+Work-RAM tail instructions now use their actual length rather than excluding all
+starts in the last sixteen bytes. Early-start probes exercise code that late
+demo inputs missed. The latest 20-cartridge batch has zero main/audio fallback
+on its four tested scenarios per cartridge. Keep expanding targeted regression
+checks before resuming the full collection campaign.
 
 ### Super Nintendo
 
-Eleven exact NTSC revisions and one European PAL LoROM revision are qualified,
-including LoROM, HiROM and 3 MiB storage mirroring in the overall catalogue.
+Verified compilation hints now cover 15 exact revisions, including LoROM,
+HiROM and a qualified European PAL LoROM case. Japanese single-byte header
+titles are recognized, recovering previously rejected inputs; those newly
+identified inputs still need execution qualification. The earlier regression
+set includes 3 MiB storage mirroring.
 The shared scheduler preserves WAI/deadline handoffs and RTI task
 switches; authored fixtures cover those boundaries independently. Continue
 varied-input qualification of more ordinary cartridges. Coprocessor
@@ -75,6 +84,11 @@ cartridge saves remain unfinished. The sound SPC700
 now uses guarded native operations; extend varied-input sound-driver checks
 alongside the main CPU coverage. Broader graphics, DMA and interrupt checks must
 accompany each expansion of the cartridge scope.
+
+Both 16-bit profiles remain experimental. Expanding the observed cartridge set
+does not remove the hardware and gameplay gaps above; the regression catalogue
+is not an allowlist. The full Mega Drive and SNES campaigns remain paused until
+explicitly resumed; concentrate on the shared compiler and recorded failures.
 
 For each stage, record native coverage, CPU comparison, hardware evidence,
 hands-on gameplay and physical latency separately. Start with a small, varied

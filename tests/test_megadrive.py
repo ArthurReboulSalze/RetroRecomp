@@ -60,6 +60,17 @@ class MegaDriveMemoryTests(unittest.TestCase):
         self.assertNotIn(0x208, profile['functions']['extra'])
         self.assertEqual(profile['ram_layout']['initial_ssp'], 0xffc000)
 
+    def test_ram_instruction_extent_includes_final_words_without_bus_wrap(self):
+        variants = [{'address': 0xfffff4, 'bytes': '4ef900000800'},
+                    {'address': 0xfffffa, 'bytes': '4ef900000800'},
+                    {'address': 0xfffffe, 'bytes': '4e71'}]
+        rejected = [{'address': 0xfffffc, 'bytes': '4ef900000800'},
+                    {'address': 0xfffffe, 'bytes': '4e710000'},
+                    {'address': 0xffffff, 'bytes': '4e71'},
+                    {'address': 0x1000000, 'bytes': '4e71'}]
+        self.assertEqual(megadrive.learn_entries(self.rom, [{'ram_variants': variants + rejected}]), 3)
+        self.assertEqual(megadrive.read_ram_variants(self.rom), variants)
+
     def test_other_cartridge_is_not_compiled_as_a_known_title(self):
         self.rom.sha256 = '0' * 64
         self.rom.title = 'Another cartridge'
@@ -89,6 +100,22 @@ class MegaDriveMemoryTests(unittest.TestCase):
                 self.rom.data[:4] = stack.to_bytes(4, 'big')
                 with self.assertRaises(ConversionError):
                     megadrive.vectors(self.rom)
+
+    def test_unused_horizontal_interrupt_vector_is_preserved_without_becoming_code(self):
+        self.rom.crc32 = 0x12345678
+        for vector in (0, 0xffffffff):
+            with self.subTest(vector=vector):
+                self.rom.data[0x70:0x74] = vector.to_bytes(4, 'big')
+                vectors = megadrive.vectors(self.rom)
+                self.assertEqual(vectors['hblank'], vector & 0xffffff)
+                self.assertNotIn(vectors['hblank'], vectors['roots'])
+                megadrive.write_spec(self.root, self.rom, 'Authored test')
+                self.assertIn(f'#define RR_MD_HBLANK 0x{vector & 0xffffff:06x}u',
+                              (self.root / 'retro_md_game.h').read_text())
+        # The required vertical interrupt keeps its normal validity checks.
+        self.rom.data[0x78:0x7c] = (0xffffffff).to_bytes(4, 'big')
+        with self.assertRaises(ConversionError):
+            megadrive.vectors(self.rom)
 
     def test_console_region_uses_header_and_not_game_title(self):
         self.rom.crc32 = 0x12345678

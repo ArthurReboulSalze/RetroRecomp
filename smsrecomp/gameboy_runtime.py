@@ -14,6 +14,15 @@ from .core import replace_once
 from .paths import ASSETS
 
 
+def disable_imgui_layout_persistence(source: str) -> str:
+    """ImGui debug layout is unused; only RetroRecomp preferences are saved."""
+    return replace_once(source, '    ImGuiIO& io = ImGui::GetIO(); (void)io;',
+                        '''    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    /* RetroRecomp uses its own menu and datas preferences. ImGui's unused
+       debug-window layout must never create imgui.ini in the launch folder. */
+    io.IniFilename = nullptr;''')
+
+
 def adapt_differential(project: Path) -> None:
     """Keep byte-exact checks while making their common equal case fast."""
     path = project / 'runtime/src/differential.c'
@@ -415,6 +424,7 @@ static void binding_to_config_value''')
     update_render_filter();
 
     // Setup Dear ImGui context''')
+    source = disable_imgui_layout_persistence(source)
     source = replace_once(source, '''    if (g_texture) {
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
@@ -630,6 +640,7 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
 
     main = project / "game_main.c"
     source = main.read_text(encoding="utf-8")
+    source = diagnostic_limit_snapshot(source)
     source = replace_once(source, '''        while (!ctx->frame_done) {
             bool smooth_lcd_transitions''',
         '''        while (!ctx->frame_done) {
@@ -680,3 +691,50 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     from .gameboy_timing import adapt_timing
     adapt_timing(project)
     adapt_differential(project)
+    deduplicate_entry_trace(project)
+
+
+def deduplicate_entry_trace(project: Path) -> None:
+    """An entry set needs each (bank, PC) once, not once per loop iteration.
+
+    A bounded bitset is allocated only during conversion diagnostics. No
+    instruction, fallback counter, validation step or game timing is skipped.
+    """
+    header = project / 'runtime/include/gbrt.h'
+    source = header.read_text(encoding='utf-8')
+    source = replace_once(source, '    bool trace_entries_enabled;',
+                          '    bool trace_entries_enabled;\n    uint8_t* rr_trace_seen;')
+    header.write_text(source, encoding='utf-8')
+    runtime = project / 'runtime/src/gbrt.c'
+    source = runtime.read_text(encoding='utf-8')
+    source = replace_once(source, '    if (ctx->trace_file) fclose((FILE*)ctx->trace_file);',
+                          '    if (ctx->trace_file) fclose((FILE*)ctx->trace_file);\n    free(ctx->rr_trace_seen);')
+    source = replace_once(source, '''    if (ctx->trace_entries_enabled && ctx->trace_file) {
+        fprintf((FILE*)ctx->trace_file, "%d:%04x\\n", (int)bank, (int)addr);
+    }''', '''    if (ctx->trace_entries_enabled && ctx->trace_file) {
+        /* Complete unique entry set, including writable addresses. A failed
+           allocation preserves the original unfiltered diagnostic behavior. */
+        if (bank < 512u) {
+            if (!ctx->rr_trace_seen) ctx->rr_trace_seen = (uint8_t*)calloc(512u * 8192u, 1);
+            if (ctx->rr_trace_seen) {
+                const size_t index = (size_t)bank * 8192u + (addr >> 3);
+                const uint8_t mask = (uint8_t)(1u << (addr & 7));
+                if (ctx->rr_trace_seen[index] & mask) return;
+                ctx->rr_trace_seen[index] |= mask;
+            }
+        }
+        fprintf((FILE*)ctx->trace_file, "%d:%04x\\n", (int)bank, (int)addr);
+    }''')
+    runtime.write_text(source, encoding='utf-8')
+
+
+def diagnostic_limit_snapshot(source: str) -> str:
+    """Keep a requested snapshot when a hotspot-report probe hits --limit."""
+    source = replace_once(source, 'static const GBContext* gbrt_interpreter_summary_ctx = NULL;',
+        'static const char* rr_limit_state_path = NULL;\nstatic const GBContext* gbrt_interpreter_summary_ctx = NULL;')
+    source = replace_once(source,
+        '    gbrt_print_interpreter_summary(gbrt_interpreter_summary_ctx, gbrt_interpreter_summary_limit);',
+        '    if (rr_limit_state_path) gb_context_write_state_json(gbrt_interpreter_summary_ctx, rr_limit_state_path);\n'
+        '    gbrt_print_interpreter_summary(gbrt_interpreter_summary_ctx, gbrt_interpreter_summary_limit);')
+    return replace_once(source, '            state_dump_file = argv[++i];',
+        '            state_dump_file = argv[++i];\n            rr_limit_state_path = state_dump_file;')

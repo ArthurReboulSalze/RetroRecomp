@@ -22,6 +22,7 @@ import zlib
 
 from . import __version__
 from .cover_settings import configured
+from .cover_titles import clean_title, matching_indices, search_queries
 
 PROVIDERS = {
     'screenscraper': ('ScreenScraper', 'https://www.screenscraper.fr/webapi2.php'),
@@ -137,13 +138,14 @@ def _number(value):
 
 def _title(title):
     # Search text only; preserve sequel numbers and punctuation in titles.
-    return re.sub(r'\s*(?:\([^)]*\)|\[[^]]*\])', '', title).strip()
+    return clean_title(title)
 
 
 def _exact(rows, field, rom_name, title, normalize):
-    keys = {normalize(rom_name, base=True), normalize(title, base=True)} - {''}
-    matches = [row for row in rows if isinstance(row, dict) and
-               normalize(str(row.get(field, '')), base=True) in keys]
+    # Retain the adapter call signature; matching is shared with offline caches.
+    rows = [row for row in rows if isinstance(row, dict)]
+    indices = matching_indices([str(row.get(field, '')) for row in rows], rom_name, title)
+    matches = [rows[i] for i in indices]
     unique = {str(row.get('id')): row for row in matches}
     return next(iter(unique.values())) if len(unique) == 1 else None
 
@@ -172,7 +174,7 @@ def _screenscraper(account, rom, title, system, prefer3d, normalize):
         return None
     identity = game.get('rom', {})
     # Hash-confirmed ROMs may have localized game names. Otherwise require an
-    # exact title; never accept the first fuzzy result from the service.
+    # clear title match; never accept the first search result from the service.
     if not isinstance(identity, dict):
         identity = {}
     hashed = str(identity.get('romsha1', '')).casefold() == sha1
@@ -180,8 +182,8 @@ def _screenscraper(account, rom, title, system, prefer3d, normalize):
     names = game.get('noms', [])
     if isinstance(names, dict):
         names = [{'text': text} for text in names.values() if isinstance(text, str)]
-    keys = {normalize(rom.stem, base=True), normalize(title, base=True)}
-    if not hashed and not any(isinstance(n, dict) and normalize(n.get('text', ''), base=True) in keys for n in names):
+    if not hashed and not matching_indices(
+            [str(n.get('text', '')) for n in names if isinstance(n, dict)], rom.stem, title):
         return None
     media = game.get('medias', [])
     if isinstance(media, dict):
@@ -219,15 +221,18 @@ def _screenscraper(account, rom, title, system, prefer3d, normalize):
 
 
 def _thegamesdb(account, rom, title, system, normalize):
-    params = {'apikey': account['apikey'], 'name': _title(title),
-              'filter[platform]': TGDB_SYSTEMS[system], 'include': 'boxart'}
-    response = _json('thegamesdb', 'https://api.thegamesdb.net/v1.1/Games/ByGameName?' + urllib.parse.urlencode(params))
-    if not isinstance(response, dict):
-        return None
-    rows = response.get('data', {}).get('games', [])
-    rows = [r for r in rows if isinstance(r, dict) and _number(r.get('platform')) == TGDB_SYSTEMS[system]]
-    game = _exact(rows, 'game_title', rom.stem, title, normalize)
-    if game is None:
+    for query in search_queries(rom.stem, title):
+        params = {'apikey': account['apikey'], 'name': query,
+                  'filter[platform]': TGDB_SYSTEMS[system], 'include': 'boxart'}
+        response = _json('thegamesdb', 'https://api.thegamesdb.net/v1.1/Games/ByGameName?' + urllib.parse.urlencode(params))
+        if not isinstance(response, dict):
+            return None
+        rows = response.get('data', {}).get('games', [])
+        rows = [r for r in rows if isinstance(r, dict) and _number(r.get('platform')) == TGDB_SYSTEMS[system]]
+        game = _exact(rows, 'game_title', rom.stem, title, normalize)
+        if game is not None:
+            break
+    else:
         return None
     boxes = response.get('include', {}).get('boxart', {})
     images = boxes.get('data', {}).get(str(game['id']), [])
@@ -266,11 +271,15 @@ def _igdb(account, rom, title, system, normalize):
             return None
         _platforms[slug] = int(data[0]['id'])
     platform = _platforms[slug]
-    query = ('fields name,url,platforms,cover.image_id; search ' + json.dumps(_title(title)) +
-             f'; where platforms = ({platform}); limit 30;')
-    data = _json('igdb', 'https://api.igdb.com/v4/games', body=query.encode(), headers=headers)
-    rows = [r for r in data if isinstance(r, dict) and platform in r.get('platforms', [])] if isinstance(data, list) else []
-    game = _exact(rows, 'name', rom.stem, title, normalize)
+    game = None
+    for text in search_queries(rom.stem, title):
+        query = ('fields name,url,platforms,cover.image_id; search ' + json.dumps(text) +
+                 f'; where platforms = ({platform}); limit 30;')
+        data = _json('igdb', 'https://api.igdb.com/v4/games', body=query.encode(), headers=headers)
+        rows = [r for r in data if isinstance(r, dict) and platform in r.get('platforms', [])] if isinstance(data, list) else []
+        game = _exact(rows, 'name', rom.stem, title, normalize)
+        if game is not None:
+            break
     image_id = game.get('cover', {}).get('image_id', '') if game else ''
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,120}', image_id):
         return None

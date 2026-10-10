@@ -194,6 +194,402 @@
         "https://raw.githubusercontent.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/master/Named_Boxarts/Shooting%20Gallery%20_%20Shooting%20G.%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
       ],
       "source_page": "https://github.com/libretro-thumbnails/Sega_-_Master_System_-_Mark_III/blob/master/Named_Boxarts/Shooting%20Gallery%20_%20Shooting%20G.%20%28USA%2C%20Europe%2C%20Brazil%29%20%28En%29.png"
+    },
+    {
+      "id": "gb-arcade-classics-battlezone-super-breakout",
+      "system_id": "gb",
+      "rom_sha256": [
+        "23b432a52aefcca6731fccace793f58ee5cac030b27ad18ac8d354430a388f01"
+      ],
+      "rom_names": [
+        "Arcade Classics - Battlezone & Super Breakout",
+        "Arcade Classics - Battlezone & Super Breakout (USA, Europe) (SGB Enhanced)",
+        "Arcade Classics - Super Breakout _ Battlezone",
+        "Arcade Classics - Super Breakout _ Battlezone (USA, Europe) (SGB Enhanced)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Arcade%20Classics%20-%20Super%20Breakout%20_%20Battlezone%20%28USA%2C%20Europe%29%20%28SGB%20Enhanced%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Arcade%20Classics%20-%20Super%20Breakout%20_%20Battlezone%20%28USA%2C%20Europe%29%20%28SGB%20Enhanced%29.png"
+    },
+    {
+      "id": "gb-bill-ted-s-excellent-game-boy-adventure",
+      "system_id": "gb",
+      "rom_sha256": [
+        "0e825ec2c23a16fac1f33cdfd7402f218e3813961e95ddb4ca9fed19bfd79d04"
+      ],
+      "rom_names": [
+        "Bill & Ted's Excellent Game Boy Adventure",
+        "Bill & Ted's Excellent Game Boy Adventure (USA, Europe)",
+        "Bill _ Ted's Excellent Game Boy Adventure - A Bogus Journey!",
+        "Bill _ Ted's Excellent Game Boy Adventure - A Bogus Journey! (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Bill%20_%20Ted%27s%20Excellent%20Game%20Boy%20Adventure%20-%20A%20Bogus%20Journey%21%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Bill%20_%20Ted%27s%20Excellent%20Game%20Boy%20Adventure%20-%20A%20Bogus%20Journey%21%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-david-crane-s-the-rescue-of-princess-blobette-starring-a-boy-and-his-blob",
+      "system_id": "gb",
+      "rom_sha256": [
+        "70f86fc8d79eab89a31e21a1594b4795618210e213109e0f14ac58b64d6a578c"
+      ],
+      "rom_names": [
+        "David Crane's The Rescue of Princess Blobette",
+        "David Crane's The Rescue of Princess Blobette (USA)",
+        "David Crane's The Rescue of Princess Blobette Starring A Boy and His Blob",
+        "David Crane's The Rescue of Princess Blobette Starring A Boy and His Blob (Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/David%20Crane%27s%20The%20Rescue%20of%20Princess%20Blobette%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/David%20Crane%27s%20The%20Rescue%20of%20Princess%20Blobette%20%28USA%29.png"
+    },
+    {
+      "id": "gb-double-dragon-3",
+      "system_id": "gb",
+      "rom_sha256": [
+        "ba60449b8e57d1288e78a2cb69c6df46e1443cc611d139d27f4c5d5fad307fd3"
+      ],
+      "rom_names": [
+        "Double Dragon 3",
+        "Double Dragon 3 (USA, Europe)",
+        "Double Dragon 3 - The Arcade Game",
+        "Double Dragon 3 - The Arcade Game (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Double%20Dragon%203%20-%20The%20Arcade%20Game%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Double%20Dragon%203%20-%20The%20Arcade%20Game%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-fighting-simulator-2-in-1",
+      "system_id": "gb",
+      "rom_sha256": [
+        "9b72e7d44d1cb31a06cf4e630c83abc61fb7218e3d55d7dc6aa1ecbf9e490cf0"
+      ],
+      "rom_names": [
+        "Fighting Simulator 2 in 1",
+        "Fighting Simulator 2 in 1 (USA, Europe)",
+        "Fighting Simulator 2 in 1 - Flying Warriors",
+        "Fighting Simulator 2 in 1 - Flying Warriors (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Fighting%20Simulator%202%20in%201%20-%20Flying%20Warriors%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Fighting%20Simulator%202%20in%201%20-%20Flying%20Warriors%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-high-stakes",
+      "system_id": "gb",
+      "rom_sha256": [
+        "6bf16580b0047f7b0dbaf2bf9a2d34095e057efe70414feeda48de8dcf8952fd"
+      ],
+      "rom_names": [
+        "High Stakes",
+        "High Stakes (USA)",
+        "High Stakes Gambling",
+        "High Stakes Gambling (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/High%20Stakes%20Gambling%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/High%20Stakes%20Gambling%20%28USA%29.png"
+    },
+    {
+      "id": "gb-jeep-jamboree",
+      "system_id": "gb",
+      "rom_sha256": [
+        "616202e0c2bea4898268c9b3a4eb22e198f1b559e29406057e039dded3db9637"
+      ],
+      "rom_names": [
+        "Jeep Jamboree",
+        "Jeep Jamboree (USA)",
+        "Jeep Jamboree - Off-Road Adventure",
+        "Jeep Jamboree - Off-Road Adventure (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Jeep%20Jamboree%20-%20Off-Road%20Adventure%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Jeep%20Jamboree%20-%20Off-Road%20Adventure%20%28USA%29.png"
+    },
+    {
+      "id": "gb-king-james-bible",
+      "system_id": "gb",
+      "rom_sha256": [
+        "47109bd71334569f6264dcaf0eb0e7a04bb651ac7a2026f6de69de18358d84d8"
+      ],
+      "rom_names": [
+        "King James Bible",
+        "King James Bible (USA) (Unl)",
+        "King James Bible (Unl)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://farm8.staticflickr.com/7340/16366672066_d1d0553e26_o.jpg"
+      ],
+      "source_page": "https://bibles.wikidot.com/kjv"
+    },
+    {
+      "id": "gb-lock-n-chase-lock-n-chase",
+      "system_id": "gb",
+      "rom_sha256": [
+        "0d6c56da2fdb6b27d388912604ad97c2f71729604a075d76c1fcd923f29e6915"
+      ],
+      "rom_names": [
+        "Lock n' Chase",
+        "Lock n' Chase (World)",
+        "Lock n' Chase ~ Lock 'n' Chase",
+        "Lock n' Chase ~ Lock 'n' Chase (World)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Lock%20n%27%20Chase%20%28World%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Lock%20n%27%20Chase%20%28World%29.png"
+    },
+    {
+      "id": "gb-maui-mallard",
+      "system_id": "gb",
+      "rom_sha256": [
+        "eba14607978c26b6982e8a406e2926fe0c795d49b1b7179dd8c0caa53e4cb5c6"
+      ],
+      "rom_names": [
+        "Maui Mallard",
+        "Maui Mallard (USA)",
+        "Maui Mallard in Cold Shadow",
+        "Maui Mallard in Cold Shadow (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Maui%20Mallard%20in%20Cold%20Shadow%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Maui%20Mallard%20in%20Cold%20Shadow%20%28USA%29.png"
+    },
+    {
+      "id": "gb-otto-s-ottifanten-baby-bruno-s-nightmare",
+      "system_id": "gb",
+      "rom_sha256": [
+        "bd2e9714abcce6d78758524d065138ca284ac29abcb4458c556ed26bb774c74e"
+      ],
+      "rom_names": [
+        "Otto's Ottifanten - Baby Bruno's Alptraum",
+        "Otto's Ottifanten - Baby Bruno's Alptraum (Europe) (En,Fr,De,Es)",
+        "Otto's Ottifanten - Baby Bruno's Nightmare",
+        "Otto's Ottifanten - Baby Bruno's Nightmare (Europe) (En,Fr,De,Es)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Otto%27s%20Ottifanten%20-%20Baby%20Bruno%27s%20Alptraum%20%28Europe%29%20%28En%2CFr%2CDe%2CEs%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Otto%27s%20Ottifanten%20-%20Baby%20Bruno%27s%20Alptraum%20%28Europe%29%20%28En%2CFr%2CDe%2CEs%29.png"
+    },
+    {
+      "id": "gb-niv-bible-the-20-lost-levels-of-joshua",
+      "system_id": "gb",
+      "rom_sha256": [
+        "662ea71ce31d7e3a8a4869d61863b61e786eaf9d16b9c3bcefe38934dd7beb0d"
+      ],
+      "rom_names": [
+        "NIV Bible & the 20 Lost Levels of Joshua",
+        "NIV Bible & the 20 Lost Levels of Joshua (USA) (Unl)",
+        "NIV Bible & the 20 Lost Levels of Joshua (Unl)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/ee932ac8-0006-44c0-91c1-26bf551f648d.jpg"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/62578-niv-bible-the-20-lost-levels-of-joshua"
+    },
+    {
+      "id": "gb-robocop-vs-the-terminator",
+      "system_id": "gb",
+      "rom_sha256": [
+        "b425b87fce3d04ecb7e215d32c090e2f57a2cec463bc2fd356df9e3a3f325d97"
+      ],
+      "rom_names": [
+        "RoboCop Versus The Terminator",
+        "RoboCop Versus The Terminator (USA)",
+        "RoboCop vs. The Terminator",
+        "RoboCop vs. The Terminator (Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/RoboCop%20Versus%20The%20Terminator%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/RoboCop%20Versus%20The%20Terminator%20%28USA%29.png"
+    },
+    {
+      "id": "gb-spider-man-x-men",
+      "system_id": "gb",
+      "rom_sha256": [
+        "0e700bc3168f51b22b0c0c6768550198e293ed01a83c6d233c26192ea688bdde"
+      ],
+      "rom_names": [
+        "Spider-Man - X-Men",
+        "Spider-Man - X-Men (USA, Europe)",
+        "Spider-Man - X-Men - Arcade's Revenge",
+        "Spider-Man - X-Men - Arcade's Revenge (USA, Europe)",
+        "Spider-Man-X-Men",
+        "Spider-Man-X-Men (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Spider-Man%20-%20X-Men%20-%20Arcade%27s%20Revenge%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Spider-Man%20-%20X-Men%20-%20Arcade%27s%20Revenge%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-sports-illustrated-football-baseball",
+      "system_id": "gb",
+      "rom_sha256": [
+        "7068cf0b73854963c1905eaf8df232a22d958e0283a4b32a64685e1db09d54c9"
+      ],
+      "rom_names": [
+        "Sports Illustrated - Championship Football _ Baseball",
+        "Sports Illustrated - Championship Football _ Baseball (USA)",
+        "Sports Illustrated - Football & Baseball",
+        "Sports Illustrated - Football & Baseball (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Sports%20Illustrated%20-%20Championship%20Football%20_%20Baseball%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Sports%20Illustrated%20-%20Championship%20Football%20_%20Baseball%20%28USA%29.png"
+    },
+    {
+      "id": "gb-tarzan",
+      "system_id": "gb",
+      "rom_sha256": [
+        "731385527be39125a2044edbc46da9f5d9bc48cff7e320b213c45d77c5069067"
+      ],
+      "rom_names": [
+        "Tarzan",
+        "Tarzan (USA, Europe)",
+        "Tarzan - Lord of the Jungle",
+        "Tarzan - Lord of the Jungle (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Tarzan%20-%20Lord%20of%20the%20Jungle%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Tarzan%20-%20Lord%20of%20the%20Jungle%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-the-getaway",
+      "system_id": "gb",
+      "rom_sha256": [
+        "6517b72bc8d4eb9417c094c19fc289f6ebaa1e163113410a81e113324964960e"
+      ],
+      "rom_names": [
+        "Getaway, The (USA)",
+        "Getaway, The - High Speed II",
+        "Getaway, The - High Speed II (USA)",
+        "The Getaway"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Getaway%2C%20The%20-%20High%20Speed%20II%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Getaway%2C%20The%20-%20High%20Speed%20II%20%28USA%29.png"
+    },
+    {
+      "id": "gb-the-xvii-olympic-winter-games-lillehammer-1994",
+      "system_id": "gb",
+      "rom_sha256": [
+        "7e59acb2d958a6b0bc6d1e35b54de84c2971c4a0a4f9f1745d408d60390a4b50"
+      ],
+      "rom_names": [
+        "The XVII Olympic Winter Games - Lillehammer 1994",
+        "Winter Olympic Games",
+        "Winter Olympic Games (USA)",
+        "XVII Olympic Winter Games, The - Lillehammer 1994 (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Winter%20Olympic%20Games%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Winter%20Olympic%20Games%20%28USA%29.png"
+    },
+    {
+      "id": "gb-titus-the-fox-to-marrakech-and-back",
+      "system_id": "gb",
+      "rom_sha256": [
+        "4d078174031509ca7b63c237e176e9f5c0aed88b42352ad23aee98a777d3a0d7"
+      ],
+      "rom_names": [
+        "Titus the Fox",
+        "Titus the Fox (USA, Europe)",
+        "Titus the Fox to Marrakech and Back",
+        "Titus the Fox to Marrakech and Back (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Titus%20the%20Fox%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Titus%20the%20Fox%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-turn-and-burn",
+      "system_id": "gb",
+      "rom_sha256": [
+        "954ed263a5133c608636af442c4c0ade7f9b7dfdc768e7bfbf31d2528a8d7796"
+      ],
+      "rom_names": [
+        "Turn and Burn",
+        "Turn and Burn (USA)",
+        "Turn and Burn - The F-14 Dogfight Simulator",
+        "Turn and Burn - The F-14 Dogfight Simulator (USA)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Turn%20and%20Burn%20-%20The%20F-14%20Dogfight%20Simulator%20%28USA%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Turn%20and%20Burn%20-%20The%20F-14%20Dogfight%20Simulator%20%28USA%29.png"
+    },
+    {
+      "id": "gb-wcw-main-event",
+      "system_id": "gb",
+      "rom_sha256": [
+        "a3bd35fb1d2466868b5308a45e8ad3844925bd5dfa819b27ff67d0391b8e3511"
+      ],
+      "rom_names": [
+        "WCW - The Main Event",
+        "WCW - The Main Event (USA, Europe)",
+        "WCW Main Event",
+        "WCW Main Event (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/WCW%20-%20The%20Main%20Event%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/WCW%20-%20The%20Main%20Event%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "gb-wizards-warriors-chapter-x-the-fortress-of-fear",
+      "system_id": "gb",
+      "rom_sha256": [
+        "d671e54e6de85e5a5259ed4167dd46d382aee94a6ea10c849071c86bd070f824"
+      ],
+      "rom_names": [
+        "Wizards & Warriors Chapter X - The Fortress of Fear",
+        "Wizards & Warriors Chapter X - The Fortress of Fear (USA, Europe)",
+        "Wizards _ Warriors X - The Fortress of Fear",
+        "Wizards _ Warriors X - The Fortress of Fear (USA, Europe)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Wizards%20_%20Warriors%20X%20-%20The%20Fortress%20of%20Fear%20%28USA%2C%20Europe%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Wizards%20_%20Warriors%20X%20-%20The%20Fortress%20of%20Fear%20%28USA%2C%20Europe%29.png"
     }
   ]
 }
