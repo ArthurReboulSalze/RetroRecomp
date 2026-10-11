@@ -39,7 +39,9 @@ RetroRecomp's MIT license does not remove those limitations.
 | z80-recomp-core | PolyForm Noncommercial 1.0.0 and author clarification | [Full text](licenses/z80-recomp-core.md) |
 | superzazu/z80 reference interpreter | MIT; copyright Nicolas Allemand | [Full text](licenses/superzazu-z80.md) |
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |
+| xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
+| SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |
 | arcanite24/gb-recompiled (Game Boy compiler and generated runtime) | MIT; copyright arcanite24 | [Full text](licenses/gb-recompiled.md) |
 | Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
 | mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |

@@ -30,11 +30,27 @@ def main():
         variants.append({'address': index * 4, 'bytes': raw.hex()})
     # Banked code and an instruction wrapping the PC's 16-bit boundary.
     variants += [{'address': 0xffff, 'bytes': '3e9a0000'}, {'address': 0x8000, 'bytes': '211eff00'}]
+    phases = json.loads((ROOT / 'tests/fixtures/z80_phases.json').read_text())['cases']
+    for i, (raw, _, _) in enumerate(phases):
+        variants.append({'address': 0x9000 + 16*i, 'bytes': raw.ljust(8, '0')[:8]})
+    mutations = ('3e9a0000', 'cb460000', 'ed430000', 'dd219a00', 'fd219a00',
+                 'ddcbf946', 'fdcbf916', 'ddfd2100', 'fddd7600', 'dded4300',
+                 'ddedb000', 'dddd3e00', 'ddfded43')
+    for i, raw in enumerate(mutations):
+        variants.append({'address': 0xa000 + 16*i, 'bytes': raw})
+    fixture_mutations = 'static const unsigned char mutation_cases[][4] = {\n' + \
+        ',\n'.join('{' + ','.join(str(b) for b in bytes.fromhex(raw)) + '}' for raw in mutations) + '\n};\n'
     stats = megadrive_z80.generate(project, engine, variants)
     fixture = 'static const unsigned char instructions[][4] = {\n' + \
         ',\n'.join('{' + ','.join(map(str, raw)) + '}' for raw in payload) + '\n};\n'
-    (project / 'fixture_data.h').write_text(fixture, encoding='ascii')
-    for name in ('md_z80_native.h', 'md_z80_runtime.c'):
+    (project / 'fixture_data.h').write_text(fixture + fixture_mutations, encoding='ascii')
+    phase_data = 'typedef struct { unsigned char code[6]; unsigned total,count; unsigned events[8][3]; } PhaseCase;\n'
+    phase_data += 'static const PhaseCase phase_cases[] = {\n'
+    phase_data += ',\n'.join('{'+'{'+','.join(str(b) for b in bytes.fromhex(raw))+'},'+str(total)+','+str(len(events))+',{' +
+                            ','.join('{'+','.join(map(str,e))+'}' for e in events)+'}}' for raw,total,events in phases)
+    phase_data += '\n};\n'
+    (project / 'phase_data.h').write_text(phase_data, encoding='ascii')
+    for name in ('md_z80_native.h', 'md_z80_runtime.c', 'md_bus_scheduler.h'):
         shutil.copy2(ROOT / 'native' / name, project / name)
     source = (engine / 'runner/external/superzazu/z80.c').read_text(encoding='utf-8')
     (project / 'reference.c').write_text(megadrive_z80.adapt_reference(source), encoding='utf-8')

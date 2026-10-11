@@ -94,7 +94,7 @@ def write_manifest(path: Path, entries: set) -> None:
 
 
 @contextmanager
-def entry_lock(directory: Path):
+def entry_lock(directory: Path, *, timeout: float = 10):
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / "entry.lock").open("a+b") as file:
         # CRT and Win32 both permit a range beyond EOF. Never initialize a
@@ -102,7 +102,7 @@ def entry_lock(directory: Path):
         file.seek(0)
         if os.name == "nt":
             import msvcrt
-            until = time.monotonic() + 10
+            until = time.monotonic() + timeout
             while True:
                 try:
                     msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)

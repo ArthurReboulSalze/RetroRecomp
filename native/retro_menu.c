@@ -6,6 +6,17 @@
 enum { GW = 6, GH = 12, ATLAS_W = 96, ATLAS_H = 72 };
 static SDL_Texture *font;
 
+#ifndef RR_RECOMP_VERSION
+#define RR_RECOMP_VERSION "dev"
+#endif
+const char *rr_menu_build_label(void) { return "Retro-Recomp v" RR_RECOMP_VERSION; }
+
+void rr_menu_build_footer(SDL_Renderer *renderer, int ox, int oy, int unit) {
+    const char *label = rr_menu_build_label();
+    int width = (int)strlen(label) * GW;
+    rr_menu_text(renderer, ox, oy, unit, 242 - width, 174, label, 157, 173, 194);
+}
+
 bool rr_menu_init(SDL_Renderer *renderer) {
     HDC dc = CreateCompatibleDC(NULL);
     BITMAPINFO bi; memset(&bi, 0, sizeof(bi));

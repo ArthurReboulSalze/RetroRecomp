@@ -15,13 +15,14 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | --- | --- |
 | F1 | Restart |
 | F2 | Control mappings |
-| F3 | Next filter: sharp, bilinear, Scale2x, scanlines |
+| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
-| F5 | Light Phaser options, in catalogue-selected gun games |
+| F5 | Master System: toggle sprite flicker reduction |
 | F6 | Gamepad autofire on/off, both fire buttons |
 | F7 | English/French |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
+| F10 | Master System: Light Phaser options, in catalogue-selected gun games |
 | H | Help |
 | P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
 | Esc | Close a menu or quit |
@@ -47,8 +48,10 @@ D-pad/left stick moves, the two primary face buttons are A/B, Start and
 Back are cartridge Start/Select, and a left-stick click opens pause. Game Boy
 uses the same RetroRecomp menu layout as the Sega profiles. F3 cycles all four
 filters, including Scale2x and scanlines; F4 keeps the same three display
-modes. F5 selects pseudo black-and-white monochrome (the default) or classic
-green. F6 toggles autofire for held gamepad A/B, F7 changes menu language,
+modes. F5 immediately switches between pseudo black-and-white monochrome
+(the default) and classic green, without opening a menu or pausing the game.
+The palette choice is saved with the other Game Boy settings.
+F6 toggles autofire for held gamepad A/B, F7 changes menu language,
 and F8/F9 use one quick state. P pauses, F2 maps controls, and H opens
 help. Enter selects a binding inside F2. Escape closes a menu or quits.
 Fallback stays visible in the window title and pause menu, with no overlay
@@ -73,6 +76,19 @@ Disconnecting one controller keeps the other assigned to its player.
 Defaults live in memory. Starting a game, opening a menu or reading an INI
 creates no files; only a changed setting creates/updates the shared INI.
 Legacy settings can be read in place and are copied only on an explicit edit.
+
+On Master System, **F5** switches sprite flicker reduction on/off immediately.
+The initial default retains the console's eight sprites per scanline. When
+enabled, extra sprites submitted by the game can also be drawn, and confirmed
+rapid sprite-list reversals are stabilized to reduce overlap flicker. Current
+positions/animation pixels are used without frame blending. Collision and overflow flags still use the
+original eight slots. The choice is shared by Master System games in
+`[MasterSystem.Video] reduce_sprite_flicker`, saved only when changed. This is
+an optional display enhancement, not a recompilation coverage setting. It cannot
+restore sprites a game deliberately leaves out. Stabilization can change which
+overlapping character appears in front; ambiguous identities, raster rewrites
+and lasting priority changes retain cartridge ordering. Game Gear retains its
+own original sprite limit.
 
 The first fullscreen mode keeps integer pixel sizes. Press F4 again for the
 largest image that fits the display while preserving the visible game's

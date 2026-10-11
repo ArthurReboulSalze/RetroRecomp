@@ -11,10 +11,8 @@
 #include "retro_md_game.h"
 #include "md_timing.h"
 #define RR16_WIDTH 320
-/* Storage must fit either VDP active-height mode. The current visible height
- * controls presentation; an NTSC cartridge switching V30 must not overread
- * the 224-line buffer previously used by the host. */
-#define RR16_HEIGHT 240
+/* V28/V30 interlace mode 2 emits 448/480 woven rows. */
+#define RR16_HEIGHT 480
 #define RR16_SECTION L"MegaDrive"
 #define RR16_CONSOLE "Mega Drive"
 #define RR16_FRAME_SECONDS RR_MD_FRAME_SECONDS
@@ -47,10 +45,12 @@ uint64_t rr16_audio_frame_fingerprint(void);
 #if RR16_MD
 int rr16_visible_width(void);
 int rr16_visible_height(void);
+int rr16_raster_height(void);
 void rr16_trace_details(FILE *file);
 #else
 #define rr16_visible_width() RR16_WIDTH
 #define rr16_visible_height() RR16_HEIGHT
+#define rr16_raster_height() RR16_HEIGHT
 #endif
 void rr16_report_details(FILE *file);
 #endif

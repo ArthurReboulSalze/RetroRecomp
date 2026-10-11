@@ -5,6 +5,7 @@
 #include "host_control.h"
 #include "paths.h"
 #include "retro_keyboard.h"
+#include "video_frame.h"
 #include <windows.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -29,8 +30,8 @@ static const wchar_t *button_sections[CONTROL_PLAYERS] = {L"Manette", L"ManetteJ
 static const wchar_t *entries[CONTROL_ACTIONS] = {L"haut", L"bas", L"gauche", L"droite", L"bouton1", L"bouton2", L"start", L"select"};
 #endif
 static const char *filters[2][FILTER_COUNT] = {
-    {"Sharp pixels", "Bilinear smoothing", "Scale2x", "Scanlines"},
-    {"Pixels nets", "Lissage bilineaire", "Scale2x", "Scanlines"}};
+    {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"},
+    {"Pixels nets", "xBR smooth", "Scale2x", "Scanlines"}};
 static SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
 #ifdef RETRO_GAME_GEAR
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
@@ -183,6 +184,8 @@ static void keyboard_defaults(void) {
 void controls_load(void) {
     keyboard_defaults();
     controls.filter = FILTER_NEAREST; controls.display_mode = 0;
+    controls.reduce_sprite_flicker = false;
+    smsrecomp_video_set_sprite_flicker_reduction(controls.reduce_sprite_flicker);
     controls.first_controller_player = 0; controls.language = 0;
     controls.autofire = false;
     controls.phaser_dot_size = 1;
@@ -246,6 +249,9 @@ void controls_load(void) {
     mode = (int)GetPrivateProfileIntW(video_section, L"display_mode", mode, read_path());
     controls.display_mode = mode >= 0 && mode < 3 ? mode : 0;
     controls.filter = filter >= 0 && filter < FILTER_COUNT ? filter : FILTER_NEAREST;
+#ifndef RETRO_GAME_GEAR
+    controls.reduce_sprite_flicker = GetPrivateProfileIntW(video_section, L"reduce_sprite_flicker", 0, read_path()) == 1;
+#endif
     /* Obsolete border/J2-reset settings are ignored without rewriting the INI. */
 #ifndef RETRO_GAME_GEAR
     controls.first_controller_player = GetPrivateProfileIntW(L"Manettes", L"premier_joueur", 1, read_path()) == 2 ? 1 : 0;
@@ -260,6 +266,7 @@ void controls_load(void) {
     read_name(L"LightPhaser", L"color", value, sizeof(value));
     if (!strcmp(value, "white")) controls.phaser_color = PHASER_WHITE;
     else if (!strcmp(value, "green")) controls.phaser_color = PHASER_GREEN;
+    smsrecomp_video_set_sprite_flicker_reduction(controls.reduce_sprite_flicker);
 }
 
 bool controls_bind(int player, int row, bool gamepad, int value) {
@@ -333,6 +340,17 @@ bool controls_display_mode(int mode) {
     char value[16]; snprintf(value, sizeof(value), "%d", mode);
     if (!write_name(video_section, L"display_mode", value)) return false;
     controls.display_mode = mode; return true;
+}
+
+bool controls_sprite_flicker_reduction(bool enabled) {
+#ifdef RETRO_GAME_GEAR
+    (void)enabled;
+    return false;
+#else
+    if (!write_name(video_section, L"reduce_sprite_flicker", enabled ? "1" : "0")) return false;
+    controls.reduce_sprite_flicker = enabled;
+    return true;
+#endif
 }
 
 bool controls_controller_order(int first_player) {

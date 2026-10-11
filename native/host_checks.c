@@ -398,7 +398,7 @@ int main(int argc, char **argv) {
     assert(k == 5 && r.w == 1280 && r.h == 960 && r.x == 320 && r.y == 60);
     draw_game(sample, 256, 192); assert(pixel(0, 0) == 0xFFFFFF && pixel(2, 2) == 0xFFFFFF);
     screenshot("pixels-nets.bmp");
-    assert(controls_filter(FILTER_LINEAR)); draw_game(sample, 256, 192); screenshot("bilineaire.bmp");
+    assert(controls_filter(FILTER_XBR)); draw_game(sample, 256, 192); screenshot("scale2x-aa.bmp");
     assert(pixel(47, 0) != 0xFFFFFF && pixel(47, 0) != 0x2458A0);
     assert(controls_filter(FILTER_SCANLINES)); draw_game(sample, 256, 192);
     assert(pixel(0, 0) == 0xFFFFFF && pixel(0, 2) < 0xFFFFFF); screenshot("scanlines.bmp");
@@ -578,7 +578,10 @@ int main(int argc, char **argv) {
     memset(g_vdp.cram,0,32);
     lightphaser_reset(false, 20); gun_x = gun_y = -1;
     puts("PASS: gun aim/focus/offscreen; pixel-aligned cross/dot, three pure colors, shared options and clipped arms without framebuffer changes.");
-    for (int i = 0; i < FILTER_COUNT; ++i) key(SDL_SCANCODE_F3);
+    const int filter_order[] = {FILTER_SCALE2X, FILTER_SCANLINES, FILTER_XBR, FILTER_NEAREST};
+    for (int i = 0; i < FILTER_COUNT; ++i) {
+        key(SDL_SCANCODE_F3); assert(controls.filter == filter_order[i]);
+    }
     assert(controls.filter == FILTER_NEAREST);
     key(SDL_SCANCODE_F4); assert(fullscreen); key(SDL_SCANCODE_F4); assert(fullscreen && fullscreen_fit);
     key(SDL_SCANCODE_F4); assert(!fullscreen);

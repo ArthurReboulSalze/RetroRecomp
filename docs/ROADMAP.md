@@ -1,8 +1,8 @@
 # RetroRecomp roadmap
 
 RetroRecomp converts supported Master System, Game Gear, original Game Boy
-and NES ROMs, and includes experimental Mega Drive and Super Nintendo
-profiles. The 16-bit profiles analyze new cartridges automatically within
+and NES ROMs, includes a supported Mega Drive standard-cartridge profile
+and an experimental Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
 their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
 
@@ -13,10 +13,10 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |
 | Input response | Measure end-to-end controller latency before making performance claims. |
 | NES | Compile guarded RAM code and extend mapper, PAL, peripheral and gameplay validation beyond the qualified scope. |
-| Mega Drive | Broaden gameplay, peripheral and mapper validation; widen PAL evidence and add persistent cartridge saves. |
+| Mega Drive | Extend gameplay and unusual cartridge circuits beyond the qualified standard profile; refine electrical, field and bus-error behavior with independent evidence. |
 | Super Nintendo | Broaden gameplay checks, PAL display modes and coprocessor support; add persistent cartridge saves. |
 
-## Recompilation priorities after 0.24.0
+## Recompilation priorities after 0.25.0
 
 ### NES
 
@@ -35,34 +35,25 @@ priority, followed by Super Nintendo.
 
 ### Mega Drive
 
-The shared snapshot now contains verified hints for 51 exact cartridges using
-the same instruction compiler, with
-static branch/call discovery, observed ROM entries and guarded RAM variants.
-All use instruction-boundary CPU/audio scheduling, and CPU-visible FM timers
-A/B are implemented. Conversion now compares raw FM/PSG samples as well as
-CPU/video state. These internal checks complement sound-menu regression
-replays; they do not establish hardware-accurate sound. Cartridge region codes
-now select the qualified PAL/NTSC clock and domestic/overseas hardware. MOVEP
-uses separate byte lanes, and six-button profiles expose their full controls.
-TRAP and IRQ entries use the real
-supervisor stack, RTE restores the correct mode stack, and STOP waits for an
-accepted IRQ. Authored fixtures include these mode/stack/wait/snapshot cases;
-additional CPU exception classes still need implementation and independent checks.
-The generic cartridge path now derives inputs from each cartridge's vectors
-and checks native/reference execution before export. Continue exercising
-different gameplay paths; removing the catalogue gate does not establish
-support for every hardware variant. Banked or unusual cartridges need their own hardware checks.
-Expand PAL qualification and F8/F9 regression coverage, then add cartridge-save
-persistence where required. Sub-scanline timing and unusual cartridge hardware
-still require independent checks.
-The sound Z80 now uses guarded native operations and extended uploaded-driver
-coverage. Continue varied play and sound-menu comparisons; remaining interpreter
-use is counted separately for the 68000 and the Z80.
-Work-RAM tail instructions now use their actual length rather than excluding all
-starts in the last sixteen bytes. Early-start probes exercise code that late
-demo inputs missed. The latest 20-cartridge batch has zero main/audio fallback
-on its four tested scenarios per cartridge. Keep expanding targeted regression
-checks before resuming the full collection campaign.
+Release 0.25.0 includes the standard cartridge profile's completed qualification: three
+groups of eight new cartridges plus eight feature regressions, PAL/NTSC,
+advanced conversion, compressed-export replay, CPU/video/PCM agreement,
+fresh-process states and corrupt-state rejection. Five routes extend to
+36,000 frames. The common VDP row-fetch fix was reapplied to every new export.
+Verified shared hints now cover 82 exact ROMs; this is not a cartridge allowlist
+or a guarantee of complete interpreter-free playthroughs.
+
+Supported scope includes linear ROM, declared Sega 512 KiB mapping, ordinary
+SRAM, qualified X24C01/X24C02/24C04 wiring, shared controllers, quick states and
+Menacer. Continue targeted gameplay and game-menu save checks. Other EEPROM
+boards, mappers, SVP/Pico/CD/32X and lock-on require separate integration.
+
+Further hardware work concerns electrical request/acknowledge precision,
+remaining VDP access collisions/field details and address/bus-error handling.
+These limits remain explicit without indefinitely blocking the completed
+standard profile. See [compatibility evidence](COMPATIBILITY.md),
+[video](MEGADRIVE_VIDEO.md), [CPU exceptions](MEGADRIVE_CPU_EXCEPTIONS.md),
+[EEPROM](MEGADRIVE_EEPROM.md) and [mapping](MEGADRIVE_MAPPERS.md).
 
 ### Super Nintendo
 
@@ -85,8 +76,8 @@ now uses guarded native operations; extend varied-input sound-driver checks
 alongside the main CPU coverage. Broader graphics, DMA and interrupt checks must
 accompany each expansion of the cartridge scope.
 
-Both 16-bit profiles remain experimental. Expanding the observed cartridge set
-does not remove the hardware and gameplay gaps above; the regression catalogue
+Super Nintendo remains experimental. Expanding the observed cartridge set
+does not by itself remove its hardware and gameplay gaps; the regression catalogue
 is not an allowlist. The full Mega Drive and SNES campaigns remain paused until
 explicitly resumed; concentrate on the shared compiler and recorded failures.
 

@@ -96,34 +96,54 @@ def _variant_titles(items: list[BatchItem]) -> dict[int, str]:
     return result
 
 
+def _embedded_export_identity(path: Path) -> str | None:
+    """Recover our exact cartridge marker, including from compacted EXEs."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if not data.startswith(b'MZ') or b'[Retro-Recomp]' not in data:
+        return None
+    marked = set(re.findall(re.escape(b'[Retro-Recomp]\x00') + rb'([0-9a-f]{64})\x00', data))
+    if marked:
+        return next(iter(marked)).decode('ascii') if len(marked) == 1 else None
+    # Older generated runtimes used separate brand and null-terminated SHA
+    # strings. Preserve their existing fail-closed, unique-identity rule.
+    identities = set(re.findall(rb'(?<![0-9a-f])[0-9a-f]{64}\x00', data))
+    return next(iter(identities))[:-1].decode('ascii') if len(identities) == 1 else None
+
+
 def _export_records(output: Path):
     """Recover exact ROM ownership from reports or branded generated EXEs."""
-    reported = set()
+    reported = {}
     for path in (output / 'datas/reports').glob('*/conversion-report.json'):
         try:
             report = json.loads(path.read_text(encoding='utf-8'))
             name, identity = report['executable'], report['rom']['sha256']
             if Path(name).name != name or not name.lower().endswith('.exe'):
                 continue
-            reported.add(name.casefold())
-            yield name, identity
+            if not isinstance(identity, str) or not re.fullmatch('[0-9a-f]{64}', identity):
+                continue
+            record = reported.setdefault(name.casefold(), (name, set()))
+            record[1].add(identity)
         except (OSError, ValueError, KeyError, TypeError):
             continue
+    for name, identities in reported.values():
+        # A deleted/replaced export can leave older revision reports using the
+        # same filename. The current binary's branded identity wins over those
+        # conflicting records; ambiguous/unbranded files remain protected.
+        embedded = _embedded_export_identity(output / name) if len(identities) > 1 else None
+        for identity in ({embedded} if embedded else identities):
+            yield name, identity
     # Reports can be deleted while games and the converter library remain.
     # Every generated runtime embeds its full null-terminated ROM SHA256.
     # Require our runtime marker and a unique identity; preserve unknown files.
     for path in output.glob('*.exe'):
         if path.name.casefold() in reported:
             continue
-        try:
-            data = path.read_bytes()
-        except OSError:
-            continue
-        if not data.startswith(b'MZ') or b'[Retro-Recomp]' not in data:
-            continue
-        identities = set(re.findall(rb'(?<![0-9a-f])[0-9a-f]{64}\x00', data))
-        if len(identities) == 1:
-            yield path.name, identities.pop()[:-1].decode('ascii')
+        identity = _embedded_export_identity(path)
+        if identity:
+            yield path.name, identity
 
 
 def export_target(item: BatchItem, output: Path) -> Path:
@@ -166,14 +186,15 @@ class _OutputNames:
         self.output = output
         self.owners: dict[str, set[str]] = {}
         self.original: list[tuple[Path, str]] = []
-        self.sources: dict[str, str] = {}
+        self.sources: dict[tuple[str, str], set[str]] = {}
         for path in (output / 'datas/reports').glob('*/conversion-report.json'):
             try:
                 report = json.loads(path.read_text(encoding='utf-8'))
                 name = report['executable']
                 source = report['rom']['name']
-                if Path(name).name == name and isinstance(source, str):
-                    self.sources[name.casefold()] = source
+                identity = report['rom']['sha256']
+                if Path(name).name == name and isinstance(source, str) and isinstance(identity, str):
+                    self.sources.setdefault((name.casefold(), identity), set()).add(Path(source).stem.casefold())
             except (OSError, ValueError, KeyError, TypeError):
                 continue
         for name, identity in _export_records(output):
@@ -187,8 +208,8 @@ class _OutputNames:
                      if identity == item.sha256 and path.is_file()), None)
 
     def same_source_name(self, item: BatchItem, previous: Path) -> bool:
-        original = self.sources.get(previous.name.casefold())
-        return (Path(original).stem.casefold() == item.path.stem.casefold() if original else
+        original = self.sources.get((previous.name.casefold(), item.sha256))
+        return (item.path.stem.casefold() in original if original else
                 previous.stem.casefold() == item.title.casefold() or
                 previous.stem.casefold().startswith(item.title.casefold() + ' (') or
                 previous.stem.casefold() == item.key.casefold())

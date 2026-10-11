@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-enum { FILTER_NEAREST, FILTER_LINEAR, FILTER_SCALE2X, FILTER_SCANLINES, FILTER_COUNT };
+enum { FILTER_NEAREST, FILTER_XBR, FILTER_SCALE2X, FILTER_SCANLINES, FILTER_COUNT };
 enum { CONTROL_PLAYERS = 2, CONTROL_GAME_ACTIONS = 6, CONTROL_PAUSE = 6, CONTROL_RESET = 7, CONTROL_ACTIONS = 8 };
 enum { PHASER_CROSS, PHASER_DOT, PHASER_SHAPE_COUNT };
 enum { PHASER_RED, PHASER_WHITE, PHASER_GREEN, PHASER_COLOR_COUNT };
@@ -13,6 +13,7 @@ typedef struct {
     SDL_GameControllerButton buttons[CONTROL_PLAYERS][CONTROL_ACTIONS];
     int filter;
     int display_mode; /* 0 window, 1 integer fullscreen, 2 aspect-fit fullscreen */
+    bool reduce_sprite_flicker; /* SMS display enhancement; guest flags retain eight slots. */
     int first_controller_player;
     int language; /* 0 English, 1 French */
     bool autofire; /* Both mapped gamepad fire buttons, while held. */
@@ -28,6 +29,7 @@ void controls_load(void);
 bool controls_bind(int player, int row, bool gamepad, int value);
 bool controls_filter(int filter);
 bool controls_display_mode(int mode);
+bool controls_sprite_flicker_reduction(bool enabled);
 bool controls_controller_order(int first_player);
 bool controls_language(int language);
 bool controls_autofire(bool enabled);

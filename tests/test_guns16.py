@@ -60,7 +60,8 @@ class Gun16Tests(unittest.TestCase):
             game_metadata('Game', False, 'ntsc', 'snes', gun_device='menacer')
 
     def test_reference_gate_detects_missing_or_changed_gun_state(self):
-        fields = MD_AUDIO_FIELDS + ('console_version','cpu_sr','cpu_usp','cpu_ssp','cpu_stopped','frame_hash','sequence_hash','cpu_hash','ram_hash','vram_hash','cram_hash',
+        from smsrecomp.console16 import MD_SRAM_FIELDS
+        fields = MD_AUDIO_FIELDS + MD_SRAM_FIELDS + ('console_version','cpu_sr','cpu_usp','cpu_ssp','cpu_stopped','cpu_prefetch_hash','frame_hash','sequence_hash','cpu_hash','ram_hash','vram_hash','cram_hash',
             'cpu_pc','vsram_hash','vdp_register_hash','gun_kind','gun_light_hits',
             'gun_interrupts','gun_button_reads','gun_latched_hv','gun_buttons_latched',
             'gun_button_packets','gun_trigger_packets','gun_port_control','gun_external_irq_enabled')

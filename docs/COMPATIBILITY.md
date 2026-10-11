@@ -2,19 +2,20 @@
 
 ## Current scope
 
-Release 0.24.0 provides six console profiles. Master System, Game Gear,
-original Game Boy and NES are supported within their documented scope.
-**Mega Drive and Super Nintendo remain experimental**: their standard cartridge
-paths work, but unusual hardware and remaining gameplay, display and audio cases
-still need qualification. Experimental does not mean a fixed game list.
+Release 0.25.0 provides six console profiles.
+Master System, Game Gear, original Game Boy, NES and **Mega Drive** are supported
+within their documented scope. **Super Nintendo remains experimental**. Mega
+Drive support concerns standard cartridges and the qualified Sega mapper/EEPROM
+circuits; it does not guarantee every revision or extension board. New cartridges
+are analyzed automatically rather than selected from an allowlist.
 
-The shared snapshot contains verified hints for **51 exact Mega Drive cartridges
+The bundled compilation snapshot contains verified hints for **82 exact Mega Drive cartridges
 and 15 exact Super Nintendo cartridges**. New eligible cartridges receive their
 own ROM-derived profiles and undergo native/reference validation before export;
 neither this snapshot nor the regression catalogue is an allowlist. Unsupported
 hardware is reported separately, and another game's profile is never substituted.
 
-The latest 20-cartridge Mega Drive batch used four final scenarios per cartridge:
+The earlier 20-cartridge Mega Drive batch used four final scenarios per cartridge:
 7,200 frames each for demo, play and varied input, plus 1,800 early-start frames.
 All 80 scenarios finished without interpreted 68000 or Z80 instructions and
 matched internal CPU, memory, visible-frame and PCM comparisons. The compressed
@@ -22,10 +23,35 @@ exports also passed 1,800-frame early-start checks. Native work-RAM tail
 instructions and early input discovery remove repeatedly observed fallback sites.
 These are path-specific results, not a claim of interpreter-free full gameplay.
 
+The final local qualification added 24 diverse cartridges in three groups of
+eight and rebuilt eight existing feature regressions. Their 158
+final ordinary scenarios compared 1,316,400 guest frames, with no
+observed 68000 or sound-Z80 fallback. Each actual compressed export also passed
+two 7,200-frame routes, CPU/memory/frame/PCM and trace comparison, fresh-process
+state continuation, eight corrupt-state rejections and a missing-load check.
+Five selected routes were extended to 36,000 frames. Reviewed captures show
+original gameplay, menus or RPG interactions; they are not complete playthroughs.
+Late attract scenes first exposed additional native entries after 18,000 frames.
+The production advanced scan now evaluates at least 24,000 demo frames, with
+reference validation before learning. Its ordinary conversion and actual packed
+export were checked separately; longer qualification paths retain their 36,000
+frame checks.
+
+A real raster defect survived the internal CPU checks: full-plane VSRAM values
+were applied one row too early after a horizontal interrupt. The shared VDP
+correction was checked against authored patterns and a separate software
+reference, then all 24 exports were rebuilt. See [video evidence](MEGADRIVE_VIDEO.md).
+SRAM persistence and existing EEPROM, mapper, CPU, bus and gun checks complement
+these cartridge results. Physical board fidelity and end-to-end latency remain
+separate, unmeasured claims. Release 0.25.0 includes this completed qualification.
+
 Mega Drive supports standard linear cartridges, region-driven PAL/NTSC,
 three/six-button controls, quick states and qualified Menacer input. Extra or
-banked cartridge hardware, some CPU exceptions and EEPROM saves remain outside
-the implemented scope. Super Nintendo supports ordinary LoROM/HiROM, native
+unrelated cartridge hardware and some CPU exceptions remain outside the
+implemented scope. Declared Sega 512 KiB mapping and three serial EEPROM
+families now have targeted circuit, persistence and state checks; see
+[mapping](MEGADRIVE_MAPPERS.md) and [EEPROM](MEGADRIVE_EEPROM.md).
+Super Nintendo supports ordinary LoROM/HiROM, native
 main and sound CPU paths, PAL/NTSC, quick states and qualified Super Scope input.
 Enhancement chips, extended mappings, hires/interlace/overscan and independent
 cartridge save files remain unfinished. Recognizing valid Japanese header titles

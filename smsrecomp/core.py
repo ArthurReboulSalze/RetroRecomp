@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
-from .library import GameMemory, library_root, read_observations, write_manifest, write_code_patterns
+from .library import GameMemory, entry_lock, library_root, read_observations, write_manifest, write_code_patterns
 from .artwork import ArtworkError, prepare_icon
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
 from . import __version__
@@ -31,14 +31,28 @@ from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
 _SHARED_SETUP_LOCK = RLock()
+_SHARED_SETUP_DEPTH = 0
 
 
 def serialized_setup(function):
-    """Protect shared toolchain checkouts and builds during a parallel batch."""
+    """Protect shared setup across threads and independent converter processes.
+
+    Setup functions can call one another. The RLock and depth counter keep
+    those calls reentrant without trying to acquire the same file range twice.
+    ROM analysis, game compilation and validation run outside this short gate.
+    """
     @wraps(function)
     def wrapper(*args, **kwargs):
+        global _SHARED_SETUP_DEPTH
         with _SHARED_SETUP_LOCK:
-            return function(*args, **kwargs)
+            if _SHARED_SETUP_DEPTH:
+                return function(*args, **kwargs)
+            with entry_lock(ROOT / '.deps/shared-setup', timeout=1800):
+                _SHARED_SETUP_DEPTH += 1
+                try:
+                    return function(*args, **kwargs)
+                finally:
+                    _SHARED_SETUP_DEPTH -= 1
     return wrapper
 
 
@@ -961,6 +975,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
             f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
             f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
+            f"-DRETRO_RECOMP_VERSION={__version__}",
             f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
         run([cmake, "--build", build, "--config", "Release", "--parallel", "4"], log=log)
         added = 0
@@ -1078,13 +1093,17 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,
             "rom_identity": "sha256", "legacy_and_reference_supported": False},
         "system": {"id": system.id, "name": system.name},
-        "video_model": {"name": f"mode4-{system.id}-{standard}-scanline-v2", "standard": standard,
+        "video_model": {"name": f"mode4-{system.id}-{standard}-scanline-v4", "standard": standard,
             "selection_source": standard_source,
             "lines_per_frame": 313 if standard == "pal" else 262,
             "visible_pixels": [256, 192] if system.id == "sms" else [160, 144],
             "palette_and_vram": "per_scanline",
             "horizontal_scroll": "line_latch", "vertical_scroll": "frame_latch",
-            "sprite_limit": 8, "pixel_clock_accuracy_validated": False},
+            "sprite_limit": 8, "pixel_clock_accuracy_validated": False,
+            "sprite_flicker_reduction": {"supported": system.id == "sms", "default": False,
+                "toggle": "F5" if system.id == "sms" else None,
+                "confirmed_reversing_list_stabilization": system.id == "sms",
+                "guest_status_uses_original_limit": True}},
         "ui_languages": ["en", "fr"], "default_language": "en",
         "artwork": artwork,
         "windows_metadata": windows_metadata,

@@ -1,7 +1,7 @@
 /* Game Boy adapter for the same menu canvas used by Master System/Game Gear.
  * Included after the GB runtime's input, save and display helpers. */
 
-enum { RR_GB_HELP = 1, RR_GB_CONTROLS = 2, RR_GB_PAUSE = 3, RR_GB_DISPLAY = 4 };
+enum { RR_GB_HELP = 1, RR_GB_CONTROLS = 2, RR_GB_PAUSE = 3 };
 static const GBInputAction rr_gb_actions[] = {
     GB_INPUT_ACTION_UP, GB_INPUT_ACTION_DOWN, GB_INPUT_ACTION_LEFT,
     GB_INPUT_ACTION_RIGHT, GB_INPUT_ACTION_A, GB_INPUT_ACTION_B,
@@ -40,12 +40,12 @@ static void rr_gb_toggle_menu(int kind) {
 }
 
 static void rr_gb_cycle_filter(void) {
-    g_render_filter_mode = (GBRenderFilterMode)(((int)g_render_filter_mode + 1) % 4);
+    g_render_filter_mode = (GBRenderFilterMode)rr_menu_next_filter((int)g_render_filter_mode);
     update_render_filter();
     update_game_viewport();
     save_runtime_preferences();
-    const char* names_en[] = {"Sharp pixels", "Bilinear smoothing", "Scale2x", "Scanlines"};
-    const char* names_fr[] = {"Pixels nets", "Lissage bilineaire", "Scale2x", "Scanlines"};
+    const char* names_en[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"};
+    const char* names_fr[] = {"Pixels nets", "xBR smooth", "Scale2x", "Scanlines"};
     rr_gb_notice((g_rr_language ? names_fr : names_en)[(int)g_render_filter_mode]);
 }
 
@@ -87,7 +87,6 @@ static void rr_gb_draw_menu(void) {
 #define RR_BOX(x, y, w, h, r, g, b, a) rr_menu_box(g_renderer, ox, oy, unit, x, y, w, h, r, g, b, a)
     const char* heading = g_rr_menu_kind == RR_GB_HELP ? rr_gb_tr("Retro-Recomp - Help", "Retro-Recomp - Aide") :
         g_rr_menu_kind == RR_GB_PAUSE ? "Retro-Recomp - Pause" :
-        g_rr_menu_kind == RR_GB_DISPLAY ? rr_gb_tr("Retro-Recomp - Display", "Retro-Recomp - Affichage") :
         rr_gb_tr("Retro-Recomp - Controls", "Retro-Recomp - Commandes");
     RR_TEXT(14, 15, heading, 38, 215, 255);
     if (g_rr_menu_kind == RR_GB_HELP) {
@@ -107,7 +106,8 @@ static void rr_gb_draw_menu(void) {
         };
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             RR_TEXT(14, 29 + 12 * i, lines[i], 233, 239, 247);
-        RR_TEXT(14, 174, rr_gb_tr("H / Esc: close help", "H / Echap : fermer l'aide"), 157, 173, 194);
+        RR_TEXT(14, 174, rr_gb_tr("H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+        rr_menu_build_footer(g_renderer, ox, oy, unit);
     } else if (g_rr_menu_kind == RR_GB_PAUSE) {
         RR_TEXT(14, 62, rr_gb_tr("Game paused", "Jeu en pause"), 233, 239, 247);
         RR_TEXT(14, 90, rr_gb_tr("P: resume", "P : reprendre"), 233, 239, 247);
@@ -117,17 +117,6 @@ static void rr_gb_draw_menu(void) {
             rr_gb_tr("Interpreter fallback used", "Secours interprete utilise") :
             rr_gb_tr("Native code", "Code natif"), 255, 209, 110);
         RR_TEXT(14, 164, rr_gb_tr("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
-    } else if (g_rr_menu_kind == RR_GB_DISPLAY) {
-        RR_TEXT(14, 32, rr_gb_tr("Game Boy palette", "Palette Game Boy"), 233, 239, 247);
-        RR_BOX(14, 58, 226, 22, 40, 63, 81, 255);
-        RR_TEXT(22, 63, "<", 38, 215, 255);
-        RR_TEXT(42, 63, g_palette_idx == 1 ? rr_gb_tr("Monochrome", "Monochrome") :
-            rr_gb_tr("Classic green", "Vert classique"), 233, 239, 247);
-        RR_TEXT(224, 63, ">", 38, 215, 255);
-        if (g_registered_ctx && g_registered_ctx->config.model == GB_MODEL_CGB)
-            RR_TEXT(14, 103, rr_gb_tr("Game Boy Color uses game colors", "Game Boy Color : couleurs du jeu"), 157, 173, 194);
-        RR_TEXT(14, 159, rr_gb_tr("Left/Right: change palette", "Gauche/Droite : changer"), 157, 173, 194);
-        RR_TEXT(14, 173, rr_gb_tr("F5 / Esc: close", "F5 / Echap : fermer"), 157, 173, 194);
     } else {
         RR_TEXT(14, 30, rr_gb_tr("Game Boy controls", "Commandes Game Boy"), 233, 239, 247);
         RR_TEXT(14, 43, g_rr_bind_gamepad ? rr_gb_tr("Gamepad [Tab:keys]", "Manette [Tab:clavier]") :
@@ -156,6 +145,7 @@ static void rr_gb_draw_menu(void) {
 }
 
 static void rr_gb_draw_status(void) {
+    if (g_show_menu && g_rr_menu_kind == RR_GB_HELP) return;
     if (!g_rr_status[0] || (int32_t)(g_rr_status_until - SDL_GetTicks()) <= 0) return;
     int ox, oy, unit;
     rr_menu_layout(g_renderer, &ox, &oy, &unit);
@@ -193,8 +183,8 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
         return false;
     }
     if (event->type == SDL_KEYDOWN) {
-        if (event->key.repeat) return g_show_menu;
         const SDL_Scancode key = event->key.keysym.scancode;
+        if (event->key.repeat) return g_show_menu || key == SDL_SCANCODE_F5;
         if (key == SDL_SCANCODE_F1) {
             if (ctx) { gb_context_reset(ctx, true); reset_audio_output_buffer(true); }
             g_show_menu = false; g_rr_menu_kind = 0;
@@ -205,7 +195,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
         if (key == SDL_SCANCODE_H) { rr_gb_toggle_menu(RR_GB_HELP); return true; }
         if (key == SDL_SCANCODE_F3) { rr_gb_cycle_filter(); return true; }
         if (key == SDL_SCANCODE_F4) { rr_gb_cycle_fullscreen(); return true; }
-        if (key == SDL_SCANCODE_F5) { rr_gb_toggle_menu(RR_GB_DISPLAY); return true; }
+        if (key == SDL_SCANCODE_F5) { rr_gb_palette_change(); return true; }
         if (key == SDL_SCANCODE_F6) {
             g_rr_autofire = !g_rr_autofire; save_runtime_preferences();
             rr_gb_notice(g_rr_autofire ? rr_gb_tr("Gamepad autofire ON", "Autofire manette ON") :
@@ -245,9 +235,6 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
                 start_binding_capture(g_rr_bind_gamepad ? GB_CAPTURE_DEVICE_CONTROLLER : GB_CAPTURE_DEVICE_KEYBOARD,
                     rr_gb_actions[g_rr_menu_row], 0);
             }
-        } else if (g_rr_menu_kind == RR_GB_DISPLAY &&
-                   (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_RETURN)) {
-            rr_gb_palette_change();
         }
         return true;
     }
@@ -264,9 +251,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
             else if (button == SDL_CONTROLLER_BUTTON_A)
                 start_binding_capture(g_rr_bind_gamepad ? GB_CAPTURE_DEVICE_CONTROLLER : GB_CAPTURE_DEVICE_KEYBOARD,
                     rr_gb_actions[g_rr_menu_row], 0);
-        } else if (g_rr_menu_kind == RR_GB_DISPLAY &&
-                   (button == SDL_CONTROLLER_BUTTON_DPAD_LEFT || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ||
-                    button == SDL_CONTROLLER_BUTTON_A)) rr_gb_palette_change();
+        }
         return true;
     }
     if (event->type == SDL_CONTROLLERBUTTONUP)
@@ -287,8 +272,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
                 start_binding_capture(g_rr_bind_gamepad ? GB_CAPTURE_DEVICE_CONTROLLER : GB_CAPTURE_DEVICE_KEYBOARD,
                     rr_gb_actions[g_rr_menu_row], 0);
             }
-        } else if (g_rr_menu_kind == RR_GB_DISPLAY && x >= 14 && x < 240 && y >= 58 && y < 80)
-            rr_gb_palette_change();
+        }
         return true;
     }
     return g_show_menu && (event->type == SDL_MOUSEBUTTONUP || event->type == SDL_MOUSEWHEEL);

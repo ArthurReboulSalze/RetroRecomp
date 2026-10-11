@@ -7,6 +7,13 @@
 #include "m68k_validator.h"
 #include "rom_parser.h"
 #include "md_cycle_estimate.h"
+#include "md_exception_decode.h"
+
+static int decode_mc68000(const GenesisRom *rom, unsigned pc, M68KInstr *ins) {
+    if (!m68k_decode(rom, pc, ins)) return 0;
+    rr_md_normalize_exception(ins);
+    return 1;
+}
 
 typedef struct { unsigned pc; uint8_t bytes[16]; } RamBytes;
 static uint8_t ram_fetch(unsigned pc, void *user) {
@@ -77,7 +84,7 @@ int main(int argc, char **argv) {
         RamBytes bytes = {0}; GenesisRom view = rom;
         int fields = sscanf(line, "%x:%32s", &pc, raw);
         unsigned available = 0;
-        if (fields == 2 && pc >= 0xff0000 && pc <= 0xfffffe) {
+        if (fields == 2 && pc >= 0xe00000 && pc <= 0xfffffe) {
             bytes.pc = pc; available = (unsigned)strlen(raw) / 2;
             if (strlen(raw) % 4 || available < 2 || available > sizeof bytes.bytes
                 || available > 0x1000000u - pc) continue;
@@ -93,7 +100,7 @@ int main(int argc, char **argv) {
             if (follow) { enqueue(&flow, pc); continue; }
             available = rom.rom_size - pc;
         }
-        if ((pc & 1) || available < 2 || !m68k_decode(&view, pc, &ins)
+        if ((pc & 1) || available < 2 || !decode_mc68000(&view, pc, &ins)
             || ins.byte_length > available || m68k_validate(&ins, &opts) != M68K_LEGAL)
             continue;
         write_instruction(output, &ins, &comma);
@@ -103,7 +110,7 @@ int main(int argc, char **argv) {
     for (unsigned head = 0; head < flow.count; ++head) {
         M68KInstr ins = {0};
         pc = flow.pcs[head];
-        if (!m68k_decode(&rom, pc, &ins) || ins.byte_length > rom.rom_size - pc
+        if (!decode_mc68000(&rom, pc, &ins) || ins.byte_length > rom.rom_size - pc
             || m68k_validate(&ins, &opts) != M68K_LEGAL) continue;
         write_instruction(output, &ins, &comma);
         successors(&flow, &ins);

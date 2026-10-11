@@ -32,9 +32,21 @@ int main() {
     }
     for (int cycle=0;cycle<8;++cycle) {
         rr_gb_cycle_filter(); load_runtime_preferences();
-        assert((int)g_render_filter_mode==(cycle+1)%4);
+        const int expected[] = {2,3,1,0};
+        assert((int)g_render_filter_mode==expected[cycle%4]);
     }
-    rr_gb_palette_change(); load_runtime_preferences(); assert(g_palette_idx==0);
+    SDL_Event palette_key = {};
+    palette_key.type = SDL_KEYDOWN;
+    palette_key.key.keysym.scancode = SDL_SCANCODE_F5;
+    assert(rr_gb_handle_menu_event(&palette_key, nullptr));
+    assert(!g_show_menu && g_rr_menu_kind==0);
+    load_runtime_preferences(); assert(g_palette_idx==0);
+    palette_key.key.repeat=1;
+    rr_gb_handle_menu_event(&palette_key, nullptr);
+    assert(g_palette_idx==0 && !g_show_menu);
+    palette_key.key.repeat=0;
+    assert(rr_gb_handle_menu_event(&palette_key, nullptr));
+    load_runtime_preferences(); assert(g_palette_idx==1 && !g_show_menu);
     g_rr_language=1; g_rr_autofire=true; save_runtime_preferences();
     g_rr_language=0; g_rr_autofire=false; load_runtime_preferences();
     assert(g_rr_language==1 && g_rr_autofire);
@@ -46,7 +58,7 @@ int main() {
     assert(gb_platform_init(1));
     assert(g_rr_language==1 && g_rr_autofire);
     gb_platform_shutdown();
-    puts("PASS: GB actual startup/close leaves no files; ImGui persistence disabled; settings written only in EXE datas, all display modes/filters retained after reopen; dummy driver only.");
+    puts("PASS: GB startup/close leaves no files; F5 switches palette without a menu or repeats; ImGui persistence disabled; settings only in EXE datas, display modes/filters retained after reopen; dummy driver only.");
     return 0;
 }
 ''',encoding='utf-8')

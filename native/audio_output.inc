@@ -10,12 +10,18 @@
 #define RR_AUDIO_RING_FRAMES 8192u
 #define RR_AUDIO_TARGET_MS 21u /* Cover one PAL frame plus the device period. */
 #define RR_AUDIO_BURST_MS 21u /* One PAL frame, rounded up. */
+#define RR_AUDIO_JITTER_MS 3u
 #define RR_AUDIO_TAPS 256u
 #define RR_AUDIO_PHASES 128u
+#ifndef RR_AUDIO_COUNTER
+#define RR_AUDIO_COUNTER SDL_GetPerformanceCounter
+#define RR_AUDIO_FREQUENCY SDL_GetPerformanceFrequency
+#endif
 
 static struct {
     SDL_AudioSpec device;
-    uint32_t read, write, fill, keep, high_water, start_threshold;
+    uint32_t read, write, fill, keep, high_water;
+    uint64_t start_counter;
     bool started;
     int16_t pcm[RR_AUDIO_RING_FRAMES * 2];
     uint64_t produced, played, dropped, underrun, startup_silence;
@@ -39,20 +45,42 @@ static void audio_discard(uint32_t frames) {
 static void SDLCALL audio_callback(void *unused, Uint8 *output, int bytes) {
     (void)unused;
     memset(output, 0, (size_t)bytes);
-    uint32_t wanted = (uint32_t)bytes / (2u * sizeof(int16_t));
+    uint32_t frame_bytes = 2u * (SDL_AUDIO_BITSIZE(rr_audio.device.format) / 8u);
+    uint32_t wanted = (uint32_t)bytes / frame_bytes;
     if (!rr_audio.started) {
-        if (rr_audio.fill < rr_audio.start_threshold) {
+        if (!rr_audio.fill) {
             rr_audio.startup_silence += wanted;
             return;
+        }
+        /* Start at a fixed time after the first PCM arrives, including within
+         * a callback. Waiting for a whole second video frame adds an arbitrary
+         * PAL/NTSC frame of lag. One device period plus scheduling headroom
+         * covers the burst producer without that extra frame-sized wait. */
+        uint64_t now = RR_AUDIO_COUNTER(), frequency = RR_AUDIO_FREQUENCY();
+        if (now < rr_audio.start_counter) {
+            uint32_t silence = (uint32_t)SDL_min((uint64_t)wanted,
+                ((rr_audio.start_counter - now) * rr_audio.device.freq + frequency - 1) / frequency);
+            rr_audio.startup_silence += silence;
+            if (silence == wanted) return;
+            output += silence * frame_bytes;
+            wanted -= silence;
         }
         rr_audio.started = true;
     }
     uint32_t taken = SDL_min(wanted, rr_audio.fill);
-    uint32_t first = SDL_min(taken, RR_AUDIO_RING_FRAMES - rr_audio.read);
-    memcpy(output, rr_audio.pcm + rr_audio.read * 2u, first * 2u * sizeof(int16_t));
-    if (taken > first)
-        memcpy(output + first * 2u * sizeof(int16_t), rr_audio.pcm,
-               (taken - first) * 2u * sizeof(int16_t));
+    if (rr_audio.device.format == AUDIO_F32SYS) {
+        float *destination = (float *)output;
+        for (uint32_t i = 0; i < taken; ++i) {
+            uint32_t position = (rr_audio.read + i) % RR_AUDIO_RING_FRAMES;
+            destination[i * 2u] = rr_audio.pcm[position * 2u] / 32768.0f;
+            destination[i * 2u + 1u] = rr_audio.pcm[position * 2u + 1u] / 32768.0f;
+        }
+    } else {
+        uint32_t first = SDL_min(taken, RR_AUDIO_RING_FRAMES - rr_audio.read);
+        memcpy(output, rr_audio.pcm + rr_audio.read * 2u, first * frame_bytes);
+        if (taken > first)
+            memcpy(output + first * frame_bytes, rr_audio.pcm, (taken - first) * frame_bytes);
+    }
     rr_audio.read = (rr_audio.read + taken) % RR_AUDIO_RING_FRAMES;
     rr_audio.fill -= taken;
     rr_audio.played += taken;
@@ -66,6 +94,12 @@ static void SDLCALL audio_callback(void *unused, Uint8 *output, int bytes) {
 static void audio_push(const int16_t *samples, uint32_t count) {
     if (!count) return;
     SDL_LockAudioDevice(audio_device);
+    if (!rr_audio.started && !rr_audio.fill) {
+        uint64_t frequency = RR_AUDIO_FREQUENCY();
+        rr_audio.start_counter = RR_AUDIO_COUNTER() +
+            ((uint64_t)rr_audio.device.samples * frequency + rr_audio.device.freq - 1) / rr_audio.device.freq +
+            (frequency * RR_AUDIO_JITTER_MS + 999u) / 1000u;
+    }
     rr_audio.produced += count;
     if (rr_audio.fill + count > rr_audio.high_water) {
         uint32_t discard = rr_audio.fill + count - rr_audio.keep;
@@ -110,6 +144,7 @@ static void audio_output_clear(void) {
     SDL_LockAudioDevice(audio_device);
     rr_audio.read = rr_audio.write = rr_audio.fill = 0;
     rr_audio.started = false;
+    rr_audio.start_counter = 0;
     rr_audio.phase = rr_audio.history_pos = 0;
     memset(rr_audio.history, 0, sizeof(rr_audio.history));
     SDL_UnlockAudioDevice(audio_device);
@@ -121,28 +156,34 @@ bool host_audio_init(uint32_t rate) {
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 256;
     want.callback = audio_callback;
     memset(&rr_audio, 0, sizeof(rr_audio));
-    /* Accept the backend's actual period instead of an extra size-conversion
-     * buffer between a requested 512-frame callback and WASAPI's period. */
+    /* Consume in the backend's native format/period. WASAPI usually requests
+     * float PCM: forcing S16 makes SDL stage another converted output block. */
     audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &rr_audio.device,
-        SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+        SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE | SDL_AUDIO_ALLOW_FORMAT_CHANGE);
     if (!audio_device) return false;
-    if (rr_audio.device.format != AUDIO_S16SYS || rr_audio.device.channels != 2 || rr_audio.device.freq <= 0) {
+    if (rr_audio.device.format != AUDIO_S16SYS && rr_audio.device.format != AUDIO_F32SYS) {
+        SDL_CloseAudioDevice(audio_device);
+        /* Less common formats retain SDL's established conversion fallback. */
+        audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &rr_audio.device,
+            SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+        if (!audio_device) return false;
+    }
+    if (rr_audio.device.channels != 2 || rr_audio.device.freq <= 0) {
         SDL_CloseAudioDevice(audio_device); audio_device = 0;
         return false;
     }
-    /* The producer runs once per video frame, up to ~20 ms on PAL. Prime
-     * with more than one such frame so an unlucky callback phase cannot
-     * drain a single frame before the next one has been synthesized. */
+    /* Bound abnormal backlogs separately from startup scheduling. */
     rr_audio.keep = SDL_min(RR_AUDIO_RING_FRAMES / 2u,
         audio_ms_frames(RR_AUDIO_TARGET_MS) + rr_audio.device.samples);
     rr_audio.high_water = SDL_min(RR_AUDIO_RING_FRAMES,
         rr_audio.keep + audio_ms_frames(RR_AUDIO_BURST_MS) + rr_audio.device.samples);
-    rr_audio.start_threshold = rr_audio.keep;
     audio_resampler_init(rate);
     SDL_PauseAudioDevice(audio_device, 0);
-    fprintf(stderr, "[host] audio driver=%s, %d Hz, %u samples, ring prime=%.1f ms limit=%.1f ms; physical latency unmeasured\n",
+    fprintf(stderr, "[host] audio driver=%s, %d Hz, %u samples, format=%s, startup=%.1f ms limit=%.1f ms; physical latency unmeasured\n",
         SDL_GetCurrentAudioDriver(), rr_audio.device.freq, rr_audio.device.samples,
-        rr_audio.keep * 1000.0 / rr_audio.device.freq, rr_audio.high_water * 1000.0 / rr_audio.device.freq);
+        rr_audio.device.format == AUDIO_F32SYS ? "F32" : "S16",
+        rr_audio.device.samples * 1000.0 / rr_audio.device.freq + RR_AUDIO_JITTER_MS,
+        rr_audio.high_water * 1000.0 / rr_audio.device.freq);
     return true;
 }
 

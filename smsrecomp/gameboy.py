@@ -290,6 +290,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     for component, filename in (("RetroRecomp", "LICENSE"),
                                 ("gb-recompiled", "licenses/gb-recompiled.md"),
                                 ("Dear ImGui", "licenses/dear-imgui.md"),
+                                ("xBR", "licenses/xbr.md"),
                                 ("SDL2", "licenses/SDL2.md")):
         notice += f"## {component}\n\n" + (ASSETS / filename).read_text(encoding="utf-8") + "\n\n"
     (project / "game_legal.md").write_text(notice, encoding="utf-8")
@@ -407,13 +408,18 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "frames": min(frames, 30), "hardware_accuracy": False, "full_game": False},
         "reference_vdp_trace_match": None,
         "video_model": {"standard": "dmg", "visible_pixels": [160, 144],
-            "palette": "monochrome grayscale by default; classic green optional", "hardware_accuracy_validated": False},
+            "palette": "monochrome grayscale by default; F5 switches directly to/from classic green",
+            "hardware_accuracy_validated": False},
+        "hardware_adaptations": {"apu": ["live_envelope_mix", "pulse_retrigger_duty_phase", "noise_shift_14_15_clock_stop"],
+            "state_layout_changed": False, "independent_full_hardware_validation": False},
         "input_players": 1, "game_states": {"supported": True, "save_key": "F8", "load_key": "F9",
             "slots": 1, "rom_identity": "sha256"},
         "artwork": artwork, "windows_metadata": metadata,
         "game_tags": [], "peripheral": {"type": "joypad", "hardware_accuracy_validated": False},
         "runtime_learning": False, "library_identity": rom.sha256,
-        "host_timing": {"audio_target_ms_default": 20, "audio_callback_frames_requested": 512,
+        "host_timing": {"audio_backlog_target_ms_default": 20, "audio_callback_frames_requested": 256,
+            "audio_startup": "one_device_period_plus_10ms", "audio_native_format": True,
+            "apu_sample_rate": 44100,
             "input_before_cpu_slice": True, "live_joyp_refresh_interval_us": 1000,
             "generated_optimization_level": 2, "physical_latency_measured": False},
         "build_executable": str(executable), "executable": executable.name,

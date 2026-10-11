@@ -71,6 +71,12 @@ docs/*
 !docs/GAME_BOY.md
 !docs/NES.md
 !docs/CONSOLES_16BIT.md
+!docs/MEGADRIVE_CPU_EXCEPTIONS.md
+!docs/MEGADRIVE_VIDEO.md
+!docs/MEGADRIVE_PREFETCH.md
+!docs/MEGADRIVE_EEPROM.md
+!docs/MEGADRIVE_MAPPERS.md
+!docs/MEGADRIVE_Z80_TIMING.md
 !docs/GUNS_16BIT.md
 !docs/ROADMAP.md
 !docs/RELEASE_NOTES.md
@@ -89,7 +95,6 @@ profiles/*
 !MEDIAS/RetroRecomp_consoles.png
 !MEDIAS/RetroRecomp_ban.png
 !MEDIAS/RetroRecomp_UI.png
-!MEDIAS/RC_Windows_Screen.png
 !MEDIAS/TAG_SHOOTING.png
 !assets/tag-shooting.png
 !assets/Retro-Recomp-banner.png

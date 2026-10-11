@@ -69,8 +69,9 @@ rewriting the INI until a setting is saved. Custom mappings remain available.
 
 F1 resets; F3 cycles sharp pixels, bilinear smoothing, Scale2x and scanlines;
 F4 cycles window, integer pixel-perfect fullscreen and aspect-fit fullscreen.
-F5 opens the Game Boy display option: pseudo black-and-white monochrome by
-default, with classic green available. F6 toggles fast autofire for held
+F5 immediately switches between pseudo black-and-white monochrome (the
+default) and classic green, without a menu or a pause. The choice is persistent;
+holding F5 does not repeatedly toggle it. F6 toggles fast autofire for held
 gamepad A/B, F7 switches English/French, and F8/F9 save/load one quick state.
 Game Boy has no second player or Light Phaser options. Game Boy Color-only
 cartridges are still rejected, so the palette choice applies to DMG games.
@@ -90,12 +91,37 @@ remain shared in the console's `datas` folder and are created only on change.
 
 ## Audio and input scheduling
 
-New builds use a 20 ms software audio target and request 512 stereo frames per
-SDL callback at 44.1 kHz, replacing the imported 80 ms / 2048-frame defaults.
-An existing 80 ms setting migrates in memory. The callback discards stale
-backlog only beyond the target plus one callback and one guest-frame burst.
+### Shared APU corrections, 11 October 2026
+
+Three checked adaptations to the pinned runtime fix missing rising-envelope
+sound on pulse/noise channels, preserve pulse duty phase when a note is
+retriggered, and stop noise LFSR clocks for NR43 shifts 14/15. They follow
+[Pan Docs' APU details](https://github.com/gbdev/pandocs/blob/master/src/Audio_details.md).
+No title-specific ROM patch, interpreter counter suppression, larger audio
+target, or APU state-layout change is used. Existing quick states retain their
+format. This does not complete the APU model: wave-channel behaviour, exact
+timer low bits and analogue output still need separate accuracy work.
+
+`tools/gameboy_hardware_selftest.py` builds the actual adapted runtime and
+runs 21 authored APU checks through its public APIs. The original runtime
+fails seven expectations; the adapted runtime passes all 21. The pinned
+PPU dot-timing, OAM-DMA bus and APU chunk-invariance checks also pass. These
+checks do not establish a cause for the sprite flicker reported in unspecified
+games, and are not an audio listening or full-gameplay validation. Do not
+hide possible original sprite-limit flicker with frame blending or extra sprites.
+
+New builds keep the APU's 44.1 kHz stereo PCM and request 256 frames per SDL
+callback, accepting the backend's actual period and S16 or native float format.
+Playback begins one actual callback period plus 10 ms after the first samples,
+at the corresponding sample inside the callback block. This avoids waiting for
+a second guest frame and removes an extra SDL conversion queue when native
+float output is available. Other output formats retain SDL's conversion path.
+The 20 ms setting is now only the abnormal-backlog target; the imported 80 ms
+setting still migrates in memory. The callback discards stale
+backlog only beyond that target plus one callback and one guest-frame burst.
 Normal samples retain their order; pauses, resets, state loads and suspension
-clear the audio queue and restart the host deadline. Audio starvation no longer
+clear the audio queue and restart the host deadline. A genuine output underrun
+re-primes playback. Audio starvation never
 makes the guest run ahead of its 59.7275 Hz clock.
 
 Live keyboard/gamepad state is sampled after pacing, immediately before the
@@ -107,7 +133,8 @@ joystick updates as the Sega host, while respecting explicit SDL overrides.
 Generated code uses the speed-oriented optimization level 2.
 
 These are host-buffer and scheduling settings, not measured physical latency.
-On a local 600-frame scripted Super Mario Land test with SDL dummy drivers,
+In the earlier 20 ms / 512-frame implementation, a local 600-frame scripted
+Super Mario Land test with SDL dummy drivers showed that
 the median sampled audio ring fill fell from 71.85 ms to 18.4 ms, with no
 underrun samples in either ten-second run. The before/after guest state was
 identical after 1200 headless frames with the same script; this checks that
@@ -115,6 +142,8 @@ the host changes preserved that execution, not independent APU accuracy.
 `tools/gameboy_latency_selftest.py` checks real adapted input/audio code with
 authored data, synthetic keyboard state and an SDL virtual gamepad.
 Listening tests and physical input-to-display latency remain separate.
+The subsequent Super Mario Land 2 qualification and output-delay measurements
+are described in [Audio output](AUDIO.md#game-boy-output).
 
 ## Evidence and limits
 

@@ -11,5 +11,8 @@ void smsrecomp_video_begin_line(int line);
 void smsrecomp_video_end_line(int line);
 void smsrecomp_video_present(uint32_t *fb);
 uint64_t smsrecomp_video_hash(void);
+/* Host presentation choice: extra sprites and confirmed reversing-list priority
+ * stabilization. Guest collision/overflow still use the original eight slots. */
+void smsrecomp_video_set_sprite_flicker_reduction(int enabled);
 
 #endif

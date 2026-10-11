@@ -3,9 +3,16 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 static SDL_AudioDeviceID audio_device;
+static bool virtual_clock;
+static Uint64 virtual_us;
+static Uint64 check_counter(void) { return virtual_clock ? virtual_us : SDL_GetPerformanceCounter(); }
+static Uint64 check_frequency(void) { return virtual_clock ? 1000000u : SDL_GetPerformanceFrequency(); }
+#define RR_AUDIO_COUNTER check_counter
+#define RR_AUDIO_FREQUENCY check_frequency
 #include "audio_output.inc"
 
 static void reset_test(uint32_t source_rate, int output_rate) {
@@ -14,7 +21,6 @@ static void reset_test(uint32_t source_rate, int output_rate) {
     rr_audio.startup_silence = rr_audio.peak = 0;
     rr_audio.device.freq = output_rate;
     rr_audio.keep = audio_ms_frames(RR_AUDIO_TARGET_MS) + rr_audio.device.samples;
-    rr_audio.start_threshold = rr_audio.keep;
     rr_audio.high_water = rr_audio.keep + audio_ms_frames(RR_AUDIO_BURST_MS) + rr_audio.device.samples;
     audio_resampler_init(source_rate);
 }
@@ -150,10 +156,30 @@ static void burst_check(void) {
         (unsigned long long)rr_audio.dropped);
 }
 
+static void float_callback_check(void) {
+    reset_test(48000, 48000);
+    SDL_AudioFormat saved = rr_audio.device.format;
+    rr_audio.device.format = AUDIO_F32SYS;
+    rr_audio.read = rr_audio.write = RR_AUDIO_RING_FRAMES - 2;
+    rr_audio.started = true;
+    const int16_t input[] = {-32768, 32767, -1, 1, 12345, -23456, 0, 0};
+    float output[12];
+    host_audio_submit(input, 4);
+    audio_callback(NULL, (Uint8 *)output, sizeof(output));
+    for (unsigned i = 0; i < 8; ++i) assert(output[i] == input[i] / 32768.0f);
+    for (unsigned i = 8; i < 12; ++i) assert(output[i] == 0.0f);
+    assert(rr_audio.played == 4 && rr_audio.underrun == 2 && !rr_audio.started);
+    rr_audio.device.format = saved;
+    puts("native float callback: exact S16 amplitude/stereo, wrap and silent tail; no SDL format-conversion stream required");
+}
+
 static void cadence_checks(void) {
     int16_t source[2048 * 2] = {0}, output[2048 * 2];
     Uint16 saved_period = rr_audio.device.samples;
     const Uint16 periods[] = {256, 480, 1024};
+    double latency_min = 1e9, latency_max = 0, latency_sum = 0;
+    unsigned latency_count = 0;
+    virtual_clock = true;
     for (int pal = 0; pal < 2; ++pal) for (int p = 0; p < 3; ++p) {
         for (int offset = 0; offset < 16; ++offset) {
             rr_audio.device.samples = periods[p];
@@ -167,10 +193,22 @@ static void cadence_checks(void) {
                 // Vary producer/callback phase and add up to 1 ms of scheduling jitter.
                 double submit_us = frame * frame_us + (frame % 7) * 1000.0 / 6;
                 while (callback * callback_us + offset * callback_us / 16 < submit_us) {
+                    virtual_us = (Uint64)(callback * callback_us + offset * callback_us / 16);
+                    uint64_t played_before = rr_audio.played;
+                    uint64_t silence_before = rr_audio.startup_silence;
                     audio_callback(NULL, (Uint8 *)output, periods[p] * 4);
+                    if (periods[p] == 480 && rr_audio.played > played_before && frame > 2) {
+                        double delay = callback * callback_us + offset * callback_us / 16 +
+                            (rr_audio.startup_silence - silence_before) * 1e6 / 48000 -
+                            played_before * 1e6 / 48000;
+                        latency_min = SDL_min(latency_min, delay);
+                        latency_max = SDL_max(latency_max, delay);
+                        latency_sum += delay; ++latency_count;
+                    }
                     ++callback;
                 }
                 size_t count = (size_t)((frame + 1) * source_per_frame) - (size_t)(frame * source_per_frame);
+                virtual_us = (Uint64)submit_us;
                 while (count) {
                     size_t chunk = SDL_min(count, 2048u);
                     host_audio_submit(source, chunk); count -= chunk;
@@ -184,6 +222,9 @@ static void cadence_checks(void) {
         }
     }
     rr_audio.device.samples = saved_period;
+    virtual_clock = false;
+    printf("software PCM timeline lag at 480-frame callback: min=%.3f mean=%.3f max=%.3f ms (PAL/NTSC, all phases; excludes OS/device)\n",
+        latency_min / 1000, latency_sum / latency_count / 1000, latency_max / 1000);
     puts("cadence: PAL/NTSC, 256/480/1024-frame callbacks, 16 starting phases, 1 ms jitter: no underrun or trim");
 }
 
@@ -216,6 +257,6 @@ int main(int argc, char **argv) {
     if (!host_audio_init(223721)) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
     SDL_PauseAudioDevice(audio_device, 1);
     if (device) { burst_check(); steady_check(); }
-    else { conversion_checks(); ring_checks(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
+    else { conversion_checks(); ring_checks(); float_callback_check(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
     host_audio_shutdown(); SDL_Quit(); puts("PASS: host audio checks"); return 0;
 }

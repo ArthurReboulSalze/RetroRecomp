@@ -59,6 +59,19 @@ class MegaDriveZ80Tests(unittest.TestCase):
         for raw in ('dded4300', 'ddfd2100', 'fdcb0046', 'ddcb0016', 'edb00000', 'dd760000'):
             self.assertNotIn('exec_opcode', emitter.instruction(bytes.fromhex(raw)))
 
+    def test_actual_fetch_escape_retains_prefix_family_and_index_selector(self):
+        engine = Path(__file__).resolve().parents[1] / '.deps/segagenesisrecomp'
+        source = engine / 'runner/external/superzazu/z80.c'
+        if not source.exists():
+            self.skipTest('Pinned engine not downloaded.')
+        emitter = z80.Emitter(source.read_text(encoding='utf-8'))
+        code = emitter.fetch(bytes.fromhex('fdcb0046'))
+        repeated = emitter.fetch(bytes.fromhex('ddfd2100'))
+        self.assertIn('RR_MD_Z80_INDEX, iz == &z->iy', code)
+        self.assertIn('RR_MD_Z80_DCB, addr', code)
+        self.assertNotIn('return;', repeated)
+        self.assertNotIn('exec_opcode', code)
+
 
 if __name__ == '__main__':
     unittest.main()

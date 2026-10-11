@@ -62,25 +62,118 @@ def mnemonic_names(engine: Path) -> list[str]:
     return ['MN_OTHER'] + re.findall(r'\bMN_\w+\b', block)
 
 
+def adapt_cycle_estimates(source: str) -> str:
+    # MC68000 manual tables 8-12/8-14; these are also independently exercised
+    # by the selected MAME states. Keep offline and reference estimates equal.
+    anchor = '    case MN_TRAP:    return 34;'
+    if source.count(anchor) != 1:
+        raise ConversionError('Pinned 68000 cycle table changed; SR timing adaptation refused.')
+    source = source.replace(anchor, '''    case MN_ORI_TO_SR: case MN_ANDI_TO_SR: case MN_EORI_TO_SR:
+    case MN_ORI_TO_CCR: case MN_ANDI_TO_CCR: case MN_EORI_TO_CCR:
+        return 20;
+''' + anchor, 1)
+    anchor = '    case MN_MOVE_SR:   return dst_is_reg ? 6 : (8 + ea_dst);'
+    if source.count(anchor) != 1:
+        raise ConversionError('Pinned 68000 cycle table changed; MOVE SR timing adaptation refused.')
+    source = source.replace(anchor, '''    case MN_MOVE_SR:
+        /* This decoder stores both MOVE SR directions' EA in src_ea. */
+        return instr->dst_is_ea ? (((instr->src_ea >> 3) & 7) == 0 ? 6 : 8 + ea_src)
+                               : 12 + ea_src;''', 1)
+    from .gun16_runtime import replace
+    # Single-EA operations store their operand in src_ea in this decoder.
+    # The upstream timing table mistook zero-initialized dst_ea for D0.
+    source = replace(source, '    int      dst_is_reg = (dst_mode <= 1);', '''    int      dst_is_reg = (dst_mode <= 1);
+    switch(instr->mnemonic) {
+    case MN_TST: case MN_CLR: case MN_NEG: case MN_NEGX: case MN_NOT:
+    case MN_NBCD: case MN_TAS: case MN_Scc: case MN_ADDQ: case MN_SUBQ:
+    case MN_ADDI: case MN_SUBI: case MN_ANDI: case MN_ORI: case MN_EORI: case MN_CMPI:
+    case MN_BTST: case MN_BCHG: case MN_BCLR: case MN_BSET:
+        ea_dst=ea_src;dst_mode=(instr->src_ea>>3)&7;dst_is_reg=dst_mode<=1;break;
+    case MN_ADD: case MN_SUB: case MN_AND: case MN_OR: case MN_EOR:
+        if((instr->words[0]&0x100u) || instr->mnemonic==MN_EOR) {
+            ea_dst=ea_src;ea_src=0;dst_mode=(instr->src_ea>>3)&7;dst_is_reg=dst_mode<=1;
+        }
+        break;
+    default: break;
+    }''')
+    source = replace(source, '    case MN_TST:\n    case MN_CLR:',
+        '    case MN_TST: return 4 + ea_src;\n    case MN_CLR:')
+    source = replace(source, '    case MN_BTST: return dst_is_reg ? 6 : (4 + ea_dst);\n'
+        '    case MN_BCHG: case MN_BCLR: return dst_is_reg ? 8 : (8 + ea_dst);\n'
+        '    case MN_BSET: return dst_is_reg ? 8 : (8 + ea_dst);', '''    case MN_BTST:
+        return (instr->reg<0?4:0) + (dst_is_reg?6:4+interp_ea_read_cost(instr->src_ea,M68K_SIZE_B));
+    case MN_BCHG: case MN_BCLR: case MN_BSET:
+        return (instr->reg<0?4:0) + (dst_is_reg?(instr->mnemonic==MN_BCLR?10:8):
+            8+interp_ea_read_cost(instr->src_ea,M68K_SIZE_B));''')
+    source = replace(source, '        if (!dst_is_reg) return 8 + ea_dst;',
+        '        if (instr->mem_shift) return 8+interp_ea_read_cost(instr->src_ea,M68K_SIZE_W);')
+    source = replace(source, '        if (dst_is_reg) return is_long ? 8 : 4;',
+        '        if (dst_mode==1) return 8;\n        if (dst_is_reg) return is_long ? 8 : 4;')
+    source = replace(source, '    case MN_ADDX: case MN_SUBX:\n        return is_long ? 8 : 4;',
+        '    case MN_CMPM: return is_long ? 20 : 12;\n'
+        '    case MN_ADDX: case MN_SUBX:\n'
+        '        return instr->predec_mem_form ? (is_long ? 30 : 18) : (is_long ? 8 : 4);')
+    source = replace(source, '    case MN_ABCD: case MN_SBCD: return 6;',
+        '    case MN_ABCD: case MN_SBCD: return instr->predec_mem_form ? 18 : 6;')
+    source = replace(source, '    case MN_JSR:   return 18 + ea_src;',
+        '    case MN_JSR: return 16 + interp_control_ea_cost(instr->src_ea,0);')
+    source = replace(source, '    case MN_JMP:   return 10 + ea_src;',
+        '    case MN_JMP: return 8 + interp_control_ea_cost(instr->src_ea,0);')
+    source = replace(source, '    case MN_LEA:   return ea_src ? ea_src : 4;',
+        '    case MN_LEA: return 4 + interp_control_ea_cost(instr->src_ea,1);')
+    source = replace(source, '    case MN_PEA:   return 12 + ea_src;',
+        '    case MN_PEA: return 12 + interp_control_ea_cost(instr->src_ea,1);')
+    source = replace(source,'    case MN_MOVE:  return 4 + ea_src + ea_dst;',
+        '    case MN_MOVE: return 4 + ea_src + ea_dst - (dst_mode==4?2:0);')
+    source = replace(source, '        return (is_long ? 12 + 8*nregs : 8 + 4*nregs) + ea_src;',
+        '''        unsigned mode=(instr->src_ea>>3)&7u,reg=instr->src_ea&7u;
+        unsigned extra=mode<=4?0u:mode==6 || (mode==7 && reg==3)?6u:
+                       mode==7 && reg==1?8u:4u;
+        return ((instr->words[0]&0x400u)?12:8)+(is_long?8:4)*nregs+extra;''')
+    source = replace(source,'static int interp_estimate_cycles(const M68KInstr *instr) {', '''static int interp_control_ea_cost(int ea,int address_only) {
+    unsigned mode=(ea>>3)&7u,reg=ea&7u;
+    if(mode==2)return 0;
+    if(mode==6 || (mode==7 && reg==3))return address_only?8:6;
+    if(mode==7 && reg==1)return address_only?8:4;
+    return address_only?4:2;
+}
+static int interp_estimate_cycles(const M68KInstr *instr) {''')
+    return source
+
+
 @serialized_setup
 def decoder_tool(engine: Path) -> Path:
     project = ROOT / '.build/megadrive-step-decoder'
     project.mkdir(parents=True, exist_ok=True)
-    source = (engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')
+    from .library import entry_lock
+    # The thread lock covers one batch process. Independent validation tools
+    # and a second converter instance must not write the same MSVC objects.
+    with entry_lock(project):
+        return _decoder_tool_locked(engine,project)
+
+
+def _decoder_tool_locked(engine: Path,project: Path) -> Path:
+    source = adapt_cycle_estimates((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))
     timing = source[source.index('static int interp_popcount16('):
                     source.index('static void interp_account_cycles(')]
     timing = timing[:timing.rfind('/* The emit_cycle_accounting')]
-    (project / 'md_cycle_estimate.h').write_text(timing, encoding='utf-8')
-    shutil.copy2(ASSETS / 'native/md_decode_dump.c', project / 'md_decode_dump.c')
+    write_changed(project/'md_cycle_estimate.h',timing)
+    for name in ('md_decode_dump.c','md_exception_decode.h'):
+        write_changed(project/name,(ASSETS/'native'/name).read_text(encoding='utf-8'))
     prefix = engine.as_posix()
-    (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
+    from .gun16_runtime import replace
+    parser=replace((engine/'recompiler/src/rom_parser.c').read_text(encoding='utf-8'),
+                   '#include "rom_parser.h"',
+                   '#include "rom_parser.h"\n#undef GENESIS_ROM_MAX_SIZE\n#define GENESIS_ROM_MAX_SIZE 0x800000')
+    write_changed(project/'md_rom_parser.c',parser)
+    write_changed(project/'CMakeLists.txt',f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdDecode LANGUAGES C)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(md_decode md_decode_dump.c "{prefix}/recompiler/src/m68k_decoder.c"
-  "{prefix}/recompiler/src/m68k_validator.c" "{prefix}/recompiler/src/rom_parser.c")
+  "{prefix}/recompiler/src/m68k_validator.c" md_rom_parser.c)
 target_include_directories(md_decode PRIVATE . "{prefix}/recompiler/src")
 target_compile_options(md_decode PRIVATE /utf-8 /wd4996)
-''', encoding='utf-8')
+''')
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'],
         log=project / 'build.log')
@@ -89,16 +182,70 @@ target_compile_options(md_decode PRIVATE /utf-8 /wd4996)
     return project / 'build/Release/md_decode.exe'
 
 
+def jump_table_entries(data: bytes, reached: set[int], examined: set[int] | None = None) -> set[int]:
+    """Expand reached runs of ROM jump stubs; never scan arbitrary pointers.
+
+    Public function tables can contain adjacent JMP (d16,PC), JMP abs.l or
+    BRA.w instructions. One reached slot anchors a run of at least three
+    equal-width jumps. Every displacement must address aligned ROM code.
+    Other data, indirect targets and RAM still need observed execution.
+    """
+    examined = set() if examined is None else examined
+    size, result = len(data), set()
+
+    def thunk(pc, opcode, stride):
+        if pc < 0x200 or pc + stride > size or data[pc:pc + 2] != opcode:
+            return False
+        target = (int.from_bytes(data[pc + 2:pc + 6], 'big') if stride == 6 else
+                  pc + 2 + int.from_bytes(data[pc + 2:pc + 4], 'big', signed=True)) & 0xffffff
+        return 0x200 <= target < size and not target & 1
+
+    for pc in sorted(reached - examined):
+        examined.add(pc)
+        if pc < 0x200 or pc & 1 or pc + 4 > size:
+            continue
+        opcode = data[pc:pc + 2]
+        if opcode not in (b'\x4e\xfa', b'\x4e\xf9', b'\x60\x00'):
+            continue
+        stride = 6 if opcode == b'\x4e\xf9' else 4
+        if not thunk(pc, opcode, stride):
+            continue
+        first = last = pc
+        count = 1
+        while count < 256 and thunk(first - stride, opcode, stride):
+            first -= stride; count += 1
+        while count < 256 and thunk(last + stride, opcode, stride):
+            last += stride; count += 1
+        if count >= 3:
+            slots = set(range(first, last + 1, stride))
+            examined.update(slots)
+            result.update(slots)
+    return result
+
+
 def decode(engine: Path, project: Path, rom_file: Path, addresses: set[int], ram_variants=(),
            *, follow_flow=True) -> list[dict]:
     listing = project / 'instruction-pcs.txt'
     ram = sorted({(item['address'], item['bytes']) for item in ram_variants})
-    listing.write_text(''.join(f'{pc:06x}\n' for pc in sorted(addresses)) +
-                       ''.join(f'{pc:06x}:{raw}\n' for pc, raw in ram), encoding='ascii')
-    run([decoder_tool(engine), rom_file, listing, project / 'decoded-instructions.json',
-         *(['--follow-flow'] if follow_flow else [])],
-        cwd=project, log=project / 'decode.log')
-    decoded = json.loads((project / 'decoded-instructions.json').read_text(encoding='utf-8'))
+    tool = decoder_tool(engine)
+    pending, examined = set(addresses), set()
+    data = rom_file.read_bytes() if follow_flow else b''
+    while True:
+        if follow_flow:
+            pending.update(jump_table_entries(data, pending, examined))
+        listing.write_text(''.join(f'{pc:06x}\n' for pc in sorted(pending)) +
+                           ''.join(f'{pc:06x}:{raw}\n' for pc, raw in ram), encoding='ascii')
+        run([tool, rom_file, listing, project / 'decoded-instructions.json',
+             *(['--follow-flow'] if follow_flow else [])],
+            cwd=project, log=project / 'decode.log')
+        decoded = json.loads((project / 'decoded-instructions.json').read_text(encoding='utf-8'))
+        reached = {ins['addr'] for ins in decoded if ins['addr'] < len(data)}
+        extra = jump_table_entries(data, reached, examined) - reached if follow_flow else set()
+        if not extra:
+            break
+        # Finite closure: each pass adds previously unseen ROM instruction
+        # slots, with the same legal-instruction decoder and validation gates.
+        pending.update(reached | extra)
     return sorted(decoded, key=lambda ins: (ins['addr'], ins['words']))
 
 
@@ -109,19 +256,26 @@ def instruction_literal(ins: dict, name: str) -> str:
     return f'{{0x{ins["addr"]:06x}u,{name},(M68KSize){ins["size"]},{{{words}}},{tail}}}'
 
 
-def translated_body(ins: dict, name: str, body: str) -> str:
+def translated_body(ins: dict, name: str, body: str, *, mapper=False) -> str:
     # Only the selected operation is emitted. Substitute every operand read;
     # helper calls receive a compile-time constant descriptor, never a decoder.
     literals = {**ins, 'mnemonic': name}
+    ram = ins['addr'] >= 0xe00000 or mapper
     def replace(m):
         key, index = m[1], m[2]
+        if ram and key in ('addr', 'target_addr'):
+            return f'ins->{key}'
         value = ins['words'][int(index)] if key == 'words' else literals[key]
         return f'({value})' if isinstance(value, int) else value
     body = re.sub(r'ins->(\w+)(?:\[(\d+)\])?', replace, body)
-    return (f'    static const M68KInstr decoded = {instruction_literal(ins, name)};\n'
+    descriptor = (f'    M68KInstr decoded = {instruction_literal(ins, name)};\n'
+                  '    rr_md_relocate_instruction(&decoded, g_cpu.PC & 0xffffffu);\n' if ram else
+                  f'    static const M68KInstr decoded = {instruction_literal(ins, name)};\n')
+    fall = f'ins->addr + {ins["byte_length"]}u' if ram else f'0x{ins["addr"] + ins["byte_length"]:06x}u'
+    return (descriptor +
         '    const M68KInstr *ins = &decoded;\n'
         '    ExtR er; er_init(&er, ins);\n'
-        f'    const uint32_t fall = 0x{ins["addr"] + ins["byte_length"]:06x}u;\n'
+        f'    const uint32_t fall = {fall};\n'
         '    *next_pc = fall;\n'
         f'    const M68KSize sz = (M68KSize){ins["size"]};\n'
         f'    const int dir = {(ins["words"][0] >> 8) & 1}, cc = {(ins["words"][0] >> 8) & 15};\n'
@@ -130,28 +284,83 @@ def translated_body(ins: dict, name: str, body: str) -> str:
 
 def operation_name(ins: dict) -> str:
     suffix = ('_' + ''.join(f'{word:04x}' for word in ins['words'][:ins['word_count']])
-              if ins['addr'] >= 0xff0000 else '')
+              if ins['addr'] >= 0xe00000 else '')
     return f'rr_md_op_{ins["addr"]:06x}{suffix}'
 
 
 def adapt_semantics(source: str) -> str:
+    from .gun16_runtime import replace
+    source=replace(source, 'static uint16_t er_next(ExtR *e)        { uint16_t v = e->ins->words[e->wi]; e->wi++; e->bp += 2; return v; }',
+        'static uint16_t er_next(ExtR *e) { uint16_t v=rr_md_operand_extension(e->ins->addr,e->wi,e->ins->words[e->wi]);e->wi++;e->bp+=2;return v; }')
+    source=replace(source, '        write_ea(ins, ins->dst_ea, sz, &er, v);',
+        '        rr_md_move_source_done();\n        write_ea(ins, ins->dst_ea, sz, &er, v);')
+    source=replace(source, '            if (sz == M68K_SIZE_L) m68k_write32(mb, rv); else m68k_write16(mb, (uint16_t)rv);',
+        '            if(sz==M68K_SIZE_L) {m68k_write16(mb+2,(uint16_t)rv);m68k_write16(mb,(uint16_t)(rv>>16));}\n'
+        '            else m68k_write16(mb,(uint16_t)rv);')
+    anchor='        if (mode == 3) g_cpu.A[reg] = mb;\n    }\n}\n\n/* =========================================================================\n * Single-instruction execution.'
+    source=replace(source,anchor,
+        '        (void)m68k_read16(mb); /* MC68000 MOVEM load discards one final word. */\n'+anchor)
+    source=replace(source, '    case 4: if (!rmw) g_cpu.A[reg] -= sb; mem_write(sz, g_cpu.A[reg], val); break;',
+        '''    case 4:
+        if(!rmw)g_cpu.A[reg]-=sb;
+        if(ins->mnemonic==MN_MOVE && sz==M68K_SIZE_L) {
+            m68k_write16(g_cpu.A[reg]+2,(uint16_t)val);
+            m68k_write16(g_cpu.A[reg],(uint16_t)(val>>16));
+        } else mem_write(sz,g_cpu.A[reg],val);
+        break;''')
     # MC68000 TRAP #n is a vectored exception, not a host C-function call.
     # Games install RAM IRQ stubs using it; RTE must see the nested 6-byte
     # SR/PC frame on SSP, including a trap from user mode. The existing CPU
     # layout keeps the active A7 and inactive stack slot together in snapshots.
     anchor = '    case MN_NOP:\n        return M68KI_OK;'
     trap = '''    case MN_TRAP: {
-        uint16_t saved_sr = g_cpu.SR;
-        rr_md_exception_frame(saved_sr, fall, (uint16_t)((saved_sr & ~0x8000u) | 0x2000u));
-        *next_pc = m68k_read32((32u + (ins->words[0] & 15u)) * 4u);
+        return rr_md_instruction_exception(next_pc, 32u + (ins->words[0] & 15u), fall, 34);
+    }
+
+    case MN_TRAPV:
+        if (g_cpu.SR & SR_V)
+            return rr_md_instruction_exception(next_pc, 7, fall, 34);
+        return M68KI_OK;
+
+    case MN_CHK: {
+        int16_t bound = (int16_t)read_ea(ins, ins->src_ea, M68K_SIZE_W, &er);
+        int16_t value = (int16_t)g_cpu.D[ins->reg];
+        /* Z/V/C are undefined architecturally. Use the deterministic MAME
+         * convention, without claiming physical fidelity for these bits. */
+        g_cpu.SR &= ~(SR_N | SR_Z | SR_V | SR_C);
+        if (!value) g_cpu.SR |= SR_Z;
+        if (value > bound || value < 0) {
+            if (value < 0) g_cpu.SR |= SR_N; else g_cpu.SR &= ~SR_N;
+            /* The first comparison exits two clocks before the sign test,
+             * including subtraction overflow. 40 + EA is Motorola's maximum;
+             * the pinned microcoded corpus covers both paths. */
+            rr_md_cpu_idle(value > bound || (int32_t)value - bound < -32768 ? 4u : 6u);
+            return rr_md_instruction_exception(next_pc, 6, fall,
+                (value > bound || (int32_t)value - bound < -32768 ? 38u : 40u) +
+                (unsigned)interp_ea_read_cost(ins->src_ea, M68K_SIZE_W));
+        }
         return M68KI_OK;
     }
+
+    case MN_ILLEGAL: {
+        unsigned line = ins->words[0] >> 12;
+        unsigned vector = line == 10 ? 10u : line == 15 ? 11u : 4u;
+        return rr_md_instruction_exception(next_pc, vector, ins->addr, 34);
+    }
+
+    case MN_RESET:
+        if (!(g_cpu.SR & SR_S))
+            return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);
+        /* External RESET wiring is a separate board feature. */
+        g_m68ki_bad_pc = ins->addr; g_m68ki_bad_op = ins->words[0];
+        return M68KI_HALT_UNIMPL;
 
 '''
     if source.count(anchor) != 1:
         raise ConversionError('Pinned 68000 instruction semantics changed; TRAP adaptation refused.')
     stop = '''    case MN_STOP:
-        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+        if (!(g_cpu.SR & SR_S))
+            return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);
         rr_md_set_sr((uint16_t)ins->imm32);
         rr_md_cpu_stopped = 1;
         return M68KI_OK;
@@ -183,7 +392,8 @@ def adapt_semantics(source: str) -> str:
         *next_pc = pop32();'''
     if source.count(old_rte) != 1:
         raise ConversionError('Pinned 68000 RTE operation changed; stack-mode adaptation refused.')
-    source = source.replace(old_rte, '''        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+    source = source.replace(old_rte, '''        if (!(g_cpu.SR & SR_S))
+            return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);
         uint16_t restored_sr = pop16();
         *next_pc = pop32(); /* Read the entire frame on SSP, then select A7. */
         rr_md_set_sr(restored_sr);''', 1)
@@ -191,20 +401,61 @@ def adapt_semantics(source: str) -> str:
     if source.count(old_move) != 1:
         raise ConversionError('Pinned 68000 MOVE to SR changed; stack-mode adaptation refused.')
     source = source.replace(old_move, '''if (!ins->dst_is_ea) {
-            if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;
+            if (!(g_cpu.SR & SR_S))
+                return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);
             uint16_t value = (uint16_t)read_ea(ins, ins->src_ea, M68K_SIZE_W, &er);
             rr_md_set_sr(value);
         }''', 1)
     for mnemonic, operator in (('ORI', '|'), ('ANDI', '&'), ('EORI', '^')):
         pattern = rf'case MN_{mnemonic}_TO_SR:[^\n]+'
         body = (f'case MN_{mnemonic}_TO_SR:\n'
-                '        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;\n'
+                '        if (!(g_cpu.SR & SR_S))\n'
+                '            return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);\n'
                 f'        rr_md_set_sr((uint16_t)(g_cpu.SR {operator} ins->imm32)); return M68KI_OK;')
         source, matches = re.subn(pattern, body, source)
         if matches != 1:
             raise ConversionError('Pinned 68000 SR operation changed; stack-mode adaptation refused.')
     source = source.replace('    case MN_MOVE_USP:\n',
-        '    case MN_MOVE_USP:\n        if (!(g_cpu.SR & SR_S)) return M68KI_HALT_UNIMPL;\n', 1)
+        '    case MN_MOVE_USP:\n        if (!(g_cpu.SR & SR_S))\n'
+        '            return rr_md_instruction_exception(next_pc, 8, ins->addr, 34);\n', 1)
+    # Equality means a quotient of at least 65536, which cannot fit.
+    if source.count('if (abs_src >= (abs_dest >> 16))') != 1:
+        raise ConversionError('Pinned 68000 divide overflow precheck changed.')
+    source = source.replace('if (abs_src >= (abs_dest >> 16))',
+                            'if (abs_src > (abs_dest >> 16))', 1)
+    for name, signed in (('MULU', 0), ('MULS', 1)):
+        pattern = rf'(case MN_{name}: \{{\n[^\n]+\n)'
+        hook = ('        rr_md_arithmetic_phase(rr_md_multiply_clocks((uint16_t)s, '
+                f'{signed}), (unsigned)interp_ea_read_cost(ins->src_ea, M68K_SIZE_W), 1);\n')
+        source, matches = re.subn(pattern, lambda match: match[1] + hook, source)
+        if matches != 1:
+            raise ConversionError('Pinned 68000 multiply body changed.')
+    for name, signed in (('DIVU', 0), ('DIVS', 1)):
+        old = (f'    case MN_{name}:\n'
+               f'        do_div(ins->reg, read_ea(ins, ins->src_ea, M68K_SIZE_W, &er) & 0xFFFFu, {signed});\n'
+               '        return M68KI_OK;')
+        body = f'''    case MN_{name}: {{
+        uint32_t divisor = read_ea(ins, ins->src_ea, M68K_SIZE_W, &er) & 0xffffu;
+        if (divisor)
+            rr_md_arithmetic_phase(rr_md_divide_clocks(g_cpu.D[ins->reg], (uint16_t)divisor, {signed}),
+                (unsigned)interp_ea_read_cost(ins->src_ea, M68K_SIZE_W), 0);
+        do_div(ins->reg, divisor, {signed});
+        if (!divisor) {{
+            if (rr_md_prefetch_active()) rr_md_cpu_idle(4);
+            return rr_md_instruction_exception(next_pc, 5, fall,
+                38u + (unsigned)interp_ea_read_cost(ins->src_ea, M68K_SIZE_W));
+        }}
+        return M68KI_OK;
+    }}'''
+        if source.count(old) != 1:
+            raise ConversionError('Pinned 68000 divide operation changed; exception adaptation refused.')
+        source = source.replace(old, body, 1)
+    # CMPM has two independently postincremented address operands, including
+    # the word step for either byte operand using A7.
+    source = source.replace('g_cpu.A[ay] += sb;',
+        'g_cpu.A[ay] += (ay==7 && sz==M68K_SIZE_B)?2:sb;')
+    source = source.replace('g_cpu.A[ax] += sb;',
+        'g_cpu.A[ax] += (ax==7 && sz==M68K_SIZE_B)?2:sb;')
     # Byte accesses via A7 still move the stack by a word on MC68000.
     source = source.replace('int mode = (ea >> 3) & 7, reg = ea & 7, sb = szbytes(sz);',
         'int mode = (ea >> 3) & 7, reg = ea & 7, sb = szbytes(sz);\n'
@@ -213,19 +464,41 @@ def adapt_semantics(source: str) -> str:
         'g_cpu.A[ay] += (sz == M68K_SIZE_B && ay == 7) ? 2 : sb;')
     source = source.replace('g_cpu.A[ax] += sb;',
         'g_cpu.A[ax] += (sz == M68K_SIZE_B && ax == 7) ? 2 : sb;')
-    return source
+    # MC68000 (unlike later variants) reads a memory destination before CLR
+    # and Scc writes it. Retain predecrement/postincrement exactly once.
+    from .gun16_runtime import replace
+    source = replace(source, '        write_ea(ins, ins->src_ea, sz, &er, 0);', '''        ExtR save=er;
+        (void)read_ea_ex(ins,ins->src_ea,sz,&er,1);
+        er=save;write_ea_ex(ins,ins->src_ea,sz,&er,0,1);''')
+    source = replace(source, '        write_ea(ins, ins->src_ea, M68K_SIZE_B, &er, val);', '''        ExtR save=er;
+        (void)read_ea_ex(ins,ins->src_ea,M68K_SIZE_B,&er,1);
+        er=save;write_ea_ex(ins,ins->src_ea,M68K_SIZE_B,&er,val,1);''')
+    source = replace(source,'        discover(tgt);\n        push32(fall);',
+        '        discover(tgt);\n        rr_md_prefetch_target(tgt);\n        push32(fall);')
+    return adapt_cycle_estimates(source)
 
 
 def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=(),
                    *, follow_flow=True) -> dict:
+    from .megadrive_hardware import bank_mapper
+    mapper = bank_mapper(rom) is not None
     source = adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]  # remove coverage section heading
     helper = ('/* Upstream semantic helpers: see embedded GenesisRecomp notices. */\n'
-        '#pragma once\n#include "md_native_steps.h"\n#include <stddef.h>\n'
+        '#pragma once\n#include "md_native_steps.h"\n#include "md_prefetch.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_md_illegal_ea\nstatic void discover(uint32_t pc) {(void)pc;}\n' + helper)
+    timing = source[source.index('static int interp_ea_read_cost('):
+                    source.index('static int interp_estimate_cycles(')]
+    helper += '\n' + timing
     write_changed(project / 'md_step_semantics.h', helper)
+    from .megadrive import valid_ram_variant
+    # One body per physical byte sequence, shared by all 32 RAM aliases.
+    # Normalize only the lookup key; execution relocates to the actual PC.
+    ram_variants = [{'address': addr, 'bytes': raw} for addr, raw in sorted({
+        (0xe00000 | (item['address'] & 0xffff), item['bytes'].lower())
+        for item in ram_variants if valid_ram_variant(item)})]
     decoded = decode(engine, project, project / 'cartridge.bin', addresses, ram_variants,
                      follow_flow=follow_flow)
     instructions = [ins for ins in decoded if names[ins['mnemonic']] in bodies]
@@ -239,7 +512,7 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
     for ins in instructions:
         name = names[ins['mnemonic']]
         function = (f'M68kiStatus {operation_name(ins)}(uint32_t *next_pc) {{\n' +
-                    translated_body(ins, name, bodies[name]) + '}\n')
+                    translated_body(ins, name, bodies[name], mapper=mapper) + '}\n')
         chunks[(ins['addr'] >> 1) % 32].append(function)
     for index, chunk in enumerate(chunks):
         write_changed(generated / f'md_step_part{index:02d}.c',
@@ -261,23 +534,25 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
                ','.join(str(offsets.get(page, 0)) for page in range(count)) + '};\n')
     mapping += 'static const unsigned slots[][128] = {\n' + ',\n'.join(
         '{' + ','.join(map(str, pages[page])) + '}' for page in ordered) + '\n};\n'
-    ram_indices = [index for index, ins in enumerate(instructions) if ins['addr'] >= 0xff0000]
+    ram_indices = [index for index, ins in enumerate(instructions) if ins['addr'] >= 0xe00000]
     ram = ''
     if ram_indices:
         ram = ('static const unsigned ram_entries[] = {' + ','.join(map(str, ram_indices)) + '};\n' +
                f'''static const RrMdNativeStep *ram_lookup(uint32_t pc) {{
     unsigned low = 0, high = {len(ram_indices)};
+    unsigned key = 0xe00000u | (pc & 0xffffu);
     while (low < high) {{
         unsigned mid = low + (high - low) / 2;
-        if (entries[ram_entries[mid]].instruction.addr < pc) low = mid + 1;
+        if (entries[ram_entries[mid]].instruction.addr < key) low = mid + 1;
         else high = mid;
     }}
-    for (unsigned i = low; i < {len(ram_indices)} && entries[ram_entries[i]].instruction.addr == pc; ++i) {{
+    for (unsigned i = low; i < {len(ram_indices)} && entries[ram_entries[i]].instruction.addr == key; ++i) {{
         const RrMdNativeStep *op = &entries[ram_entries[i]];
+        if (op->instruction.byte_length > 0x1000000u - pc) continue;
         int matches = 1;
         for (int n = 0; n < op->instruction.word_count; ++n) {{
             unsigned offset = (pc + n * 2) & 0xffffu;
-            unsigned word = ((unsigned)g_ram[offset] << 8) | g_ram[(offset + 1) & 0xffffu];
+            unsigned word = rr_md_instruction_word(pc + n * 2u);
             if (word != op->instruction.words[n]) {{ matches = 0; break; }}
         }}
         if (matches) return op;
@@ -286,7 +561,8 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
 }}
 ''')
     lookup = f'''const RrMdNativeStep *rr_md_native_lookup(uint32_t pc) {{
-    {'if (!(pc & 1u) && pc >= 0xff0000u) return ram_lookup(pc);' if ram_indices else ''}
+    pc &= 0xffffffu;
+    {'if (!(pc & 1u) && pc >= 0xe00000u) return ram_lookup(pc);' if ram_indices else ''}
     if ((pc & 1u) || pc >= {len(rom.data)}u) return NULL;
     unsigned page = page_map[pc >> 8];
     if (!page) return NULL;
@@ -294,11 +570,37 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
     return index ? &entries[index - 1] : NULL;
 }}
 '''
-    write_changed(generated / 'md_step_index.c', '#include "md_native_steps.h"\n#include <stddef.h>\n' +
+    if mapper:
+        lookup=f'''static const RrMdNativeStep *physical_lookup(uint32_t offset,uint32_t pc) {{
+    if(offset>={len(rom.data)}u)return NULL;
+    unsigned page=page_map[offset>>8];if(!page)return NULL;
+    unsigned index=slots[page-1][(offset&255u)>>1];if(!index)return NULL;
+    const RrMdNativeStep *op=&entries[index-1];
+    for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n)
+        if(rr_md_instruction_word(pc+n*2u)!=op->instruction.words[n])return NULL;
+    return op;
+}}
+const RrMdNativeStep *rr_md_native_lookup(uint32_t pc) {{
+    pc&=0xffffffu;if(pc&1u)return NULL;
+    {'if(pc>=0xe00000u)return ram_lookup(pc);' if ram_indices else ''}
+    if(pc>=0x400000u)return NULL;
+    uint32_t offset=rr_md_cart_rom_offset(pc);
+    const RrMdNativeStep *op=physical_lookup(offset,pc);if(op)return op;
+    /* A bank write does not flush words already in the 68000 prefetch.
+     * Select another fixed translated image only after all word guards pass. */
+    for(uint32_t page=0;page<{len(rom.data)}u;page+=0x80000u) {{
+        uint32_t candidate=page+(pc&0x7ffffu);if(candidate==offset)continue;
+        op=physical_lookup(candidate,pc);if(op)return op;
+    }}
+    return NULL;
+}}
+'''
+    write_changed(generated / 'md_step_index.c', '#include "md_native_steps.h"\n#include "md_prefetch.h"\n#include <stddef.h>\n' +
                   declarations + table + mapping + ram + lookup)
-    accepted_seeds = sum(ins['addr'] in addresses or ins['addr'] >= 0xff0000 for ins in instructions)
+    accepted_seeds = sum(ins['addr'] in addresses or ins['addr'] >= 0xe00000 for ins in instructions)
     audit = {'schema': 2, 'translated_instructions': len(instructions),
              'guarded_ram_variants': len(ram_indices),
+             'physical_rom_mapper': 'sega_512k' if mapper else None,
              'requested_rom_entries': len(addresses), 'follow_static_flow': follow_flow,
              'additional_rom_instructions': len(instructions) - accepted_seeds,
              'rejected_or_unimplemented': len(addresses) + len(ram_variants) - accepted_seeds,
@@ -313,26 +615,81 @@ def write_changed(path: Path, source: str) -> None:
 
 
 def adapt_interpreter(source: str) -> str:
+    from .megadrive_memory import runtime_source
+    source = runtime_source(source, 'interpreter')
     source = adapt_semantics(source)
     source = source.replace('#include "m68k_interp.h"',
         '#include "m68k_interp.h"\n#include "retro_md_game.h"\n#include "md_native_steps.h"\n'
+        '#include "md_exception_decode.h"\n#include "md_bus_scheduler.h"\nunsigned rr_md_exception_cycles, rr_md_trace_suppressed;\n'
+        'static int interp_ea_read_cost(int ea, M68KSize sz);\n'
+        'static int interp_estimate_cycles(const M68KInstr *ins);\n'
         'extern int genesis_force_interp(void);', 1)
     source = source.replace('static int s_illegal_ea = 0;',
                             'int rr_md_illegal_ea = 0;\n#define s_illegal_ea rr_md_illegal_ea', 1)
-    wrapper = '''static bool rr_md_decode(const GenesisRom *rom, uint32_t pc, M68KInstr *ins) {
+    source = source.replace('/* A PC is fetchable',
+        'static int eval_cond(int cc);\n#include "md_prefetch.inc"\n\n/* A PC is fetchable',1)
+    wrapper = '''static const RrMdNativeStep *rr_prepared_native;
+static bool rr_md_decode(const GenesisRom *rom, uint32_t pc, M68KInstr *ins) {
+    rr_pf_begin(pc);rr_prepared_native=NULL;
     if (!genesis_force_interp()) {
         const RrMdNativeStep *op = rr_md_native_lookup(pc);
-        if (op) { *ins = op->instruction; return true; }
+        if (op) {
+            *ins = op->instruction;
+            if (pc != ins->addr) rr_md_relocate_instruction(ins, pc);
+            rr_prepared_native=op;
+        }
     }
-    return m68k_decode(rom, pc, ins);
+    GenesisRom view=*rom;view.read8_override=rr_pf_fetch8;
+    if(!rr_prepared_native) {
+        if (!m68k_decode(&view, pc, ins)) return false;
+        rr_md_normalize_exception(ins);
+    }
+    rr_pf_prepare(ins);
+    /* A Z80 write during an extension fetch may change the prepared image.
+     * Decode that image once on the reference path and select its exact body;
+     * never execute a literal operand that differs from the fetched word. */
+    if(rr_md_prefetch_active()) {
+        int changed=0;
+        for(unsigned n=0;n<(unsigned)ins->word_count;++n) {
+            if((rr_pf_image_valid&(1u<<n)) && ins->words[n]!=rr_pf_image[n]) { changed=1;break; }
+        }
+        if(changed) {
+            if(!m68k_decode(&view,pc,ins))return false;
+            rr_md_normalize_exception(ins);
+        }
+        if(!genesis_force_interp() && (changed || !rr_prepared_native))
+            rr_prepared_native=rr_md_native_lookup(pc);
+    }
+    rr_md_rom_fetch_offset=rr_md_cart_code_offset(pc,ins->words,(unsigned)ins->word_count);
+    return true;
 }
 
 '''
-    source = source.replace('static M68kiStatus exec_one(', wrapper + 'static M68kiStatus exec_one(', 1)
-    source = source.replace('    cov_mark(ins->addr);',
-        '    if (!genesis_force_interp()) {\n'
-        '        const RrMdNativeStep *op = rr_md_native_lookup(ins->addr);\n'
-        '        if (op) return op->execute(next_pc);\n    }\n    cov_mark(ins->addr);', 1)
+    source = source.replace('static M68kiStatus exec_one(', wrapper + 'static M68kiStatus exec_one_raw(', 1)
+    # All execution callers share the retirement boundary. T is sampled before
+    # execution, including an instruction which changes SR. Complete a trap
+    # first, then stack trace before cycle accounting can enter IRQ/scheduler.
+    retirement = '''static M68kiStatus exec_one(const M68KInstr *ins, uint32_t *next_pc) {
+    unsigned trace = g_cpu.SR & 0x8000u;
+    rr_md_exception_cycles = rr_md_trace_suppressed = 0;
+    const RrMdNativeStep *op = rr_prepared_native;
+    M68kiStatus status = op ? op->execute(next_pc) : exec_one_raw(ins, next_pc);
+    if (status == M68KI_OK && !s_illegal_ea && trace && !rr_md_trace_suppressed) {
+        rr_pf_finish(ins,*next_pc); /* Complete the instruction before tracing it. */
+        unsigned clocks = rr_md_exception_cycles ? rr_md_exception_cycles : rr_pf_control_cycles ? rr_pf_control_cycles :
+            op ? op->cycles : (unsigned)interp_estimate_cycles(ins);
+        rr_md_instruction_exception(next_pc, 9, *next_pc, clocks + 34u);
+    }
+    rr_md_trace_suppressed = 0; /* Never retained across yields or snapshots. */
+    if(status==M68KI_OK)rr_pf_finish(ins,*next_pc);
+    return status;
+}
+
+'''
+    account_anchor = 'static void interp_account_cycles(const M68KInstr *ins)'
+    if source.count(account_anchor) != 1:
+        raise ConversionError('Pinned 68000 retirement boundary changed; trace adaptation refused.')
+    source = source.replace(account_anchor, retirement + account_anchor, 1)
     source = source.replace('m68k_decode(busview(), pc, &ins)', 'rr_md_decode(busview(), pc, &ins)')
     # Only successfully retired fallback ROM instructions are learned. An IRQ
     # RTE peek and invalid/unimplemented operations do not count as coverage.
@@ -344,46 +701,86 @@ def adapt_interpreter(source: str) -> str:
         '        rr16_note_ram_instruction(ins);\n    }\n'
         '    int cyc = retired_native ? (int)retired_native->cycles : -1;', 1)
     source = source.replace('M68kiStatus st = exec_one(&ins, &next);',
-        'const RrMdNativeStep *retired_native = genesis_force_interp() ? NULL : rr_md_native_lookup(ins.addr);\n'
+        'const RrMdNativeStep *retired_native = rr_prepared_native;\n'
         '    M68kiStatus st = exec_one(&ins, &next);')
     source = source.replace('interp_account_cycles(&ins);', 'interp_account_cycles(&ins, retired_native);')
+    accounting = source.index('static void interp_account_cycles(')
+    source = source[:accounting] + source[accounting:].replace('    g_native_insn_count++;',
+        '    if(rr_pf_control_cycles)cyc=(int)rr_pf_control_cycles;\n'
+        '    if (rr_md_exception_cycles) cyc = (int)rr_md_exception_cycles;\n'
+        '    rr_md_exception_cycles = 0; /* Consume before IRQs or frame yields. */\n'
+        '    cyc = (int)rr_md_cpu_retire_cycles((unsigned)cyc);\n'
+        '    g_native_insn_count++;', 1)
     source = source.replace('g_rte_pending = 1;\n            interp_account_cycles(&ins, retired_native);',
         'g_rte_pending = 1;\n            interp_account_cycles(&ins, NULL);')
     source = source.replace('if (pc >= ROM_SIZE)', 'if (!pc_fetchable(pc))')
-    source = source.replace('if (depth == 0 && ins.mnemonic == MN_RTE)',
-                            'if (ins.mnemonic == MN_RTE)')
+    # A trap inside an IRQ handler has its own RTE. Execute nested returns and
+    # stop only once the entry interrupt frame has actually been popped.
+    handler_start = source.index('M68kiStatus m68k_interp_run_handler(')
+    handler_end = source.index('M68kiStatus m68k_interp_run_ram_handler(', handler_start)
+    handler = source[handler_start:handler_end]
+    handler = handler.replace('    int depth = 0;', '    uint32_t handler_sp = g_cpu.A[7];\n    int depth = 0;', 1)
+    peek = '''        if (depth == 0 && ins.mnemonic == MN_RTE)
+            return M68KI_OK;                 /* handler's own return — stop, don't pop */'''
+    if handler.count(peek) != 1:
+        raise ConversionError('Pinned 68000 IRQ return changed; nested-frame adaptation refused.')
+    handler = handler.replace(peek, '''        int handler_return = ins.mnemonic == MN_RTE &&
+            (g_cpu.SR & SR_S) && g_cpu.A[7] == handler_sp;''', 1)
+    handler = handler.replace('        interp_account_cycles(&ins, retired_native);',
+        '        interp_account_cycles(&ins, retired_native);\n'
+        '        if (handler_return) return M68KI_OK;', 1)
+    source = source[:handler_start] + handler + source[handler_end:]
     source = source.replace('M68kiStatus m68k_interp_step(void) {', '''M68kiStatus m68k_interp_step(void) {
     if (rr_md_cpu_stopped) {
         /* Advance the scheduler without fetching or retiring an instruction.
          * An unmasked IRQ selects its vector and clears STOP in the frame helper. */
-        g_audio_cycle_counter += 4; g_cycle_accumulator += 4;
+        unsigned idle = rr_md_cpu_stop_cycles();
+        g_audio_cycle_counter += idle; g_cycle_accumulator += idle;
         if (g_cycle_accumulator >= g_vblank_threshold) glue_check_vblank();
-        GEN_COSIM_TICK(4);
+        GEN_COSIM_TICK(idle);
         return M68KI_OK;
     }''', 1)
     return source
 
 
 def adapt_cpu_snapshot(source: str) -> str:
-    """Include STOP in rollback/F1 state without changing the pinned CPU ABI."""
+    """Save pointer-free STOP/prefetch state; explicitly migrate prequeue states."""
     from .gun16_runtime import replace
     start = source.index('static size_t sec_cpu_save(')
     end = source.index('static size_t sec_ram_save(', start)
     original = source[start:end]
-    adapted = original.replace('sizeof g_cpu', '(sizeof g_cpu + sizeof rr_md_cpu_stopped)')
-    # Copy CPU and latch separately; they are not adjacent globals.
-    adapted = replace(adapted,
-        '    memcpy(dst, &g_cpu, (sizeof g_cpu + sizeof rr_md_cpu_stopped));',
-        '    memcpy(dst, &g_cpu, sizeof g_cpu);\n'
-        '    memcpy((uint8_t *)dst + sizeof g_cpu, &rr_md_cpu_stopped, sizeof rr_md_cpu_stopped);')
-    adapted = replace(adapted,
-        '    memcpy(&g_cpu, src, (sizeof g_cpu + sizeof rr_md_cpu_stopped));',
-        '    uint32_t stopped;\n'
-        '    memcpy(&stopped, (const uint8_t *)src + sizeof g_cpu, sizeof stopped);\n'
-        '    if (stopped > 1) return 0;\n'
-        '    memcpy(&g_cpu, src, sizeof g_cpu);\n'
-        '    rr_md_cpu_stopped = stopped;')
-    return '#include "md_native_steps.h"\n' + source[:start] + adapted + source[end:]
+    adapted = '''int rr_md_cpu_snapshot_size(size_t len) {
+    return len==sizeof g_cpu+4 || len==sizeof g_cpu+4+sizeof(RrMdPrefetch);
+}
+static int rr_md_cpu_snapshot_valid(const void *src,size_t len) {
+    uint32_t stopped;RrMdPrefetch queue={0};M68KState cpu;
+    if(!rr_md_cpu_snapshot_size(len))return 0;
+    memcpy(&cpu,src,sizeof cpu);memcpy(&stopped,(const uint8_t *)src+sizeof cpu,4);
+    if(stopped>1)return 0;
+    if(len>sizeof cpu+4)memcpy(&queue,(const uint8_t *)src+sizeof cpu+4,sizeof queue);
+    return queue.pc<=0xffffffu && !(queue.pc&1u) &&
+        (queue.valid==0 || (queue.valid==2 && queue.pc==(cpu.PC&0xffffffu) && !stopped));
+}
+static size_t sec_cpu_save(void *dst,size_t cap) {
+    size_t need=sizeof g_cpu+4+sizeof rr_md_prefetch;
+    if(!dst)return need;
+    if(cap<need)return 0;
+    memcpy(dst,&g_cpu,sizeof g_cpu);
+    memcpy((uint8_t *)dst+sizeof g_cpu,&rr_md_cpu_stopped,4);
+    memcpy((uint8_t *)dst+sizeof g_cpu+4,&rr_md_prefetch,sizeof rr_md_prefetch);
+    return need;
+}
+static int sec_cpu_load(const void *src,size_t len) {
+    if(!rr_md_cpu_snapshot_valid(src,len))return 0;
+    rr_md_prefetch_reset();
+    memcpy(&g_cpu,src,sizeof g_cpu);
+    memcpy(&rr_md_cpu_stopped,(const uint8_t *)src+sizeof g_cpu,4);
+    if(len>sizeof g_cpu+4)memcpy(&rr_md_prefetch,(const uint8_t *)src+sizeof g_cpu+4,sizeof rr_md_prefetch);
+    return 1;
+}
+
+'''
+    return '#include "md_native_steps.h"\n#include "md_prefetch.h"\n' + source[:start] + adapted + source[end:]
 
 
 def adapt_irq_glue(source: str) -> str:
@@ -402,7 +799,6 @@ def adapt_irq_glue(source: str) -> str:
     if (level == 6) vdp->in_vblank = 1;
     g_audio_cycle_counter += 44; g_cycle_accumulator += 44;
     M68kiStatus status = m68k_interp_run_handler(m68k_read32(vector) & 0xffffffu);
-    if (status == M68KI_OK) status = m68k_interp_step(); /* real RTE pops the exception frame */
     if (status != M68KI_OK) {
         rr16_note_fault();
         fprintf(stderr, "[68000 IRQ] HALT status=%d level=%d pc=%06x opcode=%04x\\n",

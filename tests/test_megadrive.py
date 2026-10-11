@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from smsrecomp import megadrive
-from smsrecomp.megadrive_codegen import translated_body, operation_name
+from smsrecomp.megadrive_codegen import translated_body, operation_name, jump_table_entries
 from smsrecomp.core import ConversionError
 
 
@@ -85,10 +85,74 @@ class MegaDriveMemoryTests(unittest.TestCase):
         self.rom.data[0:4] = (0x80000).to_bytes(4, 'big')
         with self.assertRaises(ConversionError):
             megadrive.vectors(self.rom)
+
+    def test_known_eeprom_board_support_without_save_header_or_known_rom(self):
+        self.rom.data[0x180:0x18e] = b'GM T-81406 -00'.ljust(14, b' ')
+        self.rom.data[0x1b0:0x1bc] = b' ' * 12
+        self.assertEqual(megadrive.profile_for(self.rom)['limitations'], [])
+        self.assertTrue(megadrive.eeprom_device(self.rom)['implemented'])
+        self.assertEqual(megadrive.eeprom_device(self.rom)['chip'], '24C04')
+
+    def test_large_rom_requires_explicit_mapper_identity_and_mapped_vectors(self):
+        self.rom.data=bytearray(b'\xff'*0x500000)
+        for offset,value in ((0,0xffc000),(4,0x200),(0x70,0x220),(0x78,0x240)):
+            self.rom.data[offset:offset+4]=value.to_bytes(4,'big')
+        self.rom.data[0x100:0x110]=b'SEGA MEGA DRIVE '.ljust(16,b' ')
+        with self.assertRaises(ConversionError):megadrive.validate_cartridge(self.rom)
+        self.rom.data[0x180:0x18e]=b'GM MK-12056-00'
+        megadrive.validate_cartridge(self.rom)
+        self.assertEqual(megadrive.bank_mapper(self.rom)['kind'],'sega_512k')
+        self.rom.data[4:8]=(0x400200).to_bytes(4,'big')
+        with self.assertRaises(ConversionError):megadrive.vectors(self.rom)
+        self.rom.data[0x180:0x18e]=b' '*14
+        self.rom.data[0x100:0x110]=b'SEGA SSF'.ljust(16,b' ')
+        megadrive.validate_cartridge(self.rom)
+        self.rom.data.extend(b'\xff'*0x400000)
+        with self.assertRaises(ConversionError):megadrive.validate_cartridge(self.rom)
+        self.rom.sha256 = '0' * 64
+        self.rom.title = 'Renamed cartridge'
+        self.assertEqual(megadrive.profile_for(self.rom)['limitations'], [])
+
+    def test_parallel_sram_patch_overrides_original_sega_eeprom_identity(self):
+        self.rom.data[0x180:0x18e] = b'GM T-12053 -00'.ljust(14, b' ')
+        self.rom.data[0x1b0:0x1bc] = bytes.fromhex('5241f8200020000100203fff')
+        self.assertIsNone(megadrive.eeprom_device(self.rom))
+        self.assertEqual(megadrive.profile_for(self.rom)['limitations'], [])
+        self.rom.data[0x1b0:0x1bc] = bytes.fromhex('5241e8400020000100200001')
+        self.assertEqual(megadrive.eeprom_device(self.rom)['chip'], 'X24C01')
+
+    def test_unlisted_declared_eeprom_keeps_limitation_without_guessing_circuit(self):
+        self.rom.data[0x180:0x18e] = b'GM T-99999 -00'.ljust(14, b' ')
+        self.rom.data[0x1b0:0x1bc] = bytes.fromhex('5241e8400020000100200001')
+        device = megadrive.eeprom_device(self.rom)
+        self.assertIsNone(device['chip'])
+        self.assertIsNone(device['wiring'])
+        self.assertFalse(device['implemented'])
+        self.assertIn('EEPROM', megadrive.profile_for(self.rom)['limitations'][0])
         self.rom.data[0:4] = (0xffc000).to_bytes(4, 'big')
         self.rom.data[0x78:0x7c] = (0x241).to_bytes(4, 'big')
         with self.assertRaises(ConversionError):
             megadrive.vectors(self.rom)
+
+    def test_all_work_ram_aliases_accept_stack_irq_and_guarded_observations(self):
+        for base in range(0xe00000, 0x1000000, 0x10000):
+            with self.subTest(base=base):
+                self.rom.data[:4] = (0xff000000 | base | 0xc000).to_bytes(4, 'big')
+                self.rom.data[0x78:0x7c] = (base | 0x8000).to_bytes(4, 'big')
+                values = megadrive.vectors(self.rom)
+                self.assertEqual(values['ssp'], 0xff000000 | base | 0xc000)
+                self.assertEqual(values['vblank'], base | 0x8000)
+                self.assertTrue(megadrive.valid_ram_variant({'address': base | 0x8000, 'bytes': '4e71'}))
+        self.assertFalse(megadrive.valid_ram_variant({'address': 0xdffffe, 'bytes': '4e71'}))
+
+    def test_svp_hardware_marker_rejects_without_relying_on_title(self):
+        self.rom.data[0x1c8:0x1ca] = b'SV'
+        self.rom.title = 'Renamed cartridge'
+        with self.assertRaisesRegex(ConversionError, 'SVP coprocessor'):
+            megadrive.validate_cartridge(self.rom)
+        self.rom.data[0x1c8:0x1ca] = b'  '
+        self.rom.title = 'Virtua Racing'
+        megadrive.validate_cartridge(self.rom)
 
     def test_empty_stack_at_bus_wrap_preserves_full_address_register(self):
         for stack in (0, 0x1000000, 0xffff0000, 0xfffffffe):
@@ -139,6 +203,32 @@ class MegaDriveMemoryTests(unittest.TestCase):
         self.assertEqual(operation_name(instruction), 'rr_md_op_ff8000_7001')
         instruction['words'][0] = 0x70ff
         self.assertEqual(operation_name(instruction), 'rr_md_op_ff8000_70ff')
+
+
+class JumpTableDiscoveryTests(unittest.TestCase):
+    def test_reached_slot_expands_siblings_but_arbitrary_pointers_do_not(self):
+        data = bytearray(b'\xff' * 4096)
+        for pc, target in ((0x400, 0x500), (0x404, 0x510), (0x408, 0x520)):
+            data[pc:pc+4] = b'\x4e\xfa' + (target - pc - 2).to_bytes(2, 'big', signed=True)
+        self.assertEqual(jump_table_entries(data, {0x404}), {0x400, 0x404, 0x408})
+        self.assertEqual(jump_table_entries(data, set()), set())
+        self.assertEqual(jump_table_entries(data, {0x403, 0x1000, 0xff0000}), set())
+        for pc, target in ((0x600, 0x500), (0x604, 0x510), (0x608, 0x520)):
+            data[pc:pc+4] = target.to_bytes(4, 'big')
+        self.assertEqual(jump_table_entries(data, {0x604}), set())
+
+    def test_short_invalid_truncated_and_negative_displacement_runs(self):
+        data = bytearray(b'\xff' * 4096)
+        for pc, target in ((0x600, 0x200), (0x604, 0x210), (0x608, 0x220)):
+            data[pc:pc+4] = b'\x60\x00' + (target - pc - 2).to_bytes(2, 'big', signed=True)
+        self.assertEqual(jump_table_entries(data, {0x604}), {0x600, 0x604, 0x608})
+        data[0x608:0x60c] = b'\xff' * 4
+        self.assertEqual(jump_table_entries(data, {0x604}), set())
+        for target in (0x201, 0x1000, 0):
+            data[0x608:0x60c] = b'\x60\x00' + (target - 0x60a).to_bytes(2, 'big', signed=True)
+            self.assertEqual(jump_table_entries(data, {0x604}), set())
+        data[0xffc:0x1000] = bytes.fromhex('4ef90000')
+        self.assertEqual(jump_table_entries(data, {0xffc}), set())
 
 
 if __name__ == '__main__':

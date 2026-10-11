@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "0.24.0"
+VERSION = "0.25.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -22,7 +22,7 @@ docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
-MEDIAS/RetroRecomp_UI.png MEDIAS/RC_Windows_Screen.png
+MEDIAS/RetroRecomp_UI.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico
@@ -33,12 +33,12 @@ assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
 assets/tools/upx.exe
-licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md
+licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md licenses/SuperMarioWorldRecomp.md
 licenses/upx-5.2.1-src.tar.xz
-licenses/SingleStepTests-z80.md licenses/Python.md licenses/Tcl-Tk.md
+licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
@@ -56,7 +56,8 @@ smsrecomp/systems/game_gear.py smsrecomp/systems/game_boy.py
 smsrecomp/gameboy.py smsrecomp/gameboy_runtime.py
 smsrecomp/gameboy_build.py smsrecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-smsrecomp/gameboy_timing.py
+smsrecomp/gameboy_timing.py smsrecomp/gameboy_hardware.py
+native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
@@ -65,9 +66,11 @@ native/controls.c native/controls.h native/host.c native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
+native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/nes_host_ui.c native/nes_dense_codegen.inc
+native/nes_audio_output.inc native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
@@ -80,8 +83,19 @@ native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
 native/console16_state.c native/console16_state.h native/md_portable_state.inc
 smsrecomp/console16_state.py tools/console16_state_selftest.py
-native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_step_dispatch.c
+native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_exception_decode.h native/md_step_dispatch.c
+native/md_battery.c native/md_battery.h smsrecomp/megadrive_sram.py smsrecomp/megadrive_memory.py
+native/md_cart.h native/md_cart.inc native/md_eeprom.h native/md_eeprom_checks.c
+native/md_cart_checks.c native/md_mapper_checks.c
+smsrecomp/megadrive_cart.py tools/megadrive_eeprom_selftest.py tools/megadrive_mapper_selftest.py
+tools/megadrive_eeprom_state_selftest.py tools/megadrive_irq_collision_selftest.py tests/test_setup_lock.py
+native/md_sram_checks.c tools/megadrive_sram_selftest.py tests/test_megadrive_sram.py
+tools/megadrive_save_selftest.py
 native/md_native_checks.c tools/megadrive_native_selftest.py tests/test_megadrive.py
+native/md_cycle_checks.c tools/megadrive_cycles_selftest.py
+native/md_exception_checks.c tools/megadrive_exception_selftest.py
+tests/fixtures/md-exceptions/cases.json tests/fixtures/md-exceptions/LICENSE
+docs/MEGADRIVE_CPU_EXCEPTIONS.md
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
 smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
 smsrecomp/snes_timing.py native/snes_timing.h
@@ -91,12 +105,29 @@ native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py
 smsrecomp/guns16.py smsrecomp/gun16_runtime.py
 smsrecomp/megadrive_runtime.py native/md_ym_timers.h native/md_timing.h tools/megadrive_audio_selftest.py
 native/md_timing_checks.c tools/megadrive_timing_selftest.py
+native/console16_video.h native/md_video_checks.c tools/megadrive_video_selftest.py
+native/md_raster_checks.c tools/megadrive_raster_selftest.py
+docs/MEGADRIVE_VIDEO.md
+smsrecomp/megadrive_fifo.py native/md_vdp_fifo.h native/md_vdp_fifo.inc
+native/md_fifo_checks.c tools/megadrive_fifo_selftest.py tests/test_megadrive_fifo.py
+smsrecomp/megadrive_dma.py native/md_vdp_dma.h native/md_vdp_dma.inc
+smsrecomp/megadrive_read.py native/md_vdp_read.h native/md_vdp_read.inc
+smsrecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
+native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
+tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
+docs/MEGADRIVE_PREFETCH.md
+native/md_bus_checks.c tools/megadrive_bus_selftest.py
+native/md_read_checks.c tools/megadrive_read_selftest.py tests/test_megadrive_read.py
+native/md_dma_checks.c tools/megadrive_dma_selftest.py tests/test_megadrive_dma.py
 smsrecomp/megadrive_z80.py native/md_z80_native.h native/md_z80_runtime.c
+smsrecomp/megadrive_z80_timing.py tests/fixtures/z80_phases.json docs/MEGADRIVE_Z80_TIMING.md
 native/md_z80_checks.c tools/megadrive_z80_selftest.py tests/test_megadrive_z80.py
+native/md_z80_resume_checks.c tools/megadrive_z80_resume_selftest.py tools/megadrive_interrupt_selftest.py
+smsrecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
   tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md
-native/gb_input_refresh.inc
+native/gb_input_refresh.inc native/gb_audio_output.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
@@ -117,6 +148,7 @@ tools/host_selftest.py tools/icon_selftest.py tools/install_converter.py
 tools/learning_selftest.py tools/package.ps1 tools/player2_selftest.py
 tools/prepare_logo.py tools/publishing_selftest.py tools/prepare_publication.py
 tools/lightphaser_selftest.py tools/video_selftest.py docs/LIGHT_PHASER.md docs/VIDEO.md
+native/sms_sprite_probe.c tools/sms_sprite_selftest.py
 tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
 """.split())

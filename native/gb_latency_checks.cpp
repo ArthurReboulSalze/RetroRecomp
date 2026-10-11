@@ -34,7 +34,7 @@ extern "C" void gb_dispatch(GBContext*, uint16_t) {
 }
 
 static void audio_checks() {
-    assert(g_audio_latency_ms == 20 && g_audio_device_buffer_samples == 512);
+    assert(g_audio_latency_ms == 20 && g_audio_device_buffer_samples == 256);
     const fs::path prefs = runtime_preferences_path();
     assert(!fs::exists(prefs));
     fs::create_directories(prefs.parent_path());
@@ -61,6 +61,8 @@ static void audio_checks() {
     reset_audio_output_buffer(false);
     g_audio_muted.store(false);
     g_audio_started = true;
+    g_rr_audio_ready = true;
+    g_rr_audio_format = AUDIO_S16SYS;
     for (int i = 0; i < 1024; ++i) assert(enqueue_audio_sample((int16_t)i, (int16_t)-i));
     publish_audio_write_batch();
     int16_t pcm[512 * 2];
@@ -74,6 +76,7 @@ static void audio_checks() {
 
     reset_audio_output_buffer(false);
     g_audio_started = true;
+    g_rr_audio_ready = true;
     for (int i = 0; i < 5000; ++i) assert(enqueue_audio_sample((int16_t)i, (int16_t)-i));
     publish_audio_write_batch();
     sdl_audio_callback(NULL, (Uint8*)pcm, sizeof(pcm));
@@ -89,7 +92,95 @@ static void audio_checks() {
     GBAudioStressResult stress = {};
     assert(gb_platform_test_audio_concurrency(200000, &stress));
     assert(stress.frames_enqueued > 0 && stress.write_publications * 4 < stress.frames_enqueued);
-    printf("PASS: 20 ms target, 512-sample callback, legacy prefs, %.1f ms for six paced frames, PCM order, bounded backlog and concurrent ring.\n", elapsed);
+    printf("PASS: legacy prefs, %.1f ms for six paced frames, PCM order, bounded backlog and concurrent ring.\n", elapsed);
+}
+
+static void audio_deadline_checks() {
+    test_clock_enabled = true;
+    const uint64_t frequency = SDL_GetPerformanceFrequency();
+    for (unsigned period : {256u, 441u, 480u, 512u, 1024u}) {
+        for (unsigned phase = 0; phase < 16; ++phase) {
+            reset_audio_output_buffer(false);
+            g_audio_device_sample_rate = AUDIO_SAMPLE_RATE;
+            g_audio_device_buffer_samples = period;
+            recompute_audio_targets();
+            g_audio_started = true;
+            g_audio_muted.store(false); g_audio_volume_percent.store(100);
+            g_rr_audio_format = phase & 1 ? AUDIO_F32SYS : AUDIO_S16SYS;
+            uint64_t produced = 0, consumed = 0, callbacks = 0;
+            unsigned frame = 0;
+            const uint64_t origin = frequency;
+            const uint64_t first_callback = origin + phase * period * frequency / (16u * AUDIO_SAMPLE_RATE);
+            std::vector<Uint8> output(period * (g_rr_audio_format == AUDIO_F32SYS ? 8u : 4u));
+            while (frame < 2000) {
+                const uint64_t next_frame = origin + (uint64_t)frame * 70224 * frequency / 4194304 +
+                    (frame ? (frame % 7) * frequency / 2000 : 0); // Up to 3 ms scheduling jitter.
+                const uint64_t next_callback = first_callback + callbacks * period * frequency / AUDIO_SAMPLE_RATE;
+                if (next_frame <= next_callback) {
+                    test_clock = next_frame;
+                    const uint64_t end = (uint64_t)(++frame) * 70224 * AUDIO_SAMPLE_RATE / 4194304;
+                    while (produced < end) {
+                        assert(enqueue_audio_sample((int16_t)produced, (int16_t)~produced)); ++produced;
+                    }
+                    publish_audio_write_batch();
+                } else {
+                    test_clock = next_callback; ++callbacks;
+                    const uint64_t old_silence = g_rr_audio_startup_silence;
+                    sdl_audio_callback(NULL, output.data(), (int)output.size());
+                    const uint32_t silence = (uint32_t)(g_rr_audio_startup_silence - old_silence);
+                    if (!consumed && silence < period) {
+                        const double start_ms = (test_clock - origin) * 1000.0 / frequency + silence * 1000.0 / AUDIO_SAMPLE_RATE;
+                        const double expected_ms = period * 1000.0 / AUDIO_SAMPLE_RATE + 10.0;
+                        assert(start_ms >= expected_ms - 0.001 && start_ms <= expected_ms + 0.025);
+                    }
+                    for (uint32_t i = 0; i < period; ++i) {
+                        int16_t left = i < silence ? 0 : (int16_t)consumed;
+                        int16_t right = i < silence ? 0 : (int16_t)~consumed;
+                        if (g_rr_audio_format == AUDIO_F32SYS) {
+                            assert(((float*)output.data())[i * 2] == left / 32768.0f);
+                            assert(((float*)output.data())[i * 2 + 1] == right / 32768.0f);
+                        } else {
+                            assert(((int16_t*)output.data())[i * 2] == left);
+                            assert(((int16_t*)output.data())[i * 2 + 1] == right);
+                        }
+                        if (i >= silence) ++consumed;
+                    }
+                    assert(g_audio_underruns.load() == 0 && g_rr_audio_trimmed.load() == 0);
+                }
+            }
+            const double lag = (test_clock - origin) * 1000.0 / frequency - consumed * 1000.0 / AUDIO_SAMPLE_RATE;
+            assert(consumed > 1000000 && lag < 60); // No accumulating queue/drift.
+            assert(g_rr_audio_startup_silence > 0);
+        }
+    }
+    reset_audio_output_buffer(false);
+    assert(!g_rr_audio_ready && !g_rr_audio_start_counter.load());
+    // Float output preserves integer volume rounding/clipping and mute.
+    g_audio_started = g_rr_audio_ready = true;
+    g_rr_audio_format = AUDIO_F32SYS;
+    g_audio_volume_percent.store(50);
+    assert(enqueue_audio_sample(30001, -30001)); publish_audio_write_batch();
+    float stereo[2]; sdl_audio_callback(NULL, (Uint8*)stereo, sizeof(stereo));
+    assert(stereo[0] == 15000 / 32768.0f && stereo[1] == -15000 / 32768.0f);
+    g_audio_muted.store(true);
+    assert(enqueue_audio_sample(30000, -30000)); publish_audio_write_batch();
+    sdl_audio_callback(NULL, (Uint8*)stereo, sizeof(stereo));
+    assert(stereo[0] == 0 && stereo[1] == 0);
+    g_audio_muted.store(false); g_audio_volume_percent.store(100);
+    // Starvation silences the tail and re-primes; the next frame cannot play
+    // against an expired startup deadline after a device/CPU stall.
+    sdl_audio_callback(NULL, (Uint8*)stereo, sizeof(stereo));
+    assert(!g_rr_audio_ready && !g_rr_audio_start_counter.load());
+    assert(enqueue_audio_sample(123, -456)); publish_audio_write_batch();
+    const uint64_t restart = g_rr_audio_start_counter.load();
+    assert(restart > test_clock);
+    sdl_audio_callback(NULL, (Uint8*)stereo, sizeof(stereo));
+    assert(stereo[0] == 0 && stereo[1] == 0 && audio_ring_fill_samples() == 1);
+    test_clock = restart;
+    sdl_audio_callback(NULL, (Uint8*)stereo, sizeof(stereo));
+    assert(stereo[0] == 123 / 32768.0f && stereo[1] == -456 / 32768.0f);
+    test_clock_enabled = false;
+    puts("PASS: 80 jittered 2000-frame timelines, five callback periods, exact S16/F32 PCM, volume/mute, no underrun/drop, reset clears deadline.");
 }
 
 static void input_checks(GBContext* ctx) {
@@ -168,6 +259,7 @@ int main() {
     GBContext* ctx = gb_context_create(NULL); assert(ctx);
     gb_platform_register_context(ctx);
     audio_checks();
+    audio_deadline_checks();
     input_checks(ctx);
     gb_platform_shutdown();
     gb_context_destroy(ctx);

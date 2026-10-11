@@ -19,6 +19,76 @@ static uint64_t hash(const uint8_t *p, size_t n) {
     uint64_t h=14695981039346656037ull;
     for (size_t i=0; i<n; ++i) { h^=p[i]; h*=1099511628211ull; } return h;
 }
+static bool compatible_abi(const uint8_t *value) {
+    if (!memcmp(value,RR16_STATE_ABI,64)) return true;
+#ifdef RR16_STATE_COMPAT_ABI_21
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_21,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_22
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_22,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_20
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_20,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_2
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_2,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_3
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_3,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_4
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_4,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_5
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_5,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_6
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_6,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_7
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_7,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_8
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_8,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_9
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_9,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_10
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_10,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_11
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_11,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_12
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_12,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_13
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_13,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_14
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_14,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_15
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_15,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_16
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_16,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_17
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_17,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_18
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_18,64)) return true;
+#endif
+#ifdef RR16_STATE_COMPAT_ABI_19
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_19,64)) return true;
+#endif
+    return false;
+}
 bool rr16_state_path(wchar_t *path, size_t capacity) {
     if (capacity < 32768) return false;
     DWORD n=GetModuleFileNameW(NULL,path,32700);
@@ -64,7 +134,7 @@ bool rr16_state_file(const wchar_t *path, bool load) {
     bool valid=fread(header,1,sizeof header,file)==sizeof header &&
         !memcmp(header,magic,8) && get32(header+8)==1 &&
         get32(header+12)==RR16_STATE_SYSTEM && get32(header+16)==RR16_STATE_PAL &&
-        !memcmp(header+32,RR16_STATE_ROM,64) && !memcmp(header+96,RR16_STATE_ABI,64);
+        !memcmp(header+32,RR16_STATE_ROM,64) && compatible_abi(header+96);
     size_t n=valid ? get32(header+20) : 0;
     uint8_t *data=n && n<=MAX_STATE_BYTES ? (uint8_t *)malloc(n) : NULL;
     valid=data && fread(data,1,n,file)==n && fgetc(file)==EOF && !ferror(file);

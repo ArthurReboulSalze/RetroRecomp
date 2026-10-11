@@ -79,6 +79,12 @@ def md_glue(source):
     source = replace(source,
         'static void rr_md_service_irq(int level, uint32_t vector, GVDP *vdp) {',
         'static void rr_md_service_irq(int level, uint32_t vector, GVDP *vdp) {\n'
+        '    if(RR_MD_STEP_AOT) {\n'
+        '        rr16_md_instruction(true);\n'
+        '        rr_md_interrupt_entry((unsigned)level,vector);\n'
+        '        rr16_md_instruction(false);\n'
+        '        s_game_yielded_vblank=0;return;\n'
+        '    }\n'
         '    if (RR_MD_STEP_AOT || RR16_GUN) {\n'
         '        /* Execute the handler on the normal instruction fiber: any\n'
         '         * IRQ may wait for audio, so the Z80/VDP must keep progressing. */\n'

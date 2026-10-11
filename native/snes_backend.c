@@ -276,6 +276,7 @@ static void state_loaded(uint32_t version) {
         rr16_gun_state_load(loaded_gun,rr16_gun_state_save(NULL,0));
     audio_fraction=loaded_fraction;
 }
+bool rr16_state_ready(void) { return true; }
 uint8_t *rr16_state_capture(size_t *size) {
     *size=RtlSaveSnapshotToMemory(NULL,0);
     uint8_t *data=*size ? malloc(*size) : NULL;

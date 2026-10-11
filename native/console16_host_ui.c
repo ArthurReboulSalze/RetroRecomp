@@ -13,7 +13,9 @@
 #include "retro_keyboard.h"
 #include "display_settings.h"
 #include "console16_state.h"
+#include "console16_video.h"
 #include "scanline_sdl.h"
+#include "xbr_sdl.h"
 #include "scanlines.h"
 
 
@@ -197,16 +199,22 @@ static void scale2x(const uint32_t *source, uint32_t *target) {
             out[(RR16_WIDTH * 2)] = d == h ? d : e; out[(RR16_WIDTH * 2 + 1)] = h == f ? f : e;
         } else out[0] = out[1] = out[(RR16_WIDTH * 2)] = out[(RR16_WIDTH * 2 + 1)] = e;
     }
+    /* Linear sampling at a partial viewport's edge must see the edge color,
+     * never the unused part of the maximum-size texture (e.g. 256-wide MD). */
+    int pitch = RR16_WIDTH * 2;
+    if (width < RR16_WIDTH)
+        for (int y = 0; y < height * 2; ++y)
+            target[y * pitch + width * 2] = target[y * pitch + width * 2 - 1];
+    if (height < RR16_HEIGHT)
+        memcpy(target + height * 2 * pitch, target + (height * 2 - 1) * pitch,
+            (size_t)(width * 2 + (width < RR16_WIDTH)) * sizeof(*target));
 }
 
 static SDL_Rect game_rect(SDL_Renderer *renderer) {
     int w, h; SDL_GetRendererOutputSize(renderer, &w, &h);
-    int width = rr16_visible_width(), height = rr16_visible_height();
-    double factor = (double)w / width;
-    if ((double)h / height < factor) factor = (double)h / height;
-    if (fullscreen == 1) { int integer = (int)factor; factor = integer > 0 ? integer : 1; }
-    SDL_Rect rect = { (w - (int)(width * factor)) / 2, (h - (int)(height * factor)) / 2,
-                      (int)(width * factor), (int)(height * factor) };
+    Rr16Rect r = rr16_video_rect(w, h, rr16_visible_width(), rr16_raster_height(),
+                                rr16_visible_height() / rr16_raster_height(), fullscreen == 1);
+    SDL_Rect rect = {r.x, r.y, r.w, r.h};
     return rect;
 }
 
@@ -224,7 +232,7 @@ static void sample_gun(SDL_Window *window, SDL_Renderer *renderer, uint16_t pad)
         in.offscreen = x < dst.x || y < dst.y || x >= dst.x + dst.w || y >= dst.y + dst.h;
         if (!in.offscreen && dst.w > 0 && dst.h > 0) {
             in.x = (int)((int64_t)(x - dst.x) * rr16_visible_width() / dst.w);
-            in.y = (int)((int64_t)(y - dst.y) * rr16_visible_height() / dst.h);
+            in.y = (int)((int64_t)(y - dst.y) * rr16_raster_height() / dst.h);
         }
         in.fire = (buttons & SDL_BUTTON_LMASK) != 0;
         in.aux = (buttons & SDL_BUTTON_RMASK) != 0;
@@ -241,9 +249,9 @@ static void sample_gun(SDL_Window *window, SDL_Renderer *renderer, uint16_t pad)
 static void draw_gun(SDL_Renderer *renderer, const SDL_Rect *dst) {
     if (!RR16_GUN || menu || mouse_gun.offscreen) return;
     int x = dst->x + (int)((mouse_gun.x + 0.5) * dst->w / rr16_visible_width());
-    int y = dst->y + (int)((mouse_gun.y + 0.5) * dst->h / rr16_visible_height());
+    int y = dst->y + (int)((mouse_gun.y + 0.5) * dst->h / rr16_raster_height());
     int sx = (int)((double)gun_size * dst->w / rr16_visible_width());
-    int sy = (int)((double)gun_size * dst->h / rr16_visible_height());
+    int sy = (int)((double)gun_size * dst->h / rr16_raster_height());
     if (sx < 1) sx = 1; if (sy < 1) sy = 1;
     SDL_RenderSetClipRect(renderer, dst);
     SDL_SetRenderDrawColor(renderer, gun_color == 2 ? 0 : 255, gun_color ? 255 : 0, gun_color == 1 ? 255 : 0, 255);
@@ -321,7 +329,8 @@ static void draw_menu(SDL_Renderer *ren) {
         RR16_TEXT(83, tr("P or gamepad left-stick click: resume", "P ou clic stick gauche : reprendre"));
         RR16_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
     }
-    if (status[0]) RR16_TEXT(177, status);
+    if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
+    else if (status[0]) RR16_TEXT(177, status);
 #undef RR16_TEXT
     rr_menu_end(ren);
 }
@@ -342,11 +351,12 @@ int rr16_sdl_main(const char *title, int scale) {
     const char *test_no_audio = getenv("RETRORECOMP_HOST_TEST_NO_AUDIO");
     bool video_clock_test = test_frames && test_no_audio && test_no_audio[0] == '1';
     wchar_t state_path[32768] = {0}; rr16_state_path(state_path, 32768);
+    int pending_state = 0; /* 1 save, 2 load; serviced at a safe CPU boundary. */
     if (scale < 1) scale = 3;
     char caption[256];
     snprintf(caption, sizeof(caption), "%s | %s", title, "Native code");
     SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        RR16_WIDTH * scale, rr16_visible_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+        RR16_WIDTH * scale, rr16_raster_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
         (test_frames ? SDL_WINDOW_HIDDEN : 0));
     if (win && fullscreen && SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) fullscreen = 0;
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;
@@ -355,7 +365,7 @@ int rr16_sdl_main(const char *title, int scale) {
         SDL_TEXTUREACCESS_STREAMING, filter == 2 ? RR16_WIDTH * 2 : RR16_WIDTH, filter == 2 ? RR16_HEIGHT * 2 : RR16_HEIGHT) : NULL;
     uint32_t *upscaled = (uint32_t *)malloc(RR16_WIDTH * 2 * RR16_HEIGHT * 2 * sizeof(uint32_t));
     if (!tex || !upscaled) { free(upscaled); if (ren) SDL_DestroyRenderer(ren); if (win) SDL_DestroyWindow(win); return 1; }
-    SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+    SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
     rr_menu_init(ren);
     SDL_AudioSpec want = {0}, have = {0};
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
@@ -380,6 +390,7 @@ int rr16_sdl_main(const char *title, int scale) {
     int title_state = -1;
     bool running = true;
     RrScanlineMask scanlines = {0};
+    RrXbr xbr = {0};
     const char *test_filter = test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
     if (test_filter && !strcmp(test_filter, "3")) filter = 3;
     while (running) {
@@ -427,12 +438,15 @@ int rr16_sdl_main(const char *title, int scale) {
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
             else if (key == SDL_SCANCODE_F3) {
-                filter = (filter + 1) % 4;
+                filter = rr_menu_next_filter(filter);
                 SDL_DestroyTexture(tex);
                 tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                     filter == 2 ? RR16_WIDTH * 2 : RR16_WIDTH, filter == 2 ? RR16_HEIGHT * 2 : RR16_HEIGHT);
                 if (!tex) { running = false; break; }
-                SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+                SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
+                const char *labels[] = {tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
+                snprintf(status, sizeof(status), "%s", labels[filter]);
+                status_until = SDL_GetTicks64() + 1800;
                 if (!rr_display_save(ini_file, data_dir, RR16_SECTION L".Video", L"filter", filter)) snprintf(status, sizeof(status), "%s", tr("Config unavailable", "Config inaccessible"));
             } else if (key == SDL_SCANCODE_F4) {
                 int changed=rr_display_cycle(win,&fullscreen,ini_file,data_dir,RR16_SECTION L".Video");
@@ -449,14 +463,7 @@ int rr16_sdl_main(const char *title, int scale) {
                 if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
                     WritePrivateProfileStringW(L"Interface", L"language", french ? L"fr" : L"en", ini_file); }
             } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
-                bool load = key == SDL_SCANCODE_F9;
-                bool ok = rr16_state_file(state_path, load);
-                const char *message = ok ? (load ? tr("Quick state loaded", "Partie chargee") : tr("Quick state saved", "Partie sauvegardee")) :
-                    (load ? tr("No compatible quick state to load", "Aucune sauvegarde compatible") : tr("Cannot save game state", "Impossible de sauvegarder"));
-                snprintf(status, sizeof(status), "%s", message);
-                status_until = SDL_GetTicks64() + 1800;
-                if (ok) { menu = 0; capturing = 0; }
-                if (ok && load) { pause_audio_output(audio, &audio_playing); next = SDL_GetPerformanceCounter(); }
+                pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
             } else if (menu == 4) {
                 int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
                 if (key == SDL_SCANCODE_TAB) { menu = 2; gamepad_page = 0; row = 0; capturing = 0; }
@@ -477,10 +484,21 @@ int rr16_sdl_main(const char *title, int scale) {
             }
         }
         if (!running) break;
-        rr16_pause(menu != 0);
+        if (pending_state && rr16_state_ready()) {
+            bool load = pending_state == 2;
+            bool ok = rr16_state_file(state_path, load);
+            pending_state = 0;
+            const char *message = ok ? (load ? tr("Quick state loaded", "Partie chargee") : tr("Quick state saved", "Partie sauvegardee")) :
+                (load ? tr("No compatible quick state to load", "Aucune sauvegarde compatible") : tr("Cannot save game state", "Impossible de sauvegarder"));
+            snprintf(status, sizeof(status), "%s", message);
+            status_until = SDL_GetTicks64() + 1800;
+            if (ok) { menu = 0; capturing = 0; }
+            if (ok && load) { pause_audio_output(audio, &audio_playing); next = SDL_GetPerformanceCounter(); }
+        }
+        rr16_pause(menu != 0 && !pending_state);
         uint16_t pad1 = controller_input(0, frame);
         if (RR16_GUN) sample_gun(win, ren, pad1);
-        if (!menu) {
+        if (!menu || pending_state) {
             if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, frame))) { running = false; break; }
             ++frame;
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
@@ -499,7 +517,9 @@ int rr16_sdl_main(const char *title, int scale) {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
         int texture_scale = filter == 2 ? 2 : 1;
         SDL_Rect source = {0, 0, rr16_visible_width() * texture_scale, rr16_visible_height() * texture_scale};
-        SDL_RenderCopy(ren, tex, &source, &dst);
+        SDL_Texture *smooth = filter == 1 ? rr_xbr_update(ren, &xbr, rr16_pixels(), rr16_visible_width(), rr16_visible_height(), RR16_WIDTH) : NULL;
+        if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
+        else SDL_RenderCopy(ren, tex, &source, &dst);
         if (filter == 3) rr_scanlines_draw(ren, &scanlines, &dst, rr16_visible_height());
         draw_gun(ren, &dst);
 
@@ -546,6 +566,7 @@ int rr16_sdl_main(const char *title, int scale) {
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
+    rr_xbr_destroy(&xbr);
     rr_scanlines_destroy(&scanlines);
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); return 0;

@@ -15,6 +15,7 @@ from .core import ConversionError, run, module_fingerprint
 from .cartridge16 import megadrive_regions
 from .library import atomic_json, entry_lock, library_root
 from .knowledge import record_for, ram_variants as shared_ram_variants
+from .megadrive_hardware import eeprom_device, bank_mapper
 
 PROFILES = {
     '46160baa06362c711c9f1a5017cb7371026444936c8af5e93a78996cf32ff2a6':
@@ -91,8 +92,9 @@ def profile_for(rom):
     # EEPROM is not ordinary SRAM. Keep conversion available (including games
     # already tested), but never imply their original cartridge saves work.
     # https://www.plutiedev.com/rom-header
-    if rom.data[0x1b0:0x1b2] == b'RA' and rom.data[0x1b3] == 0x40:
-        limitations.append('EEPROM cartridge saves are not implemented; use F8/F9 quick states.')
+    device = eeprom_device(rom)
+    if device is not None and not device['implemented']:
+        limitations.append('This EEPROM circuit is not implemented; use F8/F9 quick states.')
     profile = PROFILES.get(rom.sha256)
     if profile is not None:
         return dict(profile, source='catalogue', limitations=limitations)
@@ -105,13 +107,19 @@ def profile_for(rom):
 
 def validate_cartridge(rom):
     """Reject known hardware gaps before allocating/building native tables."""
-    if len(rom.data) > 0x400000:
+    mapper = bank_mapper(rom)
+    if len(rom.data) > (0x800000 if mapper else 0x400000):
         raise ConversionError('Mega Drive cartridges above 4 MiB require a bank mapper '
                               'that this runtime does not support yet.')
     system = rom.data[0x100:0x110].decode('ascii', errors='replace').strip('\0 ').upper()
-    if any(marker in system for marker in ('32X', 'PICO', 'TERA', 'SSF', 'MEGAWIFI')):
+    if any(marker in system for marker in ('32X', 'PICO', 'TERA', 'MEGAWIFI')) or ('SSF' in system and not mapper):
         raise ConversionError(f'The cartridge declares {system} hardware; '
                               'the Mega Drive runtime does not support this extension yet.')
+    # Cartridge hardware marker, independent of the filename or UI title.
+    if rom.data[0x1c8:0x1ca] == b'SV':
+        raise ConversionError('This Mega Drive cartridge requires the SVP coprocessor, which is not supported yet.')
+    from .megadrive_sram import layout
+    layout(rom)
 
 
 def region_mask(rom):
@@ -145,10 +153,11 @@ def vectors(rom) -> dict:
     # A7 is 32-bit; only bus accesses discard its upper byte. An empty stack
     # at zero is valid: predecrement pushes wrap to $FFFFFC in work RAM.
     values['ssp'] = int.from_bytes(data[:4], 'big')
+    guest_limit = min(len(data),0x400000)
     stack_bus = values['ssp'] & 0xffffff
-    if (stack_bus != 0 and not 0xff0000 <= stack_bus <= 0xffffff) or stack_bus & 1:
+    if (stack_bus != 0 and not 0xe00000 <= stack_bus <= 0xffffff) or stack_bus & 1:
         raise ConversionError('Mega Drive reset stack is outside writable RAM.')
-    if not 0x200 <= values['entry'] < len(data) or values['entry'] & 1:
+    if not 0x200 <= values['entry'] < guest_limit or values['entry'] & 1:
         raise ConversionError('Mega Drive reset/interrupt vectors are not valid ROM entries.')
     # Menacer installs its V-int handler in RAM and has a low-ROM RTE stub.
     # Validate the bus address, rather than requiring every IRQ to be in ROM.
@@ -159,10 +168,10 @@ def vectors(rom) -> dict:
         # keep its actual vector and let the normal execution checks report it.
         if name == 'hblank' and pc in (0, 0xffffff):
             continue
-        if pc & 1 or not (8 <= pc < len(data) or 0xff0000 <= pc <= 0xfffffe):
+        if pc & 1 or not (8 <= pc < guest_limit or 0xe00000 <= pc <= 0xfffffe):
             raise ConversionError('Mega Drive interrupt vector is outside mapped ROM/RAM.')
     candidates = {int.from_bytes(data[p:p + 4], 'big') & 0xffffff for p in range(4, 0x100, 4)}
-    values['roots'] = sorted(value for value in candidates if 8 <= value < len(data) and not value & 1)
+    values['roots'] = sorted(value for value in candidates if 8 <= value < guest_limit and not value & 1)
     return values
 
 
@@ -195,7 +204,7 @@ def valid_ram_variant(item):
     if not isinstance(item, dict):
         return False
     address, raw = item.get('address'), item.get('bytes')
-    return (isinstance(address, int) and 0xff0000 <= address <= 0xfffffe and not address & 1
+    return (isinstance(address, int) and 0xe00000 <= address <= 0xfffffe and not address & 1
             and isinstance(raw, str) and 4 <= len(raw) <= 32 and len(raw) % 4 == 0
             and address + len(raw) // 2 <= 0x1000000
             and re.fullmatch('[0-9a-fA-F]+', raw) is not None)
@@ -270,10 +279,21 @@ def generate(compiler: Path, project: Path, rom_file: Path, *, instruction_map=F
         # translator. Live instructions still go through byte-checked native
         # bodies, fallback accounting, and the mandatory reference gate.
         log = project / 'discovery.log'
-        run([compiler, rom_file.name, '--game', 'game.toml', '--output-dir', project / 'generated'],
+        discovery = rom_file
+        from .cartridge16 import read_megadrive_rom
+        rom = read_megadrive_rom(rom_file)
+        if bank_mapper(rom) and len(rom.data)>0x400000:
+            # This legacy pass only seeds the initial mapped window. The AOT
+            # decoder below consumes the entire immutable physical cartridge;
+            # learned banked roots never become legacy function bodies.
+            discovery=project/'cartridge-discovery.bin'
+            discovery.write_bytes(rom.data[:0x400000])
+        run([compiler, discovery.name, '--game', 'game.toml', '--output-dir', project / 'generated'],
             cwd=project, log=log, timeout=600)
         atomic_json(project / 'discovery-audit.json', {'schema': 2,
             'mode': 'instruction_aot', 'function_bodies_linked': False,
+            'initial_window_bytes': min(len(rom.data),0x400000),
+            'physical_rom_bytes': len(rom.data),
             'discovery_diagnostics': re.findall(r'^\s+([A-Z_]+)\s+@ \$([0-9A-Fa-f]+)',
                                                log.read_text(encoding='utf-8', errors='replace'), re.M)})
         return
@@ -318,6 +338,10 @@ def write_spec(project: Path, rom, title: str, standard='ntsc') -> None:
         f'#define RR_MD_HBLANK 0x{v["hblank"]:06x}u\n'
         f'#define RR_MD_SONIC {int(profile["sonic"])}\n', encoding='utf-8')
     with (project / 'retro_md_game.h').open('a', encoding='utf-8') as output:
+        device = eeprom_device(rom) or {}
+        output.write(f'#define RR_MD_SEGA_MAPPER {int(bank_mapper(rom) is not None)}\n')
+        output.write(f'#define RR_MD_EEPROM_KIND { {"X24C01": 1, "X24C02": 2, "24C04": 3}.get(device.get("chip"), 0)}\n')
+        output.write(f'#define RR_MD_EEPROM_WIRING { {"sega": 1, "acclaim_16m": 2, "acclaim_32m": 3}.get(device.get("wiring"), 0)}\n')
         output.write('#define RR_MD_STEP_AOT 1\n')
         # The video-standard and domestic/overseas bits are separate hardware
         # choices. Region checks remain untouched in the cartridge.

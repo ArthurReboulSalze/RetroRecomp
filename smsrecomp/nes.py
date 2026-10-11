@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import zlib
+import wave
 from typing import Callable
 
 from . import __version__
@@ -192,7 +193,13 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
         command += ['--input', script]
     command += ['--miss-log', seed]
     if differential:
-        command += ['--hash-out', work / f'{scenario}-native.hash']
+        # Exercise synthesis as well as CPU state. Both runs start fresh and
+        # use the same clock/rate; delivery to the sound device is separate.
+        for kind in ('native', 'reference'):
+            for suffix in ('hash', 'wav'):
+                (work / f'{scenario}-{kind}.{suffix}').unlink(missing_ok=True)
+        command += ['--hash-out', work / f'{scenario}-native.hash',
+                    '--wav-out', work / f'{scenario}-native.wav']
     output = _run_probe(command, work)
     summary, interpreted = SUMMARY.search(output), INTERPRETED.search(output)
     if not summary or int(summary[1]) != frames:
@@ -209,7 +216,8 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
         raise ConversionError(f'NES {scenario} reported inconsistent native/interpreter cycle totals.')
     if differential:
         reference_command: list[str | Path] = [exe, '--frames', str(frames), '--interp-only',
-            '--hash-out', work / f'{scenario}-reference.hash']
+            '--hash-out', work / f'{scenario}-reference.hash',
+            '--wav-out', work / f'{scenario}-reference.wav']
         if script:
             reference_command += ['--input', script]
         _run_probe(reference_command, work)
@@ -217,6 +225,24 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
         reference_hash = (work / f'{scenario}-reference.hash').read_bytes()
         if native_hash != reference_hash or len(native_hash.splitlines()) != frames:
             raise ConversionError(f'NES {scenario}: native and internal interpreter frame states differ.')
+        captures = []
+        for kind in ('native', 'reference'):
+            path = work / f'{scenario}-{kind}.wav'
+            try:
+                with wave.open(str(path), 'rb') as wav:
+                    if (wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getcomptype()) != (1, 2, 48000, 'NONE'):
+                        raise ValueError('Unexpected NES PCM format')
+                    pcm = wav.readframes(wav.getnframes())
+                    if not pcm or len(pcm) != wav.getnframes() * 2:
+                        raise ValueError('Empty or truncated NES PCM')
+                    captures.append(pcm)
+            except (OSError, EOFError, ValueError, wave.Error) as exc:
+                raise ConversionError(f'NES {scenario}: missing or invalid {kind} audio capture.') from exc
+        if captures[0] != captures[1]:
+            raise ConversionError(f'NES {scenario}: native and internal interpreter audio samples differ.')
+        # Keep the numeric evidence, not megabytes of successful game audio.
+        for kind in ('native', 'reference'):
+            (work / f'{scenario}-{kind}.wav').unlink()
     return {'scenario': scenario, 'frames': frames, 'cycles': total,
             'native_cycles': native, 'native_percent': 100 * native / total if total else 0,
             'interpreter_rom_cycles': rom_cycles, 'interpreter_ram_cycles': ram_cycles,
@@ -224,7 +250,10 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             'interpreter_cycles': interpreter_cycles,
             'interpreter_percent': 100 * interpreter_cycles / total if total else 0,
             'non_dispatch_cycles': non_dispatch_cycles,
-            'internal_differential': differential}
+            'internal_differential': differential,
+            'audio_pcm_match': True if differential else None,
+            'audio_samples': len(captures[0]) // 2 if differential else None,
+            'audio_pcm_sha256': hashlib.sha256(captures[0]).hexdigest() if differential else None}
 
 
 def _write_probe_scripts(project: Path, frames: int) -> dict[str, Path | None]:
@@ -302,6 +331,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
                               ('NESRecomp', engine / 'LICENSE'),
                               ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
+                              ('xBR', ASSETS / 'licenses/xbr.md'),
                               ('SDL2', ASSETS / 'licenses/SDL2.md')]:
         notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
     (project / 'game_legal.md').write_text(notice, encoding='utf-8')
@@ -370,7 +400,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         comparison = _probe(executable, project, scenario, min(frames, 600 if script else 120), seed,
                             script, differential=True)
         cpu_checks.append(comparison)
-        emit(f'NES {scenario}: internal CPU/visible-state comparison matches '
+        emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")
     library.mkdir(parents=True, exist_ok=True)
     shutil.copy2(seed, previous)
@@ -386,7 +416,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                             'precompiled_rom_positions': native_rom_positions[0] if native_rom_positions else None,
                             'rom_address_positions': native_rom_positions[1] if native_rom_positions else None},
         'final_checks': final_checks, 'history': history,
-        'native_validation': {'passed': True, 'method': 'internal interpreter frame hashes',
+        'native_validation': {'passed': True, 'method': 'internal interpreter frame hashes and exact PCM',
                               'scenarios': cpu_checks, 'independent_cpu_oracle': False,
                               'hardware_accuracy': False, 'full_game': False},
         'reference_vdp_trace_match': None,
@@ -397,6 +427,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
         'artwork': artwork, 'windows_metadata': metadata,
         'runtime_learning': False, 'library_identity': rom.sha256,
+        'host_audio': {'sample_rate': 48000, 'callback_frames_requested': 256,
+                       'startup': 'one_device_period_plus_30ms', 'native_s16_or_float': True,
+                       'bounded_pcm_ring': True},
         'physical_latency_measured': False,
         'build_executable': str(executable), 'executable': executable.name,
         'conversion_wall_seconds': round(time.perf_counter() - started, 6)}

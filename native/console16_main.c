@@ -7,14 +7,13 @@
 #include <limits.h>
 #include "retro_console16.h"
 #include "console16_state.h"
+#include "console16_video.h"
 #ifndef RR_GAME_TITLE
 #define RR_GAME_TITLE "RetroRecomp"
 #endif
 static uint64_t fingerprint(void) {
-    uint64_t h = 14695981039346656037ull;
-    const uint32_t *p = rr16_pixels();
-    for (size_t i = 0; i < RR16_WIDTH * RR16_HEIGHT; ++i) { h ^= p[i]; h *= 1099511628211ull; }
-    return h;
+    return rr16_video_hash(rr16_pixels(), RR16_WIDTH, rr16_visible_width(),
+                           rr16_visible_height(), rr16_raster_height());
 }
 typedef struct { unsigned frame; uint16_t p1, p2; } ReplayInput;
 static ReplayInput replay[4096];
@@ -111,7 +110,7 @@ int main(int argc, char **argv) {
             /* Calibration aim is held centrally before moving through a grid.
              * The guest keeps its original start/calibration menus and flashes. */
             int width = rr16_visible_width();
-            Rr16GunInput gun = {.x = width / 2, .y = RR16_HEIGHT / 2};
+            Rr16GunInput gun = {.x = width / 2, .y = rr16_raster_height() / 2};
             if (logical_frame >= (t2_gun_menu ? 2400u : 1800u)) {
                 gun.x = 32 + (logical_frame / 90 % 4) * (width - 64) / 3;
                 gun.y = 40 + (logical_frame / 360 % 3) * 64;

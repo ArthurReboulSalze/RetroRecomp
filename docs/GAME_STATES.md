@@ -1,5 +1,33 @@
 # Persistent game states
 
+Mega Drive ABI-11 adds pointer-free cartridge state: Sega bank-page registers,
+serial EEPROM phase/lines/address/staged page and remaining guest-clock write
+time. F9 validates the full cartridge before mutation, rebuilds its ROM mapping
+and preserves already prefetched CPU words. Independent actual-backend fixtures
+exercise busy-write and banked-code states in fresh processes. Supported older
+ordinary-cartridge signatures migrate explicitly, including the preceding
+ABI-10 signature; previously unsupported EEPROM/mapper images cannot invent
+that cartridge history from old ordinary states. See
+[EEPROM persistence](MEGADRIVE_EEPROM.md) and [banked code](MEGADRIVE_MAPPERS.md).
+The two qualified ABI-11 predecessors are also recognized explicitly after
+wire-state validation and the delayed H/V acknowledge correction. These changes
+add no serialized fields. The local regression restores 57 previous states from
+22 exact signatures, including cartridge states, and replays 600 frames against
+the decoded CPU in fresh processes. Invalid source-latch/wire combinations are
+rejected before changing guest state.
+
+The Mega Drive backend's ABI-10 also stores its two-word 68000 prefetch queue
+in twelve pointer-free CPU-section bytes. F9 preserves already fetched words
+even when RAM has changed. Existing supported signatures and ABI-9 migrate
+explicitly; old files have no queue history and prime it from live memory.
+See [the exact compatibility and timing scope](MEGADRIVE_PREFETCH.md#states-and-evidence).
+
+Interrupt entry now uses the live main-CPU continuation. F8/F9 waits until its
+frame writes, vector reads and target queue are complete; those host stacks are
+never serialized. Pending VDP sources remain in guest state until the clocked
+acknowledge. The preceding qualified ABI-10 signature is explicitly supported
+with the unchanged layout, including its retained queue contents.
+
 The first sections describe the Master System / Game Gear format. Game Boy has its own codec;
 NES now supports F8/F9 through a separate ABI-bound machine snapshot in
 `datas/states/<game-slug>-<rom-sha12>.rrstate`. See the
@@ -77,8 +105,9 @@ machine state and model identifiers before supporting these shortcuts.
 ## Mega Drive and Super Nintendo
 
 Qualified instruction-based 16-bit exports support F8/F9, with one slot in
-`datas/states/<game-slug>-<rom-sha12>.rrstate`. Launching a game or trying F9
-without a slot creates nothing. F8 flushes a temporary file before atomically
+`datas/states/<game-slug>-<rom-sha12>.rrstate`. Reading quick states or trying F9
+without a slot creates nothing. Ordinary cartridge RAM changes can trigger
+their separate battery file. F8 flushes a temporary file before atomically
 replacing the previous state. The header checks the complete ROM SHA-256,
 console, PAL/NTSC mode, runtime ABI, bounded payload size and an integrity hash.
 Different cartridges, timing modes or incompatible runtime builds are rejected.
@@ -90,6 +119,68 @@ controller latches, additional YM timer phases and gun protocol state. Disk
 states exclude the engine's in-process fiber stack. Cooperative instruction
 yields wait for retirement; loading rebuilds the fiber at the stored guest PC
 and preserves the guest stack instead of restoring process addresses.
+
+Declared Mega Drive cartridge SRAM is included, along with its connected byte
+lanes and overlay/write-protection register. F1 retains RAM but restores the boot
+register state; F9 restores both from the snapshot. A successful rewind also
+updates the ordinary battery file when its restored contents differ. Missing,
+invalid or rolled-back states cannot commit a partial battery change. Battery
+files themselves are bound to the ROM and geometry, independently of the state
+ABI. See [cartridge saves](CONSOLES_16BIT.md#mega-drive-cartridge-saves).
+The compact SRAM layout changes the state ABI: older incompatible quick states
+are rejected, while cartridge saves survive compatible game regeneration.
+
+The MD backing image is cleared per raster before drawing the active area,
+preventing stale H40/V30 margins from surviving H32/V28 or a fresh F9 reload.
+This preserves the game's active image and does not add cropping.
+
+Work RAM aliases share the same 64 KiB snapshot. Restoring a state preserves
+the architectural PC and stack addresses, including execution through a RAM
+alias. The RAM-mirror correction retains the specifically qualified preceding
+ABI-2 build signature for the same pinned MD engine; it does not accept other
+ROMs, timing standards, arbitrary ABI signatures or damaged payloads. All inner
+section lengths, cartridge geometry and integrity checks remain active.
+
+The VDP FIFO is part of the MD guest snapshot, including a word whose first
+VRAM byte has been written and whose second byte is still pending. ABI-6 also
+stores active DMA source/destination/length, partial read/write progress and
+pending horizontal/vertical interrupt events. The machine loader expands five
+explicitly qualified ABI-2 signatures and the preceding ABI-3 FIFO signature
+with zeroed new fields; the qualified ABI-4 signature keeps its layout, migrating
+a directly fetched partial DMA word into the FIFO without reading its source
+again. The qualified ABI-5 signature also gains the 16-byte read buffer.
+The loader preserves a pending prefetch, the first latched VRAM byte, or a
+completed word that differs from current VRAM. A migrated old state starts with
+an idle read buffer and fetches on its next read; it cannot invent past buffering.
+The source bus can be free while destination writes remain queued, and
+that tail is preserved in quick states. Other saved sections retain their layout. Arbitrary old
+builds are still rejected. Original player files are never rewritten by
+migration. Restore validates queue, DMA, IRQ and read-buffer bounds before changing
+the machine. ABI-7 keeps that guest layout and accepts the specifically qualified
+ABI-6 signature as well. Capture/load refuse an instruction in progress on
+either CPU, preventing a disk state from depending on a suspended host expression.
+The runtime can suspend a main or audio CPU transaction during source DMA;
+F8/F9 requests are deferred until both CPUs retire. The host continues guest
+frames while a request is pending, even if the menu was open, and reports the
+result only after the safe capture/load. No transient refusal becomes a user
+error and no coroutine stack is serialized. Reset and load rebuild the Z80's
+derived execution coroutine. ABI-8 retains this pointer-free layout and also
+accepts the explicitly qualified ABI-7 signature. The request-driven arbiter's
+pending transfer and reservation remain live derived state; disk operations
+wait until both instructions retire. The stored Z80 cycle debt rebuilds the
+retired clock overshoot after reload. Twenty preceding state files across ten
+signatures are qualified without rewriting their originals.
+
+ABI-9 retains the guest section size and explicitly accepts ABI-8 too. The old
+machine tail's four padding bytes now carry a flagged divider fraction and
+retirement debt; zeroed old padding migrates through the preceding-signature
+allowlist. Invalid new clock words are rejected before guest mutation.
+Instruction overrun is retained across frame boundaries and both clocks remain
+continuous through the legacy diagnostic-counter wrap. Main bus yields between
+words still use live continuations; disk capture/load waits for both CPUs to
+retire. The final line budget allows retirement on an available bus, while DMA
+and earlier requests keep their transaction barriers. No partial C stack or
+pending host request enters the snapshot.
 
 SNES uses its guest snapshot codec plus pointer-free CPU/execution residue,
 beam-driver resume PC and WAI latch, APU scheduling and PAL clock fractions,
@@ -104,3 +195,14 @@ and final CPU/memory/hardware hashes. It also checks missing files, corruption,
 ROM/region/ABI mismatches and malformed inner payloads without guest mutation.
 This proves serialization and replay for the tested scenarios, not complete
 gameplay or original-hardware fidelity. Regenerate games to receive this feature.
+
+## Arithmetic-phase follow-up (ABI-10 layout unchanged)
+
+The variable arithmetic/DBcc follow-up explicitly accepts the preceding
+qualified ABI-10 signature. It changes instruction-local timing only, not
+serialized sections. The same queue is retained after F9; an unfinished DIV
+stream read blocks F8. Thirty-two prior states across fourteen signatures
+replay on native/reference paths without modifying their source files.
+Current packed fresh-process states and the 448-row attract case are checked
+separately; accepting an old architectural state does not recreate every
+old microphase. See [phase evidence](MEGADRIVE_PREFETCH.md).

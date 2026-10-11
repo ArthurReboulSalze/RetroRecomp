@@ -5,6 +5,7 @@
 #include "host_control.h"
 #include "controls.h"
 #include "ui.h"
+#include "retro_menu.h"
 #include "glue.h"
 #include "video/sms_vdp.h"
 #include "video_frame.h"
@@ -13,12 +14,14 @@
 #include "lightphaser.h"
 #include "gamestate.h"
 #include "scanline_sdl.h"
+#include "xbr_sdl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static SDL_Window *window;
 static RrScanlineMask scanline_mask;
+static RrXbr xbr;
 static SDL_Renderer *renderer;
 static SDL_Texture *texture, *texture2x, *texture_cropped, *texture_cropped2x;
 static SDL_GameController *controllers[CONTROL_PLAYERS];
@@ -164,7 +167,7 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     gun_x = gun_y = -1; gun_trigger_blocked = false;
     gun_option_row = 1;
     smsrecomp_set_state_callback(state_completed);
-    notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F5: options", "Light Phaser : souris | F5 : options") :
+    notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F10: options", "Light Phaser : souris | F10 : options") :
         controls_text("H: help | P / Enter: pause", "H : aide | P / Entree : pause"));
     if (sms_light_phaser) fprintf(stderr, "[host] Light Phaser: mouse, left=trigger, right=off-screen; reticle=%s size=%d color=%d\n",
         controls.phaser_shape == PHASER_DOT ? "dot" : "cross", controls.phaser_dot_size, controls.phaser_color);
@@ -284,14 +287,18 @@ static void draw_game(const uint32_t *fb, int w, int h) {
     const uint32_t *pixels = fb + crop.y * w + crop.x;
     int out_w, out_h, k; SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
     SDL_Rect dest = game_rect(out_w, out_h, &k);
-    if (controls.filter == FILTER_SCALE2X && k >= 2 && w <= 256 && h <= 192) {
+    if ((controls.filter == FILTER_SCALE2X && k >= 2) && w <= 256 && h <= 192) {
         /* Filter only the visible area, so masked backdrop pixels cannot bleed
          * back into the game at the edge. Textures are cached at both widths. */
         scale2x(pixels, crop.w, crop.h, w, enlarged);
         image = trimmed ? texture_cropped2x : texture2x;
         SDL_UpdateTexture(image, NULL, enlarged, crop.w * 8);
     } else SDL_UpdateTexture(image, NULL, pixels, w * 4);
-    SDL_SetTextureScaleMode(image, controls.filter == FILTER_LINEAR ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+    SDL_SetTextureScaleMode(image, SDL_ScaleModeNearest);
+    if (controls.filter == FILTER_XBR) {
+        SDL_Texture *smooth = rr_xbr_update(renderer, &xbr, pixels, crop.w, crop.h, w);
+        if (smooth) image = smooth;
+    }
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, image, NULL, &dest);
     if (controls.filter == FILTER_SCANLINES) rr_scanlines_draw(renderer, &scanline_mask, &dest, crop.h);
@@ -449,13 +456,13 @@ static bool handle_event(const SDL_Event *e) {
     if (key == SDL_SCANCODE_H) { toggle_menu(1); return true; }
     if (key == SDL_SCANCODE_F2) { controls_load(); apply_controller_order(); toggle_menu(2); return true; }
     if (key == SDL_SCANCODE_F3) {
-        controls_load(); int wanted = (controls.filter + 1) % FILTER_COUNT;
+        controls_load(); int wanted = rr_menu_next_filter(controls.filter);
         if (controls_filter(wanted)) notice(controls_filter_label(wanted));
         else notice(controls_text("Cannot write datas/Retro-Recomp.ini", "Impossible d'ecrire datas/Retro-Recomp.ini"));
         return true;
     }
     if (key == SDL_SCANCODE_F4) { toggle_fullscreen(); return true; }
-    if (lightphaser_enabled() && (key == SDL_SCANCODE_F5 || (menu == 2 && !capturing && key == SDL_SCANCODE_G))) {
+    if (lightphaser_enabled() && (key == SDL_SCANCODE_F10 || (menu == 2 && !capturing && key == SDL_SCANCODE_G))) {
         controls_load(); toggle_menu(4); return true;
     }
     if (key == SDL_SCANCODE_F6) {
@@ -478,6 +485,17 @@ static bool handle_event(const SDL_Event *e) {
         } else notice(controls_text("Game states need the native banked backend", "Etats : moteur natif par banques requis"));
         return true;
     }
+#ifndef RETRO_GAME_GEAR
+    if (key == SDL_SCANCODE_F5) {
+        if (controls_sprite_flicker_reduction(!controls.reduce_sprite_flicker)) {
+            smsrecomp_video_set_sprite_flicker_reduction(controls.reduce_sprite_flicker);
+            notice(controls.reduce_sprite_flicker ?
+                controls_text("Sprite flicker reduction ON", "Reduction du scintillement ON") :
+                controls_text("Original console sprite limit", "Limite de sprites de la console"));
+        } else notice(controls_text("Config unavailable", "Config inaccessible"));
+        return true;
+    }
+#endif
     if (menu == 4) {
         if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP)
             gun_option_row = (gun_option_row + 2) % 3;
@@ -631,6 +649,7 @@ void host_shutdown(void) {
     if (texture_cropped2x) SDL_DestroyTexture(texture_cropped2x);
     if (texture_cropped) SDL_DestroyTexture(texture_cropped);
     if (texture2x) SDL_DestroyTexture(texture2x);
+    rr_xbr_destroy(&xbr);
     rr_scanlines_destroy(&scanline_mask);
     if (texture) SDL_DestroyTexture(texture);
     if (renderer) SDL_DestroyRenderer(renderer);

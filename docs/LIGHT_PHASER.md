@@ -16,7 +16,7 @@ off-screen; losing keyboard focus releases input.
 The original gun has no D-pad or second face button. Player 2 remains a pad.
 Laser Ghost also receives the original P2 trigger alias to select its gun mode.
 
-In 0.10.7 the default reticle is a **small red cross**. **F5** opens Light Phaser
+The default reticle is a **small red cross**. **F10** opens Light Phaser
 options; **G** in F2 opens the same page. Choose cross or dot, size 1 to 5, and
 red, white or pure green. Up/Down selects a row and Left/Right changes it;
 the controller D-pad and mouse arrows work too. A preview shows the result.

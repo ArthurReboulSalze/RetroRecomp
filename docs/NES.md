@@ -47,6 +47,14 @@ This also gives the native and reference runs identical starting conditions.
 This detects compiler divergence, not complete gameplay
 or independently certified hardware fidelity.
 
+The same comparisons now enable the APU and require byte-identical 48 kHz mono
+PCM from generated and interpreted execution, in addition to the frame-state
+hashes. Missing/invalid audio also blocks export. Reports retain sample counts
+and hashes; successful temporary WAV captures are deleted. This strengthens
+translation validation without hiding fallback or claiming an independent
+hardware oracle. See [NES audio delivery and checks](AUDIO.md#nes-output-continuity)
+for the separate host-buffer correction addressing small sound discontinuities.
+
 `python tools/nes_native_selftest.py` compares all 256 opcodes across eight
 CPU slots, four mapper configurations and four flag/alignment variants,
 including page crossings, boundary operands, wrapping PC, NMI and IRQ.

@@ -1,3 +1,43 @@
+# RetroRecomp v0.25.0 — Mega Drive is now supported
+
+**Mega Drive leaves experimental status. Super Nintendo remains experimental.**
+Master System, Game Gear, Game Boy, NES and the Mega Drive standard-cartridge
+profile are supported within their documented scope.
+
+- Mega Drive supports PAL/NTSC, three/six-button controllers, quick states,
+  SRAM, qualified EEPROM and Sega bank mapping, plus Menacer input.
+- A 32-cartridge qualification panel passes its retained scenarios without
+  interpreted main or sound CPU instructions. The actual compressed exports
+  also pass reference comparisons, state reloads and corrupt-state rejection.
+  Five selected routes extend to 36,000 frames.
+- Shared Mega Drive rendering, bus, interrupt and instruction handling have
+  been refined. Advanced conversion now tests at least 24,000 demo frames to
+  discover later execution paths before normal reference validation.
+- The converter bundles verified, ROM-free hints for 985 exact cartridge
+  revisions across all six consoles, including 82 Mega Drive records. The
+  compressed snapshot occupies about 9 MiB; new games still receive their own
+  analysis and validation.
+- Generated games show their compilation version in **H** help. **F3** adds
+  xBR contour smoothing as the last filter, alongside sharp pixels, Scale2x
+  and proportional scanlines. Game Boy **F5** switches its palette directly;
+  Master System **F5** toggles optional sprite flicker reduction.
+- Audio buffering has been refined for Master System, Game Boy and NES to
+  reduce avoidable delay while preserving stable sound output.
+
+This qualification covers the documented standard cartridge profile, rather
+than every cartridge or a complete playthrough. Native coverage, CPU agreement,
+hardware fidelity, gameplay and physical latency remain separate measures.
+See [compatibility and evidence](COMPATIBILITY.md) for the scope and remaining work.
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Updates preserve games, settings, local compilation knowledge and downloaded
+covers. Regenerate games to receive the compiler/runtime changes. No ROMs,
+downloaded artwork, generated games or private settings are included.
+
+Legal notices are included in the EXE. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v0.24.0 — broader native coverage and smarter cover searches
 
 - Game Boy uses more efficient generated C and reuses byte-identical build

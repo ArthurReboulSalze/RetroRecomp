@@ -1,4 +1,4 @@
-"""Separate experimental 16-bit profiles with cartridge-derived analysis."""
+"""Separate 16-bit profiles: supported Mega Drive and experimental Super Nintendo."""
 from pathlib import Path
 from . import SystemProfile
 

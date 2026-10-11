@@ -73,6 +73,23 @@ class KnowledgeTests(unittest.TestCase):
         path.write_bytes(bytes.fromhex('1f8b080000000000000307') + bytes(16))
         self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
 
+    def test_bounded_loader_rejects_oversized_snapshot(self):
+        self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
+        with patch('smsrecomp.knowledge.MAX_BYTES', 32):
+            with self.assertRaisesRegex(ValueError, 'size limit'):
+                knowledge.load(self.root / knowledge.RESOURCE)
+            self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
+
+    def test_oversized_refresh_preserves_existing_snapshot(self):
+        from tools.build_compilation_knowledge import build
+        self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
+        output = self.root / knowledge.RESOURCE
+        before = output.read_bytes()
+        with patch('tools.build_compilation_knowledge.MAX_BYTES', 32):
+            with self.assertRaisesRegex(ValueError, 'size budget'):
+                build([], reports=self.root, output=output, base=output)
+        self.assertEqual(output.read_bytes(), before)
+
     def test_sega_hints_recheck_live_rom_window_and_preserve_local_priority(self):
         self.rom.system_id='sms'
         address=0x150;fnv=2166136261
@@ -141,6 +158,57 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(summary['omitted']['ram_without_rom_source'], 1)
         self.assertNotIn('bytes', record)
         self.assertNotIn(str(self.root), gzip.decompress(destination.read_bytes()).decode())
+
+    def test_md_refresh_does_not_promote_observations_after_qualification(self):
+        from datetime import datetime
+        from tools.build_compilation_knowledge import build
+        from smsrecomp.console16 import REPOSITORIES
+        engine = REPOSITORIES['md'][1]
+        reports = self.root / 'reports'
+        report_path = reports / 'Mega Drive/datas/reports/fixture/conversion-report.json'
+        report_path.parent.mkdir(parents=True)
+        report = {'system': {'id': 'md'}, 'rom': {'sha256': self.rom.sha256},
+            'created_utc': '2026-10-11T10:00:00+00:00',
+            'native_validation': {'passed': True}, 'compiler': {'revision': engine}}
+        qualified_at = datetime.fromisoformat(report['created_utc']).timestamp()
+        main, sound = self.root / 'main.json', self.root / 'sound.json'
+        for path in (main, sound):
+            path.write_text('{}', encoding='ascii')
+            os.utime(path, (qualified_at - 1, qualified_at - 1))
+        retained = {'engine': engine, 'rom_bytes': len(self.rom.data), 'rom_entries': [[0x200]]}
+        base = self.root / 'base.json.gz'
+        base.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {
+            'md': {self.rom.sha256: retained}}}).encode(), mtime=0))
+        before = base.read_bytes()
+        output = self.root / 'snapshot.json.gz'
+        item = SimpleNamespace(system='md', sha256=self.rom.sha256, error=None)
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        with patch('tools.build_compilation_knowledge.identify', return_value=item), \
+                patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
+                patch('smsrecomp.megadrive.memory_file', return_value=main), \
+                patch('smsrecomp.megadrive_z80.memory_file', return_value=sound), \
+                patch('smsrecomp.megadrive.read_entries', return_value={0x200, 0x210}), \
+                patch('smsrecomp.megadrive.read_ram_variants', return_value=[]), \
+                patch('smsrecomp.megadrive_z80.read_variants', return_value=[]):
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            for modified in (main, sound):
+                with self.subTest(cpu=modified.name):
+                    os.utime(modified, (qualified_at + 1, qualified_at + 1))
+                    summary = build([self.rom.path], reports=reports, output=output, base=base)
+                    self.assertEqual(summary['omitted']['unqualified'], 1)
+                    self.assertEqual(knowledge.load(output)['consoles']['md'][self.rom.sha256], retained)
+                    self.assertEqual(summary['refresh']['md']['requalified'], 0)
+                    os.utime(modified, (qualified_at - 1, qualified_at - 1))
+            summary = build([self.rom.path], reports=reports, output=output, base=base)
+            self.assertEqual(summary['refresh']['md']['requalified'], 1)
+            self.assertEqual(knowledge.load(output)['consoles']['md'][self.rom.sha256]['rom_entries'],
+                             [[0x200], [0x210]])
+            del report['created_utc']
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            summary = build([self.rom.path], reports=reports, output=output, base=base)
+            self.assertEqual(summary['omitted']['unqualified'], 1)
+            self.assertEqual(knowledge.load(output)['consoles']['md'][self.rom.sha256], retained)
+        self.assertEqual(base.read_bytes(), before)
 
     def test_partial_refresh_keeps_other_consoles_and_requires_new_validation(self):
         from tools.build_compilation_knowledge import build

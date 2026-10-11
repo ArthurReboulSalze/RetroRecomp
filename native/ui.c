@@ -110,30 +110,41 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         text(r, 14, 135, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), 233, 239, 247);
         text(r, 14, 147, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), 233, 239, 247);
         text(r, 14, 159, TR("Up/Down: row | Left/Right: change", "Haut/Bas : ligne | Gauche/Droite"), 157, 173, 194);
-        text(r, 14, 173, TR("F5 / Esc: close | Shared settings", "F5 / Echap : fermer | Reglages communs"), 157, 173, 194);
+        text(r, 14, 173, TR("F10 / Esc: close | Shared settings", "F10 / Echap : fermer | Reglages communs"), 157, 173, 194);
     } else if (kind == 3) {
         text(r, 14, 62, TR("Game paused", "Jeu en pause"), 233, 239, 247);
         text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), 233, 239, 247);
         text(r, 14, 118, TR("F1: restart", "F1 : redemarrer"), 157, 173, 194);
+#ifndef RETRO_GAME_GEAR
+        char sprites[64];
+        snprintf(sprites, sizeof(sprites), TR("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
+            controls.reduce_sprite_flicker ? "ON" : "OFF");
+        text(r, 14, 140, sprites, 157, 173, 194);
+#else
         text(r, 14, 140, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), 157, 173, 194);
+#endif
         text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
     } else if (kind == 1) {
         char autofire[64];
         snprintf(autofire, sizeof(autofire), TR("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), controls.autofire ? "ON" : "OFF");
         const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
+#ifndef RETRO_GAME_GEAR
+            TR("F5  Reduce sprite flicker", "F5  Reduire le scintillement"),
+#endif
             autofire, "F7  English / Francais",
             TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             TR("P / Enter  Pause", "P / Entree  Pause"),
             TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"),
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
-            text(r, 14, 31 + 12 * i, lines[i], 233, 239, 247);
-        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F5: options", "Gun : souris/clic gauche | F5 : options"), 38, 215, 255);
+            text(r, 14, 31 + 11 * i, lines[i], 233, 239, 247);
+        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F10: options", "Gun : souris/clic gauche | F10 : options"), 38, 215, 255);
 #ifdef RETRO_GAME_GEAR
         text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), 38, 215, 255);
 #endif
-        text(r, 14, 174, TR("H / Esc: close help", "H / Echap : fermer l'aide"), 157, 173, 194);
+        text(r, 14, 174, TR("H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+        rr_menu_build_footer(r, ox, oy, unit);
     } else {
 #ifdef RETRO_GAME_GEAR
         char heading[64]; snprintf(heading, sizeof(heading), "%s", TR("Game Gear controls", "Commandes Game Gear"));
@@ -156,7 +167,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         const char *hint = gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");
         text(r, 14, 157, status && *status ? status : hint, 233, 239, 247);
         text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
-            sms_light_phaser ? TR("G/F5: gun | Up/Down: select", "G/F5 : gun | Haut/Bas : choisir") :
+            sms_light_phaser ? TR("G/F10: gun | Up/Down: select", "G/F10 : gun | Haut/Bas : choisir") :
             TR("Up/Down: select | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
     }
     rr_menu_end(r);

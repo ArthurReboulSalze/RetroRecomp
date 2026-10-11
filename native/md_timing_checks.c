@@ -7,6 +7,8 @@
 #define REQUIRE(ok, text) do { if (!(ok)) { fprintf(stderr, "FAIL: %s\n", text); exit(1); } } while (0)
 static unsigned rasters, arms, vblanks, endings, drains;
 static uint64_t audio_clocks;
+static unsigned phase;
+unsigned machine_vdp_phase(void) { return phase; }
 void glue_reset_frame_sync(void) { ++arms; }
 void glue_run_game_frame(void) {}
 void glue_sched_frame_begin(void) {}
@@ -21,6 +23,24 @@ void audio_mixer_drain(uint32_t clocks, int16_t *fm, size_t fm_cap, size_t *fm_w
     audio_clocks += clocks; ++drains; *fm_written = *psg_written = 0;
 }
 int main(void) {
+    REQUIRE(rr_md_hcounter(0,0)==0x85 && rr_md_hcounter(0,1)==0xa5, "line origin H counter");
+    REQUIRE(rr_md_hcounter(299,0)==0x93 && rr_md_hcounter(300,0)==0xe9, "H32 counter discontinuity");
+    REQUIRE(rr_md_hcounter(279,1)==0xb6 && rr_md_hcounter(280,1)==0xe4, "H40 counter discontinuity");
+    REQUIRE(rr_md_hcounter(759,0)==0xff && rr_md_hcounter(760,0)==0, "H32 counter wraps");
+    REQUIRE(rr_md_hcounter(779,1)==0xff && rr_md_hcounter(780,1)==0, "H40 counter wraps");
+    for (int h40=0;h40<2;++h40) {
+        GVDP v; gvdp_init(&v); v.reg[12]=h40?0x81:0;
+        unsigned start=h40?228:280, end=h40?872:860;
+        phase=start-1; REQUIRE(!(gvdp_read_control(&v)&4), "before HBlank");
+        phase=start; REQUIRE(gvdp_read_control(&v)&4, "HBlank begins with elapsed clocks");
+        for (int n=0;n<100;++n) REQUIRE(gvdp_read_control(&v)&4, "status reads cannot advance beam");
+        phase=end-1; REQUIRE(gvdp_peek_status(&v)&4, "HBlank stays until boundary");
+        phase=end; REQUIRE(!(gvdp_read_control(&v)&4), "HBlank ends with elapsed clocks");
+        v.sprite_collision=v.sprite_overflow=v.vint_pending=1;
+        REQUIRE((gvdp_read_control(&v)&0xe0)==0xe0, "return latched status before clearing");
+        REQUIRE(!(gvdp_read_control(&v)&0xe0), "read clears collision overflow and V interrupt flags");
+    }
+    phase=0;
     REQUIRE(RR_MD_LINES == (RR_MD_PAL ? 313u : 262u), "progressive raster line count");
     REQUIRE(RR_MD_MASTER_HZ == (RR_MD_PAL ? 53203424u : 53693175u), "console oscillator");
     REQUIRE(RR_MD_FRAME_MASTER == (RR_MD_PAL ? 1070460u : 896040u), "one complete raster clock span");

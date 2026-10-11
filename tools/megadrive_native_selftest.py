@@ -43,7 +43,42 @@ def discovery_checks(engine, project):
          {'address': 0xfffffe, 'bytes': '4e710000'}])
     assert {ins['addr'] for ins in tail} == {0xfffff4, 0xfffffa, 0xfffffe} and len(tail) == 3, \
         'Accept instructions ending at the RAM boundary; reject byte windows crossing the bus end'
-    return len(expected)
+    # Reached function tables contain jump instructions, not stored pointers.
+    # Starting in the middle must find neighbours in both directions and
+    # translate their destinations without running the guest. This previously
+    # missed entire menu/gameplay branches behind uncalled public stubs.
+    tables = {
+        0x400: '4efa00fe', 0x404: '4efa010e', 0x408: '4efa0122',
+        0x500: '70074e75', 0x514: '70084e75', 0x52c: '70094e75',
+        0x600: '4ef900000700', 0x606: '4ef900000710', 0x60c: '4ef900000720',
+        0x700: '4e75', 0x710: '4e75', 0x720: '4e75',
+        0x800: '600000fe', 0x804: '6000010a', 0x808: '60000116',
+        0x900: '4e75', 0x910: '4e75', 0x920: '4e75',
+        # Two jumps alone do not qualify as a table.
+        0xa00: '4efa003e', 0xa04: '4efa004a', 0xa40: '4e75', 0xa50: '4e75',
+        # An invalid third target must not validate the other neighbours.
+        0xb00: '4ef900000b80', 0xb06: '4ef900000b90', 0xb0c: '4ef900004000',
+        0xb80: '4e75', 0xb90: '4e75',
+    }
+    for pc, raw in tables.items():
+        code = bytes.fromhex(raw); payload[pc:pc + len(code)] = code
+    rom.write_bytes(payload)
+    expanded = decode(engine, project, rom, {0x404, 0x606, 0x804, 0xa00, 0xb06})
+    table_expected = {0x400, 0x404, 0x408, 0x500, 0x502, 0x514, 0x516, 0x52c, 0x52e,
+                      0x600, 0x606, 0x60c, 0x700, 0x710, 0x720,
+                      0x800, 0x804, 0x808, 0x900, 0x910, 0x920,
+                      0xa00, 0xa40, 0xb06, 0xb90}
+    assert len(expanded) == len(table_expected) and {ins['addr'] for ins in expanded} == table_expected, \
+        'Reached jump tables must expand both ways; reject short runs and out-of-ROM targets'
+    basic_table = decode(engine, project, rom, {0x404}, follow_flow=False)
+    assert {ins['addr'] for ins in basic_table} == {0x404}, 'Explicit instruction-only decoding stays isolated'
+    payload[0xc00:0xc08] = bytes.fromhex('4eb9000004044e75')
+    rom.write_bytes(payload)
+    nested = decode(engine, project, rom, {0xc00})
+    nested_expected = {0xc00, 0xc06, 0x400, 0x404, 0x408, 0x500, 0x502, 0x514, 0x516, 0x52c, 0x52e}
+    assert {ins['addr'] for ins in nested} == nested_expected and len(nested) == len(nested_expected), \
+        'Expand a table first reached by a static call, not only tables present in the seed list'
+    return len(expected) + len(table_expected) + len(nested_expected)
 
 
 def main():
@@ -78,18 +113,48 @@ def main():
         pc = 0x900 + vector * 16
         payload[pc:pc + 2] = (0x4e40 + vector).to_bytes(2, 'big'); pcs.add(pc)
         payload[0x80 + vector * 4:0x84 + vector * 4] = positions['4e73'].to_bytes(4, 'big')
+    for vector in (4, 5, 8, 10, 11):
+        payload[vector * 4:vector * 4 + 4] = positions['4e73'].to_bytes(4, 'big')
     payload[0xb00:0xb04] = bytes.fromhex('4e722500'); pcs.add(0xb00)
     payload[0xb10:0xb14] = bytes.fromhex('4e720700'); pcs.add(0xb10)
     # Keep peripheral-transfer fixtures away from the exception/return code.
     for index, raw in enumerate(('0108fff0', '0148fff0', '0188fff0', '01c8fff0')):
         pc = 0xc00 + index * 16
         payload[pc:pc + 4] = bytes.fromhex(raw); pcs.add(pc)
+    exceptions = ('4afc', '4afa', '4afb', 'a123', 'f123', '4e70', '4e68',
+                  '46d8', '80d8', '81d8', '80fc0000', '81fc0000', '80e7', '80fa0006')
+    for index, raw in enumerate(exceptions):
+        pc = 0xd00 + index * 16
+        payload[pc:pc + len(bytes.fromhex(raw))] = bytes.fromhex(raw); pcs.add(pc)
+    for index, raw in enumerate(('4181', '4198', '41a7', '41bc000a', '4e76',
+                                  '4e71', '46fc2315', '007c8000', '4e722300',
+                                  '4e404e73', '4e73', '4e73')):
+        pc = 0xe00 + index * 16
+        payload[pc:pc + len(bytes.fromhex(raw))] = bytes.fromhex(raw); pcs.add(pc)
+        if index == 9: pcs.add(pc + 2)
+    for vector in (6, 7, 9):
+        payload[vector * 4:vector * 4 + 4] = positions['4e73'].to_bytes(4, 'big')
     (project / 'cartridge.bin').write_bytes(payload)
     rom = SimpleNamespace(data=payload, sha256=hashlib.sha256(payload).hexdigest())
     stats = generate_steps(engine, project, rom, pcs,
         [{'address': 0xff8000, 'bytes': '7001'}, {'address': 0xff8000, 'bytes': '70ff'},
          {'address': 0xff8040, 'bytes': '4eba0008'}, {'address': 0xff8060, 'bytes': '4eb900000800'},
          {'address': 0xff8080, 'bytes': '4e40'},
+         {'address': 0xe080a0, 'bytes': '6008'},
+         {'address': 0xe180b0, 'bytes': '6108'},
+         {'address': 0xe280c0, 'bytes': '51c80008'},
+         {'address': 0xe380d0, 'bytes': '41fa0008'},
+         {'address': 0xe09000, 'bytes': '4afc'},
+         {'address': 0xe09010, 'bytes': 'a123'},
+         {'address': 0xe09020, 'bytes': 'f123'},
+         {'address': 0xe09030, 'bytes': '46d8'},
+         {'address': 0xe09040, 'bytes': '80d8'},
+         {'address': 0xe09050, 'bytes': '81d8'},
+         {'address': 0xe09060, 'bytes': '80fa0006'},
+         {'address': 0xe09200, 'bytes': '4198'},
+         {'address': 0xe09210, 'bytes': '4e76'},
+         {'address': 0xe09220, 'bytes': '4e71'},
+         {'address': 0xe0fffe, 'bytes': '4eba0008'},
          {'address': 0xfffff4, 'bytes': '4ef900000800'},
          {'address': 0xfffffa, 'bytes': '4ef900000800'},
          {'address': 0xfffffe, 'bytes': '4e71'}],
@@ -105,16 +170,22 @@ def main():
     header += '#define TEST_TRAP 0x900u\n'
     header += '#define TEST_STOP 0xb00u\n#define TEST_STOP_USER 0xb10u\n'
     header += '#define TEST_MOVEP 0xc00u\n'
+    header += '#define TEST_EXCEPTION 0xd00u\n'
+    header += '#define TEST_BOUNDS 0xe00u\n'
     (project / 'fixture_data.h').write_text(header, encoding='ascii')
     shutil.copy2(ROOT / 'native/md_native_steps.h', project / 'md_native_steps.h')
+    shutil.copy2(ROOT / 'native/md_bus_scheduler.h', project / 'md_bus_scheduler.h')
+    shutil.copy2(ROOT / 'native/md_exception_decode.h', project / 'md_exception_decode.h')
     (project / 'retro_md_game.h').write_text('#define RR_MD_STEP_AOT 1\n', encoding='ascii')
     source = (engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')
     source = source.replace('static void cov_mark(uint32_t pc) {',
         'extern void rr16_note_interpreted(void);\nstatic void cov_mark(uint32_t pc) {\n rr16_note_interpreted();', 1)
     (project / 'reference.c').write_text(adapt_interpreter(source), encoding='utf-8')
     snapshot = adapt_cpu_snapshot((engine / 'runner/rb_state.c').read_text(encoding='utf-8'))
-    snapshot = snapshot[snapshot.index('static size_t sec_cpu_save('):snapshot.index('static size_t sec_ram_save(')]
+    snapshot = snapshot[snapshot.index('int rr_md_cpu_snapshot_size('):snapshot.index('static size_t sec_ram_save(')]
     (project / 'md_cpu_snapshot_fixture.h').write_text(snapshot, encoding='utf-8')
+    for name in ('md_prefetch.h', 'md_prefetch.inc'):
+        shutil.copy2(ROOT / 'native' / name, project / name)
     prefix = engine.as_posix()
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdNativeChecks C)

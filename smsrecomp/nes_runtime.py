@@ -8,6 +8,7 @@ import shutil
 from .core import replace_once, slug
 from .paths import ASSETS
 from .nes_machine import prepare_machine
+from . import __version__
 
 
 def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
@@ -122,6 +123,7 @@ target_include_directories(game PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} ${{RETRO
 target_link_libraries(game PRIVATE ${{NESRECOMP_CYC_LIBRARIES}} gdi32)
 target_compile_features(game PRIVATE c_std_11)
 target_compile_definitions(game PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL)
+target_compile_definitions(game PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])
 target_compile_definitions(game PRIVATE RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
 if(MSVC)
     target_compile_options(game PRIVATE /bigobj /utf-8)

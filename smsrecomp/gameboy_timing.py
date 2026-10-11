@@ -8,6 +8,7 @@ from .paths import ASSETS
 
 def adapt_timing(project: Path) -> None:
     copyfile(ASSETS / 'native/gb_input_refresh.inc', project / 'runtime/src/gb_input_refresh.inc')
+    copyfile(ASSETS / 'native/gb_audio_output.inc', project / 'runtime/src/gb_audio_output.inc')
     path = project / 'runtime/src/platform_sdl.cpp'
     source = path.read_text(encoding='utf-8')
     source = replace_once(source, 'static uint32_t g_last_frame_time = 0;', '''static uint32_t g_last_frame_time = 0;
@@ -19,7 +20,27 @@ static uint64_t g_rr_input_sample_time = 0;''')
     source = replace_once(source, '    g_audio_latency_ms = 80;', '    g_audio_latency_ms = 20;')
     source = replace_once(source, 'g_audio_latency_ms = (uint32_t)parsed;',
                           'g_audio_latency_ms = parsed == 80 ? 20u : (uint32_t)parsed;')
-    source = replace_once(source, '    want.samples = 2048;', '    want.samples = 512;')
+    source = replace_once(source, '    want.samples = 2048;', '    want.samples = 256;')
+    source = replace_once(source, 'static uint32_t g_audio_start_threshold = 0;', '''static uint32_t g_audio_start_threshold = 0;
+#define RR_GB_AUDIO_DEADLINE 1
+static SDL_AudioFormat g_rr_audio_format = AUDIO_S16SYS;
+static std::atomic<uint64_t> g_rr_audio_start_counter{0};
+static bool g_rr_audio_ready = false; /* Callback-owned; reset under device lock. */
+static uint64_t g_rr_audio_startup_silence = 0;''')
+    source = replace_once(source,
+        '    g_audio_device = SDL_OpenAudioDevice(device_name, 0, &want, &have, 0);', '''    g_audio_device = SDL_OpenAudioDevice(device_name, 0, &want, &have,
+        SDL_AUDIO_ALLOW_FORMAT_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+    if (g_audio_device && have.format != AUDIO_S16SYS && have.format != AUDIO_F32SYS) {
+        SDL_CloseAudioDevice(g_audio_device);
+        g_audio_device = SDL_OpenAudioDevice(device_name, 0, &want, &have,
+            SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+    }
+    g_rr_audio_format = have.format;''')
+    source = replace_once(source, '    SDL_AudioSpec want, have;', '    SDL_AudioSpec want, have = {};')
+    source = replace_once(source, 'static void clear_audio_ring_buffer_locked(void) {', '''static void clear_audio_ring_buffer_locked(void) {
+    g_rr_audio_start_counter.store(0, std::memory_order_relaxed);
+    g_rr_audio_ready = false;
+    g_rr_audio_startup_silence = 0;''')
     source = replace_once(source, '''    g_app_suspended = suspended;
     refresh_audio_device_pause_state();''', '''    g_app_suspended = suspended;
     reset_audio_output_buffer(true);''')
@@ -48,25 +69,27 @@ static uint64_t g_rr_reported_trimmed = 0;''')
         g_rr_audio_trimmed.store(0, std::memory_order_relaxed);
         g_rr_reported_trimmed = 0;
         g_audio_underruns.store''')
-    source = replace_once(source, '''    const uint32_t available = (write_pos >= read_pos)
-        ? (write_pos - read_pos)
-        : (AUDIO_RING_SIZE - read_pos + write_pos);
-    const uint32_t samples_to_copy''', '''    uint32_t available = (write_pos >= read_pos)
-        ? (write_pos - read_pos)
-        : (AUDIO_RING_SIZE - read_pos + write_pos);
-    /* The consumer owns read_pos. Discard stale audio only if the backlog
-     * exceeds the target plus a callback and a guest-frame burst. Never let
-     * the ring's large safety capacity become hundreds of ms of sound lag. */
-    const uint32_t guest_frame_samples = (uint32_t)(
-        ((uint64_t)g_audio_device_sample_rate * 70224u + 4194303u) / 4194304u);
-    const uint32_t keep = g_audio_start_threshold + samples_needed;
-    if (available > keep + guest_frame_samples) {
-        const uint32_t discard = available - keep;
-        read_pos = (read_pos + discard) % AUDIO_RING_SIZE;
-        available = keep;
-        g_rr_audio_trimmed.fetch_add(discard, std::memory_order_relaxed);
-    }
-    const uint32_t samples_to_copy''')
+    # Replace only the host consumer. The 44.1 kHz APU, guest state and PCM stay
+    # unchanged; uncommon backend sample-rate conversion remains SDL's job.
+    start = source.index('/* SDL callback - pulls samples from ring buffer */')
+    end = source.index('static void publish_audio_write_batch(void) {', start)
+    source = source[:start] + '#include "gb_audio_output.inc"\n\n' + source[end:]
+    source = replace_once(source, '''    g_audio_write_pos.store(g_audio_producer_write_pos, std::memory_order_release);
+    g_audio_write_publications++;''', '''    uint64_t empty_deadline = 0;
+    const uint64_t frequency = SDL_GetPerformanceFrequency();
+    const uint64_t deadline = SDL_GetPerformanceCounter() +
+        ((uint64_t)g_audio_device_buffer_samples * frequency + AUDIO_SAMPLE_RATE - 1) / AUDIO_SAMPLE_RATE +
+        (frequency * 10u + 999u) / 1000u;
+    g_rr_audio_start_counter.compare_exchange_strong(empty_deadline, deadline,
+        std::memory_order_release, std::memory_order_relaxed);
+    g_audio_write_pos.store(g_audio_producer_write_pos, std::memory_order_release);
+    g_audio_write_publications++;''')
+    source = replace_once(source,
+        'if (!g_audio_started && audio_ring_fill_samples() >= g_audio_start_threshold)',
+        'if (!g_audio_started && audio_ring_fill_samples() > 0)')
+    source = replace_once(source, 'static void reset_audio_test_ring(void) {', '''static void reset_audio_test_ring(void) {
+    g_rr_audio_ready = true; /* This hook checks ring concurrency, not pacing. */
+    g_rr_audio_format = AUDIO_S16SYS;''')
     source = replace_once(source, '''bool gb_platform_poll_events(GBContext* ctx) {
     SDL_Event event;''', '''#include "gb_input_refresh.inc"
 

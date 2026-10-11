@@ -9,6 +9,7 @@ static unsigned checks;
 GenesisMachine g_machine;
 int rr16_visible_width(void) { return (g_machine.vdp.reg[12] & 1) ? 320 : 256; }
 int rr16_visible_height(void) { return (g_machine.vdp.reg[1] & 8) ? 240 : 224; }
+int rr16_raster_height(void) { return rr16_visible_height(); }
 #else
 #include "snes/snes.h"
 #include "snes/ppu.h"

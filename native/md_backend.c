@@ -19,8 +19,14 @@
 #include "md_ym_timers.h"
 #include "md_z80_native.h"
 #include "md_native_steps.h"
+#include "md_battery.h"
+#include "md_bus_scheduler.h"
+#include "md_cart.h"
+#include "md_prefetch.h"
+#include "console16_video.h"
 
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
+static unsigned captured_rows, video_modes_seen, interlace_frames;
 static bool audible, headless_mode;
 static uint64_t interpreted;
 static void *cold_state;
@@ -87,7 +93,7 @@ const GameSpec g_game_spec = {
 
 /* Evidence is in memory only. Conversion probes explicitly request reports;
  * launching a game never creates or rotates another game's sidecar files. */
-static uint8_t evidence[RT_EVIDENCE_KIND_COUNT][0x40000];
+static uint8_t evidence[RT_EVIDENCE_KIND_COUNT][(RR_MD_ROM_BYTES+15u)/16u];
 static int evidence_counts[RT_EVIDENCE_KIND_COUNT];
 static uint64_t rom_fallback, ram_fallback;
 #define RAM_VARIANT_LIMIT 2048
@@ -104,19 +110,19 @@ void rr16_note_ram_instruction(const M68KInstr *ins) {
 }
 void rr16_note_rom_fallback(uint32_t pc) {
     pc &= 0xffffffu;
-    if (pc < RR_MD_ROM_BYTES) {
+    if (pc < 0x400000u && (RR_MD_SEGA_MAPPER || pc < RR_MD_ROM_BYTES)) {
         ++rom_fallback;
-        runtime_evidence_add(RT_EVIDENCE_FLOOR_COVERAGE, pc, 0, "retired ROM instruction");
-    } else if (pc >= 0xff0000u) ++ram_fallback;
+        runtime_evidence_add(RT_EVIDENCE_FLOOR_COVERAGE, rr_md_rom_fetch_offset, 0, "retired physical ROM instruction");
+    } else if (pc >= 0xe00000u) ++ram_fallback;
 }
 void runtime_evidence_request_fresh(void) {}
 void runtime_evidence_init(const char *s, const char *n, const uint8_t *r, size_t z) {}
 int runtime_evidence_has(RuntimeEvidenceKind k, uint32_t a) {
-    return k < RT_EVIDENCE_KIND_COUNT && a < 0x400000 &&
+    return k < RT_EVIDENCE_KIND_COUNT && a < RR_MD_ROM_BYTES &&
         (evidence[k][a >> 4] & (1u << ((a >> 1) & 7))) != 0;
 }
 int runtime_evidence_add(RuntimeEvidenceKind k, uint32_t a, uint64_t f, const char *n) {
-    if (k >= RT_EVIDENCE_KIND_COUNT || a >= 0x400000) return 0;
+    if (k >= RT_EVIDENCE_KIND_COUNT || a >= RR_MD_ROM_BYTES) return 0;
     /* One byte per aligned group of eight PCs. */
     unsigned index = a >> 4, mask = 1u << ((a >> 1) & 7);
     if (evidence[k][index] & mask) return 0;
@@ -131,18 +137,23 @@ const char *genesis_build_info_string(void) { return "RetroRecomp pinned Mega Dr
 const char *exe_relative(const char *name) { return name; }
 
 static void line_sink(void *ctx, int line, const uint32_t *row, int width) {
-    if (line >= 0 && line < RR16_HEIGHT && width <= RR16_WIDTH)
-        memcpy(pixels + line * RR16_WIDTH, row, width * sizeof(uint32_t));
+    if (rr16_video_copy_row(pixels, RR16_WIDTH, RR16_HEIGHT, line, row, width)) ++captured_rows;
 }
 bool rr16_init(bool headless) {
     headless_mode = headless;
     rr_md_cpu_stopped = 0;
+    rr_md_prefetch_reset();
     rr_md_z80_reset_evidence();
     HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
     if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
     machine_init(); rr16_md_ym_reset(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
-    g_machine.bus.version = (RR_MD_OVERSEAS ? 0x80 : 0x00) | (RR_MD_PAL ? 0x40 : 0x00);
+    gbus_sram_setup(&g_machine.bus);
+    rr_md_cart_attach_rom(rom,RR_MD_ROM_BYTES);
+    rr_md_cart_setup(&g_machine.bus);
+    /* Bit 5 is high when the optional CD unit is absent. Region and video
+     * bits remain independent; standard cartridge exports do not model CD. */
+    g_machine.bus.version = 0x20 | (RR_MD_OVERSEAS ? 0x80 : 0x00) | (RR_MD_PAL ? 0x40 : 0x00);
     rr16_gun_reset();
     genesis_sim_set_tick_count(0);
     crash_report_set_log_path(NULL);
@@ -154,10 +165,18 @@ bool rr16_init(bool headless) {
     if (!cold_length || !genesis_rb_load(cold_state, cold_length)) {
         free(cold_state); cold_state = NULL; glue_shutdown(); return false;
     }
+    wchar_t battery_path[32768];
+    if (!headless && (!rr_md_battery_path(battery_path,32768) ||
+                     !rr_md_battery_open(&g_machine.bus,battery_path)))
+        MessageBoxW(NULL,L"The cartridge save could not be loaded. The existing file is preserved. "
+                    L"Check the file and folder permissions before playing.",L"RetroRecomp",MB_OK|MB_ICONWARNING);
+    if (headless) rr_md_battery_open(&g_machine.bus,NULL);
     audible = !headless && audio_init(RR_MD_PSG_HZ) == 0;
     return true;
 }
 void rr16_reset(void) {
+    uint8_t retained[sizeof g_machine.bus.sram];
+    memcpy(retained,g_machine.bus.sram,sizeof retained);
     rr16_gun_reset();
     rr_md_z80_reset_evidence();
     /* The engine snapshot includes private scheduler globals and the live
@@ -167,6 +186,9 @@ void rr16_reset(void) {
 #endif
     reset_ok = cold_length && genesis_rb_load(cold_state, cold_length);
     rr16_md_ym_reset();
+    /* Reset cancels an uncommitted chip write; committed bytes survive F1. */
+    rr_md_cart_setup(&g_machine.bus);
+    if (reset_ok) memcpy(g_machine.bus.sram,retained,sizeof retained);
     execution_fault = false;
     interpreted = rom_fallback = ram_fallback = 0;
     fm_samples = psg_samples = fm_nonzero = psg_nonzero = 0;
@@ -174,6 +196,7 @@ void rr16_reset(void) {
     fm_peak = psg_peak = frame_fm_nonzero = frame_psg_nonzero = 0;
     fm_active_frames = psg_active_frames = 0;
     ram_variant_count = 0;
+    captured_rows = video_modes_seen = interlace_frames = 0;
     memset(evidence, 0, sizeof evidence);
     memset(evidence_counts, 0, sizeof evidence_counts);
     if (audible) audio_discard_playback();
@@ -181,12 +204,21 @@ void rr16_reset(void) {
 }
 bool rr16_frame(uint16_t p1, uint16_t p2) {
     if (!reset_ok) return false;
+    /* The VDP refreshes the active raster every frame. Clear the backing
+     * margins too: H32/V28 must not retain pixels from a previous H40/V30
+     * frame or differ from a freshly loaded F9 state. No visible crop. */
+    memset(pixels,0,sizeof pixels);
+    captured_rows = 0;
     GenesisSimInput in = {0}; in.pad[0] = p1; in.pad[1] = p2; in.human_mask = 1;
     in.pad_type[0] = in.pad_type[1] = RR_MD_SIX_BUTTONS;
     int16_t fm[8192], psg[16384]; size_t fn = 0, pn = 0;
     GenesisSimAudio audio = {fm, 4096, &fn, psg, 16384, &pn};
     GenesisSimHooks hooks = {0}; hooks.sink = line_sink;
     int ok = genesis_sim_step(&in, &audio, &hooks);
+    unsigned mode = (g_machine.vdp.reg[12] & 1u) | ((g_machine.vdp.reg[1] & 8u) >> 2) |
+                    (((g_machine.vdp.reg[12] >> 1) & 3u) << 2);
+    video_modes_seen |= 1u << mode;
+    interlace_frames += (g_machine.vdp.reg[12] & 6u) == 6u;
     if (headless_mode) frame_audio_hash = bytes_hash(fm,fn*2*sizeof *fm) ^
         (bytes_hash(psg,pn*sizeof *psg)*1099511628211ull);
     if (headless_mode) {
@@ -196,6 +228,7 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
         psg_active_frames += pcm_changes(psg, pn, 1);
     }
     if (audible) audio_flush(genesis_sim_tick_count(), 1, fm, fn, psg, pn);
+    if (!headless_mode) rr_md_battery_flush(&g_machine.bus,GetTickCount64(),false);
     return ok != 0 && !execution_fault;
 }
 const uint32_t *rr16_pixels(void) { return pixels; }
@@ -212,7 +245,7 @@ int rr_md_z80_peek(uint16_t pc, uint8_t *value) {
     if (pc < 0x4000u) { *value = g_machine.bus.z80_ram[pc & 0x1fffu]; return 1; }
     if (pc >= 0x8000u) {
         uint32_t address = ((uint32_t)g_machine.bus.z80_bank << 15) + pc - 0x8000u;
-        if (address < RR_MD_ROM_BYTES || (address >= 0xff0000u && address <= 0xffffffu)) {
+        if ((address < 0x400000u && (RR_MD_SEGA_MAPPER || address < RR_MD_ROM_BYTES)) || (address >= 0xe00000u && address <= 0xffffffu)) {
             *value = gbus_peek8(&g_machine.bus, address); return 1;
         }
     }
@@ -222,12 +255,17 @@ uint64_t rr16_native_entries(void) {
     extern uint64_t g_native_insn_count;
     /* The upstream interpreter increments the total too. Report only actual
      * generated instructions, not interpreted opcodes disguised as native. */
-    return g_native_insn_count >= interpreted ? g_native_insn_count - interpreted : 0;
+    /* cov_mark signals a fallback as soon as it starts; it may still be
+     * suspended inside a bus transaction. Subtract only retired fallback
+     * instructions from the engine's retirement counter. */
+    uint64_t retired = RR_MD_STEP_AOT ? rom_fallback + ram_fallback : interpreted;
+    return g_native_insn_count >= retired ? g_native_insn_count - retired : 0;
 }
 unsigned rr16_game_mode(void) { return RR_MD_SONIC ? g_ram[0xf600] : 0; }
 unsigned rr16_player_x(void) { return RR_MD_SONIC ? (g_ram[0xd008] << 8) | g_ram[0xd009] : 0; }
 int rr16_visible_width(void) { return (g_machine.vdp.reg[12] & 1) ? 320 : 256; }
-int rr16_visible_height(void) { return gvdp_screen_height(&g_machine.vdp); }
+int rr16_visible_height(void) { return gvdp_output_height(&g_machine.vdp); }
+int rr16_raster_height(void) { return gvdp_screen_height(&g_machine.vdp); }
 static uint64_t bytes_hash(const void *data, size_t size) {
     uint64_t hash = 14695981039346656037ull;
     const uint8_t *bytes = data;
@@ -235,8 +273,26 @@ static uint64_t bytes_hash(const void *data, size_t size) {
     return hash;
 }
 void rr16_report_details(FILE *file) {
+    fprintf(file, ",\"retired_interpreted_opcodes\":%llu",
+        RR_MD_STEP_AOT ? rom_fallback + ram_fallback : interpreted);
+    fprintf(file, ",\"cpu_prefetch_hash\":\"%016llx\"",bytes_hash(&rr_md_prefetch,sizeof rr_md_prefetch));
+    fprintf(file, ",\"bus_budget_misses\":%llu,\"bus_budget_pc\":%u",
+            (unsigned long long)rr_md_bus_budget_misses,rr_md_bus_budget_pc);
+    fprintf(file, ",\"active_raster_height\":%d,\"interlace_mode\":%u,\"output_row_density\":%u",
+            rr16_raster_height(), (g_machine.vdp.reg[12] >> 1) & 3u,
+            rr16_visible_height() / rr16_raster_height());
+    fprintf(file, ",\"captured_rows\":%u,\"video_modes_seen\":%u,\"interlace_frames\":%u",
+            captured_rows, video_modes_seen, interlace_frames);
     rr16_gun_report(file);
     rr_md_z80_report(file);
+    fprintf(file, ",\"eeprom_kind\":%u,\"eeprom_writes\":%u,\"cartridge_state_hash\":\"%016llx\"",
+        rr_md_cart_state()->eeprom.kind,rr_md_cart_state()->eeprom.completed_writes,
+        bytes_hash(rr_md_cart_state(),sizeof(RrMdCartState)));
+    fprintf(file, ",\"sram_bytes\":%u,\"sram_base\":%u,\"sram_end\":%u,\"sram_stride\":%u,"
+            "\"sram_battery\":%u,\"sram_control\":%u,\"sram_hash\":\"%016llx\"",
+            gbus_sram_size(&g_machine.bus),g_machine.bus.sram_base,g_machine.bus.sram_end,
+            g_machine.bus.sram_stride,g_machine.bus.sram_battery,g_machine.bus.sram_enabled,
+            bytes_hash(g_machine.bus.sram,gbus_sram_size(&g_machine.bus)));
     z80 cpu = g_machine.z80;
     cpu.read_byte = NULL; cpu.write_byte = NULL; cpu.port_in = NULL; cpu.port_out = NULL; cpu.userdata = NULL;
     fprintf(file, ",\"fm_samples\":%llu,\"fm_nonzero\":%llu,\"fm_peak\":%u,\"fm_hash\":\"%016llx\","
@@ -288,16 +344,27 @@ uint64_t rr16_audio_fingerprint(void) {
 uint64_t rr16_audio_frame_fingerprint(void) { return frame_audio_hash; }
 size_t rr16_audio(int16_t *pcm, size_t capacity) { return 0; }
 void rr16_pause(bool paused) { if (audible) audio_set_playback_enabled(!paused); }
-void rr16_shutdown(void) { if (audible) audio_close(); free(cold_state); cold_state = NULL; cold_length = 0; glue_shutdown(); }
+void rr16_shutdown(void) {
+    rr_md_z80_bus_reset();
+    if (!headless_mode && !rr_md_battery_flush(&g_machine.bus,GetTickCount64(),true))
+        MessageBoxW(NULL,L"The cartridge save could not be written. Check the folder permissions "
+                    L"and available disk space.",L"RetroRecomp",MB_OK|MB_ICONWARNING);
+    if (audible) audio_close();
+    free(cold_state); cold_state=NULL; cold_length=0; glue_shutdown();
+}
 #include "console16_state.h"
 extern size_t rr_md_portable_bound(void);
 extern size_t rr_md_portable_save(void *data, size_t capacity);
 extern int rr_md_portable_load(const void *data, size_t size);
+extern int rr_md_portable_load_cold(const void *data, size_t size);
 extern void rr_md_portable_restart(uint32_t pc);
+bool rr16_state_ready(void) { return !rr_md_bus_busy(); }
 uint8_t *rr16_state_capture(size_t *size) {
 #if RR_MD_STEP_AOT
+    *size=0;
+    if(!rr16_state_ready())return NULL;
     size_t core=rr_md_portable_bound(), gun=rr16_gun_state_save(NULL,0);
-    *size=4+core+sizeof(RrMdYmTimers)+gun;
+    *size=4+core+sizeof(RrMdYmTimers)+gun+sizeof(RrMdCartState);
     uint8_t *data=malloc(*size); if (!data) return NULL;
     uint32_t length=(uint32_t)core; memcpy(data,&length,4);
     if (rr_md_portable_save(data+4,core)!=core ||
@@ -305,6 +372,7 @@ uint8_t *rr16_state_capture(size_t *size) {
         free(data); *size=0; return NULL;
     }
     memcpy(data+4+core,rr16_md_ym_state(),sizeof(RrMdYmTimers));
+    memcpy(data+4+core+sizeof(RrMdYmTimers)+gun,rr_md_cart_state(),sizeof(RrMdCartState));
     return data;
 #else
     *size=0; return NULL;
@@ -312,20 +380,30 @@ uint8_t *rr16_state_capture(size_t *size) {
 }
 bool rr16_state_restore(const uint8_t *data, size_t size) {
 #if RR_MD_STEP_AOT
+    if(!rr16_state_ready())return false;
     if (!data || size<4) return false;
     uint32_t core; memcpy(&core,data,4);
     size_t gun=rr16_gun_state_save(NULL,0);
-    if ((size_t)core+4+sizeof(RrMdYmTimers)+gun!=size) return false;
+    size_t legacy_size=(size_t)core+4+sizeof(RrMdYmTimers)+gun;
+    bool legacy=size==legacy_size;
+    RrMdCartState cart;
+    if(!legacy) {
+        if(size!=legacy_size+sizeof cart)return false;
+        memcpy(&cart,data+legacy_size,sizeof cart);
+        if(!rr_md_cart_valid(&cart))return false;
+    } else if(!rr_md_cart_legacy_allowed())return false;
     if (!rr_md_portable_load(data+4,core)) return false;
     if (!genesis_sim_tick_count()) {
-        /* F8 can be pressed before the first frame. Recreate the current
-         * process's cold fiber instead of starting at uninitialized PC zero. */
-        rr_md_portable_restart(0);
-        if (!genesis_rb_load(cold_state,cold_length)) return false;
+        /* F8 before the first frame resumes the boot fiber, not PC zero.
+         * Restore the saved guest sections after creating it; copying the
+         * process's cold snapshot here discarded saved RAM and VDP state. */
+        if (!rr_md_portable_load_cold(data+4,core)) return false;
     }
     RrMdYmTimers timers; memcpy(&timers,data+4+core,sizeof timers);
     rr16_md_ym_restore(&timers);
     if (!rr16_gun_state_load(data+4+core+sizeof timers,gun)) return false;
+    if(legacy)rr_md_cart_setup(&g_machine.bus);
+    else if(!rr_md_cart_restore(&cart))return false;
     reset_ok=true; execution_fault=false;
     if (audible) audio_discard_playback();
     return true;

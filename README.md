@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.24.0-d4a737" alt="Release version 0.24.0">
+  <img src="https://img.shields.io/badge/release-0.25.0-d4a737" alt="Release version 0.25.0">
   <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -52,15 +52,15 @@ execution as possible, without dedicated FPGA hardware.
 | Game Gear | Supported; native handheld display and colors |
 | Game Boy | Supported; original Game Boy, quick states, grayscale or classic green |
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
-| Mega Drive | Experimental, with expanded native coverage; standard cartridges, PAL/NTSC, quick states and Menacer |
+| Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Experimental; standard LoROM/HiROM cartridges, PAL/NTSC, quick states and Super Scope |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
 [16-bit support](docs/CONSOLES_16BIT.md) for the current limits.
 The 16-bit profiles analyze new games automatically; there is no fixed game list.
-They remain experimental while unusual cartridge hardware and remaining display,
-audio and gameplay cases are being qualified.
+Mega Drive is supported within its documented cartridge scope. Super Nintendo
+remains experimental while its remaining hardware and gameplay cases are qualified.
 More consoles and output platforms are planned.
 
 ## From conversion to your game collection
@@ -68,10 +68,6 @@ More consoles and output platforms are planned.
 ![RetroRecomp converter](MEDIAS/RetroRecomp_UI.png?v=3f29b62f5679)
 
 *The refreshed charcoal-and-gold interface keeps mixed-console batches, options and updates together.*
-
-![Standalone game executables in Windows Explorer](MEDIAS/RC_Windows_Screen.png)
-
-*Launch games directly from Windows Explorer, with optional box-art icons and lightgun tags.*
 
 ## Get started
 

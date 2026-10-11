@@ -7,9 +7,11 @@ import subprocess
 import tempfile
 
 GUEST_FIELDS = ('cpu_hash','ram_hash','vram_hash','cram_hash','vsram_hash',
+                'sram_hash','sram_bytes','sram_base','sram_end','sram_stride','sram_battery','sram_control',
+                'eeprom_kind','eeprom_writes','cartridge_state_hash',
                 'vdp_register_hash','z80_ram_hash','z80_cpu_hash','ym_timer_hash',
                 'cpu_cycles','master_cycles','cpu_pc','cpu_sr','cpu_usp','cpu_ssp',
-                'cpu_stopped','oam_hash','high_oam_hash','apu_ram_hash','apu_cycles')
+                'cpu_stopped','cpu_prefetch_hash','oam_hash','high_oam_hash','apu_ram_hash','apu_cycles')
 
 def run(exe, output, name, frames, *args):
     report=output/(name+'.json'); trace=output/(name+'.csv')
@@ -25,7 +27,8 @@ def check(exe,output,warmup,replay):
     total=warmup+replay
     script=output/'input.txt'
     # Real menu inputs and changing controls exercise stateful port latches.
-    md='md-' in str(exe.parent.parent.parent).lower()
+    identified,_=run(exe,output,'identify',1)
+    md='console_version' in identified
     start=128 if md else 8; right=8 if md else 128; fire=16 if md else 1
     events={0:0}
     for f in (180,300,480,550,660,720):
@@ -51,6 +54,16 @@ def check(exe,output,warmup,replay):
                                     for k in columns if rows[warmup+mismatch][k]!=future[mismatch][k]}
         (output/'divergence.json').write_text(json.dumps(detail,indent=2))
         raise AssertionError(detail)
+    rejected=check_invalid_files(exe,output,state,replay)
+    result={'exe':str(exe),'warmup':warmup,'replay':replay,
+            'fresh_process_video_audio_cpu_match':True,**rejected}
+    (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    return result
+
+
+def check_invalid_files(exe,output,state,replay):
+    """Reuse a qualified state without replaying an unrelated input route."""
+    output.mkdir(parents=True,exist_ok=True)
     # Truncation, a wrong ROM, altered data and trailing bytes leave the guest
     # unchanged. F9 on a missing file must not create its parent directories.
     original=state.read_bytes()
@@ -76,11 +89,8 @@ def check(exe,output,warmup,replay):
     missing=output/'absent'/'never-created.rrstate'
     run(exe,output,'missing',replay,'--load-state',missing,'--ignore-load-error')
     assert not missing.parent.exists()
-    result={'exe':str(exe),'warmup':warmup,'replay':replay,'state_bytes':len(original),
-            'fresh_process_video_audio_cpu_match':True,'invalid_files_rejected':len(invalid),
+    return {'state_bytes':len(original),'invalid_files_rejected':len(invalid),
             'missing_load_is_read_only':True}
-    (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
-    return result
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument('exe',type=Path); p.add_argument('--output',type=Path)

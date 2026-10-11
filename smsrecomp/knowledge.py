@@ -14,7 +14,10 @@ import zlib
 from .paths import ASSETS
 
 RESOURCE = 'assets/compilation-knowledge.json.gz'
-MAX_BYTES = 32 * 1024 * 1024
+# A bounded decompressed budget, shared by the builder and package audit.
+# Growing multi-console observations can exceed the original 32 MiB cap;
+# the distributed resource remains gzip-compressed and strictly numeric.
+MAX_BYTES = 64 * 1024 * 1024
 FIELDS = {
     'sms': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
     'gg': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},

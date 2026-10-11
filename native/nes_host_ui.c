@@ -14,7 +14,9 @@
 #include "retro_keyboard.h"
 #include "display_settings.h"
 #include "scanline_sdl.h"
+#include "xbr_sdl.h"
 #include "retro_nes.h"
+#include "nes_audio_output.inc"
 
 enum { A, B, SELECT, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 static const uint8_t bits[ACTIONS] = {128, 64, 32, 16, 8, 4, 2, 1};
@@ -248,7 +250,8 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(83, tr("P or gamepad left-stick click: resume", "P ou clic stick gauche : reprendre"));
         RR_NES_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
     }
-    if (status[0]) RR_NES_TEXT(177, status);
+    if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
+    else if (status[0]) RR_NES_TEXT(177, status);
 #undef RR_NES_TEXT
     rr_menu_end(ren);
 }
@@ -270,12 +273,12 @@ int cyc_sdl_main(const char *title, int scale) {
         SDL_TEXTUREACCESS_STREAMING, filter == 2 ? 512 : 256, filter == 2 ? 480 : 240) : NULL;
     uint32_t *upscaled = (uint32_t *)malloc(512 * 480 * sizeof(uint32_t));
     if (!tex || !upscaled) { free(upscaled); if (ren) SDL_DestroyRenderer(ren); if (win) SDL_DestroyWindow(win); SDL_Quit(); return 1; }
-    SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+    SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
     rr_menu_init(ren);
-    SDL_AudioSpec want = {0}, have = {0};
-    want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 512;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-    if (audio && cyc_audio_enable(have.freq)) SDL_PauseAudioDevice(audio, 0);
+    if (nes_audio_open()) {
+        if (cyc_audio_enable(RR_NES_AUDIO_RATE)) SDL_PauseAudioDevice(nes_audio.id, 0);
+        else nes_audio_close();
+    }
     open_pads();
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
@@ -283,6 +286,7 @@ int cyc_sdl_main(const char *title, int scale) {
     int title_state = french ? 2 : 0;
     bool running = true;
     RrScanlineMask scanlines = {0};
+    RrXbr xbr = {0};
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -297,7 +301,7 @@ int cyc_sdl_main(const char *title, int scale) {
             }
             if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK &&
                     pads[0] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[0]))) {
-                cyc_power_on(0); cyc_run_power_on(); if (audio) SDL_ClearQueuedAudio(audio);
+                cyc_power_on(0); cyc_run_power_on(); nes_audio_clear();
             }
             if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
             SDL_Scancode key = event.key.keysym.scancode;
@@ -312,17 +316,20 @@ int cyc_sdl_main(const char *title, int scale) {
             }
             if (key == SDL_SCANCODE_ESCAPE) { if (menu) menu = 0; else running = false; }
             else if (key == SDL_SCANCODE_F1) {
-                cyc_power_on(0); cyc_run_power_on(); if (audio) SDL_ClearQueuedAudio(audio);
+                cyc_power_on(0); cyc_run_power_on(); nes_audio_clear();
             } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
             else if (key == SDL_SCANCODE_F3) {
-                filter = (filter + 1) % 4;
+                filter = rr_menu_next_filter(filter);
                 SDL_DestroyTexture(tex);
                 tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                     filter == 2 ? 512 : 256, filter == 2 ? 480 : 240);
                 if (!tex) { running = false; break; }
-                SDL_SetTextureScaleMode(tex, filter == 1 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+                SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
+                const char *labels[] = {tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
+                snprintf(status, sizeof(status), "%s", labels[filter]);
+                status_until = SDL_GetTicks64() + 1800;
                 if (!rr_display_save(ini_file, data_dir, L"NES.Video", L"filter", filter)) snprintf(status, sizeof(status), "%s", tr("Config unavailable", "Config inaccessible"));
             } else if (key == SDL_SCANCODE_F4) {
                 int changed=rr_display_cycle(win,&fullscreen,ini_file,data_dir,L"NES.Video");
@@ -346,7 +353,7 @@ int cyc_sdl_main(const char *title, int scale) {
                 snprintf(status, sizeof(status), "%s", message);
                 status_until = SDL_GetTicks64() + 1800;
                 if (ok) { menu = 0; capturing = 0; }
-                if (ok && load) { if (audio) SDL_ClearQueuedAudio(audio); next = SDL_GetPerformanceCounter(); }
+                if (ok && load) { nes_audio_clear(); next = SDL_GetPerformanceCounter(); }
             } else if (menu == 2) {
                 if (key == SDL_SCANCODE_TAB) { gamepad_page = (gamepad_page + 1) % (RR_NES_ZAPPER ? 3 : 2); row = 0; }
                 else if (gamepad_page == 2) {
@@ -375,14 +382,15 @@ int cyc_sdl_main(const char *title, int scale) {
             cyc_run_frame(); ++frame;
             int16_t pcm[4096]; size_t n;
             while ((n = cyc_audio_read(pcm, 4096)) > 0)
-                if (audio && SDL_GetQueuedAudioSize(audio) < (Uint32)(have.freq / 50) * 2)
-                    SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t)));
-        } else if (audio) SDL_ClearQueuedAudio(audio);
+                nes_audio_submit(pcm, (uint32_t)n);
+        } else nes_audio_clear();
         if (filter == 2) { scale2x(cyc_frame_argb(), upscaled); SDL_UpdateTexture(tex, NULL, upscaled, 512 * 4); }
         else SDL_UpdateTexture(tex, NULL, cyc_frame_argb(), 256 * 4);
         SDL_Rect dst = game_rect(ren);
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
-        SDL_RenderCopy(ren, tex, NULL, &dst);
+        SDL_Texture *smooth = filter == 1 ? rr_xbr_update(ren, &xbr, cyc_frame_argb(), 256, 240, 256) : NULL;
+        if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
+        else SDL_RenderCopy(ren, tex, NULL, &dst);
         if (filter == 3) rr_scanlines_draw(ren, &scanlines, &dst, 240);
         draw_gun(ren, dst);
         int current_title_state = (cyc_run_interp_rom_cycles || cyc_run_interp_ram_cycles || cyc_run_interp_other_cycles ? 1 : 0);
@@ -407,8 +415,9 @@ int cyc_sdl_main(const char *title, int scale) {
             while (SDL_GetPerformanceCounter() < next) {}
         } else if (now - next > frequency / 4) next = now;
     }
-    if (audio) SDL_CloseAudioDevice(audio);
+    nes_audio_close();
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
+    rr_xbr_destroy(&xbr);
     rr_scanlines_destroy(&scanlines);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit(); return 0;

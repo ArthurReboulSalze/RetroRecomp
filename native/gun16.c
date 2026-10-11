@@ -67,7 +67,7 @@ bool rr16_gun_state_load(const void *data, size_t size) {
 }
 void rr16_gun_input(Rr16GunInput value) {
     input = value;
-    if (value.x < 0 || value.y < 0 || value.x >= rr16_visible_width() || value.y >= rr16_visible_height())
+    if (value.x < 0 || value.y < 0 || value.x >= rr16_visible_width() || value.y >= rr16_raster_height())
         input.offscreen = true;
 #if !RR16_MD
     rr_scope_input(&scope, input);
@@ -123,7 +123,7 @@ uint8_t rr16_md_gun_read(uint8_t data, uint8_t control) {
     return rr_md_gun_port(RR16_GUN, &pins, data, control, light);
 }
 void rr16_md_gun_line(int line) {
-    if (!RR16_GUN || input.offscreen || line != input.y + RR16_GUN_Y_OFFSET || line >= rr16_visible_height()) return;
+    if (!RR16_GUN || input.offscreen || line != input.y + RR16_GUN_Y_OFFSET || line >= rr16_raster_height()) return;
     GenesisBus *bus = &g_machine.bus;
     if (!(bus->io_ctrl[1] & 0x80) || (bus->io_ctrl[1] & 0x40)) return;
     if (RR16_GUN == RR_GUN_JUSTIFIER && (bus->io_data[1] & bus->io_ctrl[1] & 0x30)) return;

@@ -2,15 +2,30 @@
  * Opcode guards permit live RAM operands without executing stale operations.
  * Evidence stays in memory; only explicit conversion probes serialize it. */
 #include "md_z80_native.h"
+#include "md_bus_scheduler.h"
 #include <string.h>
 
 static uint64_t native_ops, fallback_ops, native_cycles, fallback_cycles;
+static unsigned long phase_origin, phase_cycles;
+static uint64_t timing_misses;
+void rr_md_z80_begin(z80 *z) { phase_origin=z->cyc; phase_cycles=0; }
+void rr_md_z80_tick(unsigned cycles) {
+    phase_cycles+=cycles; machine_z80_cycles(cycles);
+}
+void rr_md_z80_sync(z80 *z) {
+    unsigned long total=z->cyc-phase_origin;
+    if(phase_cycles>total)++timing_misses;
+    else if(total>phase_cycles)rr_md_z80_tick((unsigned)(total-phase_cycles));
+    phase_origin=z->cyc;phase_cycles=0;
+}
+uint64_t rr_md_z80_timing_misses(void) { return timing_misses; }
 typedef struct { uint16_t pc; uint8_t mask, bytes[4]; } Observation;
 static Observation variants[RR_MD_Z80_VARIANT_LIMIT];
 static uint16_t table[RR_MD_Z80_VARIANT_LIMIT * 2];
 static unsigned variant_count;
 static uint64_t dropped_variants;
 static int in_reference;
+static int changed_fetch;
 static unsigned driver_image_count;
 static uint8_t driver_images[4][8192];
 
@@ -68,6 +83,11 @@ static void observe(uint16_t pc) {
 
 void rr_md_z80_step(z80 *z) {
     unsigned long before = z->cyc;
+    rr_md_z80_begin(z);
+    /* Native opcode guards peek without side effects, but a banked opcode
+     * fetch still needs the external bus before advancing PC. */
+    if(z->pc>=0x8000u)machine_z80_bus_barrier();
+    changed_fetch = 0;
     in_reference = rr_md_z80_force_reference();
     if (!in_reference) {
         if (z->halted) {
@@ -85,10 +105,18 @@ void rr_md_z80_step(z80 *z) {
                 }
             }
             if (matched) {
+                /* Fixed bodies perform ordered fetch cycles, including
+                 * prefixes crossing the bank boundary, without decoding. */
                 uint64_t previous_fallback = fallback_cycles;
                 ops[i].run(z); rr_md_z80_finish(z);
-                ++native_ops;
-                native_cycles += z->cyc - before - (fallback_cycles - previous_fallback);
+                if (changed_fetch) {
+                    /* A partial native prefix is not a retired operation.
+                     * The whole instruction is counted as the visible escape. */
+                    fallback_cycles += z->cyc - before;
+                } else {
+                    ++native_ops;
+                    native_cycles += z->cyc - before - (fallback_cycles - previous_fallback);
+                }
                 return;
             }
         }
@@ -99,11 +127,17 @@ void rr_md_z80_step(z80 *z) {
     ++fallback_ops; fallback_cycles += z->cyc - before;
 }
 
+void rr_md_z80_fetch_fallback(void) {
+    if (!changed_fetch) { changed_fetch=1; ++fallback_ops; }
+    in_reference=1; /* Any IM0 continuation belongs to the same escape. */
+}
+
 void rr_md_z80_irq_fallback(unsigned long cycles) {
     if (!in_reference) { ++fallback_ops; fallback_cycles += cycles; }
 }
 void rr_md_z80_reset_evidence(void) {
     native_ops = fallback_ops = native_cycles = fallback_cycles = dropped_variants = 0;
+    timing_misses=0;
     variant_count = driver_image_count = 0; memset(table, 0, sizeof table);
 }
 uint64_t rr_md_z80_native_opcodes(void) { return native_ops; }
@@ -111,6 +145,7 @@ uint64_t rr_md_z80_fallback_opcodes(void) { return fallback_ops; }
 uint64_t rr_md_z80_native_cycles(void) { return native_cycles; }
 uint64_t rr_md_z80_fallback_cycles(void) { return fallback_cycles; }
 void rr_md_z80_report(FILE *file) {
+    fprintf(file, ",\"z80_timing_misses\":%llu", timing_misses);
     fprintf(file, ",\"audio_native_opcodes\":%llu,\"audio_interpreted_opcodes\":%llu,"
                   "\"audio_native_cycles\":%llu,\"audio_interpreted_cycles\":%llu,"
                   "\"z80_dropped_variants\":%llu,\"z80_variants\":[",

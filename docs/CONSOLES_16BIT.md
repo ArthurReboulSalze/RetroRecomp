@@ -1,7 +1,62 @@
-# Experimental Mega Drive and Super Nintendo profiles
+# Mega Drive and Super Nintendo profiles
 
-RetroRecomp includes two separate experimental console profiles. This
-status describes incomplete hardware and gameplay coverage, not a fixed game list.
+## Release 0.25.0 qualification, 11 October 2026
+
+Mega Drive is supported within the standard cartridge scope described below.
+The final campaign qualified 24 additional exact ROMs and eight existing feature
+regressions, using advanced scans, actual compressed EXE replays, fresh-process
+states and bad-state rejection. Both 68000 and Z80 report zero fallback on the
+retained paths. PAL and NTSC are determined by cartridge headers. The shared
+VDP row-fetch correction is included in every rebuilt campaign export.
+
+The released converter embeds verified hints for 82 exact Mega Drive ROMs; another
+ROM gets its own analysis and the same validation gates. SRAM, supported
+EEPROM, declared Sega bank mapping, F8/F9 and Menacer retain their targeted
+checks. Super Nintendo remains experimental with 15 qualified hint records.
+See [the acceptance scope and separate evidence](COMPATIBILITY.md).
+
+Full playthroughs, the full catalogue, electrical pin precision and physical
+latency are not claimed. Other cartridge circuits and 68000 address/bus errors
+remain outside the qualified scope. The implementation history below records
+the individual stages; their older experimental status is superseded by this
+completed standard-profile qualification.
+
+## Compiler and runtime evidence
+
+Mega Drive advanced conversion now keeps five scenarios and extends the original
+attract route to at least 24,000 frames. Later demo transitions exposed native
+coverage gaps just beyond the former 7,200-frame budget. The other scenarios
+retain their configured budgets; ordinary conversion is unchanged. Both CPU
+paths, visible frames and PCM still require comparison before any learning.
+The report records the demo budget and the extra frames, so the longer scan's
+cost and coverage remain explicit.
+
+Longer Mega Drive qualification uses `tools/megadrive_progression_selftest.py`
+on an already generated EXE. It compares original attract and two-port input
+routes frame by frame with the separately decoded CPU in a fresh process, then
+reloads a temporary snapshot and compares the continuation. Traces and reports
+are written only to the explicit local output folder. A fallback, impossible
+bus budget or mismatch makes the route fail, preserving diagnostics for later
+work. Controller traffic and changing frames are evidence of exercised paths;
+they do not prove level completion, physical hardware fidelity or sound latency.
+If a requested snapshot falls inside a live instruction, the probe tests nearby
+safe frame boundaries and records the actual saved frame and replay length.
+It does not weaken the runtime's capture guard or ignore other probe errors.
+
+The shared Mega Drive scheduler also removes artificial four-cycle waits
+during 68000 STOP and prevents a paused Z80 transaction from resuming with an
+obsolete timestamp after BUSREQ/reset release. Local-bus acknowledgement now
+follows nominal Z80 machine-cycle boundaries. Electrical board timing and the
+other qualification areas remain separate from native coverage.
+
+The Mega Drive Z80 now places nominal opcode, prefix and operand cycles within
+each instruction, including stack ordering and indexed operations. These common
+fixes apply to future exports and are covered by independent timing fixtures and
+native/reference checks. They do not establish complete board-level accuracy;
+see [scope and evidence](MEGADRIVE_Z80_TIMING.md).
+
+RetroRecomp includes separate supported Mega Drive and experimental Super
+Nintendo profiles. Neither profile uses a fixed game list.
 A cartridge is identified
 from its console header, then receives a profile generated from its own ROM.
 The regression catalogue is **not an allowlist**: an unknown title or revision
@@ -9,10 +64,21 @@ can be converted without adding it to the source code first. Exact-ROM catalogue
 entries supply optional overrides; compilation knowledge remains bound to the
 full SHA-256 and engine revision. No other game's roots or RAM aliases are borrowed.
 
-The generic Mega Drive path accepts linear cartridges up to 4 MiB. Known extra
-hardware declarations (32X, Pico, extended mappers) receive a hardware
-limitation message. EEPROM save support is reported as a limitation without
-blocking game conversion; quick states remain available. The generic SNES path accepts ordinary LoROM/HiROM up to
+Guarded sound instructions now verify the actual opcode/prefix after a
+suspended fetch, preserving completed accesses and reporting a changed-byte
+reference continuation honestly. Product-based EEPROM identification also works
+when the header omits the save declaration; recognized Sega SRAM replacements
+keep their ordinary SRAM behavior. X24C01/X24C02/24C04 now have original serial
+protocol, Sega/Acclaim wiring, battery persistence and busy-write quick states.
+Unknown boards retain a limitation. See [circuit evidence](MEGADRIVE_EEPROM.md).
+
+The generic Mega Drive path accepts linear cartridges up to 4 MiB and declared
+Sega 512 KiB banked cartridges up to 8 MiB. The supplied original 5 MiB cartridge
+and independent code/Z80/DMA/state fixtures qualify that mapper's implemented
+scope; see [bank mapping](MEGADRIVE_MAPPERS.md). Other declared hardware
+(32X, Pico, SVP and unrelated mappers) receives a hardware limitation message.
+Unsupported EEPROM wiring still permits conversion with an explicit save
+limitation; quick states remain available. The generic SNES path accepts ordinary LoROM/HiROM up to
 4 MiB, including FastROM and RAM/battery variants; extended mappings and
 enhancement chips are not yet integrated into the native adapter. PAL/NTSC
 comes from the cartridge header. A multi-region Mega Drive ROM can be tested
@@ -21,7 +87,7 @@ in either declared standard, without requiring a pre-existing PAL record.
 Every conversion still compares native and reference CPU, memory, image and
 audio before learning or export. A mismatch preserves the previous export.
 Passing this internal check does not prove full gameplay or hardware fidelity.
-Release 0.24.0 includes verified compilation hints for **51 exact Mega Drive
+The published 0.24.0 snapshot includes verified compilation hints for **51 exact Mega Drive
 cartridges and 15 exact Super Nintendo cartridges**. These are regression
 observations, not a full-catalogue compatibility score. Mega Drive's recent
 20-cartridge batch passed four scenarios per cartridge with no reported main
@@ -30,18 +96,108 @@ The two profiles provide native instruction paths, resolution-aware scanlines
 and three qualified lightgun cartridges;
 see [16-bit guns, controls and verification scope](GUNS_16BIT.md).
 
-## What experimental means in this release
+The earlier cartridge-hardware snapshot had 58 exact Mega Drive
+identities, including the four EEPROM/mapper qualifications. Existing records
+and other consoles are unchanged; this development refresh is not a new public
+release or a catalogue-compatibility guarantee.
+
+## Supported scope and further work
 
 | Profile | Available today | Work still needed |
 | --- | --- | --- |
-| Mega Drive | Automatic analysis of standard linear cartridges, native 68000 and sound Z80 paths, PAL/NTSC, shared controls, quick states and Menacer | Unusual/banked cartridge hardware, independent timing and exception checks, EEPROM saves and broader gameplay coverage |
+| Mega Drive | Automatic analysis of standard and declared Sega banked cartridges, native 68000 and sound Z80 paths, PAL/NTSC, shared controls, SRAM/supported EEPROM, quick states and Menacer | Other cartridge circuits, independent fine timing and exception checks, broader gameplay coverage |
 | Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states and Super Scope | Enhancement chips/extended mappings, hires/interlace/overscan, remaining PAL/audio cases, cartridge save files and broader gameplay coverage |
+
+Mega Drive development now has a four-word VDP write queue with captured
+addresses, byte-wise VRAM retirement, occupancy status and CPU backpressure.
+DMA now separates main-bus source fetches from destination access slots.
+External transfers feed the FIFO and release the main CPU after the last
+fetch, while queued writes continue. Resume uses the remaining raster-slice
+budget; fill/copy continue asynchronously. The pointer-free queue/transfer
+state survives quick-state reload, including a migrated ABI-4 partial word.
+Precise source refresh and BR/BG/BGACK handoff phases remain unqualified.
+
+Disabled or masked IRQs remain pending until accepted. Quick states retain
+both mechanisms. ABI-6 adds the asynchronous read request/buffer, including a
+VRAM read between its two byte slots, with migration for eight qualified previous
+signatures. Read waits charge the accessing CPU; snapshots retain a latched word
+without rereading its memory. ABI-9 retains that guest section size and defers host F8/F9
+requests until both CPUs retire. Live bus continuations allow a 68000 long
+access to wait between words and a Z80 external access to wait while DMA owns
+the bus; local Z80 RAM/YM execution remains available. Native and reference
+paths use the same request-driven arbiter. Ordinary external Z80 transfers now
+reserve shared bus time and can resume after the last DMA source fetch within
+a slice, before its FIFO tail retires. Main-CPU byte/word transactions now have
+ordered nominal clocks and can yield the bus between the words of a long access.
+Divider phase and retirement debt persist across frames and diagnostic-counter
+wrap. Common memory-instruction timing and discarded-read corrections apply to
+all newly generated games. A bus budget error blocks export even if both engines
+share it. Explicit internal waits also yield for Z80 bus requests, including
+MUL's internal-only tail, without charging the overlapping work twice. The
+retirement budget handles a 32-bit diagnostic-counter wrap. Remaining internal/
+operand phase placement, request/grant pin timing and refresh/blanking/field timing
+and broader progression remain follow-up areas outside this finite qualification; see [video scope](MEGADRIVE_VIDEO.md).
 
 An eligible unlisted cartridge receives its own analysis and must pass the
 normal execution checks before export. Identification alone is not qualification.
 Zero fallback on the tested scenarios does not establish complete gameplay or
 original-hardware fidelity. Remaining failures stay recorded locally for follow-up;
 the full 16-bit collection campaigns remain paused while the common adapters improve.
+
+The MC68000 adapter now takes synchronous privilege, zero-divide, CHK/TRAPV and
+illegal/line exceptions through native vectors and real supervisor-stack frames.
+Instruction tracing preserves exception order and nested RTE returns. Independent
+synthetic cases also correct SR and CHK timings. See the
+[CPU exception checks and remaining scope](MEGADRIVE_CPU_EXCEPTIONS.md).
+Address/bus errors and remaining board timing still need qualification.
+
+Interlace mode 2 now retains its complete 448/480-row image with the original
+aspect ratio, and horizontal counters/HBlank follow elapsed slice clocks.
+Physical field timing and finer DMA/bus/IRQ phases remain open. See the
+[video checks and their precise limits](MEGADRIVE_VIDEO.md).
+
+## Mega Drive cartridge saves
+
+The 64 KiB work RAM is decoded across all 32 aliases in `$E00000–$FFFFFF`,
+including bus reads/writes, instruction fetch, audio CPU access and VDP DMA.
+Guarded native RAM instructions share a physical-byte lookup while retaining
+the actual CPU PC for relative addressing and stacked returns. Every opcode
+and extension word still needs a live match; modified bytes use counted fallback.
+RAM aliases do not multiply the saved memory or generated native bodies.
+The address range follows the [cartridge address-decoding reference](https://plutiedev.com/cartridge-slot#advanced-address-decoding).
+
+The SVP declaration at ROM header offset `$1C8` is identified before building,
+independently of the filename. This capability remains unsupported; it receives
+an explicit explanation instead of an ordinary conversion attempt. The marker
+is also used by [Genesis Plus GX's hardware initialization](https://github.com/ekeeke/Genesis-Plus-GX/blob/master/core/cart_hw/md_cart.c).
+
+Declared ordinary cartridge RAM now initializes in our host adapter, after the
+ROM is loaded and before the cold snapshot. It supports word, even-byte and
+odd-byte layouts, up to 64 KiB of connected bytes, the ROM overlay register
+and write protection. Serial EEPROM has its own [protocol and board scope](MEGADRIVE_EEPROM.md);
+invalid or unsupported parallel-RAM declarations receive a preflight explanation.
+Header definitions follow the [ROM header reference](https://www.plutiedev.com/rom-header).
+
+Battery-backed changes are kept in
+`datas/saves/<game-slug>-<rom-sha12>.rrsram` beside the game. The small container
+checks the full ROM SHA-256, geometry, payload length and integrity hash. It
+contains only cartridge RAM, without ROM or artwork, and is independent of the
+quick-state runtime ABI so a rebuild can retain ordinary game saves. An 8 KiB
+cartridge save occupies 8,304 bytes. Unsupported or damaged files are preserved.
+
+Reading saves creates nothing. Writes occur atomically after changed RAM has
+settled, or on exit; unchanged memory and volatile cartridge RAM create no save
+folder or logs. Some games initialize or save cartridge RAM automatically.
+F1 retains its contents while restoring boot hardware latches. F8/F9 include
+the RAM and overlay state; a successful rewind is persisted as the restored
+cartridge progress. Conversion probes use blank RAM and never import or write
+the player's battery files.
+
+ROM-free bus/file fixtures and the two RPG backend checks exercise these paths,
+including fresh-process reload, F8 before the first frame, warm snapshots,
+write protection and rejection of altered memory geometry. Game-menu saving
+and longer gameplay remain separate hands-on checks. These tests do not
+establish independent original-hardware fidelity.
 
 ## Earlier regression examples
 
@@ -450,7 +606,12 @@ earlier can expose ROM paths those scripts miss; merely increasing their length
 does not address this input-timing gap. The early-start replay remains ordinary
 controller input, without guest memory edits.
 
-All four scenarios are compared against the internal CPU/video/audio reference
+Controller games also get a menu/dialogue replay of at least 6,000 frames, or
+**Frames per test** when higher. Released A/C presses confirm menus and advance
+dialogue before trying directions. Repeating Start alone can miss these paths.
+Lightgun games retain their dedicated menu/aim scenarios.
+
+All five controller scenarios (four for lightgun games) are compared against the internal CPU/video/audio reference
 before new 68000 ROM/RAM entries or Z80 opcode variants enter the local library.
 The converter regenerates code while verified observations are added, within
 the existing **Maximum passes** limit. It stops when no new paths are found.
@@ -461,6 +622,12 @@ The option is off by default and applies only to Mega Drive. It increases
 conversion time and broadens tested coverage; it cannot explore every level or
 certify independent hardware accuracy. Standard mode retains its two reference
 checked scenarios. Use `--md-advanced-scan` with `convert` or `batch` in the CLI.
+
+The offline 68000 analysis also expands reached function tables made of adjacent
+direct jump instructions. It follows their ROM destinations with the normal
+legal-instruction decoder. Arbitrary pointers, indirect destinations and RAM
+still need observed execution; no game code or memory is patched. This improves
+native coverage before gameplay while keeping runtime state layouts unchanged.
 
 A cold-library Comix Zone check on 8 October 2026 completed in 152.352 seconds
 and two passes, reaching zero interpreted 68000 and Z80 instructions on all
@@ -648,7 +815,7 @@ frameworks retain their **PolyForm Noncommercial 1.0.0** terms; RetroRecomp's
 MIT licence does not replace them. See [Genesis notices](../licenses/segagenesisrecomp.md),
 [SNES notices](../licenses/snesrecomp.md) and [SMW notices](../licenses/SuperMarioWorldRecomp.md).
 
-The next stages are broader Mega Drive gameplay and mapper qualification,
+Further work includes broader Mega Drive gameplay and additional mapper qualification,
 broader SNES RAM/gameplay coverage, state/SRAM integration, SNES PAL and wider
 Mega Drive PAL qualification, and additional structurally
 different titles. Recognition alone does not grant conversion compatibility.

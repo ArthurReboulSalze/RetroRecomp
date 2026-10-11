@@ -109,6 +109,7 @@ class NesProfileTests(unittest.TestCase):
         existing_save.write_bytes(b'existing player progress')
         launches = []
         mismatch = False
+        audio_mode = 'same'
 
         def simulate_game(command, **kwargs):
             launched = Path(command[0])
@@ -122,6 +123,13 @@ class NesProfileTests(unittest.TestCase):
                 output = Path(command[command.index('--hash-out') + 1])
                 different = mismatch and '--interp-only' in command
                 output.write_bytes(b'mismatch\n' if different else b'same state\n')
+            if '--wav-out' in command:
+                import wave
+                output = Path(command[command.index('--wav-out') + 1])
+                if audio_mode != 'missing' or '--interp-only' not in command:
+                    with wave.open(str(output), 'wb') as wav:
+                        wav.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
+                        wav.writeframes(b'\x01\x00' if audio_mode == 'different' and '--interp-only' in command else b'\x00\x00')
             return 'mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'
 
         with patch('smsrecomp.nes.run', side_effect=simulate_game):
@@ -129,12 +137,24 @@ class NesProfileTests(unittest.TestCase):
             result = _probe(executable, self.root, 'compare', 1,
                             self.root / 'seeds.trace', differential=True)
             self.assertTrue(result['internal_differential'])
+            self.assertTrue(result['audio_pcm_match'])
+            self.assertEqual(result['audio_samples'], 1)
+            self.assertFalse((self.root / 'compare-native.wav').exists())
             mismatch = True
             with self.assertRaisesRegex(ConversionError, 'frame states differ'):
                 _probe(executable, self.root, 'different', 1,
                        self.root / 'seeds.trace', differential=True)
+            mismatch = False
+            audio_mode = 'different'
+            with self.assertRaisesRegex(ConversionError, 'audio samples differ'):
+                _probe(executable, self.root, 'audio', 1, self.root / 'seeds.trace', differential=True)
+            audio_mode = 'missing'
+            # A successful old capture must not hide a failed new capture.
+            (self.root / 'missing-reference.wav').write_bytes(b'stale')
+            with self.assertRaisesRegex(ConversionError, 'invalid reference audio capture'):
+                _probe(executable, self.root, 'missing', 1, self.root / 'seeds.trace', differential=True)
         self.assertEqual(existing_save.read_bytes(), b'existing player progress')
-        self.assertEqual(len(set(launches)), 5)
+        self.assertEqual(len(set(launches)), 9)
         self.assertTrue(all(not folder.exists() for folder in launches))
 
     def test_all_banks_have_native_entries_with_live_boundary_operands(self):

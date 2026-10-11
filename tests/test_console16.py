@@ -1,12 +1,13 @@
 """Synthetic cartridge checks; no commercial ROM is required."""
 from pathlib import Path
+from datetime import datetime, timezone
 import json
 import tempfile
 import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
 from smsrecomp.cartridge16 import read_megadrive_rom, read_snes_rom
-from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script
+from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, MD_SRAM_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script, _md_menu_confirm_script
 from smsrecomp.core import ConversionError, module_fingerprint
 from smsrecomp.systems import profile_for_path, discover_roms
 from smsrecomp.batch import identify, system_output
@@ -45,6 +46,33 @@ class Console16Tests(unittest.TestCase):
         path = self.root / name
         path.write_bytes(payload)
         return path
+
+    def test_previous_md_state_abi_requires_same_engine_and_disk_layout(self):
+        from smsrecomp.console16 import REPOSITORIES
+        from smsrecomp.console16_state import write_config
+        rom = read_megadrive_rom(self.source('state.md', md()))
+        (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
+        write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
+        self.assertIn('RR16_STATE_COMPAT_ABI "ea70d6ee',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_2 "9462ea4e',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_3 "66c19234',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_4 "ff419f0a',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_5 "70957023',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_6 "e9576d9f',
+                      (self.root/'retro16_state_config.h').read_text())
+        self.assertIn('RR16_STATE_COMPAT_ABI_7 "b5a707ff',
+                      (self.root/'retro16_state_config.h').read_text())
+        changed = {**REPOSITORIES, 'md': ('other/engine', '0'*40, 'other')}
+        write_config(self.root, rom, 'md', 'Test', changed)
+        self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
+        with patch('smsrecomp.console16_state.PORTABLE_STATE_ABI', 3):
+            write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
+            self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
 
     def test_bundled_compiler_fingerprint_needs_no_source_file(self):
         import sys
@@ -187,6 +215,27 @@ class Console16Tests(unittest.TestCase):
             self.assertNotEqual(adapter.profile_for(other)['id'], profile['id'])
             self.assertEqual(path.read_bytes(), original)
 
+    def test_z80_timing_budget_rejects_shared_native_reference_error(self):
+        for native, reference in ((1, 0), (0, 1), (1, 1), (0, None)):
+            self.assertIn('z80_timing_budget', reference_differences('md',
+                {'z80_timing_misses': native}, {'z80_timing_misses': reference}))
+        self.assertNotIn('z80_timing_budget', reference_differences('md',
+            {'z80_timing_misses': 0}, {'z80_timing_misses': 0}))
+        self.assertNotIn('z80_timing_budget', reference_differences('snes',
+            {'z80_timing_misses': 1}, {'z80_timing_misses': 1}))
+
+    def test_md_compares_retirement_without_hiding_an_active_fallback(self):
+        native = {'native_entries': 4, 'interpreted_opcodes': 0, 'retired_interpreted_opcodes': 0}
+        reference = {'native_entries': 0, 'interpreted_opcodes': 5, 'retired_interpreted_opcodes': 4}
+        self.assertNotIn('retired_instruction_count', reference_differences('md', native, reference))
+        self.assertEqual(reference['interpreted_opcodes'], 5)
+        for retired in (3, 5, None):
+            changed = dict(reference, retired_interpreted_opcodes=retired)
+            self.assertIn('retired_instruction_count', reference_differences('md', native, changed))
+        del reference['retired_interpreted_opcodes']
+        self.assertIn('retired_instruction_count', reference_differences('md', native, reference))
+        self.assertIn('retired_instruction_count', reference_differences('snes', native, reference))
+
     def test_unsupported_16bit_hardware_rejected_before_dependencies(self):
         payload = bytearray(snes()); payload[0x7fd6] = 0x13
         with patch('smsrecomp.console16.dependencies16') as dependencies:
@@ -249,10 +298,14 @@ class Console16Tests(unittest.TestCase):
                     self.assertEqual(input_script.read_bytes(), scripts[scenario])
                 else:
                     scripts[scenario] = input_script.read_bytes()
-            fields = MD_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped',
+            fields = MD_AUDIO_FIELDS + MD_SRAM_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped','cpu_prefetch_hash',
                 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
                 'cpu_pc', 'vsram_hash', 'vdp_register_hash')
-            fallback = int(learn_new and scenario == learned_scenario and pass_number == 1)
+            # Later real attract scenes first reached new code after 18,000
+            # frames. An authored branch at 20,366 verifies that the ordinary
+            # advanced scan discovers it and validates it before learning.
+            reached = scenario != 'demo' or frames >= 20366
+            fallback = int(learn_new and reached and scenario == learned_scenario and pass_number == 1)
             data = dict.fromkeys(fields, 1)
             data.update(scenario=scenario, frames=frames, native_entries=0 if reference else 100 - fallback,
                 interpreted_opcodes=100 if reference else fallback,
@@ -286,14 +339,17 @@ class Console16Tests(unittest.TestCase):
 
     def test_advanced_md_scan_validates_new_paths_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True)
-        self.assertEqual(events[:10], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
-                                      'reference:demo', 'reference:play', 'reference:advanced', 'reference:early-start', 'learn'])
+        self.assertEqual(events[:12], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
+                                      'native:menu-confirm', 'reference:demo', 'reference:play', 'reference:advanced',
+                                      'reference:early-start', 'reference:menu-confirm', 'learn'])
         self.assertEqual(events.count('build'), 2)
-        self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30, 6000, 1800])
-        self.assertEqual(report['native_percentage'], [100.0] * 4)
-        self.assertEqual(report['advanced_scan']['additional_frames'], 7800)
+        self.assertEqual([check['frames'] for check in report['final_checks']], [24000, 30, 6000, 1800, 6000])
+        self.assertEqual(report['native_percentage'], [100.0] * 5)
+        self.assertEqual(report['advanced_scan']['additional_frames'], 37770)
+        self.assertEqual(report['advanced_scan']['demo_frames'], 24000)
         self.assertTrue(report['advanced_scan']['reference_before_learning'])
         self.assertTrue(report['native_validation']['passed'])
+        self.assertEqual(datetime.fromisoformat(report['created_utc']).tzinfo, timezone.utc)
 
     def test_standard_md_scan_keeps_two_scenarios(self):
         events, report = self.scan_conversion(advanced=False)
@@ -303,6 +359,7 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual([check['frames'] for check in report['final_checks']], [30, 30])
         self.assertEqual(events[:5], ['build', 'native:demo', 'native:play', 'reference:demo', 'reference:play'])
         self.assertTrue(report['native_validation']['reference_before_learning'])
+        self.assertEqual(report['status'], 'supported')
         self.assertEqual(report['cartridge_profile']['source'], 'cartridge')
         self.assertFalse(report['cartridge_profile']['catalogue_required'])
 
@@ -364,6 +421,7 @@ class Console16Tests(unittest.TestCase):
                                                  'reference:demo', 'reference:play', 'learn:spc'])
                     self.assertEqual(events.count('build'), 2)
                     report = json.loads((self.root / 'reports/conversion-report.json').read_text())
+                    self.assertEqual(report['status'], 'experimental')
                     self.assertEqual(report['audio_native_percentage'], [100.0, 100.0])
                     self.assertTrue(report['native_validation']['audio_pcm_match'])
                     self.assertTrue(report['native_validation']['reference_before_learning'])
@@ -371,14 +429,50 @@ class Console16Tests(unittest.TestCase):
     def test_failed_advanced_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference=True)
 
+    def test_late_attract_path_is_validated_before_learning_and_regeneration(self):
+        events, report = self.scan_conversion(advanced=True, learned_scenario='demo')
+        self.assertEqual(events.count('build'), 2)
+        self.assertLess(events.index('reference:demo'), events.index('learn'))
+        self.assertEqual(report['native_percentage'], [100.0] * 5)
+        self.assertEqual(report['native_validation']['reference_frames'], 24000)
+
+    def test_failed_long_attract_reference_never_teaches_the_library(self):
+        self.scan_conversion(advanced=True, fail_reference='demo', learned_scenario='demo')
+
     def test_early_start_is_validated_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True, learned_scenario='early-start')
         self.assertEqual(events.count('build'), 2)
         self.assertLess(events.index('reference:early-start'), events.index('learn'))
-        self.assertEqual(report['native_percentage'], [100.0] * 4)
+        self.assertEqual(report['native_percentage'], [100.0] * 5)
 
     def test_failed_early_start_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference='early-start')
+
+    def test_menu_confirmation_paths_are_validated_before_learning(self):
+        events, report = self.scan_conversion(advanced=True, learned_scenario='menu-confirm')
+        self.assertEqual(events.count('build'), 2)
+        self.assertLess(events.index('reference:menu-confirm'), events.index('learn'))
+        self.assertEqual(report['native_percentage'], [100.0] * 5)
+
+    def test_failed_menu_confirmation_reference_never_teaches_the_library(self):
+        self.scan_conversion(advanced=True, fail_reference='menu-confirm')
+
+    def test_menu_confirmation_releases_a_and_c_before_exploring_directions(self):
+        for frames in (30, 6000):
+            rows = [tuple(map(int, line.split())) for line in
+                    _md_menu_confirm_script(self.root, frames).read_text().splitlines()]
+            self.assertEqual(rows[0], (0, 0, 0))
+            self.assertTrue(all(frame < frames and p2 == 0 for frame, _, p2 in rows))
+            events = {frame: p1 for frame, p1, _ in rows}
+            for frame, buttons in events.items():
+                if buttons & 80 and frame + 3 < frames:
+                    self.assertEqual(events[frame + 3] & 80, 0)
+                    self.assertEqual(buttons & 80, 16 if (frame // 60) % 2 else 64)
+            if frames == 6000:
+                self.assertTrue(any(buttons & 16 for _, buttons, _ in rows))
+                self.assertTrue(any(buttons & 64 for _, buttons, _ in rows))
+                self.assertTrue(all(not buttons & 15 for frame, buttons, _ in rows if frame < 2000))
+                self.assertTrue(any(buttons & 15 for _, buttons, _ in rows))
 
     def test_early_start_uses_fresh_boot_inputs_with_released_start(self):
         for frames in (30, 1800):
@@ -484,9 +578,11 @@ class Console16Tests(unittest.TestCase):
 
     def test_validation_rejects_memory_timing_and_retired_count_differences(self):
         from smsrecomp.console16 import MD_AUDIO_FIELDS
-        fields = MD_AUDIO_FIELDS + SNES_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped', 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
+        fields = MD_AUDIO_FIELDS + MD_SRAM_FIELDS + SNES_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped','cpu_prefetch_hash', 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
                   'cpu_pc', 'vsram_hash', 'vdp_register_hash', 'oam_hash', 'high_oam_hash',
-                  'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles')
+                  'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles',
+                  'visible_width', 'visible_height', 'active_raster_height', 'interlace_mode',
+                  'output_row_density', 'captured_rows', 'video_modes_seen', 'interlace_frames')
         native = dict.fromkeys(fields, 1) | {'native_entries': 100, 'interpreted_opcodes': 0,
             'audio_native_opcodes': 90, 'audio_interpreted_opcodes': 10,
             'audio_native_cycles': 900, 'audio_interpreted_cycles': 100}
@@ -495,7 +591,10 @@ class Console16Tests(unittest.TestCase):
             'audio_native_cycles': 0, 'audio_interpreted_cycles': 1000}
         for system, key in (('md', 'vdp_register_hash'), ('md', 'fm_hash'), ('md', 'ym_timer_hash'),
                             ('md', 'z80_ram_hash'), ('md', 'console_version'), ('md', 'cpu_usp'), ('md', 'cpu_ssp'),
-                            ('md', 'cpu_stopped'), ('snes', 'master_cycles'), ('snes', 'oam_hash'),
+                            ('md', 'cpu_stopped'), ('md','cpu_prefetch_hash'), ('md', 'sram_hash'), ('md', 'sram_bytes'),
+                            ('md', 'sram_control'), ('md', 'captured_rows'), ('md', 'visible_height'),
+                            ('md', 'active_raster_height'), ('md', 'interlace_frames'),
+                            ('snes', 'master_cycles'), ('snes', 'oam_hash'),
                             ('snes', 'spc_cpu_hash'), ('snes', 'dsp_state_hash'), ('snes', 'pcm_hash')):
             self.assertEqual(reference_differences(system, native, reference), [])
             self.assertIn(key, reference_differences(system, native, reference | {key: 2}))
@@ -510,3 +609,16 @@ class Console16Tests(unittest.TestCase):
             reference | {'audio_interpreted_opcodes': 99}))
         self.assertIn('spc_cycle_count', reference_differences('snes', native,
             reference | {'audio_interpreted_cycles': 999}))
+
+    def test_md_bus_budget_rejects_shared_timing_errors(self):
+        # The other missing fields are irrelevant to this independent guard.
+        self.assertNotIn('bus_timing_budget', reference_differences('md',
+            {'bus_budget_misses': 0}, {'bus_budget_misses': 0}))
+        for native, reference in ((1, 1), (1, 0), (0, 1), (None, 0), (0, None)):
+            self.assertIn('bus_timing_budget', reference_differences('md',
+                {'bus_budget_misses': native}, {'bus_budget_misses': reference}))
+        self.assertIn('bus_timing_budget', reference_differences('md',
+            {'bus_budget_misses': 0}, {}))
+        self.assertNotIn('bus_timing_budget', reference_differences('md', {}, {}))
+        self.assertNotIn('bus_timing_budget', reference_differences('snes',
+            {'bus_budget_misses': 1}, {'bus_budget_misses': 1}))

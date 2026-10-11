@@ -12,6 +12,7 @@ from shutil import copyfile
 
 from .core import replace_once
 from .paths import ASSETS
+from . import __version__
 
 
 def disable_imgui_layout_persistence(source: str) -> str:
@@ -69,16 +70,19 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('scanlines.h', project / 'runtime/include/scanlines.h'),
         ('scanline_sdl.h', project / 'runtime/include/scanline_sdl.h'),
+        ('xbr_filter.h', project / 'runtime/include/xbr_filter.h'),
+        ('xbr_sdl.h', project / 'runtime/include/xbr_sdl.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
     runtime = project / "runtime/src/platform_sdl.cpp"
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
-                          '#include "platform_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"')
+                          '#include "platform_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
     source = replace_once(source, 'static SDL_Texture* g_texture = NULL;',
                           '''static SDL_Texture* g_texture = NULL;
 static SDL_Texture* g_rr_scale2x_texture = NULL;
 static RrScanlineMask g_rr_scanlines = {};
+static RrXbr g_rr_xbr = {};
 static uint32_t g_rr_scale2x_pixels[GB_SCREEN_WIDTH * GB_SCREEN_HEIGHT * 4];''')
     source = replace_once(source, 'static bool g_show_menu = false;',
                           '''static bool g_show_menu = false;
@@ -102,7 +106,7 @@ static void rr_gb_toggle_menu(int kind);''')
     "Nearest",
     "Linear",
 };''', '''static const char* g_render_filter_names[] = {
-    "Sharp pixels", "Bilinear smoothing", "Scale2x", "Scanlines",
+    "Sharp pixels", "xBR smooth", "Scale2x", "Scanlines",
 };''')
     source = replace_once(source, 'static bool g_show_overlay = false;',
                           f'static bool g_show_overlay = false;\nstatic const char* g_rr_game_title = {json.dumps(title, ensure_ascii=False)};')
@@ -349,7 +353,7 @@ static void binding_to_config_value''')
                                     : SDL_ScaleModeNearest);
     }''', '''    if (g_texture) {
         SDL_SetTextureScaleMode(g_texture,
-            g_render_filter_mode == GB_RENDER_FILTER_LINEAR ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+            SDL_ScaleModeNearest);
     }
     if (g_rr_scale2x_texture) SDL_SetTextureScaleMode(g_rr_scale2x_texture, SDL_ScaleModeNearest);''')
     source = replace_once(source, '''    if (g_texture) {
@@ -361,6 +365,7 @@ static void binding_to_config_value''')
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
     }
+    rr_xbr_destroy(&g_rr_xbr);
     rr_scanlines_destroy(&g_rr_scanlines);
     if (g_rr_scale2x_texture) {
         SDL_DestroyTexture(g_rr_scale2x_texture);
@@ -384,6 +389,9 @@ static void binding_to_config_value''')
     source = replace_once(source, '''    copy_display_frame(pixels, pitch, framebuffer, g_palette_idx, g_registered_ctx);
 
     SDL_UnlockTexture(g_texture);''', '''    copy_display_frame(pixels, pitch, framebuffer, g_palette_idx, g_registered_ctx);
+    /* Mode 1 retains its stored ID; reconstruct contours with xBR at 4x. */
+    SDL_Texture *rr_xbr_texture = g_render_filter_mode == GB_RENDER_FILTER_LINEAR ?
+        rr_xbr_update(g_renderer, &g_rr_xbr, (const uint32_t*)pixels, GB_SCREEN_WIDTH, GB_SCREEN_HEIGHT, pitch / 4) : NULL;
     const bool rr_scale2x_active = g_render_filter_mode == GB_RENDER_FILTER_SCALE2X &&
         g_game_viewport.w >= GB_SCREEN_WIDTH * 2 && g_game_viewport.h >= GB_SCREEN_HEIGHT * 2;
     if (rr_scale2x_active)
@@ -394,7 +402,7 @@ static void binding_to_config_value''')
     source = replace_once(source, '''    SDL_RenderCopy(g_renderer, g_texture, NULL, &g_game_viewport);
 
     ImGui_ImplSDLRenderer2_NewFrame();''', '''    SDL_RenderCopy(g_renderer,
-        rr_scale2x_active ? g_rr_scale2x_texture : g_texture,
+        rr_xbr_texture ? rr_xbr_texture : rr_scale2x_active ? g_rr_scale2x_texture : g_texture,
         NULL, &g_game_viewport);
     if (g_render_filter_mode == GB_RENDER_FILTER_SCANLINES)
         rr_scanlines_draw(g_renderer, &g_rr_scanlines, &g_game_viewport, GB_SCREEN_HEIGHT);
@@ -434,6 +442,7 @@ static void binding_to_config_value''')
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
     }
+    rr_xbr_destroy(&g_rr_xbr);
     rr_scanlines_destroy(&g_rr_scanlines);
     if (g_rr_scale2x_texture) {
         SDL_DestroyTexture(g_rr_scale2x_texture);
@@ -679,6 +688,7 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     ${GBRT_DIR}/src/retro_menu.c
 )''')
     source += '\nif(WIN32)\n    target_link_libraries(gbrt PUBLIC gdi32)\nendif()\n'
+    source += f'target_compile_definitions(gbrt PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])\n'
     source += '\n# RetroRecomp Windows identity and box-art icon.\n'
     source += 'if(WIN32)\n    target_sources(game PRIVATE game_resources.rc)\nendif()\n'
     source += 'if(WIN32)\n    set_target_properties(game PROPERTIES WIN32_EXECUTABLE TRUE)\nendif()\n'
@@ -690,6 +700,8 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     cmake.write_text(source, encoding="utf-8")
     from .gameboy_timing import adapt_timing
     adapt_timing(project)
+    from .gameboy_hardware import adapt_hardware
+    adapt_hardware(project)
     adapt_differential(project)
     deduplicate_entry_trace(project)
 

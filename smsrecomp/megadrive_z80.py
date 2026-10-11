@@ -1,9 +1,11 @@
 """Instruction AOT for mutable Mega Drive sound drivers.
 
-Only the converter decodes opcode structure. Generated bodies have a fixed
-operation, selected by PC and guarded opcode bytes. Immediate operands remain
+Native opcode structure is resolved during conversion. Generated bodies have
+a fixed operation, selected by PC and guarded opcode bytes. Immediate operands remain
 live reads: drivers routinely rewrite sample pointers and loop counters in RAM.
-No generated body calls the reference opcode decoder.
+The normal generated path never decodes an opcode. If an actual structural
+fetch disagrees with its guard, a counted escape continues from the consumed
+byte, without replaying a prefix, operand or device access.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ import re
 from .core import ConversionError
 from .library import atomic_json, entry_lock, library_root
 from .knowledge import ram_variants as shared_ram_variants
+from .megadrive_z80_timing import adapt as adapt_timing
 
 LIMIT = 32768
 
@@ -161,11 +164,25 @@ def _cases(body):
 
 class Emitter:
     def __init__(self, source):
+        source = adapt_timing(source)
         clean = _clean(source)
         self.source = source
         self.bodies = {name: _function(clean, 'exec_opcode' + suffix) for name, suffix in
             [('base', ''), ('index', '_ddfd'), ('cb', '_cb'), ('dcb', '_dcb'), ('ed', '_ed')]}
         self.cases = {name: _cases(self.bodies[name]) for name in ('base', 'index', 'ed')}
+
+    def fetch(self, raw, pos=0, family='base'):
+        """Check actual bus data before using a literal operation's semantics.
+
+        Nest the continuation instead of returning from the whole body: ignored
+        DD/FD prefixes still owe their outer refresh correction after a changed
+        nested fetch. DDCB's selector is a 3T read, following a live displacement.
+        """
+        parameter = {'index': 'iz == &z->iy', 'dcb': 'addr'}.get(family, '0')
+        fetch = 'nextb(z); rr_md_z80_tick(2)' if family == 'dcb' else 'rr_nextop(z)'
+        return ('{ uint8_t actual = ' + fetch + ';\n' +
+                f'if (actual != {raw[pos]}) rr_md_z80_resume(z, actual, RR_MD_Z80_{family.upper()}, {parameter});\n' +
+                'else {\n' + self.instruction(raw, pos, family) + '\n}\n}')
 
     def instruction(self, raw, pos=0, family='base', index=None):
         if pos >= 4:
@@ -174,21 +191,21 @@ class Emitter:
         if family == 'base':
             preamble = f'z->cyc += cyc_00[{op}]; inc_r(z);\n'
             if op in (0xcb, 0xed):
-                return preamble + 'z->pc++;\n' + self.instruction(raw, pos + 1,
+                return preamble + self.fetch(raw, pos + 1,
                     'cb' if op == 0xcb else 'ed')
             if op in (0xdd, 0xfd):
-                return preamble + 'z->pc++;\n{ uint16_t *const iz = &z->' + ('ix' if op == 0xdd else 'iy') + ';\n' + \
-                    self.instruction(raw, pos + 1, 'index') + '\n}'
+                return preamble + '{ uint16_t *const iz = &z->' + ('ix' if op == 0xdd else 'iy') + ';\n' + \
+                    self.fetch(raw, pos + 1, 'index') + '\n}'
             return preamble + self.cases['base'].get(op, self.cases['base'][None])
         if family == 'index':
             preamble = f'z->cyc += cyc_ddfd[{op}]; inc_r(z);\n'
             if op == 0xcb:
-                return preamble + '{ uint16_t addr = displace(z, *iz, nextb(z)); z->pc++;\n' + \
-                    self.instruction(raw, pos + 2, 'dcb') + '\n}'
+                return preamble + '{ uint16_t addr = displace(z, *iz, nextb(z));\n' + \
+                    self.fetch(raw, pos + 2, 'dcb') + '\n}'
             code = self.cases['index'].get(op)
             if code is None:
                 code = self.instruction(raw, pos) + '\nz->r = (z->r & 0x80) | ((z->r - 1) & 0x7f);'
-            code = re.sub(r'\bIZD\b', 'displace(z, *iz, nextb(z))', code)
+            code = re.sub(r'\bIZD\b', 'displace(z, rr_index(z, *iz, nextb(z)), 0)', code)
             code = re.sub(r'\bIZH\b', '(*iz >> 8)', code)
             code = re.sub(r'\bIZL\b', '(*iz & 0xFF)', code)
             return preamble + code
@@ -214,10 +231,10 @@ def generate(project: Path, engine: Path, variants):
     code = '/* Fixed-operation AOT. MIT SuperZazu semantic helpers; see embedded notices. */\n'
     code += emitter.helpers() + '\n#include "md_z80_native.h"\n'
     for index, (_, raw) in enumerate(keys):
-        body = emitter.instruction(bytes.fromhex(raw))
+        body = emitter.fetch(bytes.fromhex(raw))
         if 'exec_opcode' in body:
             raise ConversionError('Z80 AOT body would call the opcode interpreter.')
-        code += f'static void op_{index}(z80 *const z) {{ z->pc++;\n{body}\n}}\n'
+        code += f'static void op_{index}(z80 *const z) {{\n{body}\n}}\n'
     code += '\nstatic const RrMdZ80Body bodies[] = {\n'
     code += ',\n'.join(f'{{{mask},{{' + ','.join(str(b) for b in bytes.fromhex(raw)) +
                       f'}},op_{ids[mask, raw]}}}' for _, mask, raw in entries)
@@ -235,18 +252,20 @@ def generate(project: Path, engine: Path, variants):
     code += ' *count = offsets[(unsigned)pc + 1] - offsets[pc]; return bodies + offsets[pc];\n}\n'
     (project / 'md_z80_generated.c').write_text(code, encoding='utf-8')
     stats = {'guarded_positions': len(entries), 'shared_native_bodies': len(keys),
-             'runtime_opcode_decoder': False, 'mutable_operands': True}
+             'runtime_opcode_decoder': False, 'mutable_operands': True,
+             'actual_fetch_guards': True, 'counted_changed_fetch_continuation': True}
     atomic_json(project / 'z80-native-analysis.json', stats)
     return stats
 
 
 def adapt_reference(source):
+    source = adapt_timing(source)
     # The IRQ finishing step is shared, independently of opcode execution.
     # Genesis supplies FF on IM0's interrupt data bus. Other values keep a
     # counted reference escape rather than entering an uncounted decoder.
     old = '      exec_opcode(z, z->int_data);'
     new = '''      if (z->int_data == 0xff) {
-        z->cyc += cyc_00[0xff]; inc_r(z); call(z, 0x38);
+        z->cyc += 2; rr_md_z80_tick(7); call(z, 0x38);
       } else {
         unsigned long before = z->cyc;
         exec_opcode(z, z->int_data);
@@ -255,6 +274,27 @@ def adapt_reference(source):
     if source.count(old) != 1:
         raise ConversionError('Pinned Z80 interrupt adapter changed.')
     source = '#include "md_z80_native.h"\n' + source.replace(old, new)
-    return source + '''\nvoid rr_md_z80_finish(z80 *z) { process_interrupts(z); }
-void rr_md_z80_halt(z80 *z) { z->cyc += 4; inc_r(z); }
+    return source + '''\nvoid rr_md_z80_finish(z80 *z) {
+    rr_md_z80_sync(z); machine_z80_instruction_boundary();
+    process_interrupts(z); rr_md_z80_sync(z);
+}
+void rr_md_z80_halt(z80 *z) {
+    machine_z80_boundary();
+    (void)z->read_byte(z->userdata,z->pc); rr_md_z80_tick(4);
+    z->cyc += 4; inc_r(z);
+}
+void rr_md_z80_resume(z80 *z, uint8_t opcode, unsigned family, uint16_t parameter) {
+    /* The bus has already consumed this byte. Resume only its semantic
+     * family: do not rewind PC, refetch, reset phases or process IRQ twice. */
+    rr_md_z80_fetch_fallback();
+    switch (family) {
+    case RR_MD_Z80_BASE: exec_opcode(z, opcode); break;
+    case RR_MD_Z80_CB: exec_opcode_cb(z, opcode); break;
+    case RR_MD_Z80_ED: exec_opcode_ed(z, opcode); break;
+    case RR_MD_Z80_INDEX: {
+        exec_opcode_ddfd(z, opcode, parameter ? &z->iy : &z->ix);
+    } break;
+    case RR_MD_Z80_DCB: exec_opcode_dcb(z, opcode, parameter); break;
+    }
+}
 '''

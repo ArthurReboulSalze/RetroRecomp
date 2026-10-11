@@ -15,20 +15,24 @@ sys.path.insert(0, str(ROOT))
 from smsrecomp import core, gameboy, nes, megadrive, megadrive_z80, supernintendo, snes_spc
 from smsrecomp.batch import identify
 from smsrecomp.console16 import REPOSITORIES
-from smsrecomp.knowledge import RESOURCE, FIELDS, load, validate_payload
+from smsrecomp.knowledge import RESOURCE, FIELDS, MAX_BYTES, load, validate_payload
 from smsrecomp.library import GameMemory, library_root
 from smsrecomp.gameboy_coverage import read_entries
 from smsrecomp.systems import get_profile
 
 
-def _journals_qualified(memory, report: dict) -> bool:
+def _observations_qualified(paths, report: dict) -> bool:
     """Do not promote observations appended after the last successful run."""
     try:
         qualified_at = datetime.fromisoformat(report['created_utc']).timestamp()
         return all(not path.exists() or path.stat().st_mtime <= qualified_at
-                   for path in (memory.journal, memory.code_journal))
+                   for path in paths)
     except (KeyError, OSError, TypeError, ValueError):
         return False
+
+
+def _journals_qualified(memory, report: dict) -> bool:
+    return _observations_qualified((memory.journal, memory.code_journal), report)
 
 
 def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dict:
@@ -93,6 +97,12 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
             expected_engine = supernintendo.knowledge_engine(rom) if item.system == 'snes' else engines[item.system]
             if not report or report.get('compiler', {}).get('revision') != expected_engine:
                 omitted['unqualified'] += 1; continue
+            if item.system == 'md' and not _observations_qualified(
+                    (megadrive.memory_file(rom), megadrive_z80.memory_file(rom)), report):
+                # A later failed or unfinished replay may extend either CPU's
+                # private hints while leaving the previous export/report intact.
+                # Keep the old shared record until the new union is qualified.
+                omitted['unqualified'] += 1; continue
             record['engine'] = expected_engine
             if item.system == 'gb':
                 record['rom_entries'] = [list(e) for e in sorted(read_entries(gameboy._verified_trace(rom), len(rom.data)))]
@@ -143,7 +153,7 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
         refreshed[item.system].add(rom.sha256)
     payload = validate_payload({'schema': 1, 'consoles': consoles})
     raw = json.dumps(payload, separators=(',', ':'), sort_keys=True).encode('ascii')
-    if len(raw) > 32*1024*1024: raise ValueError('Knowledge size budget exceeded.')
+    if len(raw) > MAX_BYTES: raise ValueError('Knowledge size budget exceeded.')
     packed = gzip.compress(raw, compresslevel=9, mtime=0)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix+'.tmp')

@@ -51,6 +51,14 @@ class CoverTitleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             choose_cover(names, 'Double Dragon 3', 'Double Dragon 3')
 
+    def test_spinball_header_alias_preserves_other_sonic_games_and_regions(self):
+        names = ['Sonic the Hedgehog (USA).png', 'Sonic the Hedgehog 2 (USA).png',
+                 'Sonic Spinball (Europe).png', 'Sonic Spinball (USA).png']
+        self.assertEqual(choose_cover(names, 'Sonic The Hedgehog Spinball (USA)',
+                                     'Sonic The Hedgehog Spinball'), names[3])
+        self.assertIsNone(choose_cover(names[:2], 'Sonic The Hedgehog Spinball (USA)',
+                                       'Sonic The Hedgehog Spinball'))
+
     def test_sequels_years_and_x_series_are_never_substituted(self):
         cases = (('Strider II', 'Strider'), ('Strider II', 'Strider III'),
                  ('Sonic 3', 'Sonic 2'), ('Mega Man X', 'Mega Man 10'),

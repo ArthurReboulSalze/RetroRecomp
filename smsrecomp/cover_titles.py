@@ -15,6 +15,7 @@ import unicodedata
 TITLE_ALIASES = {
     'castleofillusion': 'Castle of Illusion Starring Mickey Mouse',
     'aresshadegyoukoumd': 'A Ressha de Ikou MD',
+    'sonicthehedgehogspinball': 'Sonic Spinball',
 }
 _ROMAN = {'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
           'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'xi': '11',

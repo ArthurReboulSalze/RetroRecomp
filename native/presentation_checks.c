@@ -162,11 +162,34 @@ static void autofire(void) {
     for(int p=1;p>=0;--p) { SDL_GameControllerClose(pads_test[p]); assert(SDL_JoystickDetachVirtual(devices[p])==0); }
     puts("PASS: F6 autofire/F7 language, both players/buttons, forty pulses per simulated second, balanced 12.5 ms phases, immediate/released presses, remapping, keyboard/focus and shared INI; frozen pause and safe rewind.");
 }
+static void sprite_option(void) {
+#ifndef RETRO_GAME_GEAR
+    assert(!controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F5, 0); assert(controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F5, 1); assert(controls.reduce_sprite_flicker);
+    controls_load(); assert(controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F10, 0); assert(controls.reduce_sprite_flicker && menu == 0);
+    key(SDL_SCANCODE_F5, 0); assert(!controls.reduce_sprite_flicker);
+    controls_load(); assert(!controls.reduce_sprite_flicker);
+    lightphaser_reset(true, 0);
+    key(SDL_SCANCODE_F5, 0); assert(controls.reduce_sprite_flicker && menu == 0);
+    key(SDL_SCANCODE_F10, 0); assert(menu == 4 && controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F10, 1); assert(menu == 4 && controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F10, 0); assert(menu == 0 && controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F2, 0); assert(menu == 2);
+    key(SDL_SCANCODE_G, 0); assert(menu == 4);
+    key(SDL_SCANCODE_F10, 0); assert(menu == 0);
+    key(SDL_SCANCODE_F5, 0); assert(!controls.reduce_sprite_flicker);
+    lightphaser_reset(false, 0);
+    assert(controls.filter == FILTER_NEAREST && controls.display_mode == 0);
+    puts("PASS: F5 toggles/persists SMS sprite reduction, F10 opens/closes gun options, G remains available, repeated keys ignored and other display preferences preserved.");
+#endif
+}
 int main(int argc,char **argv) {
     assert(argc==2 && SDL_Init(SDL_INIT_GAMECONTROLLER|SDL_INIT_TIMER)==0);
     assert(MultiByteToWideChar(CP_UTF8,0,argv[1],-1,config_path,RETRO_PATH_CAP));
     controls_load(); window=(SDL_Window*)(uintptr_t)1;
-    sizes(); scanlines(); autofire(); window=NULL;
+    sizes(); scanlines(); sprite_option(); autofire(); window=NULL;
     menu=3; parent_menu=1; capturing=true;
     key(SDL_SCANCODE_F8,0); assert(menu==0 && parent_menu==0 && !capturing);
     menu=3; key(SDL_SCANCODE_F9,1); assert(menu==3);

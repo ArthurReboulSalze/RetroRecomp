@@ -273,12 +273,55 @@ class BatchTests(unittest.TestCase):
         self.assertEqual({p.name for p in self.output.glob('*.exe')}, {'New game title.exe'})
         self.assertFalse((self.output / 'datas/previous-executables').exists())
 
+    def test_old_revision_report_cannot_claim_current_branded_export_or_source_name(self):
+        from smsrecomp.batch import _OutputNames
+        item = self.item('current', 1)
+        old = self.item('old', 2)
+        self.output.mkdir(parents=True)
+        target = self.output / 'Same title.exe'
+        target.write_bytes(b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00')
+        for key, identity, source in (('current', item.sha256, item.path.name),
+                                      ('old', old.sha256, 'cartridge.bin')):
+            report = self.output / 'datas/reports' / key / 'conversion-report.json'
+            report.parent.mkdir(parents=True)
+            report.write_text(json.dumps({'executable': target.name,
+                'rom': {'sha256': identity, 'name': source}}))
+        names = _OutputNames(self.output)
+        self.assertEqual(names.owners[target.name.casefold()], {item.sha256})
+        self.assertTrue(names.same_source_name(item, target))
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            result = convert_batch([item], self.games_root, emit=lambda text: None)
+        self.assertEqual((result['succeeded'], result['duplicates']), (1, 0))
+        self.assertEqual(Path(result['games'][0]['executable']), target)
+        self.assertEqual({p.name for p in self.output.glob('*.exe')}, {target.name})
+
+    def test_conflicting_reports_do_not_claim_an_unbranded_file(self):
+        from smsrecomp.batch import _OutputNames
+        first, second = self.item('first', 1), self.item('second', 2)
+        self.output.mkdir(parents=True)
+        target = self.output / 'Same title.exe'
+        original = b'MZ unrelated executable'
+        target.write_bytes(original)
+        for item in (first, second):
+            report = self.output / 'datas/reports' / item.key / 'conversion-report.json'
+            report.parent.mkdir(parents=True)
+            report.write_text(json.dumps({'executable': target.name,
+                'rom': {'sha256': item.sha256, 'name': item.path.name}}))
+        names = _OutputNames(self.output)
+        reserved, previous = names.reserve(first)
+        self.assertNotEqual(reserved, target)
+        self.assertNotIn(target, previous)
+        self.assertEqual(target.read_bytes(), original)
+
     def test_missing_reports_recover_embedded_rom_identity_and_retire_duplicate(self):
         first, second = self.item('one', 1), self.item('two', 2)
         self.output.mkdir(parents=True)
         # Authored binary fixtures model the runtime's brand/identity strings.
         def generated(item):
-            return b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00'
+            # Real EXEs also contain ABI/build hashes; only the adjacent
+            # branded cartridge marker identifies the game after report loss.
+            return (b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00' +
+                    b'authored state ABI\x00' + b'1' * 64 + b'\x00')
         base = self.output / 'Same title.exe'
         base.write_bytes(generated(first))
         revision = self.output / 'Same title (2).exe'

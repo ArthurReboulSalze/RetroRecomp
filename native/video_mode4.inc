@@ -2,10 +2,116 @@
  * Pixel-clock CRAM dots and VRAM-fetch contention are outside this model.
  * Register/port/timing core remains in the pinned upstream local adaptation.
  */
+#include <stdlib.h>
 static uint32_t raster_buffers[2][SMS_SCREEN_W * SMS_SCREEN_H];
 static int raster_work, raster_complete, raster_hscroll, raster_vscroll;
 static int raster_all_masked, raster_complete_masked, frame_left_border;
 int g_vdp_force_display;
+static int reduce_sprite_flicker;
+
+/* Host-only tracking of rapidly reversing SAT lists. Some games reverse the
+ * entire list to distribute hardware sprite dropouts. Removing the eight-sprite
+ * limit alone still alternates which character is in front. Recognize an
+ * unambiguous identities in at least 75% of both lists, with 95% of their pair
+ * priorities reversed, twice before stabilizing it. Animation may add/remove
+ * or rearrange a few pieces; never reuse old pixels. */
+typedef struct { int x, y, tile; } Mode4SpriteIdentity;
+static Mode4SpriteIdentity sprite_previous[64];
+static int sprite_previous_count, sprite_orientation, sprite_reverse_streak;
+static int sprite_reverse_age, sprite_stable_reverse, sprite_tracking_mode;
+static int sprite_tracking_sat;
+static uint8_t sprite_tracking_attributes[192];
+
+static void sprite_tracking_reset(void) {
+    sprite_previous_count = sprite_orientation = sprite_reverse_streak = 0;
+    sprite_reverse_age = sprite_stable_reverse = 0;
+    sprite_tracking_mode = -1;
+}
+
+void smsrecomp_video_set_sprite_flicker_reduction(int enabled) {
+    if (reduce_sprite_flicker != (enabled != 0)) sprite_tracking_reset();
+    reduce_sprite_flicker = enabled != 0;
+}
+
+static void sprite_tracking_begin_frame(void) {
+    if (!reduce_sprite_flicker || g_vdp.is_gg || !(g_vdp.reg[1] & 0x40)) {
+        sprite_tracking_reset();
+        return;
+    }
+    int sat = (g_vdp.reg[5] & 0x7E) << 7;
+    int mode = (g_vdp.reg[0] & 8) | (g_vdp.reg[1] & 3) | ((g_vdp.reg[6] & 4) << 4);
+    int zoom = (g_vdp.reg[1] & 1) ? 2 : 1;
+    int height = ((g_vdp.reg[1] & 2) ? 16 : 8) * zoom;
+    Mode4SpriteIdentity current[64];
+    int count = 0;
+    for (int i = 0; i < 64; ++i) {
+        int raw_y = g_vdp.vram[sat + i];
+        if (raw_y == 0xD0) break;
+        int sy = raw_y + 1 - (raw_y >= 240 ? 256 : 0);
+        if (sy >= SMS_SCREEN_H || sy + height <= 0) continue;
+        int tile = g_vdp.vram[sat + 129 + i * 2];
+        if (g_vdp.reg[1] & 2) tile &= 254;
+        if (g_vdp.reg[6] & 4) tile |= 256;
+        current[count++] = (Mode4SpriteIdentity){
+            g_vdp.vram[sat + 128 + i * 2] - ((g_vdp.reg[0] & 8) ? 8 : 0), sy, tile};
+    }
+    int ascending_pairs = 0, descending_pairs = 0;
+    int used[64] = {0}, order[64], matches = 0;
+    int matched = count >= 8 && sprite_previous_count >= 8 && mode == sprite_tracking_mode
+        && sat == sprite_tracking_sat;
+    for (int i = 0; matched && i < count; ++i) {
+        int best = -1, distance = 65, ambiguous = 0;
+        for (int j = 0; j < sprite_previous_count; ++j) {
+            if (current[i].tile != sprite_previous[j].tile) continue;
+            int dx = abs(current[i].x - sprite_previous[j].x);
+            int dy = abs(current[i].y - sprite_previous[j].y);
+            if (dx > 32 || dy > 32) continue;
+            int d = dx + dy;
+            if (d < distance) { best = j; distance = d; ambiguous = 0; }
+            else if (d == distance) ambiguous = 1;
+        }
+        if (best < 0) continue;
+        if (ambiguous || used[best]) { matched = 0; break; }
+        used[best] = 1;
+        for (int j = 0; j < matches; ++j) {
+            ascending_pairs += best > order[j];
+            descending_pairs += best < order[j];
+        }
+        order[matches++] = best;
+    }
+    matched &= matches >= 8 && matches * 4 >= count * 3 && matches * 4 >= sprite_previous_count * 3;
+    int pairs = ascending_pairs + descending_pairs;
+    int ascending = pairs && ascending_pairs * 100 >= pairs * 95;
+    int descending = pairs && descending_pairs * 100 >= pairs * 95;
+    if (!matched || (!ascending && !descending)) {
+        sprite_orientation = sprite_reverse_streak = sprite_reverse_age = 0;
+    } else {
+        ++sprite_reverse_age;
+        if (descending) {
+            sprite_orientation ^= 1;
+            if (sprite_reverse_age > 4) sprite_reverse_streak = 0;
+            if (sprite_reverse_streak < 2) ++sprite_reverse_streak;
+            sprite_reverse_age = 0;
+        } else if (sprite_reverse_age > 8) {
+            /* A lasting priority change is no longer a flickering cycle. */
+            sprite_orientation = sprite_reverse_streak = 0;
+        }
+    }
+    sprite_stable_reverse = sprite_reverse_streak >= 2 && sprite_orientation;
+    memcpy(sprite_previous, current, count * sizeof current[0]);
+    sprite_previous_count = count; sprite_tracking_mode = mode; sprite_tracking_sat = sat;
+    memcpy(sprite_tracking_attributes, g_vdp.vram + sat, 64);
+    memcpy(sprite_tracking_attributes + 64, g_vdp.vram + sat + 128, 128);
+}
+
+static int sprite_tracking_reverse_valid(int sat) {
+    /* A raster SAT rewrite must immediately use the current cartridge order. */
+    int mode = (g_vdp.reg[0] & 8) | (g_vdp.reg[1] & 3) | ((g_vdp.reg[6] & 4) << 4);
+    return sprite_stable_reverse && reduce_sprite_flicker && !g_vdp.is_gg
+        && sat == sprite_tracking_sat && mode == sprite_tracking_mode
+        && !memcmp(sprite_tracking_attributes, g_vdp.vram + sat, 64)
+        && !memcmp(sprite_tracking_attributes + 64, g_vdp.vram + sat + 128, 128);
+}
 
 int smsrecomp_frame_left_border(void) { return frame_left_border; }
 
@@ -40,6 +146,7 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         return;
     }
     uint8_t priority[SMS_SCREEN_W], sprite_seen[SMS_SCREEN_W] = {0};
+    uint8_t hardware_seen[SMS_SCREEN_W] = {0};
     int table = (g_vdp.reg[2] & 14) << 10;
     if ((r0 & 0x40) && y < 16) hs = 0;
     for (int x = 0; x < SMS_SCREEN_W; ++x) {
@@ -55,6 +162,7 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         priority[x] = (entry & 0x1000) && color != 0;
     }
     int sat = (g_vdp.reg[5] & 0x7E) << 7;
+    int reverse_priority = sprite_tracking_reverse_valid(sat);
     int zoom = (r1 & 1) ? 2 : 1;
     int height = ((r1 & 2) ? 16 : 8) * zoom;
     int count = 0;
@@ -65,7 +173,7 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         if (row >= height) continue;
         if (++count > 8) {
             if (status) g_vdp.status |= 0x40;
-            break;
+            if (!reduce_sprite_flicker || g_vdp.is_gg) break;
         }
         int sx = g_vdp.vram[(sat + 128 + i * 2) & 0x3FFF] - ((r0 & 8) ? 8 : 0);
         int tile = g_vdp.vram[(sat + 129 + i * 2) & 0x3FFF];
@@ -78,10 +186,14 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
             if (x < 0 || x >= SMS_SCREEN_W) continue;
             int color = mode4_pattern(tile, rx / zoom, row & 7);
             if (!color) continue;
-            if (sprite_seen[x]) {
-                if (status) g_vdp.status |= 0x20;
-                continue; /* The first nontransparent sprite wins. */
+            /* Guest collisions use the original first eight SAT entries,
+             * independently of the host's unlimited/stabilized presentation. */
+            if (status && count <= 8) {
+                if (hardware_seen[x] && !((r0 & 0x20) && x < 8))
+                    g_vdp.status |= 0x20;
+                hardware_seen[x] = 1;
             }
+            if (sprite_seen[x] && !reverse_priority) continue;
             sprite_seen[x] = 1;
             if (!priority[x]) pixels[x] = palette[16 + color];
         }
@@ -92,6 +204,7 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
 }
 
 void smsrecomp_video_reset(void) {
+    sprite_tracking_reset();
     raster_work = 0; raster_complete = 1;
     raster_hscroll = raster_vscroll = 0;
     raster_all_masked = 1; raster_complete_masked = frame_left_border = 0;
@@ -110,6 +223,7 @@ void smsrecomp_video_begin_line(int line) {
 
 void smsrecomp_video_end_line(int line) {
     if (line < 0 || line >= SMS_SCREEN_H) return;
+    if (line == 0) sprite_tracking_begin_frame();
     mode4_line(raster_buffers[raster_work] + line * SMS_SCREEN_W,
                line, raster_hscroll, raster_vscroll, true);
     raster_all_masked &= !g_vdp.is_gg && (g_vdp.reg[0] & 0x24) == 0x24;
@@ -156,6 +270,9 @@ void smsrecomp_video_state(RetroStateIO *io) {
         if (io->mode == RR_STATE_APPLY && io->ok) raster_buffers[b][i] = pixel;
     }
     if (io->mode == RR_STATE_APPLY && io->ok) {
+        /* Presentation history is intentionally not cartridge state. Relearn
+         * on current frames after load, without changing the save format. */
+        sprite_tracking_reset();
         raster_work = work; raster_complete = complete; raster_hscroll = hs; raster_vscroll = vs;
         raster_all_masked = masked; raster_complete_masked = complete_masked; frame_left_border = border;
     }

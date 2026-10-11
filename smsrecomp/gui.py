@@ -59,7 +59,7 @@ UPSTREAM_CREDITS = (
     ('Nintendo NES', (
         ('mstan/nesrecomp', 'https://github.com/mstan/nesrecomp', 'credits_recompiler'),
     )),
-    ('Mega Drive (experimental)', (
+    ('Mega Drive', (
         ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_recompiler'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_native_core'),
     )),
