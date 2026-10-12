@@ -120,18 +120,53 @@ static void state_checks(void) {
     CHECK(!rr_nes_state_load(saved,size-1));
     free(saved);free(bad);
 }
+static void pending_state_checks(void) {
+    /* Save at a legal CPU boundary with transfers/interrupts still pending.
+     * The next fetch must resume the same arbitration, not restart a DMA. */
+    for (unsigned mode = 1; mode < 4; mode++) for (unsigned phase = 0; phase < 4; phase++)
+        for (unsigned interrupt = 0; interrupt < 8; interrupt++) {
+        cyc_power_on((uint8_t)phase); cyc_run_power_on(); cyc_audio_enable(48000);
+        if (hw_cart.mapper == 69) {
+            cpu_write(0x8000,8,0); cpu_write(0xA000,0xC1,0);
+        }
+        if (hw_cart.mapper == 153) cpu_write(0x800D,0x20,0);
+        for (unsigned i=0;i<0x800;i++) hw.ram[i]=(uint8_t)(i*17+phase);
+        if (hw_cart.has_wram) hw_cart.wram[13]=0x79;
+        if (mode & 2) {
+            cpu_write(0x4010,0x8F,0); cpu_write(0x4012,0xFF,0);
+            cpu_write(0x4013,0,0); cpu_write(0x4015,0x10,0);
+            ApuDmcView d;
+            for (unsigned n=0;n<16;n++) { apu_debug_dmc(&d); if(d.dma) break; cpu_write(0,0,0); }
+            apu_debug_dmc(&d); CHECK(d.dma && d.playing && d.bytes==1);
+        }
+        if (mode & 1) cpu_write(0x4014,2,0);
+        cpu.do_nmi=interrupt&1; cpu.do_irq=(interrupt>>1)&1; cpu.do_reset=(interrupt>>2)&1;
+        drain();
+        size_t size=rr_nes_state_size(); uint8_t *saved=malloc(size); CHECK(saved);
+        CHECK(rr_nes_state_save(saved,size));
+        Cpu6502 before_cpu=cpu; uint64_t before_hw=cyc_hw_state_hash(), before_mem=cyc_mem_state_hash();
+        cpu_interp_step(); ticks(64);
+        Cpu6502 after_cpu=cpu; uint64_t after_hw=cyc_hw_state_hash(), after_mem=cyc_mem_state_hash(), pcm=audio_hash();
+        CHECK(rr_nes_state_load(saved,size));
+        CHECK(!memcmp(&before_cpu,&cpu,sizeof(cpu)) && before_hw==cyc_hw_state_hash() && before_mem==cyc_mem_state_hash());
+        cpu_interp_step(); ticks(64);
+        CHECK(!memcmp(&after_cpu,&cpu,sizeof(cpu)) && after_hw==cyc_hw_state_hash() && after_mem==cyc_mem_state_hash());
+        CHECK(audio_hash()==pcm); free(saved);
+    }
+}
 int main(int argc,char **argv) {
     int mapper=argc>1 ? atoi(argv[1]) : 0;
-    size_t prg=mapper==0 ? 32768 : 65536, size=16+prg;
+    size_t prg=mapper==0 ? 32768 : mapper==153 ? 524288 : 65536, size=16+prg;
     uint8_t *rom=calloc(1,size); memcpy(rom,"NES\032",4);
     rom[4]=(uint8_t)(prg/16384); rom[6]=(uint8_t)(mapper<<4); rom[7]=(uint8_t)(mapper&0xF0);
+    if(mapper==153) { rom[7]|=8; rom[10]=0x70; rom[11]=7; }
     for(size_t pos=16;pos<size;pos+=4096) {
         rom[pos]=0xE6;rom[pos+1]=0;rom[pos+2]=0x4C;rom[pos+3]=0;rom[pos+4]=0x80;
         rom[pos+4090]=rom[pos+4092]=rom[pos+4094]=0;
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     CHECK(cyc_load_ines(rom,size)); free(rom); cyc_run_native=false;
-    frame_clock(); gun_checks(); state_checks();
+    frame_clock(); gun_checks(); state_checks(); pending_state_checks();
     printf("{\"mapper\":%d,\"pal\":%d,\"checks\":%u,\"state_bytes\":%zu}\n",mapper,RR_NES_PAL,checks,rr_nes_state_size());
     return 0;
 }

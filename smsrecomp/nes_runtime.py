@@ -18,6 +18,15 @@ def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
         f'#define RR_NES_ROM_SHA "{rom_sha256}"\n'
         f'#define RR_NES_STATE_NAME L"{slug(title)}-{rom_sha256[:12]}"\n', encoding='utf-8')
     host = (engine / 'runner/cyc/cyc_host.c').read_text(encoding='utf-8')
+    host = host.replace('written at run time, not compilable', 'no matching compiled RAM guard')
+    host = host.replace('RAM addresses also started an instruction this run (not seedable)',
+                        'RAM addresses also started an interpreted instruction this run')
+    host = replace_once(host, '    mf = fopen(path, "w");',
+                        '    rr_nes_ram_trace_merge(path);\n    mf = fopen(path, "w");')
+    host = replace_once(host, '        fclose(mf);\n    }\n    printf("miss-log:',
+                        '        rr_nes_ram_trace_write(mf);\n        fclose(mf);\n    }\n    printf("miss-log:')
+    host = replace_once(host, '        cyc_run_ram_opcodes = (uint8_t *)calloc(0x800 * 32, 1);',
+                        '        cyc_run_ram_opcodes = (uint8_t *)calloc(0x800 * 32, 1);\n        rr_nes_ram_trace_enable();')
     host = replace_once(host, '#include "../../common/nes_cart.h"', '#include "nes_cart.h"')
     host = replace_once(host, '#include <string.h>',
         '#include <string.h>\n#include <windows.h>\n#include "retro_nes.h"\n'

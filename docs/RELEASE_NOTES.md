@@ -1,3 +1,40 @@
+# RetroRecomp v0.26.0 — stronger NES recompilation and shared knowledge
+
+- NES recompilation now handles more code executed from RAM and cartridges
+  whose active ROM bank changes during rendering. Observed routines use
+  protected native bodies with live operands; unknown cases retain visible
+  interpreter fallback.
+- Fourteen targeted cartridge cases were qualified across the two NES
+  development blocks. The eight latest compressed exports have zero
+  interpreted cycles on their 24 retained paths, with 86,400 matching
+  CPU/memory/frame/audio comparisons. Six NTSC revisions also match a separate
+  software oracle on 7,200 scripted frames.
+- PAL/NTSC tests extend DMA audio/sprite transfers, pending interrupts/reset
+  and save-state continuation. The expanded native matrix passes over
+  1.26 million instruction cases; the ROM-free Python suite passes 337 tests.
+- The converter bundles verified, ROM-free hints for **991 exact cartridge
+  revisions**, including **29 NES records and 759 guarded NES RAM entries**.
+  The compressed knowledge snapshot is about 9 MiB. Its other-console records
+  are preserved, and new games still undergo their own analysis and validation.
+- Interrupted NES discoveries can be reused locally on a retry. Only successful
+  qualified observations enter the shared snapshot, and build receipts preserve
+  the compiled RAM guards during configuration.
+
+Master System, Game Gear, Game Boy, NES and the Mega Drive standard-cartridge
+profile remain supported within their documented scope. **Super Nintendo
+remains experimental.** These checks cover retained scenarios, not complete
+playthroughs, every cartridge circuit or physical latency.
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+Updates preserve games, settings, local knowledge and downloaded covers.
+**Regenerate NES exports to receive these improvements.** Quick states from
+older NES runtimes may be incompatible; rejected files are never overwritten.
+No ROMs, downloaded artwork, generated games or private settings are included.
+
+Legal notices are included in the EXE. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v0.25.0 — Mega Drive is now supported
 
 **Mega Drive leaves experimental status. Super Nintendo remains experimental.**

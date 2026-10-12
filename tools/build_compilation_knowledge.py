@@ -103,6 +103,9 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
                 # private hints while leaving the previous export/report intact.
                 # Keep the old shared record until the new union is qualified.
                 omitted['unqualified'] += 1; continue
+            if item.system == 'nes' and not _observations_qualified(
+                    (library_root('nes') / rom.sha256 / nes.ENGINE_REV / 'cycle-seeds.trace',), report):
+                omitted['unqualified'] += 1; continue
             record['engine'] = expected_engine
             if item.system == 'gb':
                 record['rom_entries'] = [list(e) for e in sorted(read_entries(gameboy._verified_trace(rom), len(rom.data)))]
@@ -110,6 +113,11 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
                 directory = library_root('nes') / rom.sha256 / nes.ENGINE_REV
                 record['rom_entries'] = [[int(bank,16),int(pc,16)] for _,bank,pc in
                     (e.split(':') for e in sorted(nes._seed_sites(directory/'cycle-seeds.trace')))]
+                from smsrecomp.nes_ram import opcode_sources, read_sites
+                offsets = opcode_sources(rom)
+                sites = read_sites(directory / 'cycle-seeds.trace')
+                record['ram_opcode_refs'] = [[pc, offsets[op]] for pc, op in sorted(sites) if op in offsets]
+                omitted['ram_without_rom_source'] += sum(op not in offsets for _, op in sites)
             else:
                 if item.system == 'md':
                     record['rom_entries'] = [[addr] for addr in sorted(megadrive.read_entries(rom))]

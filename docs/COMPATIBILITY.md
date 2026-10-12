@@ -2,7 +2,7 @@
 
 ## Current scope
 
-Release 0.25.0 provides six console profiles.
+Release 0.26.0 provides six console profiles.
 Master System, Game Gear, original Game Boy, NES and **Mega Drive** are supported
 within their documented scope. **Super Nintendo remains experimental**. Mega
 Drive support concerns standard cartridges and the qualified Sega mapper/EEPROM
@@ -115,17 +115,29 @@ interpreter. Native bodies cover every physical PRG ROM position, with live
 bank dispatch and boundary operands. Authored NTSC/PAL compiler checks pass
 931,840 recorded instruction cases across fourteen mapper families, including
 332,800 added Color Dreams/VRC6/GxROM/Camerica/mapper-78 cases. Eight earlier cartridges
-convert successfully; six have zero fallback on the checked paths, while
-Kirby and Zelda still execute some RAM code through the reported interpreter.
+convert successfully; six originally had zero fallback on the checked paths,
+while Kirby and Zelda retained RAM interpretation in that historical batch.
 Fresh isolated cartridge memory prevents battery saves from contaminating
 native/reference comparisons. Ten further cartridges pass another 108,000
 matching frame pairs and state-resume checks; eight have zero fallback, while
-Wizards & Warriors and Micro Machines retain small RAM fallback. See the
+Wizards & Warriors and Micro Machines originally retained small RAM fallback. See the
 [per-game evidence](NES.md#ten-further-cartridge-cases--9-october-2026).
 PAL timing, F8/F9 states
 and catalogue-selected mouse Zapper input are included. Dendy and dual guns
-remain unsupported. RAM execution and unstable PRG windows can still fall
-back. Mapper support and complete gameplay vary by title; these tests do not
+remain unsupported. The local follow-up adds guarded RAM entries and fetch-time
+native handling for PPU-dependent MMC1/MMC1A and mapper 153. Six targeted
+cartridges now have zero interpreted cycles on three 3,600-frame paths each,
+with full internal CPU/memory/frame/PCM agreement. Authored PAL/NTSC RAM and
+unstable-mapping cases pass 155,648 instruction comparisons; ordinary
+MMC1/MMC3/MMC5 ROM regressions add 199,680 passing cases. Unobserved RAM and
+unsupported windows retain fallback. A further eight-revision gate adds enabled
+FME-7 RAM and mapper 153's uncontended RAM mode: the compressed exports match
+86,400 internal CPU/frame/PCM frame pairs with zero interpreted cycles on those
+paths. Six NTSC revisions also match the separate TriCNES-derived oracle over
+7,200 scripted frames. The expanded guard/DMC/OAM/reset matrix passes 1,261,568
+PAL/NTSC instruction cases; pending-transfer state tests pass 1,536 round trips
+across eight mapper families. Later fresh-process states and incompatible-file
+rejections complement these checks. Mapper support and complete gameplay vary by title; these tests do not
 establish original-hardware fidelity or full-catalogue compatibility.
 See [NES](NES.md).
 

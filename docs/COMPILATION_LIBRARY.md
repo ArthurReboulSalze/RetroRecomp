@@ -1,8 +1,42 @@
 # Shared compilation knowledge
 
+Release 0.26.0 retains exact-ROM NES RAM entry/opcode observations
+alongside ROM seeds. Shared `ram_opcode_refs` contain only a CPU entry address
+and an offset of that opcode in the user's PRG ROM. The converter reconstructs
+the opcode from the supplied cartridge, then guards its live RAM value before
+calling a precompiled instruction body. Operands remain live; no private RAM
+dump or operand data enters the shared resource.
+
+NES journal freshness is checked against the successful conversion timestamp,
+so later failed/stopped observations cannot replace a qualified shared record.
+Local build candidates can accelerate a retry but never skip validation.
+RAM-bearing conversions compare all their configured coverage frames against
+the internal CPU, including exact PCM. A configure receipt binds the inserted
+guards so the pinned build bridge cannot silently regenerate them away.
+
+The qualified snapshot bundled in 0.26.0 contains **991 exact ROMs**, including
+**29 NES records and 759 guarded NES RAM entry/opcode references**. The latest
+eight-cartridge gate adds four exact revisions and requalifies four records;
+all other consoles and twenty-one unrefreshed NES records remain unchanged.
+Batman: Return of the Joker contributes 485 guards for enabled FME-7 RAM,
+after the actual compressed EXE passed three full 3,600-frame CPU/frame/PCM
+comparisons and later fresh-process state checks. The snapshot occupies
+36,394,933 raw bytes and 9,392,577 gzip bytes, only 3,089 compressed bytes more
+than the preceding guarded-RAM snapshot. SHA-256:
+`cbe3c07a9c6dc6fc0b3ab25f495982ebc236175a26288f4f130a09b4e026ef8b`.
+The isolated Zelda check used an empty private library and empty generated
+project, importing its 186 guards from the shared resource in its first pass.
+Dependency/compiler caches were reused; this is not a cold-toolchain speed
+measurement. The exact tested record is unchanged in the final snapshot.
+The latest isolated FME-7 check likewise starts with empty private knowledge
+and generated projects, imports all 485 shared Batman guards in its first
+pass and passes three 600-frame internal CPU/frame/PCM comparisons. The
+compressed result repeats those comparisons and passes fresh-process state
+checks. Its tested record and snapshot hash match the final bundled resource.
+
 Release 0.25.0 includes the final Mega Drive campaign: 24 new exact ROM records
 and eight requalified records, only after ordinary strict conversion and actual packed
-EXE replay. The shared snapshot now contains **985 exact ROMs**: 258 SMS, 1 GG,
+EXE replay. The snapshot shipped in that release contains **985 exact ROMs**: 258 SMS, 1 GG,
 606 GB, 23 NES, **82 MD** and 15 SNES. It occupies 36,384,534 raw bytes and 9,387,948 gzip bytes.
 SHA-256: `0f5d8d30e831021fba5301e006af373f0b5f46b941af542ae70bc4ec804ad03c`.
 

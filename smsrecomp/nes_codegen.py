@@ -61,12 +61,13 @@ def _dense_codegen(source: str) -> str:
         '        read_operand(e, 1, POLL);\n'
         '        ln(e, "uint16_t next = (uint16_t)(pc + 2), target = (uint16_t)(next + (int8_t)%s);", operand(e, 1));')
     source = replace_once(source, 'static void emit_umbrella(',
-        (ASSETS / 'native/nes_dense_codegen.inc').read_text(encoding='utf-8') + '\nstatic void emit_umbrella(')
+        (ASSETS / 'native/nes_dense_codegen.inc').read_text(encoding='utf-8') + '\n' +
+        (ASSETS / 'native/nes_live_codegen.inc').read_text(encoding='utf-8') + '\nstatic void emit_umbrella(')
     source = replace_once(source,
         '    for (uint32_t bank = 0; bank < p->banks; bank++)\n'
         '        for (uint32_t slot = 0; slot < SLOT_COUNT; slot++)\n'
         '            if (slot_used(p, bank, slot))',
-        '    emit_dense_rom(p, f, prefix);\n\n'
+        '    emit_dense_rom(p, f, prefix);\n    emit_live_native(p, f, prefix);\n\n'
         '    for (uint32_t bank = 0; bank < p->banks; bank++)\n'
         '        for (uint32_t slot = 0; slot < SLOT_COUNT; slot++)\n'
         '            if (slot_used(p, bank, slot))')
@@ -79,6 +80,16 @@ def _dense_codegen(source: str) -> str:
         '        "            if (!dense_has(pc)) return;\\n"\n'
         '        "            dense_step(pc); continue;\\n"\n'
         '        "        }\\n"')
+    source = replace_once(source,
+        '        "    if (!hw_prg_is_rom(addr) || !hw_prg_is_stable()) return false;\\n"',
+        '        "    if (ram_has(addr)) return true;\\n"\n'
+        '        "    if (!hw_prg_is_rom(addr)) return false;\\n"\n'
+        '        "    if (!hw_prg_is_stable()) return dense_has(addr);\\n"')
+    source = replace_once(source,
+        '        "        if (!hw_prg_is_rom(pc) || !hw_prg_is_stable()) return;\\n"',
+        '        "        if (ram_has(pc)) { live_step(pc); continue; }\\n"\n'
+        '        "        if (!hw_prg_is_rom(pc)) return;\\n"\n'
+        '        "        if (!hw_prg_is_stable()) { if (!dense_has(pc)) return; live_step(pc); continue; }\\n"')
     return source
 
 

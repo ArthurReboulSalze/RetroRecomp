@@ -12,7 +12,7 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | Video and peripherals | Refine hardware timing and edge cases using independent fixtures and game evidence. |
 | Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |
 | Input response | Measure end-to-end controller latency before making performance claims. |
-| NES | Compile guarded RAM code and extend mapper, PAL, peripheral and gameplay validation beyond the qualified scope. |
+| NES | Extend guarded RAM board layouts, lower-address ROM aliases, PAL, peripheral and gameplay validation beyond the qualified scope. |
 | Mega Drive | Extend gameplay and unusual cartridge circuits beyond the qualified standard profile; refine electrical, field and bus-error behavior with independent evidence. |
 | Super Nintendo | Broaden gameplay checks, PAL display modes and coprocessor support; add persistent cartridge saves. |
 
@@ -25,10 +25,14 @@ Native entries cover every physical PRG ROM byte, including bank-switched code.
 The wider qualification set spans eight games and eight mapper families;
 see [NES evidence](NES.md#broader-cartridge-validation).
 
-The next coverage work is guarded RAM code and the remaining unstable mapper
-configurations. Kirby and Zelda demonstrate why this matters: their ROM code
-is native, but execution from RAM still needs the reported fallback. Continue
-longer, varied comparisons alongside the shorter per-conversion checks.
+The local follow-ups add guarded RAM entries and fetch-time handling for the
+PPU-dependent MMC1/MMC1A and mapper-153 configurations, including enabled
+FME-7 RAM and mapper 153's ordinary RAM mode. The Zelda, Kirby and FME-7 cases
+use live operands instead of unconditional RAM fallback. DMA audio/sprite
+arbitration, pending interrupts/reset, later fresh-process states and bounded
+TriCNES comparisons extend the qualification. Continue longer, varied gameplay
+and additional RAM-bearing board layouts; unobserved entry/opcode variants
+and contended hardware windows remain visibly interpreted.
 PAL/NTSC, quick states and Zapper already exist; extend their validation across
 more cartridges and hands-on gameplay. Mega Drive is the next development
 priority, followed by Super Nintendo.

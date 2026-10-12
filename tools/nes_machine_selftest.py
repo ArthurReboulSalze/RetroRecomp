@@ -27,7 +27,7 @@ endforeach()
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
     results = []
     for pal in (0, 1):
-        for mapper in (0, 1, 2, 4, 85):
+        for mapper in (0, 1, 2, 4, 5, 69, 85, 153):
             output = run([project / f'build/Release/checks{pal}.exe', str(mapper)])
             print(output, flush=True)
             results.append(json.loads(output))

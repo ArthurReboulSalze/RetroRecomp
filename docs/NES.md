@@ -29,12 +29,13 @@ Observed hot blocks remain available alongside these smaller native bodies.
 This is ahead-of-time generated code, with no opcode interpreter inside the
 new dispatch path.
 
-The runtime still checks whether a mapped window is ROM and stable. Execution
-from RAM, open bus, and unsupported unstable mappings can use the reference
-interpreter. In particular, some oversized MMC1/mapper-153 layouts have
-PPU-dependent PRG mappings and retain their safety guard. Translating every
-ROM position does not mean that all positions are code or that every game
-executes without fallback.
+The runtime checks the mapped memory before selecting compiled code. Observed
+internal/cartridge RAM entries can use guarded AOT bodies with live operands.
+PPU-dependent MMC1/MMC1A and mapper-153 PRG windows use a separate fetch-time
+path: the native body is selected from the bank actually read after any DMA
+stall. Open bus, unobserved RAM opcodes and unsupported memory windows retain
+reported interpreter fallback. Translating every ROM position does not mean
+that all positions are code or that every game executes without fallback.
 
 Conversion runs boot and two sustained input scenarios, counts native and
 interpreted cycles separately, then compares generated execution with the
@@ -99,7 +100,53 @@ Python regression suite passes 173 tests.
 These are scripted startup/input paths, not complete playthroughs. The source
 ROMs remain unchanged and are not distributed. Kirby's remaining fallback is
 in internal RAM; Zelda's is in the cartridge address range below `$8000`.
-Guarded compilation of runtime-loaded code remains a separate improvement.
+Those historical gaps are addressed by the guarded-RAM follow-up below.
+
+## Guarded RAM and unstable mapper follow-up — 12 October 2026
+
+Release 0.26.0 adds native instruction bodies for observed
+RAM entry/opcode pairs, tied to the exact cartridge. The current opcode is
+checked before execution; operands retain their individual live bus reads.
+Changing an operand therefore needs no new variant. Changing an opcode or
+jumping to an unobserved entry retains visible fallback. No runtime compiler,
+ROM patch, opcode interpreter or pixel correction is added to the guarded path.
+
+Eligible windows include internal RAM and modelled plain cartridge RAM,
+including MMC5's mapped RAM. Guards use side-effect-free memory probes; they
+never read PPU/APU registers to inspect an entry. Only the converter's explicit
+probe can write its bounded entry journal. Ordinary exported-game launches
+still create no learning log. Interrupted build observations stay local until
+normal native/reference comparisons qualify them.
+
+For PPU-dependent MMC1/MMC1A and mapper 153, the opcode's physical bank is
+latched at the real bus access, after DMA stalls. Every operand remains live,
+and dispatch rechecks the mapping after each instruction. If that fetch has
+no matching compiled body, the interpreter continues the already-fetched
+instruction exactly once; those cycles remain in the fallback counters.
+
+Authored PAL/NTSC tests cover all 256 opcodes, changed operands, RAM mirrors,
+RAM/ROM and RAM/register boundaries, NMI/IRQ, OAM DMA, changed-opcode rejection
+and PPU-driven outer-bank changes. Additional ordinary MMC1/MMC3/MMC5 cases
+preserve the existing ROM-native path. These are differentials against the
+same engine's internal CPU, not independent electrical hardware certification.
+Run `python tools/nes_guarded_selftest.py` for the new authored matrix.
+
+The targeted retail qualification uses Zelda, Kirby's Adventure, Wizards &
+Warriors, Micro Machines and the 512 KiB MMC1 revisions of Dragon Warrior III
+and IV. Reports, per-path fallback results and shared hints remain bound to
+each exact ROM. Gameplay and physical latency remain separate evidence areas;
+these startup/input scenarios are not complete playthroughs.
+
+All six cartridges finished their three 3,600-frame scenarios with zero
+interpreted cycles and matching CPU/memory/frame/PCM: **64,800 matching frame
+pairs**. Their final compressed EXEs additionally passed three 600-frame
+comparisons each, 180-frame fresh-process state continuation, corrupt-state
+rejection, ordinary-startup and missing-load lazy-I/O checks. The new authored
+matrix passes 155,648 instruction cases; ordinary MMC1/MMC3/MMC5 regressions
+pass another 199,680. The ROM-free Python suite passes 335 tests.
+The [shared resource](COMPILATION_LIBRARY.md) retains 274 verified RAM guards
+for these exact cartridges. Other RAM-bearing board layouts, later gameplay
+and independent hardware/physical latency tests remain separate work.
 
 The wider tests exposed a validation isolation bug: a native run could save
 battery RAM that the next reference run would then load. CPU registers and
@@ -107,6 +154,63 @@ bus traces could match while the initial memory hash differed. Every probe
 now starts a separate private EXE copy with fresh battery memory. Existing
 player saves are preserved, and genuine comparison differences still block
 the export. This changes the converter's tests, not normal in-game persistence.
+
+## RAM-board, DMA and restart qualification — 12 October 2026
+
+The additional qualification shipped in 0.26.0 extends guarded code to the enabled FME-7 work-RAM
+window and mapper 153's ordinary RAM mode. FME-7 ROM/open-bus selections,
+disabled RAM and mapper 153's SDA contention retain fallback. Probes never
+read a cartridge register to decide whether an entry is eligible.
+
+Eight additional or refreshed exact revisions cover these cases:
+
+| Cartridge | Mapper | Timing |
+| --- | --- | --- |
+| Batman: Return of the Joker | 69 | NTSC |
+| Mr. Gimmick | 69 | PAL |
+| Ufouria: The Saga | 4 | PAL |
+| Dragon Ball Z III — supplied translated revision | 16 | NTSC |
+| Castlevania III: Dracula's Curse | 5 | NTSC |
+| Ninja Gaiden II | 4 | NTSC |
+| Battletoads | 7 | NTSC |
+| Contra | 2 | NTSC |
+
+Batman initially used 242,079 / 53,757 / 32,853 interpreted cycles on the
+three paths. Its 485 observed entry/opcode guards remove those calls without
+folding RAM operands. All eight final conversions report zero interpreted
+cycles on boot and two 3,600-frame input paths. The supplied ROMs, including
+the translated revision, remain unchanged and are not distributed.
+
+The authored guard matrix now includes DMC sample DMA, simultaneous DMC/OAM
+transfers, all combinations of pending NMI/IRQ/reset, four clock phases and
+PPU-dependent bank changes. Each native/reference pair starts with identical
+RAM and CHR-RAM state. Cartridge CHR RAM survives a reset; failing to reset it
+between independent test runs produced a false PAL difference, now caught by
+an explicit initial-state equality check. This repairs test isolation, not
+the console's legitimate persistence behavior.
+
+The quick-state matrix also resumes pending DMA and interrupts on eight
+mapper families in PAL/NTSC. Export checks can resume a held two-player input
+schedule in a fresh process, including an event exactly at the load frame.
+Run `python tools/nes_state_selftest.py <game.exe> --save-after 1800
+--frames 180 --input <schedule.input>` for a later scripted restart. Invalid
+magic, ABI, ROM identity, region, payload and truncated states are rejected
+without rewriting the valid or rejected file.
+
+The expanded PAL/NTSC guard matrix passes **1,261,568 instruction cases**,
+including 491,520 DMC fetches, 630,784 pending-reset cases and 84 rejected
+guards. The machine/state matrix passes 11,216 assertions and 1,536 pending
+transfer/interrupt round trips. All eight final compressed exports match
+**86,400 internal CPU/memory/frame/PCM frame pairs** with zero interpreted
+cycles on those paths. Each also passes two fresh-process state continuations
+after 720 and 1,800 input frames, 180 resumed frames per case and six types of
+rejected states. The ROM-free Python suite passes 337 tests.
+
+Six NTSC revisions separately match the pinned TriCNES-derived software
+oracle on 1,200 scripted frames each, comparing bus traces, CPU state and
+memory/framebuffer hashes. This bounded oracle check does not validate PAL,
+physical latency, all hardware circuits or complete playthroughs. Those
+claims remain separate from native coverage and internal reference checks.
 
 ## Ten further cartridge cases — 9 October 2026
 
@@ -164,7 +268,7 @@ W/X, Enter for Start and right Shift for Select. Player 2 uses keypad
 A/B and Start/Back; left-stick click pauses and player 1 right-stick click
 restarts. F2 edits per-player bindings.
 
-H opens help, P pauses, F1 restarts, F3 cycles sharp/bilinear/Scale2x/scanlines,
+H opens help, P pauses, F1 restarts, F3 cycles sharp/Scale2x/scanlines/xBR,
 F4 cycles window/integer fullscreen/fit fullscreen, F6 toggles gamepad
 autofire, and F7 changes language. Autofire is sampled once per guest frame;
 the game's own input sampling determines its effective rate.

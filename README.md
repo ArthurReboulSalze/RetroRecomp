@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.25.0-d4a737" alt="Release version 0.25.0">
+  <img src="https://img.shields.io/badge/release-0.26.0-d4a737" alt="Release version 0.26.0">
   <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -40,7 +40,9 @@ execution as possible, without dedicated FPGA hardware.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
 - **Reuse compilation knowledge.** The converter includes useful cartridge
-  hints and keeps new discoveries locally. See the
+  hints for 991 exact revisions and keeps new discoveries locally. Improved NES
+  recompilation covers more code executed from RAM and reduces interpreter fallback.
+  See the
   [shared library guide](docs/COMPILATION_LIBRARY.md).
   Game Boy builds also reuse unchanged generated files, with the same validation checks.
 

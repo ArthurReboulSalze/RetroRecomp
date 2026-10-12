@@ -22,7 +22,7 @@ FIELDS = {
     'sms': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
     'gg': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
     'gb': {'rom_entries': (2, 65536)},
-    'nes': {'rom_entries': (2, 65536)},
+    'nes': {'rom_entries': (2, 65536), 'ram_opcode_refs': (2, 65536)},
     'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
     'snes': {'ram_refs': (3, 2048), 'spc_refs': (2, 262144)},
 }
@@ -70,6 +70,9 @@ def validate_payload(value: dict) -> dict:
                             raise ValueError('Invalid ROM compilation entry.')
                     if name == 'pattern_refs' and entry[0] + 4 > record['rom_bytes']:
                         raise ValueError('Compilation pattern outside ROM.')
+                    if name == 'ram_opcode_refs' and (not (entry[0] < 0x2000 or 0x6000 <= entry[0] <= 0xFFFF)
+                                                      or entry[1] >= record['rom_bytes']):
+                        raise ValueError('Invalid NES RAM opcode reference.')
                     if name == 'spc_refs' and (entry[0] > 65535 or 0xf0 <= entry[0] <= 0xff
                                                or entry[1] >= record['rom_bytes']):
                         raise ValueError('Invalid SPC700 compilation reference.')

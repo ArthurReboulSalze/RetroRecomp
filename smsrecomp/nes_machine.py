@@ -104,6 +104,45 @@ void rr_nes_apu_load(const uint8_t *b) {
     return source
 
 
+def _interpreter(source: str) -> str:
+    source = replace_once(source,
+        'void cpu_interp_step(void) {\n    uint16_t pc = cpu.pc;\n'
+        '    uint8_t opcode, b1 = 0, b2 = 0;\n'
+        '    if (cpu_fetch(pc, &opcode)) { cpu_interrupt(false); return; }',
+        'void cpu_interp_fetched(uint8_t opcode) {\n    uint16_t pc = cpu.pc;\n'
+        '    uint8_t b1 = 0, b2 = 0;')
+    return source + '''
+void cpu_interp_step(void) {
+    uint16_t pc = cpu.pc; uint8_t opcode;
+    if (cpu_fetch(pc, &opcode)) { cpu_interrupt(false); return; }
+    rr_nes_note_ram(pc, opcode);
+    cpu_interp_fetched(opcode);
+}
+'''
+
+
+def _run(source: str) -> str:
+    source = replace_once(source,
+        '            cyc_native_run();\n            cyc_run_native_cycles += cyc_cycle_count() - before;',
+        '            uint64_t interpreted = cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles;\n'
+        '            cyc_native_run();\n'
+        '            interpreted = cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles - interpreted;\n'
+        '            cyc_run_native_cycles += cyc_cycle_count() - before - interpreted;')
+    return source + '''
+void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, unsigned bank) {
+    if (rom && cyc_run_miss && bank < hw_cart.prg_slots) {
+        unsigned index = ((bank * 8 + ((pc >> 12) & 7)) << 12) | (pc & 0xFFF);
+        cyc_run_miss[index]++;
+    }
+    cpu_interp_fetched(op);
+    uint64_t took = cyc_cycle_count() - before;
+    if (pc < 0x2000) cyc_run_interp_ram_cycles += took;
+    else if (rom) cyc_run_interp_rom_cycles += took;
+    else cyc_run_interp_other_cycles += took;
+}
+'''
+
+
 def prepare_machine(project: Path, engine: Path) -> Path:
     root = project / 'machine'
     transformed = {}
@@ -132,7 +171,24 @@ def prepare_machine(project: Path, engine: Path) -> Path:
                     '        if (hue > 13) level = 1;')
                 data = text.encode('utf-8')
             elif name == 'runner/cyc/hw_mapper.c':
-                data += b'\n#include "nes_mapper_state.inc"\n'
+                data += b'\n#include "nes_mapper_state.inc"\n' + (ASSETS / 'native/nes_ram.inc').read_bytes()
+            elif name == 'runner/cyc/hw.h':
+                text = data.decode('utf-8')
+                text = replace_once(text, 'bool hw_prg_is_rom(uint16_t addr);', '''bool hw_prg_is_rom(uint16_t addr);
+bool rr_nes_ram_peek(uint16_t pc, uint8_t *value);
+void rr_nes_note_ram(uint16_t pc, uint8_t op);
+void rr_nes_ram_trace_enable(void);
+void rr_nes_ram_trace_merge(const char *path);
+void rr_nes_ram_trace_write(void *file);
+void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, unsigned bank);''')
+                data = text.encode('utf-8')
+            elif name == 'runner/cyc/cpu6502.h':
+                data = replace_once(data.decode('utf-8'), 'void cpu_interp_step(void);',
+                                    'void cpu_interp_step(void);\nvoid cpu_interp_fetched(uint8_t opcode);').encode('utf-8')
+            elif name == 'runner/cyc/cpu6502_interp.c':
+                data = _interpreter(data.decode('utf-8')).encode('utf-8')
+            elif name == 'runner/cyc/cyc_run.c':
+                data = _run(data.decode('utf-8')).encode('utf-8')
             elif name == 'runner/cyc/vendor/emu2413/emu2413.c':
                 data += b'''
 unsigned rr_opll_wave_index(const OPLL_SLOT *slot) {

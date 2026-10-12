@@ -6,6 +6,7 @@ code. Each generated game retains the exact license in a Windows resource.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
 import json
@@ -27,13 +28,14 @@ from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
 from .nes_catalog import zapper_game
+from .nes_ram import read_sites as ram_sites, shared_sites, trace_text, write_guards
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 
 ENGINE_URL = "https://github.com/mstan/nesrecomp.git"
 ENGINE_REV = "1b0c621a927db17afa9723bf456a89ad15809907"
 MAX_ROM_BYTES = 128 * 1024 * 1024 + 528
-SEED = re.compile(r"^4k:([0-9A-Fa-f]{1,4}):([89A-Fa-f][0-9A-Fa-f]{3})(?:\s|$)")
+SEED = re.compile(r"^4k:([0-9A-Fa-f]{1,4}):([89A-Fa-f][0-9A-Fa-f]{3})(?:\s|$)", re.I)
 SUMMARY = re.compile(r"mode=native frames=(\d+) cycles=(\d+) native_cycles=(\d+)")
 INTERPRETED = re.compile(r"interpreted: ROM (\d+) .*?RAM (\d+)")
 OTHER = re.compile(r"\$2000-\$7FFF (\d+)")
@@ -134,19 +136,24 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
 
 def _seed_sites(path: Path) -> set[str]:
     try:
-        return {match.group(0).split()[0].upper() for line in path.read_text(encoding='ascii').splitlines()
+        return {f'4k:{int(match[1], 16):X}:{int(match[2], 16):04X}' for line in path.read_text(encoding='ascii').splitlines()
                 if (match := SEED.match(line))}
     except FileNotFoundError:
         return set()
 
 
-def _native_rom_positions(project: Path, mapper: int) -> tuple[int, int] | None:
+def _generated_source(project: Path) -> Path:
     cycle = project / 'cycle'
     manifest = (cycle / 'sources.cmake').read_text(encoding='utf-8')
     generated = next((path for path in cycle.glob('*/generated/game_cyc.c')
                       if path.as_posix() in manifest), None)
     if generated is None:
         raise ConversionError('NES compiler generated no selected native source.')
+    return generated
+
+
+def _native_rom_positions(project: Path, mapper: int) -> tuple[int, int] | None:
+    generated = _generated_source(project)
     log = (generated.parent.parent / 'codegen.log').read_text(encoding='utf-8')
     coverage = re.search(r'Native PRG ROM positions: (\d+)/(\d+)', log)
     if coverage is None:
@@ -159,6 +166,7 @@ def memory_summary(rom: NesRom) -> dict:
     return {'system': 'nes', 'sha256': rom.sha256,
             'engine_revision': ENGINE_REV,
             'observed_rom_entries': len(_seed_sites(directory / 'cycle-seeds.trace')),
+            'guarded_ram_entries': len(ram_sites(directory / 'cycle-seeds.trace')),
             'directory': str(directory)}
 
 
@@ -342,12 +350,17 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     library = library_root('nes') / rom.sha256 / ENGINE_REV
     previous = library / 'cycle-seeds.trace'
     seed = project / 'cycle-seeds.trace'
-    shared = record_for('nes', rom, ENGINE_REV).get('rom_entries', [])
+    shared_record = record_for('nes', rom, ENGINE_REV)
+    shared = shared_record.get('rom_entries', [])
     entries = _seed_sites(previous) | {f'4k:{bank:X}:{address:04X}'
         for bank, address in shared if bank < len(rom.data) // 4096 and 0x8000 <= address <= 0xffff}
-    seed.write_text(''.join(e + '\n' for e in sorted(entries)), encoding='ascii')
+    # A stopped/failed build may have already observed safe entry/opcode pairs.
+    # They remain local candidates in this exact-ROM/region build directory;
+    # normal full RAM differentials still gate their export and promotion.
+    ram_entries = ram_sites(previous) | ram_sites(seed) | shared_sites(rom, shared_record)
+    seed.write_text(trace_text(entries, ram_entries), encoding='ascii')
     imported = len(_seed_sites(seed))
-    emit(f'NES converter library: {imported} observed ROM entries from previous runs.')
+    emit(f'NES converter library: {imported} observed ROM entries and {len(ram_entries)} guarded RAM entries from previous runs.')
     scripts = _write_probe_scripts(project, frames)
     executable = project / 'build/Release/game.exe'
     history: list[dict] = []
@@ -355,6 +368,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     native_rom_positions: tuple[int, int] | None = None
     for number in range(1, passes + 1):
         prior = _seed_sites(seed)
+        prior_ram = ram_sites(seed)
         emit(f'NES pass {number}/{passes}: generating and compiling native 6502 paths…')
         bridge_command = ([sys.executable, '_nes-prepare-project', engine]
                           if getattr(sys, 'frozen', False) else
@@ -363,6 +377,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
              '--rom', project / 'rom.nes', '--recompiler', compiler,
              '--out', project / 'cycle', '--seeds', seed], cwd=project,
             log=project / 'build.log', timeout=600)
+        compiled_ram_guards = write_guards(_generated_source(project), prior_ram, rom)
+        emit(f'NES guarded RAM entry variants: {compiled_ram_guards}; operands remain live.')
         native_rom_positions = _native_rom_positions(project, rom.mapper)
         if native_rom_positions:
             emit(f'NES native physical PRG entry positions: '
@@ -383,13 +399,14 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             emit(f"NES {scenario}: {check['native_percent']:.4f}% native; "
                  f"{check['interpreter_cycles']} interpreted CPU cycles in {frames} frames.")
         new = _seed_sites(seed) - prior
+        new_ram = ram_sites(seed) - prior_ram
         if all(check['interpreter_cycles'] == 0 for check in final_checks):
             emit('NES: no fallback cycles on the tested scenarios.')
             break
-        if not new:
-            emit('NES: no new seedable ROM sites; remaining fallback stays reported.')
+        if not new and not new_ram:
+            emit('NES: no new ROM/RAM entry variants; remaining fallback stays reported.')
             break
-        emit(f'NES: {len(new)} new ROM entry sites for the next pass.')
+        emit(f'NES: {len(new)} new ROM entries and {len(new_ram)} guarded RAM variants for the next pass.')
     # Validate the final generated code against the reference interpreter in
     # the same runtime. This is a CPU/runtime differential, not independent
     # hardware or full-game validation.
@@ -397,20 +414,25 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     for scenario, script in scripts.items():
         # Include input-driven execution after the delayed Start; 120 frames
         # alone would compare only boot for the late-start gameplay scenario.
-        comparison = _probe(executable, project, scenario, min(frames, 600 if script else 120), seed,
+        comparison_frames = frames if compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(frames, 600 if script else 120)
+        comparison = _probe(executable, project, scenario, comparison_frames, seed,
                             script, differential=True)
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")
     library.mkdir(parents=True, exist_ok=True)
     shutil.copy2(seed, previous)
+    created_utc = datetime.now(timezone.utc).isoformat()
     report = {'tool': 'Retro-Recomp', 'version': __version__,
+        'created_utc': created_utc,
         'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'},
         'rom': rom.metadata(), 'backend': 'nesrecomp-cycle-accurate',
         'compiler': {'url': ENGINE_URL, 'revision': ENGINE_REV,
                      'license': 'PolyForm Noncommercial 1.0.0',
-                     'adapter': 'bank-independent ROM-specialized native bodies with live boundary operands'},
+                     'adapter': 'bank-independent ROM bodies, guarded RAM entries and fetch-time unstable-mapper dispatch'},
         'native_coverage': {'imported_entries': imported, 'observed_entries': len(_seed_sites(seed)),
+                            'imported_ram_guards': len(ram_entries), 'compiled_ram_guards': compiled_ram_guards,
+                            'observed_ram_guards': len(ram_sites(seed)),
                             'position_unit': 'physical PRG byte, shared across CPU slots',
                             'tested_scenarios': list(scripts),
                             'precompiled_rom_positions': native_rom_positions[0] if native_rom_positions else None,

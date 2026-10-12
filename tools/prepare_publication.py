@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "0.25.0"
+VERSION = "0.26.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -59,7 +59,8 @@ native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
 smsrecomp/gameboy_timing.py smsrecomp/gameboy_hardware.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
-smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/systems/nes.py tests/test_nes.py
+smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/nes_ram.py smsrecomp/systems/nes.py tests/test_nes.py
+tests/test_nes_ram.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
 native/controls.c native/controls.h native/host.c native/host_checks.c
@@ -69,9 +70,10 @@ native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
-native/nes_host_ui.c native/nes_dense_codegen.inc
+native/nes_host_ui.c native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
 native/nes_audio_output.inc native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
+native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
 tools/nes_state_selftest.py
