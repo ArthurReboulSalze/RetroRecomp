@@ -83,11 +83,13 @@ def _dense_codegen(source: str) -> str:
     source = replace_once(source,
         '        "    if (!hw_prg_is_rom(addr) || !hw_prg_is_stable()) return false;\\n"',
         '        "    if (ram_has(addr)) return true;\\n"\n'
+        '        "    if (addr < 0x8000) return dense_has(addr);\\n"\n'
         '        "    if (!hw_prg_is_rom(addr)) return false;\\n"\n'
         '        "    if (!hw_prg_is_stable()) return dense_has(addr);\\n"')
     source = replace_once(source,
         '        "        if (!hw_prg_is_rom(pc) || !hw_prg_is_stable()) return;\\n"',
         '        "        if (ram_has(pc)) { live_step(pc); continue; }\\n"\n'
+        '        "        if (pc < 0x8000) { if (!dense_has(pc)) return; live_step(pc); continue; }\\n"\n'
         '        "        if (!hw_prg_is_rom(pc)) return;\\n"\n'
         '        "        if (!hw_prg_is_stable()) { if (!dense_has(pc)) return; live_step(pc); continue; }\\n"')
     return source

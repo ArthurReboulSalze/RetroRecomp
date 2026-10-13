@@ -1,5 +1,219 @@
 # Shared compilation knowledge
 
+## Release 1.0.0: SNES device knowledge and lossless SPC ranges
+
+Current bundled snapshot: **1,027 exact ROMs / 44 SNES**, **51,025,629 raw / 14,207,965 gzip bytes**.
+SHA-256: `a5b85b347b0512a54bb3a1c75ed3a549544a828ff9208780b5a50bfd50a5029b`. Eight device cartridges pass ordinary,
+packed and fresh-process state checks before promotion; four also pass longer
+active-device routes. Unchanged console records are preserved. Existing SNES
+SPC guards are losslessly encoded as PC ranges and ROM offsets; every previous
+pair is checked for semantic equality. Both old pairs and bounded ranges remain
+readable. No ROM, RAM dump, firmware, cover or private journal is bundled.
+The 64 MiB raw bound remains; hints never bypass conversion validation.
+
+Two conversions from the final audited one-file EXE start with an empty private
+library and use this bundled snapshot. See [SNES evidence and limits](SNES.md).
+Dated sections below preserve historical counts and publication status.
+
+## Local SNES standard-profile qualification and opcode guards
+
+Previous snapshot: **1,023 exact ROMs / 40 SNES**, **58,832,410 raw /
+15,035,601 gzip bytes**, SHA-256
+`bc7d03f401b009965ef39bb0e9a80dbd7043edb7bd49032b09aa3a4831a194bd`. Nine SNES records are refreshed; 31 others and every other
+console record remain unchanged. Relative to the previous completed 34-record
+snapshot, this campaign adds six exact revisions and requalifies three controls.
+
+SNES `ram_opcode_refs` contain only PC/ROM-offset numeric pairs. The user's exact
+ROM reconstructs the guarded opcode; operands stay live on the timed bus. This
+retains useful observations whose changing four-byte literals had no ROM source.
+No raw RAM journal, ROM, firmware, cover or player data is bundled. Shared hints
+never bypass ordinary CPU/image/PCM validation. The decompressed 64 MiB bound
+is retained. See [SNES scope and evidence](SNES.md).
+
+The final audited local one-file converter embeds this snapshot and passes two
+fresh-private-library conversions. The published 0.26.0 package is unchanged.
+Earlier dated sections below retain historical snapshot sizes and counts.
+
+
+## SNES object, cartridge-decoding and nested-IRQ qualification
+
+The local snapshot contains **1,017 exact ROMs / 34 SNES records**. Eight new
+revisions are promoted only after their final ordinary and compressed-export
+CPU/state/frame/PCM comparisons and fresh-process states pass. Six controls
+are requalified; twenty other SNES records and every other console's records
+remain identical. Native coverage, hardware checks and reviewed gameplay
+are separate evidence: the Axelay case showed why internal image agreement
+alone cannot establish hardware fidelity. Timing and mapping fixes belong
+to the common runtime, rather than game-name exceptions in the hint bank.
+
+Size: **53,484,310 raw / 13,704,461 gzip bytes**, an increase of 1,817,450
+compressed bytes. SHA-256:
+`c7ffb62f854250026d38daa135332f7108a01c954c2cccf7230694bcb3345cc0`.
+The 1,178 RAM patterns without reconstructible ROM references remain private.
+There are no ROM bytes, raw private journals, firmware, covers or player data
+in the resource. The decompressed 64 MiB bound is retained.
+Shared observations never bypass normal conversion/reference validation.
+
+Evidence: `.build/snes-nested-irq-qualification-20261013/knowledge-build.json`,
+`delivery.json`, original independent fixtures and the final frozen-converter
+checks. The resource is included in the locally rebuilt one-file converter;
+the published 0.26.0 release is unchanged until a publication is requested.
+
+## Super Nintendo bus arbitration requalification
+
+The CPU/DMA/HDMA correction belongs to the common runtime. It does not add
+per-game timing patches to the knowledge resource. The six exact SNES controls
+undergo ordinary CPU/frame/PCM comparison again before their hints can be
+refreshed; packed routes and fresh-process states are checked separately.
+CPU bus requests, channel counters, PPU journals and player saves are never
+compilation observations. The other twenty SNES records and every other
+console's records are preserved. Evidence is kept locally in
+`.build/snes-bus-arbitration-20261012/knowledge-build.json` and `delivery.json`.
+
+The qualified observations are unchanged: **1,009 exact ROMs / 26 SNES**,
+**46,497,854 raw / 11,887,011 gzip bytes**, with the same snapshot SHA below.
+The correction requires regenerating affected game executables; reusing hints
+never bypasses their normal validation. No private library, firmware, ROM or
+player data is added to the converter.
+
+## Super Nintendo camera and HDMA refresh
+
+The verified local snapshot now contains **1,009 exact ROM records**, including
+**26 SNES records**. Pilotwings is added only after its corrected DSP-1 paths
+pass normal conversion, packed CPU/frame/PCM comparisons and fresh-process
+states. Five existing SNES controls are requalified. Twenty other SNES records
+and every other console's records are preserved exactly. A short Mario Kart
+race is also compared through native/reference execution; neither that route
+nor the library claims full-game coverage. CX4 remains interpreted and counted.
+
+Size: **46,497,854 raw bytes / 11,887,011 gzip bytes**, an increase of 261,660
+compressed bytes over the preceding snapshot. SHA-256:
+`7eb71dba1a291d38087ff980c63f83aeabf71c40450d6c4db5fa843fda6672f1`.
+Nineteen RAM patterns without reconstructible ROM references remain private.
+The normal report timestamp must follow both main/sound observation journals;
+shared hints never replace that validation. No original ROM, firmware, cover,
+player SRAM or state is included. The decompressed 64 MiB bound is unchanged.
+
+Evidence: `.build/snes-horizon-hdma-20261012/knowledge-build.json` and packed
+receipts in `delivery.json`. The earlier follow-up below records the prior
+snapshot and its former Pilotwings exclusion.
+
+## Super Nintendo DMA and enhancement-circuit follow-up
+
+The verified local resource contains **1,008 exact ROM records**, including
+**25 SNES records**. Three DSP-1/CX4 revisions are added and three ordinary
+controls requalified. Nineteen other SNES records and every other console's
+records are preserved exactly. The hints concern the compiled 65816/SPC700
+paths; they do not turn the CX4 device interpreter into native code.
+Pilotwings' failed projection route contributes no record.
+
+Size: **45,458,546 raw bytes / 11,625,351 gzip bytes**, an increase of 723,864
+compressed bytes. SHA-256:
+`12b2a90943ea9987a1ae5711f7798b4b719e697b28456d15689deedb060df9a7`.
+Nineteen observed RAM patterns without reconstructible ROM references remain
+private. Both CPU and sound journals must precede their successful ordinary
+qualification report. Packed replays and fresh-process states are checked
+separately. No ROM, firmware, player SRAM/state or artwork is embedded in the
+shared resource; the decompressed 64 MiB bound is unchanged.
+
+## Super Nintendo cartridge RAM and save follow-up
+
+The verified local resource contains **1,005 exact ROM records**, including
+**22 SNES records**. Four additional RPG revisions are qualified and four
+existing controls are requalified; all other records remain unchanged.
+The common runtime now covers ordinary cartridge battery files, SRAM code
+windows and a larger bounded RAM observation set, with fetched-opcode checking.
+
+Size: **42,665,032 raw bytes / 10,901,487 gzip bytes**, an increase of 953,001
+compressed bytes. SHA-256:
+`6cd437dfdd1c229085c51efacf85740010973ab9374e1f18bf58f7c6c3a639dd`.
+The 4,016 RAM patterns without reconstructible original-ROM references remain
+private. The resource still contains only numeric observations and exact-ROM
+identities: no ROM, player SRAM, state, artwork or raw sound-driver RAM.
+The overall 64 MiB decompressed size bound remains unchanged. Only the SNES
+RAM-reference limit grows to 16,384; other console limits stay unchanged.
+
+## Super Nintendo audio and display qualification
+
+The verified follow-up contains **1,001 exact ROM records**, including **18
+Super Nintendo records**. Three PAL revisions are added and five SNES controls
+are requalified after complete main/sound CPU, memory, video and PCM comparison.
+Other consoles and the ten untouched SNES records are preserved exactly.
+Updated audio/upload behavior and full display modes come from the common
+runtime; no title patch is distributed.
+
+Size: **38,765,930 raw bytes / 9,948,486 gzip bytes**, an increase of 555,244
+compressed bytes. SHA-256:
+`5bcc7a43d4bacd548d7e9066e0ea6e659966b0f73cbc414108bf0820dba61b6e`.
+The 179 RAM patterns without an exact reconstructible ROM source remain private.
+Shared records contain numeric ROM references, never raw sound-driver RAM,
+operand data, player states, images or ROMs. SNES now also requires both CPU
+journals to predate the successful qualification report before promotion.
+
+Actual compressed exports and fresh-process states are checked separately.
+See [SNES development and remaining limits](SNES.md). The earlier NES and
+released snapshot sections below remain historical evidence.
+
+## Current exploration and cache follow-up
+
+The verified local resource now retains **998 exact ROM records, 36 NES
+records and 837 NES RAM entry/opcode references**. Five NES revisions are
+requalified on six complete 3,600-frame paths each; the three added paths also
+pass in their actual compressed exports, with fresh-process state checks.
+The Batman menu replay contributes one newly qualified RAM guard. Other
+consoles and the thirty-one unrefreshed NES records remain identical.
+
+Size: **36,397,119 raw bytes / 9,393,242 gzip bytes**, just one compressed byte
+more than the preceding lower-ROM/RAM-window snapshot. SHA-256:
+`fea6e68bfd4d590852b264f9367b1e0f42617f5088666a1b890b0355424925f7`.
+
+The source cache reuses generated code only. It binds the exact ROM/compiler
+and ROM entry input, verifies stored source hashes and applies current RAM
+guards separately. Normal tests always run again. Advanced scan observations
+are compared with the reference before another compilation pass; final-pass
+results are bound to the actual source EXE. Failed or stale journals still
+cannot replace qualified shared records. No scripts, raw RAM, player states,
+ROMs, artwork or private library enter this resource.
+
+The frozen converter is tested on two separate launches with an initially
+empty private library/project. Batman imports all 486 guards from the shared
+resource in its first pass; six 600-frame CPU/frame/PCM comparisons pass on
+each launch. The second launch regenerates no C source and rebuilds no object
+(72 reused), while repeating every reference check. Fresh-process states also
+pass. This verifies the bundled resource and stable source/include paths;
+dependency/compiler caches are reused, so it is not a cold-toolchain benchmark.
+
+## Lower-ROM and RAM-window qualification after 0.26.0
+
+The local verified snapshot contains **998 exact ROM records**, including
+**36 NES records and 836 guarded NES entry/opcode references**. This adds seven
+exact NES revisions and requalifies Batman: Return of the Joker; all other
+consoles and the twenty-eight unrefreshed NES records are unchanged.
+Minelvaton Saga's supplied translated mapper-80 revision contributes 77 guards
+for accessible Taito RAM. Only CPU entry addresses and original-PRG opcode
+offsets are stored, with the existing exact-ROM and live-opcode checks.
+
+The eight actual compressed exports pass three full 3,600-frame internal
+CPU/memory/frame/PCM comparisons each and two fresh-process state continuations
+after 720/1,800 frames. Journal freshness remains required. Mapper-40/FME-7
+lower ROM aliases are covered by the common translator, not ambiguous seeds
+in the upstream upper-address format. Protection state, operands, chip RAM
+dumps, player states and cartridge battery contents are never shared.
+
+The snapshot uses **36,397,107 raw bytes and 9,393,241 gzip bytes**, only
+**664 compressed bytes more** than the released 0.26.0 snapshot. SHA-256:
+`a4a7abf048635759c8d1f18c5ace7b6c71cf49315e63d2e9a9615c7755c8ea57`.
+
+The rebuilt frozen converter passes a real Minelvaton conversion with initially
+empty private knowledge and generated projects. It imports all 77 shared guards
+in its first pass, reports no interpreted cycles on three 600-frame paths,
+matches internal CPU/frame/PCM and passes fresh-process state continuation.
+Dependency/compiler caches are reused; this is not a cold-toolchain speed
+measurement. The audited EXE contains this exact final snapshot and current
+native sources, with no ROM, player state or raw private library.
+
+## Released 0.26.0 snapshot
+
 Release 0.26.0 retains exact-ROM NES RAM entry/opcode observations
 alongside ROM seeds. Shared `ram_opcode_refs` contain only a CPU entry address
 and an offset of that opcode in the user's PRG ROM. The converter reconstructs
@@ -517,6 +731,15 @@ matched the internal reference before 61 ROM instruction observations were
 learned. This is a coverage fix, not a claim of complete gameplay validation.
 
 ## Common translator corrections
+
+SNES byte-access timing, DMA ownership, refresh holds and PPU collision latches
+belong to the common runtime, rather than ROM-specific delay hints. After such
+a change, requalify the exact-ROM CPU, memory, visible-frame and PCM routes
+before refreshing the bundled snapshot. Bus requests, sprite/palette latches,
+player quick states and independent reference captures never enter that
+snapshot. Independent hardware-model disagreement must remain documented even
+when the two internal CPU paths agree. The current evidence and open gates are
+recorded in [SNES development](SNES.md).
 
 Shared observations are not a substitute for correcting the common translator.
 The MC68000 synchronous-exception work adds native vector/stack behavior and

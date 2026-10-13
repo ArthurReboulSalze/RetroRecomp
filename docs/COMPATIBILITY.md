@@ -2,18 +2,24 @@
 
 ## Current scope
 
-Release 0.26.0 provides six console profiles.
-Master System, Game Gear, original Game Boy, NES and **Mega Drive** are supported
-within their documented scope. **Super Nintendo remains experimental**. Mega
-Drive support concerns standard cartridges and the qualified Sega mapper/EEPROM
-circuits; it does not guarantee every revision or extension board. New cartridges
-are analyzed automatically rather than selected from an allowlist.
+Release **1.0.0** supports six console profiles within their documented scopes.
+The **Super Nintendo standard profile is no longer experimental**: ordinary
+LoROM/HiROM up to 4 MiB, PAL/NTSC, quick states, battery saves and Super Scope.
+DSP-1/CX4 boards are also qualified within [their circuit scope](SNES.md).
+CX4 instruction interpretation stays visible. Other enhancement circuits,
+extended maps and DSP-1 firmware-dump commands remain unsupported.
 
-The bundled compilation snapshot contains verified hints for **82 exact Mega Drive cartridges
-and 15 exact Super Nintendo cartridges**. New eligible cartridges receive their
-own ROM-derived profiles and undergo native/reference validation before export;
-neither this snapshot nor the regression catalogue is an allowlist. Unsupported
-hardware is reported separately, and another game's profile is never substituted.
+The shared ROM-free bank includes **1,027 exact revisions**, including
+**82 Mega Drive and 44 Super Nintendo records**. Unknown eligible cartridges
+are analyzed from their own ROM; this is not a game allowlist. Shared hints do
+not bypass native/reference comparisons. Native code, internal CPU/state/frame/
+PCM comparisons, independent hardware checks, sampled gameplay and physical
+latency are separate evidence. Qualification does not promise every game path,
+electrical accuracy, complete playthroughs or measured physical latency.
+
+The standard SNES campaign and subsequent circuit qualification are recorded in
+[SNES development](SNES.md). Below, dated prior campaigns retain their historical
+counts rather than being described as new tests of this package.
 
 The earlier 20-cartridge Mega Drive batch used four final scenarios per cartridge:
 7,200 frames each for demo, play and varied input, plus 1,800 early-start frames.
@@ -53,8 +59,11 @@ families now have targeted circuit, persistence and state checks; see
 [mapping](MEGADRIVE_MAPPERS.md) and [EEPROM](MEGADRIVE_EEPROM.md).
 Super Nintendo supports ordinary LoROM/HiROM, native
 main and sound CPU paths, PAL/NTSC, quick states and qualified Super Scope input.
-Enhancement chips, extended mappings, hires/interlace/overscan and independent
-cartridge save files remain unfinished. Recognizing valid Japanese header titles
+Hires, pseudo-hires, interlace and overscan now have original display/clock
+fixtures and targeted cartridge checks; see [SNES development](SNES.md).
+Unsupported enhancement chips, extended mappings and finer PPU cases remain
+unfinished. Ordinary cartridge save files are implemented and qualified within
+the documented mapping scope. Recognizing valid Japanese header titles
 recovers rejected inputs; it does not qualify those cartridges for gameplay.
 See [16-bit scope and remaining work](CONSOLES_16BIT.md) and
 [gun controls](GUNS_16BIT.md).
@@ -140,6 +149,15 @@ across eight mapper families. Later fresh-process states and incompatible-file
 rejections complement these checks. Mapper support and complete gameplay vary by title; these tests do not
 establish original-hardware fidelity or full-catalogue compatibility.
 See [NES](NES.md).
+
+The current NES development adds lower-address ROM aliases for mappers 40/69
+and guarded VRC2/VRC4 and Taito X1 RAM windows. Authored PAL/NTSC fixtures pass
+2,421,760 instruction comparisons, retaining fallback for protected registers,
+open bus and unexpected fetched bytes. Eight targeted cartridge conversions
+report no interpreted cycles on the tested paths; seven NTSC revisions also
+match a separate software oracle on 8,400 scripted frames. Mapper 40 has
+authored checks only in this set. This extends CPU recompilation coverage
+within existing hardware support; it does not add X1-017 IRQ circuitry.
 
 On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.

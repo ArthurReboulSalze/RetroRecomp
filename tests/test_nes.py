@@ -218,6 +218,33 @@ class NesProfileTests(unittest.TestCase):
                         self.assertTrue(any('A' not in keys for keys in tail))
                         self.assertTrue(all('LEFT' in keys or 'RIGHT' in keys for keys in tail))
 
+    def test_advanced_paths_are_deterministic_bounded_and_cover_both_ports(self):
+        for frames in (12, 600, 3600):
+            scripts=_write_probe_scripts(self.root,frames,advanced=True)
+            self.assertEqual(len(scripts),6)
+            first={name:path.read_bytes() for name,path in scripts.items() if path}
+            _write_probe_scripts(self.root,frames,advanced=True)
+            self.assertEqual(first,{name:path.read_bytes() for name,path in scripts.items() if path})
+            for name,path in scripts.items():
+                if not path:continue
+                events=[line.split() for line in path.read_text().splitlines()]
+                self.assertEqual([int(e[0]) for e in events],sorted(int(e[0]) for e in events))
+                self.assertTrue(all(0<=int(e[0])<frames for e in events))
+                for port in (1,2):
+                    starts=0
+                    for _,value in events:
+                        tagged=value.startswith('2:')
+                        if (port==2)!=tagged:continue
+                        keys=set(value.split(':')[-1].split('+'))
+                        starts+='START' in keys
+                        self.assertFalse({'LEFT','RIGHT'}<=keys)
+                        self.assertFalse({'UP','DOWN'}<=keys)
+                    self.assertLessEqual(starts,1)
+            if frames==3600:
+                self.assertIn(b'2:RIGHT+B',first['select_confirm'])
+                self.assertIn(b'DOWN',first['menu_confirm'])
+                self.assertIn(b'LEFT+B',first['varied_play'])
+
 
 if __name__ == '__main__':
     unittest.main()

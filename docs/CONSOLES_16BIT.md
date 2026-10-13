@@ -1,5 +1,10 @@
 # Mega Drive and Super Nintendo profiles
 
+The released SNES standard profile is qualified for ordinary LoROM/HiROM
+up to 4 MiB, PAL/NTSC, quick states, cartridge saves and Super Scope.
+Qualified DSP-1/CX4 boards are supported; CX4 device interpretation remains counted. [SNES development](SNES.md) defines
+the current evidence and limits; dated sections below retain earlier stages.
+
 ## Release 0.25.0 qualification, 11 October 2026
 
 Mega Drive is supported within the standard cartridge scope described below.
@@ -12,7 +17,8 @@ VDP row-fetch correction is included in every rebuilt campaign export.
 The released converter embeds verified hints for 82 exact Mega Drive ROMs; another
 ROM gets its own analysis and the same validation gates. SRAM, supported
 EEPROM, declared Sega bank mapping, F8/F9 and Menacer retain their targeted
-checks. Super Nintendo remains experimental with 15 qualified hint records.
+checks. At release 0.25.0 the experimental SNES snapshot had 15 qualified hint
+records. Current local evidence and snapshot counts are in [SNES development](SNES.md).
 See [the acceptance scope and separate evidence](COMPATIBILITY.md).
 
 Full playthroughs, the full catalogue, electrical pin precision and physical
@@ -55,7 +61,7 @@ fixes apply to future exports and are covered by independent timing fixtures and
 native/reference checks. They do not establish complete board-level accuracy;
 see [scope and evidence](MEGADRIVE_Z80_TIMING.md).
 
-RetroRecomp includes separate supported Mega Drive and experimental Super
+RetroRecomp includes separate supported Mega Drive and local standard Super
 Nintendo profiles. Neither profile uses a fixed game list.
 A cartridge is identified
 from its console header, then receives a profile generated from its own ROM.
@@ -80,7 +86,8 @@ scope; see [bank mapping](MEGADRIVE_MAPPERS.md). Other declared hardware
 Unsupported EEPROM wiring still permits conversion with an explicit save
 limitation; quick states remain available. The generic SNES path accepts ordinary LoROM/HiROM up to
 4 MiB, including FastROM and RAM/battery variants; extended mappings and
-enhancement chips are not yet integrated into the native adapter. PAL/NTSC
+other enhancement chips remain unsupported. DSP-1/CX4 have experimental
+integration with explicit limits; see [SNES development](SNES.md). PAL/NTSC
 comes from the cartridge header. A multi-region Mega Drive ROM can be tested
 in either declared standard, without requiring a pre-existing PAL record.
 
@@ -106,7 +113,7 @@ release or a catalogue-compatibility guarantee.
 | Profile | Available today | Work still needed |
 | --- | --- | --- |
 | Mega Drive | Automatic analysis of standard and declared Sega banked cartridges, native 68000 and sound Z80 paths, PAL/NTSC, shared controls, SRAM/supported EEPROM, quick states and Menacer | Other cartridge circuits, independent fine timing and exception checks, broader gameplay coverage |
-| Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states and Super Scope | Enhancement chips/extended mappings, hires/interlace/overscan, remaining PAL/audio cases, cartridge save files and broader gameplay coverage |
+| Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states, battery SRAM and Super Scope; hires/interlace/overscan and guarded SRAM code | Enhancement chips/extended mappings, finer independent PPU/timing qualification, additional cartridge circuits and broader gameplay coverage |
 
 Mega Drive development now has a four-word VDP write queue with captured
 addresses, byte-wise VRAM retirement, occupancy status and CPU backpressure.
@@ -297,6 +304,11 @@ that conversion; earlier NTSC evidence is not presented as PAL evidence.
 
 ### Super Nintendo PAL timing
 
+The later audio/display work completes hires dots, interlace field retention and
+239-line overscan in the adapter; see [SNES development](SNES.md). The initial
+PAL results below describe the earlier progressive-only qualification, including
+failures preserved for comparison.
+
 The first European revision uses 312 lines of 1,364 master clocks and
 a 21,281,370 Hz video oscillator: approximately 50.00698 fields per second.
 The PPU's $213F region bit, raster journal chronology, vblank polling and IRQ
@@ -313,8 +325,9 @@ stage. Timing constants were checked against the primary ares implementation:
 [APU oscillator](https://github.com/ares-emulator/ares/blob/master/ares/sfc/system/system.hpp)
 and [PPU field geometry](https://github.com/ares-emulator/ares/blob/master/ares/sfc/ppu/ppu.cpp).
 
-This initial PAL scope is progressive 256 x 224. Overscan, interlace and
-512-pixel modes are not qualified. The converter checks the actual active
+This historical initial PAL scope was progressive 256 x 224. Overscan,
+interlace and 512-pixel modes were not yet qualified at that stage; the later
+[display follow-up](SNES.md) supersedes this restriction. The converter checks the actual active
 raster, excluding screen-off register initialization. Long qualification
 runs also require picture and PCM activity, in addition to internal
 native/reference agreement. A silent or unsupported-display result must
@@ -360,10 +373,13 @@ F8/F9 quick states are implemented for the qualified instruction-based profiles,
 including PAL. They survive closing and restarting the game and are stored in
 `datas/states/<game-slug>-<rom-sha12>.rrstate`. A runtime ABI or ROM mismatch is
 rejected. See [captured state and validation](GAME_STATES.md#mega-drive-and-super-nintendo).
-Independent SNES cartridge battery-save files remain unimplemented; use F8/F9
-to preserve progress in these builds.
+Ordinary SNES battery-backed cartridge RAM is saved independently in
+`datas/saves`, with exact ROM/mapping identity and atomic writes after guest
+changes. Volatile RAM stays in memory. See [SNES cartridge saves](SNES.md).
 
-Ordinary launch/quit creates no data directory or log. Changing a saved
+Reading existing settings or progress creates no directory or log. Guest
+changes to battery RAM, a saved state or a saved setting create only their
+required data files. Changing a saved
 setting creates `datas/Retro-Recomp.ini` beside the games, with separate
 Mega Drive and SNES control sections. Probe logs belong to the converter's
 private build directories and are created only by explicit conversion tests.
@@ -407,7 +423,7 @@ specialized into literals as they are in the Mega Drive adapter.
 SNES RAM helpers are learned during converter probes, then compiled with an
 exact PC and four-byte live-code guard, covering the longest 65816 instruction.
 Changed bytes or an unobserved helper use the counted interpreter. Up to
-2,048 variants are stored in `datas/library/snes/<rom-sha256>/native-ram.json`.
+16,384 variants are stored in `datas/library/snes/<rom-sha256>/native-ram.json`.
 Generated games never persist learning observations. The SPC700 sound processor
 also uses guarded native operations, described below. Both native and reference tests use the real PC/stack
 instruction scheduler instead of the previous paired C-call bridge.
@@ -816,6 +832,9 @@ MIT licence does not replace them. See [Genesis notices](../licenses/segagenesis
 [SNES notices](../licenses/snesrecomp.md) and [SMW notices](../licenses/SuperMarioWorldRecomp.md).
 
 Further work includes broader Mega Drive gameplay and additional mapper qualification,
-broader SNES RAM/gameplay coverage, state/SRAM integration, SNES PAL and wider
-Mega Drive PAL qualification, and additional structurally
-different titles. Recognition alone does not grant conversion compatibility.
+broader SNES RAM/gameplay coverage, unsupported enhancement chips and finer
+CPU/PPU phases. SNES PAL, quick states and ordinary battery saves are implemented
+with bounded qualification. The latest SNES bus and collision evidence, including
+the independent OAM-model disagreement, is tracked in [SNES development](SNES.md).
+Additional structurally different titles still need their own gameplay checks.
+Recognition alone does not grant conversion compatibility.

@@ -42,14 +42,16 @@ int main(int argc, char **argv) {
     unsigned frames = 0, frame_offset = 0; bool play = false, reset_check = false;
     bool ignore_load_error = false;
     const char *save_state = NULL, *load_state = NULL;
+    const char *cartridge_save = NULL;
     bool t2_gun_menu = false;
     const char *report = NULL;
-    const char *input_script = NULL, *trace_path = NULL;
+    const char *input_script = NULL, *trace_path = NULL, *image_path = NULL;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--frame-offset") && i + 1 < argc) frame_offset = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
+        else if (!strcmp(argv[i], "--cartridge-save") && i + 1 < argc) cartridge_save = argv[++i];
         else if (!strcmp(argv[i], "--ignore-load-error")) ignore_load_error = true;
         else if (!strcmp(argv[i], "--play")) play = true;
         else if (!strcmp(argv[i], "--reset-check")) reset_check = true;
@@ -57,14 +59,24 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--report") && i + 1 < argc) report = argv[++i];
         else if (!strcmp(argv[i], "--input-script") && i + 1 < argc) input_script = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace_path = argv[++i];
+        else if (!strcmp(argv[i], "--frame-image") && i + 1 < argc) image_path = argv[++i];
     }
     if (reset_check && !frames) frames = 120;
     if (frames > 1000000 || frame_offset > 1000000 || ((save_state || load_state) && !frames)) return 2;
-    if ((input_script || trace_path) && (!frames || reset_check)) return 2;
+    if ((input_script || trace_path || image_path) && (!frames || reset_check)) return 2;
     if (input_script && !load_replay(input_script, frames + frame_offset)) return 2;
     SDL_SetMainReady();
     if (!frames && SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return 1;
     if (!rr16_init(frames != 0)) return 1;
+    if (cartridge_save) {
+#if RR16_MD
+        rr16_shutdown();return 2;
+#else
+        wchar_t path[32768];
+        if (!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,cartridge_save,-1,path,32768) ||
+                !rr16_cartridge_save(path)) { rr16_shutdown();return 9; }
+#endif
+    }
     if (load_state) {
         wchar_t path[32768];
         bool ok=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,load_state,-1,path,32768) && rr16_state_file(path,true);
@@ -157,6 +169,18 @@ int main(int argc, char **argv) {
         reset_sequence_matches = repeated == sequence;
         reset_audio_matches = rr16_audio_fingerprint() == first_audio;
         reset_matches = reset_matches && reset_sequence_matches && reset_audio_matches;
+    }
+    if (image_path) {
+        FILE *image=fopen(image_path,"wb"); if(!image){rr16_shutdown();return 3;}
+        int width=rr16_visible_width(),height=rr16_visible_height();
+        fprintf(image,"P6\n%d %d\n255\n",width,height);
+        const uint32_t *data=rr16_pixels();
+        for(int y=0;y<height;y++)for(int x=0;x<width;x++){
+            uint32_t color=data[y*RR16_WIDTH+x];
+            unsigned char rgb[3]={(unsigned char)(color>>16),(unsigned char)(color>>8),(unsigned char)color};
+            if(fwrite(rgb,1,3,image)!=3){fclose(image);rr16_shutdown();return 3;}
+        }
+        if(fclose(image)){rr16_shutdown();return 3;}
     }
     char summary[512];
     snprintf(summary, sizeof(summary), "{\"frames\":%u,\"interpreted_opcodes\":%llu,\"native_entries\":%llu,\"game_mode\":%u,\"player_x\":%u,\"frame_hash\":\"%016llx\",\"sequence_hash\":\"%016llx\",\"audio_cpu\":\"%s\"}",

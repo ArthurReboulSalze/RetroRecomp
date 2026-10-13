@@ -21,6 +21,8 @@ def apu_clock(source):
     replace(source, '#define RTL_MASTER_CYCLES_PER_FRAME 357368ull', '')
     replace(source, '#define RTL_APU_CYCLES_PER_FRAME 17088ull', '')
     replace(source, 'uint64_t start_master, start_guest, next_guest, last_duration;', '')
+    source=replace(source, '  if (end < minimum) end = minimum;  /* WAI still advances a hardware frame. */',
+        '  (void)minimum; /* The beam already accounts for parked time and field-length changes. */')
     return configured('''#pragma once
 #include <stdint.h>
 #if RR_SN_PAL
@@ -42,7 +44,6 @@ static inline uint64_t rtl_apu_clock_now(const RtlApuFrameClock *clock, uint64_t
 }
 static inline uint64_t rtl_apu_clock_finish(RtlApuFrameClock *clock, uint64_t master) {
   uint64_t span = master >= clock->start_master ? master - clock->start_master : 0;
-  if (span < RR_SN_FRAME_MASTER) span = RR_SN_FRAME_MASTER;
   uint64_t scaled = span * RR_SN_APU_HZ + clock->start_remainder;
   clock->last_duration = scaled / RR_SN_MASTER_HZ;
   clock->next_remainder = scaled % RR_SN_MASTER_HZ;
@@ -74,6 +75,13 @@ def ppu(source):
 
 
 def bridge(source):
+    # The standalone host consumes audio on the game thread. A 16-bit store
+    # therefore uses the real low/high bus sequence, not the upstream audio-
+    # thread workaround that reverses APU-port writes. That workaround can
+    # deliver a command's argument before its command and corrupt uploads.
+    source = replace(source,
+        '    if (reversed || !bridge_hw_word(adrl, adrh)) return false;',
+        '    if (bridge_is_apu_port(adrl) || reversed || !bridge_hw_word(adrl, adrh)) return false;')
     source = replace(source, '(32040.0 * 32.0) / (1364.0 * 262.0 * 60.0)',
         '(RR_SN_PAL ? (1025280.0 / 21281370.0) : (32040.0 * 32.0) / (1364.0 * 262.0 * 60.0))')
     source = replace(source, '357368u', 'RR_SN_FRAME_MASTER', count=5)

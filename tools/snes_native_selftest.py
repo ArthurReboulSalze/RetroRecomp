@@ -34,14 +34,15 @@ def main():
         'static const unsigned char fixture_rom[] = {' +
         ','.join(map(str, mirrored_rom(rom))) + '};\n', encoding='ascii')
     source = (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
-    (project / 'snes_native_ops.inc').write_text(native_source(source, rom,
-        [{'address': 0x7e0100, 'bytes': 'a93412ea'}]), encoding='utf-8')
-    (project / 'snes_hirom_ops.inc').write_text(native_source(source, rom,
-        [{'address': 0x7e0100, 'bytes': 'a93412ea'}], mapping='hirom'), encoding='utf-8')
+    guards = [{'address': 0x7e0100, 'bytes': 'a93412ea'}] + [
+        {'address':0x7e1000+4*n,'bytes':'a93412ea'} for n in reversed(range(4096))]
+    (project / 'snes_native_ops.inc').write_text(native_source(source, rom, guards), encoding='utf-8')
+    (project / 'snes_hirom_ops.inc').write_text(native_source(source, rom, guards, mapping='hirom'), encoding='utf-8')
     (project / 'interp816.c').write_text(adapt_core(source), encoding='utf-8')
     (project / 'interp816_hirom.c').write_text(adapt_core(source).replace(
         '#include "snes_native_ops.inc"', '#include "snes_hirom_ops.inc"'), encoding='utf-8')
     shutil.copy2(ROOT / 'native/snes_native_steps.h', project / 'snes_native_steps.h')
+    shutil.copy2(ROOT / 'native/snes_cart.h', project / 'snes_cart.h')
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(SnesNativeChecks C)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

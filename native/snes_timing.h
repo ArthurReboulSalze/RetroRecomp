@@ -1,6 +1,6 @@
 #ifndef RETRO_SNES_TIMING_H
 #define RETRO_SNES_TIMING_H
-/* Progressive SNES timing. PAL has 312 lines, unlike the Mega Drive's 313.
+/* Progressive SNES timing. Interlace alternates 312/313 or 262/263 lines.
  * The audio oscillator is independent of the region's video oscillator. */
 #if RR_SN_PAL
 #define RR_SN_LINES 312u

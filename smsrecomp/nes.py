@@ -12,7 +12,6 @@ import hashlib
 import json
 import re
 import shutil
-import sys
 import tempfile
 import time
 import zlib
@@ -23,12 +22,13 @@ from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .library import atomic_json, library_root
+from .nes_build import object_stamps, prepare_native, preserve_inputs, write_changed
 from .knowledge import record_for
 from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
 from .nes_runtime import prepare_host
 from .nes_catalog import zapper_game
-from .nes_ram import read_sites as ram_sites, shared_sites, trace_text, write_guards
+from .nes_ram import read_sites as ram_sites, shared_sites, trace_text
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 
@@ -264,7 +264,7 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             'audio_pcm_sha256': hashlib.sha256(captures[0]).hexdigest() if differential else None}
 
 
-def _write_probe_scripts(project: Path, frames: int) -> dict[str, Path | None]:
+def _write_probe_scripts(project: Path, frames: int, *, advanced: bool = False) -> dict[str, Path | None]:
     """Keep exercising inputs after boot instead of idling for most of a test."""
     scripts: dict[str, Path | None] = {'boot': None}
     # Different Start timings cover titles that need a few seconds to become
@@ -281,6 +281,40 @@ def _write_probe_scripts(project: Path, frames: int) -> dict[str, Path | None]:
         script.write_text(''.join(f'{frame} {keys}\n' for frame, keys in sorted(events.items())
                                   if frame < frames), encoding='ascii')
         scripts[name] = script
+    if advanced:
+        sequences = {
+            'menu_confirm': {60: 'START', 72: '-', 240: 'A', 252: '-'},
+            'select_confirm': {120: 'SELECT', 132: '-', 180: 'START', 192: '-'},
+            'varied_play': {20: 'START', 32: '-'},
+        }
+        for name, events in sequences.items():
+            if name == 'varied_play':
+                patterns = ('RIGHT+B', 'RIGHT+A+B', 'RIGHT', 'UP+A', 'LEFT+B',
+                            'DOWN', 'RIGHT+A', '-', 'B', 'A')
+                for i, frame in enumerate(range(180, frames, 90)):
+                    events[frame] = patterns[i % len(patterns)]
+                    events[frame + 24] = 'RIGHT+B' if i % 3 == 0 else '-'
+            else:
+                # Released confirmations/cancellations and vertical choices
+                # reach menu/dialogue paths missed by held right/left input.
+                for i, frame in enumerate(range(360, frames, 120)):
+                    events[frame] = ('A', 'DOWN', 'A', 'UP', 'B', 'RIGHT')[i % 6]
+                    events[frame + 16] = '-'
+                if name == 'select_confirm':
+                    # Player 2 gets separate input; simultaneous opposing
+                    # directions are never submitted to either controller.
+                    second = {240: '2:START', 252: '2:-', 480: '2:RIGHT+B',
+                              960: '2:A', 984: '2:-'}
+                    extra = ''.join(f'{frame} {keys}\n' for frame, keys in second.items() if frame < frames)
+                else:
+                    extra = ''
+            script = project / (name.replace('_', '-') + '.input')
+            rows = [f'{frame} {keys}\n' for frame, keys in events.items() if frame < frames]
+            if name == 'select_confirm':
+                rows += extra.splitlines(keepends=True)
+            rows.sort(key=lambda row: int(row.split()[0]))
+            script.write_text(''.join(rows), encoding='ascii')
+            scripts[name] = script
     return scripts
 
 
@@ -289,6 +323,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                 backend: str = 'banked', language: str = 'en', cover: Path | None = None,
                 boxart_dir: Path | None = None, online_cover: bool = True,
                 use_cover: bool = True, icon_tags: bool = True,
+                nes_advanced_scan: bool = False,
                 standard_override: str | None = None,
                 emit: Callable[[str], None] = print) -> Path:
     if output is None:
@@ -300,6 +335,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         record = convert_batch([item], games_root(), profile=profile, passes=passes,
             frames=frames, backend=backend, language=language, boxart_dir=boxart_dir,
             online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
+            nes_advanced_scan=nes_advanced_scan,
             standard_override=standard_override, emit=emit)
         if record['failed']:
             raise ConversionError(record['games'][0]['message'])
@@ -331,22 +367,23 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
-    (project / 'rom.nes').write_bytes(rom.data)
-    prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun)
-    metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
-        icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
-    notice = 'NES executable: component license notices.\n\n'
-    for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
-                              ('NESRecomp', engine / 'LICENSE'),
-                              ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
-                              ('xBR', ASSETS / 'licenses/xbr.md'),
-                              ('SDL2', ASSETS / 'licenses/SDL2.md')]:
-        notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
-    (project / 'game_legal.md').write_text(notice, encoding='utf-8')
-    (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
-    with (project / 'game_resources.rc').open('a', encoding='utf-8') as resource:
-        resource.write('102 RCDATA "game_legal.md"\n103 RCDATA "rom.nes"\n'
-                       '104 RCDATA "game_identity.bin"\n')
+    write_changed(project / 'rom.nes', rom.data)
+    with preserve_inputs(project):
+        prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun)
+        metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
+            icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
+        notice = 'NES executable: component license notices.\n\n'
+        for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
+                                  ('NESRecomp', engine / 'LICENSE'),
+                                  ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
+                                  ('xBR', ASSETS / 'licenses/xbr.md'),
+                                  ('SDL2', ASSETS / 'licenses/SDL2.md')]:
+            notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
+        (project / 'game_legal.md').write_text(notice, encoding='utf-8')
+        (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
+        with (project / 'game_resources.rc').open('a', encoding='utf-8') as resource:
+            resource.write('102 RCDATA "game_legal.md"\n103 RCDATA "rom.nes"\n'
+                           '104 RCDATA "game_identity.bin"\n')
     library = library_root('nes') / rom.sha256 / ENGINE_REV
     previous = library / 'cycle-seeds.trace'
     seed = project / 'cycle-seeds.trace'
@@ -361,38 +398,54 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     seed.write_text(trace_text(entries, ram_entries), encoding='ascii')
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries and {len(ram_entries)} guarded RAM entries from previous runs.')
-    scripts = _write_probe_scripts(project, frames)
+    scripts = _write_probe_scripts(project, frames, advanced=nes_advanced_scan)
     executable = project / 'build/Release/game.exe'
     history: list[dict] = []
     final_checks: list[dict] = []
     native_rom_positions: tuple[int, int] | None = None
+    build_passes = []
+    compared_executable_sha = None
     for number in range(1, passes + 1):
         prior = _seed_sites(seed)
         prior_ram = ram_sites(seed)
         emit(f'NES pass {number}/{passes}: generating and compiling native 6502 paths…')
-        bridge_command = ([sys.executable, '_nes-prepare-project', engine]
-                          if getattr(sys, 'frozen', False) else
-                          [sys.executable, engine / 'tools/cyc/prepare_project.py'])
-        run([*bridge_command,
-             '--rom', project / 'rom.nes', '--recompiler', compiler,
-             '--out', project / 'cycle', '--seeds', seed], cwd=project,
-            log=project / 'build.log', timeout=600)
-        compiled_ram_guards = write_guards(_generated_source(project), prior_ram, rom)
+        phase = time.perf_counter()
+        cache = prepare_native(project, compiler, rom, prior, prior_ram)
+        generation_seconds = time.perf_counter() - phase
+        compiled_ram_guards = cache['compiled_ram_guards']
+        emit(f"NES native source cache: {cache['unchanged_sources']}/{cache['source_files']} unchanged; "
+             f"{len(cache['changed_sources'])} updated.")
         emit(f'NES guarded RAM entry variants: {compiled_ram_guards}; operands remain live.')
         native_rom_positions = _native_rom_positions(project, rom.mapper)
         if native_rom_positions:
             emit(f'NES native physical PRG entry positions: '
                  f'{native_rom_positions[0]}/{native_rom_positions[1]}.')
+        phase = time.perf_counter()
         run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
              f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], cwd=project,
             log=project / 'build.log', timeout=600)
+        configure_seconds = time.perf_counter() - phase
+        previous_objects = object_stamps(project / 'build')
+        phase = time.perf_counter()
         run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'],
             cwd=project, log=project / 'build.log', timeout=1800)
+        build_seconds = time.perf_counter() - phase
+        current_objects = object_stamps(project / 'build')
+        build_passes.append({'pass': number, **cache,
+            'generation_seconds': round(generation_seconds, 6),
+            'configure_seconds': round(configure_seconds, 6),
+            'build_seconds': round(build_seconds, 6),
+            'objects_rebuilt': sum(previous_objects.get(p) != stamp for p, stamp in current_objects.items()),
+            'objects_reused': sum(previous_objects.get(p) == stamp for p, stamp in current_objects.items())})
         if not executable.is_file():
             raise ConversionError('NES build produced no executable.')
         final_checks = []
+        compared_executable_sha = hashlib.sha256(executable.read_bytes()).hexdigest()
         for scenario, script in scripts.items():
-            check = _probe(executable, project, scenario, frames, seed, script)
+            check = _probe(executable, project, scenario, frames, seed, script,
+                           differential=nes_advanced_scan)
+            check['executable_sha256'] = compared_executable_sha
+            check['input_sha256'] = hashlib.sha256(script.read_bytes()).hexdigest() if script else None
             check['pass'] = number
             final_checks.append(check)
             history.append(check)
@@ -411,10 +464,17 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     # the same runtime. This is a CPU/runtime differential, not independent
     # hardware or full-game validation.
     cpu_checks = []
-    for scenario, script in scripts.items():
+    if nes_advanced_scan:
+        # All coverage scenarios already ran their complete reference/PCM
+        # comparison in this pass. Bind that fresh evidence to this exact
+        # artifact; never reuse a preceding pass/conversion's qualification.
+        if hashlib.sha256(executable.read_bytes()).hexdigest() != compared_executable_sha:
+            raise ConversionError('NES executable changed during its reference validation.')
+        cpu_checks = [dict(check) for check in final_checks]
+    for scenario, script in (() if nes_advanced_scan else scripts.items()):
         # Include input-driven execution after the delayed Start; 120 frames
         # alone would compare only boot for the late-start gameplay scenario.
-        comparison_frames = frames if compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(frames, 600 if script else 120)
+        comparison_frames = frames if nes_advanced_scan or compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(frames, 600 if script else 120)
         comparison = _probe(executable, project, scenario, comparison_frames, seed,
                             script, differential=True)
         cpu_checks.append(comparison)
@@ -437,7 +497,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                             'tested_scenarios': list(scripts),
                             'precompiled_rom_positions': native_rom_positions[0] if native_rom_positions else None,
                             'rom_address_positions': native_rom_positions[1] if native_rom_positions else None},
-        'final_checks': final_checks, 'history': history,
+        'final_checks': final_checks, 'history': history, 'build_passes': build_passes,
         'native_validation': {'passed': True, 'method': 'internal interpreter frame hashes and exact PCM',
                               'scenarios': cpu_checks, 'independent_cpu_oracle': False,
                               'hardware_accuracy': False, 'full_game': False},
@@ -449,6 +509,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
         'artwork': artwork, 'windows_metadata': metadata,
         'runtime_learning': False, 'library_identity': rom.sha256,
+        'advanced_scan': {'enabled': bool(nes_advanced_scan), 'scenarios': list(scripts),
+                          'deterministic_inputs': True, 'full_game': False},
         'host_audio': {'sample_rate': 48000, 'callback_frames_requested': 256,
                        'startup': 'one_device_period_plus_30ms', 'native_s16_or_float': True,
                        'bounded_pcm_ring': True},

@@ -102,6 +102,10 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
         if p.is_file():
             digest.update(p.name.encode()); digest.update(p.read_bytes())
     digest.update(str(MD_PORTABLE_STATE_ABI if system_id == 'md' else PORTABLE_STATE_ABI).encode())
+    if system_id=='snes':
+        from .core import module_fingerprint
+        for module in ('smsrecomp.snes_timing','smsrecomp.snes_video','smsrecomp.snes_cart','smsrecomp.snes_dma','smsrecomp.snes_bus','smsrecomp.snes_ppu_bus','smsrecomp.snes_chips'):
+            digest.update(module.encode());digest.update(module_fingerprint(module).encode())
     digest.update(json.dumps(revisions,sort_keys=True).encode())
     # The generated profile is the source of truth for an explicit override.
     profile = (project / ('retro_md_game.h' if system_id == 'md' else 'retro_snes_game.h')).read_text()

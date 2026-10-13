@@ -139,10 +139,11 @@ static void unknown(void) {
         for (unsigned mode = 0; mode < 3; mode++) {
             const uint8_t select[] = {0, 0x40, 0x80};
             cpu_write(0x8000, 8, 0); cpu_write(0xA000, select[mode], 0);
-            if (rr_nes_ram_peek(0x6000, &value) || cyc_native_has(0x6000)) {
-                fprintf(stderr, "FME-7 non-RAM mapping accepted\n"); exit(2);
+            bool mapped_rom = select[mode] != 0x40;
+            if (rr_nes_ram_peek(0x6000, &value) || cyc_native_has(0x6000) != mapped_rom) {
+                fprintf(stderr, "FME-7 ROM/RAM selection mismatch\n"); exit(2);
             }
-            rejected++;
+            if (!mapped_rom) rejected++;
         }
     }
     if (hw_cart.mapper == 153) {

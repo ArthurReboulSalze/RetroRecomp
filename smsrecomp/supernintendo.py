@@ -1,12 +1,13 @@
 """ROM-scoped RAM instruction observations owned by the SNES converter."""
 from __future__ import annotations
 from pathlib import Path
+import hashlib
 import json
 import re
 from .library import atomic_json, entry_lock, library_root
-from .knowledge import ram_variants as shared_ram_variants
+from .knowledge import ram_variants as shared_ram_variants,record_for
 
-RAM_VARIANT_LIMIT = 2048
+RAM_VARIANT_LIMIT = 16384
 PROFILES = {
     '0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b':
         {'id': 'smw', 'title': 'Super Mario World', 'legacy_functions': True},
@@ -36,7 +37,7 @@ PROFILES = {
         {'id': 'super-mario-all-stars', 'title': 'Super Mario All-Stars', 'legacy_functions': False},
     '979572fe92501a409207399817911d04438f4078bc6832cbc851e98eb2f1c2d2':
         {'id': 'popn-twinbee-pal', 'title': "Pop'n TwinBee", 'legacy_functions': False,
-         'standard': 'pal', 'video_scope': 'progressive_224'},
+         'standard': 'pal', 'video_scope': 'standard_ppu'},
 }
 
 
@@ -48,7 +49,7 @@ def profile_for(rom):
                    'legacy_functions': False, 'mapping': rom.mapping,
                    'standard': rom.standard, 'source': 'cartridge'}
         if rom.standard == 'pal':
-            profile['video_scope'] = 'progressive_224'
+            profile['video_scope'] = 'standard_ppu'
         return profile
     mapping = profile.get('mapping', 'lorom')
     standard = profile.get('standard', 'ntsc')
@@ -57,8 +58,29 @@ def profile_for(rom):
     return dict(profile, source='catalogue')
 
 
+def project_path(root: Path, rom, profile) -> Path:
+    """Keep MSVC tracking paths short without merging different exact ROMs."""
+    if profile.get('source') != 'cartridge':
+        return root / '.build' / ('snes-' + profile['id'])
+    for length in (16,32,64):
+        path=root / '.build' / ('snes-rom-' + rom.sha256[:length])
+        cartridge=path / 'cartridge.sfc'
+        identity=path / 'generation-identity.json'
+        try:
+            occupied=json.loads(identity.read_text(encoding='utf-8')).get('rom')
+        except (OSError,ValueError,AttributeError):
+            occupied=None
+        if occupied:
+            if occupied == rom.sha256:return path
+        elif cartridge.exists():
+            if hashlib.sha256(cartridge.read_bytes()).hexdigest()==rom.sha256:return path
+        else:return path
+    from .core import ConversionError
+    raise ConversionError('SNES build directory conflicts with this exact ROM identity.')
+
+
 def validate_cartridge(rom):
-    """The native map handles ordinary LoROM/HiROM, not enhancement chips."""
+    """Validate supported maps and explicitly identified enhancement circuits."""
     from .core import ConversionError
     from .cartridge16 import snes_header
     header = snes_header(rom.data)
@@ -66,14 +88,24 @@ def validate_cartridge(rom):
         raise ConversionError('SNES cartridge header could not be validated.')
     offset, mapping = header
     mode, chip = rom.data[offset + 21], rom.data[offset + 22]
+    from .snes_chips import identify
+    identify(rom.data)
     if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
         raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
                               'are not supported by the native runtime yet.')
-    if mode not in (0x20, 0x21, 0x30, 0x31) or chip not in (0, 1, 2):
+    if mode not in (0x20, 0x21, 0x30, 0x31) and not (mode>>4 not in (2,3) and chip in (0,1,2)):
         raise ConversionError(f'This SNES cartridge uses an unsupported enhancement chip or mapping '
                               f'(map ${mode:02X}, cartridge type ${chip:02X}). '
                               'The native runtime currently supports ordinary LoROM/HiROM cartridges, '
                               'with or without RAM/battery.')
+    from .snes_cart import layout
+    layout(rom)  # Validate the bounded RAM allocation before invoking the loader.
+
+
+def support_stage(rom):
+    """Only validated ordinary/DSP-1/CX4 board signatures pass this gate."""
+    validate_cartridge(rom)
+    return 'supported'
 
 
 def video_standard(rom, override=None):
@@ -85,20 +117,25 @@ def video_standard(rom, override=None):
 
 
 def validate_activity(profile, checks):
-    """An internal CPU comparison must not qualify a silent or blank PAL run.
+    """Require complete raster geometry and active picture/sound on long PAL runs.
 
-    This first PAL stage covers the progressive 224-line display only. Mode
-    evidence is gathered on active raster lines, excluding screen-off setup.
-    Short user-selected probes may finish before the intro produces sound.
+    Legacy narrow-profile gates remain explicit. Standard PPU reports retain
+    every selected row and dot; short boot probes may precede picture/sound.
     """
-    if profile.get('video_scope') != 'progressive_224':
+    if profile.get('video_scope') not in ('progressive_224', 'standard_ppu'):
         return
     from .core import ConversionError
     for check in checks:
-        for mode in ('overscan_seen', 'interlace_seen', 'hires_seen'):
+        for mode in ('overscan_seen', 'interlace_seen', 'hires_seen') if profile.get('video_scope')=='progressive_224' else ():
             if check.get(mode) is None or check[mode]:
                 raise ConversionError('This SNES profile requires a progressive 256 x 224 display. '
                     'The tested raster uses an unsupported or unverified video mode; previous export preserved.')
+        if profile.get('video_scope')=='standard_ppu':
+            if (check.get('visible_width') not in (256,512) or check.get('active_raster_height') not in (224,239) or
+                    check.get('output_row_density') not in (1,2) or
+                    check.get('visible_height') != check.get('active_raster_height',0)*check.get('output_row_density',0) or
+                    check.get('captured_rows') != check.get('active_raster_height')):
+                raise ConversionError('SNES validation is missing complete display geometry; previous export preserved.')
         if check.get('frames', 0) >= 3600 and (not check.get('visible_frames') or not check.get('pcm_nonzero')):
             raise ConversionError('SNES validation found no active picture or audible samples in a long test. '
                 'The cartridge remains unqualified; previous export preserved.')
@@ -107,11 +144,17 @@ def validate_activity(profile, checks):
 def write_profile(project: Path, rom, title: str) -> None:
     """Identity for a per-instruction program; no foreign game's function tree."""
     profile = profile_for(rom)
+    from .snes_cart import layout
+    memory = layout(rom)
     (project / 'retro_snes_game.h').write_text(
         f'#define RR_SN_TITLE {json.dumps(title, ensure_ascii=True)}\n'
         f'#define RR_SN_ROM_BYTES {len(rom.data)}u\n'
         f'#define RR_SN_SMW {int(profile["legacy_functions"])}\n'
+        f'#define RR_SN_HIROM {int(rom.mapping=="hirom")}\n'
         f'#define RR_SN_PAL {int(video_standard(rom) == "pal")}\n', encoding='ascii')
+    with (project / 'retro_snes_game.h').open('a', encoding='ascii') as file:
+        file.write(f'#define RR_SN_RAM_BYTES {memory["bytes"]}u\n'
+                   f'#define RR_SN_BATTERY {int(memory["battery"])}\n')
     if profile['legacy_functions']:
         return
     generated = project / 'generated'
@@ -150,14 +193,23 @@ def wram_offset(address: int) -> int | None:
     return None
 
 
-def valid_ram_variant(item) -> bool:
+def valid_ram_variant(item, rom=None, *, memory=None) -> bool:
     if not isinstance(item, dict):
         return False
     address, raw = item.get('address'), item.get('bytes')
     return (isinstance(address, int) and isinstance(raw, str)
             and re.fullmatch('[0-9a-fA-F]{8}', raw) is not None
-            and all(wram_offset((address & 0xff0000) | ((address + n) & 0xffff)) is not None
-                    for n in range(4)) and 0 <= address <= 0xffffff)
+            and valid_ram_address(address,rom,memory=memory))
+
+
+def valid_ram_address(address,rom=None,*,memory=None) -> bool:
+    """Keep the existing four-byte ordinary RAM window, excluding MMIO."""
+    if type(address) is not int or not 0<=address<=0xffffff:return False
+    addresses=[(address&0xff0000)|((address+n)&0xffff) for n in range(4)]
+    if all(wram_offset(a) is not None for a in addresses):return True
+    from .snes_cart import layout,ram_offset
+    if memory is None and rom is not None:memory=layout(rom)
+    return memory is not None and all(wram_offset(a) is not None or ram_offset(memory,a) is not None for a in addresses)
 
 
 def memory_file(rom) -> Path:
@@ -178,14 +230,22 @@ def read_ram_variants(rom) -> list[dict]:
             record = {}
     except (OSError, ValueError, TypeError, AttributeError):
         record = {}
-    items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item)]
+    items = [item for item in record.get('ram_variants', []) + shared if valid_ram_variant(item, rom)]
     return [{'address': addr, 'bytes': raw} for addr, raw in
             sorted({(item['address'], item['bytes'].lower()) for item in items})[:RAM_VARIANT_LIMIT]]
 
 
+def read_ram_opcodes(rom) -> list[tuple[int,int]]:
+    """Observed PC/opcode guards; operands remain live, never shared dumps."""
+    sites={(item['address'],int(item['bytes'][:2],16)) for item in read_ram_variants(rom)}
+    for pc,offset in record_for('snes',rom,knowledge_engine(rom)).get('ram_opcode_refs',[]):
+        if valid_ram_address(pc,rom) and 0<=offset<len(rom.data):sites.add((pc,rom.data[offset]))
+    return sorted(sites)[:RAM_VARIANT_LIMIT]
+
+
 def learn_ram_variants(rom, checks) -> int:
     additions = {(item['address'], item['bytes'].lower()) for check in checks
-                 for item in check.get('ram_variants', []) if valid_ram_variant(item)}
+                 for item in check.get('ram_variants', []) if valid_ram_variant(item, rom)}
     if not additions:
         return 0
     path = memory_file(rom)

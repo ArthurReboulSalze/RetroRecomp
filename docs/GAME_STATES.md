@@ -196,6 +196,15 @@ ROM/region/ABI mismatches and malformed inner payloads without guest mutation.
 This proves serialization and replay for the tested scenarios, not complete
 gameplay or original-hardware fidelity. Regenerate games to receive this feature.
 
+## Super Nintendo cartridge saves
+
+Ordinary Super Nintendo cartridge saves are independent of quick states.
+Guest changes to battery-backed SRAM are persisted atomically under `datas/saves`,
+bound to the exact ROM, mapping and RAM size. F8/F9 also captures cartridge RAM;
+loading an older quick state can therefore restore older progress, which is saved
+on normal exit. Missing/corrupt saves are never silently replaced by blank RAM.
+See [SNES validation and boundaries](SNES.md).
+
 ## Arithmetic-phase follow-up (ABI-10 layout unchanged)
 
 The variable arithmetic/DBcc follow-up explicitly accepts the preceding

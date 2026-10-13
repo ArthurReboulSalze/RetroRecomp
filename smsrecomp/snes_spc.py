@@ -29,9 +29,14 @@ def memory_file(rom):
 def read_masks(rom):
     from .supernintendo import knowledge_engine
     shared = bytearray(MASK_BYTES)
-    for pc, offset in record_for('snes', rom, knowledge_engine(rom)).get('spc_refs', []):
+    record = record_for('snes', rom, knowledge_engine(rom))
+    for pc, offset in record.get('spc_refs', []):
         opcode = rom.data[offset]
         shared[pc * 32 + opcode // 8] |= 1 << (opcode & 7)
+    for first, last, offset in record.get('spc_ranges', []):
+        opcode = rom.data[offset]
+        for pc in range(first, last + 1):
+            shared[pc * 32 + opcode // 8] |= 1 << (opcode & 7)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:

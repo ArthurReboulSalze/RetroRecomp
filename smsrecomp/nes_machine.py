@@ -130,7 +130,9 @@ def _run(source: str) -> str:
         '            cyc_run_native_cycles += cyc_cycle_count() - before - interpreted;')
     return source + '''
 void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, unsigned bank) {
-    if (rom && cyc_run_miss && bank < hw_cart.prg_slots) {
+    /* The pinned seed format has only $8000-$FFFF slots. A lower ROM alias
+     * is covered densely; never mislabel it as a seed at $E000/$F000. */
+    if (rom && pc >= 0x8000 && cyc_run_miss && bank < hw_cart.prg_slots) {
         unsigned index = ((bank * 8 + ((pc >> 12) & 7)) << 12) | (pc & 0xFFF);
         cyc_run_miss[index]++;
     }
@@ -175,6 +177,7 @@ def prepare_machine(project: Path, engine: Path) -> Path:
             elif name == 'runner/cyc/hw.h':
                 text = data.decode('utf-8')
                 text = replace_once(text, 'bool hw_prg_is_rom(uint16_t addr);', '''bool hw_prg_is_rom(uint16_t addr);
+bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank);
 bool rr_nes_ram_peek(uint16_t pc, uint8_t *value);
 void rr_nes_note_ram(uint16_t pc, uint8_t op);
 void rr_nes_ram_trace_enable(void);

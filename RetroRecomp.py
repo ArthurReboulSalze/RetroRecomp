@@ -104,6 +104,8 @@ def main() -> int:
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Native discovery is unchanged.")
     build.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Add a longer Mega Drive input replay and reference checks to each learning pass (default: off).')
+    build.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
+        help='Add NES menu/dialogue/varied-input replays with complete reference CPU/image/audio checks (default: off).')
     build.add_argument("--backend", choices=("functions", "banked"), default="banked",
         help="banked (default): extended native ROM coverage and learned RAM variants, Sega mapper.")
     covers = build.add_mutually_exclusive_group()
@@ -131,6 +133,8 @@ def main() -> int:
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
     batch.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Extra Mega Drive coverage scan (default: off); ignored for other consoles.')
+    batch.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
+        help='Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.')
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
         help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)
@@ -244,6 +248,7 @@ def main() -> int:
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
+                    nes_advanced_scan=args.nes_advanced_scan,
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
@@ -261,6 +266,7 @@ def main() -> int:
                     use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
                     gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
+                    nes_advanced_scan=args.nes_advanced_scan,
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
                 if result['status'] != 'success':

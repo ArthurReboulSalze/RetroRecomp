@@ -19,8 +19,8 @@
 #else
 #include "retro_snes_game.h"
 #include "snes_timing.h"
-#define RR16_WIDTH 256
-#define RR16_HEIGHT 224
+#define RR16_WIDTH 512
+#define RR16_HEIGHT 480
 #define RR16_SECTION L"SNES"
 #define RR16_CONSOLE "Super Nintendo"
 #define RR16_FRAME_SECONDS RR_SN_FRAME_SECONDS
@@ -42,15 +42,15 @@ uint64_t rr16_audio_interpreted(void);
 const char *rr16_audio_cpu(void);
 uint64_t rr16_audio_fingerprint(void);
 uint64_t rr16_audio_frame_fingerprint(void);
-#if RR16_MD
 int rr16_visible_width(void);
 int rr16_visible_height(void);
 int rr16_raster_height(void);
+#if RR16_MD
+#define rr16_display_width() rr16_visible_width()
 void rr16_trace_details(FILE *file);
 #else
-#define rr16_visible_width() RR16_WIDTH
-#define rr16_visible_height() RR16_HEIGHT
-#define rr16_raster_height() RR16_HEIGHT
+#define rr16_display_width() 256
+bool rr16_cartridge_save(const wchar_t *path);
 #endif
 void rr16_report_details(FILE *file);
 #endif

@@ -12,7 +12,7 @@ from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
 from .library import atomic_json
-from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart
+from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
@@ -249,6 +249,9 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
         snes_spc.generate(engine, project, rom)
         for name in ('snes_spc_native.h', 'snes_spc_runtime.c'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
+        from .snes_cart import adapt_cart, adapt_loader, adapt_cpu
+        for name in ('snes_cart.h', 'snes_battery.h', 'snes_battery.c'):
+            shutil.copy2(ASSETS / 'native' / name, project / name)
         if supernintendo.profile_for(rom)['legacy_functions']:
             shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
         else:
@@ -258,6 +261,11 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
         staged = project / 'engine'
         for directory in ('runner', 'third_party'):
             shutil.copytree(engine / directory, staged / directory, dirs_exist_ok=True)
+        cpu_bus=staged / 'runner/src/cpu_state.c'
+        cpu_bus.write_text(adapt_cpu(cpu_bus.read_text(encoding='utf-8')),encoding='utf-8')
+        for name, adapt in (('cart', adapt_cart), ('snes_other', adapt_loader)):
+            path = staged / f'runner/src/snes/{name}.c'
+            path.write_text(adapt(path.read_text(encoding='utf-8')), encoding='utf-8')
         (staged / 'runner/src/snes/interp816.c').write_text(
             adapt_core((engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')),
             encoding='utf-8')
@@ -280,6 +288,22 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
         from .snes_timing import adapt_engine
         shutil.copy2(ASSETS / 'native/snes_timing.h', project / 'snes_timing.h')
         adapt_engine(staged)
+        from .snes_video import adapt_engine as adapt_video
+        adapt_video(staged)
+        from .snes_dma import adapt_engine as adapt_dma
+        shutil.copy2(ASSETS / 'native/snes_dma.h', project / 'snes_dma.h')
+        shutil.copy2(ASSETS / 'native/snes_hdma.inc', project / 'snes_hdma.inc')
+        adapt_dma(staged)
+        from .snes_bus import adapt_engine as adapt_bus
+        for name in ('snes_bus.h','snes_bus.inc'):
+            shutil.copy2(ASSETS/'native'/name,project/name)
+        adapt_bus(staged)
+        from .snes_ppu_bus import adapt_engine as adapt_ppu_bus
+        shutil.copy2(ASSETS/'native/snes_ppu_bus.inc',project/'snes_ppu_bus.inc')
+        adapt_ppu_bus(staged)
+        from .snes_chips import adapt_engine as adapt_chips
+        shutil.copy2(ASSETS / 'native/snes_dsp1_projection.inc', project / 'snes_dsp1_projection.inc')
+        adapt_chips(staged)
         from .console16_state import snes_runtime as state_runtime, snes_frame_driver as state_driver
         for name, adapt in (('common_rtl.c', state_runtime), ('beam_frame_driver.c', state_driver)):
             state_source = staged / 'runner/src' / name
@@ -296,7 +320,7 @@ set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c
+add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
   game_resources.rc ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})
@@ -329,7 +353,8 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     legacy_smw = cartridge_profile.get('legacy_functions', False)
     engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit, legacy_smw=legacy_smw)
     md_profile = cartridge_profile if system_id == 'md' else None
-    project = ROOT / '.build' / (system_id + '-' + cartridge_profile['id'])
+    project = (supernintendo.project_path(ROOT,rom,cartridge_profile) if system_id=='snes' else
+               ROOT / '.build' / (system_id + '-' + cartridge_profile['id']))
     project.mkdir(parents=True, exist_ok=True)
     rom_file = project / ('cartridge.bin' if system_id == 'md' else 'smw.sfc' if legacy_smw else 'cartridge.sfc')
     rom_file.write_bytes(rom.data)
@@ -507,6 +532,14 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
         result.stdout + result.stderr, encoding='utf-8')
     if result.returncode:
+        if report.exists():
+            try:failed=json.loads(report.read_text(encoding='utf-8'))
+            except (OSError,ValueError):failed={}
+            if failed.get('coprocessor_failed'):
+                chip=failed.get('cartridge_chip','cartridge circuit').upper()
+                command=failed.get('coprocessor_failed_command',0)
+                raise ConversionError(f'{chip} validation stopped at unsupported device command ${command:02X}. '
+                                      f'Previous export preserved; see {directory}.')
         raise ConversionError(f'16-bit {scenario} probe failed (exit {result.returncode}). See {directory}.')
     data = json.loads(report.read_text(encoding='utf-8'))
     if data.get('frames') != frames:
@@ -538,10 +571,17 @@ def reference_differences(system_id: str, native: dict, reference: dict) -> list
                        'output_row_density', 'captured_rows', 'video_modes_seen', 'interlace_frames')
     else:
         fields += SNES_AUDIO_FIELDS
+        from .snes_cart import REPORT_FIELDS
+        fields += REPORT_FIELDS
+        from .snes_chips import REPORT_FIELDS as CHIP_FIELDS
+        fields += CHIP_FIELDS
         if 'video_standard' in native or 'video_standard' in reference:
             fields += ('video_standard', 'field_lines', 'ppu_pal', 'overscan_seen',
                        'interlace_seen', 'hires_seen', 'beam_line', 'beam_column',
                        'irq_latches', 'irq_overshot', 'visible_frames')
+        if 'captured_rows' in native or 'captured_rows' in reference:
+            fields += ('visible_width', 'visible_height', 'active_raster_height',
+                       'output_row_density', 'captured_rows', 'field_parity')
     if 'gun_kind' in native or 'gun_kind' in reference:
         fields += ('gun_kind', 'gun_light_hits', 'gun_interrupts', 'gun_button_reads')
         fields += (('gun_latched_hv', 'gun_buttons_latched', 'gun_button_packets', 'gun_trigger_packets') if system_id == 'md' else
@@ -609,12 +649,17 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     started = time.perf_counter()
     title = title or cartridge_profile['title']
     name = 'Mega Drive' if system_id == 'md' else 'Super Nintendo'
-    stage = 'supported' if system_id == 'md' else 'experimental'
+    stage = 'supported' if system_id == 'md' else supernintendo.support_stage(rom)
     emit(f'{name}: {stage} {title} {standard.upper()} conversion; '
          + ('using exact-ROM catalogue settings.' if cartridge_profile.get('source') == 'catalogue'
             else 'generating a profile from this cartridge; no catalogue entry required.'))
     emit('68000 and Z80 sound CPU use guarded native code.' if system_id == 'md' else
          '65816 and SPC700 sound CPU use guarded native code. Hardware fidelity is a separate check.')
+    if system_id=='snes':
+        from .snes_chips import identify
+        chip=identify(rom.data)
+        if chip=='cx4':emit('CX4 device uses its counted instruction interpreter; main/audio native coverage is measured separately.')
+        elif chip.startswith('dsp1'):emit('DSP-1 uses a firmware-free command model; unsupported commands stop validation.')
     for limitation in cartridge_profile.get('limitations', ()):
         emit('Limitation: ' + limitation)
     output = Path(output).resolve()
@@ -699,8 +744,10 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             check['native_counter_unit'] = 'main CPU opcodes'
             checks.append(check)
             emit(f"{name} {check['scenario']}: {check['frames']} frames, "
-                 f"{check['interpreted_opcodes']} interpreted main CPU opcodes. Sound CPU: " +
+                 f"{check.get('main_interpreted_opcodes',check['interpreted_opcodes'])} interpreted main CPU opcodes. Sound CPU: " +
                  f"{check['audio_interpreted_opcodes']} interpreted {'Z80' if system_id == 'md' else 'SPC700'} opcodes.")
+            if system_id=='snes' and check.get('coprocessor_instructions'):
+                emit(f"{check['cartridge_chip'].upper()}: {check['coprocessor_instructions']} counted interpreted device instructions.")
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
@@ -773,7 +820,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, video standard and runtime ABI'},
-        'cartridge_memory': megadrive_sram.layout(rom) if system_id == 'md' else None,
+        'cartridge_memory': megadrive_sram.layout(rom) if system_id == 'md' else snes_cart.layout(rom),
         'runtime_learning': False,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable),

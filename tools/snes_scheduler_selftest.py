@@ -44,6 +44,12 @@ def main():
         # With S=$1FFB, PCL/PCH live at $1FFD/$1FFE. No host-PC shortcut may
         # discard the destination restored by RTI.
         ('rti-thread-switch', bytes.fromhex('a9 00 8d fd 1f a9 82 8d fe 1f 40')),
+        # Toggle overscan each NMI while the main CPU actively polls a device.
+        # The armed field deadline must move at V=0 in both directions.
+        ('overscan-busy-switch', bytes.fromhex('ee 00 00 ad 00 00 29 01 0a 0a 8d 33 21 40')),
+        # NMI unmasks IRQ and waits for its handler. IRQ must preempt this
+        # live NMI frame; waiting for its RTI deadlocks the authored guest.
+        ('irq-inside-nmi', bytes.fromhex('ee 00 00 9c 10 00 a9 20 8d 09 42 9c 0a 42 a9 a1 8d 00 42 58 ad 10 00 f0 fb 78 a9 81 8d 00 42 ee 01 00 40')),
     )
     rows, profiles = [], {}
     for pal in (False, True):
@@ -56,6 +62,14 @@ def main():
             authored = cartridge(handler, pal, irq=name == 'pal-vblank-irq-300')
             if name == 'rti-thread-switch':
                 authored[0x200:0x207] = bytes.fromhex('ee 01 00 cb 80 fa ea')
+            if name == 'overscan-busy-switch':
+                end=authored.index(bytes.fromhex('cb 80 fd'))
+                authored[end:end+5]=bytes.fromhex('ad 12 42 80 fb')
+            if name=='irq-inside-nmi':
+                end=authored.index(bytes.fromhex('cb 80 fd'))
+                authored[end:end+12]=bytes.fromhex('9c 00 00 9c 01 00 9c 10 00 cb 80 fd')
+                authored[0x200:0x209]=bytes.fromhex('48 ad 11 42 ee 10 00 68 40')
+                authored[0x7fee:0x7ff0]=bytes.fromhex('00 82')
             path.write_bytes(authored)
             rom = read_snes_rom(path)
             profiles[rom.sha256] = {'id': 'fixture-' + standard + '-' + name, 'title': name,
@@ -74,12 +88,14 @@ def main():
         # allowed. The old interrupt loop ran to its step cap instead.
         lines = 312 if pal else 262
         expected = 225 * 1364 + 39 * lines * 1364
+        if name=='overscan-busy-switch':expected+=15*1364
         assert abs(native['master_cycles'] - expected) < 64, (name, native['master_cycles'], expected)
         # None of these authored cartridges reads or writes an APU port.
         # Its independent clock must still run for every completed frame,
         # including time parked in WAI, from power-on rather than first I/O.
-        apu_expected = 40 * 425568 * 1025280 // 21281370 if pal else 40 * 17088
-        assert apu_expected <= native['apu_cycles'] < apu_expected + 64, (name, native['apu_cycles'])
+        apu_expected = native['master_cycles'] * 1025280 // 21281370 if pal else native['master_cycles'] * 17088 // 357368
+        # PAL carries fractions; retained NTSC mapping floors each field.
+        assert apu_expected-(0 if pal else 40) <= native['apu_cycles'] < apu_expected + 64, (name, native['apu_cycles'],apu_expected)
         assert not native['audio_output_underflows'] and not native['audio_ring_dropped'], name
         assert not native['interpreted_opcodes'], name
         assert 0 < native['native_entries'] < 1000000, name
@@ -92,6 +108,13 @@ def main():
             assert native['cpu_pc'] == 0x8104, name  # the instruction after WAI
         if name == 'rti-thread-switch':
             assert native['cpu_pc'] == 0x8204, name  # restored guest destination
+        if name=='overscan-busy-switch':
+            assert native['beam_line']==240 and native['active_raster_height']==239, native
+            assert native['captured_rows']==239, native
+        if name=='irq-inside-nmi':
+            expected_pc=0x8000+path.read_bytes().index(bytes.fromhex('cb 80 fd'))+1
+            assert native['cpu_pc']==expected_pc,(name,hex(native['cpu_pc']),hex(expected_pc))
+            assert native['irq_latches']==39 and not native['irq_overshot'],native
         return {'fixture': name, 'standard': 'pal' if pal else 'ntsc', 'frames': 40, 'differences': differences,
             'expected_master_cycles': expected, 'master_cycles': native['master_cycles'],
             'native_entries': native['native_entries'], 'interpreted_opcodes': native['interpreted_opcodes'],

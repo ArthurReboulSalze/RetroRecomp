@@ -106,11 +106,23 @@ def snes_header(data: bytes) -> tuple[int, str] | None:
             continue
         title = snes_title(data[offset:offset + 21])
         mode = data[offset + 21] & 0x2f
-        allowed = (0x20, 0x22) if mapping == 'lorom' else (0x21,) if mapping == 'hirom' else (0x25,)
+        allowed = (0x20, 0x22, 0x23) if mapping == 'lorom' else (0x21,0x2a) if mapping == 'hirom' else (0x25,)
         complement = int.from_bytes(data[offset + 28:offset + 30], 'little')
         checksum = int.from_bytes(data[offset + 30:offset + 32], 'little')
         vector = int.from_bytes(data[offset + 60:offset + 62], 'little')
-        if (title and mode in allowed
+        regular = mode in allowed
+        # Some original boards have a non-map byte here (a title can overrun
+        # its 21-byte field). Recovery is bounded to ordinary power-of-two
+        # boards, an exact declared size, a FULL matching image checksum and
+        # a plausible reset instruction in the candidate mapping. Never
+        # reinterpret a declared $2x/$3x special map or a custom circuit.
+        reset_offset=(vector&0x7fff) if mapping=='lorom' else vector
+        recovered=(mapping in ('lorom','hirom') and data[offset+21]>>4 not in (2,3)
+                   and data[offset+22] in (0,1,2) and data[offset+23]<=12
+                   and len(data)==1<<(10+data[offset+23])
+                   and reset_offset<len(data) and data[reset_offset] in (0x18,0x78,0xc2,0xe2,0x4c,0x5c)
+                   and sum(data)&0xffff==checksum)
+        if (title and (regular or recovered)
                 and checksum ^ complement == 0xffff and checksum != 0
                 and vector >= 0x8000 and data[offset + 23] <= 13):
             matches.append((offset, mapping))

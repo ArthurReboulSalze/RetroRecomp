@@ -212,8 +212,11 @@ static void scale2x(const uint32_t *source, uint32_t *target) {
 
 static SDL_Rect game_rect(SDL_Renderer *renderer) {
     int w, h; SDL_GetRendererOutputSize(renderer, &w, &h);
-    Rr16Rect r = rr16_video_rect(w, h, rr16_visible_width(), rr16_raster_height(),
-                                rr16_visible_height() / rr16_raster_height(), fullscreen == 1);
+    int density = rr16_visible_height() / rr16_raster_height();
+    int horizontal = rr16_visible_width() / rr16_display_width();
+    if (horizontal > density) density = horizontal;
+    Rr16Rect r = rr16_video_rect(w, h, rr16_display_width(), rr16_raster_height(),
+                                density, fullscreen == 1);
     SDL_Rect rect = {r.x, r.y, r.w, r.h};
     return rect;
 }
@@ -231,7 +234,7 @@ static void sample_gun(SDL_Window *window, SDL_Renderer *renderer, uint16_t pad)
         x = (int)((int64_t)x * rw / w); y = (int)((int64_t)y * rh / h);
         in.offscreen = x < dst.x || y < dst.y || x >= dst.x + dst.w || y >= dst.y + dst.h;
         if (!in.offscreen && dst.w > 0 && dst.h > 0) {
-            in.x = (int)((int64_t)(x - dst.x) * rr16_visible_width() / dst.w);
+            in.x = (int)((int64_t)(x - dst.x) * rr16_display_width() / dst.w);
             in.y = (int)((int64_t)(y - dst.y) * rr16_raster_height() / dst.h);
         }
         in.fire = (buttons & SDL_BUTTON_LMASK) != 0;
@@ -248,9 +251,9 @@ static void sample_gun(SDL_Window *window, SDL_Renderer *renderer, uint16_t pad)
 
 static void draw_gun(SDL_Renderer *renderer, const SDL_Rect *dst) {
     if (!RR16_GUN || menu || mouse_gun.offscreen) return;
-    int x = dst->x + (int)((mouse_gun.x + 0.5) * dst->w / rr16_visible_width());
+    int x = dst->x + (int)((mouse_gun.x + 0.5) * dst->w / rr16_display_width());
     int y = dst->y + (int)((mouse_gun.y + 0.5) * dst->h / rr16_raster_height());
-    int sx = (int)((double)gun_size * dst->w / rr16_visible_width());
+    int sx = (int)((double)gun_size * dst->w / rr16_display_width());
     int sy = (int)((double)gun_size * dst->h / rr16_raster_height());
     if (sx < 1) sx = 1; if (sy < 1) sy = 1;
     SDL_RenderSetClipRect(renderer, dst);
@@ -356,7 +359,7 @@ int rr16_sdl_main(const char *title, int scale) {
     char caption[256];
     snprintf(caption, sizeof(caption), "%s | %s", title, "Native code");
     SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        RR16_WIDTH * scale, rr16_raster_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+        rr16_display_width() * scale, rr16_raster_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
         (test_frames ? SDL_WINDOW_HIDDEN : 0));
     if (win && fullscreen && SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) fullscreen = 0;
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;

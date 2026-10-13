@@ -1,8 +1,7 @@
 # Console profiles and video standards
 
 RetroRecomp has supported **Master System**, **Game Gear**, **Game Boy**,
-**Nintendo NES** and **Mega Drive** (`md`) profiles, plus experimental
-**Super Nintendo** (`snes`); see
+**Nintendo NES**, **Mega Drive** (`md`) and standard **Super Nintendo** (`snes`) profiles; see
 [16-bit scope](CONSOLES_16BIT.md). All profiles are registered through
 `smsrecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM
 reader, converter, export category and supported video modes. Unknown formats

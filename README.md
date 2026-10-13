@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-0.26.0-d4a737" alt="Release version 0.26.0">
+  <img src="https://img.shields.io/badge/release-1.0.0-d4a737" alt="Release version 1.0.0">
   <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -28,7 +28,8 @@ game code before you play and creates a compact, standalone Windows executable
 for each game. The goal is a simple, responsive experience with as much native
 execution as possible, without dedicated FPGA hardware.
 
-- **Convert a whole collection.** Add individual ROMs or mixed folders. Recognized
+- **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
+  or use the file buttons. Recognized
   games are sorted by console, and multiple conversions can run together.
 - **Launch directly.** Generated games need no Python installation, separate ROM
   file or external SDL2 DLL. Regeneration can replace existing exports.
@@ -40,11 +41,13 @@ execution as possible, without dedicated FPGA hardware.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
 - **Reuse compilation knowledge.** The converter includes useful cartridge
-  hints for 991 exact revisions and keeps new discoveries locally. Improved NES
+  hints for 1,027 exact revisions and keeps new discoveries locally. Improved NES
   recompilation covers more code executed from RAM and reduces interpreter fallback.
   See the
   [shared library guide](docs/COMPILATION_LIBRARY.md).
   Game Boy builds also reuse unchanged generated files, with the same validation checks.
+  Optional advanced NES scanning explores more menu and gameplay paths; unchanged
+  native code is reused for faster compilation passes.
 
 ## Console support
 
@@ -55,15 +58,18 @@ execution as possible, without dedicated FPGA hardware.
 | Game Boy | Supported; original Game Boy, quick states, grayscale or classic green |
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
-| Super Nintendo | Experimental; standard LoROM/HiROM cartridges, PAL/NTSC, quick states and Super Scope |
+| Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
 [16-bit support](docs/CONSOLES_16BIT.md) for the current limits.
 The 16-bit profiles analyze new games automatically; there is no fixed game list.
-Mega Drive is supported within its documented cartridge scope. Super Nintendo
-remains experimental while its remaining hardware and gameplay cases are qualified.
-More consoles and output platforms are planned.
+The standard Mega Drive and Super Nintendo profiles are supported within their
+documented cartridge scope. Qualified SNES DSP-1/CX4 boards are also supported;
+CX4 device interpretation remains visible. Other enhancement chips require
+separate integration.
+The next major milestone is **Neo Geo**, a larger integration stage. It is not
+included in 1.0.0.
 
 ## From conversion to your game collection
 

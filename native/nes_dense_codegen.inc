@@ -15,6 +15,7 @@
 #define DENSE_GROUP_SIZE (1u << DENSE_GROUP_SHIFT)
 
 static void emit_dense_rom(const Program *p, FILE *main_file, const char *prefix) {
+    fprintf(main_file, "static void live_step(uint16_t pc);\n");
     uint32_t positions = p->banks * SLOT_SIZE;
     size_t capacity = 1;
     while (capacity < (size_t)positions * 2) capacity <<= 1;
@@ -91,9 +92,10 @@ static void emit_dense_rom(const Program *p, FILE *main_file, const char *prefix
     fprintf(main_file,
         "\n};\n\n"
         "static bool dense_has(uint16_t pc) {\n"
-        "    return pc >= 0x8000 && hw_prg_bank4(pc) < %uu;\n"
+        "    unsigned bank; return rr_nes_rom_bank4(pc, &bank) && bank < %uu;\n"
         "}\n"
         "static void dense_step(uint16_t pc) {\n"
+        "    if (pc < 0x8000) { live_step(pc); return; }\n"
         "    unsigned physical = (hw_prg_bank4(pc) << 12) | (pc & 0xFFF);\n"
         "    unsigned id = dense_entries[physical];\n"
         "    dense_groups[id >> %u][id & %uu]();\n"

@@ -64,17 +64,20 @@ def mirrored_rom(rom: bytes) -> bytes:
     return bytes(data)
 
 
-def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom') -> str:
+def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',ram_opcodes=()) -> str:
     if mapping not in ('lorom', 'hirom'):
         raise ConversionError('SNES native lookup supports ordinary LoROM and HiROM only.')
     bus_rom = mirrored_rom(rom)
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
+    from .snes_chips import identify
+    cart_type={'none':cart_type,'dsp1-lo':'CART_DSP1','dsp1-hi':'CART_DSP1_HIROM',
+               'cx4':'CART_CX4'}[identify(rom)]
+    rom_mapping=mapping
     bodies, cycles = operation_bodies(source), cycle_costs(source)
     functions = []
     for opcode in range(256):
         functions.append(f'''static void rr_sn_op_{opcode:02x}(Interp816 *cpu) {{
-    g_interp816_cur_pc = ((uint32_t)cpu->k << 16) | cpu->pc;
-    (void)interp816_readOpcode(cpu); /* preserve the opcode fetch's bus timing */
+    /* The core has already performed the timed opcode fetch exactly once. */
     cpu->cyclesUsed = {cycles[opcode]};
     do {{ {bodies[opcode]} }} while (0);
 }}
@@ -93,45 +96,65 @@ static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_o
         for i, page in enumerate(pages))
     mapping = 'static const RrSnesNativeOp *const *const rr_sn_pages[] = {' + \
               ','.join(f'rr_sn_page_{index}' for index in slots) + '};\n'
-    from .supernintendo import valid_ram_variant
-    ram = [item for item in ram_variants if valid_ram_variant(item)]
-    ram_table = ('static const struct { uint32_t pc; uint8_t bytes[4]; const RrSnesNativeOp *op; } '
-        'rr_sn_ram[] = {' + ','.join('{' + str(item['address']) + ',{' +
-        ','.join(str(byte) for byte in bytes.fromhex(item['bytes'])) + '},&rr_sn_entry_' +
-        item['bytes'][:2].lower() + '}' for item in ram) + '};\n') if ram else ''
+    from .supernintendo import valid_ram_variant,valid_ram_address
+    from .snes_cart import layout_bytes
+    memory = layout_bytes(rom, rom_mapping)
+    ram = sorted({(item['address'],int(item['bytes'][:2],16)) for item in ram_variants
+                  if valid_ram_variant(item,memory=memory)} |
+                 {(pc,op) for pc,op in ram_opcodes if valid_ram_address(pc,memory=memory)
+                  and type(op) is int and 0<=op<=255})
+    ram_table = ('static const struct { uint32_t pc; const RrSnesNativeOp *op; } '
+        'rr_sn_ram[] = {' + ','.join(f'{{{pc},&rr_sn_entry_{op:02x}}}' for pc,op in ram) + '};\n') if ram else ''
     ram_lookup = f'''if (!mapped) {{
         uint8_t bytes[4];
-        uint32_t pc = ((uint32_t)cpu->k << 16) | cpu->pc;
         if (!rr_snes_read_ram_code(pc, bytes)) return NULL;
-        for (unsigned i = 0; i < {len(ram)}u; ++i)
-            if (rr_sn_ram[i].pc == pc && !memcmp(bytes, rr_sn_ram[i].bytes, 4)) return rr_sn_ram[i].op;
+        unsigned lo=0,hi={len(ram)}u;
+        while(lo<hi) {{ unsigned mid=lo+(hi-lo)/2;
+            if(rr_sn_ram[mid].pc<pc) lo=mid+1; else hi=mid;
+        }}
+        for (unsigned i = lo; i < {len(ram)}u && rr_sn_ram[i].pc == pc; ++i)
+            /* Only the observed operation is static. Its operands and M/X
+             * widths are read by the compiled body through the timed bus. */
+            if (bytes[0] == rr_sn_ram[i].op->opcode)
+                return fetched<0 || rr_sn_ram[i].op->opcode==fetched ? rr_sn_ram[i].op : NULL;
         return NULL;
     }}''' if ram else 'if (!mapped) return NULL;'
     return ('/* Generated ROM-PC operation map. LakeSnes/snesrecomp notices retained. */\n'
         '#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
-        '#include "snes/cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
+        '#include "snes/cart.h"\n#include "snes_cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
         '\n'.join(functions) + tables + '\n' + mapping + ram_table + f'''
 static bool rr_sn_enabled;
 void rr_snes_native_set_enabled(bool enabled) {{ rr_sn_enabled = enabled; }}
 bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
     for (unsigned n = 0; n < 4; ++n) {{
         int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)(pc + n));
-        if (offset < 0) return false;
-        bytes[n] = g_ram[offset];
+        if (offset >= 0) bytes[n] = g_ram[offset];
+        else {{
+            offset = rr_snes_cart_ram_offset(g_snes ? g_snes->cart : NULL,
+                                             (uint8_t)(pc >> 16), (uint16_t)(pc+n));
+            if (offset < 0) return false;
+            bytes[n] = g_snes->cart->ram[offset];
+        }}
     }}
     return true;
 }}
-const RrSnesNativeOp *rr_snes_native_lookup(Interp816 *cpu) {{
+static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_enabled || !g_snes || !g_snes->cart || g_snes->cart->type != {cart_type} ||
         g_snes->cart->romSize != {len(bus_rom)}u ||
         g_snes->cart->romImageSize != {len(rom)}u) return NULL;
-    uint8_t *mapped = cart_getRomPtr(g_snes->cart, cpu->k, cpu->pc);
+    uint8_t *mapped = cart_getRomPtr(g_snes->cart, (uint8_t)(pc>>16), (uint16_t)pc);
     {ram_lookup}
     size_t offset = (size_t)(mapped - g_snes->cart->rom);
     if (offset >= {len(bus_rom)}u) return NULL;
     const RrSnesNativeOp *operation = rr_sn_pages[offset >> 8][offset & 255u];
     /* A modified cartridge byte never selects another compiled operation. */
-    return *mapped == operation->opcode ? operation : NULL;
+    return *mapped == operation->opcode && (fetched<0 || fetched==operation->opcode) ? operation : NULL;
+}}
+const RrSnesNativeOp *rr_snes_native_lookup(Interp816 *cpu) {{
+    return rr_sn_lookup(((uint32_t)cpu->k<<16)|cpu->pc,-1);
+}}
+const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc,uint8_t opcode) {{
+    return rr_sn_lookup(pc,opcode);
 }}
 ''')
 
@@ -142,14 +165,18 @@ def adapt_core(source: str) -> str:
     marker = '  uint8_t opcode = interp816_readOpcode(cpu);'
     if source.count(marker) != 1:
         raise ConversionError('Pinned 65816 execution boundary changed.')
-    source = source.replace(marker, '''  const RrSnesNativeOp *native = rr_snes_native_lookup(cpu);
+    context = '  g_interp816_cur_pc = _pcb;'
+    if source.count(context) != 1:
+        raise ConversionError('Pinned 65816 fetched-opcode context changed.')
+    source = source.replace(context, context+'''
+  const RrSnesNativeOp *native = rr_snes_native_lookup_fetched(_pcb,opcode);
   if (native) {
     native->execute(cpu);
     rr16_snes_note_native();
     return cpu->cyclesUsed;
   }
-''' + marker, 1)
-    source = source.replace(marker, '  rr16_snes_observe_fallback(((uint32_t)cpu->k << 16) | cpu->pc);\n' + marker, 1)
+  rr16_snes_observe_fallback(_pcb);
+''', 1)
     marker = '  s_interp816_insns++;'
     if source.count(marker) != 1:
         raise ConversionError('Pinned 65816 retirement boundary changed.')
@@ -164,6 +191,14 @@ def adapt_bridge(source: str) -> str:
     if source.count(marker) != 1:
         raise ConversionError('Pinned 65816 call bridge changed.')
     source = source.replace(marker, 'if (0 && bounce_ok && has_body) {', 1)
+    # An NMI handler may execute CLI and rely on a raster IRQ preempting it.
+    # Preserve its real stack/PC and yield to the beam scheduler at that edge;
+    # waiting for RTI can delay a split by a hundred lines (Axelay).
+    irq='if (auto_quiescent && steps && !in.i && g_snes &&'
+    if source.count(irq)!=1:
+        raise ConversionError('Pinned SNES nested IRQ boundary changed.')
+    source=source.replace(irq,
+        'if ((auto_quiescent || (stop_on_rti && s_lle_master_deadline)) && steps && !in.i && g_snes &&',1)
     # Architectural interrupts can span a field or reach WAI after changing
     # their stack. Keep the real PC/stack and return control to the beam driver
     # at its deadline instead of running to RTI/the 250,000-step cap.
@@ -203,13 +238,15 @@ def generate(engine: Path, project: Path, rom) -> dict:
     if not rom.data or len(rom.data) % 256:
         raise ConversionError('SNES native ROM map requires complete 256-byte pages.')
     source = (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
-    from .supernintendo import read_ram_variants
+    from .supernintendo import read_ram_variants,read_ram_opcodes
     ram = read_ram_variants(rom)
-    write_changed(project / 'snes_native_ops.inc', native_source(source, rom.data, ram, mapping=rom.mapping))
+    opcodes=read_ram_opcodes(rom)
+    write_changed(project / 'snes_native_ops.inc', native_source(source, rom.data, ram, mapping=rom.mapping,ram_opcodes=opcodes))
     report = {'schema': 1, 'rom_sha256': rom.sha256, 'native_rom_positions': len(rom.data),
               'compiled_operations': 256,
               'mapping': rom.mapping, 'native_bus_positions': len(mirrored_rom(rom.data)),
               'guarded_ram_variants': len(ram),
+              'guarded_ram_opcodes': len(opcodes),
               'semantics_sha256': hashlib.sha256(source.encode()).hexdigest(),
               'adapter_sha256': module_fingerprint(__name__)}
     atomic_json(project / 'snes-step-analysis.json', report)

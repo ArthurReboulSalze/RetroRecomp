@@ -19,6 +19,7 @@ from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, s
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
 from .tooltips import Tooltip
 from .windows import set_converter_identity
+from .dropfiles import enable_file_drop
 from .artwork import ICON_SIZES
 from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
@@ -63,7 +64,7 @@ UPSTREAM_CREDITS = (
         ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_recompiler'),
         ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_native_core'),
     )),
-    ('Super Nintendo (experimental)', (
+    ('Super Nintendo', (
         ('RetroPortingToolKit/snesrecomp', 'https://github.com/RetroPortingToolKit/snesrecomp', 'credits_recompiler'),
         ('mstan/SuperMarioWorldRecomp', 'https://github.com/mstan/SuperMarioWorldRecomp', 'credits_recompiler'),
     )),
@@ -123,6 +124,7 @@ class Application:
         self.extended = tk.BooleanVar(value=extended_default(preferences))
         self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
         self.md_advanced_scan = tk.BooleanVar(value=preferences.get('md_advanced_scan', False) is True)
+        self.nes_advanced_scan = tk.BooleanVar(value=preferences.get('nes_advanced_scan', False) is True)
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         saved_jobs = preferences.get('jobs', 3)
@@ -305,11 +307,36 @@ class Application:
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=('Segoe UI', 9))
         self.tagline.pack(side='right', padx=(12, 0))
         app.protocol('WM_DELETE_WINDOW', self.close)
+        self.file_drop = None
+        app.after_idle(self.enable_drops)
         app.after_idle(self.fit_minimum_width)
         app.after(100, self.drain)
 
     def tr(self, key, **values):
         return tr(key, self.language, **values)
+
+    def enable_drops(self):
+        try:
+            self.file_drop = enable_file_drop(self.app, self.queue_drop,
+                lambda error: self.messages.put(('drop_error', str(error))))
+        except OSError as error:
+            self.messages.put(('drop_error', str(error)))
+
+    def queue_drop(self, paths):
+        # No Tk calls or ROM reads inside the native window procedure.
+        kind = 'drop_blocked' if self.busy or self.updating else 'drop'
+        self.messages.put((kind, paths))
+
+    def drop_paths(self, paths):
+        if self.busy or self.updating:
+            self.messages.put(('log', self.tr('drop_blocked')))
+            return
+        before = len(self.items)
+        try:
+            self.add_paths(paths)
+        except OSError:
+            self.messages.put(('log', self.tr('drop_unreadable')))
+        self.set_status('drop_added', count=len(self.items) - before)
 
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
@@ -575,7 +602,12 @@ class Application:
         for path in paths:
             path = Path(path)
             if path.is_dir():
-                self.add_paths(discover_roms(path))
+                try:
+                    candidates = discover_roms(path)
+                except OSError:
+                    self.messages.put(('log', self.tr('drop_unreadable')))
+                    continue
+                self.add_paths(candidates)
                 existing = {item.path for item in self.items.values()}
                 continue
             if path.resolve() in existing:
@@ -720,6 +752,7 @@ class Application:
             backend='banked' if self.extended.get() else 'functions',
             gb_deep_validation=self.gb_deep_validation.get(),
             md_advanced_scan=self.md_advanced_scan.get(),
+            nes_advanced_scan=self.nes_advanced_scan.get(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
@@ -871,6 +904,12 @@ class Application:
                     self.log.insert('end', event[1] + '\n')
                     self.log.see('end')
                     self.log.configure(state='disabled')
+                elif kind == 'drop':
+                    self.drop_paths(event[1])
+                elif kind == 'drop_blocked':
+                    self.messages.put(('log', self.tr('drop_blocked')))
+                elif kind == 'drop_error':
+                    self.messages.put(('log', self.tr('drop_unavailable')))
                 elif kind == 'start':
                     row = self.active_rows[event[1]]
                     self.running_jobs.add(event[1])
@@ -1043,6 +1082,8 @@ class Application:
         ttk.Label(game_boy, text=self.tr('options_gb_note'), style='Muted.TLabel').pack(anchor='w')
 
         nes = tab('options_nes')
+        self.nes_scan_control = checkbox(nes, 'nes_advanced_scan',
+                                        self.nes_advanced_scan, 'tip_nes_advanced_scan')
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
         for console in ('md', 'snes'):
             page = tab('options_' + console)

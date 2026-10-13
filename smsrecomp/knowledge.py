@@ -24,7 +24,8 @@ FIELDS = {
     'gb': {'rom_entries': (2, 65536)},
     'nes': {'rom_entries': (2, 65536), 'ram_opcode_refs': (2, 65536)},
     'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
-    'snes': {'ram_refs': (3, 2048), 'spc_refs': (2, 262144)},
+    'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
+             'spc_refs': (2, 262144), 'spc_ranges': (3, 262144)},
 }
 
 
@@ -55,6 +56,9 @@ def validate_payload(value: dict) -> dict:
                                or any(type(n) is not int or not 0 <= n <= 0xffffffff for n in e)
                                for e in entries)):
                     raise ValueError('Invalid compilation knowledge entries.')
+                if name == 'spc_ranges' and (len(record.get('spc_refs', [])) +
+                        sum(e[1]-e[0]+1 for e in entries) > 262144):
+                    raise ValueError('SPC700 compilation range budget exceeded.')
                 for entry in entries:
                     if name == 'rom_entries':
                         valid = True
@@ -71,11 +75,17 @@ def validate_payload(value: dict) -> dict:
                     if name == 'pattern_refs' and entry[0] + 4 > record['rom_bytes']:
                         raise ValueError('Compilation pattern outside ROM.')
                     if name == 'ram_opcode_refs' and (not (entry[0] < 0x2000 or 0x6000 <= entry[0] <= 0xFFFF)
-                                                      or entry[1] >= record['rom_bytes']):
+                                                      or entry[1] >= record['rom_bytes']) and system=='nes':
                         raise ValueError('Invalid NES RAM opcode reference.')
+                    if name=='ram_opcode_refs' and system=='snes' and (entry[0]>0xffffff or entry[1]>=record['rom_bytes']):
+                        raise ValueError('Invalid SNES RAM opcode reference.')
                     if name == 'spc_refs' and (entry[0] > 65535 or 0xf0 <= entry[0] <= 0xff
                                                or entry[1] >= record['rom_bytes']):
                         raise ValueError('Invalid SPC700 compilation reference.')
+                    if name == 'spc_ranges' and (not 0 <= entry[0] <= entry[1] <= 65535
+                            or entry[0] <= 0xff and entry[1] >= 0xf0
+                            or entry[2] >= record['rom_bytes']):
+                        raise ValueError('Invalid SPC700 compilation range.')
                     if name in ('ram_refs', 'z80_refs'):
                         if not 1 <= entry[2] <= 16 or entry[1] + entry[2] > record['rom_bytes']:
                             raise ValueError('Compilation reference outside ROM.')

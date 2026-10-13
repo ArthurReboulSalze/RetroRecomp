@@ -8,12 +8,14 @@ import shutil
 from .core import replace_once, slug
 from .paths import ASSETS
 from .nes_machine import prepare_machine
+from .nes_build import stage_native
 from . import __version__
 
 
 def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
                  *, standard: str = 'ntsc', zapper: bool = False) -> None:
     machine = prepare_machine(project, engine)
+    native = stage_native(project, ASSETS / 'native')
     (project / 'retro_nes_config.h').write_text(
         f'#define RR_NES_ROM_SHA "{rom_sha256}"\n'
         f'#define RR_NES_STATE_NAME L"{slug(title)}-{rom_sha256[:12]}"\n', encoding='utf-8')
@@ -120,7 +122,7 @@ int main(int argc, char **argv) {
     cmake = f'''cmake_minimum_required(VERSION 3.20)
 project(RetroRecompNES C)
 set(NESRECOMP_CYC_DIR "{machine.as_posix()}")
-set(RETRO_NATIVE_DIR "{(ASSETS / 'native').as_posix()}")
+set(RETRO_NATIVE_DIR "{native.as_posix()}")
 include("${{NESRECOMP_CYC_DIR}}/cyc.cmake")
 include("${{CMAKE_CURRENT_SOURCE_DIR}}/cycle/sources.cmake")
 list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c")

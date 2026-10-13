@@ -35,6 +35,23 @@ def _journals_qualified(memory, report: dict) -> bool:
     return _observations_qualified((memory.journal, memory.code_journal), report)
 
 
+def compact_spc_refs(refs):
+    by_offset = {}
+    for pc, offset in refs:
+        by_offset.setdefault(offset, set()).add(pc)
+    result = []
+    for offset, positions in sorted(by_offset.items()):
+        first = last = None
+        for pc in sorted(positions):
+            if last is not None and pc == last + 1:
+                last = pc
+            else:
+                if last is not None: result.append([first,last,offset])
+                first = last = pc
+        if last is not None: result.append([first,last,offset])
+    return result
+
+
 def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dict:
     engines = {'sms': core.ENGINE_REV, 'gg': core.ENGINE_REV, 'gb': gameboy.ENGINE_REV,
                'nes': nes.ENGINE_REV, 'md': REPOSITORIES['md'][1], 'snes': REPOSITORIES['snes'][1]}
@@ -106,6 +123,9 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
             if item.system == 'nes' and not _observations_qualified(
                     (library_root('nes') / rom.sha256 / nes.ENGINE_REV / 'cycle-seeds.trace',), report):
                 omitted['unqualified'] += 1; continue
+            if item.system == 'snes' and not _observations_qualified(
+                    (supernintendo.memory_file(rom), snes_spc.memory_file(rom)), report):
+                omitted['unqualified'] += 1; continue
             record['engine'] = expected_engine
             if item.system == 'gb':
                 record['rom_entries'] = [list(e) for e in sorted(read_entries(gameboy._verified_trace(rom), len(rom.data)))]
@@ -128,10 +148,13 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
                 for variant in variants:
                     raw = bytes.fromhex(variant['bytes']); offset = rom.data.find(raw)
                     if offset >= 0: refs.append([variant['address'], offset, len(raw)])
-                    else: omitted['ram_without_rom_source'] += 1
+                    elif item.system!='snes': omitted['ram_without_rom_source'] += 1
                 record['ram_refs'] = refs
                 if item.system == 'snes':
                     offsets = {op: rom.data.find(bytes([op])) for op in range(256)}
+                    sites=supernintendo.read_ram_opcodes(rom)
+                    record['ram_opcode_refs']=[[pc,offsets[op]] for pc,op in sites if offsets[op]>=0]
+                    omitted['ram_without_rom_source']+=sum(offsets[op]<0 for _,op in sites)
                     masks = snes_spc.read_masks(rom)
                     refs = []
                     for pc in range(65536):
@@ -159,6 +182,15 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
                     record['z80_refs'] = refs
         consoles[item.system][rom.sha256] = record
         refreshed[item.system].add(rom.sha256)
+    # Lossless run encoding of repeated PC/opcode references. Old snapshots
+    # remain readable; exact-ROM offsets still reconstruct every guarded byte.
+    for record in consoles.get('snes', {}).values():
+        refs = record.get('spc_refs', [])
+        if refs:
+            ranges = compact_spc_refs(refs)
+            if len(json.dumps(ranges,separators=(',',':'))) < len(json.dumps(refs,separators=(',',':'))):
+                record['spc_ranges'] = ranges
+                del record['spc_refs']
     payload = validate_payload({'schema': 1, 'consoles': consoles})
     raw = json.dumps(payload, separators=(',', ':'), sort_keys=True).encode('ascii')
     if len(raw) > MAX_BYTES: raise ValueError('Knowledge size budget exceeded.')

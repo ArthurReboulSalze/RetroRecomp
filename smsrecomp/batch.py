@@ -258,6 +258,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         settings = dict(options)
         if system.id != 'md':
             settings.pop('md_advanced_scan', None)
+        if system.id != 'nes':
+            settings.pop('nes_advanced_scan', None)
         if system.id != 'gb':
             settings.pop('gb_deep_validation', None)
             settings.pop('gb_parallel_games', None)

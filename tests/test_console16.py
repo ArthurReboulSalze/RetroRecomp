@@ -181,6 +181,31 @@ class Console16Tests(unittest.TestCase):
             with self.assertRaises(ConversionError):
                 read_snes_rom(self.source('Invalid.sfc', payload))
 
+    def test_nonstandard_map_requires_exact_image_checksum_size_and_reset(self):
+        for mapping in ('lorom','hirom'):
+            offset=0x7fc0 if mapping=='lorom' else 0xffc0
+            original=bytearray(snes(mapping=mapping));original[offset+21]=ord('S')
+            original[0]=0x18;original[0x8000]=0x78
+            # Checksum/complement pairs always contribute 510 to the byte sum.
+            original[offset+28:offset+32]=bytes.fromhex('ffff0000')
+            checksum=sum(original)&0xffff
+            original[offset+28:offset+30]=(checksum^0xffff).to_bytes(2,'little')
+            original[offset+30:offset+32]=checksum.to_bytes(2,'little')
+            path=self.source('Nonstandard.sfc',original)
+            self.assertEqual(conversion_rom(path,'snes').mapping,mapping)
+            self.assertEqual(path.read_bytes(),original)
+            for address,value in ((100,1),(offset+23,7),(offset+21,0x23),
+                                  (offset+22,0x13),(0 if mapping=='lorom' else 0x8000,0)):
+                broken=bytearray(original);broken[address]=value
+                # Even repairing the full checksum does not admit a foreign
+                # mapping/circuit, wrong length or implausible reset opcode.
+                broken[offset+28:offset+32]=bytes.fromhex('ffff0000')
+                checksum=sum(broken)&0xffff
+                broken[offset+28:offset+30]=(checksum^0xffff).to_bytes(2,'little')
+                broken[offset+30:offset+32]=checksum.to_bytes(2,'little')
+                if address==100:broken[101]^=1 # stale checksum must reject
+                with self.assertRaises(ConversionError):conversion_rom(self.source('Invalid.sfc',broken),'snes')
+
     def test_archive_identifies_without_extraction_or_writes(self):
         for suffix, payload, expected in (('.md', md(), 'md'), ('.sfc', snes(), 'snes')):
             path = self.root / (expected + '.zip')
@@ -384,7 +409,8 @@ class Console16Tests(unittest.TestCase):
         def probe(executable, directory, frames, *, play=False, reference=False, **options):
             scenario = 'play' if play else 'demo'
             events.append(('reference:' if reference else 'native:') + scenario)
-            fields = SNES_AUDIO_FIELDS + ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash',
+            from smsrecomp.snes_cart import REPORT_FIELDS
+            fields = SNES_AUDIO_FIELDS + REPORT_FIELDS + ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash',
                 'vram_hash', 'cram_hash', 'cpu_pc', 'oam_hash', 'high_oam_hash', 'apu_ram_hash',
                 'cpu_cycles', 'master_cycles', 'apu_cycles')
             fallback = int(passes[0] == 1)
@@ -421,7 +447,7 @@ class Console16Tests(unittest.TestCase):
                                                  'reference:demo', 'reference:play', 'learn:spc'])
                     self.assertEqual(events.count('build'), 2)
                     report = json.loads((self.root / 'reports/conversion-report.json').read_text())
-                    self.assertEqual(report['status'], 'experimental')
+                    self.assertEqual(report['status'], 'supported')
                     self.assertEqual(report['audio_native_percentage'], [100.0, 100.0])
                     self.assertTrue(report['native_validation']['audio_pcm_match'])
                     self.assertTrue(report['native_validation']['reference_before_learning'])
@@ -582,7 +608,10 @@ class Console16Tests(unittest.TestCase):
                   'cpu_pc', 'vsram_hash', 'vdp_register_hash', 'oam_hash', 'high_oam_hash',
                   'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles',
                   'visible_width', 'visible_height', 'active_raster_height', 'interlace_mode',
-                  'output_row_density', 'captured_rows', 'video_modes_seen', 'interlace_frames')
+                  'output_row_density', 'captured_rows', 'video_modes_seen', 'interlace_frames', 'field_parity')
+        fields += ('sram_mapping',)
+        from smsrecomp.snes_chips import REPORT_FIELDS
+        fields += REPORT_FIELDS
         native = dict.fromkeys(fields, 1) | {'native_entries': 100, 'interpreted_opcodes': 0,
             'audio_native_opcodes': 90, 'audio_interpreted_opcodes': 10,
             'audio_native_cycles': 900, 'audio_interpreted_cycles': 100}
@@ -594,6 +623,7 @@ class Console16Tests(unittest.TestCase):
                             ('md', 'cpu_stopped'), ('md','cpu_prefetch_hash'), ('md', 'sram_hash'), ('md', 'sram_bytes'),
                             ('md', 'sram_control'), ('md', 'captured_rows'), ('md', 'visible_height'),
                             ('md', 'active_raster_height'), ('md', 'interlace_frames'),
+                            ('snes', 'sram_hash'), ('snes', 'sram_bytes'), ('snes', 'sram_mapping'),
                             ('snes', 'master_cycles'), ('snes', 'oam_hash'),
                             ('snes', 'spc_cpu_hash'), ('snes', 'dsp_state_hash'), ('snes', 'pcm_hash')):
             self.assertEqual(reference_differences(system, native, reference), [])

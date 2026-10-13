@@ -56,6 +56,53 @@ translation validation without hiding fallback or claiming an independent
 hardware oracle. See [NES audio delivery and checks](AUDIO.md#nes-output-continuity)
 for the separate host-buffer correction addressing small sound discontinuities.
 
+## Advanced exploration and incremental builds
+
+**Options → Nintendo NES → Advanced NES scan** is optional and off by default.
+The CLI exposes `--nes-advanced-scan` for `convert` and `batch`. It adds three
+deterministic paths to boot/right/left: released menu/dialogue confirmations,
+Select and separate player-2 input, and varied movement/jump/button releases.
+Each path respects the configured frame budget; Start is pulsed once per
+controller to avoid repeatedly pausing a game. These bounded scripts do not
+guarantee every menu, level or a complete playthrough.
+
+Every advanced path compares all its frames with the internal interpreter and
+exact PCM **before the next learning pass**. The fresh final-pass evidence is
+bound to the current EXE hash; it is not reused from another build. Failed
+comparisons still block export and shared promotion. Five exact revisions
+(Minelvaton, Batman, Zelda, Kirby and PAL Mr. Gimmick) pass six 3,600-frame
+paths each: **108,000 final-pass internal CPU/frame/PCM pairs**. The actual
+compressed EXEs separately pass the three added paths: **54,000 pairs**,
+with ten fresh-process state continuations. The new Batman menu path initially
+uses three interpreted cycles; one additional exact RAM entry/opcode guard
+removes them. All final paths report zero interpreted cycles.
+
+Four NTSC revisions match the separate TriCNES-derived oracle on twelve added
+paths, **16,800 frames** including the complete 3,600-frame Batman menu path.
+Private end-frame captures confirm first-level scenes in Kirby and Batman;
+this is scene inspection, not a hands-on playthrough. An exploratory independent
+[FCEUmm](https://github.com/libretro/libretro-fceumm) authored test matches NMI
+counts over fixed NTSC/PAL frame intervals. Its CPU-work counters differ by
+roughly 15–16 cycles per 100 fields after accounting for the fixture's carries.
+Different startup/frame phases remain a limitation: the strict counter check
+is **not qualified**, its tolerance is not widened, and production timing is
+unchanged. This does not establish exact PAL CPU/video/audio fidelity.
+
+The converter materialises selected generated C files at stable paths. An
+exact ROM/compiler/ROM-entry receipt and source hashes validate raw output;
+RAM observations adapt only the selected umbrella. Byte-identical sources
+retain timestamps, and staged native headers keep stable include paths across
+separate one-file converter launches. Changed inputs and corrupted caches
+are regenerated. No previous qualification report is used as a shortcut.
+
+A local before/after measurement with empty private and bundled knowledge
+recompiles Minelvaton twice with identical validation budgets. All fifty final
+C sources, per-frame hashes and PCM hashes match. On the second pass, adding
+77 RAM guards recompiles **one C file instead of fifty**, reusing 65 objects.
+Build time falls from **17.20 to 1.81 seconds** (about 9.5×). Total conversion
+time is **542.78 versus 538.43 seconds** on this run: long reference checks
+dominate, so this is not a 9.5× whole-conversion or cold-toolchain claim.
+
 `python tools/nes_native_selftest.py` compares all 256 opcodes across eight
 CPU slots, four mapper configurations and four flag/alignment variants,
 including page crossings, boundary operands, wrapping PC, NMI and IRQ.
@@ -154,6 +201,60 @@ bus traces could match while the initial memory hash differed. Every probe
 now starts a separate private EXE copy with fresh battery memory. Existing
 player saves are preserved, and genuine comparison differences still block
 the export. This changes the converter's tests, not normal in-game persistence.
+
+## Lower ROM aliases and protected cartridge RAM — current development
+
+Native dispatch now includes cartridge ROM mapped at `$6000-$7FFF` by mappers
+40 and 69. The mapper's current selection determines the physical PRG byte;
+opcode and operands use individual live bus reads, including across `$7000`
+and `$8000`. FME-7 ROM/RAM selection is checked anew at each fetch. Lower ROM
+aliases do not enter the upstream seed format, whose address slots start at
+`$8000`; dense native coverage makes those ambiguous seeds unnecessary.
+
+Guarded RAM code also covers accessible VRC2/VRC4 boards (21, 22, 23, 25),
+Taito X1-005 (80, 207) and X1-017 (82, 552). The probe follows the runtime's
+read mapping without reading a register or changing state. VRC2 protection
+latches without RAM, disabled VRC4 RAM, the 2 KiB VRC4 hole at `$7000+`, Taito
+lock values, register windows and unmapped holes remain excluded. An observed
+entry/opcode guard is still required; operands are never learned or folded.
+This extends recompilation coverage rather than adding new mapper hardware,
+including the still unmodelled X1-017 IRQ circuitry.
+
+`python tools/nes_windows_selftest.py` checks authored PAL/NTSC fixtures for
+lower-ROM selection, protected RAM, bank boundaries, DMC/OAM DMA and pending
+IRQ/NMI/reset. Altered ROM fetches must retain visible fallback and must not
+pollute upper-address ROM seeds. Retail exports require their ordinary
+native/reference gates independently of this instruction matrix.
+
+The new 34-point matrix passes **2,421,760 instruction comparisons**, including
+148,480 lower-ROM cases and 455,680 pending-DMC cases. It rejects 102 protected
+or unmapped windows and checks 24 deliberately altered ROM fetches, including
+visible fallback and seed-journal isolation. Existing NROM/MMC5/FME-7 PAL/NTSC
+guard regressions add 573,440 passing instruction cases. The machine matrix
+still passes 11,216 checks across sixteen configurations. These compare
+software CPU/bus/machine behavior; they do not certify physical hardware.
+
+Eight targeted conversions include Akumajou Special: Boku Dracula-kun (23),
+Bio Miracle Bokutte Upa and Gradius II (25), Fudou Myouou Den and the supplied
+translated Minelvaton Saga (80), SD Keiji: Blader (82), PAL Parodius (4), and
+Batman: Return of the Joker (69). Their tested boot and two 3,600-frame input
+paths report no interpreted cycles. Minelvaton initially used 6,782 RAM
+interpreter cycles on each input path; 77 exact entry/opcode guards remove
+these calls at the second compilation pass. No ROM patch is applied.
+There is no mapper-40 retail qualification in this set.
+
+The seven NTSC exports separately match the pinned TriCNES-derived software
+oracle over **8,400 scripted frames**, including bus traces, CPU state and
+memory/framebuffer hashes. This oracle check does not include PAL or PCM
+and is not a complete gameplay or original-hardware certification.
+
+All eight actual compressed EXEs repeat the full internal checks on the three
+3,600-frame paths: **86,400 matching CPU/memory/frame/PCM frame pairs**, with
+zero interpreted cycles. Sixteen fresh-process state continuations resume
+after 720/1,800 input frames, 180 frames each, including held-input restoration,
+lazy file creation and six incompatible/corrupted-state cases. Minelvaton also
+matches the separate oracle for a full 3,600-frame input path. These bounded
+paths do not establish complete playthroughs or physical latency.
 
 ## RAM-board, DMA and restart qualification — 12 October 2026
 

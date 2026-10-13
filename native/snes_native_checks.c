@@ -19,6 +19,7 @@ static Cart cart;
 static Snes machine;
 Snes *g_snes = &machine;
 static uint64_t native_count, fallback_count, bus_trace;
+static bool mutate_fetch;
 void rr16_snes_note_native(void) { ++native_count; }
 void rr16_snes_note_interpreted(uint32_t pc) { (void)pc; ++fallback_count; }
 void rr16_snes_observe_fallback(uint32_t pc) { (void)pc; }
@@ -38,6 +39,9 @@ static uint8_t read_byte(void *mem, uint32_t address) {
     int32_t offset = cpu_wram_offset((uint8_t)(address >> 16), (uint16_t)address);
     uint8_t *rom = cart_getRomPtr(&cart, (uint8_t)(address >> 16), (uint16_t)address);
     uint8_t value = offset >= 0 ? g_ram[offset] : rom ? *rom : bus_data[address & 0xffff];
+    if(mutate_fetch && (address==0x7e0100 || address==0x008000)) {
+        value=0xea;if(offset>=0)g_ram[offset]=value;
+    }
     trace(address, value, false); return value;
 }
 static void write_byte(void *mem, uint32_t address, uint8_t value) {
@@ -97,9 +101,10 @@ int main(void) {
         cpu.k = 0x7e; cpu.pc = 0x100;
         memcpy(g_ram + 0x100, "\xa9\x34\x12\xea", 4);
         compare(cpu, true); ++cases;
-        /* Both changed opcode and changed extension reject the full RAM guard. */
+        /* Unknown opcodes fall back; changed operands retain the observed
+         * native operation and read their current values on the timed bus. */
         g_ram[0x100] = 0xea; compare(cpu, false); ++cases;
-        g_ram[0x100] = 0xa9; g_ram[0x101] ^= 0x40; compare(cpu, false); ++cases;
+        g_ram[0x100] = 0xa9; g_ram[0x101] ^= 0x40; compare(cpu, true); ++cases;
         /* A changed ROM opcode must not run the original compiled operation. */
         cpu.k = 0; cpu.pc = 0x8000;
         uint8_t *start = cart_getRomPtr(&cart, cpu.k, cpu.pc);
@@ -122,8 +127,21 @@ int main(void) {
     compare(cpu, false); ++cases; cart.type = FIXTURE_CART_TYPE;
     ++cart.romImageSize; compare(cpu, false); ++cases; --cart.romImageSize;
     ++cart.romSize; compare(cpu, false); ++cases; --cart.romSize;
+    cpu.k=0x7e;cpu.pc=0x100;memcpy(g_ram+0x100,"\xa9\x34\x12\xea",4);
+    mutate_fetch=true;compare(cpu,false);++cases;
+    cpu.k=0;cpu.pc=0x8000;compare(cpu,false);++cases;mutate_fetch=false;
+    /* An unsorted observation input beyond the old 2,048-entry ceiling must
+     * dispatch every exact PC, read live operands and reject unknown opcodes/PCs. */
+    rr_snes_native_set_enabled(true);cpu.k=0x7e;
+    for(unsigned n=0;n<4096;n++) {
+        cpu.pc=(uint16_t)(0x1000+4*n);memcpy(g_ram+cpu.pc,"\xa9\x34\x12\xea",4);
+        if(!rr_snes_native_lookup(&cpu))return 4;
+        g_ram[cpu.pc+1]^=1;if(!rr_snes_native_lookup(&cpu))return 5;
+        g_ram[cpu.pc]^=1;if(rr_snes_native_lookup(&cpu))return 7;
+        ++cpu.pc;if(rr_snes_native_lookup(&cpu))return 6;
+    }
     printf("{\"instruction_state_bus_comparisons\":%u,\"ram_guards\":\"passed\","
            "\"rom_mutation_guard\":\"passed\",\"mapping_and_size_guards\":\"passed\","
-           "\"mirrored_storage\":\"passed\",\"passed\":true}\n", cases);
-    return cases != 16549;
+           "\"mirrored_storage\":\"passed\",\"guarded_positions_checked\":4096,\"passed\":true}\n", cases);
+    return cases != 16551;
 }

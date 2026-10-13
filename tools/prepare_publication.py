@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "0.26.0"
+VERSION = "1.0.0"
 PUBLIC_FILES = tuple("""
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
@@ -46,9 +46,14 @@ smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.
 smsrecomp/cover_titles.py tests/test_cover_titles.py
 smsrecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
 smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/branding.py smsrecomp/i18n.py smsrecomp/updater.py
+smsrecomp/nes_build.py tests/test_nes_build.py
 smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
+smsrecomp/dropfiles.py tests/test_dropfiles.py
+native/snes_dsp1_projection.inc
+native/snes_dsp1_vectors.h
+tools/snes_hdma_selftest.py
 smsrecomp/peripherals.py
 smsrecomp/metadata.py tests/test_metadata.py
 smsrecomp/systems/__init__.py smsrecomp/systems/master_system.py
@@ -74,6 +79,7 @@ native/nes_host_ui.c native/nes_dense_codegen.inc native/nes_live_codegen.inc na
 native/nes_audio_output.inc native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
 native/nes_guarded_checks.c tools/nes_guarded_selftest.py
+native/nes_windows_checks.c tools/nes_windows_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
 tools/nes_state_selftest.py
@@ -101,6 +107,21 @@ docs/MEGADRIVE_CPU_EXCEPTIONS.md
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
 smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
 smsrecomp/snes_timing.py native/snes_timing.h
+smsrecomp/snes_video.py
+smsrecomp/snes_dma.py native/snes_dma.h native/snes_hdma.inc
+smsrecomp/snes_bus.py native/snes_bus.h native/snes_bus.inc
+smsrecomp/snes_ppu_bus.py native/snes_ppu_bus.inc
+native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
+native/snes_bus_checks.c tools/snes_bus_selftest.py
+smsrecomp/snes_chips.py
+native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
+native/snes_chip_checks.c tools/snes_chip_selftest.py
+smsrecomp/snes_cart.py native/snes_cart.h native/snes_battery.c native/snes_battery.h
+native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
+tools/snes_ram_selftest.py
+native/snes_video_checks.c tools/snes_video_selftest.py tools/snes_object_selftest.py
+tests/test_snes_video.py
+docs/SNES.md
 native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
 smsrecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py

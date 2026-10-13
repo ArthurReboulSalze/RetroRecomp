@@ -33,14 +33,14 @@ int main(void) {
 #else
     REQUIRE(previous == 6000ull * 17088 + (357368ull * 7 + 123) * 17088 / 357368);
 #endif
-    /* A short WAI iteration still advances a full audio field. */
+    /* The beam owns parked time. A short slice must never invent a field. */
     rtl_apu_clock_begin(&clock, master);
     uint64_t short_end = rtl_apu_clock_finish(&clock, master + 10);
-    REQUIRE(short_end > previous);
+    REQUIRE(short_end >= previous);
 #if RR_SN_PAL
-    REQUIRE(short_end == (master + 425568) * 1025280ull / 21281370ull);
+    REQUIRE(short_end == (master + 10) * 1025280ull / 21281370ull);
 #else
-    REQUIRE(short_end == previous + 17088);
+    REQUIRE(short_end == previous + 10ull * 17088 / 357368);
 #endif
     clock = (RtlApuFrameClock){0};
     rtl_apu_clock_begin(&clock, 1234);

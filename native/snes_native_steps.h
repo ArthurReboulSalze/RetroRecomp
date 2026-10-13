@@ -2,11 +2,13 @@
 #ifndef RR_SNES_NATIVE_STEPS_H
 #define RR_SNES_NATIVE_STEPS_H
 #include "snes/interp816.h"
+#define RR_SN_RAM_VARIANT_LIMIT 16384u
 typedef struct RrSnesNativeOp {
     uint8_t opcode;
     void (*execute)(Interp816 *cpu);
 } RrSnesNativeOp;
 const RrSnesNativeOp *rr_snes_native_lookup(Interp816 *cpu);
+const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc, uint8_t opcode);
 void rr_snes_native_set_enabled(bool enabled);
 void rr16_snes_note_native(void);
 void rr16_snes_note_interpreted(uint32_t pc);

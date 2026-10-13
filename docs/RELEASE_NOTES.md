@@ -1,3 +1,41 @@
+# RetroRecomp v1.0.0 — Super Nintendo standard profile is now supported
+
+**The standard Super Nintendo profile leaves experimental status.** All six
+console profiles are supported within their documented cartridge scope.
+
+- Super Nintendo supports ordinary LoROM/HiROM cartridges in PAL/NTSC, quick
+  states, battery saves and Super Scope. DSP-1 and CX4 boards are also qualified;
+  CX4 device interpretation remains visible. Other enhancement chips and
+  extended cartridge layouts require separate integration.
+- SNES audio, display modes, sprite rendering, cartridge decoding, DMA/HDMA and
+  interrupt handling have been improved and checked on a wider cartridge set.
+  Guarded RAM code keeps changing operands live, reducing unnecessary fallback.
+- The verified ROM-free bank now includes **1,027 exact revisions**, with
+  **44 SNES records**. Repeated sound-CPU references use a lossless compact
+  encoding; existing discoveries are preserved and each new game is validated.
+- Drag ROMs, ZIPs or folders directly into the converter. Mixed-console batches
+  still use automatic detection and the selected parallel conversion count.
+- NES native coverage has further guard and memory-window improvements.
+
+Circuit qualification includes eight packed SNES exports, four longer device
+routes, fresh-process states and independent authored DSP arithmetic checks.
+Native coverage, hardware checks and sampled gameplay remain separate evidence;
+complete playthroughs, every cartridge circuit and physical latency are not claimed.
+
+Download the single Windows x64 **Retro-Recomp.exe**, or use **Check for updates**.
+**Regenerate SNES and NES exports to receive the runtime improvements.** Updates
+preserve games, settings, local knowledge and downloaded covers. Older quick
+states with incompatible runtime signatures are rejected without being rewritten.
+The next major development target is **Neo Geo**, a larger integration stage.
+This release does not include Neo Geo support.
+
+No ROMs, downloaded artwork, generated games, firmware or private settings are
+included. Legal notices are inside the executable.
+
+[UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v0.26.0 — stronger NES recompilation and shared knowledge
 
 - NES recompilation now handles more code executed from RAM and cartridges

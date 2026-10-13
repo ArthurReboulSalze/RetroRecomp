@@ -26,7 +26,8 @@ class SnesNativeTests(unittest.TestCase):
         self.assertNotIn('interp816_doOpcode(', source)
         self.assertIn('rr_sn_pages[offset >> 8][offset & 255u]', source)
         self.assertIn('*mapped == operation->opcode', source)
-        self.assertIn('(void)interp816_readOpcode(cpu)', source)
+        self.assertIn('rr_snes_native_lookup_fetched', source)
+        self.assertNotIn('interp816_readOpcode(cpu)', source)
         self.assertEqual(source.count('static void rr_sn_op_'), 256)
 
     def test_missing_operation_rejected(self):
@@ -63,6 +64,7 @@ class SnesNativeTests(unittest.TestCase):
 
     def test_interrupts_keep_the_armed_deadline_and_wai_scheduler_handoff(self):
         bridge = ('if (bounce_ok && has_body) { }\n'
+                  'if (auto_quiescent && steps && !in.i && g_snes && irq) { }\n'
                   '        if (auto_quiescent && s_lle_master_deadline &&\n'
                   '            cpu->master_cycles >= s_lle_master_deadline) { }\n'
                   'if (auto_quiescent || yield_pc) {\n'
@@ -71,8 +73,10 @@ class SnesNativeTests(unittest.TestCase):
         adapted = snes_codegen.adapt_bridge(bridge)
         self.assertIn('(auto_quiescent || stop_on_rti) && s_lle_master_deadline', adapted)
         self.assertIn('(stop_on_rti && s_lle_master_deadline)', adapted)
+        self.assertIn('(auto_quiescent || (stop_on_rti && s_lle_master_deadline)) && steps && !in.i',adapted)
         self.assertIn('in.pc, INTERP_RESUME_SITE_EXTERNAL, in.sp);', adapted)
         for old in ('if (bounce_ok && has_body) {',
+                    'if (auto_quiescent && steps && !in.i && g_snes &&',
                     'if (auto_quiescent && s_lle_master_deadline &&\n',
                     'if (auto_quiescent || yield_pc) {',
                     'if (stop_on_rti && op == 0x40) {'):
@@ -85,11 +89,15 @@ class SnesNativeTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             snes_codegen.adapt_frame_driver('changed')
 
-    def test_ram_code_requires_all_four_live_bytes_and_exact_pc(self):
+    def test_ram_code_guards_exact_pc_opcode_and_fetch_with_live_operands(self):
         source = snes_codegen.native_source(source_fixture(), bytes(range(256)),
-            [{'address': 0x7e0100, 'bytes': 'a93412ea'}])
-        self.assertIn('rr_sn_ram[i].pc == pc && !memcmp(bytes, rr_sn_ram[i].bytes, 4)', source)
-        self.assertIn('{8257792,{169,52,18,234},&rr_sn_entry_a9}', source)
+            [{'address': 0x7e0100, 'bytes': 'a93412ea'},{'address':0x7e0100,'bytes':'a97856ea'}],
+            ram_opcodes=[(0x7e0100,0xa9),(0x002100,0xea)])
+        self.assertIn('bytes[0] == rr_sn_ram[i].op->opcode', source)
+        self.assertIn('rr_sn_ram[i].pc == pc',source)
+        self.assertIn('rr_sn_ram[i].op->opcode==fetched',source)
+        self.assertEqual(source.count('{8257792,&rr_sn_entry_a9}'),1)
+        self.assertNotIn('{8448,&rr_sn_entry_ea}',source)
 
 
 class SnesMemoryTests(unittest.TestCase):

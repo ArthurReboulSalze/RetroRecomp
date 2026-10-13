@@ -7,11 +7,14 @@ import subprocess
 import tempfile
 
 GUEST_FIELDS = ('cpu_hash','ram_hash','vram_hash','cram_hash','vsram_hash',
-                'sram_hash','sram_bytes','sram_base','sram_end','sram_stride','sram_battery','sram_control',
+                'sram_hash','sram_bytes','sram_base','sram_end','sram_stride','sram_battery','sram_control','sram_mapping',
                 'eeprom_kind','eeprom_writes','cartridge_state_hash',
                 'vdp_register_hash','z80_ram_hash','z80_cpu_hash','ym_timer_hash',
                 'cpu_cycles','master_cycles','cpu_pc','cpu_sr','cpu_usp','cpu_ssp',
-                'cpu_stopped','cpu_prefetch_hash','oam_hash','high_oam_hash','apu_ram_hash','apu_cycles')
+                'spc_pc','spc_cpu_hash','apu_state_hash','dsp_state_hash',
+                'visible_width','visible_height','active_raster_height','output_row_density','field_parity',
+                'cpu_stopped','cpu_prefetch_hash','oam_hash','high_oam_hash','apu_ram_hash','apu_cycles',
+                'cartridge_chip','coprocessor_mode','coprocessor_state_hash','coprocessor_failed')
 
 def run(exe, output, name, frames, *args):
     report=output/(name+'.json'); trace=output/(name+'.csv')
@@ -22,7 +25,7 @@ def run(exe, output, name, frames, *args):
     with trace.open(newline='') as file: rows=list(csv.DictReader(file))
     return json.loads(report.read_text()),rows
 
-def check(exe,output,warmup,replay):
+def check(exe,output,warmup,replay,*,input_script=None):
     output.mkdir(parents=True,exist_ok=True)
     total=warmup+replay
     script=output/'input.txt'
@@ -35,11 +38,25 @@ def check(exe,output,warmup,replay):
         if f<total: events[f]=start
         if f+2<total: events[f+2]=0
     for f in range(800,total,30): events[f]=right|(fire if f%90==0 else 0)
-    script.write_text(''.join(f'{f} {p} 0\n' for f,p in sorted(events.items())),encoding='ascii')
+    if input_script is None:
+        controls=[(f,p,0) for f,p in sorted(events.items())]
+    else:
+        controls=[]
+        for line in Path(input_script).read_text(encoding='ascii').splitlines():
+            if not line.strip(): continue
+            fields=line.split()
+            if len(fields)!=3: raise ValueError('Replay inputs require frame, player 1 and player 2.')
+            f,p1,p2=map(int,fields)
+            if f<0 or not 0<=p1<=65535 or not 0<=p2<=65535:
+                raise ValueError('Replay input is outside its bounded format.')
+            if f<total: controls.append((f,p1,p2))
+        if not controls or controls[0][0]!=0 or any(a[0]>=b[0] for a,b in zip(controls,controls[1:])):
+            raise ValueError('Replay inputs must start at zero and have increasing frames.')
+    script.write_text(''.join(f'{f} {p1} {p2}\n' for f,p1,p2 in controls),encoding='ascii')
     baseline,rows=run(exe,output,'baseline',total,'--play','--input-script',script)
     state=output/'saved.rrstate'
     prefix_script=output/'prefix-input.txt'
-    prefix_script.write_text(''.join(f'{f} {p} 0\n' for f,p in sorted(events.items()) if f<warmup),encoding='ascii')
+    prefix_script.write_text(''.join(f'{f} {p1} {p2}\n' for f,p1,p2 in controls if f<warmup),encoding='ascii')
     run(exe,output,'prefix',warmup,'--play','--input-script',prefix_script,'--save-state',state)
     restored,future=run(exe,output,'restored',replay,'--play','--input-script',script,
                         '--frame-offset',warmup,'--load-state',state)
@@ -95,9 +112,10 @@ def check_invalid_files(exe,output,state,replay):
 def main():
     p=argparse.ArgumentParser(); p.add_argument('exe',type=Path); p.add_argument('--output',type=Path)
     p.add_argument('--warmup',type=int,default=1200); p.add_argument('--replay',type=int,default=300)
+    p.add_argument('--input-script',type=Path,help='Use the same guided gameplay route before and after the saved state.')
     a=p.parse_args()
-    if a.output: print(json.dumps(check(a.exe.resolve(),a.output.resolve(),a.warmup,a.replay)))
+    if a.output: print(json.dumps(check(a.exe.resolve(),a.output.resolve(),a.warmup,a.replay,input_script=a.input_script)))
     else:
         with tempfile.TemporaryDirectory() as temp:
-            print(json.dumps(check(a.exe.resolve(),Path(temp),a.warmup,a.replay)))
+            print(json.dumps(check(a.exe.resolve(),Path(temp),a.warmup,a.replay,input_script=a.input_script)))
 if __name__=='__main__': main()

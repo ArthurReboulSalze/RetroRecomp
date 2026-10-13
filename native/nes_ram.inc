@@ -1,3 +1,18 @@
+/* Identify a ROM byte without touching the bus or modifying mapper state.
+ * The lower cartridge window is absent from the normal $8000 slot table. */
+bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank) {
+    if (pc >= 0x8000) {
+        if (!hw_prg_is_rom(pc)) return false;
+        *bank = hw_prg_bank4(pc);
+    } else if (pc >= 0x6000 && hw_cart.mapper == 40) {
+        *bank = (12u & (hw_cart.prg_slots - 1)) + ((pc >> 12) & 1);
+    } else if (pc >= 0x6000 && hw_cart.mapper == 69 && !(hw_cart.m.fme7.prg[0] & 0x40)) {
+        unsigned page = (hw_cart.m.fme7.prg[0] & 0x3F) & (hw_cart.prg_slots / 2 - 1);
+        *bank = page * 2 + ((pc >> 12) & 1);
+    } else return false;
+    return *bank < hw_cart.prg_slots;
+}
+
 /* Side-effect-free code guards. Never read PPU/APU/mapper registers to probe
  * an entry. Only the explicitly modelled plain RAM windows are eligible. */
 bool rr_nes_ram_peek(uint16_t pc, uint8_t *value) {
@@ -8,8 +23,22 @@ bool rr_nes_ram_peek(uint16_t pc, uint8_t *value) {
         if ((offset & MMC5_PRG_OPEN) || !(offset & MMC5_PRG_RAM)) return false;
         *value = hw_cart.wram[offset & 0x1FFFF]; return true;
     }
+    if (pc >= 0x6000 && pc < 0x8000 && (hw_cart.mapper == 80 || hw_cart.mapper == 207 ||
+            hw_cart.mapper == 82 || hw_cart.mapper == 552)) {
+        if (!hw_cart.has_wram || !hw_cart.wram_len) return false;
+        int offset = taito_x1_ram(pc);
+        if (offset < 0) return false;
+        *value = hw_cart.wram[(unsigned)offset % hw_cart.wram_len]; return true;
+    }
     if (pc < 0x6000 || pc >= 0x8000 || !hw_cart.has_wram ||
         !hw_cart.wram_readable || !hw_cart.wram_len) return false;
+    if (hw_cart.mapper == 21 || hw_cart.mapper == 22 || hw_cart.mapper == 23 || hw_cart.mapper == 25) {
+        /* VRC2 without RAM drives a protection latch, never code RAM. The
+         * initial has_wram test rejects it. VRC4's 2 KiB boards leave $7000+
+         * unmapped; VRC2 RAM boards retain the hardware's mirrors. */
+        if (!vrc2_board() && hw_cart.wram_len == 2048 && pc >= 0x7000) return false;
+        *value = hw_cart.wram[(hw_cart.wram_bank + (pc & 8191)) % hw_cart.wram_len]; return true;
+    }
     /* FME-7 command 8 selects ROM, RAM or open bus. Only enabled RAM is
      * eligible; selecting a ROM bank must not reuse an old RAM guard. */
     if (hw_cart.mapper == 69) {

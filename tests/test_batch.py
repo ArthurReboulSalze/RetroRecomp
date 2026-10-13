@@ -410,6 +410,18 @@ class BatchTests(unittest.TestCase):
         self.assertNotIn('md_advanced_scan', snes_compiler.call_args.kwargs)
         self.assertTrue(md_compiler.call_args.kwargs['md_advanced_scan'])
 
+    def test_advanced_nes_scan_is_filtered_out_of_other_console_compilers(self):
+        from tests.test_nes import cartridge
+        master=self.item('sms',1)
+        path=self.root/'Authored.nes';path.write_bytes(cartridge())
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',side_effect=self.compiler) as sega, \
+                patch('smsrecomp.systems.nes.NesProfile.convert',side_effect=self.compiler) as nes:
+            record=convert_batch([master,identify(path)],self.games_root,
+                nes_advanced_scan=True,emit=lambda _message:None)
+        self.assertEqual(record['succeeded'],2)
+        self.assertNotIn('nes_advanced_scan',sega.call_args.kwargs)
+        self.assertTrue(nes.call_args.kwargs['nes_advanced_scan'])
+
     def test_mixed_folders_route_by_console_and_report_unknown_without_touching_sources(self):
         source = self.root / 'incoming'
         source.mkdir()
