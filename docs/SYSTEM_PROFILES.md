@@ -10,6 +10,25 @@ are rejected; ZIP inputs must contain exactly one supported cartridge, including
 `.sfc`/`.smc` images. The 16-bit profiles derive analysis from each cartridge;
 an unknown revision does not require a catalogue entry. Hardware limits and
 native/reference validation still apply before export.
+Release 1.0.1 additionally includes **experimental Neo Geo** (`ng`) in the
+MVS Europe scope, making seven profiles. Visual artifacts remain under
+investigation despite successful native/reference checks on the tested paths.
+Its ZIP reader identifies a multi-file cartridge by verified
+CRC/layout metadata before the ordinary single-cartridge ZIP reader. `.neo`
+containers use independent region hashes. Identification uses a ROM-free
+catalogue bundled from pinned lithogen and needs no compiler or BIOS selection.
+Conversion requires the selected, verified MVS Europe BIOS. Exports go to
+`Games/Neo Geo`; shared menus, mapping, settings and quick states use the same
+host as the 16-bit consoles. Other BIOS/system modes are not offered as if
+qualified. Ordinary game-scoped NVRAM/card saves are independent of F8/F9;
+native mapping now includes standard/CT0/KOF '98/SMA/MSLUGX/PVC families.
+The final 24-cartridge campaign passes 87 packed/reference routes and six
+54,000-frame controller paths. Ten additional exact sets pass 20 more routes;
+34 verified cartridge/BIOS numeric records are included in the local converter.
+Independent authored hardware fixtures and
+fresh states/ordinary saves complement these routes. Unseen paths still report
+fallback; electrical timing and full playthroughs are separate evidence.
+See [Neo Geo scope](NEOGEO.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is

@@ -1,3 +1,5 @@
+#include "runtime_feedback.h"
+#include "cyc_run.h"
 /* Identify a ROM byte without touching the bus or modifying mapper state.
  * The lower cartridge window is absent from the normal $8000 slot table. */
 bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank) {
@@ -62,6 +64,12 @@ bool rr_nes_ram_peek(uint16_t pc, uint8_t *value) {
     }
 }
 
+void rr_nes_feedback(uint16_t pc,uint8_t op) {
+    if(!rr_feedback_enabled() || !cyc_run_native)return;
+    unsigned bank;uint8_t value;
+    if(rr_nes_rom_bank4(pc,&bank))rr_feedback_note(RR_FB_NES_ROM,pc,bank,&op,1);
+    else if(rr_nes_ram_peek(pc,&value) && value==op)rr_feedback_note(RR_FB_NES_RAM,pc,0,&op,1);
+}
 /* Allocated only for the converter's explicit --miss-log probe. No normal
  * launch, menu, save/load or interpreted instruction creates a log/folder. */
 static uint8_t *rr_ram_trace;

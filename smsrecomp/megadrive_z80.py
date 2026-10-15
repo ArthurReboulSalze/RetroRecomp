@@ -67,6 +67,8 @@ def memory_file(rom):
 def read_variants(rom):
     from .console16 import REPOSITORIES
     shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1], field='z80_refs')
+    from .feedback import variants
+    shared += variants('md', rom.sha256, 7)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:

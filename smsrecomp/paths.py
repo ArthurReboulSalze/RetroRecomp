@@ -63,6 +63,14 @@ def data_directory(root: Path | None = None) -> Path:
     return (root or export_directory()) / "datas"
 
 
+def selected_bios_path(value: str | Path | None) -> Path | None:
+    """Portable BIOS preference; merely resolving it never writes a file."""
+    if not isinstance(value,(str,Path)) or not str(value).strip():
+        return None
+    path = Path(value).expanduser()
+    return path.resolve() if path.is_absolute() else (export_directory() / path).resolve()
+
+
 def boxart_cache_directory(system_id: str) -> Path:
     """Keep downloaded covers beside the converter, separate for each console."""
     from .systems import get_profile
@@ -85,6 +93,20 @@ def save_preferences(value: dict) -> None:
             value['output'] = str(output.relative_to(export_directory()))
         except ValueError:
             value['output'] = str(output)
+    if value.get('ng_bios'):
+        bios = selected_bios_path(value['ng_bios'])
+        try:
+            value['ng_bios'] = str(bios.relative_to(export_directory()))
+        except ValueError:
+            value['ng_bios'] = str(bios)
+    if 'feedback_paths' in value:
+        folders = {}
+        for system, path in feedback_search_paths(value).items():
+            try:
+                folders[system] = str(path.relative_to(export_directory()))
+            except ValueError:
+                folders[system] = str(path)
+        value['feedback_paths'] = folders
     directory = data_directory()
     directory.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix="Retro-Recomp.", suffix=".tmp", dir=directory)
@@ -95,6 +117,25 @@ def save_preferences(value: dict) -> None:
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def feedback_search_paths(preferences: dict) -> dict[str, Path]:
+    """Optional read-only gameplay-feedback search root for each console."""
+    from .systems import PROFILES
+    saved = preferences.get('feedback_paths', {})
+    if not isinstance(saved, dict):
+        return {}
+    result = {}
+    for profile in PROFILES:
+        raw = saved.get(profile.id)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        try:
+            path = Path(raw.strip()).expanduser()
+            result[profile.id] = path.resolve() if path.is_absolute() else (export_directory()/path).resolve()
+        except (OSError, ValueError):
+            continue
+    return result
 
 
 def save_game_language(output: Path, language: str) -> None:

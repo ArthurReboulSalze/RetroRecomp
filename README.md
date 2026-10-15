@@ -3,13 +3,13 @@
 </p>
 
 <h1 align="center">RetroRecomp</h1>
-<p align="center"><strong>Six retro consoles. One app. Your games, ready to launch.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo</p>
+<p align="center"><strong>Multiple retro consoles. One app. Your games, ready to launch.</strong></p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.0.0-d4a737" alt="Release version 1.0.0">
-  <img src="https://img.shields.io/badge/console_profiles-6-626262" alt="Six console profiles">
+  <img src="https://img.shields.io/badge/release-1.0.1-d4a737" alt="Release version 1.0.1">
+  <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Six supported consoles and experimental Neo Geo">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -23,10 +23,10 @@
 
 ## One converter, multiple consoles
 
-RetroRecomp brings several recompilers together in one application. It prepares
-game code before you play and creates a compact, standalone Windows executable
-for each game. The goal is a simple, responsive experience with as much native
-execution as possible, without dedicated FPGA hardware.
+RetroRecomp brings several recompilers together in one application. It recompiles
+game code into compact, standalone Windows executables for a simple, responsive
+retro gaming experience, with as much native execution as possible and no
+dedicated FPGA hardware.
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
   or use the file buttons. Recognized
@@ -36,18 +36,34 @@ execution as possible, without dedicated FPGA hardware.
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
   modes and lightweight filters keep the experience consistent across consoles.
   Your display mode and filter are remembered; F8/F9 quick states resume after closing the game.
+- **Let your next build learn from your play.** Games remember useful fallback
+  hints, helping RetroRecomp cover more of the code you actually use.
 - **Make games easy to find.** Optional box-art icons and shooting tags distinguish
   your exports. Mouse aiming is available for supported lightgun games.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
-- **Reuse compilation knowledge.** The converter includes useful cartridge
-  hints for 1,027 exact revisions and keeps new discoveries locally. Improved NES
-  recompilation covers more code executed from RAM and reduces interpreter fallback.
-  See the
-  [shared library guide](docs/COMPILATION_LIBRARY.md).
-  Game Boy builds also reuse unchanged generated files, with the same validation checks.
-  Optional advanced NES scanning explores more menu and gameplay paths; unchanged
-  native code is reused for faster compilation passes.
+- **Build on shared knowledge.** Verified hints for **1,061 exact cartridge
+  revisions** are included, while your own discoveries stay in your local library.
+
+## Play. Learn. Recompile.
+
+Your play sessions can improve the next export. When a game needs the interpreter
+fallback, it collects small hints in memory and saves them **when you close the
+game**, avoiding feedback writes during play.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="Play a game, collect fallback hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
+</p>
+
+RetroRecomp imports these hints, checks them against the exact game and uses them
+during regeneration. **Options → console → Import fallback hints** also lets you
+recover them from games stored elsewhere. Once imported, they remain in the
+converter's library even if you move or delete the original game folder.
+
+Recording is on by default; **F12** switches it on or off. Each game's feedback
+file is capped at about **128 KiB**. This can reduce fallback on supported code
+paths; graphics and hardware issues still need fixes in the runtime.
+See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## Console support
 
@@ -59,6 +75,7 @@ execution as possible, without dedicated FPGA hardware.
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
+| Neo Geo | **Experimental** MVS Europe; two players, scores, memory card and quick states. Visual artifacts remain. |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
@@ -68,8 +85,12 @@ The standard Mega Drive and Super Nintendo profiles are supported within their
 documented cartridge scope. Qualified SNES DSP-1/CX4 boards are also supported;
 CX4 device interpretation remains visible. Other enhancement chips require
 separate integration.
-The next major milestone is **Neo Geo**, a larger integration stage. It is not
-included in 1.0.0.
+**Neo Geo joins release 1.0.1 as an experimental profile.** Games can be converted
+and played, but visual artifacts still need correction. Native code coverage
+alone does not make the rendering fully accurate.
+Select your BIOS ZIP in **Options → Neo Geo**, then add cartridge ZIPs or NEO
+files using Automatic detection. See the [Neo Geo guide](docs/NEOGEO.md).
+Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
 
 ## From conversion to your game collection
 

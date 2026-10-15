@@ -511,7 +511,8 @@ bool glue_load_rom(const char *path){
     glue = replace_once(glue,
         "        g_z80.cyc = (g_sync_deadline > g_z80.cyc) ? g_sync_deadline\n                                                  : g_z80.cyc + SMS_CYC_PER_LINE;",
         "        g_z80.cyc += 4;\n        g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7f));")
-    glue = replace_once(glue, "        z80_step(&g_hz); g_frame_ic++;\n        advance_vdp(base + g_hz.cyc);", """        uint32_t previous_cycles = g_hz.cyc;
+    glue = replace_once(glue, "        z80_step(&g_hz); g_frame_ic++;\n        advance_vdp(base + g_hz.cyc);", """        smsrecomp_feedback_at(g_hz.pc);
+        uint32_t previous_cycles = g_hz.cyc;
         z80_step(&g_hz); g_frame_ic++;
         g_hybrid_cyc += g_hz.cyc - previous_cycles;
         advance_vdp(base + g_hz.cyc);""")
@@ -664,7 +665,8 @@ static void smsrecomp_state_service(void);
     main = replace_once(main, 'is_gg ? "Sonic (GG) - recompiled" : "Sonic 1 (SMS) - recompiled"', "sms_game_title")
     main = replace_once(main, '            glue_set_frame_callback(sdl_frame_cb);', '''            glue_set_frame_callback(sdl_frame_cb);
             if (!g_press_n) smsrecomp_set_input_refresh(host_refresh_input);''')
-    main = '#include "embedded_rom.h"\n' + main
+    main = '#include "runtime_feedback.h"\n#include "embedded_rom.h"\n' + main
+    main = replace_once(main, '    if (interp){', '    rr_feedback_start(!interp && want_window);\n    if (interp){')
     main = replace_once(main, "int main(int argc, char **argv){", """int main(int argc, char **argv){
     g_press_n = 0;
     g_audio_live = false;
@@ -674,6 +676,8 @@ static void smsrecomp_state_service(void);
     main = replace_once(main, 'fprintf(stderr,"[runner] SDL window init failed; running headless\\n");',
         '{ fprintf(stderr,"[runner] SDL window init failed\\n"); return 2; }')
     (game / "runtime_main.c").write_text(main, encoding="utf-8")
+    from .feedback import stage
+    stage(game, rom.system_id, rom.sha256, cmake=False)
 
 
 def default_config(rom: Rom) -> str:
@@ -869,6 +873,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     except (ArtworkError, OSError) as exc:
         raise ConversionError(str(exc)) from exc
     engine, sdl, cmake, generator = dependencies(emit)
+    from .feedback import ingest
+    gameplay_feedback = ingest(system.id, rom.sha256, destination, emit=emit)
     memory = GameMemory(rom, library_root(system.id) if system.id != "sms" else None)
     imported = import_previous(rom, destination, memory)
     saved_manifest = ASSETS / "profiles" / f"{rom.crc32:08x}.manifest"
@@ -1086,7 +1092,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "game_directory": f"datas/games/{name}-{rom.sha256[:12]}",
             "log": None, "diagnostics": "explicit --log only", "lazy_creation": True,
             "quicksave": f"datas/games/{name}-{rom.sha256[:12]}/{name}-quicksave.state" if banked else None,
-            "library_identity": rom.sha256, "runtime_learning": False},
+            "library_identity": rom.sha256, "runtime_learning": True,
+            "runtime_feedback": gameplay_feedback},
         "backend": backend, "native_coverage": coverage, "native_validation": validation,
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,

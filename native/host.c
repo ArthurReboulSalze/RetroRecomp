@@ -6,6 +6,7 @@
 #include "controls.h"
 #include "ui.h"
 #include "retro_menu.h"
+#include "runtime_feedback_sdl.h"
 #include "glue.h"
 #include "video/sms_vdp.h"
 #include "video_frame.h"
@@ -462,6 +463,7 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     if (key == SDL_SCANCODE_F4) { toggle_fullscreen(); return true; }
+    if (key == SDL_SCANCODE_F12) { rr_feedback_toggle();notice(rr_feedback_label());return true; }
     if (lightphaser_enabled() && (key == SDL_SCANCODE_F10 || (menu == 2 && !capturing && key == SDL_SCANCODE_G))) {
         controls_load(); toggle_menu(4); return true;
     }
@@ -645,6 +647,7 @@ void host_shutdown(void) {
         if (controllers[p]) SDL_GameControllerClose(controllers[p]);
         controllers[p] = NULL; pads[p] = 0;
     }
+    rr_feedback_close_screen(renderer);
     ui_shutdown();
     if (texture_cropped2x) SDL_DestroyTexture(texture_cropped2x);
     if (texture_cropped) SDL_DestroyTexture(texture_cropped);

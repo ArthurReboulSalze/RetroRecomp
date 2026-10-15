@@ -8,6 +8,7 @@ static uint64_t banked_prefix_fragments;
 static uint8_t banked_seen[3][256];
 
 static void smsrecomp_banked_fallback(uint16_t addr) {
+    smsrecomp_feedback_at(addr);
     if (smsrecomp_learning_enabled()) {
         uint8_t bytes[4];
         for (unsigned i = 0; i < 4; ++i) bytes[i] = sms_read8((uint16_t)(addr + i));

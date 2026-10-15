@@ -5,10 +5,10 @@ from pathlib import Path
 import sys
 from smsrecomp.core import ConversionError, convert, dependencies, read_rom
 from smsrecomp.library import GameMemory, list_games, library_root
-from smsrecomp.paths import ROOT, save_game_language, games_root
+from smsrecomp.paths import ROOT, save_game_language, games_root, load_preferences
 from smsrecomp.i18n import log_text
 from smsrecomp.batch import identify, convert_batch, system_output
-from smsrecomp.systems import MASTER_SYSTEM, discover_roms, profile_for_path
+from smsrecomp.systems import MASTER_SYSTEM, PROFILES, discover_roms, profile_for_path
 
 
 def main() -> int:
@@ -92,10 +92,11 @@ def main() -> int:
     build.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
     build.add_argument("--title")
     build.add_argument("--output", type=Path)
-    build.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes", "md", "snes"), default="auto",
+    build.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto",
         help="Automatic console detection or an explicit choice for ambiguous .bin/.rom dumps.")
     build.add_argument("--profile", type=Path)
-    build.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
+    build.add_argument('--ng-bios',type=Path,help='User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.')
+    build.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",
         help="Console timing; Game Gear uses NTSC, Game Boy uses DMG.")
     build.add_argument("--passes", type=int, default=3,
         help="Build/test/learn pass limit (1–10, default 3).")
@@ -119,7 +120,8 @@ def main() -> int:
     batch.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
     batch.add_argument("--rom-dir", type=Path, action="append", default=[],
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
-    batch.add_argument("--system", choices=("auto", "sms", "gg", "gb", "nes", "md", "snes"), default="auto")
+    batch.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto")
+    batch.add_argument('--ng-bios',type=Path,help='User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.')
     batch.add_argument("--output", type=Path, default=games_root(),
         help="Games root (default: Games beside the converter). Console folders are added automatically.")
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
@@ -135,7 +137,7 @@ def main() -> int:
         help='Extra Mega Drive coverage scan (default: off); ignored for other consoles.')
     batch.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.')
-    batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg"), default="auto",
+    batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",
         help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)
     batch.add_argument("--no-cover", action="store_true")
@@ -170,6 +172,15 @@ def main() -> int:
         elif args.command == "memory":
             if args.rom:
                 system = profile_for_path(args.rom)
+                if system.id=='ng':
+                    if args.import_manifest:
+                        raise ConversionError('Neo Geo uses BIOS-scoped numeric memory, not Sega observation manifests.')
+                    from smsrecomp.neogeo_knowledge import list_memory as ng_memory
+                    rom=system.read_rom(args.rom)
+                    print(json.dumps({'console':'ng','rom_sha256':rom.sha256,
+                        'memories':[r for r in ng_memory() if r.get('source_sha256')==rom.sha256],
+                        'runtime_learning':False},indent=2))
+                    return 0
                 if system.id in ('md', 'snes'):
                     if args.import_manifest:
                         raise ConversionError('16-bit proofs do not import Z80 observation manifests.')
@@ -222,8 +233,10 @@ def main() -> int:
                     parser.error("Provide a ROM to verify imported observations.")
                 from smsrecomp.gameboy import list_memory
                 from smsrecomp.nes import list_memory as list_nes_memory
+                from smsrecomp.neogeo_knowledge import list_memory as list_ng_memory
                 print(json.dumps({"directory": str(library_root()), "games": list_games(),
-                    "game_boy_traces": list_memory(), "nes_cycle_traces": list_nes_memory()},
+                    "game_boy_traces": list_memory(), "nes_cycle_traces": list_nes_memory(),
+                    'neo_geo_memories':list_ng_memory()},
                     indent=2, ensure_ascii=False))
         elif args.command in ("convert", "batch"):
             if not 1 <= args.passes <= 10 or not 1 <= args.frames <= 10000:
@@ -249,6 +262,7 @@ def main() -> int:
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
+                    ng_bios=args.ng_bios or load_preferences().get('ng_bios'),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
@@ -267,6 +281,7 @@ def main() -> int:
                     gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
+                    ng_bios=args.ng_bios or load_preferences().get('ng_bios'),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
                 if result['status'] != 'success':

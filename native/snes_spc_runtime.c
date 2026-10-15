@@ -2,6 +2,7 @@
  * Converter probes retain observations in memory. Normal play records only
  * native/fallback counters and never writes learning files. */
 #include "snes_spc_native.h"
+#include "runtime_feedback.h"
 #include "snes/spc.h"
 #include <string.h>
 
@@ -15,9 +16,11 @@ static uint8_t images[4][65536];
 static uint32_t last_image_cycle;
 
 static void observe(Spc *spc) {
-    if (!probing || (spc->pc >= 0xf0 && spc->pc <= 0xff) ||
+    if ((spc->pc >= 0xf0 && spc->pc <= 0xff) ||
         (spc->apu->romReadable && spc->pc >= 0xffc0)) return;
     uint8_t opcode = spc->apu->ram[spc->pc];
+    rr_feedback_note(RR_FB_SNES_SPC,spc->pc,0,&opcode,1);
+    if(!probing)return;
     uint32_t key = (((uint32_t)spc->pc << 8) | opcode) + 1;
     unsigned slot = (key * 2654435761u) & (VARIANT_LIMIT * 2 - 1);
     while (seen[slot]) {

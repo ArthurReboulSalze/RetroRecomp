@@ -15,7 +15,7 @@ from . import __version__
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
-from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root
+from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
 from .tooltips import Tooltip
 from .windows import set_converter_identity
@@ -67,6 +67,11 @@ UPSTREAM_CREDITS = (
     ('Super Nintendo', (
         ('RetroPortingToolKit/snesrecomp', 'https://github.com/RetroPortingToolKit/snesrecomp', 'credits_recompiler'),
         ('mstan/SuperMarioWorldRecomp', 'https://github.com/mstan/SuperMarioWorldRecomp', 'credits_recompiler'),
+    )),
+    ('Neo Geo', (
+        ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_hardware'),
+        ('carmiker/lithogen', 'https://github.com/carmiker/lithogen', 'credits_cartridge_loader'),
+        ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_68000'),
     )),
 )
 
@@ -131,6 +136,14 @@ class Application:
         self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else 3)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
+        saved_bios = selected_bios_path(preferences.get('ng_bios'))
+        self.ng_bios = tk.StringVar(value=str(saved_bios) if saved_bios else '')
+        self.ng_bios_status = tk.StringVar(value=self.tr('ng_bios_not_checked') if saved_bios else self.tr('ng_bios_missing'))
+        feedback_folders = feedback_search_paths(preferences)
+        self.feedback_paths = {profile.id: tk.StringVar(value=str(feedback_folders.get(profile.id, ''))) for profile in PROFILES}
+        self.feedback_importing = set()
+        self.feedback_import_buttons = {}
+        self.feedback_status = {profile.id: tk.StringVar() for profile in PROFILES}
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
@@ -574,6 +587,8 @@ class Application:
     def video_display(self, item: BatchItem, result: dict | None = None) -> str:
         if item.error or not item.video_hint:
             return '—'
+        if item.system == 'ng':
+            return 'MVS · Europe'
         if item.standard_override:
             return self.tr('video_selected', standard=item.standard_override.upper())
         if result and result.get('video_standard'):
@@ -731,7 +746,7 @@ class Application:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
-                if item.system in ('md', 'snes'):
+                if item.system in ('md', 'snes', 'ng'):
                     text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0),
                         audio_opcodes=result.get('audio_interpreted_opcodes', 0))
                 elif result.get('interpreter_percent') is None or comparison is None:
@@ -756,7 +771,8 @@ class Application:
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
-            overwrite=self.overwrite.get())
+            overwrite=self.overwrite.get(), ng_bios=self.ng_bios.get(),
+            feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()})
 
     def start(self):
         if self.busy or self.updating:
@@ -777,6 +793,16 @@ class Application:
             options.pop('custom_output')
             options.pop('system_mode')
             options.pop('platform')
+            options.pop('feedback_paths')
+            if any(item.system == 'ng' and not item.error for item in self.items.values()):
+                from .neogeo import validate_bios
+                bios = selected_bios_path(options.get('ng_bios'))
+                if bios is None:
+                    raise ValueError(self.tr('ng_bios_required'))
+                try:
+                    validate_bios(bios)
+                except ValueError as exc:
+                    raise ValueError(self.tr('ng_bios_invalid', error=str(exc))) from exc
             save_preferences(self.preferences())
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
@@ -815,6 +841,8 @@ class Application:
         if self.options_panel is not None and self.options_panel.winfo_exists():
             for control, active_state in self.option_controls:
                 control.configure(state=active_state if enabled else 'disabled')
+            for system in self.feedback_importing:
+                self.feedback_import_buttons[system].configure(state='disabled')
         self.start_button.configure(state='normal' if enabled else 'disabled')
         self.stop_button.configure(state='disabled' if enabled else 'normal')
         self.language_field.configure(state='readonly' if enabled else 'disabled')
@@ -961,6 +989,18 @@ class Application:
                     return
                 elif kind == 'update_error':
                     self._update_error(event[1])
+                elif kind == 'feedback_import':
+                    system, report, error = event[1:]
+                    self.feedback_importing.discard(system)
+                    button = self.feedback_import_buttons.get(system)
+                    if button is not None and button.winfo_exists():
+                        button.configure(state='disabled' if self.busy or self.updating else 'normal')
+                    if error:
+                        self.feedback_status[system].set(self.tr('feedback_import_error'))
+                        self.messages.put(('log', f'Gameplay feedback ({system}): {error}'))
+                    else:
+                        self.feedback_status[system].set(self.tr('feedback_import_summary',
+                            **report, kib=report['bytes']/1024))
         except queue.Empty:
             pass
         for row, result in self.results.items():
@@ -1006,8 +1046,8 @@ class Application:
         panel.title(APP_NAME + ' — ' + self.tr('options'))
         panel.configure(bg=COLORS['background'])
         panel.transient(self.app)
-        panel.geometry('900x510')
-        panel.minsize(860, 460)
+        panel.geometry('1000x540')
+        panel.minsize(960, 500)
 
         notebook = ttk.Notebook(panel)
         notebook.pack(fill='both', expand=True, padx=18, pady=(18, 8))
@@ -1075,16 +1115,19 @@ class Application:
             if key == 'sms':
                 self.extended_control = control
             ttk.Label(profile_page, text=self.tr('options_sega_note'), style='Muted.TLabel').pack(anchor='w')
+            self.build_feedback_options(profile_page, key)
 
         game_boy = tab('options_game_boy')
         self.gb_deep_control = checkbox(game_boy, 'gb_deep_validation',
                                         self.gb_deep_validation, 'tip_gb_deep_validation')
         ttk.Label(game_boy, text=self.tr('options_gb_note'), style='Muted.TLabel').pack(anchor='w')
+        self.build_feedback_options(game_boy, 'gb')
 
         nes = tab('options_nes')
         self.nes_scan_control = checkbox(nes, 'nes_advanced_scan',
                                         self.nes_advanced_scan, 'tip_nes_advanced_scan')
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
+        self.build_feedback_options(nes, 'nes')
         for console in ('md', 'snes'):
             page = tab('options_' + console)
             if console == 'md':
@@ -1092,7 +1135,26 @@ class Application:
                                                 self.md_advanced_scan, 'tip_md_advanced_scan')
             ttk.Label(page, text=self.tr('options_' + console + '_note'),
                       style='Muted.TLabel', wraplength=590).pack(anchor='w')
+            self.build_feedback_options(page, console)
 
+        neo_geo = tab('options_ng')
+        ttk.Label(neo_geo, text=self.tr('options_ng_note'), style='Muted.TLabel',
+                  wraplength=880, justify='left').pack(anchor='w', pady=(0, 20))
+        ttk.Label(neo_geo, text=self.tr('ng_bios_label')).pack(anchor='w', pady=(0, 8))
+        bios_row = ttk.Frame(neo_geo)
+        bios_row.pack(fill='x')
+        self.ng_bios_field = ttk.Entry(bios_row, textvariable=self.ng_bios)
+        self.ng_bios_field.pack(side='left', fill='x', expand=True)
+        self.option_controls.append((self.ng_bios_field, 'normal'))
+        browse = ttk.Button(bios_row, text=self.tr('browse'), command=self.choose_ng_bios)
+        browse.pack(side='left', padx=(8, 0))
+        self.option_controls.append((browse, 'normal'))
+        check = ttk.Button(bios_row, text=self.tr('ng_bios_check'), command=self.check_ng_bios)
+        check.pack(side='left', padx=(8, 0))
+        self.option_controls.append((check, 'normal'))
+        ttk.Label(neo_geo, textvariable=self.ng_bios_status, style='Muted.TLabel',
+                  wraplength=880).pack(anchor='w', pady=(12, 0))
+        self.build_feedback_options(neo_geo, 'ng')
         self.build_cover_options(tab('options_boxart'), checkbox)
 
         buttons = ttk.Frame(panel)
@@ -1102,6 +1164,76 @@ class Application:
         panel.bind('<Escape>', lambda _event: self.close_options())
         panel.grab_set()
         panel.focus_set()
+
+    def build_feedback_options(self, page, system):
+        section = ttk.LabelFrame(page, text=self.tr('feedback_folder'), padding=12)
+        section.pack(fill='x', pady=(20, 0))
+        ttk.Label(section, text=self.tr('feedback_folder_note'), style='Muted.TLabel',
+                  wraplength=840, justify='left').pack(anchor='w', pady=(0, 10))
+        row = ttk.Frame(section)
+        row.pack(fill='x')
+        entry = ttk.Entry(row, textvariable=self.feedback_paths[system])
+        entry.pack(side='left', fill='x', expand=True)
+        self.option_controls.append((entry, 'normal'))
+        def choose():
+            selected = filedialog.askdirectory(parent=self.options_panel, title=self.tr('feedback_folder'))
+            if selected:
+                self.feedback_paths[system].set(selected)
+        for label, command in (('browse', choose), ('feedback_default', lambda: self.feedback_paths[system].set(''))):
+            button = ttk.Button(row, text=self.tr(label), command=command)
+            button.pack(side='left', padx=(8, 0))
+            self.option_controls.append((button, 'normal'))
+        actions = ttk.Frame(section)
+        actions.pack(fill='x', pady=(12, 0))
+        button = ttk.Button(actions, text=self.tr('feedback_import'),
+                            command=lambda: self.import_feedback(system))
+        button.pack(side='left')
+        self.feedback_import_buttons[system] = button
+        self.option_controls.append((button, 'normal'))
+        if system in self.feedback_importing:
+            button.configure(state='disabled')
+        ttk.Label(actions, textvariable=self.feedback_status[system], style='Muted.TLabel',
+                  wraplength=560, justify='left').pack(side='left', padx=(12, 0))
+
+    def import_feedback(self, system):
+        if self.busy or self.updating or system in self.feedback_importing:
+            return
+        # Capture Tk values on the UI thread. The worker never touches widgets.
+        preferences = {'output': self.output.get(), 'custom_output': self.custom_output.get(),
+            'feedback_paths': {key: value.get().strip() for key, value in self.feedback_paths.items()}}
+        self.feedback_importing.add(system)
+        self.feedback_import_buttons[system].configure(state='disabled')
+        self.feedback_status[system].set(self.tr('feedback_import_busy'))
+        def worker():
+            from .feedback import import_saved_feedback
+            try:
+                report = import_saved_feedback(system, preferences,
+                    emit=lambda message: self.messages.put(('log', message)))
+                self.messages.put(('feedback_import', system, report, None))
+            except Exception as exc:
+                self.messages.put(('feedback_import', system, None, str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def choose_ng_bios(self):
+        path = filedialog.askopenfilename(parent=self.options_panel,
+            title=self.tr('ng_bios_label'), filetypes=[('ZIP', '*.zip')])
+        if path:
+            self.ng_bios.set(path)
+            self.check_ng_bios()
+
+    def check_ng_bios(self):
+        from .neogeo import validate_bios
+        path = selected_bios_path(self.ng_bios.get())
+        if path is None:
+            self.ng_bios_status.set(self.tr('ng_bios_missing'))
+            return False
+        try:
+            validate_bios(path)
+            self.ng_bios_status.set(self.tr('ng_bios_valid'))
+            return True
+        except ValueError as exc:
+            self.ng_bios_status.set(self.tr('ng_bios_invalid', error=str(exc)))
+            return False
 
     def build_cover_options(self, page, checkbox):
         self.cover_settings = load_cover_settings()
@@ -1381,6 +1513,9 @@ class Application:
         for game in list_nes_memory():
             table.insert('', 'end', values=(f"Nintendo NES · {game['sha256'][:12]}",
                                             game['sha256'][:12], game['entries']))
+        from .neogeo_knowledge import list_memory as list_ng_memory
+        for game in list_ng_memory():
+            table.insert('', 'end', values=(f"Neo Geo · {game['title']}",game['sha256'][:12],game['entries']))
         table.pack(fill='both', expand=True)
         def open_library():
             path = library_root()

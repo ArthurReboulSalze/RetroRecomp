@@ -34,6 +34,8 @@ __pycache__/
 *.gen
 *.smd
 *.rom
+*.neo
+*.pack
 *.bin
 *.zip
 *.7z
@@ -44,6 +46,7 @@ __pycache__/
 *.state
 *.manifest
 *.patterns
+*.rrfb
 *.ini
 *.log
 
@@ -58,6 +61,7 @@ AGENTS.md
 docs/*
 !docs/ARCHITECTURE.md
 !docs/COMPILATION_LIBRARY.md
+!docs/RUNTIME_FEEDBACK.md
 !docs/BUILDING.md
 !docs/COMPATIBILITY.md
 !docs/BOXART.md
@@ -70,6 +74,7 @@ docs/*
 !docs/GAME_GEAR.md
 !docs/GAME_BOY.md
 !docs/NES.md
+!docs/NEOGEO.md
 !docs/SNES.md
 !docs/CONSOLES_16BIT.md
 !docs/MEGADRIVE_CPU_EXCEPTIONS.md
@@ -96,6 +101,7 @@ profiles/*
 !MEDIAS/RetroRecomp_consoles.png
 !MEDIAS/RetroRecomp_ban.png
 !MEDIAS/RetroRecomp_UI.png
+!MEDIAS/RetroRecomp_learning_cycle.png
 !MEDIAS/TAG_SHOOTING.png
 !assets/tag-shooting.png
 !assets/Retro-Recomp-banner.png

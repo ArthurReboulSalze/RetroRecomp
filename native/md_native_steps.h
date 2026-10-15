@@ -3,6 +3,7 @@
 #include "m68k_interp.h"
 #include "m68k_decoder.h"
 #include "md_prefetch.h"
+#include "m68000_state_helpers.h"
 extern uint32_t rr_md_cpu_stopped;
 /* Instruction-local cost, consumed before entering the scheduler. It is not
  * guest state and never survives an instruction or an F8/F9 boundary. */
@@ -13,28 +14,20 @@ extern unsigned rr_md_trace_suppressed;
  * holds the inactive stack (USP in supervisor mode, SSP in user mode).
  * MOVE USP is privileged and therefore always sees the actual USP here. */
 static inline uint32_t rr_md_user_sp(void) {
-    return (g_cpu.SR & SR_S) ? g_cpu.USP : g_cpu.A[7];
+    return rr_m68000_user_sp(g_cpu.SR,g_cpu.A[7],g_cpu.USP);
 }
 static inline uint32_t rr_md_supervisor_sp(void) {
-    return (g_cpu.SR & SR_S) ? g_cpu.A[7] : g_cpu.USP;
+    return rr_m68000_supervisor_sp(g_cpu.SR,g_cpu.A[7],g_cpu.USP);
 }
 static inline void rr_md_set_sr(uint16_t value) {
-    if ((g_cpu.SR ^ value) & SR_S) {
-        uint32_t previous = g_cpu.A[7];
-        g_cpu.A[7] = g_cpu.USP;
-        g_cpu.USP = previous;
-    }
-    g_cpu.SR = value & 0xa71fu;
+    rr_m68000_select_sr(&g_cpu.SR,&g_cpu.A[7],&g_cpu.USP,value);
 }
 static inline void rr_md_exception_frame(uint16_t saved_sr, uint32_t pc,
                                          uint16_t handler_sr) {
     rr_md_cpu_stopped = 0; /* An accepted exception wakes STOP. */
     rr_md_set_sr(handler_sr); /* Select SSP before the first stack write. */
     /* MC68000 normal frame bus order: PC low, SR, PC high. */
-    uint32_t sp=g_cpu.A[7];g_cpu.A[7]=sp-6;
-    m68k_write16(sp-2,(uint16_t)pc);
-    m68k_write16(sp-6,saved_sr);
-    m68k_write16(sp-4,(uint16_t)(pc>>16));
+    rr_m68000_push_normal_frame(&g_cpu.A[7],saved_sr,pc,m68k_write16);
 }
 static inline M68kiStatus rr_md_instruction_exception(uint32_t *next_pc,
         unsigned vector, uint32_t saved_pc, unsigned cycles) {

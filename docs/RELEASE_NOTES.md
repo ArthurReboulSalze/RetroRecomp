@@ -1,3 +1,40 @@
+# RetroRecomp v1.0.1 — Play. Learn. Recompile.
+
+**Your play sessions can now help improve your next export.** This release also
+introduces Neo Geo as an **experimental** seventh console profile.
+
+- Games collect small, deduplicated fallback hints in memory and save them when
+  you close the game. There are no feedback writes during play. **F12** toggles
+  recording; it is enabled by default. A brief message appears in the existing
+  game window while hints are saved.
+- **Options → console → Import fallback hints** recovers observations from the
+  normal export folder or another folder you choose. They remain in the
+  converter's local library even if the original game folder is moved or deleted.
+  No ROM selection or recompilation is needed to import them.
+- The next generation rechecks those hints against the exact game and uses them
+  to improve supported native code coverage. Each feedback file is capped at
+  about **128 KiB**. This does not automatically fix graphics or hardware issues.
+- **Neo Geo MVS Europe is experimental.** It includes shared controls, filters,
+  fullscreen, F8/F9, scores and memory-card saves, with a user-selected BIOS.
+  Visual artifacts remain under investigation. An optional F5 enhanced mode
+  increases virtual CPU capacity and sprite limits.
+- The verified shared bank now contains **1,061 exact revisions**, including
+  **34 Neo Geo cartridge/BIOS identities**. Private gameplay feedback is kept
+  separate from this verified shared snapshot.
+- Shared xBR rendering reuses unchanged image regions without changing the
+  filter's output. The README adds a transparent illustration of the learning
+  cycle and clearly separates the six supported consoles from experimental Neo Geo.
+
+Download **Retro-Recomp.exe** below, or use **Check for updates** in the app.
+**Regenerate existing games to receive F12 and the shutdown feedback recorder.**
+Updating the converter preserves your games, settings, local knowledge and
+downloaded covers.
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded in the executable. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.0.1/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.0.0 — Super Nintendo standard profile is now supported
 
 **The standard Super Nintendo profile leaves experimental status.** All six

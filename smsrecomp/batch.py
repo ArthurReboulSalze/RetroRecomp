@@ -42,7 +42,10 @@ def identify(path: Path, selected_system: str | None = None) -> BatchItem:
     try:
         system = profile_for_path(path, selected_system)
         rom = system.read_rom(path)
-        return BatchItem(path, title, system.id, rom.sha256, len(rom.data),
+        if system.id == 'ng':
+            title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", rom.title.split(' / ',1)[0]).strip() or path.stem
+        byte_size = rom.size if hasattr(rom, 'size') else len(rom.data)
+        return BatchItem(path, title, system.id, rom.sha256, byte_size,
                          video_hint=system.default_video_mode(path),
                          selected_system=selected_system or "")
     except ConsoleMismatchError as exc:
@@ -256,6 +259,9 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
               "sha256": item.sha256}
     try:
         settings = dict(options)
+        if system.id != 'ng':
+            settings.pop('ng_bios', None)
+            settings.pop('ng_qualification_routes', None)
         if system.id != 'md':
             settings.pop('md_advanced_scan', None)
         if system.id != 'nes':

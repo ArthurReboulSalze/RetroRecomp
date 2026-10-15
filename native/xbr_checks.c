@@ -54,6 +54,35 @@ int main(void) {
     for(int y=0;y<36;y++) for(int x=0;x<36;x++)
         assert(rr_xbr_rgb_distance(first[y*36+x],rotated[x*36+35-y])<=3);
     puts("PASS: packed blend matches scalar RGBA; rotated shallow contours agree within byte rounding.");
+    /* Exact cache equivalence for stationary images, changing edge pixels,
+     * alpha, scrolling/full redraws, padded rows and a reset/resolution change. */
+    /* Tiny edge cases plus GB/GG, SMS, NES, MD/Neo Geo and SNES
+     * high-resolution/interlaced presentation sizes, all with padded rows. */
+    const int cache_sizes[][2]={{1,1},{3,2},{17,13},{160,144},{256,192},
+        {256,224},{256,240},{320,224},{320,240},{320,480},{512,448},{512,478}};
+    for(unsigned mode=0;mode<sizeof cache_sizes/sizeof cache_sizes[0];++mode) {
+        int w=cache_sizes[mode][0],h=cache_sizes[mode][1],stride=w+3;
+        uint32_t *src=calloc((size_t)stride*h,4),*previous=malloc((size_t)w*h*4);
+        uint32_t *full=malloc((size_t)w*h*64),*cached=malloc((size_t)w*h*64);
+        uint8_t *dirty=malloc((size_t)w*h),*scratch=malloc((size_t)w*h);
+        assert(src && previous && full && cached && dirty && scratch);
+        for(int frame=0;frame<30;++frame) {
+            if(frame%7==0)for(int y=0;y<h;++y)for(int x=0;x<w;++x) {
+                seed=seed*1664525u+1013904223u;src[y*stride+x]=seed;
+            }
+            else if(frame%3) {
+                int x=frame%2?w-1:0,y=frame%4?h-1:0;
+                src[y*stride+x]^=0x80810201u;
+            }
+            rr_xbr4(src,w,h,stride,full,&weights);
+            unsigned changed=rr_xbr_dirty(src,w,h,stride,previous,dirty,scratch,frame!=0 && frame!=17);
+            if(changed)rr_xbr4_masked(src,w,h,stride,cached,&weights,dirty);
+            assert(!memcmp(full,cached,(size_t)w*h*64));
+            assert(!rr_xbr_dirty(src,w,h,stride,previous,dirty,scratch,1));
+        }
+        free(src);free(previous);free(full);free(cached);free(dirty);free(scratch);
+    }
+    puts("PASS: 360 cached frames byte-identical to full xBR across console resolutions, borders, alpha and cache reset.");
     /* Representative sparse edges, full-detail worst case, and largest 16-bit
      * frame. Measurement is CPU filter time, not physical input latency. */
     const int widths[]={256,256,320}, heights[]={240,240,480};

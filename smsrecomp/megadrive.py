@@ -186,9 +186,12 @@ def memory_file(rom) -> Path:
 
 
 def read_entries(rom) -> set[int]:
+    from .feedback import records
     from .console16 import REPOSITORIES
     shared = {address for (address,) in record_for('md', rom, REPOSITORIES['md'][1]).get('rom_entries', [])
               if _entry_signature(rom, address) is not None}
+    shared |= {r.address for r in records('md', rom.sha256, 5)
+               if _entry_signature(rom, r.address) == r.data.hex()}
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') not in (1, 2) or record.get('rom_sha256') != rom.sha256:
@@ -213,6 +216,8 @@ def valid_ram_variant(item):
 def read_ram_variants(rom) -> list[dict]:
     from .console16 import REPOSITORIES
     shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1])
+    from .feedback import variants
+    shared += variants('md', rom.sha256, 6)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 2 or record.get('rom_sha256') != rom.sha256:
@@ -354,8 +359,9 @@ def analysis_identity(project: Path, engine_revision: str, rom) -> dict:
     # Include both the exact ROM and all profile/discovery inputs. A library
     # addition or compiler-adapter edit invalidates the native source cache.
     config_hash = hashlib.sha256((project / 'game.toml').read_bytes()).hexdigest()
-    from . import megadrive_codegen
+    from . import megadrive_codegen, m68000
     return {'rom': rom.sha256, 'engine': engine_revision, 'config': config_hash,
             'adapter': module_fingerprint(__name__),
             'codegen': module_fingerprint(megadrive_codegen.__name__),
+            'cpu_core': module_fingerprint(m68000.__name__),
             'entries': sorted(read_entries(rom)), 'ram_variants': read_ram_variants(rom), 'schema': 4}

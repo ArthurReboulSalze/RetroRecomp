@@ -28,6 +28,7 @@ else()
   set(CPU_SOURCES "${GENERATED}/game_full.c" "${GENERATED}/game_dispatch.c")
 endif()
 set(RUNTIME_SOURCES
+  "${GAME_DIR}/runtime_feedback.c"
   paths.c
   lightphaser.c
   learning.c

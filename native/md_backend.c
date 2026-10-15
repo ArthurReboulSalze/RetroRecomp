@@ -24,6 +24,8 @@
 #include "md_cart.h"
 #include "md_prefetch.h"
 #include "console16_video.h"
+#include "runtime_feedback.h"
+static const uint8_t *feedback_rom;
 
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
 static unsigned captured_rows, video_modes_seen, interlace_frames;
@@ -101,6 +103,12 @@ static M68KInstr ram_variants[RAM_VARIANT_LIMIT];
 static unsigned ram_variant_count;
 void rr16_note_ram_instruction(const M68KInstr *ins) {
     if (!rr_md_ram_instruction_recordable(ins)) return;
+    if (rr_feedback_enabled()) {
+        uint8_t bytes[16];unsigned size=ins->word_count*2;
+        if(size>16)size=16;
+        for(unsigned n=0;n<size/2;++n) {bytes[n*2]=(uint8_t)(ins->words[n]>>8);bytes[n*2+1]=(uint8_t)ins->words[n];}
+        rr_feedback_note(RR_FB_MD_RAM,ins->addr,0,bytes,size);
+    }
     for (unsigned i = 0; i < ram_variant_count; ++i) {
         const M68KInstr *other = &ram_variants[i];
         if (other->addr == ins->addr && other->word_count == ins->word_count &&
@@ -112,6 +120,9 @@ void rr16_note_rom_fallback(uint32_t pc) {
     pc &= 0xffffffu;
     if (pc < 0x400000u && (RR_MD_SEGA_MAPPER || pc < RR_MD_ROM_BYTES)) {
         ++rom_fallback;
+        if(rr_feedback_enabled() && rr_md_rom_fetch_offset+8<=RR_MD_ROM_BYTES) {
+            if(feedback_rom)rr_feedback_note(RR_FB_MD_ROM,rr_md_rom_fetch_offset,pc,feedback_rom+rr_md_rom_fetch_offset,8);
+        }
         runtime_evidence_add(RT_EVIDENCE_FLOOR_COVERAGE, rr_md_rom_fetch_offset, 0, "retired physical ROM instruction");
     } else if (pc >= 0xe00000u) ++ram_fallback;
 }
@@ -147,6 +158,7 @@ bool rr16_init(bool headless) {
     HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
     const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
     if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
+    feedback_rom=rom;
     machine_init(); rr16_md_ym_reset(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
     gbus_sram_setup(&g_machine.bus);
     rr_md_cart_attach_rom(rom,RR_MD_ROM_BYTES);

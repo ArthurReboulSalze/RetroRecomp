@@ -11,6 +11,7 @@
 #include "cyc_core.h"
 #include "cyc_run.h"
 #include "retro_menu.h"
+#include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
 #include "display_settings.h"
 #include "scanline_sdl.h"
@@ -213,6 +214,7 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
         RR_NES_TEXT(108, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
         RR_NES_TEXT(122, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
+        RR_NES_TEXT(134, rr_feedback_label());
         RR_NES_TEXT(146, tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"));
         if (RR_NES_ZAPPER) {
             RR_NES_TEXT(160, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
@@ -320,6 +322,9 @@ int cyc_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
+            else if (key == SDL_SCANCODE_F12) {
+                rr_feedback_toggle();snprintf(status,sizeof status,"%s",rr_feedback_label());status_until=SDL_GetTicks64()+1800;
+            }
             else if (key == SDL_SCANCODE_F3) {
                 filter = rr_menu_next_filter(filter);
                 SDL_DestroyTexture(tex);
@@ -415,6 +420,7 @@ int cyc_sdl_main(const char *title, int scale) {
             while (SDL_GetPerformanceCounter() < next) {}
         } else if (now - next > frequency / 4) next = now;
     }
+    rr_feedback_close_screen(ren);
     nes_audio_close();
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_xbr_destroy(&xbr);

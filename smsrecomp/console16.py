@@ -81,7 +81,7 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
     return engine, compiler, sdl, cmake, generator
 
 
-def _write_build(project: Path, engine: Path, system_id: str, title: str) -> None:
+def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
     for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
@@ -124,7 +124,7 @@ find_package(SDL2 REQUIRED)
             (engine / 'runner/external/superzazu/z80.c').read_text(encoding='utf-8')), encoding='utf-8')
         step_aot = '#define RR_MD_STEP_AOT 1' in (project / 'retro_md_game.h').read_text(encoding='utf-8')
         if step_aot:
-            for name in ('md_native_steps.h', 'md_exception_decode.h', 'md_step_dispatch.c', 'md_prefetch.h', 'md_prefetch.inc'):
+            for name in ('md_native_steps.h', 'm68000_state_helpers.h', 'md_exception_decode.h', 'md_step_dispatch.c', 'md_prefetch.h', 'md_prefetch.inc'):
                 shutil.copy2(ASSETS / 'native' / name, project / name)
         # Two host-only adaptations in private source copies. Never edit the
         # dependency checkout: count exact interpreter opcodes; remove legacy
@@ -345,6 +345,8 @@ target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4
   native/genesis_machine.c PROPERTIES COMPILE_OPTIONS "/we4013;/we4028")
 '''
     (project / 'CMakeLists.txt').write_text(common, encoding='utf-8')
+    from .feedback import stage
+    stage(project, system_id, rom.sha256)
 
 
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None, standard_override=None):
@@ -397,7 +399,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
                                   megadrive.read_ram_variants(rom))
         emit(f'{analysis["translated_instructions"]} native instructions, '
              f'{analysis["guarded_ram_variants"]} guarded RAM variants; exact PC/stack control flow.')
-    _write_build(project, engine, system_id, title)
+    _write_build(project, engine, system_id, title, rom)
     if system_id == 'md':
         audio_analysis = json.loads((project / 'z80-native-analysis.json').read_text(encoding='utf-8'))
         emit(f"Z80 sound: {audio_analysis['guarded_positions']} guarded positions, "
@@ -647,6 +649,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             raise ConversionError(result['games'][0]['message'])
         return Path(result['games'][0]['executable'])
     started = time.perf_counter()
+    from .feedback import ingest
+    gameplay_feedback = ingest(system_id, rom.sha256, output, emit=emit)
     title = title or cartridge_profile['title']
     name = 'Mega Drive' if system_id == 'md' else 'Super Nintendo'
     stage = 'supported' if system_id == 'md' else supernintendo.support_stage(rom)
@@ -821,7 +825,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, video standard and runtime ABI'},
         'cartridge_memory': megadrive_sram.layout(rom) if system_id == 'md' else snes_cart.layout(rom),
-        'runtime_learning': False,
+        'runtime_learning': True, 'runtime_feedback': gameplay_feedback,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable),
         'conversion_wall_seconds': round(time.perf_counter() - started, 3)}

@@ -115,6 +115,7 @@ def _interpreter(source: str) -> str:
 void cpu_interp_step(void) {
     uint16_t pc = cpu.pc; uint8_t opcode;
     if (cpu_fetch(pc, &opcode)) { cpu_interrupt(false); return; }
+    rr_nes_feedback(pc, opcode);
     rr_nes_note_ram(pc, opcode);
     cpu_interp_fetched(opcode);
 }
@@ -122,6 +123,7 @@ void cpu_interp_step(void) {
 
 
 def _run(source: str) -> str:
+    source = '#include "runtime_feedback.h"\n' + source
     source = replace_once(source,
         '            cyc_native_run();\n            cyc_run_native_cycles += cyc_cycle_count() - before;',
         '            uint64_t interpreted = cyc_run_interp_rom_cycles + cyc_run_interp_ram_cycles + cyc_run_interp_other_cycles;\n'
@@ -130,6 +132,7 @@ def _run(source: str) -> str:
         '            cyc_run_native_cycles += cyc_cycle_count() - before - interpreted;')
     return source + '''
 void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, unsigned bank) {
+    rr_nes_feedback(pc, op);
     /* The pinned seed format has only $8000-$FFFF slots. A lower ROM alias
      * is covered densely; never mislabel it as a seed at $E000/$F000. */
     if (rom && pc >= 0x8000 && cyc_run_miss && bank < hw_cart.prg_slots) {
@@ -146,6 +149,8 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
 
 
 def prepare_machine(project: Path, engine: Path) -> Path:
+    from .feedback import stage
+    stage(project, 'nes', '0'*64, cmake=False)
     root = project / 'machine'
     transformed = {}
     for relative in ('runner/cyc', 'common'):
@@ -179,6 +184,7 @@ def prepare_machine(project: Path, engine: Path) -> Path:
                 text = replace_once(text, 'bool hw_prg_is_rom(uint16_t addr);', '''bool hw_prg_is_rom(uint16_t addr);
 bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank);
 bool rr_nes_ram_peek(uint16_t pc, uint8_t *value);
+void rr_nes_feedback(uint16_t pc, uint8_t op);
 void rr_nes_note_ram(uint16_t pc, uint8_t op);
 void rr_nes_ram_trace_enable(void);
 void rr_nes_ram_trace_merge(const char *path);
@@ -201,6 +207,9 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     slot->wave_table = wave_table_map[index & 1];
 }
 '''
+            if name == 'runner/cyc/cyc.cmake':
+                data += ('\nlist(APPEND NESRECOMP_CYC_SOURCES "' + (project/'runtime_feedback.c').as_posix() + '")\n'
+                         'list(APPEND NESRECOMP_CYC_INCLUDE_DIRS "' + project.as_posix() + '")\n').encode('utf-8')
             transformed[name] = data
             _write(root / name, data)
     identity = hashlib.sha256()

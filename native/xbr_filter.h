@@ -9,6 +9,7 @@
 #ifndef RR_XBR_FILTER_H
 #define RR_XBR_FILTER_H
 #include <stdint.h>
+#include <stddef.h>
 #include <math.h>
 
 #define RR_XBR_SCALE 4
@@ -59,7 +60,38 @@ static void rr_xbr_weights(RrXbrWeights *table) {
     table->ready=1;
 }
 
-static void rr_xbr4(const uint32_t *src,int w,int h,int stride,uint32_t *dst,RrXbrWeights *table) {
+/* An output block depends only on its clamped 5x5 source neighbourhood.
+ * Dilate exact pixel differences by two in each axis. Cached output is reused
+ * only when every contributing source pixel is unchanged (no temporal blend). */
+static unsigned rr_xbr_dirty(const uint32_t *src,int w,int h,int stride,
+    uint32_t *previous,uint8_t *dirty,uint8_t *scratch,int valid) {
+    unsigned count=0;
+    for(int y=0;y<h;++y)for(int x=0;x<w;++x) {
+        int i=y*w+x;uint32_t value=src[y*stride+x];
+        dirty[i]=(uint8_t)(!valid || value!=previous[i]);previous[i]=value;
+    }
+    for(int y=0;y<h;++y) {
+        unsigned sum=0;
+        for(int x=0;x<w && x<2;++x)sum+=dirty[y*w+x];
+        for(int x=0;x<w;++x) {
+            if(x+2<w)sum+=dirty[y*w+x+2];
+            scratch[y*w+x]=(uint8_t)(sum!=0);
+            if(x>=2)sum-=dirty[y*w+x-2];
+        }
+    }
+    for(int x=0;x<w;++x) {
+        unsigned sum=0;
+        for(int y=0;y<h && y<2;++y)sum+=scratch[y*w+x];
+        for(int y=0;y<h;++y) {
+            if(y+2<h)sum+=scratch[(y+2)*w+x];
+            dirty[y*w+x]=(uint8_t)(sum!=0);count+=sum!=0;
+            if(y>=2)sum-=scratch[(y-2)*w+x];
+        }
+    }
+    return count;
+}
+
+static void rr_xbr4_masked(const uint32_t *src,int w,int h,int stride,uint32_t *dst,RrXbrWeights *table,const uint8_t *dirty) {
     /* Five rolling metric rows: each source pixel is converted once. No
      * allocation, state from older frames, or repeated 5x5 RGB conversions. */
     float rows[5][1028];
@@ -76,6 +108,7 @@ static void rr_xbr4(const uint32_t *src,int w,int h,int stride,uint32_t *dst,RrX
       last[0]=last[1]=last[2];last[w+2]=last[w+3]=last[w+1];
       const float *row[5];for(int j=0;j<5;j++)row[j]=rows[(y+j)%5];
       for (int x=0;x<w;x++) {
+        if(dirty && !dirty[y*w+x])continue;
         uint32_t center=src[y*stride+x];
         uint32_t *out=dst+y*4*w*4+x*4;
         /* Flat interiors require no neighbourhood metric or interpolation. */
@@ -116,5 +149,8 @@ static void rr_xbr4(const uint32_t *src,int w,int h,int stride,uint32_t *dst,RrX
         }
       }
     }
+}
+static void rr_xbr4(const uint32_t *src,int w,int h,int stride,uint32_t *dst,RrXbrWeights *table) {
+    rr_xbr4_masked(src,w,h,stride,dst,table,NULL);
 }
 #endif

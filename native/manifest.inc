@@ -1,5 +1,14 @@
 /* Included inside the runtime, where the bank registers and bus are visible. */
 #include "learning.h"
+#include "runtime_feedback.h"
+static void smsrecomp_feedback_at(uint16_t addr) {
+    if(rr_feedback_enabled()) {
+        uint8_t bytes[4];
+        for(unsigned i=0;i<4;++i)bytes[i]=sms_read8((uint16_t)(addr+i));
+        rr_feedback_note(RR_FB_SEGA_Z80,addr,(uint8_t)g_bank[0] |
+            (uint32_t)(uint8_t)g_bank[1]<<8 | (uint32_t)(uint8_t)g_bank[2]<<16,bytes,4);
+    }
+}
 typedef struct { uint16_t addr; uint8_t b0,b1,b2; uint32_t crc; } ManifestSig;
 #define MANIFEST_MAX 16384
 static ManifestSig g_manifest[MANIFEST_MAX];

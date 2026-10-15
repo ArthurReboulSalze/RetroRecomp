@@ -61,7 +61,7 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
     consoles = {system: {} for system in engines}
     if base is not None:
         for system, records in load(base)['consoles'].items():
-            consoles[system].update(records)
+            consoles.setdefault(system,{}).update(records)
     retained = {system: set(records) for system, records in consoles.items()}
     refreshed = {system: set() for system in engines}
     qualified = {}
@@ -80,7 +80,7 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
     for path in roms:
         item = identify(path)
         key = (item.system, item.sha256)
-        if item.error or item.system not in consoles or key in seen:
+        if item.error or item.system not in engines or key in seen:
             continue
         seen.add(key)
         rom = get_profile(item.system).read_rom(path)

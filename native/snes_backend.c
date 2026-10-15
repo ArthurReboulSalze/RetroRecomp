@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "retro_console16.h"
+#include "runtime_feedback.h"
 #include "common_cpu_infra.h"
 #include "common_rtl.h"
 #include "cpu_state.h"
@@ -54,8 +55,9 @@ void rr16_snes_note_interpreted(uint32_t pc) { ++interpreted; }
 void rr16_snes_note_native(void) { ++native_entries; }
 void rr16_snes_observe_fallback(uint32_t pc) {
     uint8_t bytes[4];
-    if (!headless_mode) return;
     if (!rr_snes_read_ram_code(pc, bytes)) return;
+    rr_feedback_note(RR_FB_SNES_RAM,pc,0,bytes,4);
+    if (!headless_mode) return;
     uint32_t slot=pc;
     for(unsigned n=0;n<4;n++) slot=(slot^bytes[n])*16777619u;
     slot&=RR_SN_RAM_VARIANT_LIMIT*2-1;

@@ -3,6 +3,7 @@
  * Evidence stays in memory; only explicit conversion probes serialize it. */
 #include "md_z80_native.h"
 #include "md_bus_scheduler.h"
+#include "runtime_feedback.h"
 #include <string.h>
 
 static uint64_t native_ops, fallback_ops, native_cycles, fallback_cycles;
@@ -69,6 +70,7 @@ static void observe(uint16_t pc) {
         if (!(mask & (1u << i))) bytes[i] = 0;
         hash = (hash ^ bytes[i]) * 16777619u;
     }
+    rr_feedback_note(RR_FB_MD_Z80,pc,mask,bytes,4);
     unsigned slot = hash & (RR_MD_Z80_VARIANT_LIMIT * 2 - 1);
     while (table[slot]) {
         Observation *old = &variants[table[slot] - 1];

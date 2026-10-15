@@ -77,7 +77,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     runtime = project / "runtime/src/platform_sdl.cpp"
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
-                          '#include "platform_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
+                          '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
     source = replace_once(source, 'static SDL_Texture* g_texture = NULL;',
                           '''static SDL_Texture* g_texture = NULL;
 static SDL_Texture* g_rr_scale2x_texture = NULL;
@@ -437,7 +437,8 @@ static void binding_to_config_value''')
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
     }
-    if (g_renderer) {''', '''    rr_menu_shutdown();
+    if (g_renderer) {''', '''    rr_feedback_close_screen(g_renderer);
+    rr_menu_shutdown();
     if (g_texture) {
         SDL_DestroyTexture(g_texture);
         g_texture = NULL;
@@ -625,6 +626,36 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
         '    if (ram_result && rtc_result) { ctx->eram_dirty = false; ctx->rtc_dirty = false; }\n    return ram_result && rtc_result;\n}')
     runtime_cpu.write_text(source, encoding="utf-8")
 
+    # Capture only true interpreter instructions, after native RAM helpers have
+    # declined them. Peek ordinary memory directly; never tick/read MMIO twice.
+    interpreter = project / 'runtime/src/interpreter.c'
+    code = interpreter.read_text(encoding='utf-8')
+    code = '#include "runtime_feedback.h"\n' + code
+    helper = '''
+static void rr_gb_feedback(GBContext *ctx) {
+    if(!rr_feedback_enabled())return;
+    uint8_t bytes[4];uint16_t pc=ctx->pc,bank=gb_resolve_rom_bank(ctx,pc);
+    unsigned length=0;
+    for(unsigned n=0;n<4;++n) {
+        uint16_t addr=(uint16_t)(pc+n);
+        if(addr<0x8000) {
+            size_t offset=(size_t)gb_resolve_rom_bank(ctx,addr)*0x4000+(addr&0x3fff);
+            if(offset>=ctx->rom_size)break;bytes[n]=ctx->rom[offset];
+        } else if(addr>=0xc000 && addr<0xd000)bytes[n]=ctx->wram[addr-0xc000];
+        else if(addr>=0xd000 && addr<0xe000)bytes[n]=ctx->wram[ctx->wram_bank*0x1000u+addr-0xd000];
+        else if(addr>=0xff80 && addr<0xffff)bytes[n]=ctx->hram[addr-0xff80];
+        else break;
+        ++length;
+    }
+    rr_feedback_note(RR_FB_GB,pc,bank,bytes,length);
+}
+'''
+    code = replace_once(code, 'void gb_interpret(GBContext* ctx, uint16_t addr) {',
+                        helper + '\nvoid gb_interpret(GBContext* ctx, uint16_t addr) {')
+    code = replace_once(code, '        uint8_t opcode;\n        if (ctx->halt_bug)',
+                        '        rr_gb_feedback(ctx);\n        uint8_t opcode;\n        if (ctx->halt_bug)')
+    interpreter.write_text(code, encoding='utf-8')
+
     # Writable code keeps live byte guards, one instruction per dispatch and
     # the normal interrupt/frame safepoints. Unknown or modified RAM stays
     # observable through the original interpreter path.
@@ -649,6 +680,10 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
 
     main = project / "game_main.c"
     source = main.read_text(encoding="utf-8")
+    source = '#include "runtime_feedback.h"\n' + source
+    source = replace_once(source, '    GBContext* ctx = gb_context_create(&runtime_config);',
+        '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
+        '    GBContext* ctx = gb_context_create(&runtime_config);')
     source = diagnostic_limit_snapshot(source)
     source = replace_once(source, '''        while (!ctx->frame_done) {
             bool smooth_lcd_transitions''',
@@ -698,6 +733,8 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
                '    target_compile_options(game PRIVATE "/MP${GBRECOMP_GENERATED_COMPILE_JOBS}")\n'
                'endif()\n')
     cmake.write_text(source, encoding="utf-8")
+    from .feedback import stage
+    stage(project, 'gb', rom_sha256, target='gbrt')
     from .gameboy_timing import adapt_timing
     adapt_timing(project)
     from .gameboy_hardware import adapt_hardware

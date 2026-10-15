@@ -7,7 +7,19 @@
 #include <stdio.h>
 #include "retro_gun_game.h"
 #include "gun16.h"
-#if RR16_MD
+#if RR16_NG
+#include "ng_game.h"
+#include "neogeo_host.h"
+#define RR16_WIDTH 320
+#define RR16_HEIGHT 224
+#define RR16_SECTION L"NeoGeo"
+#define RR16_CONSOLE "Neo Geo"
+#define RR16_FRAME_SECONDS (1.0 / 59.185606000)
+uint64_t rr16_input_frame(void);
+unsigned rr16_host_frame_limit(void);
+void rr16_host_test_tick(void *window,void *renderer);
+void rr16_host_discontinuity(void);
+#elif RR16_MD
 #include "retro_md_game.h"
 #include "md_timing.h"
 #define RR16_WIDTH 320
@@ -45,7 +57,7 @@ uint64_t rr16_audio_frame_fingerprint(void);
 int rr16_visible_width(void);
 int rr16_visible_height(void);
 int rr16_raster_height(void);
-#if RR16_MD
+#if RR16_MD || RR16_NG
 #define rr16_display_width() rr16_visible_width()
 void rr16_trace_details(FILE *file);
 #else

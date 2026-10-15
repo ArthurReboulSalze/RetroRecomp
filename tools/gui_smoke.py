@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import tkinter as tk
 import tempfile
+import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -10,6 +11,7 @@ from smsrecomp.gui import launch
 from smsrecomp.library import library_root, list_games
 from smsrecomp.gameboy import list_memory
 from smsrecomp.nes import list_memory as list_nes_memory
+from smsrecomp.neogeo_knowledge import list_memory as list_ng_memory
 from smsrecomp.cover_settings import defaults as cover_defaults
 
 
@@ -64,9 +66,28 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    assert len(notebook.tabs()) == 8
+    assert len(notebook.tabs()) == 9
     assert notebook.tab(0, 'text') == application.tr('options_common')
-    assert notebook.tab(7, 'text') == application.tr('options_boxart')
+    assert notebook.tab(7, 'text') == application.tr('options_ng')
+    assert notebook.tab(8, 'text') == application.tr('options_boxart')
+    assert application.preferences()['ng_bios'] == application.ng_bios.get()
+    assert set(application.feedback_paths) == {'sms','gg','gb','nes','md','snes','ng'}
+    before_feedback=application.feedback_paths['sms'].get()
+    application.feedback_paths['sms'].set(str(fixtures.name))
+    assert application.preferences()['feedback_paths']['sms'] == str(fixtures.name)
+    application.feedback_paths['sms'].set(before_feedback)
+    assert set(application.feedback_import_buttons) == set(application.feedback_paths)
+    report = dict(files=1,games=1,updated_games=1,observations=3,invalid_files=0,bytes=192)
+    with patch('smsrecomp.feedback.import_saved_feedback',return_value=report) as recover:
+        application.feedback_import_buttons['sms'].invoke()
+        deadline = time.monotonic()+5
+        while application.feedback_importing and time.monotonic()<deadline:
+            window.update()
+            time.sleep(.01)
+        assert not application.feedback_importing
+        assert recover.call_args.args[0] == 'sms'
+        assert application.feedback_status['sms'].get() == application.tr('feedback_import_summary',**report,kib=192/1024)
+        assert str(application.feedback_import_buttons['sms'].cget('state')) == 'normal'
     assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
     assert not application.cover_3d.get()
     application.gb_deep_control.invoke()
@@ -96,7 +117,8 @@ def smoke(window):
     panel.withdraw()
     table = next(widget for widget in descendants(panel) if widget.winfo_class() == "Treeview")
     assert len(table.get_children()) == (len(list_games()) + len(list_games(library_root('gg')))
-                                         + len(list_memory()) + len(list_nes_memory()))
+                                         + len(list_memory()) + len(list_nes_memory())
+                                         + len(list_ng_memory()))
     old_output = application.output.get()
     with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.gui.save_preferences') as save:
         application.output.set(folder)

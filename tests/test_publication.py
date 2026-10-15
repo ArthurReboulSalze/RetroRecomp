@@ -25,6 +25,8 @@ class PublicationTests(unittest.TestCase):
             knowledge.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {}}).encode()))
             (source / 'assets/cover-references.json').write_text(
                 json.dumps({'format': 1, 'entries': []}), encoding='utf-8')
+            (source / 'assets/neogeo-catalogue.json').write_bytes(
+                (script.parents[1] / 'assets/neogeo-catalogue.json').read_bytes())
             report = folder / 'audit.json'
             result = subprocess.run([sys.executable, '-I', str(script), '--source', str(source),
                                      '--report', str(report)], cwd=folder, capture_output=True,
@@ -33,7 +35,7 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(json.loads(report.read_text())['source']['count'], len(PUBLIC_FILES))
 
     def test_game_files_and_private_histories_are_not_public(self):
-        for name in ("ROMS/game.sms", "boxart/game.png", "Export/game.exe",
+        for name in ("ROMS/game.sms", "ROMS/game.neo", "assets/cartridge.pack", "boxart/game.png", "Export/game.exe",
                      "profiles/12345678.manifest", "docs/PROJECT_STATE.md",
                      ".env", "MEDIAS/extra.png"):
             with self.subTest(name=name), self.assertRaises(ValueError):

@@ -6,6 +6,9 @@
 #include <string.h>
 #include "console16_state.h"
 #include "retro16_state_config.h"
+#if RR16_NG
+#include "neogeo_persistence.h"
+#endif
 #define HEADER_BYTES 160
 #define MAX_STATE_BYTES (32u * 1024u * 1024u)
 static const uint8_t magic[8] = {'R','R','1','6','S','T','1',0};
@@ -149,5 +152,9 @@ bool rr16_state_file(const wchar_t *path, bool load) {
         }
         free(backup);
     }
-    free(data); return ok;
+    free(data);
+#if RR16_NG
+    if(ok)rr_ng_persist_after_state();
+#endif
+    return ok;
 }

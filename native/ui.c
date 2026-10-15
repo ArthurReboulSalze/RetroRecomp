@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "controls.h"
 #include "retro_menu.h"
+#include "runtime_feedback.h"
 #include "retro_keyboard.h"
 #include "embedded_rom.h"
 #include <stdio.h>
@@ -135,7 +136,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
             autofire, "F7  English / Francais",
             TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             TR("P / Enter  Pause", "P / Entree  Pause"),
-            TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"),
+            rr_feedback_label(),
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             text(r, 14, 31 + 11 * i, lines[i], 233, 239, 247);

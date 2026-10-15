@@ -355,6 +355,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     project.mkdir(parents=True, exist_ok=True)
     destination = output.resolve()
     destination.mkdir(parents=True, exist_ok=True)
+    from .feedback import ingest, nes_sites
+    gameplay_feedback = ingest('nes', rom.sha256, destination, emit=emit)
+    feedback_rom, feedback_ram = nes_sites(rom)
     emit(f'NES ROM: {title}, {len(rom.data) // 1024} KB, mapper {rom.mapper}, CRC32 {rom.crc32:08X}.')
     emit(f'NES video timing: {standard.upper()} ({"manual" if standard_override else rom.timing_source}).')
     if gun:
@@ -395,6 +398,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     # They remain local candidates in this exact-ROM/region build directory;
     # normal full RAM differentials still gate their export and promotion.
     ram_entries = ram_sites(previous) | ram_sites(seed) | shared_sites(rom, shared_record)
+    entries |= feedback_rom
+    ram_entries |= feedback_ram
     seed.write_text(trace_text(entries, ram_entries), encoding='ascii')
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries and {len(ram_entries)} guarded RAM entries from previous runs.')
@@ -508,7 +513,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'input_players': 2, 'zapper': gun,
         'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
         'artwork': artwork, 'windows_metadata': metadata,
-        'runtime_learning': False, 'library_identity': rom.sha256,
+        'runtime_learning': True, 'runtime_feedback': gameplay_feedback, 'library_identity': rom.sha256,
         'advanced_scan': {'enabled': bool(nes_advanced_scan), 'scenarios': list(scripts),
                           'deterministic_inputs': True, 'full_game': False},
         'host_audio': {'sample_rate': 48000, 'callback_frames_requested': 256,

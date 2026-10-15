@@ -7,6 +7,15 @@ prepares local adaptations of pinned dependencies and emits C. CMake/MSVC
 builds a game with ROM data, CPU code, hardware runtime and SDL2 host.
 No JIT compiler is added to the resulting game.
 
+The Neo Geo development prototype shares the corrected 68000 generator helpers
+and stack/exception helpers with Mega Drive, behind explicit board interfaces.
+Multi-region cartridge/BIOS preparation, a reference MVS host and guarded native
+P/BIOS/M1/SM1 instructions are implemented separately from the six supported
+profiles. NAM-1975 has bounded zero-fallback native/reference qualification;
+the prototype now uses the shared menus, two-player mappings, persistent
+display settings and exact-cart/BIOS F8/F9 envelope. Production profile/knowledge
+integration and wider hardware support remain separate. See [Neo Geo](NEOGEO.md).
+
 The converter combines its local observations with the compressed, ROM-free
 snapshot embedded in `Retro-Recomp.exe`. Records are bound to the console,
 exact ROM SHA256, byte size and engine revision. Numeric hints and ROM offsets
@@ -70,6 +79,16 @@ in-memory dispatch observations and the window title make that use visible. Full
 does not overlay interpreter diagnostics on gameplay.
 
 ## Input freshness and presentation
+
+All seven console adapters stage the same `native/xbr_filter.h` and
+`native/xbr_sdl.h`. The xBR host retains the previous source pixels and filtered
+texture, dilates exact pixel changes by the filter's two-pixel radius, and
+recalculates only affected 4x blocks. Resolution changes or failed texture uploads
+invalidate reuse. There is no temporal blending or change to the filtered output;
+the cache uses local process memory and creates no files. Source staging and the
+converter resource manifest carry updates into regenerated exports for every
+profile. `tools/xbr_selftest.py` checks cache equivalence across native and
+high-resolution/interlaced sizes, padded strides, borders and resets.
 
 The Sega host's [audio output](AUDIO.md) uses a short causal sample-rate filter
 and a bounded callback ring. Its buffering is separate from guest timing,

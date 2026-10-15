@@ -1,6 +1,7 @@
 # Controls
 
-The shortcut table below applies to all six console profiles.
+The shortcut table below applies to the seven console profiles in the current
+development build.
 Console-specific F5 functions and cartridge buttons are described below.
 Keyboard labels use the active Windows layout: pressing W on an AZERTY
 keyboard displays W in F2. Unsaved letter defaults also follow that layout.
@@ -17,15 +18,26 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F2 | Control mappings |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
-| F5 | Master System: toggle sprite flicker reduction |
-| F6 | Gamepad autofire on/off, both fire buttons |
+| F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
+| F6 | Gamepad autofire on/off for mapped face buttons |
 | F7 | English/French |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | F10 | Master System: Light Phaser options, in catalogue-selected gun games |
+| F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
 | H | Help |
 | P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
 | Esc | Close a menu or quit |
+
+F12 changes recording only: the interpreter still runs when necessary and its
+use remains visible. An interpreter-disable F11 mode is deferred; no such
+shortcut is added. See [fallback recovery and moved games](RUNTIME_FEEDBACK.md).
+
+The xBR implementation is shared by Master System, Game Gear, Game Boy, NES,
+Mega Drive, Super Nintendo and the local Neo Geo profile. New exports cache
+unchanged image regions while producing the same filtered pixels. It remains
+last in the F3 cycle and requires no new setting. Existing EXEs need regeneration
+to receive this improvement; updating the converter alone does not alter them.
 
 In F2, Enter selects a binding instead of pausing. On Master System,
 Left/Right chooses the player. Tab switches keyboard/gamepad, Up/Down selects a row, and Enter begins
@@ -40,6 +52,26 @@ open that menu, while F1 restarts the game. F2 maps the single player's keys
 and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
+
+The Neo Geo MVS profile shares the same menus and four filters.
+Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
+**Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
+keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
+and Back. **P** or left-stick click pauses; **F1** or player 1's right-stick
+click resets. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
+there is no gun page. F3/F4/F6/F7 preferences persist in the common local INI
+with independent NeoGeo video/mapping sections. F8/F9 includes fresh-process
+loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).
+
+Neo Geo **F5** directly switches enhanced mode on/off. It doubles the virtual
+68000 clock and extends rendering from 96 to 381 sprite columns per line.
+The video and sound clocks retain their normal rates. Standard mode is the
+default; the last F5 choice is remembered under `NeoGeo.Runtime/enhanced` in
+`datas/Retro-Recomp.ini`. H shows the active setting. Quick states retain their
+saved machine mode, so loading an older standard state returns to standard mode;
+press F5 after F9 to compare the same scene in enhanced mode. This is an optional
+change to the console's original limits, qualified on the documented Metal Slug 3
+paths rather than every game.
 
 Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
 **Enter** is cartridge Start and either **Shift** is cartridge Select.

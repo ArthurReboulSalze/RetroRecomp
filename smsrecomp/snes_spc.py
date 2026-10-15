@@ -29,6 +29,10 @@ def memory_file(rom):
 def read_masks(rom):
     from .supernintendo import knowledge_engine
     shared = bytearray(MASK_BYTES)
+    from .feedback import records
+    for row in records('snes', rom.sha256, 9):
+        if len(row.data) == 1 and valid_variant({'address': row.address, 'opcode': row.data[0]}):
+            shared[row.address*32 + row.data[0]//8] |= 1 << (row.data[0]&7)
     record = record_for('snes', rom, knowledge_engine(rom))
     for pc, offset in record.get('spc_refs', []):
         opcode = rom.data[offset]

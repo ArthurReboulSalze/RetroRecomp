@@ -101,6 +101,7 @@ static void rr_gb_draw_menu(void) {
             autofire, "F7  English / Francais",
             rr_gb_tr("F8  Save game state", "F8  Sauvegarder l'etat"),
             rr_gb_tr("F9  Load game state", "F9  Charger l'etat"),
+            rr_feedback_label(),
             rr_gb_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start"),
             rr_gb_tr("Gamepad menu: left stick click", "Menu manette : clic stick gauche"),
         };
@@ -195,6 +196,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
         if (key == SDL_SCANCODE_H) { rr_gb_toggle_menu(RR_GB_HELP); return true; }
         if (key == SDL_SCANCODE_F3) { rr_gb_cycle_filter(); return true; }
         if (key == SDL_SCANCODE_F4) { rr_gb_cycle_fullscreen(); return true; }
+        if (key == SDL_SCANCODE_F12) {rr_feedback_toggle();rr_gb_notice(rr_feedback_label());return true;}
         if (key == SDL_SCANCODE_F5) { rr_gb_palette_change(); return true; }
         if (key == SDL_SCANCODE_F6) {
             g_rr_autofire = !g_rr_autofire; save_runtime_preferences();

@@ -15,6 +15,8 @@ The converter bundles UPX 5.2.1 and compacts each validated Windows game
 executable before replacing the previous export. This applies to Master
 System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo; only newly
 generated games are affected.
+Current development builds also support these checks and compression for
+qualified MVS Europe Neo Geo exports. A user-selected BIOS is required; it is not downloaded.
 The UPX license and packed-executable exception are in
 [licenses/UPX.md](../licenses/UPX.md).
 
@@ -25,6 +27,7 @@ python RetroRecomp.py setup
 python RetroRecomp.py convert "ROMS/your-game.sms" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.gb" --no-online-cover
 python RetroRecomp.py convert "ROMS/your-game.nes" --no-online-cover
+python RetroRecomp.py convert "ROMS/nam1975.zip" --ng-bios "D:/your-bios/neogeo.zip"
 python RetroRecomp.py batch --rom-dir ROMS --frames 3600 --passes 3 --jobs 8 --no-online-cover
 python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --system auto
 python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
@@ -34,11 +37,21 @@ python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 exports to `Export`; build files and dependencies stay in `.build` and `.deps`.
 The packaged converter creates `Games` beside its executable. Automatic
 identification routes supported ROMs into `Master System`, `Game Gear`,
-`Game Boy`, `Nintendo NES`, `Mega Drive` or `Super Nintendo` subfolders;
+`Game Boy`, `Nintendo NES`, `Mega Drive`, `Super Nintendo` or `Neo Geo` subfolders;
 unknown formats are reported and skipped. `--output`
 selects another Games root, and `--system sms|gg|gb|nes|md|snes` resolves ambiguous
 `.bin`/`.rom` dumps when their console is known to the user. The GUI offers
 the same Automatic/manual console selector and an opt-in custom export folder.
+The experimental MVS Europe `ng` profile also detects multi-region Neo Geo ZIPs and `.neo`
+containers. In **Options → Neo Geo**, select a BIOS ZIP and use **Check BIOS**.
+The current MVS Europe scope verifies `sp-s2.sp1`, `sfix.sfix`, `sm1.sm1` and
+`000-lo.lo` by size, CRC and selected-component SHA identity. Paths inside the
+converter folder are saved relatively; external paths are remembered explicitly.
+The CLI accepts `--system ng` and `--ng-bios` for single games or mixed batches.
+No BIOS or cartridge is bundled in the converter. Locally generated Neo Geo
+games embed the selected data and need no separate BIOS file to play.
+Merged ZIP revisions are selected only through matching program/component
+CRCs; an unresolved revision is reported, never guessed from a different game.
 Batch conversion runs three games at once by default for any mix of supported
 consoles. Set **Concurrent games** in the GUI or use `batch --jobs 1..8` to
 control CPU and memory use. `--jobs 1` runs sequentially. Stopping waits for

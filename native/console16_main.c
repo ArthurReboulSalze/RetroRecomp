@@ -8,6 +8,7 @@
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "console16_video.h"
+#include "runtime_feedback.h"
 #ifndef RR_GAME_TITLE
 #define RR_GAME_TITLE "RetroRecomp"
 #endif
@@ -66,6 +67,7 @@ int main(int argc, char **argv) {
     if ((input_script || trace_path || image_path) && (!frames || reset_check)) return 2;
     if (input_script && !load_replay(input_script, frames + frame_offset)) return 2;
     SDL_SetMainReady();
+    rr_feedback_start(!frames);
     if (!frames && SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return 1;
     if (!rr16_init(frames != 0)) return 1;
     if (cartridge_save) {

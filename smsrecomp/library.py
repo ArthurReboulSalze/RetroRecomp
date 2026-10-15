@@ -1,8 +1,8 @@
 """Per-ROM learning, separate from generated files and game preferences.
 
 The converter's headless probes append observations to a SHA256 directory;
-game executables do not learn during gameplay. The converter
-rechecks every ROM byte signature, then regenerates code with the current
+game executables defer their separate, bounded fallback feedback until shutdown.
+The converter rechecks every ROM byte signature, then regenerates code with the current
 compiler. No generated machine code is cached here. RAM windows are only data
 for conversion; native execution requires exact live-byte guards.
 """
@@ -236,10 +236,14 @@ class GameMemory:
 
     def seeds(self) -> set:
         entries = read_observations(self.journal) | {tuple(e) for e in self.bundled.get('rom_entries', [])}
+        from .feedback import sega_candidates
+        entries |= sega_candidates(self.rom)[0]
         return {entry for entry in entries if classify(self.rom, entry) == "rom"}
 
     def code_patterns(self) -> set[bytes]:
         local = read_code_patterns(self.code_journal)
+        from .feedback import sega_candidates
+        local |= set(sorted(sega_candidates(self.rom)[1] - local)[:max(0, PATTERN_LIMIT - len(local))])
         shared = {self.rom.data[offset:offset+4] for (offset,) in self.bundled.get('pattern_refs', [])}
         return local | set(sorted(shared - local)[:max(0, PATTERN_LIMIT - len(local))])
 

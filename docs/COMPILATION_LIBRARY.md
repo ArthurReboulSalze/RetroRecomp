@@ -1,5 +1,170 @@
 # Shared compilation knowledge
 
+## Shutdown-only gameplay feedback — 15 October 2026
+
+All seven generated-game profiles now collect bounded fallback candidates in
+memory and save them only at normal shutdown. The converter imports the exact
+game's file on regeneration, then runs its existing fresh validation gates.
+Each game-side file is capped at 131,168 bytes; no fallback creates no file.
+F12 toggles recording, enabled by default. Each console's Options page also
+offers a recovery folder and an **Import fallback hints** button: it retains
+an independent private copy without compiling or loading a ROM. Imported
+observations survive removal of the original game folder and path changes.
+The private feedback bank is distinct from qualified shared knowledge and must
+never be bundled. See [Runtime feedback](RUNTIME_FEEDBACK.md) for scope,
+per-console candidate types, storage, checks and remaining unsupported cases.
+
+## Optional enhanced Neo Geo mode — 14 October 2026
+
+The standard Metal Slug 3 conversion is freshly qualified after adding the
+optional F5 mode, retaining the same cartridge/BIOS identity and all earlier
+verified numeric observations. The shared bank contains 1,061 records / 34
+Neo Geo, 58,540,943 raw / 15,946,134 gzip bytes,
+SHA-256 `120de0085d379d0743183f59cb93885953889c8fb518bd17a1829d60f94930c1`. Every other console is preserved. The local
+converter includes the verified bank and the new runtime; no public release is
+made here. Enhanced-mode scene/cold replays are validated separately and do not
+promote private state data or artificially inflate the standard compilation bank.
+Evidence: `.build/neogeo-enhanced-20261014`; see [Neo Geo](NEOGEO.md).
+
+## Neo Geo runtime performance requalification — 14 October 2026
+
+Metal Slug 3 and Sengoku 3 are freshly qualified after reducing native dispatch
+and sprite-rendering overhead. Nine reference/packed routes, six fresh-process
+F8/F9 points and both ordinary-save gates pass. Three additional action replays
+match the preceding runtime with zero observed main/sound fallback.
+
+The resulting verified snapshot is **byte-identical** to the preceding bank:
+**1,061 records / 34 Neo Geo**, **58,540,943 raw / 15,946,134 gzip bytes**, SHA-256
+`120de0085d379d0743183f59cb93885953889c8fb518bd17a1829d60f94930c1`.
+No new observed code path is needed for this performance change; neither static
+candidates nor the raw private library are added to inflate coverage. Every
+older observation and every other console's record are retained. The local
+converter includes this verified snapshot and the optimized runtime for future
+exports. This is not a public release or a full-game hardware qualification.
+Evidence: `.build/neogeo-performance-20261014`; see [Neo Geo](NEOGEO.md).
+
+## Early Neo Geo gameplay paths and shared xBR — 14 October 2026
+
+Three fresh qualifications refresh the exact Metal Slug 3, Sengoku 3 and
+KOF 2001 cartridge/BIOS records after early gameplay feedback. All four action
+buttons join the default discovery routes, with an additional recorded grenade
+route for Metal Slug 3. Older verified numeric hints for the same identity/pins
+are retained when refreshing a record; the raw private library is never imported.
+The larger fixed-ROM/BIOS static scan is not itself promoted as observed knowledge.
+
+The bank remains **1,061 records / 34 Neo Geo** and is now **58,540,943 raw /
+15,946,134 gzip bytes**, SHA-256
+`120de0085d379d0743183f59cb93885953889c8fb518bd17a1829d60f94930c1`.
+It adds **11,738 gzip bytes**; every other console and every earlier verified
+observation are preserved. Fresh reference, packed-export, state and ordinary-save
+gates still apply. All four replayed action routes have zero observed fallback
+and identical CPU/hardware/image/PCM results; these are bounded gameplay paths.
+
+The local converter also bundles the shared xBR cache for all seven profiles.
+It changes presentation cost, not compilation observations or the filtered image.
+Only newly generated EXEs receive the updated runtime. Evidence and the original
+held-out replays remain under `.build/neogeo-gameplay-coverage-20261014`; see
+[Neo Geo validation](NEOGEO.md). No public release is made in this task.
+
+## Ten additional Neo Geo cartridges — 14 October 2026
+
+Ten further exact MVS cartridges pass fresh reference/packed comparisons,
+three fresh-process F8/F9 points each, invalid-state rejection and ordinary-save
+checks. Their numeric observations extend the bank to **1,061 records total,
+including 34 Neo Geo**, **58,502,698 raw / 15,934,396 gzip bytes**, SHA-256
+`1ccc1f854bc00c83a0fe7b56f95c95fd9b8c0ea99407667ee326638953816a7f`.
+The added compressed size is **369,337 bytes** (about 361 KiB); every preceding
+record is retained and every other console remains unchanged. The decompressed
+64 MiB limit and all fresh-validation gates remain active. This snapshot is
+included in the local development converter; no public release is made here.
+
+Only reconstructible numeric P/BIOS/RAM/sound hints are promoted. Inputs,
+states, ordinary-save contents, captures and audio stay private. Evidence is
+under `.build/neogeo-additional-20261014`; see [the sampled paths](NEOGEO.md).
+
+## Qualified Neo Geo MVS development snapshot
+
+The final campaign refreshes all **24 Neo Geo records**: **1,051 records total**,
+**56,898,332 raw / 15,565,059 gzip bytes**, SHA-256
+`2513b86760176a0a8ab7585395fc6417f54adcefd29af2ffa5c8d973d6a60e52`.
+It adds 15 exact cart/BIOS identities to the previous nine, while preserving
+every other console's records byte for byte. The increase is **712,010 gzip
+bytes** (about 695 KiB); the 64 MiB decompressed budget remains intact.
+
+Only the current completed reference routes are promoted from a reused build
+folder; stale developer journals cannot add roots silently. The promotion gate
+also verifies zero fallback in the saved continuous/restored state reports,
+in addition to the candidate hash, exact cart/BIOS identity, fresh reference,
+packed replay and ordinary-save checks. The six long controller paths retain
+their newly discovered numeric entries. No cartridge, BIOS, RAM dump, state,
+NVRAM/card contents, image or audio is included. Evidence stays under
+`.build/neogeo-final-qualification-20261014`; see [Neo Geo](NEOGEO.md).
+
+## Neo Geo cartridge/save qualification update
+
+After the cartridge-protection and ordinary-save campaign, the development
+snapshot contains **1,036 records / nine Neo Geo**, **53,844,079 raw / 14,853,049
+gzip bytes**, SHA-256
+`f2a2cbf3f240f0b73c9700fc0b456d90141026e349c31b3f71b580ecbbe2eb8c`.
+Eight current integrated records are refreshed, including six additions; every
+other console and the previously qualified Metal Slug 3 record are retained.
+The compressed increase over the preceding integrated snapshot is 450,238 bytes.
+The 64 MiB decompressed bound and fresh reference/packed/state gates remain.
+
+The builder additionally requires the ordinary-save route's native counters,
+lazy initialization and either fresh-process memory reload or an explicitly
+observed no-change route. Discovery of NAM-1975's late card path fixes additional
+main-CPU fallback. MSLUGX/PVC and two further SMA variants contribute numeric
+P/BIOS/RAM/sound references only; card/NVRAM data, volatile PVC RAM dumps, images,
+PCM and private journals stay local. The proof for this refresh is under
+`.build/neogeo-cartridge-saves-20261014`. The dated sections below preserve the
+earlier snapshots and their original qualification status.
+
+## Neo Geo development observations
+
+The integrated development converter now includes **three BIOS-scoped Neo Geo
+records**, qualified through fresh reference, packed-export and F8/F9 checks.
+The shared snapshot contains **1,030 records** in total; the previous 1,027
+records are retained unchanged. It is **51,870,239 raw / 14,402,811 gzip bytes**,
+SHA-256 `eda5f2dec415d1f3907eb9ab00480c734722c72ba2437c91ebd16e09ad6cdf35`.
+The added compressed size is 194,846 bytes. No ROM or BIOS bytes are included.
+
+Neo Geo records use the exact prepared region/NGH identity, four selected BIOS
+component hashes, MVS Europe, and pinned loader/runtime revisions. Numeric
+P/BIOS roots, RAM source offsets and Z80 structural references reconstruct
+guards from the user's own input. Wrong firmware, changed regions, out-of-range
+references and raw-word/path fields are rejected. Shared hints remain additive:
+every conversion still builds a fresh reference before learning and compares
+the packed game and fresh-process states before replacing an export.
+Local qualified records live in `datas/library/ng/<cart-and-BIOS-key>` beside
+the converter. `tools/build_neogeo_knowledge.py` accepts integrated conversion
+reports only after reference/packed/state qualification and candidate-hash
+verification, and preserves every other console's records. Earlier prototype
+receipts below remain private; they are not imported as unchecked journals.
+
+The standard-board and protected-board Neo Geo prototypes store private numeric reached-PC/guard and
+comparison receipts under its local build directory. Both CPUs are native on
+the bounded tested routes; these observations are **not promoted** to the bundled bank. Future Neo Geo
+records must be keyed by the original multi-region contents, parent data when
+used, the selected BIOS, system/region and pinned loader/runtime/CPU versions.
+Static-native and hardware/gameplay qualification still apply before promotion.
+The earlier prototype snapshot was unchanged. See [Neo Geo](NEOGEO.md).
+Banked Neo Geo roots now include the actual physical P/BIOS offset observed
+under the current mapping, rather than a guessed offset from the virtual PC.
+Metal Slug, Neo Drift Out, Puzzle Bobble and Samurai Shodown II receipts remain
+local under `.build/neogeo-expansion-20261014`. Retain them with their exact
+cartridge/BIOS identities; do not import their raw journals into the released
+bank or skip ordinary reference, packed-export and state validation.
+Protected-board receipts for Fatal Fury 2, KOF '98, KOF '99 and Metal Slug 3
+stay under `.build/neogeo-protected-20261014`. Their guarded 68000 RAM entries
+retain numeric `(RAM offset, source region, source offset, byte length)` links
+only when the exact instruction bytes can be reconstructed from the identified
+P/BIOS input. Unreconstructible variants stay in private discovery reports;
+do not copy raw RAM words into a reusable or bundled observation record.
+Code guards exclude live protection response/random ports and the KOF '98
+mutable overlay. Board state, sprite line buffers, snapshots, PCM and captured
+images are validation evidence, not compilation observations to distribute.
+
 ## Release 1.0.0: SNES device knowledge and lossless SPC ranges
 
 Current bundled snapshot: **1,027 exact ROMs / 44 SNES**, **51,025,629 raw / 14,207,965 gzip bytes**.
@@ -796,3 +961,25 @@ before refreshing the verified bundled snapshot. Only the three bounded MD
 records are refreshed here; raw corpus files, private library data, player
 states and runtime timing latches are never embedded as knowledge. See
 [CPU phase scope and remaining gates](MEGADRIVE_PREFETCH.md).
+
+## Neo Geo development observations
+
+Stage 3 NAM-1975 stores reached P/BIOS addresses, exact structural Z80 RAM
+observations and paired native/reference reports only in its private conversion
+project. Cartridge region hashes, all four selected BIOS hashes, loader/core
+pins, semantic hash and native EXE SHA identify the evidence. The controller
+routes do not bypass reference validation. Native counts are checked separately
+from CPU/RAM/image/PCM and serialized hardware-state agreement.
+
+No Neo Geo record enters the production six-console snapshot yet: its
+BIOS-aware shared schema and production profile are a subsequent integration
+gate. Preserve these qualified numeric observations for that gate, never the
+raw P/BIOS/M1/SM1 images, generated instruction C, audio, covers or user states.
+The existing verified snapshot remains bundled unchanged. See
+[Neo Geo prototype scope](NEOGEO.md).
+
+Stage 4 adds private shared-host/state receipts under
+`.build/neogeo-host-20261013`. CPU/image/raw-PCM/extended-state replay gates are
+independent of coverage observations. A player's `.rrstate`, framebuffer, raw
+audio and INI file are never compilation knowledge and must not enter the bank.
+The existing 1,027-record snapshot is unchanged; no Neo Geo promotion occurs.

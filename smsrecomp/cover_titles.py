@@ -32,8 +32,17 @@ _SPECIAL_EDITIONS = frozenset(('hack', 'redux', 'redesign', 'randomizer', 'remix
 def clean_title(name: str) -> str:
     while re.search(r'\s*(?:\([^)]*\)|\[[^]]*\])\s*$', name):
         name = re.sub(r'\s*(?:\([^)]*\)|\[[^]]*\])\s*$', '', name)
-    return re.sub(r'^(.+?),\s*(The|A|An)(?=\s*(?:-|:|\(|\[|$))',
+    name = re.sub(r'^(.+?),\s*(The|A|An)(?=\s*(?:-|:|\(|\[|$))',
                   r'\2 \1', name, flags=re.I).strip()
+    # MAME artwork repeats the same game under two subtitle aliases. Its
+    # slash becomes an underscore in public filenames. Collapse only identical
+    # game heads (including every sequel/year token), never two different games.
+    aliases = re.split(r'\s+[/_]\s+', name, maxsplit=1)
+    if len(aliases)==2:
+        first,second=(_tokens(_SUBTITLE.split(part,maxsplit=1)[0]) for part in aliases)
+        if first and first==second:
+            name=aliases[0]
+    return name
 
 
 def normalized(name: str, *, base: bool = False) -> str:

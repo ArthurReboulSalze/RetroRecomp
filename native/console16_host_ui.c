@@ -10,6 +10,7 @@
 #include <wchar.h>
 #include "retro_console16.h"
 #include "retro_menu.h"
+#include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
 #include "display_settings.h"
 #include "console16_state.h"
@@ -19,7 +20,26 @@
 #include "scanlines.h"
 
 
-#if RR16_MD
+#if RR16_NG
+enum { A, B, C, D, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
+#define FACE_LAST D
+static const uint16_t bits[ACTIONS] = {16,32,64,128,256,512,1,2,4,8};
+static const char *names[ACTIONS] = {"A","B","C","D","Start","Coin","Up","Down","Left","Right"};
+static const wchar_t *settings[ACTIONS] = {L"A",L"B",L"C",L"D",L"Start",L"Coin",L"Up",L"Down",L"Left",L"Right"};
+static SDL_Scancode keys[2][ACTIONS] = {
+    {SDL_SCANCODE_W,SDL_SCANCODE_X,SDL_SCANCODE_C,SDL_SCANCODE_V,SDL_SCANCODE_RETURN,SDL_SCANCODE_LSHIFT,
+     SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT},
+    {SDL_SCANCODE_KP_8,SDL_SCANCODE_KP_9,SDL_SCANCODE_KP_6,SDL_SCANCODE_KP_4,SDL_SCANCODE_KP_ENTER,SDL_SCANCODE_KP_0,
+     SDL_SCANCODE_KP_5,SDL_SCANCODE_KP_2,SDL_SCANCODE_KP_1,SDL_SCANCODE_KP_3}};
+static SDL_GameControllerButton buttons[2][ACTIONS] = {
+    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
+     SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
+    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
+     SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
+static bool fire_held[2][4];
+static uint64_t fire_start[2][4];
+void rr16_host_discontinuity(void) {memset(fire_held,0,sizeof fire_held);}
+#elif RR16_MD
 #if RR_MD_SIX_BUTTONS
 enum { A, B, C, X, Y, Z, MODE, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
 #define FACE_LAST Z
@@ -92,7 +112,10 @@ static void load_bindings(void) {
      * bindings saved by the user. W must mean W on AZERTY and QWERTY alike. */
     keys[0][A] = rr_keyboard_letter(SDLK_w, SDL_SCANCODE_W);
     keys[0][B] = rr_keyboard_letter(SDLK_x, SDL_SCANCODE_X);
-#if RR16_MD
+#if RR16_NG
+    keys[0][C] = rr_keyboard_letter(SDLK_c, SDL_SCANCODE_C);
+    keys[0][D] = rr_keyboard_letter(SDLK_v, SDL_SCANCODE_V);
+#elif RR16_MD
     keys[0][C] = rr_keyboard_letter(SDLK_c, SDL_SCANCODE_C);
 #if RR_MD_SIX_BUTTONS
     keys[0][X] = rr_keyboard_letter(SDLK_a, SDL_SCANCODE_A);
@@ -108,6 +131,10 @@ static void load_bindings(void) {
     settings_path();
     if (!ini_file[0]) return;
     rr_display_load(ini_file, RR16_SECTION L".Video", &filter, &fullscreen);
+#if RR16_NG
+    rr_ng_set_enhanced(GetPrivateProfileIntW(L"NeoGeo.Runtime", L"enhanced",
+                         rr_ng_enhanced()?1:0, ini_file)==1);
+#endif
     wchar_t sec[64];
     for (int p = 0; p < 2; ++p) for (int mode = 0; mode < 2; ++mode) {
         section(sec, p, mode != 0);
@@ -170,9 +197,19 @@ static uint16_t controller_input(int p, uint64_t frame) {
     uint16_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
         if (state[keys[p][a]]) value |= bits[a];
+#if RR16_NG
+        if(a==COIN && p==0 && keys[0][COIN]==SDL_SCANCODE_LSHIFT && state[SDL_SCANCODE_RSHIFT])value|=bits[a];
+        bool down=pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]);
+        if(a<=FACE_LAST) {
+            if(down && !fire_held[p][a])fire_start[p][a]=frame;
+            fire_held[p][a]=down;
+            if(down && (!autofire || (((uint64_t)((frame-fire_start[p][a])*80.0*RR16_FRAME_SECONDS))&1)==0))value|=bits[a];
+        } else if(down)value|=bits[a];
+#else
         if (pads[p] && SDL_GameControllerGetButton(pads[p], buttons[p][a])) {
             if (!autofire || a > FACE_LAST || (((uint64_t)(frame * 80.0 * RR16_FRAME_SECONDS)) & 1) == 0) value |= bits[a];
         }
+#endif
     }
     if (pads[p]) {
         Sint16 x = SDL_GameControllerGetAxis(pads[p], SDL_CONTROLLER_AXIS_LEFTX);
@@ -282,7 +319,13 @@ static void draw_menu(SDL_Renderer *ren) {
         RR16_TEXT(56, tr("F3 Filter  F4 Fullscreen", "F3 Filtre  F4 Plein ecran"));
         RR16_TEXT(70, tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"));
         RR16_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
-#if !RR16_GUN && RR16_MD && RR_MD_SIX_BUTTONS
+        RR16_TEXT(96,rr_feedback_label());
+#if RR16_NG
+        RR16_TEXT(108, tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
+        RR16_TEXT(122, tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
+        RR16_TEXT(134, rr_ng_enhanced()?tr("F5 Enhanced Neo Geo: ON", "F5 Neo Geo amelioree : OUI"):
+                                      tr("F5 Enhanced Neo Geo: OFF", "F5 Neo Geo amelioree : NON"));
+#elif !RR16_GUN && RR16_MD && RR_MD_SIX_BUTTONS
         RR16_TEXT(108, tr("Arrows; W/X/C: A/B/C; Enter: Start", "Fleches; W/X/C : A/B/C; Entree : Start"));
         RR16_TEXT(122, tr("A/S/D: X/Y/Z; Right Shift: Mode", "A/S/D : X/Y/Z; Maj droite : Mode"));
 #elif !RR16_GUN && RR16_MD
@@ -297,13 +340,13 @@ static void draw_menu(SDL_Renderer *ren) {
             RR16_TEXT(122, RR16_GUN == RR_GUN_SCOPE ? tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
                 tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
             RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
-        } else RR16_TEXT(146, tr("Quick states: coming soon", "Sauvegardes rapides : a venir"));
+        } else RR16_TEXT(146, tr("F8 Save state | F9 Load state", "F8 Sauvegarder | F9 Charger"));
         RR16_TEXT(160, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
                                                 tr("Sound CPU: native code", "CPU audio : code natif"));
     } else if (menu == 2) {
         char line[96];
-        snprintf(line, sizeof(line), "Player %d  |  %s  |  Tab / Left-Right", player + 1,
-                 gamepad_page ? "Gamepad" : "Keyboard");
+        snprintf(line, sizeof(line), "%s %d | %s | Tab / <- ->", tr("Player", "Joueur"), player + 1,
+                 gamepad_page ? tr("Gamepad", "Manette") : tr("Keyboard", "Clavier"));
         RR16_TEXT(38, line);
         for (int a = (row / 8) * 8; a < ACTIONS && a < (row / 8) * 8 + 8; ++a) {
             if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + (a % 8) * 13, 232, 12, 35, 74, 110, 255);
@@ -345,12 +388,38 @@ static void pause_audio_output(SDL_AudioDeviceID audio, bool *playing) {
     *playing = false;
 }
 
+#if RR16_NG
+/* Only the explicit test event harness calls this read-only observation. */
+void rr_ng_ui_snapshot(FILE *file,const char *label,void *window) {
+    SDL_Window *win=window;int width,height;SDL_GetWindowSize(win,&width,&height);
+    fprintf(file,"{\"label\":");rr_ng_test_json(file,label);
+    fprintf(file,",\"frame\":%u,\"menu\":%d,\"player\":%d,\"row\":%d,\"gamepad_page\":%d,\"capturing\":%d,"
+        "\"filter\":%d,\"display_mode\":%d,\"fullscreen\":%s,\"french\":%d,\"autofire\":%d,\"width\":%d,\"height\":%d,\"title\":",
+        rr_ng_frame_index(),menu,player,row,gamepad_page,capturing,filter,fullscreen,
+        (SDL_GetWindowFlags(win)&SDL_WINDOW_FULLSCREEN)?"true":"false",french,autofire,width,height);
+    rr_ng_test_json(file,SDL_GetWindowTitle(win));fprintf(file,",\"version\":");rr_ng_test_json(file,rr_menu_build_label());
+    fprintf(file,",\"enhanced_mode\":%s",rr_ng_enhanced()?"true":"false");
+    fprintf(file,",\"status\":");rr_ng_test_json(file,status);
+    fprintf(file,",\"pads\":[%u,%u],\"controllers\":[%s,%s],\"keyboard\":[",
+        controller_input(0,rr16_input_frame()),controller_input(1,rr16_input_frame()),pads[0]?"true":"false",pads[1]?"true":"false");
+    for(int p=0;p<2;++p) {fprintf(file,"%s[",p?",":"");for(int a=0;a<ACTIONS;++a)fprintf(file,"%s%d",a?",":"",keys[p][a]);fprintf(file,"]");}
+    fprintf(file,"],\"key_labels\":[");
+    for(int a=0;a<4;++a) {if(a)fputc(',',file);rr_ng_test_json(file,rr_keyboard_name(keys[0][a]));}
+    fprintf(file,"],\"gamepad\":[");
+    for(int p=0;p<2;++p) {fprintf(file,"%s[",p?",":"");for(int a=0;a<ACTIONS;++a)fprintf(file,"%s%d",a?",":"",buttons[p][a]);fprintf(file,"]");}
+    fprintf(file,"]}\n");fflush(file);
+}
+#endif
+
 int rr16_sdl_main(const char *title, int scale) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     unsigned test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
+#if RR16_NG
+    if(!test_frames)test_frames=rr16_host_frame_limit();
+#endif
     const char *test_no_audio = getenv("RETRORECOMP_HOST_TEST_NO_AUDIO");
     bool video_clock_test = test_frames && test_no_audio && test_no_audio[0] == '1';
     wchar_t state_path[32768] = {0}; rr16_state_path(state_path, 32768);
@@ -408,13 +477,19 @@ int rr16_sdl_main(const char *title, int scale) {
             while (SDL_GetQueuedAudioSize(audio) > audio_preroll && SDL_GetTicks64() < until)
                 SDL_Delay(1);
         }
+#if RR16_NG
+        rr16_host_test_tick(win,ren);
+#endif
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) open_pads();
             if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page == 1) {
-                buttons[player][row] = (SDL_GameControllerButton)event.cbutton.button;
-                store_binding(); capturing = 0; status[0] = 0; continue;
+                if(pads[player] && event.cbutton.which==SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[player]))) {
+                    buttons[player][row] = (SDL_GameControllerButton)event.cbutton.button;
+                    store_binding(); capturing = 0; status[0] = 0;
+                }
+                continue;
             }
             if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSTICK) {
                 menu = menu == 3 ? 0 : 3; status[0] = 0;
@@ -440,6 +515,9 @@ int rr16_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
+            else if (key == SDL_SCANCODE_F12) {
+                rr_feedback_toggle();snprintf(status,sizeof status,"%s",rr_feedback_label());status_until=SDL_GetTicks64()+1800;
+            }
             else if (key == SDL_SCANCODE_F3) {
                 filter = rr_menu_next_filter(filter);
                 SDL_DestroyTexture(tex);
@@ -456,6 +534,16 @@ int rr16_sdl_main(const char *title, int scale) {
                 if (changed<0) snprintf(status,sizeof(status),"%s",tr("Config unavailable","Config inaccessible"));
             } else if (key == SDL_SCANCODE_F5 && RR16_GUN) {
                 menu = menu == 4 ? 0 : 4; row = 0; capturing = 0;
+#if RR16_NG
+            } else if (key == SDL_SCANCODE_F5) {
+                rr_ng_set_enhanced(!rr_ng_enhanced());
+                snprintf(status,sizeof(status),"%s",rr_ng_enhanced()?
+                    tr("Enhanced Neo Geo: ON", "Neo Geo amelioree : OUI"):
+                    tr("Enhanced Neo Geo: OFF", "Neo Geo amelioree : NON"));
+                status_until=SDL_GetTicks64()+1800;
+                if(!rr_display_save(ini_file,data_dir,L"NeoGeo.Runtime",L"enhanced",rr_ng_enhanced()?1:0))
+                    snprintf(status,sizeof(status),"%s",tr("Config unavailable", "Config inaccessible"));
+#endif
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
                 if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
@@ -499,10 +587,21 @@ int rr16_sdl_main(const char *title, int scale) {
             if (ok && load) { pause_audio_output(audio, &audio_playing); next = SDL_GetPerformanceCounter(); }
         }
         rr16_pause(menu != 0 && !pending_state);
-        uint16_t pad1 = controller_input(0, frame);
+#if RR16_NG
+        /* Explicit performance reports only; include CPU, audio preparation,
+         * drawing and Present, but exclude intentional pacing/menu waits. */
+        Uint64 work_started=rr_ng_performance_enabled() && !menu?SDL_GetPerformanceCounter():0;
+        uint64_t input_frame=rr16_input_frame();
+#else
+        uint64_t input_frame=frame;
+#endif
+        uint16_t pad1 = controller_input(0, input_frame);
         if (RR16_GUN) sample_gun(win, ren, pad1);
         if (!menu || pending_state) {
-            if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, frame))) { running = false; break; }
+#if RR16_NG
+            rr_ng_audio_queue_probe(audio_playing,audio?SDL_GetQueuedAudioSize(audio):0,(unsigned)have.freq,have.samples);
+#endif
+            if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, input_frame))) { running = false; break; }
             ++frame;
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
             if (n && audio) {
@@ -538,8 +637,16 @@ int rr16_sdl_main(const char *title, int scale) {
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
             rr_menu_text(ren, ox, oy, unit, 8, 183, status, 240, 240, 240);
         }
+#if RR16_NG
+        rr_ng_ui_test_present(ren);
+        Uint64 present_started=work_started?SDL_GetPerformanceCounter():0;
+#endif
         SDL_RenderPresent(ren);
         Uint64 now = SDL_GetPerformanceCounter();
+#if RR16_NG
+        if(work_started)rr_ng_host_cost(1000.0*(now-work_started)/frequency,
+                                       1000.0*(now-present_started)/frequency);
+#endif
         if (menu) { next = now; SDL_Delay(16); continue; }
         next += (Uint64)(RR16_FRAME_SECONDS * frequency);
         if (audio && audio_playing) {
@@ -559,13 +666,17 @@ int rr16_sdl_main(const char *title, int scale) {
             while (SDL_GetPerformanceCounter() < next) {}
         } else if (now - next > frequency / 4) next = now;
     }
+    double elapsed = (double)(SDL_GetPerformanceCounter() - test_started) / frequency;
+#if RR16_NG
+    rr_ng_host_timing(elapsed);
+#endif
     if (test_frames) {
-        double elapsed = (double)(SDL_GetPerformanceCounter() - test_started) / frequency;
         fprintf(stderr, "{\"host_frames\":%llu,\"wall_seconds\":%.6f,\"expected_seconds\":%.6f,"
                 "\"measured_fps\":%.6f,\"target_fps\":%.6f,\"video_clock_only\":%s}\n",
                 frame, elapsed, frame * RR16_FRAME_SECONDS, frame / elapsed, 1.0 / RR16_FRAME_SECONDS,
                 video_clock_test ? "true" : "false");
     }
+    rr_feedback_close_screen(ren);
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);

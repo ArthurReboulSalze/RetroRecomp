@@ -13,16 +13,21 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 PUBLIC_FILES = tuple("""
+smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
+tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
+tools/gameplay_feedback_selftest.py
 .gitattributes .gitignore .github/workflows/checks.yml
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
+docs/RUNTIME_FEEDBACK.md
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI.png
+MEDIAS/RetroRecomp_learning_cycle.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico
@@ -37,6 +42,7 @@ licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md licenses/SuperMarioWorldRecomp.md
+licenses/geolith.md licenses/lithogen.md
 licenses/upx-5.2.1-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
@@ -85,6 +91,32 @@ native/nes_machine_checks.c tools/nes_machine_selftest.py
 tools/nes_state_selftest.py
 smsrecomp/nes_machine.py smsrecomp/nes_catalog.py
 smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
+smsrecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
+native/m68000_backend_checks.c tools/m68000_backend_selftest.py
+smsrecomp/neogeo.py smsrecomp/neogeo_build.py smsrecomp/systems/neogeo.py
+smsrecomp/neogeo_catalogue.py smsrecomp/neogeo_conversion.py
+smsrecomp/neogeo_state_checks.py smsrecomp/neogeo_knowledge.py
+smsrecomp/neogeo_persistence_checks.py
+tests/test_neogeo_converter.py tools/build_neogeo_knowledge.py
+assets/neogeo-catalogue.json
+native/neogeo_input.h native/neogeo_lithogen.c native/neogeo_main.c native/neogeo_reference.h native/neogeo_reference.c
+tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py docs/NEOGEO.md
+smsrecomp/neogeo_codegen.py smsrecomp/neogeo_z80.py smsrecomp/neogeo_validation.py
+native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
+native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
+native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
+native/neogeo_lspc_checks.c
+native/neogeo_timer_checks.c native/neogeo_sound_checks.c native/neogeo_ym_checks.c
+tools/neogeo_campaign.py
+tools/neogeo_campaign_review.py
+native/neogeo_m68000_checks.c native/neogeo_z80_checks.c
+native/neogeo_host.c native/neogeo_host.h native/neogeo_state.c native/neogeo_state_validate.c native/neogeo_ym_state.inc
+native/neogeo_ui_test.c native/neogeo_controls_checks.c
+native/neogeo_persistence.c native/neogeo_persistence.h native/neogeo_persistence_checks.c
+native/neogeo_path_io.h
+tools/neogeo_persistence_selftest.py
+tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
+tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
 native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
@@ -202,6 +234,10 @@ def check_public_file(name: str, data: bytes) -> None:
         if len(data) > MAX_BYTES:
             raise ValueError('Cover references exceed their size limit.')
         validate_payload(json.loads(data))
+    if name == 'assets/neogeo-catalogue.json':
+        from smsrecomp.neogeo_catalogue import SHA256
+        if hashlib.sha256(data).hexdigest()!=SHA256:
+            raise ValueError('Neo Geo catalogue failed its integrity check.')
     if name == 'assets/compilation-knowledge.json.gz':
         import gzip, io
         from smsrecomp.knowledge import MAX_BYTES, validate_payload
@@ -293,7 +329,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
                 check_public_file(name, data)
             bundled[name] = digest(data)
         if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".bin",
-                                  ".sfc", ".smc", ".gen", ".smd", ".manifest", ".patterns")):
+                                  ".sfc", ".smc", ".gen", ".smd", ".neo", ".rrfb",
+                                  ".rrstate", ".rrsave", ".manifest", ".patterns", "bios.zip")):
             raise ValueError(f"Game data in executable: {name}")
     if set(bundled) != BUNDLED_FILES:
         raise ValueError("The executable is missing public resources.")

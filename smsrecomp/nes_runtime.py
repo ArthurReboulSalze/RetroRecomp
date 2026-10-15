@@ -91,7 +91,9 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--quick-save") && i + 1 < argc) quick_save = argv[++i], headless = true;
         else if (!strcmp(argv[i], "--quick-save-frame") && i + 1 < argc) quick_frame = atol(argv[++i]);
         else if (!strcmp(argv[i], "--headless")) headless = true;''')
+    host = '#include "runtime_feedback.h"\n' + host
     host = replace_once(host, '    AccCoinDriver drv;', '''
+    rr_feedback_start(!headless && cyc_run_native);
     if (quick_load && !retro_quick_file(quick_load, true)) {
         fprintf(stderr, "Quick state load failed\\n"); return 2;
     }
@@ -145,3 +147,5 @@ find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(game PRIVATE SDL2::SDL2)
 '''
     (project / 'CMakeLists.txt').write_text(cmake, encoding='utf-8')
+    from .feedback import stage
+    stage(project, 'nes', rom_sha256, cmake=False)

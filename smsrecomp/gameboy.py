@@ -191,8 +191,9 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
 
 
 def _known_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
+    from .feedback import gb_entries
     shared = record_for('gb', rom, ENGINE_REV).get('rom_entries', [])
-    return read_entries(_verified_trace(rom), len(rom.data)) | {
+    return gb_entries(rom) | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}
 
@@ -269,6 +270,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     project.mkdir(parents=True, exist_ok=True)
     destination = output.resolve()
     destination.mkdir(parents=True, exist_ok=True)
+    from .feedback import ingest
+    gameplay_feedback = ingest('gb', rom.sha256, destination, emit=emit)
     emit(f"ROM: {title}, {len(rom.data) // 1024} KB, CRC32 {rom.crc32:08X}; Game Boy DMG.")
     if gb_deep_validation:
         emit("Game Boy deep CPU validation enabled: extra instruction-by-instruction play checks "
@@ -416,7 +419,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "slots": 1, "rom_identity": "sha256"},
         "artwork": artwork, "windows_metadata": metadata,
         "game_tags": [], "peripheral": {"type": "joypad", "hardware_accuracy_validated": False},
-        "runtime_learning": False, "library_identity": rom.sha256,
+        "runtime_learning": True, "runtime_feedback": gameplay_feedback, "library_identity": rom.sha256,
         "host_timing": {"audio_backlog_target_ms_default": 20, "audio_callback_frames_requested": 256,
             "audio_startup": "one_device_period_plus_10ms", "audio_native_format": True,
             "apu_sample_rate": 44100,

@@ -1,5 +1,32 @@
 # Persistent game states
 
+Neo Geo snapshot payload v3 records the standard/enhanced machine mode while
+retaining the v2 core layout and file size. Fresh F9 restores that mode before
+loading fractional clock/timer state. The immediately preceding verified v2 ABI
+is explicitly accepted as standard mode, including the Metal Slug 3 crab-scene
+state used to qualify this change; other unknown ABIs remain rejected. The
+fractional peripheral phase is retained in the serialized master-clock remainder.
+The F5 preference is separate from the snapshot in `NeoGeo.Runtime/enhanced`.
+
+Current Neo Geo exports support ordinary MVS scores/NVRAM and a
+writable memory card independently of F8/F9. Changed data after guest interaction
+is atomically saved at clean exit to a game/BIOS-scoped 67,712-byte file under
+`datas/saves`; opening and closing without interaction creates nothing.
+Successful F9 restores both memories and can persist those restored values on
+exit. The ordinary format survives runtime-ABI updates for identical cartridge,
+BIOS and system/region identities. The corrected quick-state format additionally
+preserves volatile PVC protection RAM: 520,517 bytes on tested PVC boards,
+512,325 on the other current tested boards. See [current Neo Geo qualification](NEOGEO.md#cartridge-protections-and-ordinary-saves--14-october-2026).
+
+The Neo Geo profile uses the shared atomic F8/F9 file
+envelope, with its own system id and exact cartridge/selected-BIOS/runtime
+identity. Its frame-boundary snapshot includes both CPUs, LSPC, YM2610/SSG,
+RTC/timers, banks, work/save/card memory and the last displayed image. The file
+is about 498 KiB in `datas/states`; reading or missing F9 creates nothing.
+Fresh-process CPU/image/raw-PCM replays and invalid-state rejection are tested.
+The recorded replays qualify their tested paths rather than every game. See
+[Neo Geo state details and evidence](NEOGEO.md#persistent-f8f9-state).
+
 Mega Drive ABI-11 adds pointer-free cartridge state: Sega bank-page registers,
 serial EEPROM phase/lines/address/staged page and remaining guest-clock write
 time. F9 validates the full cartridge before mutation, rebuilds its ROM mapping

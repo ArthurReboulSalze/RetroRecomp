@@ -23,7 +23,7 @@ MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
 ROM_CANDIDATE_EXTENSIONS = frozenset({
     '.sms', '.gg', '.gb', '.zip', '.bin', '.rom', '.gbc', '.gba', '.nes',
     '.fds', '.sfc', '.smc', '.n64', '.z64', '.v64', '.md', '.gen', '.smd', '.pce',
-    '.a26', '.a78', '.7z', '.chd', '.cue', '.iso',
+    '.a26', '.a78', '.7z', '.chd', '.cue', '.iso', '.neo',
 })
 
 
@@ -95,12 +95,15 @@ from .game_gear import GAME_GEAR  # noqa: E402
 from .game_boy import GAME_BOY  # noqa: E402
 from .nes import NES  # noqa: E402
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO  # noqa: E402
+from .neogeo import NEOGEO  # noqa: E402
 
-PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO)
+PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO)
+# Availability in the converter does not imply the profile has left development.
+EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = ()
 
 
 def get_profile(system_id: str) -> SystemProfile:
-    for profile in PROFILES:
+    for profile in PROFILES + EXPERIMENTAL_PROFILES:
         if profile.id == system_id:
             return profile
     raise ValueError(f"Unsupported console profile: {system_id}")
@@ -117,9 +120,17 @@ def _sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
     return None
 
 
-def profile_for_path(path: Path, selected_system: str | None = None) -> SystemProfile:
+def profile_for_path(path: Path, selected_system: str | None = None, *, allow_experimental=False) -> SystemProfile:
     suffix = path.suffix.casefold()
     data = None
+    if suffix in ('.neo', '.zip'):
+        from ..neogeo import looks_like_neogeo_zip, parse_neo
+        detected_ng = suffix == '.neo' or selected_system == 'ng' or looks_like_neogeo_zip(path)
+        if detected_ng:
+            if suffix == '.neo': parse_neo(path)
+            if selected_system and selected_system != 'ng':
+                raise ConsoleMismatchError('Detected Neo Geo; choose Automatic or Neo Geo.', 'ng')
+            return NEOGEO
     if suffix == '.zip':
         suffix, data = archive_rom(path)
     matches = [profile for profile in PROFILES if suffix in profile.extensions]

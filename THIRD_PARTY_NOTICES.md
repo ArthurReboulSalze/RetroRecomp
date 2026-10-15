@@ -49,12 +49,29 @@ RetroRecomp's MIT license does not remove those limitations.
 | segagenesisrecomp and m68k-recomp-core (experimental Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
 | RetroPortingToolKit/snesrecomp (experimental SNES) | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences | [Notices](licenses/snesrecomp.md) |
 | SuperMarioWorldRecomp game analysis | PolyForm Noncommercial 1.0.0 | [Full text](licenses/SuperMarioWorldRecomp.md) |
+| Geolith (experimental Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
+| lithogen and the ROM-free Neo Geo layout catalogue | BSD-3-Clause; Rupert Carmichael and attributed MAME contributors | [Full text and attribution](licenses/lithogen.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.
 Generated games contain parts of that toolchain and the user's ROM. They are
 not automatically covered by the root MIT license and are not distributed here.
 
 ## Packaged Windows converter
+
+The experimental Neo Geo converter profile and developer tool use
+[Geolith](https://github.com/libretro/geolith-libretro/tree/2dc88e3fa72ff404213a65d6eb5bb33baa687f73)
+and [lithogen](https://github.com/carmiker/lithogen/tree/ef0f9bd94e31689def44b49e0f8351e0206b622d).
+Their BSD-3-Clause notices, Musashi/Z80/miniz MIT notices, YMFM/Speex notices,
+dr_flac alternatives, SDL2 and UPX terms are retained in its embedded component
+notice. The loader's MAME-derived layout/decryption notices remain in its source.
+No cartridge or BIOS files are distributed with the converter; the private
+prototype embeds only locally supplied data. See [prototype scope](docs/NEOGEO.md).
+
+The native Neo Geo prototype also reuses the existing qualified 68000 decoder
+and instruction semantics from the pinned GenesisRecomp/m68k-recomp-core
+integration. Their applicable notices remain embedded alongside Geolith's
+component notices. No proprietary BIOS is redistributed with Retro-Recomp.
+Free BIOS replacements are research candidates only, not bundled dependencies.
 
 | Component | Release build | Included notice |
 | --- | --- | --- |

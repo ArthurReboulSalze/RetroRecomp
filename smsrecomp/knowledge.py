@@ -26,6 +26,7 @@ FIELDS = {
     'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
     'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
              'spc_refs': (2, 262144), 'spc_ranges': (3, 262144)},
+    'ng': {'rom_entries': (2,262144), 'ram_refs': (4,4096), 'z80_refs': (4,32768)},
 }
 
 
@@ -40,6 +41,10 @@ def validate_payload(value: dict) -> dict:
         if not isinstance(games, dict) or len(games) > 4096:
             raise ValueError('Invalid compilation knowledge catalogue.')
         for sha, record in games.items():
+            if system=='ng':
+                from .neogeo_knowledge import validate_record
+                validate_record(sha,record)
+                continue
             if (not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{64}', sha)
                     or not isinstance(record, dict)
                     or not {'engine', 'rom_bytes'} <= record.keys()
@@ -102,6 +107,10 @@ def load(path: Path) -> dict:
 
 
 def record_for(system: str, rom, engine: str) -> dict:
+    if system=='ng':
+        # A cartridge hash alone is insufficient: its selected firmware and
+        # prepared multi-region identity must be supplied by the Neo Geo API.
+        return {}
     if (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')
             or os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE') == '0'):
         return {}
