@@ -12,7 +12,7 @@ import zlib
 
 from smsrecomp.batch import identify,convert_batch
 from smsrecomp.core import ConversionError
-from smsrecomp.neogeo import read_set,canonical_archive,selected_members
+from smsrecomp.neogeo import read_set,canonical_archive,selected_members,parent_archives
 from smsrecomp.neogeo_knowledge import key,validate_record
 from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
@@ -96,6 +96,31 @@ class NeoGeoConverterTests(unittest.TestCase):
                  {'name':'b','bytes':10,'crc32':123,'sha256':'b'*64})
         with self.assertRaisesRegex(ValueError,'Ambiguous'):
             selected_members(records,{'parent':'','files':[{'name':'p1','crc32':123,'optional':0}]})
+
+    def test_complete_clone_named_like_parent_does_not_require_parent_program(self):
+        path,catalogue=self.merged();catalogue[1]['parent']='base'
+        with ZipFile(path,'w') as archive:
+            for name,data in [('p1',b'clone program'),('p2',b'extra program'),
+                              ('m1',b'sound'),('c1',b'sprites')]:archive.writestr(name,data)
+        game=read_set(path,catalogue)
+        self.assertEqual(game.set_name,'clone')
+        self.assertEqual(parent_archives(game,catalogue),[])
+        staged=self.root/'selected.zip';canonical_archive(path,staged,catalogue[1])
+        self.assertEqual(read_set(staged,catalogue).set_name,'clone')
+
+    def test_split_clone_requires_an_independent_crc_matching_parent(self):
+        parent,catalogue=self.merged();catalogue[1]['parent']='base'
+        child=self.root/'clone.zip'
+        with ZipFile(child,'w') as archive:
+            archive.writestr('p1',b'clone program');archive.writestr('p2',b'extra program')
+        game=read_set(child,catalogue)
+        self.assertEqual(parent_archives(game,catalogue)[0][0],parent)
+        with ZipFile(parent,'w') as archive:archive.writestr('unrelated',b'not the required data')
+        with self.assertRaisesRegex(ValueError,'required cartridge components'):parent_archives(game,catalogue)
+        parent.write_bytes(child.read_bytes())
+        with self.assertRaisesRegex(ValueError,'separate base.zip'):parent_archives(read_set(parent,catalogue),catalogue)
+        parent.unlink()
+        with self.assertRaisesRegex(ValueError,'separate base.zip'):parent_archives(game,catalogue)
 
     def record(self):
         return {'engine':GEOLITH_REV,'loader':LITHOGEN_REV,'cart':'a'*64,'bios':'b'*64,

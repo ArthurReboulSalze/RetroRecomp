@@ -60,5 +60,19 @@ class FreshnessTests(unittest.TestCase):
         self.assertEqual(self.run_batch(overwrite=False,force=True)['status'],'existing')
         self.assertEqual(Path(result['executable']).read_bytes(),b'old kept')
 
+    def test_corrected_cover_reference_invalidates_only_automatic_artwork(self):
+        with patch('smsrecomp.cover_references.find',return_value=None) as reference:
+            self.run_batch()
+            self.assertEqual(self.run_batch()['status'],'current')
+            reference.return_value={'revision':'reviewed-front-v1'}
+            self.assertEqual(self.run_batch()['status'],'success')
+            self.assertEqual(self.run_batch()['status'],'current')
+            reference.return_value={'revision':'reviewed-front-v2'}
+            self.assertEqual(self.run_batch()['status'],'success')
+            self.item.cover=self.root/'selected.png';self.item.cover.write_bytes(b'explicit cover')
+            self.run_batch()
+            reference.return_value={'revision':'reviewed-front-v3'}
+            self.assertEqual(self.run_batch()['status'],'current')
+
 
 if __name__=='__main__':unittest.main()

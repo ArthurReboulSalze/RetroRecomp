@@ -590,6 +590,38 @@
         "https://raw.githubusercontent.com/libretro-thumbnails/Nintendo_-_Game_Boy/master/Named_Boxarts/Wizards%20_%20Warriors%20X%20-%20The%20Fortress%20of%20Fear%20%28USA%2C%20Europe%29.png"
       ],
       "source_page": "https://github.com/libretro-thumbnails/Nintendo_-_Game_Boy/blob/master/Named_Boxarts/Wizards%20_%20Warriors%20X%20-%20The%20Fortress%20of%20Fear%20%28USA%2C%20Europe%29.png"
+    },
+    {
+      "id": "ng-aof3-front",
+      "system_id": "ng",
+      "rom_sha256": [
+        "a1a2d865acd728f3709aa400f3ddb7602d122578b30faa06f349ae0a81d377ee"
+      ],
+      "rom_names": [
+        "aof3",
+        "Art of Fighting 3 - The Path of the Warrior"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/1e3f6125-207a-429e-b752-4e39d02a8b0c.png"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/6174-art-of-fighting-3-the-path-of-the-warrior"
+    },
+    {
+      "id": "ng-rotd-front",
+      "system_id": "ng",
+      "rom_sha256": [
+        "050c37bd8bef717a38a345202b7444a232d524918a8e0af8984b84bd28307512"
+      ],
+      "rom_names": [
+        "rotd",
+        "Rage of the Dragons"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/a170355b-25d7-4581-b92a-cc1fcf496d09.jpg"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/10076-rage-of-the-dragons"
     }
   ]
 }

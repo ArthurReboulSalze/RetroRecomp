@@ -39,7 +39,11 @@ def request(item, options):
         settings['bios'] = validate_bios(selected_bios_path(options.get('ng_bios') or options.get('bios')))
     if options.get('use_cover', True):
         from .cover_settings import load_settings
+        from .cover_references import find as cover_reference
         settings['prefer_3d'] = load_settings().get('box_3d', False)
+        reference = (cover_reference(item.system, digest(item.path), item.path.stem,
+                                    prefer3d=settings['prefer_3d']) if not item.cover else None)
+        settings['cover_reference'] = reference['revision'] if reference else None
     settings.update(engine=engine_stamp(), title=item.title, system=item.system, rom=item.sha256,
                     cover=digest(item.cover) if item.cover else None)
     return hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()

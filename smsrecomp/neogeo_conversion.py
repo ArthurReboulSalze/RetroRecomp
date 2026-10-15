@@ -16,7 +16,7 @@ from .core import executable_name, ConversionError
 from .library import atomic_json
 from .neogeo import read_set, validate_bios
 from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV
-from .neogeo_validation import extended_routes, compare
+from .neogeo_validation import extended_routes, compare, route_arguments
 from .paths import selected_bios_path
 
 
@@ -29,7 +29,7 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
         name, (frames, _) = row
         report = directory / (name + '.json')
         script = project / 'native-discovery' / (name + '.inputs')
-        run = subprocess.run([str(executable), '--headless', *(['--aes'] if name.startswith('aes-') else []), '--frames', str(frames),
+        run = subprocess.run([str(executable), '--headless', *route_arguments(name), '--frames', str(frames),
             '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report)],
             capture_output=True, timeout=max(240,frames/60*4))
         if run.returncode:

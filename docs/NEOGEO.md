@@ -1,5 +1,34 @@
 # Neo Geo development and qualification
 
+## Eight-game expansion — 15 October 2026
+
+Art of Fighting 3, Breakers Revenge, 2020 Super Baseball, Crossed Swords,
+Robo Army, Twinkle Star Sprites, Pochi and Nyaa Ver 2.00 and Rage of the Dragons
+are converted from locally copied, unchanged user inputs, with up to eight
+concurrent conversions. Every game has front artwork, including two approved
+replacements for misleading automatic results.
+
+The final exports pass 49 reference/packed comparisons: MVS attract/play/actions,
+AES attract/play and a 9,000-frame two-player route for each game, plus the
+enhanced route for Twinkle Star Sprites. Main and sound fallback are zero on
+these routes. Each game passes three MVS and two AES fresh-process F8/F9 points,
+invalid-state rejection and ordinary-save checks (reload when changed, or the
+explicit no-change case). Eight further enhanced comparisons also pass.
+
+Enhanced Twinkle Star Sprites initially reached 42 uncompiled cartridge
+locations (3,195 interpreted instructions). An explicit fresh enhanced
+discovery/replay route supplies their exact banked offsets; the regenerated
+packed executable matches both fresh and preceding reference results with zero
+fallback. These verified observations now enter the shared compilation bank.
+No CPU semantics or game code are patched to obtain that result.
+
+Ten captures per game show active gameplay, including two-player scenes,
+without obvious corruption in the sampled images. This is bounded visual and
+CPU/reference evidence, not complete-game, independent physical-hardware or
+physical-latency validation. The private reports, inputs and visual review are
+retained under `.build/neogeo-series-20261015`; the compiled games are delivered
+to `Export/Games/Neo Geo`. See [the knowledge update](COMPILATION_LIBRARY.md).
+
 The **Neo Geo cartridge profile is supported in release 1.0.2**, following
 the user's renewed gameplay validation. The earlier 24-cartridge campaign and
 ten additional cartridges below document specific CPU/reference and save-state
@@ -17,6 +46,30 @@ SM1 Z80 instructions, and observed guarded RAM variants execute native C.** The
 tested demo/play routes have zero interpreted instructions on both CPUs.
 Unknown instructions remain counted fallback and the window reports
 `Native code` or `Interpreter fallback` from actual execution.
+
+## Complete clone archives and reviewed artwork — 15 October 2026
+
+A complete clone archive no longer requires its parent merely because the
+catalogue declares one. The converter checks which required CRC-identified
+components are actually missing. A split set still requires an independent
+parent archive containing those components; the input cannot serve as its own
+parent. This fixes a complete Pochi and Nyaa Ver 2.00 archive named `pnyaa.zip`,
+which identifies correctly as `pnyaaa` but previously triggered parent loading.
+The cartridge contents and strict component checks are preserved.
+
+Reviewed front-cover references now support Neo Geo as well as the six earlier
+profiles. The approved Art of Fighting 3 and Rage of the Dragons fronts replace
+flyers returned by automatic artwork lookup. Only public image/source links and
+matching metadata enter the converter; images remain in the local download cache.
+A changed reference invalidates an automatic-artwork freshness receipt, so an
+otherwise current export can receive its corrected icon. A manually selected
+cover retains priority. See [shared knowledge](COMPILATION_LIBRARY.md).
+
+Developer qualification routes can explicitly select enhanced MVS with an
+`enhanced-` prefix, or enhanced AES with `aes-enhanced-`. Discovery and packed
+replay use the same mode. These additional routes retain the mandatory standard
+checks and let qualified observations cover paths reached under the faster CPU.
+They do not introduce game patches or change the timing of the original profile.
 
 ## Conversion work in release 1.0.2
 

@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 PUBLIC_FILES = tuple("""
 smsrecomp/freshness.py
 tests/test_freshness.py

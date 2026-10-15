@@ -68,11 +68,19 @@ def qualification_routes(set_name: str = '') -> dict:
     return routes
 
 
+def route_arguments(name: str) -> list[str]:
+    """Keep discovery and packed replay on the same explicitly named machine."""
+    aes = name.startswith('aes-')
+    enhanced = name.removeprefix('aes-').startswith('enhanced-')
+    return (['--aes'] if aes else []) + (['--enhanced'] if enhanced else [])
+
+
 def extended_routes(set_name: str, plans: dict | None = None, *, aes: bool = False) -> dict:
     """Add developer controller routes; the mandatory product checks stay on.
 
     The bounded batch qualifier passes these explicitly. They are not enabled
     for every end-user conversion, and cannot replace the standard routes.
+    An enhanced- prefix selects enhanced MVS; aes-enhanced- selects enhanced AES.
     """
     routes=qualification_routes(set_name)
     if aes:

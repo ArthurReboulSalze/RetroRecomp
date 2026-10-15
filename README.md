@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.0.2-d4a737" alt="Release version 1.0.2">
+  <img src="https://img.shields.io/badge/release-1.0.3-d4a737" alt="Release version 1.0.3">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -45,7 +45,8 @@ dedicated FPGA hardware.
   your exports. Mouse aiming is available for supported lightgun games.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
-- **Build on shared knowledge.** Verified hints for **1,061 exact cartridge
+  Reviewed cover links correct recurring mismatches during regeneration.
+- **Build on shared knowledge.** Verified hints for **1,069 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
 
 ## Play. Learn. Recompile.

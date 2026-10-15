@@ -12,7 +12,7 @@ from .paths import ASSETS
 
 RESOURCE = 'assets/cover-references.json'
 MAX_BYTES = 1024 * 1024
-SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes'))
+SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'))
 FIELDS = frozenset(('id', 'system_id', 'rom_sha256', 'rom_names', 'style',
                     'image_urls', 'source_page'))
 

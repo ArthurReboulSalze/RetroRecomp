@@ -2,10 +2,14 @@
 
 ## Current scope
 
-Release **1.0.2** supports seven console profiles within their documented scopes,
+Release **1.0.3** supports seven console profiles within their documented scopes,
 including **Neo Geo**, following renewed user gameplay validation.
 The following CPU/reference results remain valid for
 their tested paths, but do not establish complete rendering or hardware fidelity.
+The latest eight-game Neo Geo expansion adds 49 packed/reference comparisons
+and eight enhanced-mode comparisons with zero observed fallback; its qualified
+numeric observations bring the shared Neo Geo bank to 42 exact identities.
+See [the latest campaign](NEOGEO.md#eight-game-expansion--15-october-2026).
 Twenty-four exact cartridge revisions pass 87 packed/reference routes,
 826,800 compared native frames, zero observed 68000/Z80 fallback, 72 fresh
 snapshot replays and 624 invalid-state rejections. Six paths run 54,000 frames
@@ -18,7 +22,7 @@ separate extensions. See [Neo Geo evidence and limits](NEOGEO.md).
 Ten additional Neo Geo revisions pass 20 further packed/reference routes,
 108,000 frames and zero observed main/sound fallback, with 30 fresh snapshots
 and 260 malformed-state rejections. Their packed gameplay captures are inspected.
-The qualified bank now covers 34 exact Neo Geo cartridge/BIOS identities;
+The qualified bank now covers 42 exact Neo Geo cartridge/BIOS identities;
 new samples do not imply full playthroughs or a new hardware-fidelity measurement.
 The **Super Nintendo standard profile is no longer experimental**: ordinary
 LoROM/HiROM up to 4 MiB, PAL/NTSC, quick states, battery saves and Super Scope.
@@ -26,7 +30,7 @@ DSP-1/CX4 boards are also qualified within [their circuit scope](SNES.md).
 CX4 instruction interpretation stays visible. Other enhancement circuits,
 extended maps and DSP-1 firmware-dump commands remain unsupported.
 
-The bundled ROM-free bank includes **1,061 exact revisions**, including
+The bundled ROM-free bank includes **1,069 exact revisions**, including
 **82 Mega Drive and 44 Super Nintendo records**. Unknown eligible cartridges
 are analyzed from their own ROM; this is not a game allowlist. Shared hints do
 not bypass native/reference comparisons. Native code, internal CPU/state/frame/

@@ -223,6 +223,26 @@ def read_set(path: Path, catalogue: list[dict] | None = None, *, set_name=None) 
                      descriptor.get('parent', ''), descriptor.get('board', ''))
 
 
+def parent_archives(game: NeoGeoSet, catalogue: list[dict]) -> list[tuple[Path, tuple[dict, ...]]]:
+    """A complete clone needs no parent, regardless of its archive filename."""
+    if not game.parent:
+        return []
+    descriptor = next(row for row in catalogue if row['set'] == game.set_name)
+    present = {member['crc32'] for member in game.members}
+    missing = [part for part in descriptor['files'] if not part['optional'] and part['crc32'] not in present]
+    if not missing:
+        return []
+    parent = game.path.parent / (game.parent + '.zip')
+    if parent.resolve() == game.path.resolve() or not parent.is_file():
+        raise ValueError('Neo Geo split cartridge requires a separate ' + game.parent +
+                         '.zip parent archive for ' + ', '.join(part['name'] for part in missing) + '.')
+    records = archive_members(parent, hash_contents=True, cartridge_paths=True)
+    available = {record['crc32'] for record in records}
+    if any(part['crc32'] not in available for part in missing):
+        raise ValueError('Neo Geo parent archive does not contain the required cartridge components.')
+    return [(parent, records)]
+
+
 def validate_bios(path: Path) -> dict:
     members = archive_members(path, hash_contents=True)
     by_name = {item['name']: item for item in members}

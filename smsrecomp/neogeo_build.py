@@ -547,18 +547,13 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
                       qualification: dict | None = None, validation_workers: int = 1,
                       defer_to_packed: bool = False) -> Path:
     from .core import run
-    from .neogeo import read_set, validate_bios, parse_neo, combined_identity
+    from .neogeo import read_set, validate_bios, parse_neo, combined_identity, parent_archives
     from .library import atomic_json, entry_lock
     tool = preparation_tool()
     catalogue = load_catalogue(tool)
     game = read_set(path, catalogue, set_name=set_name)
     bios_info = validate_bios(bios)
-    parent_sources = []
-    if game.parent:
-        parent = path.parent / f'{game.parent}.zip'
-        if parent.is_file():
-            from .neogeo import archive_members
-            parent_sources.append((parent, archive_members(parent, hash_contents=True,cartridge_paths=True)))
+    parent_sources = parent_archives(game, catalogue)
     identity = combined_identity(game, bios_info, engine_revision=GEOLITH_REV, loader_revision=LITHOGEN_REV)
     if 'aes' in bios_info:
         identity = hashlib.sha256((identity+bios_info['aes']['sha256']).encode()).hexdigest()
@@ -658,7 +653,7 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     import subprocess
     from .neogeo_codegen import generate
     from .neogeo_z80 import generate as generate_sound
-    from .neogeo_validation import extended_routes,compare
+    from .neogeo_validation import extended_routes,compare,route_arguments
     from .library import atomic_json
     baseline=project/'reference-game.exe'
     shutil.copyfile(reference_executable,baseline)
@@ -669,7 +664,7 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     references={};seeds=set();ram=[];main_ram=[];physical={'p':set(),'bios':set()}
     def probe(binary,name,frames,script):
         destination=observations/(name+'.json')
-        result=subprocess.run([str(binary),'--headless',*(['--aes'] if name.startswith('aes-') else []),'--frames',str(frames),'--script',str(script),
+        result=subprocess.run([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
             '--rtc-seed','1760000000','--report',str(destination)],capture_output=True,timeout=max(180,frames/60*4))
         if result.returncode:raise RuntimeError(f'Neo Geo {name} failed (exit {result.returncode}).')
         return json.loads(destination.read_text(encoding='utf-8'))

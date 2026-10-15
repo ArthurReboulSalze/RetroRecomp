@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.0.2 has seven supported console profiles, including Neo Geo after
+Release 1.0.3 has seven supported console profiles, including Neo Geo after
 renewed gameplay tests. Support remains bounded to documented cartridge hardware.
 
 RetroRecomp converts supported Master System, Game Gear, original Game Boy

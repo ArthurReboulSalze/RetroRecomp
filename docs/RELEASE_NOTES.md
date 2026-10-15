@@ -1,3 +1,38 @@
+# RetroRecomp v1.0.3 — Stronger Neo Geo coverage and corrected covers
+
+This update brings the latest Neo Geo discoveries and reviewed front covers
+into the converter, ready for your next generation.
+
+- **More shared knowledge.** Verified hints now cover **1,069 exact cartridge
+  revisions**, including **42 Neo Geo cartridge/BIOS identities**. Eight new
+  Neo Geo records add about **331 KiB** compressed while preserving every
+  earlier record and the existing validation checks.
+- **Better Neo Geo coverage.** An additional enhanced-mode route discovers
+  banked code missed by the standard routes. On the tested Twinkle Star Sprites
+  sequence, the regenerated export drops from 3,195 interpreted 68000
+  instructions to zero, with matching reference results.
+- **Complete clone archives load correctly.** A self-contained Neo Geo revision
+  no longer incorrectly requires a separate parent archive. Split archives
+  still check for the components they actually need.
+- **Corrected front covers.** The approved Art of Fighting 3 and Rage of the
+  Dragons covers replace misleading flyers. Downloads are cached and reused.
+  A changed reviewed cover reference makes an automatic-artwork export eligible
+  for regeneration; a manually chosen cover keeps priority.
+
+Eight Neo Geo exports pass 49 fresh reference/packed comparisons, MVS/AES quick
+states and ordinary-save checks. All eight also pass enhanced-mode comparisons
+without observed main or sound CPU fallback. These checks cover retained
+gameplay paths, rather than complete playthroughs or physical hardware fidelity.
+
+Download **Retro-Recomp.exe** below, or use **Check for updates** in the app.
+Regenerate affected games to receive the new coverage and icons. Updating the
+converter preserves games, settings, downloaded covers and your local knowledge.
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.0.3/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.0.2 — Seven supported consoles, smarter regeneration
 
 **Neo Geo leaves experimental status**, following further gameplay tests.

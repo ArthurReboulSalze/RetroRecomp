@@ -1,5 +1,30 @@
 # Shared compilation knowledge
 
+## Eight additional Neo Geo cartridges — 15 October 2026
+
+Eight newly qualified exact cartridge/BIOS identities extend the release 1.0.3
+bank to **1,069 records, including 42 Neo Geo**.
+The snapshot contains **60,006,996 raw / 16,285,147 gzip bytes**,
+SHA-256 `1e0dd405b814685b54fc9fc7dd791ce9065ff5eba43900aa3d21e164317eef70`. Its compressed increase is
+**339,019 bytes**; every earlier record and every other console
+is preserved unchanged. The 64 MiB decompressed bound remains active.
+
+Fresh standard MVS/AES reference, packed-executable, state and ordinary-save
+gates precede promotion. Enhanced-mode discovery for Twinkle Star Sprites adds
+previously unreached banked cartridge paths: the same 9,000-frame two-player
+route goes from 3,195 interpreted 68000 instructions to zero,
+with matching reference CPU/hardware/image/PCM results. Only validated numeric
+references enter the bank; no game, BIOS, RAM dump, image, audio or save is added.
+AES observations remain separate and private. The eight additional enhanced
+replays also pass, without asserting full-game or physical-hardware fidelity.
+
+The release converter bundles this verified snapshot. Two user-approved Neo Geo
+front-cover references bring the separate link-only catalogue to 36 entries.
+All eight downloaded covers are reused successfully with network access blocked;
+the artwork itself stays in the local cache. Evidence:
+`.build/neogeo-series-20261015`. See [Neo Geo](NEOGEO.md) for the sampled games.
+This verified snapshot is included in release 1.0.3.
+
 ## Selective regeneration and Neo Geo modes — 15 October 2026
 
 Release 1.0.2 records the exported binary hash, converter/runtime inputs and

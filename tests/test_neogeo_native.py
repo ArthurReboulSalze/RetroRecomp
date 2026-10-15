@@ -115,6 +115,13 @@ class NeoGeoNativeGates(unittest.TestCase):
                     self.assertTrue(0<=int(p1,16)<256 and 0<=int(p2,16)<256)
                     self.assertTrue(0<=int(coin,16)<4 and 0<=int(start,16)<16)
 
+    def test_qualification_modes_keep_standard_aes_and_enhanced_separate(self):
+        from smsrecomp.neogeo_validation import route_arguments
+        self.assertEqual(route_arguments('two-player-explore'),[])
+        self.assertEqual(route_arguments('aes-play-reference'),['--aes'])
+        self.assertEqual(route_arguments('enhanced-two-player-reference'),['--enhanced'])
+        self.assertEqual(route_arguments('aes-enhanced-actions-native'),['--aes','--enhanced'])
+
     def test_extended_routes_cannot_replace_product_gates_or_inject_invalid_inputs(self):
         from smsrecomp.neogeo_validation import extended_routes,qualification_routes
         standard=qualification_routes('authored')

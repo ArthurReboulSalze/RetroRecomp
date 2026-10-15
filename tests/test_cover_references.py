@@ -73,6 +73,15 @@ class CoverReferenceTests(unittest.TestCase):
             path.write_bytes(b'{"format":1,"entries":[],"image":"not allowed"}')
             self.assertEqual(load(path)['entries'], [])
 
+    def test_neo_geo_reference_is_scoped_to_console_and_exact_archive(self):
+        value=payload();value['entries'][0]['system_id']='ng'
+        validate_payload(value)
+        with patch('smsrecomp.cover_references.load',return_value=value):
+            digest=value['entries'][0]['rom_sha256'][0]
+            self.assertIsNotNone(find('ng',digest,'renamed.zip'))
+            self.assertIsNone(find('sms',digest,'renamed.zip'))
+            self.assertIsNone(find('ng','a'*64,'another game.zip'))
+
     def test_reviewed_link_replaces_wrong_saved_cover_and_survives_rename(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); rom = root / 'Authored Game (Europe).sms'

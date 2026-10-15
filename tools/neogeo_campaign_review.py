@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.neogeo_validation import compare
+from smsrecomp.neogeo_validation import compare, route_arguments
 
 
 def replay(path,root):
@@ -18,11 +18,12 @@ def replay(path,root):
     digest=hashlib.sha256(binary.read_bytes()).hexdigest()
     if digest!=report['packed_candidate_sha256']:raise ValueError('Published candidate changed: '+report['executable'])
     name=report['rom']['set'];directory=root/name;directory.mkdir(parents=True,exist_ok=True)
-    route='sustained-play' if report.get('qualification_extra_routes') else 'play'
+    extras=report.get('qualification_extra_routes',{})
+    route=max(extras,key=lambda name:extras[name]['frames']) if extras else 'play'
     frames=next(r['frames'] for r in report['final_checks'] if r['name']==route)
     captures=directory/route;captures.mkdir(exist_ok=True)
     out=directory/(route+'.json');script=project/'native-discovery'/(route+'.inputs')
-    result=subprocess.run([str(binary),'--headless','--frames',str(frames),'--script',str(script),
+    result=subprocess.run([str(binary),'--headless',*route_arguments(route),'--frames',str(frames),'--script',str(script),
         '--rtc-seed','1760000000','--report',str(out),'--capture',str(captures),'--capture-every','900'],
         capture_output=True,timeout=max(300,frames/60*4))
     if result.returncode:raise RuntimeError(f'{name} capture replay failed: {result.returncode}')
