@@ -127,13 +127,13 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
     } else if (kind == 1) {
         char autofire[64];
-        snprintf(autofire, sizeof(autofire), TR("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), controls.autofire ? "ON" : "OFF");
+        snprintf(autofire, sizeof(autofire), TR("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
         const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
 #ifndef RETRO_GAME_GEAR
             TR("F5  Reduce sprite flicker", "F5  Reduire le scintillement"),
 #endif
-            autofire, "F7  English / Francais",
+            autofire, "F7  Next language",
             TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             TR("P / Enter  Pause", "P / Entree  Pause"),
             rr_feedback_label(),
@@ -162,7 +162,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
             if (i == row) box(r, 12, 58 + 12 * i, 232, 12, 40, 63, 81, 255);
             char line[100];
             const char *binding = gamepad ? button_name(controls.buttons[player][i]) : key_name(controls.keys[player][i]);
-            snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', controls_label(i), capture && i == row ? TR("Press...", "Appuie...") : binding);
+            snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', controls_label(i), capture && i == row ? TR("Press...", "Appuie...") : rr_tr(binding));
             text(r, 14, 59 + 12 * i, line, i == row ? 83 : 233, i == row ? 216 : 239, i == row ? 202 : 247);
         }
         const char *hint = gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");

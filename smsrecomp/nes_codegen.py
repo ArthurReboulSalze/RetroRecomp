@@ -13,6 +13,7 @@ import shutil
 
 from .core import ConversionError, replace_once, run
 from .paths import ROOT, ASSETS
+from .platforms import build_executable, cmake_target_args, build_jobs
 
 
 def _replace_count(source: str, old: str, new: str, count: int) -> str:
@@ -162,11 +163,11 @@ def prepare_compiler(engine: Path, cmake: str | Path, generator: str, emit) -> P
     if source_changed:
         codegen.write_text(patched, encoding='utf-8')
     build = stage / 'build'
-    compiler = build / 'Release/NESRecomp.exe'
+    compiler = build_executable(build, 'NESRecomp')
     if source_changed or not compiler.is_file():
         emit('Building NES compiler with bank-independent native ROM coverage…')
-        run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64'], timeout=600)
-        run([cmake, '--build', build, '--config', 'Release', '--parallel', '4'], timeout=1800)
+        run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args()], timeout=600)
+        run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs()], timeout=1800)
     if not compiler.is_file():
         raise ConversionError('NESRecomp produced no compiler executable.')
     return compiler

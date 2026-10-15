@@ -27,6 +27,7 @@ from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
 from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
+from .platforms import build_executable, cmake_target_args, build_jobs, target_id, claim_cache
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
@@ -198,7 +199,7 @@ def executable_name(title: str) -> str:
         value = 'Game'
     if value.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}:
         value = '_' + value
-    return value + '.exe'
+    return value + ('.exe' if os.name == 'nt' else '')
 
 
 def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
@@ -218,7 +219,15 @@ def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
 
 def toolchain() -> tuple[Path, str]:
     if os.name != "nt":
-        raise ConversionError("Retro-Recomp construit actuellement des exécutables Windows x64.")
+        try:
+            target_id()
+        except RuntimeError as exc:
+            raise ConversionError(str(exc)) from exc
+        required = ('cmake', 'ninja', 'cc', 'c++', 'git', 'pkg-config')
+        missing = [name for name in required if not shutil.which(name)]
+        if missing:
+            raise ConversionError('Missing Linux build tools: ' + ', '.join(missing))
+        return Path(shutil.which('cmake')), 'Ninja'
     vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
     installations = []
     if vswhere.exists():
@@ -242,6 +251,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
     cmake, generator = toolchain()
     dep = ROOT / ".deps"
     dep.mkdir(exist_ok=True)
+    claim_cache(dep)
     log = dep / "setup.log"
     engine = dep / "smsggrecomp"
     sdl = dep / "SDL"
@@ -310,20 +320,20 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         (source / "src/code_generator.c").write_text(generator_source, encoding="utf-8")
         (source / "src/main_sms.c").write_text(main_source, encoding="utf-8")
         marker.write_text(expected)
-    recomp = dep / "recompiler-build/Release/SmsRecomp.exe"
+    recomp = build_executable(dep / 'recompiler-build', 'SmsRecomp')
     compiled_marker = dep / "recompiler-build/compiled.sha256"
     if patch_changed or not recomp.exists() or not compiled_marker.exists() or compiled_marker.read_text() != expected:
         emit("Compilation du traducteur Z80 → C…")
-        run([cmake, "-S", source, "-B", dep / "recompiler-build", "-G", generator, "-A", "x64"], log=log)
-        run([cmake, "--build", dep / "recompiler-build", "--config", "Release", "--parallel", "4"], log=log)
+        run([cmake, "-S", source, "-B", dep / "recompiler-build", "-G", generator, *cmake_target_args()], log=log)
+        run([cmake, "--build", dep / "recompiler-build", "--config", "Release", "--parallel", build_jobs()], log=log)
         compiled_marker.write_text(expected)
     prefix = sdl / "install"
-    if not (prefix / "lib/SDL2-static.lib").exists():
+    if not (prefix / ('lib/SDL2-static.lib' if os.name == 'nt' else 'lib/libSDL2.a')).exists():
         emit("Compilation de SDL2 statique (première utilisation)…")
-        run([cmake, "-S", sdl, "-B", sdl / "build", "-G", generator, "-A", "x64",
+        run([cmake, "-S", sdl, "-B", sdl / "build", "-G", generator, *cmake_target_args(),
             "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
             "-DSDL_FORCE_STATIC_VCRT=ON", f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
-        run([cmake, "--build", sdl / "build", "--config", "Release", "--parallel", "4"], log=log)
+        run([cmake, "--build", sdl / "build", "--config", "Release", "--parallel", build_jobs()], log=log)
         run([cmake, "--install", sdl / "build", "--config", "Release"], log=log)
     return engine, prefix, cmake, generator
 
@@ -375,6 +385,21 @@ static bool reference_sample_irq(void) {
 def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: str = "ntsc") -> None:
     if standard not in ("ntsc", "pal"):
         raise ConversionError("Video standard must be 'ntsc' or 'pal'.")
+    # Linux window icons use SDL, independently of PE resources or loose files.
+    from io import BytesIO
+    icon_data = b''
+    if (game / 'game-icon.png').is_file():
+        from PIL import Image
+        with Image.open(game / 'game-icon.png') as image:
+            buffer = BytesIO()
+            image.convert('RGBA').save(buffer, format='BMP')
+            icon_data = buffer.getvalue()
+    legal = '\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in
+        ('THIRD_PARTY_NOTICES.md', 'licenses/SDL2.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md', 'licenses/xbr.md', 'licenses/Noto.md'))
+    (game / 'embedded_icon.h').write_text('#include <stddef.h>\nextern const unsigned char rr_icon_data[];\nextern const size_t rr_icon_size;\nextern const char rr_game_legal[];\n', encoding='ascii')
+    (game / 'embedded_icon.c').write_text('#include "embedded_icon.h"\nconst unsigned char rr_icon_data[]={' +
+        ','.join(str(n) for n in icon_data or b'\0') + '};\nconst size_t rr_icon_size=' + str(len(icon_data)) +
+        ';\nconst char rr_game_legal[]=' + json.dumps(legal, ensure_ascii=True) + ';\n', encoding='ascii')
     clocks = (engine / "runner/include/sms_clocks.h").read_text(encoding="utf-8")
     clocks = replace_once(clocks, "#define SMS_VBLANK_LINE       192", "#define SMS_VBLANK_LINE       193")
     clocks = clocks.replace("the frame (VBlank) interrupt latches at the start of line 192.",
@@ -675,6 +700,8 @@ static void smsrecomp_state_service(void);
     main = replace_once(main, "    if (interp){", '    if (interp){\n        _putenv_s("SMSRECOMP_REFERENCE", "1");')
     main = replace_once(main, 'fprintf(stderr,"[runner] SDL window init failed; running headless\\n");',
         '{ fprintf(stderr,"[runner] SDL window init failed\\n"); return 2; }')
+    if os.name != 'nt':
+        main = '#define _putenv_s(k,v) ((v)[0] ? setenv(k,v,1) : unsetenv(k))\n' + main
     (game / "runtime_main.c").write_text(main, encoding="utf-8")
     from .feedback import stage
     stage(game, rom.system_id, rom.sha256, cmake=False)
@@ -725,7 +752,7 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
     env["RETRO_RECOMP_LEARNING"] = "1"
     started = time.perf_counter()
     result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+        stderr=subprocess.PIPE, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
     completed = re.search(r"stopped after (\d+) frames; dispatch misses: (\d+)", text)
     percent = re.search(r"([\d.]+)% interp / ([\d.]+)% static", text)
@@ -808,6 +835,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             publish_result: bool = True,
             emit: Callable[[str], None] = print) -> Path:
     system = profile_for_path(rom_path)
+    if os.name != 'nt' and system.id not in ('sms', 'gg'):
+        raise ConversionError(f'{system.name}: this Linux prototype currently qualifies Master System and Game Gear only.')
     if system.id in ('md', 'snes'):
         from .console16 import convert16
         return convert16(rom_path, system_id=system.id, title=title, output=output,
@@ -948,7 +977,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     # between Python source and the packaged converter.
     native_source = prepare_native_source()
     build = game / "build-native"
-    executable = build / "Release" / f"{name}.exe"
+    executable = build_executable(build, name)
     scenarios = [("demo", []), ("play", ["60:S", "65:", "120:B", "125:", "240:R", "360:RA", "390:R", "600:"])
                  if system.id == "gg" else
                  ("play", ["120:B", "125:", "240:R", "360:RA", "390:R", "600:"])]
@@ -965,7 +994,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             write_code_patterns(game / "native.patterns", compiled_patterns)
             for stale in (game / "generated").glob("game_banked_ops_*.c"):
                 stale.unlink()
-        result = run([ROOT / ".deps/recompiler-build/Release/SmsRecomp.exe", "--game", game / "game.toml",
+        result = run([build_executable(ROOT / '.deps/recompiler-build', 'SmsRecomp'), "--game", game / "game.toml",
                       *(["--banked-step"] if banked else [])], log=log)
         if "FATAL" in result:
             raise ConversionError(result[-4000:])
@@ -977,13 +1006,13 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             coverage = json.loads((game / "generated/banked-coverage.json").read_text())
             emit(f"{coverage['compiled_positions']}/{coverage['rom_positions']} positions ROM traduites ; "
                  f"{coverage['unique_native_bodies']} corps natifs partagés.")
-        run([cmake, "-S", native_source, "-B", build, "-G", generator, "-A", "x64",
+        run([cmake, "-S", native_source, "-B", build, "-G", generator, *cmake_target_args(),
             f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
             f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
             f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
             f"-DRETRO_RECOMP_VERSION={__version__}",
             f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
-        run([cmake, "--build", build, "--config", "Release", "--parallel", "4"], log=log)
+        run([cmake, "--build", build, "--config", "Release", "--target", name, "--parallel", build_jobs()], log=log)
         added = 0
         patterns_added = 0
         for scenario, inputs in scenarios:
@@ -1094,7 +1123,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "quicksave": f"datas/games/{name}-{rom.sha256[:12]}/{name}-quicksave.state" if banked else None,
             "library_identity": rom.sha256, "runtime_learning": True,
             "runtime_feedback": gameplay_feedback},
-        "backend": backend, "native_coverage": coverage, "native_validation": validation,
+        "backend": backend, "target": target_id(), "native_coverage": coverage, "native_validation": validation,
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,
@@ -1111,7 +1140,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
                 "toggle": "F5" if system.id == "sms" else None,
                 "confirmed_reversing_list_stabilization": system.id == "sms",
                 "guest_status_uses_original_limit": True}},
-        "ui_languages": ["en", "fr"], "default_language": "en",
+        "ui_languages": ["en", "fr", "it", "es", "de", "zh", "ja", "ru"], "default_language": "en",
         "artwork": artwork,
         "windows_metadata": windows_metadata,
         "game_tags": list(game_tags(rom.crc32, rom.path.name)) if system.id == "sms" else [],

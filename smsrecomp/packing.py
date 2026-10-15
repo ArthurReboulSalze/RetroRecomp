@@ -14,6 +14,13 @@ UPX_SHA256 = "d20ebe0b7b22b6be968c8c34be61f94ddea12cb11462e2cec27f548ef9574df8"
 
 def compact_executable(path: Path) -> None:
     """Pack a disposable staged copy; raise before replacing an existing game."""
+    if os.name != 'nt':
+        # ELF compression is a separate qualification. Preserve the validated
+        # native binary and its execute permissions for the Linux prototype.
+        with path.open('rb') as stream:
+            if stream.read(4) != b'\x7fELF':
+                raise RuntimeError('Expected a native Linux ELF executable.')
+        return
     tool = ASSETS / "assets/tools/upx.exe"
     if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
         raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")

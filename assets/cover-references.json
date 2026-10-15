@@ -622,6 +622,38 @@
         "https://images.launchbox-app.com/a170355b-25d7-4581-b92a-cc1fcf496d09.jpg"
       ],
       "source_page": "https://gamesdb.launchbox-app.com/games/images/10076-rage-of-the-dragons"
+    },
+    {
+      "id": "ng-bangbead-front",
+      "system_id": "ng",
+      "rom_sha256": [
+        "5599869746da1ba3a6d66b24be7111842ac08fcf804b7b051c468c1e5324c87e"
+      ],
+      "rom_names": [
+        "bangbead",
+        "Bang Bead"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/ce758006-f845-4fd3-ac15-1a9a5c7dd8d8.png"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/419784-bang-bead"
+    },
+    {
+      "id": "ng-gowcaizr-front",
+      "system_id": "ng",
+      "rom_sha256": [
+        "c572530cb459d07f5c75e3606eb8584fd1608eb1c8ab2093e08a5368df45d8e5"
+      ],
+      "rom_names": [
+        "gowcaizr",
+        "Voltage Fighter Gowcaizer"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/0564b737-4184-4bd7-a992-9525d94b0d55.jpg"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/1471-voltage-fighter-gowcaizer"
     }
   ]
 }

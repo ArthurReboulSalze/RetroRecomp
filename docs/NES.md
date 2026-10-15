@@ -7,16 +7,40 @@ or a claim that every game runs without interpreter fallback.
 
 RetroRecomp accepts `.nes`, headered `.bin`/`.rom`, and single-ROM ZIP files.
 It generates standalone Windows games in `Games/Nintendo NES`, with no change
-to the source ROM. The converter keeps its ROM entry library under
-`datas/library/nes`; exported games do not write learning logs.
+to the source ROM. A native Linux development port shares the same compiler
+and cartridge observations; see [building](BUILDING.md). The converter keeps
+its ROM entry library under `datas/library/nes`. Optional fallback recording
+collects hints in memory and writes them only when the game closes; F12 toggles
+recording. See [runtime feedback](RUNTIME_FEEDBACK.md).
 
 The backend is pinned to
 [`mstan/nesrecomp` revision `1b0c621`](https://github.com/mstan/nesrecomp/tree/1b0c621a927db17afa9723bf456a89ad15809907).
 Its [PolyForm Noncommercial 1.0.0 license](../licenses/nesrecomp.md) applies
 separately from RetroRecomp's original MIT code. Generated games embed the
-component notices as Windows resources. The converter release contains no
+component notices as Windows resources or embedded Linux data. The converter release contains no
 NES ROM or generated commercial game executable. The pinned engine checkout
 is unchanged: compiler and machine adapters are staged in private build folders.
+
+## Linux runtime performance
+
+The settled PPU path caches only conditions invalidated by register accesses.
+Adjacent dot/half-dot calls are paired only when no CPU, APU or NMI event falls
+between them. Every pixel, latch transition and mapper event remains clocked;
+there is no frame skipping or simplified PPU mode.
+
+GNU builds profile the hardware through a private native runner, then
+link the native game with profile-guided optimization and interprocedural
+optimization when available. Training covers 240 boot frames and 600 input
+frames with PCM production. The instrumented runner is never exported;
+temporary compiler counters and audio are removed. These profiles are compiler
+data, not shared cartridge knowledge. Normal fresh native/reference checks
+still run on the final game.
+
+`tools/nes_ppu_selftest.py` compares the optimized PPU with the original staged
+path over 44,800 checkpoints: eight mapper configurations, PAL/NTSC and all four
+CPU/PPU alignments. Hidden PPU fields, framebuffer, bus/memory state and PCM
+are checked, alongside the separate clock/APU/Zapper/quick-state fixtures.
+This internal comparison is not an independent physical-hardware proof.
 
 ## Native coverage
 

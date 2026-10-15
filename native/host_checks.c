@@ -176,9 +176,9 @@ static void check_vdp_blank_column(void) {
 int main(int argc, char **argv) {
     assert(argc == 2);
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-    MultiByteToWideChar(CP_UTF8, 0, argv[1], -1, config_path, 32768);
+    rr_from_utf8(argv[1], config_path, 32768);
     /* Simulate a customized one-player configuration from 0.7. */
-    FILE *old = _wfopen(config_path, L"wb"); assert(old);
+    FILE *old = rr_fopen(config_path, L"wb"); assert(old);
     fputs("[Clavier]\r\nbouton1=C\r\n[Manette]\r\nbouton1=x\r\n[Video]\r\nfiltre=3\r\nmasquer_bord_gauche=0\r\n"
         "[ClavierJ2]\r\nhaut=I\r\nbas=K\r\ngauche=J\r\ndroite=L\r\nbouton1=N\r\nbouton2=M\r\nselect=Keypad 4\r\n"
         "[ManetteJ2]\r\nselect=back\r\n", old); fclose(old);
@@ -338,7 +338,14 @@ int main(int argc, char **argv) {
     assert(read_controls(1, NULL, true, system_keys) == 0);
     key(SDL_SCANCODE_F7); assert(controls.language == 1);
     controls_load(); assert(controls.language == 1);
+    for(int language=2;language<RR_LANGUAGE_COUNT;++language) {
+        key(SDL_SCANCODE_F7); assert(controls.language==language);
+        controls_load(); assert(controls.language==language && rr_language_get()==language);
+        assert(rr_language_from_code(rr_language_code(language))==language);
+        assert(strcmp(controls_text("Game paused","Jeu en pause"),"Game paused"));
+    }
     key(SDL_SCANCODE_F7); assert(controls.language == 0);
+    controls_load(); assert(controls.language==0);
 
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 1);
@@ -399,7 +406,20 @@ int main(int argc, char **argv) {
     draw_game(sample, 256, 192); assert(pixel(0, 0) == 0xFFFFFF && pixel(2, 2) == 0xFFFFFF);
     screenshot("pixels-nets.bmp");
     assert(controls_filter(FILTER_XBR)); draw_game(sample, 256, 192); screenshot("scale2x-aa.bmp");
-    assert(pixel(47, 0) != 0xFFFFFF && pixel(47, 0) != 0x2458A0);
+    /* xBR preserves a straight edge; unlike the former global blur, it blends
+     * diagonal stair steps. Exercise both properties in the real SDL output. */
+    assert(pixel(47, 0) == 0xFFFFFF || pixel(47, 0) == 0x2458A0);
+    for(int y=0;y<192;++y)for(int x=0;x<256;++x)
+        sample[y*256+x]=x<y?0xFFFFFFFF:0xFF2458A0;
+    draw_game(sample,256,192);
+    unsigned blended=0;
+    for(int y=8;y<96;++y)for(int x=8;x<96;++x) {
+        uint32_t color=pixel(x,y);
+        if(color!=0xFFFFFF && color!=0x2458A0)++blended;
+    }
+    assert(blended); screenshot("xbr-diagonal.bmp");
+    for(int y=0;y<192;++y)for(int x=0;x<256;++x)
+        sample[y*256+x]=0xFF000000|((x/16)%2?0x2458A0:0xFFFFFF);
     assert(controls_filter(FILTER_SCANLINES)); draw_game(sample, 256, 192);
     assert(pixel(0, 0) == 0xFFFFFF && pixel(0, 2) < 0xFFFFFF); screenshot("scanlines.bmp");
     assert(controls_filter(FILTER_SCALE2X)); r = game_rect(1920, 1080, &k);
@@ -539,7 +559,7 @@ int main(int argc, char **argv) {
         gun_x=128; gun_y=96;
     }
     assert(controls_phaser_dot_size(1) && controls_phaser_shape(PHASER_CROSS) && controls_phaser_color(PHASER_RED));
-    key(SDL_SCANCODE_F5); assert(menu == 4);
+    key(SDL_SCANCODE_F10); assert(menu == 4);
     key(SDL_SCANCODE_RIGHT); assert(controls.phaser_dot_size == 2);
     controls_load(); assert(controls.phaser_dot_size == 2);
     SDL_Event dot_click; SDL_zero(dot_click); dot_click.type=SDL_MOUSEBUTTONDOWN;
@@ -558,7 +578,7 @@ int main(int argc, char **argv) {
     screenshot("lightphaser-options.bmp");
     assert(controls_language(1)); draw_game(sample,256,192); ui_menu(renderer,4,0,gun_option_row,false,false,NULL,NULL);
     screenshot("lightphaser-options-fr.bmp"); assert(controls_language(0));
-    key(SDL_SCANCODE_F5); assert(!menu);
+    key(SDL_SCANCODE_F10); assert(!menu);
     draw_game(sample,256,192); screenshot("lightphaser-cross-green.bmp");
     test_mouse_buttons = SDL_BUTTON_RMASK; sample_controls(); lightphaser_position(&gx, &gy, &trigger);
     assert(gx == -1 && gy == -1 && trigger);

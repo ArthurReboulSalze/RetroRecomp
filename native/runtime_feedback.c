@@ -3,7 +3,12 @@
  * The wire layout is fixed little-endian and independently validated in Python. */
 #include "runtime_feedback.h"
 #include "runtime_feedback_config.h"
-#include <windows.h>
+#include "platform_io.h"
+#ifndef _WIN32
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +45,7 @@ static int add(const uint8_t *r) {
 }
 int rr_feedback_enabled(void) { return enabled; }
 int rr_feedback_toggle(void) { if(active && !finished)enabled=!enabled;return enabled; }
-const char *rr_feedback_label(void) { return enabled?"F12 Fallback recording: ON":"F12 Fallback recording: OFF"; }
+const char *rr_feedback_label(void) { return enabled?"F12 Record fallback hints: ON":"F12 Record fallback hints: OFF"; }
 int rr_feedback_pending(void) { return enabled && count!=0; }
 void rr_feedback_note(unsigned kind,uint32_t pc,uint32_t aux,const uint8_t *b,unsigned z) {
     if(!enabled || !kind || kind>RR_FB_NG_Z80 || !b || !z || z>16)return;
@@ -49,6 +54,7 @@ void rr_feedback_note(unsigned kind,uint32_t pc,uint32_t aux,const uint8_t *b,un
 }
 static int base_directory(wchar_t *path) {
     /* Read-only resolution, including Unicode and long renamed-game paths. */
+#ifdef _WIN32
     DWORD n=GetModuleFileNameW(NULL,path,32768);
     if(!n || n>=32000)return 0;
     wchar_t *slash=wcsrchr(path,L'\\');if(!slash)return 0;*slash=0;
@@ -60,34 +66,45 @@ static int base_directory(wchar_t *path) {
             memmove(path+4,path,(length+1)*sizeof(wchar_t));wmemcpy(path,L"\\\\?\\",4);
         }
     }
-    wcscat(path,L"\\datas");
+#else
+    if(!rr_executable_directory(path,32768))return 0;
+#endif
+    wcscat(path,RR_SLASH_W L"datas");
     return 1;
 }
 static int directory(wchar_t *path) {
     if(!base_directory(path))return 0;
-    if(!CreateDirectoryW(path,NULL) && GetLastError()!=ERROR_ALREADY_EXISTS)return 0;
-    wcscat(path,L"\\fallbacks");
-    return CreateDirectoryW(path,NULL) || GetLastError()==ERROR_ALREADY_EXISTS;
+    if(!rr_mkdir(path))return 0;
+    wcscat(path,RR_SLASH_W L"fallbacks");
+    return rr_mkdir(path);
 }
 static void preference_key(wchar_t *key) {
     char raw[80];snprintf(raw,sizeof raw,"%s.%s",RR_FEEDBACK_SYSTEM,RR_FEEDBACK_IDENTITY);
-    MultiByteToWideChar(CP_UTF8,0,raw,-1,key,80);
+    rr_from_utf8(raw,key,80);
 }
 static void flush(void) {
     if(!enabled || !count)return; /* No fallback: no file, directory or lock. */
     wchar_t root[32768],path[32768],temporary[32768],mutex_name[128],suffix[100];
     if(!directory(root))return;
     char name[100];snprintf(name,sizeof name,"%s-%s.rrfb",RR_FEEDBACK_SYSTEM,RR_FEEDBACK_IDENTITY);
-    if(!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,name,-1,suffix,100))return;
-    swprintf(path,32768,L"%ls\\%ls",root,suffix);
+    if(!rr_from_utf8(name,suffix,100))return;
+    swprintf(path,32768,L"%ls" RR_SLASH_W L"%ls",root,suffix);
+#ifdef _WIN32
     swprintf(mutex_name,128,L"Local\\RetroRecompFeedback-%08x-%ls",hash((const uint8_t*)path,wcslen(path)*sizeof(wchar_t)),suffix);
     HANDLE mutex=CreateMutexW(NULL,FALSE,mutex_name);if(!mutex)return;
     DWORD wait=WaitForSingleObject(mutex,5000);
     if(wait!=WAIT_OBJECT_0 && wait!=WAIT_ABANDONED) { CloseHandle(mutex);return; }
+#else
+    char lock_name[32768];wchar_t lock_wide[32768];
+    swprintf(lock_wide,32768,L"%ls.lock",path);
+    if(!rr_to_utf8(lock_wide,lock_name,sizeof lock_name))return;
+    int lock=open(lock_name,O_CREAT|O_RDWR,0600);if(lock<0)return;
+    if(flock(lock,LOCK_EX)){close(lock);return;}
+#endif
     /* Incoming session first: even a saturated previous file can receive new
      * useful hints. Never let accumulated sessions exceed LIMIT records. */
     unsigned incoming=count;int changed=1;
-    FILE *file=_wfopen(path,L"rb");
+    FILE *file=rr_fopen(path,L"rb");
     if(file) {
         uint8_t header[HEADER];
         if(fread(header,1,HEADER,file)==HEADER && !memcmp(header,"RRFB001\0",8) &&
@@ -124,17 +141,25 @@ static void flush(void) {
         put32(header+12,count);put32(header+16,dropped);
         memcpy(header+20,RR_FEEDBACK_SYSTEM,sizeof(RR_FEEDBACK_SYSTEM));
         memcpy(header+28,RR_FEEDBACK_IDENTITY,64);put32(header+92,hash(&records[0][0],count*RECORD));
+#ifdef _WIN32
         swprintf(temporary,32768,L"%ls.%lu.tmp",path,GetCurrentProcessId());
-        file=_wfopen(temporary,L"wb");int okay=0;
+#else
+        swprintf(temporary,32768,L"%ls.%lu.tmp",path,(unsigned long)getpid());
+#endif
+        file=rr_fopen(temporary,L"wb");int okay=0;
         if(file) {
             okay=fwrite(header,1,HEADER,file)==HEADER && fwrite(records,RECORD,count,file)==count;
             if(fflush(file))okay=0;
             if(fclose(file))okay=0;
         }
-        if(okay)okay=MoveFileExW(temporary,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=0;
-        if(!okay)DeleteFileW(temporary);
+        if(okay)okay=rr_replace(temporary,path);
+        if(!okay)rr_remove(temporary);
     }
+#ifdef _WIN32
     ReleaseMutex(mutex);CloseHandle(mutex);
+#else
+    flock(lock,LOCK_UN);close(lock);
+#endif
 }
 void rr_feedback_finish(void) {
     if(!active || finished)return;
@@ -143,10 +168,10 @@ void rr_feedback_finish(void) {
      * read or an unchanged launch still creates no settings file/directory. */
     if(enabled!=initial_enabled) {
         wchar_t path[32768],key[80];
-        if(base_directory(path) && (CreateDirectoryW(path,NULL) || GetLastError()==ERROR_ALREADY_EXISTS)) {
-            wcscat(path,L"\\Retro-Recomp.ini");
+        if(base_directory(path) && rr_mkdir(path)) {
+            wcscat(path,RR_SLASH_W L"Retro-Recomp.ini");
             preference_key(key);
-            WritePrivateProfileStringW(L"FallbackRecording",key,enabled?L"1":L"0",path);
+            rr_ini_set(L"FallbackRecording",key,enabled?L"1":L"0",path);
         }
     }
     finished=1;enabled=0;
@@ -159,9 +184,9 @@ void rr_feedback_start(int gameplay) {
     if(active && !setting) {
         wchar_t path[32768],key[80];
         if(base_directory(path)) {
-            wcscat(path,L"\\Retro-Recomp.ini");
+            wcscat(path,RR_SLASH_W L"Retro-Recomp.ini");
             preference_key(key);
-            enabled=GetPrivateProfileIntW(L"FallbackRecording",key,1,path)!=0;
+            enabled=rr_ini_int(L"FallbackRecording",key,1,path)!=0;
         }
     }
     initial_enabled=enabled;

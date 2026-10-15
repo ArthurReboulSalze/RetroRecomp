@@ -1,3 +1,4 @@
+#ifdef _WIN32
 /* Lazy, atomic Windows quick-state persistence. */
 #include <windows.h>
 #include <wchar.h>
@@ -55,3 +56,41 @@ bool rr_nes_state_file(const wchar_t *path, bool load) {
     free(buffer);
     return ok;
 }
+
+#else
+#include "platform_io.h"
+#include <stdint.h>
+#include <stdlib.h>
+#include "retro_nes.h"
+#include "retro_nes_config.h"
+void rr_nes_state_path(wchar_t *path,size_t capacity) {
+    if(!rr_executable_directory(path,capacity) || rr_wide_append(path,capacity,L"/datas/states/" RR_NES_STATE_NAME L".rrstate")) {
+        if(capacity)path[0]=0;
+    }
+}
+bool rr_nes_state_file(const wchar_t *path,bool load) {
+    if(!path || !*path)return false;
+    size_t size=rr_nes_state_size();uint8_t *data=malloc(size);if(!data)return false;
+    bool ok=false;
+    if(load) {
+        FILE *file=rr_fopen(path,L"rb");
+        if(file) { ok=fread(data,1,size,file)==size && fgetc(file)==EOF && !ferror(file); fclose(file);
+            if(ok)ok=rr_nes_state_load(data,size); }
+    } else if(rr_nes_state_save(data,size)) {
+        wchar_t dir[32768],temporary[32768];
+        if(rr_wide_copy(dir,32768,path)==0) {
+            wchar_t *last=wcsrchr(dir,L'/');if(last){*last=0;
+                for(wchar_t *p=dir+1;*p;++p)if(*p==L'/'){*p=0;rr_mkdir(dir);*p=L'/';}
+                if(rr_mkdir(dir)) {
+                    static unsigned serial;
+                    swprintf(temporary,32768,L"%ls.tmp-%lu-%u",path,rr_process_id(),++serial);
+                    FILE *file=rr_fopen(temporary,L"wbx");
+                    if(file){ok=fwrite(data,1,size,file)==size && rr_flush_file(file);if(fclose(file))ok=false;
+                        if(ok)ok=rr_replace(temporary,path);if(!ok)rr_remove(temporary);}
+                }
+            }
+        }
+    }
+    free(data);return ok;
+}
+#endif

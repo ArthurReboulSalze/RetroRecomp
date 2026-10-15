@@ -66,6 +66,13 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     for source_name, destination in (
         ('retro_menu.h', project / 'runtime/include/retro_menu.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
+        ('font6x10.h', project / 'runtime/src/font6x10.h'),
+        ('runtime_i18n.h', project / 'runtime/include/runtime_i18n.h'),
+        ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
+        ('platform_io.h', project / 'runtime/include/platform_io.h'),
+        ('platform_io.c', project / 'runtime/src/platform_io.c'),
+        ('runtime_catalog.inc', project / 'runtime/src/runtime_catalog.inc'),
+        ('runtime_glyphs.inc', project / 'runtime/src/runtime_glyphs.inc'),
         ('gb_menu.inc', project / 'runtime/src/gb_menu.inc'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('scanlines.h', project / 'runtime/include/scanlines.h'),
@@ -77,7 +84,10 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     runtime = project / "runtime/src/platform_sdl.cpp"
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
-                          '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
+                          '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "platform_io.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
+    source = '#include "embedded_resources.h"\n' + source
+    source = replace_once(source, '    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);',
+                          '    rr_set_window_icon(g_window);\n#ifndef _WIN32\n    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC,"1",SDL_HINT_DEFAULT);\n#endif\n    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);')
     source = replace_once(source, 'static SDL_Texture* g_texture = NULL;',
                           '''static SDL_Texture* g_texture = NULL;
 static SDL_Texture* g_rr_scale2x_texture = NULL;
@@ -133,6 +143,17 @@ static void rr_gb_toggle_menu(int kind);''')
     const fs::path resolved = fs::path(base) / "datas" / "Retro-Recomp-GameBoy.ini";
     SDL_free(base);
     return resolved.lexically_normal().string();
+}
+static void rr_gb_shared_language(bool save) {
+    char* base=SDL_GetBasePath(); if(!base)return;
+    const std::string path=(fs::path(base)/"datas"/"Retro-Recomp.ini").string();
+    SDL_free(base);
+    wchar_t wide[32768],value[16];
+    if(!rr_from_utf8(path.c_str(),wide,32768))return;
+    if(save) rr_ini_set(L"Interface",L"language",rr_language_wide(g_rr_language),wide);
+    else if(rr_ini_get(L"Interface",L"language",L"",value,16,wide)>0) {
+        g_rr_language=rr_language_from_wide(value); rr_language_set(g_rr_language);
+    }
 }''')
     source = replace_once(source, '''    FILE* file = fopen(path.c_str(), "w");
     if (!file) {
@@ -185,7 +206,7 @@ static void set_default_input_bindings(void) {''')
     g_render_filter_mode = GB_RENDER_FILTER_NEAREST;
     g_fullscreen = false;
     g_render_scaling_mode = GB_RENDER_SCALING_PIXEL_PERFECT;
-    g_rr_language = 0;
+    g_rr_language = 0; rr_language_set(0);
     g_rr_autofire = false;
     g_savestate_status.clear();''')
     source = replace_once(source, '''                if (strcmp(key, "audio.enabled") == 0) {''', '''                if (strcmp(key, "video.display_mode") == 0) {
@@ -207,7 +228,7 @@ static void set_default_input_bindings(void) {''')
                     continue;
                 }
                 if (strcmp(key, "ui.language") == 0) {
-                    g_rr_language = strcmp(value, "fr") == 0 ? 1 : 0;
+                    g_rr_language = rr_language_from_code(value); rr_language_set(g_rr_language);
                     continue;
                 }
                 if (strcmp(key, "input.autofire") == 0) {
@@ -219,7 +240,7 @@ static void set_default_input_bindings(void) {''')
         '''    fprintf(file, "video.filter=%d\\n", (int)g_render_filter_mode);
     fprintf(file, "video.display_mode=%d\\n", g_fullscreen ? (g_render_scaling_mode == GB_RENDER_SCALING_PIXEL_PERFECT ? 1 : 2) : 0);
     fprintf(file, "video.palette=%s\\n", g_palette_idx == 1 ? "mono" : "green");
-    fprintf(file, "ui.language=%s\\n", g_rr_language ? "fr" : "en");
+    fprintf(file, "ui.language=%s\\n", rr_language_code(g_rr_language));
     fprintf(file, "input.autofire=%d\\n", g_rr_autofire ? 1 : 0);
     fprintf(file, "audio.enabled=%d\\n", g_audio_output_enabled ? 1 : 0);''')
     source = replace_once(source, '''    update_effective_joypad_state();
@@ -551,6 +572,7 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
                                               dpad_selected, buttons_selected))
         request_joypad_interrupt(ctx);
     record_manual_input_state(current_cycles);''')
+    source = source.replace('    load_runtime_preferences();', '    load_runtime_preferences();\n    rr_gb_shared_language(false);')
     runtime.write_text(source, encoding="utf-8")
 
     platform_header = project / 'runtime/include/platform_sdl.h'
@@ -680,7 +702,12 @@ static void rr_gb_feedback(GBContext *ctx) {
 
     main = project / "game_main.c"
     source = main.read_text(encoding="utf-8")
-    source = '#include "runtime_feedback.h"\n' + source
+    source = '#include "runtime_feedback.h"\n#include "embedded_resources.h"\n' + source
+    source = replace_once(source, 'int main(int argc, char* argv[]) {', '''int main(int argc, char* argv[]) {
+    for(int i=1;i<argc;++i)if(!strcmp(argv[i],"--credits")) {
+        size_t length=0;const void *notice=rr_resource(102,&length);
+        return notice && fwrite(notice,1,length,stdout)==length?0:1;
+    }''')
     source = replace_once(source, '    GBContext* ctx = gb_context_create(&runtime_config);',
         '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
         '    GBContext* ctx = gb_context_create(&runtime_config);')
@@ -721,8 +748,10 @@ static void rr_gb_feedback(GBContext *ctx) {
 )''',
         '''    ${GBRT_DIR}/src/platform_sdl.cpp
     ${GBRT_DIR}/src/retro_menu.c
+    ${GBRT_DIR}/src/platform_io.c
 )''')
     source += '\nif(WIN32)\n    target_link_libraries(gbrt PUBLIC gdi32)\nendif()\n'
+    source += '\nif(NOT WIN32)\n    enable_language(ASM)\n    target_sources(game PRIVATE embedded_resources.c embedded_resources.S)\nendif()\n'
     source += f'target_compile_definitions(gbrt PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])\n'
     source += '\n# RetroRecomp Windows identity and box-art icon.\n'
     source += 'if(WIN32)\n    target_sources(game PRIVATE game_resources.rc)\nendif()\n'

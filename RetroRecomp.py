@@ -1,8 +1,11 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
+from smsrecomp.platforms import restore_system_library_path
+restore_system_library_path()
 from smsrecomp.core import ConversionError, convert, dependencies, read_rom
 from smsrecomp.library import GameMemory, list_games, library_root
 from smsrecomp.paths import ROOT, save_game_language, games_root, load_preferences
@@ -12,6 +15,10 @@ from smsrecomp.systems import MASTER_SYSTEM, PROFILES, discover_roms, profile_fo
 
 
 def main() -> int:
+    if sys.argv[1:] == ['_install-launcher'] and sys.platform == 'linux':
+        from smsrecomp.linux_desktop import publish_converter_launcher
+        publish_converter_launcher()
+        return 0
     if len(sys.argv) >= 3 and sys.argv[1] == '_snes-generate':
         import runpy
         engine = Path(sys.argv[2]).resolve()
@@ -85,11 +92,11 @@ def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
-    parser = argparse.ArgumentParser(description="Retro-Recomp: multi-console ROM → Windows x64 executable.")
+    parser = argparse.ArgumentParser(description="Retro-Recomp: multi-console ROM → local native executable.")
     sub = parser.add_subparsers(dest="command")
     build = sub.add_parser("convert", help="Convert a ROM into a standalone executable.")
     build.add_argument("rom", type=Path)
-    build.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
+    build.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
     build.add_argument("--title")
     build.add_argument("--output", type=Path)
     build.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto",
@@ -117,7 +124,7 @@ def main() -> int:
     build.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
     batch.add_argument("roms", type=Path, nargs="*")
-    batch.add_argument("--language", choices=("en", "fr"), default="en", help="Converter and game language (default: English).")
+    batch.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
     batch.add_argument("--rom-dir", type=Path, action="append", default=[],
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
     batch.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto")
@@ -127,8 +134,8 @@ def main() -> int:
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
     batch.add_argument("--passes", type=int, default=3)
     batch.add_argument("--frames", type=int, default=3600)
-    batch.add_argument("--jobs", type=int, default=3,
-        help="Concurrent game conversions across all console profiles (1–8, default 3).")
+    batch.add_argument("--jobs", type=int, default=3 if os.name == 'nt' else 1,
+        help="Concurrent game conversions (1–8, default 3 on Windows, 1 on Linux).")
     batch.add_argument("--no-overwrite", action="store_true",
         help="Skip an already generated game instead of regenerating it.")
     batch.add_argument('--force', action='store_true', help='Regenerate even if an export is up to date (still respects --no-overwrite).')
@@ -166,10 +173,11 @@ def main() -> int:
                 indent=2, ensure_ascii=False))
         elif args.command == "setup":
             dependencies()
-            from smsrecomp.gameboy import _dependencies
-            _dependencies(print)
-            from smsrecomp.nes import _dependencies as nes_dependencies
-            nes_dependencies(print)
+            if os.name == 'nt':
+                from smsrecomp.gameboy import _dependencies
+                _dependencies(print)
+                from smsrecomp.nes import _dependencies as nes_dependencies
+                nes_dependencies(print)
         elif args.command == "memory":
             if args.rom:
                 system = profile_for_path(args.rom)
@@ -263,7 +271,7 @@ def main() -> int:
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
-                    ng_bios=args.ng_bios or load_preferences().get('ng_bios'),
+                    ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
@@ -282,10 +290,10 @@ def main() -> int:
                     gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
-                    ng_bios=args.ng_bios or load_preferences().get('ng_bios'),
+                    ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
-                if result['status'] != 'success':
+                if result['status'] not in ('success', 'current'):
                     raise ConversionError(result['message'])
                 save_game_language(Path(result['executable']).parent, args.language)
         return 0

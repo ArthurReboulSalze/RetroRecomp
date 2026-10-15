@@ -31,8 +31,10 @@ def engine_stamp():
 
 
 def request(item, options):
+    from .platforms import target_id
     settings = {key: value for key, value in options.items()
                 if key not in ('gb_parallel_games', 'ng_parallel_games', 'ng_bios', 'bios')}
+    settings['target'] = target_id()
     if item.system == 'ng':
         from .neogeo import validate_bios
         from .paths import selected_bios_path

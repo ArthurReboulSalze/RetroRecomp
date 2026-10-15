@@ -96,3 +96,22 @@ is maintained separately in the public repository and linked from Credits.
 The executable download page must also link to that archive. No ROMs, box art,
 personal settings, compilation
 memories or generated commercial game executables accompany this release.
+
+## Linux menu bitmap font
+
+Linux drag-and-drop and protected cover accounts use tkinterdnd2/tkdnd and
+SecretStorage. See [licenses/Linux-desktop.md](licenses/Linux-desktop.md).
+The Linux converter also embeds the installed packages' complete notices in
+`third-party-runtime/`, including their cryptography dependencies.
+
+The Linux menu embeds the printable ASCII subset of X.Org's Misc Fixed 6x10
+bitmap, without resampling. Its original notice is: "Public domain font. Share
+and enjoy." The source and checksum are retained in `native/font6x10.h`.
+Source: https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/6x10.bdf/
+
+## Multilingual menu fonts
+
+The interface uses renamed subsets of Noto Sans CJK, and generated games use
+a small Noto-derived glyph atlas. Copyright Adobe and Google;
+SIL Open Font License 1.1. The complete notice is retained in
+[licenses/Noto.md](licenses/Noto.md). Full source fonts are not bundled.

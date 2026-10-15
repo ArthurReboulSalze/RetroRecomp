@@ -1,5 +1,36 @@
 # Shared compilation knowledge
 
+## Partial Neo Geo campaign included in 1.1.0 — 15 October 2026
+
+The fifty-game campaign was stopped at the user's request after its active
+conversions finished: **23 successes, one failed AES snapshot check, 26 not
+started**. Only the 23 successful exact cartridge/BIOS records are promoted.
+The failed 3 Count Bout observations stay private until full requalification.
+No remaining game or retry is launched by this knowledge update.
+
+The 1.1.0 snapshot contains **1,092 records,
+including 65 Neo Geo**: **53,561,244 raw /
+14,594,906 gzip bytes**, SHA-256 `80ee5ce98c53fede21ff64293c19b022393a01ffce40c767b26c89038d94ebc7`.
+All earlier numeric observations are preserved; the six other console banks
+are unchanged. Exact sorted P/BIOS roots use validated, bounded positive deltas
+instead of repeated region/offset pairs. Expansion and real-input consumer
+checks preserve the same addresses and reconstructed guards, with no instruction
+bytes added. The previous representation remains readable and the decompressed
+64 MiB limit remains in force. Despite 23 additions, the compressed snapshot is
+**1,690,241 bytes smaller** than release 1.0.3.
+
+Promotion rechecks the original fresh-reference/packed receipts: 161
+MVS/AES/enhanced route comparisons with zero observed main/sound fallback,
+three MVS and two AES fresh-process state points per game, invalid-state
+rejection and ordinary-save checks. The numeric knowledge does not depend on
+artwork availability or a later state-validator correction. Old EXEs are not
+regenerated here; every future conversion still performs its fresh gates.
+Only numeric reconstructible references are embedded, never the private library,
+ROMs, BIOS, RAM dumps, saves, covers or audio. AES observations remain separate.
+Evidence: `.build/neogeo-fifty-20261015/partial-qualification.json` and
+`partial-knowledge.json`. The partial campaign stays paused; only its verified
+numeric snapshot is distributed in the converter.
+
 ## Eight additional Neo Geo cartridges — 15 October 2026
 
 Eight newly qualified exact cartridge/BIOS identities extend the release 1.0.3

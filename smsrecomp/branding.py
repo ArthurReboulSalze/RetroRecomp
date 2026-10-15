@@ -41,7 +41,7 @@ def wordmark_rectangles(x=0, y=0, scale=1):
         x += (len(glyph[0]) + 1)*scale
 
 
-def apply_theme(app):
+def apply_theme(app, font_family='Segoe UI'):
     c = COLORS
     app.configure(bg=c['background'])
     app.option_add('*TCombobox*Listbox.background', c['field'])
@@ -50,7 +50,7 @@ def apply_theme(app):
     app.option_add('*TCombobox*Listbox.selectForeground', c['text'])
     style = ttk.Style(app)
     style.theme_use('clam')
-    style.configure('.', font=('Segoe UI', 10), background=c['background'], foreground=c['text'])
+    style.configure('.', font=(font_family, 10), background=c['background'], foreground=c['text'])
     style.configure('TButton', padding=(10, 7), background=c['button'], bordercolor=c['border'],
                     lightcolor=c['button'], darkcolor=c['button'], focuscolor=c['gold'],
                     focusthickness=1, anchor='center')
@@ -58,7 +58,7 @@ def apply_theme(app):
               foreground=[('disabled', c['disabled'])], bordercolor=[('focus', c['gold']), ('active', c['muted'])])
     style.configure('Primary.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
-                    padding=(14, 8), font=('Segoe UI', 10, 'bold'))
+                    padding=(14, 8), font=(font_family, 10, 'bold'))
     style.map('Primary.TButton', background=[('disabled', c['panel']), ('active', c['gold_hover'])],
               foreground=[('disabled', c['disabled']), ('!disabled', c['gold_text'])],
               lightcolor=[('active', c['gold_hover'])], darkcolor=[('active', c['gold_hover'])])
@@ -89,15 +89,15 @@ def apply_theme(app):
                     rowheight=31, borderwidth=1, bordercolor=c['border'],
                     lightcolor=c['border'], darkcolor=c['border'])
     style.configure('Treeview.Heading', background=c['button'], foreground=c['text'],
-                    padding=(8, 8), font=('Segoe UI', 10, 'bold'), bordercolor=c['border'],
+                    padding=(8, 8), font=(font_family, 10, 'bold'), bordercolor=c['border'],
                     lightcolor=c['button'], darkcolor=c['button'])
     style.map('Treeview.Heading', background=[('active', c['hover'])])
     style.map('Treeview', background=[('selected', c['selected'])], foreground=[('selected', c['text'])])
     style.configure('Muted.TLabel', foreground=c['muted'])
-    style.configure('Empty.TLabel', background=c['field'], foreground=c['muted'], font=('Segoe UI', 10))
-    style.configure('EmptyTitle.TLabel', background=c['field'], foreground=c['muted'], font=('Segoe UI', 10, 'bold'))
-    style.configure('Toolbar.TButton', font=('Segoe UI', 9), padding=(6, 7))
-    style.configure('Toolbar.Primary.TButton', font=('Segoe UI', 9, 'bold'), padding=(8, 7))
+    style.configure('Empty.TLabel', background=c['field'], foreground=c['muted'], font=(font_family, 10))
+    style.configure('EmptyTitle.TLabel', background=c['field'], foreground=c['muted'], font=(font_family, 10, 'bold'))
+    style.configure('Toolbar.TButton', font=(font_family, 9), padding=(6, 7))
+    style.configure('Toolbar.Primary.TButton', font=(font_family, 9, 'bold'), padding=(8, 7))
     style.configure('TLabelframe', bordercolor=c['subtle_border'])
     style.configure('TLabelframe.Label', foreground=c['gold_hover'])
     return style

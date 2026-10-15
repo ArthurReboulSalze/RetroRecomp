@@ -80,7 +80,9 @@ static void special_fields(void) {
     memset(g_ram, 0xAB, sizeof g_ram); memset(&g_z80, 0, sizeof g_z80); vdp_reset(false); psg_init();
     lightphaser_reset(false, sms_light_phaser_hcounter_offset);
     assert(smsrecomp_state_load() == RR_STATE_OK); unchanged(special, special_size);
-    assert(game_banked_step((uint8_t)g_bank[0], (uint8_t)g_bank[1], (uint8_t)g_bank[2]) == 2);
+    int step = game_banked_step((uint8_t)g_bank[0], (uint8_t)g_bank[1], (uint8_t)g_bank[2]);
+    if(step != 2) fprintf(stderr, "State fixture RAM NOP returned %d at PC=%04X\n", step, g_z80.pc);
+    assert(step == 2);
     assert(g_z80.pc == 0xC201); assert(!banked_fallback_steps);
     RetroStateIO restore = {original, original_size, 0, RR_STATE_CHECK, true};
     smsrecomp_machine_state(&restore); assert(restore.ok && restore.pos == original_size);

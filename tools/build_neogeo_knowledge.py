@@ -9,7 +9,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 from smsrecomp.knowledge import load,validate_payload,MAX_BYTES
-from smsrecomp.neogeo_knowledge import context,numeric_record,FIELDS,IDENTITY_FIELDS,validate_record
+from smsrecomp.neogeo_knowledge import context,numeric_record,FIELDS,IDENTITY_FIELDS,validate_record,expanded_record,compact_record
 from smsrecomp.neogeo import parse_neo
 from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
@@ -66,6 +66,7 @@ def merge_qualified(identity,previous,current):
     if previous is None:return current
     validate_record(identity,previous)
     if any(previous[field]!=current[field] for field in IDENTITY_FIELDS):return current
+    previous=expanded_record(identity,previous);current=expanded_record(identity,current)
     merged=copy.deepcopy(current)
     for field in FIELDS:
         merged[field]=[list(row) for row in sorted(set(map(tuple,previous[field]+current[field])))]
@@ -82,6 +83,13 @@ def build(reports: Path,base: Path,output: Path):
         identity,record=qualified_record(report)
         records[identity]=merge_qualified(identity,records.get(identity),record);added.append(identity)
     if not added:raise ValueError('No qualified Neo Geo conversions found.')
+    # Store exact numeric roots as deltas, retaining every qualified observation.
+    # Expansion is bounded and validated before any consumer reconstructs guards.
+    for identity,record in list(records.items()):
+        packed=compact_record(identity,record)
+        if expanded_record(identity,packed)!=expanded_record(identity,record):
+            raise ValueError('Neo Geo compact knowledge changed its observations.')
+        records[identity]=packed
     validate_payload(payload)
     if any(payload['consoles'][name]!=data for name,data in before.items() if name!='ng'):
         raise ValueError('Another console changed while adding Neo Geo knowledge.')

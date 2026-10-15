@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+from functools import lru_cache
 from io import BytesIO
 from html.parser import HTMLParser
 import json
@@ -61,8 +62,33 @@ class ArtworkError(ValueError):
     pass
 
 
-def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False) -> str | None:
+@lru_cache(maxsize=1)
+def _neogeo_title_aliases() -> dict[str,str]:
+    """Only collapse alternate titles explicitly joined in the pinned catalogue."""
+    from .neogeo_catalogue import catalogue
+    from .cover_titles import clean_title
+    aliases={}
+    for game in catalogue():
+        full=game['title']
+        if ' / ' not in full:continue
+        canonical=clean_title(full);primary=canonical.split(' / ',1)[0]
+        aliases.setdefault(normalized(canonical),set()).add(primary)
+    return {name:next(iter(values)) for name,values in aliases.items() if len(values)==1}
+
+
+def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallback=False,
+                 system_id: str | None = None) -> str | None:
     """Exact names first, then a clear title match with protected sequel numbers."""
+    if system_id=='ng':
+        from .neogeo_catalogue import catalogue
+        from .cover_titles import clean_title
+        descriptor=next((g for g in catalogue() if g['set']==rom_name.casefold()),None)
+        primary=clean_title(descriptor['title']).split(' / ',1)[0] if descriptor else ''
+        if primary and normalized(clean_title(title).split(' / ',1)[0])==normalized(primary):
+            # Short MAME identifiers contain layout digits, not necessarily a
+            # sequel number: fatfury1 and goalx3 name unnumbered game titles.
+            title={'flipshot':'Battle Flip Shot'}.get(descriptor['set'],primary)
+            rom_name=title
     for query in (rom_name, title):
         if sequence_numbers(rom_name) and sequence_numbers(query) != sequence_numbers(rom_name):
             continue
@@ -72,6 +98,14 @@ def choose_cover(names: list[str], rom_name: str, title: str, *, regional_fallba
         if len(matches) > 1:
             raise ArtworkError("Plusieurs covers portent le même nom ; choisis une image explicitement.")
     indices = matching_indices([Path(n).stem for n in names], rom_name, title)
+    if not indices and system_id=='ng':
+        from .cover_titles import clean_title
+        aliases=_neogeo_title_aliases();titles=[]
+        for name in names:
+            stem=Path(name).stem;primary=aliases.get(normalized(clean_title(stem)))
+            suffix=re.search(r'((?:\s*(?:\([^)]*\)|\[[^]]*\]))+)\s*$',stem)
+            titles.append(primary+(suffix[1] if suffix else '') if primary else stem)
+        indices=matching_indices(titles,rom_name,title)
     matches = [names[i] for i in indices]
     if len(matches) == 1:
         return matches[0]
@@ -393,7 +427,7 @@ def _download(rom_name: str, title: str, directory: Path, emit, system_id: str =
     result = retrieve(filename)
     if result is None:
         match = choose_cover(_catalog(directory, system_id, category, unavailable), rom_name, title,
-                             regional_fallback=True)
+                             regional_fallback=True,system_id=system_id)
         if not match:
             raise ArtworkError('No matching artwork in this Libretro collection.')
         filename = match
@@ -518,7 +552,7 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
         if system_id == 'sms' and cache_directory.name == 'sms' and legacy.is_dir():
             names = [p for p in legacy.rglob('*') if p.is_file() and p.suffix.lower() in FORMATS]
             try:
-                match = choose_cover([str(p.relative_to(legacy)) for p in names], rom_path.stem, title)
+                match = choose_cover([str(p.relative_to(legacy)) for p in names], rom_path.stem, title,system_id=system_id)
                 if match:
                     cover = _downloaded_cover(legacy / match)
                     if fresh(cover):
@@ -544,7 +578,7 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
             candidates = [p for p in pool if not downloaded or
                 (_download_style(p) == category and (not online or prefer3d or category != 'box3d'))]
             try:
-                match = choose_cover([str(p.relative_to(directory)) for p in candidates], rom_path.stem, title)
+                match = choose_cover([str(p.relative_to(directory)) for p in candidates], rom_path.stem, title,system_id=system_id)
             except ArtworkError:
                 if not online:
                     raise

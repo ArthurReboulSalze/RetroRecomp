@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 from threading import Barrier, Event
@@ -11,7 +12,55 @@ from smsrecomp.core import ConversionError, executable_name
 from smsrecomp.library import atomic_json
 
 
+EXT = '.exe' if os.name == 'nt' else ''
+NATIVE_MAGIC = b'MZ' if os.name == 'nt' else b'\x7fELF\x02\x01' + bytes(12) + b'\x3e\x00'
+
+def exports(folder):
+    return (p for p in folder.glob('*' + EXT) if p.is_file() and
+            not p.name.startswith('.') and p.suffix!='.desktop')
+
+
+def folder_entries(names):
+    names=set(names)
+    return names|{'datas'}|({name+'.desktop' for name in names}|{'.hidden'} if os.name!='nt' else set())
+
+
 class BatchTests(unittest.TestCase):
+    def test_a_foreign_target_export_is_never_claimed_for_replacement(self):
+        from smsrecomp.batch import _export_records
+        item = self.item('foreign', 1)
+        self.output.mkdir(parents=True)
+        candidate = self.output / ('Same title' + EXT)
+        foreign = b'\x7fELF\x02\x01' + bytes(12) + b'\xb7\x00'
+        candidate.write_bytes(foreign + b'[Retro-Recomp]\0' + item.sha256.encode() + b'\0')
+        report = self.output / 'datas/reports/foreign/conversion-report.json'
+        report.parent.mkdir(parents=True)
+        atomic_json(report, {'executable': candidate.name, 'rom': {'sha256': item.sha256}})
+        before = candidate.read_bytes()
+        self.assertEqual(list(_export_records(self.output)), [])
+        self.assertEqual(candidate.read_bytes(), before)
+
+    def test_cli_accepts_an_unchanged_successful_export(self):
+        import RetroRecomp
+        item = self.item('current-cli', 1)
+        result = {'games': [{'status': 'current', 'executable': str(self.root / 'current-game')}]}
+        with patch('sys.argv', ['RetroRecomp.py', 'convert', str(item.path)]), \
+                patch('RetroRecomp.convert_batch', return_value=result), \
+                patch('RetroRecomp.save_game_language'):
+            self.assertEqual(RetroRecomp.main(), 0)
+
+    def test_branded_elf_ownership_requires_one_exact_identity(self):
+        from smsrecomp.batch import _embedded_export_identity
+        with tempfile.TemporaryDirectory() as folder:
+            candidate = Path(folder) / 'Linux game'
+            marker = b'[Retro-Recomp]\0'
+            candidate.write_bytes(b'\x7fELF' + marker + b'1' * 64 + b'\0')
+            self.assertEqual(_embedded_export_identity(candidate), '1' * 64)
+            candidate.write_bytes(candidate.read_bytes() + marker + b'2' * 64 + b'\0')
+            self.assertIsNone(_embedded_export_identity(candidate))
+            candidate.write_bytes(b'not executable' + marker + b'1' * 64 + b'\0')
+            self.assertIsNone(_embedded_export_identity(candidate))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -22,7 +71,7 @@ class BatchTests(unittest.TestCase):
         self.addCleanup(packer.stop)
         # Match production path resolution even when TEMP uses a Windows 8.3 alias.
         self.root = Path(self.temp.name).resolve()
-        self.games_root = self.root / "jeux partagés"
+        self.games_root = self.root / "jeux partagÃƒÆ’Ã‚Â©s"
         self.output = self.games_root / "Master System"
 
     def item(self, directory, value):
@@ -34,7 +83,7 @@ class BatchTests(unittest.TestCase):
 
     def compiler(self, path, *, output, title, **options):
         output.mkdir(parents=True, exist_ok=True)
-        exe = output / "Same_title.exe"
+        exe = output / ('Same_title' + EXT)
         exe.write_bytes(path.read_bytes())
         (output / "conversion-report.json").write_text(json.dumps({"executable": exe.name,
             "rom": {"name": path.name},
@@ -50,9 +99,9 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(compiler.call_count, 2)
         self.assertFalse(compiler.call_args.kwargs['publish_result'])
         self.assertFalse(list(self.output.rglob('*.txt')))
-        names = {item.sha256: f'Same title (Europe, version {letter}).exe'
+        names = {item.sha256: f'Same title (Europe, version {letter}){EXT}'
                  for letter, item in zip('AB', sorted((first, second), key=lambda game: game.sha256))}
-        self.assertEqual({p.name for p in self.output.iterdir()}, {*names.values(), 'datas'})
+        self.assertEqual({p.name for p in self.output.iterdir()}, folder_entries(names.values()))
         for item in (first, second):
             report = self.output / "datas/reports" / item.key / "conversion-report.json"
             self.assertEqual(json.loads(report.read_text())["executable"], names[item.sha256])
@@ -65,12 +114,12 @@ class BatchTests(unittest.TestCase):
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             alone = convert_batch([first], self.games_root, emit=lambda text: None)
         self.assertEqual(Path(alone['games'][0]['executable']).name, names[first.sha256])
-        self.assertEqual({path.name for path in self.output.glob('*.exe')}, set(names.values()))
+        self.assertEqual({path.name for path in exports(self.output)}, set(names.values()))
 
     def test_failure_preserves_previous_executable_and_next_rom_still_runs(self):
         first, second = self.item("one", 1), self.item("two", 2)
         self.output.mkdir(parents=True)
-        old = self.output / (first.key+".exe")
+        old = self.output / (first.key+('' + EXT))
         old.write_bytes(b"previous good executable")
         def compile(path, **options):
             if path == first.path:
@@ -117,9 +166,9 @@ class BatchTests(unittest.TestCase):
         self.assertEqual([game['sha256'] for game in record['games']],
                          [first.sha256, second.sha256, third.sha256])
         self.assertEqual([Path(game['executable']).name for game in record['games']],
-                         [f'Same title (Europe, version {"A" if first.sha256 < second.sha256 else "B"}).exe',
-                          f'Same title (Europe, version {"A" if second.sha256 < first.sha256 else "B"}).exe',
-                          'Same title.exe'])
+                         [f'Same title (Europe, version {"A" if first.sha256 < second.sha256 else "B"}){EXT}',
+                          f'Same title (Europe, version {"A" if second.sha256 < first.sha256 else "B"}){EXT}',
+                          ('Same title' + EXT)])
         self.assertEqual({Path(game['executable']).parent.name for game in record['games']},
                          {'Master System', 'Game Gear'})
 
@@ -158,7 +207,7 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(compiler.call_count, 1)
         self.assertEqual((record['succeeded'], record['duplicates']), (1, 1))
         self.assertEqual(record['games'][1]['duplicate_of'], 'Strider')
-        self.assertEqual({path.name for path in self.output.glob('*.exe')}, {'Strider.exe'})
+        self.assertEqual({path.name for path in exports(self.output)}, {('Strider' + EXT)})
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
                    side_effect=AssertionError('Do not relabel identical ROM bytes')):
             again = convert_batch([sequel], self.games_root, emit=lambda message: None)
@@ -208,7 +257,7 @@ class BatchTests(unittest.TestCase):
             record = convert_batch([identify(path) for path in paths], self.games_root,
                                    jobs=2, emit=lambda message: None)
         self.assertEqual([Path(game['executable']).name for game in record['games']],
-                         ['Game (USA).exe', 'Game (Europe).exe'])
+                         [('Game (USA)' + EXT), ('Game (Europe)' + EXT)])
 
     def test_disabling_overwrite_skips_a_finished_game_without_touching_its_executable(self):
         item = self.item('one', 1)
@@ -227,7 +276,7 @@ class BatchTests(unittest.TestCase):
     def test_report_write_failure_does_not_replace_a_working_game(self):
         item = self.item("one", 1)
         self.output.mkdir(parents=True)
-        old = self.output / (item.key+".exe")
+        old = self.output / (item.key+('' + EXT))
         old.write_bytes(b"previous good executable")
         def write_report(path, value):
             if path.name == "conversion-report.json":
@@ -239,17 +288,17 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(old.read_bytes(), b"previous good executable")
 
     def test_readable_names_preserve_unicode_and_obey_windows_rules(self):
-        self.assertEqual(executable_name('Buggy Run'), 'Buggy Run.exe')
-        self.assertEqual(executable_name('Été : test? '), 'Été _ test_.exe')
-        self.assertEqual(executable_name('CON'), '_CON.exe')
-        self.assertEqual(executable_name('LPT1.foo'), '_LPT1.foo.exe')
+        self.assertEqual(executable_name('Buggy Run'), ('Buggy Run' + EXT))
+        self.assertEqual(executable_name('ÃƒÆ’Ã¢â‚¬Â°tÃƒÆ’Ã‚Â© : test? '), ('ÃƒÆ’Ã¢â‚¬Â°tÃƒÆ’Ã‚Â© _ test_' + EXT))
+        self.assertEqual(executable_name('CON'), ('_CON' + EXT))
+        self.assertEqual(executable_name('LPT1.foo'), ('_LPT1.foo' + EXT))
 
     def test_unknown_file_is_preserved_and_legacy_export_is_removed_without_archive(self):
         item = self.item('one', 1)
         self.output.mkdir(parents=True)
-        unrelated = self.output / 'Same title.exe'
+        unrelated = self.output / ('Same title' + EXT)
         unrelated.write_bytes(b'unrelated program')
-        legacy = self.output / (item.key + '.exe')
+        legacy = self.output / (item.key + ('' + EXT))
         legacy.write_bytes(b'old generated version')
         reports = self.output / 'datas/reports' / item.key
         reports.mkdir(parents=True)
@@ -258,7 +307,7 @@ class BatchTests(unittest.TestCase):
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual(result['succeeded'], 1)
-        self.assertEqual(Path(result['games'][0]['executable']).name, 'Same title (2).exe')
+        self.assertEqual(Path(result['games'][0]['executable']).name, ('Same title (2)' + EXT))
         self.assertEqual(unrelated.read_bytes(), b'unrelated program')
         self.assertFalse(legacy.exists())
         self.assertFalse((self.output / 'datas/previous-executables').exists())
@@ -270,7 +319,7 @@ class BatchTests(unittest.TestCase):
             item.title = 'New game title'
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual(result['succeeded'], 1)
-        self.assertEqual({p.name for p in self.output.glob('*.exe')}, {'New game title.exe'})
+        self.assertEqual({p.name for p in exports(self.output)}, {('New game title' + EXT)})
         self.assertFalse((self.output / 'datas/previous-executables').exists())
 
     def test_old_revision_report_cannot_claim_current_branded_export_or_source_name(self):
@@ -278,8 +327,8 @@ class BatchTests(unittest.TestCase):
         item = self.item('current', 1)
         old = self.item('old', 2)
         self.output.mkdir(parents=True)
-        target = self.output / 'Same title.exe'
-        target.write_bytes(b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00')
+        target = self.output / ('Same title' + EXT)
+        target.write_bytes((NATIVE_MAGIC + b'\x00[Retro-Recomp]\x00') + item.sha256.encode('ascii') + b'\x00')
         for key, identity, source in (('current', item.sha256, item.path.name),
                                       ('old', old.sha256, 'cartridge.bin')):
             report = self.output / 'datas/reports' / key / 'conversion-report.json'
@@ -293,14 +342,14 @@ class BatchTests(unittest.TestCase):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual((result['succeeded'], result['duplicates']), (1, 0))
         self.assertEqual(Path(result['games'][0]['executable']), target)
-        self.assertEqual({p.name for p in self.output.glob('*.exe')}, {target.name})
+        self.assertEqual({p.name for p in exports(self.output)}, {target.name})
 
     def test_conflicting_reports_do_not_claim_an_unbranded_file(self):
         from smsrecomp.batch import _OutputNames
         first, second = self.item('first', 1), self.item('second', 2)
         self.output.mkdir(parents=True)
-        target = self.output / 'Same title.exe'
-        original = b'MZ unrelated executable'
+        target = self.output / ('Same title' + EXT)
+        original = (NATIVE_MAGIC + b' unrelated executable')
         target.write_bytes(original)
         for item in (first, second):
             report = self.output / 'datas/reports' / item.key / 'conversion-report.json'
@@ -320,33 +369,33 @@ class BatchTests(unittest.TestCase):
         def generated(item):
             # Real EXEs also contain ABI/build hashes; only the adjacent
             # branded cartridge marker identifies the game after report loss.
-            return (b'MZ\x00[Retro-Recomp]\x00' + item.sha256.encode('ascii') + b'\x00' +
+            return ((NATIVE_MAGIC + b'\x00[Retro-Recomp]\x00') + item.sha256.encode('ascii') + b'\x00' +
                     b'authored state ABI\x00' + b'1' * 64 + b'\x00')
-        base = self.output / 'Same title.exe'
+        base = self.output / ('Same title' + EXT)
         base.write_bytes(generated(first))
-        revision = self.output / 'Same title (2).exe'
+        revision = self.output / ('Same title (2)' + EXT)
         revision.write_bytes(generated(second))
-        duplicate = self.output / 'Same title (3).exe'
+        duplicate = self.output / ('Same title (3)' + EXT)
         duplicate.write_bytes(generated(first))
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([second, first], self.games_root, emit=lambda text: None)
-        names = {item.sha256: f'Same title (Europe, version {letter}).exe'
+        names = {item.sha256: f'Same title (Europe, version {letter}){EXT}'
                  for letter, item in zip('AB', sorted((first, second), key=lambda game: game.sha256))}
         self.assertEqual([Path(game['executable']).name for game in result['games']],
                          [names[second.sha256], names[first.sha256]])
         self.assertEqual(result['succeeded'], 2)
         self.assertFalse(duplicate.exists())
-        self.assertEqual({p.name for p in self.output.glob('*.exe')}, set(names.values()))
+        self.assertEqual({p.name for p in exports(self.output)}, set(names.values()))
 
     def test_embedded_hash_without_runtime_brand_does_not_claim_an_unknown_file(self):
         item = self.item('one', 1)
         self.output.mkdir(parents=True)
-        unknown = self.output / 'Same title.exe'
-        original = b'MZ\x00' + item.sha256.encode('ascii') + b'\x00'
+        unknown = self.output / ('Same title' + EXT)
+        original = (NATIVE_MAGIC + b'\x00') + item.sha256.encode('ascii') + b'\x00'
         unknown.write_bytes(original)
         with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
-        self.assertEqual(Path(result['games'][0]['executable']).name, 'Same title (2).exe')
+        self.assertEqual(Path(result['games'][0]['executable']).name, ('Same title (2)' + EXT))
         self.assertEqual(unknown.read_bytes(), original)
 
     def test_single_rom_default_uses_the_shared_folder_and_keeps_custom_options(self):
@@ -356,11 +405,11 @@ class BatchTests(unittest.TestCase):
                 patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
             executable = core.convert(item.path, title='Custom title', frames=5, passes=2,
                                       online_cover=False, use_cover=False, icon_tags=False)
-        self.assertEqual(executable, self.output / 'Custom title.exe')
+        self.assertEqual(executable, self.output / ('Custom title' + EXT))
         self.assertEqual(compiler.call_args.kwargs['frames'], 5)
         self.assertEqual(compiler.call_args.kwargs['passes'], 2)
         self.assertFalse(compiler.call_args.kwargs['icon_tags'])
-        self.assertEqual({p.name for p in self.output.iterdir()}, {'Custom title.exe', 'datas'})
+        self.assertEqual({p.name for p in self.output.iterdir()}, folder_entries({'Custom title'+EXT}))
 
     def test_each_rom_keeps_its_own_video_override_in_a_mixed_batch(self):
         first, second = self.item('one', 1), self.item('two', 2)
@@ -444,7 +493,7 @@ class BatchTests(unittest.TestCase):
             record = convert_batch([identify(path) for path in paths], self.games_root,
                                    emit=lambda text: None)
         self.assertEqual((record['succeeded'], record['unrecognized'], record['failed']), (2, 1, 0))
-        self.assertEqual({path.parent.name for path in self.games_root.rglob('Same title.exe')},
+        self.assertEqual({path.parent.name for path in self.games_root.rglob(('Same title' + EXT))},
                          {'Master System', 'Game Gear'})
         self.assertEqual(before, {path: path.read_bytes() for path in before})
 

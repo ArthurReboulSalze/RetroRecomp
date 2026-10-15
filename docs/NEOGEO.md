@@ -1,5 +1,30 @@
 # Neo Geo development and qualification
 
+## Paused campaign and local converter update — 15 October 2026
+
+Twenty-three further cartridges pass 161 exact-input reference/packed comparisons,
+with zero observed 68000 and Z80 fallback on the sampled MVS attract/play/actions,
+AES attract/play, two-player and enhanced two-player routes. All pass three MVS
+and two AES fresh-process F8/F9 points plus ordinary-save checks. Their verified
+numeric observations are included in the local converter's 65-record Neo Geo bank.
+These results do not establish full-game, electrical or physical-latency fidelity.
+
+The user paused the campaign after the 24 started cartridges; 26 remain queued.
+3 Count Bout failed an AES restore because REG_POUTPUT, a full eight-bit output
+register, was incorrectly checked as a boolean. The common validator now checks
+only the preceding six boolean latches; all 256 output values and malformed
+latches have authored native regression checks. The failed game is excluded
+from promotion and still needs full requalification when the campaign resumes.
+Earlier game EXEs are preserved by this update; newly generated games receive
+the validator fix and still undergo all fresh comparison and save-state gates.
+
+Known catalogue alternate titles and short archive identifiers now improve
+Neo Geo front-art matching while preserving sequels and prototype editions.
+Bang Bead and Voltage Fighter Gowcaizer have user-approved front replacements;
+only links are bundled. All 50 prefetched covers are reused with network access
+blocked. No further cartridge conversions are started for this local update.
+See [the shared knowledge update](COMPILATION_LIBRARY.md).
+
 ## Eight-game expansion — 15 October 2026
 
 Art of Fighting 3, Breakers Revenge, 2020 Super Baseball, Crossed Swords,

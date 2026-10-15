@@ -1,6 +1,6 @@
 /* Explicit opt-in host event tests; no diagnostics in ordinary runs. */
 #include <SDL.h>
-#include <windows.h>
+#include "platform_io.h"
 #include <stdlib.h>
 #include <string.h>
 #include "neogeo_host.h"
@@ -33,16 +33,24 @@ static void key_event(const char *name) {
 void rr_ng_ui_test_tick(void *window,void *renderer) {
     (void)renderer;
     if(!initialized) {
-        initialized=1;const wchar_t *path=_wgetenv(L"RETRORECOMP_NG_UI_SCRIPT"),*output=_wgetenv(L"RETRORECOMP_NG_UI_LOG");
+        initialized=1;
+#ifdef _WIN32
+        const wchar_t *path=_wgetenv(L"RETRORECOMP_NG_UI_SCRIPT"),*output=_wgetenv(L"RETRORECOMP_NG_UI_LOG");
         if(!path || !output)return;
-        script=_wfopen(path,L"rb");ui_log=_wfopen(output,L"wb");if(!script || !ui_log)exit(5);next_line();
+        script=rr_fopen(path,L"rb");ui_log=rr_fopen(output,L"wb");
+#else
+        const char *path=getenv("RETRORECOMP_NG_UI_SCRIPT"),*output=getenv("RETRORECOMP_NG_UI_LOG");
+        if(!path || !output)return;
+        script=fopen(path,"rb");ui_log=fopen(output,"wb");
+#endif
+        if(!script || !ui_log)exit(5);next_line();
     }
     if(!script)return;
     while(has_line && due==tick) {
         unsigned p;int value;char name[64];
         if(!strncmp(command,"key ",4))key_event(command+4);
-        else if(!strncmp(command,"restart-script ",15))_putenv_s("RETRORECOMP_NG_UI_SCRIPT",command+15);
-        else if(!strncmp(command,"restart-log ",12))_putenv_s("RETRORECOMP_NG_UI_LOG",command+12);
+        else if(!strncmp(command,"restart-script ",15))SDL_setenv("RETRORECOMP_NG_UI_SCRIPT",command+15,1);
+        else if(!strncmp(command,"restart-log ",12))SDL_setenv("RETRORECOMP_NG_UI_LOG",command+12,1);
         else if(!strncmp(command,"snap ",5))rr_ng_ui_snapshot(ui_log,command+5,window);
         else if(!strncmp(command,"capture ",8))snprintf(capture,sizeof capture,"%s",command+8);
         else if(!strcmp(command,"quit")) {SDL_Event e={0};e.type=SDL_QUIT;SDL_PushEvent(&e);}

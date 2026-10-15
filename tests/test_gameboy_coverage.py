@@ -1,5 +1,6 @@
 from pathlib import Path
 from contextlib import ExitStack
+import os
 import hashlib
 import json
 import tempfile
@@ -7,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from smsrecomp.core import ConversionError
+from smsrecomp.platforms import build_executable
 from smsrecomp.gameboy import (GameBoyRom, _cpu_compare, _gb_parallelism, _probe, _remember_trace,
                               _verified_trace, convert_game_boy)
 from smsrecomp.gameboy_coverage import (branch_entries, cpu_validation_scenarios,
@@ -109,12 +111,14 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
 
     def test_parallelism_respects_batch_cpu_share(self):
+        from smsrecomp.platforms import build_jobs
+        limit=4 if os.name=='nt' else int(build_jobs())
         with patch('smsrecomp.gameboy.os.cpu_count', return_value=24):
-            self.assertEqual(_gb_parallelism(1), (4, 3))
-            self.assertEqual(_gb_parallelism(3), (4, 3))
-            self.assertEqual(_gb_parallelism(8), (3, 1))
+            self.assertEqual(_gb_parallelism(1), (min(4,limit), 3))
+            self.assertEqual(_gb_parallelism(3), (min(4,limit), 3))
+            self.assertEqual(_gb_parallelism(8), (min(3,limit), 1))
         with patch('smsrecomp.gameboy.os.cpu_count', return_value=4):
-            self.assertEqual(_gb_parallelism(1), (4, 2))
+            self.assertEqual(_gb_parallelism(1), (min(4,limit), 2))
             self.assertEqual(_gb_parallelism(3), (1, 1))
 
     def test_zero_boot_fallback_does_not_skip_learning_from_play(self):
@@ -134,8 +138,9 @@ class CoverageTests(unittest.TestCase):
             if '-o' in args:
                 project = args[args.index('-o') + 1]
                 generations.append(read_entries(args[args.index('--use-trace') + 1], len(rom)))
-                (project / 'build/Release').mkdir(parents=True, exist_ok=True)
-                (project / 'build/Release/game.exe').write_bytes(b'MZ')
+                candidate=build_executable(project/'build','game')
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                candidate.write_bytes(b'MZ')
                 (project / 'game_metadata.json').write_text('{"functions": []}')
             return ''
 

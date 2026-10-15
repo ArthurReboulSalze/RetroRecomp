@@ -17,7 +17,7 @@ static char g_rr_status[80] = {};
 static uint32_t g_rr_status_until = 0;
 
 static const char* rr_gb_tr(const char* english, const char* french) {
-    return g_rr_language ? french : english;
+    return rr_translate(g_rr_language, english, french);
 }
 
 static void rr_gb_notice(const char* message) {
@@ -46,7 +46,7 @@ static void rr_gb_cycle_filter(void) {
     save_runtime_preferences();
     const char* names_en[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"};
     const char* names_fr[] = {"Pixels nets", "xBR smooth", "Scale2x", "Scanlines"};
-    rr_gb_notice((g_rr_language ? names_fr : names_en)[(int)g_render_filter_mode]);
+    rr_gb_notice(rr_gb_tr(names_en[(int)g_render_filter_mode], names_fr[(int)g_render_filter_mode]));
 }
 
 static void rr_gb_cycle_fullscreen(void) {
@@ -91,14 +91,14 @@ static void rr_gb_draw_menu(void) {
     RR_TEXT(14, 15, heading, 38, 215, 255);
     if (g_rr_menu_kind == RR_GB_HELP) {
         char autofire[48];
-        snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), g_rr_autofire ? "ON" : "OFF");
+        snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), rr_tr(g_rr_autofire ? "ON" : "OFF"));
         const char* lines[] = {
             rr_gb_tr("F1  Restart game", "F1  Redemarrer le jeu"),
             rr_gb_tr("F2  Controls", "F2  Commandes"),
             rr_gb_tr("F3  Next filter", "F3  Changer le filtre"),
             rr_gb_tr("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
             rr_gb_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique"),
-            autofire, "F7  English / Francais",
+            autofire, "F7  Next language",
             rr_gb_tr("F8  Save game state", "F8  Sauvegarder l'etat"),
             rr_gb_tr("F9  Load game state", "F9  Charger l'etat"),
             rr_feedback_label(),
@@ -128,9 +128,9 @@ static void rr_gb_draw_menu(void) {
             const GBInputBinding& binding = g_rr_bind_gamepad ? g_controller_bindings[action][0] : g_keyboard_bindings[action][0];
             const std::string name = binding_display_label(binding);
             char line[96];
-            snprintf(line, sizeof(line), "%c %-12s %.19s", row == g_rr_menu_row ? '>' : ' ',
-                (g_rr_language ? rr_gb_labels_fr : rr_gb_labels_en)[row],
-                g_binding_capture_active && row == g_rr_menu_row ? rr_gb_tr("Press...", "Appuie...") : name.c_str());
+            snprintf(line, sizeof(line), "%c %s: %s", row == g_rr_menu_row ? '>' : ' ',
+                rr_gb_tr(rr_gb_labels_en[row], rr_gb_labels_fr[row]),
+                g_binding_capture_active && row == g_rr_menu_row ? rr_gb_tr("Press...", "Appuie...") : rr_tr(name.c_str()));
             RR_TEXT(14, 59 + 12 * row, line, row == g_rr_menu_row ? 83 : 233,
                 row == g_rr_menu_row ? 216 : 239, row == g_rr_menu_row ? 202 : 247);
         }
@@ -205,7 +205,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
             return true;
         }
         if (key == SDL_SCANCODE_F7) {
-            g_rr_language = !g_rr_language; save_runtime_preferences();
+            g_rr_language = rr_language_next(g_rr_language); rr_language_set(g_rr_language); save_runtime_preferences(); rr_gb_shared_language(true);
             rr_gb_notice(rr_gb_tr("Language: English", "Langue : francais"));
             return true;
         }

@@ -57,7 +57,7 @@ def write_game_metadata(game: Path, title: str, filename: str, *, light_phaser: 
     if system_id in ('sms', 'gg'):
         # Other hosts already include this notice in their component resource.
         from .paths import ASSETS
-        (game / 'filter_legal.txt').write_bytes((ASSETS / 'licenses/xbr.md').read_bytes())
+        (game / 'filter_legal.txt').write_bytes((ASSETS / 'licenses/xbr.md').read_bytes() + b'\n\n' + (ASSETS / 'licenses/Noto.md').read_bytes())
         lines.append('104 RCDATA "filter_legal.txt"')
     if icon: lines.append('101 ICON "game.ico"')
     lines += ['1 VERSIONINFO', f'FILEVERSION {numbers}', f'PRODUCTVERSION {numbers}',

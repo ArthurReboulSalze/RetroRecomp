@@ -119,6 +119,12 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
      * fallback and allow an explicit SDL_RENDER_DRIVER override. */
     SDL_SetHintWithPriority(SDL_HINT_RENDER_DRIVER, "direct3d11", SDL_HINT_DEFAULT);
     SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_THREAD, "1", SDL_HINT_DEFAULT);
+#else
+    /* X11 may present directly without a compositing window manager. Request
+     * synchronized swaps to prevent tearing, retaining SDL_RENDER_VSYNC=0 as
+     * an explicit override. The guest clock still uses the absolute deadline
+     * below; the time spent waiting in RenderPresent counts toward that cap. */
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC, "1", SDL_HINT_DEFAULT);
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "[host] SDL: %s\n", SDL_GetError()); return false;
@@ -475,7 +481,7 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     if (key == SDL_SCANCODE_F7) {
-        if (controls_language(!controls.language)) {
+        if (controls_language(rr_language_next(controls.language))) {
             previous_interpreter_state = -1;
             notice(controls_text("Language: English", "Langue : francais"));
         }

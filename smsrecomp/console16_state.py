@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 from .paths import ASSETS
 from .gun16_runtime import replace
 PORTABLE_STATE_ABI = 2  # Compact cartridge SRAM and its byte-lane geometry.
@@ -107,6 +108,9 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
         for module in ('smsrecomp.snes_timing','smsrecomp.snes_video','smsrecomp.snes_cart','smsrecomp.snes_dma','smsrecomp.snes_bus','smsrecomp.snes_ppu_bus','smsrecomp.snes_chips'):
             digest.update(module.encode());digest.update(module_fingerprint(module).encode())
     digest.update(json.dumps(revisions,sort_keys=True).encode())
+    if os.name != 'nt':
+        from .platforms import target_id
+        digest.update(target_id().encode())
     # The generated profile is the source of truth for an explicit override.
     profile = (project / ('retro_md_game.h' if system_id == 'md' else 'retro_snes_game.h')).read_text()
     pal = ('#define RR_MD_PAL 1' if system_id == 'md' else '#define RR_SN_PAL 1') in profile
@@ -119,7 +123,7 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
     # into the FIFO. ABI-2/3 gain zeroed new fields; all other sections retain
     # their layout. Never accept
     # arbitrary signatures or other engines.
-    if (system_id == 'md' and PORTABLE_STATE_ABI == 2 and
+    if (os.name == 'nt' and system_id == 'md' and PORTABLE_STATE_ABI == 2 and
             revisions.get('md', (None, None))[1] == '00c60bc855a7998f92e5614585d52bca8fffcaf2'):
         text += '#define RR16_STATE_COMPAT_ABI "ea70d6ee35b79e4c6af3c512135b7422dcaf76797e51f803b7e2408db1497864"\n'
         text += '#define RR16_STATE_COMPAT_ABI_2 "9462ea4efd93526b9f7e2a76a20d6ee919ebfd1610f66e1b9e1b2657d9a8233f"\n'

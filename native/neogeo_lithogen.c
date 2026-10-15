@@ -54,6 +54,7 @@ static int execute(int argc, char **argv) {
            rep.ngh, rep.crc_mismatches, rep.missing_optional);
     return 0;
 }
+#ifdef _WIN32
 int wmain(int argc,wchar_t **wide) {
     char **argv=calloc((size_t)argc+1,sizeof *argv);if(!argv)return 3;
     int result=3;
@@ -66,3 +67,7 @@ int wmain(int argc,wchar_t **wide) {
 done:
     for(int i=0;i<argc;++i)free(argv[i]);free(argv);return result;
 }
+
+#else
+int main(int argc,char **argv){return execute(argc,argv);}
+#endif

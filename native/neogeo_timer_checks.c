@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "engine/geo.c"
+#include "m68k/m68k.h"
 #include "m68000_backend.h"
 static unsigned checks;
 static void expect(int ok,const char *name) {

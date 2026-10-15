@@ -1,5 +1,6 @@
 """Non-blocking, bounded Tk hover hints; text is resolved when shown."""
 import tkinter as tk
+from tkinter import ttk
 from .branding import COLORS
 
 
@@ -27,9 +28,12 @@ class Tooltip:
         self.window.transient(self.widget.winfo_toplevel())
         self.window.attributes('-topmost', True)
         self.window.configure(bg=COLORS['gold'], padx=1, pady=1)
-        tk.Label(self.window, text=self.text(), bg=COLORS['field'], fg=COLORS['text'], font=('Segoe UI', 10),
+        tk.Label(self.window, text=self.text(), bg=COLORS['field'], fg=COLORS['text'],
+                 font=ttk.Style(self.widget).lookup('TLabel', 'font'),
                  padx=14, pady=10, justify='left', wraplength=420).pack()
         self.window.update_idletasks()
+        if self.window is None:
+            return  # Focus/Unmap can dismiss it while idle geometry is processed.
         x = min(self.widget.winfo_rootx() + 12, self.window.winfo_screenwidth() - self.window.winfo_reqwidth() - 8)
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
         if y + self.window.winfo_reqheight() > self.window.winfo_screenheight() - 8:

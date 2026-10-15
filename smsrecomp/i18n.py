@@ -1,7 +1,10 @@
-"""Small offline English/French catalog. Stable IDs never depend on GUI text."""
+"""Offline interface catalogs; stable IDs never depend on GUI text."""
 import re
+import json
+from functools import lru_cache
+from .paths import ASSETS
+from .languages import LANGUAGES, language_code
 
-LANGUAGES = ('en', 'fr')
 STRINGS = {
     'brand_tagline': ('YOUR ROMS. EVERY PLATFORM. MADE SIMPLE.', 'VOS ROMS. TOUTES LES PLATEFORMES. SIMPLEMENT.'),
     'empty_title': ('No ROMs in the list', 'Aucune ROM dans la liste'),
@@ -44,8 +47,8 @@ STRINGS = {
     'cover_field_client_id': ('Twitch Client ID', 'Client ID Twitch'),
     'cover_field_client_secret': ('Twitch Client Secret', 'Client Secret Twitch'),
     'cover_api_link': ('API documentation / access ↗', 'Documentation / accès API ↗'),
-    'cover_secrets_note': ('Credentials are protected by your Windows account and kept only in the converter’s private settings. Leave fields empty to use public downloads.', 'Les identifiants sont protégés par ton compte Windows, uniquement dans les réglages privés du convertisseur. Laisse les champs vides pour les téléchargements publics.'),
-    'cover_unlock_failed': ('Saved API credentials could not be unlocked on this Windows account. Re-enter them to use those services.', 'Les accès API enregistrés ne peuvent pas être déverrouillés avec ce compte Windows. Saisis-les à nouveau pour utiliser ces services.'),
+    'cover_secrets_note': ('Credentials use your system’s secure storage (Windows account or Linux desktop keyring). Leave fields empty to use public downloads.', 'Les identifiants utilisent le stockage sécurisé du système (compte Windows ou trousseau Linux). Laisse les champs vides pour les téléchargements publics.'),
+    'cover_unlock_failed': ('Cannot access secure account storage. On Linux, open and unlock your desktop keyring, then reopen Options. On Windows, use the account that saved these credentials or re-enter them.', 'Stockage sécurisé inaccessible. Sous Linux, ouvre et déverrouille le trousseau du bureau, puis rouvre les Options. Sous Windows, utilise le compte d’origine ou saisis à nouveau tes identifiants.'),
     'options_sega': ('Master System / Game Gear', 'Master System / Game Gear'),
     'options_master_system': ('Master System', 'Master System'),
     'options_game_gear': ('Game Gear', 'Game Gear'),
@@ -177,14 +180,14 @@ STRINGS = {
     'tip_clear': ('Empty this queue. ROMs, game executables and their datas are preserved.', 'Vide cette liste. Les ROMs, exécutables et leur dossier datas sont conservés.'),
     'tip_check_updates': ('Check GitHub only when clicked. If a newer Windows release exists, choose whether to download and install it. Games and datas are preserved.', 'Interroge GitHub uniquement lors d’un clic. Si une nouvelle version Windows existe, choisis de la télécharger et de l’installer. Jeux et datas sont conservés.'),
     'tip_credits': ('See the upstream projects used by each console, with links to their repositories and licensing notices.', 'Consulte les projets utilisés par chaque console, avec les liens vers leurs dépôts et notices de licence.'),
-    'tip_choose_cover': ('Choose an image for the selected game’s Windows icon. The whole cover keeps its proportions.', 'Choisis l’image de l’icône Windows du jeu sélectionné. La boîte entière garde ses proportions.'),
+    'tip_choose_cover': ('Choose an image for the selected game’s icon. The cover keeps its proportions.', 'Choisis l’image de l’icône du jeu sélectionné. La jaquette garde ses proportions.'),
     'tip_auto_cover': ('Look for real online box art when enabled, reusing validated downloads. Matching local images remain available as fallback or offline.', 'Cherche de vraies jaquettes en ligne si activé, en réutilisant les téléchargements validés. Les images locales restent disponibles en secours ou hors ligne.'),
     'tip_play': ('Launch the selected converted game. Double-click its row to play. F2 configures the console controls; H opens help.', 'Lance le jeu converti sélectionné. Tu peux aussi double-cliquer sur sa ligne. F2 configure les commandes de la console ; H ouvre l’aide.'),
     'tip_memory': ('View discoveries recorded for each ROM. Re-conversion can compile learned paths and RAM variants.', 'Consulte les découvertes enregistrées pour chaque ROM. Une reconversion peut compiler les chemins et variantes RAM appris.'),
     'tip_output': ('The converter creates Games beside itself by default. Each supported console receives its own folder and datas.', 'Le convertisseur crée Games à côté de lui par défaut. Chaque console prise en charge a son dossier et ses datas.'),
     'tip_custom_output': ('Enable to choose another root folder; console subfolders are still created there.', 'Active pour choisir une autre racine ; les sous-dossiers par console y seront toujours créés.'),
     'tip_console_format': ('Automatic identifies .sms, .gg and .gb files, single-ROM ZIPs and recognized .bin/.rom headers. Choose a console to resolve headerless .bin/.rom dumps; mismatched named cartridges are skipped.', 'Automatique identifie les .sms, .gg, .gb, ZIP à ROM unique et en-têtes .bin/.rom reconnus. Choisis une console pour les dumps .bin/.rom sans en-tête ; les cartouches nommées d’une autre console sont ignorées.'),
-    'tip_icon': ('Embed the box art as the game’s Windows icon. No external image is needed to play.', 'Intègre la cover comme icône Windows du jeu. Aucune image externe n’est nécessaire pour jouer.'),
+    'tip_icon': ('Embed the cover in the game window icon. Linux also creates a cover launcher in the games folder. No external image is needed to play.', 'Intègre la cover comme icône Windows du jeu. Aucune image externe n’est nécessaire pour jouer.'),
     'tip_icon_tags': ('Add a small translucent red target badge to the bottom-left of known Light Phaser game icons. Original box art is preserved. Applies when box art icons are enabled.', 'Ajoute un petit tag de visée rouge légèrement transparent en bas à gauche des icônes des jeux Light Phaser connus. Les covers originales sont préservées. S’applique lorsque les icônes de cover sont activées.'),
     'tip_online': ('Try configured services, then GitHub and the Libretro thumbnail server. Prefer real box art; use a title screen or game image if none exists. Downloads stay in datas/BoxArt. ROM bytes are never uploaded.', 'Essaie les services configurés, puis GitHub et le serveur de vignettes Libretro. Privilégie les vraies jaquettes ; utilise un écran titre ou une image du jeu à défaut. Cache dans datas/BoxArt. Les octets de la ROM ne sont jamais envoyés.'),
     'tip_extended': ('Enabled by default for Master System and Game Gear Sega-mapper ROMs. It prepares additional native ROM paths and guarded RAM variants. Game Boy uses a separate SM83 compiler that scans its ROM banks regardless of this switch. Fallback remains counted; no setting certifies complete gameplay or hardware accuracy.', 'Activée par défaut pour les ROMs Master System et Game Gear à mapper Sega. Elle prépare davantage de chemins ROM natifs et de variantes RAM vérifiées. La Game Boy utilise son propre compilateur SM83 qui parcourt les banques ROM indépendamment de ce bouton. Le secours reste compté ; aucun réglage ne certifie le jeu complet ni le matériel.'),
@@ -196,16 +199,26 @@ STRINGS = {
     'tip_start': ('Convert every ROM in the queue. Existing games are regenerated when Overwrite is enabled. An open game is updated when it closes; failed builds preserve the previous game.', 'Convertit les ROMs de la liste. Les jeux existants sont régénérés si Remplacer est activé. Un jeu ouvert est mis à jour à sa fermeture ; un échec préserve l’ancien jeu.'),
     'tip_overwrite': ('On by default. Regenerate and replace an executable already exported from the same ROM. Turn off for a large batch to keep finished executables and convert only missing ones. Identical ROM bytes under a different filename are reported, not mislabelled as another game.', 'Activé par défaut. Régénère et écrase un exécutable déjà exporté depuis la même ROM. Désactive-le pour un grand lot : seuls les exécutables manquants seront convertis. Des octets de ROM identiques sous un autre nom sont signalés, sans présenter le même jeu comme un autre.'),
     'tip_stop': ('Do not launch more games. Conversions already running finish before the batch stops.', 'Ne lance plus de jeux. Les conversions déjà en cours se terminent avant l’arrêt du lot.'),
-    'tip_open_folder': ('Open the games folder in Windows Explorer.', 'Ouvre le dossier des jeux dans l’Explorateur Windows.'),
-    'tip_language': ('Switch English / French immediately. Saved for the converter and this games folder. In a game, F7 switches language.', 'Passe immédiatement entre anglais et français. Choix enregistré pour le convertisseur et ce dossier de jeux. Dans un jeu, F7 change la langue.'),
-    'tip_platform': ('Windows x64 is available today. More platforms will appear here when their converter backends are ready.', 'Windows x64 est disponible aujourd’hui. D’autres plateformes apparaîtront ici lorsque leurs convertisseurs seront prêts.'),
+    'tip_open_folder': ('Open the games folder in the system file manager.', 'Ouvre le dossier des jeux dans le gestionnaire de fichiers du système.'),
+    'tip_language': ('Switch language immediately. Saved for the converter and this games folder. In a game, F7 cycles through all eight languages.', 'Passe immédiatement entre anglais et français. Choix enregistré pour le convertisseur et ce dossier de jeux. Dans un jeu, F7 change la langue.'),
+    'tip_platform': ('The platform matches the system running this converter.', 'La plateforme correspond au système qui exécute ce convertisseur.'),
     'tip_table': ('Select a game to see its result. Use Ctrl/Shift for several rows; double-click a ready game to launch it.', 'Sélectionne un jeu pour consulter son résultat. Ctrl/Maj sélectionne plusieurs lignes ; double-clique sur un jeu créé pour le lancer.'),
     'tip_video_timing': ('Auto keeps a saved per-ROM profile, or guesses from the ROM filename. A region label is not proof of console timing. Select PAL or NTSC for this ROM to override it on regeneration; the choice is saved in its compilation profile. Other consoles will define their own timing options.', 'Auto conserve le profil mémorisé de cette ROM ou propose un rythme selon son nom. Une étiquette de région ne prouve pas le rythme de la console. Choisis PAL ou NTSC pour cette ROM lors de la régénération ; le choix sera mémorisé dans son profil. Les autres consoles auront leurs propres options.'),
 }
 
 
 def tr(key: str, language: str = 'en', **values) -> str:
-    return STRINGS[key][language == 'fr'].format(**values)
+    language = language_code(language)
+    text = STRINGS[key][language == 'fr'] if language in ('en', 'fr') else catalog(language).get('ui', {}).get(key, STRINGS[key][0])
+    return text.format(**values)
+
+
+@lru_cache(maxsize=8)
+def catalog(language):
+    path = ASSETS / 'assets/locales' / (language_code(language) + '.json')
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 def extended_default(preferences: dict) -> bool:

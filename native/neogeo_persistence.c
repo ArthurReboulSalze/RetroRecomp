@@ -2,8 +2,14 @@
  * Identity includes exact prepared cartridge, selected BIOS and system/region.
  * Deliberately independent of the quick-state runtime ABI. Original work: MIT. */
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <io.h>
+#include "platform_io.h"
+#ifndef _WIN32
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <time.h>
+#endif
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,16 +31,14 @@ static uint64_t hash(const uint8_t *p,size_t n) {
 static void capture(uint8_t *data) {memcpy(data,ngsys.nvram,NVRAM_BYTES);memcpy(data+NVRAM_BYTES,ngsys.memcard,CARD_BYTES);}
 bool rr_ng_persist_path(wchar_t *path,size_t capacity) {
     if(!path || capacity<32768)return false;
-    DWORD n=GetModuleFileNameW(NULL,path,32700);
-    wchar_t *slash=n && n<32700?wcsrchr(path,L'\\'):NULL;if(!slash)return false;
-    slash[1]=0;wchar_t tail[128];swprintf_s(tail,128,L"datas\\saves\\NeoGeo-%.64hs.rrsave",RR16_STATE_ROM);
-    return wcscat_s(path,capacity,tail)==0;
+    char tail[128];wchar_t wide_tail[128];
+    snprintf(tail,sizeof(tail),RR_SLASH "datas" RR_SLASH "saves" RR_SLASH "NeoGeo-%.64s.rrsave",RR16_STATE_ROM);
+    return rr_executable_directory(path,capacity) && rr_from_utf8(tail,wide_tail,128) && rr_wide_append(path,capacity,wide_tail)==0;
 }
 /* 1 valid, 0 missing, -1 malformed/unreadable. Never mutate machine on failure. */
 static int read_saved(uint8_t *data,uint64_t *checksum) {
-    FILE *file=_wfopen(save_path,L"rb");
-    if(!file) {DWORD attr=GetFileAttributesW(save_path);return attr==INVALID_FILE_ATTRIBUTES &&
-        (GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND)?0:-1;}
+    FILE *file=rr_fopen(save_path,L"rb");
+    if(!file)return errno==ENOENT?0:-1;
     uint8_t header[HEADER];bool valid=fread(header,1,HEADER,file)==HEADER;
     if(valid)valid=!memcmp(header,magic,8) && get32(header+8)==1 && get32(header+12)==3 &&
         get32(header+16)==PAYLOAD && !get32(header+20) && !memcmp(header+32,RR16_STATE_ROM,64) &&
@@ -48,20 +52,40 @@ static int read_saved(uint8_t *data,uint64_t *checksum) {
     }
     return valid?1:-1;
 }
-static HANDLE lock_save(void) {
-    wchar_t name[128];swprintf_s(name,128,L"Local\\Retro-Recomp-NeoGeo-%.64hs",RR16_STATE_ROM);
-    HANDLE mutex=CreateMutexW(NULL,FALSE,name);if(!mutex)return NULL;
+#ifdef _WIN32
+typedef HANDLE RRSaveLock;
+static RRSaveLock lock_save(void) {
+    wchar_t name[128];swprintf(name,128,L"Local\\Retro-Recomp-NeoGeo-%.64hs",RR16_STATE_ROM);
+    RRSaveLock mutex=CreateMutexW(NULL,FALSE,name);if(!mutex)return NULL;
     DWORD wait=WaitForSingleObject(mutex,5000);
     if(wait!=WAIT_OBJECT_0 && wait!=WAIT_ABANDONED) {CloseHandle(mutex);return NULL;}
     return mutex;
 }
-static void unlock_save(HANDLE mutex) {ReleaseMutex(mutex);CloseHandle(mutex);}
+static void unlock_save(RRSaveLock mutex) {ReleaseMutex(mutex);CloseHandle(mutex);}
+#else
+
+typedef int RRSaveLock;
+static RRSaveLock lock_save(void) {
+    char name[256];snprintf(name,sizeof(name),"/tmp/retro-recomp-ng-%lu-%.64s.lock",(unsigned long)getuid(),RR16_STATE_ROM);
+    int fd=open(name,O_CREAT|O_RDWR|O_CLOEXEC|O_NOFOLLOW,0600);if(fd<0)return 0;
+    struct stat st;if(fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_uid!=getuid() || st.st_nlink!=1){close(fd);return 0;}
+    struct timespec delay={0,10000000};
+    for(unsigned retry=0;retry<500;++retry) {
+        if(!flock(fd,LOCK_EX|LOCK_NB))return fd+1;
+        if(errno!=EAGAIN && errno!=EWOULDBLOCK && errno!=EINTR)break;
+        nanosleep(&delay,NULL);
+    }
+    close(fd);return 0;
+}
+static void unlock_save(RRSaveLock lock){int fd=lock-1;flock(fd,LOCK_UN);close(fd);}
+#endif
+
 bool rr_ng_persist_begin(bool use) {
     enabled=use;armed=loaded=saved=blocked=has_file=false;disk_hash=0;capture(baseline);
     initial_nvram_hash=hash(ngsys.nvram,NVRAM_BYTES);initial_card_hash=hash(ngsys.memcard,CARD_BYTES);
     if(!enabled)return true;
     if(!rr_ng_persist_path(save_path,32768)) {blocked=true;return false;}
-    HANDLE mutex=lock_save();if(!mutex) {blocked=true;return false;}
+    RRSaveLock mutex=lock_save();if(!mutex) {blocked=true;return false;}
     uint8_t *data=malloc(PAYLOAD);uint64_t checksum=0;
     int result=data?read_saved(data,&checksum):-1;
     if(result==1) {
@@ -82,26 +106,26 @@ static bool write_atomic(const uint8_t *data) {
     put32(header+16,PAYLOAD);uint64_t checksum=hash(data,PAYLOAD);
     put32(header+24,(uint32_t)checksum);put32(header+28,(uint32_t)(checksum>>32));
     memcpy(header+32,RR16_STATE_ROM,64);put32(header+96,NVRAM_BYTES);put32(header+100,CARD_BYTES);
-    wchar_t parent[32768],temporary[32768];wcscpy_s(parent,32768,save_path);
+    wchar_t parent[32768],temporary[32768];rr_wide_copy(parent,32768,save_path);
     for(wchar_t *p=parent+3;*p;++p)if(*p==L'\\' || *p==L'/') {
         wchar_t separator=*p;*p=0;
-        if(!CreateDirectoryW(parent,NULL) && GetLastError()!=ERROR_ALREADY_EXISTS)return false;
+        if(!rr_mkdir(parent))return false;
         *p=separator;
     }
-    swprintf_s(temporary,32768,L"%s.%lu.tmp",save_path,GetCurrentProcessId());
-    FILE *file=_wfopen(temporary,L"wb");if(!file)return false;
+    swprintf(temporary,32768,L"%ls.%lu.tmp",save_path,rr_process_id());
+    FILE *file=rr_fopen(temporary,L"wb");if(!file)return false;
     bool okay=fwrite(header,1,HEADER,file)==HEADER && fwrite(data,1,PAYLOAD,file)==PAYLOAD;
-    if(okay)okay=fflush(file)==0 && _commit(_fileno(file))==0;
+    if(okay)okay=rr_flush_file(file);
     if(fclose(file))okay=false;
-    if(okay)okay=MoveFileExW(temporary,save_path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=0;
-    if(!okay)DeleteFileW(temporary);return okay;
+    if(okay)okay=rr_replace(temporary,save_path);
+    if(!okay)rr_remove(temporary);return okay;
 }
 bool rr_ng_persist_close(void) {
     if(!enabled)return true;
     if(blocked)return false;
     if(!armed || (!memcmp(baseline,ngsys.nvram,NVRAM_BYTES) &&
                   !memcmp(baseline+NVRAM_BYTES,ngsys.memcard,CARD_BYTES)))return true;
-    HANDLE mutex=lock_save();if(!mutex)return false;
+    RRSaveLock mutex=lock_save();if(!mutex)return false;
     uint8_t *current=malloc(PAYLOAD),*previous=malloc(PAYLOAD);uint64_t checksum=0;
     int result=previous?read_saved(previous,&checksum):-1;
     /* A second running copy must not silently overwrite another session's save. */

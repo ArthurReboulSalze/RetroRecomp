@@ -78,7 +78,8 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         validation_workers=workers,defer_to_packed=True)
     timings['prepare_translate_build_and_compare']=round(time.perf_counter()-started,3)
     phase=time.perf_counter()
-    project=executable.parents[2]
+    import os
+    project=executable.parents[2 if os.name=='nt' else 1]
     manifest=json.loads((project/'input.json').read_text(encoding='utf-8'))
     if manifest['bios']['sha256']!=bios_info['sha256'] or manifest['source']['sha256']!=game.sha256:
         raise ConversionError('Neo Geo cartridge or BIOS changed during conversion; add the files again.')
@@ -156,6 +157,7 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         'artwork':json.loads((project/'artwork.json').read_text(encoding='utf-8')),
         'windows_metadata':game_metadata(title,False,standard='mvs',system_id='ng'),
         'executable':executable_name(title),'build_executable':str(executable),
+        'build_directory':str(project),
         'packed_candidate_sha256':hashlib.sha256(packed.read_bytes()).hexdigest(),
         'conversion_wall_seconds':round(time.perf_counter()-started,3)}
     report['conversion_phases_seconds']=timings

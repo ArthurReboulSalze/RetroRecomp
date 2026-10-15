@@ -1,3 +1,48 @@
+# RetroRecomp v1.1.0 — Windows and Linux, eight languages
+
+RetroRecomp now has a native Linux x86-64 package alongside the Windows app.
+Both use the same console implementations, reviewed cover references and
+verified compilation knowledge.
+
+- **Native Linux conversion.** First exports for all seven console profiles
+  pass their bounded generation checks on Debian 13. Linux games have cover
+  launchers, shared menus, controls, saved settings and fallback feedback.
+  ARM64, older glibc versions and other distributions remain to be qualified.
+- **Eight languages.** English, French, Italian, Spanish, German, Chinese,
+  Japanese and Russian in the converter and generated-game menus. F7 cycles
+  the game language. Windows retains its original Segoe UI for Latin/Cyrillic;
+  compact CJK/Cyrillic game glyphs avoid oversized text.
+- **A more flexible interface.** Larger decorative console artwork within the
+  original-height banner; the ROM list and log can shrink for smaller screens.
+  The redundant platform selector becomes a Windows/Linux version label.
+- **Linux drag-and-drop and covers.** Drop files or folders into the app. The
+  existing cover cache and reviewed links are shared across platforms. Optional
+  Linux API accounts use the desktop keyring, with no plaintext fallback.
+- **Manual updates on both systems.** The button selects the matching GitHub
+  asset, checks its integrity, replaces the converter and restarts it. Games,
+  downloaded covers, settings and local knowledge are preserved.
+- **Shared knowledge and cover fixes.** The verified snapshot now contains
+  1,092 exact cartridge records, including 65 Neo Geo cartridge/BIOS identities.
+  Reviewed front-cover links for Bang Bead and Voltage Fighter Gowcaizer replace
+  misleading flyers. ROM-free knowledge remains separate from private feedback.
+- **Linux NES optimization.** Lower PPU overhead and profile-guided compilation
+  improve the native build while retaining fresh CPU, image and audio checks.
+
+Download **Retro-Recomp.exe** for Windows or the **linux-x86_64.tar.gz** archive
+for Linux. The Linux build requires Debian 13/glibc 2.41 compatibility; see the
+[Linux guide](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.0/docs/LINUX.md).
+Conversion requires the native toolchain; playing exported games does not.
+Existing exports need regeneration to receive runtime/menu changes.
+
+Compilation checks are bounded and do not establish full-game compatibility,
+physical latency or framerate on every machine. Gameplay and display validation
+on the target Linux machine remain separate from native/reference agreement.
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.0/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.0.3 — Stronger Neo Geo coverage and corrected covers
 
 This update brings the latest Neo Geo discoveries and reviewed front covers

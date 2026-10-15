@@ -140,11 +140,35 @@ def feedback_search_paths(preferences: dict) -> dict[str, Path]:
 
 def save_game_language(output: Path, language: str) -> None:
     """Update only the language entry in the shared Windows INI."""
-    if language not in ('en', 'fr'):
+    from .languages import LANGUAGES
+    if language not in LANGUAGES:
         raise ValueError('Unknown language')
     import ctypes
     directory = data_directory(output.resolve())
     directory.mkdir(parents=True, exist_ok=True)
+    if os.name != 'nt':
+        import configparser
+        import fcntl
+        destination = directory / 'Retro-Recomp.ini'
+        with destination.with_suffix('.ini.lock').open('a+b') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            config = configparser.ConfigParser(interpolation=None, strict=False)
+            config.optionxform = str
+            config.read(destination, encoding='utf-8')
+            if not config.has_section('Interface'):
+                config.add_section('Interface')
+            config.set('Interface', 'language', language)
+            fd, temporary = tempfile.mkstemp(prefix='Retro-Recomp.', suffix='.tmp', dir=directory)
+            try:
+                with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                    config.write(stream)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, destination)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        return
     write = ctypes.WinDLL('kernel32', use_last_error=True).WritePrivateProfileStringW
     write.argtypes = [ctypes.c_wchar_p] * 4
     write.restype = ctypes.c_int

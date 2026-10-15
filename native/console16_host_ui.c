@@ -2,7 +2,8 @@
  * its separate PolyForm Noncommercial terms; this UI is original code. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
-#include <windows.h>
+#include "platform_io.h"
+#include "embedded_resources.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -91,20 +92,17 @@ static char status[80];
 static Uint64 status_until;
 static int gun_shape, gun_size = 3, gun_color, scope_turbo = 1;
 static Rr16GunInput mouse_gun;
-static const char *tr(const char *en, const char *fr) { return french ? fr : en; }
+static const char *tr(const char *en, const char *fr) { return rr_translate(french, en, fr); }
 
 static void settings_path(void) {
-    DWORD n = GetModuleFileNameW(NULL, data_dir, 32600);
-    wchar_t *slash = n ? wcsrchr(data_dir, L'\\') : NULL;
-    if (!slash) { ini_file[0] = 0; return; }
-    *slash = 0;
-    wcscpy_s(ini_file, 32768, data_dir);
-    wcscat_s(data_dir, 32768, L"\\datas");
-    wcscat_s(ini_file, 32768, L"\\datas\\Retro-Recomp.ini");
+    if (!rr_executable_directory(data_dir,32600)) { ini_file[0]=0; return; }
+    rr_wide_copy(ini_file, 32768, data_dir);
+    rr_wide_append(data_dir, 32768, RR_SLASH_W L"datas");
+    rr_wide_append(ini_file, 32768, RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");
 }
 
 static void section(wchar_t *out, int p, bool pad) {
-    swprintf_s(out, 64, RR16_SECTION L".%s.Player%d", pad ? L"Gamepad" : L"Keyboard", p + 1);
+    swprintf(out, 64, RR16_SECTION L".%ls.Player%d", pad ? L"Gamepad" : L"Keyboard", p + 1);
 }
 
 static void load_bindings(void) {
@@ -132,7 +130,7 @@ static void load_bindings(void) {
     if (!ini_file[0]) return;
     rr_display_load(ini_file, RR16_SECTION L".Video", &filter, &fullscreen);
 #if RR16_NG
-    rr_ng_set_enhanced(GetPrivateProfileIntW(L"NeoGeo.Runtime", L"enhanced",
+    rr_ng_set_enhanced(rr_ini_int(L"NeoGeo.Runtime", L"enhanced",
                          rr_ng_enhanced()?1:0, ini_file)==1);
 #endif
     wchar_t sec[64];
@@ -140,21 +138,21 @@ static void load_bindings(void) {
         section(sec, p, mode != 0);
         for (int a = 0; a < ACTIONS; ++a) {
             int old = mode ? buttons[p][a] : keys[p][a];
-            int value = GetPrivateProfileIntW(sec, settings[a], old, ini_file);
+            int value = rr_ini_int(sec, settings[a], old, ini_file);
             if (mode && value >= 0 && value < SDL_CONTROLLER_BUTTON_MAX) buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value > 0 && value < SDL_NUM_SCANCODES) keys[p][a] = (SDL_Scancode)value;
         }
     }
     wchar_t language[12];
-    GetPrivateProfileStringW(L"Interface", L"language", L"en", language, 12, ini_file);
-    french = wcscmp(language, L"fr") == 0;
-    autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, ini_file) != 0;
-    gun_shape = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"shape", 0, ini_file) == 1;
-    gun_size = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"size", 3, ini_file);
+    rr_ini_get(L"Interface", L"language", L"en", language, 12, ini_file);
+    french = rr_language_from_wide(language); rr_language_set(french);
+    autofire = rr_ini_int(L"Manettes", L"autofire", 0, ini_file) != 0;
+    gun_shape = rr_ini_int(RR16_SECTION L".Gun", L"shape", 0, ini_file) == 1;
+    gun_size = rr_ini_int(RR16_SECTION L".Gun", L"size", 3, ini_file);
     if (gun_size < 1 || gun_size > 12) gun_size = 3;
-    gun_color = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"color", 0, ini_file);
+    gun_color = rr_ini_int(RR16_SECTION L".Gun", L"color", 0, ini_file);
     if (gun_color < 0 || gun_color > 2) gun_color = 0;
-    scope_turbo = GetPrivateProfileIntW(RR16_SECTION L".Gun", L"turbo", 1, ini_file) != 0;
+    scope_turbo = rr_ini_int(RR16_SECTION L".Gun", L"turbo", 1, ini_file) != 0;
 }
 
 static void gun_option(int direction) {
@@ -165,18 +163,18 @@ static void gun_option(int direction) {
     if (!ini_file[0]) return;
     const wchar_t *labels[] = {L"shape", L"size", L"color", L"turbo"};
     int values[] = {gun_shape, gun_size, gun_color, scope_turbo};
-    wchar_t value[16]; swprintf_s(value, 16, L"%d", values[row]);
-    CreateDirectoryW(data_dir, NULL);
-    WritePrivateProfileStringW(RR16_SECTION L".Gun", labels[row], value, ini_file);
+    wchar_t value[16]; swprintf(value, 16, L"%d", values[row]);
+    rr_mkdir(data_dir);
+    rr_ini_set(RR16_SECTION L".Gun", labels[row], value, ini_file);
 }
 
 static void store_binding(void) {
     if (!ini_file[0]) return;
-    CreateDirectoryW(data_dir, NULL);
+    rr_mkdir(data_dir);
     wchar_t sec[64], value[16];
     section(sec, player, gamepad_page != 0);
-    swprintf_s(value, 16, L"%d", gamepad_page ? buttons[player][row] : keys[player][row]);
-    WritePrivateProfileStringW(sec, settings[row], value, ini_file);
+    swprintf(value, 16, L"%d", gamepad_page ? buttons[player][row] : keys[player][row]);
+    rr_ini_set(sec, settings[row], value, ini_file);
 }
 
 static void open_pads(void) {
@@ -357,14 +355,14 @@ static void draw_menu(SDL_Renderer *ren) {
             if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + (a % 8) * 13, 232, 12, 35, 74, 110, 255);
             const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
                 rr_keyboard_name(keys[player][a]);
-            snprintf(line, sizeof(line), "%c %-7s %s", a == row ? '>' : ' ', names[a],
-                     capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : bound);
+            snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
+                     capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
             RR16_TEXT(53 + (a % 8) * 13, line);
         }
         RR16_TEXT(164, tr("Enter: remap | Esc: close", "Entree : attribuer | Esc : fermer"));
     } else if (menu == 4) {
         char line[100];
-        const char *colors[] = {"Red / Rouge", "White / Blanc", "Green / Vert"};
+        const char *colors[] = {rr_tr("Red"),rr_tr("White"),rr_tr("Green")};
         const int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
         for (int i = 0; i < rows; ++i) {
             if (row == i) rr_menu_box(ren, ox, oy, unit, 12, 49 + 23 * i, 232, 20, 35, 74, 110, 255);
@@ -418,6 +416,9 @@ void rr_ng_ui_snapshot(FILE *file,const char *label,void *window) {
 
 int rr16_sdl_main(const char *title, int scale) {
     SDL_SetMainReady();
+#ifndef _WIN32
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC,"1",SDL_HINT_DEFAULT);
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
@@ -435,6 +436,7 @@ int rr16_sdl_main(const char *title, int scale) {
     SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         rr16_display_width() * scale, rr16_raster_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
         (test_frames ? SDL_WINDOW_HIDDEN : 0));
+    rr_set_window_icon(win);
     if (win && fullscreen && SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) fullscreen = 0;
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;
     if (!ren && win) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
@@ -557,13 +559,14 @@ int rr16_sdl_main(const char *title, int scale) {
 #endif
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
-                if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
-                    WritePrivateProfileStringW(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
+                if (ini_file[0]) { rr_mkdir(data_dir);
+                    rr_ini_set(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
             }
             else if (key == SDL_SCANCODE_F7) {
-                french = !french;
-                if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
-                    WritePrivateProfileStringW(L"Interface", L"language", french ? L"fr" : L"en", ini_file); }
+                french = rr_language_next(french); rr_language_set(french);
+                snprintf(status,sizeof(status),"%s",rr_language_name(french)); status_until=SDL_GetTicks64()+2200;
+                if (ini_file[0]) { rr_mkdir(data_dir);
+                    rr_ini_set(L"Interface", L"language", rr_language_wide(french), ini_file); }
             } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
                 pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
             } else if (menu == 4) {

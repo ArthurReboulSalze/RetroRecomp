@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp.core import run, toolchain
 from smsrecomp.nes_machine import prepare_machine
+from smsrecomp.platforms import cmake_target_args, build_executable, build_jobs
 
 def main():
     cmake, generator = toolchain()
@@ -17,18 +18,18 @@ project(NesMachineChecks C)
 include("{machine.as_posix()}/cyc.cmake")
 list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c")
 foreach(pal 0 1)
-add_executable(checks${{pal}} ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/native/nes_machine_checks.c")
+add_executable(checks${{pal}} ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/native/nes_machine_checks.c" "{ROOT.as_posix()}/native/platform_io.c")
 target_include_directories(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} "{ROOT.as_posix()}/native" "{project.as_posix()}")
 target_compile_definitions(checks${{pal}} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL=${{pal}} RR_NES_ZAPPER=1)
 target_link_libraries(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 endforeach()
 ''')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
-    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
+    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()], log=project / 'build.log')
     results = []
     for pal in (0, 1):
         for mapper in (0, 1, 2, 4, 5, 69, 85, 153):
-            output = run([project / f'build/Release/checks{pal}.exe', str(mapper)])
+            output = run([build_executable(project / 'build', f'checks{pal}'), str(mapper)])
             print(output, flush=True)
             results.append(json.loads(output))
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n')

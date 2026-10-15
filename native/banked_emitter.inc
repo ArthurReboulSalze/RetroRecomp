@@ -246,7 +246,7 @@ void cg_emit_banked_step(const SmsRom *rom, const GameConfig *cfg, const char *d
     write_layout(path, "game", cfg);
     snprintf(path, sizeof path, "%s/game_banked.h", dir);
     FILE *h = fopen(path, "w"); if (!h) exit(1);
-    fprintf(h, "#pragma once\n#include \"sms_runtime.h\"\n#include \"z80_ops.h\"\nint game_banked_step(uint8_t b0, uint8_t b1, uint8_t b2);\nint game_banked_guarded_step(void);\n");
+    fprintf(h, "#pragma once\n#include <stddef.h>\n#include \"sms_runtime.h\"\n#include \"z80_ops.h\"\nint game_banked_step(uint8_t b0, uint8_t b1, uint8_t b2);\nint game_banked_guarded_step(void);\n");
     for (uint32_t id = 1; id <= pool.count; ++id) fprintf(h, "void game_banked_op_%u(void);\n", id);
     fclose(h);
     /* Small translation units keep MSVC memory and optimization time bounded. */

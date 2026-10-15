@@ -24,7 +24,8 @@ def key(cart: str,bios: str) -> str:
 
 
 def validate_record(identity: str,record: dict) -> dict:
-    if not isinstance(record,dict) or set(record)!=IDENTITY_FIELDS|FIELDS.keys():
+    required=IDENTITY_FIELDS|FIELDS.keys()
+    if not isinstance(record,dict) or not required<=set(record)<=required|{'rom_deltas'}:
         raise ValueError('Invalid Neo Geo compilation fields.')
     for name in ('engine','loader','cart','bios'):
         length=40 if name in ('engine','loader') else 64
@@ -55,7 +56,47 @@ def validate_record(identity: str,record: dict) -> dict:
                 pc,region,offset,mask=row;bound=record['m1_bytes'] if region==3 else record['sm1_bytes']
                 valid=region in (3,4) and 0xf800<=pc<=0xffff and 1<=mask<=15 and bool(mask&1) and offset+4<=bound
             if not valid:raise ValueError('Neo Geo compilation reference outside its region.')
+    deltas=record.get('rom_deltas',[])
+    if not isinstance(deltas,list) or len(deltas)>2:
+        raise ValueError('Invalid Neo Geo ROM delta blocks.')
+    count=len(record['rom_entries']);seen=set()
+    for block in deltas:
+        if (not isinstance(block,list) or len(block)<2 or
+                any(type(n) is not int or not 0<=n<=0xffffffff for n in block)):
+            raise ValueError('Invalid Neo Geo ROM delta block.')
+        region,offset,*gaps=block
+        count+=len(block)-1
+        if region not in (1,2) or region in seen or count>FIELDS['rom_entries'][1]:
+            raise ValueError('Invalid Neo Geo ROM delta region/count.')
+        seen.add(region);bound=record['p_bytes'] if region==1 else record['bios_bytes']
+        if offset&1 or offset+2>bound or any(gap<2 or gap&1 for gap in gaps):
+            raise ValueError('Invalid Neo Geo ROM delta offset.')
+        if offset+sum(gaps)+2>bound:
+            raise ValueError('Neo Geo ROM delta reference outside its region.')
     return record
+
+
+def expanded_record(identity: str,record: dict) -> dict:
+    """Recover exact physical roots before merging or reconstructing guards."""
+    validate_record(identity,record)
+    roots=set(map(tuple,record['rom_entries']))
+    for region,offset,*gaps in record.get('rom_deltas',[]):
+        roots.add((region,offset))
+        for gap in gaps:
+            offset+=gap;roots.add((region,offset))
+    return {**{name:record[name] for name in IDENTITY_FIELDS|FIELDS.keys()},
+            'rom_entries':[list(row) for row in sorted(roots)]}
+
+
+def compact_record(identity: str,record: dict) -> dict:
+    """Lossless numeric gaps between sorted roots; no instruction bytes."""
+    expanded=expanded_record(identity,record);blocks=[]
+    for region in (1,2):
+        offsets=[offset for r,offset in expanded['rom_entries'] if r==region]
+        if offsets:blocks.append([region,offsets[0],*(b-a for a,b in zip(offsets,offsets[1:]))])
+    packed={**expanded,'rom_entries':[],'rom_deltas':blocks}
+    validate_record(identity,packed)
+    return packed
 
 
 def context(project: Path) -> tuple[str,dict,dict[int,bytes]]:
@@ -88,14 +129,18 @@ def hints(project: Path) -> tuple[dict,list[dict],list[dict],dict]:
         from .paths import ASSETS
         try:
             record=load(ASSETS/RESOURCE)['consoles'].get('ng',{}).get(identity,{})
-            if _matching(identity,record,current):records.append(record);counts['shared']=len(record['rom_entries'])+len(record['ram_refs'])+len(record['z80_refs'])
+            if _matching(identity,record,current):
+                record=expanded_record(identity,record);records.append(record)
+                counts['shared']=sum(len(record[name]) for name in FIELDS)
         except (OSError,ValueError,TypeError,KeyError,EOFError,zlib.error):pass
     path=library_root('ng')/identity/'compilation.json'
     try:
         with path.open('rb') as f:raw=f.read(8*1024*1024+1)
         if len(raw)>8*1024*1024:raise ValueError('Neo Geo local memory is too large.')
         record=json.loads(raw)['record']
-        if _matching(identity,record,current):records.append(record);counts['local']=len(record['rom_entries'])+len(record['ram_refs'])+len(record['z80_refs'])
+        if _matching(identity,record,current):
+            record=expanded_record(identity,record);records.append(record)
+            counts['local']=sum(len(record[name]) for name in FIELDS)
     except (OSError,ValueError,TypeError,KeyError):pass
     combined={name:sorted(set(tuple(r) for record in records for r in record[name])) for name in FIELDS}
     physical={'p':set(),'bios':set()}
@@ -172,6 +217,7 @@ def remember(project: Path,checks: list[dict],states: dict,*,title: str,source: 
         try:
             old=json.loads(path.read_text(encoding='utf-8'))['record']
             if _matching(identity,old,record):
+                old=expanded_record(identity,old)
                 for name in FIELDS:record[name]=[list(r) for r in sorted(set(map(tuple,record[name]+old[name])))]
         except (OSError,ValueError,TypeError,KeyError):pass
         validate_record(identity,record)

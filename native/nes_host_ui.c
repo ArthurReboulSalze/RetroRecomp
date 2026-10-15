@@ -2,7 +2,8 @@
  * its separate PolyForm Noncommercial terms; this UI is original code. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
-#include <windows.h>
+#include "platform_io.h"
+#include "embedded_resources.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -44,20 +45,17 @@ static char status[80];
 static Uint64 status_until;
 static int gun_x = -1, gun_y = -1, gun_shape, gun_size = 3, gun_color;
 
-static const char *tr(const char *en, const char *fr) { return french ? fr : en; }
+static const char *tr(const char *en, const char *fr) { return rr_translate(french, en, fr); }
 
 static void settings_path(void) {
-    DWORD n = GetModuleFileNameW(NULL, data_dir, 32600);
-    wchar_t *slash = n ? wcsrchr(data_dir, L'\\') : NULL;
-    if (!slash) { ini_file[0] = 0; return; }
-    *slash = 0;
-    wcscpy_s(ini_file, 32768, data_dir);
-    wcscat_s(data_dir, 32768, L"\\datas");
-    wcscat_s(ini_file, 32768, L"\\datas\\Retro-Recomp.ini");
+    if (!rr_executable_directory(data_dir,32600)) { ini_file[0]=0; return; }
+    rr_wide_copy(ini_file, 32768, data_dir);
+    rr_wide_append(data_dir, 32768, RR_SLASH_W L"datas");
+    rr_wide_append(ini_file, 32768, RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");
 }
 
 static void section(wchar_t *out, int p, bool pad) {
-    swprintf_s(out, 64, L"NES.%s.Player%d", pad ? L"Gamepad" : L"Keyboard", p + 1);
+    swprintf(out, 64, L"NES.%ls.Player%d", pad ? L"Gamepad" : L"Keyboard", p + 1);
 }
 
 static void load_bindings(void) {
@@ -71,38 +69,38 @@ static void load_bindings(void) {
         section(sec, p, mode != 0);
         for (int a = 0; a < ACTIONS; ++a) {
             int old = mode ? buttons[p][a] : keys[p][a];
-            int value = GetPrivateProfileIntW(sec, settings[a], old, ini_file);
+            int value = rr_ini_int(sec, settings[a], old, ini_file);
             if (mode && value >= 0 && value < SDL_CONTROLLER_BUTTON_MAX) buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value > 0 && value < SDL_NUM_SCANCODES) keys[p][a] = (SDL_Scancode)value;
         }
     }
     wchar_t language[12];
-    GetPrivateProfileStringW(L"Interface", L"language", L"en", language, 12, ini_file);
-    french = wcscmp(language, L"fr") == 0;
-    autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, ini_file) != 0;
-    gun_shape = GetPrivateProfileIntW(L"NES.Zapper", L"shape", 0, ini_file) == 1;
-    gun_size = (int)GetPrivateProfileIntW(L"NES.Zapper", L"size", 3, ini_file);
+    rr_ini_get(L"Interface", L"language", L"en", language, 12, ini_file);
+    french = rr_language_from_wide(language); rr_language_set(french);
+    autofire = rr_ini_int(L"Manettes", L"autofire", 0, ini_file) != 0;
+    gun_shape = rr_ini_int(L"NES.Zapper", L"shape", 0, ini_file) == 1;
+    gun_size = (int)rr_ini_int(L"NES.Zapper", L"size", 3, ini_file);
     if (gun_size < 1 || gun_size > 8) gun_size = 3;
-    gun_color = (int)GetPrivateProfileIntW(L"NES.Zapper", L"color", 0, ini_file);
+    gun_color = (int)rr_ini_int(L"NES.Zapper", L"color", 0, ini_file);
     if (gun_color < 0 || gun_color > 2) gun_color = 0;
 }
 
 static void store_gun(void) {
     if (!ini_file[0]) return;
-    CreateDirectoryW(data_dir, NULL);
+    rr_mkdir(data_dir);
     wchar_t value[16];
-    swprintf_s(value, 16, L"%d", gun_shape); WritePrivateProfileStringW(L"NES.Zapper", L"shape", value, ini_file);
-    swprintf_s(value, 16, L"%d", gun_size); WritePrivateProfileStringW(L"NES.Zapper", L"size", value, ini_file);
-    swprintf_s(value, 16, L"%d", gun_color); WritePrivateProfileStringW(L"NES.Zapper", L"color", value, ini_file);
+    swprintf(value, 16, L"%d", gun_shape); rr_ini_set(L"NES.Zapper", L"shape", value, ini_file);
+    swprintf(value, 16, L"%d", gun_size); rr_ini_set(L"NES.Zapper", L"size", value, ini_file);
+    swprintf(value, 16, L"%d", gun_color); rr_ini_set(L"NES.Zapper", L"color", value, ini_file);
 }
 
 static void store_binding(void) {
     if (!ini_file[0]) return;
-    CreateDirectoryW(data_dir, NULL);
+    rr_mkdir(data_dir);
     wchar_t sec[64], value[16];
     section(sec, player, gamepad_page != 0);
-    swprintf_s(value, 16, L"%d", gamepad_page ? buttons[player][row] : keys[player][row]);
-    WritePrivateProfileStringW(sec, settings[row], value, ini_file);
+    swprintf(value, 16, L"%d", gamepad_page ? buttons[player][row] : keys[player][row]);
+    rr_ini_set(sec, settings[row], value, ini_file);
 }
 
 static void open_pads(void) {
@@ -235,15 +233,15 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(150, tr("Up/Down: select | Left/Right: change", "Haut/Bas : choisir | Gauche/Droite : changer"));
     } else if (menu == 2) {
         char line[96];
-        snprintf(line, sizeof(line), "Player %d  |  %s  |  Tab / Left-Right", player + 1,
-                 gamepad_page ? "Gamepad" : "Keyboard");
+        snprintf(line, sizeof(line), "%s %d | %s | Tab / <- ->", rr_tr("Player"), player + 1,
+                 rr_tr(gamepad_page ? "Gamepad" : "Keyboard"));
         RR_NES_TEXT(38, line);
         for (int a = 0; a < ACTIONS; ++a) {
             if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 13, 232, 12, 35, 74, 110, 255);
             const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
                 rr_keyboard_name(keys[player][a]);
-            snprintf(line, sizeof(line), "%c %-7s %s", a == row ? '>' : ' ', names[a],
-                     capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : bound);
+            snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
+                     capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
             RR_NES_TEXT(53 + a * 13, line);
         }
         RR_NES_TEXT(164, tr("Enter: remap | Esc: close", "Entree : attribuer | Esc : fermer"));
@@ -260,7 +258,12 @@ static void draw_menu(SDL_Renderer *ren) {
 
 int cyc_sdl_main(const char *title, int scale) {
     SDL_SetMainReady();
+#ifndef _WIN32
+    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC,"1",SDL_HINT_DEFAULT);
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
+    /* The CLI's headless setup is reached only after its SDL early return. */
+    rr_feedback_start(cyc_run_native);
     load_bindings();
     wchar_t state_path[32768]; rr_nes_state_path(state_path, 32768);
     if (scale < 1) scale = 3;
@@ -268,6 +271,7 @@ int cyc_sdl_main(const char *title, int scale) {
     snprintf(caption, sizeof(caption), "%s | %s", title, "Native code");
     SDL_Window *win = SDL_CreateWindow(caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         256 * scale, 240 * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    rr_set_window_icon(win);
     if (win && fullscreen && SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) fullscreen = 0;
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED) : NULL;
     if (!ren && win) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
@@ -343,13 +347,14 @@ int cyc_sdl_main(const char *title, int scale) {
                 menu = 2; gamepad_page = 2; row = capturing = 0;
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
-                if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
-                    WritePrivateProfileStringW(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
+                if (ini_file[0]) { rr_mkdir(data_dir);
+                    rr_ini_set(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
             }
             else if (key == SDL_SCANCODE_F7) {
-                french = !french;
-                if (ini_file[0]) { CreateDirectoryW(data_dir, NULL);
-                    WritePrivateProfileStringW(L"Interface", L"language", french ? L"fr" : L"en", ini_file); }
+                french = rr_language_next(french); rr_language_set(french);
+                snprintf(status,sizeof(status),"%s",rr_language_name(french)); status_until=SDL_GetTicks64()+2200;
+                if (ini_file[0]) { rr_mkdir(data_dir);
+                    rr_ini_set(L"Interface", L"language", rr_language_wide(french), ini_file); }
             } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
                 bool load = key == SDL_SCANCODE_F9;
                 bool ok = rr_nes_state_file(state_path, load);

@@ -21,7 +21,7 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (AES BIOS required) |
 | F6 | Gamepad autofire on/off for mapped face buttons |
-| F7 | English/French |
+| F7 | Next menu language: EN → FR → IT → ES → DE → ZH → JA → RU |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | F10 | Master System: Light Phaser options, in catalogue-selected gun games |

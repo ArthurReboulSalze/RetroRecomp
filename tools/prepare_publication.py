@@ -15,6 +15,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 VERSION = "1.0.3"
 PUBLIC_FILES = tuple("""
+smsrecomp/platforms.py native/platform_io.h native/platform_io.c
+smsrecomp/linux_desktop.py tests/test_linux_desktop.py
+smsrecomp/languages.py
+smsrecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
+smsrecomp/resources.py native/embedded_resources.h
+docs/LANGUAGES.md
+native/language_checks.c tools/language_selftest.py
+native/runtime_i18n.h native/runtime_catalog.inc native/runtime_glyphs.inc
+assets/locales/fr.json assets/locales/it.json assets/locales/es.json assets/locales/de.json
+assets/locales/zh.json assets/locales/ja.json assets/locales/ru.json
+assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
+native/paths_posix.inc native/learning_posix.c native/font6x10.h
+native/platform_posix_checks.c tools/linux_sms_selftest.py
 smsrecomp/freshness.py
 tests/test_freshness.py
 smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
@@ -90,8 +103,9 @@ native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/nes_windows_checks.c tools/nes_windows_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
+native/nes_ppu_fast.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py
 tools/nes_state_selftest.py
-smsrecomp/nes_machine.py smsrecomp/nes_catalog.py
+smsrecomp/nes_machine.py smsrecomp/nes_catalog.py smsrecomp/nes_optimization.py
 smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
 smsrecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
@@ -208,6 +222,8 @@ tools/lightphaser_selftest.py tools/video_selftest.py docs/LIGHT_PHASER.md docs/
 native/sms_sprite_probe.c tools/sms_sprite_selftest.py
 tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
+smsrecomp/cover_keyring.py tests/test_cover_keyring.py
+tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES

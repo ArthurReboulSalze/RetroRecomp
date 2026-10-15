@@ -13,7 +13,7 @@ import zlib
 from smsrecomp.batch import identify,convert_batch
 from smsrecomp.core import ConversionError
 from smsrecomp.neogeo import read_set,canonical_archive,selected_members,parent_archives
-from smsrecomp.neogeo_knowledge import key,validate_record
+from smsrecomp.neogeo_knowledge import key,validate_record,compact_record,expanded_record
 from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
 
@@ -148,6 +148,34 @@ class NeoGeoConverterTests(unittest.TestCase):
         self.assertEqual(merge_qualified(identity,old,new),new)
         old['words']='private dump'
         with self.assertRaises(ValueError):merge_qualified(identity,old,new)
+
+    def test_compact_rom_roots_round_trip_and_merge_without_losing_guards(self):
+        from tools.build_neogeo_knowledge import merge_qualified
+        record=self.record();identity=key(record['cart'],record['bios'])
+        record['rom_entries']=[[1,0],[1,2],[1,6],[1,510],[2,0],[2,131070]]
+        packed=compact_record(identity,record)
+        self.assertEqual(packed['rom_entries'],[])
+        self.assertEqual(expanded_record(identity,packed),record)
+        self.assertEqual(record['rom_entries'][0],[1,0])
+        new=copy.deepcopy(record);new['rom_entries']=[[1,8],[2,2]]
+        merged=merge_qualified(identity,packed,new)
+        self.assertEqual(merged['rom_entries'],[[1,0],[1,2],[1,6],[1,8],[1,510],[2,0],[2,2],[2,131070]])
+        self.assertEqual(merged['ram_refs'],record['ram_refs'])
+        self.assertEqual(merged['z80_refs'],record['z80_refs'])
+        self.assertEqual(compact_record(identity,packed),packed)
+
+    def test_compact_rom_roots_reject_invalid_regions_offsets_and_expansion(self):
+        record=self.record();identity=key(record['cart'],record['bios'])
+        for blocks in ([[1]],[[True,0]],[[1,True]],[[3,0]],[[1,1]],[[1,0,0]],
+                       [[1,0,-2]],[[1,0,3]],[[1,510,2]],[[2,131070,2]],[[1,0],[1,2]],
+                       [[1,0],[2,0],[1,2]],[[1,'bytes']]):
+            bad={**record,'rom_deltas':blocks}
+            with self.subTest(blocks=blocks),self.assertRaises(ValueError):validate_record(identity,bad)
+        bad={**record,'p_bytes':2<<20,'rom_bytes':3<<20,'rom_entries':[],
+             'rom_deltas':[[1,0,*([2]*262144)]]}
+        with self.assertRaisesRegex(ValueError,'region/count'):validate_record(identity,bad)
+        packed=compact_record(identity,record);packed['raw_rom']=[]
+        with self.assertRaises(ValueError):validate_record(identity,packed)
 
     def test_bios_preferences_are_portable_and_independent_of_cwd(self):
         from smsrecomp.paths import save_preferences,load_preferences,selected_bios_path

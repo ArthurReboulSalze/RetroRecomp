@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #include "paths.h"
 #include "embedded_rom.h"
 #include <windows.h>
@@ -81,3 +82,7 @@ int retro_game_file_replace(const wchar_t *temporary, const wchar_t *destination
     return game_file_path(from, temporary) && game_file_path(to, destination) &&
         MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
 }
+
+#else
+#include "paths_posix.inc"
+#endif

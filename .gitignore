@@ -63,6 +63,8 @@ docs/*
 !docs/COMPILATION_LIBRARY.md
 !docs/RUNTIME_FEEDBACK.md
 !docs/BUILDING.md
+!docs/LINUX.md
+!docs/LANGUAGES.md
 !docs/COMPATIBILITY.md
 !docs/BOXART.md
 !docs/AUDIO.md

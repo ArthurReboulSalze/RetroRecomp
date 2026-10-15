@@ -8,9 +8,9 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.0.3-d4a737" alt="Release version 1.0.3">
+  <img src="https://img.shields.io/badge/release-1.1.0-d4a737" alt="Release version 1.1.0">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
-  <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
+  <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
 
@@ -24,7 +24,7 @@
 ## One converter, multiple consoles
 
 RetroRecomp brings several recompilers together in one application. It recompiles
-game code into compact, standalone Windows executables for a simple, responsive
+game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
@@ -39,6 +39,9 @@ dedicated FPGA hardware.
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
   modes and lightweight filters keep the experience consistent across consoles.
   Your display mode and filter are remembered; F8/F9 quick states resume after closing the game.
+  Eight menu languages are included: English, French, Italian, Spanish, German,
+  Chinese, Japanese and Russian. **F7** cycles through them
+  and remembers your choice. See [languages](docs/LANGUAGES.md).
 - **Let your next build learn from your play.** Games remember useful fallback
   hints, helping RetroRecomp cover more of the code you actually use.
 - **Make games easy to find.** Optional box-art icons and shooting tags distinguish
@@ -46,7 +49,7 @@ dedicated FPGA hardware.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
   Reviewed cover links correct recurring mismatches during regeneration.
-- **Build on shared knowledge.** Verified hints for **1,069 exact cartridge
+- **Build on shared knowledge.** Verified hints for **1,092 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
 
 ## Play. Learn. Recompile.
@@ -115,13 +118,19 @@ depend on the game; they do not guarantee that every slowdown or visual issue di
 
 ## Get started
 
-1. Download **Retro-Recomp.exe** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
+1. Download the **Windows EXE** or **Linux x86-64 archive** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
 2. Add your ROMs or folders, leave console detection on **Automatic**, and convert.
 3. Open the generated games in their console folders under **Games** beside the app.
 
 Conversion needs a supported build toolchain; see the
 [setup guide](docs/BUILDING.md). Playing the exported games needs no development tools.
 ROMs and downloaded box art are not included.
+
+The first Linux package is built and checked on **Debian 13 / glibc 2.41**;
+other distributions and ARM64 remain to be qualified. Linux builds Linux games,
+Windows builds Windows games, using the same verified compilation knowledge.
+See the [Linux guide](docs/LINUX.md) for launchers, build tools and cover accounts.
+The window can shrink for smaller screens, with a shorter ROM list and log.
 
 Use **Options** for conversion settings and **Check for updates** when you want
 a newer version. Update checks are manual. Updating the converter preserves
@@ -146,7 +155,7 @@ The app's **Credits** page links the independent projects behind each console.
 Original RetroRecomp contributions use the [MIT license](LICENSE). Imported
 components retain their own terms, including noncommercial restrictions;
 MIT does not override them. See [third-party notices](THIRD_PARTY_NOTICES.md).
-Notices are embedded in the EXE; the matching
+Notices are embedded in the converter; the matching
 [UPX source archive](licenses/upx-5.2.1-src.tar.xz) is available in this repository.
 
 Feedback and contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md).

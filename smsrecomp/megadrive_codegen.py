@@ -14,6 +14,7 @@ import shutil
 
 from .core import ConversionError, run, serialized_setup, toolchain
 from .paths import ROOT, ASSETS
+from .platforms import build_executable, cmake_target_args, build_jobs
 from .library import atomic_json
 from .m68000 import (_masked, operation_bodies, mnemonic_names,
                      adapt_cycle_estimates, instruction_literal, adapt_semantics)
@@ -50,14 +51,16 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(md_decode md_decode_dump.c "{prefix}/recompiler/src/m68k_decoder.c"
   "{prefix}/recompiler/src/m68k_validator.c" md_rom_parser.c)
 target_include_directories(md_decode PRIVATE . "{prefix}/recompiler/src")
-target_compile_options(md_decode PRIVATE /utf-8 /wd4996)
+if(MSVC)
+  target_compile_options(md_decode PRIVATE /utf-8 /wd4996)
+endif()
 ''')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'],
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()],
         log=project / 'build.log')
-    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'],
+    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()],
         log=project / 'build.log')
-    return project / 'build/Release/md_decode.exe'
+    return build_executable(project / 'build','md_decode')
 
 
 def jump_table_entries(data: bytes, reached: set[int], examined: set[int] | None = None) -> set[int]:

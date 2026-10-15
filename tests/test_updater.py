@@ -7,11 +7,15 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.error
+import os
+import subprocess
+import sys
 
 from smsrecomp.gui import update_error_text
 from smsrecomp.updater import (Update, UpdateConnectionError, UpdateServiceError,
                                _install_files, apply_update, check_for_update,
                                discard_update, finish_update, prepare_update, select_update)
+from smsrecomp.updater import _wait_for_process
 
 
 class UpdaterTests(unittest.TestCase):
@@ -35,10 +39,10 @@ class UpdaterTests(unittest.TestCase):
                                 "digest": "sha256:" + "a" * 64}]}
         releases = [release("v0.14.2"), release("v0.14.3", draft=True),
                     release("v0.15.0", name="RetroRecomp-v0.15.0-windows-x64.zip")]
-        update = select_update(releases, current="0.14.1")
+        update = select_update(releases, current="0.14.1", target='windows-x86_64')
         self.assertEqual(update.version, "0.14.2")
         self.assertTrue(update.url.endswith("/Retro-Recomp.exe"))
-        self.assertIsNone(select_update(releases, current="0.14.2"))
+        self.assertIsNone(select_update(releases, current="0.14.2", target='windows-x86_64'))
 
     def test_firewall_block_uses_a_plain_localized_message(self):
         raw = urllib.error.URLError(PermissionError(13, "raw access denied 10013"))
@@ -151,6 +155,67 @@ class UpdaterTests(unittest.TestCase):
             self.assertIsNone(finish_update(job_dir, token, 12345))
             self.assertEqual(wait.call_count, 2)
         self.assertFalse(job_dir.exists())
+
+
+class LinuxUpdaterTests(unittest.TestCase):
+    @staticmethod
+    def elf(machine=62):
+        return b'\x7fELF\x02\x01\x01'+bytes(9)+b'\x03\x00'+machine.to_bytes(2,'little')+b'authored converter'
+
+    def test_selection_keeps_platforms_separate(self):
+        def asset(name):
+            return dict(name=name,state='uploaded',size=100,digest='sha256:'+'a'*64)
+        releases=[dict(tag_name='v1.1.0', assets=[asset('Retro-Recomp.exe'),
+                  asset('Retro-Recomp-linux-x86_64'),asset('Retro-Recomp-linux.tar.gz')]),
+                  dict(tag_name='v1.2.0',assets=[asset('Retro-Recomp.exe')])]
+        linux=select_update(releases,current='1.0.3',target='linux-x86_64')
+        self.assertEqual(linux.version,'1.1.0')
+        self.assertEqual(linux.target,'linux-x86_64')
+        self.assertTrue(linux.url.endswith('/Retro-Recomp-linux-x86_64'))
+        self.assertEqual(select_update(releases,current='1.0.3',target='windows-x86_64').version,'1.2.0')
+        self.assertIsNone(select_update(releases,current='1.1.0',target='linux-x86_64'))
+
+    def test_linux_elf_install_permissions_and_untouched_user_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); exe=root/'Retro-Recomp'
+            exe.write_bytes(self.elf()+b'old');exe.chmod(0o755)
+            saved=root/'datas';saved.mkdir();(saved/'cover-sources.json').write_text('private reference')
+            raw=self.elf()
+            update=Update('1.1.0','https://example.test/update','page',hashlib.sha256(raw).hexdigest(),len(raw),'linux-x86_64')
+            with patch('smsrecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
+                job,token=prepare_update(update,exe)
+            self.assertTrue((job/'updater-helper').exists())
+            if os.name!='nt':self.assertTrue((job/'files/Retro-Recomp').stat().st_mode & 0o100)
+            with patch('smsrecomp.updater._wait_for_process'),patch('smsrecomp.updater.subprocess.Popen'):
+                self.assertEqual(apply_update(job,token),0)
+                self.assertIsNone(finish_update(job,token,12345))
+            self.assertEqual(exe.read_bytes(),raw)
+            self.assertFalse(job.exists())
+            self.assertEqual((saved/'cover-sources.json').read_text(),'private reference')
+            if os.name!='nt':self.assertTrue(exe.stat().st_mode & 0o100)
+
+    def test_wrong_elf_architecture_does_not_replace_converter(self):
+        with tempfile.TemporaryDirectory() as temp:
+            exe=Path(temp)/'Retro-Recomp';exe.write_bytes(self.elf())
+            raw=self.elf(machine=183)
+            update=Update('1.1.0','https://example.test/update','page',hashlib.sha256(raw).hexdigest(),len(raw),'linux-x86_64')
+            with patch('smsrecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
+                with self.assertRaisesRegex(ValueError,'Linux x86-64'):
+                    prepare_update(update,exe)
+            self.assertEqual(list(Path(temp).iterdir()),[exe])
+            self.assertEqual(exe.read_bytes(),self.elf())
+
+    @unittest.skipUnless(sys.platform=='linux','Linux pidfd process wait')
+    def test_helper_waits_for_parent_exit(self):
+        process=subprocess.Popen([sys.executable,'-c','import time; time.sleep(.4)'])
+        try:
+            with self.assertRaises(TimeoutError):_wait_for_process(process.pid,timeout_ms=10)
+            _wait_for_process(process.pid,timeout_ms=5000)
+            self.assertEqual(process.wait(timeout=1),0)
+            _wait_for_process(process.pid,timeout_ms=10)
+        finally:
+            if process.poll() is None:process.kill()
+            process.wait()
 
 
 if __name__ == "__main__":

@@ -53,6 +53,14 @@ class Console16Tests(unittest.TestCase):
         rom = read_megadrive_rom(self.source('state.md', md()))
         (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
         write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
+        import os
+        if os.name != 'nt':
+            self.assertNotIn('RR16_STATE_COMPAT_ABI',
+                             (self.root/'retro16_state_config.h').read_text())
+            # Check the retained Windows migration contract independently of
+            # the machine executing these pure source-generation tests.
+            with patch('smsrecomp.console16_state.os.name','nt'):
+                write_config(self.root,rom,'md','Test',REPOSITORIES)
         self.assertIn('RR16_STATE_COMPAT_ABI "ea70d6ee',
                       (self.root/'retro16_state_config.h').read_text())
         self.assertIn('RR16_STATE_COMPAT_ABI_2 "9462ea4e',

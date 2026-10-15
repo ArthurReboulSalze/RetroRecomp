@@ -1,6 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
-#include <windows.h>
+#include "platform_io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,13 +75,13 @@ int main(int argc, char **argv) {
         rr16_shutdown();return 2;
 #else
         wchar_t path[32768];
-        if (!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,cartridge_save,-1,path,32768) ||
+        if (!rr_from_utf8(cartridge_save,path,32768) ||
                 !rr16_cartridge_save(path)) { rr16_shutdown();return 9; }
 #endif
     }
     if (load_state) {
         wchar_t path[32768];
-        bool ok=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,load_state,-1,path,32768) && rr16_state_file(path,true);
+        bool ok=rr_from_utf8(load_state,path,32768) && rr16_state_file(path,true);
         if (!ok && !ignore_load_error) { rr16_shutdown(); return 7; }
     }
     if (!frames) { int status = rr16_sdl_main(RR_GAME_TITLE, 3); rr16_shutdown(); SDL_Quit(); return status; }
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
     }
     if (save_state) {
         wchar_t path[32768];
-        bool ok=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,save_state,-1,path,32768) && rr16_state_file(path,false);
+        bool ok=rr_from_utf8(save_state,path,32768) && rr16_state_file(path,false);
         if (!ok) { if (trace) fclose(trace); rr16_shutdown(); return 8; }
     }
     bool reset_matches = true, reset_sequence_matches = true, reset_audio_matches = true;
@@ -202,6 +202,9 @@ int main(int argc, char **argv) {
     if (trace) fclose(trace);
     rr16_shutdown(); return completed != frames ? 4 : !reset_matches ? 6 : 0;
 }
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command, int show) {
     return main(__argc, __argv);
 }
+
+#endif

@@ -1,1 +1,3 @@
 Pillow>=12.0,<13
+tkinterdnd2==0.6.4; sys_platform == "linux"
+SecretStorage==3.5.0; sys_platform == "linux"

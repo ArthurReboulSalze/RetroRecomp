@@ -21,6 +21,31 @@ def png():
 
 
 class CoverTitleTests(unittest.TestCase):
+    def test_neogeo_catalogue_aliases_preserve_sequels_and_prototype_editions(self):
+        names=['3 Count Bout _ Fire Suplex (NGM-043)(NGH-043).png',
+               'Alpha Mission II _ ASO II - Last Guardian (prototype).png',
+               'Alpha Mission II _ ASO II - Last Guardian (NGM-007)(NGH-007).png',
+               'Art of Fighting _ Ryuuko no Ken (NGM-044)(NGH-044).png',
+               'Art of Fighting 2 _ Ryuuko no Ken 2 (NGM-056).png',
+               "Blue's Journey _ Raguy (ALM-001)(ALH-001).png"]
+        for query,index in [('3 Count Bout',0),('Alpha Mission II',2),('Art of Fighting',3),
+                            ('Art of Fighting 2',4),("Blue's Journey",5)]:
+            with self.subTest(query=query):
+                self.assertEqual(choose_cover(names,query,query,system_id='ng',regional_fallback=True),names[index])
+        self.assertIsNone(choose_cover(names[:1],'3 Count Bout','3 Count Bout',system_id='sms'))
+        self.assertIsNone(choose_cover(names[3:4],'Art of Fighting 2','Art of Fighting 2',system_id='ng'))
+        self.assertIsNone(choose_cover(names[1:2],'Alpha Mission II','Alpha Mission II',system_id='ng'))
+        self.assertIsNone(choose_cover(['Game A _ Game B (NGM-123).png'],'Game A','Game A',system_id='ng'))
+
+    def test_neogeo_archive_codes_do_not_add_spurious_sequel_numbers(self):
+        names=['Fatal Fury - King of Fighters _ Garou Densetsu - shukumei no tatakai (NGM-033)(NGH-033).png',
+               'Goal! Goal! Goal!.png','Battle Flip Shot.png','Fatal Fury 2 (USA).png']
+        for archive,title,index in [('fatfury1','Fatal Fury - King of Fighters',0),
+                                    ('goalx3','Goal! Goal! Goal!',1),('flipshot','Flip Shot',2)]:
+            self.assertEqual(choose_cover(names,archive,title,system_id='ng'),names[index])
+        self.assertIsNone(choose_cover(names[:1],'fatfury2','Fatal Fury 2',system_id='ng'))
+        self.assertIsNone(choose_cover(names[:1],'fatfury2','Fatal Fury',system_id='ng'))
+
     def test_spelling_articles_abbreviations_and_numerals(self):
         cases = (
             ('Super Metriod', 'Super Metroid'),

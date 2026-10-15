@@ -26,7 +26,15 @@ def job_path(target: Path) -> Path:
 def publication_lock(target: Path):
     # A converter and its detached installer must never publish out of order.
     if os.name != 'nt':
-        yield
+        import fcntl
+        lock_dir = target.parent / 'datas/pending'
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        with job_path(target).with_suffix('.lock').open('a+b') as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(stream, fcntl.LOCK_UN)
         return
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]

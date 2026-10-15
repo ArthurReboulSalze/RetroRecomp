@@ -1,6 +1,6 @@
 /* RetroRecomp host adapter for the pinned segagenesisrecomp runtime.
  * The linked engine and generated code retain their upstream licences. */
-#include <windows.h>
+#include "embedded_resources.h"
 #include <string.h>
 #include <stdlib.h>
 #include "retro_console16.h"
@@ -155,9 +155,8 @@ bool rr16_init(bool headless) {
     rr_md_cpu_stopped = 0;
     rr_md_prefetch_reset();
     rr_md_z80_reset_evidence();
-    HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
-    const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
-    if (!rom || SizeofResource(NULL, resource) != RR_MD_ROM_BYTES) return false;
+    size_t resource_size=0; const uint8_t *rom=rr_resource(103,&resource_size);
+    if(!rom || resource_size!=RR_MD_ROM_BYTES)return false;
     feedback_rom=rom;
     machine_init(); rr16_md_ym_reset(); glue_init(rom, RR_MD_ROM_BYTES); audio_mixer_init();
     gbus_sram_setup(&g_machine.bus);
@@ -180,8 +179,9 @@ bool rr16_init(bool headless) {
     wchar_t battery_path[32768];
     if (!headless && (!rr_md_battery_path(battery_path,32768) ||
                      !rr_md_battery_open(&g_machine.bus,battery_path)))
-        MessageBoxW(NULL,L"The cartridge save could not be loaded. The existing file is preserved. "
-                    L"Check the file and folder permissions before playing.",L"RetroRecomp",MB_OK|MB_ICONWARNING);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"RetroRecomp",
+            "The cartridge save could not be loaded. The existing file is preserved. "
+            "Check the file and folder permissions before playing.",NULL);
     if (headless) rr_md_battery_open(&g_machine.bus,NULL);
     audible = !headless && audio_init(RR_MD_PSG_HZ) == 0;
     return true;
@@ -240,7 +240,7 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
         psg_active_frames += pcm_changes(psg, pn, 1);
     }
     if (audible) audio_flush(genesis_sim_tick_count(), 1, fm, fn, psg, pn);
-    if (!headless_mode) rr_md_battery_flush(&g_machine.bus,GetTickCount64(),false);
+    if (!headless_mode) rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),false);
     return ok != 0 && !execution_fault;
 }
 const uint32_t *rr16_pixels(void) { return pixels; }
@@ -358,9 +358,10 @@ size_t rr16_audio(int16_t *pcm, size_t capacity) { return 0; }
 void rr16_pause(bool paused) { if (audible) audio_set_playback_enabled(!paused); }
 void rr16_shutdown(void) {
     rr_md_z80_bus_reset();
-    if (!headless_mode && !rr_md_battery_flush(&g_machine.bus,GetTickCount64(),true))
-        MessageBoxW(NULL,L"The cartridge save could not be written. Check the folder permissions "
-                    L"and available disk space.",L"RetroRecomp",MB_OK|MB_ICONWARNING);
+    if (!headless_mode && !rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),true))
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"RetroRecomp",
+            "The cartridge save could not be written. Check the folder permissions "
+            "and available disk space.",NULL);
     if (audible) audio_close();
     free(cold_state); cold_state=NULL; cold_length=0; glue_shutdown();
 }

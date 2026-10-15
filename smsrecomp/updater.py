@@ -1,4 +1,4 @@
-"""User-initiated updates of the portable Windows converter from GitHub releases."""
+"""User-initiated, platform-specific portable converter updates from GitHub."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,8 +16,10 @@ import tempfile
 import urllib.error
 import urllib.request
 import uuid
+import select
 
 from . import __version__
+from .platforms import target_id
 
 
 REPOSITORY = "ArthurReboulSalze/RetroRecomp"
@@ -61,6 +63,23 @@ class Update:
     page: str
     digest: str
     size: int
+    target: str = 'windows-x86_64'
+
+
+def release_asset(target: str) -> str:
+    names = {'windows-x86_64': 'Retro-Recomp.exe',
+             'linux-x86_64': 'Retro-Recomp-linux-x86_64'}
+    if target not in names:
+        raise ValueError('No compatible converter update is available for this platform.')
+    return names[target]
+
+
+def _target_platform(executable: Path) -> str:
+    if executable.name.casefold() == 'retro-recomp.exe':
+        return 'windows-x86_64'
+    if executable.name in ('Retro-Recomp', 'Retro-Recomp-linux-x86_64'):
+        return 'linux-x86_64'
+    raise ValueError('Update is only available in the packaged converter')
 
 
 def _version(value: str) -> tuple[int, int, int] | None:
@@ -68,7 +87,9 @@ def _version(value: str) -> tuple[int, int, int] | None:
     return tuple(map(int, match.groups())) if match else None
 
 
-def select_update(releases: list[dict], current: str = __version__) -> Update | None:
+def select_update(releases: list[dict], current: str = __version__, *, target: str | None = None) -> Update | None:
+    target = target or target_id()
+    wanted = release_asset(target)
     installed = _version("v" + current)
     if installed is None:
         raise ValueError("Invalid installed version")
@@ -83,12 +104,12 @@ def select_update(releases: list[dict], current: str = __version__) -> Update | 
             name = asset.get("name")
             digest = asset.get("digest", "")
             size = asset.get("size", 0)
-            if (name == "Retro-Recomp.exe" and asset.get("state") == "uploaded"
+            if (name == wanted and asset.get("state") == "uploaded"
                     and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
                     and isinstance(size, int) and 0 < size <= MAX_ARCHIVE_BYTES):
                 candidates.append((number, Update(tag[1:],
                     f"{RELEASE_BASE}/download/{tag}/{name}",
-                    f"{RELEASE_BASE}/tag/{tag}", digest[7:].lower(), size)))
+                    f"{RELEASE_BASE}/tag/{tag}", digest[7:].lower(), size, target)))
     return max(candidates, key=lambda item: item[0])[1] if candidates else None
 
 
@@ -127,10 +148,10 @@ def discard_update(job_dir: Path, executable: Path) -> None:
 def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
     """Download only after a click; stage on the install volume without touching games."""
     executable = executable.resolve()
-    if executable.name.casefold() != "retro-recomp.exe":
-        raise ValueError("Update is only available in the packaged converter")
+    if _target_platform(executable) != update.target:
+        raise ValueError('Downloaded update targets a different platform.')
     job_dir = Path(tempfile.mkdtemp(prefix=UPDATE_PREFIX, dir=executable.parent)).resolve()
-    archive_path = job_dir / "download.exe"
+    archive_path = job_dir / "download"
     try:
         request = urllib.request.Request(update.url, headers={"User-Agent": f"RetroRecomp/{__version__}"})
         digest = hashlib.sha256()
@@ -144,17 +165,24 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
                 digest.update(chunk)
         if size != update.size or digest.hexdigest() != update.digest:
             raise ValueError("Downloaded release checksum does not match GitHub")
-        staged = job_dir / "files/Retro-Recomp.exe"
+        staged = job_dir / 'files' / executable.name
         staged.parent.mkdir(parents=True)
         archive_path.replace(staged)
         with staged.open("rb") as candidate:
-            if candidate.read(2) != b"MZ":
+            header = candidate.read(20)
+            if update.target == 'windows-x86_64' and header[:2] != b"MZ":
                 raise ValueError("Release does not contain a Windows executable")
-        files = {"Retro-Recomp.exe": update.digest}
+            if update.target == 'linux-x86_64' and (len(header) < 20 or
+                    header[:7] != b'\x7fELF\x02\x01\x01' or header[18:20] != b'\x3e\x00'
+                    or int.from_bytes(header[16:18], 'little') not in (2, 3)):
+                raise ValueError('Release does not contain a Linux x86-64 executable')
+        if update.target == 'linux-x86_64':
+            staged.chmod((executable.stat().st_mode & 0o777) | 0o100)
+        files = {executable.name: update.digest}
         if getattr(sys, "frozen", False):
             environment = os.environ.copy()
             environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-            subprocess.run([str(job_dir / "files/Retro-Recomp.exe"), "_verify-update", update.version],
+            subprocess.run([str(staged), "_verify-update", update.version],
                            cwd=job_dir, env=environment, stdin=subprocess.DEVNULL,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
@@ -163,7 +191,7 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
         job = {"token": token, "version": update.version, "target": str(executable),
                "parent_pid": os.getpid(), "files": files}
         (job_dir / "job.json").write_text(json.dumps(job), encoding="utf-8")
-        shutil.copy2(executable, job_dir / "updater-helper.exe")
+        shutil.copy2(executable, job_dir / ('updater-helper.exe' if update.target.startswith('windows') else 'updater-helper'))
         return job_dir, token
     except BaseException:
         _remove_job_dir(job_dir, executable)
@@ -171,20 +199,22 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
 
 
 def start_update_helper(job_dir: Path, token: str) -> None:
-    helper = job_dir / "updater-helper.exe"
+    job, target = _read_job(job_dir, token)
+    helper = job_dir / ('updater-helper.exe' if _target_platform(target).startswith('windows') else 'updater-helper')
     environment = os.environ.copy()
     environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
     subprocess.Popen([str(helper), "_apply-update", str(job_dir), token],
                      cwd=job_dir, env=environment, stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-                     close_fds=True)
+                     close_fds=True, start_new_session=os.name != 'nt')
 
 
 def _read_job(job_dir: Path, token: str) -> tuple[dict, Path]:
     job = json.loads((job_dir / "job.json").read_text(encoding="utf-8"))
     target = Path(job["target"]).resolve()
-    if (job.get("token") != token or target.name.casefold() != "retro-recomp.exe"
+    _target_platform(target)
+    if (job.get("token") != token
             or _safe_job_dir(job_dir, target) != job_dir.resolve()):
         raise ValueError("Invalid update job")
     return job, target
@@ -192,6 +222,17 @@ def _read_job(job_dir: Path, token: str) -> tuple[dict, Path]:
 
 def _wait_for_process(pid: int, timeout_ms: int = 120000) -> None:
     if os.name != "nt":
+        if not isinstance(pid, int) or pid <= 0 or pid == os.getpid():
+            raise ValueError('Invalid update process identity')
+        try:
+            descriptor = os.pidfd_open(pid)
+        except ProcessLookupError:
+            return
+        try:
+            if not select.select([descriptor], [], [], timeout_ms/1000)[0]:
+                raise TimeoutError('The previous converter did not close')
+        finally:
+            os.close(descriptor)
         return
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
@@ -213,7 +254,8 @@ def _install_files(job_dir: Path, target: Path, files: dict[str, str]) -> None:
     """Replace only the converter; reverse the change if installation fails."""
     staged = job_dir / "files"
     backup = job_dir / "backup"
-    if set(files) != {"Retro-Recomp.exe"}:
+    _target_platform(target)
+    if set(files) != {target.name}:
         raise ValueError("Invalid update manifest")
     changed = []
     try:
@@ -222,7 +264,7 @@ def _install_files(job_dir: Path, target: Path, files: dict[str, str]) -> None:
             if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
                 raise ValueError("Staged update changed after verification")
         # The previous EXE remains recoverable until the restarted app cleans up.
-        for relative in sorted(files, key=lambda item: item == "Retro-Recomp.exe"):
+        for relative in sorted(files):
             destination = target.parent / relative
             previous = backup / relative
             if destination.parent != target.parent and destination.parent.is_symlink():
@@ -268,7 +310,7 @@ def apply_update(job_dir: Path, token: str) -> int:
                          cwd=target.parent, env=environment, stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-                         close_fds=True)
+                         close_fds=True, start_new_session=os.name != 'nt')
     except OSError as error:
         if not job.get("error"):
             _rollback_files(job_dir, target, [(name, (job_dir / "backup" / name).exists())

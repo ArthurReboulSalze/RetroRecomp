@@ -1,5 +1,24 @@
 # Box art and game icons
 
+Linux uses the same cover search, front-cover rules, curated links and download
+cache as Windows. Optional API credentials use the desktop Secret Service
+keyring, while Windows retains DPAPI. Credentials are never stored in plaintext
+as a fallback. A locked keyring does not erase saved accounts when changing
+the cover style. See [LINUX.md](LINUX.md) for desktop setup and package scope.
+
+## Additional reviewed Neo Geo fronts — v1.1.0
+
+Bang Bead and Voltage Fighter Gowcaizer add two user-approved front-cover links,
+bringing the link-only catalogue to 38 entries. The converter also recognizes
+explicit Neo Geo alternate titles and short archive identifiers such as
+`fatfury1` and `goalx3`, which are not sequel numbers. Battle Flip Shot uses its
+verified artwork name. These rules stay scoped to the known Neo Geo catalogue;
+unrelated titles, sequels and prototype editions remain distinct.
+All 50 prefetched campaign covers are reused successfully with the network
+blocked. Images stay in the local cache; existing EXEs need regeneration to
+receive a changed icon. This local converter update does not restart the paused
+game campaign.
+
 RetroRecomp uses the same icon pipeline for Master System, Game Gear, Game Boy,
 NES, Mega Drive, Super Nintendo and Neo Geo. Select **Options → Box art** to configure online sources.
 Front covers are the default; real three-quarter boxes are an optional preference.

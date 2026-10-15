@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 import json
 import hashlib
 from pathlib import Path
@@ -407,6 +408,7 @@ class ArtworkTests(unittest.TestCase):
         self.assertEqual(disabled["tags"], [])
         self.assertNotIn("101 ICON", (self.game / "game_resources.rc").read_text())
 
+    @unittest.skipUnless(os.name == "nt", "Windows curl transport")
     def test_frozen_windows_https_transport_checks_status_and_size(self):
         body = png()
         success = subprocess.CompletedProcess([], 0, body + b"200", b"")

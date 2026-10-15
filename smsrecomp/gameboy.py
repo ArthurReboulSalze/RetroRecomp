@@ -25,6 +25,7 @@ from .knowledge import record_for
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
+from .platforms import build_executable, cmake_target_args, build_jobs, target_id
 
 
 ENGINE_URL = "https://github.com/arcanite24/gb-recompiled.git"
@@ -77,6 +78,8 @@ def read_game_boy_rom(path: Path) -> GameBoyRom:
 
 @serialized_setup
 def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, str]:
+    from .platforms import require_backend
+    require_backend('gb')
     # Reuse the already-pinned SDL2 static build. The Game Boy compiler and
     # runtime remain separate from the Master System/ Game Gear CPU backend.
     _, sdl, cmake, generator = dependencies(emit)
@@ -92,14 +95,14 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
         run(["git", "-C", engine, "checkout", "--detach", ENGINE_REV])
     if run(["git", "-C", engine, "rev-parse", "HEAD"]).strip() != ENGINE_REV:
         raise ConversionError("Unexpected Game Boy compiler revision.")
-    build = engine / "build-retrorecomp"
-    compiler = build / "bin/Release/gbrecomp.exe"
+    build = engine / ('build-retrorecomp' if os.name == 'nt' else 'build-retrorecomp-' + target_id())
+    compiler = build_executable(build / 'bin', 'gbrecomp')
     stamp = build / "retro-recomp-revision.txt"
     if not compiler.is_file() or not stamp.is_file() or stamp.read_text(encoding="ascii").strip() != ENGINE_REV:
         emit("Building the pinned Game Boy recompiler…")
-        run([cmake, "-S", engine, "-B", build, "-G", generator, "-A", "x64",
+        run([cmake, "-S", engine, "-B", build, "-G", generator, *cmake_target_args(),
              f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}", "-DBUILD_TESTS=OFF"], timeout=600)
-        run([cmake, "--build", build, "--config", "Release", "--target", "gbrecomp", "--parallel", "4"],
+        run([cmake, "--build", build, "--config", "Release", "--target", "gbrecomp", "--parallel", build_jobs()],
             timeout=1800)
         if not compiler.is_file():
             raise ConversionError("Game Boy recompiler build produced no executable.")
@@ -156,7 +159,7 @@ def _cpu_compare(executable: Path, build: Path, frames: int,
 def _gb_parallelism(parallel_games: int) -> tuple[int, int]:
     """Bound compiler processes and independent CPU checks during batch work."""
     per_game = max(1, (os.cpu_count() or 1) // parallel_games)
-    return min(4, per_game), 3 if per_game >= 6 else 2 if per_game >= 4 else 1
+    return min(4 if os.name=='nt' else int(build_jobs()), per_game), 3 if per_game >= 6 else 2 if per_game >= 4 else 1
 
 
 def _verified_trace(rom: GameBoyRom) -> Path | None:
@@ -294,9 +297,13 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                                 ("gb-recompiled", "licenses/gb-recompiled.md"),
                                 ("Dear ImGui", "licenses/dear-imgui.md"),
                                 ("xBR", "licenses/xbr.md"),
+                                ("Noto fonts", "licenses/Noto.md"),
                                 ("SDL2", "licenses/SDL2.md")):
         notice += f"## {component}\n\n" + (ASSETS / filename).read_text(encoding="utf-8") + "\n\n"
     (project / "game_legal.md").write_text(notice, encoding="utf-8")
+    (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
+    from .resources import embed_resources
+    embed_resources(project, {102:project/'game_legal.md',104:project/'game_identity.bin'})
     with (project / "game_resources.rc").open("a", encoding="utf-8") as resource:
         resource.write('102 RCDATA "game_legal.md"\n')
     stage_seconds['setup'] = time.perf_counter() - started
@@ -314,7 +321,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     stage_seconds['discovery'] = time.perf_counter() - stage_started
     checks: list[dict] = []
     final_checks: list[dict] = []
-    executable = project / "build/Release/game.exe"
+    executable = build_executable(project / 'build', 'game')
     trace_out = project / "observed.trace"
     for number in range(1, passes + 1):
         compilation_entries = observed_entries | static_entries
@@ -334,7 +341,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             compact_dispatch = compact_generated_dispatch(project)
         stage_seconds['translation'] += time.perf_counter() - stage_started
         stage_started = time.perf_counter()
-        run([cmake, "-S", project, "-B", project / "build", "-G", generator, "-A", "x64",
+        run([cmake, "-S", project, "-B", project / "build", "-G", generator, *cmake_target_args(),
              "-DGBRECOMP_GENERATED_OPT_LEVEL=2",
              f"-DGBRECOMP_GENERATED_COMPILE_JOBS={compile_jobs}",
              f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"],
@@ -426,6 +433,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "input_before_cpu_slice": True, "live_joyp_refresh_interval_us": 1000,
             "generated_optimization_level": 2, "physical_latency_measured": False},
         "build_executable": str(executable), "executable": executable.name,
+        "build_directory": str(project),
         "stage_seconds": {key: round(value, 6) for key, value in stage_seconds.items()},
         "conversion_wall_seconds": round(time.perf_counter() - started, 6)}
     atomic_json(destination / "conversion-report.json", report)

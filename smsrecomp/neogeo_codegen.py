@@ -13,6 +13,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from .paths import ROOT, ASSETS
+from .platforms import build_executable, cmake_target_args, build_jobs
 from .core import run, toolchain, serialized_setup
 from .library import atomic_json
 from .m68000 import adapt_semantics, operation_bodies, mnemonic_names, instruction_literal
@@ -74,12 +75,14 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(ng_decode neogeo_decode.c "{engine.as_posix()}/recompiler/src/m68k_decoder.c"
  "{engine.as_posix()}/recompiler/src/m68k_validator.c" "{engine.as_posix()}/recompiler/src/rom_parser.c")
 target_include_directories(ng_decode PRIVATE . "{engine.as_posix()}/recompiler/src")
-target_compile_options(ng_decode PRIVATE /utf-8 /wd4996)
+if(MSVC)
+  target_compile_options(ng_decode PRIVATE /utf-8 /wd4996)
+endif()
 ''')
     cmake,generator=toolchain()
-    run([cmake,'-S',project,'-B',project/'build','-G',generator,'-A','x64'],log=project/'build.log')
-    run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=project/'build.log')
-    return project/'build/Release/ng_decode.exe'
+    run([cmake,'-S',project,'-B',project/'build','-G',generator,*cmake_target_args()],log=project/'build.log')
+    run([cmake,'--build',project/'build','--config','Release','--parallel',build_jobs()],log=project/'build.log')
+    return build_executable(project/'build','ng_decode')
 
 
 def code_entries(region: int,base: int,size: int,seeds: set[int],physical_entries=None) -> list[int]:
@@ -133,6 +136,9 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
         '#pragma once\n#include "neogeo_native.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_ng_illegal_ea\n'
         'static int interp_ea_read_cost(int ea,M68KSize sz);\n'
+        # Mega Drive game-specific instruction hooks cannot apply to Neo Geo.
+        'static int game_instruction_hook_site(uint32_t pc) {(void)pc;return 0;}\n'
+        'static int genesis_game_instruction_hook(uint32_t pc) {(void)pc;return 0;}\n'
         'static void discover(uint32_t pc) {(void)pc;}\n'+helper+'\n'+timing)
     # Reuse our dynamic arithmetic clock implementation without importing
     # Mega Drive bus or scheduler state into this console.

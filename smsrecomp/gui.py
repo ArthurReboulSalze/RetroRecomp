@@ -17,18 +17,23 @@ from .publishing import is_pending
 from .library import list_games, library_root
 from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
+from .languages import LANGUAGES, LANGUAGE_NAMES, language_code, language_name
 from .tooltips import Tooltip
+from .ui_fonts import load_fonts, family
 from .windows import set_converter_identity
 from .dropfiles import enable_file_drop
 from .artwork import ICON_SIZES
 from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings
+from .cover_keyring import KeyringError
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
 from .systems import PROFILES, discover_roms, get_profile
 from .updater import UpdateConnectionError, UpdateServiceError
 from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
 
 
-PLATFORMS = {'windows-x64': 'Windows x64'}
+from .platforms import target_id, open_local
+LOCAL_PLATFORM = 'windows-x64' if os.name == 'nt' else target_id()
+PLATFORMS = {LOCAL_PLATFORM: 'Windows version' if os.name == 'nt' else 'Linux version'}
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
                   'e522cbde7ca6e7e6eccc0c901389a4178492e6d7/'
                   'licenses/upx-5.2.1-src.tar.xz')
@@ -107,11 +112,13 @@ class Application:
         self.output_browse = None
         self.status_key, self.status_values = 'ready', {}
         preferences = load_preferences()
-        self.language = preferences.get('language') if preferences.get('language') in ('en', 'fr') else 'en'
+        self.language = language_code(preferences.get('language'))
         app.title(APP_NAME)
-        app.geometry('1120x940')
-        app.minsize(1060, 780)
-        self.style = apply_theme(app)
+        app.geometry(f'1120x{max(640, min(940, app.winfo_screenheight() - 80))}')
+        app.minsize(1060, 640)
+        load_fonts()
+        self.ui_font = family(self.language)
+        self.style = apply_theme(app, self.ui_font)
         self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
         self.count = tk.StringVar(value='0 ROM')
@@ -123,17 +130,18 @@ class Application:
         self.system_mode = preferences.get('system_mode', 'auto')
         if self.system_mode not in ('auto', *(profile.id for profile in PROFILES)):
             self.system_mode = 'auto'
-        self.platform_id = preferences.get('platform', 'windows-x64')
+        self.platform_id = preferences.get('platform', LOCAL_PLATFORM)
         if self.platform_id not in PLATFORMS:
-            self.platform_id = 'windows-x64'
+            self.platform_id = LOCAL_PLATFORM
         self.extended = tk.BooleanVar(value=extended_default(preferences))
         self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
         self.md_advanced_scan = tk.BooleanVar(value=preferences.get('md_advanced_scan', False) is True)
         self.nes_advanced_scan = tk.BooleanVar(value=preferences.get('nes_advanced_scan', False) is True)
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
-        saved_jobs = preferences.get('jobs', 3)
-        self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else 3)
+        default_jobs = 3 if os.name == 'nt' else 1
+        saved_jobs = preferences.get('jobs', default_jobs)
+        self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else default_jobs)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
         self.force = tk.BooleanVar(value=False)
@@ -163,7 +171,10 @@ class Application:
         except (OSError, tk.TclError):
             self.console_art = None
         self.brand_tagline = header.create_text(196, 96, text=self.tr('brand_tagline'),
-            anchor='nw', fill=COLORS['text'], font=('Segoe UI', 8), tags='brand_tagline')
+            anchor='nw', fill=COLORS['text'], font=(self.ui_font, 8), tags='brand_tagline')
+        if os.name != 'nt':
+            self.app_icon = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
+            app.iconphoto(True, self.app_icon)
         try:
             icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')
             app.iconbitmap(icon_path)
@@ -184,20 +195,18 @@ class Application:
         self.hint(self.system_field, 'tip_console_format')
 
         self.platform_name = tk.StringVar(value=PLATFORMS[self.platform_id])
-        self.platform_field = ttk.Combobox(header, textvariable=self.platform_name,
-            values=tuple(PLATFORMS.values()), width=12, state='readonly')
-        self.platform_field.bind('<<ComboboxSelected>>', self.change_platform)
-        self.hint(self.platform_field, 'tip_platform')
+        self.platform_field = ttk.Label(header, textvariable=self.platform_name,
+            background=COLORS['header'], foreground=COLORS['text'], width=16, anchor='center')
 
-        self.language_name = tk.StringVar(value='Français' if self.language == 'fr' else 'English')
+        self.language_name = tk.StringVar(value=language_name(self.language))
         self.language_field = ttk.Combobox(header, textvariable=self.language_name,
-                                           values=('English', 'Français'), width=9, state='readonly')
+                                           values=LANGUAGE_NAMES, width=10, state='readonly')
         self.language_field.bind('<<ComboboxSelected>>', self.change_language)
         self.hint(self.language_field, 'tip_language')
         self.header_fields = (self.system_field, self.platform_field, self.language_field)
         self.header_labels = {
             key: header.create_text(0, 10, text=self.tr(key), anchor='nw',
-                                    fill=COLORS['muted'], font=('Segoe UI', 9), tags='selector_label')
+                                    fill=COLORS['muted'], font=(self.ui_font, 9), tags='selector_label')
             for key in ('console_format', 'platform', 'language')
         }
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='nw')
@@ -215,8 +224,8 @@ class Application:
         body.bind('<Configure>', self.draw_background)
         body.pack(fill='both', expand=True)
         body.columnconfigure(0, weight=1)
-        body.rowconfigure(1, weight=4, minsize=240)
-        body.rowconfigure(7, weight=2, minsize=110)
+        body.rowconfigure(1, weight=4, minsize=100)
+        body.rowconfigure(7, weight=2, minsize=52)
         toolbar = ttk.Frame(body)
         self.toolbar = toolbar
         toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
@@ -231,11 +240,11 @@ class Application:
         self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
         self.options_button.pack(side='right', padx=(0, 8))
         ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
-                  font=('Segoe UI', 9)).pack(side='right', padx=(0, 12))
+                  font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
-        self.table = ttk.Treeview(table_frame, columns=('title', 'system', 'video', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=8)
+        self.table = ttk.Treeview(table_frame, columns=('title', 'system', 'video', 'size', 'cover', 'status'), show='headings', selectmode='extended', height=3)
         for key, caption, width in [('title', self.tr('game'), 350), ('system', self.tr('console'), 125),
                                     ('video', self.tr('video_timing'), 115), ('size', 'ROM', 70),
                                     ('cover', self.tr('cover'), 100), ('status', self.tr('conversion'), 210)]:
@@ -262,6 +271,7 @@ class Application:
         for widget in (self.empty_state, *self.empty_state.winfo_children()):
             widget.bind('<Button-1>', lambda event: self.choose_roms())
         self.update_empty_state()
+        self.table.bind('<Configure>', self.layout_empty_state, add='+')
 
         selection = ttk.Frame(body)
         selection.grid(row=2, column=0, sticky='ew', padx=24, pady=(8, 12))
@@ -307,7 +317,7 @@ class Application:
         ttk.Label(body, textvariable=self.status, wraplength=850).grid(row=6, column=0, sticky='ew', padx=24, pady=(0, 8))
         log_frame = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['border'])
         log_frame.grid(row=7, column=0, sticky='nsew', padx=24)
-        self.log = tk.Text(log_frame, height=10, font=('Consolas', 9), bg=COLORS['field'],
+        self.log = tk.Text(log_frame, height=2, font=('Consolas', 9), bg=COLORS['field'],
                            fg=COLORS['muted'], relief='flat', padx=10, pady=9,
                            state='disabled', wrap='word', insertbackground=COLORS['gold'])
         log_scroll = ttk.Scrollbar(log_frame, orient='vertical', command=self.log.yview)
@@ -319,9 +329,9 @@ class Application:
         status_dot = tk.Canvas(footer, width=12, height=14, bg=COLORS['background'], highlightthickness=0)
         status_dot.create_oval(1, 3, 9, 11, fill=COLORS['green'], outline='')
         status_dot.pack(side='left', padx=(0, 6))
-        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel', font=('Segoe UI', 9))
+        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel', font=(self.ui_font, 9))
         self.footer_label.pack(side='left')
-        self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=('Segoe UI', 9))
+        self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=(self.ui_font, 9))
         self.tagline.pack(side='right', padx=(12, 0))
         app.protocol('WM_DELETE_WINDOW', self.close)
         self.file_drop = None
@@ -357,7 +367,14 @@ class Application:
 
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
-        self.app.minsize(max(1060, self.toolbar.winfo_reqwidth() + 72), 780)
+        self.app.minsize(max(1060, self.toolbar.winfo_reqwidth() + 72), 640)
+
+    def layout_empty_state(self, event):
+        # Keep the empty-list hint below the heading even on small screens.
+        if event.height < 170:
+            self.empty_art.pack_forget()
+        elif not self.empty_art.winfo_manager():
+            self.empty_art.pack(before=self.empty_state.winfo_children()[1])
 
     def layout_header(self, event):
         self.draw_background(event)
@@ -429,7 +446,9 @@ class Application:
                                tags=('background_motif', 'background_hatch'))
         if canvas is self.header:
             if self.console_art is not None:
-                canvas.create_image(max(550, width-555), 56, image=self.console_art,
+                # Decorative background: preserve the original banner height.
+                # The canvas clips the large artwork; selectors stay above it.
+                canvas.create_image(max(550, width-565), 22, image=self.console_art,
                                     anchor='nw', tags=('background_motif', 'hardware'))
             for x, y, size in ((width-80, 104, 10), (width-67, 91, 12)):
                 if any(x < x2 and x+size > x1 and y < y2 and y+size > y1
@@ -458,10 +477,6 @@ class Application:
         selected = self.system_name.get()
         self.system_mode = next((profile.id for profile in PROFILES if profile.name == selected), 'auto')
         self.reload_queue()
-
-    def change_platform(self, event=None):
-        self.platform_id = next((key for key, name in PLATFORMS.items()
-                                 if name == self.platform_name.get()), 'windows-x64')
 
     def update_output_controls(self):
         if self.output_field is None or not self.output_field.winfo_exists():
@@ -503,16 +518,32 @@ class Application:
         self.selection_changed()
 
     def refresh_language(self):
-        self.language_name.set('Français' if self.language == 'fr' else 'English')
+        previous_font = self.ui_font
+        self.ui_font = family(self.language)
+        if self.ui_font != previous_font:
+            self.style = apply_theme(self.app, self.ui_font)
+        self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
         self.platform_name.set(PLATFORMS[self.platform_id])
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         for key, item in self.header_labels.items():
             self.header.itemconfigure(item, text=self.tr(key))
-        reverse = {value: key for key, pair in STRINGS.items() for value in pair if '{' not in value}
+        reverse = {tr(key, code): key for key in STRINGS for code in LANGUAGES if '{' not in STRINGS[key][0]}
         def update(widget):
             if not widget.winfo_exists(): return
+            if self.ui_font != previous_font:
+                try:
+                    spec = self.app.tk.splitlist(widget.cget('font'))
+                    if spec and spec[0] == previous_font:
+                        widget.configure(font=(self.ui_font, *spec[1:]))
+                except tk.TclError: pass
+                if isinstance(widget, tk.Canvas):
+                    for item in widget.find_all():
+                        if widget.type(item) == 'text':
+                            spec = self.app.tk.splitlist(widget.itemcget(item, 'font'))
+                            if spec and spec[0] == previous_font:
+                                widget.itemconfigure(item, font=(self.ui_font, *spec[1:]))
             try:
                 caption = widget.cget('text')
                 if caption in reverse: widget.configure(text=self.tr(reverse[caption]))
@@ -521,16 +552,21 @@ class Application:
                 for column in widget['columns']:
                     caption = widget.heading(column, 'text')
                     if caption in reverse: widget.heading(column, text=self.tr(reverse[caption]))
+            if isinstance(widget, ttk.Notebook):
+                for page, key in getattr(widget, '_retro_tab_keys', {}).items():
+                    widget.tab(page, text=self.tr(key))
             for child in widget.winfo_children(): update(child)
         update(self.app)
         for panel in self.library_panels:
-            if panel.winfo_exists(): panel.title(APP_NAME + ' — ' + self.tr('memory'))
+            if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
-            self.credits_panel.title(APP_NAME + ' — ' + self.tr('credits'))
+            self.credits_panel.title(APP_NAME + ' - ' + self.tr('credits'))
+        if self.options_panel is not None and self.options_panel.winfo_exists():
+            self.options_panel.title(APP_NAME + ' - ' + self.tr('options'))
         for row, item in self.items.items():
             self.table.set(row, 'system', get_profile(item.system).name if item.system else self.tr('unknown_console'))
             self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
-            self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '—')
+            self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '-')
             self.table.set(row, 'cover', self.tr('chosen' if item.cover else 'auto'))
             result = self.results.get(row, {})
             self.table.set(row, 'status', self.tr('same_rom', title=result['duplicate_of'])
@@ -543,7 +579,8 @@ class Application:
         self.app.after_idle(self.fit_minimum_width)
 
     def change_language(self, event=None):
-        self.language = 'fr' if self.language_name.get() == 'Français' else 'en'
+        self.language = next((code for code, name in zip(LANGUAGES, LANGUAGE_NAMES)
+                              if name == self.language_name.get()), 'en')
         for hint in self.tooltips: hint.hide()
         self.refresh_language()
         try:
@@ -590,9 +627,9 @@ class Application:
 
     def video_display(self, item: BatchItem, result: dict | None = None) -> str:
         if item.error or not item.video_hint:
-            return '—'
+            return '-'
         if item.system == 'ng':
-            return 'MVS · Europe'
+            return 'MVS Â· Europe'
         if item.standard_override:
             return self.tr('video_selected', standard=item.standard_override.upper())
         if result and result.get('video_standard'):
@@ -637,7 +674,7 @@ class Application:
             row = self.table.insert('', 'end', values=(item.title,
                 get_profile(item.system).name if item.system else self.tr('unknown_console'),
                 self.video_display(item),
-                self.tr('size', value=item.size//1024) if item.size else '—',
+                self.tr('size', value=item.size//1024) if item.size else '-',
                 self.tr('auto'), self.tr(status)),
                 tags=('error',) if item.error else ())
             self.items[row] = item
@@ -748,7 +785,7 @@ class Application:
             elif result.get('status') == 'existing':
                 text = self.tr('existing')
             if item.cover:
-                text += f" · {self.tr('cover')}: {item.cover.name}"
+                text += f" Â· {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
                 if item.system in ('md', 'snes', 'ng'):
@@ -759,7 +796,7 @@ class Application:
                 else:
                     text = self.tr('fallback', percent=result['interpreter_percent'],
                                    comparison=self.tr('vdp_equal' if comparison else 'vdp_different'))
-            text += ' · ' + self.video_display(item, result)
+            text += ' Â· ' + self.video_display(item, result)
             self.detail.set(text)
         else:
             self.detail.set(self.tr('shared'))
@@ -854,7 +891,6 @@ class Application:
         self.stop_button.configure(state='disabled' if enabled else 'normal')
         self.language_field.configure(state='readonly' if enabled else 'disabled')
         self.system_field.configure(state='readonly' if enabled else 'disabled')
-        self.platform_field.configure(state='readonly' if enabled else 'disabled')
         self.update_output_controls()
         self.selection_changed()
 
@@ -1036,7 +1072,7 @@ class Application:
     def open_output(self):
         path = Path(self.output.get()).expanduser().resolve()
         path.mkdir(parents=True, exist_ok=True)
-        os.startfile(path)
+        open_local(path)
 
     def show_options(self):
         if self.busy:
@@ -1050,18 +1086,20 @@ class Application:
         self.options_panel = panel
         self.option_controls = []
         self.option_tooltips_start = len(self.tooltips)
-        panel.title(APP_NAME + ' — ' + self.tr('options'))
+        panel.title(APP_NAME + ' - ' + self.tr('options'))
         panel.configure(bg=COLORS['background'])
         panel.transient(self.app)
         panel.geometry('1000x540')
         panel.minsize(960, 500)
 
         notebook = ttk.Notebook(panel)
+        notebook._retro_tab_keys = {}
         notebook.pack(fill='both', expand=True, padx=18, pady=(18, 8))
 
         def tab(key):
             page = ttk.Frame(notebook, padding=18)
             notebook.add(page, text=self.tr(key))
+            notebook._retro_tab_keys[str(page)] = key
             return page
 
         def checkbox(parent, key, variable, hint):
@@ -1274,7 +1312,7 @@ class Application:
                 ttk.Label(fields, text=self.tr('cover_field_' + field)).grid(
                     row=row, column=0, sticky='w', padx=(0, 14), pady=4)
                 entry = ttk.Entry(fields, textvariable=variable,
-                    show='' if field in ('devid', 'ssid', 'client_id') else '•')
+                    show='' if field in ('devid', 'ssid', 'client_id') else 'â€¢')
                 entry.grid(row=row, column=1, sticky='ew', pady=4)
                 self.option_controls.append((entry, 'normal'))
             link = ttk.Button(card, text=self.tr('cover_api_link'),
@@ -1309,7 +1347,11 @@ class Application:
                 for provider, fields in self.cover_accounts.items() if fields}}
             previous = {key: self.cover_settings[key] for key in ('box_3d', 'accounts')}
             if covers != previous:
+                covers['credential_error'] = self.cover_settings.get('credential_error', False)
                 save_cover_settings(covers)
+        except KeyringError:
+            messagebox.showerror(APP_NAME, self.tr('cover_unlock_failed'), parent=panel)
+            return
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc), parent=panel)
             return
@@ -1330,7 +1372,7 @@ class Application:
 
         panel = tk.Toplevel(self.app)
         self.credits_panel = panel
-        panel.title(APP_NAME + ' — ' + self.tr('credits'))
+        panel.title(APP_NAME + ' - ' + self.tr('credits'))
         panel.configure(bg=COLORS['background'])
         panel.resizable(True, True)
         panel.transient(self.app)
@@ -1351,16 +1393,16 @@ class Application:
         except (OSError, tk.TclError):
             pass
         tk.Label(content, text=self.tr('credits'), bg=COLORS['background'], fg=COLORS['text'],
-                 font=('Segoe UI', 23, 'bold')).pack(anchor='center', pady=(0, 3))
+                 font=(self.ui_font, 23, 'bold')).pack(anchor='center', pady=(0, 3))
         tk.Label(content, text=self.tr('credits_intro'), bg=COLORS['background'], fg=COLORS['muted'],
-                 font=('Segoe UI', 10), justify='center',
+                 font=(self.ui_font, 10), justify='center',
                  wraplength=630).pack(anchor='center', pady=(0, 13))
 
         tk.Frame(content, bg=COLORS['border'], height=1).pack(fill='x', padx=120, pady=(0, 11))
         tk.Label(content, text=self.tr('credits_repositories'), bg=COLORS['background'],
-                 fg=COLORS['text'], font=('Segoe UI', 10, 'bold')).pack(anchor='center')
+                 fg=COLORS['text'], font=(self.ui_font, 10, 'bold')).pack(anchor='center')
         tk.Label(content, text=self.tr('credits_open_link'), bg=COLORS['background'],
-                 fg=COLORS['muted'], font=('Segoe UI', 9)).pack(anchor='center', pady=(1, 9))
+                 fg=COLORS['muted'], font=(self.ui_font, 9)).pack(anchor='center', pady=(1, 9))
 
         scroll_area = tk.Frame(content, bg=COLORS['background'])
         scroll_area.pack(fill='both', expand=True)
@@ -1386,24 +1428,24 @@ class Application:
             accent = COLORS['gold']
             tk.Frame(card, height=3, bg=accent).pack(fill='x')
             tk.Label(card, text=system.upper(), bg=COLORS['panel'], fg=COLORS['text'],
-                     font=('Segoe UI', 12, 'bold')).pack(anchor='center', pady=(11, 6))
+                     font=(self.ui_font, 12, 'bold')).pack(anchor='center', pady=(11, 6))
             for repository, url, role in repositories:
                 link = tk.Label(card, text=repository, bg=COLORS['panel'], fg=COLORS['gold'],
                                 activeforeground=COLORS['gold_hover'], cursor='hand2',
-                                font=('Segoe UI', 10, 'underline'))
+                                font=(self.ui_font, 10, 'underline'))
                 link.pack(anchor='center')
                 link.bind('<Button-1>', lambda _event, address=url: webbrowser.open_new_tab(address))
                 tk.Label(card, text=self.tr(role), bg=COLORS['panel'], fg=COLORS['muted'],
-                         font=('Segoe UI', 9)).pack(anchor='center', pady=(0, 7))
+                         font=(self.ui_font, 9)).pack(anchor='center', pady=(0, 7))
 
         bottom = tk.Frame(content, bg=COLORS['background'])
         bottom.pack(fill='x', pady=(9, 0))
         tk.Label(bottom, text=self.tr('credits_license'), bg=COLORS['background'],
-                 fg=COLORS['muted'], font=('Segoe UI', 9),
+                 fg=COLORS['muted'], font=(self.ui_font, 9),
                  wraplength=650, justify='center').pack(anchor='center')
         notices = tk.Label(bottom, text=self.tr('credits_notices'), bg=COLORS['background'],
                            fg=COLORS['gold'], cursor='hand2',
-                           font=('Segoe UI', 9, 'underline'))
+                           font=(self.ui_font, 9, 'underline'))
         notices.pack(anchor='center', pady=(3, 0))
         notices.bind('<Button-1>', lambda _event: self.show_legal_notices())
 
@@ -1420,10 +1462,10 @@ class Application:
         author = tk.Frame(actions, bg=COLORS['background'])
         author.place(relx=1.0, rely=0.5, anchor='e')
         tk.Label(author, text=self.tr('credits_author'), bg=COLORS['background'], fg=COLORS['disabled'],
-                 font=('Segoe UI', 8)).pack(side='left', padx=(0, 4))
+                 font=(self.ui_font, 8)).pack(side='left', padx=(0, 4))
         author_link = tk.Label(author, text='Arthur Reboul Salze', bg=COLORS['background'],
                                fg=COLORS['muted'], cursor='hand2',
-                               font=('Segoe UI', 8, 'underline'))
+                               font=(self.ui_font, 8, 'underline'))
         author_link.pack(side='left')
         author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
             'https://github.com/ArthurReboulSalze'))
@@ -1439,7 +1481,7 @@ class Application:
         resources.extend(sorted((ASSETS / 'licenses').glob('*.md'), key=lambda path: path.name.lower()))
         resources = [path for path in resources if path.is_file()]
         panel = tk.Toplevel(parent)
-        panel.title(APP_NAME + ' — ' + self.tr('credits_notices'))
+        panel.title(APP_NAME + ' - ' + self.tr('credits_notices'))
         panel.configure(bg=COLORS['background'])
         panel.geometry('880x630')
         panel.minsize(650, 420)
@@ -1447,13 +1489,13 @@ class Application:
         body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
         tk.Label(body, text=self.tr('credits_notices'), bg=COLORS['background'], fg=COLORS['text'],
-                 font=('Segoe UI', 16, 'bold')).pack(anchor='w', pady=(0, 10))
+                 font=(self.ui_font, 16, 'bold')).pack(anchor='w', pady=(0, 10))
         row = tk.Frame(body, bg=COLORS['background'])
         row.pack(fill='both', expand=True)
         listing = tk.Listbox(row, width=29, exportselection=False, bg=COLORS['panel'],
                              fg=COLORS['text'], selectbackground=COLORS['border'],
                              selectforeground='#ffffff', relief='flat',
-                             font=('Segoe UI', 10))
+                             font=(self.ui_font, 10))
         listing.pack(side='left', fill='y', padx=(0, 10))
         for path in resources:
             listing.insert('end', path.name)
@@ -1500,7 +1542,7 @@ class Application:
 
     def show_library(self):
         panel = tk.Toplevel(self.app)
-        panel.title(APP_NAME + ' — ' + self.tr('memory'))
+        panel.title(APP_NAME + ' - ' + self.tr('memory'))
         self.library_panels.append(panel)
         panel.geometry('800x420')
         panel.configure(bg=COLORS['background'])
@@ -1515,20 +1557,20 @@ class Application:
             table.insert('', 'end', values=(game['title'], game['sha256'][:12], game['observations']))
         from .gameboy import list_memory
         for game in list_memory():
-            table.insert('', 'end', values=(f"Game Boy · {game['title']}", game['sha256'][:12],
+            table.insert('', 'end', values=(f"Game Boy Â· {game['title']}", game['sha256'][:12],
                                             f"{game['trace_bytes']} B trace"))
         from .nes import list_memory as list_nes_memory
         for game in list_nes_memory():
-            table.insert('', 'end', values=(f"Nintendo NES · {game['sha256'][:12]}",
+            table.insert('', 'end', values=(f"Nintendo NES Â· {game['sha256'][:12]}",
                                             game['sha256'][:12], game['entries']))
         from .neogeo_knowledge import list_memory as list_ng_memory
         for game in list_ng_memory():
-            table.insert('', 'end', values=(f"Neo Geo · {game['title']}",game['sha256'][:12],game['entries']))
+            table.insert('', 'end', values=(f"Neo Geo Â· {game['title']}",game['sha256'][:12],game['entries']))
         table.pack(fill='both', expand=True)
         def open_library():
             path = library_root()
             path.mkdir(parents=True, exist_ok=True)
-            os.startfile(path)
+            open_local(path)
         ttk.Button(body, text=self.tr('open_memory'), command=open_library).pack(anchor='w', pady=(12, 0))
 
     def close(self):
@@ -1547,6 +1589,7 @@ class Application:
 
 def launch(update_error: str | None = None):
     set_converter_identity()
+    load_fonts()
     app = tk.Tk()
     application = Application(app)
     roms = ROOT / 'ROMS'

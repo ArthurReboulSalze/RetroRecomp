@@ -2,9 +2,8 @@
  * pointers, OS handles, C stacks, host options or learning data are saved. */
 #include "gamestate.h"
 #include "state_io.h"
-#include <io.h>
 #include <errno.h>
-#include <windows.h>
+#include "platform_io.h"
 #define RR_STATE_SCHEMA 1u
 #define RR_STATE_MACHINE (g_is_gg ? 3u : (SMS_LINES_PER_FRAME == 313 ? 2u : 1u))
 #define RR_STATE_HEADER 88u
@@ -83,10 +82,10 @@ static int smsrecomp_state_save(void) {
     rr_state_bytes(&header, (void *)sms_rom_sha256, 64);
     rr_state_word(&header, body.pos, 4, UINT32_MAX);
     rr_state_word(&header, smsrecomp_state_crc(body.data, body.pos), 4, UINT32_MAX);
-    wchar_t temporary[80]; swprintf(temporary, 80, L"-quicksave-%lu.state.tmp", GetCurrentProcessId());
+    wchar_t temporary[80]; swprintf(temporary, 80, L"-quicksave-%lu.state.tmp", rr_process_id());
     FILE *f = retro_game_file(temporary, L"wb");
     bool ok = f && fwrite(data, RR_STATE_HEADER + body.pos, 1, f) == 1;
-    if (ok) ok = fflush(f) == 0 && _commit(_fileno(f)) == 0;
+    if (ok) ok = rr_flush_file(f);
     if (f && fclose(f) != 0) ok = false;
     free(data);
     if (ok) ok = retro_game_file_replace(temporary, L"-quicksave.state") != 0;

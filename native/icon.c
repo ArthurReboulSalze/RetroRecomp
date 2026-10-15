@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #include "icon.h"
 #include <SDL_syswm.h>
 #include <windows.h>
@@ -16,3 +17,14 @@ int smsrecomp_set_window_icon(SDL_Window *window) {
     SendMessageW(info.info.win.window, WM_SETICON, ICON_SMALL, (LPARAM)small);
     return 1;
 }
+
+#else
+#include "icon.h"
+#include "embedded_icon.h"
+int smsrecomp_set_window_icon(SDL_Window *window) {
+    if (!rr_icon_size) return 0;
+    SDL_RWops *source=SDL_RWFromConstMem(rr_icon_data,(int)rr_icon_size);
+    SDL_Surface *icon=source?SDL_LoadBMP_RW(source,1):NULL;
+    if(!icon)return 0; SDL_SetWindowIcon(window,icon);SDL_FreeSurface(icon);return 1;
+}
+#endif

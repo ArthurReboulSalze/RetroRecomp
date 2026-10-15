@@ -2,8 +2,13 @@
  * No user data or diagnostics are written unless explicitly requested by CLI.
  * Original RetroRecomp contributions: MIT; core notices retain their licences. */
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "platform_io.h"
+#include "embedded_resources.h"
+#ifdef _WIN32
 #include <shellapi.h>
+#else
+#include <unistd.h>
+#endif
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,13 +72,13 @@ static Input inputs[8192];
 static unsigned input_count, input_pos;
 
 static wchar_t *wide(const char *text) {
-    int n=MultiByteToWideChar(CP_UTF8,0,text,-1,NULL,0);
-    wchar_t *result=calloc((size_t)n,sizeof *result);
-    if (result) MultiByteToWideChar(CP_UTF8,0,text,-1,result,n);
+    size_t n=strlen(text)+1;
+    wchar_t *result=calloc(n,sizeof *result);
+    if(result && !rr_from_utf8(text,result,n)){free(result);result=NULL;}
     return result;
 }
 static FILE *file_open(const char *path,const wchar_t *mode) {
-    wchar_t *name=wide(path); FILE *f=name?_wfopen(name,mode):NULL; free(name);return f;
+    wchar_t *name=wide(path); FILE *f=name?rr_fopen(name,mode):NULL; free(name);return f;
 }
 static void log_message(int level,const char *format,...) {
     if(level<GEO_LOG_WRN)return;
@@ -100,10 +105,7 @@ static void audio_ready(size_t count) {
     if(pcm && fwrite(audio,sizeof *audio,count,pcm)!=count) { fprintf(stderr,"PCM write failed.\n");exit(3); }
 }
 static void *resource(unsigned id,size_t *size) {
-    HRSRC r=FindResourceW(NULL,MAKEINTRESOURCEW(id),MAKEINTRESOURCEW(10));
-    if(!r)return NULL;
-    *size=SizeofResource(NULL,r);
-    HGLOBAL data=LoadResource(NULL,r);return data?LockResource(data):NULL;
+    return (void*)rr_resource(id,size);
 }
 static int load_script(const char *path) {
     FILE *f=file_open(path,L"rb");if(!f)return 0;
@@ -336,8 +338,8 @@ static int execute(int argc,char **argv) {
         else if(i+1<argc && !strcmp(argv[i],"--performance-report")) {report_path=argv[++i];performance_only=1;}
         else if(i+1<argc && !strcmp(argv[i],"--measure-from"))measure_from=(unsigned)atoi(argv[++i]);
         else if(i+1<argc && !strcmp(argv[i],"--cpu-trace"))rr_ng_cpu_trace=file_open(argv[++i],L"wb");
-        else if(i+1<argc && !strcmp(argv[i],"--trace-from"))rr_ng_trace_from=_strtoui64(argv[++i],NULL,10);
-        else if(i+1<argc && !strcmp(argv[i],"--trace-limit"))rr_ng_trace_limit=_strtoui64(argv[++i],NULL,10);
+        else if(i+1<argc && !strcmp(argv[i],"--trace-from"))rr_ng_trace_from=strtoull(argv[++i],NULL,10);
+        else if(i+1<argc && !strcmp(argv[i],"--trace-limit"))rr_ng_trace_limit=strtoull(argv[++i],NULL,10);
         else if(i+1<argc && !strcmp(argv[i],"--trace-stride")) {rr_ng_trace_stride=(unsigned)atoi(argv[++i]);if(!rr_ng_trace_stride)return 2;}
 #ifdef RR_NG_NATIVE
         else if(!strcmp(argv[i],"--reference"))rr_ng_force_reference=1;
@@ -358,7 +360,7 @@ static int execute(int argc,char **argv) {
         else if(i+1<argc && !strcmp(argv[i],"--capture"))capture_dir=argv[++i];
         else if(i+1<argc && !strcmp(argv[i],"--capture-every"))capture_every=atoi(argv[++i]);
         else if(i+1<argc && !strcmp(argv[i],"--rtc-seed")) {
-            char *end=NULL;rr_ng_test_clock=_strtoi64(argv[++i],&end,10);
+            char *end=NULL;rr_ng_test_clock=strtoll(argv[++i],&end,10);
             if(!end || *end || rr_ng_test_clock<0 || rr_ng_test_clock>4102444800ll)return 2;
             rr_ng_test_clock_enabled=1;
         }
@@ -371,10 +373,9 @@ static int execute(int argc,char **argv) {
      * reports/traces retain every previous check. */
     if(mode_requested>=0)aes_mode=mode_requested;
     else if(!headless) {
-        wchar_t path[32768];DWORD n=GetModuleFileNameW(NULL,path,32700);
-        wchar_t *slash=n&&n<32700?wcsrchr(path,L'\\'):NULL;
-        if(slash) {slash[1]=0;wcscat_s(path,32768,L"datas\\Retro-Recomp.ini");
-            aes_mode=GetPrivateProfileIntW(L"NeoGeo.Runtime",L"aes",0,path)==1 && RR_NG_AES_AVAILABLE;}
+        wchar_t path[32768];
+        if(rr_executable_directory(path,32768) && !rr_wide_append(path,32768,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini"))
+            aes_mode=rr_ini_int(L"NeoGeo.Runtime",L"aes",0,path)==1 && RR_NG_AES_AVAILABLE;
     }
     if(aes_mode && !RR_NG_AES_AVAILABLE)return 2;
     rr_feedback_start(!headless);
@@ -439,6 +440,7 @@ static int execute(int argc,char **argv) {
     if(rr_ng_cpu_trace && fclose(rr_ng_cpu_trace))okay=0;
     geo_mixer_deinit();geo_deinit();geo_bios_unload();free(content);SDL_Quit();return okay?0:3;
 }
+#ifdef _WIN32
 int main(void) {
     int argc=0;wchar_t **wide_argv=CommandLineToArgvW(GetCommandLineW(),&argc);
     char **argv=calloc((size_t)argc,sizeof *argv);if(!wide_argv||!argv)return 3;
@@ -454,3 +456,18 @@ int main(void) {
     if(result && argc==1)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Neo Geo","Unable to start this Neo Geo game.",NULL);
     for(int i=0;i<argc;++i)free(argv[i]);free(argv);LocalFree(wide_argv);return result;
 }
+
+#else
+int main(int argc,char **argv) {
+    int result=execute(argc,argv);
+    if(!result && restart_requested) {
+        /* Reopen this exact image even if a new generation has atomically
+         * replaced its pathname while the game was running. */
+        pid_t child=fork();
+        if(child<0)result=3;
+        else if(!child){execl("/proc/self/exe",argv[0],aes_mode?"--mvs":"--aes",(char*)NULL);_exit(127);}
+    }
+    if(result && argc==1)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Neo Geo","Unable to start this Neo Geo game.",NULL);
+    return result;
+}
+#endif

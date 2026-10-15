@@ -336,7 +336,7 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
 def stage(project: Path, system: str, identity: str, *, target: str = 'game', cmake: bool = True) -> None:
     """Stage common exit-only recorder into a generated project."""
     _identity(system, identity)
-    for name in ('runtime_feedback.h', 'runtime_feedback.c', 'runtime_feedback_sdl.h'):
+    for name in ('runtime_feedback.h', 'runtime_feedback.c', 'runtime_feedback_sdl.h', 'platform_io.h', 'platform_io.c'):
         destination = project / name
         data = (ASSETS / 'native' / name).read_bytes()
         if not destination.is_file() or destination.read_bytes() != data:
@@ -350,5 +350,6 @@ def stage(project: Path, system: str, identity: str, *, target: str = 'game', cm
         path = project / 'CMakeLists.txt'
         source = path.read_text(encoding='utf-8')
         source += (f'\ntarget_sources({target} PRIVATE runtime_feedback.c)\n'
+                   f'if(NOT WIN32)\n  target_sources({target} PRIVATE platform_io.c)\nendif()\n'
                    f'target_include_directories({target} PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}")\n')
         path.write_text(source, encoding='utf-8')

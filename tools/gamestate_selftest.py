@@ -8,7 +8,9 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run
+from smsrecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
+
+from smsrecomp.platforms import cmake_target_args, build_executable, build_jobs
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -36,19 +38,17 @@ def main():
     prepare_runtime(directory, rom, 'Authored persistent state fixture', engine,
                     'pal' if args.pal else 'ntsc')
     log = directory / 'build.log'
-    run([ROOT / '.deps/recompiler-build/Release/SmsRecomp.exe', '--game', directory / 'game.toml', '--banked-step'], log=log)
-    source = ROOT / '.build/native-source'; source.mkdir(parents=True, exist_ok=True)
-    for file in (ASSETS / 'native').iterdir():
-        if file.is_file(): shutil.copy2(file, source / file.name)
+    run([build_executable(ROOT / '.deps/recompiler-build', 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
+    source = prepare_native_source()
     build = directory / 'build'
-    run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={directory.as_posix()}',
          '-DGAME_NAME=AuthoredState', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          '-DSMSRECOMP_BANKED_AOT=ON', '-DSMSRECOMP_STATE_CHECKS=ON'], log=log)
-    run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_state_checks', '--parallel', '4'], log=log)
+    run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_state_checks', '--parallel', build_jobs()], log=log)
     outputs = []
     for mode in (1, 2):
-        result = subprocess.run([str(build / 'Release/smsrecomp_state_checks.exe'), str(mode)], cwd=directory,
+        result = subprocess.run([str(build_executable(build, 'smsrecomp_state_checks')), str(mode)], cwd=directory,
             capture_output=True, text=True, timeout=120,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         outputs.append(result.stdout + result.stderr)

@@ -1,5 +1,5 @@
 /* RetroRecomp's presentation adapter; CPU/PPU/APU remain in snesrecomp. */
-#include <windows.h>
+#include "embedded_resources.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,9 +104,8 @@ bool rr16_init(bool headless) {
     rr_spc_reset_evidence();
     rr_spc_set_mode(native, headless);
     rr_snes_native_set_enabled(native);
-    HRSRC resource = FindResourceW(NULL, MAKEINTRESOURCEW(103), MAKEINTRESOURCEW(10));
-    const uint8_t *rom = resource ? LockResource(LoadResource(NULL, resource)) : NULL;
-    if (!rom || SizeofResource(NULL, resource) != RR_SN_ROM_BYTES) return false;
+    size_t resource_size=0; const uint8_t *rom=rr_resource(103,&resource_size);
+    if(!rom || resource_size!=RR_SN_ROM_BYTES)return false;
     RtlRegisterGame(&game_info);
     if (!SnesInit(rom, RR_SN_ROM_BYTES)) return false;
     if (g_snes->cart->ramSize != RR_SN_RAM_BYTES) return false;
@@ -169,7 +168,7 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
         for(unsigned x=0;x<visible_width;x++)
             pixels[y*RR16_WIDTH+x]=raster[y*RR16_WIDTH+(visible_width==512?x:x*2+1)];
     visible_frames += field_visible;
-    if (!headless_mode) rr_snes_battery_flush(g_snes->cart,GetTickCount64(),false);
+    if (!headless_mode) rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),false);
     /* Probes consume the same one-frame audio block as the interactive host,
      * without opening a sound device. This exercises the live SPC/DSP clock. */
     if (headless_mode) { int16_t pcm[4096]; rr16_audio(pcm, sizeof pcm / sizeof *pcm); }
@@ -322,7 +321,7 @@ bool rr16_cartridge_save(const wchar_t *path) {
 }
 void rr16_shutdown(void) {
     if (!g_snes) return;
-    if (!rr_snes_battery_flush(g_snes->cart,GetTickCount64(),true))
+    if (!rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),true))
         fputs("Cartridge save could not be written.\n",stderr);
     snes_free(g_snes);g_snes=NULL;
 }

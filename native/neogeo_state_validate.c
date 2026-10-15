@@ -1,6 +1,7 @@
 /* Validate the pinned cartridge serializer before it can mutate the machine.
  * Identity and integrity are checked by the shared disk wrapper first. */
 #include <stdint.h>
+#include <stddef.h>
 #include "geo.h"
 #include "neogeo_host.h"
 #include "neogeo_reference.h"
@@ -23,7 +24,9 @@ bool rr_ng_core_state_valid(const uint8_t *data,size_t size) {
     if(be32(data+cpu+104)>0x700 || (be32(data+cpu+104)&255) ||
        be32(data+cpu+108)>255 || be32(data+cpu+112)>1)return false;
     size_t latch=cpu+116+65536+12;
-    for(unsigned n=0;n<7;++n)if(data[latch+n]>1)return false;
+    /* Six boolean latches precede REG_POUTPUT, a full eight-bit joypad output
+     * register (also mirrored by REG_SLOT in AES mode). */
+    for(unsigned n=0;n<6;++n)if(data[latch+n]>1)return false;
     /* Fixed-size Z80 tail (the serializer includes one unused final byte). */
     size_t z=size-2101-1;
     if(data[z+28]>1 || data[z+29]>2)return false;

@@ -2,12 +2,14 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
 import time
 
 from .paths import ROOT, ASSETS
+from .platforms import build_executable, cmake_target_args, build_jobs
 from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
@@ -42,9 +44,11 @@ def conversion_rom(path: Path, system_id: str, standard_override: str | None = N
 
 @serialized_setup
 def dependencies16(system_id: str, emit, *, legacy_smw=True):
+    from .platforms import require_backend
+    require_backend(system_id)
     cmake, generator = toolchain()
     sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / 'lib/SDL2-static.lib').is_file():
+    if not (sdl / ('lib/SDL2-static.lib' if os.name=='nt' else 'lib/libSDL2.a')).is_file():
         from .core import dependencies
         _, sdl, cmake, generator = dependencies(emit)
     names = (system_id, 'smw') if system_id == 'snes' and legacy_smw else (system_id,)
@@ -54,6 +58,12 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
         if not (checkout / '.git').exists():
             emit(f'Downloading pinned {repo} sources…')
             run(['git', 'clone', '--no-checkout', f'https://github.com/{repo}.git', checkout], timeout=600)
+        if not any(p.name != '.git' for p in checkout.iterdir()):
+            # A --no-checkout clone has an empty index/worktree, which Git
+            # reports as staged deletions. Populate our new cache before the
+            # tracked-edit guard; never reset an existing source checkout.
+            run(['git','fetch','--depth','1','origin',revision],cwd=checkout,timeout=600)
+            run(['git','checkout','--detach',revision],cwd=checkout)
         if run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=checkout).strip():
             raise ConversionError(f'Dependency checkout has tracked edits: {checkout}')
         if run(['git', 'rev-parse', 'HEAD'], cwd=checkout).strip() != revision:
@@ -64,10 +74,10 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
         run(['git', 'submodule', 'update', '--init', '--depth', '1',
              'external/m68k-recomp-core', 'external/rbengine', 'external/z80-recomp-core'], cwd=engine, timeout=600)
         build = ROOT / '.build/megadrive-compiler'
-        compiler = build / 'Release/GenesisRecomp.exe'
+        compiler = build_executable(build,'GenesisRecomp')
         if not compiler.is_file():
-            run([cmake, '-S', engine / 'recompiler', '-B', build, '-G', generator, '-A', 'x64'], log=build / 'configure.log')
-            run([cmake, '--build', build, '--config', 'Release', '--parallel', '4'], log=build / 'build.log')
+            run([cmake, '-S', engine / 'recompiler', '-B', build, '-G', generator, *cmake_target_args()], log=build / 'configure.log')
+            run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs()], log=build / 'build.log')
     else:
         compiler = engine / 'recompiler-rs/target/release/snesrecomp-analyze.exe'
         if legacy_smw and not compiler.is_file():
@@ -83,13 +93,20 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
-    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
     native = project / 'native'
     native.mkdir(exist_ok=True)
     prefix = engine.as_posix()
     common = '''cmake_minimum_required(VERSION 3.20)
-project(RetroRecomp16 LANGUAGES C CXX RC)
+project(RetroRecomp16 LANGUAGES C CXX)
+if(WIN32)
+  enable_language(RC)
+  set(RESOURCE_SOURCES game_resources.rc)
+else()
+  enable_language(ASM)
+  set(RESOURCE_SOURCES embedded_resources.c embedded_resources.S)
+endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -230,14 +247,16 @@ add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun1
   native/glue.c native/m68k_interp.c native/audio.c native/genesis_bus.c native/genesis_vdp.c
   native/genesis_machine.c native/z80_reference.c md_z80_runtime.c md_z80_generated.c
   native/sim_step.c native/ym2612_ymfm.cpp native/sn76489.c
-  game_resources.rc {step_sources} ${{GENERATED}}
+  ${{RESOURCE_SOURCES}} {step_sources} ${{GENERATED}}
 {source_text}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(game PRIVATE . "{runner}" "{runner}/include"
   "{runner}/video" "{runner}/audio" "{runner}/external/superzazu" "{runner}/external/clowncommon"
   "{runner}/external/ymfm/src" "{prefix}/recompiler/src" "{prefix}/external/m68k-recomp-core/src")
 target_compile_definitions(game PRIVATE RR16_MD=1 OWN_BACKEND=1 ENABLE_RECOMPILED_CODE=1 INCLUDE_GENERATED_CODE=1 GENESIS_BATCHED_PLANES=0)
-target_link_options(game PRIVATE /CETCOMPAT:NO)
+if(MSVC)
+  target_link_options(game PRIVATE /CETCOMPAT:NO)
+endif()
 '''
     else:
         from .snes_codegen import generate, adapt_core, adapt_bridge, adapt_frame_driver
@@ -310,9 +329,10 @@ target_link_options(game PRIVATE /CETCOMPAT:NO)
             state_source.write_text(adapt(state_source.read_text(encoding='utf-8')), encoding='utf-8')
         ppu = staged / 'runner/src/snes/ppu.h'
         text = ppu.read_text(encoding='utf-8')
-        text = text.replace('typedef struct PpuPixelPrioBufs {',
-                            'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
-        text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
+        if os.name == 'nt':
+            text = text.replace('typedef struct PpuPixelPrioBufs {',
+                                'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
+            text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
         ppu.write_text(text, encoding='utf-8')
         prefix = staged.as_posix()
         common += f'''set(SNESRECOMP_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
@@ -321,7 +341,7 @@ include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
 add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
-  game_resources.rc ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
+  ${{RESOURCE_SOURCES}} ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})
 snesrecomp_target_mmx_config(game)
@@ -329,20 +349,32 @@ target_compile_definitions(game PRIVATE RR16_MD=0 SNESRECOMP_SDL3=0)
 '''
     from .console16_state import write_config
     write_config(project, rom, system_id, title, REPOSITORIES)
-    common += 'target_sources(game PRIVATE console16_state.c)\n'
+    common += 'target_sources(game PRIVATE console16_state.c platform_io.c)\n'
     common += f'target_compile_definitions(game PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])\n'
     # CMake bracket literals do not interpret quotes/backslashes in a ROM title.
     title_literal = json.dumps(title, ensure_ascii=True)
     common += f'''target_compile_definitions(game PRIVATE [[RR_GAME_TITLE={title_literal}]] SDL_MAIN_HANDLED)
 target_include_directories(game PRIVATE ${{SDL2_INCLUDE_DIRS}} "${{SDL2_INCLUDE_DIRS}}/..")
-target_link_libraries(game PRIVATE SDL2::SDL2-static ws2_32 comdlg32)
-target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4013)
+target_link_libraries(game PRIVATE SDL2::SDL2-static)
+if(WIN32)
+  target_link_libraries(game PRIVATE ws2_32 comdlg32)
+else()
+  target_link_libraries(game PRIVATE m)
+endif()
+if(MSVC)
+  target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4013)
+endif()
 '''
     if system_id == 'md':
         # The imported sources keep their warning policy, but the adapted bus
         # boundary must never rely on implicit int or mismatched prototypes.
-        common += '''set_source_files_properties(native/glue.c native/genesis_bus.c
-  native/genesis_machine.c PROPERTIES COMPILE_OPTIONS "/we4013;/we4028")
+        common += '''if(MSVC)
+  set_source_files_properties(native/glue.c native/genesis_bus.c
+    native/genesis_machine.c PROPERTIES COMPILE_OPTIONS "/we4013;/we4028")
+else()
+  set_source_files_properties(native/glue.c native/genesis_bus.c
+    native/genesis_machine.c PROPERTIES COMPILE_OPTIONS "-Werror=implicit-function-declaration;-Werror=incompatible-pointer-types")
+endif()
 '''
     (project / 'CMakeLists.txt').write_text(common, encoding='utf-8')
     from .feedback import stage
@@ -413,15 +445,20 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
         resources(project, engine, rom, rom_file)
     else:
         (project / 'game_resources.rc').write_text(f'103 RCDATA "{rom_file.name}"\n', encoding='utf-8')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    from .resources import embed_resources
+    resource_map={103:rom_file}
+    if (project/'game_legal.md').is_file():resource_map[102]=project/'game_legal.md'
+    if (project/'game_identity.bin').is_file():resource_map[104]=project/'game_identity.bin'
+    embed_resources(project,resource_map)
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=project / 'build.log', timeout=600)
-    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'],
+    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()],
         log=project / 'build.log', timeout=1200)
-    return project / 'build/Release/game.exe'
+    return build_executable(project / 'build','game')
 
 
 def _notice(engine: Path, system_id: str, *, legacy_smw=True) -> str:
-    components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'), ('xBR', ASSETS / 'licenses/xbr.md'),
+    components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'), ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
                   ('UPX', ASSETS / 'licenses/UPX.md')]
     if system_id == 'md':
         components += [('GenesisRecomp', engine / 'LICENSE.md'),
@@ -530,7 +567,7 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         env.pop('SNESRECOMP_LLE_BOUNCE', None)
         env.pop('RR_SNES_FORCE_INTERP', None)
     result = subprocess.run([str(arg) for arg in command], cwd=directory, env=env,
-        capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW)
+        capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
         result.stdout + result.stderr, encoding='utf-8')
     if result.returncode:
@@ -723,7 +760,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     for attempt in range(passes):
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources,
                                standard_override=standard)
-        checks_dir = executable.parents[2] / 'checks'
+        checks_dir = executable.parents[2 if os.name=='nt' else 1] / 'checks'
         checks_dir.mkdir(exist_ok=True)
         checks = []
         scenarios = [(demo_frames if not play else frames, dict(play=play, gun_menu=gun_menu))
@@ -828,6 +865,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'runtime_learning': True, 'runtime_feedback': gameplay_feedback,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable),
+        'build_directory': str(executable.parents[2 if os.name=='nt' else 1]),
         'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
     atomic_json(output / 'conversion-report.json', report)
     return executable

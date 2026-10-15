@@ -26,6 +26,7 @@ FIELDS = {
     'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
     'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
              'spc_refs': (2, 262144), 'spc_ranges': (3, 262144)},
+    # Neo Geo additionally accepts bounded rom_deltas via its dedicated validator.
     'ng': {'rom_entries': (2,262144), 'ram_refs': (4,4096), 'z80_refs': (4,32768)},
 }
 

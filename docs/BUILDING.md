@@ -1,5 +1,76 @@
 # Build and run
 
+## Linux x86-64
+
+The first Linux package has bounded witnesses for all seven consoles on
+Debian 13 x86-64: Master System, Game Gear, Game Boy, NES, Mega Drive, Super
+Nintendo and Neo Geo. Native/reference checks, language persistence and selected
+fresh-process state checks pass; this does not qualify every cartridge. This is
+not an ARM64 qualification. Build and run on Linux itself;
+WSL is unnecessary. Keep the
+Linux source workspace and caches separate from Windows. A target marker rejects
+reuse of caches belonging to another OS/architecture.
+
+Install CMake, Ninja, pkg-config, a C/C++ toolchain, Python 3.11+ with Tk/venv/dev,
+and development headers for X11/Wayland, ALSA/PulseAudio, udev, OpenGL, DRM/GBM and
+DBus. The SDL2 source revision remains pinned and is built locally. Use a Python
+virtual environment for `requirements.txt`: Debian 13's system Pillow 11 does
+not satisfy the current Pillow >=12 requirement.
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python RetroRecomp.py setup
+.venv/bin/python RetroRecomp.py gui
+.venv/bin/python RetroRecomp.py convert "/path/to/your-game.sms" --output Export/Games
+```
+
+The game is an executable ELF, with its ROM, SDL2, menu font and notices embedded.
+It needs compatible Linux system/display/audio libraries, with no Python or
+compiler required to play. Linux game ELF compression is not enabled.
+The converter supports manual GitHub updates. `--credits` prints the game notices. Settings,
+quick states and shutdown-only fallback hints use `datas` beside the game.
+Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
+game and two compiler tasks on Linux; `RETRO_RECOMP_BUILD_JOBS` adjusts the latter.
+
+Linux games request VSync by default, keeping the console's clock limiter.
+`SDL_RENDER_VSYNC=0` is an explicit diagnostic override. Window managers and
+display drivers still determine physical presentation; a renderer flag alone
+does not prove tear-free output. Menus retain a fine 6x10 ASCII bitmap font and
+add a small glyph atlas for eight languages. The converter uses process-private
+font subsets; it does not install system fonts. See [languages](LANGUAGES.md).
+
+Cover lookup and offline reuse share the Windows pipeline. Source usage caches
+downloads in `Export/datas/BoxArt/<console>/Downloaded` and associations in `Saved`.
+The game's window icon is embedded in the ELF. Linux file managers and app menus
+use a `.desktop` launcher whose `Icon` references a PNG; the raw ELF does not have
+a Windows Explorer-style file icon. Exports now create that launcher and a local
+PNG in `datas/launchers`, with the raw ELF listed in `.hidden` for file managers.
+Existing current exports can repair their launcher without recompilation. The
+launcher uses absolute paths; ask the converter to refresh it after moving the
+folder. Optional API credentials use the desktop Secret Service keyring;
+public cover sources need no API account. See [LINUX.md](LINUX.md).
+
+Useful target-native checks (an optional `--rom` is a private supplied witness):
+
+```sh
+.venv/bin/python -m unittest discover -s tests
+.venv/bin/python tools/linux_sms_selftest.py --rom "/path/to/your-game.sms"
+.venv/bin/python tools/runtime_feedback_selftest.py
+.venv/bin/python tools/gamestate_selftest.py
+.venv/bin/python tools/gamestate_selftest.py --pal
+.venv/bin/python tools/frame_stop_selftest.py
+.venv/bin/python tools/language_selftest.py
+.venv/bin/python tools/nes_ppu_selftest.py
+.venv/bin/python tools/nes_machine_selftest.py
+.venv/bin/python tools/neogeo_board_selftest.py
+```
+
+The Linux prototype preserves the mandatory native/reference and strict checks.
+Matching those checks does not establish full-game coverage, physical hardware
+fidelity or measured controller/audio latency. The current development host is
+Debian 13/glibc 2.41; older distributions require separate build/compatibility work.
+
 ## Windows x64 prerequisites
 
 - Python 3.11 or newer for source usage (release built with 3.14.5).
@@ -127,6 +198,12 @@ The GUI smoke helper checks a local queue of five supplied games. These checks
 are not part of the ROM-free public CI; games and reports are not distributed.
 
 ## Package the converter
+
+For the native Debian 13 x86-64 preview, see [LINUX.md](LINUX.md) and run
+`python tools/package_linux.py` on Linux. It produces `Export/Retro-Recomp`,
+a local icon launcher, and an audited tarball. Windows packaging stays separate;
+neither build is a cross-compiler. Linux requirements include the pinned
+tkinterdnd2 and SecretStorage dependencies in `requirements.txt`.
 
 For ROM-free numeric Sega audio checks, including an optional silent run on
 the default sound device, see [AUDIO.md](AUDIO.md).

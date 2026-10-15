@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp.core import run, toolchain
 from smsrecomp.feedback import MAX_BYTES, decode, stage
+from smsrecomp.platforms import cmake_target_args, build_executable
 
 
 def main():
@@ -26,9 +27,9 @@ target_compile_definitions(game PRIVATE _CRT_SECURE_NO_WARNINGS)
     identity = '1' * 64
     stage(work, 'sms', identity)
     cmake, generator = toolchain()
-    run([cmake, '-S', work, '-B', work/'build', '-G', generator, '-A', 'x64'], log=work/'build.log')
+    run([cmake, '-S', work, '-B', work/'build', '-G', generator, *cmake_target_args()], log=work/'build.log')
     run([cmake, '--build', work/'build', '--config', 'Release'], log=work/'build.log')
-    source = work / 'build/Release/game.exe'
+    source = build_executable(work/'build', 'game')
     def install(name):
         folder = work/name
         folder.mkdir()

@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 from zipfile import ZipFile
 
-from smsrecomp.dropfiles import enable_file_drop
+from smsrecomp.dropfiles import enable_file_drop, local_drop_paths
 from smsrecomp.gui import Application
 from smsrecomp.i18n import tr
 
@@ -31,9 +31,12 @@ class DropQueueTests(unittest.TestCase):
             app.add_paths.assert_not_called()
             self.assertEqual(app.messages.get_nowait(), ('log', tr('drop_blocked', 'en')))
 
-    @unittest.skipIf(os.name == 'nt', 'non-Windows fallback')
-    def test_other_platforms_keep_existing_file_buttons(self):
-        self.assertIsNone(enable_file_drop(None, None, None))
+    def test_linux_tcl_paths_and_local_uris(self):
+        interp = tk.Tcl()
+        self.assertEqual(local_drop_paths(interp,
+            '{/tmp/ROMs été/Game {1}.nes} file:///tmp/Jeu%20de%20test.gb '
+            'https://example.org/game.zip file://server/private.gb'),
+            ['/tmp/ROMs été/Game {1}.nes', '/tmp/Jeu de test.gb'])
 
 
 @unittest.skipUnless(os.name == 'nt', 'Windows Explorer/Tk integration')

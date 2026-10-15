@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -105,7 +106,7 @@ def _embedded_export_identity(path: Path) -> str | None:
         data = path.read_bytes()
     except OSError:
         return None
-    if not data.startswith(b'MZ') or b'[Retro-Recomp]' not in data:
+    if not data.startswith((b'MZ', b'\x7fELF')) or b'[Retro-Recomp]' not in data:
         return None
     marked = set(re.findall(re.escape(b'[Retro-Recomp]\x00') + rb'([0-9a-f]{64})\x00', data))
     if marked:
@@ -116,6 +117,24 @@ def _embedded_export_identity(path: Path) -> str | None:
     return next(iter(identities))[:-1].decode('ascii') if len(identities) == 1 else None
 
 
+def _foreign_binary(path: Path) -> bool:
+    """Never retire another target's game from a shared export folder."""
+    try:
+        with path.open('rb') as stream:
+            header = stream.read(20)
+    except OSError:
+        return False
+    if header.startswith(b'MZ'):
+        return os.name != 'nt'
+    if header.startswith(b'\x7fELF'):
+        if os.name == 'nt':
+            return True
+        from .platforms import target_id
+        machine = 183 if target_id().endswith('arm64') else 62
+        return len(header) < 20 or header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != machine
+    return False
+
+
 def _export_records(output: Path):
     """Recover exact ROM ownership from reports or branded generated EXEs."""
     reported = {}
@@ -123,7 +142,10 @@ def _export_records(output: Path):
         try:
             report = json.loads(path.read_text(encoding='utf-8'))
             name, identity = report['executable'], report['rom']['sha256']
-            if Path(name).name != name or not name.lower().endswith('.exe'):
+            if Path(name).name != name or (os.name == 'nt' and not name.lower().endswith('.exe')):
+                continue
+            from .platforms import target_id
+            if report.get('target', target_id()) != target_id() or _foreign_binary(output / name):
                 continue
             if not isinstance(identity, str) or not re.fullmatch('[0-9a-f]{64}', identity):
                 continue
@@ -141,7 +163,11 @@ def _export_records(output: Path):
     # Reports can be deleted while games and the converter library remain.
     # Every generated runtime embeds its full null-terminated ROM SHA256.
     # Require our runtime marker and a unique identity; preserve unknown files.
-    for path in output.glob('*.exe'):
+    for path in (output.glob('*.exe') if os.name == 'nt' else output.iterdir()):
+        if not path.is_file():
+            continue
+        if _foreign_binary(path):
+            continue
         if path.name.casefold() in reported:
             continue
         identity = _embedded_export_identity(path)
@@ -165,14 +191,14 @@ def export_target(item: BatchItem, output: Path) -> Path:
     base = executable_name(item.title)
     for name in sorted(own_names, key=lambda name: (name.casefold() != base.casefold(), name.casefold())):
         # Upgrade legacy hash/underscore filenames to the current readable form.
-        if name == base or re.fullmatch(re.escape(Path(base).stem) + r' \(\d+\)\.exe', name):
+        if name == base or re.fullmatch(re.escape((base[:-4] if os.name == 'nt' else base)) + r' \(\d+\)' + (r'\.exe' if os.name == 'nt' else ''), name):
             if owners.get(name.casefold()) == {item.sha256}:
                 return output / name
     existing = {path.name.casefold() for path in output.iterdir()}
     candidate = base
     index = 2
     while candidate.casefold() in existing and owners.get(candidate.casefold()) != {item.sha256}:
-        candidate = f'{Path(base).stem} ({index}).exe'
+        candidate = executable_name(f'{item.title} ({index})')
         index += 1
     return output / candidate
 
@@ -223,9 +249,9 @@ class _OutputNames:
         target = None
         for name in sorted(own_names, key=lambda value: (value.casefold() != base.casefold(), value.casefold())):
             preserved_edition = (export_title is None and
-                re.fullmatch(re.escape(Path(base).stem) + r' \([^)]*\)\.exe', name))
+                re.fullmatch(re.escape((base[:-4] if os.name == 'nt' else base)) + r' \([^)]*\)' + (r'\.exe' if os.name == 'nt' else ''), name))
             if (name == base or preserved_edition or
-                    re.fullmatch(re.escape(Path(base).stem) + r' \(\d+\)\.exe', name)) and \
+                    re.fullmatch(re.escape((base[:-4] if os.name == 'nt' else base)) + r' \(\d+\)' + (r'\.exe' if os.name == 'nt' else ''), name)) and \
                     self.owners.get(name.casefold()) == {item.sha256} and \
                     name.casefold() not in self.reserved:
                 target = self.output / name
@@ -236,7 +262,7 @@ class _OutputNames:
             while (candidate.casefold() in self.reserved or
                    (candidate.casefold() in self.existing and
                     self.owners.get(candidate.casefold()) != {item.sha256})):
-                candidate = f'{Path(base).stem} ({suffix}).exe'
+                candidate = executable_name(f'{export_title or item.title} ({suffix})')
                 suffix += 1
             target = self.output / candidate
         self.reserved[target.name.casefold()] = item.sha256
@@ -277,16 +303,23 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             settings['publish_result'] = False
         from .freshness import request, current, digest, feedback
         signature = request(item, settings)
+        from .paths import save_game_language
+        save_game_language(game_output, settings.get('language', 'en'))
         report_path = reports / 'conversion-report.json'
         if not force and target.is_file() and current(item, target, report_path, signature, emit):
+            from .linux_desktop import publish_launcher
+            publish_launcher(target, report_path, json.loads(report_path.read_text(encoding='utf-8')))
             emit(f'{item.title}: up to date; same version/settings and no new fallback hints.')
             result.update(status='current', executable=str(target), report=str(report_path))
             return result
         executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
-            emit=lambda message: emit(f"[{index+1}/{count} · {item.title}] {message}"), **settings)
+            emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **settings)
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
+        from .languages import LANGUAGES
+        report.update(ui_languages=list(LANGUAGES),language_switch_key='F7',
+                      language_scope='Retro-Recomp host menus; cartridge text unchanged')
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output))
@@ -297,13 +330,17 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         finally:
             temporary.unlink(missing_ok=True)
         if pending:
-            emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
+            emit(f"Nouvelle version prÃƒÂªte ; remplacement ÃƒÂ  la fermeture du jeu : {target}")
         else:
+            from .linux_desktop import publish_launcher
+            publish_launcher(target, report_path, report)
             for previous_executable in previous_executables:
                 try:
                     previous_executable.unlink(missing_ok=True)
+                    from .linux_desktop import retire_launcher
+                    retire_launcher(previous_executable,item.sha256)
                 except OSError as exc:
-                    emit(f"Ancien exécutable conservé : {previous_executable.name} : {exc}")
+                    emit(f"Ancien exÃƒÂ©cutable conservÃƒÂ© : {previous_executable.name} : {exc}")
         if report.get('version') == __version__ and feedback(report).get('fingerprint'):
             if pending:
                 from .publishing import job_path
@@ -384,12 +421,12 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     else:
                         system = get_profile(item.system)
                         if profile_for_path(item.path, item.selected_system or None).id != system.id:
-                            raise ConversionError("La console de cette ROM a changé depuis son ajout au lot.")
+                            raise ConversionError("La console de cette ROM a changÃƒÂ© depuis son ajout au lot.")
                         if system.read_rom(item.path).sha256 != item.sha256:
-                            raise ConversionError("La ROM a changé depuis son ajout au lot ; ajoute-la à nouveau.")
+                            raise ConversionError("La ROM a changÃƒÂ© depuis son ajout au lot ; ajoute-la ÃƒÂ  nouveau.")
                         if identity in seen:
                             result.update(status="duplicate", duplicate_of=seen[identity],
-                                message=f"Contenu ROM identique à « {seen[identity]} » malgré le nom différent.")
+                                message=f"Contenu ROM identique ÃƒÂ  Ã‚Â« {seen[identity]} Ã‚Â» malgrÃƒÂ© le nom diffÃƒÂ©rent.")
                             emit(f"{item.title} : {result['message']}")
                         else:
                             game_output = system_output(output, system.id)
@@ -399,11 +436,11 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                             previous_export = names[system.id].matching_export(item)
                             if previous_export and not names[system.id].same_source_name(item, previous_export):
                                 result.update(status='duplicate', duplicate_of=previous_export.stem,
-                                    message=f"Contenu ROM identique à « {previous_export.stem} » malgré le nom différent.")
+                                    message=f"Contenu ROM identique ÃƒÂ  Ã‚Â« {previous_export.stem} Ã‚Â» malgrÃƒÂ© le nom diffÃƒÂ©rent.")
                                 emit(f"{item.title} : {result['message']}")
                             elif previous_export and not overwrite:
                                 result.update(status='existing', executable=str(previous_export),
-                                    message='Jeu déjà généré ; remplacement désactivé.')
+                                    message='Jeu dÃƒÂ©jÃƒÂ  gÃƒÂ©nÃƒÂ©rÃƒÂ© ; remplacement dÃƒÂ©sactivÃƒÂ©.')
                                 seen[identity] = item.title
                                 emit(f"{item.title} : {result['message']}")
                             else:

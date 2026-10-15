@@ -1,4 +1,4 @@
-"""Private cover-service settings, protected with the current Windows account.
+"""Private cover settings: Windows DPAPI or the Linux desktop Secret Service.
 
 Loading defaults creates nothing. API secrets are never part of general
 preferences, generated games, publication resources or downloaded metadata.
@@ -14,6 +14,7 @@ import tempfile
 import uuid
 
 from .paths import data_directory
+from . import cover_keyring
 
 FIELDS = {
     'screenscraper': ('devid', 'devpassword', 'ssid', 'sspassword'),
@@ -83,6 +84,10 @@ def load_settings(directory: Path | None = None) -> dict:
         if record.get('protected_accounts'):
             secret = _protect(base64.b64decode(record['protected_accounts'], validate=True), decrypt=True)
             result['accounts'] = _accounts(json.loads(secret))
+        elif record.get('credential_id'):
+            if os.name == 'nt' or record.get('credential_backend') != 'secret-service':
+                raise ValueError('Cover accounts belong to a different system.')
+            result['accounts'] = _accounts(json.loads(cover_keyring.read(record['credential_id'])))
     except FileNotFoundError:
         pass
     except (OSError, ValueError, TypeError, AttributeError):
@@ -94,10 +99,46 @@ def load_settings(directory: Path | None = None) -> dict:
 def save_settings(value: dict, directory: Path | None = None) -> None:
     accounts = _accounts(value.get('accounts', {}))
     record = {'version': 1, 'box_3d': bool(value.get('box_3d', False)), 'revision': uuid.uuid4().hex}
-    if any(text for fields in accounts.values() for text in fields.values()):
-        raw = json.dumps(accounts, ensure_ascii=False).encode('utf-8')
-        record['protected_accounts'] = base64.b64encode(_protect(raw)).decode('ascii')
     directory = directory or data_directory()
+    try:
+        previous = json.loads((directory / CONFIG_NAME).read_text(encoding='utf-8'))
+        if not isinstance(previous, dict):
+            previous = {}
+    except (OSError, ValueError):
+        previous = {}
+    has_accounts = any(text for fields in accounts.values() for text in fields.values())
+    new_identity = None
+    if value.get('credential_error') and not has_accounts:
+        # A locked wallet is not an instruction to erase the saved accounts.
+        for key in ('protected_accounts', 'credential_backend', 'credential_id'):
+            if key in previous:
+                record[key] = previous[key]
+    elif has_accounts:
+        raw = json.dumps(accounts, ensure_ascii=False).encode('utf-8')
+        if os.name == 'nt':
+            record['protected_accounts'] = base64.b64encode(_protect(raw)).decode('ascii')
+        else:
+            new_identity = uuid.uuid4().hex
+            cover_keyring.write(new_identity, raw)
+            record.update(credential_backend='secret-service', credential_id=new_identity)
+    try:
+        _save_record(record, directory)
+    except Exception:
+        if new_identity:
+            try:
+                cover_keyring.remove(new_identity)
+            except cover_keyring.KeyringError:
+                pass
+        raise
+    old_identity = previous.get('credential_id')
+    if os.name != 'nt' and old_identity and old_identity != record.get('credential_id'):
+        try:
+            cover_keyring.remove(old_identity)
+        except cover_keyring.KeyringError:
+            pass  # Never roll back the committed settings after a cleanup error.
+
+
+def _save_record(record: dict, directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix='cover-sources.', suffix='.tmp', dir=directory)
     try:

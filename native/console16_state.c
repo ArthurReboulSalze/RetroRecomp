@@ -1,6 +1,6 @@
 /* Lazy, atomic quick states bound to the exact cartridge and runtime ABI. */
-#include <windows.h>
-#include <io.h>
+#include "platform_io.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,16 +93,7 @@ static bool compatible_abi(const uint8_t *value) {
     return false;
 }
 bool rr16_state_path(wchar_t *path, size_t capacity) {
-    if (capacity < 32768) return false;
-    DWORD n=GetModuleFileNameW(NULL,path,32700);
-    wchar_t *slash=n && n<32700 ? wcsrchr(path,L'\\') : NULL;
-    if (!slash) { path[0]=0; return false; }
-    slash[1]=0;
-    wchar_t name[512];
-    if (!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,RR16_STATE_NAME,-1,name,512)) return false;
-    wchar_t tail[640];
-    swprintf_s(tail,640,L"datas\\states\\%s-%.12hs.rrstate",name,RR16_STATE_ROM);
-    return wcscat_s(path,capacity,tail)==0;
+    return rr_game_data_file(path,capacity,"states",RR16_STATE_NAME,RR16_STATE_ROM,".rrstate");
 }
 static bool write_atomic(const wchar_t *path, const uint8_t *payload, size_t size) {
     if (!path[0] || wcslen(path)>32000 || !size || size>MAX_STATE_BYTES) return false;
@@ -112,19 +103,19 @@ static bool write_atomic(const wchar_t *path, const uint8_t *payload, size_t siz
     uint64_t h=hash(payload,size); put32(header+24,(uint32_t)h); put32(header+28,(uint32_t)(h>>32));
     memcpy(header+32,RR16_STATE_ROM,64); memcpy(header+96,RR16_STATE_ABI,64);
     wchar_t parent[32768], staged[32768];
-    wcscpy_s(parent,32768,path);
+    rr_wide_copy(parent,32768,path);
     for (wchar_t *p=parent+3; *p; ++p) if (*p==L'\\' || *p==L'/') {
         wchar_t separator=*p; *p=0;
-        if (!CreateDirectoryW(parent,NULL) && GetLastError()!=ERROR_ALREADY_EXISTS) return false;
+        if (!rr_mkdir(parent)) return false;
         *p=separator;
     }
-    swprintf_s(staged,32768,L"%s.%lu.tmp",path,GetCurrentProcessId());
-    FILE *file=_wfopen(staged,L"wb"); if (!file) return false;
+    swprintf(staged,32768,L"%ls.%lu.tmp",path,rr_process_id());
+    FILE *file=rr_fopen(staged,L"wb"); if (!file) return false;
     bool ok=fwrite(header,1,sizeof header,file)==sizeof header && fwrite(payload,1,size,file)==size;
-    if (ok) ok=fflush(file)==0 && _commit(_fileno(file))==0;
+    if (ok) ok=rr_flush_file(file);
     if (fclose(file)!=0) ok=false;
-    if (ok) ok=MoveFileExW(staged,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=0;
-    if (!ok) DeleteFileW(staged); return ok;
+    if (ok) ok=rr_replace(staged,path);
+    if (!ok) rr_remove(staged); return ok;
 }
 bool rr16_state_file(const wchar_t *path, bool load) {
     if (!path || !path[0]) return false;
@@ -132,7 +123,7 @@ bool rr16_state_file(const wchar_t *path, bool load) {
         size_t n=0; uint8_t *data=rr16_state_capture(&n);
         bool ok=data && write_atomic(path,data,n); free(data); return ok;
     }
-    FILE *file=_wfopen(path,L"rb"); if (!file) return false;
+    FILE *file=rr_fopen(path,L"rb"); if (!file) return false;
     uint8_t header[HEADER_BYTES];
     bool valid=fread(header,1,sizeof header,file)==sizeof header &&
         !memcmp(header,magic,8) && get32(header+8)==1 &&

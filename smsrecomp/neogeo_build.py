@@ -5,6 +5,7 @@ Reference scheduling, instruction AOT and local qualification are distinct.
 from __future__ import annotations
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import zlib
@@ -12,6 +13,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from .core import serialized_setup
 
 from .paths import ROOT, ASSETS
+from .platforms import build_executable, cmake_target_args, build_jobs
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
@@ -57,13 +59,17 @@ def prepare_project(project: Path, *, content: Path | None = None, bios: Path | 
     litho = pinned_dependency('lithogen', 'https://github.com/carmiker/lithogen.git', LITHOGEN_REV)
     project.mkdir(parents=True, exist_ok=True)
     engine = project / 'engine'
-    adapted = {'geo.c', 'geo_m68k.c', 'geo_z80.c', 'geo_ymfm.c', 'geo_lspc.c', 'ymfm/ymfm_opn.c', 'geo_rtc.c', 'm68k/m68kconf.h', 'z80/z80.c', 'm68k/m68kcpu.c'}
+    adapted = {'geo.h', 'geo.c', 'geo_m68k.c', 'geo_z80.c', 'geo_ymfm.c', 'geo_lspc.c', 'ymfm/ymfm_opn.c', 'geo_rtc.c', 'm68k/m68kconf.h', 'z80/z80.c', 'm68k/m68kcpu.c'}
     for file in (geo / 'src').rglob('*'):
         if file.is_file():
             destination = engine / file.relative_to(geo / 'src')
             destination.parent.mkdir(parents=True, exist_ok=True)
             if file.relative_to(geo / 'src').as_posix() not in adapted:
                 write_changed(destination, file.read_text(encoding='utf-8'))
+    header=(geo/'src/geo.h').read_text(encoding='utf-8')
+    header=_replace(header,'#define GEOLITH_H',
+        '#define GEOLITH_H\n#include <stddef.h>\n#include <stdint.h>\n#include <stdbool.h>',count=1)
+    write_changed(engine/'geo.h',header)
     source=(geo/'src/geo.c').read_text(encoding='utf-8')
     source=_replace(source,'#include "geo.h"','#include "geo.h"\n#include "neogeo_reference.h"',count=1)
     source=_replace(source,'if (ngsys.sram_present)','if (rr_ng_board_cart_state())',count=2)
@@ -110,7 +116,8 @@ void geo_exec(void) {''',count=1)
     source = (geo / 'src/geo_m68k.c').read_text(encoding='utf-8')
     source=_replace(source,'ngsys.irq2_counter = ngsys.irq2_reload;',
                     'ngsys.irq2_counter = ngsys.irq2_reload + 1u;',count=1)
-    source = _replace(source, '#include "geo_m68k.h"', '#include "geo_m68k.h"\n#include "m68000_backend.h"', count=1)
+    source = _replace(source, '#include "geo_m68k.h"',
+        '#include "geo_m68k.h"\n#include "neogeo_reference.h"', count=1)
     source = _replace(source,'static uint32_t protreg = 0x00000000;',
         'static uint32_t protreg = 0x00000000;\nstatic uint8_t rr_ng_kof98_overlay;',count=1)
     source = _replace(source,'    cartreg[0] = cartreg[1] = 0;',
@@ -317,7 +324,7 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_persistence.c', 'neogeo_persistence.h',
                  'neogeo_path_io.h', 'neogeo_sprite_decode.h',
                  'console16_host_ui.c', 'console16_state.c', 'console16_state.h',
-                 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'retro_keyboard.h',
+                 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h',
                  'display_settings.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
                  'xbr_filter.h', 'gun16.h'):
         write_changed(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
@@ -340,13 +347,20 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
     # No libretro frontend or CHD stack is imported. Cartridge runner never
     # accepts CD inputs. Upstream's optional internal CD code remains linked.
     cmake = f'''cmake_minimum_required(VERSION 3.20)
-project(RetroNeoGeo LANGUAGES C RC)
+project(RetroNeoGeo LANGUAGES C)
+if(WIN32)
+  enable_language(RC)
+else()
+  enable_language(ASM)
+endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)
+if(MSVC)
+  add_compile_options(/utf-8 /wd4996 /wd4244 /wd4267)
+endif()
 set(LITHO "{litho.as_posix()}")
 file(GLOB LITHO_CRYPTO "${{LITHO}}/src/crypt/*.c")
-add_executable(ng_prepare neogeo_lithogen.c ${{LITHO_CRYPTO}}
+add_executable(ng_prepare platform_io.c neogeo_lithogen.c ${{LITHO_CRYPTO}}
   loader_lithogen.c "${{LITHO}}/src/games_db.c" "${{LITHO}}/src/meta_db.c"
   loader_neowrite.c "${{LITHO}}/src/recipes.c" "${{LITHO}}/src/regions.c"
   "${{LITHO}}/src/zipio.c" "${{LITHO}}/miniz/miniz.c")
@@ -363,9 +377,11 @@ add_library(ng_hardware STATIC engine/geo.c ${{GEO_SOURCES}}
   engine/m68k/m68kcpu.c engine/m68k/m68kops.c engine/z80/z80.c
   engine/ymfm/ymfm_adpcm.c engine/ymfm/ymfm_opn.c engine/ymfm/ymfm_ssg.c
   "${{GEO}}/deps/miniz/miniz.c" "${{GEO}}/deps/speex/resample.c"
-  m68000_backend.c neogeo_reference.c)
+  m68000_backend.c neogeo_reference.c platform_io.c)
 target_include_directories(ng_hardware PUBLIC . engine "${{GEO}}/deps" "${{GEO}}/deps/miniz" "${{GEO}}/deps/libretro-common/include")
-target_compile_definitions(ng_hardware PRIVATE __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
+if(MSVC)
+  target_compile_definitions(ng_hardware PRIVATE __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
+endif()
 '''
     if native:
         cmake+='''
@@ -381,7 +397,7 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
         notices = []
         for file in (geo / 'LICENSE', geo / 'src/m68k/readme.txt',
                      geo / 'deps/speex/COPYING', litho / 'LICENSE',
-                     ASSETS / 'LICENSE', ASSETS / 'licenses/SDL2.md', ASSETS / 'licenses/xbr.md', ASSETS / 'licenses/UPX.md'):
+                     ASSETS / 'LICENSE', ASSETS / 'licenses/SDL2.md', ASSETS / 'licenses/xbr.md', ASSETS / 'licenses/Noto.md', ASSETS / 'licenses/UPX.md'):
             if file.is_file(): notices.append(file.read_text(encoding='utf-8'))
         # Component headers carry additional complete notices retained here.
         for file in (geo / 'src/z80/z80.c', geo / 'src/ymfm/ymfm_opn.c',
@@ -442,6 +458,8 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
         write_changed(project / 'content.rc', '#pragma code_page(65001)\n' +
                       f'201 RCDATA "{packed_content.as_posix()}"\n202 RCDATA "{bios.as_posix()}"\n203 RCDATA "notices.txt"\n'
                       '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
+        from .resources import embed_resources
+        embed_resources(project,{201:packed_content,202:bios,203:project/'notices.txt',205:project/'export-identity.bin'})
         write_changed(project / 'ng_game.h', '#pragma once\n#define RR_NG_TITLE ' + json.dumps(title) +
                       '\n#define RR_NG_VERSION ' + json.dumps(__version__) + '\n' + mode_config(content, bios))
         write_changed(project/'retro_gun_game.h','#pragma once\n#define RR16_GUN 0\n')
@@ -449,10 +467,19 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
         cmake += f'''
 find_package(SDL2 CONFIG REQUIRED)
 add_executable(game neogeo_main.c neogeo_host.c neogeo_state.c neogeo_state_validate.c
-  neogeo_ui_test.c neogeo_persistence.c console16_host_ui.c console16_state.c retro_menu.c content.rc)
-target_link_libraries(game PRIVATE ng_hardware SDL2::SDL2-static shell32 user32 gdi32)
+  neogeo_ui_test.c neogeo_persistence.c console16_host_ui.c console16_state.c retro_menu.c)
+if(WIN32)
+  target_sources(game PRIVATE content.rc)
+  target_link_libraries(game PRIVATE shell32 user32 gdi32)
+else()
+  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)
+  target_link_libraries(game PRIVATE m)
+endif()
+target_link_libraries(game PRIVATE ng_hardware SDL2::SDL2-static)
 target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED RR16_NG=1 [[RR_RECOMP_VERSION="{__version__}"]])
-target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+if(MSVC)
+  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+endif()
 '''
         if native:
             cmake+='set_property(TARGET ng_hardware game PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)\n'
@@ -502,14 +529,17 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     from .core import module_fingerprint
     for name in ('smsrecomp.neogeo_build','smsrecomp.neogeo_codegen','smsrecomp.neogeo_z80'):
         importlib.import_module(name);abi.update(name.encode());abi.update(module_fingerprint(name).encode())
+    if os.name != 'nt':
+        from .platforms import target_id
+        abi.update(target_id().encode())
     # Exact last shipped v2 ABI; unchanged core layout is replay-qualified before
     # accepting its standard-mode snapshots. Unknown prior ABIs remain rejected.
     legacy='03e931d337f39ff575d3567ea65bd40e9829e20f9f0d8c8fef6c9316fdf3707e'
     return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
         '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
-        '\n#define RR16_STATE_COMPAT_ABI '+json.dumps(legacy)+\
-        '\n#define RR16_STATE_COMPAT_ABI_2 "96977f427a996ff545097be31eca9e0aae85293d87d3a752864c6ea65f126f21"'+\
-        '\n#define RR16_STATE_NAME '+json.dumps(executable_name(title)[:-4])+'\n'
+        ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(legacy)+\
+        '\n#define RR16_STATE_COMPAT_ABI_2 "96977f427a996ff545097be31eca9e0aae85293d87d3a752864c6ea65f126f21"' if os.name=='nt' else '')+\
+        '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 
 def configure_build(project: Path, target: str) -> Path:
@@ -519,11 +549,11 @@ def configure_build(project: Path, target: str) -> Path:
     if not (sdl / 'cmake/SDL2/SDL2Config.cmake').exists():
         from .core import dependencies
         _, sdl, _, _ = dependencies()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target', target,
-         '--parallel', '4'], log=project / 'build.log')
-    return project / 'build/Release' / f'{target}.exe'
+         '--parallel', build_jobs()], log=project / 'build.log')
+    return build_executable(project / 'build',target)
 
 
 def preparation_tool() -> Path:
@@ -636,9 +666,9 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
         output.parent.mkdir(parents=True, exist_ok=True)
         from .packing import compact_executable
         packed_executable = project / 'packed-game.exe'
-        shutil.copyfile(executable, packed_executable)
+        shutil.copy2(executable, packed_executable)
         compact_executable(packed_executable)
-        shutil.copyfile(packed_executable, output)
+        shutil.copy2(packed_executable, output)
         return output
 
 
@@ -656,7 +686,7 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     from .neogeo_validation import extended_routes,compare,route_arguments
     from .library import atomic_json
     baseline=project/'reference-game.exe'
-    shutil.copyfile(reference_executable,baseline)
+    shutil.copy2(reference_executable,baseline)
     observations=project/'native-discovery';observations.mkdir(exist_ok=True)
     from .neogeo import validate_bios
     routes=extended_routes(set_name,qualification,aes='aes' in validate_bios(project/'bios.zip'))

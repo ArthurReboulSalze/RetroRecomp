@@ -1,5 +1,6 @@
 #include "runtime_feedback.h"
 #include "cyc_run.h"
+#include "hw.h"
 /* Identify a ROM byte without touching the bus or modifying mapper state.
  * The lower cartridge window is absent from the normal $8000 slot table. */
 bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank) {

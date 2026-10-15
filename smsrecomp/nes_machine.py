@@ -15,7 +15,7 @@ def _write(path: Path, data: bytes) -> None:
         path.write_bytes(data)
 
 
-def _machine(source: str) -> str:
+def _machine(source: str, *, fast_ppu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     source = replace_once(source, 'if (k == 4) sample_nmi();',
@@ -36,12 +36,32 @@ def _machine(source: str) -> str:
     source = replace_once(source, 'while (hw.tick < 12)', 'while (hw.tick < RR_CPU_DIV)')
     source = replace_once(source, '    apu_power_on();',
                           '    apu_power_on();\n    rr_nes_zapper_reset();')
+    source = replace_once(source, '        !nes_cart_variant_supported(&info)) return false;',
+        '        !nes_cart_variant_supported(&info)) return false;\n'
+        '#ifdef RR_NES_STATIC_MAPPER\n'
+        '    if (info.mapper != RR_NES_STATIC_MAPPER) return false;\n'
+        '#endif')
     source = replace_once(source, 'apu_read_controller((int)reg - 0x16) | (hw.data_bus & 0xE0)',
                           'apu_read_controller((int)reg - 0x16) | rr_nes_zapper_read((int)reg - 0x16) | (hw.data_bus & 0xE0)')
+    if fast_ppu:
+        # Pair only adjacent PPU edges with no CPU/APU/NMI event between them.
+        # Partial register cycles and the rational PAL path retain run_tick.
+        pairs = (
+            ('        ppu_dot();\n        ppu_half_dot();   /* 6 */', '        rr_ppu_dot_half(); /* 4, 6 */'),
+            ('        ppu_dot();        /* 8 */\n        ppu_half_dot();   /* 10 */', '        rr_ppu_dot_half(); /* 8, 10 */'),
+            ('        ppu_half_dot();   /* 1 */\n        ppu_dot();        /* 3 */', '        rr_ppu_half_dot(); /* 1, 3 */'),
+            ('        ppu_dot();\n        ppu_half_dot();   /* 9 */', '        rr_ppu_dot_half(); /* 7, 9 */'),
+            ('        ppu_half_dot();\n        ppu_dot();        /* 6 */', '        rr_ppu_half_dot(); /* 4, 6 */'),
+            ('        ppu_half_dot();   /* 8 */\n        ppu_dot();        /* 10 */', '        rr_ppu_half_dot(); /* 8, 10 */'),
+            ('        ppu_dot();        /* 1 */\n        ppu_half_dot();   /* 3 */', '        rr_ppu_dot_half(); /* 1, 3 */'),
+            ('        ppu_dot();        /* 9 */\n        ppu_half_dot();   /* 11 */', '        rr_ppu_dot_half(); /* 9, 11 */'),
+        )
+        for old, new in pairs:
+            source = replace_once(source, old, new)
     return source + '\n#include "nes_machine_state.inc"\n'
 
 
-def _ppu(source: str) -> str:
+def _ppu(source: str, *, fast_ppu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     # Scanline constants are code values, not the positions of the visible
@@ -63,10 +83,37 @@ def _ppu(source: str) -> str:
         raise ConversionError('NES pixel output changed; Zapper adapter needs updating.')
     source = source.replace(output, output + '\n'
         '        if (RR_NES_ZAPPER) rr_nes_zapper_pixel(dot - 4, sl, (uint16_t)(c | ppu.emphasis << 6));')
+    if fast_ppu:
+        source = replace_once(source, 'void ppu_dot(void)\n{',
+            '#include "nes_ppu_fast.inc"\nHW_ALWAYS_INLINE void rr_step_dot(void)\n{')
+        source = replace_once(source, 'void ppu_half_dot(void)\n{',
+            'HW_ALWAYS_INLINE void rr_step_half(void)\n{')
+        classify = '    if (dot_kind == DOT_UNKNOWN) dot_kind = is_blank() ? DOT_BLANK : DOT_GENERAL;'
+        if source.count(classify) != 2:
+            raise ConversionError('NES PPU clock classification changed; review the settled-latch path.')
+        source = source.replace(classify, '''    if (dot_kind == DOT_UNKNOWN) {
+        dot_kind = is_blank() ? DOT_BLANK : DOT_GENERAL;
+        rr_ppu_steady = dot_kind == DOT_GENERAL && rr_ppu_can_steady();
+    }''')
+        for general, steady in (('general_dot', 'rr_ppu_steady_dot'), ('general_half_dot', 'rr_ppu_steady_half')):
+            source = replace_once(source,
+                '    } else {\n        ' + general + '();\n        if (!rendering()) dot_kind = DOT_UNKNOWN;',
+                '    } else if (rr_ppu_steady) {\n        ' + steady + '();\n    } else {\n        ' +
+                general + '();\n        if (!rendering()) dot_kind = DOT_UNKNOWN;\n'
+                '        else rr_ppu_steady = rr_ppu_can_steady();')
+        source += '''
+void ppu_dot(void) { rr_step_dot(); }
+void ppu_half_dot(void) { rr_step_half(); }
+void rr_ppu_dot_half(void) { rr_step_dot(); rr_step_half(); }
+void rr_ppu_half_dot(void) { rr_step_half(); rr_step_dot(); }
+'''
     source += '''
 void rr_nes_ppu_aux_save(uint8_t *b) { b[0] = sm_rest; b[1] = dot_kind; }
 void rr_nes_ppu_aux_load(const uint8_t *b) { sm_rest = b[0] != 0; dot_kind = b[1]; }
 '''
+    if fast_ppu:
+        source = source.replace('dot_kind = b[1]; }',
+            'dot_kind = b[1]; rr_ppu_steady = dot_kind == DOT_GENERAL && rr_ppu_can_steady(); }')
     return source
 
 
@@ -148,8 +195,9 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
 '''
 
 
-def prepare_machine(project: Path, engine: Path) -> Path:
+def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True) -> Path:
     from .feedback import stage
+    project.mkdir(parents=True, exist_ok=True)
     stage(project, 'nes', '0'*64, cmake=False)
     root = project / 'machine'
     transformed = {}
@@ -162,13 +210,15 @@ def prepare_machine(project: Path, engine: Path) -> Path:
             if path.suffix in ('.c', '.h', '.inc', '.cmake'):
                 data = data.replace(b'\r\n', b'\n')
             if name == 'runner/cyc/hw_machine.c':
-                data = _machine(data.decode('utf-8')).encode('utf-8')
+                data = _machine(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
             elif name == 'runner/cyc/hw_ppu.c':
-                data = _ppu(data.decode('utf-8')).encode('utf-8')
+                data = _ppu(data.decode('utf-8'), fast_ppu=fast_ppu).encode('utf-8')
             elif name == 'runner/cyc/hw_internal.h':
                 text = replace_once(data.decode('utf-8'), '    uint8_t  tick;',
                     '    uint8_t  pal_bus_pending; /* New bus cycle before cycle-count commit. */\n    uint8_t  tick;')
                 data = text.encode('utf-8')
+                if fast_ppu:
+                    data += b'\nvoid rr_ppu_dot_half(void);\nvoid rr_ppu_half_dot(void);\n'
             elif name == 'runner/cyc/hw_apu.c':
                 data = _apu(data.decode('utf-8')).encode('utf-8')
             elif name == 'runner/cyc/hw_palette.c':
@@ -210,12 +260,22 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
             if name == 'runner/cyc/cyc.cmake':
                 data += ('\nlist(APPEND NESRECOMP_CYC_SOURCES "' + (project/'runtime_feedback.c').as_posix() + '")\n'
                          'list(APPEND NESRECOMP_CYC_INCLUDE_DIRS "' + project.as_posix() + '")\n').encode('utf-8')
+            if path.suffix in ('.c', '.h', '.inc'):
+                # The cartridge's mapper identity is immutable. Preserve its
+                # stored metadata and every assignment; only reads may fold.
+                text = re.sub(r'\bhw_cart\.mapper\b(?!\s*=(?!=))', 'RR_NES_MAPPER', data.decode('utf-8'))
+                if name == 'runner/cyc/hw_internal.h':
+                    text = replace_once(text, 'HW_ALWAYS_INLINE uint8_t hw_cart_prg_read',
+                        '#ifdef RR_NES_STATIC_MAPPER\n#define RR_NES_MAPPER RR_NES_STATIC_MAPPER\n'
+                        '#else\n#define RR_NES_MAPPER hw_cart.mapper\n#endif\n\n'
+                        'HW_ALWAYS_INLINE uint8_t hw_cart_prg_read')
+                data = text.encode('utf-8')
             transformed[name] = data
             _write(root / name, data)
     identity = hashlib.sha256()
     for name, data in sorted(transformed.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
-    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c'):
+    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc'):
         identity.update((ASSETS / 'native' / name).read_bytes())
     _write(root / 'runner/cyc/nes_state_abi.h',
            f'#define RR_NES_STATE_ABI "{identity.hexdigest()}"\n'.encode('ascii'))

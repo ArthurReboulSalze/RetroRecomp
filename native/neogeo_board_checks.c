@@ -5,6 +5,7 @@
 #include <string.h>
 #include "neogeo_reference.h"
 #include "engine/geo_m68k.c"
+bool rr_ng_core_state_valid(const uint8_t *data,size_t size);
 static unsigned checks;
 static void require(int okay,const char *name) {
     ++checks;if(!okay) {fprintf(stderr,"Neo Geo board check: %s\n",name);exit(2);}
@@ -141,6 +142,24 @@ int main(void) {
     geo_m68k_write_banksw_16_pvc(0x2ffff2,0x0004);memset(ngsys.cartram,0x3c,sizeof ngsys.cartram);
     require(geo_state_load_raw(full) && banksw_addr==bank && !memcmp(protected_ram,ngsys.cartram,sizeof protected_ram),"PVC bank and all protection RAM restored together");
     free(full);mapping(0x200400,RR_M68000_CODE_CART,bank+0x400,0);
+    /* Size is cached by the core. Exercise full states after the final synthetic
+     * board selection; real cartridges never change their board at runtime. */
+    for(unsigned value=0;value<256;++value) {
+        geo_m68k_cart_write_8(0x380001,(uint8_t)value);
+        const uint8_t *snapshot=geo_state_save_raw();
+        require(rr_ng_core_state_valid(snapshot,geo_state_size()),"all eight-bit POUTPUT values are valid states");
+        size_t output=35+SIZE_64K+SIZE_2K+(rr_ng_board_cart_state()?SIZE_8K:0)+6+SIZE_64K+SIZE_4K+SIZE_16K+20+116+SIZE_64K+12+6;
+        require(snapshot[output]==value,"POUTPUT serializer retains all eight bits");
+    }
+    size_t latch=35+SIZE_64K+SIZE_2K+(rr_ng_board_cart_state()?SIZE_8K:0)+6+SIZE_64K+SIZE_4K+SIZE_16K+20+116+SIZE_64K+12;
+    uint8_t *snapshot=malloc(geo_state_size());require(snapshot!=NULL,"state validator fixture allocation");
+    memcpy(snapshot,geo_state_save_raw(),geo_state_size());
+    for(unsigned n=0;n<6;++n) {
+        uint8_t previous=snapshot[latch+n];snapshot[latch+n]=2;
+        require(!rr_ng_core_state_valid(snapshot,geo_state_size()),"non-boolean control latch remains rejected");
+        snapshot[latch+n]=previous;
+    }
+    free(snapshot);
     printf("{\"passed\":true,\"mapping_and_protection_checks\":%u,\"synthetic_inputs_only\":true}\n",checks);
     geo_deinit();free(r->p);free(r->b);free(r->m);return 0;
 }

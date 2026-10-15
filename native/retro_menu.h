@@ -3,6 +3,7 @@
 
 #include <SDL.h>
 #include <stdbool.h>
+#include "runtime_i18n.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +23,7 @@ void rr_menu_box(SDL_Renderer *renderer, int ox, int oy, int unit,
                  int x, int y, int w, int h, int red, int green, int blue, int alpha);
 void rr_menu_text(SDL_Renderer *renderer, int ox, int oy, int unit,
                   int x, int y, const char *label, int red, int green, int blue);
+int rr_menu_text_width(const char *text);
 void rr_menu_begin(SDL_Renderer *renderer, int ox, int oy, int unit);
 void rr_menu_end(SDL_Renderer *renderer);
 /* The converter injects this version at build time, never from user settings. */

@@ -6,7 +6,8 @@
 #include "paths.h"
 #include "retro_keyboard.h"
 #include "video_frame.h"
-#include <windows.h>
+#include "platform_io.h"
+#include "runtime_i18n.h"
 #include <stdio.h>
 #include <wchar.h>
 #include <string.h>
@@ -83,9 +84,9 @@ static uint8_t pulse_gamepad(int player, uint8_t buttons, uint64_t time_us) {
     return buttons;
 }
 
-const char *controls_text(const char *english, const char *french) { return controls.language ? french : english; }
-const char *controls_label(int row) { return labels[controls.language][row]; }
-const char *controls_filter_label(int filter) { return filters[controls.language][filter]; }
+const char *controls_text(const char *english, const char *french) { return rr_translate(controls.language, english, french); }
+const char *controls_label(int row) { return rr_translate(controls.language, labels[0][row], labels[1][row]); }
+const char *controls_filter_label(int filter) { return rr_translate(controls.language, filters[0][filter], filters[1][filter]); }
 int controls_action_count(int player) {
 #ifdef RETRO_GAME_GEAR
     return player == 0 ? CONTROL_ACTIONS : 0;
@@ -141,22 +142,22 @@ static void init_path(void) {
         fprintf(stderr, "[config] datas unavailable; defaults remain available\n");
         return;
     }
-    swprintf(config_path, RETRO_PATH_CAP, L"%s\\Retro-Recomp.ini", root);
+    swprintf(config_path, RETRO_PATH_CAP, L"%ls" RR_SLASH_W L"Retro-Recomp.ini", root);
     if (retro_executable_directory(legacy_config_path)) {
-        wcscat(legacy_config_path, L"\\SMSRecomp.ini");
+        wcscat(legacy_config_path, RR_SLASH_W L"SMSRecomp.ini");
     }
 }
 
 static const wchar_t *read_path(void) {
-    if (GetFileAttributesW(config_path) != INVALID_FILE_ATTRIBUTES) return config_path;
-    return legacy_config_path[0] && GetFileAttributesW(legacy_config_path) != INVALID_FILE_ATTRIBUTES ?
+    if (rr_exists(config_path)) return config_path;
+    return legacy_config_path[0] && rr_exists(legacy_config_path) ?
         legacy_config_path : config_path;
 }
 
 static void read_name(const wchar_t *section, const wchar_t *key, char *out, int size) {
     wchar_t value[128];
-    GetPrivateProfileStringW(section, key, L"", value, 128, read_path());
-    WideCharToMultiByte(CP_UTF8, 0, value, -1, out, size, NULL, NULL);
+    rr_ini_get(section, key, L"", value, 128, read_path());
+    rr_to_utf8(value, out, size);
 }
 
 static bool write_name(const wchar_t *section, const wchar_t *key, const char *name) {
@@ -168,12 +169,12 @@ static bool write_name(const wchar_t *section, const wchar_t *key, const char *n
     if (!slash) return false;
     *slash = 0;
     if (!retro_make_directories(parent)) return false;
-    if (GetFileAttributesW(config_path) == INVALID_FILE_ATTRIBUTES && legacy_config_path[0] &&
-        GetFileAttributesW(legacy_config_path) != INVALID_FILE_ATTRIBUTES &&
-        !CopyFileW(legacy_config_path, config_path, TRUE)) return false;
+    if (!rr_exists(config_path) && legacy_config_path[0] &&
+        rr_exists(legacy_config_path) &&
+        !rr_copy_new(legacy_config_path, config_path)) return false;
     wchar_t value[128];
-    MultiByteToWideChar(CP_UTF8, 0, name, -1, value, 128);
-    return WritePrivateProfileStringW(section, key, value, config_path) != 0;
+    rr_from_utf8(name, value, 128);
+    return rr_ini_set(section, key, value, config_path) != 0;
 }
 
 static void keyboard_defaults(void) {
@@ -186,7 +187,7 @@ void controls_load(void) {
     controls.filter = FILTER_NEAREST; controls.display_mode = 0;
     controls.reduce_sprite_flicker = false;
     smsrecomp_video_set_sprite_flicker_reduction(controls.reduce_sprite_flicker);
-    controls.first_controller_player = 0; controls.language = 0;
+    controls.first_controller_player = 0; controls.language = 0; rr_language_set(0);
     controls.autofire = false;
     controls.phaser_dot_size = 1;
     controls.phaser_shape = PHASER_CROSS;
@@ -243,23 +244,24 @@ void controls_load(void) {
                 controls_guest_start_button(p, controls.buttons[p][i]))
             controls.buttons[p][i] = SDL_CONTROLLER_BUTTON_INVALID;
     }
-    int filter = (int)GetPrivateProfileIntW(L"Video", L"filtre", 0, read_path());
-    int mode = (int)GetPrivateProfileIntW(L"Video", L"display_mode", 0, read_path());
-    filter = (int)GetPrivateProfileIntW(video_section, L"filter", filter, read_path());
-    mode = (int)GetPrivateProfileIntW(video_section, L"display_mode", mode, read_path());
+    int filter = (int)rr_ini_int(L"Video", L"filtre", 0, read_path());
+    int mode = (int)rr_ini_int(L"Video", L"display_mode", 0, read_path());
+    filter = (int)rr_ini_int(video_section, L"filter", filter, read_path());
+    mode = (int)rr_ini_int(video_section, L"display_mode", mode, read_path());
     controls.display_mode = mode >= 0 && mode < 3 ? mode : 0;
     controls.filter = filter >= 0 && filter < FILTER_COUNT ? filter : FILTER_NEAREST;
 #ifndef RETRO_GAME_GEAR
-    controls.reduce_sprite_flicker = GetPrivateProfileIntW(video_section, L"reduce_sprite_flicker", 0, read_path()) == 1;
+    controls.reduce_sprite_flicker = rr_ini_int(video_section, L"reduce_sprite_flicker", 0, read_path()) == 1;
 #endif
     /* Obsolete border/J2-reset settings are ignored without rewriting the INI. */
 #ifndef RETRO_GAME_GEAR
-    controls.first_controller_player = GetPrivateProfileIntW(L"Manettes", L"premier_joueur", 1, read_path()) == 2 ? 1 : 0;
+    controls.first_controller_player = rr_ini_int(L"Manettes", L"premier_joueur", 1, read_path()) == 2 ? 1 : 0;
 #endif
-    controls.autofire = GetPrivateProfileIntW(L"Manettes", L"autofire", 0, read_path()) == 1;
+    controls.autofire = rr_ini_int(L"Manettes", L"autofire", 0, read_path()) == 1;
     read_name(L"Interface", L"language", value, sizeof(value));
-    controls.language = !strcmp(value, "fr");
-    int dot = (int)GetPrivateProfileIntW(L"LightPhaser", L"dot_size", 1, read_path());
+    controls.language = rr_language_from_code(value);
+    rr_language_set(controls.language);
+    int dot = (int)rr_ini_int(L"LightPhaser", L"dot_size", 1, read_path());
     if (dot >= 1 && dot <= 5) controls.phaser_dot_size = dot;
     read_name(L"LightPhaser", L"shape", value, sizeof(value));
     if (!strcmp(value, "dot")) controls.phaser_shape = PHASER_DOT;
@@ -364,8 +366,8 @@ bool controls_controller_order(int first_player) {
 }
 
 bool controls_language(int language) {
-    if (language < 0 || language > 1 || !write_name(L"Interface", L"language", language ? "fr" : "en")) return false;
-    controls.language = language; return true;
+    if (language < 0 || language >= RR_LANGUAGE_COUNT || !write_name(L"Interface", L"language", rr_language_code(language))) return false;
+    controls.language = language; rr_language_set(language); return true;
 }
 
 bool controls_autofire(bool enabled) {

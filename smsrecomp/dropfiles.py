@@ -1,9 +1,10 @@
-"""Explorer file drops for the Windows/Tk converter, without an extra runtime."""
+"""Native Explorer / XDND file drops, queued on the converter's UI thread."""
 from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
 import os
+from urllib.parse import unquote, urlsplit
 
 
 class WindowsFileDrop:
@@ -101,7 +102,72 @@ class WindowsFileDrop:
             self.handles.discard(handle)
 
 
+def local_drop_paths(tk, data):
+    """Tcl lists preserve spaces, braces and Unicode; never split on whitespace."""
+    paths = []
+    for value in tk.splitlist(data):
+        if value.startswith('file:'):
+            url = urlsplit(value)
+            if url.netloc not in ('', 'localhost'):
+                continue
+            value = unquote(url.path)
+        if value.startswith('/'):
+            paths.append(value)
+    return paths
+
+
+class LinuxFileDrop:
+    def __init__(self, root, receive, failed):
+        from tkinterdnd2 import TkinterDnD, DND_FILES
+        self.root, self.receive, self.failed = root, receive, failed
+        self.widgets = []
+        try:
+            TkinterDnD.require(root)
+            def register(widget):
+                widget.drop_target_register(DND_FILES)
+                self.widgets.append(widget)
+                widget.dnd_bind('<<Drop>>', self._drop)
+                for child in widget.winfo_children():
+                    if child.winfo_toplevel() == root:
+                        register(child)
+            # Tk itself is not a BaseWidget; tkinterdnd2 extends its children.
+            # Our canvases fill the toplevel, including banner, stripe and body.
+            for child in root.winfo_children():
+                if child.winfo_toplevel() == root:
+                    register(child)
+        except Exception:
+            self.close()
+            raise OSError('Could not enable Linux file drops (tkdnd).') from None
+        root.bind('<Destroy>', self._destroy, add='+')
+
+    def _drop(self, event):
+        try:
+            paths = local_drop_paths(self.root.tk, event.data)
+            if not paths:
+                return 'refuse_drop'
+            self.receive(paths)
+            return 'copy'
+        except Exception as error:
+            self.failed(error)
+            return 'refuse_drop'
+
+    def _destroy(self, event):
+        if event.widget == self.root:
+            self.close()
+
+    def close(self):
+        for widget in self.widgets:
+            try:
+                widget.drop_target_unregister()
+            except Exception:
+                pass  # Tk may already have destroyed this child.
+        self.widgets.clear()
+
+
 def enable_file_drop(root, receive, failed):
-    if os.name != 'nt':
-        return None
-    return WindowsFileDrop(root, receive, failed)
+    if os.name == 'nt':
+        return WindowsFileDrop(root, receive, failed)
+    try:
+        return LinuxFileDrop(root, receive, failed)
+    except ImportError:
+        raise OSError('Linux file drops require tkinterdnd2.') from None

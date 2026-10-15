@@ -52,7 +52,7 @@ def main():
     bounds = consoles.getchannel('A').point(lambda alpha: 255 if alpha >= 16 else 0).getbbox()
     if not bounds:
         raise ValueError('The header illustration is empty')
-    ImageOps.contain(consoles.crop(bounds), (238, 76), Image.Resampling.LANCZOS).save(
+    ImageOps.contain(consoles.crop(bounds), (375, 120), Image.Resampling.LANCZOS).save(
         directory / 'Retro-Recomp-consoles.png')
     # An opaque charcoal banner keeps the white wordmark readable in either
     # GitHub theme, using the same artwork and neutral palette as the app.

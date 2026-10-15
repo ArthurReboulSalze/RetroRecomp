@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import tkinter as tk
+from tkinter import ttk
 import tempfile
 import time
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from smsrecomp.gameboy import list_memory
 from smsrecomp.nes import list_memory as list_nes_memory
 from smsrecomp.neogeo_knowledge import list_memory as list_ng_memory
 from smsrecomp.cover_settings import defaults as cover_defaults
+from smsrecomp.languages import LANGUAGES, LANGUAGE_NAMES
 
 
 def smoke(window):
@@ -56,7 +58,9 @@ def smoke(window):
         for child in widget.winfo_children():
             yield child
             yield from descendants(child)
-    assert application.language in ('en', 'fr') and application.extended.get()
+    assert application.language in LANGUAGES and application.extended.get()
+    assert isinstance(application.platform_field, tk.Widget)
+    assert application.platform_field.winfo_class() == 'TLabel'
     initial_tags = application.icon_tags.get()
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
@@ -154,17 +158,24 @@ def smoke(window):
             assert not application.busy
             assert application.active_rows==selected
             assert all(application.row_status[row]=='current' for row in selected)
-    for language in ('fr', 'en'):
+    application.show_options()
+    open_notebook = next(widget for widget in application.options_panel.winfo_children()
+                         if isinstance(widget, ttk.Notebook))
+    for language in (*LANGUAGES[1:], 'en'):
         application.language = language
         application.refresh_language()
         assert application.start_button.cget('text') == application.tr('start')
         assert application.selected_button.cget('text') == application.tr('start_selected')
         assert len(application.items) == before
         assert application.options_button.cget('text') == application.tr('options')
+        assert open_notebook.tab(0, 'text') == application.tr('options_common')
+        assert open_notebook.tab(8, 'text') == application.tr('options_boxart')
+        assert application.options_panel.title() == 'Retro-Recomp - ' + application.tr('options')
         window.update_idletasks()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
+    application.close_options()
     panel.destroy()
-    print("PASS: English/French, extended default, hover hints, batch queue, left-aligned banner, duplicates, library; size", window.geometry())
+    print("PASS: eight languages, platform label, extended default, hover hints, batch queue, banner, duplicates, library; size", window.geometry())
     window.destroy()
     fixtures.cleanup()
 

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -113,9 +114,11 @@ def read_nes_rom(path: Path) -> NesRom:
 
 @serialized_setup
 def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, str]:
+    from .platforms import require_backend
+    require_backend('nes')
     cmake, generator = toolchain()
     sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / 'lib/SDL2-static.lib').is_file():
+    if not (sdl / ('lib/SDL2-static.lib' if os.name == 'nt' else 'lib/libSDL2.a')).is_file():
         _, sdl, cmake, generator = dependencies(emit)
     engine = ROOT / '.deps/nesrecomp'
     if not engine.exists():
@@ -372,14 +375,14 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
     write_changed(project / 'rom.nes', rom.data)
     with preserve_inputs(project):
-        prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun)
+        prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun, mapper=rom.mapper)
         metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,
             icon=artwork['embedded'], standard=standard, system_id='nes', zapper=gun)
         notice = 'NES executable: component license notices.\n\n'
         for component, source in [('RetroRecomp', ASSETS / 'LICENSE'),
                                   ('NESRecomp', engine / 'LICENSE'),
                                   ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
-                                  ('xBR', ASSETS / 'licenses/xbr.md'),
+                                  ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
                                   ('SDL2', ASSETS / 'licenses/SDL2.md')]:
             notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
         (project / 'game_legal.md').write_text(notice, encoding='utf-8')
@@ -387,6 +390,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         with (project / 'game_resources.rc').open('a', encoding='utf-8') as resource:
             resource.write('102 RCDATA "game_legal.md"\n103 RCDATA "rom.nes"\n'
                            '104 RCDATA "game_identity.bin"\n')
+    from .resources import embed_resources
+    embed_resources(project, {102:project/'game_legal.md',103:project/'rom.nes',104:project/'game_identity.bin'})
     library = library_root('nes') / rom.sha256 / ENGINE_REV
     previous = library / 'cycle-seeds.trace'
     seed = project / 'cycle-seeds.trace'
@@ -404,7 +409,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries and {len(ram_entries)} guarded RAM entries from previous runs.')
     scripts = _write_probe_scripts(project, frames, advanced=nes_advanced_scan)
-    executable = project / 'build/Release/game.exe'
+    from .platforms import build_executable, cmake_target_args, build_jobs
+    executable = build_executable(project / 'build', 'game')
     history: list[dict] = []
     final_checks: list[dict] = []
     native_rom_positions: tuple[int, int] | None = None
@@ -425,21 +431,18 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         if native_rom_positions:
             emit(f'NES native physical PRG entry positions: '
                  f'{native_rom_positions[0]}/{native_rom_positions[1]}.')
-        phase = time.perf_counter()
-        run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
-             f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], cwd=project,
-            log=project / 'build.log', timeout=600)
-        configure_seconds = time.perf_counter() - phase
         previous_objects = object_stamps(project / 'build')
-        phase = time.perf_counter()
-        run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'],
-            cwd=project, log=project / 'build.log', timeout=1800)
-        build_seconds = time.perf_counter() - phase
+        from .nes_optimization import build_game
+        optimization = build_game(project, cmake, generator, sdl, scripts.get('play_right'), emit)
+        configure_seconds = optimization['configure_seconds']
+        build_seconds = optimization['build_seconds']
         current_objects = object_stamps(project / 'build')
         build_passes.append({'pass': number, **cache,
             'generation_seconds': round(generation_seconds, 6),
             'configure_seconds': round(configure_seconds, 6),
             'build_seconds': round(build_seconds, 6),
+            'hardware_profile_guided': optimization['hardware_profile_guided'],
+            'profile_training_seconds': round(optimization['profile_training_seconds'], 6),
             'objects_rebuilt': sum(previous_objects.get(p) != stamp for p, stamp in current_objects.items()),
             'objects_reused': sum(previous_objects.get(p) == stamp for p, stamp in current_objects.items())})
         if not executable.is_file():
@@ -521,6 +524,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                        'bounded_pcm_ring': True},
         'physical_latency_measured': False,
         'build_executable': str(executable), 'executable': executable.name,
+        'build_directory': str(project),
         'conversion_wall_seconds': round(time.perf_counter() - started, 6)}
     atomic_json(destination / 'conversion-report.json', report)
     emit('NES export validated on tested paths; gameplay and hardware fidelity remain unverified.')

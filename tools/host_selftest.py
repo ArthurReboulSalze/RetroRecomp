@@ -14,6 +14,7 @@ import argparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from smsrecomp.core import ROOT, ASSETS, dependencies, run
 from smsrecomp.paths import games_directory
+from smsrecomp.platforms import cmake_target_args, build_jobs, build_executable
 
 
 def main():
@@ -38,19 +39,21 @@ def main():
             shutil.copy2(file, source / file.name)
     banked = report.get("backend") == "banked"
     build = ROOT / ".build" / ("host-checks-banked-build" if banked else "host-checks-build")
-    run([cmake, "-S", source, "-B", build, "-G", generator, "-A", "x64",
+    run([cmake, "-S", source, "-B", build, "-G", generator, *cmake_target_args(),
          f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
          f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
          "-DGAME_NAME=Alex_Kidd_in_Miracle_World", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}",
          "-DSMSRECOMP_HOST_CHECKS=ON"])
-    run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_host_checks", "--parallel", "4"])
+    run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_host_checks", "--parallel", build_jobs()])
     from smsrecomp.core import slug
     artifacts = ROOT / ".build/host-checks-artifacts" / slug(args.game)
     artifacts.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env.update(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+    # These untimed input/pixel checks use no physical display. Do not simulate
+    # display refresh in the dummy renderer; real VSync is checked on the host.
+    env.update(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", SDL_RENDER_VSYNC="0")
     env["SMSRECOMP_LIBRARY_DIR"] = str(artifacts / "learning")
-    result = subprocess.run([str(build / "Release/smsrecomp_host_checks.exe"), str(artifacts / "SMSRecomp.ini")],
+    result = subprocess.run([str(build_executable(build, 'smsrecomp_host_checks')), str(artifacts / "SMSRecomp.ini")],
                             cwd=artifacts, env=env, capture_output=True, timeout=40)
     (artifacts / "native-checks.log").write_bytes(result.stdout + result.stderr)
     print(result.stdout.decode("utf-8", errors="replace"))
