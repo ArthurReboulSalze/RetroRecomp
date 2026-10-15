@@ -9,9 +9,8 @@ class NeoGeoProfile(SystemProfile):
     extensions = ('.neo',)
     export_folder = 'Neo Geo'
     video_modes = ('mvs',)
-    # CPU/reference checks pass within the MVS Europe scope, but reported
-    # visual artifacts still require hardware/rendering corrections.
-    experimental = True
+    # Supported cartridge scope; reference agreement is not universal fidelity.
+    experimental = False
 
     def read_rom(self, path: Path):
         from ..neogeo import read_set

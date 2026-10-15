@@ -215,7 +215,8 @@ class FeedbackTests(unittest.TestCase):
                         feedback.Observation(12,0xf800,0,bytes.fromhex('3e017600'))],identity)
         feedback.ingest('ng',identity,self.root/'games')
         with patch.object(neogeo_knowledge,'context',return_value=(identity,{},sources)):
-            physical,ram,z80,_=neogeo_knowledge.hints(self.root)
+            with patch('smsrecomp.neogeo_knowledge.validate_bios', return_value={}):
+                physical,ram,z80,_=neogeo_knowledge.hints(self.root)
         self.assertEqual(physical,{'p':{0},'bios':set()})
         self.assertEqual(ram,[{'offset':0x100,'words':'70014e75'}])
         self.assertEqual(z80,[{'address':0xf800,'bytes':'3e017600'}])

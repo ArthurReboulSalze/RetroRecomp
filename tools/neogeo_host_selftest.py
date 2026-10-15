@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from smsrecomp import __version__
 
@@ -102,9 +103,10 @@ def check(exe,output):
     assert not list(folder.rglob('*.tmp'))
     # Enhanced mode is a direct F5 switch, remembered without opening a menu.
     enhanced,folder=launch(exe,output,'enhanced',[
-        '0 snap standard','1 key F5','2 snap enabled','3 key H','4 snap enhanced-help',
+        '0 snap default','0 key F5','1 snap standard','1 key F5','2 snap enabled','3 key H','4 snap enhanced-help',
         f'4 capture {output}/enhanced-help.bmp','5 key H','6 key F1','7 snap restart',
         '8 key F8','9 snap saved','10 quit'])
+    assert enhanced['default']['enhanced_mode']
     assert not enhanced['standard']['enhanced_mode']
     assert enhanced['enabled']['enhanced_mode'] and enhanced['enabled']['menu']==0
     assert enhanced['enabled']['status']=='Enhanced Neo Geo: ON'
@@ -119,14 +121,45 @@ def check(exe,output):
     assert not fresh['disabled']['enhanced_mode'] and fresh['disabled']['menu']==0
     disabled,_=launch(exe,output,'enhanced-disabled-reopened',['0 snap disabled','1 quit'],folder)
     assert not disabled['disabled']['enhanced_mode']
+    mode_restart = check_mode_restart(exe, output) if empty['defaults'].get('aes_available') else None
     result={'source_exe':str(exe),'source_exe_sha256':hashlib.sha256(exe.read_bytes()).hexdigest(),
             'menus_and_shortcuts':True,'two_virtual_controllers':True,'bindings_persisted':True,
             'azerty_labels':empty['defaults']['key_labels'],'filter_order':[2,3,1,0],
             'fullscreen_and_filters_fresh_process':True,'f8_f9_fresh_process':True,
             'opening_and_missing_f9_create_nothing':True,'state_bytes':states[0].stat().st_size,
             'enhanced_f5_persisted_and_state_restored':True,
+            'f11_restart':mode_restart,
             'physical_controller_and_audio_validation':False}
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n');return result
+
+
+def check_mode_restart(exe, output):
+    """Drive the real F11 close/relaunch twice, with isolated user data."""
+    folder=output/'mode-restart';folder.mkdir(exist_ok=True)
+    copy=folder/exe.name;shutil.copyfile(exe,copy)
+    first=folder/'mvs.events';second=folder/'aes.events';last=folder/'return.events'
+    first_log=folder/'mvs.jsonl';second_log=folder/'aes.jsonl';last_log=folder/'return.jsonl'
+    last.write_text('0 snap returned\n0 key F9\n1 snap restored\n2 quit\n',encoding='utf-8')
+    second.write_text(f'0 snap aes\n0 key F9\n1 snap absent\n2 key F8\n3 snap saved\n'
+        f'4 restart-script {last}\n4 restart-log {last_log}\n5 key F11\n',encoding='utf-8')
+    first.write_text(f'0 snap mvs\n0 key F8\n1 snap saved\n2 restart-script {second}\n'
+        f'2 restart-log {second_log}\n3 key F11\n',encoding='utf-8')
+    env={**os.environ,'RETRORECOMP_HOST_TEST_FRAMES':'300','SDL_AUDIODRIVER':'dummy',
+         'RETRORECOMP_NG_UI_SCRIPT':str(first),'RETRORECOMP_NG_UI_LOG':str(first_log)}
+    subprocess.run([str(copy),'--mvs'],check=True,env=env,capture_output=True,timeout=45)
+    deadline=time.monotonic()+45
+    while time.monotonic()<deadline:
+        if last_log.exists() and 'restored' in last_log.read_text(encoding='utf-8'):
+            break
+        time.sleep(.1)
+    def records(path):return {r['label']:r for r in (json.loads(line) for line in path.read_text().splitlines())}
+    a,b,c=records(first_log),records(second_log),records(last_log)
+    assert a['mvs']['machine_mode']=='mvs' and b['aes']['machine_mode']=='aes' and c['returned']['machine_mode']=='mvs'
+    assert b['aes']['frame']==a['mvs']['frame']==c['returned']['frame']==0
+    assert b['absent']['status']!='Quick state loaded'
+    assert b['saved']['status']==c['restored']['status'].replace('loaded','saved')=='Quick state saved'
+    states=list(folder.glob('datas/states/*.rrstate'));assert len(states)==2
+    return {'mvs_aes_mvs':True,'reset_each_time':True,'separate_quick_states':True,'last_mode_remembered':True}
 
 
 def main():

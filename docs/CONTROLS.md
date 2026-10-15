@@ -19,6 +19,7 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
+| F11 | Neo Geo: switch arcade MVS / console AES and restart (AES BIOS required) |
 | F6 | Gamepad autofire on/off for mapped face buttons |
 | F7 | English/French |
 | F8 | Save/replace the game's quick state |
@@ -30,7 +31,7 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | Esc | Close a menu or quit |
 
 F12 changes recording only: the interpreter still runs when necessary and its
-use remains visible. An interpreter-disable F11 mode is deferred; no such
+use remains visible. Interpreter disabling is deferred; no such
 shortcut is added. See [fallback recovery and moved games](RUNTIME_FEEDBACK.md).
 
 The xBR implementation is shared by Master System, Game Gear, Game Boy, NES,
@@ -65,8 +66,8 @@ loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).
 
 Neo Geo **F5** directly switches enhanced mode on/off. It doubles the virtual
 68000 clock and extends rendering from 96 to 381 sprite columns per line.
-The video and sound clocks retain their normal rates. Standard mode is the
-default; the last F5 choice is remembered under `NeoGeo.Runtime/enhanced` in
+The video and sound clocks retain their normal rates. Enhanced mode is the
+default since 1.0.2; the last F5 choice is remembered under `NeoGeo.Runtime/enhanced` in
 `datas/Retro-Recomp.ini`. H shows the active setting. Quick states retain their
 saved machine mode, so loading an older standard state returns to standard mode;
 press F5 after F9 to compare the same scene in enhanced mode. This is an optional

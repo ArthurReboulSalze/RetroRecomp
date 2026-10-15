@@ -20,15 +20,16 @@ from .neogeo_validation import extended_routes, compare
 from .paths import selected_bios_path
 
 
-def check_routes(executable: Path, project: Path, set_name: str, qualification=None) -> list[dict]:
+def check_routes(executable: Path, project: Path, set_name: str, qualification=None, *, workers=1) -> list[dict]:
     """Recheck the packed candidate against its fresh pre-learning reference."""
     directory = project / 'packed-checks'
     directory.mkdir(exist_ok=True)
     checked = []
-    for name, (frames, _) in extended_routes(set_name,qualification).items():
+    def verify(row):
+        name, (frames, _) = row
         report = directory / (name + '.json')
         script = project / 'native-discovery' / (name + '.inputs')
-        run = subprocess.run([str(executable), '--headless', '--frames', str(frames),
+        run = subprocess.run([str(executable), '--headless', *(['--aes'] if name.startswith('aes-') else []), '--frames', str(frames),
             '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report)],
             capture_output=True, timeout=max(240,frames/60*4))
         if run.returncode:
@@ -38,21 +39,27 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
         compare(native, reference, require_native=False)
         if not native['nonzero_samples'] or native['nonuniform_frames'] < frames // 2:
             raise ConversionError('Neo Geo validation produced no usable image/audio.')
-        checked.append({'name': name, 'frames': frames, 'native_entries': native['native_68000'],
+        return {'name': name, 'frames': frames, 'native_entries': native['native_68000'],
             'interpreted_opcodes': native['interpreted_68000'],
             'audio_native_opcodes': native['native_z80'], 'audio_interpreted_opcodes': native['interpreted_z80'],
             'interpreter_percent': round(100*native['interpreted_68000']/max(1,native['native_68000']+native['interpreted_68000']),6),
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'hardware_hash': native['extended_hardware_hash'], 'z80_hash': native['z80_hash'],
-            'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash']})
+            'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash']}
+    from concurrent.futures import ThreadPoolExecutor
+    routes = extended_routes(set_name,qualification,aes='aes' in validate_bios(project/'bios.zip'))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        checked = list(pool.map(verify,routes.items()))
     return checked
 
 
 def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
             use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
             language='en', passes=3, frames=3600, backend='banked', standard_override=None,
-            publish_result=True, profile=None, ng_qualification_routes=None, emit=print) -> Path:
+            publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1, emit=print) -> Path:
     started=time.perf_counter()
+    workers=max(1,min(4,8//max(1,ng_parallel_games)))
+    timings={}
     firmware=selected_bios_path(ng_bios or bios)
     if firmware is None:
         raise ConversionError('Select your BIOS archive in Options → Neo Geo before converting.')
@@ -67,7 +74,10 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         'use_cover':use_cover,'online_cover':online_cover,'boxart_dir':boxart_dir,'emit':emit,
         'feedback_output':output}
     executable=convert_reference(path,bios=firmware,set_name=game.set_name if path.suffix.casefold()!='.neo' else None,
-        native=True,title=title,presentation=presentation,pack=False,emit=emit,qualification=ng_qualification_routes)
+        native=True,title=title,presentation=presentation,pack=False,emit=emit,qualification=ng_qualification_routes,
+        validation_workers=workers,defer_to_packed=True)
+    timings['prepare_translate_build_and_compare']=round(time.perf_counter()-started,3)
+    phase=time.perf_counter()
     project=executable.parents[2]
     manifest=json.loads((project/'input.json').read_text(encoding='utf-8'))
     if manifest['bios']['sha256']!=bios_info['sha256'] or manifest['source']['sha256']!=game.sha256:
@@ -76,8 +86,22 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     packed=project/'packed-game.exe'
     shutil.copy2(executable,packed)
     compact_executable(packed)
+    timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     emit('Neo Geo: comparing the compressed executable with the fresh reference.')
-    checks=check_routes(packed,project,game.set_name,ng_qualification_routes)
+    checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
+    # The delivered, compressed executable is the native candidate. Compare
+    # every route once against the fresh reference; an earlier uncompressed
+    # replay of identical CPU code adds no coverage. Until this gate passes,
+    # the build receipt remains explicitly unqualified.
+    validation=json.loads((project/'native-validation.json').read_text(encoding='utf-8'))
+    validation.update(passed=True,awaiting_packed_validation=False,validated_candidate='packed',
+        packed_sha256=hashlib.sha256(packed.read_bytes()).hexdigest(),
+        routes=[{'route':row['name'],'frames':row['frames'],'passed':True,
+                 'main_native':row['native_entries'],'main_fallback':row['interpreted_opcodes'],
+                 'sound_native':row['audio_native_opcodes'],'sound_fallback':row['audio_interpreted_opcodes']}
+                for row in checks])
+    atomic_json(project/'native-validation.json',validation)
+    timings['packed_replays']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     from .neogeo_state_checks import check as check_states
     warmups=(30,3300,7000) if game.set_name=='nam1975' else (30,4500,6000)
     state_script=project/'native-discovery'/('card-save.inputs' if game.set_name=='nam1975' else 'play.inputs')
@@ -87,11 +111,26 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         warmups=(30,4500,count-600)
         state_script=project/'native-discovery'/(longest+'.inputs')
     emit('Neo Geo: checking F8/F9 in fresh processes and rejecting invalid states.')
-    states=check_states(packed,project/'state-checks',warmups=warmups,
-        input_script=state_script,require_native=False)
+    from concurrent.futures import ThreadPoolExecutor
+    mode_jobs=min(workers,2) if 'aes' in bios_info else 1
+    with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
+        mvs=pool.submit(check_states,packed,project/'state-checks',warmups=warmups,
+            input_script=state_script,require_native=False,workers=max(1,workers//mode_jobs))
+        aes=pool.submit(check_states,packed,project/'aes-state-checks',warmups=(30,4500),
+            input_script=project/'native-discovery/aes-play.inputs',require_native=False,
+            workers=max(1,workers//mode_jobs),mode='aes') if 'aes' in bios_info else None
+        states=mvs.result()
+        if aes:states['aes']=aes.result()
+    timings['state_checks']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     from .neogeo_persistence_checks import check as check_memory
     emit('Neo Geo: checking ordinary scores/card persistence without F8/F9.')
-    ordinary=check_memory(packed,project,frames=13800 if game.set_name=='nam1975' else 7200,script=state_script)
+    with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
+        mvs=pool.submit(check_memory,packed,project,frames=13800 if game.set_name=='nam1975' else 7200,script=state_script)
+        aes=pool.submit(check_memory,packed,project,frames=7200,
+            script=project/'native-discovery/aes-play.inputs',mode='aes') if 'aes' in bios_info else None
+        ordinary=mvs.result()
+        if aes:ordinary['aes']=aes.result()
+    timings['ordinary_saves']=round(time.perf_counter()-phase,3)
     from .metadata import game_metadata
     from .neogeo_knowledge import remember
     memory=remember(project,checks,states,title=title,source=game.metadata())
@@ -119,6 +158,10 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         'executable':executable_name(title),'build_executable':str(executable),
         'packed_candidate_sha256':hashlib.sha256(packed.read_bytes()).hexdigest(),
         'conversion_wall_seconds':round(time.perf_counter()-started,3)}
+    report['conversion_phases_seconds']=timings
+    report['validation_workers']=workers
+    report['runtime_modes']={'default':'mvs','aes_available':'aes' in bios_info,'switch_key':'F11',
+        'switch_restarts_game':True,'enhanced_default':True}
     report['qualification_scope']={'system':'MVS','region':'Europe','bios':'four verified user-supplied components',
         'controls':'ordinary two-player joysticks','native_board_families':['standard','CT0','KOF98','SMA','MSLUGX','PVC'],
         'hardware_specification_checks':136,'independent_game_hardware_implementation':False,

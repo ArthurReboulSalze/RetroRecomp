@@ -2,9 +2,9 @@
 
 ## Current scope
 
-Release **1.0.1** supports six console profiles within their documented scopes
-and adds an **experimental Neo Geo MVS Europe profile**. User gameplay still
-shows visual artifacts. The following CPU/reference results remain valid for
+Release **1.0.2** supports seven console profiles within their documented scopes,
+including **Neo Geo**, following renewed user gameplay validation.
+The following CPU/reference results remain valid for
 their tested paths, but do not establish complete rendering or hardware fidelity.
 Twenty-four exact cartridge revisions pass 87 packed/reference routes,
 826,800 compared native frames, zero observed 68000/Z80 fallback, 72 fresh
@@ -12,7 +12,8 @@ snapshot replays and 624 invalid-state rejections. Six paths run 54,000 frames
 each (about 15 minutes), with inspected active play and transitions. The 136
 independent authored specification checks qualify named hardware behaviors;
 they do not make the internal game replays an independent hardware comparison.
-AES, other firmware, CD, special peripherals and unqualified boards remain
+AES export firmware now enables optional console mode; other firmware, CD,
+special peripherals and unqualified boards remain
 separate extensions. See [Neo Geo evidence and limits](NEOGEO.md).
 Ten additional Neo Geo revisions pass 20 further packed/reference routes,
 108,000 frames and zero observed main/sound fallback, with 30 fresh snapshots

@@ -235,7 +235,13 @@ def validate_bios(path: Path) -> dict:
             raise ValueError(f'Incorrect BIOS revision/content: {name}.')
         selected.append(item)
     identity = hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest()
-    return {'system': 'mvs', 'region': 'eu', 'members': selected, 'sha256': identity}
+    result = {'system': 'mvs', 'region': 'eu', 'members': selected, 'sha256': identity}
+    aes = by_name.get('neo-epo.bin')
+    if aes:
+        if aes['bytes'] != 0x20000 or aes['crc32'] != 0xd27a71f1:
+            raise ValueError('Incorrect AES export BIOS revision/content: neo-epo.bin.')
+        result['aes'] = aes
+    return result
 
 
 def combined_identity(game: NeoGeoSet, bios: dict, *, engine_revision: str, loader_revision: str) -> str:

@@ -404,10 +404,18 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
                 if notice.is_file():notices.append(notice.read_text(encoding='utf-8'))
             write_changed(project/'notices.txt','\n\n'.join(notices))
         raw_content = content.read_bytes()
-        payload = b'NGZ1' + len(raw_content).to_bytes(4, 'little') + zlib.compress(raw_content, 9)
         packed_content = project / 'cartridge.pack'
-        if not packed_content.is_file() or packed_content.read_bytes() != payload:
+        pack_receipt = project/'cartridge-pack.json'
+        raw_hash = hashlib.sha256(raw_content).hexdigest()
+        try:
+            receipt = json.loads(pack_receipt.read_text())
+            reused = receipt['source'] == raw_hash and receipt['packed'] == hashlib.sha256(packed_content.read_bytes()).hexdigest()
+        except (OSError, ValueError, KeyError, TypeError): reused = False
+        if not reused:
+            payload = b'NGZ1' + len(raw_content).to_bytes(4, 'little') + zlib.compress(raw_content, 9)
             packed_content.write_bytes(payload)
+            from .library import atomic_json
+            atomic_json(pack_receipt, {'source':raw_hash,'packed':hashlib.sha256(payload).hexdigest()})
         from .core import executable_name
         from .metadata import write_game_metadata
         icon = False
@@ -435,7 +443,7 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
                       f'201 RCDATA "{packed_content.as_posix()}"\n202 RCDATA "{bios.as_posix()}"\n203 RCDATA "notices.txt"\n'
                       '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
         write_changed(project / 'ng_game.h', '#pragma once\n#define RR_NG_TITLE ' + json.dumps(title) +
-                      '\n#define RR_NG_VERSION ' + json.dumps(__version__) + '\n')
+                      '\n#define RR_NG_VERSION ' + json.dumps(__version__) + '\n' + mode_config(content, bios))
         write_changed(project/'retro_gun_game.h','#pragma once\n#define RR16_GUN 0\n')
         write_changed(project/'retro16_state_config.h',state_config(content,bios,title))
         cmake += f'''
@@ -453,9 +461,27 @@ target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
         from .feedback import stage
         from .neogeo_knowledge import context
         stage(project,'ng',context(project)[0])
+        write_changed(project/'runtime_feedback_config.h',
+            '#include "neogeo_host.h"\n#define RR_FEEDBACK_SYSTEM "ng"\n#define RR_FEEDBACK_IDENTITY rr_ng_identity()\n')
     else:
         from .feedback import stage
         stage(project,'ng','0'*64,target='ng_hardware')
+
+
+def mode_config(content: Path, bios: Path) -> str:
+    from .neogeo import parse_neo, validate_bios
+    from .neogeo_knowledge import key
+    cart = parse_neo(content); firmware = validate_bios(bios)
+    mvs = key(cart.sha256, firmware['sha256'])
+    aes = aes_identity(cart.sha256, firmware)
+    return ('#define RR_NG_AES_AVAILABLE '+str(int('aes' in firmware))+'\n'+
+            '#define RR_NG_MVS_IDENTITY '+json.dumps(mvs)+'\n'+
+            '#define RR_NG_AES_IDENTITY '+json.dumps(aes)+'\n')
+
+
+def aes_identity(cart: str, firmware: dict) -> str:
+    return hashlib.sha256(json.dumps({'cart':cart, 'bios':firmware['sha256'],
+        'aes':firmware.get('aes', {}).get('sha256'), 'system':'aes','region':'eu'},sort_keys=True).encode()).hexdigest()
 
 
 def state_config(content: Path,bios: Path,title: str) -> str:
@@ -479,8 +505,8 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     # Exact last shipped v2 ABI; unchanged core layout is replay-qualified before
     # accepting its standard-mode snapshots. Unknown prior ABIs remain rejected.
     legacy='03e931d337f39ff575d3567ea65bd40e9829e20f9f0d8c8fef6c9316fdf3707e'
-    return '#pragma once\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
-        '#define RR16_STATE_ROM '+json.dumps(identity)+'\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
+    return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
+        '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
         '\n#define RR16_STATE_COMPAT_ABI '+json.dumps(legacy)+\
         '\n#define RR16_STATE_COMPAT_ABI_2 "96977f427a996ff545097be31eca9e0aae85293d87d3a752864c6ea65f126f21"'+\
         '\n#define RR16_STATE_NAME '+json.dumps(executable_name(title)[:-4])+'\n'
@@ -518,7 +544,8 @@ def load_catalogue(tool: Path) -> list[dict]:
 def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
                       set_name: str | None = None, emit=print, native: bool = False,
                       title: str | None = None, presentation: dict | None = None, pack: bool = True,
-                      qualification: dict | None = None) -> Path:
+                      qualification: dict | None = None, validation_workers: int = 1,
+                      defer_to_packed: bool = False) -> Path:
     from .core import run
     from .neogeo import read_set, validate_bios, parse_neo, combined_identity
     from .library import atomic_json, entry_lock
@@ -533,6 +560,8 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
             from .neogeo import archive_members
             parent_sources.append((parent, archive_members(parent, hash_contents=True,cartridge_paths=True)))
     identity = combined_identity(game, bios_info, engine_revision=GEOLITH_REV, loader_revision=LITHOGEN_REV)
+    if 'aes' in bios_info:
+        identity = hashlib.sha256((identity+bios_info['aes']['sha256']).encode()).hexdigest()
     if parent_sources:
         identity = hashlib.sha256((identity + json.dumps(
             [records for _, records in parent_sources], sort_keys=True)).encode()).hexdigest()
@@ -547,7 +576,7 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
         local_bios = project / 'bios.zip'
         # Only the selected four BIOS components are needed in the game EXE.
         with ZipFile(bios) as source, ZipFile(local_bios, 'w') as destination:
-            for record in bios_info['members']:
+            for record in bios_info['members'] + ([bios_info['aes']] if 'aes' in bios_info else []):
                 original = next(entry for entry in source.infolist()
                                 if entry.filename.replace('\\', '/').rsplit('/', 1)[-1].casefold() == record['name'])
                 info = ZipInfo(record['name'], date_time=(1990, 1, 1, 0, 0, 0))
@@ -589,12 +618,16 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
         from .feedback import ingest
         from .neogeo_knowledge import context
         feedback=ingest('ng',context(project)[0],(presentation or {}).get('feedback_output'),emit=emit)
+        if 'aes' in bios_info:
+            feedback['aes'] = ingest('ng',aes_identity(prepared.sha256,bios_info),
+                                    (presentation or {}).get('feedback_output'),emit=emit)
         atomic_json(project/'runtime-feedback-use.json',feedback)
         emit('Neo Geo reference prototype: 68000 and Z80 are interpreted.')
         executable = configure_build(project, 'game')
         if native:
             executable=compile_native(project,executable,title=actual_title,set_name=game.set_name,emit=emit,
-                presentation=presentation,qualification=qualification)
+                presentation=presentation,qualification=qualification,validation_workers=validation_workers,
+                defer_to_packed=defer_to_packed)
         atomic_json(project / 'input.json', {'identity': identity, 'source': game.metadata(),
                     'prepared': prepared.metadata(), 'bios': bios_info,
                     'parents': [list(records) for _, records in parent_sources], 'geolith': GEOLITH_REV,
@@ -615,7 +648,8 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
 
 
 def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo prototype',set_name='',emit=print,
-                   presentation: dict | None = None,qualification: dict | None = None) -> Path:
+                   presentation: dict | None = None,qualification: dict | None = None,validation_workers: int = 1,
+                   defer_to_packed: bool = False) -> Path:
     """Discover against the exact private inputs, translate, then compare.
 
     No shared knowledge bypass, game patch, function override or guessed RAM
@@ -629,22 +663,29 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     baseline=project/'reference-game.exe'
     shutil.copyfile(reference_executable,baseline)
     observations=project/'native-discovery';observations.mkdir(exist_ok=True)
-    routes=extended_routes(set_name,qualification)
+    from .neogeo import validate_bios
+    routes=extended_routes(set_name,qualification,aes='aes' in validate_bios(project/'bios.zip'))
+    from concurrent.futures import ThreadPoolExecutor
     references={};seeds=set();ram=[];main_ram=[];physical={'p':set(),'bios':set()}
     def probe(binary,name,frames,script):
         destination=observations/(name+'.json')
-        result=subprocess.run([str(binary),'--headless','--frames',str(frames),'--script',str(script),
+        result=subprocess.run([str(binary),'--headless',*(['--aes'] if name.startswith('aes-') else []),'--frames',str(frames),'--script',str(script),
             '--rtc-seed','1760000000','--report',str(destination)],capture_output=True,timeout=max(180,frames/60*4))
         if result.returncode:raise RuntimeError(f'Neo Geo {name} failed (exit {result.returncode}).')
         return json.loads(destination.read_text(encoding='utf-8'))
-    for name,(frames,text) in routes.items():
+    def observe(row):
+        name,(frames,text)=row
         script=observations/(name+'.inputs');script.write_text(text,encoding='ascii')
         emit(f'Neo Geo: observing {name}, {frames} reference frames.')
         report=probe(baseline,name+'-reference',frames,script)
+        return name, report
+    with ThreadPoolExecutor(max_workers=validation_workers) as pool:
+        observed = list(pool.map(observe,routes.items()))
+    for name,report in observed:
         references[name]=report;seeds.update(report['reached_pc']);ram+=report.get('z80_variants',[])
         main_ram+=report.get('m68k_ram_variants',[])
         for region,offsets in report.get('reached_physical',{}).items():
-            if region in physical:physical[region].update(offsets)
+            if region in physical and (region!='bios' or not name.startswith('aes-')):physical[region].update(offsets)
     from .neogeo_knowledge import hints
     known,known_ram,known_z80,usage=hints(project)
     for region in physical:physical[region].update(known[region])
@@ -656,14 +697,20 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     main=generate(project,seeds,physical,main_ram);sound=generate_sound(project,ROOT/'.deps/geolith-libretro',ram)
     emit(f'Neo Geo: translating {main["translated_instructions"]} P/BIOS instructions and {sound["structural_bodies"]} sound bodies.')
     binary=configure_build(project,'game');checks=[]
-    for name,(frames,_) in routes.items():
+    def verify(row):
+        name,(frames,_)=row
         native=probe(binary,name+'-native',frames,observations/(name+'.inputs'))
         compare(native,references[name],require_native=False)
-        checks.append({'route':name,'frames':frames,'passed':True,
+        check={'route':name,'frames':frames,'passed':True,
             'main_native':native['native_68000'],'main_fallback':native['interpreted_68000'],
-            'sound_native':native['native_z80'],'sound_fallback':native['interpreted_z80']})
+            'sound_native':native['native_z80'],'sound_fallback':native['interpreted_z80']}
         emit(f'Neo Geo: {name} matches reference; fallback main={native["interpreted_68000"]}, sound={native["interpreted_z80"]}.')
-    atomic_json(project/'native-validation.json',{'passed':True,'routes':checks,'main':main,'sound':sound,
+        return check
+    if not defer_to_packed:
+        with ThreadPoolExecutor(max_workers=validation_workers) as pool:
+            checks = list(pool.map(verify,routes.items()))
+    atomic_json(project/'native-validation.json',{'passed':not defer_to_packed,
+        'awaiting_packed_validation':defer_to_packed,'routes':checks,'main':main,'sound':sound,
         'reference_sha256':hashlib.sha256(baseline.read_bytes()).hexdigest(),
         'native_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),
         'physical_bus_phases_qualified':False,'physical_latency_measured':False,'knowledge_promoted':False})

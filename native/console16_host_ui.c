@@ -322,7 +322,7 @@ static void draw_menu(SDL_Renderer *ren) {
         RR16_TEXT(96,rr_feedback_label());
 #if RR16_NG
         RR16_TEXT(108, tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
-        RR16_TEXT(122, tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
+        RR16_TEXT(122, rr_ng_aes()?"Enter: Start; Shift/Back: Select":tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
         RR16_TEXT(134, rr_ng_enhanced()?tr("F5 Enhanced Neo Geo: ON", "F5 Neo Geo amelioree : OUI"):
                                       tr("F5 Enhanced Neo Geo: OFF", "F5 Neo Geo amelioree : NON"));
 #elif !RR16_GUN && RR16_MD && RR_MD_SIX_BUTTONS
@@ -341,8 +341,13 @@ static void draw_menu(SDL_Renderer *ren) {
                 tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
             RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
         } else RR16_TEXT(146, tr("F8 Save state | F9 Load state", "F8 Sauvegarder | F9 Charger"));
+#if RR16_NG
+        RR16_TEXT(160, !rr_ng_aes_available()?"F11 AES: BIOS neo-epo.bin required":
+                       rr_ng_aes()?"F11 Console AES -> Arcade MVS (restart)":"F11 Arcade MVS -> Console AES (restart)");
+#else
         RR16_TEXT(160, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
                                                 tr("Sound CPU: native code", "CPU audio : code natif"));
+#endif
     } else if (menu == 2) {
         char line[96];
         snprintf(line, sizeof(line), "%s %d | %s | Tab / <- ->", tr("Player", "Joueur"), player + 1,
@@ -398,7 +403,7 @@ void rr_ng_ui_snapshot(FILE *file,const char *label,void *window) {
         rr_ng_frame_index(),menu,player,row,gamepad_page,capturing,filter,fullscreen,
         (SDL_GetWindowFlags(win)&SDL_WINDOW_FULLSCREEN)?"true":"false",french,autofire,width,height);
     rr_ng_test_json(file,SDL_GetWindowTitle(win));fprintf(file,",\"version\":");rr_ng_test_json(file,rr_menu_build_label());
-    fprintf(file,",\"enhanced_mode\":%s",rr_ng_enhanced()?"true":"false");
+    fprintf(file,",\"enhanced_mode\":%s,\"machine_mode\":\"%s\",\"aes_available\":%s",rr_ng_enhanced()?"true":"false",rr_ng_aes()?"aes":"mvs",rr_ng_aes_available()?"true":"false");
     fprintf(file,",\"status\":");rr_ng_test_json(file,status);
     fprintf(file,",\"pads\":[%u,%u],\"controllers\":[%s,%s],\"keyboard\":[",
         controller_input(0,rr16_input_frame()),controller_input(1,rr16_input_frame()),pads[0]?"true":"false",pads[1]?"true":"false");
@@ -535,6 +540,12 @@ int rr16_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_F5 && RR16_GUN) {
                 menu = menu == 4 ? 0 : 4; row = 0; capturing = 0;
 #if RR16_NG
+            } else if (key == SDL_SCANCODE_F11) {
+                if(rr_ng_aes_available()) {
+                    if(rr_display_save(ini_file,data_dir,L"NeoGeo.Runtime",L"aes",rr_ng_aes()?0:1)) {
+                        rr_ng_request_mode_restart();running=false;
+                    } else {snprintf(status,sizeof status,"Config unavailable");status_until=SDL_GetTicks64()+2500;}
+                } else {snprintf(status,sizeof status,"AES requires neo-epo.bin in your BIOS archive. Regenerate this game.");status_until=SDL_GetTicks64()+5000;}
             } else if (key == SDL_SCANCODE_F5) {
                 rr_ng_set_enhanced(!rr_ng_enhanced());
                 snprintf(status,sizeof(status),"%s",rr_ng_enhanced()?

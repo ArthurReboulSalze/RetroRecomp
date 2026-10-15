@@ -154,14 +154,21 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
     with ZipFile(project/'bios.zip') as archive:raw_bios=archive.read('sp-s2.sp1')
     bios=bytearray(raw_bios);bios[0::2],bios[1::2]=raw_bios[1::2],raw_bios[0::2]
     bios=bytes(bios)
+    aes = b''
+    with ZipFile(project/'bios.zip') as archive:
+        if 'neo-epo.bin' in archive.namelist():
+            raw = archive.read('neo-epo.bin'); alternate = bytearray(raw)
+            alternate[0::2], alternate[1::2] = raw[1::2], raw[0::2]; aes = bytes(alternate)
     decoder=decoder_tool(engine)
     all_instructions=[];regions=[]
-    for region,base,data,label in ((1,0,program,'program'),(2,0xc00000,bios,'bios')):
+    sources = [(1,0,program,'program'),(2,0xc00000,bios,'bios')]
+    if aes: sources.append((4,0xc00000,aes,'aes-bios'))
+    for region,base,data,label in sources:
         image=project/(label+'.bin');image.write_bytes(data)
         entries=code_entries(region,base,len(data),seeds,physical_entries)
         # Boot reset vector and exception vectors are legitimate code roots;
         # all later indirect entries come from observed execution.
-        if region==2:
+        if region in (2,4):
             entries+= [int.from_bytes(data[n:n+4],'big') for n in range(4,128,4)
                        if base<=int.from_bytes(data[n:n+4],'big')<base+len(data)]
         listing=project/(label+'-pcs.txt');listing.write_text(''.join(f'{pc:06x}\n' for pc in entries),encoding='ascii')
@@ -224,7 +231,7 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
     for index,chunk in enumerate(chunks):
         write_changed(steps/f'ng_step_part{index:02d}.c','#include "ng_step_semantics.h"\n'+'\n'.join(chunk))
     maps=[];lookups=[]
-    for region in (1,2):
+    for region in ((1,2,4) if aes else (1,2)):
         keys={ins['offset']>>1:position_indices[i] for i,ins in enumerate(instructions) if ins['region']==region}
         length=len(program if region==1 else bios)//2
         maps.append(f'static const uint32_t map{region}[{length}]={{'+','.join(str(keys.get(i,0)) for i in range(length))+'};\n')
@@ -236,10 +243,10 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
             ram_next[index]=ram_heads.get(ins['offset']>>1,0);ram_heads[ins['offset']>>1]=index+1
     ram_index='static const uint32_t ram_map[32768]={'+','.join(str(ram_heads.get(i,0)) for i in range(32768))+'};\n'
     ram_index+='static const uint32_t ram_next[]={'+','.join(map(str,ram_next))+'};\n'
-    write_changed(steps/'ng_step_index.c','#include "neogeo_native.h"\n#include <stddef.h>\n'+''.join(declarations)+
+    write_changed(steps/'ng_step_index.c','#include "neogeo_native.h"\n#include "geo.h"\n#include <stddef.h>\n'+''.join(declarations)+
         'static const RrNgNativeStep entries[]={\n'+',\n'.join(table)+'\n};\n'+''.join(maps)+
         'const RrNgNativeStep *rr_ng_native_lookup(uint32_t region,uint32_t offset) {\n'
-        'if(offset&1u)return NULL;unsigned index=0;'+''.join(lookups)+'return index?&entries[index-1]:NULL;\n}\n'+ram_index+
+        'if(offset&1u)return NULL;unsigned index=0;if(region==2 && geo_get_system()==SYSTEM_AES)region=4;'+''.join(lookups)+'return index?&entries[index-1]:NULL;\n}\n'+ram_index+
         '''const RrNgNativeStep *rr_ng_ram_native_lookup(uint32_t pc,uint32_t offset,unsigned available) {
     if(offset>=65536u || (offset&1u))return NULL;
     for(unsigned index=ram_map[offset>>1];index;index=ram_next[index-1]) {

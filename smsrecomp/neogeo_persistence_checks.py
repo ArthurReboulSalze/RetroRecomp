@@ -7,8 +7,8 @@ import tempfile
 from .core import ConversionError
 
 
-def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None) -> dict:
-    destination=project/'ordinary-save-checks';destination.mkdir(exist_ok=True)
+def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None,mode=None) -> dict:
+    destination=project/('aes-ordinary-save-checks' if mode=='aes' else 'ordinary-save-checks');destination.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='game-',dir=destination) as temp:
         folder=Path(temp);binary=folder/'game.exe';shutil.copy2(executable,binary)
         def probe(label,frames,script=None):
@@ -16,6 +16,7 @@ def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None)
             args=[str(binary),'--headless','--frames',str(frames),'--persistent-memory',
                   '--rtc-seed','1760000000','--report',str(report)]
             if script:args+=['--script',str(script)]
+            if mode=='aes':args+=['--aes']
             run=subprocess.run(args,capture_output=True,timeout=240)
             if run.returncode:raise ConversionError(f'Neo Geo ordinary save {label} failed ({run.returncode}).')
             data=json.loads(report.read_text(encoding='utf-8'))

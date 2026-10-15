@@ -136,6 +136,7 @@ class Application:
         self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else 3)
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
+        self.force = tk.BooleanVar(value=False)
         saved_bios = selected_bios_path(preferences.get('ng_bios'))
         self.ng_bios = tk.StringVar(value=str(saved_bios) if saved_bios else '')
         self.ng_bios_status = tk.StringVar(value=self.tr('ng_bios_not_checked') if saved_bios else self.tr('ng_bios_missing'))
@@ -290,6 +291,9 @@ class Application:
         self.decorate_button(self.start_button, 'refresh', primary=True)
         self.start_button.pack(side='left')
         self.hint(self.start_button, 'tip_start')
+        self.selected_button = ttk.Button(actions, text=self.tr('start_selected'),
+                                          command=lambda: self.start(selected=True), state='disabled')
+        self.selected_button.pack(side='left', padx=(8, 0))
         self.stop_button = ttk.Button(actions, text=self.tr('stop'), command=self.stop, state='disabled')
         self.decorate_button(self.stop_button, 'stop')
         self.stop_button.pack(side='left', padx=8)
@@ -727,8 +731,9 @@ class Application:
 
     def selection_changed(self):
         rows = self.table.selection()
+        self.selected_button.configure(state='normal' if rows and not self.busy and not self.updating else 'disabled')
         result = self.results.get(rows[0], {}) if len(rows) == 1 else {}
-        self.play_button.configure(state='normal' if not self.busy and result.get('status') in ('success', 'existing') and not result.get('pending_install') else 'disabled')
+        self.play_button.configure(state='normal' if not self.busy and result.get('status') in ('success', 'existing', 'current') and not result.get('pending_install') else 'disabled')
         item = self.items[rows[0]] if len(rows) == 1 else None
         if item and not item.error:
             self.video_field.configure(values=(self.tr('auto'),
@@ -771,13 +776,15 @@ class Application:
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
-            overwrite=self.overwrite.get(), ng_bios=self.ng_bios.get(),
+            overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()})
 
-    def start(self):
+    def start(self, selected=False):
         if self.busy or self.updating:
             return
-        if not self.items:
+        chosen_rows = [row for row in self.table.get_children()
+                       if not selected or row in self.table.selection()]
+        if not chosen_rows:
             messagebox.showinfo(APP_NAME, self.tr('need_rom'))
             return
         try:
@@ -794,7 +801,7 @@ class Application:
             options.pop('system_mode')
             options.pop('platform')
             options.pop('feedback_paths')
-            if any(item.system == 'ng' and not item.error for item in self.items.values()):
+            if any(self.items[row].system == 'ng' and not self.items[row].error for row in chosen_rows):
                 from .neogeo import validate_bios
                 bios = selected_bios_path(options.get('ng_bios'))
                 if bios is None:
@@ -809,7 +816,7 @@ class Application:
             return
         self.busy = True
         self.cancel.clear()
-        self.active_rows = list(self.table.get_children())
+        self.active_rows = chosen_rows
         self.running_jobs.clear()
         self.completed_jobs = 0
         items = [self.items[row] for row in self.active_rows]
@@ -951,13 +958,13 @@ class Application:
                     row, result = self.active_rows[event[1]], event[2]
                     self.running_jobs.discard(event[1])
                     self.completed_jobs += 1
-                    if result['status'] == 'existing' and self.results.get(row, {}).get('status') == 'success':
+                    if result['status'] in ('existing', 'current') and self.results.get(row, {}).get('status') == 'success':
                         result = {**self.results[row], **result}
                     self.results[row] = result
                     self.table.set(row, 'video', self.video_display(self.items[row], result))
                     status_key = {'success': 'created', 'error': 'error',
                                   'duplicate': 'duplicate', 'unrecognized': 'unrecognized',
-                                  'skipped': 'skipped', 'existing': 'existing'}[result['status']]
+                                  'skipped': 'skipped', 'existing': 'existing', 'current': 'current'}[result['status']]
                     if result['status'] == 'success' and result.get('conversion_stage') == 'experimental':
                         status_key = 'created_experimental'
                     text = (self.tr('same_rom', title=result['duplicate_of'])
@@ -1090,7 +1097,8 @@ class Application:
         for key, variable, hint in (('icon', self.use_cover, 'tip_icon'),
                                      ('icon_tags', self.icon_tags, 'tip_icon_tags'),
                                      ('online', self.online, 'tip_online'),
-                                     ('overwrite', self.overwrite, 'tip_overwrite')):
+                                     ('overwrite', self.overwrite, 'tip_overwrite'),
+                                     ('force', self.force, 'tip_force')):
             control = checkbox(shared, key, variable, hint)
             if key == 'icon_tags':
                 self.icon_tags_control = control
@@ -1228,8 +1236,8 @@ class Application:
             self.ng_bios_status.set(self.tr('ng_bios_missing'))
             return False
         try:
-            validate_bios(path)
-            self.ng_bios_status.set(self.tr('ng_bios_valid'))
+            info = validate_bios(path)
+            self.ng_bios_status.set(self.tr('ng_bios_dual' if 'aes' in info else 'ng_bios_valid'))
             return True
         except ValueError as exc:
             self.ng_bios_status.set(self.tr('ng_bios_invalid', error=str(exc)))

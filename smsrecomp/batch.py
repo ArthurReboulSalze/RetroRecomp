@@ -259,9 +259,11 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
               "sha256": item.sha256}
     try:
         settings = dict(options)
+        force = settings.pop('force', False)
         if system.id != 'ng':
             settings.pop('ng_bios', None)
             settings.pop('ng_qualification_routes', None)
+            settings.pop('ng_parallel_games', None)
         if system.id != 'md':
             settings.pop('md_advanced_scan', None)
         if system.id != 'nes':
@@ -273,6 +275,13 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             settings['standard_override'] = item.standard_override
         if system.id in ('sms', 'gg'):
             settings['publish_result'] = False
+        from .freshness import request, current, digest, feedback
+        signature = request(item, settings)
+        report_path = reports / 'conversion-report.json'
+        if not force and target.is_file() and current(item, target, report_path, signature, emit):
+            emit(f'{item.title}: up to date; same version/settings and no new fallback hints.')
+            result.update(status='current', executable=str(target), report=str(report_path))
+            return result
         executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
             emit=lambda message: emit(f"[{index+1}/{count} · {item.title}] {message}"), **settings)
         temporary = reports / "published-executable.tmp"
@@ -295,6 +304,14 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                     previous_executable.unlink(missing_ok=True)
                 except OSError as exc:
                     emit(f"Ancien exécutable conservé : {previous_executable.name} : {exc}")
+        if report.get('version') == __version__ and feedback(report).get('fingerprint'):
+            if pending:
+                from .publishing import job_path
+                published_hash = json.loads(job_path(target).read_text(encoding='utf-8'))['sha256']
+            else:
+                published_hash = digest(target)
+            report['export_receipt'] = {'schema': 1, 'request': signature, 'sha256': published_hash}
+            atomic_json(report_path, report)
         try:
             if executable != target and executable != Path(report.get('build_executable', '')):
                 executable.unlink()
@@ -323,7 +340,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                   **options) -> dict:
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
-    options = {**options, 'gb_parallel_games': jobs}
+    options = {**options, 'gb_parallel_games': jobs, 'ng_parallel_games': jobs}
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     results: list[dict | None] = [None] * len(items)
@@ -408,7 +425,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     index, identity, target = pending.pop(future)
                     active.remove(identity)
                     result = future.result()
-                    succeeded = result['status'] == 'success'
+                    succeeded = result['status'] in ('success', 'current')
                     names[identity[0]].finish(target, identity[1], succeeded)
                     if succeeded:
                         seen[identity] = items[index].title
@@ -428,6 +445,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
         "skipped": sum(r["status"] == "skipped" for r in completed),
         "duplicates": sum(r["status"] == "duplicate" for r in completed), "games": completed}
     record['existing'] = sum(r['status'] == 'existing' for r in completed)
+    record['current'] = sum(r['status'] == 'current' for r in completed)
     record['pending_installations'] = sum(r.get('pending_install', False) for r in completed)
     directory = output / "datas"
     directory.mkdir(parents=True, exist_ok=True)

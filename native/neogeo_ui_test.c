@@ -41,6 +41,8 @@ void rr_ng_ui_test_tick(void *window,void *renderer) {
     while(has_line && due==tick) {
         unsigned p;int value;char name[64];
         if(!strncmp(command,"key ",4))key_event(command+4);
+        else if(!strncmp(command,"restart-script ",15))_putenv_s("RETRORECOMP_NG_UI_SCRIPT",command+15);
+        else if(!strncmp(command,"restart-log ",12))_putenv_s("RETRORECOMP_NG_UI_LOG",command+12);
         else if(!strncmp(command,"snap ",5))rr_ng_ui_snapshot(ui_log,command+5,window);
         else if(!strncmp(command,"capture ",8))snprintf(capture,sizeof capture,"%s",command+8);
         else if(!strcmp(command,"quit")) {SDL_Event e={0};e.type=SDL_QUIT;SDL_PushEvent(&e);}

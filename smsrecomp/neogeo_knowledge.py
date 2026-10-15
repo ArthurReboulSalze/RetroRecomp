@@ -104,6 +104,11 @@ def hints(project: Path) -> tuple[dict,list[dict],list[dict],dict]:
     z80=[{'address':pc,'bytes':sources[region][offset:offset+4].hex()} for pc,region,offset,mask in combined['z80_refs']]
     from .feedback import records as feedback_records
     feedback=feedback_records('ng',identity)
+    from .neogeo_build import aes_identity
+    firmware = validate_bios(project/'bios.zip')
+    if 'aes' in firmware:
+        feedback += [row for row in feedback_records('ng',aes_identity(current['cart'],firmware))
+                     if row.kind != 10 or row.auxiliary == 1]
     for row in feedback:
         if row.kind==10 and row.auxiliary in (1,2) and not row.address&1 and len(row.data)==2:
             image=sources[row.auxiliary]
@@ -118,22 +123,28 @@ def hints(project: Path) -> tuple[dict,list[dict],list[dict],dict]:
 
 def numeric_record(project: Path) -> tuple[str,dict]:
     identity,record,sources=context(project)
-    physical={1:set(),2:set()}
+    physical={1:set(),2:set()};observed_ram=[];observed_sound=[]
     # Reused build folders can retain older developer routes. Promote only
     # the fresh reference routes named by the completed current validation.
     validation=json.loads((project/'native-validation.json').read_text(encoding='utf-8'))
     for row in validation['routes']:
+        if row['route'].startswith('aes-'):continue
         path=project/'native-discovery'/(row['route']+'-reference.json')
         report=json.loads(path.read_text(encoding='utf-8'))
+        observed_ram += report.get('m68k_ram_variants',[])
+        observed_sound += report.get('z80_variants',[])
         for region,name in ((1,'p'),(2,'bios')):physical[region].update(report.get('reached_physical',{}).get(name,[]))
     record['rom_entries']=sorted([region,offset] for region,offsets in physical.items() for offset in offsets)
     main=json.loads((project/'native-analysis.json').read_text(encoding='utf-8'))
-    record['ram_refs']=sorted({(r['ram_offset'],r['region'],r['source_offset'],r['bytes']) for r in main['ram_source_refs']})
+    record['ram_refs']=sorted({(r['ram_offset'],r['region'],r['source_offset'],r['bytes'])
+        for r in main['ram_source_refs'] if any(v['offset']==r['ram_offset'] and
+            bytes.fromhex(v['words']).startswith(sources[r['region']][r['source_offset']:r['source_offset']+r['bytes']])
+            for v in observed_ram)})
     record['ram_refs']=[list(r) for r in record['ram_refs']]
     from .megadrive_z80 import opcode_key
     sound=json.loads((project/'z80-analysis.json').read_text(encoding='utf-8'))
     refs=set()
-    for variant in sound['ram_variants']:
+    for variant in observed_sound:
         mask,raw=opcode_key(bytes.fromhex(variant['bytes']))
         first=next(n for n in range(4) if mask&(1<<n));found=False
         for region in (3,4):
@@ -150,7 +161,9 @@ def numeric_record(project: Path) -> tuple[str,dict]:
 
 
 def remember(project: Path,checks: list[dict],states: dict,*,title: str,source: dict) -> dict:
-    if not all(c['reference_match'] for c in checks) or not all(r['fresh_process_match'] for r in states['routes']):
+    validation=json.loads((project/'native-validation.json').read_text(encoding='utf-8'))
+    if (not checks or not states['routes'] or not validation.get('passed') or validation.get('awaiting_packed_validation') or
+            not all(c['reference_match'] for c in checks) or not all(r['fresh_process_match'] for r in states['routes'])):
         raise ValueError('Unverified Neo Geo observations cannot enter memory.')
     identity,record=numeric_record(project)
     directory=library_root('ng')/identity

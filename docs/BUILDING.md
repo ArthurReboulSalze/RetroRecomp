@@ -42,7 +42,7 @@ unknown formats are reported and skipped. `--output`
 selects another Games root, and `--system sms|gg|gb|nes|md|snes` resolves ambiguous
 `.bin`/`.rom` dumps when their console is known to the user. The GUI offers
 the same Automatic/manual console selector and an opt-in custom export folder.
-The experimental MVS Europe `ng` profile also detects multi-region Neo Geo ZIPs and `.neo`
+The supported Neo Geo `ng` profile also detects multi-region cartridge ZIPs and `.neo`
 containers. In **Options → Neo Geo**, select a BIOS ZIP and use **Check BIOS**.
 The current MVS Europe scope verifies `sp-s2.sp1`, `sfix.sfix`, `sm1.sm1` and
 `000-lo.lo` by size, CRC and selected-component SHA identity. Paths inside the
@@ -50,6 +50,16 @@ converter folder are saved relatively; external paths are remembered explicitly.
 The CLI accepts `--system ng` and `--ng-bios` for single games or mixed batches.
 No BIOS or cartridge is bundled in the converter. Locally generated Neo Geo
 games embed the selected data and need no separate BIOS file to play.
+Optional verified `neo-epo.bin` enables console AES on F11; no extra firmware
+means MVS-only output. The switch restarts the game and isolates saves by mode.
+
+Batch conversion keeps current exports when their converter/runtime fingerprint,
+ROM, options, manual cover, selected BIOS and imported fallback candidates match
+the successful export receipt and the EXE's SHA-256. Missing or older receipts
+regenerate conservatively. **Convert selected** limits work to selected rows.
+**Options → General → Force regeneration** overrides freshness checks; disabling
+overwrite still protects existing games. New unsupported hints are attempted
+once per changed set, not repeatedly for an identical file.
 Merged ZIP revisions are selected only through matching program/component
 CRCs; an unresolved revision is reported, never guessed from a different game.
 Batch conversion runs three games at once by default for any mix of supported

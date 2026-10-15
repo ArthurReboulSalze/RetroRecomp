@@ -8,8 +8,8 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.0.1-d4a737" alt="Release version 1.0.1">
-  <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Six supported consoles and experimental Neo Geo">
+  <img src="https://img.shields.io/badge/release-1.0.2-d4a737" alt="Release version 1.0.2">
+  <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/current_platform-Windows_x64-343434" alt="Windows x64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -31,6 +31,9 @@ dedicated FPGA hardware.
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
   or use the file buttons. Recognized
   games are sorted by console, and multiple conversions can run together.
+- **Regenerate only what needs it.** Up-to-date exports are kept when the
+  converter, settings and fallback hints are unchanged. Convert the whole list
+  or just the selected games; force regeneration remains available in Options.
 - **Launch directly.** Generated games need no Python installation, separate ROM
   file or external SDL2 DLL. Regeneration can replace existing exports.
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
@@ -75,7 +78,7 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 | NES | Supported; validated cartridge layouts, PAL/NTSC, quick states and Zapper |
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
-| Neo Geo | **Experimental** MVS Europe; two players, scores, memory card and quick states. Visual artifacts remain. |
+| Neo Geo | Supported cartridge profile; arcade MVS, optional console AES, two players, scores, memory card and quick states |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
@@ -85,12 +88,23 @@ The standard Mega Drive and Super Nintendo profiles are supported within their
 documented cartridge scope. Qualified SNES DSP-1/CX4 boards are also supported;
 CX4 device interpretation remains visible. Other enhancement chips require
 separate integration.
-**Neo Geo joins release 1.0.1 as an experimental profile.** Games can be converted
-and played, but visual artifacts still need correction. Native code coverage
-alone does not make the rendering fully accurate.
+**Neo Geo leaves experimental status in 1.0.2**, following further gameplay tests.
 Select your BIOS ZIP in **Options → Neo Geo**, then add cartridge ZIPs or NEO
 files using Automatic detection. See the [Neo Geo guide](docs/NEOGEO.md).
 Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
+
+## Beyond the original console limits
+
+- **Master System — fewer flickering sprites.** F5 enables extra sprites and
+  stabilizes rapid sprite-order changes to reduce flicker during busy scenes.
+- **Neo Geo — enhanced mode on by default.** More 68000 CPU capacity and a higher
+  sprite limit help reduce slowdowns in busy scenes. F5 returns to original limits.
+- **Neo Geo — arcade or home console.** F11 switches MVS/AES with a clean restart
+  when the supplied BIOS archive includes the supported AES firmware. Each mode
+  keeps its own saves and fallback hints.
+
+These optional enhancements change the original machine's limits. Their effects
+depend on the game; they do not guarantee that every slowdown or visual issue disappears.
 
 ## From conversion to your game collection
 

@@ -1,3 +1,42 @@
+# RetroRecomp v1.0.2 — Seven supported consoles, smarter regeneration
+
+**Neo Geo leaves experimental status**, following further gameplay tests.
+This release makes everyday conversion more selective and reduces repeated
+Neo Geo validation work while keeping checks on the delivered executable.
+
+- **Keep games that are already up to date.** An unchanged converter/runtime,
+  ROM, options, BIOS and fallback hints no longer trigger another conversion.
+  The existing EXE is checked by SHA-256. Changed inputs or new hints regenerate
+  normally; Options can force regeneration, and overwrite protection still works.
+- **Convert selected games.** Select one or several ROM rows and use the new
+  button; the full-list conversion remains available.
+- **Enhanced Neo Geo is on by default.** More virtual 68000 capacity and a higher
+  sprite limit help with busy scenes. F5 restores the original limits; saved
+  preferences remain respected.
+- **F11 switches Neo Geo arcade MVS / console AES with a clean restart.** This
+  requires the supported AES firmware in your own selected BIOS archive.
+  Each mode keeps separate quick states, ordinary saves and fallback hints.
+- **Less repeated work.** Independent checks can run in parallel within the
+  batch's resource budget. Every reference route is compared on the final packed
+  EXE; the duplicate uncompressed replay is removed. Multiple save checkpoints
+  share one continuous run, and unchanged compressed cartridge data is reused
+  after verifying its hash. Reference, save, malformed-state and persistence
+  checks remain mandatory.
+- The README now explains the optional Master System sprite flicker reduction
+  and Neo Geo enhancements, with their limits and shortcuts.
+- Refreshed verified Neo Geo observations are included in the shared library,
+  which retains 1,061 exact identities across the seven consoles.
+
+Download **Retro-Recomp.exe** below, or use **Check for updates**.
+Regenerate Neo Geo games to receive F11 and the enhanced default. Old exports
+without a freshness receipt are regenerated once; future unchanged exports can
+then be skipped. A new export is not a guarantee of zero fallback on every path.
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.0.2/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.0.1 — Play. Learn. Recompile.
 
 **Your play sessions can now help improve your next export.** This release also

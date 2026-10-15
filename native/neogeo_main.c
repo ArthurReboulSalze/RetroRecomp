@@ -46,6 +46,7 @@ static const char *report_path, *capture_dir, *pcm_path;
 static int performance_only,frame_diagnostics;
 static bool enhanced_mode;
 static int enhanced_requested;
+static int aes_mode, mode_requested=-1, restart_requested;
 static unsigned measure_from,measured_frames,over_budget_frames,frame_histogram[1001];
 static uint64_t performance_frequency;
 static double simulation_ms,simulation_max_ms;
@@ -54,6 +55,8 @@ static double host_busy_ms,host_busy_max_ms,host_present_ms,host_present_max_ms;
 static int capture_every=600, headless, frames, scripted;
 static const char *save_path,*load_path,*trace_path;
 static unsigned save_at;
+static struct {unsigned frame;const char *path;} checkpoints[8];
+static unsigned checkpoint_count;
 static int ignore_load_error,state_loaded;
 static int save_failed,load_rejected,persistent_memory,persistent_load_failed;
 static FILE *trace_file;
@@ -78,7 +81,7 @@ static void log_message(int level,const char *format,...) {
 }
 static unsigned input_pad(unsigned port) { return port<2?pad[port]:0xff; }
 static unsigned status_a(void) { return (0x07u&~coin)|0x18u; }
-static unsigned status_b(void) { return rr_ng_status_b(start); }
+static unsigned status_b(void) { return rr_ng_status_b(start | (aes_mode?((coin&1)<<1)|((coin&2)<<2):0)); }
 static unsigned system_type(void) { return 0xc0; }
 static unsigned dips(void) { return 0xff; }
 static unsigned unused(void) { return 0xff; }
@@ -183,6 +186,8 @@ static void step_frame(void) {
         frame,extended_cpu_hash(),extended_hardware_hash(),rr_ng_z80_state_hash(),hash,pcm_frame_hash,(uint64_t)pcm_frame_samples);
     capture();
     if(save_path && save_at==frame && !state_file(save_path,0))save_failed=1;
+    for(unsigned i=0;i<checkpoint_count;++i)
+        if(checkpoints[i].frame==frame && !state_file(checkpoints[i].path,0))save_failed=1;
     if(performance_only && frame>measure_from) {
         double ms=1000.0*(SDL_GetPerformanceCounter()-begun)/performance_frequency;
         ++measured_frames;simulation_ms+=ms;if(ms>simulation_max_ms)simulation_max_ms=ms;
@@ -222,6 +227,10 @@ void rr_ng_restore_frame(uint32_t value) {
 }
 unsigned rr_ng_frame_limit(void) {return (unsigned)frames;}
 bool rr_ng_enhanced(void) {return enhanced_mode;}
+bool rr_ng_aes(void) {return aes_mode!=0;}
+bool rr_ng_aes_available(void) {return RR_NG_AES_AVAILABLE!=0;}
+const char *rr_ng_identity(void) {return aes_mode?RR_NG_AES_IDENTITY:RR_NG_MVS_IDENTITY;}
+void rr_ng_request_mode_restart(void) {restart_requested=1;}
 void rr_ng_set_enhanced(bool enabled) {
     enhanced_mode=enabled;
     geo_set_div68k(enabled?0:1);
@@ -310,6 +319,7 @@ static int report(void) {
         host_measured_frames?host_present_ms/host_measured_frames:0,host_present_max_ms,host_over_budget_frames);
     fprintf(f,",\"enhanced_mode\":%s,\"main_cpu_hz\":%u,\"sprite_limit\":%u",
         enhanced_mode?"true":"false",enhanced_mode?24000000u:12000000u,enhanced_mode?381u:96u);
+    fprintf(f,",\"machine_mode\":\"%s\",\"aes_available\":%s",aes_mode?"aes":"mvs",RR_NG_AES_AVAILABLE?"true":"false");
     rr_ng_fallback_report(f);rr_ng_persist_report(f);fprintf(f,"}\n");
     int okay=!ferror(f);return fclose(f)==0 && okay;
 }
@@ -317,6 +327,9 @@ static int execute(int argc,char **argv) {
     for(int i=1;i<argc;++i) {
         if(!strcmp(argv[i],"--headless"))headless=1;
         else if(!strcmp(argv[i],"--enhanced"))enhanced_requested=1;
+        else if(!strcmp(argv[i],"--standard"))enhanced_requested=-1;
+        else if(!strcmp(argv[i],"--aes"))mode_requested=1;
+        else if(!strcmp(argv[i],"--mvs"))mode_requested=0;
         else if(!strcmp(argv[i],"--persistent-memory"))persistent_memory=1;
         else if(i+1<argc && !strcmp(argv[i],"--frames"))frames=atoi(argv[++i]);
         else if(i+1<argc && !strcmp(argv[i],"--report"))report_path=argv[++i];
@@ -335,6 +348,10 @@ static int execute(int argc,char **argv) {
         else if(i+1<argc && !strcmp(argv[i],"--pcm"))pcm_path=argv[++i];
         else if(i+1<argc && !strcmp(argv[i],"--save-state"))save_path=argv[++i];
         else if(i+1<argc && !strcmp(argv[i],"--save-at"))save_at=(unsigned)atoi(argv[++i]);
+        else if(i+2<argc && !strcmp(argv[i],"--checkpoint") && checkpoint_count<8) {
+            unsigned at=(unsigned)atoi(argv[++i]);if(!at || at>1000000)return 2;
+            checkpoints[checkpoint_count].frame=at;checkpoints[checkpoint_count++].path=argv[++i];
+        }
         else if(i+1<argc && !strcmp(argv[i],"--load-state"))load_path=argv[++i];
         else if(!strcmp(argv[i],"--ignore-load-error"))ignore_load_error=1;
         else if(i+1<argc && !strcmp(argv[i],"--trace"))trace_path=argv[++i];
@@ -352,6 +369,14 @@ static int execute(int argc,char **argv) {
     /* Normal play keeps honest native/fallback counters but does no coverage
      * discovery or per-pixel/per-sample diagnostic hashing. Qualification
      * reports/traces retain every previous check. */
+    if(mode_requested>=0)aes_mode=mode_requested;
+    else if(!headless) {
+        wchar_t path[32768];DWORD n=GetModuleFileNameW(NULL,path,32700);
+        wchar_t *slash=n&&n<32700?wcsrchr(path,L'\\'):NULL;
+        if(slash) {slash[1]=0;wcscat_s(path,32768,L"datas\\Retro-Recomp.ini");
+            aes_mode=GetPrivateProfileIntW(L"NeoGeo.Runtime",L"aes",0,path)==1 && RR_NG_AES_AVAILABLE;}
+    }
+    if(aes_mode && !RR_NG_AES_AVAILABLE)return 2;
     rr_feedback_start(!headless);
     rr_ng_observations=(report_path && !performance_only) || trace_path || rr_ng_cpu_trace;
     frame_diagnostics=rr_ng_observations;
@@ -366,7 +391,7 @@ static int execute(int argc,char **argv) {
     mz_ulong expanded=(mz_ulong)size;
     if(mz_uncompress(content,&expanded,source+8,(mz_ulong)(packed_size-8))!=MZ_OK ||
         expanded!=size || !rr_ng_container_valid(content,size)) { free(content);SDL_Quit();return 3; }
-    geo_log_set_callback(log_message);geo_set_system(SYSTEM_MVS);geo_set_region(REGION_EU);geo_set_div68k(1);
+    geo_log_set_callback(log_message);geo_set_system(aes_mode?SYSTEM_AES:SYSTEM_MVS);geo_set_region(REGION_EU);geo_set_div68k(1);
 #ifdef RR_NG_NATIVE
     rr_ng_native_bind();
 #else
@@ -380,6 +405,7 @@ static int execute(int argc,char **argv) {
     geo_init();rr_ng_reference_observer_enable();geo_mixer_init();geo_mixer_set_raw(1);
     if(!geo_bios_load_mem(bios,bios_size)||!geo_neo_load(content,size)) { free(content);SDL_Quit();return 3; }
     geo_reset(1);
+    rr_ng_set_enhanced(enhanced_requested>0 || (!headless && enhanced_requested==0));
     persistent_load_failed=!rr_ng_persist_begin(!headless || persistent_memory);
     if(persistent_load_failed && !headless)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"Neo Geo saves",
         "Saved scores and memory-card data could not be loaded. The existing file has been kept. Automatic saving is disabled for this session.",NULL);
@@ -392,7 +418,7 @@ static int execute(int argc,char **argv) {
         state_loaded=state_file(load_path,1);load_rejected=!state_loaded;
         if(!state_loaded && !ignore_load_error)return 4;
     }
-    if(enhanced_requested)rr_ng_set_enhanced(true);
+    if(enhanced_requested)rr_ng_set_enhanced(enhanced_requested>0);
     uint64_t frequency=SDL_GetPerformanceFrequency(),loop_begin=SDL_GetPerformanceCounter();
     int host_result=0;
     if(headless) {
@@ -421,6 +447,10 @@ int main(void) {
         argv[i]=malloc(n);WideCharToMultiByte(CP_UTF8,0,wide_argv[i],-1,argv[i],n,NULL,NULL);
     }
     int result=execute(argc,argv);
-    if(result && argc==1)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Neo Geo prototype","Unable to start this Neo Geo reference prototype.",NULL);
+    if(!result && restart_requested) {
+        wchar_t path[32768];DWORD n=GetModuleFileNameW(NULL,path,32768);
+        if(!n || n>=32768 || (INT_PTR)ShellExecuteW(NULL,L"open",path,aes_mode?L"--mvs":L"--aes",NULL,SW_SHOWNORMAL)<=32)result=3;
+    }
+    if(result && argc==1)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Neo Geo","Unable to start this Neo Geo game.",NULL);
     for(int i=0;i<argc;++i)free(argv[i]);free(argv);LocalFree(wide_argv);return result;
 }

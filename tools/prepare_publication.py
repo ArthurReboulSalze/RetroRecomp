@@ -13,8 +13,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 PUBLIC_FILES = tuple("""
+smsrecomp/freshness.py
+tests/test_freshness.py
 smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py

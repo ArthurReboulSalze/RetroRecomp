@@ -131,6 +131,7 @@ def main() -> int:
         help="Concurrent game conversions across all console profiles (1–8, default 3).")
     batch.add_argument("--no-overwrite", action="store_true",
         help="Skip an already generated game instead of regenerating it.")
+    batch.add_argument('--force', action='store_true', help='Regenerate even if an export is up to date (still respects --no-overwrite).')
     batch.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
     batch.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
@@ -255,7 +256,7 @@ def main() -> int:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 record = convert_batch([identify(p, None if args.system == 'auto' else args.system)
                                         for p in paths], args.output,
-                    jobs=args.jobs, overwrite=not args.no_overwrite,
+                    jobs=args.jobs, overwrite=not args.no_overwrite, force=args.force,
                     passes=args.passes, frames=args.frames,
                     backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,

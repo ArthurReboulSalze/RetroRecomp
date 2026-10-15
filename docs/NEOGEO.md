@@ -1,25 +1,59 @@
 # Neo Geo development and qualification
 
-The **Neo Geo MVS Europe profile is experimental in release 1.0.1**.
-User gameplay still exposes visual artifacts on sprites and scenery. Resolving
-those rendering issues and validating the result independently is required
-before changing its status. The earlier 24-cartridge campaign and ten additional
-cartridges below document specific CPU/reference and save-state checks; their
-success does not establish complete hardware or visual fidelity.
+The **Neo Geo cartridge profile is supported in release 1.0.2**, following
+the user's renewed gameplay validation. The earlier 24-cartridge campaign and
+ten additional cartridges below document specific CPU/reference and save-state
+checks; support does not establish complete hardware or visual fidelity.
 Neo Geo is the seventh console profile. It uses
 locally supplied cartridge archives and the four verified BIOS components.
+The optional verified `neo-epo.bin` AES export BIOS enables **F11: arcade MVS /
+console AES**. Switching closes the current session cleanly, then restarts the
+game in the other mode; the choice is remembered. No BIOS is downloaded.
+AES and MVS use separate exact identities for quick states, ordinary saves and
+fallback hints. An MVS-only archive remains supported; F11 explains the missing
+AES component instead of pretending to change the machine.
 **The cartridge and BIOS 68000 instructions, M1 and
 SM1 Z80 instructions, and observed guarded RAM variants execute native C.** The
 tested demo/play routes have zero interpreted instructions on both CPUs.
 Unknown instructions remain counted fallback and the window reports
 `Native code` or `Interpreter fallback` from actual execution.
 
-## Optional enhanced Neo Geo mode — 14 October 2026
+## Conversion work in release 1.0.2
+
+The reference is still run from the exact input before using learned hints.
+Every route is then compared directly with the packed executable that will be
+delivered. A duplicate replay on the uncompressed binary is unnecessary and is
+no longer part of product conversion. Separate developer native prototypes keep
+their own comparison gate. A build awaiting its packed checks cannot enter the
+qualified knowledge library.
+
+Independent routes run with up to four workers, reduced to fit an eight-worker
+budget across concurrent games. State checkpoints share one continuous run;
+restored processes, malformed-state rejection and ordinary-save checks remain.
+An unchanged compressed cartridge is reused only after source and payload hashes
+match. No reference/CPU comparison is waived because a game is in the shared bank.
+
+The same six packed NAM-1975 routes took 119.1 seconds with one worker and
+46.4 seconds with four in the local development measurement (identical results).
+This is a validation-stage measurement, not a whole-conversion speedup promise;
+the first measurement also overlapped other validation work. AES adds its own
+reference, save-state and persistence checks. End-to-end times depend on the
+cartridge, compiler cache and concurrent work.
+
+The final packaged 1.0.2 converter completed NAM-1975, including MVS/AES checks,
+in 194.4 seconds on the development machine. Repeating the same request took
+2.1 seconds and kept the identical EXE: the freshness receipt avoided another
+conversion. This is one local run with existing build caches, not a cold-build
+or every-cartridge guarantee.
+
+## Enhanced Neo Geo mode — updated 15 October 2026
 
 New exports offer **F5: Enhanced Neo Geo** in the existing H help panel. This
 direct switch doubles virtual 68000 capacity (12 to 24 MHz) and raises the
-renderer limit from 96 to 381 sprite columns per scanline. Standard mode remains
-the default. The choice is saved only when changed, under `NeoGeo.Runtime/enhanced`
+renderer limit from 96 to 381 sprite columns per scanline. Since 1.0.2 enhanced
+mode is the fresh-install default; an explicit saved preference is respected.
+Headless qualification retains standard clocks unless `--enhanced` is requested.
+The choice is saved only when changed, under `NeoGeo.Runtime/enhanced`
 in the shared `datas/Retro-Recomp.ini`; opening a game still creates no config.
 This is an intentional extension of console limits, with gameplay qualification
 bounded to the tested paths. Native/fallback counters remain real in both modes.
@@ -232,7 +266,8 @@ Evidence and exact source/candidate hashes stay under
 
 This historical campaign records bounded CPU/reference and persistence results.
 Later user reports of sprite/background artifacts take precedence for product
-status: **release 1.0.1 remains experimental**, as described at the top of this guide.
+status: **release 1.0.1 remained experimental**. Release 1.0.2 follows renewed
+user gameplay approval; the current scope is described above.
 
 All four exit-plan blocks are complete for **MVS Europe, ordinary two-player
 joysticks and standard/CT0/KOF98/SMA/MSLUGX/PVC mappings**. Twenty-four exact
@@ -422,8 +457,8 @@ helper now takes wide arguments and the loader's output IO uses wide file APIs.
 Zip/NEO contents remain identical and the pinned loader checkout is unchanged.
 
 These earlier receipts precede the final campaign above. They remain historical
-evidence; later visual issues keep the released MVS Europe profile experimental.
-AES and a distributable free BIOS remain separate development topics.
+evidence; later visual reports kept release 1.0.1 experimental. Release 1.0.2
+adds AES export firmware support; a distributable free BIOS remains a separate topic.
 
 ## Experimental exit plan — 14 October 2026
 

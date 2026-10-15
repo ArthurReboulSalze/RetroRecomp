@@ -11,8 +11,9 @@ state. Recording is enabled by default. The choice is saved on shutdown in
 `datas/Retro-Recomp.ini`, under the exact console/game identity. Switching it off
 suppresses both further capture and this session's feedback write; the existing
 file is preserved. This never disables the interpreter or hides its counters.
-F11 interpreter-disable mode is deliberately deferred: stopping before an unknown
-instruction needs a safe pause/resume boundary for every CPU runtime.
+Interpreter-disable mode is deliberately deferred: stopping before an unknown
+instruction needs a safe pause/resume boundary for every CPU runtime. Neo Geo
+reserves F11 for arcade/console switching with restart; each mode has its own hints.
 
 The existing game window briefly shows “Saving fallback hints / for the next
 recompilation...” while the shutdown write runs. There is no additional window

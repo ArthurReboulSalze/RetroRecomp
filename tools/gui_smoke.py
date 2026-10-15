@@ -131,10 +131,34 @@ def smoke(window):
         application.change_language()
         assert save.call_args.args[0]['language'] == 'en'
     application.output.set(old_output)
+    # Exercise the real selection-to-worker mapping without building fixtures.
+    for count in (1, 2):
+        selected=list(application.table.get_children())[:count]
+        application.table.selection_set(selected);application.selection_changed()
+        assert str(application.selected_button.cget('state'))=='normal'
+        expected=[application.items[row].path for row in selected]
+        def selected_batch(items, output, *, on_event, **kwargs):
+            assert [item.path for item in items]==expected
+            games=[]
+            for index,item in enumerate(items):
+                on_event('start',index,item.title)
+                result={'status':'current','title':item.title,'executable':str(Path(fixtures.name)/'not-run.exe')}
+                games.append(result);on_event('result',index,result)
+            return dict(games=games,succeeded=0,current=len(items),existing=0,unrecognized=0,
+                        skipped=0,failed=0,duplicates=0,pending=0)
+        with patch('smsrecomp.gui.convert_batch',side_effect=selected_batch), patch('smsrecomp.gui.save_preferences'):
+            application.selected_button.invoke()
+            deadline=time.monotonic()+5
+            while application.busy and time.monotonic()<deadline:
+                window.update();time.sleep(.01)
+            assert not application.busy
+            assert application.active_rows==selected
+            assert all(application.row_status[row]=='current' for row in selected)
     for language in ('fr', 'en'):
         application.language = language
         application.refresh_language()
         assert application.start_button.cget('text') == application.tr('start')
+        assert application.selected_button.cget('text') == application.tr('start_selected')
         assert len(application.items) == before
         assert application.options_button.cget('text') == application.tr('options')
         window.update_idletasks()

@@ -1,8 +1,7 @@
 # RetroRecomp roadmap
 
-Release 1.0.1 keeps six supported console profiles and introduces experimental
-Neo Geo MVS Europe. Its remaining visual artifacts are a priority before it can
-leave experimental status.
+Release 1.0.2 has seven supported console profiles, including Neo Geo after
+renewed gameplay tests. Support remains bounded to documented cartridge hardware.
 
 RetroRecomp converts supported Master System, Game Gear, original Game Boy
 and NES ROMs, includes a supported Mega Drive standard-cartridge profile
@@ -12,7 +11,7 @@ priorities below describe areas to improve, not compatibility or delivery promis
 
 | Priority | Work needed |
 | --- | --- |
-| Neo Geo | Experimental. Reproduce and correct reported sprite/background artifacts, then verify gameplay rendering against independent evidence. Existing CPU/reference routes, saves and 34 BIOS-scoped knowledge records remain useful but do not settle visual fidelity. Other BIOS modes, boards and peripherals have separate scope. See [evidence and remaining work](NEOGEO.md). |
+| Neo Geo | Broaden MVS/AES gameplay, guarded RAM coverage and independent rendering evidence. Other BIOS revisions, boards and peripherals have separate scope. See [evidence and remaining work](NEOGEO.md). |
 | Broader game coverage | Explore more gameplay paths and guarded RAM variants; reduce reported interpreter fallback. |
 | Video and peripherals | Refine hardware timing and edge cases using independent fixtures and game evidence. |
 | Gameplay confidence | Extend repeatable scenarios and collect more hands-on validation for supported ROMs. |

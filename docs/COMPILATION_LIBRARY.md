@@ -1,5 +1,25 @@
 # Shared compilation knowledge
 
+## Selective regeneration and Neo Geo modes — 15 October 2026
+
+Release 1.0.2 records the exported binary hash, converter/runtime inputs and
+the exact fallback candidates consumed by each successful conversion. Unchanged
+exports are kept; new hints, changed settings or a new converter trigger fresh
+conversion. Unsupported unchanged hints do not cause an endless rebuild loop.
+The force option bypasses freshness only, never validation or overwrite protection.
+
+Neo Geo keeps the original MVS identity for existing saves and knowledge. The
+optional verified AES firmware adds a separate AES feedback/save identity.
+Both modes have full BIOS native candidates and live guards; the shared MVS bank
+only receives numeric observations actually observed on its MVS reference routes.
+AES private hints remain separate and are checked on fresh AES routes.
+
+Two requalifications refresh the existing 34 Neo Geo records without increasing
+the total of 1,061 exact identities. Other consoles and all older qualified
+entries are preserved. The snapshot is 58,541,482 raw / 15,946,128 gzip bytes,
+SHA-256 `3f2178f085f25c7f57fb0eb6978943a64d2d37abba93eb66210e475433412a76`.
+No BIOS, cartridge, save, capture, audio or raw feedback file is included.
+
 ## Shutdown-only gameplay feedback — 15 October 2026
 
 All seven generated-game profiles now collect bounded fallback candidates in

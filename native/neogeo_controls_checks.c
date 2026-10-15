@@ -35,6 +35,9 @@ bool rr_ng_performance_enabled(void) {return false;}
 void rr_ng_host_cost(double busy_ms,double present_ms) {(void)busy_ms;(void)present_ms;}
 static bool test_enhanced;
 bool rr_ng_enhanced(void) {return test_enhanced;}
+bool rr_ng_aes(void) {return false;}
+bool rr_ng_aes_available(void) {return true;}
+void rr_ng_request_mode_restart(void) {}
 void rr_ng_set_enhanced(bool enabled) {test_enhanced=enabled;}
 uint32_t rr_ng_frame_index(void) {return 0;}
 void rr_ng_test_json(FILE *file,const char *text) {fprintf(file,"\"%s\"",text?text:"");}

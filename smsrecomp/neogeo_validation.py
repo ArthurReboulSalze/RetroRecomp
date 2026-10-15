@@ -68,13 +68,16 @@ def qualification_routes(set_name: str = '') -> dict:
     return routes
 
 
-def extended_routes(set_name: str, plans: dict | None = None) -> dict:
+def extended_routes(set_name: str, plans: dict | None = None, *, aes: bool = False) -> dict:
     """Add developer controller routes; the mandatory product checks stay on.
 
     The bounded batch qualifier passes these explicitly. They are not enabled
     for every end-user conversion, and cannot replace the standard routes.
     """
     routes=qualification_routes(set_name)
+    if aes:
+        routes['aes-attract'] = ROUTES['attract']
+        routes['aes-play'] = routes['play']
     import re
     for name,value in (plans or {}).get(set_name,{}).items():
         if not re.fullmatch(r'[a-z][a-z0-9-]{0,47}',name) or name in routes:

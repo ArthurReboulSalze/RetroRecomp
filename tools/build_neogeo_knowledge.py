@@ -38,6 +38,8 @@ def qualified_record(report: dict):
     for route in states['routes']:
         for phase in ('continuous','restored'):
             path=project/'state-checks'/f"{phase}-{route['warmup']}.json"
+            if phase=='continuous' and states.get('continuous_report')=='continuous.json':
+                path=project/'state-checks/continuous.json'
             replay=json.loads(path.read_text(encoding='utf-8'))
             if replay.get('interpreted_68000',1) or replay.get('interpreted_z80',1):
                 raise ValueError('Neo Geo state replay still uses fallback; keep its hints private.')

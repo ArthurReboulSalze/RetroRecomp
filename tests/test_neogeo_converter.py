@@ -33,6 +33,21 @@ class NeoGeoConverterTests(unittest.TestCase):
         self.assertEqual((item.system,item.title,item.video_hint),('ng','Authored','mvs'))
         self.assertFalse(item.error)
 
+    def test_optional_aes_firmware_has_its_own_identity_and_is_verified(self):
+        from smsrecomp.neogeo import BIOS_MEMBERS, validate_bios
+        from smsrecomp.neogeo_build import aes_identity
+        records=[dict(name=name,bytes=size,crc32=crc,sha256=str(i)*64)
+                 for i,(name,(size,crc)) in enumerate(BIOS_MEMBERS.items())]
+        with patch('smsrecomp.neogeo.archive_members',return_value=records):
+            mvs=validate_bios(self.root/'authored.zip')
+            self.assertNotIn('aes',mvs)
+            records.append(dict(name='neo-epo.bin',bytes=0x20000,crc32=0xd27a71f1,sha256='a'*64))
+            dual=validate_bios(self.root/'authored.zip')
+            self.assertEqual(mvs['sha256'],dual['sha256']) # original saves remain scoped to the same MVS BIOS
+            self.assertNotEqual(key('b'*64,dual['sha256']),aes_identity('b'*64,dual))
+            records[-1]['crc32']=0
+            with self.assertRaisesRegex(ValueError,'AES export BIOS'):validate_bios(self.root/'authored.zip')
+
     def test_missing_bios_fails_before_conversion_or_output_creation(self):
         from smsrecomp.neogeo_conversion import convert
         output=self.root/'not-created'

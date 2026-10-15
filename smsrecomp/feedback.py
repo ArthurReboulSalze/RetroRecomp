@@ -323,7 +323,10 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
         sorted(found, key=lambda row: (-found[row], row)), dropped)
     if rows:
         emit(f'Gameplay feedback: {len(rows)} unique fallback candidates ({HEADER.size + RECORD.size * len(rows)} bytes); fresh validation required.')
-    return {'schema': 1, 'unique_candidates': len(rows), 'limit_reached': bool(overflow),
+    import hashlib
+    fingerprint = hashlib.sha256(encode(sorted(rows), system, identity)).hexdigest()
+    return {'schema': 1, 'identity': identity, 'fingerprint': fingerprint,
+            'unique_candidates': len(rows), 'limit_reached': bool(overflow),
             'toggle_key': 'F12', 'recording_default': True,
             'bytes': HEADER.size + RECORD.size * len(rows) if rows else 0,
             'max_bytes_per_game': MAX_BYTES, 'saved_at': 'normal_process_exit',
