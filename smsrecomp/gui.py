@@ -98,6 +98,7 @@ class Application:
         self.items: dict[str, BatchItem] = {}
         self.results: dict[str, dict] = {}
         self.busy = False
+        self.close_when_idle = False
         self.updating = False
         self.cancel = threading.Event()
         self.messages = queue.Queue()
@@ -194,20 +195,19 @@ class Application:
         self.system_field.bind('<<ComboboxSelected>>', self.change_system)
         self.hint(self.system_field, 'tip_console_format')
 
-        self.platform_name = tk.StringVar(value=PLATFORMS[self.platform_id])
-        self.platform_field = ttk.Label(header, textvariable=self.platform_name,
-            background=COLORS['header'], foreground=COLORS['text'], width=16, anchor='center')
+        self.platform_text = header.create_text(0, 102, text=PLATFORMS[self.platform_id],
+            anchor='e', fill=COLORS['muted'], font=(self.ui_font, 9), tags='platform_version')
 
         self.language_name = tk.StringVar(value=language_name(self.language))
         self.language_field = ttk.Combobox(header, textvariable=self.language_name,
                                            values=LANGUAGE_NAMES, width=10, state='readonly')
         self.language_field.bind('<<ComboboxSelected>>', self.change_language)
         self.hint(self.language_field, 'tip_language')
-        self.header_fields = (self.system_field, self.platform_field, self.language_field)
+        self.header_fields = (self.system_field, self.language_field)
         self.header_labels = {
             key: header.create_text(0, 10, text=self.tr(key), anchor='nw',
                                     fill=COLORS['muted'], font=(self.ui_font, 9), tags='selector_label')
-            for key in ('console_format', 'platform', 'language')
+            for key in ('console_format', 'language')
         }
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='nw')
                                     for field in self.header_fields)
@@ -376,14 +376,17 @@ class Application:
         elif not self.empty_art.winfo_manager():
             self.empty_art.pack(before=self.empty_state.winfo_children()[1])
 
-    def layout_header(self, event):
-        self.draw_background(event)
+    def layout_header(self, event=None):
+        header_width = event.width if event is not None else self.header.winfo_width()
+        self.queue_background(self.header)
         widths = [field.winfo_reqwidth() for field in self.header_fields]
-        left = max(24, event.width - 24 - sum(widths) - 16)
-        for key, window, width in zip(self.header_labels, self.header_windows, widths):
+        left = max(24, header_width - 24 - sum(widths) - 8 * (len(widths) - 1))
+        for key, window, field_width in zip(self.header_labels, self.header_windows, widths):
             self.header.coords(self.header_labels[key], left, 10)
             self.header.coords(window, left, 29)
-            left += width + 8
+            left += field_width + 8
+        # System information sits beside the gold squares below the selectors.
+        self.header.coords(self.platform_text, header_width - 96, 102)
 
     def draw_background(self, event):
         canvas = event.widget
@@ -401,7 +404,7 @@ class Application:
         padding = 10
         areas = []
         if canvas is self.header:
-            for label in self.header_labels.values():
+            for label in (*self.header_labels.values(), self.platform_text):
                 box = canvas.bbox(label)
                 if box:
                     areas.append((box[0]-padding, box[1]-padding,
@@ -525,7 +528,8 @@ class Application:
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
-        self.platform_name.set(PLATFORMS[self.platform_id])
+        self.header.itemconfigure(self.platform_text, text=PLATFORMS[self.platform_id],
+                                  font=(self.ui_font, 9))
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         for key, item in self.header_labels.items():
             self.header.itemconfigure(item, text=self.tr(key))
@@ -576,6 +580,7 @@ class Application:
         self.selection_changed()
         self.queue_background(self.header)
         self.queue_background(self.body)
+        self.app.after_idle(self.layout_header)
         self.app.after_idle(self.fit_minimum_width)
 
     def change_language(self, event=None):
@@ -1019,6 +1024,14 @@ class Application:
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
                     self.busy = False
+                    for index in self.running_jobs:
+                        row = self.active_rows[index]
+                        self.row_status[row] = 'waiting'
+                        self.table.set(row, 'status', self.tr('waiting'))
+                    self.running_jobs.clear()
+                    if self.close_when_idle:
+                        self.close()
+                        return
                     self.set_controls(True)
                     if kind == 'fatal':
                         self.set_status('fatal', error=log_text(event[1], self.language))
@@ -1578,7 +1591,8 @@ class Application:
             messagebox.showinfo(APP_NAME, self.tr('wait_update'))
             return
         if self.busy:
-            messagebox.showinfo(APP_NAME, self.tr('wait_close'))
+            self.close_when_idle = True
+            self.stop()
             return
         try:
             save_preferences(self.preferences())

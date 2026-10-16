@@ -30,6 +30,7 @@ native/paths_posix.inc native/learning_posix.c native/font6x10.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py
 smsrecomp/freshness.py
 tests/test_freshness.py
+tests/test_gui_shutdown.py
 smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py

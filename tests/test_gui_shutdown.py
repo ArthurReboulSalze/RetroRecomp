@@ -1,0 +1,57 @@
+"""A busy window stops its queue and closes after the active work finishes."""
+from queue import Queue
+from threading import Event
+import unittest
+from unittest.mock import Mock, patch
+
+from smsrecomp.gui import Application
+
+
+class ShutdownTests(unittest.TestCase):
+    def application(self):
+        application = Application.__new__(Application)
+        application.updating = False
+        application.busy = True
+        application.close_when_idle = False
+        application.cancel = Event()
+        application.app = Mock()
+        application.stop_button = Mock()
+        application.set_status = Mock()
+        application.set_controls = Mock()
+        application.preferences = Mock(return_value={})
+        application.messages = Queue()
+        application.running_jobs = {0}
+        application.active_rows = ['row']
+        application.row_status = {'row': 'converting'}
+        application.table = Mock()
+        application.language = 'en'
+        return application
+
+    def test_close_stops_queue_and_exits_after_success_or_failure(self):
+        for event in (('done', {}), ('fatal', 'Authored failure')):
+            with self.subTest(event=event[0]):
+                application = self.application()
+                with patch('smsrecomp.gui.messagebox.showinfo') as info, \
+                        patch('smsrecomp.gui.save_preferences') as save:
+                    application.close()
+                    self.assertTrue(application.cancel.is_set())
+                    self.assertTrue(application.close_when_idle)
+                    application.app.destroy.assert_not_called()
+                    info.assert_not_called()
+                    application.messages.put(event)
+                    application.drain()
+                    application.app.destroy.assert_called_once()
+                    self.assertFalse(application.running_jobs)
+                    save.assert_called_once_with({})
+                    application.app.after.assert_not_called()
+
+    def test_close_of_idle_application_remains_immediate(self):
+        application = self.application()
+        application.busy = False
+        with patch('smsrecomp.gui.save_preferences'):
+            application.close()
+        application.app.destroy.assert_called_once()
+
+
+if __name__ == '__main__':
+    unittest.main()

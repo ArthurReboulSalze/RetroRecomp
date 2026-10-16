@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.1.1 has seven supported console profiles on Windows and a native Linux
+Release 1.1.2 has seven supported console profiles on Windows and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 

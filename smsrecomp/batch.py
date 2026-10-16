@@ -135,17 +135,19 @@ def _foreign_binary(path: Path) -> bool:
     return False
 
 
-def _export_records(output: Path):
+def _export_records(output: Path, *, identities: set[str] | None = None, cancel=None):
     """Recover exact ROM ownership from reports or branded generated EXEs."""
     reported = {}
     for path in (output / 'datas/reports').glob('*/conversion-report.json'):
+        if cancel and cancel.is_set():
+            return
         try:
             report = json.loads(path.read_text(encoding='utf-8'))
             name, identity = report['executable'], report['rom']['sha256']
             if Path(name).name != name or (os.name == 'nt' and not name.lower().endswith('.exe')):
                 continue
             from .platforms import target_id
-            if report.get('target', target_id()) != target_id() or _foreign_binary(output / name):
+            if report.get('target', target_id()) != target_id():
                 continue
             if not isinstance(identity, str) or not re.fullmatch('[0-9a-f]{64}', identity):
                 continue
@@ -153,25 +155,38 @@ def _export_records(output: Path):
             record[1].add(identity)
         except (OSError, ValueError, KeyError, TypeError):
             continue
-    for name, identities in reported.values():
+    for name, claims in reported.values():
+        if cancel and cancel.is_set():
+            return
+        # Reports are cheap metadata. Opening every unrelated generated EXE
+        # can make a one-game conversion wait on hundreds of filesystem checks.
+        # Keep *all* claims for a selected filename to detect stale/conflicting
+        # revision reports, but inspect only identities needed by this queue.
+        if identities is not None and claims.isdisjoint(identities):
+            continue
+        if _foreign_binary(output / name):
+            continue
         # A deleted/replaced export can leave older revision reports using the
         # same filename. The current binary's branded identity wins over those
         # conflicting records; ambiguous/unbranded files remain protected.
-        embedded = _embedded_export_identity(output / name) if len(identities) > 1 else None
-        for identity in ({embedded} if embedded else identities):
-            yield name, identity
+        embedded = _embedded_export_identity(output / name) if len(claims) > 1 else None
+        for identity in ({embedded} if embedded else claims):
+            if identities is None or identity in identities or len(claims) > 1 and not embedded:
+                yield name, identity
     # Reports can be deleted while games and the converter library remain.
     # Every generated runtime embeds its full null-terminated ROM SHA256.
     # Require our runtime marker and a unique identity; preserve unknown files.
     for path in (output.glob('*.exe') if os.name == 'nt' else output.iterdir()):
+        if cancel and cancel.is_set():
+            return
         if not path.is_file():
-            continue
-        if _foreign_binary(path):
             continue
         if path.name.casefold() in reported:
             continue
+        if _foreign_binary(path):
+            continue
         identity = _embedded_export_identity(path)
-        if identity:
+        if identity and (identities is None or identity in identities):
             yield path.name, identity
 
 
@@ -211,12 +226,14 @@ def system_output(output: Path, system_id: str) -> Path:
 class _OutputNames:
     """Snapshot existing ownership before workers start writing reports."""
 
-    def __init__(self, output: Path):
+    def __init__(self, output: Path, *, identities: set[str] | None = None, cancel=None):
         self.output = output
         self.owners: dict[str, set[str]] = {}
         self.original: list[tuple[Path, str]] = []
         self.sources: dict[tuple[str, str], set[str]] = {}
         for path in (output / 'datas/reports').glob('*/conversion-report.json'):
+            if cancel and cancel.is_set():
+                break
             try:
                 report = json.loads(path.read_text(encoding='utf-8'))
                 name = report['executable']
@@ -226,7 +243,7 @@ class _OutputNames:
                     self.sources.setdefault((name.casefold(), identity), set()).add(Path(source).stem.casefold())
             except (OSError, ValueError, KeyError, TypeError):
                 continue
-        for name, identity in _export_records(output):
+        for name, identity in _export_records(output, identities=identities, cancel=cancel):
             self.owners.setdefault(name.casefold(), set()).add(identity)
             self.original.append((output / name, identity))
         self.existing = {path.name.casefold() for path in output.iterdir()}
@@ -385,6 +402,10 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     active: set[tuple[str, str]] = set()
     names: dict[str, _OutputNames] = {}
     variant_titles = _variant_titles(items)
+    requested_identities = defaultdict(set)
+    for item in items:
+        if item.system and item.sha256 and not item.error:
+            requested_identities[item.system].add(item.sha256)
     emit_lock = Lock()
     original_emit = emit
 
@@ -408,7 +429,6 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                 index = queued.pop(position)
                 item = items[index]
                 identity = (item.system, item.sha256)
-                on_event("start", index, item.title)
                 result = {"rom": str(item.path), "title": item.title, "system": item.system,
                           "sha256": item.sha256}
                 try:
@@ -432,7 +452,14 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                             game_output = system_output(output, system.id)
                             game_output.mkdir(parents=True, exist_ok=True)
                             if system.id not in names:
-                                names[system.id] = _OutputNames(game_output)
+                                emit(f'{system.name}: checking existing exports for the queued ROMs...')
+                                names[system.id] = _OutputNames(game_output,
+                                    identities=requested_identities[system.id], cancel=cancel)
+                            if cancel and cancel.is_set():
+                                # No compiler owns this row yet. Leave it
+                                # pending rather than starting after Stop.
+                                queued.insert(0, index)
+                                break
                             previous_export = names[system.id].matching_export(item)
                             if previous_export and not names[system.id].same_source_name(item, previous_export):
                                 result.update(status='duplicate', duplicate_of=previous_export.stem,
@@ -446,6 +473,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                             else:
                                 target, previous = names[system.id].reserve(item, variant_titles.get(index))
                                 reports = game_output / "datas/reports" / item.key
+                                on_event("start", index, item.title)
                                 future = executor.submit(_convert_one, index, item, len(items), system,
                                     game_output, reports, target, previous, emit, options)
                                 pending[future] = (index, identity, target)
@@ -454,6 +482,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                 except Exception as exc:
                     result.update(status="error", message=str(exc))
                     emit(f"{item.title} : {exc}")
+                on_event("start", index, item.title)
                 results[index] = result
                 on_event("result", index, result)
             if pending:

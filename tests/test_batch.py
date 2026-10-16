@@ -26,6 +26,60 @@ def folder_entries(names):
 
 
 class BatchTests(unittest.TestCase):
+    def test_single_rom_inventory_does_not_open_other_reported_executables(self):
+        from smsrecomp.batch import _foreign_binary
+        selected, unrelated = self.item('selected', 1), self.item('unrelated', 2)
+        self.output.mkdir(parents=True)
+        selected.title, unrelated.title = 'Selected', 'Unrelated'
+        blocked = self.output / ('Unrelated' + EXT)
+        for item in (selected, unrelated):
+            target = self.output / (item.title + EXT)
+            target.write_bytes(NATIVE_MAGIC + b'\0[Retro-Recomp]\0' + item.sha256.encode() + b'\0')
+            report = self.output / 'datas/reports' / item.key / 'conversion-report.json'
+            report.parent.mkdir(parents=True)
+            atomic_json(report, {'executable': target.name,
+                'rom': {'sha256': item.sha256, 'name': item.path.name}})
+        def header(path):
+            self.assertNotEqual(path, blocked, 'An unrelated EXE must not delay this conversion')
+            return _foreign_binary(path)
+        with patch('smsrecomp.batch._foreign_binary', side_effect=header), \
+                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            record = convert_batch([selected], self.games_root, emit=lambda _: None)
+        self.assertEqual((record['succeeded'], record['failed']), (1, 0))
+        self.assertEqual(Path(record['games'][0]['executable']).name, 'Selected' + EXT)
+
+    def test_scoped_inventory_preserves_conflicting_unselected_revision_claims(self):
+        first, other = self.item('selected', 1), self.item('other', 2)
+        self.output.mkdir(parents=True)
+        target = self.output / ('Same title' + EXT)
+        original = NATIVE_MAGIC + b' unrelated executable'
+        target.write_bytes(original)
+        for item in (first, other):
+            report = self.output / 'datas/reports' / item.key / 'conversion-report.json'
+            report.parent.mkdir(parents=True)
+            atomic_json(report, {'executable': target.name,
+                'rom': {'sha256': item.sha256, 'name': item.path.name}})
+        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+            record = convert_batch([first], self.games_root, emit=lambda _: None)
+        self.assertEqual(record['succeeded'], 1)
+        self.assertNotEqual(Path(record['games'][0]['executable']), target)
+        self.assertEqual(target.read_bytes(), original)
+
+    def test_stopping_during_inventory_never_starts_a_compiler(self):
+        from smsrecomp.batch import _OutputNames
+        item = self.item('selected', 1)
+        stop = Event()
+        def inspect(*args, **kwargs):
+            value = _OutputNames(*args, **kwargs)
+            stop.set()
+            return value
+        with patch('smsrecomp.batch._OutputNames', side_effect=inspect), \
+                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert') as compiler:
+            record = convert_batch([item], self.games_root, cancel=stop, emit=lambda _: None)
+        compiler.assert_not_called()
+        self.assertTrue(record['cancelled'])
+        self.assertEqual((record['succeeded'], record['pending']), (0, 1))
+
     def test_a_foreign_target_export_is_never_claimed_for_replacement(self):
         from smsrecomp.batch import _export_records
         item = self.item('foreign', 1)

@@ -1,3 +1,42 @@
+# RetroRecomp v1.1.2 — Conversion fixes and a tidier header
+
+This update improves conversion startup and window behavior, with the same fixes
+and header layout on Windows and Linux.
+
+- **Faster preparation in large export folders.** Converting a small selection
+  no longer opens every unrelated game executable already covered by an export
+  report. Exact ROM identities, conflicting revisions and unknown exports keep
+  their overwrite protections.
+- **Clearer progress and closing.** The log announces export checking before
+  compilation starts. Stop during preparation prevents new conversions; closing
+  the app during a batch finishes active conversions, then exits automatically.
+- **A tidier header.** Console format sits beside Language. The Windows/Linux
+  version label moves below, next to the gold squares. The banner keeps its
+  height, with alignment checked across all eight languages and smaller windows.
+
+The Windows recompilation reported as blocked in 1.1.1 has been retested
+successfully by the user with this fix. ROM-free regression checks cover scoped
+export inspection, revision conflicts, cancellation and shutdown. The verified
+knowledge snapshot remains at **1,092 exact cartridge records**; this update
+adds no new cartridge qualifications or game-runtime changes.
+
+Download **Retro-Recomp.exe** for Windows or
+**Retro-Recomp-1.1.2-linux-x86_64.tar.gz** for Linux. **Check for updates** selects
+the matching executable. Existing games do not need regeneration for these
+converter-only fixes. Games, settings, downloaded covers and local knowledge
+remain in their existing folders.
+
+Linux is built and checked on **Debian 13/glibc 2.41**; other distributions and
+ARM64 remain unqualified. The earlier reported Mega Drive slowdown on the
+low-power Debian test machine is still a separate, unresolved issue.
+These interface and conversion checks do not establish full-game compatibility,
+hardware fidelity, physical latency or whole-game framerate.
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.2/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.1.1 — Shared runtime optimizations for Windows and Linux
 
 This release reduces repeated graphics, audio and CPU-scheduling work in the
