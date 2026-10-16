@@ -1,11 +1,12 @@
 /* Authored bus ownership fixtures, linked with the actual generated backend.
  * This includes its private machine copy to drive individual Z80 slices. */
-#include <windows.h>
+#include "platform_io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "genesis_runtime.h"
+#include "sim_step.h"
 #include "md_prefetch.h"
 #include "genesis_machine.c"
 extern void rr_md_portable_restart(uint32_t pc);
@@ -42,7 +43,7 @@ static void gate_state(const wchar_t *path) {
     size_t size=123;CHECK(!rr16_state_ready());
     CHECK(!rr16_state_capture(&size) && !size);
     CHECK(!rr16_state_file(path,false));
-    CHECK(GetFileAttributesW(path)==INVALID_FILE_ATTRIBUTES);
+    CHECK(!rr_exists(path));
 }
 static void prime_z80_absolute_request(int64_t request) {
     /* LD A,(nn)/LD (nn),A consume 4+3+3 T before the data cycle. These
@@ -121,8 +122,8 @@ static void local_bus_cases(void) {
     CHECK(rr_md_cpu_stopped && g_cpu.PC==0xff011c && (g_cpu.D[0]&0xff)==0);
     CHECK(!m->bus.z80_busreq && m->z80.b && rr16_state_ready());
 }
-int wmain(int argc,wchar_t **argv) {
-    CHECK(argc==2 && rr16_init(true));DeleteFileW(argv[1]);
+static int checks_main(int argc,wchar_t **argv) {
+    CHECK(argc==2 && rr16_init(true));rr_remove(argv[1]);
     GenesisMachine *m=&g_machine;GVDP *v=&m->vdp;
     /* BUSREQ is a request, not an instantaneous BUSACK. The running Z80 must
      * reach a machine-cycle boundary before ownership is acknowledged. */
@@ -157,7 +158,7 @@ int wmain(int argc,wchar_t **argv) {
         CHECK(v->reg[15]==6 && !gvdp_dma_blocks_cpu(v));
         CHECK(g_cpu.PC==0xff0106 && g_cpu.A[0]==0xc00004);
         CHECK(rr16_state_file(argv[1],false));
-        CHECK(rr16_state_file(argv[1],true));DeleteFileW(argv[1]);
+        CHECK(rr16_state_file(argv[1],true));rr_remove(argv[1]);
     }
     /* Main CPU opcode is RAM-authored, hence intentionally uses the decoded
      * reference path above; native ROM dispatch is covered by game probes. */
@@ -177,7 +178,7 @@ int wmain(int argc,wchar_t **argv) {
     CHECK(!rr_z80_busy && !rr_z80_blocked && rr16_state_ready());
     CHECK(m->z80.sp==0x8000 && g_ram[0]==0x34 && g_ram[1]==0x12);
     CHECK(rr16_state_file(argv[1],false));
-    CHECK(rr16_state_file(argv[1],true));DeleteFileW(argv[1]);
+    CHECK(rr16_state_file(argv[1],true));rr_remove(argv[1]);
     /* Banked data read uses the post-DMA value, not a speculative early read. */
     const uint8_t read[]={0x3a,0x00,0x80,0x76};
     z80_program(read,sizeof read);m->z80.a=0x55;g_ram[0]=0x11;dma(4,1);step_z80(m,14);
@@ -398,7 +399,7 @@ int wmain(int argc,wchar_t **argv) {
     CHECK(g_ram[0x101]==0x22);
     machine_run_frame(NULL,NULL);
     CHECK(g_cpu.D[0]==0x11 && g_cpu.PC==0xff0108 && rr_md_cpu_stopped);
-    CHECK(rr16_state_file(argv[1],false) && rr16_state_file(argv[1],true));DeleteFileW(argv[1]);
+    CHECK(rr16_state_file(argv[1],false) && rr16_state_file(argv[1],true));rr_remove(argv[1]);
     /* STOP does no bus work. An unprimed Z80 data request at 10T=150 master
      * clocks must not wait for an invented four-cycle idle instruction. */
     static const unsigned stop_grants[7]={195,195,180,180,180,195,195};
@@ -532,8 +533,18 @@ int wmain(int argc,wchar_t **argv) {
     CHECK(m->master_cycle<0xfffff800u && m->z80.a==0x63);
     CHECK(!rr_z80_busy && rr16_state_ready());
     CHECK(rr_main_fraction==(6u+RR_MD_LINES*3420u)%7u);
-    CHECK(rr16_state_file(argv[1],false));CHECK(rr16_state_file(argv[1],true));DeleteFileW(argv[1]);
+    CHECK(rr16_state_file(argv[1],false));CHECK(rr16_state_file(argv[1],true));rr_remove(argv[1]);
     rr16_shutdown();
     printf("{\"checks\":%u,\"passed\":true,\"actual_backend\":true,\"authored_fixtures\":true,\"pin_timing_measured\":false}\n",checks);
     return 0;
 }
+
+#ifdef _WIN32
+int wmain(int argc,wchar_t **argv) { return checks_main(argc,argv); }
+#else
+int main(int argc,char **argv) {
+    wchar_t path[4096];
+    CHECK(argc==2 && rr_from_utf8(argv[1],path,sizeof path/sizeof *path));
+    wchar_t *args[]={L"checks",path};return checks_main(argc,args);
+}
+#endif

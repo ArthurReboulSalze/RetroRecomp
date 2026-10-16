@@ -64,6 +64,7 @@ docs/*
 !docs/RUNTIME_FEEDBACK.md
 !docs/BUILDING.md
 !docs/LINUX.md
+!docs/RUNTIME_PERFORMANCE.md
 !docs/LANGUAGES.md
 !docs/COMPATIBILITY.md
 !docs/BOXART.md

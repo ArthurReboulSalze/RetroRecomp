@@ -1,13 +1,17 @@
 /* Authored code changes after AOT selection, in actual production fibers.
  * The fixture drives checkpoints and explicitly grants an external request;
  * full arbiter timing is tested separately by md_bus_checks.c. */
-#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "retro_console16.h"
 #include "console16_state.h"
 #include "genesis_runtime.h"
+/* Deliberately expose the zero-clock guard/fetch gap for mutation injection.
+ * The real scheduler cannot advance another CPU in that gap. Re-enable the
+ * production optimization immediately after injection, before resuming. */
+static int expose_fetch_gap;
+#define RR_MD_REPEAT_Z80_BOUNDARIES expose_fetch_gap
 #define rr_md_z80_step fixture_z80_step
 #include "genesis_machine.c"
 #undef rr_md_z80_step
@@ -37,6 +41,7 @@ static void resume(void) {
     rr_z80_resume();
 }
 static void start(const uint8_t code[4],unsigned banked) {
+    expose_fetch_gap=1;
     rr16_reset();GenesisMachine *m=&g_machine;
     g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
     rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
@@ -51,7 +56,7 @@ static void start(const uint8_t code[4],unsigned banked) {
     events=reads=writes=0;memset(trace,0,sizeof trace);rr_md_z80_reset_evidence();
     rr_z80_start();rr_z80_limit=1;rr_bus_scheduling=1;
 }
-int wmain(void) {
+int main(void) {
     CHECK(rr16_init(true));
     static const struct { uint8_t code[4];unsigned byte,value; } cases[]={
         {{0x3e,0x9a},0,0},{{0xdd,0x21,0x9a},0,0xfd},
@@ -89,6 +94,7 @@ int wmain(void) {
                 gbus_write8(&m->bus,0xa00000+cases[i].byte,cases[i].value);
                 gbus_write8(&m->bus,0xa11100,0);
             }
+            expose_fetch_gap=0;
             rr_bus_scheduling=1;rr_z80_limit=1;attempts=0;
             do { CHECK(++attempts<64);resume(); } while(rr_z80_busy);
             rr_bus_scheduling=0;

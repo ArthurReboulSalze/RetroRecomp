@@ -1,3 +1,4 @@
+#include "scale2x.h"
 /* RetroRecomp's NES presentation host. The linked NESRecomp machine retains
  * its separate PolyForm Noncommercial terms; this UI is original code. */
 #define SDL_MAIN_HANDLED
@@ -137,18 +138,7 @@ static uint8_t controller_input(int p, uint64_t frame) {
 }
 
 static void scale2x(const uint32_t *source, uint32_t *target) {
-    for (int y = 0; y < 240; ++y) for (int x = 0; x < 256; ++x) {
-        uint32_t e = source[y * 256 + x];
-        uint32_t b = source[(y ? y - 1 : y) * 256 + x];
-        uint32_t d = source[y * 256 + (x ? x - 1 : x)];
-        uint32_t f = source[y * 256 + (x < 255 ? x + 1 : x)];
-        uint32_t h = source[(y < 239 ? y + 1 : y) * 256 + x];
-        uint32_t *out = target + (y * 2) * 512 + x * 2;
-        if (b != h && d != f) {
-            out[0] = d == b ? d : e; out[1] = b == f ? f : e;
-            out[512] = d == h ? d : e; out[513] = h == f ? f : e;
-        } else out[0] = out[1] = out[512] = out[513] = e;
-    }
+    rr_scale2x(source,256,240,256,target,512);
 }
 
 static SDL_Rect game_rect(SDL_Renderer *renderer) {

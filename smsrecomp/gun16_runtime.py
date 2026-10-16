@@ -106,11 +106,11 @@ def md_interpreter(source):
     start = source.index('M68kiStatus m68k_interp_step(void)')
     end = source.index('\n}', start) + 2
     function = source[start:end]
-    function = replace(function, '    M68kiStatus st = exec_one(&ins, &next);',
-        '    uint16_t gun_irq_sr = g_cpu.SR;\n    M68kiStatus st = exec_one(&ins, &next);')
-    function = replace(function, '    interp_account_cycles(&ins, retired_native);',
-        '    if (RR16_GUN && ins.mnemonic == MN_RTE && (gun_irq_sr & 0x700) == 0x200)\n'
-        '        rr16_md_gun_irq_end();\n    interp_account_cycles(&ins, retired_native);')
+    function = replace(function, '    M68kiStatus st = exec_one(ins, &next);',
+        '    uint16_t gun_irq_sr = g_cpu.SR;\n    M68kiStatus st = exec_one(ins, &next);')
+    function = replace(function, '    interp_account_cycles(ins, retired_native);',
+        '    if (RR16_GUN && ins->mnemonic == MN_RTE && (gun_irq_sr & 0x700) == 0x200)\n'
+        '        rr16_md_gun_irq_end();\n    interp_account_cycles(ins, retired_native);')
     function = function.replace('M68kiStatus m68k_interp_step(void)',
                                 'static M68kiStatus rr_md_instruction_body(void)', 1)
     function += '''

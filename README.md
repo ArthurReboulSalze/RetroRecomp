@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.0-d4a737" alt="Release version 1.1.0">
+  <img src="https://img.shields.io/badge/release-1.1.1-d4a737" alt="Release version 1.1.1">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -51,6 +51,10 @@ dedicated FPGA hardware.
   Reviewed cover links correct recurring mismatches during regeneration.
 - **Build on shared knowledge.** Verified hints for **1,092 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
+- **Reduce runtime overhead.** The latest Windows and Linux builds avoid repeated
+  graphics and audio work, with matching pixels and sound on the comparison tests.
+  Regenerate games to receive these changes. See the
+  [performance notes](docs/RUNTIME_PERFORMANCE.md) for their scope and checks.
 
 ## Play. Learn. Recompile.
 
@@ -131,6 +135,9 @@ other distributions and ARM64 remain to be qualified. Linux builds Linux games,
 Windows builds Windows games, using the same verified compilation knowledge.
 See the [Linux guide](docs/LINUX.md) for launchers, build tools and cover accounts.
 The window can shrink for smaller screens, with a shorter ROM list and log.
+Linux performance on low-power machines is still being improved. The reported
+Mega Drive slowdown on the Debian test machine remains unresolved; isolated
+benchmark gains do not establish full-speed gameplay.
 
 Use **Options** for conversion settings and **Check for updates** when you want
 a newer version. Update checks are manual. Updating the converter preserves

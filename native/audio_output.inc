@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "stereo_fir.h"
 
 #define RR_AUDIO_RING_FRAMES 8192u
 #define RR_AUDIO_TARGET_MS 21u /* Cover one PAL frame plus the device period. */
@@ -208,12 +209,9 @@ void host_audio_submit(const int16_t *samples, size_t count) {
             rr_audio.phase -= rr_audio.source_rate;
             uint32_t phase = (uint32_t)((uint64_t)rr_audio.phase * RR_AUDIO_PHASES / rr_audio.device.freq);
             phase = SDL_min(phase, RR_AUDIO_PHASES - 1u);
-            double left = 0.0, right = 0.0;
-            for (uint32_t tap = 0; tap < RR_AUDIO_TAPS; ++tap) {
-                uint32_t position = (rr_audio.history_pos + RR_AUDIO_TAPS - tap) % RR_AUDIO_TAPS;
-                left += rr_audio.history[position * 2u] * rr_audio.coefficients[phase][tap];
-                right += rr_audio.history[position * 2u + 1u] * rr_audio.coefficients[phase][tap];
-            }
+            double left, right;
+            rr_stereo_fir(rr_audio.history,rr_audio.history_pos,
+                rr_audio.coefficients[phase],RR_AUDIO_TAPS,&left,&right);
             output[pending * 2u] = (int16_t)SDL_clamp((int)lrint(left), -32768, 32767);
             output[pending * 2u + 1u] = (int16_t)SDL_clamp((int)lrint(right), -32768, 32767);
             if (++pending == 1024u) { audio_push(output, pending); pending = 0; }

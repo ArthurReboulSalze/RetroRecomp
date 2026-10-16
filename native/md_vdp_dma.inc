@@ -66,6 +66,7 @@ int gvdp_dma_migrate(GVDP *v) {
  * Pin/latch latency within a pixel is not independently qualified here. */
 static unsigned rr_vint_phase(const GVDP *v) { return MODE4_H40(v)?812u:800u; }
 static void rr_irq_advance(GVDP *v,unsigned phase) {
+    if(!v->rr_irq.vint_stage)return;
     unsigned line=v->scanline, height=(unsigned)gvdp_screen_height(v);
     if(phase<rr_vint_phase(v)) return;
     if(v->rr_irq.vint_stage==1 && line==height) {
@@ -112,7 +113,19 @@ static void rr_dma_advance(GVDP *v,unsigned phase,int stop_on_release) {
     if(phase>f->clock)f->clock=phase;
     rr_irq_advance(v,f->clock);
 }
-void gvdp_fifo_advance(GVDP *v,unsigned phase) { rr_dma_advance(v,phase,0); }
+void gvdp_fifo_advance(GVDP *v,unsigned phase) {
+    /* With no queued transaction or pending IRQ edge, only the clock moves.
+     * Do not search slots or recompute line geometry for an idle device. */
+    if(!v->rr_fifo.count && !v->rr_dma.remaining && !v->rr_irq.vint_stage
+#ifdef RR_MD_TIMED_READ
+       && !(v->rr_read.state&1u)
+#endif
+      ) {
+        if(phase>v->rr_fifo.clock)v->rr_fifo.clock=phase;
+        return;
+    }
+    rr_dma_advance(v,phase,0);
+}
 unsigned gvdp_dma_wait_until(GVDP *v,unsigned phase) {
     if(gvdp_dma_blocks_cpu(v))rr_dma_advance(v,phase,1);
     return v->rr_fifo.clock;

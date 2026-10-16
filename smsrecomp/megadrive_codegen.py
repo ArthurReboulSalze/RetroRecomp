@@ -162,6 +162,68 @@ def operation_name(ins: dict) -> str:
     return f'rr_md_op_{ins["addr"]:06x}{suffix}'
 
 
+def prefetch_plan(ins: dict, name: str) -> str:
+    """Static bus setup only; fetched words, SR, conditions and WAIT stay live."""
+    count = ins['word_count']
+    src, dst = ins['src_ea'], ins['dst_ea']
+    sm, sr, dm = (src >> 3) & 7, src & 7, (dst >> 3) & 7
+    ea_idle = 2 if sm in (4, 6) or (sm == 7 and sr == 3) else 0
+    control = name in ('MN_JMP', 'MN_JSR', 'MN_BRA', 'MN_BSR', 'MN_Bcc',
+                       'MN_DBcc', 'MN_RTS', 'MN_RTE', 'MN_RTR')
+    privileged = (name in ('MN_STOP', 'MN_RTE', 'MN_RESET', 'MN_MOVE_USP',
+                           'MN_ORI_TO_SR', 'MN_ANDI_TO_SR', 'MN_EORI_TO_SR') or
+                  (name == 'MN_MOVE_SR' and not ins['dst_is_ea']))
+    flags = int(control) | (8 if privileged else 0)
+    kind, advance, idle, tail, dst_advance, dst_idle = 1, 0, ea_idle, 0, 0, 0
+    if name in ('MN_ILLEGAL', 'MN_TRAP'):
+        kind = 4
+    elif name == 'MN_MOVE':
+        kind = 2
+        advance = (1 if sm in (5, 6) else 0 if sm != 7 else
+                   2 if sr == 1 else (2 if ins['size'] == 2 else 1) if sr == 4 else
+                   1 if sr < 4 else 0)
+        dst_advance = count - 1 - advance
+        flags |= 2
+        if dst == 0x39 and sm >= 2 and src != 0x3c:
+            dst_advance -= 1
+            # The MOVE-specific pending value may be two, unlike the flag.
+            kind = 5
+        dst_idle = 2 if dm == 6 else 0
+        if dm == 4:
+            flags |= 4
+    elif name == 'MN_MOVEM':
+        kind = 3
+        flags |= 2
+        idle = 2 if sm == 6 or src == 0x3b else 0
+    else:
+        advance = max(0, count - (2 if control or name == 'MN_STOP' else 1))
+        if name in ('MN_JMP', 'MN_JSR'):
+            idle = (6 if sm == 6 or (sm == 7 and sr == 3) else
+                    2 if sm == 5 or (sm == 7 and sr in (0, 2)) else 0)
+        elif name == 'MN_BSR':
+            idle = 2
+        elif control or name == 'MN_STOP':
+            idle = 0
+        if not control and name != 'MN_STOP':
+            flags |= 2
+        if not control and not (name == 'MN_PEA' and src in (0x38, 0x39)):
+            flags |= 4
+        if name in ('MN_LEA', 'MN_PEA') and ea_idle:
+            tail = 2
+        if name == 'MN_TAS':
+            flags |= 16
+        if name == 'MN_Bcc':
+            flags |= 32
+        if name == 'MN_DBcc':
+            flags |= 64
+    values = (kind, count, advance, idle, tail, flags, dst_advance, dst_idle)
+    if not all(0 <= value <= 255 for value in values):
+        # Keep unusual decoded forms on the original preparation path rather
+        # than changing conversion eligibility for a host-only optimization.
+        return '{0}'
+    return '{' + ','.join(str(value) for value in values) + '}'
+
+
 def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=(),
                    *, follow_flow=True) -> dict:
     write_changed(project / 'm68000_state_helpers.h',
@@ -207,7 +269,8 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
                            for ins in instructions)
     table = 'static const RrMdNativeStep entries[] = {\n' + ',\n'.join(
         '{' + instruction_literal(ins, names[ins['mnemonic']]) +
-        f',{max(4, ins["cycles"])}u,{operation_name(ins)}' + '}' for ins in instructions) + '\n};\n'
+        f',{max(4, ins["cycles"])}u,{operation_name(ins)},' + prefetch_plan(ins, names[ins['mnemonic']]) +
+        '}' for ins in instructions) + '\n};\n'
     # O(1) two-level lookup: empty ROM pages cost only one small index.
     pages = {}; count = (len(rom.data) + 255) // 256
     for index, ins in enumerate(instructions, 1):
@@ -315,22 +378,31 @@ def adapt_interpreter(source: str) -> str:
     source = source.replace('/* A PC is fetchable',
         'static int eval_cond(int cc);\n#include "md_prefetch.inc"\n\n/* A PC is fetchable',1)
     wrapper = '''static const RrMdNativeStep *rr_prepared_native;
-static bool rr_md_decode(const GenesisRom *rom, uint32_t pc, M68KInstr *ins) {
+static bool rr_md_decode_image(const GenesisRom *rom,uint32_t pc,M68KInstr *ins) {
+    /* A native body already contains the decoded fields. Copy the ROM view
+     * only when live prefetched words really require the reference decoder. */
+    GenesisRom view=*rom;view.read8_override=rr_pf_fetch8;
+    if(!m68k_decode(&view,pc,ins))return false;
+    rr_md_normalize_exception(ins);
+    return true;
+}
+static const M68KInstr *rr_md_decode_view(const GenesisRom *rom, uint32_t pc, M68KInstr *scratch) {
+    const M68KInstr *ins=scratch;
     rr_pf_begin(pc);rr_prepared_native=NULL;
     if (!genesis_force_interp()) {
         const RrMdNativeStep *op = rr_md_native_lookup(pc);
         if (op) {
-            *ins = op->instruction;
-            if (pc != ins->addr) rr_md_relocate_instruction(ins, pc);
+            ins=&op->instruction;
+            if (pc != ins->addr) {
+                *scratch=*ins;rr_md_relocate_instruction(scratch,pc);ins=scratch;
+            }
             rr_prepared_native=op;
         }
     }
-    GenesisRom view=*rom;view.read8_override=rr_pf_fetch8;
     if(!rr_prepared_native) {
-        if (!m68k_decode(&view, pc, ins)) return false;
-        rr_md_normalize_exception(ins);
+        if (!rr_md_decode_image(rom,pc,scratch)) return NULL;
     }
-    rr_pf_prepare(ins);
+    rr_pf_prepare_native(ins,rr_prepared_native?&rr_prepared_native->prefetch:NULL);
     /* A Z80 write during an extension fetch may change the prepared image.
      * Decode that image once on the reference path and select its exact body;
      * never execute a literal operand that differs from the fetched word. */
@@ -340,13 +412,19 @@ static bool rr_md_decode(const GenesisRom *rom, uint32_t pc, M68KInstr *ins) {
             if((rr_pf_image_valid&(1u<<n)) && ins->words[n]!=rr_pf_image[n]) { changed=1;break; }
         }
         if(changed) {
-            if(!m68k_decode(&view,pc,ins))return false;
-            rr_md_normalize_exception(ins);
+            if(!rr_md_decode_image(rom,pc,scratch))return NULL;
+            ins=scratch;
         }
         if(!genesis_force_interp() && (changed || !rr_prepared_native))
             rr_prepared_native=rr_md_native_lookup(pc);
     }
     rr_md_rom_fetch_offset=rr_md_cart_code_offset(pc,ins->words,(unsigned)ins->word_count);
+    return ins;
+}
+static bool rr_md_decode(const GenesisRom *rom,uint32_t pc,M68KInstr *ins) {
+    const M68KInstr *view=rr_md_decode_view(rom,pc,ins);
+    if(!view)return false;
+    if(view!=ins)*ins=*view;
     return true;
 }
 
@@ -426,6 +504,16 @@ static bool rr_md_decode(const GenesisRom *rom, uint32_t pc, M68KInstr *ins) {
         GEN_COSIM_TICK(idle);
         return M68KI_OK;
     }''', 1)
+    # The hot one-instruction loop can borrow the immutable AOT descriptor.
+    # RAM aliases and changed fetch images still use a private scratch copy.
+    start=source.index('M68kiStatus m68k_interp_step(void) {')
+    end=source.index('/* Run until PC',start)
+    step=source[start:end]
+    step=step.replace('M68KInstr ins;',
+        'M68KInstr scratch;\n    const M68KInstr *ins=rr_md_decode_view(busview(),pc,&scratch);')
+    step=step.replace('if (!rr_md_decode(busview(), pc, &ins))', 'if (!ins)')
+    step=step.replace('&ins','ins').replace('ins.','ins->')
+    source=source[:start]+step+source[end:]
     return source
 
 

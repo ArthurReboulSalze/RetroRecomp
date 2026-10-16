@@ -28,6 +28,8 @@ def legacy(source):
         '    rr_sn_resolved_palette=pixel&255;\n    uint16_t color = layer==4')
     return source+'''
 uint8_t rr_sn_palette_at(Ppu *p,int x,int y) {
+  /* This is a fresh live-bus snapshot, not the last displayed scanline. */
+  rr_sn_bg_cache_reset();rr_sn_prepare_layers(p);
   int r,g,b;rr_sn_resolved_palette=p->rrBusCgram;
   if(PPU_mode(p)==7)ppu_prepare_mode7(p,y);
   ppu_resolve_pixel(p,x,y,true,&r,&g,&b);

@@ -193,11 +193,56 @@ static void rr_pf_prepare(const M68KInstr *ins) {
     if(ins->mnemonic==MN_LEA || ins->mnemonic==MN_PEA) {
         if(rr_pf_ea_idle(ins->src_ea))rr_md_cpu_idle(2);
     }
-    rr_pf_condition=eval_cond((ins->words[0]>>8)&15u);
+    /* Only conditional branches consume this transient value. Arithmetic,
+     * moves and unconditional flow do not inspect a condition code here. */
+    if(ins->mnemonic==MN_Bcc || ins->mnemonic==MN_DBcc)
+        rr_pf_condition=eval_cond((ins->words[0]>>8)&15u);
     if(ins->mnemonic==MN_Bcc)rr_pf_control_cycles=rr_pf_condition?10:count==1?8:12;
     if(ins->mnemonic==MN_DBcc)rr_pf_control_cycles=rr_pf_condition?12:
         (g_cpu.D[ins->reg]&0xffffu)?10:14;
     rr_md_cpu_bus_lock(ins->mnemonic==MN_TAS);
+}
+/* The reference path computes preparation from the live decoder above.
+ * Native entries carry just those invariant decisions. All actual reads,
+ * suspended continuations, privilege checks and branch conditions are still
+ * performed in the same order, including a changing RAM extension image. */
+static void rr_pf_prepare_native(const M68KInstr *ins,const RrMdPrefetchPlan *p) {
+    if(!p || !p->kind || !rr_md_prefetch_active()) { rr_pf_prepare(ins);return; }
+    unsigned count=p->count,flags=p->flags;
+    rr_pf_image_pc=ins->addr;rr_pf_control=flags&RR_PF_CONTROL;
+    if(p->kind==4 || ((flags&RR_PF_PRIVILEGED) && !(g_cpu.SR&SR_S))) {
+        rr_pf_image_count=count;
+        for(unsigned i=0;i<count;++i)rr_pf_image[i]=ins->words[i];
+        rr_pf_image_valid=(1u<<count)-1u;return;
+    }
+    if(p->kind==2 || p->kind==3 || p->kind==5) {
+        rr_pf_image_count=count;rr_pf_image_valid=0;rr_pf_cache();
+        rr_pf_pending=p->kind==5?2u:1u;rr_pf_before_write=!!(flags&RR_PF_BEFORE_WRITE);
+        if(p->kind!=3) {
+            rr_pf_move=1;rr_pf_dst_advance=p->dst_advance;rr_pf_dst_idle=p->dst_idle;
+            if(p->idle)rr_md_cpu_idle(p->idle);
+            for(unsigned n=0;n<p->advance;++n)rr_pf_advance();
+        } else {
+            rr_pf_advance();
+            if(p->idle)rr_md_cpu_idle(p->idle);
+            for(unsigned n=2;n<count;++n)rr_pf_advance();
+        }
+        return;
+    }
+    if(p->idle)rr_md_cpu_idle(p->idle);
+    for(unsigned n=0;n<count && n<8;++n) {
+        if(n<=p->advance) {
+            rr_pf_image[n]=rr_md_prefetch.words[0];
+            if(n<p->advance)rr_pf_advance();
+        } else rr_pf_image[n]=rr_md_prefetch.words[1];
+    }
+    rr_pf_image_count=count;rr_pf_image_valid=(1u<<count)-1u;
+    rr_pf_pending=!!(flags&RR_PF_PENDING);rr_pf_before_write=!!(flags&RR_PF_BEFORE_WRITE);
+    if(p->tail_idle)rr_md_cpu_idle(p->tail_idle);
+    if(flags&(RR_PF_BCC|RR_PF_DBCC))rr_pf_condition=eval_cond((ins->words[0]>>8)&15u);
+    if(flags&RR_PF_BCC)rr_pf_control_cycles=rr_pf_condition?10:count==1?8:12;
+    if(flags&RR_PF_DBCC)rr_pf_control_cycles=rr_pf_condition?12:(g_cpu.D[ins->reg]&0xffffu)?10:14;
+    rr_md_cpu_bus_lock(!!(flags&RR_PF_LOCKED));
 }
 void rr_md_prefetch_before_write(void) {
     if(rr_md_prefetch_active() && rr_pf_pending && rr_pf_before_write && !rr_md_exception_cycles) {

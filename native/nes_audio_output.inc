@@ -35,12 +35,25 @@ static void SDLCALL nes_audio_callback(void *unused, Uint8 *stream, int bytes) {
         nes_audio.started = true;
     }
     uint32_t take = SDL_min(wanted, nes_audio.fill);
-    for (uint32_t i = 0; i < take; ++i) {
-        int16_t sample = nes_audio.pcm[(nes_audio.read + i) % RR_NES_AUDIO_RING];
-        for (uint32_t ch = 0; ch < nes_audio.spec.channels; ++ch) {
-            uint32_t at = i * nes_audio.spec.channels + ch;
-            if (nes_audio.spec.format == AUDIO_F32SYS) ((float *)stream)[at] = sample / 32768.0f;
-            else ((int16_t *)stream)[at] = sample;
+    uint32_t first = SDL_min(take, RR_NES_AUDIO_RING - nes_audio.read);
+    for (unsigned part = 0; part < 2; ++part) {
+        uint32_t frames = part ? take - first : first;
+        const int16_t *source = nes_audio.pcm + (part ? 0 : nes_audio.read);
+        Uint8 *output = stream + (part ? first : 0) * stride;
+        if (nes_audio.spec.format == AUDIO_F32SYS) {
+            float *target = (float *)output;
+            for (uint32_t i = 0; i < frames; ++i) {
+                float sample = source[i] / 32768.0f;
+                for (uint32_t ch = 0; ch < nes_audio.spec.channels; ++ch)
+                    target[i * nes_audio.spec.channels + ch] = sample;
+            }
+        } else if (nes_audio.spec.channels == 1) {
+            memcpy(output, source, frames * sizeof(*source));
+        } else {
+            int16_t *target = (int16_t *)output;
+            for (uint32_t i = 0; i < frames; ++i)
+                for (uint32_t ch = 0; ch < nes_audio.spec.channels; ++ch)
+                    target[i * nes_audio.spec.channels + ch] = source[i];
         }
     }
     nes_audio.read = (nes_audio.read + take) % RR_NES_AUDIO_RING;

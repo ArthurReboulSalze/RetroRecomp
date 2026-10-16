@@ -8,7 +8,53 @@ from .snes_timing import replace
 FLAG = 0x80000000
 
 
-def legacy(source):
+def legacy(source, *, checks=False):
+    # Presentation state is immutable during a line. Decode each row once,
+    # preserving the scalar sampler for differential diagnostics.
+    marker = 'void ppu_draw_whole_line_legacy(Ppu *ppu, int line) {'
+    source = replace(source, marker, '#include "snes_ppu_cache.inc"\n' + marker +
+                     '\n  rr_sn_bg_cache_reset();\n  rr_sn_prepare_layers(ppu);')
+    marker = 'static int ppu_sample_bg(Ppu *ppu, int x, int y, int layer, bool priority) {'
+    source = replace(source, marker,
+        '''static int rr_sn_sample_bg_reference(Ppu *ppu, int x, int y, int layer, bool priority) {''')
+    source += '''
+static int ppu_sample_bg(Ppu *ppu,int x,int y,int layer,bool priority) {
+#ifdef RR_SN_BG_CACHE_REFERENCE
+  return rr_sn_sample_bg_reference(ppu,x,y,layer,priority);
+#else
+  return rr_sn_sample_bg_cached(ppu,x,y,layer,priority);
+#endif
+}
+'''
+    # Screen enables and priority order are constant in this presentation
+    # line. Windows, scroll, mosaic and tile selection remain per-pixel.
+    start = source.index('static int ppu_resolve_pixel(Ppu *ppu, int x, int y, bool sub,\n'
+                         '                             int *r, int *g, int *b) {')
+    end = source.index('\nstatic bool ppu_apply_layer_anchor', start)
+    reference = source[start:end].replace('ppu_resolve_pixel(', 'rr_sn_resolve_reference(', 1)
+    reference = reference.replace('ppu_sample_bg(', 'rr_sn_sample_bg_reference(')
+    source = replace(source,
+        '''  for (int i = 0; i < layer_count_per_mode[actMode]; i++) {
+    int curLayer = layers_per_mode[actMode][i];
+    int curPriority = priorities_per_mode[actMode][i];
+    bool layerActive = IS_SCREEN_ENABLED(ppu, sub, curLayer) && (
+      !IS_SCREEN_WINDOWED(ppu, sub, curLayer) || !ppu_window_contains(ppu, curLayer, x)
+      );''',
+        '''  for (unsigned i = 0; i < rr_sn_layers.count[sub]; i++) {
+    int curLayer = rr_sn_layers.layer[sub][i];
+    int curPriority = rr_sn_layers.priority[sub][i];
+    bool layerActive = !IS_SCREEN_WINDOWED(ppu, sub, curLayer) || !ppu_window_contains(ppu, curLayer, x);''')
+    # The hires path computes both DAC dots itself. Do not resolve the same
+    # pixels a first time in the ordinary-width renderer.
+    source = replace(source, 'static void ppu_render_pixel(Ppu *ppu, int x, int y) {',
+        '''static void ppu_render_pixel(Ppu *ppu, int x, int y) {
+  if ((ppu->renderFlags & 0x80000000u) &&
+      (PPU_pseudoHires(ppu) || PPU_mode(ppu)==5 || PPU_mode(ppu)==6)) {
+    rr_sn_render_pair(ppu,x,y,0,0,0,0,0,0);
+    return;
+  }''')
+    if checks:
+        source += '\n' + reference
     # A dedicated flag keeps upstream clients' narrow buffers safe.
     source = replace(source, '  int row = y - 1;', '''  if (ppu->renderFlags & 0x80000000u) {
     rr_sn_render_pair(ppu, x, y, r, g, b, r2, g2, b2);

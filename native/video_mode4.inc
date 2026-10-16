@@ -3,6 +3,7 @@
  * Register/port/timing core remains in the pinned upstream local adaptation.
  */
 #include <stdlib.h>
+#include "planar_rows.h"
 static uint32_t raster_buffers[2][SMS_SCREEN_W * SMS_SCREEN_H];
 static int raster_work, raster_complete, raster_hscroll, raster_vscroll;
 static int raster_all_masked, raster_complete_masked, frame_left_border;
@@ -149,17 +150,28 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
     uint8_t hardware_seen[SMS_SCREEN_W] = {0};
     int table = (g_vdp.reg[2] & 14) << 10;
     if ((r0 & 0x40) && y < 16) hs = 0;
-    for (int x = 0; x < SMS_SCREEN_W; ++x) {
+    for (int x = 0; x < SMS_SCREEN_W;) {
         int bx = (x - hs) & 255;
         int by = (y + ((r0 & 0x80) && x >= 192 ? 0 : vs)) % 224;
         int address = (table + ((by >> 3) * 32 + (bx >> 3)) * 2) & 0x3FFF;
         int entry = g_vdp.vram[address] | (g_vdp.vram[address + 1] << 8);
-        int px = bx & 7, py = by & 7;
-        if (entry & 0x200) px = 7 - px;
+        int py = by & 7;
         if (entry & 0x400) py = 7 - py;
-        int color = mode4_pattern(entry & 511, px, py);
-        pixels[x] = palette[((entry & 0x800) ? 16 : 0) + color];
-        priority[x] = (entry & 0x1000) && color != 0;
+        int base = ((entry & 511) * 32 + py * 4) & 0x3fff;
+        uint64_t colors=rr_planar_pair((uint16_t)(g_vdp.vram[base]|g_vdp.vram[base+1]<<8)) |
+            (rr_planar_pair((uint16_t)(g_vdp.vram[base+2]|g_vdp.vram[base+3]<<8))<<2);
+        int count = 8 - (bx & 7);
+        if (count > SMS_SCREEN_W - x) count = SMS_SCREEN_W - x;
+        /* Column-scroll lock can split a partially scrolled tile. */
+        if ((r0 & 0x80) && x < 192 && x + count > 192) count = 192 - x;
+        int palette_base=(entry & 0x800)?16:0;
+        for(int n=0;n<count;++n) {
+            unsigned col=(unsigned)((bx+n)&7);
+            int color=(int)rr_planar_pixel(colors,(entry&0x200)?col:7-col);
+            pixels[x+n]=palette[palette_base+color];
+            priority[x+n]=(entry&0x1000) && color!=0;
+        }
+        x+=count;
     }
     int sat = (g_vdp.reg[5] & 0x7E) << 7;
     int reverse_priority = sprite_tracking_reverse_valid(sat);
@@ -181,10 +193,13 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         if (g_vdp.reg[6] & 4) tile |= 256;
         row /= zoom;
         tile += row >> 3;
+        int base=(tile*32+(row&7)*4)&0x3fff;
+        uint64_t colors=rr_planar_pair((uint16_t)(g_vdp.vram[base]|g_vdp.vram[base+1]<<8)) |
+            (rr_planar_pair((uint16_t)(g_vdp.vram[base+2]|g_vdp.vram[base+3]<<8))<<2);
         for (int rx = 0; rx < 8 * zoom; ++rx) {
             int x = sx + rx;
             if (x < 0 || x >= SMS_SCREEN_W) continue;
-            int color = mode4_pattern(tile, rx / zoom, row & 7);
+            int color = (int)rr_planar_pixel(colors,7u-(unsigned)(rx >> (zoom==2)));
             if (!color) continue;
             /* Guest collisions use the original first eight SAT entries,
              * independently of the host's unlimited/stabilized presentation. */

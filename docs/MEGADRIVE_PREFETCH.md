@@ -97,6 +97,24 @@ A cold queue's startup fetches consume time once, separately from the
 next instruction's steady-state budget. Retirement still rejects impossible
 bus budgets even when the internal reference shares the same error.
 
+## Host preparation cost
+
+Translated entries also carry an eight-byte preparation plan computed by the
+recompiler. It contains invariant extension counts, EA waits and control flags.
+The native path consumes this plan instead of rediscovering those decisions for
+every instruction. Actual instruction reads, live SR/branch conditions, late
+MOVE extensions, RAM guards and suspended bus transactions remain in their
+original order. The reference path still derives its preparation from the
+decoded instruction; entries without a plan retain that path.
+
+After `tools/megadrive_prefetch_selftest.py`, run
+`python tools/megadrive_prefetch_plan_selftest.py` to compare both preparations
+on the same 2,171 synthetic cases. It also times repeated preparation separately
+from gameplay. On the Debian test machine, that isolated workload took 0.609 s
+with plans versus 0.680 s with dynamic preparation; this is not a framerate
+measurement. The ordinary CPU, bus, DMA, interrupt and suspended-fetch checks
+remain required. No console clock, audio sample or raster operation is removed.
+
 ## States and evidence
 
 ABI-10 appends twelve pointer-free bytes to the CPU section: queue PC, valid

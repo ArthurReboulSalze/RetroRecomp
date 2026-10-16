@@ -1,3 +1,54 @@
+# RetroRecomp v1.1.1 — Shared runtime optimizations for Windows and Linux
+
+This release reduces repeated graphics, audio and CPU-scheduling work in the
+generated games. Windows and Linux receive the same runtime changes; regenerate
+existing games to include them.
+
+- **Lighter graphics processing.** Master System/Game Gear tile rows, NES sprite
+  updates and Super Nintendo background decoding avoid repeated calculations.
+  All seven console profiles share an optimized Scale2x filter.
+- **Less audio overhead.** Sega filtering and mixing, Mega Drive recovery and
+  Game Boy/NES output callbacks retain the same samples on the comparison
+  tests while doing less host work. Guest audio and console clocks stay active.
+- **Mega Drive engine improvements.** Precomputed 68000 preparation plans,
+  fewer redundant Z80 scheduler transitions and batched VDP rendering preserve
+  live fetch guards, bus transactions and raster events on the tested cases.
+- **Native Linux build improvements.** GCC can optimize the 16-bit hardware
+  helpers across source files using a private profiling pass. The final build
+  still receives the normal validation; training counters are not exported.
+- **Clearer documentation.** The README and new
+  [performance notes](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.1/docs/RUNTIME_PERFORMANCE.md)
+  describe the scope, reproducible checks and remaining Linux performance work.
+
+ROM-free comparisons pass on Windows x64 and Debian 13 x86-64: over 30 million
+pixel comparisons in the shared optimization corpus, separate SNES rendering
+checks, 44,800 NES state/video/audio/bus checkpoints per platform, full audio
+schedule tests and Mega Drive CPU/bus/VDP regressions. Both optimized and scalar
+paths are checked. These bounded checks establish agreement on the tested
+cases, not universal hardware fidelity, full-game compatibility or physical latency.
+
+**The reported Mega Drive slowdown on the low-power Debian test machine remains
+unresolved.** Isolated routine speedups are not whole-game framerate gains.
+Gameplay, listening and desktop performance tests remain separate. Linux still
+targets **Debian 13/glibc 2.41**; other distributions and ARM64 are not qualified.
+
+The verified knowledge snapshot remains at **1,092 exact cartridge records**;
+this optimization release adds no new cartridge qualifications. Your games,
+settings, cover cache and local knowledge are preserved when updating the app.
+Quick states remain tied to their qualified runtime ABI; retain ordinary saves
+before regenerating games.
+
+Download **Retro-Recomp.exe** for Windows or
+**Retro-Recomp-1.1.1-linux-x86_64.tar.gz** for Linux. **Check for updates** selects
+the matching Windows EXE or Linux executable asset. Conversion needs the native
+build toolchain; playing generated games does not. See the
+[Linux guide](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.1/docs/LINUX.md).
+
+No ROMs, BIOS, generated games, downloaded covers or private feedback are included.
+Notices are embedded. [UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.1.1/licenses/upx-5.2.1-src.tar.xz).
+
+---
+
 # RetroRecomp v1.1.0 — Windows and Linux, eight languages
 
 RetroRecomp now has a native Linux x86-64 package alongside the Windows app.

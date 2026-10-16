@@ -9,6 +9,7 @@ from smsrecomp.gameboy import _dependencies
 from smsrecomp.gameboy_runtime import adapt_generated_project
 from smsrecomp.paths import ROOT, ASSETS
 from smsrecomp.core import run
+from smsrecomp.platforms import build_executable, cmake_target_args
 
 
 def main():
@@ -23,17 +24,23 @@ def main():
          '--output-prefix', 'game', '--no-comments'], log=log, timeout=600)
     adapt_generated_project(project, 'latency-fixture', '0' * 64, 'Authored latency fixture')
     (project / 'game_resources.rc').write_text('1 RCDATA { 0 }\n', encoding='utf-8')
+    if os.name != 'nt':
+        from smsrecomp.resources import embed_resources
+        embed_resources(project, {})
     with (project / 'CMakeLists.txt').open('a', encoding='utf-8') as out:
         out.write(f'''\nadd_executable(retro_gb_latency_checks "{(ASSETS / 'native/gb_latency_checks.cpp').as_posix()}")
 target_compile_definitions(retro_gb_latency_checks PRIVATE GBRT_ENABLE_TEST_HOOKS)
-target_include_directories(retro_gb_latency_checks PRIVATE "${{GBRT_DIR}}/src")
+target_include_directories(retro_gb_latency_checks PRIVATE "${{GBRT_DIR}}/src" "${{CMAKE_CURRENT_SOURCE_DIR}}")
 target_link_libraries(retro_gb_latency_checks PRIVATE gbrt)
+if(NOT WIN32)
+  target_sources(retro_gb_latency_checks PRIVATE embedded_resources.c embedded_resources.S)
+endif()
 ''')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=log)
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target',
          'retro_gb_latency_checks', '--parallel', '4'], log=log, timeout=600)
-    result = subprocess.run([str(project / 'build/Release/retro_gb_latency_checks.exe')],
+    result = subprocess.run([str(build_executable(project/'build', 'retro_gb_latency_checks'))],
         cwd=project, capture_output=True, text=True, timeout=60,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     (project / 'checks.log').write_text(result.stdout + result.stderr, encoding='utf-8')

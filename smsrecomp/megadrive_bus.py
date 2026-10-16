@@ -2,6 +2,45 @@
 from .gun16_runtime import replace
 
 
+def fiber(source):
+    """Use minicoro's existing nested resume/yield on private runtime copies."""
+    source=replace(source,'typedef struct fiber_impl {',
+        'typedef struct fiber_impl {\n    struct fiber_impl *parent; /* live caller, never serialized */')
+    start=source.index('    if (from->is_thread && !to->is_thread) {')
+    end=source.index('\n}\n\nfiber_t fiber_current(void)',start)
+    source=source[:start]+'''    if (!from->is_thread && from->parent == to) {
+        /* minicoro restores the active caller and its native ABI context. */
+        mco_result r = mco_yield(from->co);
+        if (r != MCO_SUCCESS)
+            fiber_fatal(mco_result_description(r));
+    } else if (!to->is_thread) {
+        to->parent = from;
+        s_current = to;
+        mco_result r = mco_resume(to->co);
+        to->parent = NULL;
+        s_current = from;
+        if (r != MCO_SUCCESS)
+            fiber_fatal(mco_result_description(r));
+    } else {
+        fiber_fatal("fiber switch must resume a suspended child or yield to its caller");
+    }'''+source[end:]
+    return source
+
+
+def nested_glue(source):
+    return replace(source,'''    instruction_watchdog_reset();
+    fiber_switch(s_game_fiber);
+    instruction_watchdog_reset();''','''    instruction_watchdog_reset();
+    /* A sound-CPU checkpoint can run this same scheduler call directly.
+     * Return to that live caller, then restore the ordinary host owner.
+     * Portable states are still captured only after both CPUs retire. */
+    fiber_t rr_chunk_caller=s_main_fiber;
+    s_main_fiber=fiber_current();
+    fiber_switch(s_game_fiber);
+    s_main_fiber=rr_chunk_caller;
+    instruction_watchdog_reset();''')
+
+
 def glue(source):
     # Machine and glue are separately compiled; fast32_t is not necessarily
     # uint32_t on the host. Their public rendezvous must share one exact type.
@@ -150,7 +189,7 @@ unsigned rr_md_cpu_retire_cycles(unsigned cycles) {
         '            s_cycle_budget -= (int32_t)(now - s_budget_cyc_seen);',
         '        if (RR_MD_STEP_AOT || now > s_budget_cyc_seen)\n'
         '            s_cycle_budget -= (int32_t)(now - s_budget_cyc_seen);')
-    return source
+    return nested_glue(source)
 
 
 def bus(source):

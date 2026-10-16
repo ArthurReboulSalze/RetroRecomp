@@ -13,6 +13,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp.core import run, toolchain
+from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
 from smsrecomp.megadrive_codegen import generate_steps, adapt_interpreter, adapt_cpu_snapshot, decode
 
 
@@ -195,12 +196,14 @@ file(GLOB STEPS "steps/*.c")
 add_executable(checks "{ROOT.as_posix()}/native/md_native_checks.c" reference.c ${{STEPS}}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(checks PRIVATE . "{prefix}/runner" "{prefix}/runner/include" "{prefix}/recompiler/src")
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+if(MSVC)
+  target_compile_options(checks PRIVATE /utf-8 /wd4996)
+endif()
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
-    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
-    output = run([project / 'build/Release/checks.exe'])
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
+    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()], log=project / 'build.log')
+    output = run([build_executable(project / 'build','checks')])
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
     result['static_flow_instructions'] = discovered
     (project / 'results.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')

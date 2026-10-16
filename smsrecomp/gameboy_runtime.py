@@ -78,6 +78,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('scanlines.h', project / 'runtime/include/scanlines.h'),
         ('scanline_sdl.h', project / 'runtime/include/scanline_sdl.h'),
         ('xbr_filter.h', project / 'runtime/include/xbr_filter.h'),
+        ('scale2x.h', project / 'runtime/include/scale2x.h'),
         ('xbr_sdl.h', project / 'runtime/include/xbr_sdl.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)

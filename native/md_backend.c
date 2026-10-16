@@ -30,6 +30,23 @@ static const uint8_t *feedback_rom;
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
 static unsigned captured_rows, video_modes_seen, interlace_frames;
 static bool audible, headless_mode;
+static bool timing_enabled;
+static uint64_t timing_simulation,timing_delivery;
+static uint64_t timing_cpu_bus,timing_vdp;
+uint64_t rr_md_engine_clock(void) {
+    return timing_enabled?SDL_GetPerformanceCounter():0;
+}
+void rr_md_engine_phase(unsigned phase,uint64_t start) {
+    if(!start)return;
+    uint64_t elapsed=SDL_GetPerformanceCounter()-start;
+    if(phase)timing_vdp+=elapsed;else timing_cpu_bus+=elapsed;
+}
+void rr_md_engine_timing(uint64_t *cpu_bus,uint64_t *vdp) {
+    *cpu_bus=timing_cpu_bus;*vdp=timing_vdp;
+}
+void rr_md_host_timing(uint64_t *simulation,uint64_t *delivery) {
+    *simulation=timing_simulation;*delivery=timing_delivery;
+}
 static uint64_t interpreted;
 static void *cold_state;
 static size_t cold_length;
@@ -152,6 +169,9 @@ static void line_sink(void *ctx, int line, const uint32_t *row, int width) {
 }
 bool rr16_init(bool headless) {
     headless_mode = headless;
+    const char *timing_path=getenv("RETRORECOMP_TIMING_REPORT");
+    timing_enabled=!headless && timing_path && *timing_path;
+    timing_simulation=timing_delivery=timing_cpu_bus=timing_vdp=0;
     rr_md_cpu_stopped = 0;
     rr_md_prefetch_reset();
     rr_md_z80_reset_evidence();
@@ -183,7 +203,10 @@ bool rr16_init(bool headless) {
             "The cartridge save could not be loaded. The existing file is preserved. "
             "Check the file and folder permissions before playing.",NULL);
     if (headless) rr_md_battery_open(&g_machine.bus,NULL);
-    audible = !headless && audio_init(RR_MD_PSG_HZ) == 0;
+    /* Explicit diagnostic override for user-run Linux comparisons. Guest
+     * PSG/YM generation still runs; only the host sound device is omitted. */
+    const char *no_host_audio=getenv("RETRORECOMP_HOST_TEST_NO_AUDIO");
+    audible = !headless && !(no_host_audio && !strcmp(no_host_audio,"1")) && audio_init(RR_MD_PSG_HZ) == 0;
     return true;
 }
 void rr16_reset(void) {
@@ -226,7 +249,9 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
     int16_t fm[8192], psg[16384]; size_t fn = 0, pn = 0;
     GenesisSimAudio audio = {fm, 4096, &fn, psg, 16384, &pn};
     GenesisSimHooks hooks = {0}; hooks.sink = line_sink;
+    Uint64 simulation_started=timing_enabled?SDL_GetPerformanceCounter():0;
     int ok = genesis_sim_step(&in, &audio, &hooks);
+    if(timing_enabled)timing_simulation+=SDL_GetPerformanceCounter()-simulation_started;
     unsigned mode = (g_machine.vdp.reg[12] & 1u) | ((g_machine.vdp.reg[1] & 8u) >> 2) |
                     (((g_machine.vdp.reg[12] >> 1) & 3u) << 2);
     video_modes_seen |= 1u << mode;
@@ -239,7 +264,9 @@ bool rr16_frame(uint16_t p1, uint16_t p2) {
         fm_active_frames += pcm_changes(fm, fn * 2, 2);
         psg_active_frames += pcm_changes(psg, pn, 1);
     }
+    Uint64 delivery_started=timing_enabled?SDL_GetPerformanceCounter():0;
     if (audible) audio_flush(genesis_sim_tick_count(), 1, fm, fn, psg, pn);
+    if(timing_enabled)timing_delivery+=SDL_GetPerformanceCounter()-delivery_started;
     if (!headless_mode) rr_md_battery_flush(&g_machine.bus,SDL_GetTicks64(),false);
     return ok != 0 && !execution_fault;
 }

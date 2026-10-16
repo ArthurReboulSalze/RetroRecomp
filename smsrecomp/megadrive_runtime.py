@@ -57,8 +57,10 @@ int gvdp_render_scanline(GVDP *v, int line, uint8_t *out) {
     source = source[:start] + source[end:]
     source = replace(source, '    v->vint_pending = 0;\n    return s;',
         '    v->vint_pending = 0;\n    v->sprite_overflow = v->sprite_collision = 0;\n    return s;')
-    return replace(source, '(v->in_hblank ? 0x00 : 0x80)',
+    source=replace(source, '(v->in_hblank ? 0x00 : 0x80)',
                    'rr_md_hcounter(machine_vdp_phase(), MODE4_H40(v))')
+    from .megadrive_video import optimize
+    return optimize(source)
 
 
 def raster_machine(source):
@@ -110,6 +112,28 @@ void machine_vdp_wait(unsigned cycles_68k) {
     }
 }
 '''
+
+
+def host_timing(source):
+    """Time raster-sized phases only, never instrument individual CPU accesses."""
+    source='''#include <stdint.h>
+#ifdef RR_MD_ENGINE_TIMING
+extern uint64_t rr_md_engine_clock(void);
+extern void rr_md_engine_phase(unsigned,uint64_t);
+#define RR_MD_HOST_STAMP(name) uint64_t name=rr_md_engine_clock()
+#define RR_MD_HOST_PHASE(phase,name) rr_md_engine_phase(phase,name)
+#else
+#define RR_MD_HOST_STAMP(name) ((void)0)
+#define RR_MD_HOST_PHASE(phase,name) ((void)0)
+#endif
+''' + source
+    source=replace(source,'        /* Advance the recompiled 68K',
+        '        RR_MD_HOST_STAMP(rr_host_cpu_start);\n        /* Advance the recompiled 68K')
+    source=replace(source,'        /* Render + emit active scanlines.',
+        '        RR_MD_HOST_PHASE(0,rr_host_cpu_start);\n'
+        '        RR_MD_HOST_STAMP(rr_host_video_start);\n        /* Render + emit active scanlines.')
+    return replace(source,'        unsigned rr_line_end=',
+        '        RR_MD_HOST_PHASE(1,rr_host_video_start);\n        unsigned rr_line_end=')
 
 
 def ym_bus(source):

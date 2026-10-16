@@ -1,3 +1,4 @@
+#include "scale2x.h"
 /* Game Boy adapter for the same menu canvas used by Master System/Game Gear.
  * Included after the GB runtime's input, save and display helpers. */
 
@@ -157,23 +158,7 @@ static void rr_gb_draw_status(void) {
 }
 
 static void rr_gb_scale2x(const uint32_t* source, int source_stride, uint32_t* output) {
-    const int width = GB_SCREEN_WIDTH, height = GB_SCREEN_HEIGHT, doubled = width * 2;
-    for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x) {
-        const uint32_t center = source[y * source_stride + x];
-        const uint32_t north = source[(y ? y - 1 : y) * source_stride + x];
-        const uint32_t south = source[(y + 1 < height ? y + 1 : y) * source_stride + x];
-        const uint32_t west = source[y * source_stride + (x ? x - 1 : x)];
-        const uint32_t east = source[y * source_stride + (x + 1 < width ? x + 1 : x)];
-        const int at = y * 2 * doubled + x * 2;
-        if (north != south && west != east) {
-            output[at] = west == north ? west : center;
-            output[at + 1] = north == east ? east : center;
-            output[at + doubled] = west == south ? west : center;
-            output[at + doubled + 1] = south == east ? east : center;
-        } else {
-            output[at] = output[at + 1] = output[at + doubled] = output[at + doubled + 1] = center;
-        }
-    }
+    rr_scale2x(source,GB_SCREEN_WIDTH,GB_SCREEN_HEIGHT,source_stride,output,GB_SCREEN_WIDTH*2);
 }
 
 static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {

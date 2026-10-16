@@ -42,9 +42,19 @@ static inline M68kiStatus rr_md_instruction_exception(uint32_t *next_pc,
     return M68KI_OK;
 }
 typedef struct {
+    /* Immutable bus preparation computed from the decoded instruction at
+     * build time. Architectural state and actual fetches remain live. */
+    uint8_t kind, count, advance, idle, tail_idle, flags, dst_advance, dst_idle;
+} RrMdPrefetchPlan;
+enum {
+    RR_PF_CONTROL=1, RR_PF_PENDING=2, RR_PF_BEFORE_WRITE=4,
+    RR_PF_PRIVILEGED=8, RR_PF_LOCKED=16, RR_PF_BCC=32, RR_PF_DBCC=64
+};
+typedef struct {
     M68KInstr instruction;
     unsigned cycles;
     M68kiStatus (*execute)(uint32_t *next_pc);
+    RrMdPrefetchPlan prefetch;
 } RrMdNativeStep;
 const RrMdNativeStep *rr_md_native_lookup(uint32_t pc);
 /* These keys address immutable physical ROM bytes, not the mapped guest PC. */

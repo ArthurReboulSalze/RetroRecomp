@@ -1,7 +1,8 @@
 # RetroRecomp roadmap
 
-Release 1.0.3 has seven supported console profiles, including Neo Geo after
-renewed gameplay tests. Support remains bounded to documented cartridge hardware.
+Release 1.1.1 has seven supported console profiles on Windows and a native Linux
+x86-64 package. Support remains bounded to documented cartridge hardware;
+Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
 RetroRecomp converts supported Master System, Game Gear, original Game Boy
 and NES ROMs, includes a supported Mega Drive standard-cartridge profile
@@ -11,6 +12,7 @@ priorities below describe areas to improve, not compatibility or delivery promis
 
 | Priority | Work needed |
 | --- | --- |
+| Runtime performance | Continue low-power Linux measurements, especially the unresolved Mega Drive slowdown. Shared Windows/Linux optimizations preserve output on numeric checks; desktop speed, sound quality and physical latency need target testing. See [performance notes](RUNTIME_PERFORMANCE.md). |
 | Neo Geo | Broaden MVS/AES gameplay, guarded RAM coverage and independent rendering evidence. Other BIOS revisions, boards and peripherals have separate scope. See [evidence and remaining work](NEOGEO.md). |
 | Broader game coverage | Explore more gameplay paths and guarded RAM variants; reduce reported interpreter fallback. |
 | Video and peripherals | Refine hardware timing and edge cases using independent fixtures and game evidence. |

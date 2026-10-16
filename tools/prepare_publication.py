@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-VERSION = "1.0.3"
+from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 smsrecomp/platforms.py native/platform_io.h native/platform_io.c
 smsrecomp/linux_desktop.py tests/test_linux_desktop.py
@@ -94,6 +94,11 @@ native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
+native/scale2x.h native/planar_rows.h native/stereo_fir.h
+native/nes_sprite_shift.h
+native/pixel_optimization_checks.c tools/pixel_optimization_selftest.py
+tests/fixtures/presentation/mode4_reference.inc
+docs/RUNTIME_PERFORMANCE.md
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/nes_host_ui.c native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
@@ -159,6 +164,11 @@ smsrecomp/snes_video.py
 smsrecomp/snes_dma.py native/snes_dma.h native/snes_hdma.inc
 smsrecomp/snes_bus.py native/snes_bus.h native/snes_bus.inc
 smsrecomp/snes_ppu_bus.py native/snes_ppu_bus.inc
+native/snes_ppu_cache.inc native/snes_ppu_cache_checks.c tools/snes_ppu_cache_selftest.py
+smsrecomp/console16_optimization.py tests/test_console16_optimization.py
+smsrecomp/megadrive_audio.py native/md_audio_loop.inc native/md_audio_bridge_checks.c
+native/md_audio_resample.inc native/md_audio_mix.h native/md_audio_mix_checks.c
+tools/megadrive_audio_bridge_selftest.py
 native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
 native/snes_bus_checks.c tools/snes_bus_selftest.py
 smsrecomp/snes_chips.py
@@ -185,9 +195,13 @@ smsrecomp/megadrive_dma.py native/md_vdp_dma.h native/md_vdp_dma.inc
 smsrecomp/megadrive_read.py native/md_vdp_read.h native/md_vdp_read.inc
 smsrecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
+native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
 docs/MEGADRIVE_PREFETCH.md
 native/md_bus_checks.c tools/megadrive_bus_selftest.py
+native/md_boundary_checks.c tools/megadrive_boundary_selftest.py
+native/md_vdp_batch_checks.c tools/megadrive_vdp_batch_selftest.py
+native/md_vdp_pixels.inc smsrecomp/megadrive_video.py
 native/md_read_checks.c tools/megadrive_read_selftest.py tests/test_megadrive_read.py
 native/md_dma_checks.c tools/megadrive_dma_selftest.py tests/test_megadrive_dma.py
 smsrecomp/megadrive_z80.py native/md_z80_native.h native/md_z80_runtime.c

@@ -15,7 +15,6 @@ from smsrecomp.core import run
 from tools.megadrive_bus_selftest import executable
 
 HARNESS = r'''
-#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "retro_console16.h"
@@ -26,7 +25,7 @@ static unsigned checks,cases;
 static uint32_t peek32(uint32_t a) {
  return ((uint32_t)gbus_peek16(&g_machine.bus,a)<<16)|gbus_peek16(&g_machine.bus,a+2);
 }
-int wmain(void) {
+int main(void) {
  CHECK(rr16_init(true));s_game_running=rr_step_running=1;s_interleave_active=0;
  GVDP *v=&g_machine.vdp;
  for(unsigned h40=0;h40<2;++h40)for(unsigned tall=0;tall<2;++tall)

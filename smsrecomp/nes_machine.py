@@ -84,6 +84,42 @@ def _ppu(source: str, *, fast_ppu: bool = True) -> str:
     source = source.replace(output, output + '\n'
         '        if (RR_NES_ZAPPER) rr_nes_zapper_pixel(dot - 4, sl, (uint16_t)(c | ppu.emphasis << 6));')
     if fast_ppu:
+        source = replace_once(source, '''static void shift_sprites(void)
+{
+    if (sprite_units_idle()) return;
+    for (int i = 0; i < 8; i++) {
+        if (ppu.spr_x[i] > 0 && !ppu.skipped_dot) {
+            ppu.spr_x[i]--;
+        } else if (rendering()) {
+            ppu.spr_lo[i] <<= 1;
+            ppu.spr_hi[i] <<= 1;
+        }
+    }
+}''', '''#include "nes_sprite_shift.h"
+static void shift_sprites(void)
+{
+    rr_nes_sprite_shift(ppu.spr_x,ppu.spr_lo,ppu.spr_hi,ppu.skipped_dot!=0,rendering());
+}''')
+        # X counters and shifters still advance. Only an opaque current bit
+        # in a ready unit can select a sprite or trigger sprite-zero hit.
+        # Test all eight units without changing their priority or state.
+        source = replace_once(source, 'static void compute_pixel(void)\n{',
+            '''static inline bool rr_sprite_pixels_pending(void) {
+    uint64_t lo, hi, x;
+    memcpy(&lo, ppu.spr_lo, sizeof lo);
+    memcpy(&hi, ppu.spr_hi, sizeof hi);
+    uint64_t active = (lo | hi) & UINT64_C(0x8080808080808080);
+    if (!active || ppu.skipped_dot) return active != 0;
+    memcpy(&x, ppu.spr_x, sizeof x);
+    /* Byte-local zero test: the masked addition cannot carry to a neighbour. */
+    const uint64_t low = UINT64_C(0x7f7f7f7f7f7f7f7f);
+    return (active & ~(((x & low) + low) | x)) != 0;
+}
+static void compute_pixel(void)
+{''')
+        source = replace_once(source,
+            'ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8) && !sprite_units_idle()',
+            'ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8) && rr_sprite_pixels_pending()')
         source = replace_once(source, 'void ppu_dot(void)\n{',
             '#include "nes_ppu_fast.inc"\nHW_ALWAYS_INLINE void rr_step_dot(void)\n{')
         source = replace_once(source, 'void ppu_half_dot(void)\n{',
@@ -117,7 +153,7 @@ void rr_nes_ppu_aux_load(const uint8_t *b) { sm_rest = b[0] != 0; dot_kind = b[1
     return source
 
 
-def _apu(source: str) -> str:
+def _apu(source: str, *, fast_audio: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     source = replace_once(source, '21477272.0 / 12.0', 'RR_CPU_HZ')
@@ -148,6 +184,52 @@ void rr_nes_apu_load(const uint8_t *b) {
     audio.head = audio.tail = 0;
 }
 '''
+    if fast_audio:
+        # Cache only the base DAC level. Timers, DMA, IRQs, expansion sound and
+        # the floating-point accumulation still advance on every CPU cycle.
+        source = replace_once(source, 'void apu_audio_enable(bool on, int sample_rate)',
+            '''static bool rr_mix_dirty = true;
+static double rr_mix_level;
+void apu_audio_enable(bool on, int sample_rate)''')
+        for signature in (
+            'void apu_audio_enable(bool on, int sample_rate)',
+            'static void audio_quarter_frame(void)',
+            'static void audio_half_frame(void)',
+            'static void clock_length_counters(void)',
+            'void apu_debug_set_noise(uint16_t lfsr, uint16_t timer)',
+            'void apu_write(uint16_t addr, uint8_t value)',
+            'void apu_power_on(void)',
+        ):
+            source = replace_once(source, signature + '\n{',
+                                  signature + '\n{\n    rr_mix_dirty = true;')
+        source = replace_once(source, 'void rr_nes_apu_load(const uint8_t *b) {',
+                              'void rr_nes_apu_load(const uint8_t *b) {\n    rr_mix_dirty = true;')
+        source = replace_once(source, '                p->step = (p->step + 1) & 7;',
+            '                p->step = (p->step + 1) & 7;\n'
+            '                if (apu.len[ch].count) rr_mix_dirty = true;')
+        source = replace_once(source, '        apu.noise_timer = (uint16_t)(apu.noise_period - 1);',
+            '        if (apu.len[CH_NOISE].count) rr_mix_dirty = true;\n'
+            '        apu.noise_timer = (uint16_t)(apu.noise_period - 1);')
+        source = replace_once(source, '            if (!apu.dmc_out_silent) {',
+            '            if (!apu.dmc_out_silent) {\n                rr_mix_dirty = true;')
+        source = replace_once(source,
+            '    if (apu.tri_period >= 2) apu.tri_out = (uint8_t)(apu.tri_step < 16 ? 15 - apu.tri_step : apu.tri_step - 16);',
+            '''    if (apu.tri_period >= 2) {
+        uint8_t next = (uint8_t)(apu.tri_step < 16 ? 15 - apu.tri_step : apu.tri_step - 16);
+        if (next != apu.tri_out) rr_mix_dirty = true;
+        apu.tri_out = next;
+    }''')
+        source = replace_once(source,
+            '    uint8_t out[5];\n    apu_channel_levels(out);\n'
+            '    double level = audio.pulse_mix[out[0] + out[1]] + audio.tnd_mix[3 * out[2] + 2 * out[3] + out[4]];',
+            '''    if (rr_mix_dirty) {
+        uint8_t out[5];
+        apu_channel_levels(out);
+        /* Preserve the original float sum before conversion to double. */
+        rr_mix_level = audio.pulse_mix[out[0] + out[1]] + audio.tnd_mix[3 * out[2] + 2 * out[3] + out[4]];
+        rr_mix_dirty = false;
+    }
+    double level = rr_mix_level;''')
     return source
 
 
@@ -195,7 +277,8 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
 '''
 
 
-def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True) -> Path:
+def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
+                    fast_audio: bool = True) -> Path:
     from .feedback import stage
     project.mkdir(parents=True, exist_ok=True)
     stage(project, 'nes', '0'*64, cmake=False)
@@ -220,7 +303,7 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True) -> Pa
                 if fast_ppu:
                     data += b'\nvoid rr_ppu_dot_half(void);\nvoid rr_ppu_half_dot(void);\n'
             elif name == 'runner/cyc/hw_apu.c':
-                data = _apu(data.decode('utf-8')).encode('utf-8')
+                data = _apu(data.decode('utf-8'), fast_audio=fast_audio).encode('utf-8')
             elif name == 'runner/cyc/hw_palette.c':
                 text = data.decode('utf-8').replace('#include "hw_internal.h"', '#include "hw_internal.h"\n#include "retro_nes.h"')
                 text = replace_once(text, '        if (hue > 13) level = 1;',
@@ -275,7 +358,7 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     identity = hashlib.sha256()
     for name, data in sorted(transformed.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
-    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc'):
+    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_sprite_shift.h'):
         identity.update((ASSETS / 'native' / name).read_bytes())
     _write(root / 'runner/cyc/nes_state_abi.h',
            f'#define RR_NES_STATE_ABI "{identity.hexdigest()}"\n'.encode('ascii'))

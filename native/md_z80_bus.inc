@@ -8,12 +8,29 @@ static fiber_t rr_z80_main, rr_z80_fiber;
 static int rr_z80_busy, rr_z80_blocked, rr_z80_request, rr_z80_granted, rr_bus_scheduling;
 static int rr_bus_main_split;
 static int rr_z80_checkpoint,rr_z80_retiring,rr_local_ack,rr_local_request,rr_local_reset,rr_bus_control_event;
+static int rr_z80_checkpoint_advanced;
+static int rr_bus_nested_active; /* only rr_bus_slice owns a main-CPU budget */
 static int64_t rr_local_request_time,rr_local_ack_time;
 bool machine_main_bus_split(void) { return rr_bus_main_split!=0; }
 /* Line-relative signed clocks retain an old request across line/frame edges
  * without inheriting the legacy machine counter's 32-bit wrap. */
 static int64_t rr_z80_time, rr_z80_limit, rr_z80_grant;
+static uint32_t rr_bus_main_origin;
+static unsigned rr_bus_begin,rr_bus_fraction;
+/* A retirement, the next instruction guard and its first fetch can visit the
+ * very same boundary. Once the scheduler has returned, repeating that visit
+ * cannot advance either CPU. Invalidate on every actual resume/reset; never
+ * reuse a checkpoint across a raster slice, bus grant, or local bus control. */
+static int rr_z80_boundary_reusable;
+static int64_t rr_z80_boundary_time;
+#ifndef RR_MD_REPEAT_Z80_BOUNDARIES
+#define RR_MD_REPEAT_Z80_BOUNDARIES 0
+#endif
+#ifndef RR_MD_HOST_ONLY_Z80_BOUNDARIES
+#define RR_MD_HOST_ONLY_Z80_BOUNDARIES 0
+#endif
 static uint64_t rr_bus_requests, rr_bus_wait_ticks, rr_bus_stolen_cycles;
+static void rr_bus_cpu_until(GenesisMachine *,unsigned,uint32_t,unsigned,unsigned);
 bool rr_md_bus_busy(void) {
     return rr16_md_instruction_busy() || rr_z80_busy ||
         (g_machine.bus.z80_busreq && g_machine.bus.z80_reset_off && !rr_local_ack);
@@ -23,8 +40,12 @@ void rr_md_z80_bus_reset(void) {
     rr_z80_fiber=rr_z80_main=NULL;
     rr_z80_busy=rr_z80_blocked=rr_z80_request=rr_z80_granted=rr_bus_scheduling=0;
     rr_z80_time=rr_z80_limit=rr_z80_grant=0;
+    rr_bus_main_origin=rr_bus_begin=rr_bus_fraction=0;
+    rr_z80_boundary_reusable=0;
     rr_bus_main_split=0;
     rr_z80_checkpoint=rr_z80_retiring=rr_bus_control_event=0;
+    rr_z80_checkpoint_advanced=0;
+    rr_bus_nested_active=0;
     /* Portable capture excludes a pending handshake/live continuation. A
      * stored BUSREQ therefore represents stable ownership on pointer rewire. */
     rr_local_request=rr_local_ack=g_machine.bus.z80_busreq;
@@ -40,6 +61,7 @@ bool machine_z80_bus_acknowledged(void) {
         rr_local_ack_time<=(int64_t)machine_vdp_phase();
 }
 void machine_z80_bus_control(void) {
+    rr_z80_boundary_reusable=0;
     int request=g_machine.bus.z80_busreq,reset=g_machine.bus.z80_reset_off;
     if(request!=rr_local_request) {
         rr_local_request_time=machine_vdp_phase();rr_local_ack=0;
@@ -53,7 +75,43 @@ void machine_z80_bus_control(void) {
 }
 void machine_z80_boundary(void) {
     if(!rr_bus_scheduling || !rr_z80_fiber || fiber_current()!=rr_z80_fiber)return;
+    if(!RR_MD_REPEAT_Z80_BOUNDARIES && (rr_z80_time<rr_z80_limit || rr_z80_retiring) &&
+       g_machine.bus.z80_reset_off && !g_machine.bus.z80_busreq && !g_machine.bus.z80_reset_pending) {
+        if(rr_z80_boundary_reusable && rr_z80_time==rr_z80_boundary_time)return;
+        /* A completed, indivisible 68000 transaction can already be beyond
+         * this Z80 checkpoint. The host would run no CPU work before resuming
+         * us. Keep all real transactions and WAIT/control/end-slice yields. */
+        int64_t phase=rr_z80_time>(int64_t)rr_bus_begin?rr_z80_time:rr_bus_begin;
+        /* Retirement beyond the slice is resumed immediately by the host
+         * once the main CPU has paid that slice. The next instruction still
+         * hits rr_z80_run's limit and returns to the host. Do not apply this
+         * to a fetch/WAIT boundary, where the suspended access must stay live. */
+        if(rr_z80_retiring && phase>rr_z80_limit)phase=rr_z80_limit;
+        uint32_t elapsed=g_audio_cycle_counter-rr_bus_main_origin;
+        if((uint64_t)elapsed*7u>=(uint64_t)(phase+rr_bus_fraction))return;
+    }
+    if(!RR_MD_REPEAT_Z80_BOUNDARIES && !RR_MD_HOST_ONLY_Z80_BOUNDARIES && rr_bus_nested_active && rr_z80_time<rr_z80_limit &&
+       g_machine.bus.z80_reset_off && !g_machine.bus.z80_busreq && !g_machine.bus.z80_reset_pending) {
+        /* The host checkpoint would run this very same 68000 budget and
+         * immediately resume us. Call it on the current continuation instead:
+         * minicoro can return the main CPU to its live Z80 caller. No clocks,
+         * transactions, interrupt polls or WAIT phases are batched away. */
+        unsigned phase=rr_z80_time>(int64_t)rr_bus_begin?(unsigned)rr_z80_time:rr_bus_begin;
+        unsigned deadline=(phase+rr_bus_fraction+6u)/7u;
+        unsigned target=((unsigned)rr_z80_limit+rr_bus_fraction)/7u;
+        if(deadline>target)deadline=target;
+        rr_bus_control_event=0;rr_vdp_z80_active=0;
+        rr_bus_cpu_until(&g_machine,deadline,rr_bus_main_origin,phase,rr_bus_fraction);
+        rr_vdp_z80_active=1;
+        if(g_machine.bus.z80_reset_off && !g_machine.bus.z80_busreq && !g_machine.bus.z80_reset_pending) {
+            rr_z80_boundary_time=rr_z80_time;rr_z80_boundary_reusable=1;return;
+        }
+        /* A control change still returns to the host, which owns reset,
+         * destruction and ACK. It must not execute this budget a second time. */
+        rr_z80_checkpoint_advanced=1;
+    }
     rr_z80_checkpoint=1;fiber_switch(rr_z80_main);rr_z80_checkpoint=0;
+    rr_z80_boundary_time=rr_z80_time;rr_z80_boundary_reusable=1;
 }
 void machine_z80_instruction_boundary(void) {
     rr_z80_retiring=1;machine_z80_boundary();rr_z80_retiring=0;
@@ -145,6 +203,7 @@ static int rr_z80_prepare(GenesisMachine *m) {
     rr_z80_start();rr_vdp_z80_active=1;return 1;
 }
 static void rr_z80_resume(void) {
+    rr_z80_boundary_reusable=0;
     rr_vdp_z80_active=1;fiber_switch(rr_z80_fiber);rr_vdp_z80_active=0;
 }
 static void rr_bus_cpu_until(GenesisMachine *m,unsigned target,uint32_t before,
@@ -175,6 +234,7 @@ static void rr_bus_cpu_until(GenesisMachine *m,unsigned target,uint32_t before,
 }
 static void rr_bus_slice(GenesisMachine *m,unsigned begin,unsigned end,
                           uint32_t before,unsigned fraction) {
+    rr_bus_main_origin=before;rr_bus_begin=begin;rr_bus_fraction=fraction;
     const int64_t base=0;
     unsigned target=(end+fraction)/7, start=(begin+fraction)/7;
     unsigned elapsed=g_audio_cycle_counter-before;
@@ -189,6 +249,8 @@ rendezvous:
         /* A reset cancels its old C continuation on the host, never on the
          * sound fiber. Reinitialization is deferred until reset is released. */
         enabled=rr_z80_prepare(m);rr_vdp_z80_active=0;
+        rr_bus_nested_active=1;
+        rr_bus_main_origin=before;rr_bus_begin=begin;rr_bus_fraction=fraction;
         rr_z80_limit=base+end;
         if(!enabled) {
             rr_bus_cpu_until(m,target,before,end,fraction);
@@ -200,7 +262,9 @@ rendezvous:
             unsigned phase=boundary>(int64_t)begin?(unsigned)boundary:begin;
             unsigned deadline=(phase+fraction+6)/7;
             if(deadline>target)deadline=target;
-            rr_bus_cpu_until(m,deadline,before,phase<end?phase:end,fraction);
+            if(!rr_z80_checkpoint_advanced)
+                rr_bus_cpu_until(m,deadline,before,phase<end?phase:end,fraction);
+            rr_z80_checkpoint_advanced=0;
             if(!m->bus.z80_reset_off || m->bus.z80_reset_pending)continue;
             if(m->bus.z80_busreq && rr_local_request_time<=boundary) {
                 /* Request sampled at the completed machine cycle; ACK is
@@ -256,5 +320,6 @@ rendezvous:
     if(rr16_md_gun_pending())glue_own_interrupt(2,&m->vdp);
     glue_own_vint_service_latched(&m->vdp);
     rr_bus_scheduling=0;
+    rr_bus_nested_active=0;
     m->z80_cycle_debt=rr_z80_time>base+end?(uint32_t)((rr_z80_time-base-end+14)/15):0;
 }

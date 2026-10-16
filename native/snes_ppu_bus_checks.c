@@ -8,6 +8,7 @@
 #include "snes/snes.h"
 extern Snes *g_snes;extern Ppu *g_ppu;
 extern void rr_sn_ppu_bus_advance(Ppu *,unsigned,unsigned,unsigned);
+extern uint8_t rr_sn_palette_at(Ppu *,int,int);
 static unsigned checks;
 #define CHECK(x) do { ++checks;if(!(x)){fprintf(stderr,"line %u: %s\n",__LINE__,#x);exit(1);} }while(0)
 static void setup(unsigned v,unsigned h,bool blank) {
@@ -38,6 +39,17 @@ static void color_ports(void) {
     // Palette 1 / texel 5 = 128+16+5, current beam pixel x=35.
     CHECK(g_ppu->rrBusCgram==149);CHECK(g_ppu->cgram[149]==0x5432);
     CHECK(g_ppu->cgram[35]==0x4567);
+    // Live CGRAM collisions must not reuse a presentation tile row or screen
+    // mask from a previous snapshot, even at the very same beam coordinate.
+    setup(50,200,false);g_ppu->screenEnabled[0]=1;g_ppu->bgXsc[0]=0x60;
+    g_ppu->vram[2]=0x00ff;
+    CHECK(rr_sn_palette_at(g_ppu,35,50)==1);
+    g_ppu->vram[2]=0xff00;
+    CHECK(rr_sn_palette_at(g_ppu,35,50)==2);
+    g_ppu->vram[0x6000+(50/8)*32+35/8]=3u<<10;
+    CHECK(rr_sn_palette_at(g_ppu,35,50)==14);
+    g_ppu->screenEnabled[0]=0;
+    CHECK(rr_sn_palette_at(g_ppu,35,50)==0);
 }
 static void data_latches(void) {
     setup(250,0,true);g_ppu->vram[0]=0x8171;

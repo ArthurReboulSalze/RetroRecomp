@@ -35,15 +35,24 @@ static void sdl_audio_callback(void* userdata, Uint8* stream, int len) {
     const uint32_t take = SDL_min(available, needed);
     const bool muted = g_audio_muted.load(std::memory_order_relaxed);
     const uint32_t volume = g_audio_volume_percent.load(std::memory_order_relaxed);
-    for (uint32_t i = 0; i < take; ++i) {
-        const uint32_t at = (read + i) % AUDIO_RING_SIZE;
-        for (uint32_t channel = 0; channel < 2; ++channel) {
-            int32_t value = muted ? 0 : g_audio_ring[at * 2u + channel];
-            value = SDL_clamp(value * (int32_t)volume / 100, -32768, 32767);
-            if (g_rr_audio_format == AUDIO_F32SYS)
-                ((float*)stream)[i * 2u + channel] = value / 32768.0f;
-            else
-                ((int16_t*)stream)[i * 2u + channel] = (int16_t)value;
+    if (!muted && volume) {
+        uint32_t first = SDL_min(take, AUDIO_RING_SIZE - read);
+        for (unsigned part = 0; part < 2; ++part) {
+            const uint32_t frames = part ? take - first : first;
+            const int16_t* source = g_audio_ring + (part ? 0 : read) * 2u;
+            Uint8* output = stream + (part ? first : 0) * frame_bytes;
+            if (volume == 100 && g_rr_audio_format == AUDIO_S16SYS) {
+                memcpy(output, source, frames * 2u * sizeof(*source));
+            } else if (g_rr_audio_format == AUDIO_F32SYS) {
+                for (uint32_t i = 0; i < frames * 2u; ++i) {
+                    int32_t value = volume == 100 ? source[i] :
+                        SDL_clamp(source[i] * (int32_t)volume / 100, -32768, 32767);
+                    ((float*)output)[i] = value / 32768.0f;
+                }
+            } else {
+                for (uint32_t i = 0; i < frames * 2u; ++i)
+                    ((int16_t*)output)[i] = (int16_t)SDL_clamp(source[i] * (int32_t)volume / 100, -32768, 32767);
+            }
         }
     }
     if (take < needed) {

@@ -4,6 +4,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp.core import run, toolchain
+from smsrecomp.platforms import build_executable, cmake_target_args
 
 def main():
     project = ROOT / '.build/nes-audio-selftest'
@@ -18,10 +19,10 @@ add_executable(checks "{ROOT.as_posix()}/native/nes_audio_checks.c")
 target_link_libraries(checks PRIVATE SDL2::SDL2-static)
 ''')
     log = project / 'build.log'
-    run([cmake, '-S', project, '-B', project/'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project/'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}'], log=log)
     run([cmake, '--build', project/'build', '--config', 'Release', '--parallel', '4'], log=log)
-    result = run([project/'build/Release/checks.exe'], timeout=60)
+    result = run([build_executable(project/'build', 'checks')], timeout=60)
     (project/'checks.log').write_text(result)
     print(result)
 

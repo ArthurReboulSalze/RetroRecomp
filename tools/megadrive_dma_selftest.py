@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp.core import run, toolchain
+from smsrecomp.platforms import cmake_target_args, build_executable, build_jobs
 from smsrecomp import megadrive_fifo, megadrive_dma
 from smsrecomp.megadrive_runtime import timing_vdp
 
@@ -17,13 +18,13 @@ def main():
     for variant in ('current', 'baseline'):
         folder = work / variant
         (folder / 'video').mkdir(parents=True, exist_ok=True)
-        header = (engine / 'video/genesis_vdp.h').read_text()
-        source = (engine / 'video/genesis_vdp.c').read_text()
+        header = (engine / 'video/genesis_vdp.h').read_text(encoding='utf-8')
+        source = (engine / 'video/genesis_vdp.c').read_text(encoding='utf-8')
         if variant == 'current':
             header = megadrive_dma.header(megadrive_fifo.header(header))
             source = megadrive_dma.vdp(megadrive_fifo.vdp(timing_vdp(source)))
-        (folder / 'video/genesis_vdp.h').write_text(header)
-        (folder / 'vdp.c').write_text(source)
+        (folder / 'video/genesis_vdp.h').write_text(header,encoding='utf-8')
+        (folder / 'vdp.c').write_text(source,encoding='utf-8')
     for name in ('md_vdp_fifo.h', 'md_vdp_fifo.inc', 'md_vdp_dma.h', 'md_vdp_dma.inc', 'md_timing.h'):
         shutil.copy2(ROOT / 'native' / name, work / name)
     (work / 'retro_md_game.h').write_text('/* Authored ROM-free fixture. */\n')
@@ -35,18 +36,20 @@ foreach(PAL RANGE 0 1)
  add_executable(checks${{PAL}} "{ROOT.as_posix()}/native/md_dma_checks.c" current/vdp.c)
  target_compile_definitions(checks${{PAL}} PRIVATE RR_MD_PAL=${{PAL}})
  target_include_directories(checks${{PAL}} PRIVATE current current/video . "{ROOT.as_posix()}/native")
- target_compile_options(checks${{PAL}} PRIVATE /utf-8)
+ if(MSVC)
+  target_compile_options(checks${{PAL}} PRIVATE /utf-8)
+ endif()
 endforeach()
 add_executable(baseline "{ROOT.as_posix()}/native/md_dma_checks.c" baseline/vdp.c)
 target_compile_definitions(baseline PRIVATE RR_DMA_BASELINE=1)
 target_include_directories(baseline PRIVATE baseline baseline/video "{ROOT.as_posix()}/native")
 ''')
     cmake, generator = toolchain()
-    run([cmake, '-S', work, '-B', work / 'build', '-G', generator, '-A', 'x64'], log=work / 'build.log')
-    run([cmake, '--build', work / 'build', '--config', 'Release', '--parallel', '3'], log=work / 'build.log')
-    baseline = json.loads(run([work / 'build/Release/baseline.exe']).strip())
+    run([cmake, '-S', work, '-B', work / 'build', '-G', generator, *cmake_target_args()], log=work / 'build.log')
+    run([cmake, '--build', work / 'build', '--config', 'Release', '--parallel', build_jobs()], log=work / 'build.log')
+    baseline = json.loads(run([build_executable(work/'build','baseline')]).strip())
     assert baseline == dict(bulk_dma_immediate=True, status_discards_vint=True)
-    results = [json.loads(run([work / f'build/Release/checks{pal}.exe']).strip()) for pal in (0, 1)]
+    results = [json.loads(run([build_executable(work/'build',f'checks{pal}')]).strip()) for pal in (0, 1)]
     result = dict(baseline=baseline, results=results, passed=True)
     (work / 'results.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))

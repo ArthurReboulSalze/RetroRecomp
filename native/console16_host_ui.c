@@ -1,3 +1,4 @@
+#include "scale2x.h"
 /* RetroRecomp 16-bit presentation host. Linked console engines retain
  * its separate PolyForm Noncommercial terms; this UI is original code. */
 #define SDL_MAIN_HANDLED
@@ -9,6 +10,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
+#ifndef _WIN32
+#include <time.h>
+#endif
 #include "retro_console16.h"
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
@@ -20,6 +24,53 @@
 #include "xbr_sdl.h"
 #include "scanlines.h"
 
+/* Explicit diagnostic only. Accumulate in memory; write once after the user
+ * closes the game. No per-frame logging or default sidecar file. */
+typedef struct {
+    uint64_t frames;
+    double total[6],maximum[6],thread_cpu;
+} RrHostTiming;
+static double rr_host_thread_cpu(void) {
+#ifndef _WIN32
+    struct timespec t;
+    if(clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t)==0)return t.tv_sec+t.tv_nsec/1000000000.0;
+#endif
+    return 0;
+}
+#if RR16_MD
+extern void rr_md_host_timing(uint64_t *simulation,uint64_t *delivery);
+extern void rr_md_engine_timing(uint64_t *cpu_bus,uint64_t *vdp);
+extern void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,uint64_t *stretches);
+#endif
+static void rr_host_timing_write(const char *path,const RrHostTiming *timing,
+        SDL_Renderer *renderer,Uint64 frequency) {
+    if(!path || !*path)return;
+    FILE *file=fopen(path,"w");if(!file)return;
+    SDL_RendererInfo info={0};SDL_GetRendererInfo(renderer,&info);
+    const char *names[]={"events_and_audio_room","engine_and_delivery","audio_queue","drawing","present","pacing"};
+    fprintf(file,"{\"frames\":%llu,\"guest_seconds\":%.9f,\"main_thread_cpu_seconds\":%.9f,\"renderer\":\"%s\",\"vsync\":%s,\"sections\":{",
+        (unsigned long long)timing->frames,timing->frames*RR16_FRAME_SECONDS,timing->thread_cpu,
+        info.name?info.name:"unknown",info.flags&SDL_RENDERER_PRESENTVSYNC?"true":"false");
+    for(unsigned n=0;n<6;++n)fprintf(file,"%s\"%s\":{\"seconds\":%.9f,\"max_ms\":%.6f}",
+        n?",":"",names[n],timing->total[n],timing->maximum[n]*1000);
+    fprintf(file,"}");
+#if RR16_MD
+    uint64_t simulation=0,delivery=0;rr_md_host_timing(&simulation,&delivery);
+    fprintf(file,",\"md_simulation_seconds\":%.9f,\"md_host_audio_seconds\":%.9f",
+        (double)simulation/frequency,(double)delivery/frequency);
+    uint64_t cpu_bus=0,vdp=0;rr_md_engine_timing(&cpu_bus,&vdp);
+    uint64_t rest=simulation>cpu_bus+vdp?simulation-cpu_bus-vdp:0;
+    fprintf(file,",\"md_cpu_bus_seconds\":%.9f,\"md_vdp_raster_seconds\":%.9f,\"md_simulation_other_seconds\":%.9f",
+        (double)cpu_bus/frequency,(double)vdp/frequency,(double)rest/frequency);
+    uint64_t wait=0,pull=0,calls=0,stretches=0;
+    rr_md_audio_delivery_timing(&wait,&pull,&calls,&stretches);
+    fprintf(file,",\"md_audio_lock_wait_seconds\":%.9f,\"md_audio_callback_seconds\":%.9f,\"md_audio_callbacks\":%llu,\"md_audio_stretch_events\":%llu",
+        (double)wait/frequency,(double)pull/frequency,(unsigned long long)calls,(unsigned long long)stretches);
+#else
+    (void)frequency;
+#endif
+    fprintf(file,"}\n");fclose(file);
+}
 
 #if RR16_NG
 enum { A, B, C, D, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
@@ -221,19 +272,8 @@ static uint16_t controller_input(int p, uint64_t frame) {
 }
 
 static void scale2x(const uint32_t *source, uint32_t *target) {
-    int width = rr16_visible_width(), height = rr16_visible_height();
-    for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x) {
-        uint32_t e = source[y * RR16_WIDTH + x];
-        uint32_t b = source[(y ? y - 1 : y) * RR16_WIDTH + x];
-        uint32_t d = source[y * RR16_WIDTH + (x ? x - 1 : x)];
-        uint32_t f = source[y * RR16_WIDTH + (x < (width - 1) ? x + 1 : x)];
-        uint32_t h = source[(y < (height - 1) ? y + 1 : y) * RR16_WIDTH + x];
-        uint32_t *out = target + (y * 2) * (RR16_WIDTH * 2) + x * 2;
-        if (b != h && d != f) {
-            out[0] = d == b ? d : e; out[1] = b == f ? f : e;
-            out[(RR16_WIDTH * 2)] = d == h ? d : e; out[(RR16_WIDTH * 2 + 1)] = h == f ? f : e;
-        } else out[0] = out[1] = out[(RR16_WIDTH * 2)] = out[(RR16_WIDTH * 2 + 1)] = e;
-    }
+    int width=rr16_visible_width(),height=rr16_visible_height();
+    rr_scale2x(source,width,height,RR16_WIDTH,target,RR16_WIDTH*2);
     /* Linear sampling at a partial viewport's edge must see the edge color,
      * never the unused part of the maximum-size texture (e.g. 256-wide MD). */
     int pitch = RR16_WIDTH * 2;
@@ -465,6 +505,9 @@ int rr16_sdl_main(const char *title, int scale) {
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
     const Uint64 test_started = next;
+    const char *timing_path=getenv("RETRORECOMP_TIMING_REPORT");
+    bool timing_enabled=timing_path && *timing_path;
+    RrHostTiming timing={0};
     uint64_t frame = 0;
     int title_state = -1;
     bool running = true;
@@ -473,6 +516,10 @@ int rr16_sdl_main(const char *title, int scale) {
     const char *test_filter = test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
     if (test_filter && !strcmp(test_filter, "3")) filter = 3;
     while (running) {
+        Uint64 timing_ticks[7]={0};
+        double timing_cpu=timing_enabled?rr_host_thread_cpu():0;
+        bool timing_ran_frame=false;
+        if(timing_enabled)timing_ticks[0]=SDL_GetPerformanceCounter();
         /* Preserve every produced block. If the host catches up after a
          * scheduling delay, wait for a little room before sampling inputs
          * and running the next frame instead of discarding ~17 ms of sound.
@@ -612,11 +659,14 @@ int rr16_sdl_main(const char *title, int scale) {
         uint16_t pad1 = controller_input(0, input_frame);
         if (RR16_GUN) sample_gun(win, ren, pad1);
         if (!menu || pending_state) {
+            if(timing_enabled)timing_ticks[1]=SDL_GetPerformanceCounter();
 #if RR16_NG
             rr_ng_audio_queue_probe(audio_playing,audio?SDL_GetQueuedAudioSize(audio):0,(unsigned)have.freq,have.samples);
 #endif
             if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, input_frame))) { running = false; break; }
             ++frame;
+            timing_ran_frame=true;
+            if(timing_enabled)timing_ticks[2]=SDL_GetPerformanceCounter();
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
             if (n && audio) {
                 if (SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t))) != 0) {
@@ -627,6 +677,7 @@ int rr16_sdl_main(const char *title, int scale) {
             }
             if (test_frames && frame >= test_frames) running = false;
         } else if (audio_playing) pause_audio_output(audio, &audio_playing);
+        if(timing_enabled)timing_ticks[3]=SDL_GetPerformanceCounter();
         if (filter == 2) { scale2x(rr16_pixels(), upscaled); SDL_UpdateTexture(tex, NULL, upscaled, RR16_WIDTH * 2 * 4); }
         else SDL_UpdateTexture(tex, NULL, rr16_pixels(), RR16_WIDTH * 4);
         SDL_Rect dst = game_rect(ren);
@@ -655,8 +706,10 @@ int rr16_sdl_main(const char *title, int scale) {
         rr_ng_ui_test_present(ren);
         Uint64 present_started=work_started?SDL_GetPerformanceCounter():0;
 #endif
+        if(timing_enabled)timing_ticks[4]=SDL_GetPerformanceCounter();
         SDL_RenderPresent(ren);
         Uint64 now = SDL_GetPerformanceCounter();
+        timing_ticks[5]=now;
 #if RR16_NG
         if(work_started)rr_ng_host_cost(1000.0*(now-work_started)/frequency,
                                        1000.0*(now-present_started)/frequency);
@@ -679,6 +732,15 @@ int rr16_sdl_main(const char *title, int scale) {
             if (ms > 1) SDL_Delay(ms - 1);
             while (SDL_GetPerformanceCounter() < next) {}
         } else if (now - next > frequency / 4) next = now;
+        if(timing_enabled && timing_ran_frame) {
+            timing_ticks[6]=SDL_GetPerformanceCounter();
+            ++timing.frames;timing.thread_cpu+=rr_host_thread_cpu()-timing_cpu;
+            for(unsigned n=0;n<6;++n) {
+                double seconds=(double)(timing_ticks[n+1]-timing_ticks[n])/frequency;
+                timing.total[n]+=seconds;
+                if(seconds>timing.maximum[n])timing.maximum[n]=seconds;
+            }
+        }
     }
     double elapsed = (double)(SDL_GetPerformanceCounter() - test_started) / frequency;
 #if RR16_NG
@@ -690,6 +752,7 @@ int rr16_sdl_main(const char *title, int scale) {
                 frame, elapsed, frame * RR16_FRAME_SECONDS, frame / elapsed, 1.0 / RR16_FRAME_SECONDS,
                 video_clock_test ? "true" : "false");
     }
+    rr_host_timing_write(timing_path,&timing,ren,frequency);
     rr_feedback_close_screen(ren);
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);

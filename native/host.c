@@ -1,3 +1,4 @@
+#include "scale2x.h"
 /* Presentation, native menus and input. The game remains in its generated C
  * routines. Pausing waits here; resetting unwinds them through glue_run(). */
 #include <SDL.h>
@@ -202,15 +203,7 @@ static void pace(void) {
 }
 
 static void scale2x(const uint32_t *src, int w, int h, int stride, uint32_t *dst) {
-    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
-        uint32_t e = src[y*stride+x], b = src[(y ? y-1 : y)*stride+x], d = src[y*stride+(x ? x-1 : x)];
-        uint32_t f = src[y*stride+(x+1 < w ? x+1 : x)], z = src[(y+1 < h ? y+1 : y)*stride+x];
-        int p = (y*2)*(w*2) + x*2;
-        if (b != z && d != f) {
-            dst[p] = d == b ? d : e; dst[p+1] = b == f ? f : e;
-            dst[p+w*2] = d == z ? d : e; dst[p+w*2+1] = z == f ? f : e;
-        } else dst[p] = dst[p+1] = dst[p+w*2] = dst[p+w*2+1] = e;
-    }
+    rr_scale2x(src,w,h,stride,dst,w*2);
 }
 
 /* Windowed/first-fullscreen modes keep integer pixels. The second fullscreen

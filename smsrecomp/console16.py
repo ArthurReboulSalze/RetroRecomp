@@ -93,7 +93,7 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
-    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
     native = project / 'native'
     native.mkdir(exist_ok=True)
@@ -129,7 +129,7 @@ find_package(SDL2 REQUIRED)
             shutil.copy2(ASSETS / 'native' / name, project / name)
         shutil.copy2(ASSETS / 'native/md_ym_timers.h', project / 'md_ym_timers.h')
         shutil.copy2(ASSETS / 'native/md_timing.h', project / 'md_timing.h')
-        for name in ('md_vdp_fifo.h', 'md_vdp_fifo.inc', 'md_vdp_dma.h', 'md_vdp_dma.inc', 'md_vdp_read.h', 'md_vdp_read.inc', 'md_bus_scheduler.h', 'md_z80_bus.inc'):
+        for name in ('md_vdp_fifo.h', 'md_vdp_fifo.inc', 'md_vdp_dma.h', 'md_vdp_dma.inc', 'md_vdp_read.h', 'md_vdp_read.inc', 'md_bus_scheduler.h', 'md_z80_bus.inc', 'md_vdp_pixels.inc'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
         from .megadrive_runtime import timing_source, timing_vdp, raster_machine
         from . import megadrive_z80
@@ -141,6 +141,9 @@ find_package(SDL2 REQUIRED)
             (engine / 'runner/external/superzazu/z80.c').read_text(encoding='utf-8')), encoding='utf-8')
         step_aot = '#define RR_MD_STEP_AOT 1' in (project / 'retro_md_game.h').read_text(encoding='utf-8')
         if step_aot:
+            from .megadrive_bus import fiber as md_fiber
+            fiber_path=runtime/'runner/fiber_compat.c'
+            fiber_path.write_text(md_fiber(fiber_path.read_text(encoding='utf-8')),encoding='utf-8')
             for name in ('md_native_steps.h', 'm68000_state_helpers.h', 'md_exception_decode.h', 'md_step_dispatch.c', 'md_prefetch.h', 'md_prefetch.inc'):
                 shutil.copy2(ASSETS / 'native' / name, project / name)
         # Two host-only adaptations in private source copies. Never edit the
@@ -194,7 +197,14 @@ find_package(SDL2 REQUIRED)
         audio = audio.replace('cfg.preroll_ms     = 200.0;',
             'cfg.target_ms = 25.0; cfg.em_low_ms = 5.0; cfg.em_high_ms = 80.0;\n    cfg.preroll_ms = 25.0;')
         audio = audio.replace('a ~200 ms boot pre-roll', 'a 25 ms boot pre-roll')
+        from .megadrive_audio import output
+        audio = output(audio)
         (native / 'audio.c').write_text(audio, encoding='utf-8')
+        from .megadrive_audio import bridge
+        (native / 'recomp_audio_drc.h').write_text(bridge(
+            (engine / 'runner/recomp_audio_drc.h').read_text(encoding='utf-8')), encoding='utf-8')
+        for name in ('md_audio_loop.inc', 'md_audio_resample.inc', 'md_audio_mix.h'):
+            shutil.copy2(ASSETS / 'native' / name, native / name)
         sources = ['fiber_compat.c', 'crash_report.c', 'chip_trace.c', 'cmd_server_stub.c',
                    *([] if step_aot else ['rb_state.c']),
                    'cosim_state.c', 'cosim_cycles.c', 'audio/event_queue.c',
@@ -227,6 +237,8 @@ find_package(SDL2 REQUIRED)
                     '        rr_md_z80_capture_driver();\n        m->bus.z80_reset_pending = 0;')
                 text = megadrive_bus.machine(text)
                 text = megadrive_cart.machine(text)
+                from .megadrive_runtime import host_timing
+                text = host_timing(text)
             if name == 'genesis_vdp':
                 text = megadrive_fifo.vdp(text)
                 text = megadrive_dma.vdp(text)
@@ -253,7 +265,11 @@ add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun1
 target_include_directories(game PRIVATE . "{runner}" "{runner}/include"
   "{runner}/video" "{runner}/audio" "{runner}/external/superzazu" "{runner}/external/clowncommon"
   "{runner}/external/ymfm/src" "{prefix}/recompiler/src" "{prefix}/external/m68k-recomp-core/src")
-target_compile_definitions(game PRIVATE RR16_MD=1 OWN_BACKEND=1 ENABLE_RECOMPILED_CODE=1 INCLUDE_GENERATED_CODE=1 GENESIS_BATCHED_PLANES=0)
+target_compile_definitions(game PRIVATE RR16_MD=1 OWN_BACKEND=1 ENABLE_RECOMPILED_CODE=1 INCLUDE_GENERATED_CODE=1 GENESIS_BATCHED_PLANES=1)
+# Both guest CPU fibers stay on the one emulation thread (fiber_compat already
+# uses plain static current/thread pointers). Avoid migration-safe TLS lookups.
+set_property(SOURCE "{runner}/fiber_compat.c" APPEND PROPERTY COMPILE_DEFINITIONS MCO_NO_MULTITHREAD)
+set_property(SOURCE native/genesis_machine.c APPEND PROPERTY COMPILE_DEFINITIONS RR_MD_ENGINE_TIMING=1)
 if(MSVC)
   target_link_options(game PRIVATE /CETCOMPAT:NO)
 endif()
@@ -308,6 +324,7 @@ endif()
         shutil.copy2(ASSETS / 'native/snes_timing.h', project / 'snes_timing.h')
         adapt_engine(staged)
         from .snes_video import adapt_engine as adapt_video
+        shutil.copy2(ASSETS / 'native/snes_ppu_cache.inc', project / 'snes_ppu_cache.inc')
         adapt_video(staged)
         from .snes_dma import adapt_engine as adapt_dma
         shutil.copy2(ASSETS / 'native/snes_dma.h', project / 'snes_dma.h')
@@ -379,6 +396,9 @@ endif()
     (project / 'CMakeLists.txt').write_text(common, encoding='utf-8')
     from .feedback import stage
     stage(project, system_id, rom.sha256)
+    from .console16_optimization import CMAKE
+    with (project / 'CMakeLists.txt').open('a', encoding='utf-8') as file:
+        file.write(CMAKE)
 
 
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None, standard_override=None):
@@ -450,10 +470,8 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     if (project/'game_legal.md').is_file():resource_map[102]=project/'game_legal.md'
     if (project/'game_identity.bin').is_file():resource_map[104]=project/'game_identity.bin'
     embed_resources(project,resource_map)
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
-         f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=project / 'build.log', timeout=600)
-    run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', build_jobs()],
-        log=project / 'build.log', timeout=1200)
+    from .console16_optimization import build_game
+    build_game(project, cmake, generator, sdl, emit)
     return build_executable(project / 'build','game')
 
 

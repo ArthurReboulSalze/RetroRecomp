@@ -1,44 +1,96 @@
 """Exercise DMA bus suspension using the objects of an actual game build."""
 from pathlib import Path
 import argparse
-import inspect
 import json
+import os
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import tools.megadrive_save_selftest as build
 from smsrecomp.core import run
+from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
+
+
+def native_executable(project, output, harness, z80_source=None):
+    """Link authored fixtures against current production objects, never run its ROM."""
+    from smsrecomp.core import toolchain
+    output.mkdir(parents=True, exist_ok=True)
+    work = output / 'harness'
+    work.mkdir(exist_ok=True)
+    excluded = {'console16_main', 'genesis_machine'}
+    if '#include "glue.c"' in harness:
+        excluded.add('glue')
+        harness = harness.replace('#include "glue.c"', '#include "' + (project/'native/glue.c').as_posix() + '"')
+    harness = harness.replace('#include "genesis_machine.c"', '#include "' + (project/'native/genesis_machine.c').as_posix() + '"')
+    if z80_source is not None:
+        excluded.add('md_z80_generated')
+    resources=[]
+    if os.name=='nt':
+        # Incremental MSBuild tlogs retain old input sets. The current project
+        # is the authority; using its first historical tlog record omitted
+        # later state, battery and feedback objects from the fixture link.
+        import xml.etree.ElementTree as ET
+        from collections import Counter
+        tree=ET.parse(project/'build/game.vcxproj')
+        ns={'m':'http://schemas.microsoft.com/developer/msbuild/2003'}
+        names=[Path(n.attrib['Include']).stem.lower() for n in tree.findall('.//m:ClCompile',ns)
+               if 'Include' in n.attrib]
+        assert all(n==1 for n in Counter(names).values()), 'Ambiguous source/object names'
+        folder=project/'build/game.dir/Release'
+        objects=[]
+        for name in names:
+            if name in excluded:continue
+            found=list(folder.rglob(name+'.obj'))
+            assert len(found)==1,(name,found)
+            objects.append(found[0])
+        for node in tree.findall('.//m:ResourceCompile',ns):
+            if 'Include' not in node.attrib:continue
+            found=list(folder.rglob(Path(node.attrib['Include']).stem+'.res'))
+            assert len(found)==1,found
+            resources+=found
+    else:
+        objects=sorted(p for p in (project/'build/CMakeFiles/game.dir').rglob('*.o')
+                       if p.name.removesuffix('.o').removesuffix('.c').removesuffix('.cpp') not in excluded)
+    assert objects and any(p.name in ('md_backend.obj','md_backend.c.o') for p in objects)
+    sources = '\n'.join('  "' + p.as_posix() + '"' for p in objects)
+    if z80_source is not None:
+        sources += '\n  "' + z80_source.as_posix() + '"'
+    (work/'checks.c').write_text(harness, encoding='utf-8')
+    runner = (project/'engine/runner').as_posix()
+    libraries='SDL2::SDL2-static '+('ws2_32 comdlg32' if os.name=='nt' else 'dl m pthread')
+    libraries+=' '+ ' '.join('"'+p.as_posix()+'"' for p in resources)
+    (work/'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
+project(RetroMdBusChecks C CXX)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+find_package(SDL2 REQUIRED)
+add_executable(checks checks.c
+{sources})
+set_target_properties(checks PROPERTIES LINKER_LANGUAGE CXX)
+target_compile_definitions(checks PRIVATE RR16_MD=1 OWN_BACKEND=1)
+target_include_directories(checks PRIVATE "{project.as_posix()}" "{project.as_posix()}/native"
+ "{runner}" "{runner}/include" "{runner}/video" "{runner}/audio"
+ "{runner}/external/superzazu" "{runner}/external/clowncommon"
+ "{(ROOT/'.deps/segagenesisrecomp/recompiler/src').as_posix()}")
+target_link_libraries(checks PRIVATE {libraries})
+if(MSVC)
+ target_compile_options(checks PRIVATE /utf-8 /wd4996)
+ target_link_options(checks PRIVATE /CETCOMPAT:NO)
+endif()
+''', encoding='utf-8')
+    cmake, generator = toolchain()
+    run([cmake, '-S', work, '-B', work/'build', '-G', generator, *cmake_target_args(),
+         '-DCMAKE_PREFIX_PATH='+(ROOT/'.deps/SDL/install').as_posix()], log=work/'build.log')
+    run([cmake, '--build', work/'build', '--config', 'Release', '--parallel', build_jobs()], log=work/'build.log')
+    return build_executable(work/'build', 'checks')
 
 
 def executable(project, output, harness, z80_source=None):
-    # Reuse the checked production-object linker; include the machine copy to
-    # exercise Z80 slices without running an artificial future raster frame.
-    source = inspect.getsource(build.check)
-    if '#include "glue.c"' in harness:
-        source=source.replace("Path(p).name.lower()!='console16_main.obj'",
-            "Path(p).name.lower() not in ('console16_main.obj','glue.obj')")
-        harness=harness.replace('#include "glue.c"','#include "'+(project/'native/glue.c').as_posix()+'"')
-    source = source.replace('    assert objects and all(p.is_file() for p in objects)',
-        '    objects=[p for p in objects if p.name.lower()!="genesis_machine.obj"]\n'
-        '    assert objects and all(p.is_file() for p in objects)')
-    source = source[:source.index('    results=[]')] + '    return exe\n'
-    if z80_source is not None:
-        source = source.replace('    assert objects and all(p.is_file() for p in objects)',
-            '    objects=[p for p in objects if p.name.lower()!="md_z80_generated.obj"]\n'
-            '    assert objects and all(p.is_file() for p in objects)')
-        source = source.replace("    resources=' '.join",
-            '    sources += \'\\n  "\' + z80_source.as_posix() + \'"\'\n' + "    resources=' '.join")
-    namespace = dict(build.__dict__)
-    namespace['z80_source'] = z80_source
-    exec(source, namespace)
-    namespace['HARNESS'] = harness.replace(
-        '#include "genesis_machine.c"', '#include "' + (project / 'native/genesis_machine.c').as_posix() + '"')
-    return namespace['check'](project, output)
+    return native_executable(project, output, harness, z80_source)
 
 
 LOCAL_STATE = r'''
-#include <windows.h>
+#include "platform_io.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "retro_console16.h"
@@ -56,7 +108,7 @@ static uint8_t waiting_read(void *user,uint16_t address) {
  if(address==0x8000) { CHECK(!machine_z80_bus_acknowledged());++waiting_reads; }
  return value;
 }
-int wmain(int argc,wchar_t **argv) {
+static int checks_main(int argc,wchar_t **argv) {
  CHECK(argc==2 && rr16_init(true));GenesisMachine *m=&g_machine;
  g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
  rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
@@ -99,10 +151,19 @@ int wmain(int argc,wchar_t **argv) {
  CHECK(rr_z80_busy && !rr16_state_ready());
  gbus_write8(&m->bus,0xa11100,0);machine_run_frame(NULL,NULL);
  CHECK(waiting_reads==1 && !rr_md_bus_busy() && rr16_state_ready());
- DeleteFileW(argv[1]);rr16_shutdown();
+ rr_remove(argv[1]);rr16_shutdown();
  printf("{\"checks\":%u,\"passed\":true,\"pending_capture_rejected\":true,\"stable_ack_restored\":true,\"DMA_WAIT_finishes_before_ack\":true}\n",checks);
  return 0;
 }
+#ifdef _WIN32
+int wmain(int argc,wchar_t **argv) { return checks_main(argc,argv); }
+#else
+int main(int argc,char **argv) {
+ wchar_t path[4096];CHECK(argc==2 && rr_from_utf8(argv[1],path,4096));
+ wchar_t *args[]={L"checks",path};return checks_main(argc,args);
+}
+#endif
+
 '''
 
 

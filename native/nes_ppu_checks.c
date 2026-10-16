@@ -7,6 +7,9 @@
 #include "cpu6502.h"
 #include "hw_internal.h"
 #include "retro_nes.h"
+extern size_t rr_nes_apu_size(void);
+extern void rr_nes_apu_save(uint8_t *);
+extern void rr_nes_apu_load(const uint8_t *);
 bool cyc_native_has(uint16_t pc){(void)pc;return false;}
 void cyc_native_run(void){abort();}
 static uint32_t seed;
@@ -27,6 +30,10 @@ int main(int argc,char **argv){
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     if(!cyc_load_ines(rom,size))return 3;free(rom);cyc_run_native=false;
+    uint8_t *audio_state=malloc(rr_nes_apu_size());if(!audio_state)return 4;
+    static const uint16_t audio_regs[]={
+        0x4000,0x4001,0x4002,0x4003,0x4004,0x4005,0x4006,0x4007,
+        0x4008,0x400a,0x400b,0x400c,0x400e,0x400f,0x4010,0x4011,0x4012,0x4013,0x4015,0x4017};
     for(unsigned align=0;align<4;align++){
         cyc_power_on((uint8_t)align);cyc_run_power_on();cyc_audio_enable(48000);seed=1+align;
         for(unsigned i=0;i<256;i++)ppu.oam[i]=(uint8_t)(i*19);
@@ -40,17 +47,29 @@ int main(int argc,char **argv){
             if(iteration%3==0)(void)cpu_read((uint16_t)(0x2000+((value>>4)&7)),0);
             if(iteration%17==0)cpu_write(0x4014,(uint8_t)(value&7),0);
             if(iteration%11==0)cpu_write((uint16_t)(0x8000+(value&0x7001)),(uint8_t)(value>>24),0);
+            cpu_write(audio_regs[iteration%20],(uint8_t)(value>>16),0);
+            if(iteration%19==0)cpu_write(0x4015,31,0);
+            if(iteration%29==0)apu_debug_set_noise((uint16_t)(value&0x7fff),(uint16_t)(value&0xff));
+            if(iteration%37==0){
+                rr_nes_apu_save(audio_state);
+                cpu_write(0x4011,(uint8_t)value,0);
+                for(unsigned k=0;k<23;k++)(void)cpu_read(0,0);
+                rr_nes_apu_load(audio_state);
+            }
+            if(iteration%103==0){apu_audio_enable(false,0);cyc_audio_enable((iteration&1)?44100:48000);}
             for(unsigned clock=0;clock<128+(value&63);clock++){
                 (void)cpu_read(0,0);
                 if((clock&31)==17)(void)cpu_read(0x2002,0);
             }
             int16_t pcm[4096];size_t n;uint64_t sound=14695981039346656037ULL;
             while((n=cyc_audio_read(pcm,4096)))sound^=hash_bytes(pcm,n*sizeof(*pcm));
-            printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
+            rr_nes_apu_save(audio_state);
+            printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
                 (unsigned long long)cyc_cycle_count(),(unsigned long long)hash_bytes(&ppu,sizeof(ppu)),
                 (unsigned long long)hash_bytes(hw_frame_index,sizeof(hw_frame_index)),
-                (unsigned long long)cyc_hw_state_hash(),(unsigned long long)cyc_mem_state_hash(),(unsigned long long)sound);
+                (unsigned long long)cyc_hw_state_hash(),(unsigned long long)cyc_mem_state_hash(),(unsigned long long)sound,
+                (unsigned long long)hash_bytes(audio_state,rr_nes_apu_size()));
         }
     }
-    return 0;
+    free(audio_state);return 0;
 }

@@ -1,4 +1,4 @@
-"""Compare optimized and original PPU clocks on authored bus activity, no ROMs."""
+"""Compare optimized and original PPU/APU clocks on authored activity, no ROMs."""
 from pathlib import Path
 import json
 import sys
@@ -17,14 +17,15 @@ def main():
     for variant, optimized in (('baseline', False), ('optimized', True)):
         folder = project / variant
         folder.mkdir(parents=True, exist_ok=True)
-        machines[variant] = prepare_machine(folder, ROOT / '.deps/nesrecomp', fast_ppu=optimized)
+        machines[variant] = prepare_machine(folder, ROOT / '.deps/nesrecomp',
+                                            fast_ppu=optimized, fast_audio=optimized)
         (folder / 'retro_nes_config.h').write_text('#define RR_NES_ROM_SHA "' + '0' * 64 + '"\n')
     baseline = machines['baseline']
     source = f'''cmake_minimum_required(VERSION 3.20)
 project(NesPpuChecks C)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 include("{baseline.as_posix()}/cyc.cmake")
-list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c" "${{NESRECOMP_CYC_DIR}}/hw_machine.c" "${{NESRECOMP_CYC_DIR}}/hw_ppu.c")
+list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c" "${{NESRECOMP_CYC_DIR}}/hw_machine.c" "${{NESRECOMP_CYC_DIR}}/hw_ppu.c" "${{NESRECOMP_CYC_DIR}}/hw_apu.c")
 '''
     for pal in (0, 1):
         source += f'''add_library(common{pal} OBJECT ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/native/platform_io.c")
@@ -33,7 +34,7 @@ target_compile_definitions(common{pal} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PA
 '''
         for variant, machine in machines.items():
             name = f'{variant}{pal}'
-            source += f'''add_executable({name} "{machine.as_posix()}/hw_machine.c" "{machine.as_posix()}/hw_ppu.c" "{ROOT.as_posix()}/native/nes_ppu_checks.c" $<TARGET_OBJECTS:common{pal}>)
+            source += f'''add_executable({name} "{machine.as_posix()}/hw_machine.c" "{machine.as_posix()}/hw_ppu.c" "{machine.as_posix()}/hw_apu.c" "{ROOT.as_posix()}/native/nes_ppu_checks.c" $<TARGET_OBJECTS:common{pal}>)
 target_include_directories({name} PRIVATE "{machine.as_posix()}" "{ROOT.as_posix()}/native" "{project.as_posix()}/{variant}")
 target_compile_definitions({name} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL={pal} RR_NES_ZAPPER=1)
 target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
@@ -55,7 +56,7 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
                 first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
                 raise RuntimeError(f'PPU mismatch: PAL={pal}, mapper={mapper}, checkpoint={first}; traces in {project}')
             result = dict(pal=pal, mapper=mapper, alignments=4, checkpoints=2800,
-                          hidden_ppu_frame_bus_pcm_match=True)
+                          hidden_ppu_apu_frame_bus_pcm_match=True)
             print(json.dumps(result), flush=True)
             results.append(result)
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='ascii')
