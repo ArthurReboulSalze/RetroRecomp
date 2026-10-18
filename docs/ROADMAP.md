@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.1.3 has seven supported console profiles on Windows and a native Linux
+Release 1.1.4 has seven supported console profiles on Windows and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -9,6 +9,13 @@ and NES ROMs, includes a supported Mega Drive standard-cartridge profile
 and a supported standard Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
 their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
+
+## Delivered in 1.1.4 — 19 October 2026
+
+The converter gains an animated credits demo, direct four-channel ChipLoom MOD
+playback, percussion-driven spheres and centered Options. These interface-only
+changes retain the 1,105-identity knowledge library and existing game exports.
+See [credits](CREDITS.md) and [release notes](RELEASE_NOTES.md).
 
 ## Delivered in 1.1.3 — 18 October 2026
 

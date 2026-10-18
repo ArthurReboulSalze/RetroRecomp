@@ -1,5 +1,12 @@
 # Shared compilation knowledge
 
+## Release 1.1.4 — unchanged qualified snapshot, 19 October 2026
+
+The animated-credits update retains the complete verified 1.1.3 snapshot below,
+unchanged on Windows and Linux. No cartridge scan, new observation or gameplay
+qualification was performed for 1.1.4. Credits UI, MOD files and the native music
+player are excluded from generated-game compilation inputs.
+
 ## Release 1.1.3 qualified snapshot — 18 October 2026
 
 Release 1.1.3 contains **1,105 exact identities**: SMS 258, GG 13,

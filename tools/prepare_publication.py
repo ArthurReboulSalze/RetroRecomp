@@ -15,6 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
+smsrecomp/credits_demo.py smsrecomp/credits_music.py smsrecomp/dialogs.py
+tools/credits_audio/CMakeLists.txt tools/credits_audio/player.c tools/build_credits_audio.py
+tests/test_credits.py tools/credits_selftest.py
+assets/credits/NOTICE.md docs/CREDITS.md
+MEDIAS/trackers_chiploom/night_vector.mod
+MEDIAS/trackers_chiploom/Pixel_Rush.mod
+MEDIAS/trackers_chiploom/pocket_signals_v2.mod
 smsrecomp/platforms.py native/platform_io.h native/platform_io.c
 smsrecomp/linux_desktop.py tests/test_linux_desktop.py
 smsrecomp/languages.py
@@ -248,7 +255,7 @@ tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
-                          if p.startswith(("native/", "assets/", "profiles/"))
+                          if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
 TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json"}
@@ -355,9 +362,18 @@ def audit_executable(executable: Path, source: Path) -> dict:
     from PyInstaller.archive.readers import CArchiveReader
     archive = CArchiveReader(str(executable))
     bundled = {}
+    audio = []
     for original in archive.toc:
         name = original.replace("\\", "/")
-        if name.startswith(("native/", "assets/", "profiles/", "licenses/")) or name in {
+        if name.startswith('credits-runtime/'):
+            leaf = Path(name).name
+            if leaf not in ('retro_credits.dll', 'libretro_credits.so'):
+                raise ValueError('Unexpected credits audio library: ' + name)
+            built = source / '.build/credits-audio/runtime' / leaf
+            if not built.is_file() or archive.extract(original) != built.read_bytes():
+                raise ValueError('Credits audio differs from the native build: ' + name)
+            audio.append(name)
+        if name.startswith(("native/", "assets/", "profiles/", "licenses/", "MEDIAS/trackers_chiploom/")) or name in {
                 "LICENSE", "THIRD_PARTY_NOTICES.md"}:
             if name not in BUNDLED_FILES:
                 raise ValueError(f"Unexpected executable payload: {name}")
@@ -373,6 +389,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
             raise ValueError(f"Game data in executable: {name}")
     if set(bundled) != BUNDLED_FILES:
         raise ValueError("The executable is missing public resources.")
+    if len(audio) != 1:
+        raise ValueError('The executable needs exactly one native credits player.')
     pyz = archive.open_embedded_archive("PYZ.pyz")
     modules = []
     for name in PUBLIC_FILES:

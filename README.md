@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.3-d4a737" alt="Release version 1.1.3">
+  <img src="https://img.shields.io/badge/release-1.1.4-d4a737" alt="Release version 1.1.4">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -28,10 +28,13 @@ game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
-**New in 1.1.3:** resume interrupted batches, keep exports after interface-only
-updates, and protect learned hints during simultaneous conversions. A smaller
-verified knowledge library and lower temporary memory use benefit both Windows
-and Linux. See the [release notes](docs/RELEASE_NOTES.md).
+**New in 1.1.4:** a demoscene-inspired credits screen brings scrolling credits,
+flying stars, rotating cubes and bouncing spheres that follow the music.
+Three original four-channel modules created with
+[ChipLoom](https://github.com/ArthurReboulSalze/ChipLoom) play directly, with a
+mute button and a different track each time you reopen credits. Options now
+open centered over the app. Available on Windows and Linux; see the
+[release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
   or use the file buttons. Recognized

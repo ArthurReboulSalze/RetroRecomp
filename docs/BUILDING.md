@@ -1,5 +1,16 @@
 # Build and run
 
+## Credits music in converter packages
+
+Both converter packaging scripts build a small native MOD player with CMake and
+a C compiler. `python tools/build_credits_audio.py` downloads hash-verified,
+pinned libxmp-lite and miniaudio sources; packaged users need no compiler or
+separate audio player. Three original ChipLoom MODs and the player are embedded
+in the converter, never in generated games. See [credits](CREDITS.md).
+
+After building, `python tools/credits_selftest.py` checks the actual decoder and
+percussion events; `--device` also checks playback, mute and shutdown.
+
 ## Linux x86-64
 
 The first Linux package has bounded witnesses for all seven consoles on

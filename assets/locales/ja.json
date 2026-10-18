@@ -199,7 +199,20 @@
     "tip_table": "ゲームを選んで結果を確認します。Ctrl/Shift で複数選択し、準備完了のゲームはダブルクリックで起動します。",
     "tip_video_timing": "自動は ROM の保存済み設定を使い、なければファイル名から推測します。地域名はタイミングの証明ではありません。PAL/NTSC を指定すると再生成時に上書きし保存します。他の機種は個別設定になります。",
     "queue_restored": "未完了のROMを{count}件復元しました。変換で再開できます。",
-    "queue_save_failed": "処理の進行状況を保存できません。ディスクの空き容量とフォルダーへのアクセスを確認してください。"
+    "queue_save_failed": "処理の進行状況を保存できません。ディスクの空き容量とフォルダーへのアクセスを確認してください。",
+    "credits_demo_tagline": "作り手。コード。音楽。",
+    "credits_auto": "自動スクロール",
+    "credits_manual": "手動スクロール",
+    "credits_pause": "スクロールを停止",
+    "credits_resume": "スクロールを再開",
+    "credits_sound_on": "サウンド：オン",
+    "credits_sound_off": "サウンド：オフ",
+    "credits_manual_hint": "スクロールで手動操作へ。いつでも再開できます。",
+    "credits_chiploom": "音楽は ChipLoom で生成 ↗",
+    "credits_thanks": "ゲームを未来へ。",
+    "credits_module_info": "4 チャンネル MOD · パターン {pattern} / 行 {row}",
+    "credits_audio_starting": "音楽プレーヤーを起動中…",
+    "credits_audio_missing": "音声を利用できません。クレジットは操作できます"
   },
   "runtime": {
     "Unassigned": "未設定",

@@ -28,6 +28,8 @@ def main():
         if importlib.metadata.version(name) != version:
             parser.error(f'Install {name}=={version} in the build venv.')
     audit_sources(ROOT)
+    from tools.build_credits_audio import build as build_credits_audio
+    credits_audio = build_credits_audio()
     stage = ROOT/'.build/linux-package'
     hooks = stage/'hooks'
     hooks.mkdir(parents=True, exist_ok=True)
@@ -44,7 +46,8 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
     command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
         '--name', 'Retro-Recomp', '--exclude-module', 'numpy', '--exclude-module', 'pytest',
         '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
-        '--specpath', str(stage), '--additional-hooks-dir', str(hooks)]
+        '--specpath', str(stage), '--additional-hooks-dir', str(hooks),
+        '--add-binary', str(credits_audio)+':credits-runtime']
     for name in sorted(BUNDLED_FILES):
         command += ['--add-data', str(ROOT/name)+':'+str(Path(name).parent)]
     # Preserve the actual dependency notices, including cryptography's bundled

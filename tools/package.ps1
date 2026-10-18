@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Push-Location -LiteralPath $projectRoot
 try {
+    $creditsAudio = python tools/build_credits_audio.py
+    if ($LASTEXITCODE -ne 0) { throw 'La compilation du lecteur MOD a échoué.' }
     python -X utf8 tools/prepare_logo.py
     if ($LASTEXITCODE -ne 0) { throw 'La préparation du logo a échoué.' }
     python -c "from pathlib import Path; from smsrecomp.metadata import write_converter_version; write_converter_version(Path('.build/converter-version.txt'))"
@@ -21,6 +23,7 @@ try {
     python -m PyInstaller --noconfirm --onefile --windowed --name Retro-Recomp `
         --icon "$projectRoot\assets\Retro-Recomp.ico" `
         --version-file "$projectRoot\.build\converter-version.txt" `
+        --add-binary "$creditsAudio;credits-runtime" `
         --exclude-module numpy `
         --distpath .build/packaged --workpath .build/packaging --specpath .build `
         @resourceArguments RetroRecomp.py

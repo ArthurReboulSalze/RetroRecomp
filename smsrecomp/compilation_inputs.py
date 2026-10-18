@@ -15,7 +15,8 @@ from functools import lru_cache
 
 SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'))
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
-                               'dropfiles', 'updater', 'linux_desktop', 'queue_state'))
+                               'dropfiles', 'updater', 'linux_desktop', 'queue_state',
+                               'credits_demo', 'credits_music', 'dialogs'))
 
 
 def owners(name):
@@ -122,7 +123,7 @@ def _resource_paths(root, system):
             if not path.is_file():
                 continue
             relative = path.relative_to(root).as_posix()
-            if relative.startswith('assets/tools/') or relative.startswith('assets/locales/'):
+            if relative.startswith('assets/tools/') or relative.startswith('assets/locales/') or relative.startswith('assets/credits/'):
                 continue
             if path.name in ('compilation-knowledge.json.gz', 'cover-references.json',
                     'font-coverage.json', 'Retro-Recomp-banner.png', 'Retro-Recomp-consoles.png',

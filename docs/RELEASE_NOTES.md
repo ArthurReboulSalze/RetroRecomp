@@ -1,3 +1,40 @@
+# RetroRecomp v1.1.4 — Animated credits and ChipLoom music
+
+The credits become a small demoscene presentation in RetroRecomp's charcoal,
+white and gold colors, on both Windows and Linux.
+
+- **An animated credits screen.** Fast approaching stars, moving waves, a
+  perspective floor and rotating cubes surround the scrolling credits.
+  Two checker spheres bounce on the music's kick and snare, with a small
+  response to hi-hats. The scrollbar, mouse wheel and keyboard let you take
+  over the scrolling; automatic scrolling can be resumed at any time.
+- **Real four-channel MOD playback.** Three original tracks created with
+  [ChipLoom](https://github.com/ArthurReboulSalze/ChipLoom) are replayed directly
+  by a small native player. Reopening credits chooses a different track, never
+  the same one twice in a row. A mute button remembers your preference.
+- **A centered Options dialog.** Options now open centered over the converter,
+  matching the credits window's behavior.
+
+The user has approved the Windows presentation and music. Automated checks
+cover scrolling, track selection, mute and close/reopen behavior across eight
+languages on Windows and Debian. Three minutes of each module produce identical
+PCM to the full reference decoder and matching percussion counts on both OSes.
+The player is embedded in the converter only; no extra player installation is
+required. See [credits implementation and checks](CREDITS.md).
+
+The verified compilation library remains at **1,105 exact cartridge identities**
+(**8.3 MiB** compressed). No cartridge campaign or game-runtime change is part of
+this update. **Existing games do not need regeneration.** ROMs, BIOS files,
+downloaded covers, private observations and saves are excluded from the release.
+
+Download **Retro-Recomp.exe** for Windows or
+**Retro-Recomp-1.1.4-linux-x86_64.tar.gz** for Linux. The separate Linux executable
+is available for manual updates. **Check for updates** selects the matching
+native executable. Linux remains qualified on Debian 13 / glibc 2.41; broader
+distribution support and ARM64 remain future work.
+
+---
+
 # RetroRecomp v1.1.3 — Safer batches and a richer, smaller knowledge library
 
 This release improves conversion reliability across all seven console profiles

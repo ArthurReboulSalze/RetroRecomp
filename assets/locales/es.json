@@ -199,7 +199,20 @@
     "tip_table": "Selecciona un juego para ver su resultado. Ctrl/Mayús selecciona varias filas; doble clic inicia un juego listo.",
     "tip_video_timing": "Auto conserva el perfil de la ROM o deduce la región por el nombre. La etiqueta regional no demuestra el timing. PAL/NTSC fuerza el perfil al regenerar y se guarda. Otras consolas tendrán sus opciones.",
     "queue_restored": "Se han recuperado {count} ROM pendientes. Pulsa Convertir para continuar.",
-    "queue_save_failed": "No se pudo guardar la recuperación del lote. Comprueba el espacio libre y el acceso a la carpeta."
+    "queue_save_failed": "No se pudo guardar la recuperación del lote. Comprueba el espacio libre y el acceso a la carpeta.",
+    "credits_demo_tagline": "LAS PERSONAS. EL CÓDIGO. LA MÚSICA.",
+    "credits_auto": "DESPLAZAMIENTO AUTO",
+    "credits_manual": "DESPLAZAMIENTO MANUAL",
+    "credits_pause": "Pausar desplazamiento",
+    "credits_resume": "Reanudar desplazamiento",
+    "credits_sound_on": "Sonido: activado",
+    "credits_sound_off": "Sonido: desactivado",
+    "credits_manual_hint": "Desplázate para tomar el control · reanuda cuando quieras.",
+    "credits_chiploom": "Música generada con ChipLoom ↗",
+    "credits_thanks": "MANTENGAMOS VIVOS LOS JUEGOS.",
+    "credits_module_info": "MOD de 4 canales · patrón {pattern} / fila {row}",
+    "credits_audio_starting": "Iniciando el reproductor…",
+    "credits_audio_missing": "Audio no disponible · créditos accesibles"
   },
   "runtime": {
     "Unassigned": "Sin asignar",

@@ -5,6 +5,15 @@ It does not relicense third-party code, upstream excerpts used by adapters,
 ROMs, artwork, or generated games. Project branding identifies RetroRecomp;
 the software license does not grant trademark rights.
 
+## Converter credits music
+
+The credits replay three original four-channel MOD compositions supplied by
+Arthur Reboul Salze and created with
+[ChipLoom](https://github.com/ArthurReboulSalze/ChipLoom). The converter's native
+player statically includes libxmp-lite 4.7.3 and miniaudio 0.11.23; their complete
+notices and source links are [included here](assets/credits/NOTICE.md) and in the
+credits' legal-notice viewer. These components are not linked into game exports.
+
 ## SMS/GG upstream permission and limits
 
 RetroRecomp depends on **mstan/smsggrecomp** at revision

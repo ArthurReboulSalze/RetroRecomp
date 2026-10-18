@@ -1165,7 +1165,8 @@ class Application:
         panel.title(APP_NAME + ' - ' + self.tr('options'))
         panel.configure(bg=COLORS['background'])
         panel.transient(self.app)
-        panel.geometry('1000x540')
+        from .dialogs import center_dialog
+        center_dialog(panel, self.app, 1000, 540)
         panel.minsize(960, 500)
 
         notebook = ttk.Notebook(panel)
@@ -1446,114 +1447,14 @@ class Application:
             self.credits_panel.focus_set()
             return
 
-        panel = tk.Toplevel(self.app)
-        self.credits_panel = panel
-        panel.title(APP_NAME + ' - ' + self.tr('credits'))
-        panel.configure(bg=COLORS['background'])
-        panel.resizable(True, True)
-        panel.transient(self.app)
-        self.app.update_idletasks()
-        width, height = 760, 700
-        x = self.app.winfo_rootx() + max(0, (self.app.winfo_width() - width) // 2)
-        y = self.app.winfo_rooty() + max(0, (self.app.winfo_height() - height) // 2)
-        panel.geometry(f'{width}x{height}+{x}+{y}')
-        panel.minsize(650, 550)
-
-        content = tk.Frame(panel, bg=COLORS['background'], padx=24, pady=18)
-        content.pack(fill='both', expand=True)
-        try:
-            panel.credits_logo = tk.PhotoImage(
-                file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'), master=panel)
-            tk.Label(content, image=panel.credits_logo, bg=COLORS['background']).pack(
-                anchor='center', pady=(0, 2))
-        except (OSError, tk.TclError):
-            pass
-        tk.Label(content, text=self.tr('credits'), bg=COLORS['background'], fg=COLORS['text'],
-                 font=(self.ui_font, 23, 'bold')).pack(anchor='center', pady=(0, 3))
-        tk.Label(content, text=self.tr('credits_intro'), bg=COLORS['background'], fg=COLORS['muted'],
-                 font=(self.ui_font, 10), justify='center',
-                 wraplength=630).pack(anchor='center', pady=(0, 13))
-
-        tk.Frame(content, bg=COLORS['border'], height=1).pack(fill='x', padx=120, pady=(0, 11))
-        tk.Label(content, text=self.tr('credits_repositories'), bg=COLORS['background'],
-                 fg=COLORS['text'], font=(self.ui_font, 10, 'bold')).pack(anchor='center')
-        tk.Label(content, text=self.tr('credits_open_link'), bg=COLORS['background'],
-                 fg=COLORS['muted'], font=(self.ui_font, 9)).pack(anchor='center', pady=(1, 9))
-
-        scroll_area = tk.Frame(content, bg=COLORS['background'])
-        scroll_area.pack(fill='both', expand=True)
-        scrollbar = ttk.Scrollbar(scroll_area, orient='vertical')
-        scrollbar.pack(side='right', fill='y')
-        canvas = tk.Canvas(scroll_area, bg=COLORS['background'], highlightthickness=0,
-                           yscrollcommand=scrollbar.set)
-        canvas.pack(side='left', fill='both', expand=True)
-        scrollbar.configure(command=canvas.yview)
-        cards = tk.Frame(canvas, bg=COLORS['background'])
-        cards_window = canvas.create_window((0, 0), window=cards, anchor='nw')
-        cards.bind('<Configure>', lambda _event: canvas.configure(scrollregion=canvas.bbox('all')))
-        canvas.bind('<Configure>', lambda event: canvas.itemconfigure(cards_window, width=event.width))
-        panel.bind('<MouseWheel>', lambda event: canvas.yview_scroll(
-            -1 if event.delta > 0 else 1, 'units') if event.delta else None)
-        panel.bind('<Button-4>', lambda _event: canvas.yview_scroll(-1, 'units'))
-        panel.bind('<Button-5>', lambda _event: canvas.yview_scroll(1, 'units'))
-        cards.grid_columnconfigure(0, weight=1)
-        for index, (system, repositories) in enumerate(UPSTREAM_CREDITS):
-            card = tk.Frame(cards, bg=COLORS['panel'], highlightthickness=1,
-                            highlightbackground=COLORS['border'])
-            card.grid(row=index, column=0, sticky='ew', padx=48, pady=(0, 13))
-            accent = COLORS['gold']
-            tk.Frame(card, height=3, bg=accent).pack(fill='x')
-            tk.Label(card, text=system.upper(), bg=COLORS['panel'], fg=COLORS['text'],
-                     font=(self.ui_font, 12, 'bold')).pack(anchor='center', pady=(11, 6))
-            for repository, url, role in repositories:
-                link = tk.Label(card, text=repository, bg=COLORS['panel'], fg=COLORS['gold'],
-                                activeforeground=COLORS['gold_hover'], cursor='hand2',
-                                font=(self.ui_font, 10, 'underline'))
-                link.pack(anchor='center')
-                link.bind('<Button-1>', lambda _event, address=url: webbrowser.open_new_tab(address))
-                tk.Label(card, text=self.tr(role), bg=COLORS['panel'], fg=COLORS['muted'],
-                         font=(self.ui_font, 9)).pack(anchor='center', pady=(0, 7))
-
-        bottom = tk.Frame(content, bg=COLORS['background'])
-        bottom.pack(fill='x', pady=(9, 0))
-        tk.Label(bottom, text=self.tr('credits_license'), bg=COLORS['background'],
-                 fg=COLORS['muted'], font=(self.ui_font, 9),
-                 wraplength=650, justify='center').pack(anchor='center')
-        notices = tk.Label(bottom, text=self.tr('credits_notices'), bg=COLORS['background'],
-                           fg=COLORS['gold'], cursor='hand2',
-                           font=(self.ui_font, 9, 'underline'))
-        notices.pack(anchor='center', pady=(3, 0))
-        notices.bind('<Button-1>', lambda _event: self.show_legal_notices())
-
-        def close_credits():
-            panel.grab_release()
-            panel.destroy()
-            self.credits_panel = None
-
-        actions = tk.Frame(bottom, bg=COLORS['background'], height=38)
-        actions.pack(fill='x', pady=(10, 0))
-        actions.pack_propagate(False)
-        ttk.Button(actions, text=self.tr('close'), command=close_credits).place(
-            relx=0.5, rely=0.5, anchor='center')
-        author = tk.Frame(actions, bg=COLORS['background'])
-        author.place(relx=1.0, rely=0.5, anchor='e')
-        tk.Label(author, text=self.tr('credits_author'), bg=COLORS['background'], fg=COLORS['disabled'],
-                 font=(self.ui_font, 8)).pack(side='left', padx=(0, 4))
-        author_link = tk.Label(author, text='Arthur Reboul Salze', bg=COLORS['background'],
-                               fg=COLORS['muted'], cursor='hand2',
-                               font=(self.ui_font, 8, 'underline'))
-        author_link.pack(side='left')
-        author_link.bind('<Button-1>', lambda _event: webbrowser.open_new_tab(
-            'https://github.com/ArthurReboulSalze'))
-        panel.protocol('WM_DELETE_WINDOW', close_credits)
-        panel.bind('<Escape>', lambda _event: close_credits())
-        panel.grab_set()
-        panel.focus_set()
+        from .credits_demo import CreditsDemo
+        self.credits_demo = CreditsDemo(self, UPSTREAM_CREDITS)
 
     def show_legal_notices(self):
         """Show the complete bundled licenses without creating sidecar files."""
         parent = self.credits_panel if self.credits_panel and self.credits_panel.winfo_exists() else self.app
-        resources = [ASSETS / 'LICENSE', ASSETS / 'THIRD_PARTY_NOTICES.md']
+        resources = [ASSETS / 'LICENSE', ASSETS / 'THIRD_PARTY_NOTICES.md',
+                     ASSETS / 'assets/credits/NOTICE.md']
         resources.extend(sorted((ASSETS / 'licenses').glob('*.md'), key=lambda path: path.name.lower()))
         resources = [path for path in resources if path.is_file()]
         panel = tk.Toplevel(parent)

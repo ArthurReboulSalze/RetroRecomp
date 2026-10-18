@@ -199,7 +199,20 @@
     "tip_table": "选择游戏查看结果。按 Ctrl/Shift 多选，双击已就绪的游戏即可启动。",
     "tip_video_timing": "自动模式保留每个 ROM 的配置，或从文件名推测。区域标签不能证明实际时序。可指定 PAL/NTSC 在重新生成时覆盖并保存。其他主机使用各自的时序选项。",
     "queue_restored": "已恢复 {count} 个未完成的 ROM。点击转换以继续。",
-    "queue_save_failed": "无法保存批处理进度。请检查可用磁盘空间和文件夹权限。"
+    "queue_save_failed": "无法保存批处理进度。请检查可用磁盘空间和文件夹权限。",
+    "credits_demo_tagline": "创作者。代码。音乐。",
+    "credits_auto": "自动滚动",
+    "credits_manual": "手动滚动",
+    "credits_pause": "暂停滚动",
+    "credits_resume": "继续滚动",
+    "credits_sound_on": "声音：开启",
+    "credits_sound_off": "声音：关闭",
+    "credits_manual_hint": "滚动即可手动控制，随时继续自动滚动。",
+    "credits_chiploom": "音乐由 ChipLoom 生成 ↗",
+    "credits_thanks": "让游戏继续精彩。",
+    "credits_module_info": "4 声道 MOD · 模式 {pattern} / 行 {row}",
+    "credits_audio_starting": "正在打开音乐播放器…",
+    "credits_audio_missing": "音频不可用，仍可查看制作名单"
   },
   "runtime": {
     "Unassigned": "未分配",
