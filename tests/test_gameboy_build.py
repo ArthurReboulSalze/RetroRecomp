@@ -5,9 +5,23 @@ import unittest
 
 from smsrecomp.gameboy_build import compact_dispatch, preserve_unchanged_sources, share_native_bodies, safe_body_entries
 from smsrecomp.gameboy_boundary import repair_bank_boundaries
+from unittest.mock import patch
 
 
 class GameBoyBuildTests(unittest.TestCase):
+    def test_large_incremental_sources_are_hashed_without_loading_whole_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'game.c';source.write_bytes(b'// generated\n'*100000)
+            stamp=1_600_000_000_000_000_000;os.utime(source,ns=(stamp,stamp))
+            with patch.object(Path,'read_bytes',side_effect=AssertionError('unbounded source read')):
+                with preserve_unchanged_sources(root):
+                    with source.open('ab') as stream:stream.write(b'// changed\n')
+            self.assertNotEqual(source.stat().st_mtime_ns,stamp)
+            os.utime(source,ns=(stamp,stamp))
+            with patch.object(Path,'read_bytes',side_effect=AssertionError('unbounded source read')):
+                with preserve_unchanged_sources(root):os.utime(source,None)
+            self.assertEqual(source.stat().st_mtime_ns,stamp)
+
     def test_incremental_sources_preserve_only_exact_contents(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

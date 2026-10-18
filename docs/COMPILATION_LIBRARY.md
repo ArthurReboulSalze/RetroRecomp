@@ -1,5 +1,41 @@
 # Shared compilation knowledge
 
+## Release 1.1.3 qualified snapshot — 18 October 2026
+
+Release 1.1.3 contains **1,105 exact identities**: SMS 258, GG 13,
+Game Boy 606, NES 36, Mega Drive 82, SNES 44 and Neo Geo 66. The snapshot is
+**35,498,823 raw / 8,731,196 gzip bytes**, SHA-256
+`6b36f85f70c4f66fbf320217f030991879a854dd0a750efe3a69790639ebcdb9`.
+The Windows and Linux converters include the same verified snapshot.
+
+Twelve new Game Gear records pass fresh advanced conversion and independent
+replays of the compressed exports: 86,400 native/reference frame pairs with
+matching CPU, RAM, VDP traces and final images. 3 Count Bout now passes its
+previously failing AES state gate as well as MVS/AES reference, packed, state
+and ordinary-save checks; its exact MVS cartridge/BIOS identity is promoted.
+AES observations remain separate. The 26 unstarted Neo Geo games stay paused.
+
+SPC references now also support bounded PC bitmaps and positive delta groups.
+Every original PC/ROM-offset pair is reconstructed and compared before replacing
+the representation; existing live-opcode guards and the 64 MiB decompressed
+limit remain. All earlier qualified observations, including all 606 Game Boy
+records, are preserved. No ROM, BIOS, private raw library, downloaded art,
+game state or sample is included. Evidence: `.build/development-20261018`.
+
+Export freshness now fingerprints the relevant console compiler and its numeric
+knowledge instead of the application version alone. Unknown source dependencies
+remain shared; changed settings, exact-game hints, binary contents or relevant
+code still force conversion. Old receipts migrate through fresh conversion.
+Frozen/source equivalence is checked with the same allowlisted resources;
+private local source profiles deliberately remain distinct dependencies.
+
+The final local review also serializes Game Boy and NES library updates across
+concurrent conversions. NES merges ROM/RAM observations before atomic replacement;
+Game Boy retains a checksum-verified previous trace until the new manifest is
+committed, then removes that temporary backup. A busy library lock times out on
+both Windows and Linux. These are storage fixes, not new qualified observations;
+the snapshot above is unchanged. See [review evidence](QUALITY_REVIEW.md).
+
 ## Partial Neo Geo campaign included in 1.1.0 — 15 October 2026
 
 The fifty-game campaign was stopped at the user's request after its active

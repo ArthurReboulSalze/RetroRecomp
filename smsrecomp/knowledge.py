@@ -25,7 +25,8 @@ FIELDS = {
     'nes': {'rom_entries': (2, 65536), 'ram_opcode_refs': (2, 65536)},
     'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
     'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
-             'spc_refs': (2, 262144), 'spc_ranges': (3, 262144)},
+             'spc_refs': (2, 262144), 'spc_ranges': (3, 262144),
+             'spc_bitmaps': (3, 262144), 'spc_deltas': (2, 262144)},
     # Neo Geo additionally accepts bounded rom_deltas via its dedicated validator.
     'ng': {'rom_entries': (2,262144), 'ram_refs': (4,4096), 'z80_refs': (4,32768)},
 }
@@ -57,14 +58,15 @@ def validate_payload(value: dict) -> dict:
                 raise ValueError('Invalid compilation knowledge identity.')
             for name, (width, limit) in FIELDS[system].items():
                 entries = record.get(name, [])
+                if name == 'spc_deltas':
+                    from .snes_knowledge import validate_deltas
+                    validate_deltas(entries, record['rom_bytes'])
+                    continue
                 if (not isinstance(entries, list) or len(entries) > limit
                         or any(not isinstance(e, list) or len(e) != width
                                or any(type(n) is not int or not 0 <= n <= 0xffffffff for n in e)
                                for e in entries)):
                     raise ValueError('Invalid compilation knowledge entries.')
-                if name == 'spc_ranges' and (len(record.get('spc_refs', [])) +
-                        sum(e[1]-e[0]+1 for e in entries) > 262144):
-                    raise ValueError('SPC700 compilation range budget exceeded.')
                 for entry in entries:
                     if name == 'rom_entries':
                         valid = True
@@ -92,9 +94,18 @@ def validate_payload(value: dict) -> dict:
                             or entry[0] <= 0xff and entry[1] >= 0xf0
                             or entry[2] >= record['rom_bytes']):
                         raise ValueError('Invalid SPC700 compilation range.')
+                    if name == 'spc_bitmaps' and (entry[0] > 65504 or entry[0] & 31
+                            or not entry[1] or entry[2] >= record['rom_bytes']
+                            or entry[0] == 0xe0 and entry[1] & 0xffff0000):
+                        raise ValueError('Invalid SPC700 compilation bitmap.')
                     if name in ('ram_refs', 'z80_refs'):
                         if not 1 <= entry[2] <= 16 or entry[1] + entry[2] > record['rom_bytes']:
                             raise ValueError('Compilation reference outside ROM.')
+            if system == 'snes' and (len(record.get('spc_refs', [])) +
+                    sum(last-first+1 for first,last,_ in record.get('spc_ranges', [])) +
+                    sum(bits.bit_count() for _,bits,_ in record.get('spc_bitmaps', [])) +
+                    sum(len(deltas) for _,deltas in record.get('spc_deltas', [])) > 262144):
+                raise ValueError('SPC700 compilation range budget exceeded.')
     return value
 
 

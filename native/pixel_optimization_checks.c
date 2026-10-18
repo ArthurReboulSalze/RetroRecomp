@@ -18,7 +18,11 @@ static double seconds(void) {struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t)
 static uint32_t seed=0x759ad02b;
 static uint32_t value(void) {seed^=seed<<13;seed^=seed>>17;seed^=seed<<5;return seed;}
 static uint64_t pixel_checks,planar_checks;
-static unsigned sprite_checks;
+static unsigned sprite_checks,sprite_selection_checks;
+static unsigned reference_sprite_first(const uint8_t *x,const uint8_t *lo,const uint8_t *hi,bool skipped) {
+    for(unsigned i=0;i<8;++i)if((!x[i] || skipped) && ((lo[i]|hi[i])&128u))return i;
+    return 8;
+}
 static void reference_shift(uint8_t x[8],uint8_t low[8],uint8_t high[8],bool skipped,bool render) {
     uint64_t a,b,c;memcpy(&a,x,8);memcpy(&b,low,8);memcpy(&c,high,8);
     if(!(a|b|c))return;
@@ -34,6 +38,12 @@ static void sprites(void) {
         uint8_t a[24],b[24];
         for(unsigned i=0;i<24;i++)a[i]=scene<256?(uint8_t)scene:scene<512?(uint8_t)(i&1?0:scene):(uint8_t)value();
         memcpy(b,a,sizeof a);
+        unsigned expected=reference_sprite_first(a,a+8,a+16,mode&1);
+        if(rr_nes_sprite_first(b,b+8,b+16,mode&1)!=expected) {
+            fprintf(stderr,"NES sprite priority mismatch scene=%u mode=%u\n",scene,mode);exit(1);
+        }
+        if(memcmp(a,b,sizeof a))abort(); /* selection must not mutate a unit */
+        ++sprite_selection_checks;
         reference_shift(a,a+8,a+16,mode&1,mode&2);rr_nes_sprite_shift(b,b+8,b+16,mode&1,mode&2);
         if(memcmp(a,b,sizeof a)){fprintf(stderr,"NES shifter mismatch scene=%u mode=%u\n",scene,mode);exit(1);}
         ++sprite_checks;
@@ -186,8 +196,8 @@ int main(void) {
         "\"scale2x_reference_seconds\":%.9f,\"scale2x_optimized_seconds\":%.9f,"
         "\"mode4_reference_seconds\":%.9f,\"mode4_optimized_seconds\":%.9f,"
         "\"fir_checks\":%llu,\"fir_sse2\":%s,\"fir_reference_seconds\":%.9f,\"fir_optimized_seconds\":%.9f,"
-        "\"sprite_checks\":%u,\"sprite_reference_seconds\":%.9f,\"sprite_optimized_seconds\":%.9f}\n",
+        "\"sprite_checks\":%u,\"sprite_selection_checks\":%u,\"sprite_reference_seconds\":%.9f,\"sprite_optimized_seconds\":%.9f}\n",
         (unsigned long long)planar_checks,(unsigned long long)pixel_checks,RR_SCALE2X_SIMD?"true":"false",
         scale_old,scale_new,sms_old,sms_new,(unsigned long long)fir_checks,RR_STEREO_FIR_SIMD?"true":"false",fir_old,fir_new,
-        sprite_checks,sprite_old,sprite_new);return 0;
+        sprite_checks,sprite_selection_checks,sprite_old,sprite_new);return 0;
 }

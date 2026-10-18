@@ -5,6 +5,10 @@ import subprocess
 import json
 import sys
 from pathlib import Path
+from contextlib import contextmanager
+from contextvars import ContextVar
+
+_BUILD_BUDGET = ContextVar('retro_recomp_build_budget', default=None)
 
 
 def restore_system_library_path() -> None:
@@ -39,7 +43,25 @@ def build_executable(build: Path, name: str) -> Path:
 
 def build_jobs() -> str:
     default = 4 if os.name == 'nt' else 2
-    return str(max(1, min(8, int(os.environ.get('RETRO_RECOMP_BUILD_JOBS', default)))))
+    requested = max(1, min(8, int(os.environ.get('RETRO_RECOMP_BUILD_JOBS', default))))
+    budget = _BUILD_BUDGET.get()
+    return str(min(requested, budget) if budget is not None else requested)
+
+
+@contextmanager
+def compilation_budget(parallel_games):
+    """Share host compiler workers across games, without changing validation."""
+    budget = max(1, available_cpus() // max(1, parallel_games))
+    previous = _BUILD_BUDGET.get()
+    token = _BUILD_BUDGET.set(min(previous, budget) if previous is not None else budget)
+    try:
+        yield
+    finally:
+        _BUILD_BUDGET.reset(token)
+
+
+def available_cpus():
+    return (os.process_cpu_count() if hasattr(os,'process_cpu_count') else os.cpu_count()) or 1
 
 
 def open_local(path: Path) -> None:

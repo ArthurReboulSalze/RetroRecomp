@@ -379,7 +379,7 @@ else()
   target_link_libraries(game PRIVATE m)
 endif()
 if(MSVC)
-  target_compile_options(game PRIVATE /W2 /utf-8 /MP4 /wd4996 /wd4244 /wd4267 /wd4013)
+  target_compile_options(game PRIVATE /W2 /utf-8 /MP{build_jobs()} /wd4996 /wd4244 /wd4267 /wd4013)
 endif()
 '''
     if system_id == 'md':

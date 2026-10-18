@@ -15,6 +15,13 @@ from smsrecomp.systems import MASTER_SYSTEM, PROFILES, discover_roms, profile_fo
 
 
 def main() -> int:
+    if len(sys.argv)==3 and sys.argv[1] in ('_compilation-stamps','_compilation-inputs'):
+        # Package qualification only: no ROM access, GUI or compiler launch.
+        from smsrecomp.compilation_inputs import engine_stamp,input_fingerprints
+        from smsrecomp.library import atomic_json
+        describe=input_fingerprints if sys.argv[1]=='_compilation-inputs' else engine_stamp
+        atomic_json(Path(sys.argv[2]),{s:describe(s) for s in ('sms','gg','gb','nes','md','snes','ng')})
+        return 0
     if sys.argv[1:] == ['_install-launcher'] and sys.platform == 'linux':
         from smsrecomp.linux_desktop import publish_converter_launcher
         publish_converter_launcher()

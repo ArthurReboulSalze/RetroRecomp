@@ -59,8 +59,7 @@ def smoke(window):
             yield child
             yield from descendants(child)
     assert application.language in LANGUAGES and application.extended.get()
-    assert isinstance(application.platform_field, tk.Widget)
-    assert application.platform_field.winfo_class() == 'TLabel'
+    assert application.header.itemcget(application.platform_text,'text') in ('Windows version','Linux version')
     initial_tags = application.icon_tags.get()
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
@@ -181,7 +180,9 @@ def smoke(window):
 
 
 tk.Tk.mainloop = smoke
-with patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
+with tempfile.TemporaryDirectory() as queue_folder, \
+        patch('smsrecomp.gui.data_directory',return_value=Path(queue_folder)), \
+        patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
         patch('smsrecomp.gui.load_cover_settings', side_effect=cover_defaults), \
         patch('smsrecomp.gui.save_cover_settings'), \
         patch('smsrecomp.gui.save_preferences'):

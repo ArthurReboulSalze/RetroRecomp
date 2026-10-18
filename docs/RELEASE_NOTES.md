@@ -1,3 +1,44 @@
+# RetroRecomp v1.1.3 — Safer batches and a richer, smaller knowledge library
+
+This release improves conversion reliability across all seven console profiles
+on Windows and Linux, with a refreshed interface screenshot and a verified
+knowledge library covering **1,105 exact cartridge identities**.
+
+- **Resume interrupted batches.** Unfinished rows return to the list when the
+  converter reopens. Resume the whole batch or only the selected games.
+- **Keep useful exports.** Freshness checks follow each console's compiler,
+  settings and exact-game hints. Interface-only updates no longer force
+  recompilation; relevant runtime changes still do.
+- **Safer parallel work.** Game Boy and NES merge new observations without
+  overwriting discoveries from another conversion. Interrupted Game Boy writes
+  recover the previous verified trace. Compiler tasks share the available CPUs.
+- **Less temporary memory.** Large export checks and incremental source hashing
+  use bounded buffers. Long Unicode titles no longer risk a filename-collision
+  loop, and busy library locks have a timeout on both systems.
+- **Compiler and runtime refinements.** Stable source/packaged code identities
+  avoid unnecessary cache invalidations. NES sprite selection avoids repeated
+  work, and Mega Drive rejects invalid banked feedback offsets safely.
+- **More verified knowledge, smaller download.** Twelve new Game Gear identities
+  and one newly qualified Neo Geo identity bring the library to 1,105 records.
+  Lossless SNES reference compaction reduces it to **8.3 MiB**, about 40% smaller
+  than 1.1.2, while retaining all earlier observations and all 606 Game Boy records.
+
+The 519-test Python suite passes on Windows and Debian, with 1 and 14 skips.
+Native feedback, NES output comparisons and targeted compiler checks pass;
+source and packaged identities are checked separately. These checks do not
+establish complete gameplay coverage or physical-hardware accuracy.
+
+Linux x86-64 is qualified on Debian 13 / glibc 2.41. The reported Mega Drive
+slowdown on the low-power Debian machine has improved but is not fully resolved;
+other distributions and ARM64 still need qualification.
+
+Download **Retro-Recomp.exe** for Windows or the **Linux x86-64 tar.gz** for Linux.
+The separate Linux executable is also provided for manual updates. Regenerate
+existing games to receive runtime changes. ROMs, BIOS files, downloaded artwork,
+private observations and save files are excluded from these packages.
+
+---
+
 # RetroRecomp v1.1.2 — Conversion fixes and a tidier header
 
 This update improves conversion startup and window behavior, with the same fixes

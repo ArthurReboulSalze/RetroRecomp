@@ -13,6 +13,7 @@ class ShutdownTests(unittest.TestCase):
         application.updating = False
         application.busy = True
         application.close_when_idle = False
+        application.recovered_batch = None
         application.cancel = Event()
         application.app = Mock()
         application.stop_button = Mock()
@@ -50,6 +51,14 @@ class ShutdownTests(unittest.TestCase):
         application.busy = False
         with patch('smsrecomp.gui.save_preferences'):
             application.close()
+        application.app.destroy.assert_called_once()
+
+    def test_close_releases_reserved_recovery_queue(self):
+        application=self.application();application.busy=False
+        application.recovered_batch=Mock()
+        with patch('smsrecomp.gui.save_preferences'):
+            application.close()
+        application.recovered_batch.close.assert_called_once()
         application.app.destroy.assert_called_once()
 
 

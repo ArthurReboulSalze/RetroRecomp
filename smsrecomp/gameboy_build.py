@@ -30,13 +30,16 @@ def preserve_unchanged_sources(project: Path):
     previous = {}
     for path in sources():
         stat = path.stat()
-        previous[path] = (stat.st_mtime_ns, stat.st_size,
-                          hashlib.sha256(path.read_bytes()).digest())
+        with path.open('rb') as stream:
+            digest=hashlib.file_digest(stream,'sha256').digest()
+        previous[path] = (stat.st_mtime_ns, stat.st_size,digest)
     yield
     for path, (mtime, size, digest) in previous.items():
-        if path.is_file() and path.stat().st_size == size and \
-                hashlib.sha256(path.read_bytes()).digest() == digest:
-            os.utime(path, ns=(path.stat().st_atime_ns, mtime))
+        if path.is_file() and path.stat().st_size == size:
+            with path.open('rb') as stream:
+                current=hashlib.file_digest(stream,'sha256').digest()
+            if current == digest:
+                os.utime(path, ns=(path.stat().st_atime_ns, mtime))
 
 
 _PAGE = re.compile(r'void (game_dispatch_[0-9a-f]+)\(GBContext\* ctx, uint16_t addr, uint16_t bank\) \{\n(.*?)\n\}', re.S)

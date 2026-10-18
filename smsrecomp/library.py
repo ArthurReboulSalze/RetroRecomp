@@ -11,6 +11,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import errno
 import json
 import os
 from pathlib import Path
@@ -102,36 +103,48 @@ def entry_lock(directory: Path, *, timeout: float = 10):
         file.seek(0)
         if os.name == "nt":
             import msvcrt
-            until = time.monotonic() + timeout
-            while True:
-                try:
-                    msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if time.monotonic() >= until:
-                        raise
-                    time.sleep(.02)
-            try:
-                yield
-            finally:
-                file.seek(0)
-                msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+            acquire = lambda: msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
+            release = lambda: msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
         else:
             import fcntl
-            fcntl.flock(file, fcntl.LOCK_EX)
+            acquire = lambda: fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            release = lambda: fcntl.flock(file, fcntl.LOCK_UN)
+        until = time.monotonic() + max(0, timeout)
+        while True:
             try:
-                yield
-            finally:
-                fcntl.flock(file, fcntl.LOCK_UN)
+                acquire()
+                break
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                remaining = until - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f'Another conversion is using this library entry: {directory}') from error
+                time.sleep(min(.02, remaining))
+        try:
+            yield
+        finally:
+            file.seek(0)
+            release()
 
 
 def atomic_json(path: Path, value: dict) -> None:
+    def write(file):
+        json.dump(value, file, indent=2, ensure_ascii=False)
+        file.write("\n")
+    _atomic_text_write(path, write)
+
+
+def atomic_text(path: Path, value: str) -> None:
+    _atomic_text_write(path, lambda file: file.write(value), newline='\n')
+
+
+def _atomic_text_write(path: Path, write, *, newline=None) -> None:
     # A unique sibling temp also avoids collisions with a second converter.
     fd, temp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as file:
-            json.dump(value, file, indent=2, ensure_ascii=False)
-            file.write("\n")
+        with os.fdopen(fd, "w", encoding="utf-8", newline=newline) as file:
+            write(file)
             file.flush()
             os.fsync(file.fileno())
         deadline = time.monotonic() + 2

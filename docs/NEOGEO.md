@@ -1,5 +1,15 @@
 # Neo Geo development and qualification
 
+## 3 Count Bout requalified in 1.1.3 — 18 October 2026
+
+The previously failed cartridge now passes all seven reference/packed routes,
+including MVS, AES and enhanced two-player exploration, without observed main
+or sound fallback. Three MVS and two AES fresh-process state points, invalid
+state rejection and ordinary-save checks pass. Its exact MVS cartridge/BIOS
+record is added to the shared bank, now 66 Neo Geo identities; AES hints
+remain separate. The campaign's 26 unstarted games remain paused. These checks
+do not establish a full playthrough or physical-hardware fidelity.
+
 ## Paused campaign and local converter update — 15 October 2026
 
 Twenty-three further cartridges pass 161 exact-input reference/packed comparisons,

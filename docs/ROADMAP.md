@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.1.2 has seven supported console profiles on Windows and a native Linux
+Release 1.1.3 has seven supported console profiles on Windows and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -9,6 +9,30 @@ and NES ROMs, includes a supported Mega Drive standard-cartridge profile
 and a supported standard Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
 their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
+
+## Delivered in 1.1.3 — 18 October 2026
+
+This release includes general Game Boy compiler improvements, without retrying
+its problematic cartridges individually. Sonic performance on the Debian test
+machine has improved but is not fully fluid; further work remains separate.
+
+The [final local review](QUALITY_REVIEW.md) adds safer concurrent GB/NES
+learning, stable source/packaged adapter identities, bounded export reads and
+long-filename fixes on Windows and Linux, without scanning more games.
+
+- Per-console compiler fingerprints keep exports after interface-only changes;
+  exact settings, binary hashes, runtime changes and new fallback hints still
+  invalidate them. Interrupted batches recover their unfinished rows explicitly.
+- Concurrent conversions share compiler capacity. Game Boy incremental source
+  hashing uses bounded buffers and retains all translation/validation budgets.
+- NES removes duplicate sprite selection work; Mega Drive guards invalid banked
+  feedback offsets. No whole-game speed gain is inferred from numeric checks.
+- Twelve Game Gear cartridges and the previously failed 3 Count Bout pass fresh
+  qualification. The local snapshot has 1,105 identities, including 13 GG and
+  66 Neo Geo. Lossless SPC reference compaction reduces the compressed bank to
+  8.3 MiB; all 606 existing Game Boy records are unchanged.
+- Next: broader Linux distribution baselines, targeted runtime profiling when
+  useful, and bounded hardware/gameplay cases rather than unbounded campaigns.
 
 | Priority | Work needed |
 | --- | --- |
@@ -21,7 +45,7 @@ priorities below describe areas to improve, not compatibility or delivery promis
 | NES | Broaden VRC/Taito guarded-RAM and lower-ROM-alias qualification, PAL, peripheral and gameplay validation. |
 | Mega Drive | Extend gameplay and unusual cartridge circuits beyond the qualified standard profile; refine electrical, field and bus-error behavior with independent evidence. |
 | Super Nintendo | Extend gameplay beyond the completed standard-profile qualification; refine instruction-internal and parked-CPU phases, disputed OAM access and CX4 native coverage. Other cartridge circuits have separate support gates. |
-| Knowledge size | Compact repeated SPC opcode references before another large cartridge campaign; keep the bounded 64 MiB decompressed budget and every qualification gate. |
+| Knowledge size | Lossless SPC compaction is included; continue tracking growth within the bounded 64 MiB decompressed budget and every qualification gate. |
 
 ## Recompilation priorities after 0.25.0
 

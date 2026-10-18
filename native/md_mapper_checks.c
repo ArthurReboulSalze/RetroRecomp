@@ -1,5 +1,6 @@
 /* Authored cartridge, linked to actual backend/CPU/VDP objects. No game ROM. */
-#include <windows.h>
+#include "platform_io.h"
+#include <wchar.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include "console16_state.h"
 #include "md_cart.h"
 #include "md_native_steps.h"
+#include "runtime_feedback.h"
 #include "glue.c"
 #include "genesis_machine.c"
 static unsigned checks;
@@ -55,6 +57,16 @@ static void native_banks(void) {
     rr_step_running=0;rr_md_prefetch_reset();
     const uint16_t mixed[]={0x7001,0x1234};
     CHECK(rr_md_cart_code_offset(0x80430,mixed,2)==UINT32_MAX);
+    /* An unmatched prefetched image has no physical ROM source. Its sentinel
+     * must not wrap the eight-byte bound and read past the embedded ROM. */
+    rr_feedback_start(1);if(!rr_feedback_enabled())rr_feedback_toggle();
+    CHECK(rr_feedback_enabled() && !rr_feedback_pending());
+    rr_md_rom_fetch_offset=UINT32_MAX;rr16_note_rom_fallback(0x80430);
+    CHECK(!rr_feedback_pending());
+    rr_md_rom_fetch_offset=RR_MD_ROM_BYTES-7u;rr16_note_rom_fallback(0x80430);
+    CHECK(!rr_feedback_pending());
+    rr_md_rom_fetch_offset=RR_MD_ROM_BYTES-8u;rr16_note_rom_fallback(0x80430);
+    CHECK(rr_feedback_pending());rr_feedback_toggle(); /* fixture writes no hints */
     gbus_write8(b,0xa130f3,8);g_cpu.PC=0x80440;uint32_t next;
     const RrMdNativeStep *self=rr_md_native_lookup(g_cpu.PC);CHECK(self);
     uint32_t physical=rr_md_cart_code_offset(g_cpu.PC,self->instruction.words,self->instruction.word_count);
@@ -67,7 +79,7 @@ static void native_banks(void) {
     gvdp_write_control(v,0x4000);gvdp_write_control(v,0x0080);gvdp_fifo_advance(v,3420);
     CHECK(v->vram[0]==0xa0 && v->vram[1]==8 && !v->dma_active);
 }
-int wmain(int argc,wchar_t **argv) {
+static int checks_main(int argc,wchar_t **argv) {
     CHECK(argc==3 && rr16_init(true));CHECK(RR_MD_SEGA_MAPPER && !rr_md_cart_legacy_allowed());
     if(!wcscmp(argv[1],L"create")) {
         mapped_reads();native_banks();rr16_reset();
@@ -85,3 +97,12 @@ int wmain(int argc,wchar_t **argv) {
     CHECK(!rr16_state_restore(state,size) && !memcmp(&before,rr_md_cart_state(),sizeof before));free(state);
     rr16_shutdown();printf("{\"checks\":%u,\"passed\":true}\n",checks);return 0;
 }
+#ifdef _WIN32
+int wmain(int argc,wchar_t **argv) { return checks_main(argc,argv); }
+#else
+int main(int argc,char **argv) {
+    wchar_t mode[32],path[4096];
+    CHECK(argc==3 && rr_from_utf8(argv[1],mode,32) && rr_from_utf8(argv[2],path,4096));
+    wchar_t *args[]={L"checks",mode,path};return checks_main(argc,args);
+}
+#endif

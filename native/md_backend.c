@@ -137,7 +137,8 @@ void rr16_note_rom_fallback(uint32_t pc) {
     pc &= 0xffffffu;
     if (pc < 0x400000u && (RR_MD_SEGA_MAPPER || pc < RR_MD_ROM_BYTES)) {
         ++rom_fallback;
-        if(rr_feedback_enabled() && rr_md_rom_fetch_offset+8<=RR_MD_ROM_BYTES) {
+        if(rr_feedback_enabled() && rr_md_rom_fetch_offset<RR_MD_ROM_BYTES &&
+           RR_MD_ROM_BYTES-rr_md_rom_fetch_offset>=8u) {
             if(feedback_rom)rr_feedback_note(RR_FB_MD_ROM,rr_md_rom_fetch_offset,pc,feedback_rom+rr_md_rom_fetch_offset,8);
         }
         runtime_evidence_add(RT_EVIDENCE_FLOOR_COVERAGE, rr_md_rom_fetch_offset, 0, "retired physical ROM instruction");

@@ -82,6 +82,14 @@ def fonts(data, cjk, mono, *, runtime_only=False):
     if runtime_only:
         return len(entries),len(pixels)
 
+    ui_fonts(data,cjk)
+    return len(entries),len(pixels)
+
+
+def ui_fonts(data,cjk):
+    """Update converter text without changing any generated-game glyphs."""
+    from fontTools import subset
+    from fontTools.ttLib import TTFont
     ui = ''.join(LANGUAGE_NAMES) + ''.join(json.dumps(v,ensure_ascii=False) for v in data.values())
     from smsrecomp.i18n import STRINGS
     ui += ''.join(''.join(pair) for pair in STRINGS.values())
@@ -104,7 +112,7 @@ def fonts(data, cjk, mono, *, runtime_only=False):
         font.save(path)
         font_hashes[label]=hashlib.sha256(path.read_bytes()).hexdigest()
     (ROOT/'assets/font-coverage.json').write_text(json.dumps({'font_sha256':font_hashes,'codepoints':sorted(points)},indent=2)+'\n',encoding='ascii')
-    return len(entries),len(pixels)
+    return font_hashes
 
 
 def main():
@@ -113,7 +121,16 @@ def main():
     parser.add_argument('--mono',type=Path)
     parser.add_argument('--runtime-only',action='store_true',
                         help='Regenerate game glyphs without changing converter font subsets')
+    parser.add_argument('--ui-only',action='store_true',
+                        help='Regenerate only converter fonts, preserving all game glyphs')
     args = parser.parse_args()
+    if args.ui_only:
+        if not args.cjk or args.runtime_only:
+            parser.error('--ui-only requires --cjk and cannot be combined with --runtime-only')
+        data={code:json.loads((ROOT/'assets/locales'/f'{code}.json').read_text(encoding='utf-8'))
+              for code in LANGUAGES[1:]}
+        print(json.dumps(ui_fonts(data,args.cjk)))
+        return
     data = catalogue()
     if args.cjk and args.mono:
         count,size = fonts(data,args.cjk,args.mono,runtime_only=args.runtime_only)

@@ -34,13 +34,10 @@ def read_masks(rom):
         if len(row.data) == 1 and valid_variant({'address': row.address, 'opcode': row.data[0]}):
             shared[row.address*32 + row.data[0]//8] |= 1 << (row.data[0]&7)
     record = record_for('snes', rom, knowledge_engine(rom))
-    for pc, offset in record.get('spc_refs', []):
+    from .snes_knowledge import references
+    for pc, offset in references(record):
         opcode = rom.data[offset]
         shared[pc * 32 + opcode // 8] |= 1 << (opcode & 7)
-    for first, last, offset in record.get('spc_ranges', []):
-        opcode = rom.data[offset]
-        for pc in range(first, last + 1):
-            shared[pc * 32 + opcode // 8] |= 1 << (opcode & 7)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:

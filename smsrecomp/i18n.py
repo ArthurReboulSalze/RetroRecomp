@@ -13,6 +13,8 @@ STRINGS = {
     'drop_blocked': ('Finish the current conversion or update before dropping ROMs.', 'Attends la fin de la conversion ou de la mise à jour avant de déposer des ROMs.'),
     'drop_unreadable': ('Some dropped files or folders could not be read.', 'Certains fichiers ou dossiers déposés sont illisibles.'),
     'drop_unavailable': ('Drag and drop is unavailable. Use Add ROMs or Add folder.', 'Le glisser-déposer est indisponible. Utilise Ajouter des ROMs ou Ajouter un dossier.'),
+    'queue_restored': ('{count} unfinished ROMs restored. Use Convert to resume.', '{count} ROMs du lot interrompu retrouvées. Clique sur Convertir pour reprendre.'),
+    'queue_save_failed': ('Batch recovery could not be saved. Check free disk space and folder access.', 'Impossible de mémoriser la reprise du lot. Vérifie l’espace disque et l’accès au dossier.'),
     'tagline': ('Less emulation. No FPGA. As native as possible.', 'Moins d’émulation. Sans FPGA. Le plus natif possible.'),
     'library': ('GAME LIBRARY', 'BIBLIOTHÈQUE'),
     'language': ('Language', 'Langue'),

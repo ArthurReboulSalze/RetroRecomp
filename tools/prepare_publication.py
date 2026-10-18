@@ -21,6 +21,7 @@ smsrecomp/languages.py
 smsrecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
 smsrecomp/resources.py native/embedded_resources.h
 docs/LANGUAGES.md
+docs/QUALITY_REVIEW.md
 native/language_checks.c tools/language_selftest.py
 native/runtime_i18n.h native/runtime_catalog.inc native/runtime_glyphs.inc
 assets/locales/fr.json assets/locales/it.json assets/locales/es.json assets/locales/de.json
@@ -28,7 +29,12 @@ assets/locales/zh.json assets/locales/ja.json assets/locales/ru.json
 assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
 native/paths_posix.inc native/learning_posix.c native/font6x10.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py
-smsrecomp/freshness.py
+smsrecomp/freshness.py smsrecomp/compilation_inputs.py tests/test_compilation_inputs.py
+smsrecomp/snes_knowledge.py tests/test_snes_knowledge.py
+tests/test_build_budget.py
+tests/test_compiler_durability.py
+smsrecomp/queue_state.py tests/test_queue_state.py
+tools/queue_recovery_selftest.py
 tests/test_freshness.py
 tests/test_gui_shutdown.py
 smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
@@ -42,7 +48,7 @@ docs/RUNTIME_FEEDBACK.md
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
-MEDIAS/RetroRecomp_UI.png
+MEDIAS/RetroRecomp_UI_1.1.3.png
 MEDIAS/RetroRecomp_learning_cycle.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml

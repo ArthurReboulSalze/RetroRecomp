@@ -17,19 +17,6 @@ def _input_hash(path, size, modified):
     return digest(path)
 
 
-def engine_stamp():
-    """Also invalidate development exports when their runtime changes."""
-    from .paths import ASSETS
-    files = list((ASSETS/'native').rglob('*'))
-    files += list(Path(__file__).parent.rglob('*.py'))
-    value = hashlib.sha256(__version__.encode())
-    for path in sorted(p for p in files if p.is_file()):
-        stat = path.stat()
-        value.update(path.name.encode())
-        value.update(_input_hash(path,stat.st_size,stat.st_mtime_ns).encode())
-    return value.hexdigest()
-
-
 def request(item, options):
     from .platforms import target_id
     settings = {key: value for key, value in options.items()
@@ -46,7 +33,10 @@ def request(item, options):
         reference = (cover_reference(item.system, digest(item.path), item.path.stem,
                                     prefer3d=settings['prefer_3d']) if not item.cover else None)
         settings['cover_reference'] = reference['revision'] if reference else None
-    settings.update(engine=engine_stamp(), title=item.title, system=item.system, rom=item.sha256,
+    from .compilation_inputs import engine_stamp as console_stamp, knowledge_stamp
+    engine = console_stamp(item.system)
+    settings['knowledge'] = knowledge_stamp(item.system, item.sha256)
+    settings.update(engine=engine, title=item.title, system=item.system, rom=item.sha256,
                     cover=digest(item.cover) if item.cover else None)
     return hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -59,7 +49,10 @@ def current(item, target, report_path, signature, emit):
     try:
         report = json.loads(report_path.read_text(encoding='utf-8'))
         receipt = report['export_receipt']
-        if (report['version'] != __version__ or receipt['request'] != signature or
+        schema = receipt.get('schema', 1)
+        if (schema not in (1, 2) or
+                (schema == 1 and report['version'] != __version__) or
+                receipt['request'] != signature or
                 report['rom']['sha256'] != item.sha256 or report['executable'] != target.name or
                 receipt['sha256'] != digest(target)):
             return None

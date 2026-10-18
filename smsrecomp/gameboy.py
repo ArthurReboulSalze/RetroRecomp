@@ -19,13 +19,13 @@ from .gameboy_runtime import adapt_generated_project
 from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch
 from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
-                               probe_scenarios, read_entries, write_entries)
-from .library import atomic_json, library_root
+                               probe_scenarios, read_entries, write_entries, entries_text)
+from .library import atomic_json, atomic_text, entry_lock, library_root
 from .knowledge import record_for
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
-from .platforms import build_executable, cmake_target_args, build_jobs, target_id
+from .platforms import build_executable, cmake_target_args, build_jobs, target_id, available_cpus
 
 
 ENGINE_URL = "https://github.com/arcanite24/gb-recompiled.git"
@@ -158,39 +158,69 @@ def _cpu_compare(executable: Path, build: Path, frames: int,
 
 def _gb_parallelism(parallel_games: int) -> tuple[int, int]:
     """Bound compiler processes and independent CPU checks during batch work."""
-    per_game = max(1, (os.cpu_count() or 1) // parallel_games)
-    return min(4 if os.name=='nt' else int(build_jobs()), per_game), 3 if per_game >= 6 else 2 if per_game >= 4 else 1
+    per_game = max(1, available_cpus() // parallel_games)
+    return min(int(build_jobs()), per_game), 3 if per_game >= 6 else 2 if per_game >= 4 else 1
 
 
 def _verified_trace(rom: GameBoyRom) -> Path | None:
     folder = library_root("gb") / rom.sha256
-    trace, manifest = folder / "entries.trace", folder / "trace.json"
     try:
-        record = json.loads(manifest.read_text(encoding="utf-8"))
-        if (record.get("rom_sha256") == rom.sha256 and record.get("engine_revision") == ENGINE_REV
-                and trace.stat().st_size <= TRACE_LIMIT
-                and hashlib.sha256(trace.read_bytes()).hexdigest() == record.get("trace_sha256")):
-            return trace
-    except (OSError, ValueError, TypeError):
+        record = json.loads((folder / 'trace.json').read_text(encoding="utf-8"))
+        return _trace_from_record(folder, record, rom.sha256)
+    except (OSError, ValueError, TypeError, AttributeError):
         pass
     return None
 
 
+def _trace_from_record(folder: Path, record: dict, identity: str) -> Path | None:
+    if record.get('rom_sha256') != identity or record.get('engine_revision') != ENGINE_REV:
+        return None
+    # A stop between trace replacement and manifest commit must not discard
+    # the last verified library. The backup is bounded and only kept until
+    # the new pair is committed; it is never trusted without its old checksum.
+    for name in ('entries.trace', 'entries.trace.previous'):
+        path = folder / name
+        try:
+            if (path.stat().st_size <= TRACE_LIMIT and
+                    _trace_digest(path) == record.get('trace_sha256')):
+                return path
+        except OSError:
+            pass
+    return None
+
+
+def _trace_digest(path: Path) -> str:
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
 def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
-    entries = read_entries(_verified_trace(rom), len(rom.data)) | read_entries(trace, len(rom.data))
-    if not entries:
+    incoming = read_entries(trace, len(rom.data))
+    if not incoming:
         return
     folder = library_root("gb") / rom.sha256
-    folder.mkdir(parents=True, exist_ok=True)
-    target = folder / "entries.trace"
-    temporary = folder / "entries.trace.tmp"
-    write_entries(temporary, entries)
-    temporary.replace(target)
-    atomic_json(folder / "trace.json", {"rom_sha256": rom.sha256,
-        "title": rom.path.stem,
-        "engine_revision": ENGINE_REV,
-        "trace_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
-        "entry_count": len(entries), "kind": "headless_observed_entries"})
+    with entry_lock(folder):
+        verified = _verified_trace(rom)
+        previous = read_entries(verified, len(rom.data))
+        entries = previous | incoming
+        if entries == previous:
+            return
+        target = folder / "entries.trace"
+        backup = folder / 'entries.trace.previous'
+        if verified is not None and verified != backup:
+            # Preserve exact old line endings for existing Windows checksums.
+            with verified.open(encoding='ascii', newline='') as stream:
+                atomic_text(backup, stream.read())
+        atomic_text(target, entries_text(entries))
+        atomic_json(folder / "trace.json", {"rom_sha256": rom.sha256,
+            "title": rom.path.stem,
+            "engine_revision": ENGINE_REV,
+            "trace_sha256": _trace_digest(target),
+            "entry_count": len(entries), "kind": "headless_observed_entries"})
+        try:
+            backup.unlink(missing_ok=True)
+        except OSError:
+            pass  # A reader can still hold it on Windows; next write retries.
 
 
 def _known_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
@@ -217,15 +247,12 @@ def list_memory() -> list[dict]:
             continue
         try:
             record = json.loads((folder / "trace.json").read_text(encoding="utf-8"))
-            trace = folder / "entries.trace"
-            if (record.get("rom_sha256") != folder.name or
-                    record.get("engine_revision") != ENGINE_REV or
-                    not 0 < trace.stat().st_size <= TRACE_LIMIT or
-                    hashlib.sha256(trace.read_bytes()).hexdigest() != record.get("trace_sha256")):
+            trace = _trace_from_record(folder, record, folder.name)
+            if trace is None or not trace.stat().st_size:
                 continue
             result.append({"title": record.get("title") or "Game Boy", "sha256": folder.name,
                            "trace_bytes": trace.stat().st_size, "directory": str(folder)})
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError, AttributeError):
             continue
     return result
 

@@ -15,7 +15,7 @@ from . import __version__
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
-from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths
+from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths, data_directory
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
 from .languages import LANGUAGES, LANGUAGE_NAMES, language_code, language_name
 from .tooltips import Tooltip
@@ -111,6 +111,7 @@ class Application:
         self.options_panel = None
         self.output_field = None
         self.output_browse = None
+        self.recovered_batch = None
         self.status_key, self.status_values = 'ready', {}
         preferences = load_preferences()
         self.language = language_code(preferences.get('language'))
@@ -341,6 +342,25 @@ class Application:
 
     def tr(self, key, **values):
         return tr(key, self.language, **values)
+
+    def restore_queue(self):
+        from .queue_state import recover
+        journal=recover(data_directory()/'pending-batches')
+        if journal is None:return False
+        self.recovered_batch=journal
+        self.output.set(journal.definition['output']);self.custom_output.set(True)
+        self.custom_output_path=Path(journal.definition['output'])
+        for item in journal.pending_items():
+            status='invalid' if item.error else 'waiting'
+            row=self.table.insert('','end',values=(item.title,
+                get_profile(item.system).name if item.system else self.tr('unknown_console'),
+                self.video_display(item),self.tr('size',value=item.size//1024) if item.size else '-',
+                self.tr('auto'),self.tr(status)))
+            self.items[row]=item;self.row_status[row]=status
+        self.count.set(f'{len(self.items)} ROM'+('s' if len(self.items)!=1 else ''))
+        self.update_empty_state();self.update_output_controls()
+        self.set_status('queue_restored',count=len(self.items))
+        return True
 
     def enable_drops(self):
         try:
@@ -735,6 +755,12 @@ class Application:
         if self.busy:
             return
         for row in self.table.selection():
+            if self.recovered_batch is not None:
+                journal=self.recovered_batch
+                for index,saved in enumerate(journal.definition['items']):
+                    if saved['path']==str(self.items[row].path):
+                        try:journal.result(index,{'status':'removed'})
+                        except OSError:pass
             self.table.delete(row)
             self.items.pop(row, None)
             self.results.pop(row, None)
@@ -871,17 +897,53 @@ class Application:
         self.log.configure(state='disabled')
         self.set_controls(False)
         self.set_status('starting', count=len(items))
+        recovered=self.recovered_batch
+        # A selected-only conversion must leave the other recovered rows
+        # recoverable, including after a later window close or crash.
+        recovered_indices={}
+        if recovered is not None:
+            for index,row in enumerate(recovered.definition['items']):
+                if str(index) not in recovered.done:
+                    recovered_indices.setdefault(row['path'],[]).append(index)
         def worker():
+            journal=None
             try:
+                from .queue_state import BatchJournal
+                try:
+                    journal=BatchJournal.create(data_directory()/'pending-batches',items,output)
+                except (OSError,ValueError):
+                    self.messages.put(('log',self.tr('queue_save_failed')))
+                checkpoint_failed=False
+                def event(kind,index,value):
+                    nonlocal checkpoint_failed
+                    if kind=='result' and not checkpoint_failed:
+                        try:
+                            if journal is not None:journal.result(index,value)
+                            if recovered is not None:
+                                for saved_index in recovered_indices.get(str(items[index].path),[]):
+                                    recovered.result(saved_index,value)
+                        except OSError:
+                            checkpoint_failed=True
+                            self.messages.put(('log',self.tr('queue_save_failed')))
+                    self.messages.put((kind,index,value))
                 record = convert_batch(items, output, cancel=self.cancel, **options,
                     emit=lambda text: self.messages.put(('log', text)),
-                    on_event=lambda kind, index, value: self.messages.put((kind, index, value)))
+                    on_event=event)
+                if journal is not None:
+                    try:journal.finish(record)
+                    except OSError:self.messages.put(('log',self.tr('queue_save_failed')))
+                if recovered is not None and not recovered.pending_items():
+                    try:
+                        recovered.discard();self.recovered_batch=None
+                    except OSError:self.messages.put(('log',self.tr('queue_save_failed')))
                 for folder in {Path(game['executable']).parent for game in record['games']
                                if game['status'] == 'success'}:
                     save_game_language(folder, self.language)
                 self.messages.put(('done', record))
             except Exception as exc:
                 self.messages.put(('fatal', str(exc)))
+            finally:
+                if journal is not None:journal.close()
         threading.Thread(target=worker, daemon=True).start()
 
     def set_controls(self, enabled):
@@ -961,6 +1023,7 @@ class Application:
             save_preferences(self.preferences())
         except (OSError, tk.TclError, ValueError):
             pass
+        if self.recovered_batch is not None:self.recovered_batch.close()
         self.app.destroy()
 
     def _update_error(self, error: Exception | str):
@@ -1598,6 +1661,7 @@ class Application:
             save_preferences(self.preferences())
         except (OSError, tk.TclError, ValueError):
             pass
+        if self.recovered_batch is not None:self.recovered_batch.close()
         self.app.destroy()
 
 
@@ -1607,7 +1671,7 @@ def launch(update_error: str | None = None):
     app = tk.Tk()
     application = Application(app)
     roms = ROOT / 'ROMS'
-    if roms.is_dir():
+    if not application.restore_queue() and roms.is_dir():
         application.add_paths(discover_roms(roms))
     app._retro_application = application
     if update_error:

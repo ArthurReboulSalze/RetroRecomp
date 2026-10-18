@@ -1,5 +1,24 @@
 # Runtime performance without changing the output
 
+## Local follow-up — 18 October 2026
+
+NES now selects the first ready opaque sprite from the existing byte-local
+mask, removing the second eight-unit scalar search. A 262,144-case selection
+corpus checks the scalar result and absence of state mutation; the full
+44,800-checkpoint PPU/APU/video/bus/PCM comparison remains required.
+
+A proposed 68000 prefetch-cache shortcut was rejected: its small MSVC gain
+reversed on GCC on the same authored instruction corpus. No such shortcut is
+retained, and no full-game speed improvement is claimed for it. The Debian
+user reports Sonic is improved but not fully fluid and accepts this level for
+now; further Sonic-specific work is paused in favor of global improvements.
+
+Build throughput is separate from runtime speed. Compiler budgets are local
+to concurrent game workers, and Game Boy hashes incremental generated files
+with bounded buffers. Translation entries, native optimization and validation
+budgets are unchanged. Matching source content alone restores its timestamp;
+it never reuses an old qualification result.
+
 Windows and Linux use the same runtime sources. The current optimizations
 reduce repeated host work while retaining guest clocks, bus events, sprite
 limits selected by the player, PCM samples and filter results.

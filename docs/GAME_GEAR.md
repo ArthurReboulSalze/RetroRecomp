@@ -13,8 +13,17 @@ graphics at the borders and keeps the result faithful to the handheld's
 visible area. See the [Game Gear VDP technical reference](https://www.smspower.org/Development/GGVDP)
 and [Sega's hardware documentation](https://www.smspower.org/Development/GGOfficialDocs).
 
-Game Gear coverage is new and has had only targeted automated conversion
-checks. Matching the reference CPU and shared VDP on a short scenario does not
+The 18 October qualification, included in 1.1.3, adds twelve exact cartridges: Sonic,
+Sonic 2, Tails Adventures, GG Aleste, Gunstar Heroes, Dynamite Headdy, OutRun,
+Super Columns, Vampire / Master of Darkness, Wonder Boy: The Dragon's Trap,
+Crystal Warriors and Streets of Rage II. Advanced conversions pass their
+strict CPU/VDP gates. Replaying both 3,600-frame routes from every compressed
+export gives 86,400 native/reference frame pairs with matching CPU, RAM, VDP
+traces and final images, with no fallback on these routes. Source archives
+are unchanged. Their numeric records extend the shared Game Gear bank from
+one to thirteen exact revisions; they are not a cartridge allowlist.
+
+These targeted automated checks do not
 establish complete game compatibility or hardware fidelity. Native code
 coverage, CPU agreement, hardware fidelity, gameplay and physical latency
 remain separate measures.

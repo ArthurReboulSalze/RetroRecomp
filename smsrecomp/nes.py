@@ -22,7 +22,7 @@ from typing import Callable
 from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
-from .library import atomic_json, library_root
+from .library import atomic_json, atomic_text, entry_lock, library_root
 from .nes_build import object_stamps, prepare_native, preserve_inputs, write_changed
 from .knowledge import record_for
 from .metadata import write_game_metadata
@@ -139,10 +139,29 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
 
 def _seed_sites(path: Path) -> set[str]:
     try:
-        return {f'4k:{int(match[1], 16):X}:{int(match[2], 16):04X}' for line in path.read_text(encoding='ascii').splitlines()
-                if (match := SEED.match(line))}
+        if path.stat().st_size > 16 * 1024 * 1024:
+            raise ConversionError('NES entry trace exceeds its size limit.')
+        with path.open(encoding='ascii') as stream:
+            return {f'4k:{int(match[1], 16):X}:{int(match[2], 16):04X}' for line in stream
+                    if (match := SEED.match(line))}
     except FileNotFoundError:
         return set()
+
+
+def _remember_seed(seed: Path, previous: Path) -> None:
+    # Other conversions may have learned additional paths since this one began.
+    # Merge under the same per-ROM lock, then replace only the complete trace.
+    incoming_rom, incoming_ram = _seed_sites(seed), ram_sites(seed)
+    with entry_lock(previous.parent):
+        rom_entries = _seed_sites(previous) | incoming_rom
+        ram_entries = ram_sites(previous) | incoming_ram
+        from .nes_ram import MAX_GUARDS
+        if len(ram_entries) > MAX_GUARDS:
+            raise ConversionError('Too many NES guarded RAM entry variants.')
+        text = trace_text(rom_entries, ram_entries)
+        if len(text) > 16 * 1024 * 1024:
+            raise ConversionError('NES entry trace exceeds its size limit.')
+        atomic_text(previous, text)
 
 
 def _generated_source(project: Path) -> Path:
@@ -488,8 +507,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")
-    library.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(seed, previous)
+    _remember_seed(seed, previous)
     created_utc = datetime.now(timezone.utc).isoformat()
     report = {'tool': 'Retro-Recomp', 'version': __version__,
         'created_utc': created_utc,

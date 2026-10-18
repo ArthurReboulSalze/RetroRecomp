@@ -33,6 +33,18 @@ quick states and shutdown-only fallback hints use `datas` beside the game.
 Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
 game and two compiler tasks on Linux; `RETRO_RECOMP_BUILD_JOBS` adjusts the latter.
 
+During concurrent conversions, each game's compiler tasks are also capped by
+its share of the CPUs available to the converter process. This includes Game
+Boy; its reference-check budgets are unchanged. Up to eight conversions can
+run together, but using fewer can be better on memory-constrained machines.
+
+Release 1.1.3 adds interrupted-batch recovery. On reopening the
+converter, unfinished rows are restored without reading their ROMs or starting
+conversion automatically. Press Convert to resume, or Convert selected to process
+only the chosen rows. Other recovered rows remain available after closing.
+Remove/Clear retires them. Small checkpoint files stay in the converter's private
+`datas/pending-batches`; they contain paths and progress, never ROM copies.
+
 Linux games request VSync by default, keeping the console's clock limiter.
 `SDL_RENDER_VSYNC=0` is an explicit diagnostic override. Window managers and
 display drivers still determine physical presentation; a renderer flag alone

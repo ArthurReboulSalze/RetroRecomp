@@ -191,6 +191,8 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
             if len(json.dumps(ranges,separators=(',',':'))) < len(json.dumps(refs,separators=(',',':'))):
                 record['spc_ranges'] = ranges
                 del record['spc_refs']
+        from smsrecomp.snes_knowledge import compact
+        compact(record)
     payload = validate_payload({'schema': 1, 'consoles': consoles})
     raw = json.dumps(payload, separators=(',', ':'), sort_keys=True).encode('ascii')
     if len(raw) > MAX_BYTES: raise ValueError('Knowledge size budget exceeded.')

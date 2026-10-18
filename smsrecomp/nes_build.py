@@ -21,7 +21,8 @@ SOURCE_NAME = re.compile(r'game_cyc(?:_[A-Za-z0-9_]+)?\.c\Z')
 
 
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def write_changed(path: Path, data: bytes) -> bool:

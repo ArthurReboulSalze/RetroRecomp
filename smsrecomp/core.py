@@ -63,23 +63,21 @@ class ConversionError(RuntimeError):
 
 def module_fingerprint(name: str) -> str:
     """Hash compiler inputs even when PyInstaller stores code without .py files."""
-    import marshal
     from types import CodeType
+    from .compilation_inputs import code_fingerprint
     module = sys.modules[name]
     path = getattr(module, '__file__', None)
-    if path and Path(path).is_file():
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    loader = getattr(module, '__loader__', None)
-    code = loader.get_code(name) if loader and hasattr(loader, 'get_code') else None
+    if path and Path(path).is_file() and Path(path).suffix == '.py':
+        code = compile(Path(path).read_bytes(), '', 'exec', dont_inherit=True, optimize=0)
+    else:
+        loader = getattr(module, '__loader__', None)
+        code = loader.get_code(name) if loader and hasattr(loader, 'get_code') else None
     if not isinstance(code, CodeType):
         raise ConversionError(f'Cannot verify the bundled compiler module: {name}.')
-    def portable(value):
-        if not isinstance(value, CodeType):
-            return value
-        return value.replace(co_filename='', co_consts=tuple(portable(c) for c in value.co_consts))
     # PyInstaller extraction folders vary on each launch. Neither they nor a
-    # developer's source path may invalidate otherwise identical cache inputs.
-    return hashlib.sha256(marshal.dumps(portable(code))).hexdigest()
+    # developer's source path or the loader's constant interning may invalidate
+    # otherwise identical caches and runtime state identities.
+    return code_fingerprint(code)
 
 
 @dataclass(frozen=True)
@@ -192,14 +190,21 @@ def slug(title: str) -> str:
     return value
 
 
-def executable_name(title: str) -> str:
+def executable_name(title: str, *, suffix: str = '') -> str:
     """Keep the readable title, removing only Windows filename restrictions."""
-    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', title).strip().rstrip(' .')[:150].rstrip(' .')
+    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', title).strip().rstrip(' .')
     if not value:
         value = 'Game'
     if value.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}:
         value = '_' + value
-    return value + ('.exe' if os.name == 'nt' else '')
+    # Reserve the collision suffix *before* truncating. Otherwise long titles
+    # produce the same filename for (2), (3), ... and name reservation never ends.
+    value = value[:max(1, 150 - len(suffix))]
+    if os.name == 'nt':
+        value = value.encode('utf-16-le')[:max(2, 300 - len(suffix.encode('utf-16-le')))].decode('utf-16-le', errors='ignore')
+    else:
+        value = value.encode('utf-8')[:max(1, 240 - len(suffix.encode('utf-8')))].decode('utf-8', errors='ignore')
+    return (value.rstrip(' .') or 'Game') + suffix + ('.exe' if os.name == 'nt' else '')
 
 
 def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
@@ -1010,6 +1015,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
             f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
             f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
+            f"-DSMSRECOMP_BUILD_JOBS={build_jobs()}",
             f"-DRETRO_RECOMP_VERSION={__version__}",
             f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
         run([cmake, "--build", build, "--config", "Release", "--target", name, "--parallel", build_jobs()], log=log)

@@ -197,7 +197,9 @@
     "tip_language": "Cambia subito la lingua e la salva per il convertitore e questa cartella giochi. Nei giochi F7 passa tra le otto lingue.",
     "tip_platform": "La piattaforma corrisponde al sistema che esegue questo convertitore.",
     "tip_table": "Seleziona un gioco per il risultato. Ctrl/Maiusc seleziona più righe; doppio clic avvia un gioco pronto.",
-    "tip_video_timing": "Auto conserva il profilo della ROM o deduce la regione dal nome. L'etichetta regionale non prova il timing. PAL/NTSC forza il profilo alla rigenerazione ed è memorizzato. Altre console avranno le proprie opzioni."
+    "tip_video_timing": "Auto conserva il profilo della ROM o deduce la regione dal nome. L'etichetta regionale non prova il timing. PAL/NTSC forza il profilo alla rigenerazione ed è memorizzato. Altre console avranno le proprie opzioni.",
+    "queue_restored": "Ripristinate {count} ROM non completate. Usa Converti per riprendere.",
+    "queue_save_failed": "Impossibile salvare il recupero del lotto. Controlla lo spazio libero e l’accesso alla cartella."
   },
   "runtime": {
     "Unassigned": "Non assegnato",

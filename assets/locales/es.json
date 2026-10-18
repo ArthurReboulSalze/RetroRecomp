@@ -197,7 +197,9 @@
     "tip_language": "Cambia el idioma al instante y lo guarda para el conversor y esta carpeta. En juegos, F7 recorre los ocho idiomas.",
     "tip_platform": "La plataforma coincide con el sistema donde se ejecuta el conversor.",
     "tip_table": "Selecciona un juego para ver su resultado. Ctrl/Mayús selecciona varias filas; doble clic inicia un juego listo.",
-    "tip_video_timing": "Auto conserva el perfil de la ROM o deduce la región por el nombre. La etiqueta regional no demuestra el timing. PAL/NTSC fuerza el perfil al regenerar y se guarda. Otras consolas tendrán sus opciones."
+    "tip_video_timing": "Auto conserva el perfil de la ROM o deduce la región por el nombre. La etiqueta regional no demuestra el timing. PAL/NTSC fuerza el perfil al regenerar y se guarda. Otras consolas tendrán sus opciones.",
+    "queue_restored": "Se han recuperado {count} ROM pendientes. Pulsa Convertir para continuar.",
+    "queue_save_failed": "No se pudo guardar la recuperación del lote. Comprueba el espacio libre y el acceso a la carpeta."
   },
   "runtime": {
     "Unassigned": "Sin asignar",

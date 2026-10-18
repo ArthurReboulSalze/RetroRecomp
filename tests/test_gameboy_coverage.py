@@ -112,14 +112,22 @@ class CoverageTests(unittest.TestCase):
 
     def test_parallelism_respects_batch_cpu_share(self):
         from smsrecomp.platforms import build_jobs
-        limit=4 if os.name=='nt' else int(build_jobs())
-        with patch('smsrecomp.gameboy.os.cpu_count', return_value=24):
-            self.assertEqual(_gb_parallelism(1), (min(4,limit), 3))
-            self.assertEqual(_gb_parallelism(3), (min(4,limit), 3))
+        limit=int(build_jobs())
+        with patch('smsrecomp.gameboy.available_cpus', return_value=24):
+            self.assertEqual(_gb_parallelism(1), (min(24,limit), 3))
+            self.assertEqual(_gb_parallelism(3), (min(8,limit), 3))
             self.assertEqual(_gb_parallelism(8), (min(3,limit), 1))
-        with patch('smsrecomp.gameboy.os.cpu_count', return_value=4):
+        with patch('smsrecomp.gameboy.available_cpus', return_value=4):
             self.assertEqual(_gb_parallelism(1), (min(4,limit), 2))
             self.assertEqual(_gb_parallelism(3), (1, 1))
+
+    def test_parallelism_honors_explicit_limit_and_process_cpu_budget(self):
+        from smsrecomp.platforms import compilation_budget
+        with patch('smsrecomp.platforms.available_cpus',return_value=4), \
+                patch('smsrecomp.gameboy.available_cpus',return_value=4), \
+                patch.dict('os.environ',{'RETRO_RECOMP_BUILD_JOBS':'1'}):
+            self.assertEqual(_gb_parallelism(1),(1,2))
+            with compilation_budget(6):self.assertEqual(_gb_parallelism(6),(1,1))
 
     def test_zero_boot_fallback_does_not_skip_learning_from_play(self):
         rom = bytearray(65536)

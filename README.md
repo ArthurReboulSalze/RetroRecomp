@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.2-d4a737" alt="Release version 1.1.2">
+  <img src="https://img.shields.io/badge/release-1.1.3-d4a737" alt="Release version 1.1.3">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -28,15 +28,20 @@ game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
-**New in 1.1.2:** smoother batch startup with large export folders, clearer
-progress and closing behavior, and a tidier header on Windows and Linux.
+**New in 1.1.3:** resume interrupted batches, keep exports after interface-only
+updates, and protect learned hints during simultaneous conversions. A smaller
+verified knowledge library and lower temporary memory use benefit both Windows
+and Linux. See the [release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
   or use the file buttons. Recognized
   games are sorted by console, and multiple conversions can run together.
 - **Regenerate only what needs it.** Up-to-date exports are kept when the
-  converter, settings and fallback hints are unchanged. Convert the whole list
+  relevant compiler, settings and fallback hints are unchanged. An interface-only
+  update no longer forces a rebuild. Convert the whole list
   or just the selected games; force regeneration remains available in Options.
+- **Pick up where you left off.** After an interruption, unfinished games return
+  to the list. Resume the batch or just the selected rows when you are ready.
 - **Launch directly.** Generated games need no Python installation, separate ROM
   file or external SDL2 DLL. Regeneration can replace existing exports.
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
@@ -52,8 +57,9 @@ progress and closing behavior, and a tidier header on Windows and Linux.
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
   Reviewed cover links correct recurring mismatches during regeneration.
-- **Build on shared knowledge.** Verified hints for **1,092 exact cartridge
+- **Build on shared knowledge.** Verified hints for **1,105 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
+  The compressed library is now **8.3 MiB**, with all earlier observations retained.
 - **Reduce runtime overhead.** The latest Windows and Linux builds avoid repeated
   graphics and audio work, with matching pixels and sound on the comparison tests.
   Regenerate games to receive these changes. See the
@@ -99,7 +105,6 @@ The standard Mega Drive and Super Nintendo profiles are supported within their
 documented cartridge scope. Qualified SNES DSP-1/CX4 boards are also supported;
 CX4 device interpretation remains visible. Other enhancement chips require
 separate integration.
-**Neo Geo leaves experimental status in 1.0.2**, following further gameplay tests.
 Select your BIOS ZIP in **Options → Neo Geo**, then add cartridge ZIPs or NEO
 files using Automatic detection. See the [Neo Geo guide](docs/NEOGEO.md).
 Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
@@ -119,9 +124,9 @@ depend on the game; they do not guarantee that every slowdown or visual issue di
 
 ## From conversion to your game collection
 
-![RetroRecomp converter](MEDIAS/RetroRecomp_UI.png?v=3f29b62f5679)
+![RetroRecomp 1.1.3 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.3.png)
 
-*The refreshed charcoal-and-gold interface keeps mixed-console batches, options and updates together.*
+*The current Windows interface, with selective conversion, options and manual updates. Linux shares the same layout.*
 
 ## Get started
 
@@ -138,9 +143,9 @@ other distributions and ARM64 remain to be qualified. Linux builds Linux games,
 Windows builds Windows games, using the same verified compilation knowledge.
 See the [Linux guide](docs/LINUX.md) for launchers, build tools and cover accounts.
 The window can shrink for smaller screens, with a shorter ROM list and log.
-Linux performance on low-power machines is still being improved. The reported
-Mega Drive slowdown on the Debian test machine remains unresolved; isolated
-benchmark gains do not establish full-speed gameplay.
+Linux performance on low-power machines is still being improved. The Mega Drive
+slowdown on the Debian test machine has improved but is not fully resolved;
+full-speed gameplay on every machine is not established.
 
 Use **Options** for conversion settings and **Check for updates** when you want
 a newer version. Update checks are manual. Updating the converter preserves

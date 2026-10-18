@@ -102,19 +102,45 @@ def _variant_titles(items: list[BatchItem]) -> dict[int, str]:
 
 def _embedded_export_identity(path: Path) -> str | None:
     """Recover our exact cartridge marker, including from compacted EXEs."""
+    explicit = re.compile(re.escape(b'[Retro-Recomp]\x00') + rb'([0-9a-f]{64})\x00')
+    legacy = re.compile(rb'(?<![0-9a-f])([0-9a-f]{64})\x00')
+    branded = False
     try:
-        data = path.read_bytes()
+        with path.open('rb') as stream:
+            header = stream.read(4)
+            if not header.startswith((b'MZ', b'\x7fELF')):
+                return None
+            def scan(pattern, track_brand=False):
+                nonlocal branded
+                found, carry = set(), b''
+                stream.seek(0)
+                while chunk := stream.read(1024 * 1024):
+                    data = carry + chunk
+                    if track_brand:
+                        branded |= b'[Retro-Recomp]' in data
+                    # Enough overlap for a full marker plus its lookbehind.
+                    # Ignore matches wholly inside it: the first overlap byte
+                    # is not the file start and must not invent a legacy SHA.
+                    for match in pattern.finditer(data):
+                        if match.end() > len(carry):
+                            found.add(match[1])
+                            if len(found) == 2:
+                                return found
+                    carry = data[-96:]
+                return found
+            marked = scan(explicit, track_brand=True)
+            if marked:
+                return next(iter(marked)).decode('ascii') if len(marked) == 1 else None
+            # Legacy SHA scanning is costlier. Modern explicit markers do not
+            # need it, even when the marker is at the very end of a large game.
+            identities = scan(legacy) if branded else set()
     except OSError:
         return None
-    if not data.startswith((b'MZ', b'\x7fELF')) or b'[Retro-Recomp]' not in data:
+    if not branded:
         return None
-    marked = set(re.findall(re.escape(b'[Retro-Recomp]\x00') + rb'([0-9a-f]{64})\x00', data))
-    if marked:
-        return next(iter(marked)).decode('ascii') if len(marked) == 1 else None
     # Older generated runtimes used separate brand and null-terminated SHA
     # strings. Preserve their existing fail-closed, unique-identity rule.
-    identities = set(re.findall(rb'(?<![0-9a-f])[0-9a-f]{64}\x00', data))
-    return next(iter(identities))[:-1].decode('ascii') if len(identities) == 1 else None
+    return next(iter(identities)).decode('ascii') if len(identities) == 1 else None
 
 
 def _foreign_binary(path: Path) -> bool:
@@ -213,7 +239,7 @@ def export_target(item: BatchItem, output: Path) -> Path:
     candidate = base
     index = 2
     while candidate.casefold() in existing and owners.get(candidate.casefold()) != {item.sha256}:
-        candidate = executable_name(f'{item.title} ({index})')
+        candidate = executable_name(item.title, suffix=f' ({index})')
         index += 1
     return output / candidate
 
@@ -279,7 +305,7 @@ class _OutputNames:
             while (candidate.casefold() in self.reserved or
                    (candidate.casefold() in self.existing and
                     self.owners.get(candidate.casefold()) != {item.sha256})):
-                candidate = executable_name(f'{export_title or item.title} ({suffix})')
+                candidate = executable_name(export_title or item.title, suffix=f' ({suffix})')
                 suffix += 1
             target = self.output / candidate
         self.reserved[target.name.casefold()] = item.sha256
@@ -347,7 +373,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         finally:
             temporary.unlink(missing_ok=True)
         if pending:
-            emit(f"Nouvelle version prÃƒÂªte ; remplacement ÃƒÂ  la fermeture du jeu : {target}")
+            emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
         else:
             from .linux_desktop import publish_launcher
             publish_launcher(target, report_path, report)
@@ -357,14 +383,15 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                     from .linux_desktop import retire_launcher
                     retire_launcher(previous_executable,item.sha256)
                 except OSError as exc:
-                    emit(f"Ancien exÃƒÂ©cutable conservÃƒÂ© : {previous_executable.name} : {exc}")
+                    emit(f"Ancien exécutable conservé : {previous_executable.name} : {exc}")
         if report.get('version') == __version__ and feedback(report).get('fingerprint'):
             if pending:
                 from .publishing import job_path
                 published_hash = json.loads(job_path(target).read_text(encoding='utf-8'))['sha256']
             else:
                 published_hash = digest(target)
-            report['export_receipt'] = {'schema': 1, 'request': signature, 'sha256': published_hash}
+            report['export_receipt'] = {'schema': 2,
+                                       'request': signature, 'sha256': published_hash}
             atomic_json(report_path, report)
         try:
             if executable != target and executable != Path(report.get('build_executable', '')):
@@ -386,6 +413,13 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         result.update(status="error", message=str(exc))
         emit(f"{item.title} : {exc}")
     return result
+
+
+def _convert_in_budget(parallel_games, *args):
+    # Context-local caps cannot leak between simultaneous workers.
+    from .platforms import compilation_budget
+    with compilation_budget(parallel_games):
+        return _convert_one(*args)
 
 
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,
@@ -441,12 +475,12 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                     else:
                         system = get_profile(item.system)
                         if profile_for_path(item.path, item.selected_system or None).id != system.id:
-                            raise ConversionError("La console de cette ROM a changÃƒÂ© depuis son ajout au lot.")
+                            raise ConversionError("La console de cette ROM a changé depuis son ajout au lot.")
                         if system.read_rom(item.path).sha256 != item.sha256:
-                            raise ConversionError("La ROM a changÃƒÂ© depuis son ajout au lot ; ajoute-la ÃƒÂ  nouveau.")
+                            raise ConversionError("La ROM a changé depuis son ajout au lot ; ajoute-la à nouveau.")
                         if identity in seen:
                             result.update(status="duplicate", duplicate_of=seen[identity],
-                                message=f"Contenu ROM identique ÃƒÂ  Ã‚Â« {seen[identity]} Ã‚Â» malgrÃƒÂ© le nom diffÃƒÂ©rent.")
+                                message=f"Contenu ROM identique à « {seen[identity]} » malgré le nom différent.")
                             emit(f"{item.title} : {result['message']}")
                         else:
                             game_output = system_output(output, system.id)
@@ -463,18 +497,18 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                             previous_export = names[system.id].matching_export(item)
                             if previous_export and not names[system.id].same_source_name(item, previous_export):
                                 result.update(status='duplicate', duplicate_of=previous_export.stem,
-                                    message=f"Contenu ROM identique ÃƒÂ  Ã‚Â« {previous_export.stem} Ã‚Â» malgrÃƒÂ© le nom diffÃƒÂ©rent.")
+                                    message=f"Contenu ROM identique à « {previous_export.stem} » malgré le nom différent.")
                                 emit(f"{item.title} : {result['message']}")
                             elif previous_export and not overwrite:
                                 result.update(status='existing', executable=str(previous_export),
-                                    message='Jeu dÃƒÂ©jÃƒÂ  gÃƒÂ©nÃƒÂ©rÃƒÂ© ; remplacement dÃƒÂ©sactivÃƒÂ©.')
+                                    message='Jeu déjà généré ; remplacement désactivé.')
                                 seen[identity] = item.title
                                 emit(f"{item.title} : {result['message']}")
                             else:
                                 target, previous = names[system.id].reserve(item, variant_titles.get(index))
                                 reports = game_output / "datas/reports" / item.key
                                 on_event("start", index, item.title)
-                                future = executor.submit(_convert_one, index, item, len(items), system,
+                                future = executor.submit(_convert_in_budget, jobs, index, item, len(items), system,
                                     game_output, reports, target, previous, emit, options)
                                 pending[future] = (index, identity, target)
                                 active.add(identity)

@@ -100,26 +100,20 @@ static void shift_sprites(void)
 {
     rr_nes_sprite_shift(ppu.spr_x,ppu.spr_lo,ppu.spr_hi,ppu.skipped_dot!=0,rendering());
 }''')
-        # X counters and shifters still advance. Only an opaque current bit
-        # in a ready unit can select a sprite or trigger sprite-zero hit.
-        # Test all eight units without changing their priority or state.
-        source = replace_once(source, 'static void compute_pixel(void)\n{',
-            '''static inline bool rr_sprite_pixels_pending(void) {
-    uint64_t lo, hi, x;
-    memcpy(&lo, ppu.spr_lo, sizeof lo);
-    memcpy(&hi, ppu.spr_hi, sizeof hi);
-    uint64_t active = (lo | hi) & UINT64_C(0x8080808080808080);
-    if (!active || ppu.skipped_dot) return active != 0;
-    memcpy(&x, ppu.spr_x, sizeof x);
-    /* Byte-local zero test: the masked addition cannot carry to a neighbour. */
-    const uint64_t low = UINT64_C(0x7f7f7f7f7f7f7f7f);
-    return (active & ~(((x & low) + low) | x)) != 0;
-}
-static void compute_pixel(void)
-{''')
-        source = replace_once(source,
-            'ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8) && !sprite_units_idle()',
-            'ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8) && rr_sprite_pixels_pending()')
+        # The previous fast path computed an eligible-unit mask, then repeated
+        # the eight-unit scalar search. Reuse the first set bit directly while
+        # leaving composition, priority and sprite-zero-hit handling intact.
+        source = replace_once(source, '''    if (ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8) && !sprite_units_idle()) {
+        int i;
+        uint8_t sc = 0;
+        for (i = 0; i < 8; i++) {
+            if (ppu.spr_x[i] != 0 && !ppu.skipped_dot) continue;
+            sc = (uint8_t)((ppu.spr_lo[i] >> 7) | ((ppu.spr_hi[i] >> 7) << 1));
+            if (sc) break;
+        }''', '''    unsigned i = ppu.show_spr && (ppu.dot > 8 || ppu.show_spr8)
+        ? rr_nes_sprite_first(ppu.spr_x,ppu.spr_lo,ppu.spr_hi,ppu.skipped_dot!=0) : 8u;
+    if (i < 8) {
+        uint8_t sc = (uint8_t)((ppu.spr_lo[i] >> 7) | ((ppu.spr_hi[i] >> 7) << 1));''')
         source = replace_once(source, 'void ppu_dot(void)\n{',
             '#include "nes_ppu_fast.inc"\nHW_ALWAYS_INLINE void rr_step_dot(void)\n{')
         source = replace_once(source, 'void ppu_half_dot(void)\n{',

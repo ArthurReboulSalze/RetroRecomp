@@ -28,11 +28,15 @@ def read_entries(path: Path | None, rom_size: int) -> set[Entry]:
     return entries
 
 
-def write_entries(path: Path, entries: set[Entry]) -> None:
+def entries_text(entries: set[Entry]) -> str:
     text = ''.join(f'{bank}:{address:04x}\n' for bank, address in sorted(entries))
     if len(text) > TRACE_LIMIT:
         raise ValueError('Game Boy entry library exceeds its size limit.')
-    path.write_text(text, encoding='ascii')
+    return text
+
+
+def write_entries(path: Path, entries: set[Entry]) -> None:
+    path.write_text(entries_text(entries), encoding='ascii', newline='\n')
 
 
 def branch_entries(rom: bytes) -> set[Entry]:
