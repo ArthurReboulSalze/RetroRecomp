@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
+tools/package_installers.py tools/installers/windows.iss
+tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
+tests/test_installers.py docs/INSTALLING.md
 smsrecomp/compiled_games.py smsrecomp/compiled_games_view.py smsrecomp/memory_view.py
 smsrecomp/game_details.py smsrecomp/game_metadata.py smsrecomp/game_card_view.py smsrecomp/rom_sources.py
 tests/test_game_cards.py

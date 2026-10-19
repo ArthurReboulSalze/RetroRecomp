@@ -1,5 +1,8 @@
 # Build and run
 
+Prebuilt per-user installers are available for Windows and Linux; portable
+downloads remain available. See [installation and installer builds](INSTALLING.md).
+
 ## Collection data in 1.1.5
 
 Both systems keep the collection, favorites, optional ROM folders, covers and

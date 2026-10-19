@@ -39,7 +39,15 @@ Public metadata lookup was exercised across
 all seven consoles; credentialed services still depend on the user's API access.
 The project owner approved the interface before publication.
 
-Download **Retro-Recomp.exe** for Windows or
+**Installers added:** Windows setup and a Linux per-user `.run` installer now add
+application shortcuts and an uninstaller. In-app updates use the same verified
+native binaries; games and private data are kept during updates and uninstall.
+See the [installation guide](INSTALLING.md). The converter binaries and verified
+compilation snapshot are unchanged.
+
+Download **Retro-Recomp-1.1.5-windows-x64-setup.exe** for Windows or
+**Retro-Recomp-1.1.5-linux-x86_64-install.run** for Linux. Portable downloads remain
+available: **Retro-Recomp.exe** for Windows and
 **Retro-Recomp-1.1.5-linux-x86_64.tar.gz** for Linux. The separate Linux executable
 is also available for updates. Linux x86-64 is qualified on **Debian 13 / glibc
 2.41**; other distribution baselines and ARM64 remain separate work.

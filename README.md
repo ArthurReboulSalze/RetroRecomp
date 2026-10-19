@@ -148,13 +148,18 @@ depend on the game; they do not guarantee that every slowdown or visual issue di
 
 ## Get started
 
-1. Download the **Windows EXE** or **Linux x86-64 archive** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
+1. Download the **Windows setup EXE** or **Linux x86-64 `.run` installer** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases). Portable downloads remain available.
 2. Add your ROMs or folders, leave console detection on **Automatic**, and convert.
 3. Open the generated games in their console folders under **Games** beside the app.
 
 Conversion needs a supported build toolchain; see the
 [setup guide](docs/BUILDING.md). Playing the exported games needs no development tools.
 ROMs and downloaded box art are not included.
+
+Installers add an application shortcut and keep the in-app updater working without
+administrator rights. Games, settings, favorites and learning data survive updates
+and uninstall. See the [installation guide](docs/INSTALLING.md) for Windows setup,
+the Linux terminal command and moving existing portable data.
 
 The first Linux package is built and checked on **Debian 13 / glibc 2.41**;
 other distributions and ARM64 remain to be qualified. Linux builds Linux games,

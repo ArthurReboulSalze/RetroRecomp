@@ -64,6 +64,7 @@ docs/*
 !docs/RUNTIME_FEEDBACK.md
 !docs/COMPILED_GAMES.md
 !docs/BUILDING.md
+!docs/INSTALLING.md
 !docs/LINUX.md
 !docs/RUNTIME_PERFORMANCE.md
 !docs/LANGUAGES.md

@@ -4,7 +4,12 @@ This first native package targets **Linux x86-64, built on Debian 13
 (glibc 2.41)**. Older distributions and ARM64 are not qualified yet. It uses the
 same console implementations and verified compilation knowledge as Windows.
 
-Extract the archive into a writable local folder. Run `./Retro-Recomp` (or make
+Use the per-user `.run` installer to add Retro-Recomp to your applications menu:
+`bash Retro-Recomp-1.1.5-linux-x86_64-install.run`. It installs without sudo in
+`~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves data
+on uninstall. See [installation](INSTALLING.md).
+
+For a portable copy, extract the archive into a writable local folder. Run `./Retro-Recomp` (or make
 it executable with `chmod +x Retro-Recomp`). Python is included; no virtual
 environment is needed to open the converter. To create or refresh a local
 launcher with its icon after moving the folder, run
