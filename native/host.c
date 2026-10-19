@@ -468,8 +468,8 @@ static bool handle_event(const SDL_Event *e) {
     }
     if (key == SDL_SCANCODE_F6) {
         if (controls_autofire(!controls.autofire))
-            notice(controls.autofire ? controls_text("Gamepad autofire ON - hold buttons 1/2", "Autofire manette ON - maintenir 1/2") :
-                controls_text("Gamepad autofire OFF", "Autofire manette OFF"));
+            notice(controls.autofire ? controls_text("Autofire ON - hold buttons 1/2", "Tir auto ON - maintenir 1/2") :
+                controls_text("Autofire OFF", "Tir auto OFF"));
         else notice(controls_text("Config unavailable", "Config inaccessible"));
         return true;
     }

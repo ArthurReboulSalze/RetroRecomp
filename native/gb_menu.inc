@@ -92,7 +92,7 @@ static void rr_gb_draw_menu(void) {
     RR_TEXT(14, 15, heading, 38, 215, 255);
     if (g_rr_menu_kind == RR_GB_HELP) {
         char autofire[48];
-        snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), rr_tr(g_rr_autofire ? "ON" : "OFF"));
+        snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Autofire: %s", "F6  Tir auto : %s"), rr_tr(g_rr_autofire ? "ON" : "OFF"));
         const char* lines[] = {
             rr_gb_tr("F1  Restart game", "F1  Redemarrer le jeu"),
             rr_gb_tr("F2  Controls", "F2  Commandes"),
@@ -104,7 +104,7 @@ static void rr_gb_draw_menu(void) {
             rr_gb_tr("F9  Load game state", "F9  Charger l'etat"),
             rr_feedback_label(),
             rr_gb_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start"),
-            rr_gb_tr("Gamepad menu: left stick click", "Menu manette : clic stick gauche"),
+            rr_gb_tr("Gamepad menu: Guide button", "Menu manette : bouton Guide"),
         };
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             RR_TEXT(14, 29 + 12 * i, lines[i], 233, 239, 247);
@@ -184,9 +184,11 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
         if (key == SDL_SCANCODE_F12) {rr_feedback_toggle();rr_gb_notice(rr_feedback_label());return true;}
         if (key == SDL_SCANCODE_F5) { rr_gb_palette_change(); return true; }
         if (key == SDL_SCANCODE_F6) {
-            g_rr_autofire = !g_rr_autofire; save_runtime_preferences();
-            rr_gb_notice(g_rr_autofire ? rr_gb_tr("Gamepad autofire ON", "Autofire manette ON") :
-                rr_gb_tr("Gamepad autofire OFF", "Autofire manette OFF"));
+            g_rr_autofire = !g_rr_autofire;
+            memset(g_rr_fire,0,sizeof g_rr_fire);
+            save_runtime_preferences();
+            rr_gb_notice(g_rr_autofire ? rr_gb_tr("Autofire ON", "Tir auto ON") :
+                rr_gb_tr("Autofire OFF", "Tir auto OFF"));
             return true;
         }
         if (key == SDL_SCANCODE_F7) {
@@ -227,7 +229,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
     }
     if (event->type == SDL_CONTROLLERBUTTONDOWN) {
         const Uint8 button = event->cbutton.button;
-        if (button == SDL_CONTROLLER_BUTTON_GUIDE || button == SDL_CONTROLLER_BUTTON_LEFTSTICK) {
+        if (button == SDL_CONTROLLER_BUTTON_GUIDE) {
             rr_gb_toggle_menu(RR_GB_PAUSE); return true;
         }
         if (!g_show_menu) return false;
@@ -242,7 +244,7 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
         return true;
     }
     if (event->type == SDL_CONTROLLERBUTTONUP)
-        return g_show_menu || event->cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSTICK ||
+        return g_show_menu ||
             event->cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE;
     if (g_show_menu && event->type == SDL_CONTROLLERAXISMOTION) return true;
     if (g_show_menu && event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {

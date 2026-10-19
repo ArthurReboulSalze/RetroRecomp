@@ -1,5 +1,27 @@
 # Shared compilation knowledge
 
+## Release 1.1.7 — 28 additional qualified Neo Geo identities
+
+The verified snapshot contains **1,133 exact identities**, including **94 Neo
+Geo**: 36,461,008 raw JSON / **8,869,041 gzip bytes**, SHA-256
+`c5ddfb6f6f4cf84df1bff61ee440b1004a838daa4b3a5b045d5460f39781a557`.
+All previous observations are preserved and the six other console banks are
+unchanged. The same snapshot is packaged for Windows and Linux.
+
+The finite thirty-game campaign produced 29 exports; only **28** pass native
+qualification and promotion. There are 196 fresh-reference/packed routes,
+three MVS and two AES quick-state points per qualified game, invalid-state
+rejection and ordinary-save checks. All 56 AES restored runs are independently
+rechecked for zero observed CPU fallback. Ghost Pilots was regenerated to test
+the shared input fix. Full-game/hardware fidelity and physical latency are
+separate, unmeasured claims.
+
+Voltage Fighter Gowcaizer's hardware/state mismatch and League Bowling's heavy
+68000 fallback stay private and excluded from promotion. Reviewed artwork cache
+lookups succeeded for the new exports. No ROM, firmware, cover image, game state
+or raw private library enters the shared snapshot.
+Evidence: `.build/neogeo-thirty-20261019` and `.build/autofire-20261020`.
+
 ## Release 1.1.6 — unchanged qualified snapshot
 
 The collection path and scan fixes retain all **1,105 exact identities** and

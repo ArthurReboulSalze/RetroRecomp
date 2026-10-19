@@ -9,12 +9,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <wchar.h>
 #include "cyc_core.h"
 #include "cyc_run.h"
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
+#include "autofire.h"
 #include "display_settings.h"
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
@@ -40,6 +42,7 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
      SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}
 };
 static SDL_GameController *pads[2];
+static RrAutofire fire_state[2][2];
 static wchar_t ini_file[32768], data_dir[32768];
 static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire;
 static char status[80];
@@ -121,10 +124,9 @@ static uint8_t controller_input(int p, uint64_t frame) {
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint8_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
-        if (state[keys[p][a]]) value |= bits[a];
-        if (pads[p] && SDL_GameControllerGetButton(pads[p], buttons[p][a])) {
-            if (!autofire || a > B || (((uint64_t)(frame * 80.0 * RR_FRAME_SECONDS)) & 1) == 0) value |= bits[a];
-        }
+        bool down=state[keys[p][a]] || (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
+        if (a<=B) down=rr_autofire(&fire_state[p][a],down,autofire!=0,frame);
+        if (down) value|=bits[a];
     }
     if (pads[p]) {
         Sint16 x = SDL_GameControllerGetAxis(pads[p], SDL_CONTROLLER_AXIS_LEFTX);
@@ -237,7 +239,7 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(164, tr("Enter: remap | Esc: close", "Entree : attribuer | Esc : fermer"));
     } else {
         RR_NES_TEXT(58, tr("Game paused", "Jeu en pause"));
-        RR_NES_TEXT(83, tr("P or gamepad left-stick click: resume", "P ou clic stick gauche : reprendre"));
+        RR_NES_TEXT(83, tr("P: resume", "P : reprendre"));
         RR_NES_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
@@ -292,13 +294,6 @@ int cyc_sdl_main(const char *title, int scale) {
                 buttons[player][row] = (SDL_GameControllerButton)event.cbutton.button;
                 store_binding(); capturing = 0; status[0] = 0; continue;
             }
-            if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSTICK) {
-                menu = menu == 3 ? 0 : 3; status[0] = 0;
-            }
-            if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK &&
-                    pads[0] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[0]))) {
-                cyc_power_on(0); cyc_run_power_on(); nes_audio_clear();
-            }
             if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
             SDL_Scancode key = event.key.keysym.scancode;
             if (menu == 2 && capturing) {
@@ -337,6 +332,7 @@ int cyc_sdl_main(const char *title, int scale) {
                 menu = 2; gamepad_page = 2; row = capturing = 0;
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
+                memset(fire_state,0,sizeof fire_state);
                 if (ini_file[0]) { rr_mkdir(data_dir);
                     rr_ini_set(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
             }

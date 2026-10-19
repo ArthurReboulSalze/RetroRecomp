@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
+native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
 tools/package_installers.py tools/installers/windows.iss
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md

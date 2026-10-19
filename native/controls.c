@@ -5,6 +5,7 @@
 #include "host_control.h"
 #include "paths.h"
 #include "retro_keyboard.h"
+#include "autofire.h"
 #include "video_frame.h"
 #include "platform_io.h"
 #include "runtime_i18n.h"
@@ -59,27 +60,20 @@ static const SDL_GameControllerButton default_buttons[CONTROL_PLAYERS][CONTROL_A
 static const uint8_t masks[6] = {SMS_PAD_UP, SMS_PAD_DOWN, SMS_PAD_LEFT, SMS_PAD_RIGHT, SMS_PAD_B1, SMS_PAD_B2};
 static wchar_t config_path[32768];
 static wchar_t legacy_config_path[32768];
-static bool autofire_held[CONTROL_PLAYERS][2];
-static uint64_t autofire_started[CONTROL_PLAYERS][2];
+static RrAutofire autofire_state[CONTROL_PLAYERS][2];
 
 void controls_reset_autofire(void) {
-    memset(autofire_held, 0, sizeof(autofire_held));
+    memset(autofire_state, 0, sizeof(autofire_state));
 }
 
 /* Each new press starts on immediately. Never pulse directions or system
  * actions, and keep each player's two buttons independent. */
-static uint8_t pulse_gamepad(int player, uint8_t buttons, uint64_t time_us) {
+static uint8_t pulse_buttons(int player, uint8_t buttons, uint64_t frame) {
     if (player < 0 || player >= CONTROL_PLAYERS) return 0;
     for (int i = 0; i < 2; ++i) {
         uint8_t mask = masks[4 + i];
-        if (!controls.autofire || !(buttons & mask)) autofire_held[player][i] = false;
-        else {
-            if (!autofire_held[player][i] || time_us < autofire_started[player][i]) {
-                autofire_started[player][i] = time_us; autofire_held[player][i] = true;
-            }
-            /* 12.5 ms pressed / 12.5 ms released: forty pulses per guest second. */
-            if ((time_us - autofire_started[player][i]) % 25000 >= 12500) buttons &= (uint8_t)~mask;
-        }
+        if (!rr_autofire(&autofire_state[player][i],(buttons&mask)!=0,controls.autofire,frame))
+            buttons &= (uint8_t)~mask;
     }
     return buttons;
 }
@@ -397,7 +391,7 @@ bool controls_phaser_color(int color) {
 
 static uint8_t read_controls(int player, SDL_GameController *controller, bool focused, const uint8_t *keys) {
     if (player < 0 || player >= CONTROL_PLAYERS) return 0;
-    if (!focused) { pulse_gamepad(player, 0, 0); return 0; }
+    if (!focused) { pulse_buttons(player, 0, 0); return 0; }
     uint8_t result = 0, gamepad = 0;
     for (int i = 0; i < 6; ++i) {
         if (controls.keys[player][i] != SDL_SCANCODE_UNKNOWN && keys[controls.keys[player][i]])
@@ -422,7 +416,7 @@ static uint8_t read_controls(int player, SDL_GameController *controller, bool fo
             result |= SMS_PAD_START;
     }
 #endif
-    return result | pulse_gamepad(player, gamepad, controls.autofire ? smsrecomp_input_time_us() : 0);
+    return pulse_buttons(player, result | gamepad, glue_frame_count());
 }
 
 uint8_t controls_read(int player, SDL_GameController *controller, bool focused) {

@@ -73,10 +73,10 @@ def check(exe,output):
         '9 button 0 a 0','9 button 0 b 0','9 button 0 x 0','9 button 0 y 0',
         '9 button 0 start 0','9 button 0 back 0','9 button 1 start 0','9 button 1 back 0',
         '10 key F2','11 key Tab','12 key Return','13 button 1 b 1','14 snap wrong-controller',
-        '15 button 0 y 1','16 snap assigned',f'16 capture {output}/controls.bmp',
-        '17 button 0 y 0','17 button 1 b 0','18 key Escape','19 key F6','20 button 0 y 1',
+        '15 button 0 leftstick 1','16 snap assigned',f'16 capture {output}/controls.bmp',
+        '17 button 0 leftstick 0','17 button 1 b 0','18 key Escape','19 key F6','20 button 0 leftstick 1',
         *[f'{n} snap autofire-{n}' for n in range(21,34)],
-        '34 button 0 y 0','35 button 0 leftstick 1','36 snap pad-pause',
+        '34 button 0 leftstick 0','35 button 0 leftstick 1','36 snap pad-pause',
         '37 button 0 leftstick 0','38 button 0 leftstick 1','39 snap pad-resume',
         '40 button 0 leftstick 0','41 button 0 rightstick 1','42 snap pad-reset',
         '43 button 0 rightstick 0','44 detach 0','45 detach 1','47 snap removed','48 quit'])
@@ -84,13 +84,15 @@ def check(exe,output):
     assert pads['all-buttons']['pads']==[1008,768],pads['all-buttons']
     assert pads['analog-right']['pads'][1]==776 and pads['opposing']['pads'][1]==768
     assert pads['wrong-controller']['capturing']==1
-    assert pads['assigned']['capturing']==0 and pads['assigned']['gamepad'][0][0]==3
+    assert pads['assigned']['capturing']==0 and pads['assigned']['gamepad'][0][0]==7
     pulses=[bool(pads[f'autofire-{n}']['pads'][0]&16) for n in range(21,34)]
     assert True in pulses and False in pulses
-    assert pads['pad-pause']['menu']==3 and pads['pad-resume']['menu']==0
-    assert pads['pad-reset']['frame']<=2 and pads['removed']['controllers']==[False,False]
+    assert all(a != b for a,b in zip(pulses,pulses[1:])), pulses
+    assert pads['pad-pause']['menu']==pads['pad-resume']['menu']==0
+    assert pads['pad-reset']['menu']==0 and pads['pad-reset']['frame']>pads['pad-resume']['frame']
+    assert pads['removed']['controllers']==[False,False]
     padreopened,_=launch(exe,output,'pads-reopened',['0 snap persisted','1 quit'],folder)
-    assert padreopened['persisted']['gamepad'][0][0]==3
+    assert padreopened['persisted']['gamepad'][0][0]==7
     # F8/F9 reach the real shared event loop and disk path, then a fresh process.
     saved,folder=launch(exe,output,'quickstate',[
         '3 key F8','4 snap saved','14 snap before-load','15 key F9','16 snap loaded','17 quit'])

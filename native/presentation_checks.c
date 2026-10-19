@@ -4,7 +4,9 @@
 #include "host_control.h"
 #include "scanlines.h"
 #include "include/sms_runtime.h"
-static uint64_t test_time_us;
+static uint64_t test_time_us, test_frame;
+#include "glue.h"
+#define glue_frame_count() test_frame
 #define smsrecomp_input_time_us() test_time_us
 #include "controls.c"
 
@@ -32,6 +34,7 @@ static int set_fullscreen(SDL_Window *w, uint32_t flags) {
 #undef SDL_SetWindowSize
 #undef SDL_SetWindowFullscreen
 #undef smsrecomp_input_time_us
+#undef glue_frame_count
 
 static void key(SDL_Scancode key, int repeat) {
     SDL_Event event; SDL_zero(event); event.type=SDL_KEYDOWN;
@@ -126,41 +129,42 @@ static void autofire(void) {
     key(SDL_SCANCODE_F6,1); assert(controls.autofire);
     controls_load(); assert(controls.autofire);
     unsigned pressed[2]={0}, pulses[2]={0}; bool was_pressed[2]={false};
-    /* Half-millisecond samples include the exact 12.5 ms release boundary. */
-    for (test_time_us=0;test_time_us<1000000;test_time_us+=500) for(int p=0;p<2;++p) {
+    for (test_frame=0;test_frame<60;++test_frame) for(int p=0;p<2;++p) {
         uint8_t value=read_controls(p,pads_test[p],true,keys);
-        assert((value&SMS_PAD_RIGHT) && !(value&(SMS_PAD_UP|SMS_PAD_DOWN|SMS_PAD_LEFT)));
-        assert((value&(SMS_PAD_B1|SMS_PAD_B2))==(test_time_us%25000<12500 ? SMS_PAD_B1|SMS_PAD_B2 : 0));
+        assert(value&SMS_PAD_RIGHT);
+        assert((value&(SMS_PAD_B1|SMS_PAD_B2))==(!(test_frame&1) ? SMS_PAD_B1|SMS_PAD_B2 : 0));
         bool down=(value&SMS_PAD_B1)!=0;
         if(down) { pressed[p]++; if(!was_pressed[p]) pulses[p]++; }
         was_pressed[p]=down;
     }
-    assert(pressed[0]==1000 && pressed[1]==1000);
-    assert(pulses[0]==40 && pulses[1]==40);
-    test_time_us=1012500; keys[controls.keys[0][4]]=1;
-    assert((read_controls(0,pads_test[0],true,keys)&(SMS_PAD_B1|SMS_PAD_B2))==SMS_PAD_B1);
-    memset(keys,0,sizeof(keys)); assert(!read_controls(0,pads_test[0],false,keys));
-    assert((read_controls(0,pads_test[0],true,keys)&(SMS_PAD_B1|SMS_PAD_B2))==(SMS_PAD_B1|SMS_PAD_B2));
-    test_time_us=1013000;
-    assert(SDL_JoystickSetVirtualButton(sticks[1],SDL_CONTROLLER_BUTTON_A,0)==0); SDL_GameControllerUpdate();
-    assert(!(read_controls(1,pads_test[1],true,keys)&SMS_PAD_B1));
-    assert(SDL_JoystickSetVirtualButton(sticks[1],SDL_CONTROLLER_BUTTON_A,1)==0); SDL_GameControllerUpdate();
-    assert(read_controls(1,pads_test[1],true,keys)&SMS_PAD_B1); /* new press immediate, other button remains off */
-    assert(!(read_controls(1,pads_test[1],true,keys)&SMS_PAD_B2));
-    assert(controls_bind(0,4,true,SDL_CONTROLLER_BUTTON_X));
-    assert(SDL_JoystickSetVirtualButton(sticks[0],SDL_CONTROLLER_BUTTON_X,1)==0); SDL_GameControllerUpdate();
-    controls_reset_autofire(); assert(read_controls(0,pads_test[0],true,keys)&SMS_PAD_B1);
-    test_time_us+=12500; assert(!(read_controls(0,pads_test[0],true,keys)&SMS_PAD_B1));
-    /* Time is frozen in a pause; repeated samples cannot accelerate pulses. */
-    for(int i=0;i<100;++i) assert(!(read_controls(0,pads_test[0],true,keys)&SMS_PAD_B1));
-    /* A guest rewind must not underflow the held-button phase. */
-    test_time_us=0; assert(read_controls(0,pads_test[0],true,keys)&SMS_PAD_B1);
+    assert(pressed[0]==30 && pressed[1]==30 && pulses[0]==30 && pulses[1]==30);
+    controls_reset_autofire();
+    for(int p=0;p<2;++p) {
+        keys[controls.keys[p][4]]=keys[controls.keys[p][5]]=1;
+        keys[controls.keys[p][3]]=1;
+    }
+    for(test_frame=100;test_frame<160;++test_frame) for(int p=0;p<2;++p) {
+        uint8_t value=read_controls(p,NULL,true,keys);
+        assert(value&SMS_PAD_RIGHT);
+        assert((value&(SMS_PAD_B1|SMS_PAD_B2))==(!(test_frame&1) ? SMS_PAD_B1|SMS_PAD_B2 : 0));
+    }
+    test_frame=161;
+    assert(!read_controls(0,NULL,false,keys));
+    assert(read_controls(0,NULL,true,keys)&SMS_PAD_B1);
+    ++test_frame;
+    assert(!(read_controls(0,NULL,true,keys)&SMS_PAD_B1));
+    for(int i=0;i<100;++i) assert(!(read_controls(0,NULL,true,keys)&SMS_PAD_B1));
+    test_frame=0; assert(read_controls(0,NULL,true,keys)&SMS_PAD_B1);
+    memset(keys,0,sizeof keys);
+    assert(!read_controls(0,NULL,true,keys));
+    keys[controls.keys[0][4]]=1;
+    assert(read_controls(0,NULL,true,keys)&SMS_PAD_B1);
     key(SDL_SCANCODE_F6,0); assert(!controls.autofire && controls.language==0);
     assert((read_controls(0,pads_test[0],true,keys)&(SMS_PAD_B1|SMS_PAD_B2))==(SMS_PAD_B1|SMS_PAD_B2));
     key(SDL_SCANCODE_F7,0); assert(controls.language==1 && !controls.autofire);
-    key(SDL_SCANCODE_F7,0); assert(controls.language==0);
+    for(int i=1;i<RR_LANGUAGE_COUNT;++i)key(SDL_SCANCODE_F7,0); assert(controls.language==0);
     for(int p=1;p>=0;--p) { SDL_GameControllerClose(pads_test[p]); assert(SDL_JoystickDetachVirtual(devices[p])==0); }
-    puts("PASS: F6 autofire/F7 language, both players/buttons, forty pulses per simulated second, balanced 12.5 ms phases, immediate/released presses, remapping, keyboard/focus and shared INI; frozen pause and safe rewind.");
+    puts("PASS: F6 autofire/F7 language, both players/buttons, keyboard and gamepad, alternating guest frames, immediate/released presses, shared INI; frozen pause and safe rewind.");
 }
 static void sprite_option(void) {
 #ifndef RETRO_GAME_GEAR

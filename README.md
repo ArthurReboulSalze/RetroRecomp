@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.6-d4a737" alt="Release version 1.1.6">
+  <img src="https://img.shields.io/badge/release-1.1.7-d4a737" alt="Release version 1.1.7">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -69,11 +69,11 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.1.6:** move the app with `Games` and `datas` and keep your collection
-working. Older copied collections repair their local paths and merge stale
-aliases, preserving favorites. Complete scans remove confirmed missing games;
-unavailable folders stay listed. Windows and Linux installers and in-app updates
-are available. Existing games do not need regeneration.
+**New in 1.1.7:** fast, regular autofire now works with keyboard and gamepad
+across all seven consoles. Stick clicks (L3/R3) no longer force pause or reset;
+you can still assign them yourself in F2. The shared compilation library also
+includes 28 newly qualified Neo Geo cartridge/BIOS identities.
+Regenerate games to receive the control changes.
 See the [release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
@@ -109,9 +109,9 @@ See the [release notes](docs/RELEASE_NOTES.md).
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
   Reviewed cover links correct recurring mismatches during regeneration.
-- **Build on shared knowledge.** Verified hints for **1,105 exact cartridge
+- **Build on shared knowledge.** Verified hints for **1,133 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
-  The compressed library is now **8.3 MiB**, with all earlier observations retained.
+  The compressed library is now **8.5 MiB**, with all earlier observations retained.
 - **Reduce runtime overhead.** The latest Windows and Linux builds avoid repeated
   graphics and audio work, with matching pixels and sound on the comparison tests.
   Regenerate games to receive these changes. See the

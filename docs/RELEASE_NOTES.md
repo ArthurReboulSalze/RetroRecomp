@@ -1,3 +1,37 @@
+# RetroRecomp v1.1.7 — Fast autofire and safer controller defaults
+
+- **Autofire for keyboard and gamepad.** F6 now pulses held, mapped fire buttons
+  on all seven consoles. Previously keyboard buttons stayed continuously held,
+  so enabling autofire had no effect on them.
+- **Fast, regular pulses.** One guest frame pressed, one released replaces the
+  earlier 40 Hz timer, which could be poorly sampled by games. This produces
+  about 30 pulses/second at 60 Hz, 25 in PAL and 29.6 on Neo Geo. New presses
+  respond immediately; repeated reads, pause and state rewinds stay consistent.
+  Game-specific firing limits still apply.
+- **Free stick clicks.** L3/R3 no longer force pause or reset. They have no default
+  game binding and remain manually assignable in F2; saved custom bindings are
+  preserved. P pauses and F1 restarts.
+- **More shared Neo Geo knowledge.** 28 new exact cartridge/BIOS identities bring
+  the verified library to **1,133 records**, including **94 Neo Geo**, compressed
+  to **8.5 MiB**. Earlier observations and the six other console banks are kept.
+  Failed or interpreter-dependent qualifications are excluded.
+
+**Regenerate existing games to receive these runtime changes.** Updating the
+converter preserves games, settings, favorites, covers and private learning data.
+Windows x64 and Linux x86-64 installers and portable downloads are included.
+Use **Check for updates** to download the matching native converter.
+Linux support remains qualified on **Debian 13 / glibc 2.41**.
+
+Validation includes the real input readers for all seven consoles on Windows and
+Debian, keyboard state and SDL virtual gamepads, plus Ghost Pilots native/reference,
+packed-executable, F8/F9, ordinary-save and shared-menu checks. The new knowledge
+passes 196 reference/packed routes and 56 AES state replays. This is bounded
+native-coverage/integration evidence, not full-game, independent hardware or
+physical-latency certification. No ROM, BIOS, downloaded cover or raw private
+library is included in the packages.
+
+---
+
 # RetroRecomp v1.1.6 — Move your collection without broken paths
 
 - **Portable collection paths.** Move Retro-Recomp together with `Games` and

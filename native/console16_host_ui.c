@@ -17,6 +17,7 @@
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
+#include "autofire.h"
 #include "display_settings.h"
 #include "console16_state.h"
 #include "console16_video.h"
@@ -88,9 +89,8 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
      SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
      SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
-static bool fire_held[2][4];
-static uint64_t fire_start[2][4];
-void rr16_host_discontinuity(void) {memset(fire_held,0,sizeof fire_held);}
+static RrAutofire fire_state[2][FACE_LAST+1];
+void rr16_host_discontinuity(void) {memset(fire_state,0,sizeof fire_state);}
 #elif RR16_MD
 #if RR_MD_SIX_BUTTONS
 enum { A, B, C, X, Y, Z, MODE, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
@@ -137,6 +137,9 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
 #endif
 static SDL_GameController *pads[2];
+#if !RR16_NG
+static RrAutofire fire_state[2][FACE_LAST+1];
+#endif
 static wchar_t ini_file[32768], data_dir[32768];
 static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire;
 static char status[80];
@@ -245,20 +248,12 @@ static uint16_t controller_input(int p, uint64_t frame) {
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint16_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
-        if (state[keys[p][a]]) value |= bits[a];
+        bool down = state[keys[p][a]] || (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
 #if RR16_NG
         if(a==COIN && p==0 && keys[0][COIN]==SDL_SCANCODE_LSHIFT && state[SDL_SCANCODE_RSHIFT])value|=bits[a];
-        bool down=pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]);
-        if(a<=FACE_LAST) {
-            if(down && !fire_held[p][a])fire_start[p][a]=frame;
-            fire_held[p][a]=down;
-            if(down && (!autofire || (((uint64_t)((frame-fire_start[p][a])*80.0*RR16_FRAME_SECONDS))&1)==0))value|=bits[a];
-        } else if(down)value|=bits[a];
-#else
-        if (pads[p] && SDL_GameControllerGetButton(pads[p], buttons[p][a])) {
-            if (!autofire || a > FACE_LAST || (((uint64_t)(frame * 80.0 * RR16_FRAME_SECONDS)) & 1) == 0) value |= bits[a];
-        }
 #endif
+        if (a<=FACE_LAST) down=rr_autofire(&fire_state[p][a],down,autofire!=0,frame);
+        if (down) value |= bits[a];
     }
     if (pads[p]) {
         Sint16 x = SDL_GameControllerGetAxis(pads[p], SDL_CONTROLLER_AXIS_LEFTX);
@@ -415,7 +410,7 @@ static void draw_menu(SDL_Renderer *ren) {
         RR16_TEXT(164, tr("Arrows: change | Tab: controls", "Fleches : regler | Tab : commandes"));
     } else {
         RR16_TEXT(58, tr("Game paused", "Jeu en pause"));
-        RR16_TEXT(83, tr("P or gamepad left-stick click: resume", "P ou clic stick gauche : reprendre"));
+        RR16_TEXT(83, tr("P: resume", "P : reprendre"));
         RR16_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
@@ -545,13 +540,6 @@ int rr16_sdl_main(const char *title, int scale) {
                 }
                 continue;
             }
-            if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSTICK) {
-                menu = menu == 3 ? 0 : 3; status[0] = 0;
-            }
-            if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK &&
-                    pads[0] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[0]))) {
-                rr16_reset(); pause_audio_output(audio, &audio_playing);
-            }
             if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
             SDL_Scancode key = event.key.keysym.scancode;
             if (menu == 2 && capturing) {
@@ -606,6 +594,9 @@ int rr16_sdl_main(const char *title, int scale) {
 #endif
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
+                memset(fire_state,0,sizeof fire_state);
+                snprintf(status,sizeof status,"%s",tr(autofire?"Autofire ON":"Autofire OFF",autofire?"Tir auto actif":"Tir auto inactif"));
+                status_until=SDL_GetTicks64()+1800;
                 if (ini_file[0]) { rr_mkdir(data_dir);
                     rr_ini_set(L"Manettes", L"autofire", autofire ? L"1" : L"0", ini_file); }
             }

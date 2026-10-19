@@ -127,7 +127,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
     } else if (kind == 1) {
         char autofire[64];
-        snprintf(autofire, sizeof(autofire), TR("F6  Gamepad autofire: %s", "F6  Autofire manette : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
+        snprintf(autofire, sizeof(autofire), TR("F6  Autofire: %s", "F6  Tir auto : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
         const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
 #ifndef RETRO_GAME_GEAR

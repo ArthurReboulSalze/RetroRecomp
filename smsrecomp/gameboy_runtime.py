@@ -65,6 +65,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     # menu drawing code as the Sega runtimes and a small Game Boy action bridge.
     for source_name, destination in (
         ('retro_menu.h', project / 'runtime/include/retro_menu.h'),
+        ('autofire.h', project / 'runtime/include/autofire.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
         ('font6x10.h', project / 'runtime/src/font6x10.h'),
         ('runtime_i18n.h', project / 'runtime/include/runtime_i18n.h'),
@@ -85,7 +86,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     runtime = project / "runtime/src/platform_sdl.cpp"
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
-                          '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "platform_io.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
+                          '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "autofire.h"\n#include "platform_io.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
     source = '#include "embedded_resources.h"\n' + source
     source = replace_once(source, '    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);',
                           '    rr_set_window_icon(g_window);\n#ifndef _WIN32\n    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC,"1",SDL_HINT_DEFAULT);\n#endif\n    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);')
@@ -102,6 +103,8 @@ static int g_rr_menu_row = 0;
 static bool g_rr_bind_gamepad = false;
 static int g_rr_language = 0;
 static bool g_rr_autofire = false;
+static RrAutofire g_rr_fire[2] = {};
+static uint64_t g_rr_input_frame = 0;
 static void rr_gb_toggle_menu(int kind);''')
     source = replace_once(source, 'static int g_palette_idx = 0;', 'static int g_palette_idx = 1;')
     source = replace_once(source, '''typedef enum GBRenderFilterMode {
@@ -546,24 +549,14 @@ bool gb_platform_wait_while_menu(GBContext* ctx) {
 void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     source = replace_once(source, '''    if (input_action_is_pressed(GB_INPUT_ACTION_START)) g_manual_joypad_buttons &= (uint8_t)~0x08;
 }''', '''    if (input_action_is_pressed(GB_INPUT_ACTION_START)) g_manual_joypad_buttons &= (uint8_t)~0x08;
-    if (g_rr_autofire) {
-        const uint64_t frequency = SDL_GetPerformanceFrequency();
-        const uint64_t time_us = frequency ? SDL_GetPerformanceCounter() * 1000000ULL / frequency : 0;
-        if ((time_us % 25000ULL) >= 12500ULL) {
-            const GBInputAction buttons[2] = {GB_INPUT_ACTION_A, GB_INPUT_ACTION_B};
-            for (int i = 0; i < 2; ++i) {
-                const GBInputAction action = buttons[i];
-                bool keyboard = false, controller = false;
-                for (int slot = 0; slot < 2; ++slot) {
-                    keyboard |= g_keyboard_binding_pressed[action][slot];
-                    controller |= g_controller_button_binding_pressed[action][slot] ||
-                        g_controller_axis_binding_pressed[action][slot];
-                }
-                if (controller && !keyboard) g_manual_joypad_buttons |= (uint8_t)(1u << i);
-            }
-        }
+    for (int i = 0; i < 2; ++i) {
+        const bool down = (g_manual_joypad_buttons & (1u << i)) == 0;
+        if (!rr_autofire(&g_rr_fire[i], down, g_rr_autofire, g_rr_input_frame))
+            g_manual_joypad_buttons |= (uint8_t)(1u << i);
     }
 }''')
+    source = replace_once(source, '    uint64_t current_cycles = ctx ? ctx->total_cycles : 0;',
+        '    uint64_t current_cycles = ctx ? ctx->total_cycles : 0;\n    g_rr_input_frame = current_cycles / 70224ULL;')
     source = replace_once(source, '''    update_effective_joypad_state();
     record_manual_input_state(current_cycles);''', '''    const uint8_t previous_dpad = g_joypad_dpad;
     const uint8_t previous_buttons = g_joypad_buttons;

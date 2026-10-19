@@ -16,7 +16,7 @@ typedef struct {
     bool reduce_sprite_flicker; /* SMS display enhancement; guest flags retain eight slots. */
     int first_controller_player;
     int language; /* Stable RR_LANGUAGE_COUNT IDs, see runtime_i18n.h. */
-    bool autofire; /* Both mapped gamepad fire buttons, while held. */
+    bool autofire; /* Mapped keyboard/gamepad fire buttons, while held. */
     int phaser_dot_size; /* 1..5 source pixels; shared presentation setting */
     int phaser_shape;
     int phaser_color;

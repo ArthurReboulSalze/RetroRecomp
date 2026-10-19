@@ -20,7 +20,7 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (AES BIOS required) |
-| F6 | Gamepad autofire on/off for mapped face buttons |
+| F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE → ZH → JA → RU |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
@@ -58,8 +58,7 @@ The Neo Geo MVS profile shares the same menus and four filters.
 Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
-and Back. **P** or left-stick click pauses; **F1** or player 1's right-stick
-click resets. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
+and Back. **P** pauses; **F1** resets. Stick clicks are unassigned by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
 there is no gun page. F3/F4/F6/F7 preferences persist in the common local INI
 with independent NeoGeo video/mapping sections. F8/F9 includes fresh-process
 loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).
@@ -78,13 +77,13 @@ Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
 **Enter** is cartridge Start and either **Shift** is cartridge Select.
 These letter bindings follow the active keyboard layout. On a controller, the
 D-pad/left stick moves, the two primary face buttons are A/B, Start and
-Back are cartridge Start/Select, and a left-stick click opens pause. Game Boy
+Back are cartridge Start/Select, and the Guide button opens pause. Game Boy
 uses the same RetroRecomp menu layout as the Sega profiles. F3 cycles all four
 filters, including Scale2x and scanlines; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.
-F6 toggles autofire for held gamepad A/B, F7 changes menu language,
+F6 toggles autofire for held keyboard/gamepad A/B, F7 changes menu language,
 and F8/F9 use one quick state. P pauses, F2 maps controls, and H opens
 help. Enter selects a binding inside F2. Escape closes a menu or quits.
 Fallback stays visible in the window title and pause menu, with no overlay
@@ -147,15 +146,22 @@ F8/F9 also save and restore the qualified 16-bit games after closing the EXE.
 Each quick state uses the game's name and exact ROM identity in `datas/states`.
 See [state formats and compatibility](GAME_STATES.md#mega-drive-and-super-nintendo).
 
-F6 autofire is off by default. It pulses both mapped gamepad fire buttons
-while they are held, independently for each player/button. New presses fire
-immediately; directions, menu/reset, keyboard buttons and mouse gun triggers
-are unaffected. Starting with 0.10.14, the cadence is forty pulses per simulated
-second (12.5 ms down, 12.5 ms up), four times the previous speed. Timing uses
-guest microseconds, so pause freezes it and display refresh does not set its
-speed. The game's input sampling and firing rules determine the actual shots;
-a game can miss pulses when it reads the controller less often than they occur.
-The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`.
+F6 autofire is off by default. It pulses held, mapped fire/face buttons from
+**both keyboard and gamepad**, independently for each player and button. A new
+press fires immediately. Each pulse is one guest frame pressed and one released:
+about 30 pulses per second on 60 Hz consoles, 25 in PAL, and 29.6 on Neo Geo.
+This replaces the earlier 40 Hz timer, whose pulses could be missed by games
+sampling once per frame. Repeated reads within a frame stay stable; pausing
+freezes the phase. Directions, Start/Select/Coin and mouse gun triggers are not
+pulsed. The game's own firing limits still apply.
+
+L3/R3 (stick clicks) have **no forced pause/reset action** and no default game
+binding. They remain assignable to game actions through F2. Existing explicitly
+saved bindings remain in effect. Use P to pause and F1 to restart.
+
+The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`;
+Game Boy keeps its own persistent `input.autofire` setting. Existing games need
+regeneration to receive these input changes.
 
 Starting with 0.10.6, catalogue-selected Light Phaser games use the mouse on
 port 1: left click triggers, right click shoots off-screen. F5 (or G in F2)
