@@ -21,12 +21,53 @@
   <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a>
 </p>
 
-## One converter, multiple consoles
-
 RetroRecomp brings several recompilers together in one application. It recompiles
 game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
+
+## From conversion to your game collection
+
+![RetroRecomp 1.1.5 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.5.jpg)
+
+*The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.*
+
+![RetroRecomp Compiled Games view with favorites, box art and game information](MEDIAS/RetroRecomp_Compiled_Games.png)
+
+*Compiled Games keeps your collection, favorites, box art and saved game summaries together.*
+
+![Generated Master System games in Windows Explorer](MEDIAS/RetroRecomp_Master_System_Collection.png)
+
+*An example collection of generated Master System games, with optional box-art icons.*
+
+![RetroRecomp animated credits with wireframe shapes and live tracker music](MEDIAS/RetroRecomp_Credits.png)
+
+*Animated credits combine a demoscene backdrop with live four-channel ChipLoom music.*
+
+## Play. Learn. Recompile.
+
+The goal is native execution from the **first export**, without interpreter
+fallback. Learning is an extra safeguard for code paths that conversion checks
+have not reached. If you encounter a fallback during play, the game collects
+small hints in memory and saves them **when you close the game**, avoiding
+feedback writes during play. Regenerating can then cover those additional paths;
+fallback is not an expected step before you can enjoy a game.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="If fallback occurs: save hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
+</p>
+
+RetroRecomp imports these hints, checks them against the exact game and uses them
+during regeneration. **Options → console → Import fallback hints** also lets you
+recover them from games stored elsewhere. Once imported, they remain in the
+converter's library even if you move or delete the original game folder.
+
+Recording is on by default; **F12** switches it on or off. Each game's feedback
+file is capped at about **128 KiB**. This can reduce fallback on supported code
+paths; graphics and hardware issues still need fixes in the runtime.
+See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
+
+## One converter, multiple consoles
 
 **New in 1.1.6:** move the app with `Games` and `datas` and keep your collection
 working. Older copied collections repair their local paths and merge stale
@@ -76,29 +117,6 @@ See the [release notes](docs/RELEASE_NOTES.md).
   Regenerate games to receive these changes. See the
   [performance notes](docs/RUNTIME_PERFORMANCE.md) for their scope and checks.
 
-## Play. Learn. Recompile.
-
-The goal is native execution from the **first export**, without interpreter
-fallback. Learning is an extra safeguard for code paths that conversion checks
-have not reached. If you encounter a fallback during play, the game collects
-small hints in memory and saves them **when you close the game**, avoiding
-feedback writes during play. Regenerating can then cover those additional paths;
-fallback is not an expected step before you can enjoy a game.
-
-<p align="center">
-  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="If fallback occurs: save hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
-</p>
-
-RetroRecomp imports these hints, checks them against the exact game and uses them
-during regeneration. **Options → console → Import fallback hints** also lets you
-recover them from games stored elsewhere. Once imported, they remain in the
-converter's library even if you move or delete the original game folder.
-
-Recording is on by default; **F12** switches it on or off. Each game's feedback
-file is capped at about **128 KiB**. This can reduce fallback on supported code
-paths; graphics and hardware issues still need fixes in the runtime.
-See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
-
 ## Console support
 
 | Console | Current status |
@@ -135,24 +153,6 @@ Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
 
 These optional enhancements change the original machine's limits. Their effects
 depend on the game; they do not guarantee that every slowdown or visual issue disappears.
-
-## From conversion to your game collection
-
-![RetroRecomp 1.1.5 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.5.jpg)
-
-*The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.*
-
-![RetroRecomp Compiled Games view with favorites, box art and game information](MEDIAS/RetroRecomp_Compiled_Games.png)
-
-*Compiled Games keeps your collection, favorites, box art and saved game summaries together.*
-
-![Generated Master System games in Windows Explorer](MEDIAS/RetroRecomp_Master_System_Collection.png)
-
-*An example collection of generated Master System games, with optional box-art icons.*
-
-![RetroRecomp animated credits with wireframe shapes and live tracker music](MEDIAS/RetroRecomp_Credits.png)
-
-*Animated credits combine a demoscene backdrop with live four-channel ChipLoom music.*
 
 ## Get started
 
