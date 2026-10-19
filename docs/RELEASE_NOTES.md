@@ -1,3 +1,50 @@
+# RetroRecomp v1.1.5 — Your compiled collection, favorites and game cards
+
+This update brings a persistent game collection and a more compact interface
+to Windows and Linux.
+
+- **Compiled Games.** Switch between conversion and your collection. Scan export
+  folders when needed, sort and filter games, launch them, or right-click to
+  rescan and regenerate. The list is restored on reopening the app.
+- **Persistent favorites.** Click the star, sort by favorites or show only your
+  favorites. Your choices survive rescans and regeneration.
+- **Covers and short game summaries.** The side panel reuses local artwork first,
+  with exported icons as a fallback. Choose or search for a front cover and
+  regenerate to update the executable's icon. Existing online summaries are
+  fetched only on request, for one game or a right-click selection. Cards retain
+  their text, language and source locally for offline use.
+- **Find original ROMs again.** Set a ROM folder for each console. Regeneration
+  searches remembered locations and that folder's subfolders, checking the exact
+  cartridge identity before conversion. New reports retain the source path.
+- **Faster Game Memory.** Open one console at a time and reuse small cached
+  summaries, including consistent console labels for older Master System records.
+- **A tidier interface.** Smaller controls and rows, a fully visible Options
+  Close button, and compact credits with a speaker icon. Credits pause while
+  you use links or the scrollbar, then resume and reverse at either end.
+
+The goal remains native execution from the first export. If fallback is observed,
+saved hints can help a later regeneration cover those additional paths. Collection
+statuses distinguish saved hints from fallback in earlier conversion checks;
+absence of a saved hint is not proof of complete gameplay coverage.
+
+The verified library remains at **1,105 exact cartridge identities** (**8.3 MiB**
+compressed), unchanged from 1.1.4. This release updates the converter and its
+collection workflow; it adds no new cartridge qualification or game-runtime
+performance claim. ROMs, BIOS files, downloaded covers, cards, private observations
+and saves are excluded from the release packages.
+
+The 555-test suite passes on Windows and Debian, with 1 and 17 skips. Eight-language
+layout checks pass on both systems. Public metadata lookup was exercised across
+all seven consoles; credentialed services still depend on the user's API access.
+The project owner approved the interface before publication.
+
+Download **Retro-Recomp.exe** for Windows or
+**Retro-Recomp-1.1.5-linux-x86_64.tar.gz** for Linux. The separate Linux executable
+is also available for updates. Linux x86-64 is qualified on **Debian 13 / glibc
+2.41**; other distribution baselines and ARM64 remain separate work.
+
+---
+
 # RetroRecomp v1.1.4 — Animated credits and ChipLoom music
 
 The credits become a small demoscene presentation in RetroRecomp's charcoal,

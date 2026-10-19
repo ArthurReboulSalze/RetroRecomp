@@ -107,6 +107,13 @@ def save_preferences(value: dict) -> None:
             except ValueError:
                 folders[system] = str(path)
         value['feedback_paths'] = folders
+    if 'rom_paths' in value:
+        from .rom_sources import rom_folders
+        folders={}
+        for system,path in rom_folders(value).items():
+            try:folders[system]=str(path.resolve().relative_to(export_directory()))
+            except ValueError:folders[system]=str(path.resolve())
+        value['rom_paths']=folders
     directory = data_directory()
     directory.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix="Retro-Recomp.", suffix=".tmp", dir=directory)

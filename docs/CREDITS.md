@@ -23,15 +23,19 @@ adapts jump duration to recent hits; muting consumes hits without producing jump
 Perspective-scaled sizes, ground shadows and a slight squash on landing complete
 the effect. Canvas meshes are reused
 throughout the animation. Each console retains its own centered credit cell and links.
-The automatic roll pauses on wheel, keyboard or scrollbar input. It resumes only
-when requested; hovering a link temporarily holds the text so it can be clicked.
+The automatic roll pauses on wheel, keyboard or scrollbar input and resumes
+after a short idle period. Holding the scrollbar or hovering a repository keeps
+the text still. At either end it pauses, reverses direction and continues, with
+no jump back to the beginning. There are no scrolling-mode buttons.
 Closing the dialog releases the animation timer and audio device.
 
 The three supplied ChipLoom compositions are original four-channel `M.K.` MOD
 files under `MEDIAS/trackers_chiploom`. A random selection excludes the previous
-track, including across application restarts. The sound button and last selection
+track, including across application restarts. A compact speaker/mute icon and last selection
 use a small `datas/credits-player.json`; no updates are written during playback.
-The author credit remains discreet, followed by a link to
+The compact footer keeps the track title small. The original application tagline
+is used under the wordmark. The discreet author name links to the author's GitHub,
+followed by a link to
 [ChipLoom](https://github.com/ArthurReboulSalze/ChipLoom).
 
 Playback uses **libxmp-lite 4.7.3**, also used as a reference by ChipLoom, with

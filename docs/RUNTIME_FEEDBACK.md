@@ -1,5 +1,33 @@
 # Gameplay fallback feedback
 
+## Compiled Games collection
+
+The Windows/Linux converter keeps its collection in the private
+`datas/compiled-games.json`. Opening the app restores this index without scanning
+the executables again. Successful conversions register their original ROM path,
+exact identity, version and report before the batch finishes. Scan games refreshes
+the usual export folders; Add a games folder remembers another search root.
+Missing files stay visible. Neither the index nor its local paths are bundled.
+
+The table supports console/status filters, search and sorting. Right-click offers
+Reconvert and Rescan. Routine scans read conversion metadata and bounded saved
+feedback. Row rescans also hash the selected binary. Scanning never launches games
+or reads ROM collections. Reconvert requires the original exact ROM, asks for it
+if needed, checks ownership before replacing an executable and uses the regular
+conversion and validation pipeline in the game's current folder.
+
+New saved hints suggest regeneration. Already-consumed hints, fallback observed
+in conversion tests, unreadable feedback and missing/changed files have distinct
+states. No saved fallback is not proof of complete gameplay coverage: recording
+may be disabled, older games may not record hints, and many paths may be untested.
+Recognized hints are retained in the converter's private bank; they never bypass
+fresh conversion checks or become qualified shared knowledge through a scan.
+
+Game Memory loads one console in a worker and caches display summaries by file
+size and modification time. It does not hash Game Boy traces to build the list.
+Every row has an explicit console column, including older Master System records.
+These summaries are for browsing only and never enter compilation decisions.
+
 Generated Windows games keep a small, deduplicated set of interpreter misses in
 host memory. They save it **only at normal shutdown**, under
 `datas/fallbacks/<console>-<full-identity>.rrfb`, beside the game executable.

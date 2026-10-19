@@ -70,17 +70,18 @@ class CreditsTests(unittest.TestCase):
                 path.write_text(state)
                 self.assertFalse(MusicSession(path).muted)
 
-    def test_scrolling_hands_control_to_user_until_resumed(self):
+    def test_scrolling_resumes_after_interaction_and_holds_while_dragging(self):
         state = ScrollState()
         state.maximum = 500
         state.wait = 0
         state.tick(1)
         self.assertEqual(state.position, 20)
         state.manual(180)
-        state.tick(8)
+        state.tick(1)
         self.assertEqual(state.position, 180)
-        state.automatic = True
         state.tick(1, hovering=True)
+        self.assertEqual(state.position, 180)
+        state.tick(1)
         self.assertEqual(state.position, 180)
         state.tick(1)
         self.assertEqual(state.position, 200)
@@ -89,7 +90,7 @@ class CreditsTests(unittest.TestCase):
         state.manual(-50)
         self.assertEqual(state.position, 0)
 
-    def test_last_credit_can_be_read_before_looping(self):
+    def test_last_credit_pauses_then_reverses_without_jumping(self):
         state = ScrollState()
         state.maximum, state.position, state.wait = 500, 490, 0
         state.tick(1)
@@ -98,7 +99,12 @@ class CreditsTests(unittest.TestCase):
         self.assertEqual(state.position, 500)
         state.tick(1)
         state.tick(.1)
+        self.assertEqual(state.position, 478)
+        self.assertEqual(state.direction, -1)
+        state.position = 3
+        state.tick(1)
         self.assertEqual(state.position, 0)
+        self.assertEqual(state.direction, 1)
 
     def test_missing_player_does_not_leave_a_thread_or_crash_ui(self):
         with patch('smsrecomp.credits_music.Decoder', side_effect=OSError('no device')):

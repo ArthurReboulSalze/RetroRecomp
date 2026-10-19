@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.4-d4a737" alt="Release version 1.1.4">
+  <img src="https://img.shields.io/badge/release-1.1.5-d4a737" alt="Release version 1.1.5">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -28,13 +28,12 @@ game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
-**New in 1.1.4:** a demoscene-inspired credits screen brings scrolling credits,
-flying stars, rotating cubes and bouncing spheres that follow the music.
-Three original four-channel modules created with
-[ChipLoom](https://github.com/ArthurReboulSalze/ChipLoom) play directly, with a
-mute button and a different track each time you reopen credits. Options now
-open centered over the app. Available on Windows and Linux; see the
-[release notes](docs/RELEASE_NOTES.md).
+**New in 1.1.5:** browse a persistent collection of compiled games, mark favorites
+and keep covers and short game summaries. Search information only when you ask,
+for one game or a selection. Per-console ROM folders help find original sources
+for regeneration. A more compact interface, faster Game Memory and refined
+animated credits complete the update on Windows and Linux.
+See the [release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,
   or use the file buttons. Recognized
@@ -45,6 +44,15 @@ open centered over the app. Available on Windows and Linux; see the
   or just the selected games; force regeneration remains available in Options.
 - **Pick up where you left off.** After an interruption, unfinished games return
   to the list. Resume the batch or just the selected rows when you are ready.
+- **Browse your compiled games.** A persistent collection keeps generated games
+  between sessions. Scan export folders when needed, filter by console, sort
+  saved fallback hints, and right-click to rescan or regenerate one game.
+  Game Memory opens by console and reuses small summaries instead of rereading
+  large traces on every visit.
+  Mark favorites, view cached covers and save short game summaries with their
+  sources. Information searches are manual, for one game or a selection.
+  Per-console ROM folders help find the exact source again for regeneration.
+  See [compiled games](docs/COMPILED_GAMES.md).
 - **Launch directly.** Generated games need no Python installation, separate ROM
   file or external SDL2 DLL. Regeneration can replace existing exports.
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
@@ -70,12 +78,15 @@ open centered over the app. Available on Windows and Linux; see the
 
 ## Play. Learn. Recompile.
 
-Your play sessions can improve the next export. When a game needs the interpreter
-fallback, it collects small hints in memory and saves them **when you close the
-game**, avoiding feedback writes during play.
+The goal is native execution from the **first export**, without interpreter
+fallback. Learning is an extra safeguard for code paths that conversion checks
+have not reached. If you encounter a fallback during play, the game collects
+small hints in memory and saves them **when you close the game**, avoiding
+feedback writes during play. Regenerating can then cover those additional paths;
+fallback is not an expected step before you can enjoy a game.
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="Play a game, collect fallback hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
+  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="If fallback occurs: save hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
 </p>
 
 RetroRecomp imports these hints, checks them against the exact game and uses them
@@ -127,9 +138,13 @@ depend on the game; they do not guarantee that every slowdown or visual issue di
 
 ## From conversion to your game collection
 
-![RetroRecomp 1.1.3 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.3.png)
+![RetroRecomp 1.1.5 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.5.jpg)
 
-*The current Windows interface, with selective conversion, options and manual updates. Linux shares the same layout.*
+*The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.*
+
+![Generated Master System games in Windows Explorer](MEDIAS/RetroRecomp_Master_System_Collection.png)
+
+*An example collection of generated Master System games, with optional box-art icons.*
 
 ## Get started
 

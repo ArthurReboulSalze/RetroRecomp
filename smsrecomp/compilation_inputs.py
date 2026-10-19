@@ -16,7 +16,9 @@ from functools import lru_cache
 SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'))
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
-                               'credits_demo', 'credits_music', 'dialogs'))
+                               'credits_demo', 'credits_music', 'dialogs',
+                               'compiled_games', 'compiled_games_view', 'memory_view',
+                               'game_details','game_metadata','game_card_view','rom_sources'))
 
 
 def owners(name):

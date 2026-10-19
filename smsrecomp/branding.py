@@ -50,15 +50,15 @@ def apply_theme(app, font_family='Segoe UI'):
     app.option_add('*TCombobox*Listbox.selectForeground', c['text'])
     style = ttk.Style(app)
     style.theme_use('clam')
-    style.configure('.', font=(font_family, 10), background=c['background'], foreground=c['text'])
-    style.configure('TButton', padding=(10, 7), background=c['button'], bordercolor=c['border'],
+    style.configure('.', font=(font_family, 9), background=c['background'], foreground=c['text'])
+    style.configure('TButton', padding=(8, 5), background=c['button'], bordercolor=c['border'],
                     lightcolor=c['button'], darkcolor=c['button'], focuscolor=c['gold'],
                     focusthickness=1, anchor='center')
     style.map('TButton', background=[('disabled', c['panel']), ('pressed', c['selected']), ('active', c['hover'])],
               foreground=[('disabled', c['disabled'])], bordercolor=[('focus', c['gold']), ('active', c['muted'])])
     style.configure('Primary.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
-                    padding=(14, 8), font=(font_family, 10, 'bold'))
+                    padding=(12, 6), font=(font_family, 9, 'bold'))
     style.map('Primary.TButton', background=[('disabled', c['panel']), ('active', c['gold_hover'])],
               foreground=[('disabled', c['disabled']), ('!disabled', c['gold_text'])],
               lightcolor=[('active', c['gold_hover'])], darkcolor=[('active', c['gold_hover'])])
@@ -82,22 +82,23 @@ def apply_theme(app, font_family='Segoe UI'):
                         lightcolor=c['button'], darkcolor=c['button'])
         style.map(name, background=[('active', c['hover'])])
     style.configure('TNotebook', background=c['background'], bordercolor=c['border'])
-    style.configure('TNotebook.Tab', padding=(12, 8), background=c['field'], foreground=c['muted'])
+    style.configure('TNotebook.Tab', padding=(10, 6), background=c['field'], foreground=c['muted'])
     style.map('TNotebook.Tab', background=[('selected', c['button']), ('active', c['hover'])],
               foreground=[('selected', c['gold_hover'])])
     style.configure('Treeview', background=c['field'], fieldbackground=c['field'], foreground=c['text'],
-                    rowheight=31, borderwidth=1, bordercolor=c['border'],
+                    rowheight=26, font=(font_family, 9), borderwidth=1, bordercolor=c['border'],
                     lightcolor=c['border'], darkcolor=c['border'])
     style.configure('Treeview.Heading', background=c['button'], foreground=c['text'],
-                    padding=(8, 8), font=(font_family, 10, 'bold'), bordercolor=c['border'],
+                    padding=(7, 6), font=(font_family, 9, 'bold'), bordercolor=c['border'],
                     lightcolor=c['button'], darkcolor=c['button'])
     style.map('Treeview.Heading', background=[('active', c['hover'])])
     style.map('Treeview', background=[('selected', c['selected'])], foreground=[('selected', c['text'])])
     style.configure('Muted.TLabel', foreground=c['muted'])
     style.configure('Empty.TLabel', background=c['field'], foreground=c['muted'], font=(font_family, 10))
     style.configure('EmptyTitle.TLabel', background=c['field'], foreground=c['muted'], font=(font_family, 10, 'bold'))
-    style.configure('Toolbar.TButton', font=(font_family, 9), padding=(6, 7))
-    style.configure('Toolbar.Primary.TButton', font=(font_family, 9, 'bold'), padding=(8, 7))
+    style.configure('Toolbar.TButton', font=(font_family, 9), padding=(6, 5))
+    style.configure('Toolbar.Primary.TButton', font=(font_family, 9, 'bold'), padding=(8, 5))
+    style.configure('Icon.TButton', padding=(5, 4))
     style.configure('TLabelframe', bordercolor=c['subtle_border'])
     style.configure('TLabelframe.Label', foreground=c['gold_hover'])
     return style
@@ -117,6 +118,9 @@ ICON_PATHS = {
     'auto': ((3, 13, 12, 4), (2, 3, 2, 6), (1, 5, 4, 5), (12, 10, 12, 14), (10, 12, 14, 12), (8, 1, 8, 3)),
     'play': ((4, 2, 13, 8, 4, 14, 4, 2),),
     'stop': ((5, 3, 5, 13), (11, 3, 11, 13)),
+    'speaker': ((2, 6, 5, 6, 9, 2, 9, 14, 5, 10, 2, 10, 2, 6),
+                (11, 5, 13, 7, 13, 9, 11, 11), (13, 2, 16, 6, 16, 10, 13, 14)),
+    'muted': ((2, 6, 5, 6, 9, 2, 9, 14, 5, 10, 2, 10, 2, 6), (12, 5, 16, 11), (16, 5, 12, 11)),
     'gamepad': ((4, 4, 12, 4, 14, 6, 15, 12, 13, 14, 10, 11, 6, 11, 3, 14, 1, 12, 2, 6, 4, 4),
                 (5, 6, 5, 10), (3, 8, 7, 8), (11, 7, 11, 7), (13, 9, 13, 9)),
 }

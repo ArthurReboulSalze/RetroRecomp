@@ -73,31 +73,27 @@ class ScrollState:
     def __init__(self):
         self.position = 0.0
         self.maximum = 0.0
-        self.automatic = True
         self.wait = 2.0
-        self.at_end = False
+        self.direction = 1
 
     def manual(self, position):
-        self.automatic = False
         self.position = max(0.0, min(self.maximum, position))
-        self.wait = 0.0
-        self.at_end = False
+        self.wait = 1.5
+        if self.position >= self.maximum:
+            self.direction = -1
+        elif self.position <= 0:
+            self.direction = 1
 
     def tick(self, seconds, hovering=False):
-        if not self.automatic or hovering:
+        if hovering or self.maximum <= 0:
             return
         if self.wait > 0:
             self.wait = max(0, self.wait - seconds)
             return
-        if self.at_end:
-            self.position = 0
-            self.wait = 2.0
-            self.at_end = False
-            return
-        self.position = min(self.maximum, self.position + seconds * 20)
-        if self.position >= self.maximum and self.maximum:
-            self.wait = 5.0
-            self.at_end = True
+        self.position = max(0, min(self.maximum, self.position + self.direction * seconds * 20))
+        if self.position >= self.maximum or self.position <= 0:
+            self.direction *= -1
+            self.wait = 2.5
 
 
 class BouncingSphere:
@@ -285,6 +281,7 @@ class CreditsDemo:
         self.scroll = ScrollState()
         self.offset_drawn = 0.0
         self.hovering = False
+        self.dragging = False
         self.started = self.last_frame = time.monotonic()
         self.layout_width = self.layout_height = 0
         self.total_height = 1
@@ -311,14 +308,13 @@ class CreditsDemo:
         hintbar.pack(fill='x')
         tk.Label(hintbar, text=self.tr('credits_open_link'), bg='#202020', fg=MUTED,
                  font=(self.font,9), padx=14, pady=7).pack(side='left')
-        self.mode = tk.Label(hintbar, text=self.tr('credits_auto'), bg='#202020', fg=GOLD,
-                            font=(self.font,9), padx=14)
-        self.mode.pack(side='right')
 
         stage = tk.Frame(panel, bg=BG)
         stage.pack(fill='both', expand=True)
         self.scrollbar = ttk.Scrollbar(stage, orient='vertical', command=self._scrollbar)
         self.scrollbar.pack(side='right', fill='y')
+        self.scrollbar.bind('<ButtonPress-1>', self._drag_start, add='+')
+        panel.bind('<ButtonRelease-1>', self._drag_end, add='+')
         self.canvas = tk.Canvas(stage, bg=BG, highlightthickness=0, takefocus=True)
         self.canvas.pack(side='left', fill='both', expand=True)
         self.scene = DemoBackground(self.canvas)
@@ -358,7 +354,7 @@ class CreditsDemo:
             pass
         for bounds,color in wordmark_rectangles(w/2-165,38,4.2):
             c.create_rectangle(*bounds,fill=color,outline='')
-        c.create_text(w/2-163,88,text=self.tr('credits_demo_tagline'),anchor='w',
+        c.create_text(w/2-163,88,text=self.tr('brand_tagline'),anchor='w',
                       fill=MUTED,font=(self.font,9))
         c.create_text(w-18,16,text='v'+__version__,anchor='ne',fill='#777777',font=(self.font,8))
         c.create_line(0,126,w,126,fill='#574925')
@@ -367,43 +363,43 @@ class CreditsDemo:
             c.create_rectangle(x,y,x+size,y+size,fill=color,outline='')
 
     def _footer(self):
-        footer = tk.Frame(self.panel,bg='#202020',padx=16,pady=10)
+        footer = tk.Frame(self.panel,bg='#202020',padx=14,pady=6)
         footer.pack(fill='x')
         playback = tk.Frame(footer,bg='#202020')
         playback.pack(fill='x')
-        self.meter = tk.Canvas(playback,width=76,height=38,bg='#202020',highlightthickness=0)
-        self.meter.pack(side='left',padx=(0,12))
+        self.meter = tk.Canvas(playback,width=52,height=26,bg='#202020',highlightthickness=0)
+        self.meter.pack(side='left',padx=(0,9))
         self.meter_items = []
         for ch in range(4):
             bars = []
             for step in range(8):
-                bars.append(self.meter.create_rectangle(2+ch*18,32-step*4,13+ch*18,34-step*4,
+                bars.append(self.meter.create_rectangle(2+ch*13,23-step*3,10+ch*13,25-step*3,
                                                         fill='#39352b',outline=''))
             self.meter_items.append(bars)
         track = tk.Frame(playback,bg='#202020')
         track.pack(side='left',fill='x',expand=True)
         tk.Label(track,text=self.player.title,bg='#202020',fg=WHITE,
-                 font=(self.font,11,'bold'),anchor='w').pack(anchor='w')
+                 font=(self.font,9),anchor='w').pack(anchor='w')
         self.track_info = tk.Label(track,text=self.tr('credits_audio_starting'),bg='#202020',fg=MUTED,
                                    font=(self.font,8),anchor='w')
         self.track_info.pack(anchor='w')
-        self.mute_button = ttk.Button(playback,text=self.tr('credits_sound_on'),command=self._mute)
+        from .branding import make_icon
+        self.sound_icons = [make_icon(self.panel, name, GOLD, 20) for name in ('speaker', 'muted')]
+        self.mute_button = ttk.Button(playback,command=self._mute,style='Icon.TButton',width=2)
         self.mute_button.pack(side='right')
+        from .tooltips import Tooltip
+        self.sound_hint = Tooltip(self.mute_button,lambda:self.tr('credits_sound_toggle'))
         self._mute_text()
         actions = tk.Frame(footer,bg='#202020')
-        actions.pack(fill='x',pady=(9,8))
-        self.auto_button = ttk.Button(actions,text=self.tr('credits_pause'),command=self._toggle_auto)
-        self.auto_button.pack(side='left')
-        ttk.Button(actions,text=self.tr('credits_notices'),command=self.owner.show_legal_notices).pack(side='left',padx=8)
-        ttk.Button(actions,text=self.tr('close'),command=self.close).pack(side='right')
-        bottom = tk.Frame(footer,bg='#202020')
-        bottom.pack(fill='x')
-        tk.Label(bottom,text=self.tr('credits_manual_hint'),bg='#202020',fg='#939393',
-                 wraplength=350,justify='left',font=(self.font,8)).pack(side='left',anchor='s')
-        author = tk.Frame(bottom,bg='#202020')
+        actions.pack(fill='x',pady=(5,0))
+        ttk.Button(actions,text=self.tr('credits_notices'),command=self.owner.show_legal_notices).pack(side='left')
+        ttk.Button(actions,text=self.tr('close'),command=self.close).pack(side='left',padx=6)
+        author = tk.Frame(actions,bg='#202020')
         author.pack(side='right')
-        tk.Label(author,text=self.tr('credits_author')+' · Arthur Reboul Salze',bg='#202020',fg=MUTED,
-                 font=(self.font,8)).pack(anchor='e')
+        name = tk.Label(author,text=self.tr('credits_author')+' · Arthur Reboul Salze',bg='#202020',fg=MUTED,
+                        cursor='hand2',font=(self.font,8,'underline'))
+        name.pack(anchor='e')
+        name.bind('<Button-1>',lambda _e:webbrowser.open_new_tab('https://github.com/ArthurReboulSalze'))
         link = tk.Label(author,text=self.tr('credits_chiploom'),bg='#202020',fg=GOLD,
                         cursor='hand2',font=(self.font,8,'underline'))
         link.pack(anchor='e',pady=(3,0))
@@ -475,8 +471,15 @@ class CreditsDemo:
     def _manual(self, value):
         self.scroll.manual(value)
         self._position()
-        self._auto_text()
         return 'break'
+
+    def _drag_start(self, event=None):
+        self.dragging = True
+
+    def _drag_end(self, event=None):
+        if self.dragging:
+            self.dragging = False
+            self.scroll.wait = 1.5
 
     def _wheel(self, event):
         if event.delta:
@@ -492,17 +495,8 @@ class CreditsDemo:
             amount = self.layout_height*.8 if units == 'pages' else 35
             self._manual(self.scroll.position+int(value)*amount)
 
-    def _auto_text(self):
-        self.auto_button.configure(text=self.tr('credits_pause' if self.scroll.automatic else 'credits_resume'))
-        self.mode.configure(text=self.tr('credits_auto' if self.scroll.automatic else 'credits_manual'))
-
-    def _toggle_auto(self):
-        self.scroll.automatic = not self.scroll.automatic
-        self.scroll.wait = 0
-        self._auto_text()
-
     def _mute_text(self):
-        self.mute_button.configure(text=self.tr('credits_sound_off' if self.player.muted else 'credits_sound_on'))
+        self.mute_button.configure(image=self.sound_icons[int(self.player.muted)])
 
     def _mute(self):
         self.player.muted = not self.player.muted
@@ -514,7 +508,7 @@ class CreditsDemo:
         now = time.monotonic()
         delta,self.last_frame = min(.1,now-self.last_frame),now
         if self.panel.state() != 'iconic' and self.canvas.winfo_viewable():
-            self.scroll.tick(delta,self.hovering)
+            self.scroll.tick(delta,self.hovering or self.dragging)
             self._position()
             values = self.player.values
             pulse = max(values[8:])/32768 if self.player.status == 'playing' and not self.player.muted else 0
@@ -547,6 +541,7 @@ class CreditsDemo:
             self.panel.after_cancel(self.timer)
             self.timer = None
         self.player.close()
+        self.sound_hint.hide()
         if self.owner.credits_panel is self.panel:
             self.owner.credits_panel = None
         self.owner.credits_demo = None

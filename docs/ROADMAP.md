@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.1.4 has seven supported console profiles on Windows and a native Linux
+Release 1.1.5 has seven supported console profiles on Windows and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -9,6 +9,15 @@ and NES ROMs, includes a supported Mega Drive standard-cartridge profile
 and a supported standard Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
 their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
+
+## Delivered in 1.1.5 — 19 October 2026
+
+Persistent Compiled Games, favorites, cached covers and manual short game-info
+lookup are available on Windows and Linux. Per-console source folders support
+exact-ROM recovery for regeneration. Game Memory loads one console with cached
+summaries; compact controls and credits retain the approved visual identity.
+The qualified 1,105-identity knowledge snapshot is unchanged. See
+[compiled games](COMPILED_GAMES.md) and [release notes](RELEASE_NOTES.md).
 
 ## Delivered in 1.1.4 — 19 October 2026
 

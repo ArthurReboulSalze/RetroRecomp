@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
+smsrecomp/compiled_games.py smsrecomp/compiled_games_view.py smsrecomp/memory_view.py
+smsrecomp/game_details.py smsrecomp/game_metadata.py smsrecomp/game_card_view.py smsrecomp/rom_sources.py
+tests/test_game_cards.py
+docs/COMPILED_GAMES.md
+MEDIAS/RetroRecomp_UI_1.1.5.jpg
+tests/test_compiled_games.py
 smsrecomp/credits_demo.py smsrecomp/credits_music.py smsrecomp/dialogs.py
 tools/credits_audio/CMakeLists.txt tools/credits_audio/player.c tools/build_credits_audio.py
 tests/test_credits.py tools/credits_selftest.py
@@ -56,6 +62,7 @@ docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md d
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI_1.1.3.png
+MEDIAS/RetroRecomp_Master_System_Collection.png
 MEDIAS/RetroRecomp_learning_cycle.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml

@@ -1,5 +1,16 @@
 # Shared compilation knowledge
 
+## Release 1.1.5 — existing qualified snapshot, 19 October 2026
+
+The collection/UI release retains all **1,105 exact identities**, unchanged on
+Windows and Linux: 8,731,196 gzip bytes, SHA-256
+`6b36f85f70c4f66fbf320217f030991879a854dd0a750efe3a69790639ebcdb9`.
+No new cartridge campaign or qualification is part of 1.1.5. Collection statuses,
+favorites, ROM paths, cover overrides, cached display summaries and game cards
+remain private presentation data, separate from compilation observations.
+Regeneration still checks the exact cartridge and follows its usual validation
+gates. See [compiled games](COMPILED_GAMES.md).
+
 ## Release 1.1.4 — unchanged qualified snapshot, 19 October 2026
 
 The animated-credits update retains the complete verified 1.1.3 snapshot below,

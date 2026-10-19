@@ -327,6 +327,10 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
     result = {"rom": str(item.path), "title": item.title, "system": item.system,
               "sha256": item.sha256}
     try:
+        if item.cover is None:
+            from .compiled_games import Game
+            from .game_details import Cards
+            item.cover = Cards().override(Game('',item.system,item.sha256,item.title))
         settings = dict(options)
         force = settings.pop('force', False)
         if system.id != 'ng':
@@ -365,7 +369,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                       language_scope='Retro-Recomp host menus; cartridge text unchanged')
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
-        report.update(executable=target.name, published_directory=str(game_output))
+        report.update(executable=target.name, published_directory=str(game_output),
+                      source_rom=str(item.path.resolve()))
         atomic_json(report_path, report)
         # Finish the report before replacing a working executable.
         try:

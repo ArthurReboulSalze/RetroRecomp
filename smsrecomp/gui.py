@@ -112,6 +112,11 @@ class Application:
         self.output_field = None
         self.output_browse = None
         self.recovered_batch = None
+        from .compiled_games import Inventory
+        self.compiled_inventory = Inventory()
+        self.compiled_view = None
+        self.collection_visible = False
+        self.library_view = None
         self.status_key, self.status_values = 'ready', {}
         preferences = load_preferences()
         self.language = language_code(preferences.get('language'))
@@ -152,6 +157,9 @@ class Application:
         self.ng_bios_status = tk.StringVar(value=self.tr('ng_bios_not_checked') if saved_bios else self.tr('ng_bios_missing'))
         feedback_folders = feedback_search_paths(preferences)
         self.feedback_paths = {profile.id: tk.StringVar(value=str(feedback_folders.get(profile.id, ''))) for profile in PROFILES}
+        from .rom_sources import rom_folders
+        rom_roots = rom_folders(preferences)
+        self.rom_paths = {p.id:tk.StringVar(value=str(rom_roots.get(p.id,''))) for p in PROFILES}
         self.feedback_importing = set()
         self.feedback_import_buttons = {}
         self.feedback_status = {profile.id: tk.StringVar() for profile in PROFILES}
@@ -242,6 +250,11 @@ class Application:
         self.options_button.pack(side='right', padx=(0, 8))
         ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
                   font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
+        self.queue_toolbar = list(toolbar.pack_slaves())[:4]
+        self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
+            command=self.toggle_compiled_games, style='Toolbar.TButton')
+        self.decorate_button(self.compiled_button, 'gamepad')
+        self.compiled_button.pack(side='left', padx=(4, 0))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
@@ -339,6 +352,7 @@ class Application:
         app.after_idle(self.enable_drops)
         app.after_idle(self.fit_minimum_width)
         app.after(100, self.drain)
+        self.compiler_widgets = [w for w in body.grid_slaves() if 1 <= int(w.grid_info()['row']) <= 7]
 
     def tr(self, key, **values):
         return tr(key, self.language, **values)
@@ -602,6 +616,9 @@ class Application:
         self.queue_background(self.body)
         self.app.after_idle(self.layout_header)
         self.app.after_idle(self.fit_minimum_width)
+        if self.compiled_view is not None:
+            self.compiled_view.localize()
+            self.compiled_view.render()
 
     def change_language(self, event=None):
         self.language = next((code for code, name in zip(LANGUAGES, LANGUAGE_NAMES)
@@ -845,7 +862,8 @@ class Application:
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
-            feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()})
+            feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
+            rom_paths={system:value.get().strip() for system,value in self.rom_paths.items() if value.get().strip()})
 
     def start(self, selected=False):
         if self.busy or self.updating:
@@ -869,6 +887,7 @@ class Application:
             options.pop('system_mode')
             options.pop('platform')
             options.pop('feedback_paths')
+            options.pop('rom_paths')
             if any(self.items[row].system == 'ng' and not self.items[row].error for row in chosen_rows):
                 from .neogeo import validate_bios
                 bios = selected_bios_path(options.get('ng_bios'))
@@ -898,6 +917,7 @@ class Application:
         self.set_controls(False)
         self.set_status('starting', count=len(items))
         recovered=self.recovered_batch
+        inventory_preferences=self.preferences()
         # A selected-only conversion must leave the other recovered rows
         # recoverable, including after a later window close or crash.
         recovered_indices={}
@@ -925,6 +945,7 @@ class Application:
                         except OSError:
                             checkpoint_failed=True
                             self.messages.put(('log',self.tr('queue_save_failed')))
+                    if kind=='result':self.remember_export(value,inventory_preferences)
                     self.messages.put((kind,index,value))
                 record = convert_batch(items, output, cancel=self.cancel, **options,
                     emit=lambda text: self.messages.put(('log', text)),
@@ -1120,6 +1141,22 @@ class Application:
                     else:
                         self.feedback_status[system].set(self.tr('feedback_import_summary',
                             **report, kib=report['bytes']/1024))
+                elif kind == 'collection_changed':
+                    if self.compiled_view is not None:self.compiled_view.render()
+                elif kind == 'sources_ready':
+                    self.finish_source_lookup(event[1])
+                elif kind == 'collection_done':
+                    self.busy = False
+                    self.set_controls(True)
+                    if self.compiled_view is not None:
+                        self.compiled_view.progress.stop()
+                        self.compiled_view.render()
+                        summary=self.tr('reconvert_summary', **event[1])
+                        if event[1].get('detail'):summary+=' · '+event[1]['detail']
+                        self.compiled_view.status.set(summary)
+                    if self.close_when_idle:
+                        self.close()
+                        return
         except queue.Empty:
             pass
         for row, result in self.results.items():
@@ -1281,16 +1318,35 @@ class Application:
         self.build_cover_options(tab('options_boxart'), checkbox)
 
         buttons = ttk.Frame(panel)
-        buttons.pack(fill='x', padx=18, pady=(0, 18))
-        ttk.Button(buttons, text=self.tr('close'), command=self.close_options).pack(side='right')
+        # Reserve the footer first: Tk otherwise gives a tall notebook all
+        # available height on Linux, clipping the Close button to a few pixels.
+        buttons.pack(side='bottom',before=notebook,fill='x',padx=18,pady=(0,14))
+        ttk.Button(buttons, text=self.tr('close'), width=12,
+                   command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
         panel.protocol('WM_DELETE_WINDOW', self.close_options)
         panel.bind('<Escape>', lambda _event: self.close_options())
         panel.grab_set()
         panel.focus_set()
 
     def build_feedback_options(self, page, system):
+        section = ttk.LabelFrame(page,text=self.tr('rom_folder'),padding=10)
+        section.pack(fill='x',pady=(12,0))
+        ttk.Label(section,text=self.tr('rom_folder_note'),style='Muted.TLabel',
+                  wraplength=840).pack(anchor='w',pady=(0,6))
+        row = ttk.Frame(section)
+        row.pack(fill='x')
+        entry = ttk.Entry(row,textvariable=self.rom_paths[system])
+        entry.pack(side='left',fill='x',expand=True)
+        self.option_controls.append((entry,'normal'))
+        def choose_roms():
+            chosen=filedialog.askdirectory(parent=self.options_panel,title=self.tr('rom_folder'))
+            if chosen:self.rom_paths[system].set(chosen)
+        for label,command in (('browse',choose_roms),('feedback_default',lambda:self.rom_paths[system].set(''))):
+            button=ttk.Button(row,text=self.tr(label),command=command)
+            button.pack(side='left',padx=(8,0))
+            self.option_controls.append((button,'normal'))
         section = ttk.LabelFrame(page, text=self.tr('feedback_folder'), padding=12)
-        section.pack(fill='x', pady=(20, 0))
+        section.pack(fill='x', pady=(12, 0))
         ttk.Label(section, text=self.tr('feedback_folder_note'), style='Muted.TLabel',
                   wraplength=840, justify='left').pack(anchor='w', pady=(0, 10))
         row = ttk.Frame(section)
@@ -1518,37 +1574,163 @@ class Application:
         panel.focus_set()
 
     def show_library(self):
-        panel = tk.Toplevel(self.app)
-        panel.title(APP_NAME + ' - ' + self.tr('memory'))
-        self.library_panels.append(panel)
-        panel.geometry('800x420')
-        panel.configure(bg=COLORS['background'])
-        body = ttk.Frame(panel, padding=18)
-        body.pack(fill='both', expand=True)
-        ttk.Label(body, text=self.tr('memory_intro')).pack(anchor='w', pady=(0, 12))
-        table = ttk.Treeview(body, columns=('game', 'identity', 'entries'), show='headings', height=9)
-        for column, caption, width in [('game', self.tr('game'), 390), ('identity', self.tr('identity'), 150), ('entries', self.tr('observations'), 110)]:
-            table.heading(column, text=caption)
-            table.column(column, width=width, stretch=column == 'game')
-        for game in [*list_games(), *list_games(library_root('gg'))]:
-            table.insert('', 'end', values=(game['title'], game['sha256'][:12], game['observations']))
-        from .gameboy import list_memory
-        for game in list_memory():
-            table.insert('', 'end', values=(f"Game Boy Â· {game['title']}", game['sha256'][:12],
-                                            f"{game['trace_bytes']} B trace"))
-        from .nes import list_memory as list_nes_memory
-        for game in list_nes_memory():
-            table.insert('', 'end', values=(f"Nintendo NES Â· {game['sha256'][:12]}",
-                                            game['sha256'][:12], game['entries']))
-        from .neogeo_knowledge import list_memory as list_ng_memory
-        for game in list_ng_memory():
-            table.insert('', 'end', values=(f"Neo Geo Â· {game['title']}",game['sha256'][:12],game['entries']))
-        table.pack(fill='both', expand=True)
-        def open_library():
-            path = library_root()
-            path.mkdir(parents=True, exist_ok=True)
-            open_local(path)
-        ttk.Button(body, text=self.tr('open_memory'), command=open_library).pack(anchor='w', pady=(12, 0))
+        if self.library_view is not None and self.library_view.panel.winfo_exists():
+            self.library_view.panel.lift()
+            return
+        from .memory_view import MemoryView
+        self.library_view = MemoryView(self)
+        self.library_panels.append(self.library_view.panel)
+
+    def toggle_compiled_games(self):
+        if self.compiled_view is None:
+            from .compiled_games_view import CompiledGamesView
+            self.compiled_view = CompiledGamesView(self, self.body)
+        self.collection_visible = not self.collection_visible
+        if self.collection_visible:
+            for widget in self.compiler_widgets:widget.grid_remove()
+            for widget in self.queue_toolbar:widget.pack_forget()
+            self.body.rowconfigure(1, weight=1, minsize=100)
+            self.body.rowconfigure(7, weight=0, minsize=0)
+            self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
+            self.compiled_button.configure(style='Toolbar.Primary.TButton')
+            self.compiled_view.render()
+        else:
+            self.compiled_view.grid_remove()
+            self.body.rowconfigure(1, weight=4, minsize=100)
+            self.body.rowconfigure(7, weight=2, minsize=52)
+            for widget in self.compiler_widgets:widget.grid()
+            for index,widget in enumerate(self.queue_toolbar):
+                widget.pack(side='left',padx=8 if index%2 else 0,before=self.compiled_button)
+            self.compiled_button.configure(style='Toolbar.TButton')
+        self.queue_background(self.body)
+
+    def remember_export(self, result, preferences):
+        if result.get('status') not in ('success','current','existing') or not result.get('report'):return
+        from .compiled_games import game_from_report, refresh
+        # Called by the conversion worker, before its result/done events. A
+        # close-after-current-games cannot kill a late inventory writer.
+        try:
+            game = game_from_report(Path(result['report']),Path(result['executable']).parent,
+                                    source=result.get('rom',''))
+            self.compiled_inventory.remember(refresh(game,preferences))
+            self.compiled_inventory.save()
+            self.messages.put(('collection_changed',))
+        except (OSError,ValueError,TypeError,KeyError):pass
+
+    def reconvert_games(self, games):
+        if self.busy or self.updating or not games:return
+        from .platforms import target_id
+        for game in games:
+            if game.target and game.target != target_id():
+                messagebox.showinfo(APP_NAME,self.tr('game_other_platform'))
+                return
+        options=self.preferences()
+        from .compiled_games import Game
+        known=[*self.compiled_inventory.snapshot(),*(Game('',i.system,i.sha256,i.title,source=str(i.path))
+               for i in self.items.values() if i.system and i.sha256)]
+        self.busy=True
+        self.cancel.clear()
+        self.set_controls(False)
+        self.compiled_view.progress.start(15)
+        self.compiled_view.status.set(self.tr('rom_searching'))
+        def worker():
+            from .rom_sources import RomSources
+            try:pairs=RomSources().resolve(games,options,known=known,cancel=self.cancel)
+            except Exception:pairs=[(game,None) for game in games]
+            self.messages.put(('sources_ready',pairs))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def finish_source_lookup(self, pairs):
+        self.busy=False
+        self.compiled_view.progress.stop()
+        self.set_controls(True)
+        if self.close_when_idle:
+            self.close()
+            return
+        if self.cancel.is_set():return
+        chosen=[]
+        for game,source in pairs:
+            if source is None:
+                name = filedialog.askopenfilename(parent=self.app,
+                    title=self.tr('locate_source',title=game.title))
+                if not name:return
+                source = Path(name)
+            chosen.append((game,source))
+        if chosen:self.begin_reconvert(chosen)
+
+    def begin_reconvert(self, chosen):
+        options = self.preferences()
+        for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
+                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite'):
+            options.pop(key,None)
+        options['force'] = True
+        jobs = self.jobs.get()
+        self.busy = True
+        self.cancel.clear()
+        self.set_controls(False)
+        self.compiled_view.progress.start(15)
+        self.compiled_view.status.set(self.tr('reconverting_games'))
+        def worker():
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from .batch import _convert_in_budget, _embedded_export_identity
+            from .freshness import digest
+            from .compiled_games import game_from_report, refresh, read_json
+            counts = {'success':0,'failed':0}
+            errors = []
+            cartridge_locks={(game.system,game.identity):threading.Lock() for game,_ in chosen}
+            def convert(pair):
+                game,source = pair
+                if self.cancel.is_set():return None
+                item = identify(source,game.system)
+                if item.error or item.sha256 != game.identity:
+                    raise ValueError(self.tr('source_mismatch',title=game.title))
+                game.source=str(source.resolve())
+                self.compiled_inventory.remember(game)
+                self.compiled_inventory.save()
+                from .game_details import Cards
+                item.cover=Cards().override(game)
+                target = Path(game.executable)
+                report = read_json(game.report) if game.report else {}
+                if target.is_file() and not (report.get('export_receipt',{}).get('sha256') == digest(target)
+                    or _embedded_export_identity(target)==game.identity):
+                    raise ValueError(self.tr('game_unverified'))
+                item.title = game.title
+                standard = report.get('video_model',{}).get('standard')
+                if standard in get_profile(item.system).video_modes:item.standard_override = standard
+                folder = target.parent/'datas/reports'/item.key
+                folder.mkdir(parents=True,exist_ok=True)
+                result = _convert_in_budget(jobs,0,item,len(chosen),get_profile(item.system),target.parent,
+                    folder,target,[],lambda text:self.messages.put(('log',text)),
+                    {**options,'gb_parallel_games':jobs,'ng_parallel_games':jobs})
+                if result['status'] in ('success','current'):
+                    game = game_from_report(Path(result['report']),target.parent,source=str(source))
+                    self.compiled_inventory.remember(refresh(game,{}))
+                return result
+            def guarded(pair):
+                game,_=pair
+                # Copies in different folders still share compiler work files.
+                # Serialize an exact cartridge while unrelated games use the pool.
+                with cartridge_locks[(game.system,game.identity)]:return convert(pair)
+            try:
+                with ThreadPoolExecutor(max_workers=jobs) as pool:
+                    for future in as_completed([pool.submit(guarded,pair) for pair in chosen]):
+                        try:
+                            result = future.result()
+                            if result is None:continue
+                            counts['success' if result['status'] in ('success','current') else 'failed'] += 1
+                            if result['status']=='error':errors.append(result.get('message',''))
+                        except Exception as exc:
+                            counts['failed'] += 1
+                            errors.append(str(exc))
+                            self.messages.put(('log',str(exc)))
+                self.compiled_inventory.save()
+            except Exception as exc:
+                counts['failed'] += 1
+                errors.append(str(exc))
+                self.messages.put(('log',str(exc)))
+            if errors:counts['detail']=' · '.join(errors[:2])
+            self.messages.put(('collection_done',counts))
+        threading.Thread(target=worker,daemon=True).start()
 
     def close(self):
         if self.updating:

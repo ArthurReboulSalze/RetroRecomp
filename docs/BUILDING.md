@@ -1,5 +1,12 @@
 # Build and run
 
+## Collection data in 1.1.5
+
+Both systems keep the collection, favorites, optional ROM folders, covers and
+manually requested game summaries in private `datas` beside the converter.
+These files are excluded from source snapshots and converter packages.
+See [compiled games](COMPILED_GAMES.md) for locations and regeneration behavior.
+
 ## Credits music in converter packages
 
 Both converter packaging scripts build a small native MOD player with CMake and
