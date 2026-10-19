@@ -20,7 +20,9 @@ class CompiledGamesTests(TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # Windows CI may expose TEMP through an 8.3 alias; production readers
+        # resolve paths. Compare the same canonical spelling in these fixtures.
+        self.root = Path(self.temp.name).resolve()
         self.console = self.root/'Games/Master System'
         self.console.mkdir(parents=True)
         self.identity = 'a'*64

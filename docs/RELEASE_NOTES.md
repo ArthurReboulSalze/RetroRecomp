@@ -33,8 +33,9 @@ collection workflow; it adds no new cartridge qualification or game-runtime
 performance claim. ROMs, BIOS files, downloaded covers, cards, private observations
 and saves are excluded from the release packages.
 
-The 555-test suite passes on Windows and Debian, with 1 and 17 skips. Eight-language
-layout checks pass on both systems. Public metadata lookup was exercised across
+The 555-test suite passes on Windows and Debian, with platform-specific checks
+skipped where unavailable. Eight-language layout checks pass on both systems.
+Public metadata lookup was exercised across
 all seven consoles; credentialed services still depend on the user's API access.
 The project owner approved the interface before publication.
 

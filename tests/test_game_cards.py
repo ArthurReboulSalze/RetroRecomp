@@ -22,7 +22,7 @@ class CardTests(TestCase):
     def setUp(self):
         temp=tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.root=Path(temp.name)
+        self.root=Path(temp.name).resolve()
         self.payload=b'\0'*16384
         self.game=Game(str(self.root/'Game.exe'),'sms',hashlib.sha256(self.payload).hexdigest(),'Example 2')
         self.cards=Cards(self.root/'converter')
