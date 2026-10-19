@@ -1,5 +1,14 @@
 # Shared compilation knowledge
 
+## Release 1.1.6 — unchanged qualified snapshot
+
+The collection path and scan fixes retain all **1,105 exact identities** and
+the same 8,731,196-byte gzip snapshot, SHA-256
+`6b36f85f70c4f66fbf320217f030991879a854dd0a750efe3a69790639ebcdb9`.
+No cartridge scan, game-runtime change or new qualification is part of this
+release. Collection migration, favorites and missing-file cleanup remain private
+presentation data, separate from the compilation library.
+
 ## Release 1.1.5 — existing qualified snapshot, 19 October 2026
 
 The collection/UI release retains all **1,105 exact identities**, unchanged on

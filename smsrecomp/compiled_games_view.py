@@ -23,6 +23,7 @@ class CompiledGamesView(ttk.Frame):
         super().__init__(parent, padding=(24, 8, 24, 0))
         self.owner, self.tr, self.inventory = owner, owner.tr, owner.compiled_inventory
         self.events, self.running = queue.Queue(), False
+        self.relocation_attempted = False
         self.render_token = 0
         self.sort_key, self.reverse = 'title', False
         self.rows = {}
@@ -104,6 +105,13 @@ class CompiledGamesView(ttk.Frame):
         self.localize()
         self.render()
         self.after(80,self.drain)
+        self.after_idle(self.relocate)
+
+    def relocate(self):
+        if (self.inventory.relocation_pending and not self.relocation_attempted
+                and not self.running and not self.owner.busy and not self.owner.updating):
+            self.relocation_attempted = True
+            self.work(self.inventory.relocate)
 
     def localize(self):
         self.card.localize()
@@ -162,6 +170,7 @@ class CompiledGamesView(ttk.Frame):
             self.table.heading(key,text=self.tr(label)+('  ▼' if self.reverse else '  ▲') if key==self.sort_key else self.tr(label))
 
     def star_clicked(self,event):
+        if self.running:return 'break'
         row=self.table.identify_row(event.y)
         if row in self.rows and self.table.identify_column(event.x)=='#1':
             game=self.rows[row]
@@ -206,6 +215,7 @@ class CompiledGamesView(ttk.Frame):
         finally:menu.grab_release()
 
     def play(self):
+        if self.running:return
         games = self.chosen()
         if len(games)!=1:return
         game = games[0]
@@ -254,6 +264,7 @@ class CompiledGamesView(ttk.Frame):
 
     def drain(self):
         self.conversion_state()
+        self.relocate()
         try:
             while True:
                 kind,value = self.events.get_nowait()

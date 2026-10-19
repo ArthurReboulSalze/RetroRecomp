@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.5-d4a737" alt="Release version 1.1.5">
+  <img src="https://img.shields.io/badge/release-1.1.6-d4a737" alt="Release version 1.1.6">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -28,11 +28,11 @@ game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
-**New in 1.1.5:** browse a persistent collection of compiled games, mark favorites
-and keep covers and short game summaries. Search information only when you ask,
-for one game or a selection. Per-console ROM folders help find original sources
-for regeneration. A more compact interface, faster Game Memory and refined
-animated credits complete the update on Windows and Linux.
+**New in 1.1.6:** move the app with `Games` and `datas` and keep your collection
+working. Older copied collections repair their local paths and merge stale
+aliases, preserving favorites. Complete scans remove confirmed missing games;
+unavailable folders stay listed. Windows and Linux installers and in-app updates
+are available. Existing games do not need regeneration.
 See the [release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,

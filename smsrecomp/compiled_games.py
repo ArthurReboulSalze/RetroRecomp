@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 from threading import Event, Lock
 
 from .paths import data_directory, games_root, preferred_games_root, feedback_search_paths
@@ -21,7 +22,7 @@ from . import __version__
 SHA = re.compile('[0-9a-f]{64}')
 MAX_JSON = 16 * 1024 * 1024
 MAX_GAMES = 50000
-SKIP = {'.git', '.build', 'datas', 'artwork', 'boxart', 'boxarts', 'cache', 'states'}
+SKIP = {'.git', '.build', '.deps', '__pycache__', 'uninstall', 'datas', 'artwork', 'boxart', 'boxarts', 'cache', 'states'}
 STATUSES = {'no_hints','new_hints','fallback','covered','missing','changed','unreadable','unverified'}
 
 
@@ -69,15 +70,22 @@ class Game:
 
 
 class Inventory:
-    def __init__(self, path=None):
-        self.path = Path(path) if path else data_directory() / 'compiled-games.json'
+    def __init__(self, path=None, *, base=None):
+        self.path = (Path(path) if path else data_directory() / 'compiled-games.json').resolve()
+        self.base = (Path(base).resolve() if base is not None else
+            self.path.parent.parent if self.path.parent.name.casefold() == 'datas' else self.path.parent)
         self.games = {}
         self.roots = []
         self.lock = Lock()
+        self.relocation_pending = self.legacy_paths = False
         try:
             data = read_json(self.path)
             if data.get('schema') != 1 or not isinstance(data.get('games'), list):
                 return
+            previous = data.get('base')
+            previous = Path(previous) if isinstance(previous, str) and Path(previous).is_absolute() else None
+            self.legacy_paths = previous is None or data.get('legacy_paths') is True
+            self.relocation_pending = bool(data['games']) and (self.legacy_paths or previous != self.base)
             for raw in data['games'][:MAX_GAMES]:
                 try:
                     game = Game(**raw)
@@ -87,17 +95,26 @@ class Inventory:
                             and type(game.favorite) is bool
                             and all(isinstance(getattr(game,key),str) for key in
                                     ('title','report','version','target','source','digest'))):
+                        if previous is not None:
+                            for field in ('executable', 'report', 'source'):
+                                setattr(game, field, _rebase(getattr(game, field), previous, self.base))
+                        old = self.games.get(game.key)
+                        if old and (old.system, old.identity) == (game.system, game.identity):
+                            game.favorite |= old.favorite
+                            game.source = game.source or old.source
                         self.games[game.key] = game
                 except (TypeError, ValueError, KeyError):
                     continue
             self.roots = [p for p in data.get('roots', []) if isinstance(p, str) and Path(p).is_absolute()][:64]
+            if previous is not None:
+                self.roots = list(dict.fromkeys(_rebase(p, previous, self.base) for p in self.roots))
         except (OSError, ValueError, TypeError):
             pass
 
     def save(self):
         with self.lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_json(self.path, {'schema': 1, 'roots': self.roots,
+            atomic_json(self.path, {'schema': 1, 'base': str(self.base), 'legacy_paths': self.legacy_paths, 'roots': self.roots,
                 'games': [asdict(game) for game in self.games.values()]})
 
     def snapshot(self):
@@ -107,11 +124,73 @@ class Inventory:
     def remember(self, game):
         with self.lock:
             old = self.games.get(game.key)
+            if old and (old.system, old.identity) != (game.system, game.identity):
+                old = None
             if old and not game.source:
                 game.source = old.source
-            game.favorite = old.favorite if old else game.favorite or any(g.favorite for g in self.games.values()
-                if (g.system,g.identity)==(game.system,game.identity))
+            game.favorite = game.favorite or (old.favorite if old else any(g.favorite for g in self.games.values()
+                if (g.system,g.identity)==(game.system,game.identity)))
             self.games[game.key] = game
+
+    def relocate(self):
+        """Repair known local paths only; never walk folders or open game binaries.
+
+        Modern inventories retain the converter base, so rebasing happens while
+        loading. Legacy migration uses the copied report or an exact existing
+        collection entry, never a title-only match. Called in the view's worker.
+        """
+        if not self.relocation_pending:
+            return 0
+        backup = self.path.with_name(self.path.stem + '.before-path-migration.json')
+        try:
+            with self.path.open('rb') as original, backup.open('xb') as output:
+                shutil.copyfileobj(original, output)
+        except FileExistsError:
+            pass
+        changed, bases = 0, set()
+        if self.legacy_paths:
+            for game in self.snapshot():
+                old_base = _legacy_base(game)
+                if old_base is None or old_base == self.base:
+                    continue
+                executable = Path(_rebase(game.executable, old_base, self.base))
+                if not executable.is_file() or linked(executable):
+                    continue
+                candidate = Game(**{**asdict(game), 'executable': str(executable),
+                                  'report': _rebase(game.report, old_base, self.base)})
+                with self.lock:
+                    local = self.games.get(candidate.key)
+                if local and (local.system, local.identity) != (game.system, game.identity):
+                    continue
+                if local is None:
+                    try:
+                        if not candidate.report or linked(Path(candidate.report)):
+                            continue
+                        report = game_from_report(Path(candidate.report), executable.parent)
+                        if (report.system, report.identity, report.key) != (game.system, game.identity, candidate.key):
+                            continue
+                        candidate.target = candidate.target or report.target
+                        candidate.version = candidate.version or report.version
+                    except (OSError, ValueError, TypeError, KeyError):
+                        continue
+                else:
+                    candidate = Game(**{**asdict(local), 'favorite': local.favorite or game.favorite,
+                                      'source': local.source or game.source,
+                                      'report': local.report or candidate.report})
+                self.remember(candidate)
+                with self.lock:
+                    self.games.pop(game.key, None)
+                bases.add(old_base)
+                changed += 1
+            for old_base in bases:
+                self.roots = [_rebase(root, old_base, self.base) for root in self.roots]
+            self.roots = list(dict.fromkeys(self.roots))
+        self.legacy_paths = self.legacy_paths and any(
+            (previous := _legacy_base(game)) is not None and previous != self.base
+            for game in self.snapshot())
+        self.relocation_pending = False
+        self.save()
+        return changed
 
     def set_favorite(self, game, value):
         with self.lock:
@@ -120,19 +199,42 @@ class Inventory:
         self.save()
 
 
+def _rebase(value, previous, current):
+    if not value:
+        return value
+    try:
+        return str(current / Path(value).relative_to(previous))
+    except ValueError:
+        return value
+
+
+def _legacy_base(game):
+    """Recognize only the app's conventional Games/<console>/... hierarchy."""
+    path = Path(game.executable)
+    console = get_profile(game.system).export_folder.casefold()
+    for index in range(1, len(path.parts)-2):
+        if path.parts[index].casefold() == 'games' and path.parts[index+1].casefold() == console:
+            return Path(*path.parts[:index])
+    return None
+
+
 def default_roots(preferences):
     selected, _ = preferred_games_root(preferences)
     return list(dict.fromkeys([games_root(), selected, *feedback_search_paths(preferences).values()]))
 
 
-def _folders(roots, cancel):
+def _folders(roots, cancel, visited, errors):
     seen = set()
     for root in roots:
         root = Path(root).resolve()
         if linked(root) or not root.is_dir():
+            errors.add(root)
             continue
-        for base, dirs, files in os.walk(root, followlinks=False):
+        def error(exc):
+            errors.add(Path(exc.filename).resolve() if exc.filename else root)
+        for base, dirs, files in os.walk(root, followlinks=False, onerror=error):
             if cancel.is_set() or len(seen) >= MAX_GAMES:
+                errors.add(None)
                 return
             folder = Path(base)
             key = os.path.normcase(str(folder))
@@ -140,6 +242,8 @@ def _folders(roots, cancel):
                 dirs[:] = []
                 continue
             seen.add(key)
+            visited.add(folder)
+            errors.update(folder / name for name in dirs if linked(folder / name))
             dirs[:] = [name for name in dirs if name.casefold() not in SKIP
                        and not linked(folder / name)] if len(folder.relative_to(root).parts) < 12 else []
             yield folder, files
@@ -262,6 +366,8 @@ def refresh(game, preferences=None, *, verify_binary=False):
 def scan(inventory, roots, preferences=None, *, cancel=None, progress=lambda n: None):
     from .batch import _embedded_export_identity
     cancel = cancel or Event()
+    if not cancel.is_set():
+        inventory.relocate()
     roots = list(dict.fromkeys(Path(p).resolve() for p in roots))
     sources = {}
     for root in roots:
@@ -271,8 +377,8 @@ def scan(inventory, roots, preferences=None, *, cancel=None, progress=lambda n: 
                 sources[(item.get('system'), item.get('sha256'))] = item.get('rom', '')
         except (OSError, ValueError, TypeError):
             pass
-    count, found = 0, set()
-    for folder, names in _folders(roots, cancel):
+    count, found, visited, errors = 0, set(), set(), set()
+    for folder, names in _folders(roots, cancel, visited, errors):
         claims = {}
         for report in (folder / 'datas/reports').glob('*/conversion-report.json'):
             if linked(report):continue
@@ -334,10 +440,30 @@ def scan(inventory, roots, preferences=None, *, cancel=None, progress=lambda n: 
                 progress(count)
             except (OSError, ValueError, TypeError):
                 continue
-    # Keep missing entries visible rather than silently losing the collection.
-    for game in inventory.snapshot():
-        if game.key not in found and any(Path(game.executable).is_relative_to(root) for root in roots):
-            if not Path(game.executable).is_file():
+    # Reconcile all saved paths, including stale aliases outside the new scan
+    # roots. Do not prune an interrupted scan or an unavailable drive/subtree.
+    if not cancel.is_set() and None not in errors and len(found) < MAX_GAMES:
+        for game in inventory.snapshot():
+            path = Path(game.executable)
+            try:
+                path.stat()
+                continue
+            except FileNotFoundError:
                 game.status = 'missing'
+            except OSError:
+                game.status = 'missing'
+                continue
+            if not visited or any(path.is_relative_to(root) for root in errors):
+                continue
+            confirmed = any(parent in visited for parent in path.parents)
+            if not confirmed:
+                try:
+                    with os.scandir(path.parent):
+                        confirmed = True
+                except OSError:
+                    pass
+            if confirmed:
+                with inventory.lock:
+                    inventory.games.pop(game.key, None)
     inventory.save()
     return count

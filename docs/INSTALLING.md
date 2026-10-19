@@ -7,8 +7,8 @@ games; see [BUILDING.md](BUILDING.md). Exported games need no development tools.
 
 ## Windows x64
 
-Download `Retro-Recomp-1.1.5-windows-x64-setup.exe` from the
-[1.1.5 release](https://github.com/ArthurReboulSalze/RetroRecomp/releases/tag/v1.1.5).
+Download `Retro-Recomp-1.1.6-windows-x64-setup.exe` from the
+[1.1.6 release](https://github.com/ArthurReboulSalze/RetroRecomp/releases/tag/v1.1.6).
 Run the setup wizard. The default is a per-user installation in
 `%LOCALAPPDATA%\Programs\Retro-Recomp`, with a Start menu shortcut and an optional
 desktop shortcut. It requires no administrator password. Keep a directory your
@@ -23,12 +23,12 @@ if you no longer need them. Installing again in the same location reuses them.
 
 ## Linux x86-64
 
-Download `Retro-Recomp-1.1.5-linux-x86_64-install.run` from the same release.
+Download `Retro-Recomp-1.1.6-linux-x86_64-install.run` from the same release.
 This is a per-user installer, not a DEB/RPM system package. Run it in a terminal
 as your normal desktop user, **without sudo**:
 
 ```sh
-bash Retro-Recomp-1.1.5-linux-x86_64-install.run
+bash Retro-Recomp-1.1.6-linux-x86_64-install.run
 ```
 
 Confirm installation in `~/.local/opt/Retro-Recomp`. The installer checks its
@@ -36,7 +36,7 @@ payload and the native converter before installing, then adds **Retro-Recomp**
 to your applications menu with its icon. To choose another new, writable folder:
 
 ```sh
-bash Retro-Recomp-1.1.5-linux-x86_64-install.run --prefix "$HOME/Applications/Retro-Recomp"
+bash Retro-Recomp-1.1.6-linux-x86_64-install.run --prefix "$HOME/Applications/Retro-Recomp"
 ```
 
 `--yes` skips the confirmation for unattended installation. Re-running the
@@ -86,13 +86,13 @@ Windows uses [Inno Setup 6.7.3](https://jrsoftware.org/isdl.php), with
 for per-user installation. Run on Windows:
 
 ```powershell
-python -B tools/package_installers.py --target windows --version 1.1.5 --executable Export/Retro-Recomp.exe --output .build/installers --iscc "path/to/ISCC.exe"
+python -B tools/package_installers.py --target windows --version 1.1.6 --executable Export/Retro-Recomp.exe --output .build/installers --iscc "path/to/ISCC.exe"
 ```
 
 Build the Linux installer on Linux, using the already audited native binary:
 
 ```sh
-python3 -B tools/package_installers.py --target linux --version 1.1.5 --executable Export/Retro-Recomp --output .build/installers
+python3 -B tools/package_installers.py --target linux --version 1.1.6 --executable Export/Retro-Recomp --output .build/installers
 ```
 
 Launchers follow the [Desktop Entry specification](https://specifications.freedesktop.org/desktop-entry/latest-single/).

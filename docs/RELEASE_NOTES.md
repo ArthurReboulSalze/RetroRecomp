@@ -1,3 +1,34 @@
+# RetroRecomp v1.1.6 — Move your collection without broken paths
+
+- **Portable collection paths.** Move Retro-Recomp together with `Games` and
+  `datas`. Its own game/report paths and scan folders follow the app. External
+  libraries and ROM folders retain their locations.
+- **Repair older copied collections.** Opening Compiled Games repairs known
+  local paths in a background task, using exact console/cartridge matches and
+  copied reports. Old aliases merge into their local entries, keeping favorites.
+  A backup of the original inventory is retained.
+- **Scans clean up the list.** A completed scan also checks previously saved
+  games and removes entries whose files are confirmed missing. Unavailable
+  drives and unreadable folders stay listed; cancelled or incomplete scans do
+  not prune entries. Two actual copies in separate folders remain distinct.
+
+Tested against a copied collection with **1,968 entries for 984 games**: migration
+leaves **984 valid paths**, retains both favorites, and two subsequent scans
+produce no duplicate rows. No game is executed during these collection checks.
+
+The verified compilation library is unchanged: **1,105 exact cartridge
+identities**, **8.3 MiB** compressed. No game runtime, cartridge qualification,
+graphics, audio or gameplay change is included. **Games need no regeneration.**
+
+Windows x64 and Linux x86-64 installers and portable downloads are provided.
+Linux remains checked on **Debian 13 / glibc 2.41**. Use **Check for updates** in
+the installed 1.1.5 app to download the matching native converter, keeping your
+data and shortcuts. See the [installation guide](INSTALLING.md) and
+[collection guide](COMPILED_GAMES.md). ROMs, BIOS files, downloaded artwork and
+private data are excluded from packages.
+
+---
+
 # RetroRecomp v1.1.5 — Your compiled collection, favorites and game cards
 
 This update brings a persistent game collection and a more compact interface

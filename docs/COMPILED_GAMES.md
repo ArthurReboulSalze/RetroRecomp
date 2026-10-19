@@ -3,8 +3,20 @@
 The collection is restored from `datas/compiled-games.json` beside Retro-Recomp.
 It keeps export paths, exact console/cartridge identities, source paths and
 favorites. No executable or ROM scan is needed at startup. An explicit scan
-updates the collection; absent files remain visible. Click the star, sort its
+updates the collection and removes entries whose files are confirmed missing.
+Unavailable drives or unreadable folders stay listed so an offline library is
+not lost. Cancelled or incomplete scans do not prune entries. Click the star, sort its
 column or enable Favorites only. Favorites survive rescans and regeneration.
+
+The inventory remembers the converter's base folder. Moving the app together
+with `Games` and `datas` rebases its own game/report paths and scan folders;
+external libraries and ROM folders keep their own locations. No scan
+of game contents is required on reopening. Older inventories are repaired in a
+background task when opening Compiled Games, using copied reports or matching
+exact console/cartridge entries. A matching name alone is insufficient. Stale
+aliases merge into the local entry, retaining favorites. A copy of the original
+inventory is kept as `datas/compiled-games.before-path-migration.json`.
+Two existing exports in separate folders remain separate collection entries.
 
 ## Finding a source again
 

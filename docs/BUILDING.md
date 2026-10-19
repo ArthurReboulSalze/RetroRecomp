@@ -3,6 +3,11 @@
 Prebuilt per-user installers are available for Windows and Linux; portable
 downloads remain available. See [installation and installer builds](INSTALLING.md).
 
+Release 1.1.6 retains portable collection paths and repairs older copied
+inventories in a background task when opening Compiled Games. A complete scan
+cleans confirmed missing entries. This is collection metadata only; existing
+games need no regeneration. See [compiled games](COMPILED_GAMES.md).
+
 ## Collection data in 1.1.5
 
 Both systems keep the collection, favorites, optional ROM folders, covers and

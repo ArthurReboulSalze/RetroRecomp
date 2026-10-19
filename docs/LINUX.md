@@ -5,7 +5,7 @@ This first native package targets **Linux x86-64, built on Debian 13
 same console implementations and verified compilation knowledge as Windows.
 
 Use the per-user `.run` installer to add Retro-Recomp to your applications menu:
-`bash Retro-Recomp-1.1.5-linux-x86_64-install.run`. It installs without sudo in
+`bash Retro-Recomp-1.1.6-linux-x86_64-install.run`. It installs without sudo in
 `~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves data
 on uninstall. See [installation](INSTALLING.md).
 
