@@ -142,9 +142,17 @@ depend on the game; they do not guarantee that every slowdown or visual issue di
 
 *The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.*
 
+![RetroRecomp Compiled Games view with favorites, box art and game information](MEDIAS/RetroRecomp_Compiled_Games.png)
+
+*Compiled Games keeps your collection, favorites, box art and saved game summaries together.*
+
 ![Generated Master System games in Windows Explorer](MEDIAS/RetroRecomp_Master_System_Collection.png)
 
 *An example collection of generated Master System games, with optional box-art icons.*
+
+![RetroRecomp animated credits with wireframe shapes and live tracker music](MEDIAS/RetroRecomp_Credits.png)
+
+*Animated credits combine a demoscene backdrop with live four-channel ChipLoom music.*
 
 ## Get started
 

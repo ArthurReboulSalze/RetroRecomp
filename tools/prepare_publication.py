@@ -66,6 +66,7 @@ MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI_1.1.3.png
 MEDIAS/RetroRecomp_Master_System_Collection.png
+MEDIAS/RetroRecomp_Compiled_Games.png MEDIAS/RetroRecomp_Credits.png
 MEDIAS/RetroRecomp_learning_cycle.png
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
