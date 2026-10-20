@@ -462,6 +462,23 @@
     "Windowed": "Оконный режим",
     "Zapper | Tab: controls": "Zapper | Tab: управление",
     "for the next recompilation...": "для следующей перекомпиляции...",
-    "xBR smooth": "Сглаживание xBR"
+    "xBR smooth": "Сглаживание xBR",
+    "Retro-Recomp - Options": "Retro-Recomp - Настройки",
+    "Audio filter": "Аудиофильтр",
+    "Off": "Выкл.",
+    "Light": "Легкий",
+    "Soft": "Мягкий",
+    "Quit: keyboard": "Выход: клавиатура",
+    "Quit: gamepad": "Выход: геймпад",
+    "Configured": "Настроено",
+    "Close": "Закрыть",
+    "Settings saved": "Настройки сохранены",
+    "Use at least two buttons": "Не менее двух кнопок",
+    "Press combo, then release": "Нажми сочетание и отпусти",
+    "Hold quit combo for 1 second": "Держи сочетание 1 секунду",
+    "Enter / A: change | X: clear": "Enter / A: менять | X: очистить",
+    "Esc / B: close": "Esc / B: закрыть",
+    "O: options | H / Esc: close": "O: настройки | H / Esc: закрыть",
+    "O / Guide: options | Esc: close": "O / Guide: настройки | Esc: закрыть"
   }
 }

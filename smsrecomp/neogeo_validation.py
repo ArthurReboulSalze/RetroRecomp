@@ -88,6 +88,8 @@ def extended_routes(set_name: str, plans: dict | None = None, *, aes: bool = Fal
         routes['aes-play'] = routes['play']
     import re
     for name,value in (plans or {}).get(set_name,{}).items():
+        if name.startswith('aes-') and not aes:
+            raise ValueError('AES qualification requested for an unavailable machine mode.')
         if not re.fullmatch(r'[a-z][a-z0-9-]{0,47}',name) or name in routes:
             raise ValueError('Extra Neo Geo route cannot replace a mandatory route.')
         frames,script=value

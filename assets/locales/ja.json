@@ -462,6 +462,23 @@
     "Windowed": "ウィンドウ",
     "Zapper | Tab: controls": "Zapper | Tab：操作設定",
     "for the next recompilation...": "次の再コンパイルに使用します…",
-    "xBR smooth": "xBR なめらか"
+    "xBR smooth": "xBR なめらか",
+    "Retro-Recomp - Options": "Retro-Recomp - 設定",
+    "Audio filter": "音声フィルター",
+    "Off": "オフ",
+    "Light": "弱",
+    "Soft": "柔らかい",
+    "Quit: keyboard": "終了：キーボード",
+    "Quit: gamepad": "終了：コントローラー",
+    "Configured": "設定済み",
+    "Close": "閉じる",
+    "Settings saved": "設定を保存しました",
+    "Use at least two buttons": "二つ以上のボタンを使う",
+    "Press combo, then release": "組み合わせを押して離す",
+    "Hold quit combo for 1 second": "終了の組み合わせを1秒押す",
+    "Enter / A: change | X: clear": "Enter / A：変更 | X：消去",
+    "Esc / B: close": "Esc / B：閉じる",
+    "O: options | H / Esc: close": "O：設定 | H / Esc：閉じる",
+    "O / Guide: options | Esc: close": "O / Guide：設定 | Esc：閉じる"
   }
 }

@@ -462,6 +462,23 @@
     "Windowed": "窗口模式",
     "Zapper | Tab: controls": "Zapper | Tab：按键",
     "for the next recompilation...": "用于下次重新编译…",
-    "xBR smooth": "xBR 平滑"
+    "xBR smooth": "xBR 平滑",
+    "Retro-Recomp - Options": "Retro-Recomp - 选项",
+    "Audio filter": "音频滤波",
+    "Off": "关闭",
+    "Light": "轻度",
+    "Soft": "柔和",
+    "Quit: keyboard": "退出：键盘",
+    "Quit: gamepad": "退出：手柄",
+    "Configured": "已设置",
+    "Close": "关闭",
+    "Settings saved": "设置已保存",
+    "Use at least two buttons": "请按至少两个键",
+    "Press combo, then release": "按下组合键，然后松开",
+    "Hold quit combo for 1 second": "按住退出组合键一秒",
+    "Enter / A: change | X: clear": "回车 / A：修改 | X：清除",
+    "Esc / B: close": "Esc / B：关闭",
+    "O: options | H / Esc: close": "O：选项 | H / Esc：关闭",
+    "O / Guide: options | Esc: close": "O / Guide：选项 | Esc：关闭"
   }
 }

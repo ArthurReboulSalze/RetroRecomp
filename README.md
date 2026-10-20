@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.7-d4a737" alt="Release version 1.1.7">
+  <img src="https://img.shields.io/badge/release-1.1.8-d4a737" alt="Release version 1.1.8">
   <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -69,11 +69,12 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.1.7:** fast, regular autofire now works with keyboard and gamepad
-across all seven consoles. Stick clicks (L3/R3) no longer force pause or reset;
-you can still assign them yourself in F2. The shared compilation library also
-includes 28 newly qualified Neo Geo cartridge/BIOS identities.
-Regenerate games to receive the control changes.
+**New in 1.1.8:** browse Compiled Games with a controller, choose
+optional audio filters inside each game, and assign a keyboard or controller
+combination to quit. Neo Geo also gets a cleaner startup and safer mode selection:
+F11 shows **Arcade Only** when a cartridge cannot use console mode. The shared
+compilation library now contains **1,164 verified identities**, including
+**125 Neo Geo**. Regenerate games to receive runtime improvements.
 See the [release notes](docs/RELEASE_NOTES.md).
 
 - **Convert a whole collection.** Drop ROMs, ZIPs or mixed folders into the window,

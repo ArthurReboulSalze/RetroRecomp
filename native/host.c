@@ -7,6 +7,7 @@
 #include "controls.h"
 #include "ui.h"
 #include "retro_menu.h"
+#include "game_options.h"
 #include "runtime_feedback_sdl.h"
 #include "glue.h"
 #include "video/sms_vdp.h"
@@ -131,6 +132,11 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
         fprintf(stderr, "[host] SDL: %s\n", SDL_GetError()); return false;
     }
     controls_load();
+#ifdef RETRO_GAME_GEAR
+    rr_options_init(L"GameGear");
+#else
+    rr_options_init(L"MasterSystem");
+#endif
     fullscreen = controls.display_mode != 0;
     fullscreen_fit = controls.display_mode == 2;
     controller_order_player = controls.first_controller_player;
@@ -366,6 +372,7 @@ static void change_gun_option(int change) {
 }
 
 static bool handle_event(const SDL_Event *e) {
+    if (rr_options_event(e, &menu, capturing, !lightphaser_enabled())) return true;
     if (e->type == SDL_QUIT) return false;
     if (e->type == SDL_CONTROLLERDEVICEADDED) open_controllers();
     if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
@@ -434,7 +441,7 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     /* Reserved system actions remain available with every binding set. */
-    if (key == SDL_SCANCODE_F1 || controls_system_key(key, CONTROL_RESET) || controls_system_button(event_player, button, CONTROL_RESET)) {
+    if (!rr_options_component(key,button) && (key == SDL_SCANCODE_F1 || controls_system_key(key, CONTROL_RESET) || controls_system_button(event_player, button, CONTROL_RESET))) {
         if (gamepad) {
             if (back_latched[event_player]) return true;
             back_latched[event_player] = true; /* Holding the configured button does not reset again. */
@@ -443,8 +450,8 @@ static bool handle_event(const SDL_Event *e) {
         reset_requested = true; return false;
     }
     bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
-    if (((menu != 2 || !enter) && (key == SDL_SCANCODE_P || enter || controls_system_key(key, CONTROL_PAUSE))) ||
-        controls_system_button(event_player, button, CONTROL_PAUSE)) {
+    if (!rr_options_component(key,button) && (((menu != 2 || !enter) && (key == SDL_SCANCODE_P || enter || controls_system_key(key, CONTROL_PAUSE))) ||
+        controls_system_button(event_player, button, CONTROL_PAUSE))) {
         menu = menu == 3 ? 0 : 3; parent_menu = 0; capturing = false; return true;
     }
     if (key == SDL_SCANCODE_ESCAPE) {
@@ -607,6 +614,7 @@ bool host_present(const uint32_t *fb, int width, int height) {
     bool keep = true;
     SDL_Event e;
     while (SDL_PollEvent(&e)) if (!handle_event(&e)) { keep = false; break; }
+    if (rr_options_quit(menu)) keep = false;
     if (menu && keep) {
         if (sms_light_phaser) {
             lightphaser_pointer(-1, -1, false); gun_x = gun_y = -1;
@@ -615,10 +623,12 @@ bool host_present(const uint32_t *fb, int width, int height) {
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 1);
         while (menu && keep) {
             draw_game(fb, width, height);
-            ui_menu(renderer, menu, selected_player, menu == 4 ? gun_option_row : selected_row, bind_gamepad, capturing,
+            if (menu == RR_OPTIONS_MENU) rr_options_draw(renderer);
+            else ui_menu(renderer, menu, selected_player, menu == 4 ? gun_option_row : selected_row, bind_gamepad, capturing,
                 controllers[selected_player] ? SDL_GameControllerName(controllers[selected_player]) : NULL, menu_status);
             SDL_RenderPresent(renderer);
             if (SDL_WaitEventTimeout(&e, 16)) keep = handle_event(&e);
+            if (rr_options_quit(menu)) keep = false;
         }
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 0);
         deadline = 0;

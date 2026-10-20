@@ -30,6 +30,8 @@ def main():
     audit_sources(ROOT)
     from tools.build_credits_audio import build as build_credits_audio
     credits_audio = build_credits_audio()
+    from tools.build_player_gamepad import build as build_gamepad
+    gamepad = build_gamepad()
     stage = ROOT/'.build/linux-package'
     hooks = stage/'hooks'
     hooks.mkdir(parents=True, exist_ok=True)
@@ -47,7 +49,8 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
         '--name', 'Retro-Recomp', '--exclude-module', 'numpy', '--exclude-module', 'pytest',
         '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
         '--specpath', str(stage), '--additional-hooks-dir', str(hooks),
-        '--add-binary', str(credits_audio)+':credits-runtime']
+        '--add-binary', str(credits_audio)+':credits-runtime',
+        '--add-binary', str(gamepad)+':player-runtime']
     for name in sorted(BUNDLED_FILES):
         command += ['--add-data', str(ROOT/name)+':'+str(Path(name).parent)]
     # Preserve the actual dependency notices, including cryptography's bundled

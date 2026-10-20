@@ -61,6 +61,7 @@ static uint64_t g_rr_reported_trimmed = 0;''')
     const uint64_t total_underruns''')
     source = replace_once(source, '''static void reset_audio_output_buffer(bool preserve_stats) {
     if (g_audio_device) {''', '''static void reset_audio_output_buffer(bool preserve_stats) {
+    rr_options_audio_reset();
     /* Menus, reset, load and suspension start a fresh host deadline. */
     g_rr_next_frame_time = g_rr_frame_remainder = g_rr_input_sample_time = 0;
     if (g_audio_device) {''')

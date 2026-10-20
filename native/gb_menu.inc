@@ -81,6 +81,7 @@ static void rr_gb_palette_change(void) {
 
 static void rr_gb_draw_menu(void) {
     if (!g_show_menu) return;
+    if (g_rr_menu_kind == RR_OPTIONS_MENU) {rr_options_draw(g_renderer); return;}
     int ox, oy, unit;
     rr_menu_layout(g_renderer, &ox, &oy, &unit);
     rr_menu_begin(g_renderer, ox, oy, unit);
@@ -108,7 +109,7 @@ static void rr_gb_draw_menu(void) {
         };
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             RR_TEXT(14, 29 + 12 * i, lines[i], 233, 239, 247);
-        RR_TEXT(14, 174, rr_gb_tr("H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+        RR_TEXT(14, 174, rr_gb_tr("O: options | H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
         rr_menu_build_footer(g_renderer, ox, oy, unit);
     } else if (g_rr_menu_kind == RR_GB_PAUSE) {
         RR_TEXT(14, 62, rr_gb_tr("Game paused", "Jeu en pause"), 233, 239, 247);
@@ -139,7 +140,7 @@ static void rr_gb_draw_menu(void) {
             g_rr_bind_gamepad && g_controller_name.empty() ? rr_gb_tr("No gamepad connected", "Aucune manette connectee") :
             rr_gb_tr("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts"), 233, 239, 247);
         RR_TEXT(14, 171, g_binding_capture_active ? rr_gb_tr("Esc: cancel binding", "Echap : annuler l'attribution") :
-            rr_gb_tr("Up/Down: select | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
+            rr_gb_tr("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
     }
 #undef RR_TEXT
 #undef RR_BOX
@@ -162,6 +163,17 @@ static void rr_gb_scale2x(const uint32_t* source, int source_stride, uint32_t* o
 }
 
 static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
+    int previous = g_show_menu ? g_rr_menu_kind : 0;
+    int options_menu = previous;
+    if (rr_options_event(event, &options_menu, g_binding_capture_active, true)) {
+        g_rr_menu_kind = options_menu;
+        g_show_menu = options_menu != 0;
+        if (previous != options_menu) {
+            clear_all_binding_pressed_state(); update_effective_joypad_state();
+            reset_audio_output_buffer(true);
+        }
+        return true;
+    }
     if (event->type == SDL_KEYUP) {
         const SDL_Scancode key = event->key.keysym.scancode;
         if (g_show_menu || key == SDL_SCANCODE_H || key == SDL_SCANCODE_P ||

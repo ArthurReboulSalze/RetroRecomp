@@ -654,6 +654,22 @@
         "https://images.launchbox-app.com/0564b737-4184-4bd7-a992-9525d94b0d55.jpg"
       ],
       "source_page": "https://gamesdb.launchbox-app.com/games/images/1471-voltage-fighter-gowcaizer"
+    },
+    {
+      "id": "ng-ssideki3-front",
+      "system_id": "ng",
+      "rom_sha256": [
+        "de093b37510ab12f7175525f8033f18547b767d4fcfa5216211155f253d84393"
+      ],
+      "rom_names": [
+        "ssideki3",
+        "Super Sidekicks 3 - The Next Glory"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://images.launchbox-app.com/9904a05b-e109-4d5f-9594-0641d2f9a882.png"
+      ],
+      "source_page": "https://gamesdb.launchbox-app.com/games/images/9888-super-sidekicks-3-the-next-glory"
     }
   ]
 }

@@ -9,7 +9,7 @@ static int rr_ng_code_before_port(uint32_t address,uint32_t port,unsigned bytes,
     return 1;
 }
 static int rr_ng_cart_code_known(void) {
-    return boardtype==BOARD_DEFAULT || boardtype==BOARD_CT0 ||
+    return boardtype==BOARD_DEFAULT || boardtype==BOARD_LINKABLE || boardtype==BOARD_CT0 ||
            boardtype==BOARD_KOF98 || boardtype==BOARD_SMA ||
            boardtype==BOARD_MSLUGX || boardtype==BOARD_PVC;
 }
@@ -37,7 +37,11 @@ int rr_ng_code_location(uint32_t address,RrM68000CodeLocation *out) {
         if(!rr_ng_cart_code_known())return 0;
         region=RR_M68000_CODE_CART;offset=(address&0xfffffu)+banksw_addr;
         size=(uint32_t)romdata->psz;boundary=0x300000u-address;
-        if(boardtype==BOARD_CT0) {
+        if(boardtype==BOARD_LINKABLE) {
+            /* The link status byte at 0x200000 toggles cartreg[0]. Keep
+             * this word outside code guards; ordinary P ROM stays native. */
+            if(!rr_ng_code_before_port(address,0x200000,2,&boundary))return 0;
+        } else if(boardtype==BOARD_CT0) {
             static const uint32_t ports[]={0x200000,0x236000,0x236004,0x236008,
                                           0x23600c,0x255550,0x2ff000,0x2ffff0};
             for(unsigned n=0;n<sizeof ports/sizeof *ports;++n)

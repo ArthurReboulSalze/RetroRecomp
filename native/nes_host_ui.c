@@ -14,6 +14,7 @@
 #include "cyc_core.h"
 #include "cyc_run.h"
 #include "retro_menu.h"
+#include "game_options.h"
 #include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
 #include "autofire.h"
@@ -191,6 +192,7 @@ static void draw_gun(SDL_Renderer *ren, SDL_Rect r) {
 }
 
 static void draw_menu(SDL_Renderer *ren) {
+    if (menu == RR_OPTIONS_MENU) {rr_options_draw(ren); return;}
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
     rr_menu_begin(ren, ox, oy, unit);
@@ -257,6 +259,7 @@ int cyc_sdl_main(const char *title, int scale) {
     /* The CLI's headless setup is reached only after its SDL early return. */
     rr_feedback_start(cyc_run_native);
     load_bindings();
+    rr_options_init(L"NES");
     wchar_t state_path[32768]; rr_nes_state_path(state_path, 32768);
     if (scale < 1) scale = 3;
     char caption[256];
@@ -288,6 +291,7 @@ int cyc_sdl_main(const char *title, int scale) {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            if (rr_options_event(&event, &menu, capturing != 0, true)) continue;
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) open_pads();
             if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page) {
@@ -369,6 +373,7 @@ int cyc_sdl_main(const char *title, int scale) {
                 else if (key == SDL_SCANCODE_RETURN) capturing = 1;
             }
         }
+        if (rr_options_quit(menu)) running = false;
         if (!running) break;
         SDL_ShowCursor(RR_NES_ZAPPER && !menu ? SDL_DISABLE : SDL_ENABLE);
         if (!menu) {

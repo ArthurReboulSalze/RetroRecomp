@@ -55,6 +55,11 @@ static void sdl_audio_callback(void* userdata, Uint8* stream, int len) {
             }
         }
     }
+#ifdef RR_HOST_AUDIO_FILTER
+    if (!muted && volume)
+        RR_HOST_AUDIO_FILTER(stream, take, 2, g_rr_audio_format == AUDIO_F32SYS, AUDIO_SAMPLE_RATE);
+    else rr_options_dsp.ready = 0;
+#endif
     if (take < needed) {
         g_audio_underruns.fetch_add(needed - take, std::memory_order_relaxed);
         g_rr_audio_ready = false;

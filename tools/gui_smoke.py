@@ -119,9 +119,14 @@ def smoke(window):
     panel = next(widget for widget in window.winfo_children() if isinstance(widget, tk.Toplevel))
     panel.withdraw()
     table = next(widget for widget in descendants(panel) if widget.winfo_class() == "Treeview")
-    assert len(table.get_children()) == (len(list_games()) + len(list_games(library_root('gg')))
-                                         + len(list_memory()) + len(list_nes_memory())
-                                         + len(list_ng_memory()))
+    # Game Memory intentionally loads one console asynchronously. Its first
+    # page must not parse the entire GB/Neo Geo libraries just to open a dialog.
+    from smsrecomp.memory_view import summaries
+    expected=len(summaries('sms')[0])
+    deadline=time.monotonic()+10
+    while len(table.get_children())!=expected and time.monotonic()<deadline:
+        window.update();time.sleep(.01)
+    assert len(table.get_children())==expected
     old_output = application.output.get()
     with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.gui.save_preferences') as save:
         application.output.set(folder)

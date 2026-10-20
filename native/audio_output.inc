@@ -82,6 +82,9 @@ static void SDLCALL audio_callback(void *unused, Uint8 *output, int bytes) {
         if (taken > first)
             memcpy(output + first * frame_bytes, rr_audio.pcm, (taken - first) * frame_bytes);
     }
+#ifdef RR_HOST_AUDIO_FILTER
+    RR_HOST_AUDIO_FILTER(output, taken, 2, rr_audio.device.format == AUDIO_F32SYS, rr_audio.device.freq);
+#endif
     rr_audio.read = (rr_audio.read + taken) % RR_AUDIO_RING_FRAMES;
     rr_audio.fill -= taken;
     rr_audio.played += taken;
@@ -141,6 +144,9 @@ static void audio_resampler_init(uint32_t source_rate) {
 }
 
 static void audio_output_clear(void) {
+#ifdef RR_HOST_AUDIO_RESET
+    RR_HOST_AUDIO_RESET();
+#endif
     if (!audio_device) return;
     SDL_LockAudioDevice(audio_device);
     rr_audio.read = rr_audio.write = rr_audio.fill = 0;

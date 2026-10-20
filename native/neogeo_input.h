@@ -9,6 +9,11 @@ static uint32_t rr_ng_le32(const uint8_t *p) {
  * MVS STATUS_B has P1 Start at bit 0 and P2 Start at bit 2 (bit 1 is Select). */
 static unsigned rr_ng_start_bits(uint16_t p1,uint16_t p2) {return ((p1&256)?1u:0u)|((p2&256)?4u:0u);}
 static unsigned rr_ng_coin_bits(uint16_t p1,uint16_t p2) {return ((p1&512)?1u:0u)|((p2&512)?2u:0u);}
+/* Back/Select is an arcade coin switch, not an AES BIOS-menu shortcut.
+ * Scripted hardware probes can still drive raw Select lines explicitly. */
+static unsigned rr_ng_host_coin_bits(uint16_t p1,uint16_t p2,int aes) {
+    return aes?0:rr_ng_coin_bits(p1,p2);
+}
 /* Present, writable 2 KiB card: status bits 4/5 and write protect bit 6
  * clear. Select lines stay inactive; MVS Start bits remain independent. */
 static unsigned rr_ng_status_b(unsigned start) {return 0x0fu&~start;}

@@ -1,5 +1,50 @@
 # Neo Geo development and qualification
 
+## Release 1.1.8 — machine capabilities and native link-board code
+
+For cartridges supported only in arcade MVS by the pinned loader, **F11 shows
+"Arcade Only"** briefly, keeps the game running and does not change its saved
+machine setting. Help shows the same limitation. This is separate from a
+compatible cartridge whose user-supplied BIOS archive lacks the AES component.
+Capabilities are read from the verified prepared cartridge, including revision
+signatures where needed; they are not a list of titles allowed to compile.
+
+Conversion retains every mandatory MVS comparison and save check, and runs the
+AES checks only when both the cartridge and BIOS support that machine. The
+shared-knowledge qualifier independently verifies this capability, so a report
+cannot omit required AES checks. Failed probes retain the native runner's
+bounded error text rather than showing only its exit code.
+
+The side-effect-free native code view now covers LINKABLE cartridge ROM as
+well. Its serial status port remains excluded from instruction guards; actual
+device reads still use the original handler. Authored checks cover the native
+mapping, bank changes, untouched status latch and its F8/F9 restoration. This
+does not implement physical cabinet linking. Windows and Linux share the code.
+
+Riding Hero and League Bowling now pass all seven sampled reference/packed
+routes and their MVS/AES save checks without observed main or sound fallback.
+Irritating Maze passes five MVS routes and its save checks; its trackball controls
+are still unqualified. The shared bank now has 125 exact Neo Geo identities.
+Super Sidekicks 3 embeds the user-approved front cover and reuses its cache;
+only the online reference is distributed. Evidence:
+`.build/neogeo-update-1.1.8-20261020`.
+
+## Release 1.1.8 — startup display and console Select
+
+Interactive Back/Select remains Coin in arcade MVS. In console AES, the host
+does not drive either BIOS Select line from the Coin action, avoiding accidental
+entry into the firmware menu. Explicit hardware-test scripts retain access to
+raw switch lines. Start and the four game buttons are unchanged.
+
+A presentation-only power-on cover displays black over the firmware's initial
+color-test output. The first clean monochrome intro releases it, retaining the
+Neo Geo logo; the cover stays inactive throughout gameplay. An unfamiliar or
+error screen fails open after 240 guest frames. Reset rearms the cover; loading
+a quick state releases it. The BIOS, CPU scheduling, raw framebuffer, sound and
+headless qualification output are unchanged. Windows and Linux use this same
+host code. Evidence: `.build/neogeo-startup-20261020` and the ROM-free controls
+checks; no physical controller or Linux desktop test is claimed by these checks.
+
 ## 3 Count Bout requalified in 1.1.3 — 18 October 2026
 
 The previously failed cartridge now passes all seven reference/packed routes,
@@ -71,11 +116,12 @@ checks; support does not establish complete hardware or visual fidelity.
 Neo Geo is the seventh console profile. It uses
 locally supplied cartridge archives and the four verified BIOS components.
 The optional verified `neo-epo.bin` AES export BIOS enables **F11: arcade MVS /
-console AES**. Switching closes the current session cleanly, then restarts the
+console AES** for compatible cartridges. Switching closes the current session cleanly, then restarts the
 game in the other mode; the choice is remembered. No BIOS is downloaded.
 AES and MVS use separate exact identities for quick states, ordinary saves and
-fallback hints. An MVS-only archive remains supported; F11 explains the missing
-AES component instead of pretending to change the machine.
+fallback hints. An MVS-only BIOS archive remains supported; F11 explains the
+missing AES component. An arcade-only cartridge instead shows "Arcade Only"
+without restarting.
 **The cartridge and BIOS 68000 instructions, M1 and
 SM1 Z80 instructions, and observed guarded RAM variants execute native C.** The
 tested demo/play routes have zero interpreted instructions on both CPUs.

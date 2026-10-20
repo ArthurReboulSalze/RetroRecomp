@@ -1,5 +1,13 @@
 # Compiled games
 
+Since 1.1.8, a controller can browse the visible game list
+with the D-pad or left stick. **A** launches the selected game; the **Play**
+button, Enter and double-click remain available. Holding a direction repeats
+after a short delay. Navigation pauses whenever a game is running, a dialog is
+open or the converter loses focus; release held buttons before resuming. It
+uses the same small SDL2 controller bridge on Windows and Linux. This requires
+no additional Python package or controller remapping in the converter.
+
 The collection is restored from `datas/compiled-games.json` beside Retro-Recomp.
 It keeps export paths, exact console/cartridge identities, source paths and
 favorites. No executable or ROM scan is needed at startup. An explicit scan

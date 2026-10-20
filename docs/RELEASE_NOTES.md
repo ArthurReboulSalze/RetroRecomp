@@ -1,3 +1,45 @@
+# RetroRecomp v1.1.8 — Neo Geo fixes, player controls and audio options
+
+Existing exports need regeneration for game-side changes. Updating the converter
+preserves your games, settings, covers, favorites and private learning data.
+
+- **Controller browsing:** navigate Compiled Games with the D-pad or left stick;
+  A launches the selected game. Held buttons cannot relaunch a game when returning
+  to the converter. Navigation is inactive behind games, dialogs and other apps.
+- **Optional audio tone controls:** Off, Light and Soft in each game's Options
+  panel. Off is the default and preserves the PCM samples; enabled modes reduce
+  high frequencies without introducing another queue or changing the sound CPU.
+- **Configurable quit combinations:** keyboard or gamepad, unassigned by default.
+  Hold the combination for one second; normal saves and fallback recording finish
+  during the usual shutdown. Settings are remembered by console in datas.
+- **Neo Geo machine selection:** arcade-only cartridges show "Arcade Only" on
+  F11, without restarting. Conversion checks the supported machine modes instead
+  of failing on an impossible AES run. Required MVS and compatible AES checks
+  stay active, and native failures retain their useful error message.
+- **Native link-board code:** LINKABLE cartridge program ROM can use the guarded
+  native path while serial status reads keep their real device behavior.
+- **Cleaner Neo Geo startup:** the host covers the early firmware color test
+  until the monochrome intro. Back/Coin no longer drives AES firmware Select
+  lines and accidentally opens its menu. Raw hardware tests stay unchanged.
+- **Reviewed box art:** Super Sidekicks 3 uses its approved front cover and reuses
+  the download cache. Only the online reference is included in the converter.
+- **Expanded shared knowledge:** 31 additional exact Neo Geo cartridge/BIOS
+  identities bring the verified library to **1,164 records**, including **125
+  Neo Geo**, compressed to **8.6 MiB**. Previous observations and the six other
+  console banks are preserved; no ROM, BIOS or private raw library is bundled.
+- Windows and Linux share these implementations. Physical controller/listening
+  validation remains separate from the automated numeric and virtual-pad checks.
+
+Riding Hero and League Bowling now pass their sampled native/reference, packed,
+quick-state and ordinary-save checks without observed 68000 or Z80 fallback.
+Irritating Maze passes its MVS checks; its trackball controls remain unqualified.
+The four targeted exports pass 26 fresh-reference/packed routes. This is bounded
+coverage, not a complete playthrough or independent hardware-fidelity claim.
+Windows x64 and Linux x86-64 installers and portable downloads are included.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.1.7 — Fast autofire and safer controller defaults
 
 - **Autofire for keyboard and gamepad.** F6 now pulses held, mapped fire buttons

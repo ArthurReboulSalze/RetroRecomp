@@ -56,6 +56,9 @@ static void SDLCALL nes_audio_callback(void *unused, Uint8 *stream, int bytes) {
                     target[i * nes_audio.spec.channels + ch] = source[i];
         }
     }
+#ifdef RR_HOST_AUDIO_FILTER
+    RR_HOST_AUDIO_FILTER(stream, take, nes_audio.spec.channels, nes_audio.spec.format == AUDIO_F32SYS, RR_NES_AUDIO_RATE);
+#endif
     nes_audio.read = (nes_audio.read + take) % RR_NES_AUDIO_RING;
     nes_audio.fill -= take;
     nes_audio.played += take;
@@ -97,6 +100,9 @@ static void nes_audio_submit(const int16_t *pcm, uint32_t count) {
 }
 
 static void nes_audio_clear(void) {
+#ifdef RR_HOST_AUDIO_RESET
+    RR_HOST_AUDIO_RESET();
+#endif
     if (!nes_audio.id) return;
     SDL_LockAudioDevice(nes_audio.id);
     nes_audio.read = nes_audio.write = nes_audio.fill = 0;

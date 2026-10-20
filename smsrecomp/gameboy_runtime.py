@@ -66,6 +66,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     for source_name, destination in (
         ('retro_menu.h', project / 'runtime/include/retro_menu.h'),
         ('autofire.h', project / 'runtime/include/autofire.h'),
+        ('game_options.h', project / 'runtime/include/game_options.h'),
+        ('audio_filter.h', project / 'runtime/include/audio_filter.h'),
+        ('retro_keyboard.h', project / 'runtime/include/retro_keyboard.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
         ('font6x10.h', project / 'runtime/src/font6x10.h'),
         ('runtime_i18n.h', project / 'runtime/include/runtime_i18n.h'),
@@ -87,7 +90,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = runtime.read_text(encoding="utf-8")
     source = replace_once(source, '#include "platform_sdl.h"',
                           '#include "platform_sdl.h"\n#include "runtime_feedback_sdl.h"\n#include "retro_menu.h"\n#include "autofire.h"\n#include "platform_io.h"\n#include "scanline_sdl.h"\n#include "xbr_sdl.h"')
-    source = '#include "embedded_resources.h"\n' + source
+    source = '#include "embedded_resources.h"\n#include "game_options.h"\n' + source
     source = replace_once(source, '    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);',
                           '    rr_set_window_icon(g_window);\n#ifndef _WIN32\n    SDL_SetHintWithPriority(SDL_HINT_RENDER_VSYNC,"1",SDL_HINT_DEFAULT);\n#endif\n    g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);')
     source = replace_once(source, 'static SDL_Texture* g_texture = NULL;',
@@ -490,7 +493,8 @@ static void binding_to_config_value''')
         return true;
     }
 
-    switch (event->type) {''', '''    if (handle_binding_capture_event(event)) {
+    switch (event->type) {''', '''    rr_options_observe(event);
+    if (handle_binding_capture_event(event)) {
         return true;
     }
     if (rr_gb_handle_menu_event(event, ctx)) return true;
@@ -508,7 +512,7 @@ static void binding_to_config_value''')
                 return true;
             }
             if (key == SDL_SCANCODE_P || key == SDL_SCANCODE_RETURN ||
-                key == SDL_SCANCODE_KP_ENTER || (key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F9))
+                key == SDL_SCANCODE_KP_ENTER || (key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12))
                 return true;
             commit_binding_capture''')
     source = replace_once(source, '''    switch (event->type) {
@@ -566,7 +570,9 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
                                               dpad_selected, buttons_selected))
         request_joypad_interrupt(ctx);
     record_manual_input_state(current_cycles);''')
-    source = source.replace('    load_runtime_preferences();', '    load_runtime_preferences();\n    rr_gb_shared_language(false);')
+    source = source.replace('    load_runtime_preferences();', '    load_runtime_preferences();\n    rr_options_init(L"GameBoy");\n    rr_gb_shared_language(false);')
+    source = replace_once(source, '    record_manual_input_state(current_cycles);',
+        '    if (rr_options_quit(g_show_menu ? g_rr_menu_kind : 0)) return false;\n    record_manual_input_state(current_cycles);')
     runtime.write_text(source, encoding="utf-8")
 
     platform_header = project / 'runtime/include/platform_sdl.h'

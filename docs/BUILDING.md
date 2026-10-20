@@ -159,8 +159,10 @@ converter folder are saved relatively; external paths are remembered explicitly.
 The CLI accepts `--system ng` and `--ng-bios` for single games or mixed batches.
 No BIOS or cartridge is bundled in the converter. Locally generated Neo Geo
 games embed the selected data and need no separate BIOS file to play.
-Optional verified `neo-epo.bin` enables console AES on F11; no extra firmware
-means MVS-only output. The switch restarts the game and isolates saves by mode.
+Optional verified `neo-epo.bin` enables console AES on F11 for compatible
+cartridges; no extra firmware means MVS-only output. Switching restarts the game
+and isolates saves by mode. Arcade-only cartridges instead show "Arcade Only"
+without restarting; conversion retains their mandatory MVS checks.
 
 Batch conversion keeps current exports when their converter/runtime fingerprint,
 ROM, options, manual cover, selected BIOS and imported fallback candidates match

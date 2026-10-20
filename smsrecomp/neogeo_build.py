@@ -19,6 +19,45 @@ GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
 
 
+def probe_failure(route, result):
+    """Retain the native runner's useful reason instead of just an exit code."""
+    detail = result.stderr or result.stdout or b''
+    if isinstance(detail, bytes):
+        detail = detail.decode('utf-8', errors='replace')
+    detail = ' '.join(str(detail).split())[-1200:]
+    return RuntimeError(f'Neo Geo {route} failed (exit {result.returncode}).' +
+                        (f' {detail}' if detail else ''))
+
+
+def aes_compatible(content: Path) -> bool:
+    """Mirror the pinned loader's AES restrictions on verified NEO regions.
+
+    NGH alone is insufficient for revisions sharing a number. Conditional
+    signatures use the loader's byte-swapped P view (file offset XOR 1).
+    """
+    import struct
+    with Path(content).open('rb') as source:
+        header=source.read(4096)
+        if len(header)!=4096 or header[:4]!=b'NEO\x01':
+            raise ValueError('Invalid NEO header for machine capabilities.')
+        program=struct.unpack_from('<I',header,4)[0]
+        ngh=struct.unpack_from('<I',header,40)[0]
+        if ngh in (0x236,0x275,0x5003):return False
+        if ngh==0x066:return program>=0x100000
+        signature={0x263:(0x809,0x0c),0x268:(0x26b,0xb9),0x269:(0x9e91,0x0f)}.get(ngh)
+        if signature is None:return True
+        offset,value=signature;offset^=1
+        if offset>=program:raise ValueError('NEO program is too small for its board signature.')
+        source.seek(4096+offset);byte=source.read(1)
+        if len(byte)!=1:raise ValueError('Truncated NEO program capability signature.')
+        return byte[0]!=value
+
+
+def aes_available(project: Path) -> bool:
+    from .neogeo import validate_bios
+    return 'aes' in validate_bios(project/'bios.zip') and aes_compatible(project/'cartridge.neo')
+
+
 @serialized_setup
 def pinned_dependency(name: str, url: str, revision: str) -> Path:
     from .core import run
@@ -325,7 +364,7 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_path_io.h', 'neogeo_sprite_decode.h',
                  'console16_host_ui.c', 'console16_state.c', 'console16_state.h',
                  'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h',
-                 'display_settings.h', 'autofire.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
+                 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
                  'xbr_filter.h', 'scale2x.h', 'gun16.h'):
         write_changed(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
     # miniz expects UTF-8 on Windows, whereas narrow CRT argv used the active
@@ -501,7 +540,9 @@ def mode_config(content: Path, bios: Path) -> str:
     cart = parse_neo(content); firmware = validate_bios(bios)
     mvs = key(cart.sha256, firmware['sha256'])
     aes = aes_identity(cart.sha256, firmware)
-    return ('#define RR_NG_AES_AVAILABLE '+str(int('aes' in firmware))+'\n'+
+    compatible=aes_compatible(content)
+    return ('#define RR_NG_ARCADE_ONLY '+str(int(not compatible))+'\n'+
+            '#define RR_NG_AES_AVAILABLE '+str(int('aes' in firmware and compatible))+'\n'+
             '#define RR_NG_MVS_IDENTITY '+json.dumps(mvs)+'\n'+
             '#define RR_NG_AES_IDENTITY '+json.dumps(aes)+'\n')
 
@@ -643,7 +684,7 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
         from .feedback import ingest
         from .neogeo_knowledge import context
         feedback=ingest('ng',context(project)[0],(presentation or {}).get('feedback_output'),emit=emit)
-        if 'aes' in bios_info:
+        if 'aes' in bios_info and aes_compatible(container):
             feedback['aes'] = ingest('ng',aes_identity(prepared.sha256,bios_info),
                                     (presentation or {}).get('feedback_output'),emit=emit)
         atomic_json(project/'runtime-feedback-use.json',feedback)
@@ -689,14 +730,14 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     shutil.copy2(reference_executable,baseline)
     observations=project/'native-discovery';observations.mkdir(exist_ok=True)
     from .neogeo import validate_bios
-    routes=extended_routes(set_name,qualification,aes='aes' in validate_bios(project/'bios.zip'))
+    routes=extended_routes(set_name,qualification,aes=aes_available(project))
     from concurrent.futures import ThreadPoolExecutor
     references={};seeds=set();ram=[];main_ram=[];physical={'p':set(),'bios':set()}
     def probe(binary,name,frames,script):
         destination=observations/(name+'.json')
         result=subprocess.run([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
             '--rtc-seed','1760000000','--report',str(destination)],capture_output=True,timeout=max(180,frames/60*4))
-        if result.returncode:raise RuntimeError(f'Neo Geo {name} failed (exit {result.returncode}).')
+        if result.returncode:raise probe_failure(name, result)
         return json.loads(destination.read_text(encoding='utf-8'))
     def observe(row):
         name,(frames,text)=row

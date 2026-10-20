@@ -1,5 +1,27 @@
 # Shared compilation knowledge
 
+## Release 1.1.8 — Neo Geo campaign and targeted repairs, 20 October 2026
+
+The snapshot contains **1,164 exact identities**, including **125 Neo Geo**:
+37,647,952 raw JSON / **9,039,585 gzip bytes**, SHA-256
+`26175737d4a2a4ee71b0826f13bde284305ddf1f42a669c4910e65c0b6bd4ecc`.
+All previous observations and the six other console banks are preserved. The
+same verified numeric snapshot is packaged for Windows and Linux.
+
+The thirty-game campaign initially qualified 28 new identities. Targeted repairs
+qualify Riding Hero, arcade-only Irritating Maze and the earlier League Bowling
+failure, adding **31 identities over 1.1.7**. The four targeted exports, including
+the corrected Super Sidekicks 3 cover, pass 26 fresh-reference/packed routes.
+MVS states and ordinary saves pass for all four; the three AES-compatible games
+also pass their independent AES checks. Restored runs are checked for observed
+CPU fallback before promotion. No shared hint waives a fresh validation gate.
+
+Irritating Maze's trackball controls remain unqualified. Numeric native coverage,
+CPU/reference agreement, full-game validation, hardware fidelity and physical
+latency are separate claims. No ROM, BIOS, downloaded art, state or raw private
+library is included. Evidence: `.build/neogeo-thirty-20261020` and
+`.build/neogeo-update-1.1.8-20261020`.
+
 ## Release 1.1.7 — 28 additional qualified Neo Geo identities
 
 The verified snapshot contains **1,133 exact identities**, including **94 Neo

@@ -5,6 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 import queue
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -27,6 +28,10 @@ class CompiledGamesView(ttk.Frame):
         self.render_token = 0
         self.sort_key, self.reverse = 'title', False
         self.rows = {}
+        self.game_process = None
+        self.controller = None
+        from .player_gamepad import Navigation
+        self.navigation = Navigation()
         top = ttk.Frame(self)
         top.pack(fill='x', pady=(0,12))
         mark = tk.Canvas(top, width=42, height=40, bg=COLORS['background'], highlightthickness=0)
@@ -44,6 +49,8 @@ class CompiledGamesView(ttk.Frame):
         self.stop_button = ttk.Button(top,text=self.tr('stop'),command=owner.stop)
         self.add_button = ttk.Button(top,text=self.tr('scan_folder'),command=self.add_folder)
         self.add_button.pack(side='right',padx=8)
+        self.play_button = ttk.Button(top,text=self.tr('play'),command=self.play)
+        self.play_button.pack(side='right',padx=(8,0))
         self.summary = tk.StringVar()
         strip = tk.Frame(self,bg=COLORS['panel'],padx=12,pady=10)
         strip.pack(fill='x',pady=(0,12))
@@ -106,6 +113,49 @@ class CompiledGamesView(ttk.Frame):
         self.render()
         self.after(80,self.drain)
         self.after_idle(self.relocate)
+        self.after_idle(self.start_controller)
+        self.bind('<Destroy>',self.close_controller,add=True)
+
+    def start_controller(self):
+        try:
+            from .player_gamepad import Controller
+            self.controller = Controller()
+        except (OSError, AttributeError):
+            # Mouse and keyboard remain available on hosts with no controller
+            # backend. A packaged app supplies the small native SDL bridge.
+            return
+        self.after(40,self.poll_controller)
+
+    def close_controller(self,event=None):
+        if event is not None and event.widget is not self:return
+        if self.controller:
+            self.controller.close()
+            self.controller = None
+
+    def poll_controller(self):
+        if not self.winfo_exists() or not self.controller:return
+        active = self.game_process is not None and self.game_process.poll() is None
+        if self.game_process is not None and not active:
+            self.game_process = None
+        focus = self.focus_displayof()
+        enabled = (self.winfo_viewable() and not active and not self.running
+            and not self.owner.busy and not self.owner.updating and focus is not None
+            and focus.winfo_toplevel() is self.owner.app and self.grab_current() is None)
+        try:
+            action = self.navigation.update(self.controller.poll(),time.monotonic(),enabled)
+        except OSError:
+            self.close_controller(); return
+        if action == 'play':self.play()
+        elif action in (-1,1):
+            rows = self.table.get_children()
+            if rows:
+                current = self.table.focus()
+                index = rows.index(current) if current in rows else (-1 if action==1 else len(rows))
+                row = rows[max(0,min(len(rows)-1,index+action))]
+                self.table.selection_set(row)
+                self.table.focus(row)
+                self.table.see(row)
+        self.after(40,self.poll_controller)
 
     def relocate(self):
         if (self.inventory.relocation_pending and not self.relocation_attempted
@@ -114,6 +164,7 @@ class CompiledGamesView(ttk.Frame):
             self.work(self.inventory.relocate)
 
     def localize(self):
+        self.play_button.configure(text=self.tr('play'))
         self.card.localize()
         self.favorite_filter.configure(text=self.tr('favorites_only'))
         self.consoles.configure(values=[self.tr('all_consoles'),*[p.name for p in PROFILES]])
@@ -216,6 +267,7 @@ class CompiledGamesView(ttk.Frame):
 
     def play(self):
         if self.running:return
+        if self.game_process is not None and self.game_process.poll() is None:return
         games = self.chosen()
         if len(games)!=1:return
         game = games[0]
@@ -224,7 +276,7 @@ class CompiledGamesView(ttk.Frame):
             return
         try:
             path = Path(game.executable)
-            subprocess.Popen([str(path)],cwd=path.parent)
+            self.game_process = subprocess.Popen([str(path)],cwd=path.parent)
         except OSError:
             messagebox.showerror(APP_NAME,self.tr('game_launch_failed'),parent=self.owner.app)
 

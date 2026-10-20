@@ -18,6 +18,18 @@ from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
 
 class NeoGeoConverterTests(unittest.TestCase):
+    def test_failed_probe_preserves_bounded_runner_diagnostic(self):
+        from types import SimpleNamespace
+        from smsrecomp.neogeo_build import probe_failure
+        result=SimpleNamespace(returncode=3,stderr=b'This title is incompatible with AES systems\n',stdout=b'')
+        message=str(probe_failure('aes-attract-reference',result))
+        self.assertIn('exit 3',message)
+        self.assertIn('incompatible with AES',message)
+        result.stderr=b'x'*100000+b'\xff\nImportant final reason'
+        message=str(probe_failure('probe',result))
+        self.assertLess(len(message),1300)
+        self.assertIn('Important final reason',message)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name).resolve()
@@ -26,6 +38,57 @@ class NeoGeoConverterTests(unittest.TestCase):
         lengths=(512,131072,65536,0,0,128);header=bytearray(4096);header[:4]=b'NEO\x01'
         struct.pack_into('<6I',header,4,*lengths);header[44:52]=b'Authored'
         path=self.root/'source.neo';path.write_bytes(header+bytes(sum(lengths)));return path
+
+    def test_machine_capabilities_distinguish_mvs_only_revisions(self):
+        from smsrecomp.neogeo_build import aes_compatible,mode_config
+        def cartridge(ngh,size=512,markers=()):
+            original=self.neo().read_bytes();data=bytearray(original[:4096])+bytearray(size)+original[4096+512:]
+            struct.pack_into('<I',data,4,size);struct.pack_into('<I',data,40,ngh)
+            for offset,value in markers:data[4096+offset]=value
+            path=self.root/'mode.neo';path.write_bytes(data);return path
+        for ngh in (0x236,0x275,0x5003):self.assertFalse(aes_compatible(cartridge(ngh)))
+        self.assertFalse(aes_compatible(cartridge(0x066)))
+        self.assertTrue(aes_compatible(cartridge(0x066,0x100000)))
+        for ngh,offset,value,size in ((0x263,0x809,0x0c,0x2000),(0x268,0x26b,0xb9,0x2000),(0x269,0x9e91,0x0f,0xa000)):
+            self.assertTrue(aes_compatible(cartridge(ngh,size,[(offset,value)])))
+            self.assertFalse(aes_compatible(cartridge(ngh,size,[(offset^1,value)])))
+        bios={'sha256':'a'*64,'aes':{'sha256':'b'*64}}
+        with patch('smsrecomp.neogeo.validate_bios',return_value=bios):
+            config=mode_config(cartridge(0x236),self.root/'bios.zip')
+            self.assertIn('#define RR_NG_ARCADE_ONLY 1',config)
+            self.assertIn('#define RR_NG_AES_AVAILABLE 0',config)
+            config=mode_config(cartridge(0x001),self.root/'bios.zip')
+            self.assertIn('#define RR_NG_ARCADE_ONLY 0',config)
+            self.assertIn('#define RR_NG_AES_AVAILABLE 1',config)
+
+    def test_unavailable_aes_cannot_be_requested_through_an_extra_route(self):
+        from smsrecomp.neogeo_validation import extended_routes
+        with self.assertRaisesRegex(ValueError,'unavailable machine'):
+            extended_routes('authored',{'authored':{'aes-test':(30,'0 00 00 0 0\n')}},aes=False)
+
+    def test_shared_knowledge_cannot_skip_required_aes_validation(self):
+        from tools.build_neogeo_knowledge import qualified_record
+        report={'system':{'id':'ng'},'native_validation':{'passed':True,
+            'packed_reference_match':True,'reference_before_learning':True},
+            'final_checks':[{'reference_match':True,'interpreted_opcodes':0,
+                'audio_interpreted_opcodes':0,'native_entries':12,'audio_native_opcodes':34}],
+            'game_states':{'validation':{'routes':[{'fresh_process_match':True,
+                'replayed_frames':300} for _ in range(3)],'invalid_states_rejected':26,
+                'missing_load_is_read_only':True}},
+            'ordinary_saves':{'validation':{'idle_launch_creates_nothing':True,
+                'native_main_fallback':0,'native_sound_fallback':0,'fresh_process_match':True}},
+            'compiler':{'revision':GEOLITH_REV,'loader_revision':LITHOGEN_REV},
+            'build_executable':str(self.root/'project/build/Release/game.exe'),
+            'runtime_modes':{'aes_available':False}}
+        with patch('smsrecomp.neogeo_build.aes_available',return_value=True) as capability:
+            for executable in ('project/build/Release/game.exe','project/build/game'):
+                report['build_executable']=str(self.root/executable)
+                with self.assertRaisesRegex(ValueError,'verified cartridge/BIOS'):
+                    qualified_record(report)
+                capability.assert_called_with(self.root/'project')
+            report['runtime_modes']['aes_available']=True
+            with self.assertRaisesRegex(ValueError,'AES qualification is incomplete'):
+                qualified_record(report)
 
     def test_auto_detection_needs_no_compiler_or_bios(self):
         with patch('smsrecomp.neogeo_build.preparation_tool',side_effect=AssertionError('identification built a tool')):

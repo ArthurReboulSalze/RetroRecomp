@@ -37,6 +37,8 @@ static bool test_enhanced;
 bool rr_ng_enhanced(void) {return test_enhanced;}
 bool rr_ng_aes(void) {return false;}
 bool rr_ng_aes_available(void) {return true;}
+bool rr_ng_arcade_only(void) {return false;}
+bool rr_ng_boot_video_hidden(void) {return false;}
 void rr_ng_request_mode_restart(void) {}
 void rr_ng_set_enhanced(bool enabled) {test_enhanced=enabled;}
 uint32_t rr_ng_frame_index(void) {return 0;}
@@ -62,5 +64,26 @@ int main(void) {
     assert(rr_ng_start_bits(256,256)==5);assert(rr_ng_coin_bits(512,0)==1);
     assert(rr_ng_coin_bits(0,512)==2);assert(rr_ng_coin_bits(512,512)==3);checked+=6;
     assert(!(rr_ng_status_b(0)&0x70));assert(rr_ng_status_b(5)==0x0a);checked+=2;
-    printf("{\"keyboard_and_mvs_wiring_checks\":%u,\"rom_free\":true}\n",checked);SDL_Quit();return 0;
+    assert(rr_ng_host_coin_bits(512,512,0)==3);
+    assert(rr_ng_host_coin_bits(512,0,1)==0);
+    assert(rr_ng_host_coin_bits(0,512,1)==0);
+    assert(rr_ng_status_b(rr_ng_start_bits(256,256))==0x0a);checked+=4;
+    RrNgBootCover cover={0};uint32_t image[1000]={0};unsigned boot_checks=0;
+    assert(rr_ng_boot_cover(&cover,1,false,image,1000));++boot_checks;
+    for(unsigned n=0;n<1000;++n)image[n]=0x00ff00;
+    assert(rr_ng_boot_cover(&cover,64,false,image,1000));++boot_checks;
+    assert(rr_ng_boot_cover(&cover,64,false,image,1000));++boot_checks;
+    for(unsigned n=0;n<1000;++n)image[n]=n<900?0xf7f7f7:0;
+    assert(!rr_ng_boot_cover(&cover,175,false,image,1000));++boot_checks;
+    for(unsigned n=0;n<1000;++n)image[n]=0x00ff00;
+    assert(!rr_ng_boot_cover(&cover,176,false,image,1000));++boot_checks;
+    cover=(RrNgBootCover){0};
+    assert(rr_ng_boot_cover(&cover,239,false,image,1000));++boot_checks;
+    assert(!rr_ng_boot_cover(&cover,240,false,image,1000));++boot_checks;
+    cover=(RrNgBootCover){0};
+    for(unsigned n=0;n<1000;++n)image[n]=n<995?0:0xffffff;
+    assert(rr_ng_boot_cover(&cover,8,false,image,1000));++boot_checks;
+    cover=(RrNgBootCover){0};
+    assert(!rr_ng_boot_cover(&cover,8,true,image,1000));++boot_checks;
+    printf("{\"keyboard_and_mvs_wiring_checks\":%u,\"boot_presentation_checks\":%u,\"rom_free\":true}\n",checked,boot_checks);SDL_Quit();return 0;
 }

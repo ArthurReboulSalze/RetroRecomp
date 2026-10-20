@@ -16,6 +16,10 @@ sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
+native/game_options.h native/audio_filter.h
+native/player_gamepad.c smsrecomp/player_gamepad.py tools/build_player_gamepad.py
+tools/player_gamepad/CMakeLists.txt
+native/game_options_checks.c tools/game_options_selftest.py tests/test_player_gamepad.py
 tools/package_installers.py tools/installers/windows.iss
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
@@ -375,8 +379,17 @@ def audit_executable(executable: Path, source: Path) -> dict:
     archive = CArchiveReader(str(executable))
     bundled = {}
     audio = []
+    gamepads = []
     for original in archive.toc:
         name = original.replace("\\", "/")
+        if name.startswith('player-runtime/'):
+            leaf = Path(name).name
+            if leaf not in ('retro_gamepad.dll', 'libretro_gamepad.so'):
+                raise ValueError('Unexpected controller library: ' + name)
+            built = source / '.build/player-gamepad/runtime' / leaf
+            if not built.is_file() or archive.extract(original) != built.read_bytes():
+                raise ValueError('Controller library differs from native build: ' + name)
+            gamepads.append(name)
         if name.startswith('credits-runtime/'):
             leaf = Path(name).name
             if leaf not in ('retro_credits.dll', 'libretro_credits.so'):
@@ -403,6 +416,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
         raise ValueError("The executable is missing public resources.")
     if len(audio) != 1:
         raise ValueError('The executable needs exactly one native credits player.')
+    if len(gamepads) != 1:
+        raise ValueError('The executable needs exactly one controller bridge.')
     pyz = archive.open_embedded_archive("PYZ.pyz")
     modules = []
     for name in PUBLIC_FILES:

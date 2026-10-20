@@ -15,6 +15,7 @@
 #endif
 #include "retro_console16.h"
 #include "retro_menu.h"
+#include "game_options.h"
 #include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
 #include "autofire.h"
@@ -340,6 +341,7 @@ static void draw_gun(SDL_Renderer *renderer, const SDL_Rect *dst) {
 }
 
 static void draw_menu(SDL_Renderer *ren) {
+    if (menu == RR_OPTIONS_MENU) {rr_options_draw(ren); return;}
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
     rr_menu_begin(ren, ox, oy, unit);
@@ -375,7 +377,7 @@ static void draw_menu(SDL_Renderer *ren) {
             RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
         } else RR16_TEXT(146, tr("F8 Save state | F9 Load state", "F8 Sauvegarder | F9 Charger"));
 #if RR16_NG
-        RR16_TEXT(160, !rr_ng_aes_available()?"F11 AES: BIOS neo-epo.bin required":
+        RR16_TEXT(160, rr_ng_arcade_only()?"F11 Arcade Only":!rr_ng_aes_available()?"F11 AES: BIOS neo-epo.bin required":
                        rr_ng_aes()?"F11 Console AES -> Arcade MVS (restart)":"F11 Arcade MVS -> Console AES (restart)");
 #else
         RR16_TEXT(160, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
@@ -420,6 +422,7 @@ static void draw_menu(SDL_Renderer *ren) {
 }
 
 static void pause_audio_output(SDL_AudioDeviceID audio, bool *playing) {
+    rr_options_audio_reset();
     if (!audio) return;
     SDL_PauseAudioDevice(audio, 1);
     SDL_ClearQueuedAudio(audio);
@@ -456,6 +459,7 @@ int rr16_sdl_main(const char *title, int scale) {
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
+    rr_options_init(RR16_SECTION);
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     unsigned test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
 #if RR16_NG
@@ -531,6 +535,7 @@ int rr16_sdl_main(const char *title, int scale) {
 #endif
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            if (rr_options_event(&event, &menu, capturing != 0, true)) continue;
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) open_pads();
             if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page == 1) {
@@ -578,7 +583,9 @@ int rr16_sdl_main(const char *title, int scale) {
                 menu = menu == 4 ? 0 : 4; row = 0; capturing = 0;
 #if RR16_NG
             } else if (key == SDL_SCANCODE_F11) {
-                if(rr_ng_aes_available()) {
+                if(rr_ng_arcade_only()) {
+                    snprintf(status,sizeof status,"Arcade Only");status_until=SDL_GetTicks64()+2500;
+                } else if(rr_ng_aes_available()) {
                     if(rr_display_save(ini_file,data_dir,L"NeoGeo.Runtime",L"aes",rr_ng_aes()?0:1)) {
                         rr_ng_request_mode_restart();running=false;
                     } else {snprintf(status,sizeof status,"Config unavailable");status_until=SDL_GetTicks64()+2500;}
@@ -626,6 +633,7 @@ int rr16_sdl_main(const char *title, int scale) {
                 else if (key == SDL_SCANCODE_RETURN) capturing = 1;
             }
         }
+        if (rr_options_quit(menu)) running = false;
         if (!running) break;
         if (pending_state && rr16_state_ready()) {
             bool load = pending_state == 2;
@@ -660,6 +668,7 @@ int rr16_sdl_main(const char *title, int scale) {
             if(timing_enabled)timing_ticks[2]=SDL_GetPerformanceCounter();
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
             if (n && audio) {
+                rr_options_audio(pcm, (unsigned)(n / 2), 2, false, have.freq);
                 if (SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t))) != 0) {
                     SDL_CloseAudioDevice(audio); audio = 0; audio_playing = false;
                 } else if (!audio_playing && SDL_GetQueuedAudioSize(audio) >= audio_preroll) {

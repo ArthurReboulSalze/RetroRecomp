@@ -34,7 +34,28 @@ def qualified_record(report: dict):
     compiler=report['compiler']
     if compiler['revision']!=GEOLITH_REV or compiler['loader_revision']!=LITHOGEN_REV:
         raise ValueError('Neo Geo qualification uses other tool revisions.')
-    project=Path(report['build_executable']).resolve().parents[2]
+    executable=Path(report['build_executable']).resolve()
+    project=(Path(report['build_directory']).resolve() if report.get('build_directory') else
+             executable.parents[2 if executable.suffix.casefold()=='.exe' else 1])
+    from smsrecomp.neogeo_build import aes_available
+    expected_aes=aes_available(project)
+    if report.get('runtime_modes',{}).get('aes_available') is not expected_aes:
+        raise ValueError('Neo Geo machine qualification differs from the verified cartridge/BIOS.')
+    if expected_aes:
+        aes=report['game_states']['validation'].get('aes',{})
+        memory=report['ordinary_saves']['validation'].get('aes',{})
+        if (len(aes.get('routes',[]))!=2 or aes.get('invalid_states_rejected',0)<26 or
+            not aes.get('missing_load_is_read_only') or
+            any(not r.get('fresh_process_match') or r.get('replayed_frames',0)<300 for r in aes.get('routes',[])) or
+            not memory.get('idle_launch_creates_nothing') or memory.get('native_main_fallback',1) or
+            memory.get('native_sound_fallback',1) or not (memory.get('fresh_process_match') or memory.get('no_memory_change_on_route'))):
+            raise ValueError('Neo Geo AES qualification is incomplete.')
+        for route in aes['routes']:
+            for phase in ('continuous','restored'):
+                filename='continuous.json' if phase=='continuous' and aes.get('continuous_report')=='continuous.json' else f"{phase}-{route['warmup']}.json"
+                replay=json.loads((project/'aes-state-checks'/filename).read_text(encoding='utf-8'))
+                if replay.get('interpreted_68000',1) or replay.get('interpreted_z80',1):
+                    raise ValueError('Neo Geo AES replay still uses fallback; keep its hints private.')
     for route in states['routes']:
         for phase in ('continuous','restored'):
             path=project/'state-checks'/f"{phase}-{route['warmup']}.json"

@@ -19,16 +19,45 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
-| F11 | Neo Geo: switch arcade MVS / console AES and restart (AES BIOS required) |
+| F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE → ZH → JA → RU |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
-| F10 | Master System: Light Phaser options, in catalogue-selected gun games |
+| F10 | Game options; on Master System gun games this retains Light Phaser options |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
 | H | Help |
 | P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
 | Esc | Close a menu or quit |
+
+## Game options (1.1.8)
+
+**F10** or the controller **Guide** button opens the shared options panel.
+You can also open Help or Controls, then press **O** on the keyboard or **Y**
+on a controller. This route preserves F10's existing Light Phaser shortcut.
+The game pauses while options are open. Use Up/Down, Left/Right, Enter/A,
+Esc/B, or click a row with the mouse.
+
+- **Audio filter:** Off (default), Light, Soft. These optional tone controls
+  gently reduce high frequencies at the final PCM output. Off bypasses sample
+  processing byte for byte. They add no audio queue or lookahead; physical
+  latency and personal listening preferences still require real-device tests.
+  They do not replace each console's existing chip behavior or resampling.
+- **Quit: keyboard / gamepad:** select a row, release the activation button,
+  press the desired combination together, then release it. At least two buttons
+  are required; keyboard combinations accept up to three keys. Each controller
+  combination belongs to one controller, not buttons split between players.
+  Both are unassigned by default. Delete/Backspace or controller X clears the
+  selected combination; Esc cancels capture.
+- **Hold the combination for one second** to quit through the normal shutdown
+  path, preserving ordinary saves and shutdown-only fallback hints. Configured
+  quit buttons take priority over host pause/reset shortcuts; cartridge inputs
+  otherwise retain their usual behavior. Focus loss or disconnect cancels an
+  incomplete hold.
+
+Settings are saved by console in `datas/Retro-Recomp.ini`, alongside the games,
+on Windows and Linux. Existing game executables must be regenerated; updating
+the converter does not modify games already exported.
 
 F12 changes recording only: the interpreter still runs when necessary and its
 use remains visible. Interpreter disabling is deferred; no such
@@ -58,7 +87,8 @@ The Neo Geo MVS profile shares the same menus and four filters.
 Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
-and Back. **P** pauses; **F1** resets. Stick clicks are unassigned by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
+and Back (Coin in arcade MVS). In console AES, the Coin action is inactive:
+Back/Select does not open the BIOS menu. **P** pauses; **F1** resets. Stick clicks are unassigned by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
 there is no gun page. F3/F4/F6/F7 preferences persist in the common local INI
 with independent NeoGeo video/mapping sections. F8/F9 includes fresh-process
 loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).

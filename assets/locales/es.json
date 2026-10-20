@@ -462,6 +462,23 @@
     "Windowed": "En ventana",
     "Zapper | Tab: controls": "Zapper | Tab: controles",
     "for the next recompilation...": "para la próxima recompilación...",
-    "xBR smooth": "xBR suavizado"
+    "xBR smooth": "xBR suavizado",
+    "Retro-Recomp - Options": "Retro-Recomp - Opciones",
+    "Audio filter": "Filtro de audio",
+    "Off": "Desactivado",
+    "Light": "Ligero",
+    "Soft": "Suave",
+    "Quit: keyboard": "Salir: teclado",
+    "Quit: gamepad": "Salir: mando",
+    "Configured": "Configurado",
+    "Close": "Cerrar",
+    "Settings saved": "Opciones guardadas",
+    "Use at least two buttons": "Usa al menos dos botones",
+    "Press combo, then release": "Pulsa la combinación y suelta",
+    "Hold quit combo for 1 second": "Mantén la combinación 1 segundo",
+    "Enter / A: change | X: clear": "Enter / A: cambiar | X: borrar",
+    "Esc / B: close": "Esc / B: cerrar",
+    "O: options | H / Esc: close": "O: opciones | H / Esc: cerrar",
+    "O / Guide: options | Esc: close": "O / Guide: opciones | Esc: cerrar"
   }
 }

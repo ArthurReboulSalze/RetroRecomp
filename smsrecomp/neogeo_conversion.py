@@ -15,7 +15,7 @@ from . import __version__
 from .core import executable_name, ConversionError
 from .library import atomic_json
 from .neogeo import read_set, validate_bios
-from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV
+from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV, aes_available, aes_compatible, probe_failure
 from .neogeo_validation import extended_routes, compare, route_arguments
 from .paths import selected_bios_path
 
@@ -33,7 +33,7 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
             '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report)],
             capture_output=True, timeout=max(240,frames/60*4))
         if run.returncode:
-            raise ConversionError(f'Neo Geo packed {name} check failed (exit {run.returncode}).')
+            raise ConversionError(str(probe_failure('packed '+name, run)))
         native = json.loads(report.read_text(encoding='utf-8'))
         reference = json.loads((project / 'native-discovery' / (name + '-reference.json')).read_text(encoding='utf-8'))
         compare(native, reference, require_native=False)
@@ -47,7 +47,7 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
             'hardware_hash': native['extended_hardware_hash'], 'z80_hash': native['z80_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash']}
     from concurrent.futures import ThreadPoolExecutor
-    routes = extended_routes(set_name,qualification,aes='aes' in validate_bios(project/'bios.zip'))
+    routes = extended_routes(set_name,qualification,aes=aes_available(project))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         checked = list(pool.map(verify,routes.items()))
     return checked
@@ -83,6 +83,9 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     manifest=json.loads((project/'input.json').read_text(encoding='utf-8'))
     if manifest['bios']['sha256']!=bios_info['sha256'] or manifest['source']['sha256']!=game.sha256:
         raise ConversionError('Neo Geo cartridge or BIOS changed during conversion; add the files again.')
+    console_capable=aes_compatible(project/'cartridge.neo')
+    console_available='aes' in bios_info and console_capable
+    if not console_capable:emit('Neo Geo: Arcade Only; AES is not a supported machine for this cartridge.')
     from .packing import compact_executable
     packed=project/'packed-game.exe'
     shutil.copy2(executable,packed)
@@ -113,13 +116,13 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         state_script=project/'native-discovery'/(longest+'.inputs')
     emit('Neo Geo: checking F8/F9 in fresh processes and rejecting invalid states.')
     from concurrent.futures import ThreadPoolExecutor
-    mode_jobs=min(workers,2) if 'aes' in bios_info else 1
+    mode_jobs=min(workers,2) if console_available else 1
     with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
         mvs=pool.submit(check_states,packed,project/'state-checks',warmups=warmups,
             input_script=state_script,require_native=False,workers=max(1,workers//mode_jobs))
         aes=pool.submit(check_states,packed,project/'aes-state-checks',warmups=(30,4500),
             input_script=project/'native-discovery/aes-play.inputs',require_native=False,
-            workers=max(1,workers//mode_jobs),mode='aes') if 'aes' in bios_info else None
+            workers=max(1,workers//mode_jobs),mode='aes') if console_available else None
         states=mvs.result()
         if aes:states['aes']=aes.result()
     timings['state_checks']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
@@ -128,7 +131,7 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
         mvs=pool.submit(check_memory,packed,project,frames=13800 if game.set_name=='nam1975' else 7200,script=state_script)
         aes=pool.submit(check_memory,packed,project,frames=7200,
-            script=project/'native-discovery/aes-play.inputs',mode='aes') if 'aes' in bios_info else None
+            script=project/'native-discovery/aes-play.inputs',mode='aes') if console_available else None
         ordinary=mvs.result()
         if aes:ordinary['aes']=aes.result()
     timings['ordinary_saves']=round(time.perf_counter()-phase,3)
@@ -162,10 +165,12 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         'conversion_wall_seconds':round(time.perf_counter()-started,3)}
     report['conversion_phases_seconds']=timings
     report['validation_workers']=workers
-    report['runtime_modes']={'default':'mvs','aes_available':'aes' in bios_info,'switch_key':'F11',
-        'switch_restarts_game':True,'enhanced_default':True}
+    report['runtime_modes']={'default':'mvs','aes_available':console_available,
+        'arcade_only':not console_capable,'aes_bios_present':'aes' in bios_info,'switch_key':'F11',
+        'switch_restarts_game':console_available,'enhanced_default':True}
     report['qualification_scope']={'system':'MVS','region':'Europe','bios':'four verified user-supplied components',
-        'controls':'ordinary two-player joysticks','native_board_families':['standard','CT0','KOF98','SMA','MSLUGX','PVC'],
+        'controls':'ordinary two-player joysticks' if manifest['prepared'].get('ngh')!=0x236 else 'MVS trackball mapping not yet qualified',
+        'native_board_families':['standard','LINKABLE','CT0','KOF98','SMA','MSLUGX','PVC'],
         'hardware_specification_checks':136,'independent_game_hardware_implementation':False,
         'electrical_bus_phases_qualified':False,'universal_zero_fallback_claim':False}
     report['qualification_extra_routes']={name:{'frames':count,'script_sha256':hashlib.sha256(text.encode('ascii')).hexdigest()}

@@ -40,7 +40,7 @@ int main(void) {
     for(unsigned n=0;n<r->psz;++n)r->p[n]=(uint8_t)(n*73u+(n>>16)*31u);
     for(unsigned n=0;n<r->bsz;++n)r->b[n]=(uint8_t)(n*29u+11u);
     for(unsigned n=0;n<sizeof ram;++n)ram[n]=(uint8_t)(n*17u+7u);
-    static const unsigned boards[]={BOARD_DEFAULT,BOARD_CT0,BOARD_KOF98,BOARD_SMA,BOARD_MSLUGX,BOARD_PVC};
+    static const unsigned boards[]={BOARD_DEFAULT,BOARD_LINKABLE,BOARD_CT0,BOARD_KOF98,BOARD_SMA,BOARD_MSLUGX,BOARD_PVC};
     for(unsigned b=0;b<sizeof boards/sizeof *boards;++b) {
         geo_m68k_board_set(boards[b]);banksw_addr=0x123400;vectable=0;
         mapping(0,RR_M68000_CODE_BIOS,0,0);mapping(0xc60200,RR_M68000_CODE_BIOS,0x200,0);
@@ -51,6 +51,20 @@ int main(void) {
         mapping(0x1afc00,RR_M68000_CODE_RAM,0xfc00,1);
     }
     RrM68000CodeLocation loc={0};uint16_t word=0;
+    geo_m68k_board_set(BOARD_LINKABLE);banksw_addr=0x100000;cartreg[0]=0x31;
+    require(!rr_ng_code_location(0x200000,&loc) && !rr_ng_code_word(0x200000,&word),"link status word is not guardable ROM");
+    require(cartreg[0]==0x31,"code guards do not consume the link status latch");
+    require(geo_m68k_read_banksw_8(0x200000)==0x39 && cartreg[0]==0x39,"actual link status read toggles once");
+    require(geo_m68k_read_banksw_8(0x200001)==0 && cartreg[0]==0x39,"second link byte retains its real handler");
+    mapping(0x200002,RR_M68000_CODE_CART,0x100002,0);
+    geo_m68k_write_banksw_8(0x2ffff0,2);
+    mapping(0x200400,RR_M68000_CODE_CART,0x300400,0);
+    /* The next externally visible serial-link response must survive F8/F9. */
+    uint8_t link_state[80000]={0};geo_serial_begin();geo_m68k_state_save(link_state);
+    uint8_t next_link=geo_m68k_read_banksw_8(0x200000);
+    geo_m68k_read_banksw_8(0x200000);
+    geo_serial_begin();geo_m68k_state_load(link_state);
+    require(geo_m68k_read_banksw_8(0x200000)==next_link,"link response latch restored exactly");
     geo_m68k_board_set(BOARD_CT0);banksw_addr=0x100000;protreg=0x81422418;
     static const uint32_t ct0[]={0x200000,0x236000,0x236004,0x236008,0x23600c,0x255550,0x2ff000,0x2ffff0};
     for(unsigned n=0;n<sizeof ct0/sizeof *ct0;++n) {

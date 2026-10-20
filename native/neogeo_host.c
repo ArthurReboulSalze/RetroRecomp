@@ -13,7 +13,8 @@ void rr16_reset(void) {
 bool rr16_frame(uint16_t p1,uint16_t p2) {rr_ng_host_frame(p1,p2);return true;}
 const uint32_t *rr16_pixels(void) {
     const uint32_t *src=rr_ng_visible_pixels();
-    for(unsigned n=0;n<320*224;++n)pixels[n]=src[n]|0xff000000u;
+    bool covered=rr_ng_boot_video_hidden();
+    for(unsigned n=0;n<320*224;++n)pixels[n]=covered?0xff000000u:src[n]|0xff000000u;
     return pixels;
 }
 uint64_t rr16_interpreted(void) {return rr_m68000_stats()->interpreted_instructions;}

@@ -144,7 +144,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 #ifdef RETRO_GAME_GEAR
         text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), 38, 215, 255);
 #endif
-        text(r, 14, 174, TR("H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+        text(r, 14, 174, TR("O: options | H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
         rr_menu_build_footer(r, ox, oy, unit);
     } else {
 #ifdef RETRO_GAME_GEAR
@@ -169,7 +169,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         text(r, 14, 157, status && *status ? status : hint, 233, 239, 247);
         text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
             sms_light_phaser ? TR("G/F10: gun | Up/Down: select", "G/F10 : gun | Haut/Bas : choisir") :
-            TR("Up/Down: select | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
+            TR("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
     }
     rr_menu_end(r);
 }

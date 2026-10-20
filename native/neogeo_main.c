@@ -46,6 +46,7 @@ static unsigned audio_device_rate,audio_device_period,audio_queue_peak;
 static double loop_wall_seconds;
 static uint8_t pad[2]={0xff,0xff};
 static unsigned coin, start;
+static RrNgBootCover boot_cover;
 static FILE *pcm;
 static const char *report_path, *capture_dir, *pcm_path;
 static int performance_only,frame_diagnostics;
@@ -198,6 +199,9 @@ static void step_frame(void) {
     }
 }
 uint32_t *rr_ng_visible_pixels(void) {return video+320*24;}
+bool rr_ng_boot_video_hidden(void) {
+    return rr_ng_boot_cover(&boot_cover,frame,aes_mode!=0,rr_ng_visible_pixels(),320*224);
+}
 const int16_t *rr_ng_pcm(size_t *count) {*count=audio_count;return audio;}
 void rr_ng_consume_pcm(void) {audio_count=0;}
 void rr_ng_audio_queue_probe(int playing,unsigned bytes,unsigned rate,unsigned period) {
@@ -218,7 +222,7 @@ void rr_ng_host_frame(uint16_t p1,uint16_t p2) {
     if(scripted)update_input();
     else {
         pad[0]=(uint8_t)~p1;pad[1]=(uint8_t)~p2;
-        coin=rr_ng_coin_bits(p1,p2);start=rr_ng_start_bits(p1,p2);
+        coin=rr_ng_host_coin_bits(p1,p2,aes_mode);start=rr_ng_start_bits(p1,p2);
     }
     step_frame();
 }
@@ -226,11 +230,15 @@ uint32_t rr_ng_frame_index(void) {return frame;}
 void rr_ng_restore_frame(uint32_t value) {
     frame=value;input_pos=0;audio_count=0;
     pad[0]=pad[1]=0xff;coin=start=0;
+    /* A loaded game is already visible; don't re-cover it because its scene
+     * is green or colorful. Reset rearms the cover for the next real boot. */
+    memset(&boot_cover,0,sizeof boot_cover);boot_cover.released=value!=0;
 }
 unsigned rr_ng_frame_limit(void) {return (unsigned)frames;}
 bool rr_ng_enhanced(void) {return enhanced_mode;}
 bool rr_ng_aes(void) {return aes_mode!=0;}
 bool rr_ng_aes_available(void) {return RR_NG_AES_AVAILABLE!=0;}
+bool rr_ng_arcade_only(void) {return RR_NG_ARCADE_ONLY!=0;}
 const char *rr_ng_identity(void) {return aes_mode?RR_NG_AES_IDENTITY:RR_NG_MVS_IDENTITY;}
 void rr_ng_request_mode_restart(void) {restart_requested=1;}
 void rr_ng_set_enhanced(bool enabled) {
@@ -377,7 +385,9 @@ static int execute(int argc,char **argv) {
         if(rr_executable_directory(path,32768) && !rr_wide_append(path,32768,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini"))
             aes_mode=rr_ini_int(L"NeoGeo.Runtime",L"aes",0,path)==1 && RR_NG_AES_AVAILABLE;
     }
-    if(aes_mode && !RR_NG_AES_AVAILABLE)return 2;
+    if(aes_mode && !RR_NG_AES_AVAILABLE) {
+        fprintf(stderr,RR_NG_ARCADE_ONLY?"Arcade Only\n":"AES BIOS neo-epo.bin required\n");return 2;
+    }
     rr_feedback_start(!headless);
     rr_ng_observations=(report_path && !performance_only) || trace_path || rr_ng_cpu_trace;
     frame_diagnostics=rr_ng_observations;
