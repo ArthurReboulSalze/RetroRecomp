@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.9-d4a737" alt="Release version 1.1.9">
+  <img src="https://img.shields.io/badge/release-1.1.10-d4a737" alt="Release version 1.1.10">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -77,7 +77,7 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.1.9:** the experimental **Sharp X68000** profile. Nineteen game sets
+**New in 1.1.9 and 1.1.10:** the experimental **Sharp X68000** profile. Nineteen game sets
 convert on Windows and Debian with natively compiled code that matches a fresh
 reference run on the tested routes. The in-app credits name the authors behind
 its machine code.

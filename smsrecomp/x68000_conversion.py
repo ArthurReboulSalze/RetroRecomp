@@ -128,6 +128,29 @@ def payload(project, source, manifest, title, artwork):
     return metadata
 
 
+def sdk_tree(base):
+    """Bundled sources in a stable workspace folder.
+
+    A packaged converter extracts its files to a new temporary folder on every
+    launch; CMake caches must never point there, or a later conversion of the
+    same game fails. Files are rewritten only when their bytes change.
+    """
+    if ASSETS.resolve() == ROOT.resolve():
+        return ASSETS
+    target = base/'sdk'
+    sources = [*(ASSETS/'native').rglob('*'), *(ASSETS/'tools').glob('x68000_*.py'),
+               *(ASSETS/'licenses').glob('*.md'), ASSETS/'LICENSE']
+    for source in sources:
+        if not source.is_file():
+            continue
+        destination = target/source.relative_to(ASSETS)
+        data = source.read_bytes()
+        if not destination.is_file() or destination.read_bytes() != data:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+    return target
+
+
 def machine_sources(base, emit):
     """Pinned machine sources, fetched like the other profiles, and the 74ddbb3 tree.
 
@@ -151,10 +174,11 @@ def machine_sources(base, emit):
             f'-DRR_B74_SOURCE={hissorii.as_posix()}', f'-DRR_X68000_TOOL_STAMP={sdk_stamp()}')
 
 
-def build_player(work, payload_dir, *, emit, machine=()):
-    from tools.x68000_native import MACHINE_BASE
+def build_player(work, payload_dir, *, emit, machine=(), sdk=ASSETS):
+    from tools.x68000_native import MACHINE_BASE, fresh_cache
     cmake,generator=toolchain();build=work/'build'
-    run([cmake,'-S',ASSETS/'native/x68000_native','-B',build,'-G',generator,*cmake_target_args(),
+    fresh_cache(build,sdk/'native/x68000_native')
+    run([cmake,'-S',sdk/'native/x68000_native','-B',build,'-G',generator,*cmake_target_args(),
          f'-DPX68K_DIR={(ROOT/".deps/px68k-reference").as_posix()}',
          f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}',
          f'-DRR_X68000_GENERATED={work.as_posix()}',f'-DRR_X68000_PAYLOAD_DIR={payload_dir.as_posix()}',
@@ -196,7 +220,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     # Workspace paths (.deps, .build) follow ROOT; bundled sources stay in ASSETS.
     from tools import x68000_native as native, x68000_reference as reference
     from tools.x68000_reference_check import cases
-    native.ROOT=reference.ROOT=ROOT;native.SDK=ASSETS
+    native.ROOT=reference.ROOT=ROOT
     # MSBuild's file tracker still has short-path limits even when Python and
     # Windows support long paths. Full identities stay in the receipts.
     stamp=sdk_stamp();base=ROOT/'.build/x68'/('win' if os.name=='nt' else 'linux')/stamp[:12]
@@ -208,6 +232,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     emit('X68000: verifying exact disks, IPL, font ROM and machine settings.')
     from .feedback import ingest, records
     feedback=ingest('x68',manifest.sha256,output,emit=emit)
+    sdk=native.SDK=sdk_tree(base)
     machine_settings=machine_sources(base,emit)
     with entry_lock(base/'discovery-lock',timeout=1800):
         common=base/'discovery';ready=common/'ready.json'
@@ -283,7 +308,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         candidate=None;actual=None;generation=None
         for attempt in range(max(1,min(int(passes),10))):
             generation=native.generate(project,native.observations([observation]),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
-            candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings)
+            candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
             # Run copied alone, with only its own embedded immutable inputs.
             run_dir=checks/f'native-{attempt+1}';run_dir.mkdir(parents=True,exist_ok=True)
             exported=run_dir/candidate.name;shutil.copy2(candidate,exported)

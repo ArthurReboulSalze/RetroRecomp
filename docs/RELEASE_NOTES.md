@@ -1,3 +1,17 @@
+# RetroRecomp v1.1.10 — Sharp X68000 conversion fix
+
+- **Fixed:** converting an X68000 game again in a later session of the packaged
+  converter could stop with a CMake error. The X68000 sources are now copied to
+  a stable folder beside your games' build cache, and build folders created by
+  1.1.9 are reconfigured automatically.
+- Everything else is unchanged from 1.1.9: see below for the experimental Sharp
+  X68000 profile, its notices and the expanded credits.
+
+X68000 games made with 1.1.9 are listed as outdated because the X68000
+converter files changed; regenerating them is optional. Other games are current.
+
+---
+
 # RetroRecomp v1.1.9 — Sharp X68000 (experimental) and expanded credits
 
 - **Sharp X68000 is now available as an experimental profile.** Convert DIM/XDF

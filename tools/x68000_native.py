@@ -289,9 +289,20 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     return result
 
 
+def fresh_cache(build_dir:Path,source:Path)->None:
+    """Drop a CMake build folder configured from another source location."""
+    cache=build_dir/'CMakeCache.txt'
+    if cache.is_file():
+        for line in cache.read_text(encoding='utf-8',errors='replace').splitlines():
+            if line.startswith('CMAKE_HOME_DIRECTORY:INTERNAL='):
+                if Path(line.split('=',1)[1]).resolve()!=source.resolve():shutil.rmtree(build_dir)
+                break
+
+
 def build(work:Path,px:Path,sdl:Path,jobs:int=8,machine_base:str|None=None,extra=()):
     """Configure and build; `extra` carries machine-source settings (see the converter)."""
     cmake,generator=toolchain()
+    fresh_cache(work/'build',SDK/'native/x68000_native')
     run([cmake,'-S',SDK/'native/x68000_native','-B',work/'build','-G',generator,*cmake_target_args(),
          f'-DPX68K_DIR={px.as_posix()}',f'-DCMAKE_PREFIX_PATH={sdl.resolve().as_posix()}',
          f'-DRR_X68000_GENERATED={work.as_posix()}',
