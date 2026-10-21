@@ -11,7 +11,8 @@ from smsrecomp.library import GameMemory, list_games, library_root
 from smsrecomp.paths import ROOT, save_game_language, games_root, load_preferences
 from smsrecomp.i18n import log_text
 from smsrecomp.batch import identify, convert_batch, system_output
-from smsrecomp.systems import MASTER_SYSTEM, PROFILES, discover_roms, profile_for_path
+from smsrecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
+PROFILES = available_profiles()
 
 
 def main() -> int:
@@ -136,6 +137,10 @@ def main() -> int:
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
     batch.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto")
     batch.add_argument('--ng-bios',type=Path,help='User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.')
+    for command in (build,batch):
+        command.add_argument('--x68-ipl',type=Path,help='X68000: your own IPL ROM.')
+        command.add_argument('--x68-cgrom',type=Path,help='X68000: your own font ROM (CGROM).')
+        command.add_argument('--x68-ram',type=int,choices=(2,4),default=None,help='X68000 RAM in MiB.')
     batch.add_argument("--output", type=Path, default=games_root(),
         help="Games root (default: Games beside the converter). Console folders are added automatically.")
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
@@ -233,6 +238,15 @@ def main() -> int:
                     from smsrecomp.gameboy import memory_summary
                     print(json.dumps(memory_summary(system.read_rom(args.rom)), indent=2, ensure_ascii=False))
                     return 0
+                if system.id == 'x68':
+                    if args.import_manifest:
+                        raise ConversionError('X68000 observations require exact media/firmware identity and fresh validation.')
+                    from smsrecomp.compiled_games import read_json
+                    rom=system.read_rom(args.rom)
+                    profiles=[read_json(p) for p in library_root('x68').glob('*/compilation.json')]
+                    print(json.dumps({'system':'x68','sha256':rom.sha256,
+                        'profiles':[p for p in profiles if p.get('rom_sha256')==rom.sha256]},indent=2))
+                    return 0
                 if system.id == 'nes':
                     if args.import_manifest:
                         raise ConversionError("NES uses ROM-specific cycle traces, not Sega observation manifests.")
@@ -279,6 +293,9 @@ def main() -> int:
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
                     ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
+                    x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
+                    x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
+                    x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
@@ -298,6 +315,9 @@ def main() -> int:
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
                     ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
+                    x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
+                    x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
+                    x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
                 if result['status'] not in ('success', 'current'):

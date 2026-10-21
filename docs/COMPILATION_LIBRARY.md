@@ -1,5 +1,164 @@
 # Shared compilation knowledge
 
+## X68000 stage 9 — private multi-disk and mouse exploration
+
+Six new exact sets (Naious, View Point, Air Combat II, Choujin, Power Unit and
+Tricorn Final) use fifteen hash-checked, read-only Batocera inputs. Primary,
+mouse and keyboard cold sessions each retain fresh reference comparisons;
+additional code observations never waive those checks. Known mouse profiles
+receive a longer bounded mouse route. The runtime fallback recorder contributes
+10,370 private candidates from seven user sessions, including 2,598 Power Unit
+encodings. Other games are not marked corrected by that import alone.
+
+Power Unit exposed an automatic insertion race: a loader waiting for physical
+removal cannot proceed if the next disk is inserted in the same guest frame.
+A bounded empty-drive interval now precedes automatic insertion; its progress
+and the previous disk identity survive snapshots. The diagnostic mouse click
+then opens the game's menu. This is a media-session fix, not a title-specific
+CPU patch or a claim of full gameplay coverage. Windows/Linux corrected final
+receipts now cover three fresh bounded routes per set: 124,000 frames and
+1,840,161,608 native instructions observed per OS, without fallback on these
+routes. Exact CPU/RAM/video/PCM/clock traces and snapshot continuation agree.
+Historical local encoding corpora can have different sizes; the receipts keep
+their per-platform counts instead of using those counts as a fidelity test.
+The durable private receipt is `datas/x68000-development/stage9-qualification.json`,
+with a separate receipt per exact machine identity. The public bank is unchanged.
+All raw observations, media and qualification artefacts
+remain private while X68000 runtime redistribution terms are unresolved.
+
+The reviewed Air Combat front uses a link-only reference and an offline reusable
+cache on both systems. Choujin and Power Unit still have no verified front;
+their screenshots must not be promoted into the reviewed-cover catalogue.
+Automatic card thumbnails now follow updated conversion reports while preserving
+manual selections and saved summaries. Both local converters include this fix.
+
+## X68000 stage 8 private expansion — Windows/Debian qualification
+
+Eight further exact sets add Daimakaimura, Super Hang-On, Cotton (Sprite, 1991),
+Alien Syndrome, Arkanoid — Revenge of Doh, Bubble Bobble, Nemesis '94 Gradius 2
+and Quarth. The ten staged disk images are hash-checked copies from the read-only
+Batocera source. No game assets or instruction words are promoted into the public
+snapshot while runtime distribution terms remain unresolved.
+
+The observed external SCSI IOCS ROM fetch aperture at EA0000–EA1FFF now uses
+the same live instruction guards as RAM, text VRAM and IPL code. Two additional
+authored checks qualify execution, modified-word rejection and aperture bounds;
+there are now 20 CPU/guard checks. Diagnostics retain at most 16 unmapped PCs in
+RAM and write only an explicitly requested end-of-run diagnostic report.
+
+An independent 10,000-frame second input route discovers 2,985 additional exact
+instruction variants. They are first retained as private unqualified candidates,
+then used by a fresh generation followed by fresh native/reference checks.
+Headless diagnostic imports do not test the player's interactive exit recorder.
+Never relabel the candidate import itself as a successful native qualification.
+
+Additional captures must be complete and exact-identity compatible. Counts alone
+are not new code coverage and no longer repeat an identical reconstruction.
+Windows and Debian pass both 8,000/10,000-frame routes for all eight games without
+observed fallback: 144,000 main frames and 2,172,707,865 native instructions per
+OS. The initial five traces and the second route/restart agree across both OS.
+There are 107 X68000, 61 shared-integration and 25 credits/language tests per OS,
+plus 20 CPU/guard, 59 device, 11 session and 9 disk vectors. The previously
+missing SDK-availability test on Debian is included in the final replay;
+26 test/harness files and 493 production source files match across platforms.
+The ten original disk images remain hash-identical.
+
+Durable receipts live in `datas/x68000-development/stage8-qualification.json`
+and each exact identity's `converter-cross-platform-stage8.json`. Local frozen
+converters are rebuilt and their payloads inspected, without embedding private
+observations. A later Linux UI/notice resource refresh is recorded separately:
+it changes the conservative SDK freshness stamp, not the qualified machine
+sources. Do not relabel an old game's proof as a new post-notice qualification.
+Never copy private raw captures into public assets; the public bank is unchanged.
+
+## X68000 private development register — 20 October 2026
+
+Stage 7 expands private checks to five additional supplied sets (After Burner
+II, Bonanza Bros, Cranked Arrow, Metal Sight and R-Type), beside Cho Ren Sha.
+Instruction observations now include guarded text VRAM and actual instruction
+lengths. Exact duplicates are compacted before regeneration without weakening
+fresh reference checks. Runtime RRFB candidates stay independently bounded.
+Two exact-set disk transitions for Metal Sight, a mouse-input profile for
+After Burner II and five approved online front-cover references are recorded.
+The FM LFO now owns a portable, serialized random state and initializes its
+phase; this fixes an authored snapshot test and addresses Linux PCM divergence.
+See the local `docs/SHARP_X68000_LIBRARY_STAGE7.md` and final per-game receipts
+under `.build/x68000-stage7`. Raw RAM code, firmware, game snapshots and media
+remain private. This work does not promote X68000 into the public snapshot.
+The final six-game campaign covers 46,000 main frames and 634,977,458 native
+instructions per OS, with no fallback observed on those bounded paths.
+All five traces per game agree across Windows and Debian. The subsequent
+W/X default-binding change has a separate R-Type qualification receipt.
+Metal Sight's merged register contains 260,883 variants without truncation;
+future enrichment must respect the 262,144-entry bound and retain fresh checks.
+
+Stage 6 adds the local SDK-gated converter profile and a single-file native
+player, with shared menus/settings and bounded deferred RRFB kind 13. Every
+conversion compares a new independent CPU/RAM/video/PCM/clock replay and a
+new-process state continuation. Writable media and SRAM for validation are
+fresh copies; real exported user data is preserved across regeneration.
+Only exact-identity, hash-qualified earlier observations seed discovery;
+runtime feedback stays an unqualified candidate until a fresh comparison.
+The small Game memory index contains counts/metadata, never instruction words.
+Converter observations and their checksum receipts remain private under
+`datas/x68000-development/<exact identity>/`. See the local
+`docs/SHARP_X68000_CONVERTER.md` and `.build/x68000-stage6/final-proof.json`.
+This does not add an eighth production profile or change the public bank.
+The stage-6 final evidence is 100 X68000 and 83 integration tests per OS,
+62 SDL assertions, and identical 4,000-frame CPU/RAM/video/PCM/clock main
+traces across both OS. The main route observes 61,280,215 native instructions
+per OS and no fallback. New-process snapshots also cover an active floppy
+DMA at boot; modern CPU reset/prefetch/exception latches are now serialized.
+A durable `converter-cross-platform.json` receipt references the final proof.
+
+Stage 5 qualifies session controls, F8/F9 and private disk changes on Windows
+and Debian. The native/reference and cross-platform main runs agree on every
+CPU/RAM/video/PCM/clock trace column, including new-process restoration. Across
+both OS, 263,820,886 native instructions are observed without fallback in the
+bounded original single-disk Cho Ren Sha routes. There are 92 Python tests per
+OS, 11 session and 9 disk vectors, plus the previous hardware/CPU regression.
+See `docs/SHARP_X68000_SESSION.md` and `.build/x68000-stage5/final-proof.json`.
+
+An additional exact QA identity combines Cho with two entirely authored disks:
+`1beb31ee72d8444f65d7ccc805b4185d012724fbb94830df5924eba473ee7e6a`.
+Its real drive-change/restart traces agree between CPUs and platforms, but its
+44 fallback instruction executions per OS are explicitly retained. Four
+distinct IPL variants were harvested (observation SHA-256
+`b618585013c0c234d2a7b58b1304b0280543ff5914071dc973de933ce54b6e72`) under its
+own private identity, pending a future native generation. They are not merged
+into another game's profile or promoted into the public knowledge snapshot.
+Session qualifications for the original game remain separate from stage-4
+CPU observation qualifications. Player snapshots contain private RAM/media
+and must never become public compilation knowledge.
+
+Stage 4 corrects bounded hardware contracts without modifying the shared
+production CPU semantics. Three newly reached RAM PCs are retained privately;
+the generated CPU now has 23,618 descriptors including nine authored diagnostic
+descriptors. Four fresh paths compare 11,000 complete rows, with 167,794,658
+native instructions observed per OS and no observed fallback. The 58 device
+vectors, integer clock/PCM ledger and 13 CPU/guard checks are separate gates.
+See `docs/SHARP_X68000_HARDWARE.md` and `.build/x68000-stage4` final receipts.
+The stage-3 private snapshots are archived before the per-identity register is
+updated; raw instruction words remain private. No public X68000 promotion,
+eighth production profile or new release is authorized by this work.
+
+Historically, the stage-3 native CPU prototype qualified the exact Cho Ren Sha 68k v1.01
+media/firmware/configuration set and authored Human68k fixtures on Windows and
+Debian. Four fresh routes compare 11,000 CPU/RAM/pixel/PCM rows per OS, with
+173,010,628 native instructions and no observed interpreted instruction. Thirteen
+authored CPU/guard checks and 63 Python tests pass on each OS. This is same-machine
+CPU agreement, not independent hardware fidelity or full-game qualification.
+
+Useful observations and receipts are retained privately under
+`datas/x68000-development/<exact-media-identity>/`, outside disposable builds.
+They include private live words and must **not** be copied into a public snapshot.
+The X68000 adapter is not yet a public converter profile and its composite
+machine-runtime distribution terms remain unresolved. The existing 1,164-entry
+snapshot below is unchanged. Future promotion must reconstruct instructions from
+the user's exact supplied inputs and pass fresh validation, without borrowing
+another game's profile. See the local `docs/SHARP_X68000_NATIVE.md` and private
+`.build/x68000-stage3/cross-platform.json` for the development evidence.
+
 ## Release 1.1.8 — Neo Geo campaign and targeted repairs, 20 October 2026
 
 The snapshot contains **1,164 exact identities**, including **125 Neo Geo**:

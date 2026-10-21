@@ -93,12 +93,13 @@ def save_preferences(value: dict) -> None:
             value['output'] = str(output.relative_to(export_directory()))
         except ValueError:
             value['output'] = str(output)
-    if value.get('ng_bios'):
-        bios = selected_bios_path(value['ng_bios'])
-        try:
-            value['ng_bios'] = str(bios.relative_to(export_directory()))
-        except ValueError:
-            value['ng_bios'] = str(bios)
+    for field in ('ng_bios', 'x68_ipl', 'x68_cgrom'):
+        if value.get(field):
+            bios = selected_bios_path(value[field])
+            try:
+                value[field] = str(bios.relative_to(export_directory()))
+            except ValueError:
+                value[field] = str(bios)
     if 'feedback_paths' in value:
         folders = {}
         for system, path in feedback_search_paths(value).items():

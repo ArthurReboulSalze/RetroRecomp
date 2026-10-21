@@ -74,7 +74,7 @@ def open_local(path: Path) -> None:
 
 
 def require_backend(system: str) -> None:
-    if os.name != 'nt' and system not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'):
+    if os.name != 'nt' and system not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'):
         from .core import ConversionError
         raise ConversionError(f'{system}: Linux integration is still pending for this console profile.')
 

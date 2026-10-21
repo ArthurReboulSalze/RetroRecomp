@@ -1,7 +1,7 @@
 # Controls
 
-The shortcut table below applies to the seven console profiles in the current
-development build.
+The shortcut table below applies to the console profiles in the current build,
+including the experimental Sharp X68000.
 Console-specific F5 functions and cartridge buttons are described below.
 Keyboard labels use the active Windows layout: pressing W on an AZERTY
 keyboard displays W in F2. Unsaved letter defaults also follow that layout.

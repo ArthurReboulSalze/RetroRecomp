@@ -15,6 +15,51 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
+smsrecomp/x68000.py smsrecomp/x68000_media.py smsrecomp/x68000_conversion.py
+smsrecomp/systems/x68000.py docs/X68000.md
+tests/test_x68000_availability.py
+native/x68000_machine/base74/alias/libretro/dswin.h
+native/x68000_machine/base74/alias/libretro/joystick.h
+native/x68000_machine/base74/alias/libretro/keyboard.h
+native/x68000_machine/base74/alias/libretro/mouse.h
+native/x68000_machine/base74/alias/m68000/musashi/m68k.h
+native/x68000_machine/base74/alias/x68k/x68kmemory.h native/x68000_machine/base74/alias/x68kmemory.h
+native/x68000_machine/base74/audio_mix.c native/x68000_machine/base74/bridge.c
+native/x68000_machine/base74/config.c native/x68000_machine/base74/cpu_bus.c
+native/x68000_machine/base74/fileio.c native/x68000_machine/base74/host_draw.c
+native/x68000_machine/base74/m68000/m68000.h native/x68000_machine/base74/mercury_absent.c
+native/x68000_machine/base74/musashi/m68kconf.h native/x68000_machine/base74/x11/common.h
+native/x68000_machine/base74/x11/dosio.h native/x68000_machine/base74/x11/dswin.h
+native/x68000_machine/base74/x11/fileio.h native/x68000_machine/base74/x11/joystick.h
+native/x68000_machine/base74/x11/juliet.h native/x68000_machine/base74/x11/keyboard.h
+native/x68000_machine/base74/x11/mmsystem.h native/x68000_machine/base74/x11/mouse.h
+native/x68000_machine/base74/x11/prop.h native/x68000_machine/base74/x11/status.h
+native/x68000_machine/base74/x11/timer.h native/x68000_machine/base74/x11/windows.h
+native/x68000_machine/base74/x11/windraw.h native/x68000_machine/base74/x11/winui.h
+native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/glue.h
+native/x68000_machine/input.c native/x68000_machine/libretro_api.c native/x68000_machine/machine.c
+native/x68000_machine/provenance.json native/x68000_machine/PROVENANCE.md
+native/x68000_machine/state/legacy_stub.c native/x68000_machine/state/rr_state.c
+native/x68000_machine/state/rr_state.h native/x68000_machine/state/snapshot.c
+native/x68000_reference/audio_checks.c native/x68000_reference/audio_checks.h
+native/x68000_reference/check_compat.h native/x68000_reference/CMakeLists.txt
+native/x68000_reference/disk_checks.c native/x68000_reference/disk_checks.h
+native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.h
+native/x68000_reference/loading.h native/x68000_reference/media_probe.c
+native/x68000_reference/media_session.c native/x68000_reference/media_session.h
+native/x68000_reference/payload.c native/x68000_reference/payload.h
+native/x68000_reference/player_ui.inc native/x68000_reference/probe.c
+native/x68000_reference/probe.h native/x68000_reference/reference_host.c
+native/x68000_reference/rtc_clock_shim.h native/x68000_reference/session_bridge.c
+native/x68000_reference/session_checks.c native/x68000_reference/session_checks.h
+native/x68000_reference/state_store.c native/x68000_reference/state_store.h
+native/x68000_reference/state_store_test.c native/x68000_reference/timing_checks.c
+native/x68000_reference/timing_checks.h native/x68000_reference/video_checks.c
+native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
+native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
+native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
+tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py
+smsrecomp/x68000_scan.py
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
 native/game_options.h native/audio_filter.h
 native/player_gamepad.c smsrecomp/player_gamepad.py tools/build_player_gamepad.py
@@ -89,7 +134,8 @@ licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md licenses/SuperMarioWorldRecomp.md
-licenses/geolith.md licenses/lithogen.md
+licenses/geolith.md licenses/lithogen.md licenses/musashi.md
+licenses/x68000-machine.md licenses/fmgen.md
 licenses/upx-5.2.1-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
@@ -275,7 +321,9 @@ PUBLIC_SET = frozenset(PUBLIC_FILES)
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
-                          or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
+                          or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"}
+                          # X68000 generators: hashed into the SDK stamp, read as files by CMake.
+                          or p.startswith("tools/x68000_"))
 TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json", ".html", ".css"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
@@ -400,8 +448,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
             if not built.is_file() or archive.extract(original) != built.read_bytes():
                 raise ValueError('Credits audio differs from the native build: ' + name)
             audio.append(name)
-        if name.startswith(("native/", "assets/", "profiles/", "licenses/", "MEDIAS/trackers_chiploom/")) or name in {
-                "LICENSE", "THIRD_PARTY_NOTICES.md"}:
+        if name.startswith(("native/", "assets/", "profiles/", "licenses/", "MEDIAS/trackers_chiploom/",
+                            "tools/x68000_")) or name in {"LICENSE", "THIRD_PARTY_NOTICES.md"}:
             if name not in BUNDLED_FILES:
                 raise ValueError(f"Unexpected executable payload: {name}")
             data = archive.extract(original)

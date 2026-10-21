@@ -670,6 +670,103 @@
         "https://images.launchbox-app.com/9904a05b-e109-4d5f-9594-0641d2f9a882.png"
       ],
       "source_page": "https://gamesdb.launchbox-app.com/games/images/9888-super-sidekicks-3-the-next-glory"
+    },
+    {
+      "id": "x68-cho-ren-sha",
+      "system_id": "x68",
+      "rom_sha256": [
+        "8905e8b639a5ea1c69fd0835c0817d3ee08d7c9bc5be67dea601f1787082d1a6"
+      ],
+      "rom_names": [
+        "Cho Ren Sha 68k",
+        "Chourensha 68K v1.01 (Famibe No Yosshin)",
+        "Cho Ren Sha 68K (v1.01)"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sharp_-_X68000/master/Named_Boxarts/Cho%20Ren%20Sha%2068K%20%28v1.01%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sharp_-_X68000"
+    },
+    {
+      "id": "x68-after-burner-ii",
+      "system_id": "x68",
+      "rom_sha256": [
+        "24bf876f9d31a622313c4e6fb0f4c8134259c11e1dd0fea28124a44498c797e3"
+      ],
+      "rom_names": [
+        "After Burner II",
+        "Afterburner II"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sharp_-_X68000/master/Named_Boxarts/Afterburner%20II%20%281989%29%28Dempa%29%28Disk%201%20of%202%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sharp_-_X68000"
+    },
+    {
+      "id": "x68-bonanza-bros",
+      "system_id": "x68",
+      "rom_sha256": [
+        "05c982591c25d737942137ce2c89eab6a9622ad0a03badebe0f5643cebed271a"
+      ],
+      "rom_names": [
+        "Bonanza Bros"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sharp_-_X68000/master/Named_Boxarts/Bonanza%20Bros%20%28Sharp%20-%20SPS%29%20%28Disk%201%20of%202%29%20%28Disk%20A%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sharp_-_X68000"
+    },
+    {
+      "id": "x68-metal-sight",
+      "system_id": "x68",
+      "rom_sha256": [
+        "65a1633e48b34ddfe486c53a96cf0d3460606370972e202b3066458858589b94"
+      ],
+      "rom_names": [
+        "Metal Sight"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sharp_-_X68000/master/Named_Boxarts/Metal%20Sight%20%28System%20Sacom%29%20%28Disk%201%20of%205%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sharp_-_X68000"
+    },
+    {
+      "id": "x68-r-type",
+      "system_id": "x68",
+      "rom_sha256": [
+        "57a4a2898b6f55ff36826c01a75a86e0ca4ecfd4ce391ce08a978ef4e00cef67"
+      ],
+      "rom_names": [
+        "R-Type"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://raw.githubusercontent.com/libretro-thumbnails/Sharp_-_X68000/master/Named_Boxarts/R-Type%20%28Irem%29.png"
+      ],
+      "source_page": "https://github.com/libretro-thumbnails/Sharp_-_X68000"
+    },
+    {
+      "id": "x68-air-combat-yuugekiou-ii",
+      "system_id": "x68",
+      "rom_sha256": [
+        "b5aca854176b1c6a005d63d1718f5e648196fc51689c31f534daa79bb690cdf4",
+        "de3b4bc7e9d2a78049b67794db098a17f5658f5c7e7653919ba3978de7d57e5d",
+        "1473a2f0216766045b771477afe621abf61ddc9271c7b700edfe1f50311478dd"
+      ],
+      "rom_names": [
+        "Air Combat II",
+        "Air Combat - Yuugekiou II",
+        "Air Combat II Yuugekiou II"
+      ],
+      "style": "front",
+      "image_urls": [
+        "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEixy8-kJBOCB2q2WREFtKNs5s1I5e5q6RmqtFd4gLEUd5q1o35Rve-8cNXlZlnJDnd9s2nmX1vNaheqraLyHwAmBQerxT050XJszPiqKO_pxVW3QNHH9zlkIC2Pv4DKP_g-RTKM2V8hkGyWeVjdkJv6ul0vm2Udc6hFXZLzzFUXSC9qOY3Wr5PC9l3oh9f8/s600/Air%20Combat%20II%20Yuugekiou%20II%20(1990).png"
+      ],
+      "source_page": "https://redparsley.blogspot.com/2024/01/the-best-of-x68000-cover-art-part-1.html"
     }
   ]
 }

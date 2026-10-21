@@ -26,7 +26,8 @@ from .artwork import ICON_SIZES
 from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings
 from .cover_keyring import KeyringError
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
-from .systems import PROFILES, discover_roms, get_profile
+from .systems import available_profiles, discover_roms, get_profile
+PROFILES = available_profiles()
 from .updater import UpdateConnectionError, UpdateServiceError
 from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
 
@@ -50,12 +51,12 @@ def update_error_text(error: Exception | str, language: str) -> str:
 
 UPSTREAM_CREDITS = (
     ('Master System', (
-        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_recompiler'),
+        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_sms_recompiler'),
         ('mstan/z80-recomp-core', 'https://github.com/mstan/z80-recomp-core', 'credits_native_core'),
         ('superzazu/z80', 'https://github.com/superzazu/z80', 'credits_reference_cpu'),
     )),
     ('Game Gear', (
-        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_recompiler'),
+        ('mstan/smsggrecomp', 'https://github.com/mstan/smsggrecomp', 'credits_sms_recompiler'),
         ('mstan/z80-recomp-core', 'https://github.com/mstan/z80-recomp-core', 'credits_native_core'),
         ('superzazu/z80', 'https://github.com/superzazu/z80', 'credits_reference_cpu'),
     )),
@@ -78,6 +79,13 @@ UPSTREAM_CREDITS = (
         ('carmiker/lithogen', 'https://github.com/carmiker/lithogen', 'credits_cartridge_loader'),
         ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_68000'),
     )),
+    ('Sharp X68000', (
+        ('hissorii/px68k', 'https://github.com/hissorii/px68k', 'credits_x68_hardware'),
+        ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_x68_cpu'),
+        ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_68000'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
+        ('libretro/px68k-libretro', 'https://github.com/libretro/px68k-libretro', 'credits_x68_reference'),
+    )),
 )
 
 
@@ -90,6 +98,22 @@ def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     values = [round(channel(base, at) * (1 - visibility) +
                     channel(foreground, at) * visibility) for at in (1, 3, 5)]
     return '#{:02x}{:02x}{:02x}'.format(*values)
+
+
+def _compiled_button_style(style):
+    """Collection navigation stays within interface-only compiler inputs."""
+    c = COLORS
+    style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
+                    bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
+                    focuscolor=c['gold_text'], relief='raised')
+    style.map('Compiled.Toolbar.TButton',
+              background=[('disabled', c['panel']), ('selected', c['gold_hover']),
+                          ('pressed', c['gold_hover']), ('active', c['gold_hover'])],
+              foreground=[('disabled', c['disabled']), ('!disabled', c['gold_text'])],
+              bordercolor=[('disabled', c['border']), ('!disabled', c['gold_hover'])],
+              lightcolor=[('disabled', c['panel']), ('selected', c['gold_hover']), ('active', c['gold_hover'])],
+              darkcolor=[('disabled', c['panel']), ('selected', c['gold_hover']), ('active', c['gold_hover'])],
+              relief=[('selected', 'sunken'), ('pressed', 'sunken')])
 
 
 class Application:
@@ -126,6 +150,7 @@ class Application:
         load_fonts()
         self.ui_font = family(self.language)
         self.style = apply_theme(app, self.ui_font)
+        _compiled_button_style(self.style)
         self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
         self.count = tk.StringVar(value='0 ROM')
@@ -154,6 +179,9 @@ class Application:
         self.force = tk.BooleanVar(value=False)
         saved_bios = selected_bios_path(preferences.get('ng_bios'))
         self.ng_bios = tk.StringVar(value=str(saved_bios) if saved_bios else '')
+        self.x68_ipl = tk.StringVar(value=preferences.get('x68_ipl', ''))
+        self.x68_cgrom = tk.StringVar(value=preferences.get('x68_cgrom', ''))
+        self.x68_ram = tk.IntVar(value=preferences.get('x68_ram', 2))
         self.ng_bios_status = tk.StringVar(value=self.tr('ng_bios_not_checked') if saved_bios else self.tr('ng_bios_missing'))
         feedback_folders = feedback_search_paths(preferences)
         self.feedback_paths = {profile.id: tk.StringVar(value=str(feedback_folders.get(profile.id, ''))) for profile in PROFILES}
@@ -252,8 +280,8 @@ class Application:
                   font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
         self.queue_toolbar = list(toolbar.pack_slaves())[:4]
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
-            command=self.toggle_compiled_games, style='Toolbar.TButton')
-        self.decorate_button(self.compiled_button, 'gamepad')
+            command=self.toggle_compiled_games, style='Compiled.Toolbar.TButton')
+        self.decorate_button(self.compiled_button, 'gamepad', primary=True)
         self.compiled_button.pack(side='left', padx=(4, 0))
 
         table_frame = ttk.Frame(body)
@@ -559,6 +587,7 @@ class Application:
         self.ui_font = family(self.language)
         if self.ui_font != previous_font:
             self.style = apply_theme(self.app, self.ui_font)
+            _compiled_button_style(self.style)
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
@@ -759,7 +788,7 @@ class Application:
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
-            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.md *.gen *.pce'),
+            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.md *.gen *.pce *.dim *.xdf *.m3u'),
                        ('All files', '*.*')])
         self.add_paths(paths)
 
@@ -862,6 +891,7 @@ class Application:
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
+            x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
             rom_paths={system:value.get().strip() for system,value in self.rom_paths.items() if value.get().strip()})
 
@@ -897,6 +927,10 @@ class Application:
                     validate_bios(bios)
                 except ValueError as exc:
                     raise ValueError(self.tr('ng_bios_invalid', error=str(exc))) from exc
+            for row in chosen_rows:
+                if self.items[row].system == 'x68' and not self.items[row].error:
+                    from .x68000 import machine
+                    machine(self.items[row].path,options.get('x68_ipl'),options.get('x68_cgrom'),options.get('x68_ram',2))
             save_preferences(self.preferences())
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
@@ -1315,6 +1349,22 @@ class Application:
         ttk.Label(neo_geo, textvariable=self.ng_bios_status, style='Muted.TLabel',
                   wraplength=880).pack(anchor='w', pady=(12, 0))
         self.build_feedback_options(neo_geo, 'ng')
+        if any(p.id == 'x68' for p in PROFILES):
+            x68 = tab('options_x68')
+            ttk.Label(x68,text=self.tr('options_x68_note'),style='Muted.TLabel',wraplength=840,justify='left').pack(anchor='w',pady=(0,14))
+            for label,variable in (('x68_ipl',self.x68_ipl),('x68_cgrom',self.x68_cgrom)):
+                ttk.Label(x68,text=self.tr(label)).pack(anchor='w',pady=(8,4))
+                row=ttk.Frame(x68);row.pack(fill='x')
+                field=ttk.Entry(row,textvariable=variable);field.pack(side='left',fill='x',expand=True)
+                self.option_controls.append((field,'normal'))
+                def choose(var=variable):
+                    chosen=filedialog.askopenfilename(parent=self.options_panel,title=self.tr('browse'),filetypes=[('ROM / DAT','*.dat *.rom *.bin'),('All files','*.*')])
+                    if chosen:var.set(chosen)
+                browse=ttk.Button(row,text=self.tr('browse'),command=choose);browse.pack(side='left',padx=(8,0));self.option_controls.append((browse,'normal'))
+            ttk.Label(x68,text='RAM (MiB)').pack(anchor='w',pady=(12,4))
+            control=ttk.Combobox(x68,textvariable=self.x68_ram,values=(2,4),width=8,state='readonly');control.pack(anchor='w')
+            self.option_controls.append((control,'readonly'))
+            self.build_feedback_options(x68,'x68')
         self.build_cover_options(tab('options_boxart'), checkbox)
 
         buttons = ttk.Frame(panel)
@@ -1592,7 +1642,7 @@ class Application:
             self.body.rowconfigure(1, weight=1, minsize=100)
             self.body.rowconfigure(7, weight=0, minsize=0)
             self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
-            self.compiled_button.configure(style='Toolbar.Primary.TButton')
+            self.compiled_button.state(['selected'])
             self.compiled_view.render()
         else:
             self.compiled_view.grid_remove()
@@ -1601,7 +1651,7 @@ class Application:
             for widget in self.compiler_widgets:widget.grid()
             for index,widget in enumerate(self.queue_toolbar):
                 widget.pack(side='left',padx=8 if index%2 else 0,before=self.compiled_button)
-            self.compiled_button.configure(style='Toolbar.TButton')
+            self.compiled_button.state(['!selected'])
         self.queue_background(self.body)
 
     def remember_export(self, result, preferences):

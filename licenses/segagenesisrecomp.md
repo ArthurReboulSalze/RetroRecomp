@@ -2,6 +2,16 @@
 
 Source: https://github.com/mstan/segagenesisrecomp
 
+Copyright (c) 2026 Matthew Stan (mstan), as stated in
+`external/m68k-recomp-core/LICENSE`. The 68000 decoder and instruction semantics
+are also reused by the experimental Neo Geo and Sharp X68000 runtimes. The
+project owner reports mstan's agreement to that noncommercial use with
+attribution; the PolyForm terms below still apply unchanged.
+
+The "Yoyodyne" line in the Notices section is the licence's own example: the
+upstream `LICENSE.md` contains the same text and provides no **Required
+Notice:** line of its own.
+
 # PolyForm Noncommercial License 1.0.0
 
 <https://polyformproject.org/licenses/noncommercial/1.0.0>

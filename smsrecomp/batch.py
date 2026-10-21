@@ -333,6 +333,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             item.cover = Cards().override(Game('',item.system,item.sha256,item.title))
         settings = dict(options)
         force = settings.pop('force', False)
+        if system.id != 'x68':
+            for key in ('x68_ipl', 'x68_cgrom', 'x68_ram'): settings.pop(key, None)
         if system.id != 'ng':
             settings.pop('ng_bios', None)
             settings.pop('ng_qualification_routes', None)

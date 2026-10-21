@@ -13,7 +13,7 @@ from pathlib import Path
 from types import CodeType
 from functools import lru_cache
 
-SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'))
+SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'))
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
@@ -24,6 +24,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
 def owners(name):
     """Return the narrowest known scope, keeping unclassified inputs shared."""
     name = Path(name).name.lower()
+    if name.startswith(('x68000', 'x68k_')):
+        return frozenset(('x68',))
     if name.startswith(('gameboy', 'game_boy', 'gb_', 'retro_gb')):
         return frozenset(('gb',))
     if name.startswith(('neogeo', 'ng_')):
@@ -35,7 +37,7 @@ def owners(name):
     if name.startswith(('nes_', 'retro_nes')) or name in ('nes', 'nes.py'):
         return frozenset(('nes',))
     if name.startswith('m68000'):
-        return frozenset(('md', 'ng'))
+        return frozenset(('md', 'ng', 'x68'))
     if name.startswith(('console16', 'retro_console16', 'gun16', 'guns16')):
         return frozenset(('md', 'snes'))
     if name.startswith(('master_system', 'game_gear')) or name in ('cpu', 'cpu.py', 'validation', 'validation.py'):
@@ -118,6 +120,8 @@ def _module_inputs(system):
 
 def _resource_paths(root, system):
     for path in (root / 'native').rglob('*'):
+        if path.relative_to(root / 'native').parts[0].startswith('x68000') and system != 'x68':
+            continue
         if path.is_file() and system in owners(path.name):
             yield path
     for folder in ('assets', 'profiles', 'licenses'):

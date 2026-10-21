@@ -1,6 +1,6 @@
 # RetroRecomp roadmap
 
-Release 1.1.5 has seven supported console profiles on Windows and a native Linux
+The current public packages have seven supported console profiles on Windows and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -9,6 +9,20 @@ and NES ROMs, includes a supported Mega Drive standard-cartridge profile
 and a supported standard Super Nintendo profile. The 16-bit profiles analyze new cartridges automatically within
 their documented hardware scope. The
 priorities below describe areas to improve, not compatibility or delivery promises.
+
+## X68000 and future machines
+
+The Sharp X68000 is the next experimental computer prototype. Local Windows and
+Debian work already covers native RAM code, common menus, quick states and
+initial multi-disk sequences. Development is progressing quickly, but gameplay,
+hardware edge cases and low-power Linux performance need further work.
+The composite runtime's distribution terms are still under review; it is not
+enabled in public downloads yet. See [X68000 status](X68000.md).
+
+More consoles and classic computers are planned after and alongside this work.
+Existing 68000 and Z80 components will be reused where appropriate. Each machine
+will receive its own experimental phase, validation and compatibility scope.
+
 
 ## Delivered in 1.1.5 — 19 October 2026
 

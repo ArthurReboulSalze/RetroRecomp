@@ -13,7 +13,8 @@ from .branding import COLORS
 from .compiled_games import Game, default_roots, scan, refresh
 from .paths import APP_NAME
 from .platforms import open_local, target_id
-from .systems import PROFILES, get_profile
+from .systems import available_profiles, get_profile
+PROFILES = available_profiles()
 import subprocess
 
 ATTENTION = {'new_hints', 'fallback', 'changed', 'unreadable'}

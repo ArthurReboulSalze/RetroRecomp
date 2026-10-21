@@ -67,6 +67,7 @@
     "credits_repositories": "主机重编译器",
     "credits_open_link": "选择项目以打开其 GitHub 仓库",
     "credits_recompiler": "重编译器和游戏运行库",
+    "credits_sms_recompiler": "重编译器和游戏运行库\n经 mstan 授权使用 · 非商业用途",
     "credits_native_core": "共享的原生 Z80 核心",
     "credits_reference_cpu": "参考及备用 CPU",
     "credits_license": "部分上游组件仅限非商业用途。复用前请阅读其许可声明。",
@@ -282,7 +283,15 @@
     "favorite_remove": "取消收藏",
     "favorite_empty": "☆",
     "card_no_summary": "此来源没有提供简介。",
-    "card_batch_done": "已保存 {count} 个游戏信息。"
+    "card_batch_done": "已保存 {count} 个游戏信息。",
+    "credits_x68_status": "实验性配置 · 非商业条件",
+    "credits_x68_hardware": "机器运行时 · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)",
+    "credits_x68_reference": "早期开发参考 · 不再编译",
+    "credits_x68_cpu": "原型使用的 Musashi 参考 CPU",
+    "options_x68": "Sharp X68000",
+    "x68_ipl": "IPL 固件 (iplrom.dat)",
+    "x68_cgrom": "字形 ROM (cgrom.dat)",
+    "options_x68_note": "实验性配置：DIM/XDF 和有序 M3U 磁盘组。请提供自己的 IPL 和字形 ROM。共用菜单、滤镜、控制及 F8/F9。首次转换会下载固定版本的机器源代码。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",

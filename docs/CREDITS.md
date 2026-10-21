@@ -1,5 +1,22 @@
 # Animated credits and module playback
 
+The Master System and Game Gear cells credit **mstan/smsggrecomp** with the
+explicit line “Used with mstan’s permission · noncommercial use”, translated
+into all eight interface languages. The project owner confirms having obtained
+this permission directly from the author. It concerns that engine and the
+project's noncommercial use, as documented in [the third-party notices](../THIRD_PARTY_NOTICES.md);
+it is not a general MIT relicense or an authorization for unrelated components.
+
+The credits include a **Sharp X68000** cell marked as an experimental profile
+under noncommercial terms. Its clickable repositories credit
+hissorii/px68k with the authors of its machine code named in the line itself
+(Kenjo for WinX68k/Keropi, NONAKA Kimihiro for xkeropi, cisc for FMGEN), the
+Geolith/Musashi CPU baseline (Karl Stenerud's Musashi), GenesisRecomp and
+m68k-recomp-core, and PX68k/Libretro as the earlier development reference, no
+longer compiled. The machine sources are fetched at their pinned revisions on
+first conversion. See [X68000 status](X68000.md) and the
+[machine runtime notices](../licenses/x68000-machine.md).
+
 Included in release 1.1.4. The final presentation and music were approved by the
 project owner before publication.
 

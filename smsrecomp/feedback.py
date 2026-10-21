@@ -18,9 +18,9 @@ LIMIT = 4096
 HEADER = struct.Struct('<8sIII8s64sI')
 RECORD = struct.Struct('<BBHII16sI')
 MAX_BYTES = HEADER.size + LIMIT * RECORD.size
-SYSTEMS = {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'}
+SYSTEMS = {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'}
 KINDS = {'sms': {1}, 'gg': {1}, 'gb': {2}, 'nes': {3, 4},
-         'md': {5, 6, 7}, 'snes': {8, 9}, 'ng': {10, 11, 12}}
+         'md': {5, 6, 7}, 'snes': {8, 9}, 'ng': {10, 11, 12}, 'x68': {13}}
 
 
 @dataclass(frozen=True, order=True)

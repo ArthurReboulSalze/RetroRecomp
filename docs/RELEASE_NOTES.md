@@ -1,3 +1,35 @@
+# RetroRecomp v1.1.9 — Sharp X68000 (experimental) and expanded credits
+
+- **Sharp X68000 is now available as an experimental profile.** Convert DIM/XDF
+  disks and ordered M3U sets into standalone Windows and Linux games. Select your
+  own IPL and font ROM in Options → Sharp X68000. Exports include shared menus,
+  quick states, W/X controls, mouse support, autofire and initial multi-disk
+  handling.
+- **Measured on 19 game sets, Windows and Debian.** Each export matches a fresh
+  reference run (CPU, memory, picture, sound and clock traces) on bounded
+  joystick, mouse and keyboard routes and resumes identically after a saved
+  state. No fallback interpreter use was observed on those routes. This is not
+  complete-game, exact-hardware or latency qualification.
+- **A new machine runtime without GPL code.** The X68000 machine is built from
+  hissorii's PX68k (WinX68k by Kenjo, xkeropi by NONAKA Kimihiro, FMGEN by cisc)
+  with Retro-Recomp's own host code and snapshots and the Musashi CPU core. The
+  first conversion fetches these sources at their pinned revisions. Notices:
+  [X68000 status](X68000.md).
+- **Updated in-app credits.** The X68000 cell names the authors behind its machine
+  code, in all eight interface languages. The Master System and Game Gear cells
+  acknowledge the author's permission to use SMS/GGrecomp for this noncommercial
+  project. The Musashi notice is now included for Neo Geo as well.
+- **More machines ahead.** More consoles and classic computers are planned,
+  with each new profile introduced and qualified in its own experimental phase.
+- The public compilation library retains **1,164 verified identities**. No
+  private X68000 RAM observations, disks, firmware, states or game executables
+  are included. Windows and Linux use the same public snapshot.
+
+Existing seven-console games do not need regeneration for this release.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.1.8 — Neo Geo fixes, player controls and audio options
 
 Existing exports need regeneration for game-side changes. Updating the converter

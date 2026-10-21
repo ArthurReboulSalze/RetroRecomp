@@ -6,6 +6,25 @@ keyring, while Windows retains DPAPI. Credentials are never stored in plaintext
 as a fallback. A locked keyring does not erase saved accounts when changing
 the cover style. See [LINUX.md](LINUX.md) for desktop setup and package scope.
 
+## Private X68000 development review
+
+The approved Air Combat — Yuugekiou II front scan is recorded as a public image
+URL, with its source page and X68000 title/identity selectors. The image itself
+stays in the local download cache. A reviewed reference replaces an earlier
+saved screenshot and can then be reused without network access on Windows and
+Linux. No scanned cover pixels are bundled with the converter.
+
+Choujin and Metal Unit II — Power Unit still have no verified front cover in
+this review. Their existing title/gameplay artwork is explicitly classified
+as an icon fallback, not as a found or user-approved box cover. Review galleries
+must keep those images out of the selection presented for cover approval.
+
+Automatically cached game-card thumbnails follow the conversion report's
+revision, so regenerating a game with corrected artwork refreshes an earlier
+card image. An unchanged card stays offline and avoids parsing the report
+again. Manual cover overrides keep priority, and an unavailable moved report
+does not discard the existing thumbnail or summary.
+
 ## Additional reviewed Neo Geo fronts — v1.1.0
 
 Bang Bead and Voltage Fighter Gowcaizer add two user-approved front-cover links,

@@ -67,6 +67,7 @@
     "credits_repositories": "KONSOLEN-REKOMPILIERER",
     "credits_open_link": "Wähle ein Projekt, um sein GitHub-Repository zu öffnen",
     "credits_recompiler": "Rekompilierer und Spielelaufzeit",
+    "credits_sms_recompiler": "Rekompilierer und Spielelaufzeit\nMit Genehmigung von mstan · nichtkommerzielle Nutzung",
     "credits_native_core": "Gemeinsamer nativer Z80-Kern",
     "credits_reference_cpu": "Referenz- und Fallback-CPU",
     "credits_license": "Einige Komponenten unterliegen nichtkommerziellen Bedingungen. Lies ihre Hinweise vor der Weiterverwendung.",
@@ -282,7 +283,15 @@
     "favorite_remove": "Aus Favoriten entfernen",
     "favorite_empty": "☆",
     "card_no_summary": "Für diese Quelle ist keine Beschreibung verfügbar.",
-    "card_batch_done": "{count} Spielkarten gespeichert."
+    "card_batch_done": "{count} Spielkarten gespeichert.",
+    "credits_x68_status": "Experimentelles Profil · nichtkommerzielle Bedingungen",
+    "credits_x68_hardware": "Maschinen-Laufzeit · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)",
+    "credits_x68_reference": "Frühere Entwicklungsreferenz · nicht mehr kompiliert",
+    "credits_x68_cpu": "Musashi-Referenz-CPU des Prototyps",
+    "options_x68": "Sharp X68000",
+    "x68_ipl": "IPL-Firmware (iplrom.dat)",
+    "x68_cgrom": "Zeichen-ROM (cgrom.dat)",
+    "options_x68_note": "Experimentelles Profil: DIM/XDF und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",

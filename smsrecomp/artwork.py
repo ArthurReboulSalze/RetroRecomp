@@ -39,6 +39,7 @@ REPOSITORIES = {
     'md': 'libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis',
     'snes': 'libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
     'ng': 'libretro-thumbnails/SNK_-_Neo_Geo',
+    'x68': 'libretro-thumbnails/Sharp_-_X68000',
 }
 REPOSITORY = REPOSITORIES['sms']  # Keep the existing SMS artwork source stable.
 FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}

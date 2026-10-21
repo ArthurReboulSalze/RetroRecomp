@@ -14,7 +14,8 @@ from .dialogs import center_dialog
 from .library import library_root, atomic_json
 from .paths import APP_NAME, data_directory
 from .platforms import open_local
-from .systems import PROFILES, get_profile
+from .systems import available_profiles, get_profile
+PROFILES = available_profiles()
 
 
 def summaries(system, cache=None, titles=None):
@@ -23,7 +24,7 @@ def summaries(system, cache=None, titles=None):
     titles, cache, result, updated = titles or {}, cache or {}, [], {}
     patterns = {'sms': '*/compilation.json', 'gg': '*/compilation.json', 'gb': '*/trace.json',
                 'nes': '*/*/cycle-seeds.trace', 'md': '*/native-entries.json',
-                'snes': '*/native-ram.json', 'ng': '*/compilation.json'}
+                'snes': '*/native-ram.json', 'ng': '*/compilation.json', 'x68': '*/compilation.json'}
     seen = set()
     for path in root.glob(patterns[system]):
         identity = path.parent.parent.name if system == 'nes' else path.parent.name.rsplit('-', 1)[-1]
@@ -64,6 +65,8 @@ def summaries(system, cache=None, titles=None):
                         row['entries'] = len(value.get('entries', [])) + len(value.get('ram_variants', []))
                     elif system == 'snes':
                         row['entries'] = len(value.get('ram_variants', []))
+                    elif system == 'x68':
+                        row['entries'] = value.get('guarded_variants', 0)
                     else:
                         record = value.get('record', {})
                         row['entries'] = sum(len(v) for v in record.values() if isinstance(v, list))

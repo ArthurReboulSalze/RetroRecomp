@@ -99,6 +99,33 @@ class CardTests(TestCase):
               patch('smsrecomp.game_details.pe_icon',side_effect=AssertionError('Cache comes first'))):
             self.assertEqual(self.cards.cover(self.game),image.read_bytes())
 
+    def test_regeneration_refreshes_automatic_card_cover_and_preserves_manual_choice(self):
+        from smsrecomp.game_details import read_json
+        old=self.root/'old.png';front=self.root/'corrected-front.png'
+        Image.new('RGB',(32,48),'green').save(old)
+        Image.new('RGB',(32,48),'red').save(front)
+        report=self.root/'report.json';self.game.report=str(report)
+        report.write_text(json.dumps({'artwork':{'image':str(old)}}))
+        # Older card caches have no report fingerprint and must migrate offline.
+        self.cards.set_cover(self.game,old.read_bytes())
+        self.cards.save_metadata(self.game,'en',{'description':'Saved summary'})
+        with (patch('smsrecomp.cover_sources.request',side_effect=AssertionError('Offline')),
+              patch('smsrecomp.game_details.pe_icon',side_effect=AssertionError('Prefer cached image'))):
+            self.cards.cover(self.game)
+            report.write_text(json.dumps({'artwork':{'image':str(front)}}))
+            refreshed=self.cards.cover(self.game)
+            self.assertEqual(Image.open(BytesIO(refreshed)).getpixel((0,0))[:3],(255,0,0))
+            self.assertEqual(self.cards.metadata(self.game,'en')['description'],'Saved summary')
+            def cached_json(path,*args,**kwargs):
+                self.assertNotEqual(Path(path),report,'Unchanged cover must avoid parsing the report again')
+                return read_json(path,*args,**kwargs)
+            with patch('smsrecomp.game_details.read_json',side_effect=cached_json):
+                self.cards.cover(self.game)
+            manual=BytesIO();Image.new('RGB',(32,48),'gold').save(manual,format='PNG')
+            chosen=self.cards.set_cover(self.game,manual.getvalue(),override=True)
+            report.write_text(json.dumps({'artwork':{'image':str(old)}}))
+            self.assertEqual(self.cards.cover(self.game),chosen.read_bytes())
+
     def test_non_pe_extraction_never_executes_binary(self):
         path=self.root/'Game'
         path.write_bytes(b'\x7fELFdata')

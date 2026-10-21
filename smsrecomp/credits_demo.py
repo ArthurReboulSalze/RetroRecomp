@@ -433,6 +433,9 @@ class CreditsDemo:
                           font=('Consolas',10),tags='credit')
             _,used = text(system.upper(),y+16,15,WHITE,True)
             y += used+34
+            if system == 'Sharp X68000':
+                _,used = text(self.tr('credits_x68_status'),y,9)
+                y += used+15
             for repository,url,role in repositories:
                 item,used = text(repository,y,11,GOLD)
                 c.tag_bind(item,'<Enter>',lambda e,i=item:self._hover(True,i))

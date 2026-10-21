@@ -67,6 +67,7 @@
     "credits_repositories": "機種別再コンパイラー",
     "credits_open_link": "プロジェクトを選ぶとGitHubを開きます",
     "credits_recompiler": "再コンパイラーとゲームランタイム",
+    "credits_sms_recompiler": "再コンパイラーとゲームランタイム\nmstan の許可を得て使用 · 非商用",
     "credits_native_core": "共通のネイティブZ80コア",
     "credits_reference_cpu": "参照・フォールバックCPU",
     "credits_license": "一部の上流コンポーネントには非商用条件があります。再利用前に各ライセンスを確認してください。",
@@ -282,7 +283,15 @@
     "favorite_remove": "お気に入りから削除",
     "favorite_empty": "☆",
     "card_no_summary": "この出典には紹介文がありません。",
-    "card_batch_done": "{count} 件の情報を保存しました。"
+    "card_batch_done": "{count} 件の情報を保存しました。",
+    "credits_x68_status": "実験的プロファイル · 非商用条件",
+    "credits_x68_hardware": "マシン実行環境 · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)",
+    "credits_x68_reference": "以前の開発リファレンス · 現在はコンパイルしない",
+    "credits_x68_cpu": "プロトタイプで使用する Musashi 参照 CPU",
+    "options_x68": "Sharp X68000",
+    "x68_ipl": "IPL ファームウェア (iplrom.dat)",
+    "x68_cgrom": "フォント ROM (cgrom.dat)",
+    "options_x68_note": "実験的プロファイル：DIM/XDF と順序付き M3U ディスクセット。自分の IPL とフォント ROM が必要です。共通メニュー、フィルター、操作と F8/F9 に対応。初回の変換で固定版のマシンソースをダウンロードします。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",

@@ -22,6 +22,13 @@ def request(item, options):
     settings = {key: value for key, value in options.items()
                 if key not in ('gb_parallel_games', 'ng_parallel_games', 'ng_bios', 'bios')}
     settings['target'] = target_id()
+    if item.system == 'x68':
+        from .x68000 import machine
+        from .x68000_conversion import sdk_stamp
+        _, manifest = machine(item.path, options.get('x68_ipl'), options.get('x68_cgrom'), options.get('x68_ram', 2))
+        settings['machine_identity'] = manifest.sha256
+        settings['x68_sdk'] = sdk_stamp()
+        settings.pop('x68_ipl', None); settings.pop('x68_cgrom', None)
     if item.system == 'ng':
         from .neogeo import validate_bios
         from .paths import selected_bios_path

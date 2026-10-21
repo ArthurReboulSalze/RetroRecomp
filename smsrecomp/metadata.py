@@ -5,7 +5,7 @@ from . import __version__
 
 def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
                   system_id: str = 'sms', *, zapper: bool = False, gun_device: str | None = None) -> dict[str, str]:
-    if system_id not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng'):
+    if system_id not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'):
         raise ValueError('Unsupported console')
     if system_id != 'sms' and light_phaser:
         raise ValueError('This console has no Light Phaser')
@@ -21,11 +21,11 @@ def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
             raise ValueError('Zapper requires NES')
         controls = 'Mouse (NES Zapper); keyboard/gamepad controls'
     modes = {'sms': ('pal', 'ntsc'), 'gg': ('ntsc',), 'gb': ('dmg',), 'nes': ('ntsc', 'pal'),
-             'md': ('ntsc', 'pal'), 'snes': ('ntsc', 'pal'), 'ng': ('mvs',)}
+             'md': ('ntsc', 'pal'), 'snes': ('ntsc', 'pal'), 'ng': ('mvs',), 'x68': ('native',)}
     if standard is not None and standard not in modes[system_id]:
         raise ValueError('Unsupported console video standard')
     console_name = {'sms': 'Master System', 'gg': 'Game Gear', 'gb': 'Game Boy',
-                    'nes': 'Nintendo NES', 'md': 'Mega Drive', 'snes': 'Super Nintendo', 'ng': 'Neo Geo'}[system_id]
+                    'nes': 'Nintendo NES', 'md': 'Mega Drive', 'snes': 'Super Nintendo', 'ng': 'Neo Geo', 'x68': 'Sharp X68000'}[system_id]
     console = console_name + (f' {standard.upper()}' if standard and system_id in ('sms', 'nes', 'md', 'snes') else '')
     values = {'CompanyName': 'RetroRecomp', 'ProductName': title,
         'FileDescription': f'{title} | {console} | {controls}',

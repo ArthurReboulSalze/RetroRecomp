@@ -5,12 +5,11 @@ import queue
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import webbrowser
 
 from PIL import Image, ImageTk
 
 from .branding import COLORS
-from .game_details import Cards, public_url
+from .game_details import Cards
 from .systems import get_profile
 
 
@@ -22,22 +21,18 @@ class GameCardView(ttk.Frame):
         self.events, self.pending = queue.Queue(), False
         self.info_queue, self.info_current, self.info_count = [], None, 0
         self.info_active = False
+        self.columnconfigure(0,weight=1)
+        self.rowconfigure(1,weight=3,minsize=70)
+        self.rowconfigure(2,weight=2,minsize=80)
         self.title = ttk.Label(self,font=(owner.ui_font,12,'bold'),wraplength=285)
-        self.title.pack(fill='x',pady=(0,8))
-        self.art = tk.Label(self,bg=COLORS['field'],fg=COLORS['disabled'],height=1)
-        self.art.pack(fill='x')
-        actions=ttk.Frame(self)
-        actions.pack(fill='x',pady=(8,6))
-        self.choose=ttk.Button(actions,command=self.choose_cover)
-        self.choose.pack(side='left')
-        self.find=ttk.Button(actions,command=self.search_cover)
-        self.find.pack(side='left',padx=(6,0))
-        self.fetch=ttk.Button(self,command=self.search_info)
-        self.fetch.pack(fill='x',pady=(0,8))
-        self.message=tk.StringVar()
-        ttk.Label(self,textvariable=self.message,style='Muted.TLabel',wraplength=290).pack(fill='x')
+        self.title.grid(row=0,column=0,sticky='ew',pady=(0,8))
+        # The image must not impose its original size on the resizable pane.
+        self.cover_area=tk.Frame(self,bg=COLORS['field'],height=1,width=1)
+        self.cover_area.grid(row=1,column=0,sticky='nsew')
+        self.art = tk.Label(self.cover_area,bg=COLORS['field'],fg=COLORS['disabled'],borderwidth=0)
+        self.art.place(relwidth=1,relheight=1)
         body=ttk.Frame(self)
-        body.pack(fill='both',expand=True,pady=(6,0))
+        body.grid(row=2,column=0,sticky='nsew',pady=(6,0))
         self.info=tk.Text(body,wrap='word',height=5,width=26,bg=COLORS['field'],
             fg=COLORS['text'],relief='flat',borderwidth=0,padx=10,pady=8,
             font=(owner.ui_font,9),state='disabled',highlightthickness=0)
@@ -45,11 +40,29 @@ class GameCardView(ttk.Frame):
         self.info.configure(yscrollcommand=bar.set)
         bar.pack(side='right',fill='y')
         self.info.pack(fill='both',expand=True)
-        self.source=ttk.Button(self,command=self.open_source)
-        self.source.pack(anchor='w',pady=(6,0))
-        self.source_url=''
+        footer=ttk.Frame(self)
+        footer.grid(row=3,column=0,sticky='ew',pady=(6,0))
+        self.message=tk.StringVar()
+        self.notice=ttk.Label(footer,textvariable=self.message,style='Muted.TLabel',wraplength=290)
+        self.message.trace_add('write',self.update_notice)
+        actions=ttk.Frame(footer)
+        actions.pack(fill='x')
+        actions.columnconfigure((0,1),weight=1,uniform='cover-actions')
+        style=ttk.Style(self)
+        style.configure('Card.TButton',font=(owner.ui_font,8),padding=(5,2))
+        style.configure('Card.Primary.TButton',font=(owner.ui_font,8,'bold'),padding=(5,2))
+        self.choose=ttk.Button(actions,command=self.choose_cover,style='Card.TButton',width=0)
+        self.choose.grid(row=0,column=0,sticky='ew',padx=(0,3))
+        self.find=ttk.Button(actions,command=self.search_cover,style='Card.TButton',width=0)
+        self.find.grid(row=0,column=1,sticky='ew',padx=(3,0))
+        self.fetch=ttk.Button(actions,command=self.search_info,style='Card.Primary.TButton',width=0)
+        self.fetch.grid(row=1,column=0,columnspan=2,sticky='ew',pady=(4,0))
         self.bind('<Configure>',self.resize)
+        self.cover_area.bind('<Configure>',lambda event:self.draw_cover())
         self.payload=None
+        self._cover_payload=None
+        self._cover_image=None
+        self._cover_render=None
         self.after(80,self.drain)
         self.localize()
         self.select(None)
@@ -58,7 +71,6 @@ class GameCardView(ttk.Frame):
         self.choose.configure(text=self.tr('card_choose_cover'))
         self.find.configure(text=self.tr('card_find_cover'))
         self.fetch.configure(text=self.tr('card_fetch_info'))
-        self.source.configure(text=self.tr('card_source'))
 
     def controls(self):
         state='normal' if self.game and not self.pending else 'disabled'
@@ -66,7 +78,11 @@ class GameCardView(ttk.Frame):
         if self.info_active:
             self.fetch.configure(text=self.tr('stop'),command=self.stop_info,state='normal')
         else:self.fetch.configure(text=self.tr('card_fetch_info'),command=self.search_info)
-        self.source.configure(state='normal' if self.source_url else 'disabled')
+
+    def update_notice(self, *unused):
+        if self.message.get():
+            self.notice.pack(fill='x',before=self.fetch.master,pady=(0,4))
+        else:self.notice.pack_forget()
 
     def select(self, game):
         self.game=game
@@ -95,18 +111,27 @@ class GameCardView(ttk.Frame):
 
     def resize(self, event):
         self.title.configure(wraplength=max(150,event.width-25))
-        self.draw_cover()
+        self.notice.configure(wraplength=max(120,event.width-25))
 
     def draw_cover(self):
-        self.photo=None
-        if self.payload:
+        if self.payload is not self._cover_payload:
+            self._cover_payload=self.payload
+            self._cover_image=None
+            self._cover_render=None
             try:
-                with Image.open(BytesIO(self.payload)) as source:image=source.convert('RGBA')
-                image.thumbnail((max(140,min(310,self.winfo_width()-30)),210),Image.Resampling.LANCZOS)
-                self.photo=ImageTk.PhotoImage(image)
+                if self.payload:
+                    with Image.open(BytesIO(self.payload)) as source:self._cover_image=source.convert('RGBA')
             except (OSError,ValueError):pass
-        self.art.configure(image=self.photo or '',text='' if self.photo else self.tr('card_no_cover'),
-                           height=0 if self.photo else 4)
+        bounds=(max(1,self.cover_area.winfo_width()-4),max(1,self.cover_area.winfo_height()-4))
+        render=(id(self._cover_image),bounds,self.tr('card_no_cover'))
+        if render==self._cover_render:return
+        self._cover_render=render
+        self.photo=None
+        if self._cover_image:
+            image=self._cover_image.copy()
+            image.thumbnail(bounds,Image.Resampling.LANCZOS)
+            self.photo=ImageTk.PhotoImage(image,master=self)
+        self.art.configure(image=self.photo or '',text='' if self.photo else self.tr('card_no_cover'))
 
     def show_metadata(self, data):
         lines=[]
@@ -124,11 +149,7 @@ class GameCardView(ttk.Frame):
         self.info.delete('1.0','end')
         self.info.insert('1.0','\n'.join(lines))
         self.info.configure(state='disabled')
-        self.source_url=public_url(data.get('source',''))
         self.controls()
-
-    def open_source(self):
-        if self.source_url:webbrowser.open(self.source_url)
 
     def choose_cover(self):
         if not self.game or self.pending:return

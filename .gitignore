@@ -93,6 +93,7 @@ docs/*
 !docs/QUALITY_REVIEW.md
 !docs/CREDITS.md
 !docs/RELEASE_NOTES.md
+!docs/X68000.md
 profiles/*
 !profiles/example.sms.toml
 

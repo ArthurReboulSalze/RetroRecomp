@@ -67,6 +67,7 @@
     "credits_repositories": "РЕКОМПИЛЯТОРЫ КОНСОЛЕЙ",
     "credits_open_link": "Выбери проект, чтобы открыть его репозиторий GitHub",
     "credits_recompiler": "Рекомпилятор и среда игры",
+    "credits_sms_recompiler": "Рекомпилятор и среда игры\nС разрешения mstan · некоммерческое использование",
     "credits_native_core": "Общее нативное ядро Z80",
     "credits_reference_cpu": "Эталонный и резервный CPU",
     "credits_license": "Для некоторых компонентов действуют некоммерческие условия. Прочитай их лицензии перед использованием.",
@@ -282,7 +283,15 @@
     "favorite_remove": "Убрать из избранного",
     "favorite_empty": "☆",
     "card_no_summary": "В этом источнике нет описания.",
-    "card_batch_done": "Сохранено карточек: {count}."
+    "card_batch_done": "Сохранено карточек: {count}.",
+    "credits_x68_status": "Экспериментальный профиль · некоммерческие условия",
+    "credits_x68_hardware": "Среда машины · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)",
+    "credits_x68_reference": "Прежний эталон разработки · больше не компилируется",
+    "credits_x68_cpu": "Эталонный CPU Musashi для прототипа",
+    "options_x68": "Sharp X68000",
+    "x68_ipl": "Прошивка IPL (iplrom.dat)",
+    "x68_cgrom": "ПЗУ шрифта (cgrom.dat)",
+    "options_x68_note": "Экспериментальный профиль: DIM/XDF и упорядоченные наборы M3U. Нужны собственные IPL и ПЗУ шрифта. Общие меню, фильтры, управление и F8/F9. Первая конвертация загружает закреплённые исходники машины."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; правый Shift: режим",

@@ -67,6 +67,7 @@
     "credits_repositories": "RICOMPILATORI PER CONSOLE",
     "credits_open_link": "Seleziona un progetto per aprire il suo repository GitHub",
     "credits_recompiler": "Ricompilatore e runtime del gioco",
+    "credits_sms_recompiler": "Ricompilatore e runtime del gioco\nCon l’autorizzazione di mstan · uso non commerciale",
     "credits_native_core": "Core Z80 nativo condiviso",
     "credits_reference_cpu": "CPU di riferimento e di riserva",
     "credits_license": "Alcuni componenti hanno condizioni non commerciali. Leggi le loro licenze prima del riutilizzo.",
@@ -282,7 +283,15 @@
     "favorite_remove": "Rimuovi dai preferiti",
     "favorite_empty": "☆",
     "card_no_summary": "Nessun riassunto disponibile da questa fonte.",
-    "card_batch_done": "{count} schede salvate."
+    "card_batch_done": "{count} schede salvate.",
+    "credits_x68_status": "Profilo sperimentale · condizioni non commerciali",
+    "credits_x68_hardware": "Motore della macchina · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)",
+    "credits_x68_reference": "Precedente riferimento di sviluppo · non più compilato",
+    "credits_x68_cpu": "CPU di riferimento Musashi usata dal prototipo",
+    "options_x68": "Sharp X68000",
+    "x68_ipl": "Firmware IPL (iplrom.dat)",
+    "x68_cgrom": "ROM dei caratteri (cgrom.dat)",
+    "options_x68_note": "Profilo sperimentale: DIM/XDF e set di dischi M3U ordinati. Fornisci il tuo IPL e la ROM dei caratteri. Menu, filtri, controlli e F8/F9 comuni. La prima conversione scarica i sorgenti fissati della macchina."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",

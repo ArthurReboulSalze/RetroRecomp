@@ -21,6 +21,15 @@ from .systems import get_profile
 _lock = RLock()
 
 
+def _report_stamp(path):
+    try:
+        if path and Path(path).is_file():
+            value=Path(path).stat()
+            return [value.st_size,value.st_mtime_ns]
+    except (OSError,TypeError,ValueError):pass
+    return None
+
+
 def _text(value, maximum=500):
     return ''.join(c for c in str(value or '') if c >= ' ' or c in '\n\t')[:maximum].strip()
 
@@ -85,7 +94,7 @@ class Cards:
         folder.mkdir(parents=True, exist_ok=True)
         atomic_json(folder/'card.json', data)
 
-    def set_cover(self, game, payload, *, override=False, source=''):
+    def set_cover(self, game, payload, *, override=False, source='', report_stamp=None):
         from .artwork import _image, _atomic
         image = _image(payload)
         bound=1600 if override else 512
@@ -98,6 +107,8 @@ class Cards:
             _atomic(folder/'cover.png', buffer.getvalue())
             data = self.load(game)
             data['cover'] = dict(file='cover.png', override=override, source=public_url(source))
+            if not override and report_stamp is not None:
+                data['cover']['report_stamp']=report_stamp
             self._save(game, data)
         return folder/'cover.png'
 
@@ -110,13 +121,21 @@ class Cards:
         """Fast cache/report lookup first; only then recover an export's icon."""
         from .artwork import _saved_cover, _read_image, resolve_cover, ArtworkError
         own = self.folder(game)/'cover.png'
+        cached=None
+        stamp=_report_stamp(game.report)
         if own.is_file():
-            try:return _read_image(own)
+            try:
+                cached=_read_image(own)
+                record=self.load(game).get('cover',{})
+                if (stamp is None or isinstance(record,dict) and (
+                        record.get('override') is True or record.get('report_stamp')==stamp)):
+                    return cached
             except (OSError, ValueError):pass
         report = {}
         try:report = read_json(game.report)
         except (OSError, ValueError):pass
         art = report.get('artwork', {})
+        if not isinstance(art,dict):art={}
         cache = boxart_cache_directory(game.system)
         # Some cartridge readers normalize headers; saved-art keys hash the
         # original file. Prefer the exact conversion's image path when present.
@@ -126,14 +145,14 @@ class Cards:
         for path in choices:
             try:
                 payload = _read_image(path)
-                self.set_cover(game,payload)
+                self.set_cover(game,payload,source=art.get('source_page',''),report_stamp=stamp)
                 return payload
             except (OSError, ValueError):pass
         try:
             cover = resolve_cover(Path(game.title+'.rom'),game.title,cache,online=False,
                                   system_id=game.system,settings={'box_3d':False,'accounts':{}},emit=lambda _:None)
             if cover.get('style') not in ('title','snapshot','box3d'):
-                self.set_cover(game,cover['data'],source=cover.get('source_page',''))
+                self.set_cover(game,cover['data'],source=cover.get('source_page',''),report_stamp=stamp)
                 return cover['data']
         except (OSError, ValueError):pass
         if game.report:
@@ -143,16 +162,16 @@ class Cards:
         for path in choices:
             try:
                 payload = _read_image(path)
-                self.set_cover(game,payload)
+                self.set_cover(game,payload,report_stamp=stamp)
                 return payload
             except (OSError, ValueError):pass
         try:
             payload = pe_icon(Path(game.executable)) or elf_icon(Path(game.executable))
             if payload:
-                self.set_cover(game,payload)
+                self.set_cover(game,payload,report_stamp=stamp)
                 return payload
         except (OSError, ValueError, struct.error):pass
-        return None
+        return cached
 
     def online_cover(self, game):
         from .artwork import resolve_cover

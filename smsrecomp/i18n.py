@@ -6,6 +6,10 @@ from .paths import ASSETS
 from .languages import LANGUAGES, language_code
 
 STRINGS = {
+    'options_x68': ('Sharp X68000', 'Sharp X68000'),
+    'x68_ipl': ('IPL firmware (iplrom.dat)', 'Firmware IPL (iplrom.dat)'),
+    'x68_cgrom': ('Font ROM (cgrom.dat)', 'ROM de caractères (cgrom.dat)'),
+    'options_x68_note': ('Experimental profile: DIM/XDF and ordered M3U disk sets. Supply your own IPL and font ROM. Common menus, filters, controls and F8/F9. The first conversion downloads the pinned machine sources.', 'Profil expérimental : DIM/XDF et ensembles M3U ordonnés. Sélectionne ton IPL et ta ROM de caractères. Menus, filtres, contrôles et F8/F9 communs. La première conversion télécharge les sources épinglées de la machine.'),
     'favorite_star': ('★','★'),
     'favorite_empty': ('☆','☆'),
     'card_no_summary': ('No summary available from this source.', 'Aucun résumé disponible dans cette source.'),
@@ -138,6 +142,10 @@ STRINGS = {
     'ng_bios_dual': ('BIOS verified · MVS arcade + AES console · F11 switching available.', 'BIOS vérifié · arcade MVS + console AES · changement F11 disponible.'),
     'ng_bios_invalid': ('BIOS archive unavailable or incompatible: {error}', 'Archive BIOS indisponible ou incompatible : {error}'),
     'credits_hardware': ('Console hardware runtime', 'Moteur matériel de la console'),
+    'credits_x68_status': ('Experimental profile · noncommercial terms', 'Profil expérimental · conditions non commerciales'),
+    'credits_x68_hardware': ('Machine runtime · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)', 'Moteur de la machine · WinX68k (Kenjo), xkeropi (NONAKA), FMGEN (cisc)'),
+    'credits_x68_reference': ('Earlier development reference · no longer compiled', 'Ancienne référence de développement · plus compilée'),
+    'credits_x68_cpu': ('Musashi reference CPU used by the prototype', 'CPU Musashi de référence utilisé par le prototype'),
     'credits_cartridge_loader': ('Cartridge identification and preparation', 'Identification et préparation des cartouches'),
     'credits_68000': ('Shared native 68000 core', 'Cœur 68000 natif partagé'),
     'created_experimental': ('Created · experimental', 'Créé · expérimental'),
@@ -168,6 +176,7 @@ STRINGS = {
     'credits_repositories': ('CONSOLE RECOMPILERS', 'RECOMPILEURS PAR CONSOLE'),
     'credits_open_link': ('Select a project to open its GitHub repository', 'Sélectionne un projet pour ouvrir son dépôt GitHub'),
     'credits_recompiler': ('Recompiler and game runtime', 'Recompileur et moteur de jeu'),
+    'credits_sms_recompiler': ('Recompiler and game runtime\nUsed with mstan’s permission · noncommercial use', 'Recompileur et moteur de jeu\nAvec l’autorisation de mstan · usage non commercial'),
     'credits_native_core': ('Shared native Z80 core', 'Cœur Z80 natif partagé'),
     'credits_reference_cpu': ('Reference fallback CPU', 'CPU de secours de référence'),
     'credits_license': ('Some upstream components have noncommercial terms. Read their notices before reuse.', 'Certains composants tiers imposent un usage non commercial. Consulte leurs notices avant réutilisation.'),

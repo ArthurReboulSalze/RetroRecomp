@@ -15,7 +15,8 @@ import shutil
 from threading import Event, Lock
 
 from .paths import data_directory, games_root, preferred_games_root, feedback_search_paths
-from .systems import PROFILES, get_profile
+from .systems import available_profiles, get_profile
+PROFILES = available_profiles()
 from .library import atomic_json
 from . import __version__
 

@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "purpose": "Phase-0 provenance manifest for the GPL-free X68000 runtime. See PROVENANCE.md. Enforced by CMake from phase 1.",
+  "audit_date": "2026-10-21",
+  "upstream": {
+    "repository": "libretro/px68k-libretro (history includes hissorii/px68k)",
+    "pinned_checkout": "0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6",
+    "machine_base": {
+      "commit": "74ddbb3",
+      "date": "2014-08-12",
+      "note": "Last hissorii/px68k commit, identical to the upstream HEAD of https://github.com/hissorii/px68k. No libretro-era contribution."
+    },
+    "gpl_copying_commit": "c7144ce (2020-05-02)"
+  },
+  "cpu": {
+    "source": "geolith-libretro 2dc88e3 src/m68k",
+    "terms": "Karl Stenerud MIT-style (m68kcpu.c, m68kcpu.h, m68kfpu.c); BSD-style notice (m68kmmu.h)",
+    "native_backend": "GenesisRecomp/m68k-recomp-core instruction work, PolyForm Noncommercial 1.0.0 with mstan's non-commercial permission"
+  },
+  "keep_from_machine_base": {
+    "x68k/": {
+      "files": ["adpcm.c", "bg.c", "crtc.c", "dmac.c", "fdc.c", "fdd.c", "disk_d88.c", "disk_dim.c",
+                "disk_xdf.c", "gvram.c", "ioc.c", "irqh.c", "mem_wrap.c", "mfp.c", "midi.c", "palette.c",
+                "pia.c", "rtc.c", "sasi.c", "scc.c", "scsi.c", "sram.c", "sysport.c", "tvram.c"],
+      "headers": "matching *.h, plus memory.h",
+      "terms": "Kenjo WinX68k notice doc/kero_src.txt (non-commercial reuse); modifications by NONAKA Kimihiro (xkeropi) and hissorii",
+      "hissorii_changes_unlicensed": true
+    },
+    "fmgen/": {
+      "files": ["fmg_wrap.cpp", "fmgen.cpp", "fmtimer.cpp", "opm.cpp"],
+      "headers": ["fmg_wrap.h", "fmgen.h", "fmgen_types.h", "fmgeninl.h", "fmtimer.h", "headers.h", "misc.h", "diag.h", "opm.h"],
+      "to_confirm_in_phase_1": ["opna.cpp", "opna.h", "psg.cpp", "psg.h"],
+      "terms": "cisc FMGEN readme.txt (freeware, notices, modifications identified, readme unchanged with source)"
+    },
+    "x11/ (NONAKA BSD)": {
+      "files": {"windraw.c": "line composition; output target adapted by our build patch",
+                "keyboard.c": "keyboard MCU queue and MFP interrupt; host key table replaced",
+                "mouse.c": "SCC mouse packets"},
+      "terms": "NONAKA Kimihiro BSD 2-clause"
+    },
+    "win32api/ (file shims)": {
+      "files": {"dosio.c": "NONAKA BSD 4-clause (advertising clause)",
+                "fake.c": "NONAKA BSD 4-clause (advertising clause)",
+                "peace.c": "Masaru OKI BSD 3-clause"},
+      "headers": ["dosio.h", "peace.h", "appftype.h"],
+      "note": "Keep only what the kept machine files call; anything else goes into our MIT compat layer."
+    }
+  },
+  "rewrite_mit": {
+    "machine.c": "replaces libretro.c and x11/winx68k.cpp (init, ROM loading, reset, frame loop)",
+    "cpu_bus.c": "replaces m68000/m68000.c and m68000.h (CPU interface)",
+    "audio_mix.c": "replaces libretro/dswin.c (sample ring, mixing)",
+    "input.c": "replaces libretro/joystick.c and the libretro key tables",
+    "media.c": "replaces libretro.c disk control and M3U handling",
+    "config.c": "replaces libretro/prop.c (Config struct)",
+    "compat.h": "replaces win32api/windows.h, libretro/common.c/.h, compiler.h",
+    "state/": "replaces libretro/state.c, state.h, state_inline.h and every *_StateAction"
+  },
+  "drop": ["libretro/winui.c", "libretro/timer.c", "libretro/juliet.c", "libretro/status.c", "libretro/keyconf.c",
+           "libretro/mkcgrom.c", "libretro/mk_kbdtbl.c", "libretro-common/", "m68000/c68k*", "m68000/cyclone/",
+           "m68000/musashi/ (px68k copy)", "x68k/mercury.c (NO_MERCURY)", "x68k/d68k.c", "x68k/cpu_glue.c",
+           "fmgen/file.cpp"],
+  "forbidden_in_gpl_free_build": [
+    "libretro.c", "libretro/state.c", "libretro/state.h", "libretro/state_inline.h",
+    "libretro/joystick.c", "libretro/timer.c", "libretro/dswin.c", "libretro/prop.c", "libretro/winui.c",
+    "libretro/windraw.c", "libretro/keyboard.c", "libretro/mouse.c", "libretro/dosio.c", "libretro/fake.c",
+    "libretro/peace.c", "libretro-common/", "m68000/m68000.c", "m68000/musashi/",
+    "any x68k/ or fmgen/ file taken from a revision other than 74ddbb3"
+  ],
+  "reimplement_from_documentation": {
+    "post_2020_fixes": ["b5e2bfa CRTC reset values and 10-bit window masks", "b981615 CRTC HEND > HSTART guard",
+                        "c69245f GVRAM 16-bit access overflow", "5ce9459 GVRAM FastClear line wrap",
+                        "9320db7 opcode fetch offsets and IPL from 0xfc0000", "e157611 SRAM write limit 0xed4000",
+                        "7e97429 system port keyctrl mask", "257f8f4 D88 uninitialized memory",
+                        "542ed6c DIM no needless resize", "3ccf8d5 frame rate follows HF register",
+                        "e21646f core pacing"],
+    "pre_2020_changes": ["90bf5b6 main RAM up to 12 MiB instead of 10 MiB",
+                         "fd38a31 graphics/BG transparency special mode (backport from Chiorex)",
+                         "c25b131/96ba6ee frame-rate change detection on CRTC R20",
+                         "CPU interrupt plumbing for C68K/Cyclone (replaced by cpu_bus.c)"]
+  },
+  "required_notices": ["doc/kero_src.txt (unchanged, CP932)", "fmgen/readme.txt (unchanged, EUC-JP)",
+                       "NONAKA BSD notices of every kept x11/ and win32api/ file, including the 4-clause acknowledgment",
+                       "Masaru OKI notice (peace.c)", "Karl Stenerud Musashi notice", "m68kmmu.h notice",
+                       "PolyForm Noncommercial 1.0.0 and mstan permission"],
+  "open_points": ["hissorii's own modifications carry no explicit license (hissorii/px68k#15)",
+                  "opna/psg needed or not by fmg_wrap.cpp without Mercury"]
+}

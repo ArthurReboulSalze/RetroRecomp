@@ -3,13 +3,13 @@
 </p>
 
 <h1 align="center">RetroRecomp</h1>
-<p align="center"><strong>Multiple retro consoles. One app. Your games, ready to launch.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo</p>
+<p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Sharp X68000</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.8-d4a737" alt="Release version 1.1.8">
-  <img src="https://img.shields.io/badge/console_profiles-7-626262" alt="Seven supported console profiles">
+  <img src="https://img.shields.io/badge/release-1.1.9-d4a737" alt="Release version 1.1.9">
+  <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -25,6 +25,14 @@ RetroRecomp brings several recompilers together in one application. It recompile
 game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
+
+**Sharp X68000 joins as an experimental profile.** It converts DIM/XDF disks and
+M3U sets into standalone Windows and Linux games, with shared controls, quick
+states and initial multi-disk handling. You supply your own IPL and font ROM.
+Its machine runtime is built from hissorii's PX68k with Retro-Recomp's own host
+code, without the GPL-declared libretro fork. Compatibility and performance still
+need work. See the [X68000 status](docs/X68000.md). More consoles and classic
+computers are planned as the project grows.
 
 ## From conversion to your game collection
 
@@ -69,7 +77,12 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.1.8:** browse Compiled Games with a controller, choose
+**New in 1.1.9:** the experimental **Sharp X68000** profile. Nineteen game sets
+convert on Windows and Debian with natively compiled code that matches a fresh
+reference run on the tested routes. The in-app credits name the authors behind
+its machine code.
+
+Recent releases also let you browse Compiled Games with a controller, choose
 optional audio filters inside each game, and assign a keyboard or controller
 combination to quit. Neo Geo also gets a cleaner startup and safer mode selection:
 F11 shows **Arcade Only** when a cartridge cannot use console mode. The shared
@@ -110,9 +123,9 @@ See the [release notes](docs/RELEASE_NOTES.md).
   Downloaded artwork is saved and reused when you regenerate games.
   Cover searches handle common title variations while keeping sequels distinct.
   Reviewed cover links correct recurring mismatches during regeneration.
-- **Build on shared knowledge.** Verified hints for **1,133 exact cartridge
+- **Build on shared knowledge.** Verified hints for **1,164 exact cartridge
   revisions** are included, while your own discoveries stay in your local library.
-  The compressed library is now **8.5 MiB**, with all earlier observations retained.
+  The compressed library is **8.6 MiB**, with all earlier observations retained.
 - **Reduce runtime overhead.** The latest Windows and Linux builds avoid repeated
   graphics and audio work, with matching pixels and sound on the comparison tests.
   Regenerate games to receive these changes. See the
@@ -129,6 +142,7 @@ See the [release notes](docs/RELEASE_NOTES.md).
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | Neo Geo | Supported cartridge profile; arcade MVS, optional console AES, two players, scores, memory card and quick states |
+| Sharp X68000 | Experimental; DIM/XDF and M3U disk sets, your own IPL and font ROM, quick states, mouse and keyboard |
 
 Compatibility depends on the game and revision. See the
 [compatibility guide](docs/COMPATIBILITY.md) and
