@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RetroRecomp</title>
+  <meta name="description" content="RetroRecomp recompiles retro console games into standalone Windows and Linux executables, with as much native execution as possible and no FPGA.">
+  <meta name="theme-color" content="#0f0f10">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="RetroRecomp">
+  <meta property="og:description" content="Multiple retro consoles. One app. Your games, ready to launch.">
+  <meta property="og:image" content="https://arthurreboulsalze.github.io/RetroRecomp/media/banner.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="media/icon-32.png">
+  <link rel="icon" type="image/png" sizes="256x256" href="media/icon-256.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="#top" aria-label="RetroRecomp home">
+        <img src="media/icon-64.png" alt="" width="32" height="32">
+        <span>RetroRecomp</span>
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#how">How it works</a>
+        <a href="#consoles">Consoles</a>
+        <a href="#features">Features</a>
+        <a href="#start">Get started</a>
+        <a class="nav__repo" href="https://github.com/ArthurReboulSalze/RetroRecomp">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="wrap hero__inner">
+        <img class="hero__logo" src="media/logo.png" alt="RetroRecomp logo" width="240" height="173">
+        <h1>Multiple retro consoles.<br>One app. <span class="gold">Your games, ready to launch.</span></h1>
+        <p class="hero__lead">RetroRecomp recompiles game code into standalone Windows or Linux
+          executables, with as much native execution as possible and no dedicated FPGA hardware.</p>
+        <p class="hero__motto">Less emulation. No FPGA. As native as possible.</p>
+        <div class="actions">
+          <a class="button button--primary" href="https://github.com/ArthurReboulSalze/RetroRecomp/releases/latest">
+            Download <span data-latest-version></span>
+          </a>
+          <a class="button" href="https://github.com/ArthurReboulSalze/RetroRecomp">View the source</a>
+        </div>
+        <ul class="badges" aria-label="Key facts">
+          <li>7 console profiles</li>
+          <li>Windows x64 · Linux x86-64</li>
+          <li>Original code under MIT</li>
+        </ul>
+      </div>
+      <img class="hero__consoles" src="media/consoles.webp" alt="Line drawings of supported consoles and handhelds" width="1600" height="533">
+    </section>
+
+    <section class="section" id="how">
+      <div class="wrap">
+        <p class="eyebrow">How it works</p>
+        <h2>From ROM to standalone game</h2>
+        <ol class="steps">
+          <li>
+            <span class="steps__num">1</span>
+            <h3>Add your games</h3>
+            <p>Drop ROMs, ZIPs or mixed folders into the window. Console detection sorts recognized games automatically.</p>
+          </li>
+          <li>
+            <span class="steps__num">2</span>
+            <h3>Convert</h3>
+            <p>Game code is recompiled into a native executable. Several conversions can run at once, and up-to-date exports are kept.</p>
+          </li>
+          <li>
+            <span class="steps__num">3</span>
+            <h3>Play</h3>
+            <p>Launch the generated game directly. No Python, no separate ROM file and no external SDL2 DLL are needed to play.</p>
+          </li>
+        </ol>
+        <figure class="shot">
+          <img src="media/converter.webp" alt="The RetroRecomp converter window on Windows, with the ROM list and conversion controls" width="1162" height="932" loading="lazy">
+          <figcaption>The converter on Windows. Linux shares the same layout.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="consoles">
+      <div class="wrap">
+        <p class="eyebrow">Console support</p>
+        <h2>Seven console profiles</h2>
+        <p class="section__lead">Compatibility depends on the game and its exact revision. The 16-bit profiles
+          analyze new games automatically; there is no fixed game list.</p>
+        <div class="consoles">
+          <article class="console">
+            <h3>Master System</h3>
+            <p>Two players, PAL/NTSC, quick states and Light Phaser.</p>
+          </article>
+          <article class="console">
+            <h3>Game Gear</h3>
+            <p>Native handheld display and colors.</p>
+          </article>
+          <article class="console">
+            <h3>Game Boy</h3>
+            <p>Original Game Boy, quick states, grayscale or classic green.</p>
+          </article>
+          <article class="console">
+            <h3>NES</h3>
+            <p>Validated cartridge layouts, PAL/NTSC, quick states and Zapper.</p>
+          </article>
+          <article class="console">
+            <h3>Mega Drive</h3>
+            <p>Standard cartridges, PAL/NTSC, SRAM and supported EEPROM, quick states and Menacer.</p>
+          </article>
+          <article class="console">
+            <h3>Super Nintendo</h3>
+            <p>Standard LoROM/HiROM cartridges, PAL/NTSC, quick states, battery saves and Super Scope.</p>
+          </article>
+          <article class="console">
+            <h3>Neo Geo</h3>
+            <p>Arcade MVS with optional console AES, two players, scores, memory card and quick states.</p>
+          </article>
+        </div>
+        <p class="note">Limits for each profile are listed in the
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/COMPATIBILITY.md">compatibility guide</a>.</p>
+      </div>
+    </section>
+
+    <section class="section" id="learning">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">Play. Learn. Recompile.</p>
+          <h2>Native from the first export</h2>
+          <p>The goal is native execution from the first export, without interpreter fallback.
+            When a game does reach code that conversion checks have not covered, the interpreter fallback
+            is used and <strong>stays visible</strong> in the game.</p>
+          <p>The game then collects small hints in memory and saves them when you close it. RetroRecomp
+            checks those hints against the exact game and uses them on the next regeneration to reduce
+            fallback. Graphics and hardware issues still need fixes in the runtime itself.</p>
+          <p>Verified hints for <strong>1,164 exact cartridge revisions</strong> ship with the converter.
+            Your own discoveries stay in your local library.</p>
+        </div>
+        <figure class="shot shot--flat">
+          <img src="media/learning-cycle.webp" alt="Learning cycle: play, save fallback hints, enrich RetroRecomp, regenerate" width="1200" height="800" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="features">
+      <div class="wrap">
+        <p class="eyebrow">Features</p>
+        <h2>Built for a whole collection</h2>
+        <div class="features">
+          <article>
+            <h3>Batch conversion</h3>
+            <p>Convert a whole list or only the selected games. Unfinished games come back after an interruption.</p>
+          </article>
+          <article>
+            <h3>Regenerate only what changed</h3>
+            <p>Exports stay as they are when the compiler, settings and fallback hints are unchanged.</p>
+          </article>
+          <article>
+            <h3>Compiled Games</h3>
+            <p>Keep your collection, favorites, cached covers and short game summaries between sessions.</p>
+          </article>
+          <article>
+            <h3>Shared controls</h3>
+            <p>Same menus, keyboard and gamepad mapping, fullscreen modes and filters across every console.</p>
+          </article>
+          <article>
+            <h3>Quick states</h3>
+            <p>F8 and F9 save and load states, which are kept after you close the game.</p>
+          </article>
+          <article>
+            <h3>Eight languages</h3>
+            <p>English, French, Italian, Spanish, German, Chinese, Japanese and Russian. F7 cycles through them.</p>
+          </article>
+          <article>
+            <h3>Optional enhancements</h3>
+            <p>Fewer flickering sprites on Master System and more CPU headroom on Neo Geo. You can switch them off.</p>
+          </article>
+          <article>
+            <h3>Lightgun games</h3>
+            <p>Mouse aiming for supported Light Phaser, Zapper, Menacer and Super Scope games.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="measures">
+      <div class="wrap">
+        <p class="eyebrow">What we measure</p>
+        <h2>Native is not the same as exact</h2>
+        <p class="section__lead">RetroRecomp keeps these measures separate. Native execution alone does not
+          guarantee complete compatibility or zero latency.</p>
+        <dl class="measures">
+          <div><dt>Native code</dt><dd>How much of the game runs as recompiled code rather than through the interpreter fallback.</dd></div>
+          <div><dt>CPU agreement</dt><dd>Whether recompiled code matches a reference CPU on the tested paths.</dd></div>
+          <div><dt>Hardware fidelity</dt><dd>How closely video, audio and timing follow the original machine.</dd></div>
+          <div><dt>Gameplay testing</dt><dd>Sampled play sessions. They do not cover every path of every game.</dd></div>
+          <div><dt>Physical latency</dt><dd>Not established by native execution. No zero-latency claim is made.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="start">
+      <div class="wrap">
+        <p class="eyebrow">Get started</p>
+        <h2>Three steps</h2>
+        <ol class="start">
+          <li>Download the <strong>Windows setup EXE</strong> or the <strong>Linux x86-64 <code>.run</code> installer</strong>
+            from the <a href="https://github.com/ArthurReboulSalze/RetroRecomp/releases/latest">latest release</a>.
+            Portable downloads are also available.</li>
+          <li>Add your ROMs or folders, leave console detection on <strong>Automatic</strong>, and convert.</li>
+          <li>Open the generated games in their console folders under <strong>Games</strong>, next to the app.</li>
+        </ol>
+        <p class="note">Conversion needs a supported build toolchain; see the
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/BUILDING.md">setup guide</a>.
+          Playing exported games needs no development tools. <strong>ROMs and box art are not included.</strong>
+          The Linux package is checked on Debian 13; other distributions still need testing.</p>
+        <div class="links">
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INSTALLING.md">Installation</a>
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/CONTROLS.md">Controls</a>
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/LINUX.md">Linux guide</a>
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/RELEASE_NOTES.md">Release notes</a>
+          <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/ROADMAP.md">Roadmap</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <p>Created and integrated by <a href="https://github.com/ArthurReboulSalze">Arthur Reboul Salze</a>.
+        The app's Credits page links the independent projects behind each console.</p>
+      <p>Original RetroRecomp contributions use the
+        <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/LICENSE">MIT license</a>.
+        Imported components keep their own terms, including noncommercial restrictions; see the
+        <a href="https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/THIRD_PARTY_NOTICES.md">third-party notices</a>.</p>
+      <p class="footer__small">RetroRecomp is not affiliated with any console manufacturer. Console names belong to their respective owners.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Show the latest release tag on the download button; the link works without it.
+    fetch("https://api.github.com/repos/ArthurReboulSalze/RetroRecomp/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.tag_name) return;
+        document.querySelectorAll("[data-latest-version]").forEach(function (el) {
+          el.textContent = data.tag_name;
+        });
+      })
+      .catch(function () {});
+  </script>
+</body>
+</html>

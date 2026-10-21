@@ -62,6 +62,8 @@ smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py
 .gitattributes .gitignore .github/workflows/checks.yml
+.github/workflows/pages.yml tools/build_site.py tests/test_site.py
+site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
@@ -274,7 +276,7 @@ BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"})
-TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json"}
+TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json", ".html", ".css"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
     "private network path": re.compile(r"\\\\(?:\d{1,3}\.){3}\d{1,3}\\"),
