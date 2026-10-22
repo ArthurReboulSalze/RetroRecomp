@@ -1,3 +1,53 @@
+# RetroRecomp v1.2.1 — steadier sound, cleaner menus and more sprites
+
+- **Adaptive sound reserve on every console.** Games now watch their own sound
+  output. When the sound device runs dry while the game is still producing
+  audio, or stalls and forces old audio to be dropped, the output reserve grows
+  by 5 ms (up to +60 ms). It shrinks again after a clean period of twice the
+  interval between the last two gaps, four seconds at least. A machine with
+  headroom stays at +0 ms, so its latency is unchanged; a small machine keeps
+  the reserve it needs instead of crackling. Pauses and menus never count. The
+  cost is a few integer operations per audio callback.
+- **Sharp X68000 music.** The X68000 player started its sound with a single
+  frame queued and no margin, so continuous music could break up on a small
+  machine while short sound effects survived. Playback now starts with about
+  40 ms queued, plus the adaptive reserve. On the Debian test machine (AMD
+  A4-5000), two minutes of R-Type played without a gap.
+- **Super Nintendo: Donkey Kong Country background colours.** Light, brick-like
+  tiles could appear in the jungle backgrounds and spread as you walked back
+  and forth. When the CPU stopped on its wait instruction exactly as a raster
+  palette transfer was due, the transfer was performed a line late, mid-picture,
+  and landed in the background palettes. A waiting CPU now gives the bus to the
+  transfer at once. The issue dated back to 1.0.0; quick states saved before
+  this release keep the damaged colours until the game reloads its palettes.
+- **More sprites on screen: NES and Game Gear (F5).** On every NES game, F5 now
+  draws the objects the console drops beyond eight per line, behind the
+  original ones and without changing what the game sees (overflow flag,
+  sprite-zero hit and cartridge counters are untouched; MMC5 keeps the original
+  limit). Zapper options are now a page of F2 (press Tab). Game Gear gets the
+  Master System's existing F5 sprite option.
+- **One look for every in-game menu.** All consoles now use the converter's
+  identity: near-black panels and gold lettering. Only colours changed; games
+  carry no new image or font.
+- **Quit with a single key or button.** In the in-game options (F10, or O / Y
+  from a menu), the quit binding now accepts one key or one controller button as
+  well as a combination. Holding it for one second quits, as before.
+- **Lighter games: five in-game languages.** Generated games now include
+  English, French, Italian, Spanish and German. The converter keeps Chinese,
+  Japanese and Russian for its own interface; games made from it in those
+  languages start in English. Each game drops about 38 KB of glyph tables.
+
+Regenerate games to receive these changes. Your compilation library, fallback
+hints, settings and cartridge saves are kept. F8/F9 quick states made with
+earlier NES, Mega Drive, Super Nintendo and Neo Geo executables are not loaded
+by regenerated games; make a new one after regenerating. Master System, Game
+Gear, Game Boy and Sharp X68000 quick states are unaffected. Sound figures come
+from host-side counters on the test machines; they are not physical latency or
+listening qualification.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.0 — a performance milestone and the next machines
 
 - **Faster runtimes for seven profiles, with identical traces.** Every change

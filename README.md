@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.0-d4a737" alt="Release version 1.2.0">
+  <img src="https://img.shields.io/badge/release-1.2.1-d4a737" alt="Release version 1.2.1">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -22,18 +22,20 @@
   <a href="https://arthurreboulsalze.github.io/RetroRecomp/">Website</a>
 </p>
 
-https://github.com/user-attachments/assets/0ebff10f-c5f0-4da7-b19b-aa82be4ad866
-
 <p align="center">
-  <sub><strong>RetroRecomp: Native Games</strong> · six-minute narrated overview ·
-  <a href="https://arthurreboulsalze.github.io/RetroRecomp/#video">watch on the website</a> or
-  <a href="MEDIAS/RetroRecomp_Native_Games_web.mp4">download the MP4</a></sub>
+  <img src="MEDIAS/RetroRecomp_UI_1.1.5.jpg" alt="RetroRecomp converter on Windows" width="860">
 </p>
+<p align="center"><sub><em>The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.</em></sub></p>
 
 RetroRecomp brings several recompilers together in one application. It recompiles
 game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_Compiled_Games.png" alt="RetroRecomp Compiled Games view with favorites, box art and game information" width="860">
+</p>
+<p align="center"><sub><em>Compiled Games keeps your collection, favorites, box art and saved game summaries together.</em></sub></p>
 
 **A new performance milestone.** Version 1.2.0 completes a performance pass over
 every console profile. Each change was checked frame by frame against the
@@ -48,6 +50,11 @@ experimental, the runtime code of these consoles is now stable and already highl
 optimized on Windows and Linux. Further speed gains on them should be modest.
 From now on, what will mostly grow for these consoles is the number of titles:
 the shared compilation library will gain verified entries step by step.
+
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_Master_System_Collection.png" alt="Generated Master System games in Windows Explorer" width="760">
+</p>
+<p align="center"><sub><em>An example collection of generated Master System games, with optional box-art icons.</em></sub></p>
 
 **What comes next.** The technical groundwork for the following machines has
 been reviewed. If development goes as planned, they will join one after
@@ -65,23 +72,10 @@ another, each in its own experimental phase:
 These are plans, not release dates or compatibility promises. See the
 [roadmap](docs/ROADMAP.md).
 
-## From conversion to your game collection
-
-![RetroRecomp 1.1.5 converter on Windows](MEDIAS/RetroRecomp_UI_1.1.5.jpg)
-
-*The Windows interface, with Compiled Games, selective conversion and manual updates. Linux shares the same layout.*
-
-![RetroRecomp Compiled Games view with favorites, box art and game information](MEDIAS/RetroRecomp_Compiled_Games.png)
-
-*Compiled Games keeps your collection, favorites, box art and saved game summaries together.*
-
-![Generated Master System games in Windows Explorer](MEDIAS/RetroRecomp_Master_System_Collection.png)
-
-*An example collection of generated Master System games, with optional box-art icons.*
-
-![RetroRecomp animated credits with wireframe shapes and live tracker music](MEDIAS/RetroRecomp_Credits.png)
-
-*Animated credits combine a demoscene backdrop with live four-channel ChipLoom music.*
+<p align="center">
+  <img src="MEDIAS/RetroRecomp_Credits.png" alt="RetroRecomp animated credits with wireframe shapes and live tracker music" width="760">
+</p>
+<p align="center"><sub><em>Animated credits combine a demoscene backdrop with live four-channel ChipLoom music. A narrated overview video is on the <a href="https://arthurreboulsalze.github.io/RetroRecomp/#video">website</a>.</em></sub></p>
 
 ## Play. Learn. Recompile.
 
@@ -108,17 +102,23 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.0:** faster runtimes for the Master System, Game Gear, NES, Mega
+**New in 1.2.1:** an adaptive sound reserve on every console (small machines
+stop crackling, fast ones keep their latency), steadier X68000 music, Donkey
+Kong Country's background colours fixed, F5 extra sprites on NES and Game Gear,
+gold-on-black menus on every console, quitting with a single key or button,
+and lighter games with five Latin-script menu languages.
+
+Version 1.2.0 brought faster runtimes for the Master System, Game Gear, NES, Mega
 Drive, Super Nintendo, Neo Geo and Sharp X68000 profiles, with identical traces
 on the comparison routes. The Game Boy runtime, already optimized in earlier
 releases, was profiled and left unchanged. Regenerate games to receive the
-faster runtimes. The experimental **Sharp X68000** profile, added in 1.1.9,
+latest runtimes. The experimental **Sharp X68000** profile, added in 1.1.9,
 converts DIM/XDF disks and M3U sets with your own IPL and font ROM; see the
 [X68000 status](docs/X68000.md).
 
 Recent releases also let you browse Compiled Games with a controller, choose
-optional audio filters inside each game, and assign a keyboard or controller
-combination to quit. Neo Geo also gets a cleaner startup and safer mode selection:
+optional audio filters inside each game, and assign a key, a controller button
+or a combination to quit. Neo Geo also gets a cleaner startup and safer mode selection:
 F11 shows **Arcade Only** when a cartridge cannot use console mode. The shared
 compilation library now contains **1,164 verified identities**, including
 **125 Neo Geo**. Regenerate games to receive runtime improvements.
@@ -147,9 +147,9 @@ See the [release notes](docs/RELEASE_NOTES.md).
 - **Keep familiar controls.** Shared menus, keyboard/gamepad mapping, fullscreen
   modes and lightweight filters keep the experience consistent across consoles.
   Your display mode and filter are remembered; F8/F9 quick states resume after closing the game.
-  Eight menu languages are included: English, French, Italian, Spanish, German,
-  Chinese, Japanese and Russian. **F7** cycles through them
-  and remembers your choice. See [languages](docs/LANGUAGES.md).
+  Games include five menu languages: English, French, Italian, Spanish and
+  German (the converter itself also speaks Chinese, Japanese and Russian).
+  **F7** cycles through them and remembers your choice. See [languages](docs/LANGUAGES.md).
 - **Let your next build learn from your play.** Games remember useful fallback
   hints, helping RetroRecomp cover more of the code you actually use.
 - **Make games easy to find.** Optional box-art icons and shooting tags distinguish
@@ -192,8 +192,10 @@ Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
 
 ## Beyond the original console limits
 
-- **Master System — fewer flickering sprites.** F5 enables extra sprites and
-  stabilizes rapid sprite-order changes to reduce flicker during busy scenes.
+- **Master System and Game Gear — fewer flickering sprites.** F5 enables extra
+  sprites and stabilizes rapid sprite-order changes to reduce flicker during busy scenes.
+- **NES — no more eight-sprite limit on screen.** F5 also draws the objects the
+  console drops beyond eight per line, without changing what the game sees.
 - **Neo Geo — enhanced mode on by default.** More 68000 CPU capacity and a higher
   sprite limit help reduce slowdowns in busy scenes. F5 returns to original limits.
 - **Neo Geo — arcade or home console.** F11 switches MVS/AES with a clean restart
