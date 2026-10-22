@@ -29,6 +29,18 @@ static void smsrecomp_banked_fallback(uint16_t addr) {
     smsrecomp_interp_depth--;
 }
 
+/* advance_vdp() when the step crosses no line and no stop is pending: only
+ * the measured guest time moves (the PSG catches up at line steps). */
+static inline void banked_advance_vdp(uint64_t cyc) {
+    if (cyc < g_next_line_cyc && !smsrecomp_stop_pending) {
+        if (cyc >= smsrecomp_measured_guest_cycles)
+            smsrecomp_total_cycles += cyc - smsrecomp_measured_guest_cycles;
+        smsrecomp_measured_guest_cycles = cyc;
+        return;
+    }
+    advance_vdp(cyc);
+}
+
 static void smsrecomp_banked_run(void) {
     /* Same documented reset AF/SP as the reference CPU. Other registers stay
      * at the runtime's deterministic reset values. */
@@ -38,6 +50,7 @@ static void smsrecomp_banked_run(void) {
     memset(banked_seen, 0, sizeof(banked_seen));
     fprintf(stderr, "[backend] banked-aot-v3: static ROM, native prefixes and byte-guarded RAM\n");
     int prefix_pending = 0, pending_irq = 0;
+    uint32_t seen_banks = UINT32_MAX;
     for (;;) {
         /* Match the shared reference runner's sampling contract: /INT is
          * latched at the start of the step and accepted at its completion.
@@ -46,7 +59,13 @@ static void smsrecomp_banked_run(void) {
         if (!prefix_pending) pending_irq = vdp_irq_asserted();
         banked_last_interpreted = 0;
         SMS_PC(g_z80.pc);
-        for (int slot = 0; slot < 3; ++slot) banked_seen[slot][(uint8_t)g_bank[slot]] = 1;
+        /* Marking a bank seen is idempotent: only a bank change marks. */
+        uint32_t banks = (uint32_t)(uint8_t)g_bank[0] | (uint32_t)(uint8_t)g_bank[1] << 8 |
+                         (uint32_t)(uint8_t)g_bank[2] << 16;
+        if (banks != seen_banks) {
+            for (int slot = 0; slot < 3; ++slot) banked_seen[slot][(uint8_t)g_bank[slot]] = 1;
+            seen_banks = banks;
+        }
         if (g_z80.halted) {
             g_z80.r = (uint8_t)((g_z80.r & 0x80) | ((g_z80.r + 1) & 0x7F));
             g_z80.cyc += 4; banked_halt_steps++;
@@ -58,7 +77,7 @@ static void smsrecomp_banked_run(void) {
                  * accepts an interrupt. Keep hardware time moving even in an
                  * endless prefix stream; no host recursion is involved. */
                 prefix_pending = 1;
-                advance_vdp(g_z80.cyc); g_sync_deadline = g_next_line_cyc;
+                banked_advance_vdp(g_z80.cyc); g_sync_deadline = g_next_line_cyc;
                 continue;
             }
             if (step) { banked_native_steps++; if (step == 2) banked_guarded_steps++; }
@@ -77,7 +96,7 @@ static void smsrecomp_banked_run(void) {
             g_z80.pc = g_z80.im == 2 ? sms_read16((uint16_t)((g_z80.i << 8) | 0xFF)) : 0x0038;
             g_z80.wz = g_z80.pc;
         }
-        advance_vdp(g_z80.cyc);
+        banked_advance_vdp(g_z80.cyc);
         g_sync_deadline = g_next_line_cyc;
         smsrecomp_state_service(); /* CPU/IRQ/port operations have all completed. */
     }

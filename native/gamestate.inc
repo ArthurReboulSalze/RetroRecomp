@@ -20,6 +20,7 @@ bool smsrecomp_request_state(int operation) {
 }
 
 static void smsrecomp_machine_state(RetroStateIO *io) {
+    psg_catch_up(); /* the saved PSG matches the eager timeline */
     Z80State s = g_z80;
     RR_FIELD(s, a, 1, 255); RR_FIELD(s, f, 1, 255); RR_FIELD(s, b, 1, 255); RR_FIELD(s, c, 1, 255);
     RR_FIELD(s, d, 1, 255); RR_FIELD(s, e, 1, 255); RR_FIELD(s, h, 1, 255); RR_FIELD(s, l, 1, 255);

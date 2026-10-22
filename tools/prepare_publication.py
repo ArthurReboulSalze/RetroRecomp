@@ -297,7 +297,7 @@ native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c
 native/frame_stop_checks.c
-native/gamestate.h native/gamestate.inc native/state_io.h native/psg_state.inc
+native/gamestate.h native/gamestate.inc native/state_io.h native/psg_state.inc native/psg_runs.inc
 native/gamestate_checks.c tools/gamestate_selftest.py docs/GAME_STATES.md
 native/lazy_data_checks.c tools/lazy_data_selftest.py
 native/presentation_checks.c tools/presentation_selftest.py

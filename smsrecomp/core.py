@@ -642,6 +642,23 @@ static void smsrecomp_state_service(void);
     g_enter_pos = 0; g_dbg_pc = 0;
     memset(g_enter_ring, 0, sizeof(g_enter_ring));
 """)
+    # The PSG renders lazily: frames are produced in the same order and from
+    # the same register values, only later. It catches up to the guest time
+    # the eager timeline had reached before each PSG write, before the line
+    # steps that drain it at the end of a frame, and before a quick state.
+    glue = replace_once(glue, '    if (g_audio_sink && cyc > g_psg_cyc){',
+                        '    if (g_audio_sink && cyc > g_psg_cyc && cyc >= g_next_line_cyc){')
+    glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){', '''static uint64_t smsrecomp_measured_guest_cycles;
+static void psg_catch_up(void){
+    if (g_audio_sink && smsrecomp_measured_guest_cycles > g_psg_cyc){
+        psg_advance((uint32_t)(smsrecomp_measured_guest_cycles - g_psg_cyc));
+        g_psg_cyc = smsrecomp_measured_guest_cycles;
+    }
+}
+void sms_io_out(uint8_t p, uint8_t v){''')
+    glue = replace_once(glue, 'if (g_is_gg && p == 0x06) psg_write_stereo(v);',
+                        'if (g_is_gg && p == 0x06) { psg_catch_up(); psg_write_stereo(v); }')
+    glue = replace_once(glue, '        psg_write(v); return;', '        psg_catch_up(); psg_write(v); return;')
     (game / "runtime_glue.c").write_text(glue, encoding="utf-8")
     video = (engine / "runner/video/sms_vdp.c").read_text(encoding="utf-8")
     # Keep the pinned port/IRQ core. Replace its end-of-frame snapshot renderer
@@ -686,6 +703,14 @@ static void smsrecomp_state_service(void);
     (game / "runtime_video.c").write_text(video, encoding="utf-8")
     audio = (engine / "runner/audio/sn76489.c").read_text(encoding="utf-8")
     audio = replace_once(audio, '#include "sn76489.h"', '#include "audio/sn76489.h"')
+    # Render whole runs between channel events; identical samples.
+    audio = replace_once(audio, 'void psg_init(void)\n{',
+        (ASSETS / "native/psg_runs.inc").read_text(encoding="utf-8") + 'void psg_init(void)\n{')
+    audio = replace_once(audio, '''        for (size_t i = 0; i < chunk; i++)
+            sn_render_frame(&s_sn,
+                            &s_scratch[(s_scratch_write + i) * 2],
+                            &s_scratch[(s_scratch_write + i) * 2 + 1]);''',
+        '        rr_psg_render_frames(&s_sn, &s_scratch[s_scratch_write * 2], chunk);')
     audio += "\n" + (ASSETS / "native/psg_state.inc").read_text(encoding="utf-8")
     (game / "runtime_audio.c").write_text(audio, encoding="utf-8")
     main = (engine / "runner/main.c").read_text(encoding="utf-8")

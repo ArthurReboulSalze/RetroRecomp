@@ -49,6 +49,44 @@ quick states from earlier builds are rejected because the state ABI changed.
 MMC3 and the other PPU-watching boards would need IRQ-time prediction to use
 the deferred clock.
 
+Master System and Game Gear received three changes:
+
+- **Mode-4 line renderer.** It keeps its 32 host colors until CRAM or the
+  palette format changes. Whole background tiles are decoded through
+  256-entry plane tables, one for each horizontal flip, and their eight
+  pixels and priority flags are stored at once. The sprite coverage arrays
+  are cleared only on lines that have sprites.
+- **PSG.** It now renders lazily: the same frames are produced from the same
+  register values, in the same order. It catches up to the guest time the
+  previous timeline had reached before each PSG write, before the line steps
+  that drain it at the end of a frame, and before a quick state. Between
+  channel events, a run computes only the low-pass recurrence.
+- **Banked CPU loop.** It marks bank coverage only when the banks change, and
+  advances the measured guest time inline when no line is crossed.
+
+Checks:
+
+- The 30,475,712-pixel corpus still matches the original renderer, including
+  the status and collision flags.
+- The previous converter and the new one built 15 existing projects: 12
+  Master System (6 of them PAL) and 3 Game Gear. Per-frame VDP traces
+  (pixels, VRAM, CRAM, registers, RAM) and the PSG WAV were byte-identical
+  over 1,800 frames, both natively and with the reference interpreter.
+- Persistent-state resume (NTSC and PAL) and the frame-stop I/O checks pass.
+
+Alex Kidd in Miracle World, identical traces:
+
+| Machine and build | Run | Before | After |
+|---|---|---|---|
+| Windows, one pinned core | 18,000 frames, PSG written to a WAV | 8.32 s | 4.26 s |
+| Windows, one pinned core | 18,000 frames, without audio | 5.12 s | 2.94 s |
+| Debian A4-5000 | 7,200 frames, with audio | 13.97 s | 6.99 s |
+| Debian A4-5000 | 7,200 frames, without audio | 10.26 s | 5.94 s |
+
+The Game Boy runtime was profiled as well. It already runs at about five
+times real time on the A4-5000, and link-time code generation gave no gain,
+so it is unchanged.
+
 ## Local follow-up — 18 October 2026
 
 NES now selects the first ready opaque sprite from the existing byte-local

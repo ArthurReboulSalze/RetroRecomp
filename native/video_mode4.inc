@@ -137,42 +137,92 @@ static int mode4_pattern(int tile, int x, int y) {
          | (((g_vdp.vram[address + 3] >> bit) & 1) << 3);
 }
 
+/* The 32 host colors, rebuilt only when CRAM or the palette format changed:
+ * every line still reads the current CRAM bytes. */
+static uint32_t mode4_palette[32];
+static uint8_t mode4_palette_cram[64];
+static int mode4_palette_gg = -1;
+
+static const uint32_t *mode4_current_palette(void) {
+    size_t size = g_vdp.is_gg ? 64 : 32;
+    if (mode4_palette_gg != (int)g_vdp.is_gg || memcmp(mode4_palette_cram, g_vdp.cram, size)) {
+        for (int i = 0; i < 32; ++i) mode4_palette[i] = mode4_color(i);
+        memcpy(mode4_palette_cram, g_vdp.cram, size);
+        mode4_palette_gg = g_vdp.is_gg;
+    }
+    return mode4_palette;
+}
+
+/* One bitplane byte spread to eight byte lanes: in [1], lane n holds the bit
+ * of tile column n (bit 7 - n); in [0], horizontally flipped, bit n. */
+static uint64_t mode4_lanes[2][256];
+
+static void mode4_init_lanes(void) {
+    if (mode4_lanes[1][0x80]) return;
+    for (unsigned b = 0; b < 256; ++b) {
+        unsigned r = 0;
+        for (unsigned bit = 0; bit < 8; ++bit) r |= ((b >> bit) & 1u) << (7 - bit);
+        mode4_lanes[0][b] = rr_plane_lanes((uint8_t)b);
+        mode4_lanes[1][b] = rr_plane_lanes((uint8_t)r);
+    }
+}
+
 static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
     uint8_t r0 = g_vdp.reg[0], r1 = g_vdp.reg[1];
-    uint32_t palette[32];
-    for (int i = 0; i < 32; ++i) palette[i] = mode4_color(i);
+    mode4_init_lanes();
+    const uint32_t *palette = mode4_current_palette();
     uint32_t backdrop = palette[16 + (g_vdp.reg[7] & 15)];
     if (!(r1 & 0x40) && !g_vdp_force_display) {
         for (int x = 0; x < SMS_SCREEN_W; ++x) pixels[x] = backdrop;
         return;
     }
-    uint8_t priority[SMS_SCREEN_W], sprite_seen[SMS_SCREEN_W] = {0};
-    uint8_t hardware_seen[SMS_SCREEN_W] = {0};
+    uint8_t priority[SMS_SCREEN_W], sprite_seen[SMS_SCREEN_W];
+    uint8_t hardware_seen[SMS_SCREEN_W];
     int table = (g_vdp.reg[2] & 14) << 10;
     if ((r0 & 0x40) && y < 16) hs = 0;
+    /* Columns 24-31 ignore the vertical scroll when it is locked. */
+    int by_scrolled = (y + vs) % 224, by_locked = y % 224;
     for (int x = 0; x < SMS_SCREEN_W;) {
         int bx = (x - hs) & 255;
-        int by = (y + ((r0 & 0x80) && x >= 192 ? 0 : vs)) % 224;
+        int by = (r0 & 0x80) && x >= 192 ? by_locked : by_scrolled;
         int address = (table + ((by >> 3) * 32 + (bx >> 3)) * 2) & 0x3FFF;
         int entry = g_vdp.vram[address] | (g_vdp.vram[address + 1] << 8);
         int py = by & 7;
         if (entry & 0x400) py = 7 - py;
         int base = ((entry & 511) * 32 + py * 4) & 0x3fff;
-        uint64_t colors=rr_planar_pair((uint16_t)(g_vdp.vram[base]|g_vdp.vram[base+1]<<8)) |
-            (rr_planar_pair((uint16_t)(g_vdp.vram[base+2]|g_vdp.vram[base+3]<<8))<<2);
         int count = 8 - (bx & 7);
         if (count > SMS_SCREEN_W - x) count = SMS_SCREEN_W - x;
         /* Column-scroll lock can split a partially scrolled tile. */
         if ((r0 & 0x80) && x < 192 && x + count > 192) count = 192 - x;
-        int palette_base=(entry & 0x800)?16:0;
+        const uint32_t *tile_palette = palette + ((entry & 0x800) ? 16 : 0);
+        if (count == 8) {
+            /* A whole tile: byte n is the color of pixel x + n. */
+            const uint64_t *lanes = mode4_lanes[(entry & 0x200) ? 0 : 1];
+            uint64_t ordered = lanes[g_vdp.vram[base]] | (lanes[g_vdp.vram[base + 1]] << 1) |
+                               (lanes[g_vdp.vram[base + 2]] << 2) | (lanes[g_vdp.vram[base + 3]] << 3);
+            for (int n = 0; n < 8; ++n) pixels[x + n] = tile_palette[(ordered >> (n * 8)) & 15];
+            uint64_t opaque = (ordered | (ordered >> 1) | (ordered >> 2) | (ordered >> 3)) &
+                              UINT64_C(0x0101010101010101);
+            if (!(entry & 0x1000)) opaque = 0;
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+            for (int n = 0; n < 8; ++n) priority[x + n] = (uint8_t)((opaque >> (n * 8)) & 1);
+#else
+            memcpy(priority + x, &opaque, 8);
+#endif
+            x += 8;
+            continue;
+        }
+        uint64_t colors=rr_planar_pair((uint16_t)(g_vdp.vram[base]|g_vdp.vram[base+1]<<8)) |
+            (rr_planar_pair((uint16_t)(g_vdp.vram[base+2]|g_vdp.vram[base+3]<<8))<<2);
         for(int n=0;n<count;++n) {
             unsigned col=(unsigned)((bx+n)&7);
             int color=(int)rr_planar_pixel(colors,(entry&0x200)?col:7-col);
-            pixels[x+n]=palette[palette_base+color];
+            pixels[x+n]=tile_palette[color];
             priority[x+n]=(entry&0x1000) && color!=0;
         }
         x+=count;
     }
+    bool seen_cleared = false;
     int sat = (g_vdp.reg[5] & 0x7E) << 7;
     int reverse_priority = sprite_tracking_reverse_valid(sat);
     int zoom = (r1 & 1) ? 2 : 1;
@@ -183,6 +233,11 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         if (raw_y == 0xD0) break;
         int row = (y - ((raw_y + 1) & 255)) & 255;
         if (row >= height) continue;
+        if (!seen_cleared) {
+            memset(sprite_seen, 0, sizeof sprite_seen);
+            memset(hardware_seen, 0, sizeof hardware_seen);
+            seen_cleared = true;
+        }
         if (++count > 8) {
             if (status) g_vdp.status |= 0x40;
             if (!reduce_sprite_flicker || g_vdp.is_gg) break;
