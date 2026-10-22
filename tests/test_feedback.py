@@ -74,6 +74,11 @@ class FeedbackTests(unittest.TestCase):
                              {'sms':(self.root/'Moved/SMS').resolve()})
         self.assertEqual(feedback_search_paths({'feedback_paths':[]}),{})
 
+    def test_x68000_feedback_folder_is_kept(self):
+        from smsrecomp.paths import feedback_search_paths
+        folder=self.root/'x68 games'
+        self.assertEqual(feedback_search_paths({'feedback_paths':{'x68':str(folder)}}),{'x68':folder.resolve()})
+
     def test_saturated_import_keeps_newer_high_address_observations(self):
         old=[feedback.Observation(1,n,0,b'\x76') for n in range(feedback.LIMIT)]
         path=self.save('sms',old)

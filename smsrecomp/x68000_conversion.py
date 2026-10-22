@@ -36,7 +36,7 @@ def compact_observations(record):
     for row in record['variants']:
         key=(row['pc'],row['words']);hits=row.get('hits',1)
         merged[key]=max(merged.get(key,1),hits)
-        if len(merged)>262144:raise ConversionError('X68000 instruction observation bound exceeded.')
+        if len(merged)>1048576:raise ConversionError('X68000 instruction observation bound exceeded.')
     result=dict(record)
     result['variants']=[{'pc':pc,'words':words,'hits':hits} for (pc,words),hits in sorted(merged.items())]
     return result
@@ -268,9 +268,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         rule_args=[arg for rule in rules for arg in ('--auto-disk',','.join(map(str,rule)))]
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
-        from .x68000_scan import exploration_routes
+        from .x68000_scan import exploration_routes, long_routes
         extra_routes=[]
-        for route in exploration_routes(count,mouse_controls=mouse_controls(source)):
+        for route in (*exploration_routes(count,mouse_controls=mouse_controls(source)),
+                      *long_routes(manifest.sha256,mouse_controls=mouse_controls(source))):
             folder=checks/('reference-'+route.name)
             ref=reference.prepare_bundle(folder,list(source.disks),manifest.firmware.ipl.path,
                 manifest.firmware.cgrom.path,generic,title=title,ram_mib=x68_ram)

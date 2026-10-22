@@ -129,12 +129,14 @@ def save_preferences(value: dict) -> None:
 
 def feedback_search_paths(preferences: dict) -> dict[str, Path]:
     """Optional read-only gameplay-feedback search root for each console."""
-    from .systems import PROFILES
+    # Every known console, experimental ones included: a folder saved for
+    # the X68000 must survive preference saves even before it graduates.
+    from .systems import PROFILES, X68000
     saved = preferences.get('feedback_paths', {})
     if not isinstance(saved, dict):
         return {}
     result = {}
-    for profile in PROFILES:
+    for profile in (*PROFILES, X68000):
         raw = saved.get(profile.id)
         if not isinstance(raw, str) or not raw.strip():
             continue

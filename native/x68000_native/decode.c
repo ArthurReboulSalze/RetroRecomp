@@ -29,7 +29,7 @@ int main(int argc,char **argv) {
     char line[128],hex[34];unsigned count=0,comma=0;
     fputs("[",out);
     while(fgets(line,sizeof line,in)) {
-        if(++count>262144)return 4;
+        if(++count>1048576)return 4;
         char extra;
         if(sscanf(line,"%x %32s %c",&base,hex,&extra)!=2)return 4;
         length=(unsigned)strlen(hex)/2;

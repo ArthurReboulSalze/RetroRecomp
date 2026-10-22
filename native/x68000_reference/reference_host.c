@@ -86,6 +86,10 @@ static int pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static bool headless, mute, quit_requested, core_error;
 static double fps = 61.46, sample_rate = 44100.0, aspect_ratio = 4.0/3.0;
 static uint64_t video_hash, frame_pcm = FNV_START, total_pcm = FNV_START;
+/* Traces and reports hash images and sound; captures and the pause screen
+ * reuse the last image. Normal play skips both. A future automatic loading
+ * acceleration needs an image signature in play: enable hash_video then. */
+static bool hash_video = true, keep_pixels = true;
 static uint64_t total_samples, nonzero_samples;
 static uint8_t *last_pixels;
 static size_t last_pixels_size;
@@ -284,12 +288,14 @@ static void video(const void *data, unsigned w, unsigned h, size_t pitch) {
       if (!newbuf) { fail("Video allocation failed"); return; }
       last_pixels=(uint8_t *)newbuf; last_pixels_size=needed;
    }
-   video_hash=FNV_START;
-   for(y=0;y<h;y++) {
+   /* A frame is "lit" as soon as one byte is non-zero (reports only). */
+   if(hash_video) video_hash=FNV_START;
+   if(keep_pixels) for(y=0;y<h;y++) {
       const uint8_t *row=(const uint8_t *)data+y*pitch;
       memcpy(last_pixels+(size_t)y*w*bpp,row,(size_t)w*bpp);
+      if(!hash_video) continue;
       video_hash=hash_bytes(video_hash,row,(size_t)w*bpp);
-      for(x=0;x<w*bpp;x++) if (row[x]) lit=true;
+      if(!lit) for(x=0;x<w*bpp;x++) if (row[x]) { lit=true; break; }
    }
    width=w; height=h; video_frames++; nonblack_frames+=lit;
    if(renderer){if(!fast_forward||!(input_frame&7))player_present(data,w,h,pitch);return;}
@@ -315,7 +321,7 @@ static void video(const void *data, unsigned w, unsigned h, size_t pitch) {
 static size_t audio_batch(const int16_t *samples, size_t count) {
    size_t i;
    if (count > 65536) { fail("Invalid audio batch"); return 0; }
-   for(i=0;i<count*2;i++) {
+   if(hash_video) for(i=0;i<count*2;i++) {
       frame_pcm=hash_word(frame_pcm,(uint16_t)samples[i]);
       total_pcm=hash_word(total_pcm,(uint16_t)samples[i]);
       if(samples[i]) nonzero_samples++;
@@ -800,6 +806,7 @@ static int player_main(int argc,char **argv) {
      if(isfinite(av.geometry.aspect_ratio) && av.geometry.aspect_ratio>0.1 && av.geometry.aspect_ratio<10.0) aspect_ratio=av.geometry.aspect_ratio;
    }
    if(!isfinite(fps) || fps<20 || fps>120 || sample_rate!=44100) { fail("Invalid initial AV timing"); goto cleanup; }
+   hash_video=trace_path[0] || report[0]; keep_pixels=hash_video || capture_path[0] || renderer;
    if(trace_path[0]) { records=(FrameRecord *)calloc(frames?frames:MAX_FRAMES,sizeof(*records)); if(!records) { fail("Trace allocation failed"); goto cleanup; } }
    frequency=(double)SDL_GetPerformanceFrequency(); wall_start=(double)SDL_GetPerformanceCounter()/frequency; deadline=wall_start;
    for(frame_number=0;!quit_requested && (!frames || frame_number<frames);) {

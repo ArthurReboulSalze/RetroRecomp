@@ -42,7 +42,7 @@ def private_path(path:Path)->Path:
 def observations(paths)->list[tuple[int,str]]:
     result=set()
     for path in paths:
-        if path.stat().st_size>32*1024*1024:raise ValueError('CPU observation file exceeds its bound.')
+        if path.stat().st_size>128*1024*1024:raise ValueError('CPU observation file exceeds its bound.')
         record=json.loads(path.read_text(encoding='utf-8'))
         if record.get('schema')!=1 or record.get('truncated') is not False:
             raise ValueError('CPU observations are incomplete or unknown.')
@@ -55,7 +55,7 @@ def observations(paths)->list[tuple[int,str]]:
             if pc+len(words)//2> (0xc00000 if pc<0xc00000 else 0xe80000 if pc<0xe80000 else 0xea2000 if pc<0xea2000 else 0x1000000):
                 raise ValueError('CPU sample crosses a mapping boundary.')
             result.add((pc,words))
-            if len(result)>262144:raise ValueError('Combined CPU observation bound exceeded.')
+            if len(result)>1048576:raise ValueError('Combined CPU observation bound exceeded.')
     return sorted(result)
 
 
@@ -104,8 +104,157 @@ MACHINE_BASE=os.environ.get('RR_X68000_MACHINE_BASE','hissorii')
 if MACHINE_BASE not in ('current','hissorii'):raise ValueError('RR_X68000_MACHINE_BASE must be current or hissorii.')
 
 
+# Original RetroRecomp chained native run (MIT). Appended to the generated
+# cpu.c on the hissorii base; the single-step rr_x68k_native_execute above it
+# stays for the authored guard checks.
+NATIVE_RUN=r'''
+/* Consecutive guarded instructions run in one call while the system byte of
+ * SR is unchanged. Between two instructions Musashi's loop only latches T1
+ * (clear for a chain) and REG_PPC; interrupts are still sampled at slice ends
+ * and after privileged SR changes, as before. The status register stays in
+ * g_cpu during the run: no board device reads it, the trace receives it. */
+static uint32_t rr_x68k_miss_pc=UINT32_MAX;
+int rr_x68k_native_run(void) {
+    uint32_t pc=REG_PC;
+    /* A run that stopped on an unguarded successor already looked it up. */
+    if(pc==rr_x68k_miss_pc){rr_x68k_miss_pc=UINT32_MAX;return 0;}
+    rr_x68k_miss_pc=UINT32_MAX;
+    if(rr_x68k_force_reference)return 0;
+    const RrX68NativeStep *op=rr_x68k_lookup(pc);
+    if(!op)return 0;
+    const int chain=!FLAG_T1,tracing=rr_x68k_trace_active();
+    const uint16_t mask=(uint16_t)CPU_SR_MASK;
+    g_cpu.SR=(uint16_t)m68ki_get_sr();
+    const uint16_t system=g_cpu.SR&0xff00u;
+    uint32_t *other=FLAG_S?&REG_USP:&REG_ISP;
+    g_cpu.USP=*other;
+    unsigned ram=0,ipl=0;
+    for(;;) {
+        g_cpu.PC=pc;
+        rr_x68k_cpu_stopped=0;rr_x68k_exception_cycles=rr_x68k_trace_suppressed=rr_x68k_arithmetic_cycles=0;
+        rr_x68k_illegal_ea=g_rte_pending=0;
+        unsigned cost=dynamic_cycles(&op->instruction);
+        BusErrFlag=0;REG_IR=op->instruction.words[0];
+        uint32_t next_pc=pc+op->instruction.byte_length;
+        M68kiStatus status=op->execute(&op->instruction,&next_pc);
+        if(status!=M68KI_OK || rr_x68k_illegal_ea) {
+            fprintf(stderr,"Native MC68000 failed at %06x / %04x: %u\n",pc,REG_IR,(unsigned)status);exit(4);
+        }
+        if((pc&0xffffffu)>=0xfc0000u)++ipl;else ++ram;
+        const int mn=op->instruction.mnemonic;
+        if(rr_x68k_exception_cycles || rr_x68k_cpu_stopped || rr_x68k_trace_suppressed ||
+           (g_cpu.SR&0xff00u)!=system || mn==MN_MOVE_SR || mn==MN_RTE || mn==MN_STOP ||
+           mn==MN_ORI_TO_SR || mn==MN_ANDI_TO_SR || mn==MN_EORI_TO_SR) {
+            /* The single-instruction exit, unchanged; it ends the run. */
+            m68ki_set_sr_noint_nosp(g_cpu.SR);
+            if(FLAG_S)REG_USP=g_cpu.USP;else REG_ISP=g_cpu.USP;
+            REG_PC=next_pc;
+            if(rr_x68k_cpu_stopped)CPU_STOPPED|=STOP_LEVEL_STOP;
+            if(rr_x68k_trace_suppressed)m68ki_clear_trace();
+            unsigned clocks=rr_x68k_exception_cycles?rr_x68k_exception_cycles:rr_x68k_arithmetic_cycles?rr_x68k_arithmetic_cycles:cost;
+            switch(mn) {
+            case MN_MOVE_SR:if(!op->instruction.dst_is_ea)m68ki_check_interrupts();break;
+            case MN_RTE:case MN_STOP:case MN_ORI_TO_SR:case MN_ANDI_TO_SR:case MN_EORI_TO_SR:
+                m68ki_check_interrupts();break;
+            default:break;
+            }
+            if(!rr_x68k_exception_cycles && REG_PC==pc && (mn==MN_BRA || mn==MN_JMP))USE_ALL_CYCLES();
+            if(rr_x68k_cpu_stopped) {
+                if(m68ki_remaining_cycles>=CYC_INSTRUCTION[REG_IR])m68ki_remaining_cycles=CYC_INSTRUCTION[REG_IR];
+                else USE_ALL_CYCLES();
+            }
+            USE_CYCLES(clocks);
+            break;
+        }
+        /* Musashi keeps only the implemented SR bits between instructions. */
+        g_cpu.SR&=mask;
+        *other=g_cpu.USP;
+        REG_PC=next_pc;
+        /* Preserve the reference self-branch slice/IRQ boundary. */
+        if(REG_PC==pc && (mn==MN_BRA || mn==MN_JMP))USE_ALL_CYCLES();
+        USE_CYCLES(rr_x68k_arithmetic_cycles?rr_x68k_arithmetic_cycles:cost);
+        if(!chain || GET_CYCLES()<=0) {m68ki_set_sr_noint_nosp(g_cpu.SR);break;}
+        pc=next_pc;
+        op=rr_x68k_lookup_next(op,pc);
+        if(!op) {m68ki_set_sr_noint_nosp(g_cpu.SR);rr_x68k_miss_pc=pc;break;}
+        REG_PPC=pc;
+        if(tracing)rr_x68k_before_sr(pc,g_cpu.SR);
+    }
+    rr_x68k_note_native(ram,ipl);
+    return 1;
+}
+'''
+
+# The same operand-dependent clock rules as the pinned adapter, dispatched
+# once on the mnemonic (the adapter tests each rule in turn).
+CYCLE_RULES=('''    if(ins->mnemonic==MN_Bcc)return eval_cond((op>>8)&15)?10:ins->word_count==1?8:12;
+    if(ins->mnemonic==MN_DBcc)return eval_cond((op>>8)&15)?12:(uint16_t)g_cpu.D[op&7]==0?14:10;
+    if(ins->mnemonic==MN_Scc && ((ins->src_ea>>3)&7)==0)return eval_cond((op>>8)&15)?6:4;
+    if(ins->mnemonic==MN_MOVEM)return base+(ins->size==M68K_SIZE_L?8u:4u)*(unsigned)interp_popcount16(ins->words[1]);
+    if((ins->mnemonic==MN_BSET || ins->mnemonic==MN_BCLR || ins->mnemonic==MN_BCHG) &&
+       ((ins->src_ea>>3)&7)==0) {
+        unsigned bit=ins->reg<0?ins->imm32:g_cpu.D[ins->reg];
+        if((bit&31u)<16u)return base-2u;
+    }
+    if((ins->mnemonic==MN_ASL || ins->mnemonic==MN_ASR || ins->mnemonic==MN_LSL ||
+        ins->mnemonic==MN_LSR || ins->mnemonic==MN_ROL || ins->mnemonic==MN_ROR ||
+        ins->mnemonic==MN_ROXL || ins->mnemonic==MN_ROXR) && !ins->mem_shift) {
+        unsigned count=op&0x20u?g_cpu.D[(op>>9)&7]&63u:(op>>9)&7u;
+        if(!(op&0x20u) && !count)count=8;
+        return (ins->size==M68K_SIZE_L?8:6)+2*count;
+    }
+    return base;
+''','''    switch(ins->mnemonic) {
+    case MN_Bcc:return eval_cond((op>>8)&15)?10:ins->word_count==1?8:12;
+    case MN_DBcc:return eval_cond((op>>8)&15)?12:(uint16_t)g_cpu.D[op&7]==0?14:10;
+    case MN_Scc:if(((ins->src_ea>>3)&7)==0)return eval_cond((op>>8)&15)?6:4;break;
+    case MN_MOVEM:return base+(ins->size==M68K_SIZE_L?8u:4u)*(unsigned)interp_popcount16(ins->words[1]);
+    case MN_BSET:case MN_BCLR:case MN_BCHG:
+        if(((ins->src_ea>>3)&7)==0) {
+            unsigned bit=ins->reg<0?ins->imm32:g_cpu.D[ins->reg];
+            if((bit&31u)<16u)return base-2u;
+        }
+        break;
+    case MN_ASL:case MN_ASR:case MN_LSL:case MN_LSR:case MN_ROL:case MN_ROR:case MN_ROXL:case MN_ROXR:
+        if(!ins->mem_shift) {
+            unsigned count=op&0x20u?g_cpu.D[(op>>9)&7]&63u:(op>>9)&7u;
+            if(!(op&0x20u) && !count)count=8;
+            return (ins->size==M68K_SIZE_L?8:6)+2*count;
+        }
+        break;
+    default:break;
+    }
+    return base;
+''')
+
+LOOKUP_NEXT='''/* The next instruction of a native run: a fallthrough or static target uses
+ * the entry's link, anything else the page table. */
+const RrX68NativeStep *rr_x68k_lookup_next(const RrX68NativeStep *previous,uint32_t pc) {
+    const M68KInstr *ins=&previous->instruction;
+    const uint32_t *link=links[previous-entries];
+    pc&=0xffffffu;
+    if(pc==((ins->addr+(uint32_t)ins->byte_length)&0xffffffu))return link[0]?guarded(link[0]-1u,pc):NULL;
+    if(ins->has_target && pc==(ins->target_addr&0xffffffu) && !(pc&1u))return link[1]?guarded(link[1]-1u,pc):NULL;
+    return rr_x68k_lookup(pc);
+}
+'''
+
+# Forms on the hissorii base read their own absolute descriptor: every step
+# is keyed by its exact address, so the relocation copy is an identity.
+FORM_COPY=('    M68KInstr decoded=*compiled;\n'
+           '    rr_x68k_relocate_instruction(&decoded,g_cpu.PC & 0xffffffu);\n'
+           '    const M68KInstr *ins=&decoded;\n')
+
+
+def shared_registers(text:str)->str:
+    """Native steps use Musashi's register file directly: no per-instruction
+    copy of D0-D7/A0-A7. The active stack pointer stays Musashi's A7 (dar[15])."""
+    return text.replace('g_cpu.D[','REG_D[').replace('g_cpu.A[','REG_A[')
+
+
 def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machine_base:str|None=None)->dict:
     machine_base=machine_base or MACHINE_BASE
+    alias=shared_registers if machine_base=='hissorii' else (lambda text:text)
     project=private_path(project);project.mkdir(parents=True,exist_ok=True)
     engine=ROOT/'.deps/segagenesisrecomp'
     geo=ROOT/'.deps/geolith-libretro'
@@ -159,17 +308,19 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     helper=helper[:helper.rfind('/* =====')]
     timing=semantics[semantics.index('static int interp_popcount16('):semantics.index('static void interp_account_cycles(')]
     timing=timing[:timing.rfind('/* The emit_cycle_accounting')]
-    write_changed(project/'step_semantics.h','#pragma once\n#include "cpu.h"\n#include <stddef.h>\n'
+    write_changed(project/'step_semantics.h','#pragma once\n'+('#include "m68kcpu.h"\n' if machine_base=='hissorii' else '')+
+        '#include "cpu.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_x68k_illegal_ea\nstatic int interp_ea_read_cost(int,M68KSize);\n'
         'static int game_instruction_hook_site(uint32_t pc){(void)pc;return 0;}\n'
         'static int genesis_game_instruction_hook(uint32_t pc){(void)pc;return 0;}\n'
-        'static void discover(uint32_t pc){(void)pc;}\n'+helper+'\n'+timing)
+        'static void discover(uint32_t pc){(void)pc;}\n'+alias(helper+'\n'+timing))
     for name,path in [('m68k_decoder.h',engine/'external/m68k-recomp-core/common/m68k_decoder.h'),
                       ('rom_parser.h',engine/'recompiler/src/rom_parser.h')]:
         write_changed(project/name,path.read_text(encoding='utf-8'))
     header=(SDK/'native/neogeo_native.h').read_text(encoding='utf-8')
     header=header.replace('RR_NEOGEO_NATIVE_H','RR_X68000_NATIVE_CPU_H').replace('rr_ng_','rr_x68k_').replace('RrNgNativeStep','RrX68NativeStep')
-    header=header.replace('/* Called before opcode fetch.', 'const RrX68NativeStep *rr_x68k_lookup(uint32_t pc);\n/* Called before opcode fetch.')
+    header=header.replace('/* Called before opcode fetch.', 'const RrX68NativeStep *rr_x68k_lookup(uint32_t pc);\n'
+        'const RrX68NativeStep *rr_x68k_lookup_next(const RrX68NativeStep *previous,uint32_t pc);\n/* Called before opcode fetch.')
     header+='\nvoid rr_x68k_reset_instruction(void);\n'
     write_changed(project/'cpu.h',header)
     cpu=(SDK/'native/neogeo_native.c').read_text(encoding='utf-8')
@@ -194,8 +345,24 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
         '        if(m68ki_remaining_cycles>=CYC_INSTRUCTION[REG_IR])m68ki_remaining_cycles=CYC_INSTRUCTION[REG_IR];\n'
         '        else USE_ALL_CYCLES();\n    }\n'
         '    rr_x68k_note(pc,1);return 1;')
+    if machine_base=='hissorii':
+        refetch=('    for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n) {\n'
+                 '        unsigned word=m68ki_read_imm_16();if(!n)REG_IR=word;\n    }\n')
+        if cpu.count(refetch)!=1:raise ValueError('Pinned native fetch replay changed.')
+        cpu=cpu.replace(refetch,'    /* The words are already guarded; a code fetch on this machine only\n'
+                        '     * clears the bus-error latch (cpu_readmem24_word). */\n'
+                        '    BusErrFlag=0;REG_IR=op->instruction.words[0];\n')
+        cpu='#include <stdint.h>\nextern uint32_t BusErrFlag;\n'+cpu
+        if cpu.count(CYCLE_RULES[0])!=1:raise ValueError('Pinned native clock rules changed.')
+        cpu=cpu.replace(CYCLE_RULES[0],CYCLE_RULES[1])
+        for copy in ('    for(unsigned n=0;n<8;++n) {g_cpu.D[n]=REG_D[n];g_cpu.A[n]=REG_A[n];}\n',
+                     '    for(unsigned n=0;n<8;++n) {REG_D[n]=g_cpu.D[n];REG_A[n]=g_cpu.A[n];}\n'):
+            if cpu.count(copy)!=1:raise ValueError('Pinned native register copy changed.')
+            cpu=cpu.replace(copy,'')
+        cpu=alias(cpu)
     cpu=cpu[:cpu.index('void rr_x68k_native_bind(void)')]
     cpu+='\nvoid rr_x68k_reset_instruction(void) {m68ki_output_reset();rr_x68k_exception_cycles=CYC_RESET+CYC_INSTRUCTION[0x4e70];}\n'
+    if machine_base=='hissorii':cpu+=NATIVE_RUN
     write_changed(project/'cpu.c',cpu)
     math=(SDK/'native/md_prefetch.inc').read_text(encoding='utf-8')
     math=math[math.index('unsigned rr_md_multiply_clocks('):math.index('void rr_md_arithmetic_phase(')]
@@ -206,7 +373,17 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
 \t\t\tm68ki_instruction_jump_table[REG_IR]();
 \t\t\tUSE_CYCLES(CYC_INSTRUCTION[REG_IR]);'''
     if original.count(anchor)!=1:raise ValueError('Pinned interpreter dispatch changed.')
-    adapted='#include "observe.h"\nextern int rr_x68k_native_execute(uint32_t,unsigned*);\n'+original.replace(anchor,'''
+    if machine_base=='hissorii':
+        adapted='#include "observe.h"\nextern int rr_x68k_native_run(void);\n'+original.replace(anchor,'''
+            /* A native run consumes its own cycles, possibly for several instructions. */
+            rr_x68k_before(REG_PC);
+            if(!rr_x68k_native_run()) {
+                rr_x68k_note(REG_PC,0);
+                REG_IR=m68ki_read_imm_16();
+                m68ki_instruction_jump_table[REG_IR]();
+                USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
+            }''')
+    else:adapted='#include "observe.h"\nextern int rr_x68k_native_execute(uint32_t,unsigned*);\n'+original.replace(anchor,'''
             { unsigned native_clocks;
               rr_x68k_before(REG_PC);
               if(rr_x68k_native_execute(REG_PC,&native_clocks)) { USE_CYCLES(native_clocks); }
@@ -248,34 +425,93 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
         if key not in forms:
             symbol=f'rr_x68k_form_{len(forms)}';forms[key]=symbol
             body=structural_body(ins,name,bodies[name]).replace('rr_ng_','rr_x68k_')
+            if machine_base=='hissorii':
+                if body.count(FORM_COPY)!=1:raise ValueError('Pinned native form prologue changed.')
+                body=body.replace(FORM_COPY,'    const M68KInstr *ins=compiled;\n')
             chunks[(ins['words'][0]>>1)%16].append(f'M68kiStatus {symbol}(const M68KInstr *compiled,uint32_t *next_pc) {{\n{body}}}\n')
             declarations.append(f'extern M68kiStatus {symbol}(const M68KInstr*,uint32_t*);\n')
-        entries.append('{'+instruction_literal(canonical_instruction(ins,name),name)+f',{forms[key]}'+'}')
+        descriptor=ins if machine_base=='hissorii' else canonical_instruction(ins,name)
+        entries.append('{'+instruction_literal(descriptor,name)+f',{forms[key]}'+'}')
     steps=project/'steps';steps.mkdir(exist_ok=True)
-    for n,chunk in enumerate(chunks):write_changed(steps/f'part{n:02}.c','#include "step_semantics.h"\n'+''.join(chunk))
+    for n,chunk in enumerate(chunks):write_changed(steps/f'part{n:02}.c','#include "step_semantics.h"\n'+alias(''.join(chunk)))
     groups=[];last=None
     for index,ins in enumerate(instructions):
         if ins['addr']!=last:groups.append([ins['addr'],index,1]);last=ins['addr']
         else:groups[-1][2]+=1
-    index_source='#include "cpu.h"\n#include "observe.h"\n#include <stddef.h>\n'+''.join(declarations)
+    # Direct page table: 4 KiB pages of the 24-bit space, one 16-bit slot per
+    # even address giving the group within the page. One lookup per fetch
+    # instead of a binary search; the live-word guard is a single compare.
+    # Successor links: the group at each entry's fallthrough and static
+    # target address (0: no compiled variant there). The live-word guard of
+    # the successor is still compared; only the page-table walk is skipped.
+    group_of={pc:index for index,(pc,start,count) in enumerate(groups)}
+    links=[]
+    for ins in instructions:
+        fall=(ins['addr']+ins['byte_length'])&0xffffff
+        taken=ins['target_addr']&0xffffff if ins['has_target'] else None
+        links.append((group_of.get(fall,-1)+1,group_of.get(taken,-1)+1 if taken is not None else 0))
+    pages={}
+    for index,(pc,start,count) in enumerate(groups):
+        page=pages.setdefault(pc>>12,{'base':index,'slots':{}})
+        page['slots'][(pc&0xfff)>>1]=index-page['base']+1
+    index_source='#include "cpu.h"\n#include "observe.h"\n#include <stddef.h>\n#include <string.h>\n'
+    index_source+='#ifdef RR_X68000_BASE74\n#include "memory.h"\n#else\n#include "x68k/x68kmemory.h"\n#endif\n'
+    index_source+=''.join(declarations)
     index_source+='static const RrX68NativeStep entries[]={'+(',\n'.join(entries) if entries else '{0}')+'};\n'
     index_source+='static const struct {uint32_t pc,start,count;} groups[]={'+(','.join('{%d,%d,%d}'%tuple(g) for g in groups) if groups else '{0}')+'};\n'
-    index_source+=f'''const RrX68NativeStep *rr_x68k_lookup(uint32_t pc) {{
-    if(pc&1u)return NULL;
-    unsigned lo=0,hi={len(groups)}u;
-    while(lo<hi) {{unsigned mid=lo+(hi-lo)/2;if(groups[mid].pc<pc)lo=mid+1;else hi=mid;}}
-    if(lo=={len(groups)}u || groups[lo].pc!=pc)return NULL;
-    for(unsigned k=0;k<groups[lo].count;++k) {{
-        const RrX68NativeStep *s=&entries[groups[lo].start+k];int same=1;
-        for(unsigned n=0;n<(unsigned)s->instruction.word_count;++n) {{
-            uint16_t word;
-            if(!rr_x68k_code_word(pc+n*2,&word) || word!=s->instruction.words[n]){{same=0;break;}}
-        }}
-        if(same)return s;
-    }}
+    for number,page in sorted(pages.items()):
+        index_source+=f'static const uint16_t page_{number:x}[2048]={{'+','.join(f'[{slot}]={value}' for slot,value in sorted(page['slots'].items()))+'};\n'
+    index_source+='static const struct {uint32_t base;const uint16_t *slots;} pages[4096]={'+','.join(
+        f'[{number}]={{{page["base"]},page_{number:x}}}' for number,page in sorted(pages.items()))+'};\n'
+    index_source+='''/* Host bytes of a code aperture, as the guards read them (never I/O). */
+static const uint8_t *code_view(uint32_t pc,uint32_t *available) {
+    if(pc<0xc00000u){*available=0xc00000u-pc;return MEM?MEM+pc:NULL;}
+    if(pc>=0xe00000u&&pc<0xe80000u){*available=0xe80000u-pc;return TVRAM+(pc-0xe00000u);}
+    if(pc>=0xea0000u&&pc<0xea2000u){*available=0xea2000u-pc;return SCSIIPL+(pc-0xea0000u);}
+    if(pc>=0xfc0000u&&pc<0x1000000u){*available=0x1000000u-pc;return IPL?IPL+(pc-0xfc0000u):NULL;}
     return NULL;
-}}
+}
+/* The live-word guard of one address group: the first variant whose words
+ * all match the current code bytes. */
+static const RrX68NativeStep *guarded(unsigned group,uint32_t pc) {
+#ifndef MSB_FIRST
+    /* Little-endian hosts keep each 68000 word as a host 16-bit value. */
+    uint32_t available;
+    const uint8_t *code=code_view(pc,&available);
+    if(!code)return NULL;
+    for(unsigned k=0;k<groups[group].count;++k) {
+        const RrX68NativeStep *s=&entries[groups[group].start+k];
+        unsigned count=(unsigned)s->instruction.word_count,n=0;
+        if(count*2u>available)continue;
+        for(;n<count;++n) {uint16_t word;memcpy(&word,code+n*2u,2);if(word!=s->instruction.words[n])break;}
+        if(n==count)return s;
+    }
+#else
+    for(unsigned k=0;k<groups[group].count;++k) {
+        const RrX68NativeStep *s=&entries[groups[group].start+k];int same=1;
+        for(unsigned n=0;n<(unsigned)s->instruction.word_count;++n) {
+            uint16_t word;
+            if(!rr_x68k_code_word(pc+n*2,&word) || word!=s->instruction.words[n]){same=0;break;}
+        }
+        if(same)return s;
+    }
+#endif
+    return NULL;
+}
+const RrX68NativeStep *rr_x68k_lookup(uint32_t pc) {
+    pc&=0xffffffu;
+    if(pc&1u)return NULL;
+    const uint16_t *slots=pages[pc>>12].slots;
+    if(!slots)return NULL;
+    unsigned slot=slots[(pc&0xfffu)>>1];
+    if(!slot)return NULL;
+    return guarded(pages[pc>>12].base+slot-1u,pc);
+}
 '''
+    if machine_base=='hissorii':
+        # Absolute descriptors (see FORM_COPY) give each entry its own address.
+        index_source+='static const uint32_t links[][2]={'+(','.join('{%d,%d}'%link for link in links) if links else '{0}')+'};\n'
+        index_source+=LOOKUP_NEXT
     write_changed(steps/'index.c',index_source)
     result={'schema':1,'machine_base':machine_base,'reference_pin':PX68K_REV,'reference_cpu_pin':GEOLITH_REV,'samples':len(samples),'instructions':len(instructions),
         'forms':len(forms),'pcs':len(groups),'semantics_sha256':hashlib.sha256(semantics.encode()).hexdigest(),
