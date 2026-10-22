@@ -1,3 +1,40 @@
+# RetroRecomp v1.2.2 — the same shortcuts everywhere and finer menu text
+
+- **F1 for help, Shift+F1 to restart, on every console.** The H key is gone:
+  F1 opens help and Shift+F1 restarts the game at once, without a confirmation
+  screen (the Sharp X68000 used to ask). The Master System and the Sharp
+  X68000 no longer have their own restart row in F2; they restart like every
+  other console. Earlier restart entries in the INI are simply ignored.
+- **Restart and quit from the controller.** By default, holding
+  **Start+Select** for one second restarts the game and holding **L3+R3** for
+  one second quits it. The game options (F10, or O / Y from a menu) gain
+  keyboard and gamepad rows for the restart combination; both can be changed
+  or cleared, like the quit rows. A held restart fires once, then waits for the
+  buttons to be released.
+- **Help in order.** Every help screen lists the function keys from F1 to F12,
+  then the console's own controls. The Master System, Game Gear and Game Boy
+  help now mention F10.
+- **Finer menu text.** Menus use the public-domain X.Org Misc Fixed 10x20
+  bitmap, drawn for the window's size: strokes are half as thick as before,
+  solid pixels stay solid and only the edges are smoothed. Windows and Linux
+  now draw the same letters (Windows used Consolas). The font adds 3.8 KB to a
+  game; a 256x192 window keeps the previous 6x10 font.
+- **Plain letters only.** In-game menus no longer draw accented characters:
+  ñ becomes n, ó becomes o and German umlauts become ae/oe/ue. Games no longer
+  carry a glyph table.
+
+Regenerate games to receive these changes. Your compilation library, fallback
+hints, settings and cartridge saves are kept. F8/F9 quick states made with
+1.2.1 Mega Drive, Super Nintendo and Neo Geo executables are not loaded by
+regenerated games, because their state identity covers the runtime sources;
+make a new one after regenerating. NES, Master System, Game Gear, Game Boy and
+Sharp X68000 quick states are unaffected. The converter's own interface keeps
+its accents and its eight languages. Text rendering was checked on generated
+screenshots, not on every display.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.1 — steadier sound, cleaner menus and more sprites
 
 - **Adaptive sound reserve on every console.** Games now watch their own sound

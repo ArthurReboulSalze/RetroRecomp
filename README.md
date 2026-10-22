@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.1-d4a737" alt="Release version 1.2.1">
+  <img src="https://img.shields.io/badge/release-1.2.2-d4a737" alt="Release version 1.2.2">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -102,11 +102,16 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.1:** an adaptive sound reserve on every console (small machines
-stop crackling, fast ones keep their latency), steadier X68000 music, Donkey
-Kong Country's background colours fixed, F5 extra sprites on NES and Game Gear,
-gold-on-black menus on every console, quitting with a single key or button,
-and lighter games with five Latin-script menu languages.
+**New in 1.2.2:** the same shortcuts on every console (F1 help, Shift+F1
+restart), Start+Select and L3+R3 held for one second to restart or quit from a
+controller, help screens listed from F1 to F12, and finer, plain-ASCII menu
+text drawn for the window's size.
+
+Version 1.2.1 brought an adaptive sound reserve on every console (small
+machines stop crackling, fast ones keep their latency), steadier X68000 music,
+Donkey Kong Country's background colours fixed, F5 extra sprites on NES and
+Game Gear, gold-on-black menus, quitting with a single key or button, and
+lighter games with five Latin-script menu languages.
 
 Version 1.2.0 brought faster runtimes for the Master System, Game Gear, NES, Mega
 Drive, Super Nintendo, Neo Geo and Sharp X68000 profiles, with identical traces
@@ -234,7 +239,7 @@ a newer version. Update checks are manual. Updating the converter preserves
 your games and settings; regenerate games to receive new runtime features.
 Downloaded artwork stays in `datas/BoxArt` beside the converter, sorted by console.
 
-In games, **H** shows help, **F2** configures controls, **F3** changes filters and
+In games, **F1** shows help, **Shift+F1** restarts, **F2** configures controls, **F3** changes filters and
 **F4** cycles fullscreen modes. **F8/F9** save/load quick states, including the
 qualified Mega Drive and Super Nintendo profiles. See [all controls](docs/CONTROLS.md).
 
