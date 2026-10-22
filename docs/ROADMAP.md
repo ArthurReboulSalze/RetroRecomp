@@ -12,16 +12,28 @@ priorities below describe areas to improve, not compatibility or delivery promis
 
 ## X68000 and future machines
 
-The Sharp X68000 is the next experimental computer prototype. Local Windows and
-Debian work already covers native RAM code, common menus, quick states and
-initial multi-disk sequences. Development is progressing quickly, but gameplay,
-hardware edge cases and low-power Linux performance need further work.
-The composite runtime's distribution terms are still under review; it is not
-enabled in public downloads yet. See [X68000 status](X68000.md).
+The Sharp X68000 is the first classic computer profile. It has been included
+in public downloads as an experimental profile since 1.1.9. Native RAM code,
+common menus, quick states and multi-disk sequences are in place; gameplay
+coverage, hardware edge cases and low-power Linux performance are still being
+improved before it leaves the experimental stage. See [X68000 status](X68000.md).
 
 More consoles and classic computers are planned after and alongside this work.
 Existing 68000 and Z80 components will be reused where appropriate. Each machine
 will receive its own experimental phase, validation and compatibility scope.
+The long-term goal is to extend RetroRecomp to these machines, in this planned
+order:
+
+- Capcom CPS-1 / CPS-2 arcade boards
+- PC Engine / TurboGrafx-16
+- Game Boy Advance
+- Atari ST
+- Amiga 500
+- Amiga 1200 (AGA)
+- Nintendo 64
+- PlayStation
+
+This list states intentions, not dates or compatibility promises.
 
 
 ## Delivered in 1.1.5 — 19 October 2026
