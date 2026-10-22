@@ -64,6 +64,7 @@ size_t rr_nes_state_size(void) {
            rr_nes_apu_size() + rr_nes_mapper_audio_size();
 }
 bool rr_nes_state_save(void *buffer, size_t size) {
+    rr_ppu_sync();
     if (!buffer || size != rr_nes_state_size()) { state_error = "Could not create quick state"; return false; }
     uint8_t *bytes = (uint8_t *)buffer;
     memset(bytes, 0, size);

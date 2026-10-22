@@ -149,6 +149,10 @@ if(MSVC)
     target_compile_options(nes_hardware PRIVATE /bigobj /utf-8)
     set_property(TARGET game nes_hardware PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+    # Whole-program code generation for the small machine core only: its
+    # per-cycle CPU/APU/mapper calls inline; generated 6502 code links as is.
+    target_compile_options(nes_hardware PRIVATE $<$<CONFIG:Release>:/GL>)
+    target_link_options(game PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(game PRIVATE SDL2::SDL2)

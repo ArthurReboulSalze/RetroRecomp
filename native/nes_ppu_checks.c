@@ -64,10 +64,12 @@ int main(int argc,char **argv){
             int16_t pcm[4096];size_t n;uint64_t sound=14695981039346656037ULL;
             while((n=cyc_audio_read(pcm,4096)))sound^=hash_bytes(pcm,n*sizeof(*pcm));
             rr_nes_apu_save(audio_state);
+            /* Observing the machine first runs any deferred PPU edges. */
+            uint64_t hw_hash=cyc_hw_state_hash();
             printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
                 (unsigned long long)cyc_cycle_count(),(unsigned long long)hash_bytes(&ppu,sizeof(ppu)),
                 (unsigned long long)hash_bytes(hw_frame_index,sizeof(hw_frame_index)),
-                (unsigned long long)cyc_hw_state_hash(),(unsigned long long)cyc_mem_state_hash(),(unsigned long long)sound,
+                (unsigned long long)hw_hash,(unsigned long long)cyc_mem_state_hash(),(unsigned long long)sound,
                 (unsigned long long)hash_bytes(audio_state,rr_nes_apu_size()));
         }
     }

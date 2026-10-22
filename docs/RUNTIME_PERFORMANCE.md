@@ -1,5 +1,54 @@
 # Runtime performance without changing the output
 
+## Local follow-up — 22 October 2026
+
+The NES PPU can now run late without changing what the CPU observes. On NTSC
+boards without a PPU-address IRQ counter, a CPU-clocked cartridge device,
+MMC5 or the Zapper, PPU edges are counted and executed afterwards in their
+original order. This covers NROM, UxROM, CNROM, AxROM, MMC2/MMC4, Color Dreams
+and similar boards, plus MMC1 with up to 256 KiB of PRG ROM. The edges run just
+before anything can observe them:
+
+- a PPU register or cartridge access;
+- the dot that sets or clears vblank (/NMI);
+- the next dot after a `$2002` read that clears vblank;
+- the end of a frame, a quick-state save or a state hash.
+
+MMC1's A12 hook still runs on every deferred dot, and its RAM bank is
+synchronized before RAM accesses and RAM-code guards.
+
+Deferred runs take unrolled 8-dot background tiles, sprite-slot fetches and
+prefetch tiles. When no sprite unit can output during a tile, they use a
+background-only pixel. PAL, the Zapper and the other boards keep the eager
+clock but share the visible-scanline dot pair. MSVC builds apply link-time code
+generation to the small machine core only, not to the generated 6502 code.
+
+Checks:
+
+- `tools/nes_ppu_selftest.py` adds an NTSC configuration without the Zapper,
+  in which mappers 0 and 2 use the deferred clock. It now covers 67,200
+  checkpoints in three configurations.
+- The previous converter and the new one built 18 existing cartridge
+  projects. These span 13 mapper identities, PAL, the Zapper and
+  battery-saved boards, with saves cleared before each run. Every project
+  produced byte-identical per-frame CPU, memory and hidden-hardware hashes and
+  PCM on two 600-frame input routes and a boot run, both natively and with
+  `--interp-only`.
+
+Measured host time, with identical traces:
+
+| Game | Machine and build | Before | After |
+|---|---|---|---|
+| Battletoads, deferred clock | Windows, Ryzen 9 3900X, one pinned core, 1,500 frames with audio | 14.07 s | 5.06 s |
+| Kirby's Adventure, MMC3, eager clock | same | 11.53 s | 9.71 s |
+| Super Mario Bros. | Debian AMD A4-5000, GCC LTO and PGO export build, 1,200 frames with audio | 19.45 s | 11.16 s |
+
+These are host costs on the measured routes. They are not gameplay
+qualification, hardware-fidelity evidence or a physical latency result. NES
+quick states from earlier builds are rejected because the state ABI changed.
+MMC3 and the other PPU-watching boards would need IRQ-time prediction to use
+the deferred clock.
+
 ## Local follow-up — 18 October 2026
 
 NES now selects the first ready opaque sprite from the existing byte-local
@@ -70,8 +119,8 @@ The pixel corpus compares 30,475,712 pixels, 2,097,152 plane extractions,
 implementations. The original Master System line renderer is retained under
 `tests/fixtures/presentation` as the comparison oracle. The separate SNES
 corpus checks 16,777,216 tile pixels and 7,864,320 resolved pixels. NES checks
-44,800 hidden-state/video/audio/bus checkpoints over eight mapper identities,
-four CPU alignments and PAL/NTSC. Audio schedule checks retain their full
+67,200 hidden-state/video/audio/bus checkpoints over eight mapper identities,
+four CPU alignments, PAL/NTSC and the deferred PPU clock. Audio schedule checks retain their full
 timelines; small machines receive a longer test timeout rather than less work.
 
 On the tested x86-64 machines, the isolated Master System row workload takes

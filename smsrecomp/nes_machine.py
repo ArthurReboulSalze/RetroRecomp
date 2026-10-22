@@ -58,6 +58,33 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
         )
         for old, new in pairs:
             source = replace_once(source, old, new)
+        # Deferred PPU edges (nes_ppu_lazy.inc): counted here, run in order
+        # before anything can observe them. NMI sampling keeps its tick.
+        source = replace_once(source, '    if (q == 0) ppu_dot();\n    else if (q == 2) ppu_half_dot();',
+            '    if (rr_ppu_lazy) { if (q == 0 || q == 2) rr_ppu_edges(1); }\n'
+            '    else if (q == 0) ppu_dot();\n    else if (q == 2) ppu_half_dot();')
+        source = replace_once(source, 'static void run_ticks_1_to_11(void)\n{\n',
+            'static void run_ticks_1_to_11(void)\n{\n'
+            '    if (rr_ppu_lazy) {\n'
+            '        unsigned odd = hw.align & 1;\n'
+            '        rr_ppu_edges(1 + odd); sample_nmi();      /* 4 */\n'
+            '        rr_ppu_edges(2 - odd); apu_sample_irq();  /* 7 */\n'
+            '        rr_ppu_edges(2 + odd);\n'
+            '        return;\n'
+            '    }\n')
+        source = replace_once(source, '    if (hw.align == 0) ppu_dot();\n    else if (hw.align == 2) ppu_half_dot();\n    clock_cpu_devices();',
+            '    if (rr_ppu_lazy) { if (!(hw.align & 1)) rr_ppu_edges(1); }\n'
+            '    else if (hw.align == 0) ppu_dot();\n    else if (hw.align == 2) ppu_half_dot();\n    clock_cpu_devices();')
+        # Cartridge accesses can change what the PPU fetches.
+        source = replace_once(source, 'uint8_t hw_bus_read(uint16_t addr)\n{\n',
+            'uint8_t hw_bus_read(uint16_t addr)\n{\n    if (addr >= 0x4020 && addr < 0x8000) rr_ppu_sync();\n')
+        source = replace_once(source, 'void hw_bus_write(uint16_t addr, uint8_t value)\n{\n',
+            'void hw_bus_write(uint16_t addr, uint8_t value)\n{\n    if (addr >= 0x4020) rr_ppu_sync();\n')
+        source = replace_once(source, '    hw.tick = 1;\n}\n', '    hw.tick = 1;\n    rr_ppu_lazy_reset();\n}\n')
+        for signature in ('const uint16_t *cyc_frame_index(void) {', 'const uint32_t *cyc_frame_argb(void)\n{',
+                          'uint64_t cyc_mem_state_hash(void)\n{', 'void cyc_mem_state_dump(void *file)\n{',
+                          'uint64_t cyc_hw_state_hash(void)\n{', 'void cyc_hw_state_dump(void *file)\n{'):
+            source = replace_once(source, signature, signature + '\n    rr_ppu_sync();')
     return source + '\n#include "nes_machine_state.inc"\n'
 
 
@@ -131,10 +158,29 @@ static void shift_sprites(void)
                 '    } else if (rr_ppu_steady) {\n        ' + steady + '();\n    } else {\n        ' +
                 general + '();\n        if (!rendering()) dot_kind = DOT_UNKNOWN;\n'
                 '        else rr_ppu_steady = rr_ppu_can_steady();')
+        source = replace_once(source, '/* ---- registers ---- */',
+                              '#include "nes_ppu_lazy.inc"\n\n/* ---- registers ---- */')
+        for name, call in (('uint8_t ppu_read(uint16_t addr)', 'uint8_t value = read_register(addr);'),
+                           ('void ppu_write(uint16_t addr, uint8_t value)', 'write_register(addr, value);')):
+            source = replace_once(source,
+                f'{name}\n{{\n    dot_kind = DOT_UNKNOWN;\n    {call}\n    dot_kind = DOT_UNKNOWN;\n',
+                f'{name}\n{{\n    rr_ppu_access_begin();\n    dot_kind = DOT_UNKNOWN;\n    {call}\n'
+                '    dot_kind = DOT_UNKNOWN;\n    rr_ppu_access_end();\n')
+        source = replace_once(source, '    memset(&ppu, 0, sizeof(ppu));\n    sm_rest = false;',
+                              '    rr_ppu_lazy_stop();\n    memset(&ppu, 0, sizeof(ppu));\n    sm_rest = false;')
         source += '''
 void ppu_dot(void) { rr_step_dot(); }
 void ppu_half_dot(void) { rr_step_half(); }
-void rr_ppu_dot_half(void) { rr_step_dot(); rr_step_half(); }
+void rr_ppu_dot_half(void)
+{
+    /* Eager boards also take the visible-scanline pair when it applies. */
+    if (dot_kind == DOT_GENERAL && rr_ppu_steady && ppu.scanline < 240 && ppu.dot != 340) {
+        rr_ppu_visible_pair();
+        return;
+    }
+    rr_step_dot();
+    rr_step_half();
+}
 void rr_ppu_half_dot(void) { rr_step_half(); rr_step_dot(); }
 '''
     source += '''
@@ -143,7 +189,7 @@ void rr_nes_ppu_aux_load(const uint8_t *b) { sm_rest = b[0] != 0; dot_kind = b[1
 '''
     if fast_ppu:
         source = source.replace('dot_kind = b[1]; }',
-            'dot_kind = b[1]; rr_ppu_steady = dot_kind == DOT_GENERAL && rr_ppu_can_steady(); }')
+            'dot_kind = b[1]; rr_ppu_steady = dot_kind == DOT_GENERAL && rr_ppu_can_steady(); rr_ppu_lazy_reset(); }')
     return source
 
 
@@ -295,7 +341,19 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
                     '    uint8_t  pal_bus_pending; /* New bus cycle before cycle-count commit. */\n    uint8_t  tick;')
                 data = text.encode('utf-8')
                 if fast_ppu:
-                    data += b'\nvoid rr_ppu_dot_half(void);\nvoid rr_ppu_half_dot(void);\n'
+                    data += b'''
+void rr_ppu_dot_half(void);
+void rr_ppu_half_dot(void);
+/* Deferred PPU edges (nes_ppu_lazy.inc). */
+extern unsigned rr_ppu_due, rr_ppu_room;
+extern bool rr_ppu_lazy;
+void rr_ppu_flush(void);
+void rr_ppu_lazy_reset(void);
+static inline void rr_ppu_edges(unsigned n) { rr_ppu_due += n; if (rr_ppu_due >= rr_ppu_room) rr_ppu_flush(); }
+static inline void rr_ppu_sync(void) { if (rr_ppu_due) rr_ppu_flush(); }
+'''
+                else:
+                    data += b'\nstatic inline void rr_ppu_sync(void) {}\n'
             elif name == 'runner/cyc/hw_apu.c':
                 data = _apu(data.decode('utf-8'), fast_audio=fast_audio).encode('utf-8')
             elif name == 'runner/cyc/hw_palette.c':
@@ -325,6 +383,10 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
                 data = _interpreter(data.decode('utf-8')).encode('utf-8')
             elif name == 'runner/cyc/cyc_run.c':
                 data = _run(data.decode('utf-8')).encode('utf-8')
+                # The host observes the whole machine between frames.
+                data = replace_once(data.decode('utf-8'),
+                    '            else cyc_run_interp_other_cycles += took;\n        }\n    }\n}',
+                    '            else cyc_run_interp_other_cycles += took;\n        }\n    }\n    rr_ppu_sync();\n}').encode('utf-8')
             elif name == 'runner/cyc/vendor/emu2413/emu2413.c':
                 data += b'''
 unsigned rr_opll_wave_index(const OPLL_SLOT *slot) {
@@ -352,7 +414,7 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     identity = hashlib.sha256()
     for name, data in sorted(transformed.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
-    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_sprite_shift.h'):
+    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_shift.h'):
         identity.update((ASSETS / 'native' / name).read_bytes())
     _write(root / 'runner/cyc/nes_state_abi.h',
            f'#define RR_NES_STATE_ABI "{identity.hexdigest()}"\n'.encode('ascii'))

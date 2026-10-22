@@ -20,6 +20,8 @@ bool rr_nes_rom_bank4(uint16_t pc, unsigned *bank) {
  * an entry. Only the explicitly modelled plain RAM windows are eligible. */
 bool rr_nes_ram_peek(uint16_t pc, uint8_t *value) {
     if (pc < 0x2000) { *value = hw.ram[pc & 0x7FF]; return true; }
+    /* A deferred MMC1 A12 can still select the RAM bank. */
+    if (hw_cart.watch_ppu_addr && pc < 0x8000) rr_ppu_sync();
     if (hw_cart.mapper == 5 && pc >= 0x6000) {
         uint32_t offset = pc < 0x8000 ? mmc5_ram_bank(hw_cart.m.mmc5.prg[0]) | (pc & 8191) :
             hw_cart.prg_off[(pc >> 12) & 7] | (pc & 4095);

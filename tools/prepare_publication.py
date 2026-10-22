@@ -188,7 +188,7 @@ native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/nes_windows_checks.c tools/nes_windows_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
-native/nes_ppu_fast.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py
+native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py
 tools/nes_state_selftest.py
 smsrecomp/nes_machine.py smsrecomp/nes_catalog.py smsrecomp/nes_optimization.py
 smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
