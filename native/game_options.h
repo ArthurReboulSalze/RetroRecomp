@@ -51,10 +51,11 @@ static void rr_options_init(const wchar_t *console) {
         for (int j = 0; j < i; ++j) if (rr_options.key[j] == key) duplicate = true;
         if (key > 0 && key < SDL_NUM_SCANCODES && !duplicate) {rr_options.key[i] = key; ++count;}
     }
-    if (count < 2) memset(rr_options.key, 0, sizeof rr_options.key);
+    /* One key or a combination; the one-second hold guards a stray press. */
+    if (!count) memset(rr_options.key, 0, sizeof rr_options.key);
     unsigned mask = (unsigned)rr_ini_int(rr_options.section, L"quit_pad", 0, rr_options.file);
     mask &= (1u << SDL_CONTROLLER_BUTTON_MAX) - 1u;
-    if (mask && (mask & (mask - 1u))) rr_options.pad = (int)mask;
+    if (mask) rr_options.pad = (int)mask;
 }
 
 static bool rr_options_store(const wchar_t *entry, int value) {
@@ -120,14 +121,13 @@ static void rr_options_observe(const SDL_Event *e) {
 }
 
 static void rr_options_capture_done(void) {
-    if (rr_options.capture == 1 && rr_options.count >= 2) {
+    if (rr_options.capture == 1 && rr_options.count) {
         const wchar_t *entries[] = {L"quit_key0", L"quit_key1", L"quit_key2"};
         for (int i = 0; i < 3; ++i)
             if (rr_options_store(entries[i], rr_options.pending_key[i])) rr_options.key[i] = rr_options.pending_key[i];
-    } else if (rr_options.capture == 2 && rr_options.pending_pad &&
-            (rr_options.pending_pad & (rr_options.pending_pad - 1u))) {
+    } else if (rr_options.capture == 2 && rr_options.pending_pad) {
         if (rr_options_store(L"quit_pad", (int)rr_options.pending_pad)) rr_options.pad = (int)rr_options.pending_pad;
-    } else snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("Use at least two buttons"));
+    } else snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr("Press a control..."));
     rr_options.capture = 0;
     rr_options.suppressed = 1;
 }
@@ -232,7 +232,7 @@ static void rr_options_draw(SDL_Renderer *renderer) {
     rr_options.renderer = renderer;
     int x, y, scale; rr_menu_layout(renderer, &x, &y, &scale);
     rr_menu_begin(renderer, x, y, scale);
-#define RR_OPT_TEXT(px,py,t) rr_menu_text(renderer,x,y,scale,px,py,rr_tr(t),233,239,247)
+#define RR_OPT_TEXT(px,py,t) rr_menu_text(renderer,x,y,scale,px,py,rr_tr(t),RR_MENU_GOLD)
     RR_OPT_TEXT(14, 15, "Retro-Recomp - Options");
     const char *modes[] = {"Off", "Light", "Soft"};
     char lines[4][100];
@@ -241,8 +241,8 @@ static void rr_options_draw(SDL_Renderer *renderer) {
     snprintf(lines[2], 100, "%s: %s", rr_tr("Quit: gamepad"), rr_tr(rr_options.pad ? "Configured" : "Unassigned"));
     snprintf(lines[3], 100, "%s", rr_tr("Close"));
     for (int i = 0; i < 4; ++i) {
-        if (i == rr_options.row) rr_menu_box(renderer,x,y,scale,12,38+i*22,232,20,40,63,81,255);
-        rr_menu_text(renderer,x,y,scale,16,43+i*22,lines[i],233,239,247);
+        if (i == rr_options.row) rr_menu_box(renderer,x,y,scale,12,38+i*22,232,20,RR_MENU_SELECT,255);
+        rr_menu_text(renderer,x,y,scale,16,43+i*22,lines[i],RR_MENU_GOLD);
     }
     RR_OPT_TEXT(14, 134, rr_options.capture ? "Press combo, then release" : "Hold quit combo for 1 second");
     RR_OPT_TEXT(14, 146, rr_options.capture ? "Esc: cancel binding" : "Enter / A: change | X: clear");

@@ -362,7 +362,7 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_path_io.h', 'neogeo_sprite_decode.h',
                  'console16_host_ui.c', 'console16_state.c', 'console16_state.h',
                  'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h',
-                 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
+                 'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
                  'xbr_filter.h', 'scale2x.h', 'gun16.h'):
         write_changed(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
     # miniz expects UTF-8 on Windows, whereas narrow CRT argv used the active

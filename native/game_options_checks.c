@@ -99,6 +99,23 @@ static void chords(void) {
     memset(&e,0,sizeof e);e.type=SDL_WINDOWEVENT;e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;
     rr_options_event(&e,&menu,false,true);assert(!rr_options_quit(menu));
     rr_options_init(L"Fixture");assert(rr_options.pad);
+    /* A single key or button is a quit binding too, still held one second. */
+    key(SDL_SCANCODE_F10,1);key(SDL_SCANCODE_F10,0);assert(menu==RR_OPTIONS_MENU);
+    rr_options.row=1;key(SDL_SCANCODE_RETURN,1);key(SDL_SCANCODE_RETURN,0);assert(rr_options.capture);
+    key(SDL_SCANCODE_END,1);key(SDL_SCANCODE_END,0);
+    assert(!rr_options.capture && rr_options.key[0]==SDL_SCANCODE_END && !rr_options.key[1]);
+    rr_options.row=2;button(8,SDL_CONTROLLER_BUTTON_A,1);button(8,SDL_CONTROLLER_BUTTON_A,0);
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    assert(!rr_options.capture && rr_options.pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
+    key(SDL_SCANCODE_ESCAPE,1);key(SDL_SCANCODE_ESCAPE,0);assert(!menu);
+    now_ms=7000;assert(!rr_options_quit(menu));
+    key(SDL_SCANCODE_END,1);assert(!rr_options_quit(menu));
+    now_ms=7999;assert(!rr_options_quit(menu));now_ms=8000;assert(rr_options_quit(menu));
+    key(SDL_SCANCODE_END,0);assert(!rr_options_quit(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);now_ms=9000;assert(!rr_options_quit(menu));
+    now_ms=10000;assert(rr_options_quit(menu));button(8,SDL_CONTROLLER_BUTTON_BACK,0);
+    rr_options_init(L"Fixture");
+    assert(rr_options.key[0]==SDL_SCANCODE_END && rr_options.pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
     rr_remove(rr_options.file);
 }
 static void pads(void) {
@@ -129,5 +146,5 @@ int main(void) {
     assert(image);assert(SDL_RenderReadPixels(ren,NULL,image->format->format,image->pixels,image->pitch)==0);
     assert(SDL_SaveBMP(image,"options.bmp")==0);SDL_FreeSurface(image);
     rr_menu_shutdown();SDL_DestroyRenderer(ren);SDL_DestroyWindow(win);SDL_Quit();
-    puts("PASS: byte-exact audio bypass, optional tone filters, persistent chords, focus/disconnect and virtual controller.");return 0;
+    puts("PASS: byte-exact audio bypass, optional tone filters, persistent single keys/buttons and chords, focus/disconnect and virtual controller.");return 0;
 }

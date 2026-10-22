@@ -220,6 +220,27 @@ empty private libraries, passes two 2,400-frame native/reference comparisons,
 and resumes fresh-process states after 2,100 frames. Cached dependencies are
 reused; this verifies sharing of exact-ROM hints, not cold-toolchain speed.
 
+## HDMA while the CPU is parked (Donkey Kong Country palettes)
+
+HDMA requested at h=1104 during the CPU's last bus cycles waits for the CPU's
+next bus edge. When that instruction parked the CPU on `WAI` (DKC's main loop
+at `$80:80F5`), no edge followed, and the frame driver walked parked time on
+to the next scanline's refresh (h=538) before servicing it. DKC's two HDMA
+channels then wrote colours 0 and 1 mid-line; the CGRAM bus model correctly
+redirected those writes to the colour being fetched, so jungle background
+palettes drifted towards light tiles over time. A parked CPU has no next edge:
+`rr_snes_parked_hdma()` (`native/snes_bus.inc`) now gives the bus to HDMA where
+the beam stands, before `advance_parked` and before the frame driver pays beam
+debt. Running CPUs keep the edge handshake.
+
+Evidence: a 5,000-frame DKC route had mid-line CGRAM redirections at frames
+2919, 3434, 4107, 4183 and 4934, none after the change; video is identical up
+to frame 2919, and audio differs only by a few cycles of APU phase (same sample
+count and peak). The HDMA, DMA, bus, PPU-bus and scheduler checks pass; DKC
+converts with 0 interpreted opcodes and a matching reference. The issue existed
+since 1.0.0; quick states saved before the fix keep the damaged palettes until
+the game reloads them.
+
 ## Camera projection and first HDMA line
 
 DSP-1 camera projection now separates the original camera normal from the

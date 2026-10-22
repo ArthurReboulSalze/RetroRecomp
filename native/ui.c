@@ -92,7 +92,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
     ui_layout(r, &ox, &oy, &unit);
     rr_menu_begin(r, ox, oy, unit);
     text(r, 14, 15, kind == 4 ? "Retro-Recomp - Light Phaser" : kind == 1 ? TR("Retro-Recomp - Help", "Retro-Recomp - Aide") : kind == 3 ? "Retro-Recomp - Pause" :
-        TR("Retro-Recomp - Controls", "Retro-Recomp - Commandes"), 38, 215, 255);
+        TR("Retro-Recomp - Controls", "Retro-Recomp - Commandes"), RR_MENU_ACCENT);
     if (kind == 4) {
         char lines[3][48];
         const char *shape = controls.phaser_shape == PHASER_DOT ? TR("Dot", "Point") : TR("Cross", "Croix");
@@ -104,47 +104,44 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         for (int i = 0; i < 3; ++i) {
             int y = 34 + i*24;
             box(r, 14, y, 226, 22, i == row ? 40 : 14, i == row ? 63 : 35, i == row ? 81 : 58, 255);
-            text(r, 22, y+5, "<", 38, 215, 255); text(r, 48, y+5, lines[i], 233, 239, 247);
-            text(r, 224, y+5, ">", 38, 215, 255);
+            text(r, 22, y+5, "<", RR_MENU_ACCENT); text(r, 48, y+5, lines[i], RR_MENU_GOLD);
+            text(r, 224, y+5, ">", RR_MENU_ACCENT);
         }
         ui_phaser_reticle(r, ox + 128*unit, oy + 119*unit, unit);
-        text(r, 14, 135, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), 233, 239, 247);
-        text(r, 14, 147, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), 233, 239, 247);
-        text(r, 14, 159, TR("Up/Down: row | Left/Right: change", "Haut/Bas : ligne | Gauche/Droite"), 157, 173, 194);
-        text(r, 14, 173, TR("F10 / Esc: close | Shared settings", "F10 / Echap : fermer | Reglages communs"), 157, 173, 194);
+        text(r, 14, 135, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), RR_MENU_GOLD);
+        text(r, 14, 147, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), RR_MENU_GOLD);
+        text(r, 14, 159, TR("Up/Down: row | Left/Right: change", "Haut/Bas : ligne | Gauche/Droite"), RR_MENU_HINT);
+        text(r, 14, 173, TR("F10 / Esc: close | Shared settings", "F10 / Echap : fermer | Reglages communs"), RR_MENU_HINT);
     } else if (kind == 3) {
-        text(r, 14, 62, TR("Game paused", "Jeu en pause"), 233, 239, 247);
-        text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), 233, 239, 247);
-        text(r, 14, 118, TR("F1: restart", "F1 : redemarrer"), 157, 173, 194);
-#ifndef RETRO_GAME_GEAR
+        text(r, 14, 62, TR("Game paused", "Jeu en pause"), RR_MENU_GOLD);
+        text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), RR_MENU_GOLD);
+        text(r, 14, 118, TR("F1: restart", "F1 : redemarrer"), RR_MENU_HINT);
         char sprites[64];
         snprintf(sprites, sizeof(sprites), TR("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
             controls.reduce_sprite_flicker ? "ON" : "OFF");
-        text(r, 14, 140, sprites, 157, 173, 194);
-#else
-        text(r, 14, 140, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), 157, 173, 194);
+        text(r, 14, 140, sprites, RR_MENU_HINT);
+#ifdef RETRO_GAME_GEAR
+        text(r, 14, 152, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
 #endif
-        text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
+        text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), RR_MENU_HINT);
     } else if (kind == 1) {
         char autofire[64];
         snprintf(autofire, sizeof(autofire), TR("F6  Autofire: %s", "F6  Tir auto : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
         const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
-#ifndef RETRO_GAME_GEAR
             TR("F5  Reduce sprite flicker", "F5  Reduire le scintillement"),
-#endif
             autofire, "F7  Next language",
             TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             TR("P / Enter  Pause", "P / Entree  Pause"),
             rr_feedback_label(),
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
-            text(r, 14, 31 + 11 * i, lines[i], 233, 239, 247);
-        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F10: options", "Gun : souris/clic gauche | F10 : options"), 38, 215, 255);
+            text(r, 14, 31 + 11 * i, lines[i], RR_MENU_GOLD);
+        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F10: options", "Gun : souris/clic gauche | F10 : options"), RR_MENU_ACCENT);
 #ifdef RETRO_GAME_GEAR
-        text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), 38, 215, 255);
+        text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), RR_MENU_ACCENT);
 #endif
-        text(r, 14, 174, TR("O: options | H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+        text(r, 14, 174, TR("O: options | H / Esc: close", "H / Echap: fermer"), RR_MENU_HINT);
         rr_menu_build_footer(r, ox, oy, unit);
     } else {
 #ifdef RETRO_GAME_GEAR
@@ -152,24 +149,24 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 #else
         char heading[64]; snprintf(heading, sizeof(heading), TR("Player %d  [Left/Right: P1/P2]", "Joueur %d  [Gauche/Droite : J1/J2]"), player + 1);
 #endif
-        text(r, 14, 30, heading, 233, 239, 247);
+        text(r, 14, 30, heading, RR_MENU_GOLD);
 #ifdef RETRO_GAME_GEAR
-        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys]", "Manette [Tab:clavier]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), 157, 173, 194);
+        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys]", "Manette [Tab:clavier]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), RR_MENU_HINT);
 #else
-        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys | C:swap]", "Manette [Tab:clavier | C:inverser]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), 157, 173, 194);
+        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys | C:swap]", "Manette [Tab:clavier | C:inverser]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), RR_MENU_HINT);
 #endif
         for (int i = 0; i < controls_action_count(player); ++i) {
-            if (i == row) box(r, 12, 58 + 12 * i, 232, 12, 40, 63, 81, 255);
+            if (i == row) box(r, 12, 58 + 12 * i, 232, 12, RR_MENU_SELECT, 255);
             char line[100];
             const char *binding = gamepad ? button_name(controls.buttons[player][i]) : key_name(controls.keys[player][i]);
             snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', controls_label(i), capture && i == row ? TR("Press...", "Appuie...") : rr_tr(binding));
             text(r, 14, 59 + 12 * i, line, i == row ? 83 : 233, i == row ? 216 : 239, i == row ? 202 : 247);
         }
         const char *hint = gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");
-        text(r, 14, 157, status && *status ? status : hint, 233, 239, 247);
+        text(r, 14, 157, status && *status ? status : hint, RR_MENU_GOLD);
         text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
             sms_light_phaser ? TR("G/F10: gun | Up/Down: select", "G/F10 : gun | Haut/Bas : choisir") :
-            TR("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
+            TR("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), RR_MENU_HINT);
     }
     rr_menu_end(r);
 }
@@ -177,15 +174,15 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 void ui_toast(SDL_Renderer *r, const char *message) {
     ui_layout(r, &ox, &oy, &unit);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    box(r, 8, 173, 240, 14, 19, 27, 42, 235);
-    text(r, 13, 175, message, 233, 239, 247);
+    box(r, 8, 173, 240, 14, RR_MENU_PANEL_RGB, 235);
+    text(r, 13, 175, message, RR_MENU_GOLD);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }
 
 void ui_status(SDL_Renderer *r, const char *message) {
     ui_layout(r, &ox, &oy, &unit);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-    box(r, 8, 5, 240, 14, 19, 27, 42, 235);
-    text(r, 13, 7, message, 255, 209, 110);
+    box(r, 8, 5, 240, 14, RR_MENU_PANEL_RGB, 235);
+    text(r, 13, 7, message, RR_MENU_ACCENT);
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 }

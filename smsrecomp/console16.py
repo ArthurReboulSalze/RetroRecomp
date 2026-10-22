@@ -93,7 +93,7 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
-    for name in ('retro_console16.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'runtime_glyphs.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
     native = project / 'native'
     native.mkdir(exist_ok=True)
@@ -203,7 +203,7 @@ find_package(SDL2 REQUIRED)
         from .megadrive_audio import bridge
         (native / 'recomp_audio_drc.h').write_text(bridge(
             (engine / 'runner/recomp_audio_drc.h').read_text(encoding='utf-8')), encoding='utf-8')
-        for name in ('md_audio_loop.inc', 'md_audio_resample.inc', 'md_audio_mix.h'):
+        for name in ('md_audio_loop.inc', 'md_audio_resample.inc', 'md_audio_mix.h', 'audio_cushion.h'):
             shutil.copy2(ASSETS / 'native' / name, native / name)
         sources = ['fiber_compat.c', 'crash_report.c', 'chip_trace.c', 'cmd_server_stub.c',
                    *([] if step_aot else ['rb_state.c']),

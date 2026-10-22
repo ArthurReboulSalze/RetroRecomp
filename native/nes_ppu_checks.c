@@ -18,6 +18,40 @@ static uint64_t hash_bytes(const void *data,size_t size){
     uint64_t h=14695981039346656037ULL;const unsigned char *p=data;
     while(size--)h=(h^*p++)*1099511628211ULL;return h;
 }
+#if RR_NES_FAST_PPU
+void rr_nes_extra_sprites(bool enabled);
+/* Twelve 8x8 objects on one line: the original units show the first eight;
+ * the host option adds the others only on screen. Hidden PPU state, the
+ * overflow flag and every bus fetch are the same with and without it. */
+static int extra_sprites_check(void){
+    uint64_t state[2];uint16_t line[2][256];
+    for(int on=0;on<2;on++){
+        cyc_power_on(0);cyc_run_power_on();rr_nes_extra_sprites(on!=0);
+        if(!hw_cart.chr||hw_cart.chr_len<0x20)return 5;
+        memset(hw_cart.chr,0,hw_cart.chr_len);memset(hw_cart.chr+0x10,0xff,8);
+        memset(ppu.ciram,0,sizeof(ppu.ciram));memset(ppu.palette,0,sizeof(ppu.palette));
+        ppu.palette[0]=0x0f;ppu.palette[0x11]=0x16;
+        memset(ppu.oam,0xf8,sizeof(ppu.oam));
+        for(unsigned n=0;n<12;n++){ppu.oam[n*4]=49;ppu.oam[n*4+1]=1;ppu.oam[n*4+2]=0;ppu.oam[n*4+3]=(uint8_t)(n*16);}
+        for(unsigned k=0;k<2*29781;k++)(void)cpu_read(0,0); /* power-up register warm-up */
+        cpu_write(0x2000,0,0);cpu_write(0x2001,0x1e,0);
+        for(unsigned k=0;k<3*29781;k++)(void)cpu_read(0,0);
+        state[on]=cyc_hw_state_hash()^hash_bytes(&ppu,sizeof(ppu));
+        for(unsigned x=0;x<256;x++)line[on][x]=hw_frame_index[52*256+x];
+    }
+    rr_nes_extra_sprites(false);
+    for(unsigned x=0;x<256;x++){
+        bool object=(x&15)<8; /* eight-pixel objects every sixteen pixels */
+        uint16_t original=object&&x<128?0x16:0x0f,extra=object&&x<192?0x16:0x0f;
+        if(line[0][x]!=original||line[1][x]!=extra){
+            fprintf(stderr,"x=%u off=%02x on=%02x\n",x,line[0][x],line[1][x]);return 6;
+        }
+    }
+    if(state[0]!=state[1])return 7;
+    puts("PASS: objects 9-12 shown only with the option; hidden PPU state, overflow and fetches unchanged.");
+    return 0;
+}
+#endif
 int main(int argc,char **argv){
     unsigned mapper=argc>1?(unsigned)atoi(argv[1]):0;
     size_t prg=mapper==0?32768:mapper==153?524288:65536,size=16+prg;
@@ -30,6 +64,9 @@ int main(int argc,char **argv){
         rom[pos+4091]=rom[pos+4093]=rom[pos+4095]=0x80;
     }
     if(!cyc_load_ines(rom,size))return 3;free(rom);cyc_run_native=false;
+#if RR_NES_FAST_PPU
+    if(argc>2&&!strcmp(argv[2],"extra"))return extra_sprites_check();
+#endif
     uint8_t *audio_state=malloc(rr_nes_apu_size());if(!audio_state)return 4;
     static const uint16_t audio_regs[]={
         0x4000,0x4001,0x4002,0x4003,0x4004,0x4005,0x4006,0x4007,

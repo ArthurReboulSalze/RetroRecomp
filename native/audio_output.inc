@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "stereo_fir.h"
+#include "audio_cushion.h"
 
 #define RR_AUDIO_RING_FRAMES 8192u
 #define RR_AUDIO_TARGET_MS 21u /* Cover one PAL frame plus the device period. */
@@ -30,6 +31,7 @@ static struct {
     uint32_t source_rate, phase, history_pos;
     int16_t history[RR_AUDIO_TAPS * 2];
     float coefficients[RR_AUDIO_PHASES][RR_AUDIO_TAPS];
+    RrAudioCushion cushion;
 } rr_audio;
 
 static uint32_t audio_ms_frames(uint32_t ms) {
@@ -91,28 +93,34 @@ static void SDLCALL audio_callback(void *unused, Uint8 *output, int bytes) {
     if (taken < wanted) {
         rr_audio.underrun += wanted - taken;
         rr_audio.started = false; /* Re-prime after a real CPU/device stall. */
-    }
+        rr_cushion_gap(&rr_audio.cushion);
+    } else rr_cushion_clean(&rr_audio.cushion, taken, (Uint32)rr_audio.device.freq);
 }
 
 /* Main thread only. Serialization also makes trimming the oldest PCM safe. */
 static void audio_push(const int16_t *samples, uint32_t count) {
     if (!count) return;
     SDL_LockAudioDevice(audio_device);
+    rr_cushion_pushed(&rr_audio.cushion);
+    uint32_t extra = rr_cushion_frames(&rr_audio.cushion, (Uint32)rr_audio.device.freq);
     if (!rr_audio.started && !rr_audio.fill) {
         uint64_t frequency = RR_AUDIO_FREQUENCY();
         rr_audio.start_counter = RR_AUDIO_COUNTER() +
             ((uint64_t)rr_audio.device.samples * frequency + rr_audio.device.freq - 1) / rr_audio.device.freq +
-            (frequency * RR_AUDIO_JITTER_MS + 999u) / 1000u;
+            (frequency * (RR_AUDIO_JITTER_MS + (uint32_t)rr_cushion_ms(&rr_audio.cushion)) + 999u) / 1000u;
     }
     rr_audio.produced += count;
-    if (rr_audio.fill + count > rr_audio.high_water) {
-        uint32_t discard = rr_audio.fill + count - rr_audio.keep;
+    uint32_t keep = SDL_min(RR_AUDIO_RING_FRAMES / 2u, rr_audio.keep + extra);
+    if (rr_audio.fill + count > SDL_min(RR_AUDIO_RING_FRAMES, rr_audio.high_water + extra)) {
+        uint32_t discard = rr_audio.fill + count - keep;
         uint32_t old = SDL_min(discard, rr_audio.fill);
         audio_discard(old);
         discard -= old;
         samples += discard * 2u;
         count -= discard;
         rr_audio.dropped += discard;
+        /* A device that stalled while playing: same jitter evidence as a gap. */
+        if (rr_audio.started) rr_cushion_gap(&rr_audio.cushion);
     }
     uint32_t first = SDL_min(count, RR_AUDIO_RING_FRAMES - rr_audio.write);
     memcpy(rr_audio.pcm + rr_audio.write * 2u, samples, first * 2u * sizeof(int16_t));
@@ -229,7 +237,9 @@ void host_audio_submit(const int16_t *samples, size_t count) {
 void host_audio_shutdown(void) {
     if (!audio_device) return;
     SDL_CloseAudioDevice(audio_device); audio_device = 0;
-    fprintf(stderr, "[host] audio produced=%llu played=%llu trimmed=%llu underrun=%llu peak=%u frames\n",
+    fprintf(stderr, "[host] audio produced=%llu played=%llu trimmed=%llu underrun=%llu peak=%u frames"
+        " reserve=+%d ms (raised %d times)\n",
         (unsigned long long)rr_audio.produced, (unsigned long long)rr_audio.played,
-        (unsigned long long)rr_audio.dropped, (unsigned long long)rr_audio.underrun, rr_audio.peak);
+        (unsigned long long)rr_audio.dropped, (unsigned long long)rr_audio.underrun, rr_audio.peak,
+        rr_cushion_ms(&rr_audio.cushion), SDL_AtomicGet(&rr_audio.cushion.raises));
 }

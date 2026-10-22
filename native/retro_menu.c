@@ -91,7 +91,7 @@ const char *rr_menu_build_label(void) { return "Retro-Recomp v" RR_RECOMP_VERSIO
 void rr_menu_build_footer(SDL_Renderer *renderer, int ox, int oy, int unit) {
     const char *label = rr_menu_build_label();
     int width = (int)strlen(label) * GW;
-    rr_menu_text(renderer, ox, oy, unit, 242 - width, 174, label, 157, 173, 194);
+    rr_menu_text(renderer, ox, oy, unit, 242 - width, 174, label, RR_MENU_HINT);
 }
 
 bool rr_menu_init(SDL_Renderer *renderer) {
@@ -193,9 +193,8 @@ void rr_menu_text(SDL_Renderer *r, int ox, int oy, int unit,
 void rr_menu_begin(SDL_Renderer *r, int ox, int oy, int unit) {
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, 0, 0, 0, 180); SDL_RenderFillRect(r, NULL);
-    rr_menu_box(r, ox, oy, unit, 6, 6, 244, 180, 7, 23, 50, 255);
-    rr_menu_box(r, ox, oy, unit, 6, 6, 122, 2, 170, 102, 255, 255);
-    rr_menu_box(r, ox, oy, unit, 128, 6, 122, 2, 38, 215, 255, 255);
+    rr_menu_box(r, ox, oy, unit, 6, 6, 244, 180, RR_MENU_PANEL_RGB, 255);
+    rr_menu_box(r, ox, oy, unit, 6, 6, 244, 2, RR_MENU_GOLD, 255);
 }
 
 void rr_menu_end(SDL_Renderer *r) { SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE); }

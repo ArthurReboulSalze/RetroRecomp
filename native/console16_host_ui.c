@@ -16,6 +16,7 @@
 #include "retro_console16.h"
 #include "retro_menu.h"
 #include "game_options.h"
+#include "audio_cushion.h"
 #include "runtime_feedback_sdl.h"
 #include "retro_keyboard.h"
 #include "autofire.h"
@@ -345,7 +346,7 @@ static void draw_menu(SDL_Renderer *ren) {
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
     rr_menu_begin(ren, ox, oy, unit);
-#define RR16_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,230,240,250)
+#define RR16_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,RR_MENU_GOLD)
     RR16_TEXT(15, menu == 1 ? tr("RetroRecomp - Help", "RetroRecomp - Aide") :
          menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") :
          menu == 4 ? tr("RetroRecomp - Gun", "RetroRecomp - Pistolet") : "RetroRecomp - Pause");
@@ -389,7 +390,7 @@ static void draw_menu(SDL_Renderer *ren) {
                  gamepad_page ? tr("Gamepad", "Manette") : tr("Keyboard", "Clavier"));
         RR16_TEXT(38, line);
         for (int a = (row / 8) * 8; a < ACTIONS && a < (row / 8) * 8 + 8; ++a) {
-            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + (a % 8) * 13, 232, 12, 35, 74, 110, 255);
+            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + (a % 8) * 13, 232, 12, RR_MENU_SELECT, 255);
             const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
                 rr_keyboard_name(keys[player][a]);
             snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
@@ -402,7 +403,7 @@ static void draw_menu(SDL_Renderer *ren) {
         const char *colors[] = {rr_tr("Red"),rr_tr("White"),rr_tr("Green")};
         const int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
         for (int i = 0; i < rows; ++i) {
-            if (row == i) rr_menu_box(ren, ox, oy, unit, 12, 49 + 23 * i, 232, 20, 35, 74, 110, 255);
+            if (row == i) rr_menu_box(ren, ox, oy, unit, 12, 49 + 23 * i, 232, 20, RR_MENU_SELECT, 255);
             if (i == 0) snprintf(line, sizeof line, "%s: %s", tr("Shape", "Forme"), gun_shape ? tr("Dot", "Point") : tr("Cross", "Croix"));
             if (i == 1) snprintf(line, sizeof line, "%s: %d", tr("Size", "Taille"), gun_size);
             if (i == 2) snprintf(line, sizeof line, "%s: %s", tr("Color", "Couleur"), colors[gun_color]);
@@ -500,6 +501,8 @@ int rr16_sdl_main(const char *title, int scale) {
      * This is output priming only; the guest DSP buffer is unchanged. */
     Uint32 audio_preroll = ((Uint32)(have.freq * RR16_FRAME_SECONDS) + have.samples) * 4;
     bool audio_playing = false;
+    /* Starts at +0 ms; grows only when a period finds the queue empty. */
+    RrAudioCushion cushion = {0};
     open_pads();
     const Uint64 frequency = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
@@ -525,9 +528,10 @@ int rr16_sdl_main(const char *title, int scale) {
          * SDL drains whole device periods. Keep a guest frame plus one such
          * period before starting work: a fixed 20 ms threshold could lose
          * 10.7 ms in one callback and leave too little for a costly frame. */
+        Uint32 audio_target = audio_preroll + rr_cushion_frames(&cushion, (Uint32)have.freq) * 4;
         if (audio && audio_playing && !menu) {
             Uint64 until = SDL_GetTicks64() + 20;
-            while (SDL_GetQueuedAudioSize(audio) > audio_preroll && SDL_GetTicks64() < until)
+            while (SDL_GetQueuedAudioSize(audio) > audio_target && SDL_GetTicks64() < until)
                 SDL_Delay(1);
         }
 #if RR16_NG
@@ -669,9 +673,17 @@ int rr16_sdl_main(const char *title, int scale) {
             int16_t pcm[4096]; size_t n = rr16_audio(pcm, 4096);
             if (n && audio) {
                 rr_options_audio(pcm, (unsigned)(n / 2), 2, false, have.freq);
+                /* Only our pushes refill the queue: empty now means the device
+                 * ran dry since the last frame. Re-prime with a larger reserve. */
+                if (audio_playing && !SDL_GetQueuedAudioSize(audio)) {
+                    if (rr_cushion_gap(&cushion))
+                        audio_target = audio_preroll + rr_cushion_frames(&cushion, (Uint32)have.freq) * 4;
+                    SDL_PauseAudioDevice(audio, 1); audio_playing = false;
+                } else if (audio_playing) rr_cushion_clean(&cushion, (Uint32)(n / 2), (Uint32)have.freq);
+                rr_cushion_pushed(&cushion);
                 if (SDL_QueueAudio(audio, pcm, (Uint32)(n * sizeof(int16_t))) != 0) {
                     SDL_CloseAudioDevice(audio); audio = 0; audio_playing = false;
-                } else if (!audio_playing && SDL_GetQueuedAudioSize(audio) >= audio_preroll) {
+                } else if (!audio_playing && SDL_GetQueuedAudioSize(audio) >= audio_target) {
                     SDL_PauseAudioDevice(audio, 0); audio_playing = true;
                 }
             }
@@ -700,7 +712,7 @@ int rr16_sdl_main(const char *title, int scale) {
         draw_menu(ren);
         if (!menu && status[0] && SDL_GetTicks64() < status_until) {
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
-            rr_menu_text(ren, ox, oy, unit, 8, 183, status, 240, 240, 240);
+            rr_menu_text(ren, ox, oy, unit, 8, 183, status, RR_MENU_GOLD);
         }
 #if RR16_NG
         rr_ng_ui_test_present(ren);
@@ -723,7 +735,7 @@ int rr16_sdl_main(const char *title, int scale) {
              * making the DSP run ahead. Retain the normal video deadline
              * whenever the device queue has enough sound. */
             Uint32 queued = SDL_GetQueuedAudioSize(audio);
-            Uint64 spare = queued > audio_preroll ? queued - audio_preroll : 0;
+            Uint64 spare = queued > audio_target ? queued - audio_target : 0;
             Uint64 audio_deadline = now + spare * frequency / ((Uint64)have.freq * 4);
             if (next > audio_deadline) next = audio_deadline;
         }
@@ -754,6 +766,9 @@ int rr16_sdl_main(const char *title, int scale) {
     }
     rr_host_timing_write(timing_path,&timing,ren,frequency);
     rr_feedback_close_screen(ren);
+    if (audio && SDL_AtomicGet(&cushion.raises))
+        fprintf(stderr, "[host] audio reserve=+%d ms (raised %d times); physical latency unmeasured\n",
+            rr_cushion_ms(&cushion), SDL_AtomicGet(&cushion.raises));
     if (audio) SDL_CloseAudioDevice(audio);
     for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);

@@ -10,9 +10,9 @@ static void rr_feedback_close_screen(SDL_Renderer *renderer) {
         int x,y,unit;rr_menu_layout(renderer,&x,&y,&unit);
         SDL_RenderSetViewport(renderer,NULL);
         SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
-        rr_menu_box(renderer,x,y,unit,4,144,248,40,20,20,20,245);
-        rr_menu_text(renderer,x,y,unit,12,153,"Saving fallback hints...",245,245,245);
-        rr_menu_text(renderer,x,y,unit,12,168,"for the next recompilation...",210,210,210);
+        rr_menu_box(renderer,x,y,unit,4,144,248,40,RR_MENU_PANEL_RGB,245);
+        rr_menu_text(renderer,x,y,unit,12,153,"Saving fallback hints...",RR_MENU_GOLD);
+        rr_menu_text(renderer,x,y,unit,12,168,"for the next recompilation...",RR_MENU_HINT);
         rr_menu_end(renderer);SDL_RenderPresent(renderer);
     }
     rr_feedback_finish();

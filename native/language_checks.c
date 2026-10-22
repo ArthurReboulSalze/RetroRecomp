@@ -8,13 +8,13 @@
 #include <string.h>
 #include "retro_menu.h"
 int main(int argc,char **argv) {
-    const char *codes[]={"en","fr","it","es","de","zh","ja","ru"};
+    const char *codes[]={"en","fr","it","es","de"};
     assert(rr_language_from_code("fr-CA")==1);
-    assert(rr_language_from_code("ja_JP")==6);
+    assert(rr_language_from_code("ja_JP")==0); /* converter-only languages fall back to English */
     assert(rr_language_from_code("french")==0);
     assert(rr_menu_text_width("ABC")==18);
-    assert(rr_menu_text_width("\344\270\255\346\226\207")==16);
-    assert(rr_menu_text_width("\320\257")==4);
+    assert(rr_menu_text_width("\344\270\255\346\226\207")==12); /* no CJK/Cyrillic glyphs: one cell each */
+    assert(rr_menu_text_width("\320\257")==6);
     assert(rr_menu_text_width("\303\251")==6);
     assert(rr_menu_text_width("\342")==6);
     SDL_SetMainReady();assert(SDL_Init(SDL_INIT_VIDEO)==0);

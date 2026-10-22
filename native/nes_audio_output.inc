@@ -7,6 +7,7 @@
 #define RR_NES_AUDIO_RATE 48000u
 #define RR_NES_AUDIO_RING 8192u
 #define RR_NES_AUDIO_MARGIN_MS 30u
+#include "audio_cushion.h"
 static struct {
     SDL_AudioDeviceID id;
     SDL_AudioSpec spec;
@@ -14,6 +15,7 @@ static struct {
     uint32_t read, write, fill, keep, limit, peak;
     uint64_t deadline, produced, played, dropped, missing, startup_silence;
     bool started;
+    RrAudioCushion cushion;
 } nes_audio;
 
 static void SDLCALL nes_audio_callback(void *unused, Uint8 *stream, int bytes) {
@@ -66,29 +68,35 @@ static void SDLCALL nes_audio_callback(void *unused, Uint8 *stream, int bytes) {
         nes_audio.missing += wanted - take;
         nes_audio.started = false;
         nes_audio.deadline = 0;
-    }
+        rr_cushion_gap(&nes_audio.cushion);
+    } else rr_cushion_clean(&nes_audio.cushion, take, RR_NES_AUDIO_RATE);
 }
 
 static void nes_audio_submit(const int16_t *pcm, uint32_t count) {
     if (!nes_audio.id || !count) return;
     SDL_LockAudioDevice(nes_audio.id);
+    rr_cushion_pushed(&nes_audio.cushion);
+    uint32_t extra = rr_cushion_frames(&nes_audio.cushion, RR_NES_AUDIO_RATE);
     if (!nes_audio.started && !nes_audio.fill) {
         uint64_t frequency = RR_NES_AUDIO_FREQUENCY();
         nes_audio.deadline = RR_NES_AUDIO_COUNTER() +
             ((uint64_t)nes_audio.spec.samples * frequency + RR_NES_AUDIO_RATE - 1) / RR_NES_AUDIO_RATE +
-            (frequency * RR_NES_AUDIO_MARGIN_MS + 999u) / 1000u;
+            (frequency * (RR_NES_AUDIO_MARGIN_MS + (uint32_t)rr_cushion_ms(&nes_audio.cushion)) + 999u) / 1000u;
     }
     nes_audio.produced += count;
     /* Normal PAL/NTSC bursts must never discard a whole guest frame. Only
      * trim exceptional catch-up backlogs, retaining the newest timeline. */
-    if ((uint64_t)nes_audio.fill + count > nes_audio.limit) {
-        uint32_t discard = nes_audio.fill + count - nes_audio.keep;
+    uint32_t keep = SDL_min(RR_NES_AUDIO_RING / 2u, nes_audio.keep + extra);
+    if ((uint64_t)nes_audio.fill + count > SDL_min(RR_NES_AUDIO_RING, nes_audio.limit + extra)) {
+        uint32_t discard = nes_audio.fill + count - keep;
         uint32_t old = SDL_min(discard, nes_audio.fill);
         nes_audio.read = (nes_audio.read + old) % RR_NES_AUDIO_RING;
         nes_audio.fill -= old;
         discard -= old;
         pcm += discard; count -= discard;
         nes_audio.dropped += old + discard;
+        /* A device that stalled while playing: same jitter evidence as a gap. */
+        if (nes_audio.started) rr_cushion_gap(&nes_audio.cushion);
     }
     uint32_t first = SDL_min(count, RR_NES_AUDIO_RING - nes_audio.write);
     memcpy(nes_audio.pcm + nes_audio.write, pcm, first * sizeof(*pcm));
@@ -111,6 +119,11 @@ static void nes_audio_clear(void) {
 }
 
 static void nes_audio_close(void) {
+    if (nes_audio.id && nes_audio.produced)
+        fprintf(stderr, "[host] audio produced=%llu played=%llu missing=%llu trimmed=%llu reserve=+%d ms (raised %d times)\n",
+            (unsigned long long)nes_audio.produced, (unsigned long long)nes_audio.played,
+            (unsigned long long)nes_audio.missing, (unsigned long long)nes_audio.dropped,
+            rr_cushion_ms(&nes_audio.cushion), SDL_AtomicGet(&nes_audio.cushion.raises));
     if (nes_audio.id) SDL_CloseAudioDevice(nes_audio.id);
     nes_audio.id = 0;
 }

@@ -10,6 +10,13 @@ extern "C" {
 #endif
 
 /* Shared 256 x 192 pixel menu canvas for every generated console runtime. */
+/* Converter identity (smsrecomp/branding.py): near-black panels and gold
+ * lettering in every console menu. Colors only: no texture, font or asset. */
+#define RR_MENU_PANEL_RGB 18, 18, 18
+#define RR_MENU_GOLD 239, 198, 79    /* titles and ordinary lines */
+#define RR_MENU_HINT 196, 160, 72    /* key hints and secondary lines */
+#define RR_MENU_ACCENT 255, 222, 128 /* emphasis: guns, cartridge Start, notices */
+#define RR_MENU_SELECT 81, 68, 42    /* selected row, as in the converter lists */
 /* Stored IDs remain stable: sharp=0, xBR=1, Scale2x=2, scanlines=3.
  * F3 presents xBR last without changing an existing saved preference. */
 static inline int rr_menu_next_filter(int filter) {

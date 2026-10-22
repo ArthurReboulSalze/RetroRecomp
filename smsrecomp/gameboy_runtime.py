@@ -68,6 +68,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('autofire.h', project / 'runtime/include/autofire.h'),
         ('game_options.h', project / 'runtime/include/game_options.h'),
         ('audio_filter.h', project / 'runtime/include/audio_filter.h'),
+        ('audio_cushion.h', project / 'runtime/include/audio_cushion.h'),
         ('retro_keyboard.h', project / 'runtime/include/retro_keyboard.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
         ('font6x10.h', project / 'runtime/src/font6x10.h'),

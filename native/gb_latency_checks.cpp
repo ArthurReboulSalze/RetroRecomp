@@ -73,6 +73,9 @@ static void audio_checks() {
     for (int i = 0; i < 512; ++i) assert(pcm[i * 2] == i + 512 && pcm[i * 2 + 1] == -i - 512);
     sdl_audio_callback(NULL, (Uint8*)pcm, sizeof(pcm));
     for (int16_t sample : pcm) assert(sample == 0);
+    // The guest had just produced PCM: one adaptive restart step, no more.
+    assert(rr_cushion_ms(&g_rr_cushion) == RR_CUSHION_STEP_MS);
+    g_rr_cushion = RrAudioCushion{};
 
     reset_audio_output_buffer(false);
     g_audio_started = true;
@@ -101,6 +104,7 @@ static void audio_deadline_checks() {
     for (unsigned period : {256u, 441u, 480u, 512u, 1024u}) {
         for (unsigned phase = 0; phase < 16; ++phase) {
             reset_audio_output_buffer(false);
+            g_rr_cushion = RrAudioCushion{}; // Base latency, before any learned reserve.
             g_audio_device_sample_rate = AUDIO_SAMPLE_RATE;
             g_audio_device_buffer_samples = period;
             recompute_audio_targets();

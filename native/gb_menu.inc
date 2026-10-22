@@ -85,12 +85,13 @@ static void rr_gb_draw_menu(void) {
     int ox, oy, unit;
     rr_menu_layout(g_renderer, &ox, &oy, &unit);
     rr_menu_begin(g_renderer, ox, oy, unit);
-#define RR_TEXT(x, y, label, r, g, b) rr_menu_text(g_renderer, ox, oy, unit, x, y, label, r, g, b)
-#define RR_BOX(x, y, w, h, r, g, b, a) rr_menu_box(g_renderer, ox, oy, unit, x, y, w, h, r, g, b, a)
+/* Variadic: colors are RR_MENU_* triplets, expanded after argument counting. */
+#define RR_TEXT(x, y, label, ...) rr_menu_text(g_renderer, ox, oy, unit, x, y, label, __VA_ARGS__)
+#define RR_BOX(x, y, w, h, ...) rr_menu_box(g_renderer, ox, oy, unit, x, y, w, h, __VA_ARGS__)
     const char* heading = g_rr_menu_kind == RR_GB_HELP ? rr_gb_tr("Retro-Recomp - Help", "Retro-Recomp - Aide") :
         g_rr_menu_kind == RR_GB_PAUSE ? "Retro-Recomp - Pause" :
         rr_gb_tr("Retro-Recomp - Controls", "Retro-Recomp - Commandes");
-    RR_TEXT(14, 15, heading, 38, 215, 255);
+    RR_TEXT(14, 15, heading, RR_MENU_GOLD);
     if (g_rr_menu_kind == RR_GB_HELP) {
         char autofire[48];
         snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Autofire: %s", "F6  Tir auto : %s"), rr_tr(g_rr_autofire ? "ON" : "OFF"));
@@ -108,24 +109,24 @@ static void rr_gb_draw_menu(void) {
             rr_gb_tr("Gamepad menu: Guide button", "Menu manette : bouton Guide"),
         };
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
-            RR_TEXT(14, 29 + 12 * i, lines[i], 233, 239, 247);
-        RR_TEXT(14, 174, rr_gb_tr("O: options | H / Esc: close", "H / Echap: fermer"), 157, 173, 194);
+            RR_TEXT(14, 29 + 12 * i, lines[i], RR_MENU_GOLD);
+        RR_TEXT(14, 174, rr_gb_tr("O: options | H / Esc: close", "H / Echap: fermer"), RR_MENU_HINT);
         rr_menu_build_footer(g_renderer, ox, oy, unit);
     } else if (g_rr_menu_kind == RR_GB_PAUSE) {
-        RR_TEXT(14, 62, rr_gb_tr("Game paused", "Jeu en pause"), 233, 239, 247);
-        RR_TEXT(14, 90, rr_gb_tr("P: resume", "P : reprendre"), 233, 239, 247);
-        RR_TEXT(14, 118, rr_gb_tr("F1: restart", "F1 : redemarrer"), 157, 173, 194);
-        RR_TEXT(14, 140, rr_gb_tr("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), 157, 173, 194);
+        RR_TEXT(14, 62, rr_gb_tr("Game paused", "Jeu en pause"), RR_MENU_GOLD);
+        RR_TEXT(14, 90, rr_gb_tr("P: resume", "P : reprendre"), RR_MENU_GOLD);
+        RR_TEXT(14, 118, rr_gb_tr("F1: restart", "F1 : redemarrer"), RR_MENU_HINT);
+        RR_TEXT(14, 140, rr_gb_tr("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
         RR_TEXT(14, 152, has_interpreter_activity(g_registered_ctx) ?
             rr_gb_tr("Interpreter fallback used", "Secours interprete utilise") :
-            rr_gb_tr("Native code", "Code natif"), 255, 209, 110);
-        RR_TEXT(14, 164, rr_gb_tr("H: help | F2: controls", "H : aide | F2 : commandes"), 157, 173, 194);
+            rr_gb_tr("Native code", "Code natif"), RR_MENU_ACCENT);
+        RR_TEXT(14, 164, rr_gb_tr("H: help | F2: controls", "H : aide | F2 : commandes"), RR_MENU_HINT);
     } else {
-        RR_TEXT(14, 30, rr_gb_tr("Game Boy controls", "Commandes Game Boy"), 233, 239, 247);
+        RR_TEXT(14, 30, rr_gb_tr("Game Boy controls", "Commandes Game Boy"), RR_MENU_GOLD);
         RR_TEXT(14, 43, g_rr_bind_gamepad ? rr_gb_tr("Gamepad [Tab:keys]", "Manette [Tab:clavier]") :
-            rr_gb_tr("Keyboard [Tab:gamepad]", "Clavier [Tab:manette]"), 157, 173, 194);
+            rr_gb_tr("Keyboard [Tab:gamepad]", "Clavier [Tab:manette]"), RR_MENU_HINT);
         for (int row = 0; row < 8; ++row) {
-            if (row == g_rr_menu_row) RR_BOX(12, 58 + 12 * row, 232, 12, 40, 63, 81, 255);
+            if (row == g_rr_menu_row) RR_BOX(12, 58 + 12 * row, 232, 12, RR_MENU_SELECT, 255);
             const GBInputAction action = rr_gb_actions[row];
             const GBInputBinding& binding = g_rr_bind_gamepad ? g_controller_bindings[action][0] : g_keyboard_bindings[action][0];
             const std::string name = binding_display_label(binding);
@@ -138,9 +139,9 @@ static void rr_gb_draw_menu(void) {
         }
         RR_TEXT(14, 157, g_rr_status_until > SDL_GetTicks() ? g_rr_status :
             g_rr_bind_gamepad && g_controller_name.empty() ? rr_gb_tr("No gamepad connected", "Aucune manette connectee") :
-            rr_gb_tr("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts"), 233, 239, 247);
+            rr_gb_tr("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts"), RR_MENU_GOLD);
         RR_TEXT(14, 171, g_binding_capture_active ? rr_gb_tr("Esc: cancel binding", "Echap : annuler l'attribution") :
-            rr_gb_tr("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), 157, 173, 194);
+            rr_gb_tr("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), RR_MENU_HINT);
     }
 #undef RR_TEXT
 #undef RR_BOX
@@ -153,8 +154,8 @@ static void rr_gb_draw_status(void) {
     int ox, oy, unit;
     rr_menu_layout(g_renderer, &ox, &oy, &unit);
     SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_BLEND);
-    rr_menu_box(g_renderer, ox, oy, unit, 8, 173, 240, 14, 19, 27, 42, 235);
-    rr_menu_text(g_renderer, ox, oy, unit, 13, 175, g_rr_status, 233, 239, 247);
+    rr_menu_box(g_renderer, ox, oy, unit, 8, 173, 240, 14, RR_MENU_PANEL_RGB, 235);
+    rr_menu_text(g_renderer, ox, oy, unit, 13, 175, g_rr_status, RR_MENU_GOLD);
     rr_menu_end(g_renderer);
 }
 

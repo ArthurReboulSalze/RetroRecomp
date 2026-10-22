@@ -8,7 +8,8 @@ keyboard displays W in F2. Unsaved letter defaults also follow that layout.
 Saved mappings keep their physical key positions; changing the UI language
 does not change the keyboard layout or overwrite custom controls.
 The NES profile shares the menu canvas, F8/F9 quick states and display modes.
-F5 opens Zapper options on recognised gun games. See [NES controls](NES.md).
+Zapper options are a page of F2 (press Tab) on recognised gun games, which
+frees F5 for extra sprites on every NES game. See [NES controls](NES.md).
 On qualified Mega Drive and SNES gun profiles, F5 opens the same cross/dot,
 size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 
@@ -18,10 +19,10 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F2 | Control mappings |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
-| F5 | Master System: toggle sprite flicker reduction; Neo Geo: toggle enhanced mode |
+| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
-| F7 | Next menu language: EN → FR → IT → ES → DE → ZH → JA → RU |
+| F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | F10 | Game options; on Master System gun games this retains Light Phaser options |
@@ -44,12 +45,12 @@ Esc/B, or click a row with the mouse.
   latency and personal listening preferences still require real-device tests.
   They do not replace each console's existing chip behavior or resampling.
 - **Quit: keyboard / gamepad:** select a row, release the activation button,
-  press the desired combination together, then release it. At least two buttons
-  are required; keyboard combinations accept up to three keys. Each controller
+  press a single key or button, or the desired combination together, then
+  release it. Keyboard combinations accept up to three keys. Each controller
   combination belongs to one controller, not buttons split between players.
   Both are unassigned by default. Delete/Backspace or controller X clears the
   selected combination; Esc cancels capture.
-- **Hold the combination for one second** to quit through the normal shutdown
+- **Hold the key, button or combination for one second** to quit through the normal shutdown
   path, preserving ordinary saves and shutdown-only fallback hints. Configured
   quit buttons take priority over host pause/reset shortcuts; cartridge inputs
   otherwise retain their usual behavior. Focus loss or disconnect cancels an
@@ -149,8 +150,19 @@ original eight slots. The choice is shared by Master System games in
 an optional display enhancement, not a recompilation coverage setting. It cannot
 restore sprites a game deliberately leaves out. Stabilization can change which
 overlapping character appears in front; ambiguous identities, raster rewrites
-and lasting priority changes retain cartridge ordering. Game Gear retains its
-own original sprite limit.
+and lasting priority changes retain cartridge ordering. Game Gear uses the same
+renderer and option, saved in `[GameGear.Video] reduce_sprite_flicker`.
+
+On NES, **F5** draws objects 9 to 64 of a scanline where none of the eight
+original sprite units is opaque, in OAM order and with their own background
+priority. Secondary OAM, the overflow flag, sprite-0 hit, OAM, PPU bus fetches
+and mapper counters/latches are unchanged: extra patterns are read from the
+mapped CHR window without a bus access. MMC5 keeps the original limit. The
+choice is saved in `[NES.Video] reduce_sprite_flicker`; off by default.
+
+All console menus share the converter's identity: near-black panels, gold
+lettering and its brown-gold selection, defined once in `native/retro_menu.h`
+(colours only, no new asset in games).
 
 The first fullscreen mode keeps integer pixel sizes. Press F4 again for the
 largest image that fits the display while preserving the visible game's

@@ -75,7 +75,7 @@ Linux games request VSync by default, keeping the console's clock limiter.
 `SDL_RENDER_VSYNC=0` is an explicit diagnostic override. Window managers and
 display drivers still determine physical presentation; a renderer flag alone
 does not prove tear-free output. Menus retain a fine 6x10 ASCII bitmap font and
-add a small glyph atlas for eight languages. The converter uses process-private
+add a small accented-Latin glyph atlas for the five game languages. The converter uses process-private
 font subsets; it does not install system fonts. See [languages](LANGUAGES.md).
 
 Cover lookup and offline reuse share the Windows pipeline. Source usage caches

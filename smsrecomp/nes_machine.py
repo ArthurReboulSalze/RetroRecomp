@@ -141,6 +141,25 @@ static void shift_sprites(void)
         ? rr_nes_sprite_first(ppu.spr_x,ppu.spr_lo,ppu.spr_hi,ppu.skipped_dot!=0) : 8u;
     if (i < 8) {
         uint8_t sc = (uint8_t)((ppu.spr_lo[i] >> 7) | ((ppu.spr_hi[i] >> 7) << 1));''')
+        # Host-only extra sprite units (F5): prepared after the original units
+        # were loaded for the next scanline, composed only behind them.
+        source = replace_once(source, 'static void eval_load(void)\n{',
+            '#include "nes_sprite_extra.inc"\nstatic void eval_load(void)\n{')
+        source = replace_once(source, '''    if (ppu.ale && !ppu.rd) ppu.octal_latch = (uint8_t)ppu.vbus;
+}
+
+static void sprite_evaluation(void)''', '''    if (ppu.ale && !ppu.rd) ppu.octal_latch = (uint8_t)ppu.vbus;
+    if (ppu.dot == 320) rr_xs_prepare();
+}
+
+static void sprite_evaluation(void)''')
+        source = replace_once(source, '''            pal = (uint8_t)((ppu.spr_attr[i] & 3) | 4);
+        }
+    }
+    uint8_t addr;''', '''            pal = (uint8_t)((ppu.spr_attr[i] & 3) | 4);
+        }
+    } else if (rr_xs.count) rr_xs_pixel(&color, &pal);
+    uint8_t addr;''')
         source = replace_once(source, 'void ppu_dot(void)\n{',
             '#include "nes_ppu_fast.inc"\nHW_ALWAYS_INLINE void rr_step_dot(void)\n{')
         source = replace_once(source, 'void ppu_half_dot(void)\n{',
@@ -414,7 +433,7 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
     identity = hashlib.sha256()
     for name, data in sorted(transformed.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
-    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_shift.h'):
+    for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_extra.inc', 'nes_sprite_shift.h'):
         identity.update((ASSETS / 'native' / name).read_bytes())
     _write(root / 'runner/cyc/nes_state_abi.h',
            f'#define RR_NES_STATE_ABI "{identity.hexdigest()}"\n'.encode('ascii'))

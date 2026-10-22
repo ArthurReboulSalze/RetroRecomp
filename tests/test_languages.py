@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from smsrecomp.i18n import STRINGS, catalog, tr
-from smsrecomp.languages import LANGUAGES, LANGUAGE_NAMES, language_code, language_name
+from smsrecomp.languages import GAME_LANGUAGES, LANGUAGES, LANGUAGE_NAMES, language_code, language_name
 from smsrecomp.paths import ASSETS, save_game_language
 
 
@@ -24,6 +24,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_stable_codes_and_persistent_shared_setting(self):
         self.assertEqual(len(LANGUAGES),8)
+        self.assertEqual(GAME_LANGUAGES,('en','fr','it','es','de'))
         self.assertEqual(language_code('ja-JP'),'ja')
         self.assertEqual(language_code('zh_CN'),'zh')
         self.assertEqual(language_code('invalid'),'en')
@@ -34,7 +35,9 @@ class LanguageTests(unittest.TestCase):
                 data=(output/'datas/Retro-Recomp.ini').read_bytes()
                 # Win32 may choose UTF-16 once another entry contains Unicode.
                 text=data.decode('utf-16') if data[:2] in (b'\xff\xfe',b'\xfe\xff') else data.decode('utf-8-sig')
-                self.assertIn('language='+code,text.replace(' = ','='))
+                # Generated games carry the Latin-script languages only.
+                expected=code if code in GAME_LANGUAGES else 'en'
+                self.assertIn('language='+expected,text.replace(' = ','='))
                 self.assertTrue(language_name(code))
             with self.assertRaises(ValueError):save_game_language(output,'xx')
 
@@ -42,12 +45,17 @@ class LanguageTests(unittest.TestCase):
         values={c:catalog(c)['runtime'] for c in LANGUAGES[1:]}
         spec=lambda s:re.findall(r'%(?!%)[-+ #0]*\d*(?:\.\d+)?(?:ll|[hlz])?[diuoxXfFeEgGcs]',s)
         glyphs=(ASSETS/'native/runtime_glyphs.inc').read_text(encoding='ascii')
+        catalogue=(ASSETS/'native/runtime_catalog.inc').read_text(encoding='ascii')
+        self.assertIn('rr_language_codes[5] = {"en","fr","it","es","de"}',catalogue)
         points={int(x) for x in re.findall(r'\{(\d+),\d+,\d+\}',glyphs)}
         for code,rows in values.items():
             self.assertEqual(set(rows),set(values['fr']),code)
             for english,text in rows.items():
                 self.assertEqual(spec(english),spec(text),(code,english))
-                self.assertTrue({ord(c) for c in text if ord(c)>=127}<=points,(code,text))
+                if code in GAME_LANGUAGES:
+                    self.assertTrue({ord(c) for c in text if ord(c)>=127}<=points,(code,text))
+        # No CJK or Cyrillic table is baked into generated games any more.
+        self.assertTrue(all(point<0x370 for point in points),sorted(points))
 
     def test_process_font_subsets_are_small_and_valid(self):
         coverage=json.loads((ASSETS/'assets/font-coverage.json').read_text(encoding='ascii'))

@@ -194,6 +194,7 @@
     "Enter / A: change | X: clear": "Entrée / A : modifier | X : effacer",
     "Esc / B: close": "Échap / B : fermer",
     "O: options | H / Esc: close": "O : options | H / Échap : fermer",
-    "O / Guide: options | Esc: close": "O / Guide : options | Échap : fermer"
+    "O / Guide: options | Esc: close": "O / Guide : options | Échap : fermer",
+    "F2 + Tab: Zapper options": "F2 + Tab : options du Zapper"
   }
 }

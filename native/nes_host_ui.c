@@ -45,7 +45,8 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
 static SDL_GameController *pads[2];
 static RrAutofire fire_state[2][2];
 static wchar_t ini_file[32768], data_dir[32768];
-static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire;
+static int menu, player, row, gamepad_page, capturing, filter, fullscreen, french, autofire, extra_sprites;
+void rr_nes_extra_sprites(bool enabled);
 static char status[80];
 static Uint64 status_until;
 static int gun_x = -1, gun_y = -1, gun_shape, gun_size = 3, gun_color;
@@ -83,6 +84,8 @@ static void load_bindings(void) {
     rr_ini_get(L"Interface", L"language", L"en", language, 12, ini_file);
     french = rr_language_from_wide(language); rr_language_set(french);
     autofire = rr_ini_int(L"Manettes", L"autofire", 0, ini_file) != 0;
+    extra_sprites = rr_ini_int(L"NES.Video", L"reduce_sprite_flicker", 0, ini_file) == 1;
+    rr_nes_extra_sprites(extra_sprites != 0);
     gun_shape = rr_ini_int(L"NES.Zapper", L"shape", 0, ini_file) == 1;
     gun_size = (int)rr_ini_int(L"NES.Zapper", L"size", 3, ini_file);
     if (gun_size < 1 || gun_size > 8) gun_size = 3;
@@ -196,7 +199,7 @@ static void draw_menu(SDL_Renderer *ren) {
     if (!menu) return;
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
     rr_menu_begin(ren, ox, oy, unit);
-#define RR_NES_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,230,240,250)
+#define RR_NES_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,RR_MENU_GOLD)
     RR_NES_TEXT(15, menu == 1 ? tr("RetroRecomp - Help", "RetroRecomp - Aide") :
          menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") : "RetroRecomp - Pause");
     if (menu == 1) {
@@ -208,9 +211,13 @@ static void draw_menu(SDL_Renderer *ren) {
         RR_NES_TEXT(122, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
         RR_NES_TEXT(134, rr_feedback_label());
         RR_NES_TEXT(146, tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"));
+        char sprites[64];
+        snprintf(sprites, sizeof(sprites), tr("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
+                 extra_sprites ? "ON" : "OFF");
+        RR_NES_TEXT(96, sprites);
         if (RR_NES_ZAPPER) {
             RR_NES_TEXT(160, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
-            RR_NES_TEXT(96, tr("F5 Zapper options", "F5 Options du Zapper"));
+            RR_NES_TEXT(172, tr("F2 + Tab: Zapper options", "F2 + Tab : options du Zapper"));
         }
     } else if (menu == 2 && gamepad_page == 2) {
         char line[96];
@@ -220,7 +227,7 @@ static void draw_menu(SDL_Renderer *ren) {
         for (int a = 0; a < 3; a++) {
             char size[16]; snprintf(size, sizeof(size), "%d", gun_size);
             const char *value = a == 0 ? (gun_shape ? tr("Dot", "Point") : tr("Cross", "Croix")) : a == 1 ? size : colors[gun_color];
-            if (row == a) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 23, 232, 20, 35, 74, 110, 255);
+            if (row == a) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 23, 232, 20, RR_MENU_SELECT, 255);
             snprintf(line, sizeof(line), "%c %s: %s", row == a ? '>' : ' ', labels[a], value);
             RR_NES_TEXT(58 + a * 23, line);
         }
@@ -231,7 +238,7 @@ static void draw_menu(SDL_Renderer *ren) {
                  rr_tr(gamepad_page ? "Gamepad" : "Keyboard"));
         RR_NES_TEXT(38, line);
         for (int a = 0; a < ACTIONS; ++a) {
-            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 13, 232, 12, 35, 74, 110, 255);
+            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 13, 232, 12, RR_MENU_SELECT, 255);
             const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
                 rr_keyboard_name(keys[player][a]);
             snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
@@ -332,8 +339,15 @@ int cyc_sdl_main(const char *title, int scale) {
             } else if (key == SDL_SCANCODE_F4) {
                 int changed=rr_display_cycle(win,&fullscreen,ini_file,data_dir,L"NES.Video");
                 if (changed<0) snprintf(status,sizeof(status),"%s",tr("Config unavailable","Config inaccessible"));
-            } else if (key == SDL_SCANCODE_F5 && RR_NES_ZAPPER) {
-                menu = 2; gamepad_page = 2; row = capturing = 0;
+            } else if (key == SDL_SCANCODE_F5) {
+                /* Host-only extra sprites; the Zapper options stay in F2 (Tab). */
+                extra_sprites = !extra_sprites; rr_nes_extra_sprites(extra_sprites != 0);
+                snprintf(status, sizeof(status), "%s", extra_sprites ?
+                    tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
+                    tr("Original console sprite limit", "Limite de sprites de la console"));
+                status_until = SDL_GetTicks64() + 1800;
+                if (!rr_display_save(ini_file, data_dir, L"NES.Video", L"reduce_sprite_flicker", extra_sprites))
+                    snprintf(status, sizeof(status), "%s", tr("Config unavailable", "Config inaccessible"));
             } else if (key == SDL_SCANCODE_F6) {
                 autofire = !autofire;
                 memset(fire_state,0,sizeof fire_state);
@@ -404,7 +418,7 @@ int cyc_sdl_main(const char *title, int scale) {
         draw_menu(ren);
         if (!menu && status[0] && SDL_GetTicks64() < status_until) {
             int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
-            rr_menu_text(ren, ox, oy, unit, 8, 183, status, 240, 240, 240);
+            rr_menu_text(ren, ox, oy, unit, 8, 183, status, RR_MENU_GOLD);
         }
         SDL_RenderPresent(ren);
         Uint64 now = SDL_GetPerformanceCounter();

@@ -488,6 +488,7 @@
     "Enter / A: change | X: clear": "Enter / A：変更 | X：消去",
     "Esc / B: close": "Esc / B：閉じる",
     "O: options | H / Esc: close": "O：設定 | H / Esc：閉じる",
-    "O / Guide: options | Esc: close": "O / Guide：設定 | Esc：閉じる"
+    "O / Guide: options | Esc: close": "O / Guide：設定 | Esc：閉じる",
+    "F2 + Tab: Zapper options": "F2 + Tab：Zapper 設定"
   }
 }

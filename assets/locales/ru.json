@@ -488,6 +488,7 @@
     "Enter / A: change | X: clear": "Enter / A: менять | X: очистить",
     "Esc / B: close": "Esc / B: закрыть",
     "O: options | H / Esc: close": "O: настройки | H / Esc: закрыть",
-    "O / Guide: options | Esc: close": "O / Guide: настройки | Esc: закрыть"
+    "O / Guide: options | Esc: close": "O / Guide: настройки | Esc: закрыть",
+    "F2 + Tab: Zapper options": "F2 + Tab: настройки Zapper"
   }
 }

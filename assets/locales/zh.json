@@ -488,6 +488,7 @@
     "Enter / A: change | X: clear": "回车 / A：修改 | X：清除",
     "Esc / B: close": "Esc / B：关闭",
     "O: options | H / Esc: close": "O：选项 | H / Esc：关闭",
-    "O / Guide: options | Esc: close": "O / Guide：选项 | Esc：关闭"
+    "O / Guide: options | Esc: close": "O / Guide：选项 | Esc：关闭",
+    "F2 + Tab: Zapper options": "F2 + Tab：Zapper 设置"
   }
 }

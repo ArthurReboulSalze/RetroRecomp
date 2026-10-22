@@ -35,6 +35,15 @@ void rr_snes_dma_request(Dma *dma,uint8_t mask) {
   if(dma->rrCpuContext)dma->rrDmaRequest=mask;
   else rr_snes_dma_run(dma,mask); // direct hardware fixtures/non-CPU clients
 }
+/* HDMA raised in the CPU's last bus cycle waits for its next edge. A CPU
+ * parked on WAI or a poll has none: HDMA takes the bus where the beam stands,
+ * rather than after parked time has walked on to the next line's refresh
+ * (Donkey Kong Country's colour 0/1 split then reached CGRAM mid-line). */
+void rr_snes_parked_hdma(void) {
+  Dma *dma=g_snes->dma;
+  if(!dma->rrHdmaRequest || !rr_snes_hdma_service(dma,true))return;
+  if(!dma->rrDmaRequest)dma->rrBusArmed=false;
+}
 void rr_snes_refresh_service(Dma *dma) {
   if(!dma->rrRefreshRequest)return;
   dma->rrRefreshRequest=false;

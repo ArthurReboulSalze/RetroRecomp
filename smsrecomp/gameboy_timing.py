@@ -77,10 +77,11 @@ static uint64_t g_rr_reported_trimmed = 0;''')
     source = source[:start] + '#include "gb_audio_output.inc"\n\n' + source[end:]
     source = replace_once(source, '''    g_audio_write_pos.store(g_audio_producer_write_pos, std::memory_order_release);
     g_audio_write_publications++;''', '''    uint64_t empty_deadline = 0;
+    rr_cushion_pushed(&g_rr_cushion);
     const uint64_t frequency = SDL_GetPerformanceFrequency();
     const uint64_t deadline = SDL_GetPerformanceCounter() +
         ((uint64_t)g_audio_device_buffer_samples * frequency + AUDIO_SAMPLE_RATE - 1) / AUDIO_SAMPLE_RATE +
-        (frequency * 10u + 999u) / 1000u;
+        (frequency * (10u + (uint32_t)rr_cushion_ms(&g_rr_cushion)) + 999u) / 1000u;
     g_rr_audio_start_counter.compare_exchange_strong(empty_deadline, deadline,
         std::memory_order_release, std::memory_order_relaxed);
     g_audio_write_pos.store(g_audio_producer_write_pos, std::memory_order_release);

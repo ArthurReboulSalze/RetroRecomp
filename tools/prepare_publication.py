@@ -61,7 +61,7 @@ native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
 tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py
 smsrecomp/x68000_scan.py
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
-native/game_options.h native/audio_filter.h
+native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c smsrecomp/player_gamepad.py tools/build_player_gamepad.py
 tools/player_gamepad/CMakeLists.txt
 native/game_options_checks.c tools/game_options_selftest.py tests/test_player_gamepad.py
@@ -175,7 +175,7 @@ native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/scale2x.h native/planar_rows.h native/stereo_fir.h
-native/nes_sprite_shift.h
+native/nes_sprite_shift.h native/nes_sprite_extra.inc
 native/pixel_optimization_checks.c tools/pixel_optimization_selftest.py
 tests/fixtures/presentation/mode4_reference.inc
 docs/RUNTIME_PERFORMANCE.md

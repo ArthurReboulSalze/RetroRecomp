@@ -1,11 +1,12 @@
-/* Stable language IDs for the converter and all generated game hosts. */
+/* Stable language IDs shared with the converter. Generated games ship the
+ * first five (Latin script); the converter alone also offers zh, ja, ru. */
 #ifndef RR_RUNTIME_I18N_H
 #define RR_RUNTIME_I18N_H
 #include <wchar.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
-enum { RR_LANGUAGE_COUNT = 8 };
+enum { RR_LANGUAGE_COUNT = 5 };
 int rr_language_from_code(const char *code);
 int rr_language_from_wide(const wchar_t *code);
 const char *rr_language_code(int language);

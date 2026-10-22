@@ -493,7 +493,7 @@ static bool handle_event(const SDL_Event *e) {
         } else notice(controls_text("Game states need the native banked backend", "Etats : moteur natif par banques requis"));
         return true;
     }
-#ifndef RETRO_GAME_GEAR
+    /* Game Gear shares the mode-4 renderer and its host-only sprite option. */
     if (key == SDL_SCANCODE_F5) {
         if (controls_sprite_flicker_reduction(!controls.reduce_sprite_flicker)) {
             smsrecomp_video_set_sprite_flicker_reduction(controls.reduce_sprite_flicker);
@@ -503,7 +503,6 @@ static bool handle_event(const SDL_Event *e) {
         } else notice(controls_text("Config unavailable", "Config inaccessible"));
         return true;
     }
-#endif
     if (menu == 4) {
         if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP)
             gun_option_row = (gun_option_row + 2) % 3;

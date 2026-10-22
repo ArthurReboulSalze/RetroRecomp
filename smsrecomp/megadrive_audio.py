@@ -37,6 +37,34 @@ static void genesis_audio_callback(void *user, Uint8 *stream, int len)''')
         SDL_LockAudioDevice(s_dev);
         if(started)rr_md_audio_lock_ticks+=SDL_GetPerformanceCounter()-started;
         rab_push(&s_bridge, s_out, (int)psg_frames);''')
+    # Adaptive host reserve: a pull that starved while frames kept arriving
+    # moves the DRC target up one step; a long clean run moves it back.
+    replace('    cfg.preroll_ms = 25.0;',
+        '    cfg.preroll_ms = 25.0;\n'
+        '    if (cfg.ring_ms < 230.0) cfg.ring_ms = 230.0; /* room for the adaptive reserve */')
+    replace('    s_bridge_ready   = 1;',
+        '    s_bridge_ready   = 1;\n'
+        '    rr_md_target_base = s_bridge.cfg.target_ms; rr_md_high_base = s_bridge.cfg.em_high_ms;\n'
+        '    memset(&rr_md_cushion, 0, sizeof(rr_md_cushion));')
+    replace('''        s_prev_underruns = bst.underrun_events;
+    }''', '''        if (bst.underrun_events != s_prev_underruns) {
+            if (rr_cushion_gap(&rr_md_cushion)) rr_md_apply_cushion();
+        } else if (rr_cushion_clean(&rr_md_cushion, (Uint32)psg_frames, (Uint32)s_bridge.cfg.source_rate))
+            rr_md_apply_cushion();
+        rr_cushion_pushed(&rr_md_cushion);
+        s_prev_underruns = bst.underrun_events;
+    }''')
+    replace('int audio_init(int psg_sample_rate)\n{',
+        '''static RrAudioCushion rr_md_cushion;
+static double rr_md_target_base, rr_md_high_base;
+static void rr_md_apply_cushion(void) {
+    SDL_LockAudioDevice(s_dev);
+    s_bridge.cfg.target_ms = rr_md_target_base + rr_cushion_ms(&rr_md_cushion);
+    s_bridge.cfg.em_high_ms = rr_md_high_base + rr_cushion_ms(&rr_md_cushion);
+    SDL_UnlockAudioDevice(s_dev);
+}
+int audio_init(int psg_sample_rate)
+{''')
     source+='''
 void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,uint64_t *stretches) {
     if(s_dev)SDL_LockAudioDevice(s_dev);
@@ -45,7 +73,7 @@ void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,u
     if(s_dev)SDL_UnlockAudioDevice(s_dev);
 }
 '''
-    return '#include "md_audio_mix.h"\n' + source
+    return '#include "md_audio_mix.h"\n#include "audio_cushion.h"\n' + source
 
 
 def bridge(source: str) -> str:

@@ -763,7 +763,8 @@ static int player_main(int argc,char **argv) {
          SDL_AudioSpec want,got; SDL_zero(want); want.freq=44100; want.format=AUDIO_S16SYS; want.channels=2; want.samples=512;
          audio_device=SDL_OpenAudioDevice(NULL,0,&want,&got,0);
          if(!audio_device) { fail(SDL_GetError()); goto cleanup; }
-         SDL_PauseAudioDevice(audio_device,0);
+         /* Stays paused until player_queue_audio has primed the queue. */
+         player_audio_period=got.samples?got.samples:512u;
       }
    }
 #ifndef RR_X68000_LINKED
@@ -815,7 +816,8 @@ static int player_main(int argc,char **argv) {
       input_poll();if(quit_requested)break;
       {bool accelerate=player_fast_forward()!=0;
        if(accelerate!=fast_forward){fast_forward=accelerate;deadline=(double)SDL_GetPerformanceCounter()/frequency;
-          if(audio_device)SDL_ClearQueuedAudio(audio_device);rr_options_audio_reset();}}
+          if(audio_device){SDL_PauseAudioDevice(audio_device,1);SDL_ClearQueuedAudio(audio_device);player_audio_primed=0;}
+          rr_options_audio_reset();}}
       if(player_ui.want_reset){core.reset();player_ui.want_reset=0;
          if(media_opened&&!rr_media_boot(&media)){fail(rr_media_error(&media));break;}
          automatic_loading=false;memset(&loading_detector,0,sizeof(loading_detector));player_pause_audio();}
@@ -891,9 +893,12 @@ static int player_main(int argc,char **argv) {
          /* A display-rate mismatch or a brief stall must not terminate a
           * working game. Retain every PCM pair and drain the queue while
           * continuing to service menus/quit; menus themselves clear it. */
-         if(audio_device&&SDL_GetQueuedAudioSize(audio_device)>44100*4*120/1000){
+         /* Drain bounds follow the adaptive start target. */
+         Uint32 drain_high=SDL_max(44100u*4u*120u/1000u,player_audio_target()+44100u*4u*40u/1000u);
+         Uint32 drain_low=SDL_max(44100u*4u*80u/1000u,player_audio_target()+44100u*4u*10u/1000u);
+         if(audio_device&&SDL_GetQueuedAudioSize(audio_device)>drain_high){
             do{polled_frame=UINT64_MAX;input_poll();if(quit_requested||player_blocked())break;SDL_Delay(1);}
-            while(SDL_GetQueuedAudioSize(audio_device)>44100*4*80/1000);
+            while(SDL_GetQueuedAudioSize(audio_device)>drain_low);
             deadline=(double)SDL_GetPerformanceCounter()/frequency;
          }
       }
@@ -963,6 +968,8 @@ cleanup:
    rr_feedback_close_screen(renderer);
 #endif
    if(loaded) core.unload_game(); if(initialized) core.deinit(); if(module) SDL_UnloadObject(module);
+   if(audio_device)fprintf(stderr,"[player] audio reserve=+%d ms (raised %d times); physical latency unmeasured\n",
+      rr_cushion_ms(&player_cushion),SDL_AtomicGet(&player_cushion.raises));
    if(audio_device) SDL_CloseAudioDevice(audio_device);for(i=0;i<2;i++)if(controllers[i])SDL_GameControllerClose(controllers[i]);
    player_shutdown();
 #ifdef RR_X68000_LINKED

@@ -46,6 +46,11 @@ def frame_driver(source):
         'run_interrupt(g_cpu.emulation ? 0xfffau : 0xffeau, frame_end);')
     source=replace(source,'run_interrupt(irq_vector(), frame_end);',
         'run_interrupt(g_cpu.emulation ? 0xfffeu : 0xffeeu, frame_end);')
+    # A parked CPU has no next bus edge for a pending HDMA request.
+    source=replace(source,'static void advance_parked(uint64_t until) {\n  g_cpu.master_cycles = until;',
+        'static void advance_parked(uint64_t until) {\n  rr_snes_parked_hdma();\n  g_cpu.master_cycles = until;')
+    source=replace(source,'    if (beam_debt()) {\n      snes_sync_master_clock(g_snes, g_cpu.master_cycles);',
+        '    if (beam_debt()) {\n      rr_snes_parked_hdma();\n      snes_sync_master_clock(g_snes, g_cpu.master_cycles);')
     return '#include "snes_bus.h"\n'+source
 
 

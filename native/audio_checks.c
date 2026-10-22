@@ -19,6 +19,7 @@ static void reset_test(uint32_t source_rate, int output_rate) {
     audio_output_clear();
     rr_audio.produced = rr_audio.played = rr_audio.dropped = rr_audio.underrun = 0;
     rr_audio.startup_silence = rr_audio.peak = 0;
+    memset(&rr_audio.cushion, 0, sizeof(rr_audio.cushion));
     rr_audio.device.freq = output_rate;
     rr_audio.keep = audio_ms_frames(RR_AUDIO_TARGET_MS) + rr_audio.device.samples;
     rr_audio.high_water = rr_audio.keep + audio_ms_frames(RR_AUDIO_BURST_MS) + rr_audio.device.samples;
@@ -141,6 +142,54 @@ static void ring_checks(void) {
     printf("ring: FIFO/stereo/wrap, bounded overflow retains newest sound, silent underrun, clear/re-prime OK\n");
 }
 
+static void cushion_checks(void) {
+    reset_test(48000, 48000);
+    int16_t source[256 * 2] = {0}, output[256 * 2];
+    // An empty period with no recent PCM is a pause, not a missed deadline.
+    rr_audio.started = true;
+    audio_callback(NULL, (Uint8 *)output, sizeof(output));
+    assert(rr_audio.underrun == 256 && !rr_cushion_ms(&rr_audio.cushion));
+    // A missed period while the guest still produces adds one restart step.
+    virtual_clock = true; virtual_us = 0;
+    host_audio_submit(source, 64); rr_audio.started = true;
+    audio_callback(NULL, (Uint8 *)output, sizeof(output));
+    assert(rr_cushion_ms(&rr_audio.cushion) == RR_CUSHION_STEP_MS);
+    audio_output_clear();
+    host_audio_submit(source, 64);
+    uint64_t period_us = ((uint64_t)rr_audio.device.samples * 1000000u + 47999u) / 48000u;
+    assert(rr_audio.start_counter == period_us + (RR_AUDIO_JITTER_MS + RR_CUSHION_STEP_MS) * 1000u);
+    // The reserve also moves the backlog trim, so it is not discarded again:
+    // the third 1024-frame chunk trims to keep+reserve, the fourth follows.
+    static int16_t backlog[4096 * 2];
+    audio_output_clear();
+    host_audio_submit(backlog, 4096);
+    assert(rr_audio.fill == rr_audio.keep + audio_ms_frames(RR_CUSHION_STEP_MS) + 1024u);
+    // A backlog trim while playing (the device stalled) is jitter evidence too.
+    memset(&rr_audio.cushion, 0, sizeof(rr_audio.cushion));
+    uint64_t dropped = rr_audio.dropped;
+    audio_output_clear(); rr_audio.started = true; host_audio_submit(backlog, 4096);
+    assert(rr_audio.dropped > dropped && rr_cushion_ms(&rr_audio.cushion) == RR_CUSHION_STEP_MS);
+    // Bounded growth, then one step back after a long clean run.
+    for (int gap = 0; gap < 30; ++gap) {
+        audio_output_clear(); host_audio_submit(source, 1); rr_audio.started = true;
+        audio_callback(NULL, (Uint8 *)output, sizeof(output));
+    }
+    assert(rr_cushion_ms(&rr_audio.cushion) == RR_CUSHION_MAX_MS);
+    assert(!rr_cushion_clean(&rr_audio.cushion, 48000u * RR_CUSHION_RELAX_SECONDS - 1u, 48000u));
+    assert(rr_cushion_clean(&rr_audio.cushion, 1u, 48000u));
+    assert(rr_cushion_ms(&rr_audio.cushion) == RR_CUSHION_MAX_MS - RR_CUSHION_STEP_MS);
+    // The next wait is twice the interval between the last two gaps.
+    audio_output_clear(); host_audio_submit(source, 1); rr_audio.started = true;
+    audio_callback(NULL, (Uint8 *)output, sizeof(output));
+    assert(rr_cushion_ms(&rr_audio.cushion) == RR_CUSHION_MAX_MS && rr_audio.cushion.interval == 48000u * RR_CUSHION_RELAX_SECONDS);
+    assert(!rr_cushion_clean(&rr_audio.cushion, 2u * 48000u * RR_CUSHION_RELAX_SECONDS - 1u, 48000u));
+    assert(rr_cushion_clean(&rr_audio.cushion, 1u, 48000u));
+    virtual_clock = false;
+    audio_output_clear(); memset(&rr_audio.cushion, 0, sizeof(rr_audio.cushion));
+    printf("adaptive reserve: pauses ignored, +%d ms per missed period (restart and trim), max %d ms, -%d ms after %u s clean, then twice the last gap interval\n",
+        RR_CUSHION_STEP_MS, RR_CUSHION_MAX_MS, RR_CUSHION_STEP_MS, RR_CUSHION_RELAX_SECONDS);
+}
+
 static void burst_check(void) {
     reset_test(223721, rr_audio.device.freq);
     int16_t source[2048 * 2] = {0};
@@ -257,6 +306,6 @@ int main(int argc, char **argv) {
     if (!host_audio_init(223721)) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; }
     SDL_PauseAudioDevice(audio_device, 1);
     if (device) { burst_check(); steady_check(); }
-    else { conversion_checks(); ring_checks(); float_callback_check(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
+    else { conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
     host_audio_shutdown(); SDL_Quit(); puts("PASS: host audio checks"); return 0;
 }

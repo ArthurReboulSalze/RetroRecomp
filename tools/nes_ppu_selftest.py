@@ -40,7 +40,7 @@ target_compile_definitions(common{config} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES
             name = f'{variant}{config}'
             source += f'''add_executable({name} "{machine.as_posix()}/hw_machine.c" "{machine.as_posix()}/hw_ppu.c" "{machine.as_posix()}/hw_apu.c" "{ROOT.as_posix()}/native/nes_ppu_checks.c" $<TARGET_OBJECTS:common{config}>)
 target_include_directories({name} PRIVATE "{machine.as_posix()}" "{ROOT.as_posix()}/native" "{project.as_posix()}/{variant}")
-target_compile_definitions({name} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL={pal} RR_NES_ZAPPER={zapper})
+target_compile_definitions({name} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL={pal} RR_NES_ZAPPER={zapper} RR_NES_FAST_PPU={int(variant == 'optimized')})
 target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 '''
     (project / 'CMakeLists.txt').write_text(source, encoding='utf-8')
@@ -64,6 +64,12 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
                           hidden_ppu_apu_frame_bus_pcm_match=True)
             print(json.dumps(result), flush=True)
             results.append(result)
+        # Host-only extra sprites (F5): deferred (Zapper off) and eager clocks.
+        text = run([build_executable(project / 'build', f'optimized{config}'), '0', 'extra'], timeout=240)
+        if 'PASS' not in text:
+            raise RuntimeError(f'Extra sprite check failed: PAL={pal}, Zapper={zapper}: {text}')
+        results.append(dict(pal=pal, zapper=zapper, extra_sprites=True, passed=True))
+        print(json.dumps(results[-1]), flush=True)
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='ascii')
 
 

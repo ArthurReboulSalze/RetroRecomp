@@ -1,6 +1,7 @@
 /* Original Retro-Recomp player adapter, MIT. Guest state is never filtered. */
 #include "retro_menu.h"
 #include "game_options.h"
+#include "audio_cushion.h"
 #include "display_settings.h"
 #include "scale2x.h"
 #include "xbr_sdl.h"
@@ -26,13 +27,30 @@ static int player_fast_forward(void){
       keys&&keys[SDL_SCANCODE_F5];
 }
 static int player_ui_quit(void){return player_ui.ready&&rr_options_quit(player_ui.menu);}
+/* Output priming: one guest frame, one device period and 10 ms, plus the
+ * adaptive reserve. The device stays paused until the queue holds it, and
+ * re-primes when a block finds the queue empty (the device ran dry). */
+static RrAudioCushion player_cushion;
+static Uint32 player_audio_period=512;
+static int player_audio_primed;
+static Uint32 player_audio_target(void){
+   return (44100u/55u+player_audio_period+441u+rr_cushion_frames(&player_cushion,44100u))*4u;
+}
 static int player_queue_audio(const int16_t *samples,size_t count){
    const void *data=samples;
    if(player_ui.ready&&SDL_AtomicGet(&rr_options.audio_mode)){
       if(count>player_ui.audio_capacity){void *p=realloc(player_ui.audio,count*4);if(!p)return 0;player_ui.audio=p;player_ui.audio_capacity=count;}
       memcpy(player_ui.audio,samples,count*4);rr_options_audio(player_ui.audio,(unsigned)count,2,0,44100);data=player_ui.audio;
    }
-   return SDL_QueueAudio(audio_device,data,(Uint32)(count*4))==0;
+   if(player_audio_primed&&!SDL_GetQueuedAudioSize(audio_device)){
+      rr_cushion_gap(&player_cushion);SDL_PauseAudioDevice(audio_device,1);player_audio_primed=0;
+   }else if(player_audio_primed)rr_cushion_clean(&player_cushion,(Uint32)count,44100u);
+   rr_cushion_pushed(&player_cushion);
+   if(SDL_QueueAudio(audio_device,data,(Uint32)(count*4))!=0)return 0;
+   if(!player_audio_primed&&SDL_GetQueuedAudioSize(audio_device)>=player_audio_target()){
+      SDL_PauseAudioDevice(audio_device,0);player_audio_primed=1;
+   }
+   return 1;
 }
 static void player_defaults(void){
    for(unsigned p=0;p<2;p++)for(unsigned i=0;i<X_ACTIONS;i++){player_ui.key[p][i]=0;player_ui.pad[p][i]=-1;}
@@ -47,7 +65,8 @@ static void player_store(const wchar_t *key,int value){
    rr_display_save(player_ui.ini,player_ui.dir,L"X68000",key,value);
 }
 static void player_pause_audio(void){
-   if(audio_device){SDL_PauseAudioDevice(audio_device,player_blocked()?1:0);SDL_ClearQueuedAudio(audio_device);}
+   /* Paused either way: the next blocks re-prime before the device plays. */
+   if(audio_device){SDL_PauseAudioDevice(audio_device,1);SDL_ClearQueuedAudio(audio_device);player_audio_primed=0;}
    rr_options_audio_reset();
    if(mouse_grab)SDL_SetRelativeMouseMode(player_blocked()?SDL_FALSE:SDL_TRUE);
 }
@@ -211,7 +230,7 @@ static void player_overlay(void){
    int x,y,s;rr_menu_layout(renderer,&x,&y,&s);
    if(player_ui.menu){
       rr_menu_begin(renderer,x,y,s);
-#define XT(px,py,text) rr_menu_text(renderer,x,y,s,px,py,rr_tr(text),233,239,247)
+#define XT(px,py,text) rr_menu_text(renderer,x,y,s,px,py,rr_tr(text),RR_MENU_GOLD)
       if(player_ui.menu==1){
          XT(12,12,"Retro-Recomp - Help");
          if(!player_ui.help_page){
@@ -233,7 +252,7 @@ static void player_overlay(void){
          for(unsigned a=0;a<X_ACTIONS;a++){
             int k=player_ui.key[player_ui.player][a],b=player_ui.pad[player_ui.player][a];
             const char *pad=b<0?"-":SDL_GameControllerGetStringForButton((SDL_GameControllerButton)b);
-            if((int)a==player_ui.row)rr_menu_box(renderer,x,y,s,10,42+(int)a*13,236,13,40,63,81,255);
+            if((int)a==player_ui.row)rr_menu_box(renderer,x,y,s,10,42+(int)a*13,236,13,RR_MENU_SELECT,255);
             XT(12,43+(int)a*13,player_actions[a]);
             XT(110,43+(int)a*13,k?rr_keyboard_name((SDL_Scancode)k):"-");
             XT(178,43+(int)a*13,pad?pad:"?");
@@ -242,9 +261,9 @@ static void player_overlay(void){
       }else{XT(12,15,"Restart game");XT(12,60,"Enter / A: confirm");XT(12,84,"Esc / B: cancel");}
       rr_menu_build_footer(renderer,x,y,s);rr_menu_end(renderer);
 #undef XT
-   }else if(player_ui.paused){rr_menu_begin(renderer,x,y,s);rr_menu_text(renderer,x,y,s,100,85,rr_tr("Paused"),233,239,247);rr_menu_end(renderer);}
+   }else if(player_ui.paused){rr_menu_begin(renderer,x,y,s);rr_menu_text(renderer,x,y,s,100,85,rr_tr("Paused"),RR_MENU_GOLD);rr_menu_end(renderer);}
    if(!player_ui.menu&&status_text[0]&&(int32_t)(status_until-SDL_GetTicks())>0){
-      rr_menu_box(renderer,x,y,s,4,144,248,26,18,18,18,235);rr_menu_text(renderer,x,y,s,8,150,status_text,245,205,76);
+      rr_menu_box(renderer,x,y,s,4,144,248,26,RR_MENU_PANEL_RGB,235);rr_menu_text(renderer,x,y,s,8,150,status_text,RR_MENU_ACCENT);
    }
 }
 static void player_present(const void *data,unsigned w,unsigned h,size_t pitch){

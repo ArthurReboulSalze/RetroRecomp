@@ -267,7 +267,7 @@ static void rr_ppu_visible_tile(void)
 {
     /* A unit can be opaque only once its counter is 0; one with pattern
      * bits needs at least 8 more dots, one without never outputs. */
-    bool sprites = ppu.skipped_dot || ppu.palc_disabled || ppu.palc_v_left;
+    bool sprites = ppu.skipped_dot || ppu.palc_disabled || ppu.palc_v_left || rr_xs.count;
     for (unsigned i = 0; i < 8; i++) sprites |= (ppu.spr_lo[i] | ppu.spr_hi[i]) && ppu.spr_x[i] < 8;
     if (sprites) {
         rr_ppu_tile_pair(0, true, false); rr_ppu_tile_pair(1, true, false); rr_ppu_tile_pair(2, true, false); rr_ppu_tile_pair(3, true, false);
@@ -414,7 +414,7 @@ static bool rr_ppu_block(void)
     case 36: rr_ppu_sprite_slot_4(); break;
     case 37: rr_ppu_sprite_slot_5(); break;
     case 38: rr_ppu_sprite_slot_6(); break;
-    case 39: rr_ppu_sprite_slot_7(); break;
+    case 39: rr_ppu_sprite_slot_7(); rr_xs_prepare(); break;
     case 40: case 41: rr_ppu_prefetch_tile(); break;
     default: rr_ppu_visible_tile(); break;
     }

@@ -23,6 +23,7 @@ static void reset(unsigned period, SDL_AudioFormat format) {
     nes_audio.spec.format = format;
     nes_audio.produced = nes_audio.played = nes_audio.dropped = nes_audio.missing = 0;
     nes_audio.startup_silence = nes_audio.peak = 0;
+    memset(&nes_audio.cushion, 0, sizeof(nes_audio.cushion));
     nes_audio.keep = (21u + RR_NES_AUDIO_MARGIN_MS) * 48u + period;
     nes_audio.limit = nes_audio.keep + 1008u;
 }
@@ -98,12 +99,15 @@ static void resets(void) {
     nes_audio_submit(input, 100); clock_us += 40000;
     nes_audio_callback(NULL, (Uint8 *)output, 480 * 4);
     assert(nes_audio.missing == 380 && !nes_audio.started);
-    nes_audio_submit(input, 960); assert(nes_audio.deadline == clock_us + 40000);
+    /* The guest was still producing: that gap adds one restart step. */
+    assert(rr_cushion_ms(&nes_audio.cushion) == RR_CUSHION_STEP_MS);
+    nes_audio_submit(input, 960); assert(nes_audio.deadline == clock_us + 40000 + RR_CUSHION_STEP_MS * 1000u);
     nes_audio_clear();
     nes_audio_submit(input, 4096); nes_audio_submit(input, 4096);
-    /* Exceptional catch-up: keep the newest PCM. */
-    assert(nes_audio.fill == nes_audio.keep && nes_audio.dropped == 8192 - nes_audio.keep);
-    assert(nes_audio.pcm[nes_audio.read] == input[4096 - nes_audio.keep]);
+    /* Exceptional catch-up: keep the newest PCM, including the reserve. */
+    uint32_t keep = nes_audio.keep + RR_CUSHION_STEP_MS * 48u;
+    assert(nes_audio.fill == keep && nes_audio.dropped == 8192 - keep);
+    assert(nes_audio.pcm[nes_audio.read] == input[4096 - keep]);
     puts("PASS: pause/reset/load flush, silence while empty, underrun recovery, bounded catch-up keeps newest samples.");
 }
 

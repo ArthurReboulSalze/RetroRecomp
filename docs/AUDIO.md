@@ -151,6 +151,34 @@ when the host loop stalls, so the final setting prioritizes continuity. This
 silent test does not assess audible quality, real GPU presentation or physical
 action-to-speaker latency; listening remains pending user validation.
 
+## Adaptive output reserve (all consoles)
+
+Every console player shares `native/audio_cushion.h`. It starts at +0 ms, so
+a machine with headroom keeps the latency above. When a device period finds no
+PCM while the guest is still producing (the last block arrived less than
+100 ms earlier, so menus, loads and pauses do not count), or when a backlog
+must be trimmed during playback because the device stalled, the start/re-prime
+delay and the trim thresholds gain 5 ms, up to +60 ms. One step comes back
+after a clean wait of twice the interval between the last two gaps: 4 s at
+least, two minutes at most. A machine without gaps returns to +0 ms within
+seconds; recurring scheduler hitches or a borderline machine keep the reserve
+they need instead of re-priming in a loop. The cost is a few integer
+operations per callback and one counter read per block.
+
+- Master System/Game Gear, NES and Game Boy: callback rings (re-prime delay,
+  trim thresholds); Super Nintendo and Neo Geo: the SDL queue is paused and
+  re-primed when empty before a frame is queued; Mega Drive: the target of its
+  rate-controlled bridge (25 ms) moves with the reserve; X68000: the queue now
+  starts after one frame, one device period and 10 ms (it previously started
+  with a single frame and no margin), plus the reserve.
+- Exit summaries (`[host] audio … reserve=…`, `[player] audio reserve=…`)
+  report the reserve reached. Guest audio, sample rates and timelines are
+  unchanged. Physical latency remains unmeasured.
+
+Debian, AMD A4-5000 with PulseAudio: Alex Kidd 40 s, one gap (133 samples);
+Factory Panic 80 s, one gap; R-Type (X68000) two minutes after the new start
+reserve, no gap. Listening remains the user's validation.
+
 ## Checks and limits
 
 Run the ROM-free numeric checks after building the SDL dependency:

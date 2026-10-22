@@ -412,8 +412,10 @@ Known single-Zapper games automatically use mouse aim and left-click fire on
 port 2, with right-click for an off-screen shot. Identification uses NES 2.0
 device metadata, a payload-CRC catalogue and exact title aliases. The CRC
 facts are attributed to [MesenNesDB](https://github.com/SourMesen/Mesen2/blob/master/UI/Dependencies/MesenNesDB.txt).
-The default reticle is a small red cross. **F5**, or the Zapper page of F2,
+The default reticle is a small red cross. The Zapper page of F2 (press Tab)
 selects cross/dot, size and red/white/green. Intentional game flashes are kept.
+On every NES game, **F5** toggles the optional extra sprites described in
+[controls](CONTROLS.md); it no longer opens the Zapper page.
 The sensor uses pixels as the PPU emits them, with bounded light persistence,
 following the [Zapper interface](https://www.nesdev.org/wiki/Zapper).
 This is an approximate optical response; dual guns and other special

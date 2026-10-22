@@ -1,6 +1,8 @@
 /* Host-only GB consumer. Preserve 44.1 kHz guest PCM and volume semantics.
  * Start at a sample-accurate deadline, not after a second guest frame.
  * No allocations, guest execution or input polling on the audio thread. */
+#include "audio_cushion.h"
+static RrAudioCushion g_rr_cushion;
 static void sdl_audio_callback(void* userdata, Uint8* stream, int len) {
     (void)userdata;
     memset(stream, 0, (size_t)len);
@@ -25,12 +27,13 @@ static void sdl_audio_callback(void* userdata, Uint8* stream, int len) {
     uint32_t read = g_audio_read_pos.load(std::memory_order_relaxed);
     uint32_t available = (write + AUDIO_RING_SIZE - read) % AUDIO_RING_SIZE;
     const uint32_t burst = (uint32_t)(((uint64_t)AUDIO_SAMPLE_RATE * 70224 + 4194303) / 4194304);
-    const uint32_t keep = g_audio_start_threshold + needed;
+    const uint32_t keep = g_audio_start_threshold + needed + rr_cushion_frames(&g_rr_cushion, AUDIO_SAMPLE_RATE);
     if (available > keep + burst) {
         const uint32_t discard = available - keep;
         read = (read + discard) % AUDIO_RING_SIZE;
         available = keep;
         g_rr_audio_trimmed.fetch_add(discard, std::memory_order_relaxed);
+        rr_cushion_gap(&g_rr_cushion); /* A device stall while playing. */
     }
     const uint32_t take = SDL_min(available, needed);
     const bool muted = g_audio_muted.load(std::memory_order_relaxed);
@@ -64,6 +67,7 @@ static void sdl_audio_callback(void* userdata, Uint8* stream, int len) {
         g_audio_underruns.fetch_add(needed - take, std::memory_order_relaxed);
         g_rr_audio_ready = false;
         g_rr_audio_start_counter.store(0, std::memory_order_release);
-    }
+        rr_cushion_gap(&g_rr_cushion);
+    } else rr_cushion_clean(&g_rr_cushion, take, AUDIO_SAMPLE_RATE);
     g_audio_read_pos.store((read + take) % AUDIO_RING_SIZE, std::memory_order_release);
 }

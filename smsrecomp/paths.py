@@ -150,9 +150,11 @@ def feedback_search_paths(preferences: dict) -> dict[str, Path]:
 
 def save_game_language(output: Path, language: str) -> None:
     """Update only the language entry in the shared Windows INI."""
-    from .languages import LANGUAGES
+    from .languages import GAME_LANGUAGES, LANGUAGES
     if language not in LANGUAGES:
         raise ValueError('Unknown language')
+    if language not in GAME_LANGUAGES:
+        language = 'en'  # the converter keeps it; games fall back to English
     import ctypes
     directory = data_directory(output.resolve())
     directory.mkdir(parents=True, exist_ok=True)
