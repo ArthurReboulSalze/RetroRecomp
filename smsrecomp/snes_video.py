@@ -40,10 +40,23 @@ static int ppu_sample_bg(Ppu *ppu,int x,int y,int layer,bool priority) {
     bool layerActive = IS_SCREEN_ENABLED(ppu, sub, curLayer) && (
       !IS_SCREEN_WINDOWED(ppu, sub, curLayer) || !ppu_window_contains(ppu, curLayer, x)
       );''',
-        '''  for (unsigned i = 0; i < rr_sn_layers.count[sub]; i++) {
+        '''  if (rr_sn_line.active && y == rr_sn_line.y) rr_sn_line_pick(ppu, x, sub, &layer, &pixel);
+  else for (unsigned i = 0; i < rr_sn_layers.count[sub]; i++) {
     int curLayer = rr_sn_layers.layer[sub][i];
     int curPriority = rr_sn_layers.priority[sub][i];
     bool layerActive = !IS_SCREEN_WINDOWED(ppu, sub, curLayer) || !ppu_window_contains(ppu, curLayer, x);''')
+    # A whole presentation line samples each layer once (snes_ppu_cache.inc).
+    source = replace(source, '''  for (int x = left; x < right; x++) {
+    ppu_render_pixel(ppu, x, line);
+  }
+}''', '''#ifndef RR_SN_LINE_REFERENCE
+  rr_sn_line_begin(ppu, line);
+#endif
+  for (int x = left; x < right; x++) {
+    ppu_render_pixel(ppu, x, line);
+  }
+  rr_sn_line.active = 0;
+}''')
     # The hires path computes both DAC dots itself. Do not resolve the same
     # pixels a first time in the ordinary-width renderer.
     source = replace(source, 'static void ppu_render_pixel(Ppu *ppu, int x, int y) {',

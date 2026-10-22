@@ -29,9 +29,9 @@ static void rr_sn_prepare_layers(Ppu *ppu) {
 static void rr_sn_bg_cache_reset(void) {
   for (unsigned layer=0;layer<4;layer++) rr_sn_bg_rows[layer].valid=0;
 }
-static int rr_sn_sample_bg_cached(Ppu *ppu,int x,int y,int layer,bool priority) {
+static void rr_sn_bg_refill(Ppu *ppu,int x,int y,int layer) {
   int group=x>>3;
-  if(!rr_sn_bg_rows[layer].valid || rr_sn_bg_rows[layer].x!=group || rr_sn_bg_rows[layer].y!=y) {
+  {
     const uint16_t *vram=PpuRenderVram(ppu);
     int mode=PPU_mode(ppu);
     bool wide=PPU_bigTiles(ppu,layer) || mode==5 || mode==6;
@@ -63,5 +63,81 @@ static int rr_sn_sample_bg_cached(Ppu *ppu,int x,int y,int layer,bool priority) 
     rr_sn_bg_rows[layer].priority=!!(tile&0x2000);
     rr_sn_bg_rows[layer].x=group;rr_sn_bg_rows[layer].y=y;rr_sn_bg_rows[layer].valid=1;
   }
+}
+/* Hit path small enough to inline into the per-dot walk. */
+static inline int rr_sn_sample_bg_cached(Ppu *ppu,int x,int y,int layer,bool priority) {
+  if(!rr_sn_bg_rows[layer].valid || rr_sn_bg_rows[layer].x!=(x>>3) || rr_sn_bg_rows[layer].y!=y)
+    rr_sn_bg_refill(ppu,x,y,layer);
   return rr_sn_bg_rows[layer].priority==(int)priority ? rr_sn_bg_rows[layer].pixels[x&7] : 0;
+}
+
+
+/* Original line-constant walk. The pinned resolver evaluates per dot what is
+ * constant in one presentation line: priority order, window enables, scroll,
+ * mode and mosaic flags. Hoist them once per line; keep the same lazy walk,
+ * order and samplers. A background without mosaic, offset-per-tile, hires,
+ * mode 7 or widescreen anchoring samples x+scroll directly; any other layer
+ * runs the pinned per-dot transforms. Valid inside ppu_draw_whole_line_legacy. */
+static struct {
+  int active, y;
+  unsigned count[2];
+  struct { uint8_t layer, priority, windowed, simple; int hscroll, ly; } entry[2][12];
+} rr_sn_line;
+static void rr_sn_line_begin(Ppu *ppu,int y) {
+  int mode=PPU_mode(ppu);
+  int plain=mode!=2 && mode!=4 && mode!=5 && mode!=6 && mode!=7 &&
+            !(ppu->extraLeftCur | ppu->extraRightCur);
+  rr_sn_line.active=1;rr_sn_line.y=y;
+  for(unsigned sub=0;sub<2;sub++) {
+    rr_sn_line.count[sub]=rr_sn_layers.count[sub];
+    for(unsigned n=0;n<rr_sn_layers.count[sub];n++) {
+      int layer=rr_sn_layers.layer[sub][n];
+      rr_sn_line.entry[sub][n].layer=(uint8_t)layer;
+      rr_sn_line.entry[sub][n].priority=rr_sn_layers.priority[sub][n];
+      rr_sn_line.entry[sub][n].windowed=IS_SCREEN_WINDOWED(ppu,sub,layer)!=0;
+      rr_sn_line.entry[sub][n].simple=layer<4 && plain &&
+        !(PPU_mosaicEnabled(ppu,layer) && PPU_mosaicSize(ppu)>1);
+      rr_sn_line.entry[sub][n].hscroll=layer<4?ppu->hScroll[layer]:0;
+      rr_sn_line.entry[sub][n].ly=layer<4?y+ppu->vScroll[layer]:0;
+    }
+  }
+}
+static void rr_sn_line_pick(Ppu *ppu,int x,bool sub,int *layer_out,int *pixel_out) {
+  for(unsigned n=0;n<rr_sn_line.count[sub];n++) {
+    int layer=rr_sn_line.entry[sub][n].layer,priority=rr_sn_line.entry[sub][n].priority;
+    if(rr_sn_line.entry[sub][n].windowed && ppu_window_contains(ppu,layer,x))continue;
+    int pixel;
+    if(layer==4) {
+      uint16_t object=ppu->objBuffer.data[x+kPpuExtraLeftRight];
+      pixel=(object>>12)==SPRITE_PRIO_TO_PRIO_HI(priority)?object&0xff:0;
+    } else if(rr_sn_line.entry[sub][n].simple) {
+      pixel=ppu_sample_bg(ppu,(x+rr_sn_line.entry[sub][n].hscroll)&0x3ff,
+                          rr_sn_line.entry[sub][n].ly&0x3ff,layer,priority);
+    } else {
+      /* The pinned per-dot transforms. */
+      int lx=x,ly=rr_sn_line.y;
+      if(!ppu_apply_layer_anchor(ppu,layer,ly,sub,&lx))continue;
+      if(PPU_mosaicEnabled(ppu,layer) && PPU_mosaicSize(ppu)>1) {
+        lx-=lx%PPU_mosaicSize(ppu);
+        ly-=(ly-ppu->mosaicStartLine)%PPU_mosaicSize(ppu);
+      }
+      if(PPU_mode(ppu)==7) pixel=ppu_sample_mode7(ppu,lx,layer,priority);
+      else {
+        lx+=ppu->hScroll[layer];
+        if(PPU_mode(ppu)==5 || PPU_mode(ppu)==6) {
+          lx*=2;
+          lx+=(sub || PPU_mosaicEnabled(ppu,layer))?0:1;
+          if(PPU_interlace(ppu)) {
+            ly*=2;
+            ly+=(ppu->evenFrame || PPU_mosaicEnabled(ppu,layer))?0:1;
+          }
+        }
+        ly+=ppu->vScroll[layer];
+        if(PPU_mode(ppu)==2 || PPU_mode(ppu)==4 || PPU_mode(ppu)==6)
+          ppu_apply_offset_per_tile(ppu,layer,&lx,&ly);
+        pixel=ppu_sample_bg(ppu,lx&0x3ff,ly&0x3ff,layer,priority);
+      }
+    }
+    if(pixel>0) { *layer_out=layer;*pixel_out=pixel;return; }
+  }
 }

@@ -30,7 +30,7 @@ int main(void) {
       }
     }
   }
-  unsigned resolve_checks=0;
+  unsigned resolve_checks=0,line_checks=0;
   for(unsigned mode=0;mode<8;mode++)for(unsigned scene=0;scene<128;scene++) {
     for(unsigned i=0;i<0x8000;i++)p->vram[i]=(uint16_t)value();
     for(unsigned i=0;i<256;i++)p->cgram[i]=(uint16_t)value();
@@ -62,7 +62,19 @@ int main(void) {
           fprintf(stderr,"resolve mode=%u scene=%u x=%d line=%u sub=%u\n",mode,scene,x,line,sub);return 1;
         }
       }
+      /* The scanline compositor must resolve every dot exactly the same. */
+      rr_sn_bg_cache_reset();rr_sn_line_begin(p,(int)line);
+      for(int x=0;x<256;x++)for(unsigned sub=0;sub<2;sub++) {
+        int a[3],b[3];
+        int la=rr_sn_resolve_reference(p,x,line,sub,&a[0],&a[1],&a[2]);
+        int lb=ppu_resolve_pixel(p,x,line,sub,&b[0],&b[1],&b[2]);
+        line_checks++;
+        if(la!=lb || memcmp(a,b,sizeof a)) {
+          fprintf(stderr,"line mode=%u scene=%u x=%d line=%u sub=%u\n",mode,scene,x,line,sub);return 1;
+        }
+      }
+      rr_sn_line.active=0;
     }
   }
-  free(p);printf("{\"pixel_comparisons\":%u,\"resolved_comparisons\":%u,\"equal\":true}\n",checks,resolve_checks);return 0;
+  free(p);printf("{\"pixel_comparisons\":%u,\"resolved_comparisons\":%u,\"line_comparisons\":%u,\"equal\":true}\n",checks,resolve_checks,line_checks);return 0;
 }
