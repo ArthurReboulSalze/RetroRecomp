@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.1.10-d4a737" alt="Release version 1.1.10">
+  <img src="https://img.shields.io/badge/release-1.2.0-d4a737" alt="Release version 1.2.0">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -35,13 +35,35 @@ game code into standalone Windows or Linux executables for a simple, responsive
 retro gaming experience, with as much native execution as possible and no
 dedicated FPGA hardware.
 
-**Sharp X68000 joins as an experimental profile.** It converts DIM/XDF disks and
-M3U sets into standalone Windows and Linux games, with shared controls, quick
-states and initial multi-disk handling. You supply your own IPL and font ROM.
-Its machine runtime is built from hissorii's PX68k with Retro-Recomp's own host
-code, without the GPL-declared libretro fork. Compatibility and performance still
-need work. See the [X68000 status](docs/X68000.md). More consoles and classic
-computers are planned as the project grows.
+**A new performance milestone.** Version 1.2.0 completes a performance pass over
+every console profile. Each change was checked frame by frame against the
+previous runtime, and CPU, memory, picture and sound traces stay identical on the
+measured routes. On the low-power Debian test machine (AMD A4-5000), several
+games now run about 1.7 to 2.2 times faster. See the
+[performance notes](docs/RUNTIME_PERFORMANCE.md) for the measured routes and
+their limits.
+
+**Stable runtimes, a growing library.** Apart from the Sharp X68000, which remains
+experimental, the runtime code of these consoles is now stable and already highly
+optimized on Windows and Linux. Further speed gains on them should be modest.
+From now on, what will mostly grow for these consoles is the number of titles:
+the shared compilation library will gain verified entries step by step.
+
+**What comes next.** The technical groundwork for the following machines has
+been reviewed. If development goes as planned, they will join one after
+another, each in its own experimental phase:
+
+- Capcom CPS-1 / CPS-2 arcade boards
+- PC Engine / TurboGrafx-16
+- Game Boy Advance
+- Atari ST
+- Amiga 500 (WHDLoad-based)
+- Amiga 1200 AGA (WHDLoad-based)
+- Nintendo 64
+- PlayStation
+
+These are plans, not release dates or compatibility promises. See the
+[roadmap](docs/ROADMAP.md).
 
 ## From conversion to your game collection
 
@@ -86,10 +108,13 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.1.9 and 1.1.10:** the experimental **Sharp X68000** profile. Nineteen game sets
-convert on Windows and Debian with natively compiled code that matches a fresh
-reference run on the tested routes. The in-app credits name the authors behind
-its machine code.
+**New in 1.2.0:** faster runtimes for the Master System, Game Gear, NES, Mega
+Drive, Super Nintendo, Neo Geo and Sharp X68000 profiles, with identical traces
+on the comparison routes. The Game Boy runtime, already optimized in earlier
+releases, was profiled and left unchanged. Regenerate games to receive the
+faster runtimes. The experimental **Sharp X68000** profile, added in 1.1.9,
+converts DIM/XDF disks and M3U sets with your own IPL and font ROM; see the
+[X68000 status](docs/X68000.md).
 
 Recent releases also let you browse Compiled Games with a controller, choose
 optional audio filters inside each game, and assign a keyboard or controller
@@ -198,9 +223,9 @@ other distributions and ARM64 remain to be qualified. Linux builds Linux games,
 Windows builds Windows games, using the same verified compilation knowledge.
 See the [Linux guide](docs/LINUX.md) for launchers, build tools and cover accounts.
 The window can shrink for smaller screens, with a shorter ROM list and log.
-Linux performance on low-power machines is still being improved. The Mega Drive
-slowdown on the Debian test machine has improved but is not fully resolved;
-full-speed gameplay on every machine is not established.
+Version 1.2.0 brings large speed gains on the low-power Debian test machine. The
+Mega Drive remains its most demanding profile; full-speed gameplay on every
+machine is not established.
 
 Use **Options** for conversion settings and **Check for updates** when you want
 a newer version. Update checks are manual. Updating the converter preserves

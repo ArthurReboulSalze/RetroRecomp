@@ -18,18 +18,32 @@ common menus, quick states and multi-disk sequences are in place; gameplay
 coverage, hardware edge cases and low-power Linux performance are still being
 improved before it leaves the experimental stage. See [X68000 status](X68000.md).
 
-More consoles and classic computers are planned after and alongside this work.
-Existing 68000 and Z80 components will be reused where appropriate. Each machine
-will receive its own experimental phase, validation and compatibility scope.
-The long-term goal is to extend RetroRecomp to these machines, in this planned
-order:
+## Stable runtimes and a growing library — 1.2.0
+
+Release 1.2.0 completes a performance pass over every console profile, with
+identical traces on the comparison routes; see the
+[performance notes](RUNTIME_PERFORMANCE.md). Apart from the experimental Sharp
+X68000, the runtime code of the current consoles is now stable and already
+highly optimized on Windows and Linux, and further speed gains there should be
+modest. For these consoles, the main ongoing work is breadth: more titles and
+more verified entries in the shared compilation library, added step by step.
+The X68000 continues its experimental phase: automatic disk changes, loading
+speed, low-power Linux performance and sound, mouse checks and a wider game
+campaign remain before it leaves that phase.
+
+## Next machines
+
+More consoles and classic computers will join after this work. The technical
+groundwork for each has been reviewed. Existing 68000 and Z80 components will
+be reused where appropriate, and each machine will receive its own experimental
+phase, validation and compatibility scope. Planned order:
 
 - Capcom CPS-1 / CPS-2 arcade boards
 - PC Engine / TurboGrafx-16
 - Game Boy Advance
 - Atari ST
-- Amiga 500
-- Amiga 1200 (AGA)
+- Amiga 500 (WHDLoad-based)
+- Amiga 1200 AGA (WHDLoad-based)
 - Nintendo 64
 - PlayStation
 
@@ -78,7 +92,7 @@ long-filename fixes on Windows and Linux, without scanning more games.
 
 | Priority | Work needed |
 | --- | --- |
-| Runtime performance | Continue low-power Linux measurements, especially the unresolved Mega Drive slowdown. Shared Windows/Linux optimizations preserve output on numeric checks; desktop speed, sound quality and physical latency need target testing. See [performance notes](RUNTIME_PERFORMANCE.md). |
+| Runtime performance | The 1.2.0 performance pass is complete and the current runtimes are stable. Keep measuring low-power Linux targets, especially the Mega Drive; desktop speed, sound quality and physical latency need target testing. See [performance notes](RUNTIME_PERFORMANCE.md). |
 | Neo Geo | Broaden MVS/AES gameplay, guarded RAM coverage and independent rendering evidence. Other BIOS revisions, boards and peripherals have separate scope. See [evidence and remaining work](NEOGEO.md). |
 | Broader game coverage | Explore more gameplay paths and guarded RAM variants; reduce reported interpreter fallback. |
 | Video and peripherals | Refine hardware timing and edge cases using independent fixtures and game evidence. |

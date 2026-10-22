@@ -1,3 +1,62 @@
+# RetroRecomp v1.2.0 — a performance milestone and the next machines
+
+- **Faster runtimes for seven profiles, with identical traces.** Every change
+  was checked against the previous runtime on comparison routes: CPU, memory,
+  picture and sound traces stay byte-identical, natively and with the reference
+  interpreter where one exists.
+  - **NES:** on boards whose cartridge cannot observe the picture processor
+    between CPU accesses (NROM, UxROM, CNROM, AxROM, MMC2/MMC4, Color Dreams
+    and similar boards, and MMC1 up to 256 KiB of program ROM), it now runs late
+    and catches up just before anything could observe it, rendering whole
+    tiles at a time. MMC3, MMC5, VRC and other boards keep the eager clock and
+    share part of the gain.
+  - **Master System and Game Gear:** faster mode-4 lines, a lazily rendered
+    sound chip and a lighter CPU loop.
+  - **Mega Drive:** Z80 cycles that touch only the sound CPU's own memory no
+    longer stop at every 68000 rendezvous; they are settled in order before
+    any shared access.
+  - **Super Nintendo:** picture work that is constant for a whole line is
+    prepared once per line instead of once per pixel.
+  - **Neo Geo:** the native 68000 path shares its registers and no longer reads
+    program words twice.
+  - **Sharp X68000:** wider native coverage and a faster native CPU path.
+  - **Game Boy:** profiled and left unchanged; its runtime was already
+    optimized in earlier releases.
+- **Measured examples** (host time for the same frames, identical traces):
+
+  | Game | Machine | Before | After |
+  | --- | --- | --- | --- |
+  | Battletoads (NES), 1,500 frames with audio | Windows, one pinned core | 14.07 s | 5.06 s |
+  | Super Mario Bros. (NES), 1,200 frames with audio | Debian, AMD A4-5000 | 19.45 s | 11.16 s |
+  | Alex Kidd in Miracle World (Master System), 7,200 frames with audio | Debian, AMD A4-5000 | 13.97 s | 6.99 s |
+  | R-Type (X68000), 4,000 frames | Debian, AMD A4-5000 | 31.2 s | 14.0 s |
+  | Donkey Kong Country (Super Nintendo), 600 frames | Debian, AMD A4-5000 | 18.0 s | 15.8 s |
+  | Sonic the Hedgehog (Mega Drive), 1,000 frames | Debian, AMD A4-5000 | 15.4 s | 13.5 s |
+
+  These are host costs on the measured routes. They are not complete-game,
+  exact-hardware or latency qualification. See the
+  [performance notes](RUNTIME_PERFORMANCE.md).
+- **Stable runtimes, a growing library.** Apart from the experimental Sharp
+  X68000, the runtime code of the current consoles is now stable and already
+  highly optimized on Windows and Linux; further speed gains on them should be
+  modest. For these consoles, the main ongoing work is the number of titles:
+  the shared compilation library will gain verified entries step by step.
+- **The next machines.** The technical groundwork has been reviewed for Capcom
+  CPS-1/CPS-2, PC Engine/TurboGrafx-16, Game Boy Advance, Atari ST, Amiga 500
+  (WHDLoad-based), Amiga 1200 AGA (WHDLoad-based), Nintendo 64 and PlayStation.
+  If development goes as planned, they will join in that order, each in its own
+  experimental phase. See the [roadmap](ROADMAP.md).
+
+Regenerate games to receive the faster runtimes. Your compilation library,
+fallback hints, settings and cartridge saves (battery, SRAM, memory card) are
+kept and need no rebuilding. F8/F9 quick states made with earlier NES, Mega
+Drive, Super Nintendo, Neo Geo and X68000 executables are not loaded by
+regenerated games; make a new one after regenerating. Master System, Game Gear
+and Game Boy quick states are unaffected.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.1.10 — Sharp X68000 conversion fix
 
 - **Fixed:** converting an X68000 game again in a later session of the packaged
