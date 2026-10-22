@@ -128,7 +128,7 @@ static char last_error[384];
 static Uint32 status_until;
 static unsigned saved_count,loaded_count,rejected_count,swapped_count;
 static void player_present(const void *,unsigned,unsigned,size_t);
-static int player_init(void),player_blocked(void),player_joy(unsigned),player_action(unsigned,unsigned),player_ui_quit(void);
+static int player_init(void),player_blocked(void),player_joy(unsigned),player_action(unsigned,unsigned),player_ui_quit(void),player_ui_restart(void);
 static int player_escape_held(void);
 static unsigned player_fire_scan(void);
 static int player_mouse(unsigned,int);
@@ -399,6 +399,7 @@ static void input_poll(void) {
    }
    keys=SDL_GetKeyboardState(NULL);
    if(player_ui_quit())quit_requested=true;
+   else if(player_ui_restart())player_pause_audio();
    mouse_buttons=SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
    if(!mouse_grab||!input_focus){mouse_dx=mouse_dy=0;mouse_buttons=0;}
 }

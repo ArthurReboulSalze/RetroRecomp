@@ -89,11 +89,11 @@ smsrecomp/resources.py native/embedded_resources.h
 docs/LANGUAGES.md
 docs/QUALITY_REVIEW.md
 native/language_checks.c tools/language_selftest.py
-native/runtime_i18n.h native/runtime_catalog.inc native/runtime_glyphs.inc
+native/runtime_i18n.h native/runtime_catalog.inc
 assets/locales/fr.json assets/locales/it.json assets/locales/es.json assets/locales/de.json
 assets/locales/zh.json assets/locales/ja.json assets/locales/ru.json
 assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
-native/paths_posix.inc native/learning_posix.c native/font6x10.h
+native/paths_posix.inc native/learning_posix.c native/font6x10.h native/font10x20.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py
 smsrecomp/freshness.py smsrecomp/compilation_inputs.py tests/test_compilation_inputs.py
 smsrecomp/snes_knowledge.py tests/test_snes_knowledge.py

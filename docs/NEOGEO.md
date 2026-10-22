@@ -182,7 +182,7 @@ or every-cartridge guarantee.
 
 ## Enhanced Neo Geo mode — updated 15 October 2026
 
-New exports offer **F5: Enhanced Neo Geo** in the existing H help panel. This
+New exports offer **F5: Enhanced Neo Geo** in the existing F1 help panel. This
 direct switch doubles virtual 68000 capacity (12 to 24 MHz) and raises the
 renderer limit from 96 to 381 sprite columns per scanline. Since 1.0.2 enhanced
 mode is the fresh-install default; an explicit saved preference is respected.
@@ -203,7 +203,7 @@ Payload v3 retains the selected machine mode in quick states without increasing
 their size. The exact preceding qualified standard v2 ABI is accepted explicitly;
 the user's preserved crab-scene F8 loads and produces the same standard trace.
 New enhanced states restore their clock mode before core/timer residue. To test
-that old scene, load it with **F9**, then press **F5**. H shows ON/OFF.
+that old scene, load it with **F9**, then press **F5**. F1 help shows ON/OFF.
 Developer CLI `--enhanced` applies the mode after any requested state load.
 
 The final compressed Metal Slug 3 export passes 900 enhanced scene/action

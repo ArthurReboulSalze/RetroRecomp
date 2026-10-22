@@ -203,22 +203,24 @@ static void draw_menu(SDL_Renderer *ren) {
     RR_NES_TEXT(15, menu == 1 ? tr("RetroRecomp - Help", "RetroRecomp - Aide") :
          menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") : "RetroRecomp - Pause");
     if (menu == 1) {
-        RR_NES_TEXT(42, tr("F1 Restart  F2 Controls", "F1 Recommencer  F2 Commandes"));
-        RR_NES_TEXT(56, tr("F3 Filter  F4 Fullscreen", "F3 Filtre  F4 Plein ecran"));
-        RR_NES_TEXT(70, tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"));
-        RR_NES_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
-        RR_NES_TEXT(108, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
-        RR_NES_TEXT(122, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
-        RR_NES_TEXT(134, rr_feedback_label());
-        RR_NES_TEXT(146, tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"));
+        /* Function keys in order, then the console's own controls. */
         char sprites[64];
         snprintf(sprites, sizeof(sprites), tr("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
                  extra_sprites ? "ON" : "OFF");
-        RR_NES_TEXT(96, sprites);
+        const char *lines[] = {
+            tr("F1 Help  Shift+F1 Restart", "F1 Aide  Maj+F1 Redemarrer"),
+            tr("F2 Controls  F3 Filter", "F2 Commandes  F3 Filtre"),
+            tr("F4 Fullscreen", "F4 Plein ecran"), sprites,
+            tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"),
+            tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"),
+            tr("F10 Options", "F10 Options"), rr_feedback_label(),
+            tr("P Pause  Esc Quit", "P Pause  Esc Quitter")};
+        for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i) RR_NES_TEXT(30 + 11 * i, lines[i]);
+        RR_NES_TEXT(133, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
         if (RR_NES_ZAPPER) {
-            RR_NES_TEXT(160, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
-            RR_NES_TEXT(172, tr("F2 + Tab: Zapper options", "F2 + Tab : options du Zapper"));
-        }
+            RR_NES_TEXT(144, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
+            RR_NES_TEXT(155, tr("F2 + Tab: Zapper options", "F2 + Tab : options du Zapper"));
+        } else RR_NES_TEXT(144, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
     } else if (menu == 2 && gamepad_page == 2) {
         char line[96];
         RR_NES_TEXT(38, tr("Zapper | Tab: controls", "Zapper | Tab : commandes"));
@@ -249,7 +251,7 @@ static void draw_menu(SDL_Renderer *ren) {
     } else {
         RR_NES_TEXT(58, tr("Game paused", "Jeu en pause"));
         RR_NES_TEXT(83, tr("P: resume", "P : reprendre"));
-        RR_NES_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
+        RR_NES_TEXT(110, tr("F1: help | F2: controls", "F1 : aide | F2 : commandes"));
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
     else if (status[0]) RR_NES_TEXT(177, status);
@@ -311,15 +313,16 @@ int cyc_sdl_main(const char *title, int scale) {
                 if (key == SDL_SCANCODE_ESCAPE) capturing = 0;
                 else if (!gamepad_page && key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES &&
                          !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12) &&
-                         key != SDL_SCANCODE_H && key != SDL_SCANCODE_P) {
+                         key != SDL_SCANCODE_P) {
                     keys[player][row] = key; store_binding(); capturing = 0;
                 }
                 continue;
             }
             if (key == SDL_SCANCODE_ESCAPE) { if (menu) menu = 0; else running = false; }
-            else if (key == SDL_SCANCODE_F1) {
+            /* F1 opens help; Shift+F1 restarts at once, without a confirmation. */
+            else if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
                 cyc_power_on(0); cyc_run_power_on(); nes_audio_clear();
-            } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
+            } else if (key == SDL_SCANCODE_F1) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
             else if (key == SDL_SCANCODE_F12) {
@@ -388,6 +391,7 @@ int cyc_sdl_main(const char *title, int scale) {
             }
         }
         if (rr_options_quit(menu)) running = false;
+        else if (rr_options_restart(menu)) { cyc_power_on(0); cyc_run_power_on(); nes_audio_clear(); menu = 0; }
         if (!running) break;
         SDL_ShowCursor(RR_NES_ZAPPER && !menu ? SDL_DISABLE : SDL_ENABLE);
         if (!menu) {

@@ -18,6 +18,10 @@ static Snes machine;
 static Ppu ppu;
 Snes *g_snes = &machine;
 Ppu *g_ppu = &ppu;
+/* The backend's default 256x224 picture; the gun bridge only bounds-checks. */
+int rr16_visible_width(void) { return 256; }
+int rr16_visible_height(void) { return 224; }
+int rr16_raster_height(void) { return 224; }
 #endif
 int main(void) {
     Rr16GunInput in = {.x = 100, .y = 80};

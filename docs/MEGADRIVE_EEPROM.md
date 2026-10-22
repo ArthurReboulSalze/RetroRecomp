@@ -39,7 +39,7 @@ Committed bytes use the existing exact-ROM battery container in the console's
 `datas` directory. Reads and normal launch create no directories or logs.
 A cartridge that actually formats/writes its EEPROM may create a battery file
 at shutdown, even if the player never invokes F8. Replacement is atomic.
-F1 resets the serial interface and retains committed nonvolatile bytes.
+A restart (Shift+F1) resets the serial interface and retains committed nonvolatile bytes.
 
 ABI-11 includes the pointer-free chip phase, clock/data levels, address, staged
 page and remaining guest-clock programming interval. F8/F9 can resume a busy

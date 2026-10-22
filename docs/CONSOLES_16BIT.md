@@ -345,8 +345,8 @@ none of these cartridges is enabled or exported by this PAL stage.
 
 ## Shared game interface
 
-Both profiles use RetroRecomp's SDL presentation and menu renderer: H help,
-P pause, F1 restart, F2 keyboard/gamepad mapping, F3 nearest/linear/Scale2x/
+Both profiles use RetroRecomp's SDL presentation and menu renderer: F1 help,
+Shift+F1 restart, P pause, F2 keyboard/gamepad mapping, F3 nearest/linear/Scale2x/
 scanlines, F4 window/integer fullscreen/aspect-preserving fullscreen,
 F6 autofire and F7 English/French. Two controller ports are wired; the
 selected game determines whether two-player gameplay exists. Controller

@@ -393,7 +393,7 @@ W/X, Enter for Start and right Shift for Select. Player 2 uses keypad
 A/B and Start/Back; left-stick click pauses and player 1 right-stick click
 restarts. F2 edits per-player bindings.
 
-H opens help, P pauses, F1 restarts, F3 cycles sharp/Scale2x/scanlines/xBR,
+F1 opens help, Shift+F1 restarts, P pauses, F3 cycles sharp/Scale2x/scanlines/xBR,
 F4 cycles window/integer fullscreen/fit fullscreen, F6 toggles gamepad
 autofire, and F7 changes language. Autofire is sampled once per guest frame;
 the game's own input sampling determines its effective rate.

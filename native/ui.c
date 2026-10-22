@@ -115,7 +115,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
     } else if (kind == 3) {
         text(r, 14, 62, TR("Game paused", "Jeu en pause"), RR_MENU_GOLD);
         text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), RR_MENU_GOLD);
-        text(r, 14, 118, TR("F1: restart", "F1 : redemarrer"), RR_MENU_HINT);
+        text(r, 14, 118, TR("Shift+F1: restart", "Maj+F1 : redemarrer"), RR_MENU_HINT);
         char sprites[64];
         snprintf(sprites, sizeof(sprites), TR("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
             controls.reduce_sprite_flicker ? "ON" : "OFF");
@@ -123,17 +123,18 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 #ifdef RETRO_GAME_GEAR
         text(r, 14, 152, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
 #endif
-        text(r, 14, 164, TR("H: help | F2: controls", "H : aide | F2 : commandes"), RR_MENU_HINT);
+        text(r, 14, 164, TR("F1: help | F2: controls", "F1 : aide | F2 : commandes"), RR_MENU_HINT);
     } else if (kind == 1) {
         char autofire[64];
         snprintf(autofire, sizeof(autofire), TR("F6  Autofire: %s", "F6  Tir auto : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
-        const char *lines[] = {TR("F1  Restart game", "F1  Redemarrer le jeu"), TR("F2  Controls", "F2  Commandes"),
+        const char *lines[] = {TR("F1  Help | Shift+F1 Restart", "F1  Aide | Maj+F1 Redemarrer"), TR("F2  Controls", "F2  Commandes"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
             TR("F5  Reduce sprite flicker", "F5  Reduire le scintillement"),
             autofire, "F7  Next language",
-            TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
-            TR("P / Enter  Pause", "P / Entree  Pause"),
+            TR("F8  Save state | F9  Load state", "F8  Sauvegarder | F9  Charger"),
+            sms_light_phaser ? TR("F10 Gun options", "F10 Options du pistolet") : TR("F10 Options", "F10 Options"),
             rr_feedback_label(),
+            TR("P / Enter  Pause", "P / Entree  Pause"),
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             text(r, 14, 31 + 11 * i, lines[i], RR_MENU_GOLD);
@@ -141,7 +142,7 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 #ifdef RETRO_GAME_GEAR
         text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), RR_MENU_ACCENT);
 #endif
-        text(r, 14, 174, TR("O: options | H / Esc: close", "H / Echap: fermer"), RR_MENU_HINT);
+        text(r, 14, 174, TR("O: options | F1 / Esc: close", "O : options | F1 / Echap : fermer"), RR_MENU_HINT);
         rr_menu_build_footer(r, ox, oy, unit);
     } else {
 #ifdef RETRO_GAME_GEAR

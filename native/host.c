@@ -38,7 +38,7 @@ static SDL_AudioDeviceID audio_device;
 static void audio_output_clear(void);
 static uint64_t previous_interpreter_cycles;
 static int previous_interpreter_state = -1;
-static bool fullscreen, reset_requested, back_latched[CONTROL_PLAYERS];
+static bool fullscreen, reset_requested;
 static bool fullscreen_fit;
 static int menu, parent_menu, selected_row, selected_player;
 static int controller_order_player;
@@ -82,15 +82,15 @@ static void open_controllers(void) {
         if (controllers[p]) {
             SDL_GameControllerSetPlayerIndex(controllers[p], p);
             const char *menu_button = SDL_GameControllerGetStringForButton(controls.buttons[p][CONTROL_PAUSE]);
-            const char *reset_button = SDL_GameControllerGetStringForButton(controls.buttons[p][CONTROL_RESET]);
 #ifdef RETRO_GAME_GEAR
+            const char *start_button = SDL_GameControllerGetStringForButton(controls.buttons[p][CONTROL_RESET]);
             fprintf(stderr, "[host] player %d controller: %s; menu=%s, cartridge_start=%s\n",
+                p + 1, SDL_GameControllerName(controllers[p]), menu_button ? menu_button : "unassigned",
+                start_button ? start_button : "unassigned");
 #else
-            fprintf(stderr, "[host] player %d controller: %s; menu=%s, reset=%s\n",
+            fprintf(stderr, "[host] player %d controller: %s; menu=%s\n",
+                p + 1, SDL_GameControllerName(controllers[p]), menu_button ? menu_button : "unassigned");
 #endif
-                p + 1, SDL_GameControllerName(controllers[p]),
-                menu_button ? menu_button : "unassigned",
-                p == 0 ? (reset_button ? reset_button : "unassigned") : "disabled");
         }
     }
 }
@@ -101,7 +101,6 @@ static void apply_controller_order(void) {
 #else
     if (controller_order_player == controls.first_controller_player) return;
     SDL_GameController *old = controllers[0]; controllers[0] = controllers[1]; controllers[1] = old;
-    bool held = back_latched[0]; back_latched[0] = back_latched[1]; back_latched[1] = held;
     memset(pads, 0, sizeof(pads));
     controls_reset_autofire();
     controller_order_player = controls.first_controller_player;
@@ -182,7 +181,7 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     gun_option_row = 1;
     smsrecomp_set_state_callback(state_completed);
     notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F10: options", "Light Phaser : souris | F10 : options") :
-        controls_text("H: help | P / Enter: pause", "H : aide | P / Entree : pause"));
+        controls_text("F1: help | P / Enter: pause", "F1 : aide | P / Entree : pause"));
     if (sms_light_phaser) fprintf(stderr, "[host] Light Phaser: mouse, left=trigger, right=off-screen; reticle=%s size=%d color=%d\n",
         controls.phaser_shape == PHASER_DOT ? "dot" : "cross", controls.phaser_dot_size, controls.phaser_color);
     return true;
@@ -379,7 +378,7 @@ static bool handle_event(const SDL_Event *e) {
         int p = controller_player(e->cdevice.which);
         if (p >= 0) {
             SDL_GameControllerClose(controllers[p]); controllers[p] = NULL;
-            pads[p] = 0; back_latched[p] = false;
+            pads[p] = 0;
             if (selected_player == p) capturing = false;
             /* The other connected controller keeps its player assignment. */
             open_controllers();
@@ -388,7 +387,6 @@ static bool handle_event(const SDL_Event *e) {
     int event_player = -1;
     if ((e->type == SDL_CONTROLLERBUTTONDOWN || e->type == SDL_CONTROLLERBUTTONUP) &&
         (event_player = controller_player(e->cbutton.which)) < 0) return true;
-    if (e->type == SDL_CONTROLLERBUTTONUP && controls_system_button(event_player, e->cbutton.button, CONTROL_RESET)) back_latched[event_player] = false;
     bool keyboard = e->type == SDL_KEYDOWN && !e->key.repeat;
     bool gamepad = e->type == SDL_CONTROLLERBUTTONDOWN;
     if (!keyboard && !gamepad) {
@@ -424,7 +422,7 @@ static bool handle_event(const SDL_Event *e) {
     int button = gamepad ? e->cbutton.button : -1;
     /* Capture a keyboard binding before invoking its old system action. */
     if (menu == 2 && capturing && !bind_gamepad && keyboard && key != SDL_SCANCODE_ESCAPE &&
-        key != SDL_SCANCODE_H && !(key >= SDL_SCANCODE_F2 && key <= SDL_SCANCODE_F12)) {
+        !(key >= SDL_SCANCODE_F2 && key <= SDL_SCANCODE_F12)) {
         bool ok = controls_bind(selected_player, selected_row, false, (int)key);
         snprintf(menu_status, sizeof(menu_status), "%s", ok ? controls_text("Binding saved", "Commande memorisee") :
             controls_text("Reserved key or config unavailable", "Touche reservee ou config inaccessible"));
@@ -440,12 +438,11 @@ static bool handle_event(const SDL_Event *e) {
         if (ok) capturing = false;
         return true;
     }
-    /* Reserved system actions remain available with every binding set. */
-    if (!rr_options_component(key,button) && (key == SDL_SCANCODE_F1 || controls_system_key(key, CONTROL_RESET) || controls_system_button(event_player, button, CONTROL_RESET))) {
-        if (gamepad) {
-            if (back_latched[event_player]) return true;
-            back_latched[event_player] = true; /* Holding the configured button does not reset again. */
-        }
+    /* Reserved system actions remain available with every binding set. F1
+     * opens help and Shift+F1 restarts at once, without a confirmation; the
+     * held restart combination of the options menu is the other route. */
+    bool f1 = key == SDL_SCANCODE_F1, shift_f1 = f1 && (e->key.keysym.mod & KMOD_SHIFT);
+    if (shift_f1 && !rr_options_component(key, button)) {
         fprintf(stderr, "[host] reset requested at frame %llu\n", (unsigned long long)glue_frame_count());
         reset_requested = true; return false;
     }
@@ -460,7 +457,7 @@ static bool handle_event(const SDL_Event *e) {
         else return false;
         return true;
     }
-    if (key == SDL_SCANCODE_H) { toggle_menu(1); return true; }
+    if (f1) { toggle_menu(1); return true; }
     if (key == SDL_SCANCODE_F2) { controls_load(); apply_controller_order(); toggle_menu(2); return true; }
     if (key == SDL_SCANCODE_F3) {
         controls_load(); int wanted = rr_menu_next_filter(controls.filter);
@@ -614,6 +611,7 @@ bool host_present(const uint32_t *fb, int width, int height) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) if (!handle_event(&e)) { keep = false; break; }
     if (rr_options_quit(menu)) keep = false;
+    else if (rr_options_restart(menu)) { reset_requested = true; menu = 0; keep = false; }
     if (menu && keep) {
         if (sms_light_phaser) {
             lightphaser_pointer(-1, -1, false); gun_x = gun_y = -1;
@@ -628,15 +626,12 @@ bool host_present(const uint32_t *fb, int width, int height) {
             SDL_RenderPresent(renderer);
             if (SDL_WaitEventTimeout(&e, 16)) keep = handle_event(&e);
             if (rr_options_quit(menu)) keep = false;
+            else if (rr_options_restart(menu)) { reset_requested = true; menu = 0; keep = false; }
         }
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 0);
         deadline = 0;
     }
     sample_controls();
-    for (int p = 0; p < CONTROL_PLAYERS; ++p) {
-        int reset_button = controls.buttons[p][CONTROL_RESET];
-        if (keep && (reset_button < 0 || !controllers[p] || !SDL_GameControllerGetButton(controllers[p], reset_button))) back_latched[p] = false;
-    }
     return keep;
 }
 

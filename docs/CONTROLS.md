@@ -15,21 +15,27 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 
 | Key | Action |
 | --- | --- |
-| F1 | Restart |
+| F1 | Help; **Shift+F1** restarts at once, without confirmation |
 | F2 | Control mappings |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode |
-| F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
 | F10 | Game options; on Master System gun games this retains Light Phaser options |
+| F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
-| H | Help |
 | P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
 | Esc | Close a menu or quit |
+
+Every console uses the same two system shortcuts: **F1** opens help and
+**Shift+F1** restarts the game. The help lists the function keys in order,
+from F1 to F12, followed by the console's own controls.
+On a controller, **Start+Select (Back)** held for one second restarts and
+**L3+R3** held for one second quits; both can be changed or cleared in the
+game options (F10).
 
 ## Game options (1.1.8)
 
@@ -48,8 +54,12 @@ Esc/B, or click a row with the mouse.
   press a single key or button, or the desired combination together, then
   release it. Keyboard combinations accept up to three keys. Each controller
   combination belongs to one controller, not buttons split between players.
-  Both are unassigned by default. Delete/Backspace or controller X clears the
-  selected combination; Esc cancels capture.
+  The keyboard row is unassigned by default; the gamepad default is
+  **L3+R3**. Delete/Backspace or controller X clears the selected
+  combination; Esc cancels capture.
+- **Restart: keyboard / gamepad:** assigned the same way. The keyboard row is
+  unassigned by default (Shift+F1 always restarts); the gamepad default is
+  **Start+Select (Back)**. A held restart fires once, then waits for release.
 - **Hold the key, button or combination for one second** to quit through the normal shutdown
   path, preserving ordinary saves and shutdown-only fallback hints. Configured
   quit buttons take priority over host pause/reset shortcuts; cartridge inputs
@@ -79,7 +89,7 @@ C on the Master System gamepad page swaps controller assignments.
 Game Gear has one player and no gun. Arrows and W/X control the game; **S** is
 the cartridge Start button. On a gamepad, A/B are the two game buttons,
 Start reaches the cartridge and Back opens the pause/menu. **P** and Enter also
-open that menu, while F1 restarts the game. F2 maps the single player's keys
+open that menu, while F1 opens help and Shift+F1 restarts the game. F2 maps the single player's keys
 and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
@@ -89,7 +99,7 @@ Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
 and Back (Coin in arcade MVS). In console AES, the Coin action is inactive:
-Back/Select does not open the BIOS menu. **P** pauses; **F1** resets. Stick clicks are unassigned by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
+Back/Select does not open the BIOS menu. **P** pauses; **F1** opens help and **Shift+F1** restarts. Stick clicks have no game action by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
 there is no gun page. F3/F4/F6/F7 preferences persist in the common local INI
 with independent NeoGeo video/mapping sections. F8/F9 includes fresh-process
 loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).
@@ -98,7 +108,7 @@ Neo Geo **F5** directly switches enhanced mode on/off. It doubles the virtual
 68000 clock and extends rendering from 96 to 381 sprite columns per line.
 The video and sound clocks retain their normal rates. Enhanced mode is the
 default since 1.0.2; the last F5 choice is remembered under `NeoGeo.Runtime/enhanced` in
-`datas/Retro-Recomp.ini`. H shows the active setting. Quick states retain their
+`datas/Retro-Recomp.ini`. F1 help shows the active setting. Quick states retain their
 saved machine mode, so loading an older standard state returns to standard mode;
 press F5 after F9 to compare the same scene in enhanced mode. This is an optional
 change to the console's original limits, qualified on the documented Metal Slug 3
@@ -115,23 +125,25 @@ modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.
 F6 toggles autofire for held keyboard/gamepad A/B, F7 changes menu language,
-and F8/F9 use one quick state. P pauses, F2 maps controls, and H opens
-help. Enter selects a binding inside F2. Escape closes a menu or quits.
+and F8/F9 use one quick state. P pauses, F2 maps controls, F1 opens help
+and Shift+F1 restarts. Enter selects a binding inside F2. Escape closes a menu or quits.
 Fallback stays visible in the window title and pause menu, with no overlay
 in fullscreen. Game Boy settings use a separate shared INI file.
 
 Master System defaults:
 
-| Player | Directions | Buttons | Menu | Restart |
-| --- | --- | --- | --- | --- |
-| J1 keyboard | Arrows | W / X | P; Enter also available | F1 |
-| J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 | Disabled |
-| Each gamepad | D-pad / left stick | A / B | Start/Menu | Select/Back, J1 only |
+| Player | Directions | Buttons | Menu |
+| --- | --- | --- | --- |
+| J1 keyboard | Arrows | W / X | P; Enter also available |
+| J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 |
+| Each gamepad | D-pad / left stick | A / B | Start/Menu |
 
-Start/Menu and J1 Select/Reset are configurable on both keyboard and gamepad
-pages. A button used for gameplay must be freed before serving a system action.
-J2 has no reset row; old J2 reset entries are ignored without rewriting the INI. J2 binding
-details appear only on its mapping page.
+Start/Menu is configurable on both keyboard and gamepad pages. A button used
+for gameplay must be freed before serving as the menu button. Like every other
+console, the Master System restarts with Shift+F1 or the held restart
+combination (Start+Select by default); it has no separate Select/Reset row.
+Earlier `select` entries for either player are ignored without rewriting the
+INI. J2 binding details appear only on its mapping page.
 
 The first controller is J1 and the next J2; swapping supports one gamepad for
 J2 while J1 uses the keyboard. Settings are shared in `datas/Retro-Recomp.ini`.
@@ -162,7 +174,12 @@ choice is saved in `[NES.Video] reduce_sprite_flicker`; off by default.
 
 All console menus share the converter's identity: near-black panels, gold
 lettering and its brown-gold selection, defined once in `native/retro_menu.h`
-(colours only, no new asset in games).
+(colours only, no new asset in games). Menu text uses the public-domain X.Org
+Misc Fixed 10x20 bitmap (3.8 KB in each game), drawn for the window's scale by
+area coverage: strokes are half as thick as with the former 6x10 cell, solid
+pixels stay solid and only the edges blend. A 256x192 window keeps the 6x10
+font. Game menus draw plain ASCII: accents are dropped and German umlauts
+become ae/oe/ue, so games carry no glyph table.
 
 The first fullscreen mode keeps integer pixel sizes. Press F4 again for the
 largest image that fits the display while preserving the visible game's
@@ -197,9 +214,10 @@ sampling once per frame. Repeated reads within a frame stay stable; pausing
 freezes the phase. Directions, Start/Select/Coin and mouse gun triggers are not
 pulsed. The game's own firing limits still apply.
 
-L3/R3 (stick clicks) have **no forced pause/reset action** and no default game
-binding. They remain assignable to game actions through F2. Existing explicitly
-saved bindings remain in effect. Use P to pause and F1 to restart.
+L3/R3 (stick clicks) have no default game binding and remain assignable to game
+actions through F2. Together, held for one second, they quit by default (game
+options). Existing explicitly saved bindings remain in effect. Use P to pause
+and Shift+F1 to restart.
 
 The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`;
 Game Boy keeps its own persistent `input.autofire` setting. Existing games need

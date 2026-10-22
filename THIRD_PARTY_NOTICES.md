@@ -137,14 +137,16 @@ SecretStorage. See [licenses/Linux-desktop.md](licenses/Linux-desktop.md).
 The Linux converter also embeds the installed packages' complete notices in
 `third-party-runtime/`, including their cryptography dependencies.
 
-The Linux menu embeds the printable ASCII subset of X.Org's Misc Fixed 6x10
-bitmap, without resampling. Its original notice is: "Public domain font. Share
-and enjoy." The source and checksum are retained in `native/font6x10.h`.
-Source: https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/6x10.bdf/
+Game menus embed the printable ASCII subsets of X.Org's Misc Fixed 10x20 and
+6x10 bitmaps, both released into the public domain ("Share and enjoy.").
+The original notices, sources and checksums are retained in
+`native/font10x20.h` and `native/font6x10.h`.
+Sources: https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/10x20.bdf/
+and https://sources.debian.org/src/xfonts-base/1%3A1.0.5%2Bnmu1/font-misc-misc/6x10.bdf/
 
 ## Multilingual menu fonts
 
-The interface uses renamed subsets of Noto Sans CJK, and generated games use
-a small Noto-derived glyph atlas. Copyright Adobe and Google;
+The interface uses renamed subsets of Noto Sans CJK; generated games contain
+no Noto-derived glyphs. Copyright Adobe and Google;
 SIL Open Font License 1.1. The complete notice is retained in
 [licenses/Noto.md](licenses/Noto.md). Full source fonts are not bundled.

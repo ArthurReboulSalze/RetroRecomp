@@ -96,31 +96,31 @@ static void rr_gb_draw_menu(void) {
         char autofire[48];
         snprintf(autofire, sizeof(autofire), rr_gb_tr("F6  Autofire: %s", "F6  Tir auto : %s"), rr_tr(g_rr_autofire ? "ON" : "OFF"));
         const char* lines[] = {
-            rr_gb_tr("F1  Restart game", "F1  Redemarrer le jeu"),
+            rr_gb_tr("F1  Help | Shift+F1 Restart", "F1  Aide | Maj+F1 Redemarrer"),
             rr_gb_tr("F2  Controls", "F2  Commandes"),
             rr_gb_tr("F3  Next filter", "F3  Changer le filtre"),
             rr_gb_tr("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
             rr_gb_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique"),
             autofire, "F7  Next language",
-            rr_gb_tr("F8  Save game state", "F8  Sauvegarder l'etat"),
-            rr_gb_tr("F9  Load game state", "F9  Charger l'etat"),
+            rr_gb_tr("F8  Save state | F9  Load state", "F8  Sauvegarder | F9  Charger"),
+            rr_gb_tr("F10 Options", "F10 Options"),
             rr_feedback_label(),
             rr_gb_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start"),
             rr_gb_tr("Gamepad menu: Guide button", "Menu manette : bouton Guide"),
         };
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             RR_TEXT(14, 29 + 12 * i, lines[i], RR_MENU_GOLD);
-        RR_TEXT(14, 174, rr_gb_tr("O: options | H / Esc: close", "H / Echap: fermer"), RR_MENU_HINT);
+        RR_TEXT(14, 174, rr_gb_tr("O: options | F1 / Esc: close", "O : options | F1 / Echap : fermer"), RR_MENU_HINT);
         rr_menu_build_footer(g_renderer, ox, oy, unit);
     } else if (g_rr_menu_kind == RR_GB_PAUSE) {
         RR_TEXT(14, 62, rr_gb_tr("Game paused", "Jeu en pause"), RR_MENU_GOLD);
         RR_TEXT(14, 90, rr_gb_tr("P: resume", "P : reprendre"), RR_MENU_GOLD);
-        RR_TEXT(14, 118, rr_gb_tr("F1: restart", "F1 : redemarrer"), RR_MENU_HINT);
+        RR_TEXT(14, 118, rr_gb_tr("Shift+F1: restart", "Maj+F1 : redemarrer"), RR_MENU_HINT);
         RR_TEXT(14, 140, rr_gb_tr("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
         RR_TEXT(14, 152, has_interpreter_activity(g_registered_ctx) ?
             rr_gb_tr("Interpreter fallback used", "Secours interprete utilise") :
             rr_gb_tr("Native code", "Code natif"), RR_MENU_ACCENT);
-        RR_TEXT(14, 164, rr_gb_tr("H: help | F2: controls", "H : aide | F2 : commandes"), RR_MENU_HINT);
+        RR_TEXT(14, 164, rr_gb_tr("F1: help | F2: controls", "F1 : aide | F2 : commandes"), RR_MENU_HINT);
     } else {
         RR_TEXT(14, 30, rr_gb_tr("Game Boy controls", "Commandes Game Boy"), RR_MENU_GOLD);
         RR_TEXT(14, 43, g_rr_bind_gamepad ? rr_gb_tr("Gamepad [Tab:keys]", "Manette [Tab:clavier]") :
@@ -177,13 +177,15 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
     }
     if (event->type == SDL_KEYUP) {
         const SDL_Scancode key = event->key.keysym.scancode;
-        if (g_show_menu || key == SDL_SCANCODE_H || key == SDL_SCANCODE_P ||
+        if (g_show_menu || key == SDL_SCANCODE_P ||
             (key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F9)) return true;
         return false;
     }
     if (event->type == SDL_KEYDOWN) {
         const SDL_Scancode key = event->key.keysym.scancode;
         if (event->key.repeat) return g_show_menu || key == SDL_SCANCODE_F5;
+        /* F1 opens help; Shift+F1 restarts at once, without a confirmation. */
+        if (key == SDL_SCANCODE_F1 && !(event->key.keysym.mod & KMOD_SHIFT)) { rr_gb_toggle_menu(RR_GB_HELP); return true; }
         if (key == SDL_SCANCODE_F1) {
             if (ctx) { gb_context_reset(ctx, true); reset_audio_output_buffer(true); }
             g_show_menu = false; g_rr_menu_kind = 0;
@@ -191,7 +193,6 @@ static bool rr_gb_handle_menu_event(const SDL_Event* event, GBContext* ctx) {
             return true;
         }
         if (key == SDL_SCANCODE_F2) { rr_gb_toggle_menu(RR_GB_CONTROLS); return true; }
-        if (key == SDL_SCANCODE_H) { rr_gb_toggle_menu(RR_GB_HELP); return true; }
         if (key == SDL_SCANCODE_F3) { rr_gb_cycle_filter(); return true; }
         if (key == SDL_SCANCODE_F4) { rr_gb_cycle_fullscreen(); return true; }
         if (key == SDL_SCANCODE_F12) {rr_feedback_toggle();rr_gb_notice(rr_feedback_label());return true;}

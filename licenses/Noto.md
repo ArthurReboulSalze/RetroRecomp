@@ -1,12 +1,11 @@
-# Noto font subsets and game-menu glyphs
+# Noto font subsets
 
-Derived from Noto Sans CJK and Noto Sans Mono.
+Derived from Noto Sans CJK, for the converter's interface only.
 Noto Sans CJK source-font notice: © 2014-2021 Adobe (http://www.adobe.com/).
-Noto Sans Mono source-font notice: Copyright 2015 Google LLC. All Rights Reserved.
 The Debian Noto CJK source package also retains Copyright 2010-2012 Google Corporation.
-Source: https://github.com/notofonts/noto-cjk and https://github.com/notofonts/latin-greek-cyrillic.
+Source: https://github.com/notofonts/noto-cjk.
 Modified interface subsets are named RetroRecomp UI JP / SC.
-The glyph atlas contains only characters used by the translated menus.
+Generated games contain no Noto-derived glyphs.
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

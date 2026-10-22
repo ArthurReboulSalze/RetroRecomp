@@ -41,21 +41,21 @@ class LanguageTests(unittest.TestCase):
                 self.assertTrue(language_name(code))
             with self.assertRaises(ValueError):save_game_language(output,'xx')
 
-    def test_runtime_printf_formats_and_baked_glyph_coverage(self):
+    def test_runtime_printf_formats_and_plain_ascii_game_catalogue(self):
         values={c:catalog(c)['runtime'] for c in LANGUAGES[1:]}
         spec=lambda s:re.findall(r'%(?!%)[-+ #0]*\d*(?:\.\d+)?(?:ll|[hlz])?[diuoxXfFeEgGcs]',s)
-        glyphs=(ASSETS/'native/runtime_glyphs.inc').read_text(encoding='ascii')
-        catalogue=(ASSETS/'native/runtime_catalog.inc').read_text(encoding='ascii')
-        self.assertIn('rr_language_codes[5] = {"en","fr","it","es","de"}',catalogue)
-        points={int(x) for x in re.findall(r'\{(\d+),\d+,\d+\}',glyphs)}
+        catalogue=(ASSETS/'native/runtime_catalog.inc').read_bytes()
+        self.assertIn(b'rr_language_codes[5] = {"en","fr","it","es","de"}',catalogue)
+        self.assertIn(b'rr_language_names[5] = {"English","Francais","Italiano","Espanol","Deutsch"}',catalogue)
         for code,rows in values.items():
             self.assertEqual(set(rows),set(values['fr']),code)
             for english,text in rows.items():
                 self.assertEqual(spec(english),spec(text),(code,english))
-                if code in GAME_LANGUAGES:
-                    self.assertTrue({ord(c) for c in text if ord(c)>=127}<=points,(code,text))
-        # No CJK or Cyrillic table is baked into generated games any more.
-        self.assertTrue(all(point<0x370 for point in points),sorted(points))
+        # Games draw plain ASCII: no accents, escapes or glyph table.
+        self.assertTrue(catalogue.isascii())
+        self.assertNotIn(b'\\3',catalogue)
+        self.assertIn(b'"Schliessen"',catalogue)
+        self.assertFalse((ASSETS/'native/runtime_glyphs.inc').exists())
 
     def test_process_font_subsets_are_small_and_valid(self):
         coverage=json.loads((ASSETS/'assets/font-coverage.json').read_text(encoding='ascii'))

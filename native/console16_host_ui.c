@@ -351,38 +351,51 @@ static void draw_menu(SDL_Renderer *ren) {
          menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") :
          menu == 4 ? tr("RetroRecomp - Gun", "RetroRecomp - Pistolet") : "RetroRecomp - Pause");
     if (menu == 1) {
-        RR16_TEXT(42, tr("F1 Restart  F2 Controls", "F1 Recommencer  F2 Commandes"));
-        RR16_TEXT(56, tr("F3 Filter  F4 Fullscreen", "F3 Filtre  F4 Plein ecran"));
-        RR16_TEXT(70, tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"));
-        RR16_TEXT(84, tr("P Pause  H Help  Esc Quit", "P Pause  H Aide  Esc Quitter"));
-        RR16_TEXT(96,rr_feedback_label());
+        /* Function keys in order, then the console's own controls. */
+        const char *lines[12]; int count = 0;
+        lines[count++] = tr("F1 Help  Shift+F1 Restart", "F1 Aide  Maj+F1 Redemarrer");
+        lines[count++] = tr("F2 Controls  F3 Filter", "F2 Commandes  F3 Filtre");
+        lines[count++] = tr("F4 Fullscreen", "F4 Plein ecran");
 #if RR16_NG
-        RR16_TEXT(108, tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
-        RR16_TEXT(122, rr_ng_aes()?"Enter: Start; Shift/Back: Select":tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
-        RR16_TEXT(134, rr_ng_enhanced()?tr("F5 Enhanced Neo Geo: ON", "F5 Neo Geo amelioree : OUI"):
-                                      tr("F5 Enhanced Neo Geo: OFF", "F5 Neo Geo amelioree : NON"));
-#elif !RR16_GUN && RR16_MD && RR_MD_SIX_BUTTONS
-        RR16_TEXT(108, tr("Arrows; W/X/C: A/B/C; Enter: Start", "Fleches; W/X/C : A/B/C; Entree : Start"));
-        RR16_TEXT(122, tr("A/S/D: X/Y/Z; Right Shift: Mode", "A/S/D : X/Y/Z; Maj droite : Mode"));
-#elif !RR16_GUN && RR16_MD
-        RR16_TEXT(108, tr("Arrows + W/X/C; Enter Start", "Fleches + W/X/C; Entree Start"));
-        RR16_TEXT(122, tr("Two controllers supported", "Deux manettes disponibles"));
-#elif !RR16_GUN
-        RR16_TEXT(108, tr("Arrows + W/X/A/S; Q/E shoulders", "Fleches + W/X/A/S; Q/E gachettes"));
-        RR16_TEXT(122, tr("Enter Start; Shift Select", "Entree Start; Maj Select"));
-#endif
-        if (RR16_GUN) {
-            RR16_TEXT(108, tr("Mouse: aim | Left: fire", "Souris : viser | Gauche : tirer"));
-            RR16_TEXT(122, RR16_GUN == RR_GUN_SCOPE ? tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
-                tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
-            RR16_TEXT(146, tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2"));
-        } else RR16_TEXT(146, tr("F8 Save state | F9 Load state", "F8 Sauvegarder | F9 Charger"));
-#if RR16_NG
-        RR16_TEXT(160, rr_ng_arcade_only()?"F11 Arcade Only":!rr_ng_aes_available()?"F11 AES: BIOS neo-epo.bin required":
-                       rr_ng_aes()?"F11 Console AES -> Arcade MVS (restart)":"F11 Arcade MVS -> Console AES (restart)");
+        lines[count++] = rr_ng_enhanced() ? tr("F5 Enhanced Neo Geo: ON", "F5 Neo Geo amelioree : OUI") :
+                                            tr("F5 Enhanced Neo Geo: OFF", "F5 Neo Geo amelioree : NON");
 #else
-        RR16_TEXT(160, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
-                                                tr("Sound CPU: native code", "CPU audio : code natif"));
+        if (RR16_GUN) lines[count++] = tr("F5: gun options | Gun on port 2", "F5 : viseur | Pistolet sur port 2");
+#endif
+        lines[count++] = tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue");
+        lines[count++] = tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger");
+        lines[count++] = tr("F10 Options", "F10 Options");
+#if RR16_NG
+        lines[count++] = rr_ng_arcade_only()?"F11 Arcade Only":!rr_ng_aes_available()?"F11 AES: BIOS neo-epo.bin required":
+                         rr_ng_aes()?"F11 Console AES -> Arcade MVS (restart)":"F11 Arcade MVS -> Console AES (restart)";
+#endif
+        lines[count++] = rr_feedback_label();
+        lines[count++] = tr("P Pause  Esc Quit", "P Pause  Esc Quitter");
+        int y = 30;
+        for (int i = 0; i < count; ++i, y += 11) RR16_TEXT(y, lines[i]);
+        y += 4;
+#if RR16_NG
+        RR16_TEXT(y, tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
+        RR16_TEXT(y + 11, rr_ng_aes()?"Enter: Start; Shift/Back: Select":tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
+#else
+        if (RR16_GUN) {
+            RR16_TEXT(y, tr("Mouse: aim | Left: fire", "Souris : viser | Gauche : tirer"));
+            RR16_TEXT(y + 11, RR16_GUN == RR_GUN_SCOPE ? tr("Right: cursor | Middle/Enter: gun pause", "Droit : curseur | Milieu/Entree : pause gun") :
+                tr("Right: B | Middle: C | Enter: Start", "Droit : B | Milieu : C | Entree : Start"));
+        } else {
+#if RR16_MD && RR_MD_SIX_BUTTONS
+            RR16_TEXT(y, tr("Arrows; W/X/C: A/B/C; Enter: Start", "Fleches; W/X/C : A/B/C; Entree : Start"));
+            RR16_TEXT(y + 11, tr("A/S/D: X/Y/Z; Right Shift: Mode", "A/S/D : X/Y/Z; Maj droite : Mode"));
+#elif RR16_MD
+            RR16_TEXT(y, tr("Arrows + W/X/C; Enter Start", "Fleches + W/X/C; Entree Start"));
+            RR16_TEXT(y + 11, tr("Two controllers supported", "Deux manettes disponibles"));
+#else
+            RR16_TEXT(y, tr("Arrows + W/X/A/S; Q/E shoulders", "Fleches + W/X/A/S; Q/E gachettes"));
+            RR16_TEXT(y + 11, tr("Enter Start; Shift Select", "Entree Start; Maj Select"));
+#endif
+        }
+        RR16_TEXT(y + 22, rr16_audio_interpreted() ? tr("Sound CPU: interpreter fallback", "CPU audio : secours interprete") :
+                                                    tr("Sound CPU: native code", "CPU audio : code natif"));
 #endif
     } else if (menu == 2) {
         char line[96];
@@ -414,7 +427,7 @@ static void draw_menu(SDL_Renderer *ren) {
     } else {
         RR16_TEXT(58, tr("Game paused", "Jeu en pause"));
         RR16_TEXT(83, tr("P: resume", "P : reprendre"));
-        RR16_TEXT(110, tr("H: help | F2: controls", "H : aide | F2 : commandes"));
+        RR16_TEXT(110, tr("F1: help | F2: controls", "F1 : aide | F2 : commandes"));
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
     else if (status[0]) RR16_TEXT(177, status);
@@ -555,15 +568,16 @@ int rr16_sdl_main(const char *title, int scale) {
                 if (key == SDL_SCANCODE_ESCAPE) capturing = 0;
                 else if (!gamepad_page && key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES &&
                          !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12) &&
-                         key != SDL_SCANCODE_H && key != SDL_SCANCODE_P) {
+                         key != SDL_SCANCODE_P) {
                     keys[player][row] = key; store_binding(); capturing = 0;
                 }
                 continue;
             }
             if (key == SDL_SCANCODE_ESCAPE) { if (menu) menu = 0; else running = false; }
-            else if (key == SDL_SCANCODE_F1) {
+            /* F1 opens help; Shift+F1 restarts at once, without a confirmation. */
+            else if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
                 rr16_reset(); pause_audio_output(audio, &audio_playing);
-            } else if (key == SDL_SCANCODE_H) menu = menu == 1 ? 0 : 1;
+            } else if (key == SDL_SCANCODE_F1) menu = menu == 1 ? 0 : 1;
             else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
             else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
             else if (key == SDL_SCANCODE_F12) {
@@ -638,6 +652,7 @@ int rr16_sdl_main(const char *title, int scale) {
             }
         }
         if (rr_options_quit(menu)) running = false;
+        else if (rr_options_restart(menu)) { rr16_reset(); pause_audio_output(audio, &audio_playing); menu = 0; }
         if (!running) break;
         if (pending_state && rr16_state_ready()) {
             bool load = pending_state == 2;

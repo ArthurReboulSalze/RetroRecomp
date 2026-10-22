@@ -6,7 +6,8 @@ games carry the five Latin-script languages (English, French, Italian, Spanish,
 German) and cycle through them with **F7**, without opening a selection menu.
 A converter set to Chinese, Japanese or Russian generates games that start in
 English; their glyph tables made every game larger and read poorly in the
-six-pixel menus.
+small menus. Game menus draw plain ASCII: accents are dropped (German umlauts
+become ae/oe/ue), so games carry no glyph table.
 
 The choice is saved in each console folder's `datas/Retro-Recomp.ini`, under
 `[Interface] language`, using the stable IDs `en/fr/it/es/de` (`zh/ja/ru`
@@ -19,8 +20,9 @@ Window execution labels remain English (`Native code` / `Interpreter fallback`).
 
 Translation sources are `smsrecomp/i18n.py` for the original converter EN/FR
 strings and `assets/locales/*.json` for additional converter/runtime text.
-All runtime adapters use the shared catalogue and UTF-8 drawing service in
-`native/retro_menu.c`. Existing language IDs 0/1 remain EN/FR; new IDs append
+All runtime adapters use the shared catalogue and ASCII drawing service in
+`native/retro_menu.c`; stray accented Latin-1 letters fall back to their base
+letter and other characters to `?`. Existing language IDs 0/1 remain EN/FR; new IDs append
 without changing controller settings. Format placeholders are checked before
 the generated catalogue is accepted.
 
@@ -28,22 +30,16 @@ The converter privately loads two renamed Noto font subsets for its own process.
 Windows retains its original Segoe UI face for Latin languages and Russian;
 only Chinese/Japanese select the matching subset. Linux retains the Noto-based
 interface. Tooltips follow the active interface font. No system fonts are
-installed or replaced. Exported games contain only a small accented-Latin
-glyph atlas alongside their original ASCII rendering: 15 characters and 1,080
-alpha bytes (previously 437 characters and 39,024 bytes with CJK and Cyrillic).
-`tools/build_languages.py` regenerates the five-language game catalogue; without
-the Noto source fonts it prunes the existing atlas to the characters games use.
-CJK and Cyrillic bitmaps are one third smaller than the initial atlas, with
-the existing line height preserved. ASCII and accented Latin glyphs retain
-their original sizes. This adjustment applies to Windows and Linux games;
-the converter's font subsets are unchanged.
+installed or replaced. Exported games contain no Noto glyphs: their menus use
+the public-domain X.Org Misc Fixed 10x20 bitmap (printable ASCII, 3,840 bytes),
+drawn for the window's scale by area coverage on Windows and Linux alike.
+`tools/build_languages.py` regenerates the five-language ASCII game catalogue.
 Final executable size also depends on the catalogue, license notice and packing.
 See the retained [Noto license](../licenses/Noto.md).
 
-`tools/build_languages.py` regenerates the C catalogue. To also regenerate font
-subsets/glyphs, install Pillow and fontTools in a development environment and
-pass `--cjk <NotoSansCJK-Regular.ttc> --mono <NotoSansMono-Regular.ttf>`.
-Add `--runtime-only` to update game glyphs without rebuilding converter fonts.
+`tools/build_languages.py` regenerates the C catalogue. To also regenerate the
+converter's font subsets, install fontTools in a development environment and
+pass `--cjk <NotoSansCJK-Regular.ttc>`.
 Full source fonts stay outside the public snapshot. Python tests check complete
 UI catalogues, placeholders, stable settings and glyph coverage.
 `tools/language_selftest.py` compiles and renders an authored eight-language

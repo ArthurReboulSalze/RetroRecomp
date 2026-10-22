@@ -27,10 +27,10 @@ rest of the game. They do not establish whole-game performance or physical
 latency. Run `python tools/xbr_selftest.py` to check contour coverage, rotation,
 RGBA mixing, boundaries and these workloads without a ROM or window.
 
-The help screen (**H**) shows **Retro-Recomp v<version>** at its bottom right.
+The help screen (**F1**) shows **v<version>** at the right of its title row.
 The converter injects its own version during compilation for each console;
 updating the converter does not change the label in an already-generated game.
-The footer is separate from the close-help hint and transient notifications.
+The label is separate from the close-help hint and transient notifications.
 
 The 11 October 2026 qualification regenerated only Super Mario Bros. on NES.
 Automated checks cover the four filters, three display modes and their restored

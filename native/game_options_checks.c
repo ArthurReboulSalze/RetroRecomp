@@ -56,7 +56,8 @@ static void sound(void) {
 static void chords(void) {
     rr_options_init(L"Fixture");rr_mkdir(rr_options.dir);rr_remove(rr_options.file);
     rr_options_init(L"Fixture");
-    assert(!rr_options.pad && !rr_options.key[0] && !SDL_AtomicGet(&rr_options.audio_mode));
+    assert(rr_options.pad==(int)RR_OPTIONS_QUIT_PAD && rr_options.rpad==(int)RR_OPTIONS_RESTART_PAD &&
+           !rr_options.key[0] && !rr_options.rkey[0] && !SDL_AtomicGet(&rr_options.audio_mode));
     rr_ini_set(L"Unrelated",L"keep",L"42",rr_options.file);
     key(SDL_SCANCODE_F10,1);assert(menu==RR_OPTIONS_MENU);key(SDL_SCANCODE_F10,0);
     key(SDL_SCANCODE_RETURN,1);key(SDL_SCANCODE_RETURN,0);
@@ -116,6 +117,25 @@ static void chords(void) {
     now_ms=10000;assert(rr_options_quit(menu));button(8,SDL_CONTROLLER_BUTTON_BACK,0);
     rr_options_init(L"Fixture");
     assert(rr_options.key[0]==SDL_SCANCODE_END && rr_options.pad==(1<<SDL_CONTROLLER_BUTTON_BACK));
+    /* Default restart: Start+Select held one second, once per hold. */
+    assert(rr_options.rpad==(int)RR_OPTIONS_RESTART_PAD);
+    now_ms=20000;button(8,SDL_CONTROLLER_BUTTON_START,1);assert(!rr_options_restart(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);assert(!rr_options_restart(menu));
+    now_ms=20999;assert(!rr_options_restart(menu));now_ms=21000;assert(rr_options_restart(menu));
+    now_ms=23000;assert(!rr_options_restart(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,0);assert(!rr_options_restart(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,1);now_ms=23500;assert(!rr_options_restart(menu));
+    now_ms=24500;assert(rr_options_restart(menu));
+    button(8,SDL_CONTROLLER_BUTTON_BACK,0);button(8,SDL_CONTROLLER_BUTTON_START,0);
+    /* Restart rows bind like quit rows: a single key, persisted. */
+    key(SDL_SCANCODE_F10,1);key(SDL_SCANCODE_F10,0);assert(menu==RR_OPTIONS_MENU);
+    rr_options.row=3;key(SDL_SCANCODE_RETURN,1);key(SDL_SCANCODE_RETURN,0);
+    key(SDL_SCANCODE_HOME,1);key(SDL_SCANCODE_HOME,0);assert(rr_options.rkey[0]==SDL_SCANCODE_HOME&&!rr_options.rkey[1]);
+    rr_options.row=4;key(SDL_SCANCODE_DELETE,1);key(SDL_SCANCODE_DELETE,0);assert(!rr_options.rpad);
+    key(SDL_SCANCODE_ESCAPE,1);key(SDL_SCANCODE_ESCAPE,0);assert(!menu);
+    now_ms=30000;assert(!rr_options_restart(menu));key(SDL_SCANCODE_HOME,1);assert(!rr_options_restart(menu));
+    now_ms=31000;assert(rr_options_restart(menu));key(SDL_SCANCODE_HOME,0);
+    rr_options_init(L"Fixture");assert(rr_options.rkey[0]==SDL_SCANCODE_HOME&&!rr_options.rpad);
     rr_remove(rr_options.file);
 }
 static void pads(void) {

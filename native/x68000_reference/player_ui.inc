@@ -9,7 +9,8 @@
 #ifdef RR_X68000_LINKED
 #include "runtime_feedback_sdl.h"
 #endif
-enum {X_UP,X_DOWN,X_LEFT,X_RIGHT,X_A,X_B,X_ENTER,X_PAUSE,X_RESET,X_ACTIONS};
+/* No restart row: Shift+F1 and the held restart combination, as on every console. */
+enum {X_UP,X_DOWN,X_LEFT,X_RIGHT,X_A,X_B,X_ENTER,X_PAUSE,X_ACTIONS};
 static struct {
    int ready,menu,row,player,capture,filter,display,paused,want_reset,help_page,escape_held;
    int key[2][X_ACTIONS],pad[2][X_ACTIONS];
@@ -19,7 +20,7 @@ static struct {
    RrXbr xbr;RrScanlineMask scanlines;
    int16_t *audio;size_t audio_capacity;
 } player_ui;
-static const char *player_actions[X_ACTIONS]={"Up","Down","Left","Right","Button A","Button B","Start","Pause","Restart game"};
+static const char *player_actions[X_ACTIONS]={"Up","Down","Left","Right","Button A","Button B","Start","Pause"};
 static int player_blocked(void){return player_ui.ready&&(player_ui.menu||player_ui.paused);}
 static int player_escape_held(void){return player_ui.ready&&player_ui.escape_held;}
 static int player_fast_forward(void){
@@ -27,6 +28,11 @@ static int player_fast_forward(void){
       keys&&keys[SDL_SCANCODE_F5];
 }
 static int player_ui_quit(void){return player_ui.ready&&rr_options_quit(player_ui.menu);}
+/* A held restart combination queues the same reset as Shift+F1. */
+static int player_ui_restart(void){
+   if(!player_ui.ready||!rr_options_restart(player_ui.menu))return 0;
+   player_ui.want_reset=1;player_ui.menu=0;return 1;
+}
 /* Output priming: one guest frame, one device period and 10 ms, plus the
  * adaptive reserve. The device stays paused until the queue holds it, and
  * re-primes when a block finds the queue empty (the device ran dry). */
@@ -55,10 +61,10 @@ static int player_queue_audio(const int16_t *samples,size_t count){
 static void player_defaults(void){
    for(unsigned p=0;p<2;p++)for(unsigned i=0;i<X_ACTIONS;i++){player_ui.key[p][i]=0;player_ui.pad[p][i]=-1;}
    int defaults[]={SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT,
-      rr_keyboard_letter(SDLK_w,SDL_SCANCODE_W),rr_keyboard_letter(SDLK_x,SDL_SCANCODE_X),SDL_SCANCODE_RETURN,0,0};
+      rr_keyboard_letter(SDLK_w,SDL_SCANCODE_W),rr_keyboard_letter(SDLK_x,SDL_SCANCODE_X),SDL_SCANCODE_RETURN,0};
    memcpy(player_ui.key[0],defaults,sizeof(defaults));
    int buttons[]={SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-      SDL_CONTROLLER_BUTTON_DPAD_RIGHT,SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_START,-1,-1};
+      SDL_CONTROLLER_BUTTON_DPAD_RIGHT,SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_START,-1};
    memcpy(player_ui.pad[0],buttons,sizeof(buttons));memcpy(player_ui.pad[1],buttons,sizeof(buttons));
 }
 static void player_store(const wchar_t *key,int value){
@@ -177,7 +183,9 @@ static bool player_event(const SDL_Event *e){
       return false;
    }
    if(key==SDL_SCANCODE_F1){
-      player_ui.menu=(e->key.keysym.mod&KMOD_SHIFT)?3:player_ui.menu==1?0:1;
+      /* F1 toggles help; Shift+F1 restarts at once, as on every console. */
+      if(e->key.keysym.mod&KMOD_SHIFT){player_ui.want_reset=1;player_ui.menu=0;}
+      else player_ui.menu=player_ui.menu==1?0:1;
       player_pause_audio();return true;
    }
    if(key==SDL_SCANCODE_F11){player_ui.paused=!player_ui.paused;player_pause_audio();return true;}
@@ -196,8 +204,6 @@ static bool player_event(const SDL_Event *e){
             wchar_t entry[48];int p=player_ui.player,a=player_ui.row;player_ui.key[p][a]=0;player_ui.pad[p][a]=-1;
             swprintf(entry,48,L"p%d_key%d",p,a);player_store(entry,0);swprintf(entry,48,L"p%d_pad%d",p,a);player_store(entry,-1);
          }
-      }else if(player_ui.menu==3&&(key==SDL_SCANCODE_RETURN||button==SDL_CONTROLLER_BUTTON_A)){
-         player_ui.want_reset=1;player_ui.menu=0;player_pause_audio();
       }
       return true;
    }
@@ -216,10 +222,8 @@ static bool player_event(const SDL_Event *e){
    if(key||button>=0){
       for(unsigned p=0;p<2;p++){
          int match=key?player_ui.key[p][X_PAUSE]==key:player_ui.pad[p][X_PAUSE]==button;
-         int reset=key?player_ui.key[p][X_RESET]==key:player_ui.pad[p][X_RESET]==button;
          if(button>=0&&(!controllers[p]||SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controllers[p]))!=e->cbutton.which))continue;
          if(match){player_ui.paused=!player_ui.paused;player_pause_audio();return true;}
-         if(reset){player_ui.menu=3;player_pause_audio();return true;}
       }
    }
    return false;
@@ -235,7 +239,7 @@ static void player_overlay(void){
          XT(12,12,"Retro-Recomp - Help");
          if(!player_ui.help_page){
             const char *lines[]={"F1  Help | Shift+F1 Restart","F2  Controls","F3  Next filter","F4  Window / Pixel / Fit",
-               "F5  Fast loading (hold)","F6  Rapid fire (keyboard / pad)","F7  Language","F8  Save game state","F9  Load game state","F10 Options","F12 Record fallbacks","F11 Pause","Esc Quit (close menus first)"};
+               "F5  Fast loading (hold)","F6  Rapid fire (keyboard / pad)","F7  Language","F8  Save game state","F9  Load game state","F10 Options","F11 Pause","F12 Record fallbacks","Esc Quit (close menus first)"};
             for(unsigned n=0;n<13;n++)XT(12,29+(int)n*10,lines[n]);
          }else{
             const char *lines[]={"Ctrl+Alt+K: full guest keyboard","Ctrl+Alt+M: mouse capture",
@@ -258,7 +262,7 @@ static void player_overlay(void){
             XT(178,43+(int)a*13,pad?pad:"?");
          }
          XT(12,162,player_ui.capture>=0?"Press a key or gamepad button":"Enter / A: change | X: clear");
-      }else{XT(12,15,"Restart game");XT(12,60,"Enter / A: confirm");XT(12,84,"Esc / B: cancel");}
+      }
       rr_menu_build_footer(renderer,x,y,s);rr_menu_end(renderer);
 #undef XT
    }else if(player_ui.paused){rr_menu_begin(renderer,x,y,s);rr_menu_text(renderer,x,y,s,100,85,rr_tr("Paused"),RR_MENU_GOLD);rr_menu_end(renderer);}

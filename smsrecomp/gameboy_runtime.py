@@ -72,12 +72,12 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         ('retro_keyboard.h', project / 'runtime/include/retro_keyboard.h'),
         ('retro_menu.c', project / 'runtime/src/retro_menu.c'),
         ('font6x10.h', project / 'runtime/src/font6x10.h'),
+        ('font10x20.h', project / 'runtime/src/font10x20.h'),
         ('runtime_i18n.h', project / 'runtime/include/runtime_i18n.h'),
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('platform_io.h', project / 'runtime/include/platform_io.h'),
         ('platform_io.c', project / 'runtime/src/platform_io.c'),
         ('runtime_catalog.inc', project / 'runtime/src/runtime_catalog.inc'),
-        ('runtime_glyphs.inc', project / 'runtime/src/runtime_glyphs.inc'),
         ('gb_menu.inc', project / 'runtime/src/gb_menu.inc'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
         ('scanlines.h', project / 'runtime/include/scanlines.h'),
@@ -324,14 +324,16 @@ static void binding_to_config_value''')
                         gbrt_port_input(ctx, &port_event);
                     }
                     return true;''', '''                case SDL_SCANCODE_F1:
-                    if (ctx && pressed && event->key.repeat == 0) {
+                    /* F1 opens help; Shift+F1 restarts at once. */
+                    if (pressed && event->key.repeat == 0 && !(event->key.keysym.mod & KMOD_SHIFT))
+                        g_show_menu = !g_show_menu;
+                    else if (ctx && pressed && event->key.repeat == 0) {
                         gb_context_reset(ctx, true);
                         reset_audio_output_buffer(true);
                     }
                     return true;
 
                 case SDL_SCANCODE_F2:
-                case SDL_SCANCODE_H:
                     if (pressed && event->key.repeat == 0) g_show_menu = !g_show_menu;
                     return true;
 
@@ -508,7 +510,7 @@ static void binding_to_config_value''')
             }
             commit_binding_capture''', '''            const SDL_Scancode key = event->key.keysym.scancode;
             if (key == SDL_SCANCODE_ESCAPE || key == SDL_SCANCODE_AC_BACK ||
-                key == SDL_SCANCODE_H || key == SDL_SCANCODE_F2) {
+                key == SDL_SCANCODE_F1 || key == SDL_SCANCODE_F2) {
                 cancel_binding_capture();
                 return true;
             }
@@ -573,7 +575,12 @@ void gb_platform_submit_port_frame(void* user, const GBPortFrame* frame) {''')
     record_manual_input_state(current_cycles);''')
     source = source.replace('    load_runtime_preferences();', '    load_runtime_preferences();\n    rr_options_init(L"GameBoy");\n    rr_gb_shared_language(false);')
     source = replace_once(source, '    record_manual_input_state(current_cycles);',
-        '    if (rr_options_quit(g_show_menu ? g_rr_menu_kind : 0)) return false;\n    record_manual_input_state(current_cycles);')
+        '    if (rr_options_quit(g_show_menu ? g_rr_menu_kind : 0)) return false;\n'
+        '    if (rr_options_restart(g_show_menu ? g_rr_menu_kind : 0) && ctx) {\n'
+        '        gb_context_reset(ctx, true); reset_audio_output_buffer(true);\n'
+        '        g_show_menu = false; g_rr_menu_kind = 0;\n'
+        '    }\n'
+        '    record_manual_input_state(current_cycles);')
     runtime.write_text(source, encoding="utf-8")
 
     platform_header = project / 'runtime/include/platform_sdl.h'

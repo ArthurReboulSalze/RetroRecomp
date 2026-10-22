@@ -48,6 +48,10 @@ static SDL_Event key_event(SDL_Scancode code) {
     event.key.keysym.scancode = code; event.key.keysym.sym = SDL_GetKeyFromScancode(code);
     return event;
 }
+static SDL_Event shift_key_event(SDL_Scancode code) {
+    SDL_Event event = key_event(code); event.key.keysym.mod = KMOD_LSHIFT;
+    return event;
+}
 static SDL_Event button_event(int player, int button) {
     SDL_Event event; SDL_zero(event); event.type = SDL_CONTROLLERBUTTONDOWN;
     event.cbutton.button = (uint8_t)button;
@@ -91,7 +95,7 @@ static int game_callback(const uint32_t *fb, int w, int h) {
     }
     if (reset_kind && glue_frame_count() == 180) {
         SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
-        SDL_Event e = reset_kind == 1 ? key_event(SDL_SCANCODE_F1) : button_event(0, SDL_CONTROLLER_BUTTON_BACK);
+        SDL_Event e = shift_key_event(SDL_SCANCODE_F1);
         assert(SDL_PushEvent(&e) == 1);
         assert(!host_present(fb, w, h)); return 1;
     }
@@ -249,53 +253,56 @@ int main(int argc, char **argv) {
     key(SDL_SCANCODE_ESCAPE); assert(menu == 0);
     for (int p = 0; p < CONTROL_PLAYERS; ++p) assert(controls_defaults(p, false) && controls_defaults(p, true));
 
-    /* Exercise both added controller rows through the real menu. Capture
-     * precedes old system actions, and ignores the other player's controller. */
+    /* Start/Menu is the last row for both players, as on the other consoles:
+     * Shift+F1 is the only reset shortcut. Capture precedes the old pause
+     * action and ignores the other player's controller. */
     key(SDL_SCANCODE_F2); selected_player = selected_row = 0; bind_gamepad = true;
-    key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_RESET);
-    key(SDL_SCANCODE_RETURN); assert(capturing && menu == 2);
-    event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && capturing);
-    event = button_event(0, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER); assert(handle_event(&event) && !capturing);
     key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE);
     key(SDL_SCANCODE_KP_ENTER); assert(capturing && menu == 2);
+    event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && capturing);
     event = button_event(0, SDL_CONTROLLER_BUTTON_LEFTSHOULDER); assert(handle_event(&event) && !capturing);
     controls_load();
     assert(controls.buttons[0][CONTROL_PAUSE] == SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-    assert(controls.buttons[0][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
     assert(controls_bind(0, 4, true, SDL_CONTROLLER_BUTTON_START)); /* freed button is playable */
+    for (int p = 0; p < CONTROL_PLAYERS; ++p)
+        assert(!controls_bind(p, CONTROL_RESET, true, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) && !controls_bind(p, CONTROL_RESET, false, SDL_SCANCODE_F1));
     key(SDL_SCANCODE_ESCAPE); assert(!menu);
     event = button_event(0, SDL_CONTROLLER_BUTTON_START); assert(handle_event(&event) && !menu);
     event = button_event(0, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && !smsrecomp_take_reset_request());
     event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && !smsrecomp_take_reset_request());
     key(SDL_SCANCODE_KP_4); assert(!menu && !smsrecomp_take_reset_request());
+    key(SDL_SCANCODE_F1); assert(menu == 1 && !smsrecomp_take_reset_request());
+    key(SDL_SCANCODE_F1); assert(!menu);
     event = button_event(0, SDL_CONTROLLER_BUTTON_LEFTSHOULDER); assert(handle_event(&event) && menu == 3);
     assert(handle_event(&event) && !menu);
-    event = button_event(0, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER); assert(!handle_event(&event) && smsrecomp_take_reset_request());
-    assert(handle_event(&event) && !smsrecomp_take_reset_request()); /* held custom reset */
-    event.type = SDL_CONTROLLERBUTTONUP; assert(handle_event(&event));
-    event.type = SDL_CONTROLLERBUTTONDOWN; assert(!handle_event(&event) && smsrecomp_take_reset_request());
-    event.type = SDL_CONTROLLERBUTTONUP; assert(handle_event(&event));
-    key(SDL_SCANCODE_F2); key(SDL_SCANCODE_DOWN); assert(selected_row == CONTROL_RESET);
-    key(SDL_SCANCODE_RIGHT); assert(selected_player == 1 && selected_row == CONTROL_PAUSE);
+    event = shift_key_event(SDL_SCANCODE_F1); assert(!handle_event(&event) && smsrecomp_take_reset_request());
+    key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); assert(selected_player == 1);
+    selected_row = 0; key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE);
     key(SDL_SCANCODE_DOWN); assert(selected_row == 0);
-    key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE);
-    key(SDL_SCANCODE_RETURN);
+    key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
     event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && !capturing && menu == 2);
     controls_load(); assert(controls.buttons[1][CONTROL_PAUSE] == SDL_CONTROLLER_BUTTON_BACK);
     key(SDL_SCANCODE_ESCAPE);
     assert(handle_event(&event) && menu == 3 && !smsrecomp_take_reset_request());
     assert(handle_event(&event) && !menu);
-    for (int p = 0; p < CONTROL_PLAYERS; ++p) assert(controls_defaults(p, true));
+    for (int p = 0; p < CONTROL_PLAYERS; ++p) assert(controls_defaults(p, true) && controls_defaults(p, false));
     controls_load();
-    assert(controls.buttons[0][CONTROL_PAUSE] == SDL_CONTROLLER_BUTTON_START && controls.buttons[0][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_BACK);
-    assert(controls.buttons[1][CONTROL_PAUSE] == SDL_CONTROLLER_BUTTON_START && controls.buttons[1][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_INVALID);
-    /* Even a hand-edited legacy J2 reset cannot regain a host reset action. */
+    for (int p = 0; p < CONTROL_PLAYERS; ++p)
+        assert(controls.buttons[p][CONTROL_PAUSE] == SDL_CONTROLLER_BUTTON_START && controls.buttons[p][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_INVALID &&
+            controls.keys[p][CONTROL_RESET] == SDL_SCANCODE_UNKNOWN);
+    /* Hand-edited 1.2.1 reset entries cannot regain a host reset action. */
+    assert(write_name(L"Clavier", L"select", "F1") && write_name(L"Manette", L"select", "back"));
     assert(write_name(L"ClavierJ2", L"select", "Keypad 4") && write_name(L"ManetteJ2", L"select", "back"));
     controls_load();
-    event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && !smsrecomp_take_reset_request());
+    assert(controls.keys[0][CONTROL_RESET] == SDL_SCANCODE_UNKNOWN && controls.buttons[0][CONTROL_RESET] == SDL_CONTROLLER_BUTTON_INVALID);
+    for (int p = 0; p < CONTROL_PLAYERS; ++p) {
+        event = button_event(p, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && !smsrecomp_take_reset_request());
+    }
     key(SDL_SCANCODE_KP_4); assert(!smsrecomp_take_reset_request());
+    key(SDL_SCANCODE_F1); assert(menu == 1 && !smsrecomp_take_reset_request());
+    key(SDL_SCANCODE_ESCAPE); assert(!menu);
     assert(!controls_bind(0, 4, false, SDL_SCANCODE_RETURN) && !controls_bind(1, 4, false, SDL_SCANCODE_KP_ENTER));
-    puts("PASS: configurable Start/Menu and Select/Reset, capture and persistence, Enter validation; no J2 reset.");
+    puts("PASS: configurable Start/Menu, capture and persistence, Enter validation; Shift+F1 is the only reset.");
 
     assert(SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 1) == 0);
     SDL_GameControllerUpdate(); assert(controls_read(0, controllers[0], true) == SMS_PAD_B1);
@@ -617,17 +624,12 @@ int main(int argc, char **argv) {
     }
     assert(controls_language(0));
     draw_game(sample, 256, 192); ui_menu(renderer, 3, 0, 0, false, false, NULL, NULL); screenshot("pause.bmp");
-    key(SDL_SCANCODE_P); key(SDL_SCANCODE_H); key(SDL_SCANCODE_ESCAPE); assert(menu == 3);
+    key(SDL_SCANCODE_P); key(SDL_SCANCODE_F1); assert(menu == 1); key(SDL_SCANCODE_ESCAPE); assert(menu == 3);
     key(SDL_SCANCODE_P); assert(!menu);
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     _putenv_s("SMSRECOMP_STRICT", "1");
     uint64_t baseline = run_game(0, 0);
     run_game(1, 0); assert(run_game(0, 0) == baseline);
-    run_game(2, 0);
-    event = button_event(0, SDL_CONTROLLER_BUTTON_BACK);
-    assert(handle_event(&event) && !smsrecomp_take_reset_request());
-    event.type = SDL_CONTROLLERBUTTONUP; assert(handle_event(&event));
-    assert(run_game(0, 0) == baseline);
     assert(run_game(0, 1) == baseline && pause_elapsed >= 70);
     assert(run_game(0, 2) == baseline && pause_elapsed >= 70);
     assert(run_game(0, 3) == baseline && pause_elapsed >= 70);
@@ -659,6 +661,6 @@ int main(int argc, char **argv) {
     assert(run_game(0, 0) == baseline);
     host_shutdown();
     puts("PASS: J1/J2 independent remapping/config migration, two virtual controllers/hotplug, 4096 simultaneous port states.");
-    puts("PASS: filters/pixels/fullscreen, P/Enter/numpad and both controllers pause, J1-only reset; native CPU/RAM/VDP/PCM.");
+    puts("PASS: filters/pixels/fullscreen, P/Enter/numpad and both controllers pause, Shift+F1 reset; native CPU/RAM/VDP/PCM.");
     return 0;
 }

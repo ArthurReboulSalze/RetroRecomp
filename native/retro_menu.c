@@ -1,21 +1,17 @@
 #include "retro_menu.h"
-#ifdef _WIN32
-#include <windows.h>
-#else
 #include "font6x10.h"
-#endif
+#include "font10x20.h"
 #include <stdint.h>
 #include <string.h>
 #include "runtime_i18n.h"
 #include "runtime_catalog.inc"
-#include "runtime_glyphs.inc"
 
-enum { GW = 6, GH = 12, ATLAS_W = 96, ATLAS_H = 72 };
+/* Layout stays on the 256x192 grid of six by twelve cells. */
+enum { GW = 6, GH = 12, FONT_COLUMNS = 16, FONT_ROWS = 6, FONT_MAX_UNIT = 16 };
+static SDL_Renderer *font_renderer;
 static SDL_Texture *font;
-static SDL_Texture *unicode_font;
+static int font_unit;
 static int language_id;
-enum { UNICODE_COLS = 16, UNICODE_W = 192,
-       UNICODE_H = ((sizeof(rr_glyphs)/sizeof(rr_glyphs[0])+15)/16)*12 };
 
 int rr_language_from_code(const char *code) {
     if (code) for (int i=0;i<RR_LANGUAGE_COUNT;++i)
@@ -52,8 +48,9 @@ const char *rr_translate(int id, const char *en, const char *fr) {
 }
 const char *rr_tr(const char *en) { return rr_translate(language_id,en,NULL); }
 
-/* Strict UTF-8 decoding also keeps damaged settings/key names from consuming
- * the following byte or indexing outside the atlas. */
+/* Strict UTF-8 decoding keeps damaged settings/key names from consuming the
+ * following byte. Games draw ASCII only: Latin-1 letters lose their accents
+ * and any other character becomes '?', one cell each. */
 static uint32_t next_code(const char **text) {
     const unsigned char *s=(const unsigned char*)*text;
     uint32_t c=*s; unsigned count=1;
@@ -69,17 +66,16 @@ static uint32_t next_code(const char **text) {
         (count==4 && c<65536) || c>0x10ffff || (c>=0xd800 && c<=0xdfff)) { ++*text; return '?'; }
     *text+=count; return c;
 }
-static int glyph_index(uint32_t code) {
-    size_t lo=0,hi=sizeof(rr_glyphs)/sizeof(rr_glyphs[0]);
-    while(lo<hi) { size_t at=lo+(hi-lo)/2; if(code==rr_glyphs[at].code)return (int)at;
-        if(code>rr_glyphs[at].code)lo=at+1;else hi=at; }
-    return -1;
+static char ascii_code(uint32_t c) {
+    static const char latin1[] = "AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty";
+    if(c>=32 && c<127) return (char)c;
+    if(c>=0xc0 && c<=0xff) return latin1[c-0xc0];
+    return '?';
 }
 int rr_menu_text_width(const char *text) {
     int width=0;
     if(!text)return 0;
-    while(*text) { uint32_t code=next_code(&text); int at=glyph_index(code);
-        width+=at>=0?(int)rr_glyphs[at].width:GW; }
+    while(*text) { next_code(&text); width+=GW; }
     return width;
 }
 
@@ -88,71 +84,75 @@ int rr_menu_text_width(const char *text) {
 #endif
 const char *rr_menu_build_label(void) { return "Retro-Recomp v" RR_RECOMP_VERSION; }
 
+/* The version sits at the right of the title row, clear of the bottom hints. */
 void rr_menu_build_footer(SDL_Renderer *renderer, int ox, int oy, int unit) {
-    const char *label = rr_menu_build_label();
+    const char *label = "v" RR_RECOMP_VERSION;
     int width = (int)strlen(label) * GW;
-    rr_menu_text(renderer, ox, oy, unit, 242 - width, 174, label, RR_MENU_HINT);
+    rr_menu_text(renderer, ox, oy, unit, 242 - width, 15, label, RR_MENU_HINT);
+}
+
+/* Each 10x20 bitmap is drawn into a 6u x 12u cell by area coverage: solid
+ * strokes stay solid and only their edges blend, so the text is twice as fine
+ * as the 6x10 cell without blurring. Scale 1 keeps the original 6x10 font. */
+static SDL_Texture *build_font(SDL_Renderer *renderer, int unit) {
+    int cw=GW*unit, ch=GH*unit, w=FONT_COLUMNS*cw, h=FONT_ROWS*ch;
+    uint32_t *pixels=SDL_calloc((size_t)w*h,sizeof(uint32_t));
+    if(!pixels) return NULL;
+    for(int c=32;c<128;++c) {
+        int ox=((c-32)%FONT_COLUMNS)*cw, oy=((c-32)/FONT_COLUMNS)*ch;
+        if(unit<2) {
+            for(int y=0;y<10;++y) for(int x=0;x<GW;++x)
+                if(rr_font6x10[c-32][y]&(1u<<x)) pixels[(oy+y+1)*w+ox+x]=0xffffffffu;
+            continue;
+        }
+        /* Source pixel sx spans [sx*cw,(sx+1)*cw) and target pixel tx spans
+         * [tx*10,(tx+1)*10) on a common grid; likewise rows with 20 and ch. */
+        for(int ty=0;ty<ch;++ty) for(int tx=0;tx<cw;++tx) {
+            unsigned area=0;
+            for(int sy=ty*20/ch;sy<20 && sy*ch<(ty+1)*20;++sy) {
+                unsigned short row=rr_font10x20[c-32][sy];
+                if(!row) continue;
+                int top=SDL_max(sy*ch,ty*20), bottom=SDL_min((sy+1)*ch,(ty+1)*20);
+                for(int sx=tx*10/cw;sx<10 && sx*cw<(tx+1)*10;++sx) if(row&(1u<<sx)) {
+                    int left=SDL_max(sx*cw,tx*10), right=SDL_min((sx+1)*cw,(tx+1)*10);
+                    area+=(unsigned)((right-left)*(bottom-top));
+                }
+            }
+            if(area) pixels[(oy+ty)*w+ox+tx]=((area*255u+100u)/200u<<24)|0xffffffu;
+        }
+    }
+    SDL_Texture *texture=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,w,h);
+    if(texture) {
+        SDL_UpdateTexture(texture,NULL,pixels,w*4);
+        SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(texture,SDL_ScaleModeLinear); /* only lines shrunk to fit */
+    }
+    SDL_free(pixels);
+    return texture;
+}
+
+static bool use_font_unit(int unit) {
+    unit=SDL_clamp(unit,1,FONT_MAX_UNIT);
+    if(font && font_unit==unit) return true;
+    SDL_Texture *texture=font_renderer?build_font(font_renderer,unit):NULL;
+    if(!texture) return font!=NULL;
+    if(font) SDL_DestroyTexture(font);
+    font=texture; font_unit=unit;
+    return true;
 }
 
 bool rr_menu_init(SDL_Renderer *renderer) {
-#ifdef _WIN32
-    HDC dc = CreateCompatibleDC(NULL);
-    BITMAPINFO bi; memset(&bi, 0, sizeof(bi));
-    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bi.bmiHeader.biWidth = ATLAS_W; bi.bmiHeader.biHeight = -ATLAS_H;
-    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
-    uint32_t *pixels = NULL;
-    HBITMAP bitmap = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
-    HFONT face = CreateFontW(-10, 6, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY, FIXED_PITCH, L"Consolas");
-    if (!dc || !bitmap || !face) {
-        if (face) DeleteObject(face); if (bitmap) DeleteObject(bitmap); if (dc) DeleteDC(dc);
-        return false;
-    }
-    HGDIOBJ old_bitmap = SelectObject(dc, bitmap), old_font = SelectObject(dc, face);
-    memset(pixels, 0, ATLAS_W * ATLAS_H * 4);
-    SetTextColor(dc, RGB(255,255,255)); SetBkMode(dc, TRANSPARENT);
-    for (int c = 32; c < 128; ++c) {
-        char letter = (char)c;
-        int x = ((c - 32) % 16) * GW, y = ((c - 32) / 16) * GH;
-        RECT cell = {x, y, x + GW, y + GH};
-        ExtTextOutA(dc, x, y, ETO_CLIPPED, &cell, &letter, 1, NULL);
-    }
-    GdiFlush();
-    for (int i = 0; i < ATLAS_W * ATLAS_H; ++i) pixels[i] = (pixels[i] & 255) ? 0xFFFFFFFF : 0;
-#else
-    uint32_t storage[ATLAS_W*ATLAS_H]={0},*pixels=storage;
-    for(int c=32;c<128;++c)for(int y=0;y<10;++y)for(int x=0;x<GW;++x) {
-        /* Preserve the fine six-pixel cell directly; resampling a bold VGA
-         * bitmap made strokes uneven and lost the right edge of letters. */
-        if(rr_font6x10[c-32][y]&(1u<<x))
-            pixels[(((c-32)/16)*GH+y+1)*ATLAS_W+((c-32)%16)*GW+x]=0xffffffffu;
-    }
-#endif
-    font = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, ATLAS_W, ATLAS_H);
-    if (font) { SDL_UpdateTexture(font, NULL, pixels, ATLAS_W * 4); SDL_SetTextureBlendMode(font, SDL_BLENDMODE_BLEND); }
-#ifdef _WIN32
-    SelectObject(dc, old_font); SelectObject(dc, old_bitmap);
-    DeleteObject(face); DeleteObject(bitmap); DeleteDC(dc);
-    #endif
-    uint32_t *extra=SDL_calloc(UNICODE_W*UNICODE_H,sizeof(uint32_t));
-    if(extra) {
-        for(size_t at=0;at<sizeof(rr_glyphs)/sizeof(rr_glyphs[0]);++at)
-            for(unsigned y=0;y<12;++y) for(unsigned x=0;x<rr_glyphs[at].width;++x) {
-                unsigned alpha=rr_glyph_pixels[rr_glyphs[at].offset+y*rr_glyphs[at].width+x];
-                extra[((at/16)*12+y)*UNICODE_W+(at%16)*12+x]=(alpha<<24)|0xffffffu;
-            }
-        unicode_font=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,UNICODE_W,UNICODE_H);
-        if(unicode_font) { SDL_UpdateTexture(unicode_font,NULL,extra,UNICODE_W*4); SDL_SetTextureBlendMode(unicode_font,SDL_BLENDMODE_BLEND); }
-        SDL_free(extra);
-    }
-    if(!font || !unicode_font) { rr_menu_shutdown(); return false; }
+    rr_menu_shutdown();
+    font_renderer=renderer;
+    int x, y, unit=1;
+    if(renderer) rr_menu_layout(renderer,&x,&y,&unit);
+    if(!use_font_unit(unit)) { font_renderer=NULL; return false; }
     return true;
 }
 
 void rr_menu_shutdown(void) {
-    if (font) SDL_DestroyTexture(font); font = NULL;
-    if (unicode_font) SDL_DestroyTexture(unicode_font); unicode_font=NULL;
+    if (font) SDL_DestroyTexture(font);
+    font = NULL; font_unit = 0; font_renderer = NULL;
 }
 
 void rr_menu_layout(SDL_Renderer *renderer, int *x, int *y, int *scale) {
@@ -169,24 +169,20 @@ void rr_menu_box(SDL_Renderer *r, int ox, int oy, int unit,
 
 void rr_menu_text(SDL_Renderer *r, int ox, int oy, int unit,
                   int x, int y, const char *s, int red, int green, int blue) {
-    if (!font || !s) return;
+    if (!s || r != font_renderer || !use_font_unit(unit)) return;
     s=rr_tr(s);
     SDL_SetTextureColorMod(font, red, green, blue);
-    SDL_SetTextureColorMod(unicode_font, red, green, blue);
     int width=rr_menu_text_width(s), available=242-x, offset=0;
     if(available<=0 || width<=0)return;
     double fit=width>available?(double)available/width:1.0;
+    int cw=GW*font_unit, ch=GH*font_unit;
     while(*s) {
-        uint32_t c=next_code(&s); int at=glyph_index(c);
-        int advance=at>=0?(int)rr_glyphs[at].width:GW;
-        SDL_Rect source;
-        SDL_Texture *atlas=font;
-        if(at>=0) { source=(SDL_Rect){(at%16)*12,(at/16)*12,advance,GH}; atlas=unicode_font; }
-        else { if(c<32 || c>127)c='?'; source=(SDL_Rect){((c-32)%16)*GW,((c-32)/16)*GH,GW,GH}; }
-        int left=(int)(offset*unit*fit),right=(int)((offset+advance)*unit*fit);
+        char c=ascii_code(next_code(&s));
+        SDL_Rect source={((c-32)%FONT_COLUMNS)*cw,((c-32)/FONT_COLUMNS)*ch,cw,ch};
+        int left=(int)(offset*unit*fit),right=(int)((offset+GW)*unit*fit);
         int height=SDL_max(1,(int)(GH*unit*fit));
         SDL_Rect dest={ox+x*unit+left,oy+y*unit+(GH*unit-height)/2,SDL_max(1,right-left),height};
-        SDL_RenderCopy(r,atlas,&source,&dest); offset+=advance;
+        SDL_RenderCopy(r,font,&source,&dest); offset+=GW;
     }
 }
 
