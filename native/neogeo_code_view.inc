@@ -67,6 +67,19 @@ int rr_ng_code_location(uint32_t address,RrM68000CodeLocation *out) {
     out->available_bytes=size-offset<boundary?size-offset:boundary;out->mutable_code=mutable_code;
     return 1;
 }
+/* One native fetch view: the mapped location, the host bytes at it (as
+ * rr_ng_code_matches reads them) and the wait clocks geo_m68k_cart_read_16
+ * charges per program word there: one below 0x100000 (vectors and fixed P ROM)
+ * and in the switchable P ROM window, none for RAM or BIOS. A guarded location
+ * never contains a protection port (see above). */
+const uint8_t *rr_ng_code_bytes(uint32_t address,RrM68000CodeLocation *out,unsigned *word_waits) {
+    if(!rr_ng_code_location(address,out))return NULL;
+    address&=0xffffffu;
+    *word_waits=address<0x100000u || (address>=0x200000u && address<0x300000u);
+    const uint8_t *data=out->region==RR_M68000_CODE_CART?romdata->p:
+                        out->region==RR_M68000_CODE_BIOS?romdata->b:ram;
+    return data?data+out->physical_offset:NULL;
+}
 int rr_ng_code_word(uint32_t pc,uint16_t *word) {
     RrM68000CodeLocation loc;
     if(!word || (pc&1u) || !rr_ng_code_location(pc,&loc) || loc.available_bytes<2)return 0;

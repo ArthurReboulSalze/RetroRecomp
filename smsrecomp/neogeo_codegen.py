@@ -85,6 +85,12 @@ endif()
     return build_executable(project/'build','ng_decode')
 
 
+def shared_registers(text: str) -> str:
+    """Native bodies use Musashi's D0-D7/A0-A7 directly: no per-instruction
+    copy. The active stack pointer stays Musashi's A7."""
+    return text.replace('g_cpu.D[','REG_D[').replace('g_cpu.A[','REG_A[')
+
+
 def code_entries(region: int,base: int,size: int,seeds: set[int],physical_entries=None) -> list[int]:
     """Logical banked/RAM PCs never imply a physical cartridge offset.
 
@@ -133,13 +139,13 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
     timing=timing[:timing.rfind('/* The emit_cycle_accounting')]
     write_changed(project/'ng_step_semantics.h',
         '/* Qualified MC68000 helpers; see embedded GenesisRecomp notices. */\n'
-        '#pragma once\n#include "neogeo_native.h"\n#include <stddef.h>\n'
+        '#pragma once\n#include "m68k/m68kcpu.h"\n#include "neogeo_native.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_ng_illegal_ea\n'
         'static int interp_ea_read_cost(int ea,M68KSize sz);\n'
         # Mega Drive game-specific instruction hooks cannot apply to Neo Geo.
         'static int game_instruction_hook_site(uint32_t pc) {(void)pc;return 0;}\n'
         'static int genesis_game_instruction_hook(uint32_t pc) {(void)pc;return 0;}\n'
-        'static void discover(uint32_t pc) {(void)pc;}\n'+helper+'\n'+timing)
+        'static void discover(uint32_t pc) {(void)pc;}\n'+shared_registers(helper+'\n'+timing))
     # Reuse our dynamic arithmetic clock implementation without importing
     # Mega Drive bus or scheduler state into this console.
     pf=(ASSETS/'native/md_prefetch.inc').read_text(encoding='utf-8')
@@ -235,7 +241,7 @@ def generate(project: Path, seeds: set[int],physical_entries=None,ram_variants=N
         position_indices.append(descriptors[key])
     steps=project/'steps';steps.mkdir(exist_ok=True)
     for index,chunk in enumerate(chunks):
-        write_changed(steps/f'ng_step_part{index:02d}.c','#include "ng_step_semantics.h"\n'+'\n'.join(chunk))
+        write_changed(steps/f'ng_step_part{index:02d}.c','#include "ng_step_semantics.h"\n'+shared_registers('\n'.join(chunk)))
     maps=[];lookups=[]
     for region in ((1,2,4) if aes else (1,2)):
         keys={ins['offset']>>1:position_indices[i] for i,ins in enumerate(instructions) if ins['region']==region}

@@ -34,4 +34,5 @@ void rr_m68000_count_instruction(int native) {
     if (native) ++stats.native_instructions;
     else ++stats.interpreted_instructions;
 }
+void rr_m68000_count_native(unsigned count) { stats.native_instructions += count; }
 const RrM68000Stats *rr_m68000_stats(void) { return &stats; }

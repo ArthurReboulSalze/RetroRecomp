@@ -45,6 +45,7 @@ void rr_m68000_wait(int clocks);
 void rr_m68000_set_irq(unsigned level, unsigned asserted);
 unsigned rr_m68000_get_irq(unsigned level);
 void rr_m68000_count_instruction(int native);
+void rr_m68000_count_native(unsigned count);
 const RrM68000Stats *rr_m68000_stats(void);
 
 #endif

@@ -180,12 +180,10 @@ void geo_exec(void) {''',count=1)
     source=(geo/'src/m68k/m68kcpu.c').read_text(encoding='utf-8')
     if native:
         source=_replace(source,'\t\t\tREG_IR = m68ki_read_imm_16();\n\t\t\tm68ki_instruction_jump_table[REG_IR]();\n\t\t\tUSE_CYCLES(CYC_INSTRUCTION[REG_IR]);',
-            '''            extern int rr_ng_native_execute(uint32_t,unsigned*);
+            '''            extern int rr_ng_native_run(void);
             extern void rr_ng_note_instruction(uint32_t,int);
-            unsigned native_clocks=0;
-            if(rr_ng_native_execute(REG_PC,&native_clocks)) {
-                USE_CYCLES(native_clocks);
-            } else {
+            /* A native run consumes its own cycles, possibly for several instructions. */
+            if(!rr_ng_native_run()) {
                 rr_ng_note_instruction(REG_PC,0);
                 REG_IR=m68ki_read_imm_16();
                 m68ki_instruction_jump_table[REG_IR]();

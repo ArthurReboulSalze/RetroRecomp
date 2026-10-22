@@ -185,48 +185,6 @@ int rr_x68k_native_run(void) {
 }
 '''
 
-# The same operand-dependent clock rules as the pinned adapter, dispatched
-# once on the mnemonic (the adapter tests each rule in turn).
-CYCLE_RULES=('''    if(ins->mnemonic==MN_Bcc)return eval_cond((op>>8)&15)?10:ins->word_count==1?8:12;
-    if(ins->mnemonic==MN_DBcc)return eval_cond((op>>8)&15)?12:(uint16_t)g_cpu.D[op&7]==0?14:10;
-    if(ins->mnemonic==MN_Scc && ((ins->src_ea>>3)&7)==0)return eval_cond((op>>8)&15)?6:4;
-    if(ins->mnemonic==MN_MOVEM)return base+(ins->size==M68K_SIZE_L?8u:4u)*(unsigned)interp_popcount16(ins->words[1]);
-    if((ins->mnemonic==MN_BSET || ins->mnemonic==MN_BCLR || ins->mnemonic==MN_BCHG) &&
-       ((ins->src_ea>>3)&7)==0) {
-        unsigned bit=ins->reg<0?ins->imm32:g_cpu.D[ins->reg];
-        if((bit&31u)<16u)return base-2u;
-    }
-    if((ins->mnemonic==MN_ASL || ins->mnemonic==MN_ASR || ins->mnemonic==MN_LSL ||
-        ins->mnemonic==MN_LSR || ins->mnemonic==MN_ROL || ins->mnemonic==MN_ROR ||
-        ins->mnemonic==MN_ROXL || ins->mnemonic==MN_ROXR) && !ins->mem_shift) {
-        unsigned count=op&0x20u?g_cpu.D[(op>>9)&7]&63u:(op>>9)&7u;
-        if(!(op&0x20u) && !count)count=8;
-        return (ins->size==M68K_SIZE_L?8:6)+2*count;
-    }
-    return base;
-''','''    switch(ins->mnemonic) {
-    case MN_Bcc:return eval_cond((op>>8)&15)?10:ins->word_count==1?8:12;
-    case MN_DBcc:return eval_cond((op>>8)&15)?12:(uint16_t)g_cpu.D[op&7]==0?14:10;
-    case MN_Scc:if(((ins->src_ea>>3)&7)==0)return eval_cond((op>>8)&15)?6:4;break;
-    case MN_MOVEM:return base+(ins->size==M68K_SIZE_L?8u:4u)*(unsigned)interp_popcount16(ins->words[1]);
-    case MN_BSET:case MN_BCLR:case MN_BCHG:
-        if(((ins->src_ea>>3)&7)==0) {
-            unsigned bit=ins->reg<0?ins->imm32:g_cpu.D[ins->reg];
-            if((bit&31u)<16u)return base-2u;
-        }
-        break;
-    case MN_ASL:case MN_ASR:case MN_LSL:case MN_LSR:case MN_ROL:case MN_ROR:case MN_ROXL:case MN_ROXR:
-        if(!ins->mem_shift) {
-            unsigned count=op&0x20u?g_cpu.D[(op>>9)&7]&63u:(op>>9)&7u;
-            if(!(op&0x20u) && !count)count=8;
-            return (ins->size==M68K_SIZE_L?8:6)+2*count;
-        }
-        break;
-    default:break;
-    }
-    return base;
-''')
-
 LOOKUP_NEXT='''/* The next instruction of a native run: a fallthrough or static target uses
  * the entry's link, anything else the page table. */
 const RrX68NativeStep *rr_x68k_lookup_next(const RrX68NativeStep *previous,uint32_t pc) {
@@ -254,7 +212,7 @@ def shared_registers(text:str)->str:
 
 def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machine_base:str|None=None)->dict:
     machine_base=machine_base or MACHINE_BASE
-    alias=shared_registers if machine_base=='hissorii' else (lambda text:text)
+    alias=shared_registers
     project=private_path(project);project.mkdir(parents=True,exist_ok=True)
     engine=ROOT/'.deps/segagenesisrecomp'
     geo=ROOT/'.deps/geolith-libretro'
@@ -308,7 +266,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     helper=helper[:helper.rfind('/* =====')]
     timing=semantics[semantics.index('static int interp_popcount16('):semantics.index('static void interp_account_cycles(')]
     timing=timing[:timing.rfind('/* The emit_cycle_accounting')]
-    write_changed(project/'step_semantics.h','#pragma once\n'+('#include "m68kcpu.h"\n' if machine_base=='hissorii' else '')+
+    write_changed(project/'step_semantics.h','#pragma once\n#include "m68kcpu.h"\n'
         '#include "cpu.h"\n#include <stddef.h>\n'
         '#define s_illegal_ea rr_x68k_illegal_ea\nstatic int interp_ea_read_cost(int,M68KSize);\n'
         'static int game_instruction_hook_site(uint32_t pc){(void)pc;return 0;}\n'
@@ -331,7 +289,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
         'void rr_x68k_set_sr(uint16_t value) {\n'
         '    REG_SP_BASE[(g_cpu.SR&SR_S)?4:0]=g_cpu.A[7];')
     begin=cpu.index('    RrM68000CodeLocation location;',cpu.index('int rr_x68k_native_execute('))
-    end=cpu.index('    for(unsigned n=0;n<8;++n)',begin)
+    end=cpu.index('    g_cpu.PC=pc;',begin)
     cpu=cpu[:begin]+'''    if(rr_x68k_force_reference)return 0;
     const RrX68NativeStep *op=rr_x68k_lookup(pc);
     if(!op)return 0;
@@ -353,13 +311,8 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
                         '     * clears the bus-error latch (cpu_readmem24_word). */\n'
                         '    BusErrFlag=0;REG_IR=op->instruction.words[0];\n')
         cpu='#include <stdint.h>\nextern uint32_t BusErrFlag;\n'+cpu
-        if cpu.count(CYCLE_RULES[0])!=1:raise ValueError('Pinned native clock rules changed.')
-        cpu=cpu.replace(CYCLE_RULES[0],CYCLE_RULES[1])
-        for copy in ('    for(unsigned n=0;n<8;++n) {g_cpu.D[n]=REG_D[n];g_cpu.A[n]=REG_A[n];}\n',
-                     '    for(unsigned n=0;n<8;++n) {REG_D[n]=g_cpu.D[n];REG_A[n]=g_cpu.A[n];}\n'):
-            if cpu.count(copy)!=1:raise ValueError('Pinned native register copy changed.')
-            cpu=cpu.replace(copy,'')
-        cpu=alias(cpu)
+    if 'g_cpu.D[n]=' in cpu or 'REG_D[n]=g_cpu' in cpu:raise ValueError('Native template copies registers again.')
+    cpu=alias(cpu)
     cpu=cpu[:cpu.index('void rr_x68k_native_bind(void)')]
     cpu+='\nvoid rr_x68k_reset_instruction(void) {m68ki_output_reset();rr_x68k_exception_cycles=CYC_RESET+CYC_INSTRUCTION[0x4e70];}\n'
     if machine_base=='hissorii':cpu+=NATIVE_RUN

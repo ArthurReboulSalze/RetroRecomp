@@ -47,6 +47,19 @@ int rr_ng_code_matches(const RrM68000CodeLocation *loc,const uint16_t *words,uns
     return 1;
 }
 void rr_ng_note_instruction(uint32_t pc,int native) {(void)pc;if(native)++native_count;else ++fallback_count;}
+/* Chained native runs count once and charge fixture fetches no wait. */
+void rr_m68000_count_native(unsigned count) {native_count+=count;}
+void rr_m68000_wait(int clocks) {(void)clocks;}
+const uint8_t *rr_ng_code_bytes(uint32_t pc,RrM68000CodeLocation *loc,unsigned *word_waits) {
+    if(!rr_ng_code_location(pc,loc))return NULL;
+    *word_waits=0;
+    return loc->region==2?memory+0xc00000+loc->physical_offset:
+        loc->region==3?memory+0x100000+loc->physical_offset:
+        loc->physical_offset>=0x100000?banked+(loc->physical_offset-0x100000):memory+loc->physical_offset;
+}
+int rr_ng_observations;
+/* The fixture board is an MVS (Geolith SYSTEM_MVS): BIOS code is region 2. */
+int geo_get_system(void) {return 1;}
 void rr_ng_reference_bind(void) {}
 static uint32_t result[20];
 static void state(uint32_t *out) {
