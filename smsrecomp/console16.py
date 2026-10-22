@@ -225,6 +225,8 @@ find_package(SDL2 REQUIRED)
                 text = megadrive_cart.bus(text)
             text = (timing_vdp(text) if name == 'genesis_vdp' else
                     timing_source(text, 'machine' if name == 'genesis_machine' else 'bus'))
+            if name == 'genesis_bus':
+                text = megadrive_bus.main_access(text)
             if name == 'genesis_machine':
                 text = megadrive_sram.machine_source(text)
                 text = megadrive_fifo.machine(text)

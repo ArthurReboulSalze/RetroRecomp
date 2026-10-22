@@ -13,6 +13,8 @@ void machine_z80_instruction_boundary(void);
 void machine_z80_bus_control(void);
 bool machine_z80_bus_acknowledged(void);
 void machine_z80_bus_released(void);
+/* The 68000 is about to touch Z80 RAM or bus/reset control. */
+void machine_z80_main_access(void);
 void rr_md_cpu_control_yield(void);
 unsigned machine_vdp_phase(void);
 /* Nominal bus cycles are paid within the instruction, not again at retirement. */

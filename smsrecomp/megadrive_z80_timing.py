@@ -14,10 +14,10 @@ def adapt(source):
             raise ConversionError(f'Pinned Z80 timing adapter changed: {old[:65]}')
         source = source.replace(old, new)
 
-    replace('  return z->read_byte(z->userdata, addr);', '''  machine_z80_boundary();
+    replace('  return z->read_byte(z->userdata, addr);', '''  machine_z80_access(addr);
   uint8_t value = z->read_byte(z->userdata, addr);
   rr_md_z80_tick(3); return value;''')
-    replace('  z->write_byte(z->userdata, addr, val);', '''  machine_z80_boundary();
+    replace('  z->write_byte(z->userdata, addr, val);', '''  machine_z80_write(addr);
   z->write_byte(z->userdata, addr, val);
   rr_md_z80_tick(3);''')
     replace('''  return (z->read_byte(z->userdata, addr + 1) << 8) |
@@ -41,7 +41,7 @@ def adapt(source):
     # Fetches are distinct from 3T operand reads, including repeated prefixes.
     at = 'static inline uint16_t get_bc('
     helpers = '''static inline uint8_t rr_nextop(z80 *z) {
-  machine_z80_boundary();
+  machine_z80_access(z->pc);
   uint8_t value = z->read_byte(z->userdata, z->pc);
   ++z->pc; rr_md_z80_tick(4); return value;
 }
@@ -72,7 +72,7 @@ static inline void rr_exchange(z80 *z, uint16_t value) {
     replace('void z80_step(z80* const z) {', 'void z80_step(z80* const z) {\n  rr_md_z80_begin(z);')
     replace('  process_interrupts(z);', '  rr_md_z80_finish(z);')
     # HALT repeats a fetch without incrementing PC.
-    replace('    exec_opcode(z, 0x00);', '''    machine_z80_boundary();
+    replace('    exec_opcode(z, 0x00);', '''    machine_z80_access(z->pc);
     (void)z->read_byte(z->userdata, z->pc); rr_md_z80_tick(4);
     exec_opcode(z, 0x00);''')
     replace('static inline void cond_ret(z80* const z, bool condition) {',

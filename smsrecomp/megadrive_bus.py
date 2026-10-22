@@ -1,5 +1,6 @@
 """Resumable CPU accesses to the DMA-owned main bus, in private copies."""
 from .gun16_runtime import replace
+from .core import ConversionError
 
 
 def fiber(source):
@@ -59,6 +60,18 @@ void rr_md_cpu_control_yield(void) {
         s_yield_site=GLUE_YIELD_BUDGET;fiber_switch(s_main_fiber);
     }
 }
+/* Deferred sound-CPU rendezvous (md_z80_bus.inc): the clock at which the
+ * current 68000 transaction started, whether several queued deadlines can be
+ * paid by one run (no per-call debt, divider or atomic interrupt service), and
+ * a narrower deadline for the run under way. */
+uint32_t rr_md_cpu_transaction;
+int rr_md_cpu_lazy_safe(void) {
+    unsigned divisor=g_game_spec.main_cpu_divisor?g_game_spec.main_cpu_divisor():1;
+    return !s_irq_cycle_debt && divisor<=1 && !s_in_vblank_service;
+}
+void rr_md_cpu_budget_until(uint32_t counter) {
+    s_cycle_budget=(int32_t)(counter-s_budget_cyc_seen);
+}
 static void rr_md_cpu_bus_wait(void) {
     if(!RR_MD_STEP_AOT || !rr_step_running)return;
     while(gvdp_dma_blocks_cpu(&g_machine.vdp) ||
@@ -72,6 +85,7 @@ static void rr_md_cpu_bus_wait(void) {
     /* A word/byte transaction occupies four nominal 68000 clocks. Device
      * waits are charged separately. Commit occurs at this cycle's end; the
      * following transaction may yield without replaying this one. */
+    rr_md_cpu_transaction=g_audio_cycle_counter;
     g_audio_cycle_counter+=4;g_cycle_accumulator+=4;rr_cpu_bus_cycles+=4;
 }
 void rr_md_cpu_fetch_cycles(unsigned words,int locked) {
@@ -214,6 +228,26 @@ def bus(source):
         '    if (addr >= 0x8000u) {\n        machine_z80_bus_wait();')
 
 
+def main_access(source):
+    """68000 cycles on Z80 RAM first settle a sound CPU running ahead."""
+    def replace(source, old, new, count):
+        if source.count(old) != count:
+            raise ConversionError('Pinned Z80 RAM access changed; refusing an ambiguous patch.')
+        return source.replace(old, new)
+    source = replace(source, '            unsigned off = a & 0x1FFFu;\n'
+                             '            return (uint16_t)(((uint16_t)b->z80_ram[off] << 8)',
+                     '            unsigned off = a & 0x1FFFu; machine_z80_main_access();\n'
+                     '            return (uint16_t)(((uint16_t)b->z80_ram[off] << 8)', count=2)
+    source = replace(source, '    if (a >= 0xA00000u && a < 0xA10000u && (a & 0xFFFFu) < 0x2000u)\n'
+                             '        return b->z80_ram[a & 0x1FFFu];',
+                     '    if (a >= 0xA00000u && a < 0xA10000u && (a & 0xFFFFu) < 0x2000u)\n'
+                     '        { machine_z80_main_access(); return b->z80_ram[a & 0x1FFFu]; }', count=2)
+    return replace(source, 'if ((a & 0xFFFFu) < 0x2000u) { unsigned off = a & 0x1FFFu;\n'
+                           '            snd_trace_68k_write(',
+                   'if ((a & 0xFFFFu) < 0x2000u) { unsigned off = a & 0x1FFFu; machine_z80_main_access();\n'
+                   '            snd_trace_68k_write(', count=2)
+
+
 def machine(source):
     source = '#include "md_bus_scheduler.h"\n' + source
     source = replace(source, 'static void machine_wire_pointers(void)\n{',
@@ -266,6 +300,7 @@ def machine(source):
     source = replace(source, 'unsigned fraction=(unsigned)g_machine.vdp.scanline*MASTER_PER_LINE%7u;',
         'unsigned fraction=(unsigned)(g_machine.master_cycle%7u);')
     source = replace(source, '        m->master_cycle += MASTER_PER_LINE;',
+        '        rr_lazy_close();\n'
         '        rr_z80_time-=MASTER_PER_LINE;rr_z80_limit-=MASTER_PER_LINE;rr_z80_grant-=MASTER_PER_LINE;\n'
         '        rr_local_request_time-=MASTER_PER_LINE;rr_local_ack_time-=MASTER_PER_LINE;\n'
         '        m->master_cycle += MASTER_PER_LINE;')
@@ -312,6 +347,8 @@ def machine(source):
         '        rr_main_fraction=(rr_main_fraction+MASTER_PER_LINE)%7u;\n'
         '        rr_main_debt=g_audio_cycle_counter-rr_line_end;\n'
         '        m->master_cycle += MASTER_PER_LINE;')
+    source = replace(source, 'void machine_vdp_z80_irq(int asserted) { g_machine.z80.int_pending=!!asserted; }',
+        'void machine_vdp_z80_irq(int asserted) { machine_z80_irq_change();g_machine.z80.int_pending=!!asserted; }')
     # Initial power-on clears residues; pointer rewiring after load does not.
     source = replace(source, '    memset(&g_machine, 0, sizeof(g_machine));',
         '    rr_main_fraction=rr_main_debt=0;\n    memset(&g_machine, 0, sizeof(g_machine));')

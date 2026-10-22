@@ -23,6 +23,18 @@ void rr_md_z80_begin(z80 *z);
 void rr_md_z80_tick(unsigned cycles);
 void machine_z80_boundary(void);
 void machine_z80_instruction_boundary(void);
+/* Z80 bus cycles: own RAM ($0000-$3FFF) is private to the sound CPU. */
+void machine_z80_access(uint16_t address);
+void machine_z80_write(uint16_t address);
+void machine_z80_fallback(void);
+/* Retired-instruction evidence, restored with the CPU when a deferred
+ * rendezvous is replayed (see md_z80_bus.inc). */
+typedef struct {
+    uint64_t native_ops, fallback_ops, native_cycles, fallback_cycles, timing_misses;
+    unsigned long phase_origin, phase_cycles;
+} RrMdZ80Evidence;
+void rr_md_z80_evidence_save(RrMdZ80Evidence *evidence);
+void rr_md_z80_evidence_load(const RrMdZ80Evidence *evidence);
 void rr_md_z80_sync(z80 *z);
 uint64_t rr_md_z80_timing_misses(void);
 void rr_md_z80_reset_evidence(void);

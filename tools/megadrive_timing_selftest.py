@@ -16,6 +16,7 @@ def main():
     engine = ROOT / '.deps/segagenesisrecomp/runner'
     (project / 'retro_md_game.h').write_text('/* Authored fixture. */\n')
     shutil.copy2(ROOT / 'native/md_timing.h', project / 'md_timing.h')
+    shutil.copy2(ROOT / 'native/md_vdp_pixels.inc', project / 'md_vdp_pixels.inc')
     (project / 'vdp.c').write_text(timing_vdp((engine / 'video/genesis_vdp.c').read_text()), encoding='utf-8')
     (project / 'sim.c').write_text(timing_source((engine / 'sim_step.c').read_text(), 'sim'), encoding='utf-8')
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)

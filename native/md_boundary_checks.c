@@ -1,4 +1,7 @@
-/* Compare old/reduced scheduling with authored RAM programs. No game frames. */
+/* Compare old/reduced/deferred scheduling with authored RAM programs. No
+ * game frames. A deferred sound CPU runs ahead, so its cycles interleave
+ * differently with 68000 writes: that mode is compared per CPU (each in its
+ * own order, with clocks), plus every final state. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,11 +12,13 @@
 #include "fiber_compat.h"
 static int repeat_boundaries;
 static int host_only_boundaries;
+static int lazy_boundaries;
 static unsigned switches;
 static void counted_switch(fiber_t target) {++switches;fiber_switch(target);}
 #define fiber_switch counted_switch
 #define RR_MD_REPEAT_Z80_BOUNDARIES repeat_boundaries
 #define RR_MD_HOST_ONLY_Z80_BOUNDARIES host_only_boundaries
+#define RR_MD_LAZY_Z80 lazy_boundaries
 #include "genesis_machine.c"
 #undef fiber_switch
 extern void rr_md_portable_restart(uint32_t pc);
@@ -61,9 +66,25 @@ static void nested_fibers(void) {
     free(saved);fiber_destroy(nested_child);fiber_destroy(nested_parent);
     CHECK(fiber_current()==nested_host);
 }
+typedef struct { uint32_t address, value, kind; int64_t time; } Event;
+static Event z80_events[65536],main_events[65536];
+static unsigned z80_count,main_count;
 static void stamp(unsigned address,unsigned value,unsigned write) {
     uint64_t v[4]={address,value,write,(uint64_t)rr_z80_time};
     for(unsigned i=0;i<4;++i){trace^=v[i];trace*=UINT64_C(1099511628211);}++events;
+    CHECK(z80_count<65536);z80_events[z80_count++]=(Event){address,value,write,rr_z80_time};
+}
+static void rollback(int64_t time) {
+    /* The deferred scheduler will replay these sound-CPU cycles. */
+    while(z80_count && z80_events[z80_count-1].time>=time)--z80_count;
+}
+static uint64_t events_hash(const Event *e,unsigned n) {
+    uint64_t h=UINT64_C(14695981039346656037);
+    for(unsigned i=0;i<n;++i) {
+        uint64_t v[4]={e[i].address,e[i].value,e[i].kind,(uint64_t)e[i].time};
+        for(unsigned k=0;k<4;++k){h^=v[k];h*=UINT64_C(1099511628211);}
+    }
+    return h;
 }
 static uint8_t read_byte(void *bus,uint16_t address) {
     uint8_t value=gbus_z80_read(bus,address);stamp(address,value,0);return value;
@@ -75,13 +96,16 @@ extern void (*g_mem_write_trace_fn)(uint32_t,uint8_t,uint32_t);
 static void main_write(uint32_t address,uint8_t value,uint32_t cycle) {
     uint64_t v[4]={address,value,2,cycle};
     for(unsigned i=0;i<4;++i){trace^=v[i];trace*=UINT64_C(1099511628211);}++events;
+    CHECK(main_count<65536);main_events[main_count++]=(Event){address,value,2,cycle};
 }
 typedef struct {
     z80 cpu;M68KState main_cpu;uint8_t ram[8192],main_ram[65536];uint32_t clocks;
     int64_t time;uint64_t trace;unsigned events;
+    uint64_t z80_trace,main_trace;unsigned z80_events,main_events;
 } Result;
 static Result run(unsigned test,int mode) {
-    repeat_boundaries=mode==1;host_only_boundaries=mode==2;rr16_reset();GenesisMachine *m=&g_machine;
+    repeat_boundaries=mode==1;host_only_boundaries=mode==2;lazy_boundaries=mode==3;
+    rr16_reset();GenesisMachine *m=&g_machine;
     g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
     rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
     m->bus.z80_reset_off=1;m->bus.z80_busreq=m->bus.z80_reset_pending=0;
@@ -118,7 +142,8 @@ static Result run(unsigned test,int mode) {
     }
     m->bus.z80_ram[0x38]=0xed;m->bus.z80_ram[0x39]=0x4d; /* RETI */
     m->bus.z80_bank=0x1c0;g_audio_cycle_counter=rr_vdp_cpu_origin=0;
-    switches=events=0;trace=UINT64_C(14695981039346656037);g_mem_write_trace_fn=main_write;
+    switches=events=z80_count=main_count=0;trace=UINT64_C(14695981039346656037);g_mem_write_trace_fn=main_write;
+    rr_md_lazy_rollback_trace=rollback;
     unsigned step=test%12<6?97:7;
     uint64_t started=SDL_GetPerformanceCounter();
     for(unsigned begin=0;begin<3420;) {
@@ -133,16 +158,27 @@ static Result run(unsigned test,int mode) {
     g_mem_write_trace_fn=NULL;
     Result r={0};r.cpu=m->z80;r.main_cpu=g_cpu;memcpy(r.ram,m->bus.z80_ram,sizeof r.ram);
     memcpy(r.main_ram,g_ram,sizeof r.main_ram);r.clocks=g_audio_cycle_counter;
-    r.time=rr_z80_time;r.trace=trace;r.events=events;return r;
+    r.time=rr_z80_time;r.trace=trace;r.events=events;
+    r.z80_trace=events_hash(z80_events,z80_count);r.main_trace=events_hash(main_events,main_count);
+    r.z80_events=z80_count;r.main_events=main_count;return r;
 }
 int main(int argc,char **argv) {
     CHECK(rr16_init(true));nested_fibers();unsigned original_switches=0,reduced_switches=0;
     unsigned iterations=argc>1 && !strcmp(argv[1],"--benchmark")?16u:1u;
-    uint64_t original_ticks=0,previous_ticks=0,reduced_ticks=0;unsigned previous_switches=0;
+    uint64_t original_ticks=0,previous_ticks=0,reduced_ticks=0,deferred_ticks=0;
+    unsigned previous_switches=0,deferred_switches=0;uint64_t rollbacks=rr_md_lazy_rollbacks;
     for(unsigned iteration=0;iteration<iterations;++iteration)for(unsigned test=0;test<72;++test) {
         Result original=run(test,1);original_switches+=switches;original_ticks+=work_ticks;
         Result previous=run(test,2);previous_switches+=switches;previous_ticks+=work_ticks;
         Result reduced=run(test,0);reduced_switches+=switches;reduced_ticks+=work_ticks;
+        Result deferred=run(test,3);deferred_switches+=switches;deferred_ticks+=work_ticks;
+        CHECK(!memcmp(&original.cpu,&deferred.cpu,sizeof original.cpu));
+        CHECK(!memcmp(&original.main_cpu,&deferred.main_cpu,sizeof original.main_cpu));
+        CHECK(!memcmp(original.ram,deferred.ram,sizeof original.ram));
+        CHECK(!memcmp(original.main_ram,deferred.main_ram,sizeof original.main_ram));
+        CHECK(original.clocks==deferred.clocks && original.time==deferred.time);
+        CHECK(original.z80_trace==deferred.z80_trace && original.z80_events==deferred.z80_events);
+        CHECK(original.main_trace==deferred.main_trace && original.main_events==deferred.main_events);
         CHECK(!memcmp(&original.cpu,&reduced.cpu,sizeof original.cpu));
         CHECK(!memcmp(&original.main_cpu,&reduced.main_cpu,sizeof original.main_cpu));
         CHECK(!memcmp(original.ram,reduced.ram,sizeof original.ram));
@@ -157,7 +193,9 @@ int main(int argc,char **argv) {
         CHECK(original.trace==previous.trace && original.events==previous.events);
     }
     CHECK(reduced_switches<original_switches);rr16_shutdown();
-    printf("{\"passed\":true,\"checks\":%u,\"program_pairs\":%u,\"traces_and_clocks_equal\":true,\"original_switches\":%u,\"previous_switches\":%u,\"reduced_switches\":%u,\"original_work_seconds\":%.9f,\"previous_work_seconds\":%.9f,\"reduced_work_seconds\":%.9f}\n",
-        checks,72u*iterations,original_switches,previous_switches,reduced_switches,
-        (double)original_ticks/SDL_GetPerformanceFrequency(),(double)previous_ticks/SDL_GetPerformanceFrequency(),(double)reduced_ticks/SDL_GetPerformanceFrequency());return 0;
+    rollbacks=rr_md_lazy_rollbacks-rollbacks;
+    printf("{\"passed\":true,\"checks\":%u,\"program_pairs\":%u,\"traces_and_clocks_equal\":true,\"original_switches\":%u,\"previous_switches\":%u,\"reduced_switches\":%u,\"deferred_switches\":%u,\"deferred_rollbacks\":%llu,\"original_work_seconds\":%.9f,\"previous_work_seconds\":%.9f,\"reduced_work_seconds\":%.9f,\"deferred_work_seconds\":%.9f}\n",
+        checks,72u*iterations,original_switches,previous_switches,reduced_switches,deferred_switches,(unsigned long long)rollbacks,
+        (double)original_ticks/SDL_GetPerformanceFrequency(),(double)previous_ticks/SDL_GetPerformanceFrequency(),(double)reduced_ticks/SDL_GetPerformanceFrequency(),
+        (double)deferred_ticks/SDL_GetPerformanceFrequency());return 0;
 }

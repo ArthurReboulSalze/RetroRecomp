@@ -50,7 +50,7 @@ def main():
                             ','.join('{'+','.join(map(str,e))+'}' for e in events)+'}}' for raw,total,events in phases)
     phase_data += '\n};\n'
     (project / 'phase_data.h').write_text(phase_data, encoding='ascii')
-    for name in ('md_z80_native.h', 'md_z80_runtime.c', 'md_bus_scheduler.h'):
+    for name in ('md_z80_native.h', 'md_z80_runtime.c', 'md_bus_scheduler.h', 'runtime_feedback.h'):
         shutil.copy2(ROOT / 'native' / name, project / name)
     source = (engine / 'runner/external/superzazu/z80.c').read_text(encoding='utf-8')
     (project / 'reference.c').write_text(megadrive_z80.adapt_reference(source), encoding='utf-8')

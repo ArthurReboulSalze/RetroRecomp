@@ -22,6 +22,14 @@ void machine_z80_bus_wait(void) {}
 void machine_z80_bus_barrier(void) {}
 void machine_z80_boundary(void) {}
 void machine_z80_instruction_boundary(void) {}
+void machine_z80_access(uint16_t address) { (void)address; }
+void machine_z80_write(uint16_t address) { (void)address; }
+void machine_z80_fallback(void) {}
+/* Learning is not part of this fixture. */
+void rr_feedback_note(unsigned kind, uint32_t address, uint32_t auxiliary,
+                      const uint8_t *bytes, unsigned length) {
+    (void)kind; (void)address; (void)auxiliary; (void)bytes; (void)length;
+}
 static void demand(int ok, const char *message) {
     if (!ok) { fprintf(stderr, "Z80 fixture: %s\n", message); exit(2); }
 }

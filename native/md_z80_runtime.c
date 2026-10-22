@@ -20,6 +20,16 @@ void rr_md_z80_sync(z80 *z) {
     phase_origin=z->cyc;phase_cycles=0;
 }
 uint64_t rr_md_z80_timing_misses(void) { return timing_misses; }
+void rr_md_z80_evidence_save(RrMdZ80Evidence *e) {
+    e->native_ops=native_ops; e->fallback_ops=fallback_ops; e->native_cycles=native_cycles;
+    e->fallback_cycles=fallback_cycles; e->timing_misses=timing_misses;
+    e->phase_origin=phase_origin; e->phase_cycles=phase_cycles;
+}
+void rr_md_z80_evidence_load(const RrMdZ80Evidence *e) {
+    native_ops=e->native_ops; fallback_ops=e->fallback_ops; native_cycles=e->native_cycles;
+    fallback_cycles=e->fallback_cycles; timing_misses=e->timing_misses;
+    phase_origin=e->phase_origin; phase_cycles=e->phase_cycles;
+}
 typedef struct { uint16_t pc; uint8_t mask, bytes[4]; } Observation;
 static Observation variants[RR_MD_Z80_VARIANT_LIMIT];
 static uint16_t table[RR_MD_Z80_VARIANT_LIMIT * 2];
@@ -122,6 +132,7 @@ void rr_md_z80_step(z80 *z) {
                 return;
             }
         }
+        machine_z80_fallback();
         observe(z->pc);
     }
     in_reference = 1; /* z80_step already accounts for an IM0 decode here. */

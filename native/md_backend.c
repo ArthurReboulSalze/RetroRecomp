@@ -318,6 +318,12 @@ void rr16_report_details(FILE *file) {
     fprintf(file, ",\"cpu_prefetch_hash\":\"%016llx\"",bytes_hash(&rr_md_prefetch,sizeof rr_md_prefetch));
     fprintf(file, ",\"bus_budget_misses\":%llu,\"bus_budget_pc\":%u",
             (unsigned long long)rr_md_bus_budget_misses,rr_md_bus_budget_pc);
+    {
+        extern uint64_t rr_md_lazy_points,rr_md_lazy_flushes,rr_md_lazy_rollbacks;
+        fprintf(file, ",\"z80_deferred_points\":%llu,\"z80_deferred_flushes\":%llu,\"z80_deferred_rollbacks\":%llu",
+                (unsigned long long)rr_md_lazy_points,(unsigned long long)rr_md_lazy_flushes,
+                (unsigned long long)rr_md_lazy_rollbacks);
+    }
     fprintf(file, ",\"active_raster_height\":%d,\"interlace_mode\":%u,\"output_row_density\":%u",
             rr16_raster_height(), (g_machine.vdp.reg[12] >> 1) & 3u,
             rr16_visible_height() / rr16_raster_height());

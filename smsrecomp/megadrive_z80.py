@@ -281,7 +281,7 @@ def adapt_reference(source):
     process_interrupts(z); rr_md_z80_sync(z);
 }
 void rr_md_z80_halt(z80 *z) {
-    machine_z80_boundary();
+    machine_z80_access(z->pc);
     (void)z->read_byte(z->userdata,z->pc); rr_md_z80_tick(4);
     z->cyc += 4; inc_r(z);
 }
