@@ -120,6 +120,8 @@ MEDIAS/RetroRecomp_UI_1.1.3.png
 MEDIAS/RetroRecomp_Master_System_Collection.png
 MEDIAS/RetroRecomp_Compiled_Games.png MEDIAS/RetroRecomp_Credits.png
 MEDIAS/RetroRecomp_learning_cycle.png
+MEDIAS/RetroRecomp_Native_Games_web.mp4
+MEDIAS/RetroRecomp_Native_Games_poster.jpg
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico

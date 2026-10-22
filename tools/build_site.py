@@ -18,6 +18,8 @@ MEDIA = {
     "consoles.webp": ("MEDIAS/RetroRecomp_consoles.png", 1600),
     "converter.webp": ("MEDIAS/RetroRecomp_UI_1.1.5.jpg", 1162),
     "learning-cycle.webp": ("MEDIAS/RetroRecomp_learning_cycle.png", 1200),
+    "native-games-poster.webp": ("MEDIAS/RetroRecomp_Native_Games_poster.jpg", 1280),
+    "native-games.mp4": ("MEDIAS/RetroRecomp_Native_Games_web.mp4", None),
     "icon-32.png": ("assets/Retro-Recomp-icon-32.png", None),
     "icon-64.png": ("assets/Retro-Recomp-icon-64.png", None),
     "icon-256.png": ("assets/Retro-Recomp-icon-256.png", None),

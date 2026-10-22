@@ -15,7 +15,7 @@ class _Links(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         for key, value in attrs:
-            if key in ("src", "href") and value and not value.startswith(("http", "#", "/")):
+            if key in ("src", "href", "poster") and value and not value.startswith(("http", "#", "/")):
                 self.local.append(value)
 
 

@@ -87,7 +87,13 @@ code {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 14px; text-transform: uppercase; letter-spacing: .12em; color: var(--gold-deep);
 }
-.hero__consoles { width: min(1100px, 100%); margin: 40px auto 0; opacity: .95; }
+.hero__consoles {
+  width: min(600px, 84%);
+  margin: 36px auto 0;
+  opacity: .8;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
 
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .button {
@@ -123,6 +129,21 @@ h3 { margin: 0 0 6px; font-size: 18px; }
 .section__lead { max-width: 720px; color: var(--muted); margin: 0 0 36px; font-size: 17px; }
 .note { color: var(--muted); font-size: 15px; margin: 28px 0 0; max-width: 820px; }
 .section p { margin-top: 0; }
+
+/* Video */
+.section--video { padding-top: 40px; text-align: center; }
+.video { margin: 28px auto 0; max-width: 960px; }
+.video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.video figcaption { color: var(--muted); font-size: 14px; margin-top: 14px; }
 
 /* Steps */
 .steps { list-style: none; padding: 0; margin: 32px 0 48px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }

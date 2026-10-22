@@ -18,7 +18,16 @@
   <a href="https://github.com/ArthurReboulSalze/RetroRecomp/releases">Download</a> ·
   <a href="docs/BUILDING.md">Build from source</a> ·
   <a href="docs/COMPATIBILITY.md">Compatibility</a> ·
-  <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a>
+  <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a> ·
+  <a href="https://arthurreboulsalze.github.io/RetroRecomp/">Website</a>
+</p>
+
+https://github.com/user-attachments/assets/0ebff10f-c5f0-4da7-b19b-aa82be4ad866
+
+<p align="center">
+  <sub><strong>RetroRecomp: Native Games</strong> · six-minute narrated overview ·
+  <a href="https://arthurreboulsalze.github.io/RetroRecomp/#video">watch on the website</a> or
+  <a href="MEDIAS/RetroRecomp_Native_Games_web.mp4">download the MP4</a></sub>
 </p>
 
 RetroRecomp brings several recompilers together in one application. It recompiles
