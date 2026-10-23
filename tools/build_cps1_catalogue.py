@@ -266,6 +266,106 @@ def configurations(raw_text: str, macros: dict) -> dict:
     return result
 
 
+def function_macros(text: str) -> dict:
+    macros = {}
+    for match in re.finditer(r'^#define[ \t]+([A-Za-z_]\w*)\(([^)]*)\)[ \t]*((?:[^\n]*\\\n)*[^\n]*)', text, re.M):
+        macros[match.group(1)] = ([p.strip() for p in match.group(2).split(',') if p.strip()],
+                                  match.group(3).replace('\\\n', ' '))
+    return macros
+
+
+IGNORED_PORT_MACROS = frozenset((
+    'PORT_DIPSETTING', 'PORT_DIPLOCATION', 'PORT_NAME', 'PORT_SENSITIVITY', 'PORT_KEYDELTA',
+    'PORT_CODE_INC', 'PORT_CODE_DEC', 'PORT_REMAP_TABLE', 'PORT_POSITIONS', 'PORT_CENTERDELTA',
+    'PORT_WRITE_LINE_DEVICE_MEMBER', 'PORT_READ_LINE_DEVICE_MEMBER'))
+
+
+def input_ports(text: str, macros: dict) -> dict:
+    """Port definitions per INPUT_PORTS block: fields with masks and defaults.
+
+    Field defaults follow MAME: active-low inputs and switches default to
+    their mask, active-high ones to 0; bits no field covers read as 0.
+    """
+    functions = function_macros(text)
+    blocks = {match.group(1): match.group(2) for match in re.finditer(
+        r'INPUT_PORTS_START\(\s*(\w+)\s*\)(.*?)INPUT_PORTS_END', text, re.S)}
+
+    def active(value):
+        return {'IP_ACTIVE_LOW': None, 'IP_ACTIVE_HIGH': 0}.get(value.strip(), 'number')
+
+    def build(name, ports, depth=0):
+        if depth > 8 or name not in blocks:
+            raise SystemExit('Unknown or recursive input block ' + name)
+        current, field = None, None
+
+        def add(mask, default, kind, dip):
+            nonlocal field
+            if current is None:
+                raise SystemExit(f'{name}: field outside a port')
+            ports[current] = [f for f in ports[current] if not f['mask'] & mask]
+            field = {'mask': mask, 'default': default & mask, 'type': kind, 'dip': dip, 'player': 1}
+            ports[current].append(field)
+
+        def walk(body):
+            nonlocal current, field
+            for call, raw in calls(body):
+                args = split_arguments(raw)
+                if call in functions:
+                    params, template = functions[call]
+                    for param, value in zip(params, args):
+                        template = re.sub(r'\b' + param + r'\b', value, template)
+                    walk(template)
+                elif call == 'PORT_INCLUDE':
+                    build(args[0], ports, depth + 1)
+                elif call in ('PORT_START', 'PORT_MODIFY'):
+                    current, field = string(args[0]), None
+                    if call == 'PORT_START' or current not in ports:
+                        ports[current] = []
+                elif call == 'PORT_BIT':
+                    mask, level = number(args[0], macros), active(args[1])
+                    default = mask if level is None else 0 if level == 0 else number(args[1], macros)
+                    add(mask, default, args[2].strip().removeprefix('IPT_').lower(), False)
+                elif call in ('PORT_SERVICE', 'PORT_SERVICE_DIPLOC', 'PORT_SERVICE_NO_TOGGLE'):
+                    mask = number(args[0], macros)
+                    add(mask, mask if active(args[1]) is None else 0, 'service', call != 'PORT_SERVICE_NO_TOGGLE')
+                elif call in ('PORT_DIPNAME', 'PORT_DIPUNUSED', 'PORT_DIPUNUSED_DIPLOC',
+                              'PORT_DIPUNKNOWN', 'PORT_DIPUNKNOWN_DIPLOC'):
+                    add(number(args[0], macros), number(args[1], macros), 'dip', True)
+                elif call == 'PORT_CONDITION':
+                    if field is None or args[2].strip() not in ('EQUALS', 'NOTEQUALS'):
+                        raise SystemExit(f'{name}: unsupported condition {raw}')
+                    field['condition'] = [string(args[0]), number(args[1], macros),
+                                          args[2].strip() == 'EQUALS', number(args[3], macros)]
+                elif call == 'PORT_PLAYER':
+                    field['player'] = number(args[0], macros)
+                elif call not in IGNORED_PORT_MACROS:
+                    raise SystemExit(f'{name}: unsupported input macro {call}')
+        walk(blocks[name])
+        return ports
+
+    result = {}
+    for name in blocks:
+        ports = build(name, {})
+        defaults = {port: 0 for port in ports}
+        for conditional in (False, True):
+            for port, fields in ports.items():
+                for field in fields:
+                    if bool(field.get('condition')) != conditional:
+                        continue
+                    if conditional:
+                        tag, mask, equals, value = field['condition']
+                        if ((defaults.get(tag, 0) & mask) == value) != equals:
+                            continue
+                    defaults[port] = (defaults[port] & ~field['mask']) | field['default']
+        result[name] = {port: {'default': defaults[port],
+                               'inputs': sorted([f['mask'], f['type'], f['player']] for f in fields
+                                                if not f['dip'] and f['type'] not in ('unknown', 'unused')),
+                               'switches': sorted([f['mask'], f['default']] + ([f['condition']] if f.get('condition') else [])
+                                                  for f in fields if f['dip'])}
+                        for port, fields in ports.items()}
+    return result
+
+
 def support(row: dict, config: dict) -> tuple[str, str]:
     title, company = row['title'].casefold(), row['company'].casefold()
     if row['kind'] == 'cons':
@@ -293,6 +393,7 @@ def build(cache: Path, *, offline: bool = False) -> dict:
     sets, rows = rom_sets(driver_clean, driver_macros), drivers(driver_clean)
     configs = configurations(video, video_macros)
     board_table, mapper_table = boards(video_clean, video_macros), mappers(video_clean, video_macros)
+    port_blocks = input_ports(driver_clean, driver_macros)
     games = []
     for row in rows:
         config = configs.get(row['set'])
@@ -305,7 +406,7 @@ def build(cache: Path, *, offline: bool = False) -> dict:
             status, reason = 'excluded', 'incomplete_dump'
         row = dict(row, support=status, reason=reason, regions=sets[row['set']], **{
             'board': config['board'], 'mapper': config['mapper'], 'ports': [config['in2'], config['in3'], config['out2']],
-            'kludge': config['kludge'], 'board_note': config['note'],
+            'kludge': config['kludge'], 'board_note': config['note'], 'inputs': port_blocks[row['input']],
             # MAME marks guessed or undumped PAL equations in its notes.
             'mapper_verified': not re.search(r'\b(wrong|unverified|guess)', config['note'], re.I)})
         games.append(row)

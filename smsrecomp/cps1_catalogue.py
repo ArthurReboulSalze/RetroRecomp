@@ -10,7 +10,7 @@ import json
 from .paths import ASSETS
 
 RESOURCE = 'assets/cps1-catalogue.json'
-SHA256 = '4fa66a67441a4421d4923613483d335edd6f653cd67d23a4ce07a277be1c2c3e'
+SHA256 = '1b73f96f47c495ff628ff96bf42ccbb63b8651d13583011ed31742a876dab68f'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 MAX_BYTES = 2 * 1024 * 1024
 # Phase 1 runs standard 10/12 MHz boards: 68000, Z80, YM2151, OKI MSM6295.

@@ -1,4 +1,23 @@
-# Capcom CPS-1 board catalogue
+# Capcom CPS-1 board catalogue and machine
+
+The CPS-1 machine runtime (`native/cps1_machine.c`, `native/cps1_machine.h`)
+adapts the board logic of the same MAME driver files to C: memory map,
+CPS-A/CPS-B registers, graphics bank mapping, palette, tile layers, sprites,
+star fields, priority masks and the sound latch/bank wiring. The OKI MSM6295
+(`native/cps1_oki.c`, `native/cps1_oki.h`) adapts MAME's
+`src/devices/sound/okim6295.cpp` (`copyright-holders:Mirko Buffoni,Aaron
+Giles`) and `src/devices/sound/okiadpcm.cpp` (`copyright-holders:Andrew
+Gardner,Aaron Giles`), both `license:BSD-3-Clause`, at the same revision. The
+reference CPUs are Musashi and the Z80 core of the pinned Geolith copy (see
+`licenses/musashi.md` and `licenses/superzazu-z80.md`); the YM2151 is ymfm
+(see `licenses/cps1-ymfm.md`).
+
+The native CPS-1 runtime (`native/cps1_native.c`, `native/cps1_native.h`,
+`native/cps1_z80_native.h`) is Retro-Recomp code (MIT) adapted from
+`native/neogeo_native.*`. The code it runs is generated on the user's machine
+from the user's own ROMs: MC68000 bodies from m68k-recomp-core (see
+`licenses/segagenesisrecomp.md`) and Z80 bodies from the pinned Geolith Z80
+core (see `licenses/superzazu-z80.md`); it is never distributed.
 
 Retro-Recomp's CPS-1 board catalogue (`assets/cps1-catalogue.json`) is derived
 from MAME's CPS-1 driver at revision
@@ -11,10 +30,10 @@ SHA-256 values and writes the catalogue; the catalogue records the same
 revision and notice. No ROM data is included.
 
 Retro-Recomp is noncommercial. The terms below come from MAME's
-`docs/legal/BSD-3-Clause` at the same revision, with the copyright line taken
+`docs/legal/BSD-3-Clause` at the same revision, with the copyright lines taken
 from the source headers (no year is stated there).
 
-Copyright Paul Leaman
+Copyright Paul Leaman; Mirko Buffoni; Aaron Giles; Andrew Gardner
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are

@@ -221,6 +221,11 @@ tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_contro
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
 smsrecomp/cps1.py smsrecomp/cps1_catalogue.py assets/cps1-catalogue.json
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
+smsrecomp/cps1_board.py smsrecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
+native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
+native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
+native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
+smsrecomp/cps1_codegen.py tests/test_cps1_codegen.py
 native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
