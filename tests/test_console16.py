@@ -303,6 +303,13 @@ class Console16Tests(unittest.TestCase):
                     self.assertIn(f'#define RR_SN_PAL {int(standard == "pal")}', header)
                     self.assertIn(rom.sha256, (self.root / 'generated/instruction_program.c').read_text())
 
+    def checks_dir(self):
+        """Where convert16 keeps probe files for the authored executable path,
+        beside build/ on Windows and beside Release/ elsewhere."""
+        import os
+        executable = self.root / 'project/build/Release/game.exe'
+        return executable.parents[2 if os.name == 'nt' else 1] / 'checks'
+
     def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced'):
         """Exercise real conversion scheduling/gates with authored probe results."""
         project = self.root / 'project'
@@ -406,7 +413,7 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual([check.get('input_route', {}).get('continues_from') for check in report['final_checks']],
                          [None] * 7)
         self.assertFalse(any('<' in event for event in events))
-        self.assertFalse((self.root / 'project/checks/long-1.state').exists())
+        self.assertFalse((self.checks_dir() / 'long-1.state').exists())
         self.assertTrue(report['advanced_scan']['reference_before_learning'])
         self.assertTrue(report['native_validation']['passed'])
 
@@ -423,9 +430,9 @@ class Console16Tests(unittest.TestCase):
                          [None, None, None, None, None, None, 'long-1'])
         self.assertEqual(events.count('native:long-2<long-1'), 2)
         self.assertEqual(events.count('reference:long-2<long-1'), 2)
-        self.assertTrue((self.root / 'project/checks/long-1.state').is_file())
-        self.assertTrue((self.root / 'project/checks/reference/long-1.state').is_file())
-        self.assertFalse((self.root / 'project/checks/long-2.state').exists(), 'the last route saves nothing')
+        self.assertTrue((self.checks_dir() / 'long-1.state').is_file())
+        self.assertTrue((self.checks_dir() / 'reference/long-1.state').is_file())
+        self.assertFalse((self.checks_dir() / 'long-2.state').exists(), 'the last route saves nothing')
         self.assertTrue(report['native_validation']['passed'])
         self.assertEqual(datetime.fromisoformat(report['created_utc']).tzinfo, timezone.utc)
 
