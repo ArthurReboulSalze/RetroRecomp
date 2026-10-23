@@ -1612,7 +1612,7 @@ class Application:
         # Reserve the footer first: Tk otherwise gives a tall notebook all
         # available height on Linux, clipping the Close button to a few pixels.
         buttons.pack(side='bottom',before=notebook,fill='x',padx=0,pady=(0,6))
-        ttk.Button(buttons, text=self.tr('close_options'), width=26,
+        ttk.Button(buttons, text=self.tr('close_options'), width=-26,
                    command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
         self.queue_background(self.body)
 

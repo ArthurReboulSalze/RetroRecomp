@@ -159,6 +159,8 @@ h3 { margin: 0 0 6px; font-size: 18px; }
 .shot img { border-radius: var(--radius); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, .5); margin: 0 auto; }
 .shot figcaption { text-align: center; color: var(--muted); font-size: 14px; margin-top: 14px; }
 .shot--flat img { box-shadow: none; }
+.gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 32px; align-items: start; }
+.gallery .shot--card img { max-width: 466px; width: 100%; }
 
 /* Consoles */
 .consoles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
@@ -197,6 +199,7 @@ h3 { margin: 0 0 6px; font-size: 18px; }
 /* Responsive */
 @media (max-width: 960px) {
   .features { grid-template-columns: repeat(2, 1fr); }
+  .gallery { grid-template-columns: 1fr; }
   .measures { grid-template-columns: repeat(2, 1fr); }
   .split { grid-template-columns: 1fr; gap: 32px; }
 }

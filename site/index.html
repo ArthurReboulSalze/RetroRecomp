@@ -50,7 +50,7 @@
           <a class="button" href="https://github.com/ArthurReboulSalze/RetroRecomp">View the source</a>
         </div>
         <ul class="badges" aria-label="Key facts">
-          <li>8 console profiles</li>
+          <li>9 console profiles</li>
           <li>Windows x64 · Linux x86-64</li>
           <li>Original code under MIT</li>
         </ul>
@@ -81,12 +81,12 @@
           <li>
             <span class="steps__num">1</span>
             <h3>Add your games</h3>
-            <p>Drop ROMs, ZIPs or mixed folders into the window. Console detection sorts recognized games automatically.</p>
+            <p>Drop ROMs, ZIPs, arcade romsets, disk images or mixed folders. Console detection sorts recognized games automatically.</p>
           </li>
           <li>
             <span class="steps__num">2</span>
             <h3>Convert</h3>
-            <p>Game code is recompiled into a native executable. Several conversions can run at once, and up-to-date exports are kept.</p>
+            <p>Game code is recompiled into a native executable and checked against a reference CPU. Up to eight conversions run at once.</p>
           </li>
           <li>
             <span class="steps__num">3</span>
@@ -95,8 +95,8 @@
           </li>
         </ol>
         <figure class="shot">
-          <img src="media/converter.webp" alt="The RetroRecomp converter window on Windows, with the ROM list and conversion controls" width="1162" height="932" loading="lazy">
-          <figcaption>The converter on Windows. Linux shares the same layout.</figcaption>
+          <img src="media/converter.webp" alt="The RetroRecomp conversion queue on Windows, with games from six consoles" width="1162" height="956" loading="lazy">
+          <figcaption>The conversion queue on Windows, in English. Linux shares the same window.</figcaption>
         </figure>
       </div>
     </section>
@@ -104,7 +104,7 @@
     <section class="section section--alt" id="consoles">
       <div class="wrap">
         <p class="eyebrow">Console support</p>
-        <h2>Eight console profiles</h2>
+        <h2>Nine console profiles</h2>
         <p class="section__lead">Compatibility depends on the game and its exact revision. The 16-bit profiles
           analyze new games automatically; there is no fixed game list.</p>
         <div class="consoles">
@@ -137,6 +137,10 @@
             <p>Arcade MVS with optional console AES, two players, scores, memory card and quick states.</p>
           </article>
           <article class="console">
+            <h3>Capcom CPS-1</h3>
+            <p>Experimental: MAME/FBNeo romsets of the standard boards, two players, six buttons, rotated vertical games, quick states.</p>
+          </article>
+          <article class="console">
             <h3>Sharp X68000</h3>
             <p>Experimental: DIM/XDF disks and M3U sets, your own IPL and font ROM, quick states, mouse and keyboard.</p>
           </article>
@@ -158,7 +162,8 @@
             checks those hints against the exact game and uses them on the next regeneration to reduce
             fallback. Graphics and hardware issues still need fixes in the runtime itself.</p>
           <p>Verified hints for <strong>1,164 exact cartridge revisions</strong> ship with the converter.
-            Your own discoveries stay in your local library.</p>
+            Your own discoveries stay in your local library, and you can share them as one ROM-free file:
+            only addresses and positions in the ROM travel, never ROM bytes.</p>
         </div>
         <figure class="shot shot--flat">
           <img src="media/learning-cycle.webp" alt="Learning cycle: play, save fallback hints, enrich RetroRecomp, regenerate" width="1200" height="800" loading="lazy">
@@ -176,28 +181,28 @@
             <p>Convert a whole list or only the selected games. Unfinished games come back after an interruption.</p>
           </article>
           <article>
-            <h3>Regenerate only what changed</h3>
-            <p>Exports stay as they are when the compiler, settings and fallback hints are unchanged.</p>
+            <h3>Only what needs it</h3>
+            <p>Up-to-date games are skipped; when an update only changes menus or presentation, games are upgraded without rediscovery.</p>
           </article>
           <article>
-            <h3>Compiled Games</h3>
-            <p>Keep your collection, favorites, cached covers and short game summaries between sessions.</p>
+            <h3>A living collection</h3>
+            <p>Favorites, covers and summaries, kept current without rescanning: discoveries saved when a game closes appear at once.</p>
           </article>
           <article>
-            <h3>Shared controls</h3>
-            <p>Same menus, keyboard and gamepad mapping, fullscreen modes and filters across every console.</p>
+            <h3>New paths</h3>
+            <p>One button recompiles only the games whose play found new paths; closing the app offers the same.</p>
           </article>
           <article>
-            <h3>Quick states</h3>
-            <p>F8 and F9 save and load states, which are kept after you close the game.</p>
+            <h3>One menu everywhere</h3>
+            <p>F2 pages for controls and options, the same filters and fullscreen modes, F8/F9 quick states on every console.</p>
           </article>
           <article>
             <h3>Eight languages</h3>
-            <p>English, French, Italian, Spanish, German, Chinese, Japanese and Russian. F7 cycles through them.</p>
+            <p>The converter speaks English, French, Italian, Spanish, German, Japanese, Chinese and Russian; games the first five (F7).</p>
           </article>
           <article>
             <h3>Optional enhancements</h3>
-            <p>Fewer flickering sprites on Master System and more CPU headroom on Neo Geo. You can switch them off.</p>
+            <p>Fewer flickering sprites on Master System and Game Gear, no eight-sprite limit on NES, more CPU headroom on Neo Geo.</p>
           </article>
           <article>
             <h3>Lightgun games</h3>
@@ -207,7 +212,32 @@
       </div>
     </section>
 
-    <section class="section" id="measures">
+    <section class="section" id="gallery">
+      <div class="wrap">
+        <p class="eyebrow">Gallery</p>
+        <h2>One window, many languages</h2>
+        <div class="gallery">
+          <figure class="shot">
+            <img src="media/collection.webp" alt="Compiled Games collection in French, with box art and a game summary" width="1162" height="956" loading="lazy">
+            <figcaption>Compiled Games, in French: favorites, covers, summaries and New paths.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="media/options.webp" alt="Options in German, with the Mega Drive scan level and folders" width="1162" height="956" loading="lazy">
+            <figcaption>Options, in German: one tab per console, scan levels and folders.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="media/credits.webp" alt="Animated credits in Japanese over the converter" width="1162" height="956" loading="lazy">
+            <figcaption>Credits, in Japanese: a demoscene backdrop with live ChipLoom music.</figcaption>
+          </figure>
+          <figure class="shot shot--card">
+            <img src="media/closing.gif" alt="Animated card in Italian before closing, offering to recompile games with new paths" width="466" height="427" loading="lazy">
+            <figcaption>Before closing, in Italian: recompile the games whose play found new paths.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="measures">
       <div class="wrap">
         <p class="eyebrow">What we measure</p>
         <h2>Native is not the same as exact</h2>
@@ -223,20 +253,18 @@
       </div>
     </section>
 
-    <section class="section section--alt" id="next">
+    <section class="section" id="next">
       <div class="wrap">
         <p class="eyebrow">Roadmap</p>
         <h2>Stable today, more machines next</h2>
-        <p class="section__lead">Version 1.2.0 completes a performance pass over every console profile, with
-          identical traces on the comparison routes. Apart from the experimental Sharp X68000, the current
-          runtimes are stable and already highly optimized on Windows and Linux. From here, the library of
-          verified titles grows step by step.</p>
-        <p class="section__lead">The technical groundwork for the next machines has been reviewed. If development
-          goes as planned, they will join in this order, each in its own experimental phase:</p>
+        <p class="section__lead">Apart from the experimental Capcom CPS-1 and Sharp X68000, the current
+          runtimes are stable and already optimized on Windows and Linux; the library of verified titles grows
+          step by step. The groundwork for the next machines has been reviewed. If development goes as planned,
+          they will join in this order, each in its own experimental phase:</p>
         <div class="consoles">
           <article class="console">
-            <h3>Capcom CPS-1 / CPS-2</h3>
-            <p>Arcade boards.</p>
+            <h3>Capcom CPS-2</h3>
+            <p>Arcade boards, after CPS-1.</p>
           </article>
           <article class="console">
             <h3>PC Engine / TurboGrafx-16</h3>
@@ -272,7 +300,7 @@
       </div>
     </section>
 
-    <section class="section" id="start">
+    <section class="section section--alt" id="start">
       <div class="wrap">
         <p class="eyebrow">Get started</p>
         <h2>Three steps</h2>
