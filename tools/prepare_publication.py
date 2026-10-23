@@ -17,7 +17,7 @@ from smsrecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
 smsrecomp/x68000.py smsrecomp/x68000_media.py smsrecomp/x68000_conversion.py
 smsrecomp/systems/x68000.py docs/X68000.md
-tests/test_x68000_availability.py
+tests/test_x68000_availability.py tests/test_x68000_mouse.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
 native/x68000_machine/base74/alias/libretro/keyboard.h

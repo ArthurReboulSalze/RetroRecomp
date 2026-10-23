@@ -16,7 +16,7 @@ from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id
 from .library import atomic_json, entry_lock
-from .x68000 import developer_available, machine, automatic_disk_changes, mouse_controls
+from .x68000 import developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse
 
 
 def digest(path):
@@ -82,7 +82,7 @@ def sdk_stamp(part=None):
     return value.hexdigest()
 
 
-def payload(project, source, manifest, title, artwork):
+def payload(project, source, manifest, title, artwork, mouse_game=False):
     """Generate private resources. No user path becomes executable source code."""
     from .metadata import write_game_metadata
     from .resources import embed_resources
@@ -109,7 +109,7 @@ def payload(project, source, manifest, title, artwork):
        '#define RR_X68K_GAME_TITLE '+json.dumps(title,ensure_ascii=True),
        '#define RR_X68K_SOURCE_IDENTITY '+json.dumps(manifest.sha256),
        '#define RR_X68K_RAM_MIB '+str(manifest.config.ram_bytes//(1024*1024)),
-       '#define RR_X68K_MOUSE_GAME '+str(int(mouse_controls(source))),
+       '#define RR_X68K_MOUSE_GAME '+str(int(mouse_game)),
        'typedef struct {const char *path;unsigned resource;int writable;} RrX68kPayloadFile;',
        'static const RrX68kPayloadFile rr_x68k_files[]={']
     declarations += ['{'+json.dumps(name)+f',{identifier},{writable}'+'},' for name,identifier,writable in files]
@@ -295,14 +295,26 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
+        from .library import library_root
+        summary=library_root('x68')/manifest.sha256/'compilation.json'
+        try:remembered=json.loads(summary.read_text()).get('mouse_controls') is True
+        except (OSError,ValueError,AttributeError):remembered=False
+        # A reviewed exact set follows the mouse list. Other sets are found by
+        # their own code: loaded code that reads the mouse lengthens the mouse
+        # route, and reads executed on a fresh route turn on the player's
+        # mouse controls. A game confirmed by an earlier conversion of the
+        # same exact set keeps them in a shorter scan.
+        listed=listed_mouse(source)
+        mouse_code,mouse_calls=mouse_reads(observations)
+        mouse_route=listed if listed is not None else mouse_code or remembered
         # The scan level chooses the discovery routes: quick keeps the main
         # route only, standard adds mouse and keyboard exploration, extended
         # one 18,000-frame pseudo-random route, thorough the three 36,000-frame
         # routes that qualified the library. Every level keeps the fresh
         # native/reference comparison on each route it runs.
-        routes=tuple(exploration_routes(count,mouse_controls=mouse_controls(source))) if scan['exploration'] else ()
+        routes=tuple(exploration_routes(count,mouse_controls=mouse_route)) if scan['exploration'] else ()
         if scan['long_count']:
-            routes+=tuple(long_routes(manifest.sha256,mouse_controls=mouse_controls(source),
+            routes+=tuple(long_routes(manifest.sha256,mouse_controls=mouse_route,
                                       count=scan['long_count'],frames=scan['long_frames']))
         emit(f'X68000 scan level {level}: {len(routes)} exploration routes besides the main route.')
         # Every route is an independent cold boot in its own folder, so the
@@ -325,7 +337,14 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                     for route,folder,inputs,ref in extra_routes),workers)
         for route,folder,inputs,_ in extra_routes:
             more=json.loads((folder/'observations.json').read_text())
+            mouse_calls+=mouse_reads(more)[1]
             observations,_=extend_observations(observations,more)
+        # Without a mouse route, loaded mouse-reading code is the best evidence.
+        mouse_game=(listed if listed is not None else
+                    bool(mouse_calls) or remembered or (mouse_code and not routes))
+        emit('X68000: mouse controls '+('on' if mouse_game else 'off')+
+             (' (reviewed list)' if listed is not None else '')+
+             f'; {mouse_calls} IOCS mouse reads on fresh routes.')
         extra_routes=[(route,folder,inputs) for route,folder,inputs,_ in extra_routes]
         # Exact-input observations improve discovery, never waive the fresh
         # independent comparison above or the standalone replay below.
@@ -350,7 +369,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         artwork={'embedded':False,'source':'missing','online_enabled':False}
         artwork=prepare_icon(payload_dir,source.path,title,payload_dir,explicit=Path(cover) if cover else None,
             online=online_cover,enabled=use_cover,system_id='x68',cache_directory=boxart_cache_directory('x68'),emit=emit)
-        metadata=payload(payload_dir,source,manifest,title,artwork)
+        metadata=payload(payload_dir,source,manifest,title,artwork,mouse_game)
         candidate=None;actual=None;generation=None
         for attempt in range(max(1,min(int(passes),10))):
             generation=native.generate(project,native.observations([observation]),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
@@ -436,6 +455,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
           'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,
+          'mouse_controls':{'enabled':mouse_game,'listed':listed,'iocs_mouse_reads':mouse_calls,
+                            'mouse_code_loaded':mouse_code,'remembered':remembered},
           'automatic_disk_changes_observed':actual.get('automatic_disk_changes',0),
           'media_events':actual.get('media_events',[]),
           'reference_vdp_trace_match':True,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
@@ -448,11 +469,12 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         shutil.copy2(observation,memory/'converter-observations.json')
         atomic_json(memory/'converter-qualification.json',{'schema':1,'private_only':True,'source_identity':manifest.sha256,
                     'check':check,'sdk':stamp,'observations_sha256':digest(observation)})
-        from .library import library_root
-        summary=library_root('x68')/manifest.sha256/'compilation.json';summary.parent.mkdir(parents=True,exist_ok=True)
+        summary.parent.mkdir(parents=True,exist_ok=True)
         atomic_json(summary,{
             'schema':1,'title':title,'system':'x68','source_identity':manifest.sha256,
             'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
-            'private_development_only':True,'fresh_reference_passed':True})
+            'private_development_only':True,'fresh_reference_passed':True,
+            # Only executed reads are remembered, never the quick-scan fallback.
+            'mouse_controls':bool(mouse_calls) or remembered})
         emit('X68000: validated standalone player ready (experimental profile).')
         return candidate

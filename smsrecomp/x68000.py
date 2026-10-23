@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 from .paths import ROOT, ASSETS, selected_bios_path
 from .x68000_media import identify_disk as read_disk, build_manifest, MachineConfig
@@ -88,11 +89,41 @@ def automatic_disk_changes(source):
     return len(source.disks) > 1
 
 
-def mouse_controls(source):
-    """Known mouse-driven exact sets; unrelated revisions keep normal controls."""
-    return source.sha256 in (
-        '24bf876f9d31a622313c4e6fb0f4c8134259c11e1dd0fea28124a44498c797e3',
-        '06ae8a805f2826bf049febf54aa2734760ac893f95620ee30dcb6c7a60271215',
-    )
+MOUSE_LIST = 'assets/x68000-mouse-games.json'
+
+
+def listed_mouse(source):
+    """True or False for a reviewed exact disk set, None when it is not listed.
+
+    The list covers a finite collection measured by its own mouse reads, then
+    reviewed; other sets and revisions fall back to observing their code.
+    """
+    try:
+        games = json.loads((ASSETS / MOUSE_LIST).read_text(encoding='utf-8'))['games']
+        value = games[source.sha256]['mouse']
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return value if isinstance(value, bool) else None
+
+
+# IOCS calls that read the mouse: _MS_GETDT, _MS_CURGT, _MS_OFFTM, _MS_ONTM.
+# _MS_INIT and _MS_CUROF alone only hide the pointer, as most games do.
+MOUSE_READS = frozenset((0x74, 0x75, 0x78, 0x79))
+
+
+def mouse_reads(record):
+    """(present, executed) IOCS mouse reads in one route's observations.
+
+    A read is `moveq #call,d0` followed by `trap #15`, as the IOCS macro
+    writes it. Present includes code found by static expansion that has not
+    run yet; executed counts the trap's own hits during that route. No title
+    or exact-set rule is involved.
+    """
+    words = {row['pc']: row['words'].lower() for row in record['variants']}
+    hits = {row['pc']: row.get('hits', 0) for row in record['variants']}
+    sites = [pc + 2 for pc, word in words.items()
+             if len(word) == 4 and word[:2] == '70' and int(word[2:], 16) in MOUSE_READS
+             and words.get(pc + 2) == '4e4f']
+    return bool(sites), sum(hits.get(site, 0) for site in sites)
 
 
