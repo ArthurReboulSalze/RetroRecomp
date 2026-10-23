@@ -47,7 +47,7 @@ static char menu_status[80], toast[80];
 static uint64_t toast_until;
 static int gun_x = -1, gun_y = -1;
 static bool gun_trigger_blocked;
-static int gun_option_row = 1;
+static int gun_option_row;
 static void state_completed(int operation, int result);
 
 int smsrecomp_take_reset_request(void) {
@@ -178,10 +178,14 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     menu = parent_menu = selected_row = selected_player = 0; capturing = bind_gamepad = false;
     menu_status[0] = 0; previous_interpreter_state = -1; previous_interpreter_cycles = 0;
     gun_x = gun_y = -1; gun_trigger_blocked = false;
-    gun_option_row = 1;
+    gun_option_row = 0;
     smsrecomp_set_state_callback(state_completed);
-    notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F10: options", "Light Phaser : souris | F10 : options") :
-        controls_text("F1: help | P / Enter: pause", "F1 : aide | P / Entree : pause"));
+#ifdef RETRO_GAME_GEAR
+    notice(controls_text("F1: help | P / Enter: pause", "F1 : aide | P / Entree : pause"));
+#else
+    notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F2: options", "Light Phaser : souris | F2 : options") :
+        controls_text("F1: help | Enter: pause", "F1 : aide | Entree : pause"));
+#endif
     if (sms_light_phaser) fprintf(stderr, "[host] Light Phaser: mouse, left=trigger, right=off-screen; reticle=%s size=%d color=%d\n",
         controls.phaser_shape == PHASER_DOT ? "dot" : "cross", controls.phaser_dot_size, controls.phaser_color);
     return true;
@@ -360,18 +364,93 @@ static void toggle_menu(int kind) {
     else { if (menu == 3) parent_menu = 3; menu = kind; }
 }
 
+/* F2 pages: each player's keyboard then gamepad, the Light Phaser on gun
+ * games, then the options. */
+static RrPages settings_pages(void) {
+#ifdef RETRO_GAME_GEAR
+    return (RrPages){2, 0};
+#else
+    return (RrPages){4, lightphaser_enabled() ? 1 : 0};
+#endif
+}
+
+static int settings_page(void) {
+    return rr_pages_index(settings_pages(), menu, selected_player * 2 + (bind_gamepad ? 1 : 0));
+}
+
+/* Player 1's control pages end with the quit and restart combinations. */
+static int page_rows(void) {
+    return controls_action_count(selected_player) + (selected_player ? 0 : RR_COMBO_ROWS);
+}
+
+/* Control pages share their rows, so the selected row survives between them. */
+static void turn_page(int step) {
+    int control, before = menu;
+    menu = rr_pages_goto(settings_pages(), settings_page() + step, &control);
+    selected_player = control / 2; bind_gamepad = control % 2 != 0;
+    selected_row = before == RR_CONTROLS_MENU && menu == RR_CONTROLS_MENU ? SDL_min(selected_row, page_rows() - 1) : 0;
+    gun_option_row = 0; capturing = false; menu_status[0] = 0;
+}
+
+/* F2 opens on the first page from the game, help or pause, and closes F2 from any page. */
+static void toggle_settings(void) {
+    controls_load(); apply_controller_order();
+    if (rr_pages_open(menu)) menu = RR_CONTROLS_MENU;
+    else { selected_player = selected_row = 0; bind_gamepad = false; }
+    toggle_menu(RR_CONTROLS_MENU);
+}
+
+/* Option rows run their function keys exactly as the shortcuts do. */
+static RrOptionRows option_rows(void) {
+    RrOptionRows d; d.count = 0;
+    rr_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", controls_filter_label(controls.filter));
+    rr_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(fullscreen ? (fullscreen_fit ? 2 : 1) : 0));
+#ifndef RETRO_GAME_GEAR
+    rr_option_row(&d, SDL_SCANCODE_F5, "F5 Sprite flicker reduction: %s", rr_tr(controls.reduce_sprite_flicker ? "ON" : "OFF"));
+#endif
+    rr_option_row(&d, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(controls.autofire ? "ON" : "OFF"));
+    rr_option_row(&d, SDL_SCANCODE_F7, "F7 Language: %s", rr_language_name(controls.language));
+    rr_option_row(&d, SDL_SCANCODE_F12, "%s", rr_tr(rr_feedback_label()));
+    rr_option_shared_rows(&d);
+    return d;
+}
+
+static void draw_menu(void) {
+    RrPages pages = settings_pages();
+    int page = settings_page(), count = rr_pages_count(pages);
+    if (menu == RR_OPTIONS_MENU) {
+        RrOptionRows d = option_rows();
+        rr_option_page_draw(renderer, &d, page, count);
+        return;
+    }
+    ui_pages(rr_pages_open(menu) ? page : 0, rr_pages_open(menu) ? count : 0);
+    /* Strings for the combination rows of player 1, kept for this draw. */
+    char labels[RR_COMBO_ROWS][32], values[RR_COMBO_ROWS][80];
+    const char *label[RR_COMBO_ROWS], *value[RR_COMBO_ROWS];
+    int combos = menu == RR_CONTROLS_MENU && !selected_player ? RR_COMBO_ROWS : 0;
+    for (int i = 0; i < combos; ++i) {
+        snprintf(labels[i], sizeof labels[i], "%s", rr_combo_label(i));
+        rr_combo_value(values[i], sizeof values[i], i, bind_gamepad);
+        label[i] = labels[i]; value[i] = values[i];
+    }
+    int selected_combo = selected_row - controls_action_count(selected_player);
+    ui_combos(combos, label, value, combos && selected_combo >= 0 ? rr_combo_hint(selected_combo) : NULL);
+    ui_menu(renderer, menu, selected_player, menu == RR_GUN_MENU ? gun_option_row : selected_row, bind_gamepad, capturing,
+        controllers[selected_player] ? SDL_GameControllerName(controllers[selected_player]) : NULL, menu_status);
+}
+
 static void change_gun_option(int change) {
     bool ok;
     if (gun_option_row == 0)
         ok = controls_phaser_shape((controls.phaser_shape + change + PHASER_SHAPE_COUNT) % PHASER_SHAPE_COUNT);
     else if (gun_option_row == 1)
-        ok = controls_phaser_dot_size(SDL_clamp(controls.phaser_dot_size + change, 1, 5));
+        ok = controls_phaser_dot_size((controls.phaser_dot_size - 1 + change + 5) % 5 + 1);
     else ok = controls_phaser_color((controls.phaser_color + change + PHASER_COLOR_COUNT) % PHASER_COLOR_COUNT);
     if (!ok) notice(controls_text("Config unavailable", "Config inaccessible"));
 }
 
 static bool handle_event(const SDL_Event *e) {
-    if (rr_options_event(e, &menu, capturing, !lightphaser_enabled())) return true;
+    if (rr_options_event(e, &menu, capturing)) return true;
     if (e->type == SDL_QUIT) return false;
     if (e->type == SDL_CONTROLLERDEVICEADDED) open_controllers();
     if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
@@ -387,41 +466,48 @@ static bool handle_event(const SDL_Event *e) {
     int event_player = -1;
     if ((e->type == SDL_CONTROLLERBUTTONDOWN || e->type == SDL_CONTROLLERBUTTONUP) &&
         (event_player = controller_player(e->cbutton.which)) < 0) return true;
-    bool keyboard = e->type == SDL_KEYDOWN && !e->key.repeat;
-    bool gamepad = e->type == SDL_CONTROLLERBUTTONDOWN;
+    /* An option row behaves as its function key. */
+    SDL_Scancode shortcut = SDL_SCANCODE_UNKNOWN;
+    if (menu == RR_OPTIONS_MENU) {
+        RrOptionRows d = option_rows();
+        int chosen = rr_option_page_event(e, &d);
+        if (chosen < 0) return true;
+        shortcut = (SDL_Scancode)chosen;
+    }
+    bool keyboard = shortcut != SDL_SCANCODE_UNKNOWN || (e->type == SDL_KEYDOWN && !e->key.repeat);
+    bool gamepad = !shortcut && e->type == SDL_CONTROLLERBUTTONDOWN;
     if (!keyboard && !gamepad) {
-        if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == 4) {
+        if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == RR_GUN_MENU) {
             int ox, oy, unit, out_w, out_h, win_w, win_h;
             ui_layout(renderer, &ox, &oy, &unit); SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
             SDL_GetWindowSize(window, &win_w, &win_h);
             int x = (e->button.x * out_w / win_w - ox) / unit;
             int y = (e->button.y * out_h / win_h - oy) / unit;
-            if (x >= 14 && x < 240 && y >= 34 && y < 106 && (y-34)%24 < 22) {
-                gun_option_row = (y-34)/24;
+            if (x >= 14 && x < 240 && y >= 40 && y < 106 && (y-40)%22 < 20) {
+                gun_option_row = (y-40)/22;
                 change_gun_option(x < 42 ? -1 : 1);
             }
         }
-        if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == 2 && !capturing) {
+        if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && menu == RR_CONTROLS_MENU && !capturing) {
             int ox, oy, unit, out_w, out_h, win_w, win_h;
             ui_layout(renderer, &ox, &oy, &unit); SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
             SDL_GetWindowSize(window, &win_w, &win_h);
             int x = (e->button.x * out_w / win_w - ox) / unit;
             int y = (e->button.y * out_h / win_h - oy) / unit;
-            if (x >= 12 && x < 244 && y >= 30 && y < 42) {
-#ifndef RETRO_GAME_GEAR
-                selected_player ^= 1; menu_status[0] = 0;
-                selected_row = SDL_min(selected_row, controls_action_count(selected_player) - 1);
-#endif
-            } else if (x >= 12 && x < 244 && y >= 58 && y < 58 + 12 * controls_action_count(selected_player)) {
-                selected_row = (y-58)/12; capturing = true;
+            int top = ui_rows_top(bind_gamepad);
+            if (x >= 12 && x < 244 && y >= top && y < top + RR_MENU_LINE * page_rows()) {
+                selected_row = (y-top)/RR_MENU_LINE;
+                int combo = selected_row - controls_action_count(selected_player);
+                if (combo >= 0) rr_combo_start(combo, bind_gamepad);
+                else capturing = true;
             }
         }
         return true;
     }
-    SDL_Scancode key = keyboard ? e->key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
+    SDL_Scancode key = shortcut ? shortcut : keyboard ? e->key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
     int button = gamepad ? e->cbutton.button : -1;
     /* Capture a keyboard binding before invoking its old system action. */
-    if (menu == 2 && capturing && !bind_gamepad && keyboard && key != SDL_SCANCODE_ESCAPE &&
+    if (menu == RR_CONTROLS_MENU && capturing && !bind_gamepad && keyboard && key != SDL_SCANCODE_ESCAPE &&
         !(key >= SDL_SCANCODE_F2 && key <= SDL_SCANCODE_F12)) {
         bool ok = controls_bind(selected_player, selected_row, false, (int)key);
         snprintf(menu_status, sizeof(menu_status), "%s", ok ? controls_text("Binding saved", "Commande memorisee") :
@@ -430,13 +516,19 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     /* Start and Select can be captured without invoking their old action. */
-    if (menu == 2 && capturing && bind_gamepad && gamepad) {
+    if (menu == RR_CONTROLS_MENU && capturing && bind_gamepad && gamepad) {
         if (event_player != selected_player) return true;
         bool ok = controls_bind(selected_player, selected_row, true, button);
         snprintf(menu_status, sizeof(menu_status), "%s", ok ? controls_text("Binding saved", "Commande memorisee") :
             controls_text("Button already used or config unavailable", "Bouton utilise ou config inaccessible"));
         if (ok) capturing = false;
         return true;
+    }
+    /* Left/Right, Tab, LB/RB or the D-pad turn the F2 pages; B closes them. */
+    if (rr_pages_open(menu) && !capturing && !shortcut) {
+        int step = rr_pages_step(e);
+        if (step) { turn_page(step); return true; }
+        if (button == SDL_CONTROLLER_BUTTON_B) { toggle_menu(menu); return true; }
     }
     /* Reserved system actions remain available with every binding set. F1
      * opens help and Shift+F1 restarts at once, without a confirmation; the
@@ -447,7 +539,14 @@ static bool handle_event(const SDL_Event *e) {
         reset_requested = true; return false;
     }
     bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
-    if (!rr_options_component(key,button) && (((menu != 2 || !enter) && (key == SDL_SCANCODE_P || enter || controls_system_key(key, CONTROL_PAUSE))) ||
+    /* Master System pauses with Enter (its default Start/Menu key) or its
+     * remapped key; the Game Gear keeps P as well. */
+#ifdef RETRO_GAME_GEAR
+    bool pause_key = key == SDL_SCANCODE_P || enter;
+#else
+    bool pause_key = enter;
+#endif
+    if (!rr_options_component(key,button) && (((!rr_pages_open(menu) || !enter) && (pause_key || controls_system_key(key, CONTROL_PAUSE))) ||
         controls_system_button(event_player, button, CONTROL_PAUSE))) {
         menu = menu == 3 ? 0 : 3; parent_menu = 0; capturing = false; return true;
     }
@@ -458,7 +557,7 @@ static bool handle_event(const SDL_Event *e) {
         return true;
     }
     if (f1) { toggle_menu(1); return true; }
-    if (key == SDL_SCANCODE_F2) { controls_load(); apply_controller_order(); toggle_menu(2); return true; }
+    if (key == SDL_SCANCODE_F2) { toggle_settings(); return true; }
     if (key == SDL_SCANCODE_F3) {
         controls_load(); int wanted = rr_menu_next_filter(controls.filter);
         if (controls_filter(wanted)) notice(controls_filter_label(wanted));
@@ -467,9 +566,6 @@ static bool handle_event(const SDL_Event *e) {
     }
     if (key == SDL_SCANCODE_F4) { toggle_fullscreen(); return true; }
     if (key == SDL_SCANCODE_F12) { rr_feedback_toggle();notice(rr_feedback_label());return true; }
-    if (lightphaser_enabled() && (key == SDL_SCANCODE_F10 || (menu == 2 && !capturing && key == SDL_SCANCODE_G))) {
-        controls_load(); toggle_menu(4); return true;
-    }
     if (key == SDL_SCANCODE_F6) {
         if (controls_autofire(!controls.autofire))
             notice(controls.autofire ? controls_text("Autofire ON - hold buttons 1/2", "Tir auto ON - maintenir 1/2") :
@@ -500,24 +596,18 @@ static bool handle_event(const SDL_Event *e) {
         } else notice(controls_text("Config unavailable", "Config inaccessible"));
         return true;
     }
-    if (menu == 4) {
+    if (menu == RR_GUN_MENU) {
         if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP)
             gun_option_row = (gun_option_row + 2) % 3;
         if (key == SDL_SCANCODE_DOWN || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN)
             gun_option_row = (gun_option_row + 1) % 3;
-        int change = key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_MINUS || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT ? -1 :
-            key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_EQUALS || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? 1 : 0;
+        /* Left/Right turn pages: Enter / A / + choose the next value, - the previous. */
+        int change = key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS ? -1 :
+            enter || key == SDL_SCANCODE_EQUALS || key == SDL_SCANCODE_KP_PLUS || button == SDL_CONTROLLER_BUTTON_A ? 1 : 0;
         if (change) change_gun_option(change);
         return true;
     }
-    if (menu != 2) return true;
-    if (!capturing && (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT ||
-        button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER || button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
-#ifndef RETRO_GAME_GEAR
-        selected_player ^= 1; selected_row = SDL_min(selected_row, controls_action_count(selected_player) - 1);
-#endif
-        menu_status[0] = 0; return true;
-    }
+    if (menu != RR_CONTROLS_MENU) return true;
 #ifndef RETRO_GAME_GEAR
     if (!capturing && bind_gamepad && key == SDL_SCANCODE_C) {
         if (controls_controller_order(controller_order_player ^ 1)) {
@@ -533,13 +623,18 @@ static bool handle_event(const SDL_Event *e) {
         snprintf(menu_status, sizeof(menu_status), "%s", ok ? controls_text("Binding saved", "Commande memorisee") :
             controls_text("Reserved button or config unavailable", "Commande reservee ou config inaccessible"));
         if (ok) capturing = false;
-    } else if (key == SDL_SCANCODE_TAB) {
-        bind_gamepad = !bind_gamepad; menu_status[0] = 0;
     }
     else if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP)
-        selected_row = (selected_row + controls_action_count(selected_player) - 1) % controls_action_count(selected_player);
+        selected_row = (selected_row + page_rows() - 1) % page_rows();
     else if (key == SDL_SCANCODE_DOWN || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN)
-        selected_row = (selected_row + 1) % controls_action_count(selected_player);
+        selected_row = (selected_row + 1) % page_rows();
+    else if (selected_row >= controls_action_count(selected_player)) {
+        /* Quit and restart combinations: hold them one second in play. */
+        int combo = selected_row - controls_action_count(selected_player);
+        if (enter || button == SDL_CONTROLLER_BUTTON_A) { rr_combo_start(combo, bind_gamepad); menu_status[0] = 0; }
+        else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE || button == SDL_CONTROLLER_BUTTON_X)
+            rr_combo_clear(combo, bind_gamepad);
+    }
     else if (enter || button == SDL_CONTROLLER_BUTTON_A) { capturing = true; menu_status[0] = 0; }
     else if (key == SDL_SCANCODE_D) {
         snprintf(menu_status, sizeof(menu_status), "%s", controls_defaults(selected_player, bind_gamepad) ?
@@ -620,9 +715,7 @@ bool host_present(const uint32_t *fb, int width, int height) {
         clear_audio(); if (audio_device) SDL_PauseAudioDevice(audio_device, 1);
         while (menu && keep) {
             draw_game(fb, width, height);
-            if (menu == RR_OPTIONS_MENU) rr_options_draw(renderer);
-            else ui_menu(renderer, menu, selected_player, menu == 4 ? gun_option_row : selected_row, bind_gamepad, capturing,
-                controllers[selected_player] ? SDL_GameControllerName(controllers[selected_player]) : NULL, menu_status);
+            draw_menu();
             SDL_RenderPresent(renderer);
             if (SDL_WaitEventTimeout(&e, 16)) keep = handle_event(&e);
             if (rr_options_quit(menu)) keep = false;

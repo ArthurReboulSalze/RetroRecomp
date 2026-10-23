@@ -35,26 +35,40 @@ def check(exe,output):
     output.mkdir(parents=True,exist_ok=True)
     # Opening/closing/help/remap inspection/missing F9 must have no sidecars.
     empty,folder=launch(exe,output,'no-files',[
-        '0 snap defaults','1 key H','2 snap help',f'2 capture {output}/help.bmp',
-        '3 key H','4 key F2','5 snap controls','6 key Escape',
+        '0 snap defaults','1 key F1','2 snap help',f'2 capture {output}/help.bmp',
+        '3 key F1','4 key F2','5 snap controls','6 key Escape',
         '7 key F9','8 snap absent','9 quit'])
     assert empty['defaults']['key_labels']==['W','X','C','V'],empty['defaults']
     assert empty['help']['menu']==1 and empty['controls']['menu']==2
     assert 'v'+__version__ in empty['help']['version']
     assert empty['absent']['status']=='No compatible quick state to load'
     assert list(folder.iterdir())==[folder/exe.name]
+    # F2 pages wrap: Left from the first page reaches the options, whose rows
+    # run their function key; player 1's page ends with the quit and restart
+    # combinations; F10 and P are free.
+    pages,_=launch(exe,output,'pages',[
+        '0 key F2','1 key Left','2 snap options',f'2 capture {output}/options.bmp',
+        '3 key Return','4 snap options-filter','5 key Right','6 snap wrapped',
+        '7 key Up','8 snap combo-row',f'8 capture {output}/controls-combos.bmp',
+        '9 key Escape','10 key F10','11 snap f10-free','12 key P','13 snap p-free','14 quit'])
+    assert pages['options']['menu']==5
+    assert pages['options-filter']['menu']==5 and pages['options-filter']['filter']==2
+    assert pages['wrapped']['menu']==2 and pages['wrapped']['player']==0 and pages['wrapped']['gamepad_page']==0
+    assert pages['combo-row']['row']==11
+    assert pages['f10-free']['menu']==0 and pages['p-free']['menu']==0
     settings,folder=launch(exe,output,'settings',[
         '0 key F3','1 snap scale2x','2 key F3','3 snap scanlines','4 key F3','5 snap xbr',
         '6 key F3','7 snap sharp','8 key F3','9 key F3',
         '10 key F4','11 snap integer','12 key F4','13 snap fitted',
         '14 key F7','15 key F6','16 snap preferences','17 key P','18 snap paused',
         '19 key P','20 key F2','21 key Return','22 key J','23 snap p1-remap',
-        '24 key Right','25 key Return','26 key K','27 snap p2-remap','28 key Escape','29 quit'])
+        # F2 pages: P1 keyboard, P1 gamepad, then P2 keyboard.
+        '24 key Right','25 key Right','26 key Return','27 key K','28 snap p2-remap','29 key Escape','30 quit'])
     assert [settings[k]['filter'] for k in ('scale2x','scanlines','xbr','sharp')]==[2,3,1,0]
     assert settings['integer']['display_mode']==1 and settings['integer']['fullscreen']
     assert settings['fitted']['display_mode']==2 and settings['fitted']['fullscreen']
     assert settings['preferences']['french']==settings['preferences']['autofire']==1
-    assert settings['paused']['menu']==3
+    assert settings['paused']['menu']==0  # P is free: Enter (Start) pauses the game
     assert settings['p1-remap']['keyboard'][0][0]==13 and settings['p2-remap']['keyboard'][1][0]==14
     reopened,_=launch(exe,output,'reopened',['0 snap reopened','1 quit'],folder)
     actual=reopened['reopened']
@@ -105,8 +119,8 @@ def check(exe,output):
     assert not list(folder.rglob('*.tmp'))
     # Enhanced mode is a direct F5 switch, remembered without opening a menu.
     enhanced,folder=launch(exe,output,'enhanced',[
-        '0 snap default','0 key F5','1 snap standard','1 key F5','2 snap enabled','3 key H','4 snap enhanced-help',
-        f'4 capture {output}/enhanced-help.bmp','5 key H','6 key F1','7 snap restart',
+        '0 snap default','0 key F5','1 snap standard','1 key F5','2 snap enabled','3 key F1','4 snap enhanced-help',
+        f'4 capture {output}/enhanced-help.bmp','5 key F1','6 key F1','7 snap restart',
         '8 key F8','9 snap saved','10 quit'])
     assert enhanced['default']['enhanced_mode']
     assert not enhanced['standard']['enhanced_mode']

@@ -397,7 +397,7 @@ W/X, Enter for Start and right Shift for Select. Player 2 uses keypad
 A/B and Start/Back; left-stick click pauses and player 1 right-stick click
 restarts. F2 edits per-player bindings.
 
-F1 opens help, Shift+F1 restarts, P pauses, F3 cycles sharp/Scale2x/scanlines/xBR,
+F1 opens help, Shift+F1 restarts, Enter (Start) pauses the game itself, F3 cycles sharp/Scale2x/scanlines/xBR,
 F4 cycles window/integer fullscreen/fit fullscreen, F6 toggles gamepad
 autofire, and F7 changes language. Autofire is sampled once per guest frame;
 the game's own input sampling determines its effective rate.
@@ -416,8 +416,8 @@ Known single-Zapper games automatically use mouse aim and left-click fire on
 port 2, with right-click for an off-screen shot. Identification uses NES 2.0
 device metadata, a payload-CRC catalogue and exact title aliases. The CRC
 facts are attributed to [MesenNesDB](https://github.com/SourMesen/Mesen2/blob/master/UI/Dependencies/MesenNesDB.txt).
-The default reticle is a small red cross. The Zapper page of F2 (press Tab)
-selects cross/dot, size and red/white/green. Intentional game flashes are kept.
+The default reticle is a small red cross. The Zapper page of F2, after the four
+control pages, selects cross/dot, size and red/white/green. Intentional game flashes are kept.
 On every NES game, **F5** toggles the optional extra sprites described in
 [controls](CONTROLS.md); it no longer opens the Zapper page.
 The sensor uses pixels as the PPU emits them, with bounded light persistence,

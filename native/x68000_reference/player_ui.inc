@@ -24,8 +24,8 @@ static const char *player_actions[X_ACTIONS]={"Up","Down","Left","Right","Button
 static int player_blocked(void){return player_ui.ready&&(player_ui.menu||player_ui.paused);}
 static int player_escape_held(void){return player_ui.ready&&player_ui.escape_held;}
 static int player_fast_forward(void){
-   return player_ui.ready&&input_focus&&!guest_keyboard&&!player_blocked()&&
-      keys&&keys[SDL_SCANCODE_F5];
+   return player_ui.ready&&input_focus&&!player_blocked()&&
+      keys&&keys[SDL_SCANCODE_F5]&&player_host_fkey(SDL_SCANCODE_F5,SDL_GetModState());
 }
 static int player_ui_quit(void){return player_ui.ready&&rr_options_quit(player_ui.menu);}
 /* A held restart combination queues the same reset as Shift+F1. */
@@ -95,7 +95,7 @@ static int player_init(void){
       player_ui.pad[p][a]=k>=-1&&k<SDL_CONTROLLER_BUTTON_MAX?k:player_ui.pad[p][a];
    }
    if(SDL_SetWindowFullscreen(window,player_ui.display?SDL_WINDOW_FULLSCREEN_DESKTOP:0))player_ui.display=0;
-   rr_options_init(L"X68000");player_ui.ready=1;return 1;
+   rr_options_init(L"X68000");rr_options_keyboard("X68000",10);player_ui.ready=1;return 1;
 }
 static int player_action(unsigned port,unsigned action){
    if(!player_ui.ready||port>1||action>=X_ACTIONS)return -1;
@@ -142,10 +142,48 @@ static void player_display(void){
    if(rr_display_cycle(window,&player_ui.display,player_ui.ini,player_ui.dir,L"X68000"))
       notify(rr_tr(player_ui.display==0?"Windowed":player_ui.display==1?"Pixel perfect":"Fit to screen"));
 }
+/* Function keys are Retro-Recomp shortcuts unless the options hand F1-F10 to
+ * the X68000, or full typing keeps F2-F10 for it as before. Ctrl+F1-F12
+ * (not Ctrl+Alt) and any function key inside a menu stay with Retro-Recomp. */
+static int player_host_fkey(int key,SDL_Keymod mod){
+   if(key<SDL_SCANCODE_F1||key>SDL_SCANCODE_F12)return 0;
+   if((player_ui.ready&&player_ui.menu)||((mod&KMOD_CTRL)&&!(mod&KMOD_ALT)))return 1;
+   if(guest_keyboard&&key>=SDL_SCANCODE_F2&&key<=SDL_SCANCODE_F10)return 0;
+   return rr_options_host_fkey(key,mod,false);
+}
+/* F2 pages: each player's keys and buttons, then the options with the
+ * function-key choice of this computer. Player 1's page ends with the quit
+ * and restart combinations, keyboard and controller side by side. */
+static RrPages player_pages(void){RrPages pages={2,0};return pages;}
+static int player_page(void){return rr_pages_index(player_pages(),player_ui.menu,player_ui.player);}
+static int player_rows(void){return X_ACTIONS+(player_ui.player?0:RR_COMBO_ROWS);}
+static void player_turn_page(int step){
+   int control,before=player_ui.menu;
+   player_ui.menu=rr_pages_goto(player_pages(),player_page()+step,&control);
+   player_ui.player=control;
+   player_ui.row=before==2&&player_ui.menu==2?SDL_min(player_ui.row,player_rows()-1):0;
+}
+/* Option rows run their function keys exactly as the shortcuts do. */
+static RrOptionRows player_option_rows(void){
+   RrOptionRows d;d.count=0;
+   rr_option_row(&d,SDL_SCANCODE_F3,"F3 Filter: %s",rr_option_filter_name(player_ui.filter));
+   rr_option_row(&d,SDL_SCANCODE_F4,"F4 Display: %s",rr_option_mode_name(player_ui.display));
+   rr_option_row(&d,SDL_SCANCODE_F6,"F6 Autofire: %s",rr_tr(autofire?"ON":"OFF"));
+   rr_option_row(&d,SDL_SCANCODE_F7,"F7 Language: %s",rr_language_name(rr_language_get()));
+#ifdef RR_X68000_LINKED
+   rr_option_row(&d,SDL_SCANCODE_F12,"%s",rr_tr(rr_feedback_label()));
+#endif
+   rr_option_shared_rows(&d);
+   return d;
+}
 static bool player_event(const SDL_Event *e){
    if(!player_ui.ready)return false;
    int key=e->type==SDL_KEYDOWN&&!e->key.repeat?e->key.keysym.scancode:0;
    int button=e->type==SDL_CONTROLLERBUTTONDOWN?e->cbutton.button:-1;
+   /* A function key handed to the X68000 never reaches the frontend. */
+   if(key>=SDL_SCANCODE_F1&&key<=SDL_SCANCODE_F12&&!player_host_fkey(key,(SDL_Keymod)e->key.keysym.mod)){
+      rr_options_observe(e);return false;
+   }
    /* A menu's Escape belongs entirely to the frontend until key release.
     * Do not let the held key pause the guest or become a second quit action. */
    if(e->type==SDL_KEYUP&&e->key.keysym.scancode==SDL_SCANCODE_ESCAPE)player_ui.escape_held=0;
@@ -165,11 +203,11 @@ static bool player_event(const SDL_Event *e){
       }
       return true;
    }
-   /* Full computer typing reserves the ordinary F keys for the guest. Guide
+   /* Full computer typing reserves the ordinary keys for the guest. Guide
     * and explicit Ctrl+Alt shortcuts remain available to regain the frontend. */
    if(!guest_keyboard||player_ui.menu||button>=0){
       int before=player_ui.menu;
-      if(rr_options_event(e,&player_ui.menu,false,!guest_keyboard)){
+      if(rr_options_event(e,&player_ui.menu,false)){
          if(before!=player_ui.menu)player_pause_audio();return true;
       }
    }else rr_options_observe(e);
@@ -182,6 +220,16 @@ static bool player_event(const SDL_Event *e){
       /* Other established computer shortcuts stay in input_poll. */
       return false;
    }
+   /* An option row behaves as its function key. */
+   if(player_ui.menu==RR_OPTIONS_MENU){
+      RrOptionRows d=player_option_rows();int chosen=rr_option_page_event(e,&d);
+      if(chosen<0)return true;
+      if(chosen>0)key=chosen;
+   }
+   /* Left/Right, Tab, LB/RB or the D-pad turn the F2 pages. */
+   if(rr_pages_open(player_ui.menu)&&!(key>=SDL_SCANCODE_F1&&key<=SDL_SCANCODE_F12)){
+      int step=rr_pages_step(e);if(step){player_turn_page(step);return true;}
+   }
    if(key==SDL_SCANCODE_F1){
       /* F1 toggles help; Shift+F1 restarts at once, as on every console. */
       if(e->key.keysym.mod&KMOD_SHIFT){player_ui.want_reset=1;player_ui.menu=0;}
@@ -189,23 +237,11 @@ static bool player_event(const SDL_Event *e){
       player_pause_audio();return true;
    }
    if(key==SDL_SCANCODE_F11){player_ui.paused=!player_ui.paused;player_pause_audio();return true;}
-   if(!guest_keyboard||player_ui.menu){
-      if(key==SDL_SCANCODE_F2){player_ui.menu=player_ui.menu==2?0:2;player_ui.row=0;player_pause_audio();return true;}
-   }
-   if(player_ui.menu){
-      if(key==SDL_SCANCODE_ESCAPE||button==SDL_CONTROLLER_BUTTON_B){player_ui.menu=0;player_pause_audio();return true;}
-      if(player_ui.menu==1&&key==SDL_SCANCODE_TAB)player_ui.help_page^=1;
-      else if(player_ui.menu==2){
-         if(key==SDL_SCANCODE_TAB||key==SDL_SCANCODE_LEFT||key==SDL_SCANCODE_RIGHT||button==SDL_CONTROLLER_BUTTON_LEFTSHOULDER||button==SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)player_ui.player^=1;
-         if(key==SDL_SCANCODE_UP||button==SDL_CONTROLLER_BUTTON_DPAD_UP)player_ui.row=(player_ui.row+X_ACTIONS-1)%X_ACTIONS;
-         if(key==SDL_SCANCODE_DOWN||button==SDL_CONTROLLER_BUTTON_DPAD_DOWN)player_ui.row=(player_ui.row+1)%X_ACTIONS;
-         if(key==SDL_SCANCODE_RETURN||button==SDL_CONTROLLER_BUTTON_A)player_ui.capture=player_ui.row;
-         if(key==SDL_SCANCODE_DELETE||button==SDL_CONTROLLER_BUTTON_X){
-            wchar_t entry[48];int p=player_ui.player,a=player_ui.row;player_ui.key[p][a]=0;player_ui.pad[p][a]=-1;
-            swprintf(entry,48,L"p%d_key%d",p,a);player_store(entry,0);swprintf(entry,48,L"p%d_pad%d",p,a);player_store(entry,-1);
-         }
-      }
-      return true;
+   if(key==SDL_SCANCODE_F2){
+      /* F2 opens on the first page and closes F2 from any page. */
+      if(rr_pages_open(player_ui.menu))player_ui.menu=0;
+      else{player_ui.menu=2;player_ui.player=0;player_ui.row=0;}
+      player_pause_audio();return true;
    }
    if(key==SDL_SCANCODE_F12){
 #ifdef RR_X68000_LINKED
@@ -213,11 +249,34 @@ static bool player_event(const SDL_Event *e){
 #endif
       return true;
    }
-   if(guest_keyboard)return false;
    if(key==SDL_SCANCODE_F3){player_ui.filter=rr_menu_next_filter(player_ui.filter);player_store(L"filter",player_ui.filter);return true;}
    if(key==SDL_SCANCODE_F4){player_display();return true;}
    if(key==SDL_SCANCODE_F6){autofire=!autofire;player_store(L"autofire",autofire);notify(autofire?"Rapid fire: ON":"Rapid fire: OFF");return true;}
    if(key==SDL_SCANCODE_F7){player_language();return true;}
+   if(player_ui.menu){
+      if(key==SDL_SCANCODE_ESCAPE||button==SDL_CONTROLLER_BUTTON_B){player_ui.menu=0;player_pause_audio();return true;}
+      if(player_ui.menu==1&&key==SDL_SCANCODE_TAB)player_ui.help_page^=1;
+      else if(player_ui.menu==2){
+         if(key==SDL_SCANCODE_UP||button==SDL_CONTROLLER_BUTTON_DPAD_UP)player_ui.row=(player_ui.row+player_rows()-1)%player_rows();
+         else if(key==SDL_SCANCODE_DOWN||button==SDL_CONTROLLER_BUTTON_DPAD_DOWN)player_ui.row=(player_ui.row+1)%player_rows();
+         else if(player_ui.row>=X_ACTIONS){
+            /* Quit and restart: Enter captures the keyboard combination, A
+             * the controller one; Delete and X clear them. */
+            int combo=player_ui.row-X_ACTIONS;
+            if(key==SDL_SCANCODE_RETURN||key==SDL_SCANCODE_KP_ENTER)rr_combo_start(combo,false);
+            else if(button==SDL_CONTROLLER_BUTTON_A)rr_combo_start(combo,true);
+            else if(key==SDL_SCANCODE_DELETE||key==SDL_SCANCODE_BACKSPACE)rr_combo_clear(combo,false);
+            else if(button==SDL_CONTROLLER_BUTTON_X)rr_combo_clear(combo,true);
+         }
+         else if(key==SDL_SCANCODE_RETURN||key==SDL_SCANCODE_KP_ENTER||button==SDL_CONTROLLER_BUTTON_A)player_ui.capture=player_ui.row;
+         else if(key==SDL_SCANCODE_DELETE||button==SDL_CONTROLLER_BUTTON_X){
+            wchar_t entry[48];int p=player_ui.player,a=player_ui.row;player_ui.key[p][a]=0;player_ui.pad[p][a]=-1;
+            swprintf(entry,48,L"p%d_key%d",p,a);player_store(entry,0);swprintf(entry,48,L"p%d_pad%d",p,a);player_store(entry,-1);
+         }
+      }
+      return true;
+   }
+   if(guest_keyboard)return false;
    if(key==SDL_SCANCODE_ESCAPE){quit_requested=true;return true;}
    if(key||button>=0){
       for(unsigned p=0;p<2;p++){
@@ -230,7 +289,8 @@ static bool player_event(const SDL_Event *e){
 }
 static void player_overlay(void){
    if(!player_ui.ready)return;
-   if(player_ui.menu==RR_OPTIONS_MENU){rr_options_draw(renderer);return;}
+   int page=player_page(),pages=rr_pages_count(player_pages());
+   if(player_ui.menu==RR_OPTIONS_MENU){RrOptionRows d=player_option_rows();rr_option_page_draw(renderer,&d,page,pages);return;}
    int x,y,s;rr_menu_layout(renderer,&x,&y,&s);
    if(player_ui.menu){
       rr_menu_begin(renderer,x,y,s);
@@ -238,32 +298,45 @@ static void player_overlay(void){
       if(player_ui.menu==1){
          XT(12,12,"Retro-Recomp - Help");
          if(!player_ui.help_page){
-            const char *lines[]={"F1  Help | Shift+F1 Restart","F2  Controls","F3  Next filter","F4  Window / Pixel / Fit",
-               "F5  Fast loading (hold)","F6  Rapid fire (keyboard / pad)","F7  Language","F8  Save game state","F9  Load game state","F10 Options","F11 Pause","F12 Record fallbacks","Esc Quit (close menus first)"};
-            for(unsigned n=0;n<13;n++)XT(12,29+(int)n*10,lines[n]);
+            const char *lines[]={"F1  Help | Shift+F1 Restart","F2  Controls & options","F3  Next filter","F4  Window / Pixel / Fit",
+               "F5  Fast loading (hold)","F6  Rapid fire (keyboard / pad)","F7  Language","F8  Save game state","F9  Load game state","F11 Pause","F12 Record fallbacks","Esc Quit (close menus first)"};
+            for(unsigned n=0;n<12;n++)XT(12,RR_MENU_FIRST_LINE+(int)n*RR_MENU_LINE,lines[n]);
          }else{
             const char *lines[]={"Ctrl+Alt+K: full guest keyboard","Ctrl+Alt+M: mouse capture",
                "Ctrl+Alt+F: rapid fire",
                "Ctrl+Alt+Page Up/Down: FDD0",
                "Add Shift: FDD1","Ctrl+Alt+Backspace: eject disk",
-               "Ctrl+Alt+H: help","Ctrl+Alt+O: options","Ctrl+Alt+Enter: display mode","Ctrl+Alt+Q: quit"};
-            for(unsigned n=0;n<10;n++)XT(12,31+(int)n*12,lines[n]);
+               "Ctrl+Alt+H: help","Ctrl+Alt+O: options","Ctrl+Alt+Enter: display mode","Ctrl+Alt+Q: quit",
+               "Ctrl+F1-F12: Retro-Recomp shortcuts"};
+            for(unsigned n=0;n<11;n++)XT(12,RR_MENU_FIRST_LINE+(int)n*RR_MENU_LINE,lines[n]);
          }
-         XT(12,166,"Tab: game / computer shortcuts");
+         XT(12,RR_MENU_LAST_LINE,"Tab: game / computer shortcuts");
       }else if(player_ui.menu==2){
-         char title[80];snprintf(title,sizeof(title),"%s - %s %d",rr_tr("Controls"),rr_tr("Player"),player_ui.player+1);XT(12,12,title);
-         XT(12,28,"Tab / LB / RB: player");
-         for(unsigned a=0;a<X_ACTIONS;a++){
+         char title[80];snprintf(title,sizeof(title),"%s %d",rr_tr("Player"),player_ui.player+1);
+         rr_menu_page_header(renderer,x,y,s,title,page,pages);
+         for(int a=0;a<player_rows();a++){
+            int line=RR_MENU_FIRST_LINE+a*RR_MENU_LINE;
+            if(a==player_ui.row)rr_menu_box(renderer,x,y,s,10,line,236,RR_MENU_LINE,RR_MENU_SELECT,255);
+            if(a>=X_ACTIONS){
+               char keyboard[80],pad[80];
+               rr_combo_value(keyboard,sizeof keyboard,a-X_ACTIONS,false);rr_combo_value(pad,sizeof pad,a-X_ACTIONS,true);
+               XT(12,line,rr_combo_label(a-X_ACTIONS));
+               rr_menu_text_fit(renderer,x,y,s,110,line,64,keyboard,RR_MENU_GOLD);
+               rr_menu_text_fit(renderer,x,y,s,178,line,64,pad,RR_MENU_GOLD);
+               continue;
+            }
             int k=player_ui.key[player_ui.player][a],b=player_ui.pad[player_ui.player][a];
             const char *pad=b<0?"-":SDL_GameControllerGetStringForButton((SDL_GameControllerButton)b);
-            if((int)a==player_ui.row)rr_menu_box(renderer,x,y,s,10,42+(int)a*13,236,13,RR_MENU_SELECT,255);
-            XT(12,43+(int)a*13,player_actions[a]);
-            XT(110,43+(int)a*13,k?rr_keyboard_name((SDL_Scancode)k):"-");
-            XT(178,43+(int)a*13,pad?pad:"?");
+            XT(12,line,player_actions[a]);
+            XT(110,line,k?rr_keyboard_name((SDL_Scancode)k):"-");
+            XT(178,line,pad?pad:"?");
          }
-         XT(12,162,player_ui.capture>=0?"Press a key or gamepad button":"Enter / A: change | X: clear");
+         if(player_ui.row>=X_ACTIONS)XT(12,RR_MENU_HINT_LINE,rr_combo_hint(player_ui.row-X_ACTIONS));
+         else XT(12,RR_MENU_HINT_LINE,player_ui.capture>=0?"Press a key or gamepad button":"Enter / A: change | X: clear");
+         XT(12,RR_MENU_LAST_LINE,player_ui.capture>=0?"Esc: cancel binding":"Left/Right: page | Esc: close");
       }
-      rr_menu_build_footer(renderer,x,y,s);rr_menu_end(renderer);
+      if(player_ui.menu==1)rr_menu_build_footer(renderer,x,y,s);
+      rr_menu_end(renderer);
 #undef XT
    }else if(player_ui.paused){rr_menu_begin(renderer,x,y,s);rr_menu_text(renderer,x,y,s,100,85,rr_tr("Paused"),RR_MENU_GOLD);rr_menu_end(renderer);}
    if(!player_ui.menu&&status_text[0]&&(int32_t)(status_until-SDL_GetTicks())>0){

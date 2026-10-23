@@ -13,11 +13,11 @@ int main(int argc,char **argv) {
     assert(rr_language_from_code("fr-CA")==1);
     assert(rr_language_from_code("ja_JP")==0); /* converter-only languages fall back to English */
     assert(rr_language_from_code("french")==0);
-    assert(rr_menu_text_width("ABC")==18);
-    assert(rr_menu_text_width("\344\270\255\346\226\207")==12); /* no CJK/Cyrillic glyphs: one cell each */
-    assert(rr_menu_text_width("\320\257")==6);
-    assert(rr_menu_text_width("\303\251")==6);
-    assert(rr_menu_text_width("\342")==6);
+    assert(rr_menu_text_width("ABC")==15); /* five-unit cells */
+    assert(rr_menu_text_width("\344\270\255\346\226\207")==10); /* no CJK/Cyrillic glyphs: one cell each */
+    assert(rr_menu_text_width("\320\257")==5);
+    assert(rr_menu_text_width("\303\251")==5);
+    assert(rr_menu_text_width("\342")==5);
     SDL_SetMainReady();assert(SDL_Init(SDL_INIT_VIDEO)==0);
     SDL_Surface *surface=SDL_CreateRGBSurfaceWithFormat(0,1024,384,32,SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
@@ -42,7 +42,7 @@ int main(int argc,char **argv) {
     if(argc>1)assert(SDL_SaveBMP(surface,argv[1])==0);
     rr_menu_shutdown();SDL_DestroyRenderer(renderer);SDL_FreeSurface(surface);
 
-    /* At scale 3 the 10x20 font is rebuilt for 18x36 cells: solid strokes with
+    /* At scale 3 the 10x20 font is rebuilt for 15x30 cells: solid strokes with
      * blended edges, and accented Latin-1 falls back to the same ASCII cell. */
     SDL_Surface *large=SDL_CreateRGBSurfaceWithFormat(0,768,576,32,SDL_PIXELFORMAT_ARGB8888);assert(large);
     SDL_Renderer *scaled=SDL_CreateSoftwareRenderer(large);assert(scaled);
@@ -54,7 +54,7 @@ int main(int argc,char **argv) {
     rr_menu_text(scaled,ox,oy,unit,40,20,"\303\211",255,255,255);
     SDL_RenderPresent(scaled);
     const uint32_t *pixels=large->pixels;int pitch=large->pitch/4,solid=0,edge=0;
-    for(int y=60;y<96;++y)for(int x=0;x<18;++x) {
+    for(int y=60;y<90;++y)for(int x=0;x<15;++x) {
         uint32_t plain=pixels[y*pitch+60+x]&0xffffff,accent=pixels[y*pitch+120+x]&0xffffff;
         assert(plain==accent);
         solid+=plain==0xffffff;edge+=plain && plain!=0xffffff;

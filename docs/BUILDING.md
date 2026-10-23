@@ -75,7 +75,7 @@ Linux games request VSync by default, keeping the console's clock limiter.
 `SDL_RENDER_VSYNC=0` is an explicit diagnostic override. Window managers and
 display drivers still determine physical presentation; a renderer flag alone
 does not prove tear-free output. Menus draw plain ASCII with the public-domain
-Misc Fixed 10x20 bitmap, scaled to the window by area coverage (6x10 at 1x);
+Misc Fixed 10x20 bitmap in 5 x 10 cells, scaled to the window by area coverage (6x10 at 1x);
 games carry no glyph table. The converter uses process-private
 font subsets; it does not install system fonts. See [languages](LANGUAGES.md).
 

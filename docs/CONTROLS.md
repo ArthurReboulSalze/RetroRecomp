@@ -8,15 +8,15 @@ keyboard displays W in F2. Unsaved letter defaults also follow that layout.
 Saved mappings keep their physical key positions; changing the UI language
 does not change the keyboard layout or overwrite custom controls.
 The NES profile shares the menu canvas, F8/F9 quick states and display modes.
-Zapper options are a page of F2 (press Tab) on recognised gun games, which
-frees F5 for extra sprites on every NES game. See [NES controls](NES.md).
-On qualified Mega Drive and SNES gun profiles, F5 opens the same cross/dot,
-size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
+On every console, F2 gathers all settings on pages, including the gun page of
+recognised Light Phaser, Zapper, Menacer and Super Scope games: see
+[F2 settings pages](#f2-settings-pages), [NES controls](NES.md) and
+[16-bit gun controls](GUNS_16BIT.md).
 
 | Key | Action |
 | --- | --- |
 | F1 | Help; **Shift+F1** restarts at once, without confirmation |
-| F2 | Control mappings |
+| F2 | Settings pages: controls, gun, display & game, options |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
 | F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode |
@@ -24,40 +24,85 @@ size and colour settings. See [16-bit gun controls](GUNS_16BIT.md).
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
 | F9 | Load that state, including after quitting/restarting |
-| F10 | Game options; on Master System gun games this retains Light Phaser options |
+| F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
-| P / Enter / keypad Enter | Pause/resume on Master System and Game Gear; Game Boy uses P only |
+| Enter / keypad Enter / P | Pause/resume: Master System uses Enter, its default Start/Menu key; Game Gear accepts P and Enter; Game Boy uses P. On Mega Drive, SNES, NES and Neo Geo, P is free: Enter (the cartridge Start) pauses the game itself |
 | Esc | Close a menu or quit |
 
 Every console uses the same two system shortcuts: **F1** opens help and
 **Shift+F1** restarts the game. The help lists the function keys in order,
 from F1 to F12, followed by the console's own controls.
 On a controller, **Start+Select (Back)** held for one second restarts and
-**L3+R3** held for one second quits; both can be changed or cleared in the
-game options (F10).
+**L3+R3** held for one second quits; both can be changed or cleared at the
+bottom of player 1's F2 gamepad page (keyboard combinations: keyboard page).
+
+## F2 settings pages
+
+F2 gathers every setting in one place, on every console, as pages:
+
+1. the control pages: keyboard then gamepad for each player (Game Gear and
+   Game Boy: keyboard, gamepad; X68000: one page per player, keys and buttons
+   side by side). Player 1's pages end with the **Quit** and **Restart**
+   combinations: keyboard ones on the keyboard page, controller ones on the
+   gamepad page (the X68000 shows both in its two columns);
+2. on recognised gun games, the gun page (Light Phaser, Zapper, Menacer,
+   Justifier or Super Scope): cross or dot, size, colour, and Super Scope turbo;
+3. **Options**: the function-key settings with their current value (F3
+   filter, F4 display mode, F5 sprite reduction, Game Boy palette or Neo Geo
+   enhanced mode where they exist, F6 autofire, F7 language, F11 Neo Geo
+   MVS/AES, F12 fallback recording), then the **audio filter** and, on
+   computers, the function-key row below. Enter/A on a function-key row does
+   exactly what its shortcut does; the shortcuts keep working outside the menu.
+
+Left/Right, Tab/Shift+Tab, LB/RB or the D-pad turn pages and wrap around:
+Left from the first page reaches the options. Small squares at the top right
+show how many pages there are: those up to the current page are filled, the
+current one brightest. Up/Down choose a row; Enter/A binds a control or changes
+a value (+ next, - previous on gun and option rows); Esc or B closes F2, and F2
+closes it from any page. F2 opens on the first page; moving between control
+pages keeps the selected row, and every control of a page is shown at once.
+The game stays paused while F2 is open.
+
+F10 is free on every console, and so are the former gun shortcuts: F10 and G on
+the Master System, F5 on Mega Drive and SNES gun games. The controller Guide
+button opens F2 on its options page.
+
+### Computer function keys (X68000)
+
+Some computer games need F1–F10 themselves. The X68000 options page has a row
+**F1-F10 keys: Retro-Recomp / X68000**, off (Retro-Recomp) by default and saved
+as `[X68000.Options] fkeys_machine` in `datas/Retro-Recomp.ini`. Set to X68000,
+F1–F10 reach the computer and **Ctrl+F1 to Ctrl+F12** reach Retro-Recomp:
+Ctrl+F2 opens F2, Ctrl+Shift+F1 restarts, Ctrl+F8/F9 save and load, a held
+Ctrl+F5 accelerates loading. F11 (pause) and F12, absent from the X68000
+keyboard, keep working without Ctrl, and every function key acts on Retro-Recomp
+while a menu is open. Ctrl+F1–F12 also work with the row on Retro-Recomp and in
+full guest typing (Ctrl+Alt+K), which still sends F2–F10 to the computer.
 
 ## Game options (1.1.8)
 
-**F10** or the controller **Guide** button opens the shared options panel.
-You can also open Help or Controls, then press **O** on the keyboard or **Y**
-on a controller. This route preserves F10's existing Light Phaser shortcut.
-The game pauses while options are open. Use Up/Down, Left/Right, Enter/A,
-Esc/B, or click a row with the mouse.
+The audio filter is on the options page, the last page of F2; the controller
+**Guide** button opens F2 directly on it. The quit and restart combinations
+close player 1's control pages. F10, O and Y no longer open anything. The game
+pauses while F2 is open. Use Up/Down, Enter/A (or +) for the next value, - for
+the previous one, Esc/B to close, or click a row with the mouse; Left/Right turn
+pages.
 
 - **Audio filter:** Off (default), Light, Soft. These optional tone controls
   gently reduce high frequencies at the final PCM output. Off bypasses sample
   processing byte for byte. They add no audio queue or lookahead; physical
   latency and personal listening preferences still require real-device tests.
   They do not replace each console's existing chip behavior or resampling.
-- **Quit: keyboard / gamepad:** select a row, release the activation button,
+- **Quit (keyboard page / gamepad page):** select the row, release the activation button,
   press a single key or button, or the desired combination together, then
   release it. Keyboard combinations accept up to three keys. Each controller
   combination belongs to one controller, not buttons split between players.
   The keyboard row is unassigned by default; the gamepad default is
   **L3+R3**. Delete/Backspace or controller X clears the selected
-  combination; Esc cancels capture.
-- **Restart: keyboard / gamepad:** assigned the same way. The keyboard row is
+  combination; Esc cancels capture. On the X68000 page, Enter captures the
+  keyboard combination and A the controller one.
+- **Restart (keyboard page / gamepad page):** assigned the same way. The keyboard row is
   unassigned by default (Shift+F1 always restarts); the gamepad default is
   **Start+Select (Back)**. A held restart fires once, then waits for release.
 - **Hold the key, button or combination for one second** to quit through the normal shutdown
@@ -80,11 +125,12 @@ unchanged image regions while producing the same filtered pixels. It remains
 last in the F3 cycle and requires no new setting. Existing EXEs need regeneration
 to receive this improvement; updating the converter alone does not alter them.
 
-In F2, Enter selects a binding instead of pausing. On Master System,
-Left/Right chooses the player. Tab switches keyboard/gamepad, Up/Down selects a row, and Enter begins
-capture. Press the desired key or the selected player's controller button.
-Esc cancels capture; D restores that player's defaults for the input type.
-C on the Master System gamepad page swaps controller assignments.
+In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
+the pages: player 1 keyboard, player 1 gamepad, player 2 keyboard, player 2
+gamepad. Up/Down selects a row, and Enter begins capture. Press the desired key
+or the selected player's controller button. Esc cancels capture; D restores
+that player's defaults for the input type. C on a Master System gamepad page
+swaps controller assignments.
 
 Game Gear has one player and no gun. Arrows and W/X control the game; **S** is
 the cartridge Start button. On a gamepad, A/B are the two game buttons,
@@ -99,8 +145,8 @@ Player 1: arrows, **W/X/C/V** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
 and Back (Coin in arcade MVS). In console AES, the Coin action is inactive:
-Back/Select does not open the BIOS menu. **P** pauses; **F1** opens help and **Shift+F1** restarts. Stick clicks have no game action by default. F2 remaps each player's keyboard/gamepad with Left/Right and Tab;
-there is no gun page. F3/F4/F6/F7 preferences persist in the common local INI
+Back/Select does not open the BIOS menu. **P** pauses; **F1** opens help and **Shift+F1** restarts. Stick clicks have no game action by default. F2 remaps each player's keyboard and gamepad on their own pages;
+there is no gun page. P no longer pauses: Enter is the cartridge Start. F3/F4/F6/F7 preferences persist in the common local INI
 with independent NeoGeo video/mapping sections. F8/F9 includes fresh-process
 loading with exact cartridge/BIOS identity. See [Neo Geo scope](NEOGEO.md).
 
@@ -134,7 +180,7 @@ Master System defaults:
 
 | Player | Directions | Buttons | Menu |
 | --- | --- | --- | --- |
-| J1 keyboard | Arrows | W / X | P; Enter also available |
+| J1 keyboard | Arrows | W / X | Enter (P no longer pauses) |
 | J2 keyboard | Keypad 5 / 2 / 1 / 3 | Keypad 8 / 9 | Keypad 7 |
 | Each gamepad | D-pad / left stick | A / B | Start/Menu |
 
@@ -176,9 +222,12 @@ All console menus share the converter's identity: near-black panels, gold
 lettering and its brown-gold selection, defined once in `native/retro_menu.h`
 (colours only, no new asset in games). Menu text uses the public-domain X.Org
 Misc Fixed 10x20 bitmap (3.8 KB in each game), drawn for the window's scale by
-area coverage: strokes are half as thick as with the former 6x10 cell, solid
-pixels stay solid and only the edges blend. A 256x192 window keeps the 6x10
-font. Game menus draw plain ASCII: accents are dropped and German umlauts
+area coverage in 5 x 10 cells of the 256 x 192 menu grid: solid pixels stay
+solid and only the edges blend. The cells are a sixth smaller than before, so
+help lists one function key per line and every control of a page fits without
+scrolling (up to fourteen rows: twelve SNES or six-button Mega Drive actions
+plus quit and restart). A 256x192 window keeps the 6x10 font, narrowed to the
+cell. Game menus draw plain ASCII: accents are dropped and German umlauts
 become ae/oe/ue, so games carry no glyph table.
 
 The first fullscreen mode keeps integer pixel sizes. Press F4 again for the
@@ -224,10 +273,11 @@ Game Boy keeps its own persistent `input.autofire` setting. Existing games need
 regeneration to receive these input changes.
 
 Starting with 0.10.6, catalogue-selected Light Phaser games use the mouse on
-port 1: left click triggers, right click shoots off-screen. F5 (or G in F2)
-opens gun options. In 0.10.7 the default is a small red cross. Choose cross or
-dot, a common size from 1 to 5, and red, white or pure green. Up/Down selects a
-row; Left/Right changes it. The mouse arrows or controller D-pad also work.
+port 1: left click triggers, right click shoots off-screen. The Light Phaser
+page of F2, after the four control pages, holds the gun options. In 0.10.7 the
+default is a small red cross. Choose cross or dot, a common size from 1 to 5,
+and red, white or pure green. Up/Down selects a row; Enter/A or + changes it,
+- goes back. Clicking the left part of a row steps back, elsewhere forward.
 These settings are shared;
 fullscreen, HiDPI and the cropped left border use the image's actual viewport.
 See [Light Phaser support and limits](LIGHT_PHASER.md).

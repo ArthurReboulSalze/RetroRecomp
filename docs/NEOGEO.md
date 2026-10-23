@@ -816,11 +816,12 @@ Two controllers use D-pad/left stick, A/B/X/Y, Start and Back (Coin).
 MVS player 2 Start is wired to STATUS_B bit 2, separately from Select.
 NAM-1975 is an ordinary joystick game; no light-gun menu is exposed.
 
-F2 remaps keyboard/gamepad controls per player; Left/Right changes player,
-Tab changes input type, Up/Down selects a row and Enter captures a binding.
+F2 remaps keyboard/gamepad controls per player on its
+[settings pages](CONTROLS.md#f2-settings-pages): Left/Right or Tab turn the
+pages, Up/Down selects a row and Enter captures a binding.
 Capture accepts only the selected player's controller. Letter defaults and
-displayed labels follow the active Windows keyboard layout. P or a left-stick
-click pauses; F1 or player 1's right-stick click resets. F3 cycles sharp,
+displayed labels follow the active Windows keyboard layout. P is free: Enter
+(Start) pauses the game itself; F1 or player 1's right-stick click resets. F3 cycles sharp,
 Scale2x, proportional scanlines and xBR last. F4 cycles window, integer
 fullscreen and fitted fullscreen with the image ratio preserved. F6 toggles
 face-button gamepad autofire; F7 switches EN/FR; Escape closes a menu or quits.

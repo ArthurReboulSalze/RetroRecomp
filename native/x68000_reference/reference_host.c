@@ -164,6 +164,7 @@ static unsigned player_fire_scan(void);
 static int player_mouse(unsigned,int);
 static int player_fast_forward(void);
 static bool player_event(const SDL_Event *);
+static int player_host_fkey(int,SDL_Keymod);
 static void player_shutdown(void),player_pause_audio(void);
 static int player_queue_audio(const int16_t *,size_t);
 static FILE *player_fopen(const char *path,const char *mode){
@@ -422,7 +423,7 @@ static void input_poll(void) {
          if(e.key.keysym.sym==SDLK_BACKSPACE){want_eject=true;swap_drive=(e.key.keysym.mod&KMOD_SHIFT)?1:0;}
          if(e.key.keysym.sym==SDLK_RETURN) SDL_SetWindowFullscreen(window,
             (SDL_GetWindowFlags(window)&SDL_WINDOW_FULLSCREEN_DESKTOP)?0:SDL_WINDOW_FULLSCREEN_DESKTOP);
-      } else if(e.type==SDL_KEYDOWN&&!e.key.repeat&&!guest_keyboard) {
+      } else if(e.type==SDL_KEYDOWN&&!e.key.repeat&&player_host_fkey(e.key.keysym.scancode,(SDL_Keymod)e.key.keysym.mod)) {
          if(e.key.keysym.sym==SDLK_F8)want_save=true;
          if(e.key.keysym.sym==SDLK_F9)want_load=true;
       }
@@ -439,9 +440,10 @@ static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned
    if(port>1) return 0;
    if(player_blocked())return 0;
    if(device==RETRO_DEVICE_KEYBOARD) {
-      /* Keep the upstream configuration menu inaccessible in this frontend. */
-      if(port||id==RETROK_F12||id==RETROK_F1||id==RETROK_F11||
-            (!guest_keyboard&&(id>=RETROK_F1&&id<=RETROK_F12)))return 0;
+      /* Function keys reach the X68000 only when handed to it (options or
+       * full typing) and never with Ctrl; the X68000 has no F12. */
+      if(port||id==RETROK_F12||(id>=RETROK_F1&&id<=RETROK_F11&&
+            player_host_fkey((int)key_scan(id),SDL_GetModState())))return 0;
       if(id==RETROK_ESCAPE&&(!guest_keyboard||player_escape_held()))return 0;
       if(keys&&input_focus&&!(SDL_GetModState()&KMOD_CTRL&&SDL_GetModState()&KMOD_ALT)&&key_scan(id)!=SDL_SCANCODE_UNKNOWN)value=keys[key_scan(id)]!=0;
       if(id==RETROK_RETURN&&input_focus&&controllers[0]&&SDL_GameControllerGetButton(controllers[0],SDL_CONTROLLER_BUTTON_START))value=1;

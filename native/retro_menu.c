@@ -6,8 +6,12 @@
 #include "runtime_i18n.h"
 #include "runtime_catalog.inc"
 
-/* Layout stays on the 256x192 grid of six by twelve cells. */
-enum { GW = 6, GH = 12, FONT_COLUMNS = 16, FONT_ROWS = 6, FONT_MAX_UNIT = 16 };
+/* Layout stays on the 256x192 grid; text uses five by ten cells, so every
+ * function key gets its own help line and controls fit on one page. */
+enum { GW = 5, GH = 10, FONT_COLUMNS = 16, FONT_ROWS = 6, FONT_MAX_UNIT = 16 };
+/* Atlas cell width in pixels: at 1x the 6x10 bitmap keeps its spacing column
+ * and is narrowed to five pixels when drawn. */
+static int cell_width(int unit) { return unit < 2 ? 6 : GW * unit; }
 static SDL_Renderer *font_renderer;
 static SDL_Texture *font;
 static int font_unit;
@@ -88,21 +92,21 @@ const char *rr_menu_build_label(void) { return "Retro-Recomp v" RR_RECOMP_VERSIO
 void rr_menu_build_footer(SDL_Renderer *renderer, int ox, int oy, int unit) {
     const char *label = "v" RR_RECOMP_VERSION;
     int width = (int)strlen(label) * GW;
-    rr_menu_text(renderer, ox, oy, unit, 242 - width, 15, label, RR_MENU_HINT);
+    rr_menu_text(renderer, ox, oy, unit, 242 - width, 12, label, RR_MENU_HINT);
 }
 
-/* Each 10x20 bitmap is drawn into a 6u x 12u cell by area coverage: solid
- * strokes stay solid and only their edges blend, so the text is twice as fine
- * as the 6x10 cell without blurring. Scale 1 keeps the original 6x10 font. */
+/* Each 10x20 bitmap is drawn into a 5u x 10u cell by area coverage: solid
+ * strokes stay solid and only their edges blend. Scale 1 keeps the original
+ * 6x10 font. */
 static SDL_Texture *build_font(SDL_Renderer *renderer, int unit) {
-    int cw=GW*unit, ch=GH*unit, w=FONT_COLUMNS*cw, h=FONT_ROWS*ch;
+    int cw=cell_width(unit), ch=GH*unit, w=FONT_COLUMNS*cw, h=FONT_ROWS*ch;
     uint32_t *pixels=SDL_calloc((size_t)w*h,sizeof(uint32_t));
     if(!pixels) return NULL;
     for(int c=32;c<128;++c) {
         int ox=((c-32)%FONT_COLUMNS)*cw, oy=((c-32)/FONT_COLUMNS)*ch;
         if(unit<2) {
-            for(int y=0;y<10;++y) for(int x=0;x<GW;++x)
-                if(rr_font6x10[c-32][y]&(1u<<x)) pixels[(oy+y+1)*w+ox+x]=0xffffffffu;
+            for(int y=0;y<10;++y) for(int x=0;x<cw;++x)
+                if(rr_font6x10[c-32][y]&(1u<<x)) pixels[(oy+y)*w+ox+x]=0xffffffffu;
             continue;
         }
         /* Source pixel sx spans [sx*cw,(sx+1)*cw) and target pixel tx spans
@@ -169,13 +173,18 @@ void rr_menu_box(SDL_Renderer *r, int ox, int oy, int unit,
 
 void rr_menu_text(SDL_Renderer *r, int ox, int oy, int unit,
                   int x, int y, const char *s, int red, int green, int blue) {
+    rr_menu_text_fit(r, ox, oy, unit, x, y, 242 - x, s, red, green, blue);
+}
+/* Text wider than `available` cells is narrowed to fit, never clipped. */
+void rr_menu_text_fit(SDL_Renderer *r, int ox, int oy, int unit, int x, int y,
+                      int available, const char *s, int red, int green, int blue) {
     if (!s || r != font_renderer || !use_font_unit(unit)) return;
     s=rr_tr(s);
     SDL_SetTextureColorMod(font, red, green, blue);
-    int width=rr_menu_text_width(s), available=242-x, offset=0;
+    int width=rr_menu_text_width(s), offset=0;
     if(available<=0 || width<=0)return;
     double fit=width>available?(double)available/width:1.0;
-    int cw=GW*font_unit, ch=GH*font_unit;
+    int cw=cell_width(font_unit), ch=GH*font_unit;
     while(*s) {
         char c=ascii_code(next_code(&s));
         SDL_Rect source={((c-32)%FONT_COLUMNS)*cw,((c-32)/FONT_COLUMNS)*ch,cw,ch};
@@ -194,3 +203,20 @@ void rr_menu_begin(SDL_Renderer *r, int ox, int oy, int unit) {
 }
 
 void rr_menu_end(SDL_Renderer *r) { SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE); }
+/* F2 pages: title at the left, one small square per page at the right.
+ * Pages up to the current one are filled, the current one brightest. */
+void rr_menu_page_header(SDL_Renderer *r, int ox, int oy, int unit, const char *title, int page, int count) {
+    int left = 243 - count * 9;
+    rr_menu_text_fit(r, ox, oy, unit, 14, 12, count > 0 ? left - 20 : 228, title, RR_MENU_GOLD);
+    for (int i = 0; i < count; ++i) {
+        int x = left + i * 9;
+        if (i < page) rr_menu_box(r, ox, oy, unit, x, 14, 6, 6, RR_MENU_HINT, 255);
+        else if (i == page) rr_menu_box(r, ox, oy, unit, x, 14, 6, 6, RR_MENU_ACCENT, 255);
+        else {
+            rr_menu_box(r, ox, oy, unit, x, 14, 6, 1, RR_MENU_HINT, 255);
+            rr_menu_box(r, ox, oy, unit, x, 19, 6, 1, RR_MENU_HINT, 255);
+            rr_menu_box(r, ox, oy, unit, x, 15, 1, 4, RR_MENU_HINT, 255);
+            rr_menu_box(r, ox, oy, unit, x + 5, 15, 1, 4, RR_MENU_HINT, 255);
+        }
+    }
+}

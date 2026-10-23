@@ -194,67 +194,109 @@ static void draw_gun(SDL_Renderer *ren, SDL_Rect r) {
     SDL_RenderSetClipRect(ren, NULL);
 }
 
+/* F2 pages: each player's keyboard then gamepad, the Zapper on Zapper games,
+ * then the options. Player 1's pages end with the quit and restart
+ * combinations. */
+static RrPages settings_pages(void) { return (RrPages){4, RR_NES_ZAPPER ? 1 : 0}; }
+static int settings_page(void) { return rr_pages_index(settings_pages(), menu, player * 2 + (gamepad_page ? 1 : 0)); }
+static int page_rows(void) { return ACTIONS + (player ? 0 : RR_COMBO_ROWS); }
+/* Control pages share their rows, so the selected row survives between them. */
+static void turn_page(int step) {
+    int control, before = menu;
+    menu = rr_pages_goto(settings_pages(), settings_page() + step, &control);
+    player = control / 2; gamepad_page = control % 2;
+    row = before == 2 && menu == 2 ? SDL_min(row, page_rows() - 1) : 0;
+    capturing = 0; status[0] = 0;
+}
+/* F2 opens on the first page from the game, help or pause, and closes F2 from any page. */
+static void toggle_settings(void) {
+    if (rr_pages_open(menu)) menu = 0;
+    else { menu = 2; player = gamepad_page = row = 0; }
+    capturing = 0;
+}
+/* Option rows run their function keys exactly as the shortcuts do. */
+static RrOptionRows option_rows(void) {
+    RrOptionRows d; d.count = 0;
+    rr_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", rr_option_filter_name(filter));
+    rr_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(fullscreen));
+    rr_option_row(&d, SDL_SCANCODE_F5, "F5 Sprite flicker reduction: %s", rr_tr(extra_sprites ? "ON" : "OFF"));
+    rr_option_row(&d, SDL_SCANCODE_F6, "F6 Autofire: %s", rr_tr(autofire ? "ON" : "OFF"));
+    rr_option_row(&d, SDL_SCANCODE_F7, "F7 Language: %s", rr_language_name(french));
+    rr_option_row(&d, SDL_SCANCODE_F12, "%s", rr_tr(rr_feedback_label()));
+    rr_option_shared_rows(&d);
+    return d;
+}
+
 static void draw_menu(SDL_Renderer *ren) {
-    if (menu == RR_OPTIONS_MENU) {rr_options_draw(ren); return;}
     if (!menu) return;
+    RrPages pages = settings_pages();
+    int page = settings_page(), count = rr_pages_count(pages);
+    if (menu == RR_OPTIONS_MENU) {
+        RrOptionRows d = option_rows();
+        rr_option_page_draw(ren, &d, page, count);
+        return;
+    }
     int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
     rr_menu_begin(ren, ox, oy, unit);
 #define RR_NES_TEXT(y,s) rr_menu_text(ren,ox,oy,unit,14,y,s,RR_MENU_GOLD)
-    RR_NES_TEXT(15, menu == 1 ? tr("RetroRecomp - Help", "RetroRecomp - Aide") :
-         menu == 2 ? tr("RetroRecomp - Controls", "RetroRecomp - Commandes") : "RetroRecomp - Pause");
+    char heading[64];
+    snprintf(heading, sizeof(heading), rr_tr(gamepad_page ? "Player %d - Gamepad" : "Player %d - Keyboard"), player + 1);
+    if (menu == 2 || menu == RR_GUN_MENU)
+        rr_menu_page_header(ren, ox, oy, unit, menu == 2 ? heading : rr_tr("Retro-Recomp - Gun"), page, count);
+    else RR_NES_TEXT(RR_MENU_TITLE_LINE, tr("RetroRecomp - Help", "RetroRecomp - Aide"));
     if (menu == 1) {
-        /* Function keys in order, then the console's own controls. */
-        char sprites[64];
+        /* One line per function key, then the console's own controls. */
+        char sprites[64], fire[64];
         snprintf(sprites, sizeof(sprites), tr("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
                  extra_sprites ? "ON" : "OFF");
+        snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(autofire ? "ON" : "OFF"));
         const char *lines[] = {
-            tr("F1 Help  Shift+F1 Restart", "F1 Aide  Maj+F1 Redemarrer"),
-            tr("F2 Controls  F3 Filter", "F2 Commandes  F3 Filtre"),
-            tr("F4 Fullscreen", "F4 Plein ecran"), sprites,
-            tr("F6 Autofire  F7 Language", "F6 Tir auto  F7 Langue"),
-            tr("F8 Save state  F9 Load state", "F8 Sauvegarder  F9 Charger"),
-            tr("F10 Options", "F10 Options"), rr_feedback_label(),
-            tr("P Pause  Esc Quit", "P Pause  Esc Quitter")};
-        for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i) RR_NES_TEXT(30 + 11 * i, lines[i]);
-        RR_NES_TEXT(133, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
-        if (RR_NES_ZAPPER) {
-            RR_NES_TEXT(144, tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran"));
-            RR_NES_TEXT(155, tr("F2 + Tab: Zapper options", "F2 + Tab : options du Zapper"));
-        } else RR_NES_TEXT(144, tr("Shift Select; two controllers", "Maj Select; deux manettes"));
-    } else if (menu == 2 && gamepad_page == 2) {
+            rr_tr("F1  Help | Shift+F1 Restart"), rr_tr("F2  Controls & options"), rr_tr("F3  Next filter"),
+            rr_tr("F4  Window / Pixel / Fit"), sprites, fire, rr_tr("F7  Next language"),
+            rr_tr("F8  Save game state"), rr_tr("F9  Load game state"), rr_feedback_label(),
+            rr_tr("Esc  Quit (close menus first)")};
+        int n = (int)(sizeof(lines) / sizeof(lines[0])), y = RR_MENU_FIRST_LINE;
+        for (int i = 0; i < n; ++i, y += RR_MENU_LINE) RR_NES_TEXT(y, lines[i]);
+        RR_NES_TEXT(y + 6, tr("NES: arrows + W/X; Enter Start", "NES : fleches + W/X; Entree Start"));
+        RR_NES_TEXT(y + 6 + RR_MENU_LINE, RR_NES_ZAPPER ? tr("Mouse: aim/fire; right: offscreen", "Souris : viser/tirer; droit : hors ecran") :
+            tr("Shift Select; two controllers", "Maj Select; deux manettes"));
+    } else if (menu == RR_GUN_MENU) {
         char line[96];
-        RR_NES_TEXT(38, tr("Zapper | Tab: controls", "Zapper | Tab : commandes"));
+        rr_menu_text(ren, ox, oy, unit, 14, 26, "Zapper", RR_MENU_ACCENT);
         const char *labels[] = {tr("Shape", "Forme"), tr("Size", "Taille"), tr("Color", "Couleur")};
         const char *colors[] = {tr("Red", "Rouge"), tr("White", "Blanc"), tr("Green", "Vert")};
         for (int a = 0; a < 3; a++) {
             char size[16]; snprintf(size, sizeof(size), "%d", gun_size);
             const char *value = a == 0 ? (gun_shape ? tr("Dot", "Point") : tr("Cross", "Croix")) : a == 1 ? size : colors[gun_color];
-            if (row == a) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 23, 232, 20, RR_MENU_SELECT, 255);
+            if (row == a) rr_menu_box(ren, ox, oy, unit, 12, 40 + a * 22, 232, 20, RR_MENU_SELECT, 255);
             snprintf(line, sizeof(line), "%c %s: %s", row == a ? '>' : ' ', labels[a], value);
-            RR_NES_TEXT(58 + a * 23, line);
+            RR_NES_TEXT(45 + a * 22, line);
         }
-        RR_NES_TEXT(150, tr("Up/Down: select | Left/Right: change", "Haut/Bas : choisir | Gauche/Droite : changer"));
+        RR_NES_TEXT(RR_MENU_HINT_LINE, rr_tr("Enter / A / +: next | -: previous"));
+        if (!status[0]) RR_NES_TEXT(RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"));
     } else if (menu == 2) {
-        char line[96];
-        snprintf(line, sizeof(line), "%s %d | %s | Tab / <- ->", rr_tr("Player"), player + 1,
-                 rr_tr(gamepad_page ? "Gamepad" : "Keyboard"));
-        RR_NES_TEXT(38, line);
-        for (int a = 0; a < ACTIONS; ++a) {
-            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, 52 + a * 13, 232, 12, RR_MENU_SELECT, 255);
-            const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
-                rr_keyboard_name(keys[player][a]);
-            snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
-                     capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
-            RR_NES_TEXT(53 + a * 13, line);
+        /* Every control fits on the page; player 1's pages end with the quit
+         * and restart combinations. */
+        char line[120], value[80];
+        for (int a = 0; a < page_rows(); ++a) {
+            int y = RR_MENU_FIRST_LINE + a * RR_MENU_LINE;
+            if (a == row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+            if (a >= ACTIONS) {
+                rr_combo_value(value, sizeof value, a - ACTIONS, gamepad_page != 0);
+                snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_combo_label(a - ACTIONS), value);
+            } else {
+                const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
+                    rr_keyboard_name(keys[player][a]);
+                snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
+                         capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
+            }
+            RR_NES_TEXT(y, line);
         }
-        RR_NES_TEXT(164, tr("Enter: remap | Esc: close", "Entree : attribuer | Esc : fermer"));
-    } else {
-        RR_NES_TEXT(58, tr("Game paused", "Jeu en pause"));
-        RR_NES_TEXT(83, tr("P: resume", "P : reprendre"));
-        RR_NES_TEXT(110, tr("F1: help | F2: controls", "F1 : aide | F2 : commandes"));
+        RR_NES_TEXT(RR_MENU_HINT_LINE, row >= ACTIONS ? rr_combo_hint(row - ACTIONS) :
+            capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
-    else if (status[0]) RR_NES_TEXT(177, status);
+    else if (status[0]) RR_NES_TEXT(RR_MENU_LAST_LINE, status);
 #undef RR_NES_TEXT
     rr_menu_end(ren);
 }
@@ -300,20 +342,39 @@ int cyc_sdl_main(const char *title, int scale) {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (rr_options_event(&event, &menu, capturing != 0, true)) continue;
+            if (rr_options_event(&event, &menu, capturing != 0)) continue;
             if (event.type == SDL_QUIT) running = false;
             if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) open_pads();
             if (event.type == SDL_CONTROLLERBUTTONDOWN && menu == 2 && capturing && gamepad_page) {
                 buttons[player][row] = (SDL_GameControllerButton)event.cbutton.button;
                 store_binding(); capturing = 0; status[0] = 0; continue;
             }
-            if (event.type != SDL_KEYDOWN || event.key.repeat) continue;
-            SDL_Scancode key = event.key.keysym.scancode;
+            SDL_Scancode key = event.type == SDL_KEYDOWN && !event.key.repeat ? event.key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
+            /* An option row behaves as its function key. */
+            if (menu == RR_OPTIONS_MENU) {
+                RrOptionRows d = option_rows();
+                int chosen = rr_option_page_event(&event, &d);
+                if (chosen < 0) continue;
+                if (chosen > 0) key = (SDL_Scancode)chosen;
+            }
+            /* Left/Right, Tab, LB/RB or the D-pad turn the F2 pages and B
+             * closes them; on a page the D-pad and A choose rows. */
+            if (rr_pages_open(menu) && !capturing) {
+                int step = rr_pages_step(&event);
+                if (step) { turn_page(step); continue; }
+                if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
+                    int b = event.cbutton.button;
+                    if (b == SDL_CONTROLLER_BUTTON_B) { menu = 0; continue; }
+                    key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
+                        b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : b == SDL_CONTROLLER_BUTTON_X ? SDL_SCANCODE_DELETE :
+                        SDL_SCANCODE_UNKNOWN;
+                }
+            }
+            if (key == SDL_SCANCODE_UNKNOWN) continue;
             if (menu == 2 && capturing) {
                 if (key == SDL_SCANCODE_ESCAPE) capturing = 0;
                 else if (!gamepad_page && key > SDL_SCANCODE_UNKNOWN && key < SDL_NUM_SCANCODES &&
-                         !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12) &&
-                         key != SDL_SCANCODE_P) {
+                         !(key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12)) {
                     keys[player][row] = key; store_binding(); capturing = 0;
                 }
                 continue;
@@ -323,8 +384,7 @@ int cyc_sdl_main(const char *title, int scale) {
             else if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
                 cyc_power_on(0); cyc_run_power_on(); nes_audio_clear();
             } else if (key == SDL_SCANCODE_F1) menu = menu == 1 ? 0 : 1;
-            else if (key == SDL_SCANCODE_P) menu = menu == 3 ? 0 : 3;
-            else if (key == SDL_SCANCODE_F2) menu = menu == 2 ? 0 : 2;
+            else if (key == SDL_SCANCODE_F2) toggle_settings();
             else if (key == SDL_SCANCODE_F12) {
                 rr_feedback_toggle();snprintf(status,sizeof status,"%s",rr_feedback_label());status_until=SDL_GetTicks64()+1800;
             }
@@ -343,7 +403,7 @@ int cyc_sdl_main(const char *title, int scale) {
                 int changed=rr_display_cycle(win,&fullscreen,ini_file,data_dir,L"NES.Video");
                 if (changed<0) snprintf(status,sizeof(status),"%s",tr("Config unavailable","Config inaccessible"));
             } else if (key == SDL_SCANCODE_F5) {
-                /* Host-only extra sprites; the Zapper options stay in F2 (Tab). */
+                /* Host-only extra sprites; the Zapper options have their own F2 page. */
                 extra_sprites = !extra_sprites; rr_nes_extra_sprites(extra_sprites != 0);
                 snprintf(status, sizeof(status), "%s", extra_sprites ?
                     tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
@@ -371,23 +431,28 @@ int cyc_sdl_main(const char *title, int scale) {
                 status_until = SDL_GetTicks64() + 1800;
                 if (ok) { menu = 0; capturing = 0; }
                 if (ok && load) { nes_audio_clear(); next = SDL_GetPerformanceCounter(); }
-            } else if (menu == 2) {
-                if (key == SDL_SCANCODE_TAB) { gamepad_page = (gamepad_page + 1) % (RR_NES_ZAPPER ? 3 : 2); row = 0; }
-                else if (gamepad_page == 2) {
-                    if (key == SDL_SCANCODE_UP) row = (row + 2) % 3;
-                    else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % 3;
-                    else if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT || key == SDL_SCANCODE_RETURN) {
-                        int delta = key == SDL_SCANCODE_LEFT ? -1 : 1;
-                        if (row == 0) gun_shape = !gun_shape;
-                        else if (row == 1) gun_size = (gun_size - 1 + delta + 8) % 8 + 1;
-                        else gun_color = (gun_color + delta + 3) % 3;
-                        store_gun();
-                    }
+            } else if (menu == RR_GUN_MENU) {
+                /* Left/Right turn pages: Enter / + choose the next value, - the previous. */
+                int delta = key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS ? -1 :
+                    key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER || key == SDL_SCANCODE_EQUALS ||
+                    key == SDL_SCANCODE_KP_PLUS ? 1 : 0;
+                if (key == SDL_SCANCODE_UP) row = (row + 2) % 3;
+                else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % 3;
+                else if (delta) {
+                    if (row == 0) gun_shape = !gun_shape;
+                    else if (row == 1) gun_size = (gun_size - 1 + delta + 8) % 8 + 1;
+                    else gun_color = (gun_color + delta + 3) % 3;
+                    store_gun();
                 }
-                else if (key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT) player = !player;
-                else if (key == SDL_SCANCODE_UP) row = (row + ACTIONS - 1) % ACTIONS;
-                else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % ACTIONS;
-                else if (key == SDL_SCANCODE_RETURN) capturing = 1;
+            } else if (menu == 2) {
+                bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
+                if (key == SDL_SCANCODE_UP) row = (row + page_rows() - 1) % page_rows();
+                else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % page_rows();
+                else if (row >= ACTIONS) {
+                    /* Quit and restart combinations: hold them one second in play. */
+                    if (enter) rr_combo_start(row - ACTIONS, gamepad_page != 0);
+                    else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rr_combo_clear(row - ACTIONS, gamepad_page != 0);
+                } else if (enter) capturing = 1;
             }
         }
         if (rr_options_quit(menu)) running = false;

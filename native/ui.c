@@ -9,7 +9,10 @@
 #include <string.h>
 #define TR(en, fr) controls_text(en, fr)
 
-static int ox, oy, unit;
+static int ox, oy, unit, page_index, page_count;
+static int combo_count;
+static const char *const *combo_labels, *const *combo_values;
+static const char *combo_hint;
 
 static const char *button_name(SDL_GameControllerButton button) {
     switch (button) {
@@ -53,6 +56,12 @@ static const char *key_name(SDL_Scancode key) {
     }
 }
 
+void ui_pages(int page, int count) { page_index = page; page_count = count; }
+void ui_combos(int count, const char *const *labels, const char *const *values, const char *hint) {
+    combo_count = count; combo_labels = labels; combo_values = values; combo_hint = hint;
+}
+int ui_rows_top(bool gamepad) { (void)gamepad; return RR_MENU_FIRST_LINE; }
+
 bool ui_init(SDL_Renderer *renderer) {
     return rr_menu_init(renderer);
 }
@@ -91,8 +100,8 @@ void ui_phaser_reticle(SDL_Renderer *r, int x, int y, int scale) {
 void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool capture, const char *name, const char *status) {
     ui_layout(r, &ox, &oy, &unit);
     rr_menu_begin(r, ox, oy, unit);
-    text(r, 14, 15, kind == 4 ? "Retro-Recomp - Light Phaser" : kind == 1 ? TR("Retro-Recomp - Help", "Retro-Recomp - Aide") : kind == 3 ? "Retro-Recomp - Pause" :
-        TR("Retro-Recomp - Controls", "Retro-Recomp - Commandes"), RR_MENU_ACCENT);
+    if (kind == 4) rr_menu_page_header(r, ox, oy, unit, TR("Retro-Recomp - Gun", "Retro-Recomp - Pistolet"), page_index, page_count);
+    else if (kind != 2) text(r, 14, RR_MENU_TITLE_LINE, kind == 1 ? TR("Retro-Recomp - Help", "Retro-Recomp - Aide") : "Retro-Recomp - Pause", RR_MENU_ACCENT);
     if (kind == 4) {
         char lines[3][48];
         const char *shape = controls.phaser_shape == PHASER_DOT ? TR("Dot", "Point") : TR("Cross", "Croix");
@@ -101,20 +110,26 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         snprintf(lines[0], sizeof(lines[0]), TR("Shape: %s", "Forme : %s"), shape);
         snprintf(lines[1], sizeof(lines[1]), TR("Size: %d / 5", "Taille : %d / 5"), controls.phaser_dot_size);
         snprintf(lines[2], sizeof(lines[2]), TR("Color: %s", "Couleur : %s"), color);
+        text(r, 14, 26, "Light Phaser", RR_MENU_ACCENT);
+        /* Clicking the left part steps back; elsewhere steps forward. */
         for (int i = 0; i < 3; ++i) {
-            int y = 34 + i*24;
-            box(r, 14, y, 226, 22, i == row ? 40 : 14, i == row ? 63 : 35, i == row ? 81 : 58, 255);
-            text(r, 22, y+5, "<", RR_MENU_ACCENT); text(r, 48, y+5, lines[i], RR_MENU_GOLD);
-            text(r, 224, y+5, ">", RR_MENU_ACCENT);
+            int y = 40 + i*22;
+            box(r, 14, y, 226, 20, i == row ? 40 : 14, i == row ? 63 : 35, i == row ? 81 : 58, 255);
+            text(r, 22, y+5, "-", RR_MENU_ACCENT); text(r, 48, y+5, lines[i], RR_MENU_GOLD);
+            text(r, 224, y+5, "+", RR_MENU_ACCENT);
         }
         ui_phaser_reticle(r, ox + 128*unit, oy + 119*unit, unit);
-        text(r, 14, 135, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), RR_MENU_GOLD);
-        text(r, 14, 147, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), RR_MENU_GOLD);
-        text(r, 14, 159, TR("Up/Down: row | Left/Right: change", "Haut/Bas : ligne | Gauche/Droite"), RR_MENU_HINT);
-        text(r, 14, 173, TR("F10 / Esc: close | Shared settings", "F10 / Echap : fermer | Reglages communs"), RR_MENU_HINT);
+        text(r, 14, 134, TR("Mouse: aim | Left click: trigger", "Souris : viser | Clic gauche : tirer"), RR_MENU_GOLD);
+        text(r, 14, 144, TR("Right click: off-screen shot", "Clic droit : tir hors ecran"), RR_MENU_GOLD);
+        text(r, 14, RR_MENU_HINT_LINE, TR("Enter / A / +: next | -: previous", "Entree / A / + : suivant | - : precedent"), RR_MENU_HINT);
+        text(r, 14, RR_MENU_LAST_LINE, TR("Left/Right: page | Esc: close", "Gauche/Droite : page | Echap : fermer"), RR_MENU_HINT);
     } else if (kind == 3) {
         text(r, 14, 62, TR("Game paused", "Jeu en pause"), RR_MENU_GOLD);
+#ifdef RETRO_GAME_GEAR
         text(r, 14, 90, TR("P / Enter: resume", "P / Entree : reprendre"), RR_MENU_GOLD);
+#else
+        text(r, 14, 90, TR("Enter: resume", "Entree : reprendre"), RR_MENU_GOLD);
+#endif
         text(r, 14, 118, TR("Shift+F1: restart", "Maj+F1 : redemarrer"), RR_MENU_HINT);
         char sprites[64];
         snprintf(sprites, sizeof(sprites), TR("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
@@ -123,52 +138,63 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
 #ifdef RETRO_GAME_GEAR
         text(r, 14, 152, TR("Gamepad shortcuts: see F2", "Raccourcis manette : voir F2"), RR_MENU_HINT);
 #endif
-        text(r, 14, 164, TR("F1: help | F2: controls", "F1 : aide | F2 : commandes"), RR_MENU_HINT);
+        text(r, 14, 164, TR("F1: help | F2: controls & options", "F1 : aide | F2 : commandes et options"), RR_MENU_HINT);
     } else if (kind == 1) {
         char autofire[64];
         snprintf(autofire, sizeof(autofire), TR("F6  Autofire: %s", "F6  Tir auto : %s"), TR(controls.autofire ? "ON" : "OFF", controls.autofire ? "OUI" : "NON"));
-        const char *lines[] = {TR("F1  Help | Shift+F1 Restart", "F1  Aide | Maj+F1 Redemarrer"), TR("F2  Controls", "F2  Commandes"),
+        const char *lines[] = {TR("F1  Help | Shift+F1 Restart", "F1  Aide | Maj+F1 Redemarrer"),
+            TR("F2  Controls & options", "F2  Commandes et options"),
             TR("F3  Next filter", "F3  Changer le filtre"), TR("F4  Window / Pixel / Fit", "F4  Fenetre / Pixels / Ajuste"),
             TR("F5  Reduce sprite flicker", "F5  Reduire le scintillement"),
             autofire, "F7  Next language",
-            TR("F8  Save state | F9  Load state", "F8  Sauvegarder | F9  Charger"),
-            sms_light_phaser ? TR("F10 Gun options", "F10 Options du pistolet") : TR("F10 Options", "F10 Options"),
+            TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             rr_feedback_label(),
-            TR("P / Enter  Pause", "P / Entree  Pause"),
-            TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
-        for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
-            text(r, 14, 31 + 11 * i, lines[i], RR_MENU_GOLD);
-        if (sms_light_phaser) text(r, 14, 163, TR("Gun: mouse/left click | F10: options", "Gun : souris/clic gauche | F10 : options"), RR_MENU_ACCENT);
 #ifdef RETRO_GAME_GEAR
-        text(r, 14, 163, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), RR_MENU_ACCENT);
+            TR("P / Enter  Pause", "P / Entree  Pause"),
+#else
+            TR("Enter  Pause", "Entree  Pause"),
 #endif
-        text(r, 14, 174, TR("O: options | F1 / Esc: close", "O : options | F1 / Echap : fermer"), RR_MENU_HINT);
+            TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
+        /* One line per function key, then the console's own controls. */
+        for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
+            text(r, 14, RR_MENU_FIRST_LINE + RR_MENU_LINE * i, lines[i], RR_MENU_GOLD);
+        if (sms_light_phaser) text(r, 14, RR_MENU_HINT_LINE, TR("Gun: mouse/left click", "Gun : souris/clic gauche"), RR_MENU_ACCENT);
+#ifdef RETRO_GAME_GEAR
+        text(r, 14, RR_MENU_HINT_LINE, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), RR_MENU_ACCENT);
+#endif
+        text(r, 14, RR_MENU_LAST_LINE, TR("F1 / Esc: close", "F1 / Echap : fermer"), RR_MENU_HINT);
         rr_menu_build_footer(r, ox, oy, unit);
     } else {
+        char heading[64];
 #ifdef RETRO_GAME_GEAR
-        char heading[64]; snprintf(heading, sizeof(heading), "%s", TR("Game Gear controls", "Commandes Game Gear"));
+        (void)player;
+        snprintf(heading, sizeof(heading), "%s", gamepad ? TR("Gamepad", "Manette") : TR("Keyboard", "Clavier"));
 #else
-        char heading[64]; snprintf(heading, sizeof(heading), TR("Player %d  [Left/Right: P1/P2]", "Joueur %d  [Gauche/Droite : J1/J2]"), player + 1);
+        snprintf(heading, sizeof(heading), gamepad ? TR("Player %d - Gamepad", "Joueur %d - Manette") :
+            TR("Player %d - Keyboard", "Joueur %d - Clavier"), player + 1);
 #endif
-        text(r, 14, 30, heading, RR_MENU_GOLD);
-#ifdef RETRO_GAME_GEAR
-        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys]", "Manette [Tab:clavier]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), RR_MENU_HINT);
-#else
-        text(r, 14, 43, gamepad ? TR("Gamepad [Tab:keys | C:swap]", "Manette [Tab:clavier | C:inverser]") : TR("Keyboard [Tab:gamepad]", "Clavier  [Tab : manette]"), RR_MENU_HINT);
+        rr_menu_page_header(r, ox, oy, unit, heading, page_index, page_count);
+#ifndef RETRO_GAME_GEAR
+        if (gamepad) text(r, 14, 144, TR("C: swap P1/P2 controllers", "C : inverser les manettes J1/J2"), RR_MENU_HINT);
 #endif
-        for (int i = 0; i < controls_action_count(player); ++i) {
-            if (i == row) box(r, 12, 58 + 12 * i, 232, 12, RR_MENU_SELECT, 255);
-            char line[100];
-            const char *binding = gamepad ? button_name(controls.buttons[player][i]) : key_name(controls.keys[player][i]);
-            snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', controls_label(i), capture && i == row ? TR("Press...", "Appuie...") : rr_tr(binding));
-            text(r, 14, 59 + 12 * i, line, i == row ? 83 : 233, i == row ? 216 : 239, i == row ? 202 : 247);
+        /* Every control fits on the page; player 1's pages end with the quit
+         * and restart combinations. */
+        int actions = controls_action_count(player), top = ui_rows_top(gamepad);
+        for (int i = 0; i < actions + combo_count; ++i) {
+            if (i == row) box(r, 12, top + RR_MENU_LINE * i, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+            char line[120];
+            if (i < actions) {
+                const char *binding = gamepad ? button_name(controls.buttons[player][i]) : key_name(controls.keys[player][i]);
+                snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', controls_label(i), capture && i == row ? TR("Press...", "Appuie...") : rr_tr(binding));
+            } else snprintf(line, sizeof(line), "%c %-12s %s", i == row ? '>' : ' ', combo_labels[i - actions], combo_values[i - actions]);
+            text(r, 14, top + RR_MENU_LINE * i, line, i == row ? 83 : 233, i == row ? 216 : 239, i == row ? 202 : 247);
         }
-        const char *hint = gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");
-        text(r, 14, 157, status && *status ? status : hint, RR_MENU_GOLD);
-        text(r, 14, 171, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
-            sms_light_phaser ? TR("G/F10: gun | Up/Down: select", "G/F10 : gun | Haut/Bas : choisir") :
-            TR("O / Guide: options | Esc: close", "Haut/Bas : choisir | Echap : fermer"), RR_MENU_HINT);
+        const char *hint = row >= actions && combo_hint ? combo_hint : gamepad && !name ? TR("No gamepad connected", "Aucune manette connectee") : TR("Enter/A: bind | D: defaults", "Entree/A : changer | D : defauts");
+        text(r, 14, RR_MENU_HINT_LINE, status && *status ? status : hint, RR_MENU_GOLD);
+        text(r, 14, RR_MENU_LAST_LINE, capture ? TR("Esc: cancel binding", "Echap : annuler l'attribution") :
+            TR("Left/Right: page | Esc: close", "Gauche/Droite : page | Echap : fermer"), RR_MENU_HINT);
     }
+    combo_count = 0; combo_hint = NULL; /* set again before each ui_menu */
     rr_menu_end(r);
 }
 

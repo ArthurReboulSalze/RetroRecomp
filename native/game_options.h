@@ -11,6 +11,12 @@
 #include "retro_keyboard.h"
 #include "audio_filter.h"
 #define RR_OPTIONS_MENU 5
+/* F2 gathers every setting on pages: the console's control pages (with the
+ * quit and restart combinations), the gun page of gun games, then the
+ * options. Left/Right, Tab, LB/RB or the D-pad turn pages. */
+#define RR_CONTROLS_MENU 2
+#define RR_GUN_MENU 4
+typedef struct { int controls, gun; } RrPages;
 /* Controller defaults: hold Start+Select (Back) one second to restart the
  * console, L3+R3 one second to quit. Both can be changed or cleared. */
 #define RR_OPTIONS_RESTART_PAD ((1u << SDL_CONTROLLER_BUTTON_START) | (1u << SDL_CONTROLLER_BUTTON_BACK))
@@ -28,6 +34,8 @@ static struct {
     int held, suppressed, focused;
     int rkey[3], rpad, rheld, rfired;
     Uint64 rhold;
+    int fkeys, fkeys_machine;
+    char machine[16];
     char status[100];
     SDL_Renderer *renderer;
 } rr_options;
@@ -74,6 +82,23 @@ static void rr_options_init(const wchar_t *console) {
     rr_options_load_keys(rr_options_restart_keys, rr_options.rkey);
     rr_options.pad = rr_options_load_pad(L"quit_pad", RR_OPTIONS_QUIT_PAD);
     rr_options.rpad = rr_options_load_pad(L"restart_pad", RR_OPTIONS_RESTART_PAD);
+}
+
+/* Computers with their own function keys F1..F`count` can hand them to the
+ * guest (off by default); Ctrl+F1-F12 then reach Retro-Recomp. */
+static void rr_options_keyboard(const char *machine, int count) {
+    snprintf(rr_options.machine, sizeof rr_options.machine, "%s", machine);
+    rr_options.fkeys = count;
+    rr_options.fkeys_machine = rr_options.file[0] &&
+        rr_ini_int(rr_options.section, L"fkeys_machine", 0, rr_options.file) == 1;
+}
+
+/* True when this function key is a Retro-Recomp shortcut rather than a key
+ * of the computer: always with Ctrl (not Ctrl+Alt) or inside a menu. */
+static bool rr_options_host_fkey(int key, SDL_Keymod mod, bool menu) {
+    if (key < SDL_SCANCODE_F1 || key > SDL_SCANCODE_F12) return false;
+    if (menu || ((mod & KMOD_CTRL) && !(mod & KMOD_ALT))) return true;
+    return !rr_options.fkeys_machine || key >= SDL_SCANCODE_F1 + rr_options.fkeys;
 }
 
 static bool rr_options_store(const wchar_t *entry, int value) {
@@ -157,16 +182,185 @@ static void rr_options_capture_done(void) {
     rr_options.suppressed = 1;
 }
 
-/* Returns true when the host must not process the event again. Existing
- * binding capture has priority. O / Y inside any menu, or Guide, opens options.
- * F10 is also available except on the SMS Light Phaser host. */
-static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture, bool f10) {
+static bool rr_pages_open(int menu) {
+    return menu == RR_CONTROLS_MENU || menu == RR_GUN_MENU || menu == RR_OPTIONS_MENU;
+}
+static int rr_pages_count(RrPages pages) {return pages.controls + (pages.gun ? 1 : 0) + 1;}
+static int rr_pages_index(RrPages pages, int menu, int control) {
+    if (menu == RR_CONTROLS_MENU) return control >= 0 && control < pages.controls ? control : 0;
+    return pages.controls + (pages.gun && menu != RR_GUN_MENU ? 1 : 0);
+}
+/* Returns the menu of `page` (wrapping both ways) and sets its control page.
+ * Each page opens on its first row. */
+static int rr_pages_goto(RrPages pages, int page, int *control) {
+    int count = rr_pages_count(pages);
+    page = (page % count + count) % count;
+    *control = page < pages.controls ? page : 0;
+    rr_options.row = 0; rr_options.status[0] = 0;
+    if (page < pages.controls) return RR_CONTROLS_MENU;
+    return pages.gun && page == pages.controls ? RR_GUN_MENU : RR_OPTIONS_MENU;
+}
+/* -1 or 1 to turn the page, 0 otherwise. Hosts call it outside binding capture. */
+static int rr_pages_step(const SDL_Event *e) {
+    if (e->type == SDL_KEYDOWN && !e->key.repeat) {
+        SDL_Scancode key = e->key.keysym.scancode;
+        if (key == SDL_SCANCODE_LEFT) return -1;
+        if (key == SDL_SCANCODE_RIGHT) return 1;
+        if (key == SDL_SCANCODE_TAB) return (e->key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
+    } else if (e->type == SDL_CONTROLLERBUTTONDOWN) {
+        int button = e->cbutton.button;
+        if (button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) return -1;
+        if (button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) return 1;
+    }
+    return 0;
+}
+
+/* Quit and restart combinations (capture ids 1/2 quit with keyboard or
+ * controller, 3/4 restart) sit below player 1's controls: keyboard ones on
+ * the keyboard page, controller ones on the gamepad page. */
+#define RR_COMBO_ROWS 2
+static int rr_combo_id(int index, bool gamepad) {return (index ? 3 : 1) + (gamepad ? 1 : 0);}
+static const char *rr_combo_label(int index) {return rr_tr(index ? "Restart" : "Quit");}
+static void rr_combo_start(int index, bool gamepad) {
+    rr_options.capture = rr_combo_id(index, gamepad);
+    rr_options.armed = 0; rr_options.count = 0; rr_options.pending_pad = 0;
+    memset(rr_options.pending_key, 0, sizeof rr_options.pending_key);
+    rr_options.status[0] = 0; rr_options.suppressed = 1;
+}
+static void rr_combo_clear(int index, bool gamepad) {
+    if (!gamepad) {
+        const wchar_t *const *entries = index ? rr_options_restart_keys : rr_options_quit_keys;
+        if (rr_options_store(entries[0], 0) && rr_options_store(entries[1], 0) && rr_options_store(entries[2], 0))
+            memset(index ? rr_options.rkey : rr_options.key, 0, sizeof rr_options.key);
+    } else if (rr_options_store(index ? L"restart_pad" : L"quit_pad", 0)) *(index ? &rr_options.rpad : &rr_options.pad) = 0;
+}
+/* "Ctrl + Q", "Start + Back", "Unassigned" or the capture prompt. */
+static void rr_combo_value(char *out, size_t size, int index, bool gamepad) {
+    out[0] = 0;
+    if (rr_options.capture == rr_combo_id(index, gamepad)) {snprintf(out, size, "%s", rr_tr("Press combo, then release")); return;}
+    if (!gamepad) {
+        const int *keys = index ? rr_options.rkey : rr_options.key;
+        for (int i = 0; i < 3; ++i) if (keys[i]) {
+            size_t used = strlen(out);
+            snprintf(out + used, size - used, "%s%s", used ? " + " : "", rr_keyboard_name((SDL_Scancode)keys[i]));
+        }
+    } else {
+        int pad = index ? rr_options.rpad : rr_options.pad;
+        for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; ++i) if (pad & (1 << i)) {
+            size_t used = strlen(out);
+            const char *name = SDL_GameControllerGetStringForButton((SDL_GameControllerButton)i);
+            snprintf(out + used, size - used, "%s%s", used ? " + " : "", name ? name : "?");
+        }
+    }
+    if (!out[0]) snprintf(out, size, "%s", rr_tr("Unassigned"));
+}
+/* Hint line for a selected combination row. */
+static const char *rr_combo_hint(int index) {
+    if (rr_options.capture) return rr_tr("Esc: cancel binding");
+    return rr_tr(index ? "Hold restart combo for 1 second" : "Hold quit combo for 1 second");
+}
+
+/* The options page: the function-key settings, the audio filter and, on
+ * computers, the function-key choice. Each host builds its rows. */
+#define RR_ROW_AUDIO (-1)
+#define RR_ROW_FKEYS (-2)
+typedef struct { char text[10][80]; const char *rows[10]; int keys[10], count; } RrOptionRows;
+static void rr_option_row(RrOptionRows *d, int key, const char *format, const char *value) {
+    if (d->count >= 10) return;
+    snprintf(d->text[d->count], sizeof d->text[0], rr_tr(format), value);
+    d->rows[d->count] = d->text[d->count]; d->keys[d->count] = key; ++d->count;
+}
+/* Rows every console shares, after its function-key rows. */
+static void rr_option_shared_rows(RrOptionRows *d) {
+    static const char *const modes[] = {"Off", "Light", "Soft"};
+    char text[80];
+    snprintf(text, sizeof text, "%s: %s", rr_tr("Audio filter"), rr_tr(modes[SDL_AtomicGet(&rr_options.audio_mode)]));
+    rr_option_row(d, RR_ROW_AUDIO, "%s", text);
+    if (rr_options.fkeys) {
+        snprintf(text, sizeof text, rr_tr("F1-F%d keys: %s"), rr_options.fkeys,
+            rr_options.fkeys_machine ? rr_options.machine : "Retro-Recomp");
+        rr_option_row(d, RR_ROW_FKEYS, "%s", text);
+    }
+}
+static const char *rr_option_filter_name(int filter) {
+    static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"};
+    return rr_tr(names[filter >= 0 && filter < 4 ? filter : 0]);
+}
+static const char *rr_option_mode_name(int mode) {
+    static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen"};
+    return rr_tr(names[mode >= 0 && mode < 3 ? mode : 0]);
+}
+/* Rows of the options page: one menu line each, from the first line. */
+static int rr_pages_row_at(const SDL_Event *e, int count) {
+    if (e->type != SDL_MOUSEBUTTONDOWN || e->button.button != SDL_BUTTON_LEFT || !rr_options.renderer) return -1;
+    SDL_Window *win = SDL_GetWindowFromID(e->button.windowID);
+    if (!win) return -1;
+    int x, y, scale, ww, wh, rw, rh;
+    rr_menu_layout(rr_options.renderer, &x, &y, &scale);
+    SDL_GetWindowSize(win, &ww, &wh); SDL_GetRendererOutputSize(rr_options.renderer, &rw, &rh);
+    if (ww <= 0 || wh <= 0 || scale <= 0) return -1;
+    int px = (e->button.x * rw / ww - x) / scale, py = (e->button.y * rh / wh - y) / scale;
+    if (px < 12 || px >= 244 || py < RR_MENU_FIRST_LINE || py >= RR_MENU_FIRST_LINE + count * RR_MENU_LINE) return -1;
+    return (py - RR_MENU_FIRST_LINE) / RR_MENU_LINE;
+}
+/* Function-key rows run their key exactly as the shortcut does; the audio
+ * filter and computer rows change here. Enter / A / + choose the next value,
+ * - the previous one. Returns the function key to run, -1 when the event was
+ * used, 0 for events the host keeps (pages, shortcuts, Esc). */
+static int rr_option_page_event(const SDL_Event *e, const RrOptionRows *d) {
+    if (d->count <= 0) return 0;
+    int *row = &rr_options.row;
+    if (*row >= d->count) *row = 0;
+    int key = e->type == SDL_KEYDOWN && !e->key.repeat ? e->key.keysym.scancode : 0;
+    int button = e->type == SDL_CONTROLLERBUTTONDOWN ? e->cbutton.button : -1;
+    int clicked = rr_pages_row_at(e, d->count);
+    if (clicked >= 0) {*row = clicked; key = SDL_SCANCODE_RETURN;}
+    if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP) {*row = (*row + d->count - 1) % d->count; return -1;}
+    if (key == SDL_SCANCODE_DOWN || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {*row = (*row + 1) % d->count; return -1;}
+    bool back = key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS;
+    bool next = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER || key == SDL_SCANCODE_EQUALS ||
+        key == SDL_SCANCODE_KP_PLUS || button == SDL_CONTROLLER_BUTTON_A;
+    if (!back && !next) return 0;
+    if (d->keys[*row] == RR_ROW_AUDIO) {
+        int mode = (SDL_AtomicGet(&rr_options.audio_mode) + (back ? 2 : 1)) % 3;
+        if (rr_options_store(L"audio_filter", mode)) SDL_AtomicSet(&rr_options.audio_mode, mode);
+        return -1;
+    }
+    if (d->keys[*row] == RR_ROW_FKEYS) {
+        if (rr_options_store(L"fkeys_machine", !rr_options.fkeys_machine)) rr_options.fkeys_machine = !rr_options.fkeys_machine;
+        return -1;
+    }
+    return next ? d->keys[*row] : -1;
+}
+static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page, int pages) {
+    rr_options.renderer = r;
+    int x, y, unit; rr_menu_layout(r, &x, &y, &unit);
+    rr_menu_begin(r, x, y, unit);
+    rr_menu_page_header(r, x, y, unit, rr_tr("Retro-Recomp - Options"), page, pages);
+    if (rr_options.row >= d->count) rr_options.row = 0;
+    for (int i = 0; i < d->count; ++i) {
+        int line = RR_MENU_FIRST_LINE + i * RR_MENU_LINE;
+        if (i == rr_options.row) rr_menu_box(r, x, y, unit, 12, line, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+        rr_menu_text(r, x, y, unit, 16, line, d->rows[i], RR_MENU_GOLD);
+    }
+    bool computer = d->count && d->keys[rr_options.row] == RR_ROW_FKEYS;
+    if (rr_options.status[0]) rr_menu_text(r, x, y, unit, 14, RR_MENU_HINT_LINE, rr_options.status, RR_MENU_GOLD);
+    else rr_menu_text(r, x, y, unit, 14, RR_MENU_HINT_LINE,
+        rr_tr(computer ? "Ctrl+F1-F12: Retro-Recomp shortcuts" : "Enter / A: change"), RR_MENU_HINT);
+    rr_menu_text(r, x, y, unit, 14, RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"), RR_MENU_HINT);
+    rr_menu_end(r);
+}
+
+/* Returns true when the host must not process the event again. A quit or
+ * restart capture takes every event; an existing binding capture has
+ * priority. Guide opens F2 on its options page and closes F2. */
+static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture) {
     rr_options_observe(e);
     if (binding_capture) rr_options.suppressed = 1;
     if (e->type == SDL_QUIT) return false;
     int key = e->type == SDL_KEYDOWN && !e->key.repeat ? e->key.keysym.scancode : 0;
     int button = e->type == SDL_CONTROLLERBUTTONDOWN ? e->cbutton.button : -1;
-    if (*menu == RR_OPTIONS_MENU && rr_options.capture) {
+    if (rr_options.capture) {
         if (key == SDL_SCANCODE_ESCAPE) {rr_options.capture = 0; return true;}
         if (!rr_options.armed) {
             if (!rr_options_any_down()) rr_options.armed = 1;
@@ -184,63 +378,21 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
         if ((rr_options.count || rr_options.pending_pad) && !rr_options_any_down()) rr_options_capture_done();
         return true;
     }
-    if (!binding_capture && !rr_options_component(key,button) && ((f10 && key == SDL_SCANCODE_F10) ||
-            (key == SDL_SCANCODE_O && *menu) || button == SDL_CONTROLLER_BUTTON_GUIDE ||
-            (button == SDL_CONTROLLER_BUTTON_Y && *menu))) {
-        *menu = *menu == RR_OPTIONS_MENU ? 0 : RR_OPTIONS_MENU;
+    if (!binding_capture && !rr_options_component(key,button) && button == SDL_CONTROLLER_BUTTON_GUIDE) {
+        *menu = rr_pages_open(*menu) ? 0 : RR_OPTIONS_MENU;
         rr_options.row = 0; rr_options.status[0] = 0; rr_options.suppressed = 1;
         return true;
     }
-    if (*menu != RR_OPTIONS_MENU) {
-        /* An explicitly assigned quit chord takes priority over host-only
-         * shortcuts; ordinary cartridge buttons keep their usual behavior. */
-        return !binding_capture && rr_options_component(key,button) &&
-            ((key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12) ||
-             key == SDL_SCANCODE_P || button == SDL_CONTROLLER_BUTTON_GUIDE);
-    }
-    if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT && rr_options.renderer) {
-        SDL_Window *win = SDL_GetWindowFromID(e->button.windowID);
-        if (win) {
-            int x,y,scale,ww,wh,rw,rh;
-            rr_menu_layout(rr_options.renderer,&x,&y,&scale);
-            SDL_GetWindowSize(win,&ww,&wh); SDL_GetRendererOutputSize(rr_options.renderer,&rw,&rh);
-            if (ww <= 0 || wh <= 0 || scale <= 0) return true;
-            int px = (e->button.x * rw / ww - x) / scale;
-            int py = (e->button.y * rh / wh - y) / scale;
-            if (px >= 12 && px < 244 && py >= 32 && py < 32 + 6 * 17 && (py - 32) % 17 < 15) {
-                rr_options.row = (py - 32) / 17; key = SDL_SCANCODE_RETURN;
-            }
-        }
-    }
-    if (key == SDL_SCANCODE_ESCAPE || button == SDL_CONTROLLER_BUTTON_B) *menu = 0;
-    else if (key == SDL_SCANCODE_UP || button == SDL_CONTROLLER_BUTTON_DPAD_UP) rr_options.row = (rr_options.row + 5) % 6;
-    else if (key == SDL_SCANCODE_DOWN || button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) rr_options.row = (rr_options.row + 1) % 6;
-    else if ((key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE || button == SDL_CONTROLLER_BUTTON_X) && rr_options.row) {
-        if (rr_options.row == 1 || rr_options.row == 3) {
-            const wchar_t *const *entries = rr_options.row == 1 ? rr_options_quit_keys : rr_options_restart_keys;
-            if (rr_options_store(entries[0], 0) && rr_options_store(entries[1], 0) && rr_options_store(entries[2], 0))
-                memset(rr_options.row == 1 ? rr_options.key : rr_options.rkey, 0, sizeof rr_options.key);
-        } else if (rr_options.row == 2 && rr_options_store(L"quit_pad", 0)) rr_options.pad = 0;
-        else if (rr_options.row == 4 && rr_options_store(L"restart_pad", 0)) rr_options.rpad = 0;
-    } else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_LEFT || key == SDL_SCANCODE_RIGHT ||
-            button == SDL_CONTROLLER_BUTTON_A || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT || button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-        if (!rr_options.row) {
-            int mode = (SDL_AtomicGet(&rr_options.audio_mode) +
-                ((key == SDL_SCANCODE_LEFT || button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? 2 : 1)) % 3;
-            if (rr_options_store(L"audio_filter", mode)) SDL_AtomicSet(&rr_options.audio_mode, mode);
-        } else if (rr_options.row == 5) *menu = 0;
-        else {
-            rr_options.capture = rr_options.row;
-            rr_options.armed = 0; rr_options.count = 0; rr_options.pending_pad = 0;
-            memset(rr_options.pending_key, 0, sizeof rr_options.pending_key);
-            rr_options.status[0] = 0;
-        }
-    }
-    return true;
+    /* An explicitly assigned quit chord takes priority over host-only
+     * shortcuts; ordinary cartridge buttons keep their usual behavior. */
+    return !binding_capture && rr_options_component(key,button) &&
+        ((key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12) ||
+         key == SDL_SCANCODE_P || button == SDL_CONTROLLER_BUTTON_GUIDE);
 }
 
 static bool rr_options_quit(int menu) {
-    if (!rr_options.focused || menu == RR_OPTIONS_MENU || rr_options.suppressed) {
+    (void)menu;
+    if (!rr_options.focused || rr_options.capture || rr_options.suppressed) {
         rr_options.held = 0;
         if (!rr_options_any_down()) rr_options.suppressed = 0;
         return false;
@@ -258,7 +410,8 @@ static bool rr_options_quit(int menu) {
 /* Restart binding: fires once after a one-second hold of the whole combination,
  * then re-arms only when it is released. Hosts poll it every frame. */
 static bool rr_options_restart(int menu) {
-    if (!rr_options.focused || menu == RR_OPTIONS_MENU) {rr_options.rheld = 0; return false;}
+    (void)menu;
+    if (!rr_options.focused || rr_options.capture) {rr_options.rheld = 0; return false;}
     if (rr_options.suppressed && !rr_options_any_down()) rr_options.suppressed = 0;
     bool down = rr_options.rkey[0] != 0;
     for (int i = 0; i < 3; ++i) if (rr_options.rkey[i] && !rr_options.down[rr_options.rkey[i]]) down = false;
@@ -272,47 +425,5 @@ static bool rr_options_restart(int menu) {
     if (rr_options.rfired || SDL_GetTicks64() - rr_options.rhold < 1000) return false;
     rr_options.rfired = 1;
     return true;
-}
-
-static void rr_options_draw(SDL_Renderer *renderer) {
-    rr_options.renderer = renderer;
-    int x, y, scale; rr_menu_layout(renderer, &x, &y, &scale);
-    rr_menu_begin(renderer, x, y, scale);
-#define RR_OPT_TEXT(px,py,t) rr_menu_text(renderer,x,y,scale,px,py,rr_tr(t),RR_MENU_GOLD)
-    RR_OPT_TEXT(14, 15, "Retro-Recomp - Options");
-    const char *modes[] = {"Off", "Light", "Soft"};
-    char lines[6][100];
-    snprintf(lines[0], 100, "%s: %s", rr_tr("Audio filter"), rr_tr(modes[SDL_AtomicGet(&rr_options.audio_mode)]));
-    snprintf(lines[1], 100, "%s: %s", rr_tr("Quit: keyboard"), rr_tr(rr_options.key[0] ? "Configured" : "Unassigned"));
-    snprintf(lines[2], 100, "%s: %s", rr_tr("Quit: gamepad"), rr_tr(rr_options.pad ? "Configured" : "Unassigned"));
-    snprintf(lines[3], 100, "%s: %s", rr_tr("Restart: keyboard"), rr_tr(rr_options.rkey[0] ? "Configured" : "Unassigned"));
-    snprintf(lines[4], 100, "%s: %s", rr_tr("Restart: gamepad"), rr_tr(rr_options.rpad ? "Configured" : "Unassigned"));
-    snprintf(lines[5], 100, "%s", rr_tr("Close"));
-    for (int i = 0; i < 6; ++i) {
-        if (i == rr_options.row) rr_menu_box(renderer,x,y,scale,12,32+i*17,232,15,RR_MENU_SELECT,255);
-        rr_menu_text(renderer,x,y,scale,16,35+i*17,lines[i],RR_MENU_GOLD);
-    }
-    RR_OPT_TEXT(14, 138, rr_options.capture ? "Press combo, then release" :
-        rr_options.row == 3 || rr_options.row == 4 ? "Hold restart combo for 1 second" : "Hold quit combo for 1 second");
-    RR_OPT_TEXT(14, 150, rr_options.capture ? "Esc: cancel binding" : "Enter / A: change | X: clear");
-    char combo[100] = "";
-    const int *keys = rr_options.row == 3 ? rr_options.rkey : rr_options.key;
-    int pad = rr_options.row == 4 ? rr_options.rpad : rr_options.pad;
-    if (!rr_options.status[0] && (rr_options.row == 1 || rr_options.row == 3)) {
-        for (int i = 0; i < 3; ++i) if (keys[i]) {
-            size_t used = strlen(combo);
-            snprintf(combo + used, sizeof combo - used, "%s%s", used ? " + " : "", rr_keyboard_name((SDL_Scancode)keys[i]));
-        }
-    } else if (!rr_options.status[0] && (rr_options.row == 2 || rr_options.row == 4)) {
-        for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX; ++i) if (pad & (1u << i)) {
-            size_t used = strlen(combo);
-            const char *name = SDL_GameControllerGetStringForButton((SDL_GameControllerButton)i);
-            snprintf(combo + used, sizeof combo - used, "%s%s", used ? " + " : "", name ? name : "?");
-        }
-    }
-    RR_OPT_TEXT(14, 162, rr_options.status[0] ? rr_options.status : combo);
-    RR_OPT_TEXT(14, 174, "Esc / B: close");
-#undef RR_OPT_TEXT
-    rr_menu_end(renderer);
 }
 #endif

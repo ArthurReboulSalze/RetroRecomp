@@ -172,23 +172,26 @@ static void sprite_option(void) {
     key(SDL_SCANCODE_F5, 0); assert(controls.reduce_sprite_flicker);
     key(SDL_SCANCODE_F5, 1); assert(controls.reduce_sprite_flicker);
     controls_load(); assert(controls.reduce_sprite_flicker);
-    /* Without the Light Phaser, F10 opens and closes the shared options. */
-    key(SDL_SCANCODE_F10, 0); assert(controls.reduce_sprite_flicker && menu == RR_OPTIONS_MENU);
+    /* F10 is free; the shared options are the last F2 page (Left from the first). */
     key(SDL_SCANCODE_F10, 0); assert(controls.reduce_sprite_flicker && menu == 0);
+    key(SDL_SCANCODE_F2, 0); key(SDL_SCANCODE_LEFT, 0); assert(controls.reduce_sprite_flicker && menu == RR_OPTIONS_MENU);
+    key(SDL_SCANCODE_F2, 0); assert(controls.reduce_sprite_flicker && menu == 0);
     key(SDL_SCANCODE_F5, 0); assert(!controls.reduce_sprite_flicker);
     controls_load(); assert(!controls.reduce_sprite_flicker);
     lightphaser_reset(true, 0);
     key(SDL_SCANCODE_F5, 0); assert(controls.reduce_sprite_flicker && menu == 0);
-    key(SDL_SCANCODE_F10, 0); assert(menu == 4 && controls.reduce_sprite_flicker);
-    key(SDL_SCANCODE_F10, 1); assert(menu == 4 && controls.reduce_sprite_flicker);
+    /* The Light Phaser page follows the four control pages; F10 and G are free. */
     key(SDL_SCANCODE_F10, 0); assert(menu == 0 && controls.reduce_sprite_flicker);
     key(SDL_SCANCODE_F2, 0); assert(menu == 2);
-    key(SDL_SCANCODE_G, 0); assert(menu == 4);
-    key(SDL_SCANCODE_F10, 0); assert(menu == 0);
+    key(SDL_SCANCODE_G, 0); assert(menu == 2);
+    for (int i = 0; i < 4; ++i) key(SDL_SCANCODE_RIGHT, 0);
+    assert(menu == 4 && controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_RIGHT, 1); assert(menu == 4 && controls.reduce_sprite_flicker);
+    key(SDL_SCANCODE_F2, 0); assert(menu == 0);
     key(SDL_SCANCODE_F5, 0); assert(!controls.reduce_sprite_flicker);
     lightphaser_reset(false, 0);
     assert(controls.filter == FILTER_NEAREST && controls.display_mode == 0);
-    puts("PASS: F5 toggles/persists SMS sprite reduction, F10 opens/closes gun options, G remains available, repeated keys ignored and other display preferences preserved.");
+    puts("PASS: F5 toggles/persists SMS sprite reduction, F2 pages reach the options and Light Phaser, F10/G free, repeated keys ignored and other display preferences preserved.");
 #else
     assert(!controls.reduce_sprite_flicker);
     key(SDL_SCANCODE_F5, 0); assert(controls.reduce_sprite_flicker && menu == 0);

@@ -59,6 +59,7 @@ static SDL_Event button_event(int player, int button) {
     return event;
 }
 static void key(SDL_Scancode code) { SDL_Event event = key_event(code); assert(handle_event(&event)); }
+static void key_up(SDL_Scancode code) { SDL_Event event = key_event(code); event.type = SDL_KEYUP; assert(handle_event(&event)); }
 
 static uint64_t hash_bytes(uint64_t h, const void *data, size_t n) {
     const uint8_t *p = data;
@@ -78,7 +79,7 @@ static SDL_Event pause_event(int kind) {
     if (kind == 4) return key_event(SDL_SCANCODE_KP_7);
     if (kind == 5) return key_event(SDL_SCANCODE_RETURN);
     if (kind == 6) return key_event(SDL_SCANCODE_KP_ENTER);
-    return kind == 1 ? key_event(SDL_SCANCODE_P) : button_event(kind - 2, SDL_CONTROLLER_BUTTON_START);
+    return kind == 1 ? key_event(SDL_SCANCODE_RETURN) : button_event(kind - 2, SDL_CONTROLLER_BUTTON_START);
 }
 static uint32_t resume_timer(uint32_t interval, void *kind) {
     (void)interval;
@@ -221,26 +222,29 @@ int main(int argc, char **argv) {
     controls_load(); assert(controls.keys[0][4] == SDL_SCANCODE_C);
     key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_ESCAPE);
     assert(!capturing && controls.keys[0][4] == SDL_SCANCODE_C);
-    key(SDL_SCANCODE_TAB); key(SDL_SCANCODE_RETURN);
+    key(SDL_SCANCODE_TAB); assert(menu == 2 && bind_gamepad && selected_row == 4); key(SDL_SCANCODE_RETURN);
     SDL_Event event = button_event(0, SDL_CONTROLLER_BUTTON_X); assert(handle_event(&event));
     controls_load(); assert(controls.buttons[0][4] == SDL_CONTROLLER_BUTTON_X);
-    key(SDL_SCANCODE_RIGHT); assert(selected_player == 1);
+    key(SDL_SCANCODE_RIGHT); assert(selected_player == 1 && !bind_gamepad);
+    key(SDL_SCANCODE_RIGHT); assert(selected_player == 1 && bind_gamepad && settings_page() == 3);
     key(SDL_SCANCODE_RETURN);
     event = button_event(0, SDL_CONTROLLER_BUTTON_Y); assert(handle_event(&event));
     assert(capturing && controls.buttons[1][4] == SDL_CONTROLLER_BUTTON_A);
     event = button_event(1, SDL_CONTROLLER_BUTTON_Y); assert(handle_event(&event));
     assert(!capturing && controls.buttons[1][4] == SDL_CONTROLLER_BUTTON_Y);
-    key(SDL_SCANCODE_TAB); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_V);
+    key(SDL_SCANCODE_LEFT); assert(selected_player == 1 && !bind_gamepad); key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_V);
     controls_load();
     assert(controls.keys[1][4] == SDL_SCANCODE_V && controls.keys[0][4] == SDL_SCANCODE_C);
     assert(controls.buttons[1][4] == SDL_CONTROLLER_BUTTON_Y && controls.buttons[0][4] == SDL_CONTROLLER_BUTTON_X);
     key(SDL_SCANCODE_D); assert(controls.keys[1][4] == SDL_SCANCODE_KP_8 && controls.keys[0][4] == SDL_SCANCODE_C);
-    key(SDL_SCANCODE_TAB); key(SDL_SCANCODE_C);
+    key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_C);
     assert(controller_player(id2) == 0 && controls.first_controller_player == 1);
     controls_load(); assert(controls.first_controller_player == 1);
     key(SDL_SCANCODE_C); assert(controller_player(id2) == 1 && controls.first_controller_player == 0);
     for (int p = 0; p < CONTROL_PLAYERS; ++p)
-        assert(!controls_bind(p, 4, true, SDL_CONTROLLER_BUTTON_START) && !controls_bind(p, 4, false, SDL_SCANCODE_P));
+        assert(!controls_bind(p, 4, true, SDL_CONTROLLER_BUTTON_START) && !controls_bind(p, 4, false, SDL_SCANCODE_RETURN));
+    /* P is free on the Master System: Enter is the default Start/Menu key. */
+    assert(!controls_reserved(SDL_SCANCODE_P) && controls.keys[0][CONTROL_PAUSE] == SDL_SCANCODE_RETURN);
     assert(!controls_bind(1, 4, false, SDL_SCANCODE_KP_7));
     assert(controls_bind(1, 4, false, SDL_SCANCODE_KP_4)); /* former reset key is now free */
     assert(controls_defaults(1, false));
@@ -252,12 +256,47 @@ int main(int argc, char **argv) {
     assert(!controls_bind(-1, 4, false, SDL_SCANCODE_C) && !controls_defaults(2, false));
     key(SDL_SCANCODE_ESCAPE); assert(menu == 0);
     for (int p = 0; p < CONTROL_PLAYERS; ++p) assert(controls_defaults(p, false) && controls_defaults(p, true));
+    key(SDL_SCANCODE_F2); assert(menu == 2 && !selected_player && !bind_gamepad && settings_page() == 0);
+    key(SDL_SCANCODE_LEFT); assert(menu == RR_OPTIONS_MENU && settings_page() == 4);
+    int filter_before = controls.filter;
+    key(SDL_SCANCODE_RETURN); assert(menu == RR_OPTIONS_MENU && controls.filter == rr_menu_next_filter(filter_before));
+    assert(controls_filter(filter_before));
+    key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); assert(rr_options.row == 2);
+    key(SDL_SCANCODE_RETURN); assert(controls.reduce_sprite_flicker && menu == RR_OPTIONS_MENU);
+    key(SDL_SCANCODE_RETURN); assert(!controls.reduce_sprite_flicker);
+    /* The audio filter follows the function-key rows (F3-F7, F12). */
+    for (int i = 0; i < 4; ++i) key(SDL_SCANCODE_DOWN);
+    int audio_before = SDL_AtomicGet(&rr_options.audio_mode);
+    key(SDL_SCANCODE_RETURN); assert(SDL_AtomicGet(&rr_options.audio_mode) == (audio_before + 1) % 3);
+    key(SDL_SCANCODE_MINUS); assert(SDL_AtomicGet(&rr_options.audio_mode) == audio_before);
+    draw_game(sample, 256, 192); draw_menu(); screenshot("options-page.bmp");
+    key(SDL_SCANCODE_RIGHT); assert(menu == 2 && !selected_player && !bind_gamepad && !selected_row);
+    /* Player 1's pages end with the quit and restart combinations. */
+    key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE + RR_COMBO_ROWS);
+    key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE + 1);
+    /* key() and button_event() send presses only: release everything first. */
+    memset(rr_options.down, 0, sizeof rr_options.down);
+    for (int i = 0; i < 4; ++i) rr_options.pads[i].mask = 0;
+    key(SDL_SCANCODE_RETURN); assert(rr_options.capture == 1 && !capturing);
+    key_up(SDL_SCANCODE_RETURN); assert(rr_options.armed);
+    key(SDL_SCANCODE_END); key_up(SDL_SCANCODE_END);
+    assert(!rr_options.capture && rr_options.key[0] == SDL_SCANCODE_END && !rr_options.key[1]);
+    draw_game(sample, 256, 192); draw_menu(); screenshot("keyboard-combos.bmp");
+    key(SDL_SCANCODE_DELETE); assert(!rr_options.key[0]);
+    key(SDL_SCANCODE_TAB); assert(bind_gamepad && selected_row == CONTROL_PAUSE + 1);
+    draw_game(sample, 256, 192); draw_menu(); screenshot("gamepad-combos.bmp");
+    key(SDL_SCANCODE_RIGHT); assert(selected_player == 1 && !bind_gamepad && selected_row == CONTROL_PAUSE);
+    event = button_event(0, SDL_CONTROLLER_BUTTON_LEFTSHOULDER); assert(handle_event(&event) && menu == 2 && bind_gamepad && !selected_player);
+    event = button_event(0, SDL_CONTROLLER_BUTTON_B); assert(handle_event(&event) && !menu);
+    key(SDL_SCANCODE_F10); assert(!menu); /* F10 is free. */
+    key(SDL_SCANCODE_F1); key(SDL_SCANCODE_F2); assert(menu == 2); key(SDL_SCANCODE_F2); assert(!menu);
 
     /* Start/Menu is the last row for both players, as on the other consoles:
      * Shift+F1 is the only reset shortcut. Capture precedes the old pause
      * action and ignores the other player's controller. */
     key(SDL_SCANCODE_F2); selected_player = selected_row = 0; bind_gamepad = true;
-    key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE);
+    for (int i = 0; i < 1 + RR_COMBO_ROWS; ++i) key(SDL_SCANCODE_UP); /* past restart and quit */
+    assert(selected_row == CONTROL_PAUSE);
     key(SDL_SCANCODE_KP_ENTER); assert(capturing && menu == 2);
     event = button_event(1, SDL_CONTROLLER_BUTTON_BACK); assert(handle_event(&event) && capturing);
     event = button_event(0, SDL_CONTROLLER_BUTTON_LEFTSHOULDER); assert(handle_event(&event) && !capturing);
@@ -276,7 +315,8 @@ int main(int argc, char **argv) {
     event = button_event(0, SDL_CONTROLLER_BUTTON_LEFTSHOULDER); assert(handle_event(&event) && menu == 3);
     assert(handle_event(&event) && !menu);
     event = shift_key_event(SDL_SCANCODE_F1); assert(!handle_event(&event) && smsrecomp_take_reset_request());
-    key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); assert(selected_player == 1);
+    key(SDL_SCANCODE_F2); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_RIGHT);
+    assert(selected_player == 1 && bind_gamepad);
     selected_row = 0; key(SDL_SCANCODE_UP); assert(selected_row == CONTROL_PAUSE);
     key(SDL_SCANCODE_DOWN); assert(selected_row == 0);
     key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN);
@@ -566,26 +606,31 @@ int main(int argc, char **argv) {
         gun_x=128; gun_y=96;
     }
     assert(controls_phaser_dot_size(1) && controls_phaser_shape(PHASER_CROSS) && controls_phaser_color(PHASER_RED));
-    key(SDL_SCANCODE_F10); assert(menu == 4);
-    key(SDL_SCANCODE_RIGHT); assert(controls.phaser_dot_size == 2);
+    key(SDL_SCANCODE_F10); assert(!menu);
+    key(SDL_SCANCODE_F2); for (int i = 0; i < 4; ++i) key(SDL_SCANCODE_RIGHT);
+    assert(menu == 4 && settings_page() == 4 && gun_option_row == 0);
+    key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); assert(controls.phaser_dot_size == 2 && menu == 4);
     controls_load(); assert(controls.phaser_dot_size == 2);
     SDL_Event dot_click; SDL_zero(dot_click); dot_click.type=SDL_MOUSEBUTTONDOWN;
     dot_click.button.button=SDL_BUTTON_LEFT; dot_click.button.x=660; dot_click.button.y=195;
     assert(handle_event(&dot_click) && controls.phaser_dot_size == 3);
-    key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RIGHT); assert(controls.phaser_shape == PHASER_DOT);
-    key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_LEFT); assert(controls.phaser_color == PHASER_GREEN);
-    key(SDL_SCANCODE_RIGHT); assert(controls.phaser_color == PHASER_RED);
-    SDL_Event gun_pad = button_event(0, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RETURN); assert(controls.phaser_shape == PHASER_DOT);
+    key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_MINUS); assert(controls.phaser_color == PHASER_GREEN);
+    key(SDL_SCANCODE_EQUALS); assert(controls.phaser_color == PHASER_RED);
+    SDL_Event gun_pad = button_event(0, SDL_CONTROLLER_BUTTON_A);
     assert(handle_event(&gun_pad) && controls.phaser_color == PHASER_WHITE);
     dot_click.button.y=3*44; assert(handle_event(&dot_click) && controls.phaser_shape == PHASER_CROSS);
     dot_click.button.y=3*92; assert(handle_event(&dot_click) && controls.phaser_color == PHASER_GREEN);
     controls_load(); assert(controls.phaser_shape == PHASER_CROSS && controls.phaser_color == PHASER_GREEN && controls.phaser_dot_size == 3);
-    draw_game(sample, 256, 192); ui_menu(renderer, 4, 0, gun_option_row, false, false, NULL, NULL);
+    draw_game(sample, 256, 192); draw_menu();
     assert(pixel(384,357) == 0x00FF00); /* Same reticle renderer in the preview. */
     screenshot("lightphaser-options.bmp");
     assert(controls_language(1)); draw_game(sample,256,192); ui_menu(renderer,4,0,gun_option_row,false,false,NULL,NULL);
     screenshot("lightphaser-options-fr.bmp"); assert(controls_language(0));
-    key(SDL_SCANCODE_F10); assert(!menu);
+    key(SDL_SCANCODE_RIGHT); assert(menu == RR_OPTIONS_MENU && settings_page() == 5);
+    draw_game(sample, 256, 192); draw_menu(); screenshot("options-page-lightphaser.bmp");
+    key(SDL_SCANCODE_RIGHT); assert(menu == 2 && settings_page() == 0);
+    key(SDL_SCANCODE_F2); assert(!menu);
     draw_game(sample,256,192); screenshot("lightphaser-cross-green.bmp");
     test_mouse_buttons = SDL_BUTTON_RMASK; sample_controls(); lightphaser_position(&gx, &gy, &trigger);
     assert(gx == -1 && gy == -1 && trigger);
@@ -624,8 +669,9 @@ int main(int argc, char **argv) {
     }
     assert(controls_language(0));
     draw_game(sample, 256, 192); ui_menu(renderer, 3, 0, 0, false, false, NULL, NULL); screenshot("pause.bmp");
-    key(SDL_SCANCODE_P); key(SDL_SCANCODE_F1); assert(menu == 1); key(SDL_SCANCODE_ESCAPE); assert(menu == 3);
-    key(SDL_SCANCODE_P); assert(!menu);
+    key(SDL_SCANCODE_P); assert(!menu); /* P is free on the Master System. */
+    key(SDL_SCANCODE_RETURN); key(SDL_SCANCODE_F1); assert(menu == 1); key(SDL_SCANCODE_ESCAPE); assert(menu == 3);
+    key(SDL_SCANCODE_RETURN); assert(!menu);
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     _putenv_s("SMSRECOMP_STRICT", "1");
     uint64_t baseline = run_game(0, 0);
@@ -661,6 +707,6 @@ int main(int argc, char **argv) {
     assert(run_game(0, 0) == baseline);
     host_shutdown();
     puts("PASS: J1/J2 independent remapping/config migration, two virtual controllers/hotplug, 4096 simultaneous port states.");
-    puts("PASS: filters/pixels/fullscreen, P/Enter/numpad and both controllers pause, Shift+F1 reset; native CPU/RAM/VDP/PCM.");
+    puts("PASS: F2 pages (controls with quit/restart combinations, Light Phaser, options), Enter/numpad and both controllers pause, Shift+F1 reset; native CPU/RAM/VDP/PCM.");
     return 0;
 }

@@ -33,8 +33,9 @@ the standard controller remains on port 1.
 
 Move the mouse to aim and left-click to fire. A small red cross is the default.
 The cross uses two display-pixel-wide strokes on both 16-bit profiles.
-F5 opens gun settings, also available through Tab in F2 controls. Choose cross
-or dot, size 1–12, and red, white or pure green. The overlay is drawn after
+The gun page of F2, after the four control pages, holds the gun settings; F5
+no longer opens them. Choose cross or dot, size 1–12, and red, white or pure
+green (Enter/A or + next, - previous). The overlay is drawn after
 the game and scanlines, without changing the console framebuffer. Mouse
 coordinates follow the actual game rectangle in windowed, integer fullscreen,
 fractional fullscreen and HiDPI modes. Bars outside that rectangle are offscreen.
@@ -51,7 +52,7 @@ Scope Turbo is a separate option in F5, on by default. It represents the
 gun's physical turbo switch; F6 still controls gamepad autofire. Non-turbo
 Scope Fire and Pause are edge-triggered; Cursor stays active while held.
 Follow each game's original calibration and controller-selection screens.
-Original flashes remain intact. P pauses the RetroRecomp host independently
+Original flashes remain intact. P no longer pauses the RetroRecomp host; Start pauses the game independently
 of a console gun's Pause button.
 
 Only an explicit setting change creates `datas/Retro-Recomp.ini`. Gun settings
