@@ -7,6 +7,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
@@ -90,6 +91,17 @@ UPSTREAM_CREDITS = (
 
 
 HATCH_SPACING = 4
+# The header artwork is drawn smaller than its 600 x 132 source.
+HEADER_SCALE = 0.72
+HEADER_HEIGHT = round(132 * HEADER_SCALE)
+
+
+def _scaled_photo(path, master):
+    """Header artwork at its displayed size, resampled smoothly."""
+    from PIL import Image, ImageTk
+    with Image.open(path) as image:
+        size = (round(image.width * HEADER_SCALE), round(image.height * HEADER_SCALE))
+        return ImageTk.PhotoImage(image.convert('RGBA').resize(size, Image.Resampling.LANCZOS), master=master)
 
 
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
@@ -98,6 +110,12 @@ def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     values = [round(channel(base, at) * (1 - visibility) +
                     channel(foreground, at) * visibility) for at in (1, 3, 5)]
     return '#{:02x}{:02x}{:02x}'.format(*values)
+
+
+# Pixel trophy of the knowledge 'achievement' card ('o': highlight).
+TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
+          '.XXXXXXXXXX.', '..XXXXXXXX..', '...XXXXXX...', '.....XX.....',
+          '.....XX.....', '....XXXX....', '...XXXXXX...', '...XXXXXX...')
 
 
 # Interface-only icon: branding.py is a shared compiler input.
@@ -216,21 +234,23 @@ class Application:
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
 
-        header = tk.Canvas(app, height=132, bg=COLORS['header'], highlightthickness=0,
+        header = tk.Canvas(app, height=HEADER_HEIGHT, bg=COLORS['header'], highlightthickness=0,
                            borderwidth=0)
         self.header = header
         header.pack(fill='x')
         banner_path = ASSETS / 'assets/Retro-Recomp-banner.png'
         try:
-            self.banner = tk.PhotoImage(file=str(banner_path))
+            self.banner = _scaled_photo(banner_path, app)
             header.create_image(24, 0, image=self.banner, anchor='nw', tags='banner')
-        except (OSError, tk.TclError):
+        except (OSError, ValueError, tk.TclError):
             self.banner = None
         try:
-            self.console_art = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-consoles.png'))
-        except (OSError, tk.TclError):
+            self.console_art = _scaled_photo(ASSETS / 'assets/Retro-Recomp-consoles.png', app)
+        except (OSError, ValueError, tk.TclError):
             self.console_art = None
-        self.brand_tagline = header.create_text(196, 96, text=self.tr('brand_tagline'),
+        # The wordmark starts at x=172 of the banner; the tagline sits under it.
+        self.brand_tagline = header.create_text(24 + round(172 * HEADER_SCALE), round(92 * HEADER_SCALE),
+            text=self.tr('brand_tagline'),
             anchor='nw', fill=COLORS['text'], font=(self.ui_font, 8), tags='brand_tagline')
         if os.name != 'nt':
             self.app_icon = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
@@ -254,7 +274,7 @@ class Application:
         self.system_field.bind('<<ComboboxSelected>>', self.change_system)
         self.hint(self.system_field, 'tip_console_format')
 
-        self.platform_text = header.create_text(0, 102, text=PLATFORMS[self.platform_id],
+        self.platform_text = header.create_text(0, HEADER_HEIGHT - 26, text=PLATFORMS[self.platform_id],
             anchor='e', fill=COLORS['muted'], font=(self.ui_font, 9), tags='platform_version')
 
         self.language_name = tk.StringVar(value=language_name(self.language))
@@ -479,11 +499,11 @@ class Application:
         widths = [field.winfo_reqwidth() for field in self.header_fields]
         left = max(24, header_width - 24 - sum(widths) - 8 * (len(widths) - 1))
         for key, window, field_width in zip(self.header_labels, self.header_windows, widths):
-            self.header.coords(self.header_labels[key], left, 10)
-            self.header.coords(window, left, 29)
+            self.header.coords(self.header_labels[key], left, 6)
+            self.header.coords(window, left, 24)
             left += field_width + 8
         # System information sits beside the gold squares below the selectors.
-        self.header.coords(self.platform_text, header_width - 96, 102)
+        self.header.coords(self.platform_text, header_width - 96, HEADER_HEIGHT - 26)
 
     def draw_background(self, event):
         canvas = event.widget
@@ -548,9 +568,13 @@ class Application:
             if self.console_art is not None:
                 # Decorative background: preserve the original banner height.
                 # The canvas clips the large artwork; selectors stay above it.
-                canvas.create_image(max(550, width-565), 22, image=self.console_art,
+                # It ends where it always did, before the platform text.
+                left = width - 190 - self.console_art.width()
+                if self.banner is not None:left = max(left, 36 + self.banner.width())
+                canvas.create_image(left, round(22 * HEADER_SCALE), image=self.console_art,
                                     anchor='nw', tags=('background_motif', 'hardware'))
-            for x, y, size in ((width-80, 104, 10), (width-67, 91, 12)):
+            bottom = HEADER_HEIGHT - 28
+            for x, y, size in ((width-80, bottom, 8), (width-69, bottom-10, 10)):
                 if any(x < x2 and x+size > x1 and y < y2 and y+size > y1
                        for x1, y1, x2, y2 in protected):
                     continue
@@ -1805,31 +1829,27 @@ class Application:
         try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
         finally:menu.grab_release()
 
-    def knowledge_task(self, callback):
+    def knowledge_task(self, callback, status='knowledge_working'):
         """File work runs off Tk; the result comes back as one message."""
         self.busy = True
         self.set_controls(False)
-        self.messages.put(('log', self.tr('knowledge_working')))
+        self.messages.put(('log', self.tr(status)))
         if self.compiled_view is not None:
             self.compiled_view.progress.start(15)
-            self.compiled_view.status.set(self.tr('knowledge_working'))
+            self.compiled_view.status.set(self.tr(status))
         def worker():
             try:self.messages.put(('knowledge_done', callback(), None))
             except Exception as exc:self.messages.put(('knowledge_done', None, str(exc) or type(exc).__name__))
         threading.Thread(target=worker, daemon=True).start()
 
     def export_knowledge(self):
+        """Count the discoveries first; ask where to save only if there are some."""
         if self.busy or self.updating:return
         games = self.compiled_inventory.snapshot()
         if not games:
             messagebox.showinfo(APP_NAME, self.tr('knowledge_export_empty'), parent=self.app)
             return
-        from datetime import date
-        from .knowledge_exchange import SUFFIX, export_knowledge
-        name = filedialog.asksaveasfilename(parent=self.app, title=self.tr('knowledge_export'),
-            defaultextension=SUFFIX, initialfile=f'Retro-Recomp-knowledge-{date.today():%Y-%m-%d}{SUFFIX}',
-            filetypes=[(self.tr('knowledge_file'), '*' + SUFFIX)])
-        if not name:return
+        from .knowledge_exchange import collect_knowledge
         # Qualified games whose source moved are found like for Reconvert.
         options = self.preferences()
         from .compiled_games import Game
@@ -1840,14 +1860,76 @@ class Application:
             pairs = RomSources().resolve(pending, options, known=known, cancel=self.cancel)
             return {(game.system, game.identity): source for game, source in pairs if source}
         self.cancel.clear()
-        self.knowledge_task(lambda:('export', export_knowledge(games, Path(name), locate)))
+        self.knowledge_task(lambda:('collect', collect_knowledge(games, locate)), 'knowledge_counting')
 
     def import_knowledge(self):
+        """Check the chosen file first; import only unknown discoveries."""
         if self.busy or self.updating:return
-        from .knowledge_exchange import SUFFIX, import_knowledge
+        from .knowledge_exchange import SUFFIX, preview_import
         name = filedialog.askopenfilename(parent=self.app, title=self.tr('knowledge_import'),
             filetypes=[(self.tr('knowledge_file'), '*' + SUFFIX)])
-        if name:self.knowledge_task(lambda:('import', import_knowledge(Path(name))))
+        if name:self.knowledge_task(lambda:('preview', (Path(name), preview_import(Path(name)))),
+                                    'knowledge_checking')
+
+    def achievement(self, count, detail, action):
+        """A small 'achievement unlocked' card; True when its action is chosen."""
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        chosen = tk.BooleanVar(value=False)
+        body = tk.Frame(window, bg=background, padx=22, pady=18,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        art = tk.Canvas(body, width=72, height=72, bg=background, highlightthickness=0)
+        art.grid(row=0, column=0, rowspan=2, sticky='n', padx=(0, 16))
+        for y, row in enumerate(TROPHY):
+            for x, mark in enumerate(row):
+                if mark != '.':
+                    art.create_rectangle(6 + 5*x, 6 + 5*y, 11 + 5*x, 11 + 5*y, outline='',
+                                         fill=COLORS['gold_hover'] if mark == 'o' else COLORS['gold'])
+        sparkles = [art.create_rectangle(x, y, x+3, y+3, fill=COLORS['gold_hover'], outline='', state='hidden')
+                    for x, y in ((1, 3), (67, 9), (66, 60), (2, 48))]
+        tk.Label(body, text=self.tr('knowledge_achievement').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).grid(row=0, column=1, sticky='w')
+        line = tk.Frame(body, bg=background)
+        line.grid(row=1, column=1, sticky='w')
+        number = tk.Label(line, text='0', bg=background, fg=COLORS['gold_hover'], font=(self.ui_font, 26, 'bold'))
+        number.pack(side='left')
+        tk.Label(line, text=self.tr('knowledge_discovery' if count == 1 else 'knowledge_discoveries'),
+                 bg=background, fg=COLORS['text'], font=(self.ui_font, 11)).pack(side='left', padx=(8, 0), pady=(12, 0))
+        tk.Label(body, text=detail, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
+                 wraplength=380, justify='left').grid(row=2, column=0, columnspan=2, sticky='w', pady=(12, 16))
+        buttons = tk.Frame(body, bg=background)
+        buttons.grid(row=3, column=0, columnspan=2, sticky='e')
+        ttk.Button(buttons, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='right')
+        go = ttk.Button(buttons, text=action, style='Primary.TButton',
+                        command=lambda:(chosen.set(True), window.destroy()))
+        go.pack(side='right', padx=(0, 8))
+        started = time.monotonic()
+        def animate(frame=0):
+            # The count rolls up for 0.8 s; the sparkles keep twinkling.
+            if not window.winfo_exists():return
+            progress = min(1.0, (time.monotonic() - started) / 0.8)
+            number.configure(text=str(round(count * (1 - (1 - progress) ** 3))))
+            for index, item in enumerate(sparkles):
+                art.itemconfigure(item, state='normal' if (frame // 4 + index) % 3 else 'hidden')
+            window.after(40, animate, frame + 1)
+        window.bind('<Escape>', lambda event:window.destroy())
+        window.bind('<Return>', lambda event:go.invoke())
+        window.update_idletasks()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - window.winfo_reqwidth()) // 2
+        y = self.app.winfo_rooty() + (self.app.winfo_height() - window.winfo_reqheight()) // 3
+        window.geometry(f'+{max(0, x)}+{max(0, y)}')
+        window.deiconify()
+        animate()
+        window.grab_set()
+        go.focus_set()
+        self.app.wait_window(window)
+        return chosen.get()
 
     def knowledge_done(self, outcome, error):
         self.busy = False
@@ -1860,20 +1942,48 @@ class Application:
             messagebox.showerror(APP_NAME, text, parent=self.app)
             return
         kind, summary = outcome
+        if kind == 'collect':
+            omitted = summary['omitted']
+            if not summary['games']:
+                text = self.tr('knowledge_export_none', known=omitted['already_known'],
+                               missing=omitted['missing_rom'], unqualified=omitted['unqualified'])
+                if omitted['missing_rom']:
+                    text += ' ' + self.tr('knowledge_missing_hint')
+                self.knowledge_report(text)
+                return
+            detail = self.tr('knowledge_export_found', games=summary['games'], consoles=len(summary['consoles']))
+            if not self.achievement(summary['discoveries'], detail, self.tr('knowledge_export_action')):
+                return
+            from datetime import date
+            from .knowledge_exchange import SUFFIX, write_knowledge
+            name = filedialog.asksaveasfilename(parent=self.app, title=self.tr('knowledge_export'),
+                defaultextension=SUFFIX, initialfile=f'Retro-Recomp-knowledge-{date.today():%Y-%m-%d}{SUFFIX}',
+                filetypes=[(self.tr('knowledge_file'), '*' + SUFFIX)])
+            if name:self.knowledge_task(lambda:('export', write_knowledge(summary, Path(name))))
+            return
+        if kind == 'preview':
+            source, preview = summary
+            if not preview['discoveries']:
+                self.knowledge_report(self.tr('knowledge_import_nothing'))
+                return
+            detail = self.tr('knowledge_import_found', games=preview['games'], consoles=len(preview['consoles']))
+            if self.achievement(preview['discoveries'], detail, self.tr('knowledge_import_action')):
+                from .knowledge_exchange import import_knowledge
+                self.knowledge_task(lambda:('import', import_knowledge(source)))
+            return
         if kind == 'export':
             omitted = summary['omitted']
-            text = (self.tr('knowledge_export_done', games=summary['games'], consoles=len(summary['consoles']),
-                            kib=summary['bytes'] / 1024, known=omitted['already_known'],
-                            missing=omitted['missing_rom'], unqualified=omitted['unqualified'])
-                    if summary['games'] else
-                    self.tr('knowledge_export_none', known=omitted['already_known'],
-                            missing=omitted['missing_rom'], unqualified=omitted['unqualified']))
+            text = self.tr('knowledge_export_done', games=summary['games'], consoles=len(summary['consoles']),
+                           kib=summary['bytes'] / 1024, known=omitted['already_known'],
+                           missing=omitted['missing_rom'], unqualified=omitted['unqualified'])
             if omitted['missing_rom']:
                 text += ' ' + self.tr('knowledge_missing_hint')
         else:
-            text = self.tr('knowledge_import_done', games=summary['games'], new=summary['new'],
-                           enriched=summary['enriched'], unchanged=summary['unchanged'],
-                           replaced=summary['replaced'])
+            text = self.tr('knowledge_import_done', games=summary['new'] + summary['enriched'],
+                           new=summary['new'], enriched=summary['enriched'], unchanged=summary['unchanged'])
+        self.knowledge_report(text)
+
+    def knowledge_report(self, text):
         self.messages.put(('log', text))
         if self.compiled_view is not None:self.compiled_view.status.set(text)
         messagebox.showinfo(APP_NAME, text, parent=self.app)
@@ -1947,7 +2057,7 @@ class Application:
         self.compiled_view.status.set(self.tr('reconverting_games'))
         def worker():
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            from .batch import _convert_in_budget, _embedded_export_identity
+            from .batch import _convert_in_budget, _embedded_export_identity, reported_owner
             from .freshness import digest
             from .compiled_games import game_from_report, refresh, read_json
             counts = {'success':0,'failed':0}
@@ -1966,8 +2076,11 @@ class Application:
                 item.cover=Cards().override(game)
                 target = Path(game.executable)
                 report = read_json(game.report) if game.report else {}
+                # Old exports carry neither a receipt nor a marker: accept the
+                # reports beside them, as a conversion from the queue does.
                 if target.is_file() and not (report.get('export_receipt',{}).get('sha256') == digest(target)
-                    or _embedded_export_identity(target)==game.identity):
+                    or _embedded_export_identity(target)==game.identity
+                    or reported_owner(target,game.identity)):
                     raise ValueError(self.tr('game_unverified'))
                 item.title = game.title
                 standard = report.get('video_model',{}).get('standard')

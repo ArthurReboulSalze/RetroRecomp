@@ -69,8 +69,8 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    # Nine pages, plus the X68000 page when that machine is available.
-    assert len(notebook.tabs()) in (9, 10)
+    # Nine pages, plus the X68000 and CPS-1 pages when available.
+    assert 9 <= len(notebook.tabs()) <= 11
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_ng')
     assert notebook.tab(len(notebook.tabs()) - 1, 'text') == application.tr('options_boxart')
@@ -139,6 +139,21 @@ def smoke(window):
     assert application.compiled_button.cget('text') == application.tr('compiled_games')
     assert application.queue_actions.winfo_manager() and not application.collection_actions.winfo_manager()
     assert application.knowledge_button in toolbar_slaves()
+    # Discoveries are counted before choosing a file; nothing new means a
+    # message only, never a save dialog or an import.
+    omitted = dict(already_known=2, missing_rom=0, unqualified=1, ram_without_rom_source=0)
+    with patch('smsrecomp.gui.messagebox.showinfo') as info, \
+            patch('smsrecomp.gui.filedialog.asksaveasfilename') as save:
+        application.knowledge_done(('collect', dict(games=0, consoles={}, discoveries=0, omitted=omitted)), None)
+        assert info.called and not save.called
+    with patch.object(application, 'achievement', return_value=False) as card, \
+            patch('smsrecomp.gui.filedialog.asksaveasfilename') as save:
+        application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
+        assert card.call_args.args[0] == 9 and not save.called
+    with patch('smsrecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
+        application.knowledge_done(('preview', (Path('shared.rrknowledge'),
+                                                dict(games=0, discoveries=0, consoles={}))), None)
+        assert info.called and not card.called
     application.memory_button.invoke()
     panel = next(widget for widget in window.winfo_children() if isinstance(widget, tk.Toplevel))
     panel.withdraw()

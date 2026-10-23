@@ -35,11 +35,11 @@ static const char *filters[2][FILTER_COUNT] = {
     {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"},
     {"Pixels nets", "xBR smooth", "Scale2x", "Scanlines"}};
 static SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
+    /* Enter is the default Pause/Menu key on both consoles; P is free. */
 #ifdef RETRO_GAME_GEAR
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_S},
+     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RETURN, SDL_SCANCODE_S},
 #else
-    /* Master System: Enter is the default Start/Menu (pause) key; P is free. */
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
      SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RETURN, SDL_SCANCODE_UNKNOWN},
 #endif
@@ -122,9 +122,6 @@ static bool controls_guest_start_button(int player, int button) {
 
 bool controls_reserved(SDL_Scancode key) {
     return key == SDL_SCANCODE_UNKNOWN ||
-#ifdef RETRO_GAME_GEAR
-        key == SDL_SCANCODE_P ||
-#endif
         key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER ||
         key == SDL_SCANCODE_ESCAPE || (key >= SDL_SCANCODE_F1 && key <= SDL_SCANCODE_F12);
 }

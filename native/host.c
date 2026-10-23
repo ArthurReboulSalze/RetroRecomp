@@ -181,7 +181,7 @@ bool host_init(int width, int height, int x, int y, int crop_w, int crop_h,
     gun_option_row = 0;
     smsrecomp_set_state_callback(state_completed);
 #ifdef RETRO_GAME_GEAR
-    notice(controls_text("F1: help | P / Enter: pause", "F1 : aide | P / Entree : pause"));
+    notice(controls_text("F1: help | Enter: pause", "F1 : aide | Entree : pause"));
 #else
     notice(sms_light_phaser ? controls_text("Light Phaser: mouse | F2: options", "Light Phaser : souris | F2 : options") :
         controls_text("F1: help | Enter: pause", "F1 : aide | Entree : pause"));
@@ -539,13 +539,9 @@ static bool handle_event(const SDL_Event *e) {
         reset_requested = true; return false;
     }
     bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
-    /* Master System pauses with Enter (its default Start/Menu key) or its
-     * remapped key; the Game Gear keeps P as well. */
-#ifdef RETRO_GAME_GEAR
-    bool pause_key = key == SDL_SCANCODE_P || enter;
-#else
+    /* Master System and Game Gear pause with Enter (their default
+     * Pause/Menu key) or its remapped key; P is free. */
     bool pause_key = enter;
-#endif
     if (!rr_options_component(key,button) && (((!rr_pages_open(menu) || !enter) && (pause_key || controls_system_key(key, CONTROL_PAUSE))) ||
         controls_system_button(event_player, button, CONTROL_PAUSE))) {
         menu = menu == 3 ? 0 : 3; parent_menu = 0; capturing = false; return true;

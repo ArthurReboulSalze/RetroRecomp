@@ -988,14 +988,17 @@ The snapshot never bypasses the native/reference validation gate.
 ## Sharing discoveries between converters
 
 The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.
-**Export my discoveries** writes one file for several games and consoles. It
-holds only the hints the user's own qualified conversions added to the
-knowledge bundled with this converter version. Hints already in the bundled
-snapshot are left out, as are unqualified reports, journals modified after
-their report, RAM patterns without the source ROM and games whose ROM cannot
-be found again. Each skipped group is counted in the summary. Only qualified
-games need their ROM; they are found like for Reconvert, from remembered
-paths and then each console's ROM folder in Options.
+**Export my discoveries** first counts them, without writing anything. A game
+is included when the user's own qualified conversions found hints that the
+knowledge bundled with this converter version lacks; its whole qualified
+record is shared. Unqualified reports, journals modified after their report,
+RAM patterns without the source ROM and games whose ROM cannot be found again
+are left out and counted in the summary. Only qualified games need their ROM;
+they are found like for Reconvert, from remembered paths and then each
+console's ROM folder in Options. With nothing new, a message says so and no
+file is offered. Otherwise a small "achievement unlocked" card shows the
+number of discoveries (hints unknown to the bundled snapshot) before the save
+dialog opens.
 
 The file is gzip JSON: a `retro-recomp-knowledge` header (format version,
 converter version, UTC date), a short title per game, and a payload with the
@@ -1007,24 +1010,32 @@ Master System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo are
 included. Neo Geo, X68000 and CPS-1 keep their own, separately scoped
 knowledge and are not exchanged.
 
-**Import shared discoveries** validates the whole file before writing
-anything: unknown keys, paths, non-numeric values, unknown consoles, oversized
-files or unprintable titles reject it. Accepted records go to
-`datas/knowledge/imported.json.gz`, with titles in `imported-titles.json`. The
-import is additive. A record for the same ROM and compiler engine gains the
-new hints; a record from another engine revision replaces the previously imported
-one. The summary counts new, enriched, unchanged and replaced games. The
-private `datas/library` and the bundled snapshot are never modified.
+**Import shared discoveries** first checks the chosen file. It validates the
+whole file: unknown keys, paths, non-numeric values, unknown consoles,
+oversized files or unprintable titles reject it. It then counts the hints
+that are neither bundled nor already imported. With none, nothing is imported;
+otherwise the same card shows the count and asks before importing. Accepted
+records go to `datas/knowledge/imported.json.gz`, with titles in
+`imported-titles.json`. The import is additive: records of every compiler
+revision are kept and merged per ROM. The summary counts new, enriched and
+already known games. The private `datas/library` and the bundled snapshot are
+never modified.
 
-At conversion time, bundled and imported records for the exact ROM SHA256,
-byte size and engine are merged. An imported record also changes the game's
-knowledge stamp, so an export prepared with it is no longer considered
-current. Imported hints only guide discovery. Every conversion still runs the
-native/reference validation gate, and any remaining interpreter fallback is
-still reported. Shared files are not qualification evidence: only a
-qualified local conversion can add a game to a future bundled snapshot.
-`RETRO_RECOMP_BUNDLED_KNOWLEDGE=0` disables both the bundled and imported
-knowledge.
+At conversion time, the bundled record for the exact ROM SHA256, byte size and
+compiler revision is merged with the imported record for the same ROM SHA256
+and byte size, whatever compiler revision found it: engine revisions are
+expected to change rarely per console, and an imported hint only guides
+discovery. Hints may still be wrong for another revision, so errors are
+handled. Every conversion runs the native/reference validation gate and
+reports any remaining interpreter fallback. A conversion that fails while the
+imported bank holds hints for its ROM is run once more without them; if that
+succeeds, those hints leave the bank and the rejection is logged in
+`datas/knowledge/imported-rejected.json`. If it fails again, the hints were
+not the cause and stay. An imported record also changes the game's knowledge
+stamp, so an export prepared with it is no longer considered current. Shared
+files are not qualification evidence: only a qualified local conversion can
+add a game to a future bundled snapshot. `RETRO_RECOMP_BUNDLED_KNOWLEDGE=0`
+disables both the bundled and imported knowledge.
 
 ## Release 0.24.0 snapshot
 

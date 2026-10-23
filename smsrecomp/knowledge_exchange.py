@@ -12,13 +12,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import gzip
 import json
-import os
 from pathlib import Path
-import tempfile
 
 from . import __version__
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, RESOURCE, imported_path, load, merge_records,
-                        read, validate_payload)
+                        read, validate_payload, write_packed)
 from .knowledge_build import SYSTEMS, build_record, compact_snes, engines, qualified_reports
 from .systems import profile_for_path
 
@@ -44,37 +42,36 @@ def _bundled(system: str, identity: str) -> dict:
         return {}
 
 
+def unknown_hints(system: str, record: dict, *known: dict) -> int:
+    """How many hints of `record` none of `known` holds for the same ROM."""
+    entries = _entries(system, record)
+    for other in known:
+        if other and other.get('rom_bytes') == record.get('rom_bytes'):
+            entries -= _entries(system, other)
+    return len(entries)
+
+
 def adds_to(system: str, record: dict, known: dict) -> bool:
     """True when `record` holds a hint `known` lacks for the same compiler."""
-    if not known or known.get('engine') != record.get('engine') or known.get('rom_bytes') != record.get('rom_bytes'):
-        return bool(_entries(system, record))
-    return bool(_entries(system, record) - _entries(system, known))
+    return unknown_hints(system, record, known) > 0
 
 
-def _write(path: Path, document: dict) -> bytes:
-    raw = json.dumps(document, separators=(',', ':'), sort_keys=True, ensure_ascii=True).encode('ascii')
-    if len(raw) > MAX_BYTES:
-        raise ValueError('Knowledge size budget exceeded.')
-    packed = gzip.compress(raw, compresslevel=9, mtime=0)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
+def _imported_bank() -> dict:
+    target = imported_path()
     try:
-        with os.fdopen(fd, 'wb') as file:
-            file.write(packed); file.flush(); os.fsync(file.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
-    return packed
+        return read(target)['consoles'] if target.is_file() else {}
+    except (OSError, ValueError, EOFError):
+        return {}
 
 
-def export_knowledge(games, destination: Path, locate=None) -> dict:
-    """Write the discoveries of `games` (compiled-games entries) to one file.
+def collect_knowledge(games, locate=None) -> dict:
+    """The discoveries of `games` (compiled-games entries), counted, unwritten.
 
     Only qualified games need their ROM; `locate(games)` may return
     {(system, identity): path} from the converter's own ROM lookup.
     """
     current = engines()
+    discoveries = 0
     games = [game for game in games if game.system in SYSTEMS]
     qualified = qualified_reports([game.report for game in games if game.report])
     consoles, titles, seen, pending = {}, {}, set(), []
@@ -105,19 +102,32 @@ def export_knowledge(games, destination: Path, locate=None) -> dict:
             continue
         if game.system == 'snes':
             compact_snes(record)
-        if not adds_to(game.system, record, _bundled(game.system, game.identity)):
+        found = unknown_hints(game.system, record, _bundled(game.system, game.identity))
+        if not found:
             omitted['already_known'] += 1
             continue
+        discoveries += found
         consoles.setdefault(game.system, {})[game.identity] = record
         titles.setdefault(game.system, {})[game.identity] = str(game.title)[:TITLE_LIMIT]
-    payload = validate_payload({'schema': 1, 'consoles': consoles})
-    document = {'format': FORMAT, 'version': VERSION, 'converter': __version__,
-                'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                'titles': titles, 'knowledge': payload}
-    packed = _write(Path(destination), document)
     return {'games': sum(len(records) for records in consoles.values()),
             'consoles': {system: len(records) for system, records in sorted(consoles.items())},
-            'bytes': len(packed), 'omitted': omitted}
+            'discoveries': discoveries, 'omitted': omitted,
+            'payload': validate_payload({'schema': 1, 'consoles': consoles}), 'titles': titles}
+
+
+def write_knowledge(collected: dict, destination: Path) -> dict:
+    """Write what `collect_knowledge` found to one shared file."""
+    document = {'format': FORMAT, 'version': VERSION, 'converter': __version__,
+                'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                'titles': collected['titles'], 'knowledge': collected['payload']}
+    packed = write_packed(Path(destination), document)
+    return {**{key: collected[key] for key in ('games', 'consoles', 'discoveries', 'omitted')},
+            'bytes': len(packed)}
+
+
+def export_knowledge(games, destination: Path, locate=None) -> dict:
+    """Collect then write the discoveries of `games` to one file."""
+    return write_knowledge(collect_knowledge(games, locate), destination)
 
 
 def read_exchange(path: Path) -> dict:
@@ -148,33 +158,48 @@ def read_exchange(path: Path) -> dict:
     return document
 
 
+def preview_import(path: Path) -> dict:
+    """Check a shared file before importing it: how many of its hints are
+    unknown here (neither bundled nor already imported), whatever compiler
+    revision found them."""
+    document = read_exchange(Path(path))
+    bank = _imported_bank()
+    games, discoveries, consoles = 0, 0, {}
+    for system, records in document['knowledge']['consoles'].items():
+        for identity, record in records.items():
+            found = unknown_hints(system, record, _bundled(system, identity),
+                                  bank.get(system, {}).get(identity, {}))
+            if found:
+                games += 1; discoveries += found
+                consoles[system] = consoles.get(system, 0) + 1
+    return {'games': games, 'discoveries': discoveries, 'consoles': consoles,
+            'converter': document.get('converter', '')}
+
+
 def import_knowledge(path: Path) -> dict:
-    """Add a shared file to the imported bank; nothing is ever removed."""
+    """Add a shared file to the imported bank; nothing is ever removed.
+
+    Records of every compiler revision are kept and merged: hints only guide
+    discovery, and each conversion still validates the native code.
+    """
     document = read_exchange(Path(path))
     target = imported_path()
-    try:
-        bank = read(target)['consoles'] if target.is_file() else {}
-    except (OSError, ValueError, EOFError):
-        bank = {}
-    counts = {'new': 0, 'enriched': 0, 'unchanged': 0, 'replaced': 0}
+    bank = _imported_bank()
+    counts = {'new': 0, 'enriched': 0, 'unchanged': 0}
     for system, records in document['knowledge']['consoles'].items():
         games = bank.setdefault(system, {})
         for identity, record in records.items():
-            known = games.get(identity)
-            if not known:
+            known = games.get(identity, {})
+            if not unknown_hints(system, record, _bundled(system, identity), known):
+                counts['unchanged'] += 1
+            elif not known:
                 games[identity] = record; counts['new'] += 1
-            elif known.get('engine') == record.get('engine') and known.get('rom_bytes') == record.get('rom_bytes'):
-                if adds_to(system, record, known):
-                    merged = merge_records(system, known, record)
-                    if system == 'snes':
-                        compact_snes(merged)
-                    games[identity] = merged; counts['enriched'] += 1
-                else:
-                    counts['unchanged'] += 1
             else:
-                # Another compiler revision: the most recent import is kept.
-                games[identity] = record; counts['replaced'] += 1
-    _write(target, validate_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}}))
+                merged = merge_records(system, known, record)
+                if system == 'snes':
+                    compact_snes(merged)
+                games[identity] = merged; counts['enriched'] += 1
+    write_packed(target, validate_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}}))
     titles_path = target.with_name('imported-titles.json')
     try:
         names = json.loads(titles_path.read_text(encoding='utf-8'))
@@ -182,8 +207,8 @@ def import_knowledge(path: Path) -> dict:
     except (OSError, ValueError):
         names = {}
     for system, values in document.get('titles', {}).items():
-        current = names.get(system) if isinstance(names.get(system), dict) else {}
-        names[system] = {**current, **values}
+        previous = names.get(system) if isinstance(names.get(system), dict) else {}
+        names[system] = {**previous, **values}
     titles_path.write_text(json.dumps(names, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     return {'games': sum(len(records) for records in document['knowledge']['consoles'].values()),
             'consoles': {system: len(records) for system, records in sorted(document['knowledge']['consoles'].items())},

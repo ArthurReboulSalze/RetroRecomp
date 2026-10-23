@@ -94,6 +94,25 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(list(_export_records(self.output)), [])
         self.assertEqual(candidate.read_bytes(), before)
 
+    def test_old_unmarked_exports_are_owned_through_their_reports_only(self):
+        # Exports from before receipts and markers (0.2x) can be reconverted
+        # from the collection, with the queue's rule: one exact report claim.
+        from smsrecomp.batch import reported_owner
+        item, other = self.item('old', 1), self.item('other', 2)
+        self.output.mkdir(parents=True)
+        candidate = self.output / ('Same title' + EXT)
+        candidate.write_bytes(NATIVE_MAGIC + b'old runtime without marker')
+        report = self.output / 'datas/reports/old/conversion-report.json'
+        report.parent.mkdir(parents=True)
+        atomic_json(report, {'executable': candidate.name, 'rom': {'sha256': item.sha256}, 'version': '0.22.0'})
+        self.assertTrue(reported_owner(candidate, item.sha256))
+        self.assertFalse(reported_owner(candidate, other.sha256))
+        self.assertFalse(reported_owner(self.output / ('Unreported' + EXT), item.sha256))
+        conflict = self.output / 'datas/reports/conflict/conversion-report.json'
+        conflict.parent.mkdir(parents=True)
+        atomic_json(conflict, {'executable': candidate.name, 'rom': {'sha256': other.sha256}})
+        self.assertFalse(reported_owner(candidate, item.sha256))
+
     def test_cli_accepts_an_unchanged_successful_export(self):
         import RetroRecomp
         item = self.item('current-cli', 1)

@@ -23,8 +23,10 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.bank = self.root / 'datas/knowledge/imported.json.gz'
+        self.engine = {'md': ENGINE}
         self.patches = [patch('smsrecomp.knowledge.imported_path', return_value=self.bank),
-                        patch('smsrecomp.knowledge_exchange.imported_path', return_value=self.bank)]
+                        patch('smsrecomp.knowledge_exchange.imported_path', return_value=self.bank),
+                        patch('smsrecomp.knowledge_exchange.engines', side_effect=lambda: self.engine)]
         for item in self.patches:
             item.start()
 
@@ -53,10 +55,12 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.assertEqual(merged['spc_refs'], [[0x200, 7], [0x201, 7], [0x202, 7], [0x300, 9]])
         self.assertNotIn('spc_ranges', merged)
 
-    def test_adds_to_compares_entries_for_the_same_compiler_only(self):
+    def test_hints_are_compared_for_the_same_rom_whatever_the_compiler(self):
         self.assertFalse(knowledge_exchange.adds_to('md', md([0x200]), md([0x200, 0x300])))
         self.assertTrue(knowledge_exchange.adds_to('md', md([0x400]), md([0x200, 0x300])))
-        self.assertTrue(knowledge_exchange.adds_to('md', md([0x200]), md([0x200], OTHER)))
+        self.assertFalse(knowledge_exchange.adds_to('md', md([0x200]), md([0x200], OTHER)))
+        self.assertEqual(knowledge_exchange.unknown_hints('md', md([0x200, 0x300, 0x400]),
+                                                         md([0x200]), md([0x300], OTHER)), 1)
         self.assertFalse(knowledge_exchange.adds_to('md', md([]), {}))
 
     def test_import_is_additive_and_reports_each_outcome(self):
@@ -68,15 +72,20 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.assertEqual((summary['games'], summary['new']), (3, 3))
         second = self.write('second.rrknowledge', self.document(
             {'md': {sha[0]: md([0x300]), sha[1]: md([0x200]), sha[2]: md([0x500], OTHER), sha[3]: md([0x600])}},
-            {'md': {sha[3]: 'Game Four'}}))
+            {'md': {sha[2]: 'Other engine', sha[3]: 'Game Four'}}))
+        # The check before importing counts unknown hints of every compiler.
+        preview = knowledge_exchange.preview_import(second)
+        self.assertEqual({k: preview[k] for k in ('games', 'discoveries')}, {'games': 3, 'discoveries': 3})
         summary = knowledge_exchange.import_knowledge(second)
-        self.assertEqual({k: summary[k] for k in ('new', 'enriched', 'unchanged', 'replaced')},
-                         {'new': 1, 'enriched': 1, 'unchanged': 1, 'replaced': 1})
+        self.assertEqual({k: summary[k] for k in ('new', 'enriched', 'unchanged')},
+                         {'new': 1, 'enriched': 2, 'unchanged': 1})
+        self.assertEqual(knowledge_exchange.preview_import(second)['discoveries'], 0)
         bank = knowledge.read(self.bank)['consoles']['md']
         self.assertEqual(bank[sha[0]]['rom_entries'], [[0x200], [0x300]])
-        self.assertEqual(bank[sha[2]]['engine'], OTHER)
+        # Another compiler's hints are merged, not dropped.
+        self.assertEqual(bank[sha[2]]['rom_entries'], [[0x200], [0x500]])
         titles = json.loads(self.bank.with_name('imported-titles.json').read_text(encoding='utf-8'))
-        self.assertEqual(titles['md'], {sha[0]: 'Game One', sha[3]: 'Game Four'})
+        self.assertEqual(titles['md'], {sha[0]: 'Game One', sha[2]: 'Other engine', sha[3]: 'Game Four'})
 
     def test_rejects_foreign_or_unsafe_files(self):
         sha = hashlib.sha256(b'x').hexdigest()
@@ -100,7 +109,37 @@ class KnowledgeExchangeTests(unittest.TestCase):
             knowledge_exchange.import_knowledge(self.write('share.rrknowledge', self.document(
                 {'md': {rom.sha256: md([0x300])}})))
             self.assertEqual(knowledge.record_for('md', rom, ENGINE)['rom_entries'], [[0x200], [0x300]])
-            self.assertEqual(knowledge.record_for('md', rom, OTHER), {})
+            # The bundled snapshot is bound to its compiler; imported hints are not.
+            self.assertEqual(knowledge.record_for('md', rom, OTHER)['rom_entries'], [[0x300]])
+
+    def test_failed_conversion_retries_without_imported_hints_and_sets_them_aside(self):
+        from smsrecomp import batch
+        sha = hashlib.sha256(b'cartridge').hexdigest()
+        knowledge_exchange.import_knowledge(self.write('share.rrknowledge', self.document(
+            {'md': {sha: md([0x200])}})))
+        item = SimpleNamespace(system='md', sha256=sha, title='Shared')
+        seen, messages = [], []
+
+        def convert(*args):
+            hints = knowledge.imported_record('md', sha)
+            seen.append(bool(hints))
+            return {'status': 'error', 'message': 'reference mismatch'} if hints else {'status': 'success'}
+
+        with patch('smsrecomp.batch._convert_one', side_effect=convert):
+            result = batch._convert_in_budget(1, 0, item, 1, None, None, None, None, [], messages.append, {})
+        self.assertEqual(seen, [True, False])
+        self.assertEqual(result['status'], 'success')
+        self.assertTrue(result['imported_hints_rejected'])
+        self.assertEqual(knowledge.imported_record('md', sha), {})
+        rejected = json.loads(self.bank.with_name('imported-rejected.json').read_text(encoding='utf-8'))
+        self.assertEqual((rejected[0]['rom_sha256'], rejected[0]['reason']), (sha, 'reference mismatch'))
+        # A failure the hints did not cause keeps them.
+        knowledge_exchange.import_knowledge(self.write('again.rrknowledge', self.document(
+            {'md': {sha: md([0x200])}})))
+        with patch('smsrecomp.batch._convert_one', return_value={'status': 'error', 'message': 'no'}):
+            self.assertEqual(batch._convert_in_budget(1, 0, item, 1, None, None, None, None, [],
+                                                      messages.append, {})['status'], 'error')
+        self.assertTrue(knowledge.imported_record('md', sha))
 
     def test_export_holds_only_new_qualified_hints_without_paths(self):
         data = bytes(range(256)) * 256

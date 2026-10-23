@@ -5,6 +5,8 @@ learning stays additive; a custom library directory opts out of bundled hints.
 Hints imported from another user's export are kept in their own bank, merged
 with the bundled one at use, and verified by every conversion like the rest.
 """
+from contextlib import contextmanager
+from datetime import datetime, timezone
 from functools import lru_cache
 import gzip
 import hashlib
@@ -12,6 +14,8 @@ import json
 import os
 from pathlib import Path
 import re
+import tempfile
+import threading
 import zlib
 from .paths import ASSETS
 
@@ -134,8 +138,70 @@ def _imported_bank(path: str, size: int, modified: int) -> dict:
     return read(Path(path))['consoles']
 
 
+# Cartridges converting again without their imported hints (see batch).
+_SET_ASIDE: set = set()
+_SET_ASIDE_LOCK = threading.Lock()
+
+
+@contextmanager
+def imported_set_aside(system: str, identity: str):
+    """Ignore one cartridge's imported hints while it converts again."""
+    with _SET_ASIDE_LOCK:
+        _SET_ASIDE.add((system, identity))
+    try:
+        yield
+    finally:
+        with _SET_ASIDE_LOCK:
+            _SET_ASIDE.discard((system, identity))
+
+
+def write_packed(path: Path, document: dict) -> bytes:
+    """Atomic, bounded gzip JSON (imported bank and shared files)."""
+    raw = json.dumps(document, separators=(',', ':'), sort_keys=True, ensure_ascii=True).encode('ascii')
+    if len(raw) > MAX_BYTES:
+        raise ValueError('Knowledge size budget exceeded.')
+    packed = gzip.compress(raw, compresslevel=9, mtime=0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as file:
+            file.write(packed); file.flush(); os.fsync(file.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return packed
+
+
+def discard_imported(system: str, identity: str, reason: str) -> bool:
+    """Remove one cartridge's imported hints after they broke a conversion
+    that succeeded without them; the rejection is logged beside the bank."""
+    path = imported_path()
+    try:
+        consoles = read(path)['consoles']
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return False
+    record = consoles.get(system, {}).pop(identity, None)
+    if record is None:
+        return False
+    write_packed(path, validate_payload({'schema': 1, 'consoles': {k: v for k, v in consoles.items() if v}}))
+    log = path.with_name('imported-rejected.json')
+    try:
+        entries = json.loads(log.read_text(encoding='utf-8'))
+        entries = entries if isinstance(entries, list) else []
+    except (OSError, ValueError):
+        entries = []
+    entries.append({'system': system, 'rom_sha256': identity, 'engine': record.get('engine', ''),
+                    'reason': str(reason)[:300],
+                    'rejected_utc': datetime.now(timezone.utc).isoformat(timespec='seconds')})
+    log.write_text(json.dumps(entries[-500:], indent=2) + '\n', encoding='utf-8')
+    return True
+
+
 def imported_record(system: str, identity: str) -> dict:
     """The imported bank's record; a changed file is read again."""
+    if (system, identity) in _SET_ASIDE:
+        return {}
     path = imported_path()
     try:
         stat = path.stat()
@@ -150,7 +216,7 @@ def disabled() -> bool:
 
 
 def merge_records(system: str, first: dict, second: dict) -> dict:
-    """Union of two records of one identity and compiler; order is kept."""
+    """Union of two records of one identity; order is kept."""
     if not second:
         return first
     if not first:
@@ -186,8 +252,12 @@ def record_for(system: str, rom, engine: str) -> dict:
         bundled = load(ASSETS / RESOURCE)['consoles'].get(system, {}).get(rom.sha256, {})
     except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
         bundled = {}
+    # The bundled snapshot is qualified for its own compiler. Imported hints
+    # count whatever compiler found them: they only guide discovery, and
+    # every conversion still checks native code against the reference CPU.
     usable = [record for record in (bundled, imported_record(system, rom.sha256))
-              if record.get('engine') == engine and record.get('rom_bytes') == len(rom.data)]
+              if record and (record is not bundled or record.get('engine') == engine)
+              and record.get('rom_bytes') == len(rom.data)]
     if not usable or hashlib.sha256(rom.data).hexdigest() != rom.sha256:
         return {}
     return merge_records(system, *usable) if len(usable) == 2 else usable[0]

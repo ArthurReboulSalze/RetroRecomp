@@ -217,6 +217,15 @@ def _export_records(output: Path, *, identities: set[str] | None = None, cancel=
             yield path.name, identity
 
 
+def reported_owner(path: Path, identity: str) -> bool:
+    """The queue's ownership rule for one file: reports beside it claim it for
+    this exact cartridge only. Old exports (before receipts and embedded
+    markers) are recognized this way, as the batch already overwrites them."""
+    claims = {found for name, found in _export_records(path.parent, identities={identity})
+              if name.casefold() == path.name.casefold()}
+    return claims == {identity}
+
+
 def export_target(item: BatchItem, output: Path) -> Path:
     """Readable filenames; only identical titles need a numeric suffix.
 
@@ -443,8 +452,23 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
 def _convert_in_budget(parallel_games, *args):
     # Context-local caps cannot leak between simultaneous workers.
     from .platforms import compilation_budget
+    from .knowledge import discard_imported, imported_record, imported_set_aside
+    item, emit = args[1], args[8]
     with compilation_budget(parallel_games):
-        return _convert_one(*args)
+        result = _convert_one(*args)
+        # Shared hints may come from another converter and be wrong: a failed
+        # conversion that had some is retried once without them. If it then
+        # succeeds, they caused the failure and leave the imported bank.
+        if result['status'] != 'error' or not item.system or not imported_record(item.system, item.sha256):
+            return result
+        emit(f'{item.title}: failed with imported discoveries; converting again without them.')
+        with imported_set_aside(item.system, item.sha256):
+            retry = _convert_one(*args)
+        if retry['status'] in ('success', 'current'):
+            discard_imported(item.system, item.sha256, result.get('message', ''))
+            emit(f'{item.title}: imported discoveries for this cartridge set aside; they caused the failure.')
+            retry['imported_hints_rejected'] = True
+        return retry
 
 
 def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None = None,

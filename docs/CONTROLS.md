@@ -27,7 +27,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
-| Enter / keypad Enter / P | Pause/resume: Master System uses Enter, its default Start/Menu key; Game Gear accepts P and Enter; Game Boy uses P. On Mega Drive, SNES, NES and Neo Geo, P is free: Enter (the cartridge Start) pauses the game itself |
+| Enter / keypad Enter / P | Pause/resume: Master System and Game Gear use Enter, their default Start/Menu or Pause/Menu key; Game Boy uses P. On Mega Drive, SNES, NES and Neo Geo, P is free: Enter (the cartridge Start) pauses the game itself |
 | Esc | Close a menu or quit |
 
 Every console uses the same two system shortcuts: **F1** opens help and
@@ -143,8 +143,8 @@ swaps controller assignments.
 
 Game Gear has one player and no gun. Arrows and W/X control the game; **S** is
 the cartridge Start button. On a gamepad, A/B are the two game buttons,
-Start reaches the cartridge and Back opens the pause/menu. **P** and Enter also
-open that menu, while F1 opens help and Shift+F1 restarts the game. F2 maps the single player's keys
+Start reaches the cartridge and Back opens the pause/menu. Enter also opens
+that menu (P is free since 1.2.7), while F1 opens help and Shift+F1 restarts the game. F2 maps the single player's keys
 and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
