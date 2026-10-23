@@ -313,7 +313,20 @@
     "options_x68": "Sharp X68000",
     "x68_ipl": "IPL ファームウェア (iplrom.dat)",
     "x68_cgrom": "フォント ROM (cgrom.dat)",
-    "options_x68_note": "実験的プロファイル：DIM/XDF と順序付き M3U ディスクセット。自分の IPL とフォント ROM が必要です。共通メニュー、フィルター、操作と F8/F9 に対応。初回の変換で固定版のマシンソースをダウンロードします。"
+    "options_x68_note": "実験的プロファイル：DIM/XDF と順序付き M3U ディスクセット。自分の IPL とフォント ROM が必要です。共通メニュー、フィルター、操作と F8/F9 に対応。初回の変換で固定版のマシンソースをダウンロードします。",
+    "conversion_queue": "変換キュー",
+    "knowledge": "知識",
+    "knowledge_import": "共有された発見をインポート…",
+    "knowledge_export": "自分の発見をエクスポート…",
+    "knowledge_file": "Retro-Recomp の知識",
+    "knowledge_export_empty": "再コンパイル済みのゲームがまだありません。先にゲームをスキャンしてください。",
+    "knowledge_working": "知識ファイルを準備しています…",
+    "knowledge_export_done": "{consoles} 機種の {games} 本のゲームをエクスポートしました（{kib:.1f} KiB）。既知: {known}、ROM なし: {missing}、未認定: {unqualified}。",
+    "knowledge_export_none": "新しくエクスポートするものはありません。既知: {known}、ROM なし: {missing}、未認定: {unqualified}。このバージョンに同梱された知識以外の、成功した変換の発見だけがエクスポートされます。",
+    "knowledge_import_done": "{games} 本のゲームをインポートしました：新規 {new}、追加 {enriched}、既知 {unchanged}、別バージョン {replaced}。どの変換でも参照 CPU との照合は続きます。",
+    "knowledge_failed": "この知識ファイルは使用できません: {error}",
+    "tip_knowledge": "変換で見つかった経路を共有します。ROM を含まない 1 つのファイルに複数のゲームと機種をエクスポートしたり、他の人のファイルを知識に追加したりできます。インポートしたヒントは変換時に必ず再確認されます。",
+    "knowledge_missing_hint": "ヒント: オプションで各機種の ROM フォルダーを設定すると、より多くのゲームが見つかります。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",

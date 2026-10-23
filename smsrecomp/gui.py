@@ -100,9 +100,17 @@ def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     return '#{:02x}{:02x}{:02x}'.format(*values)
 
 
-def _compiled_button_style(style):
+# Interface-only icon: branding.py is a shared compiler input.
+ICON_PATHS.setdefault('download', ((8, 1, 8, 10), (4, 6, 8, 10, 12, 6), (1, 10, 1, 14, 15, 14, 15, 10)))
+
+
+def _toolbar_styles(style):
     """Collection navigation stays within interface-only compiler inputs."""
     c = COLORS
+    # Toolbar buttons take their natural width instead of the theme's
+    # eleven-character minimum, so the bar fits every language.
+    for name in ('Toolbar.TButton', 'Toolbar.Primary.TButton'):
+        style.configure(name, width=-1)
     style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
                     focuscolor=c['gold_text'], relief='raised')
@@ -150,7 +158,7 @@ class Application:
         load_fonts()
         self.ui_font = family(self.language)
         self.style = apply_theme(app, self.ui_font)
-        _compiled_button_style(self.style)
+        _toolbar_styles(self.style)
         self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
         self.count = tk.StringVar(value='0 ROM')
@@ -280,23 +288,36 @@ class Application:
         toolbar = ttk.Frame(body)
         self.toolbar = toolbar
         toolbar.grid(row=0, column=0, sticky='ew', padx=24, pady=(16, 10))
-        self.button(toolbar, self.tr('add_roms'), self.choose_roms, primary=True).pack(side='left')
-        self.button(toolbar, self.tr('add_folder'), self.choose_directory).pack(side='left', padx=8)
-        self.button(toolbar, self.tr('remove'), self.remove_selected).pack(side='left')
-        self.button(toolbar, self.tr('clear'), self.clear).pack(side='left', padx=8)
-        ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel').pack(side='right')
-        self.button(toolbar, self.tr('credits'), self.show_credits).pack(side='right', padx=(0, 12))
-        self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
-        self.update_button.pack(side='right', padx=(0, 8))
-        self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
-        self.options_button.pack(side='right', padx=(0, 8))
-        ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
-                  font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
-        self.queue_toolbar = list(toolbar.pack_slaves())[:4]
+        # The queue/collection switch never moves: it comes first, and the
+        # buttons of the visible view follow it in their own frame.
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
             command=self.toggle_compiled_games, style='Compiled.Toolbar.TButton')
         self.decorate_button(self.compiled_button, 'gamepad', primary=True)
-        self.compiled_button.pack(side='left', padx=(4, 0))
+        self.compiled_button.pack(side='left')
+        self.update_compiled_button()
+        self.queue_actions = ttk.Frame(toolbar)
+        self.queue_actions.pack(side='left', padx=(12, 0))
+        self.collection_actions = ttk.Frame(toolbar)
+        self.button(self.queue_actions, self.tr('add_roms'), self.choose_roms, primary=True).pack(side='left')
+        self.button(self.queue_actions, self.tr('add_folder'), self.choose_directory).pack(side='left', padx=8)
+        self.button(self.queue_actions, self.tr('remove'), self.remove_selected).pack(side='left')
+        self.button(self.queue_actions, self.tr('clear'), self.clear).pack(side='left', padx=8)
+        self.count_label = ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel')
+        self.count_label.pack(side='right')
+        # Rarely used: icons with their hover hints, so the bar fits every language.
+        self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits)
+        self.credits_button.configure(compound='image')
+        self.credits_button.pack(side='right', padx=(0, 12))
+        self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
+        self.update_button.configure(compound='image')
+        self.update_button.pack(side='right', padx=(0, 8))
+        self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
+        self.options_button.pack(side='right', padx=(0, 8))
+        # Shared discoveries: visible beside the queue and the collection.
+        self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu)
+        self.knowledge_button.pack(side='right', padx=(0, 8))
+        ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
+                  font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
@@ -617,7 +638,7 @@ class Application:
         self.ui_font = family(self.language)
         if self.ui_font != previous_font:
             self.style = apply_theme(self.app, self.ui_font)
-            _compiled_button_style(self.style)
+            _toolbar_styles(self.style)
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
@@ -673,6 +694,8 @@ class Application:
         self.queue_background(self.body)
         self.app.after_idle(self.layout_header)
         self.app.after_idle(self.fit_minimum_width)
+        self.knowledge_button.configure(text=self.tr('knowledge') + ' \u25be')
+        self.update_compiled_button()
         if self.compiled_view is not None:
             self.compiled_view.localize()
             self.compiled_view.render()
@@ -703,11 +726,11 @@ class Application:
 
     def button(self, parent, text, command, primary=False):
         style = 'Primary.TButton' if primary else 'TButton'
-        if parent is self.toolbar:
+        if str(parent).startswith(str(self.toolbar)):
             style = 'Toolbar.' + style
         button = ttk.Button(parent, text=text, command=command, style=style)
         symbol = {'choose_roms': 'folder', 'choose_directory': 'add_folder',
-                  'remove_selected': 'remove', 'clear': 'clear', 'check_updates': 'refresh',
+                  'remove_selected': 'remove', 'clear': 'clear', 'check_updates': 'download',
                   'show_options': 'options', 'show_credits': 'info',
                   'choose_cover': 'image', 'automatic_cover': 'auto'}.get(command.__name__)
         if symbol:
@@ -1179,6 +1202,7 @@ class Application:
                     self.log.insert('end', event[1] + '\n')
                     self.log.see('end')
                     self.log.configure(state='disabled')
+                    if self.compiled_view is not None:self.compiled_view.show_log(event[1])
                 elif kind == 'drop':
                     self.drop_paths(event[1])
                 elif kind == 'drop_blocked':
@@ -1259,6 +1283,8 @@ class Application:
                             **report, kib=report['bytes']/1024))
                 elif kind == 'collection_changed':
                     if self.compiled_view is not None:self.compiled_view.render()
+                elif kind == 'knowledge_done':
+                    self.knowledge_done(event[1], event[2])
                 elif kind == 'sources_ready':
                     self.finish_source_lookup(event[1])
                 elif kind == 'collection_done':
@@ -1319,8 +1345,7 @@ class Application:
         self.option_tooltips_start = len(self.tooltips)
         for widget in self.compiler_widgets:
             widget.grid_remove()
-        for widget in self.queue_toolbar:
-            widget.pack_forget()
+        self.queue_actions.pack_forget()
         self.body.rowconfigure(1, weight=1, minsize=100)
         self.body.rowconfigure(7, weight=0, minsize=0)
         # Same side margins as the queue table and the log below it.
@@ -1638,8 +1663,7 @@ class Application:
         self.body.rowconfigure(7, weight=2, minsize=52)
         for widget in self.compiler_widgets:
             widget.grid()
-        for index, widget in enumerate(self.queue_toolbar):
-            widget.pack(side='left', padx=8 if index % 2 else 0, before=self.compiled_button)
+        self.queue_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
         try:
             self.options_button.state(['!selected'])
         except (AttributeError, tk.TclError):
@@ -1741,21 +1765,111 @@ class Application:
         self.collection_visible = not self.collection_visible
         if self.collection_visible:
             for widget in self.compiler_widgets:widget.grid_remove()
-            for widget in self.queue_toolbar:widget.pack_forget()
+            self.queue_actions.pack_forget()
+            self.count_label.pack_forget()
+            self.collection_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
             self.body.rowconfigure(1, weight=1, minsize=100)
             self.body.rowconfigure(7, weight=0, minsize=0)
             self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
-            self.compiled_button.state(['selected'])
             self.compiled_view.render()
         else:
             self.compiled_view.grid_remove()
             self.body.rowconfigure(1, weight=4, minsize=100)
             self.body.rowconfigure(7, weight=2, minsize=52)
             for widget in self.compiler_widgets:widget.grid()
-            for index,widget in enumerate(self.queue_toolbar):
-                widget.pack(side='left',padx=8 if index%2 else 0,before=self.compiled_button)
-            self.compiled_button.state(['!selected'])
+            self.collection_actions.pack_forget()
+            self.queue_actions.pack(side='left', padx=(12, 0), after=self.compiled_button)
+            self.count_label.pack(side='right', before=self.credits_button)
+        self.update_compiled_button()
         self.queue_background(self.body)
+
+    def update_compiled_button(self):
+        """One width for both captions, so the switch never changes size."""
+        captions = (self.tr('compiled_games'), self.tr('conversion_queue'))
+        self.compiled_button.configure(text=captions[1] if self.collection_visible else captions[0],
+                                       width=max(len(caption) for caption in captions))
+
+    def knowledge_menu(self):
+        menu = tk.Menu(self.app, tearoff=False, bg=COLORS['button'], fg=COLORS['text'],
+                       activebackground=COLORS['selected'], activeforeground=COLORS['gold_hover'])
+        menu.add_command(label=self.tr('knowledge_import'), command=self.import_knowledge)
+        menu.add_command(label=self.tr('knowledge_export'), command=self.export_knowledge)
+        button = self.knowledge_button
+        try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
+        finally:menu.grab_release()
+
+    def knowledge_task(self, callback):
+        """File work runs off Tk; the result comes back as one message."""
+        self.busy = True
+        self.set_controls(False)
+        self.messages.put(('log', self.tr('knowledge_working')))
+        if self.compiled_view is not None:
+            self.compiled_view.progress.start(15)
+            self.compiled_view.status.set(self.tr('knowledge_working'))
+        def worker():
+            try:self.messages.put(('knowledge_done', callback(), None))
+            except Exception as exc:self.messages.put(('knowledge_done', None, str(exc) or type(exc).__name__))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def export_knowledge(self):
+        if self.busy or self.updating:return
+        games = self.compiled_inventory.snapshot()
+        if not games:
+            messagebox.showinfo(APP_NAME, self.tr('knowledge_export_empty'), parent=self.app)
+            return
+        from datetime import date
+        from .knowledge_exchange import SUFFIX, export_knowledge
+        name = filedialog.asksaveasfilename(parent=self.app, title=self.tr('knowledge_export'),
+            defaultextension=SUFFIX, initialfile=f'Retro-Recomp-knowledge-{date.today():%Y-%m-%d}{SUFFIX}',
+            filetypes=[(self.tr('knowledge_file'), '*' + SUFFIX)])
+        if not name:return
+        # Qualified games whose source moved are found like for Reconvert.
+        options = self.preferences()
+        from .compiled_games import Game
+        known = [*games, *(Game('', i.system, i.sha256, i.title, source=str(i.path))
+                           for i in self.items.values() if i.system and i.sha256)]
+        def locate(pending):
+            from .rom_sources import RomSources
+            pairs = RomSources().resolve(pending, options, known=known, cancel=self.cancel)
+            return {(game.system, game.identity): source for game, source in pairs if source}
+        self.cancel.clear()
+        self.knowledge_task(lambda:('export', export_knowledge(games, Path(name), locate)))
+
+    def import_knowledge(self):
+        if self.busy or self.updating:return
+        from .knowledge_exchange import SUFFIX, import_knowledge
+        name = filedialog.askopenfilename(parent=self.app, title=self.tr('knowledge_import'),
+            filetypes=[(self.tr('knowledge_file'), '*' + SUFFIX)])
+        if name:self.knowledge_task(lambda:('import', import_knowledge(Path(name))))
+
+    def knowledge_done(self, outcome, error):
+        self.busy = False
+        self.set_controls(True)
+        if self.compiled_view is not None:self.compiled_view.progress.stop()
+        if error:
+            text = self.tr('knowledge_failed', error=error)
+            self.messages.put(('log', text))
+            if self.compiled_view is not None:self.compiled_view.status.set(text)
+            messagebox.showerror(APP_NAME, text, parent=self.app)
+            return
+        kind, summary = outcome
+        if kind == 'export':
+            omitted = summary['omitted']
+            text = (self.tr('knowledge_export_done', games=summary['games'], consoles=len(summary['consoles']),
+                            kib=summary['bytes'] / 1024, known=omitted['already_known'],
+                            missing=omitted['missing_rom'], unqualified=omitted['unqualified'])
+                    if summary['games'] else
+                    self.tr('knowledge_export_none', known=omitted['already_known'],
+                            missing=omitted['missing_rom'], unqualified=omitted['unqualified']))
+            if omitted['missing_rom']:
+                text += ' ' + self.tr('knowledge_missing_hint')
+        else:
+            text = self.tr('knowledge_import_done', games=summary['games'], new=summary['new'],
+                           enriched=summary['enriched'], unchanged=summary['unchanged'],
+                           replaced=summary['replaced'])
+        self.messages.put(('log', text))
+        if self.compiled_view is not None:self.compiled_view.status.set(text)
+        messagebox.showinfo(APP_NAME, text, parent=self.app)
 
     def remember_export(self, result, preferences):
         if result.get('status') not in ('success','current','existing') or not result.get('report'):return
@@ -1822,6 +1936,7 @@ class Application:
         self.cancel.clear()
         self.set_controls(False)
         self.compiled_view.progress.start(15)
+        self.compiled_view.clear_log()
         self.compiled_view.status.set(self.tr('reconverting_games'))
         def worker():
             from concurrent.futures import ThreadPoolExecutor, as_completed

@@ -1,6 +1,7 @@
 """The converter's persistent collection view, shared by Windows and Linux."""
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import asdict
 from pathlib import Path
 import queue
@@ -22,7 +23,7 @@ ATTENTION = {'new_hints', 'fallback', 'changed', 'unreadable'}
 
 class CompiledGamesView(ttk.Frame):
     def __init__(self, owner, parent):
-        super().__init__(parent, padding=(24, 8, 24, 0))
+        super().__init__(parent, padding=(24, 0, 24, 0))
         self.owner, self.tr, self.inventory = owner, owner.tr, owner.compiled_inventory
         self.events, self.running = queue.Queue(), False
         self.relocation_attempted = False
@@ -33,32 +34,24 @@ class CompiledGamesView(ttk.Frame):
         self.controller = None
         from .player_gamepad import Navigation
         self.navigation = Navigation()
-        top = ttk.Frame(self)
-        top.pack(fill='x', pady=(0,12))
-        mark = tk.Canvas(top, width=42, height=40, bg=COLORS['background'], highlightthickness=0)
-        mark.pack(side='left',padx=(0,10))
-        mark.create_rectangle(1,3,38,36,outline=COLORS['gold'],width=1)
-        mark.create_line(9,11,30,11,30,25,9,25,9,11,fill=COLORS['muted'])
-        mark.create_line(20,25,20,30,14,30,26,30,fill=COLORS['gold'])
-        title = ttk.Frame(top)
-        title.pack(side='left')
-        ttk.Label(title,text=self.tr('compiled_games'),font=(owner.ui_font,14,'bold')).pack(anchor='w')
-        ttk.Label(title,text=self.tr('compiled_intro'),style='Muted.TLabel').pack(anchor='w')
-        self.scan_button = ttk.Button(top,text=self.tr('scan_games'),command=self.scan,style='Primary.TButton')
-        owner.decorate_button(self.scan_button,'refresh',True)
-        self.scan_button.pack(side='right')
-        self.stop_button = ttk.Button(top,text=self.tr('stop'),command=owner.stop)
-        self.add_button = ttk.Button(top,text=self.tr('scan_folder'),command=self.add_folder)
-        self.add_button.pack(side='right',padx=8)
-        self.play_button = ttk.Button(top,text=self.tr('play'),command=self.play)
-        self.play_button.pack(side='right',padx=(8,0))
+        # The collection's actions share the main toolbar, right after the
+        # queue/collection switch, instead of a second row of buttons.
+        bar = owner.collection_actions
+        self.play_button = ttk.Button(bar,text=self.tr('play'),command=self.play,style='Toolbar.Primary.TButton')
+        owner.decorate_button(self.play_button,'play',True)
+        self.play_button.pack(side='left')
+        self.scan_button = ttk.Button(bar,text=self.tr('scan_games'),command=self.scan,style='Toolbar.TButton')
+        owner.decorate_button(self.scan_button,'refresh')
+        self.scan_button.pack(side='left',padx=8)
+        self.add_button = ttk.Button(bar,text=self.tr('scan_folder'),command=self.add_folder,style='Toolbar.TButton')
+        owner.decorate_button(self.add_button,'add_folder')
+        self.add_button.pack(side='left')
+        self.stop_button = ttk.Button(bar,text=self.tr('stop'),command=owner.stop,style='Toolbar.TButton')
+        owner.decorate_button(self.stop_button,'stop')
         self.summary = tk.StringVar()
-        strip = tk.Frame(self,bg=COLORS['panel'],padx=12,pady=10)
-        strip.pack(fill='x',pady=(0,12))
-        tk.Label(strip,textvariable=self.summary,bg=COLORS['panel'],fg=COLORS['gold'],
-                 font=(owner.ui_font,10)).pack(anchor='w')
         filters = ttk.Frame(self)
-        filters.pack(fill='x',pady=(0,10))
+        filters.pack(fill='x',pady=(0,8))
+        ttk.Label(filters,textvariable=self.summary,style='Muted.TLabel').pack(side='right',padx=(12,0))
         self.console, self.state, self.search = tk.StringVar(), tk.StringVar(), tk.StringVar()
         self.consoles = ttk.Combobox(filters,textvariable=self.console,state='readonly',width=22)
         self.consoles.pack(side='left')
@@ -107,9 +100,15 @@ class CompiledGamesView(ttk.Frame):
         self.status = tk.StringVar()
         ttk.Label(bottom,textvariable=self.status,style='Muted.TLabel',wraplength=820).pack(side='left')
         self.progress = ttk.Progressbar(self,mode='indeterminate')
-        self.progress.pack(fill='x',pady=(7,6))
+        self.progress.pack(fill='x',pady=(7,4))
+        # The last one or two converter lines, quiet and unframed.
+        self.log_lines = deque(maxlen=2)
+        self.log_text = tk.StringVar()
+        self.log_label = ttk.Label(self,textvariable=self.log_text,style='Muted.TLabel',
+                                   font=('Consolas',8),justify='left')
         self.detail = tk.StringVar(value=self.tr('compiled_hint'))
-        ttk.Label(self,textvariable=self.detail,style='Muted.TLabel',wraplength=1000).pack(anchor='w')
+        self.detail_label = ttk.Label(self,textvariable=self.detail,style='Muted.TLabel',wraplength=1000)
+        self.detail_label.pack(anchor='w')
         self.localize()
         self.render()
         self.after(80,self.drain)
@@ -166,6 +165,9 @@ class CompiledGamesView(ttk.Frame):
 
     def localize(self):
         self.play_button.configure(text=self.tr('play'))
+        self.scan_button.configure(text=self.tr('scan_games'))
+        self.add_button.configure(text=self.tr('scan_folder'))
+        self.stop_button.configure(text=self.tr('stop'))
         self.card.localize()
         self.favorite_filter.configure(text=self.tr('favorites_only'))
         self.consoles.configure(values=[self.tr('all_consoles'),*[p.name for p in PROFILES]])
@@ -332,9 +334,23 @@ class CompiledGamesView(ttk.Frame):
         except queue.Empty:pass
         self.after(100,self.drain)
 
+    def show_log(self, text):
+        """Keep the latest converter lines, one screen line each."""
+        for line in str(text).splitlines() or ['']:
+            line = line.strip()
+            if line:self.log_lines.append(line if len(line) <= 150 else line[:149] + '\u2026')
+        self.log_text.set('\n'.join(self.log_lines))
+        if self.log_lines and not self.log_label.winfo_manager():
+            self.log_label.pack(anchor='w',pady=(0,4),before=self.detail_label)
+
+    def clear_log(self):
+        self.log_lines.clear()
+        self.log_text.set('')
+        self.log_label.pack_forget()
+
     def conversion_state(self):
         if self.owner.busy:
-            if not self.stop_button.winfo_manager():self.stop_button.pack(side='right',padx=8)
+            if not self.stop_button.winfo_manager():self.stop_button.pack(side='left',padx=8)
         else:self.stop_button.pack_forget()
         state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal'
         self.scan_button.configure(state=state)

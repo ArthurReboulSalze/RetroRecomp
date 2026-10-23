@@ -95,7 +95,7 @@ class NesRamTests(unittest.TestCase):
         profile=SimpleNamespace(read_rom=lambda _:self.rom);out=self.root/'snapshot.json.gz'
         with patch('tools.build_compilation_knowledge.identify',return_value=item),\
                 patch('tools.build_compilation_knowledge.get_profile',return_value=profile),\
-                patch('tools.build_compilation_knowledge.library_root',return_value=library):
+                patch('smsrecomp.knowledge_build.library_root',return_value=library):
             os.utime(trace,(qualified_at+1,qualified_at+1))
             summary=build([self.rom.path],reports=self.root/'reports',output=out)
             self.assertEqual(summary['consoles']['nes']['games'],0)

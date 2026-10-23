@@ -974,6 +974,47 @@ same user-provided ROM. Other dynamic patterns stay local. Existing live-memory
 guards still apply, and an unknown case can use the reported interpreter fallback.
 The snapshot never bypasses the native/reference validation gate.
 
+## Sharing discoveries between converters
+
+The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.
+**Export my discoveries** writes one file for several games and consoles. It
+holds only the hints the user's own qualified conversions added to the
+knowledge bundled with this converter version. Hints already in the bundled
+snapshot are left out, as are unqualified reports, journals modified after
+their report, RAM patterns without the source ROM and games whose ROM cannot
+be found again. Each skipped group is counted in the summary. Only qualified
+games need their ROM; they are found like for Reconvert, from remembered
+paths and then each console's ROM folder in Options.
+
+The file is gzip JSON: a `retro-recomp-knowledge` header (format version,
+converter version, UTC date), a short title per game, and a payload with the
+same schema, fields and limits as `assets/compilation-knowledge.json.gz`.
+The title is there for people only. The file holds no ROM byte, path,
+artwork, code or account data. The export uses the shared builder
+`smsrecomp/knowledge_build.py`, which also builds the bundled snapshot.
+Master System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo are
+included. Neo Geo, X68000 and CPS-1 keep their own, separately scoped
+knowledge and are not exchanged.
+
+**Import shared discoveries** validates the whole file before writing
+anything: unknown keys, paths, non-numeric values, unknown consoles, oversized
+files or unprintable titles reject it. Accepted records go to
+`datas/knowledge/imported.json.gz`, with titles in `imported-titles.json`. The
+import is additive. A record for the same ROM and compiler engine gains the
+new hints; a record from another engine revision replaces the previously imported
+one. The summary counts new, enriched, unchanged and replaced games. The
+private `datas/library` and the bundled snapshot are never modified.
+
+At conversion time, bundled and imported records for the exact ROM SHA256,
+byte size and engine are merged. An imported record also changes the game's
+knowledge stamp, so an export prepared with it is no longer considered
+current. Imported hints only guide discovery. Every conversion still runs the
+native/reference validation gate, and any remaining interpreter fallback is
+still reported. Shared files are not qualification evidence: only a
+qualified local conversion can add a game to a future bundled snapshot.
+`RETRO_RECOMP_BUNDLED_KNOWLEDGE=0` disables both the bundled and imported
+knowledge.
+
 ## Release 0.24.0 snapshot
 
 | Console | Exact cartridge records |

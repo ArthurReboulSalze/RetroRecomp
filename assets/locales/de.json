@@ -313,7 +313,20 @@
     "options_x68": "Sharp X68000",
     "x68_ipl": "IPL-Firmware (iplrom.dat)",
     "x68_cgrom": "Zeichen-ROM (cgrom.dat)",
-    "options_x68_note": "Experimentelles Profil: DIM/XDF und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter."
+    "options_x68_note": "Experimentelles Profil: DIM/XDF und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
+    "conversion_queue": "Konvertierungsliste",
+    "knowledge": "Wissen",
+    "knowledge_import": "Geteilte Entdeckungen importieren…",
+    "knowledge_export": "Meine Entdeckungen exportieren…",
+    "knowledge_file": "Retro-Recomp-Wissen",
+    "knowledge_export_empty": "Noch keine rekompilierten Spiele: scanne zuerst deine Spiele.",
+    "knowledge_working": "Wissensdatei wird vorbereitet…",
+    "knowledge_export_done": "{games} Spiele auf {consoles} Konsolen exportiert ({kib:.1f} KiB). Bereits bekannt: {known}; ROM nicht gefunden: {missing}; nicht qualifiziert: {unqualified}.",
+    "knowledge_export_none": "Nichts Neues zu exportieren. Bereits bekannt: {known}; ROM nicht gefunden: {missing}; nicht qualifiziert: {unqualified}. Exportiert werden nur Entdeckungen erfolgreicher Konvertierungen, die über das mitgelieferte Wissen dieser Version hinausgehen.",
+    "knowledge_import_done": "{games} Spiele importiert: {new} neu, {enriched} ergänzt, {unchanged} bereits bekannt, {replaced} aus einer anderen Konverterversion. Jede Konvertierung prüft sie weiterhin gegen die Referenz-CPU.",
+    "knowledge_failed": "Diese Wissensdatei konnte nicht verwendet werden: {error}",
+    "tip_knowledge": "Teile die Pfade, die deine Konvertierungen entdeckt haben: exportiere eine einzige Datei ohne ROM für mehrere Spiele und Konsolen oder füge die Datei eines anderen deinem Wissen hinzu. Importierte Hinweise werden bei der Konvertierung immer erneut geprüft.",
+    "knowledge_missing_hint": "Tipp: Lege in den Optionen für jede Konsole den ROM-Ordner fest, damit mehr Spiele gefunden werden."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",

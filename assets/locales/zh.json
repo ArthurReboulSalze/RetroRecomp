@@ -313,7 +313,20 @@
     "options_x68": "Sharp X68000",
     "x68_ipl": "IPL 固件 (iplrom.dat)",
     "x68_cgrom": "字形 ROM (cgrom.dat)",
-    "options_x68_note": "实验性配置：DIM/XDF 和有序 M3U 磁盘组。请提供自己的 IPL 和字形 ROM。共用菜单、滤镜、控制及 F8/F9。首次转换会下载固定版本的机器源代码。"
+    "options_x68_note": "实验性配置：DIM/XDF 和有序 M3U 磁盘组。请提供自己的 IPL 和字形 ROM。共用菜单、滤镜、控制及 F8/F9。首次转换会下载固定版本的机器源代码。",
+    "conversion_queue": "转换队列",
+    "knowledge": "知识库",
+    "knowledge_import": "导入共享的发现…",
+    "knowledge_export": "导出我的发现…",
+    "knowledge_file": "Retro-Recomp 知识库",
+    "knowledge_export_empty": "还没有重新编译的游戏：请先扫描你的游戏。",
+    "knowledge_working": "正在准备知识库文件…",
+    "knowledge_export_done": "已导出 {consoles} 个平台的 {games} 款游戏（{kib:.1f} KiB）。已知：{known}；未找到 ROM：{missing}；未通过认证：{unqualified}。",
+    "knowledge_export_none": "没有可导出的新内容。已知：{known}；未找到 ROM：{missing}；未通过认证：{unqualified}。只会导出成功转换得到、且不在此版本自带知识库中的发现。",
+    "knowledge_import_done": "已导入 {games} 款游戏：新增 {new}，补充 {enriched}，已知 {unchanged}，来自其他转换器版本 {replaced}。每次转换仍会与参考 CPU 进行比对。",
+    "knowledge_failed": "无法使用此知识库文件：{error}",
+    "tip_knowledge": "分享你的转换发现的路径：将多个游戏和平台导出为一个不含 ROM 的文件，或把别人的文件添加到你的知识库。导入的提示在转换时总会被重新检查。",
+    "knowledge_missing_hint": "提示：在选项中为每个平台设置 ROM 文件夹，即可找到更多游戏。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",

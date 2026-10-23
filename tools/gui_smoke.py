@@ -64,17 +64,18 @@ def smoke(window):
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
     assert application.preferences()['gb_deep_validation'] == initial_deep
-    initial_md_scan = application.md_advanced_scan.get()
-    assert application.preferences()['md_advanced_scan'] == initial_md_scan
+    initial_md_scan = application.scan_level['md'].get()
+    assert application.preferences()['console_scan'].get('md', {}).get('level', 'standard') == initial_md_scan
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    assert len(notebook.tabs()) == 9
+    # Nine pages, plus the X68000 page when that machine is available.
+    assert len(notebook.tabs()) in (9, 10)
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_ng')
-    assert notebook.tab(8, 'text') == application.tr('options_boxart')
+    assert notebook.tab(len(notebook.tabs()) - 1, 'text') == application.tr('options_boxart')
     assert application.preferences()['ng_bios'] == application.ng_bios.get()
-    assert set(application.feedback_paths) == {'sms','gg','gb','nes','md','snes','ng'}
+    assert set(application.feedback_paths) >= {'sms','gg','gb','nes','md','snes','ng'}
     before_feedback=application.feedback_paths['sms'].get()
     application.feedback_paths['sms'].set(str(fixtures.name))
     assert application.preferences()['feedback_paths']['sms'] == str(fixtures.name)
@@ -97,24 +98,47 @@ def smoke(window):
     assert application.preferences()['gb_deep_validation'] != initial_deep
     application.gb_deep_control.invoke()
     assert application.preferences()['gb_deep_validation'] == initial_deep
-    application.md_scan_control.invoke()
-    assert application.preferences()['md_advanced_scan'] != initial_md_scan
-    application.md_scan_control.invoke()
-    assert application.preferences()['md_advanced_scan'] == initial_md_scan
+    application.scan_level['md'].set('thorough' if initial_md_scan != 'thorough' else 'quick')
+    assert application.preferences()['console_scan']['md']['level'] != initial_md_scan
+    application.scan_level['md'].set(initial_md_scan)
+    assert application.preferences()['console_scan'].get('md', {}).get('level', 'standard') == initial_md_scan
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] != initial_tags
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] == initial_tags
     application.set_controls(False)
     assert str(application.gb_deep_control.cget('state')) == 'disabled'
-    assert str(application.md_scan_control.cget('state')) == 'disabled'
     application.set_controls(True)
     assert str(application.gb_deep_control.cget('state')) == 'normal'
-    assert str(application.md_scan_control.cget('state')) == 'normal'
     with patch('smsrecomp.gui.save_preferences'):
         application.close_options()
     assert application.options_panel is None
     assert len(application.tooltips) >= 10
+    # The queue/collection switch stays first with one width; each view brings
+    # its own buttons, and the knowledge menu stays in both.
+    toolbar_slaves = lambda: application.toolbar.pack_slaves()
+    switch_width = application.compiled_button.cget('width')
+    assert toolbar_slaves()[0] is application.compiled_button
+    assert application.queue_actions.winfo_manager() and not application.collection_actions.winfo_manager()
+    with patch('smsrecomp.compiled_games_view.CompiledGamesView.scan'):
+        application.toggle_compiled_games()
+    window.update_idletasks()
+    assert toolbar_slaves()[0] is application.compiled_button
+    assert application.compiled_button.cget('text') == application.tr('conversion_queue')
+    assert application.compiled_button.cget('width') == switch_width
+    assert application.collection_actions.winfo_manager() and not application.queue_actions.winfo_manager()
+    assert application.knowledge_button in toolbar_slaves()
+    application.compiled_view.show_log('first line\nsecond line\nthird line ' + 'x' * 200)
+    assert application.compiled_view.log_text.get().splitlines()[0] == 'second line'
+    assert len(application.compiled_view.log_text.get().splitlines()[1]) == 150
+    application.compiled_view.clear_log()
+    assert not application.compiled_view.log_label.winfo_manager()
+    application.toggle_compiled_games()
+    window.update_idletasks()
+    assert toolbar_slaves()[0] is application.compiled_button
+    assert application.compiled_button.cget('text') == application.tr('compiled_games')
+    assert application.queue_actions.winfo_manager() and not application.collection_actions.winfo_manager()
+    assert application.knowledge_button in toolbar_slaves()
     application.memory_button.invoke()
     panel = next(widget for widget in window.winfo_children() if isinstance(widget, tk.Toplevel))
     panel.withdraw()
@@ -173,8 +197,9 @@ def smoke(window):
         assert len(application.items) == before
         assert application.options_button.cget('text') == application.tr('options')
         assert open_notebook.tab(0, 'text') == application.tr('options_common')
-        assert open_notebook.tab(8, 'text') == application.tr('options_boxart')
-        assert application.options_panel.title() == 'Retro-Recomp - ' + application.tr('options')
+        assert open_notebook.tab(len(open_notebook.tabs()) - 1, 'text') == application.tr('options_boxart')
+        assert application.compiled_button.cget('text') == application.tr('compiled_games')
+        assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
         window.update_idletasks()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
     application.close_options()

@@ -2,6 +2,8 @@
 
 References into the user's exact ROM reconstruct guarded RAM patterns. Local
 learning stays additive; a custom library directory opts out of bundled hints.
+Hints imported from another user's export are kept in their own bank, merged
+with the bundled one at use, and verified by every conversion like the rest.
 """
 from functools import lru_cache
 import gzip
@@ -109,8 +111,7 @@ def validate_payload(value: dict) -> dict:
     return value
 
 
-@lru_cache(maxsize=4)
-def load(path: Path) -> dict:
+def read(path: Path) -> dict:
     with gzip.open(path, 'rb') as stream:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
@@ -118,22 +119,78 @@ def load(path: Path) -> dict:
     return validate_payload(json.loads(raw))
 
 
+@lru_cache(maxsize=4)
+def load(path: Path) -> dict:
+    return read(path)
+
+
+def imported_path() -> Path:
+    from .paths import data_directory
+    return data_directory() / 'knowledge' / 'imported.json.gz'
+
+
+@lru_cache(maxsize=2)
+def _imported_bank(path: str, size: int, modified: int) -> dict:
+    return read(Path(path))['consoles']
+
+
+def imported_record(system: str, identity: str) -> dict:
+    """The imported bank's record; a changed file is read again."""
+    path = imported_path()
+    try:
+        stat = path.stat()
+        return _imported_bank(str(path), stat.st_size, stat.st_mtime_ns).get(system, {}).get(identity, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+
+
+def disabled() -> bool:
+    return bool(os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')
+                or os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE') == '0')
+
+
+def merge_records(system: str, first: dict, second: dict) -> dict:
+    """Union of two records of one identity and compiler; order is kept."""
+    if not second:
+        return first
+    if not first:
+        return second
+    from .snes_knowledge import SPC_FIELDS, references
+    merged = dict(first)
+    for name in FIELDS[system]:
+        if name in SPC_FIELDS:
+            continue
+        values, seen = [], set()
+        for entry in (*first.get(name, []), *second.get(name, [])):
+            if tuple(entry) not in seen:
+                seen.add(tuple(entry)); values.append(list(entry))
+        if values:
+            merged[name] = values
+    if system == 'snes':
+        refs = sorted(set(references(first)) | set(references(second)))
+        for name in SPC_FIELDS:
+            merged.pop(name, None)
+        if refs:
+            merged['spc_refs'] = [list(entry) for entry in refs]
+    return merged
+
+
 def record_for(system: str, rom, engine: str) -> dict:
     if system=='ng':
         # A cartridge hash alone is insufficient: its selected firmware and
         # prepared multi-region identity must be supplied by the Neo Geo API.
         return {}
-    if (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')
-            or os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE') == '0'):
+    if disabled():
         return {}
     try:
-        record = load(ASSETS / RESOURCE)['consoles'].get(system, {}).get(rom.sha256, {})
-        if (record.get('engine') == engine and record.get('rom_bytes') == len(rom.data)
-                and hashlib.sha256(rom.data).hexdigest() == rom.sha256):
-            return record
+        bundled = load(ASSETS / RESOURCE)['consoles'].get(system, {}).get(rom.sha256, {})
     except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        pass
-    return {}
+        bundled = {}
+    usable = [record for record in (bundled, imported_record(system, rom.sha256))
+              if record.get('engine') == engine and record.get('rom_bytes') == len(rom.data)]
+    if not usable or hashlib.sha256(rom.data).hexdigest() != rom.sha256:
+        return {}
+    return merge_records(system, *usable) if len(usable) == 2 else usable[0]
 
 
 def ram_variants(system: str, rom, engine: str, *, field='ram_refs') -> list[dict]:

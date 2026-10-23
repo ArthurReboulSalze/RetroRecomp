@@ -18,7 +18,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
-                               'game_details','game_metadata','game_card_view','rom_sources'))
+                               'game_details','game_metadata','game_card_view','rom_sources',
+                               # Sharing discoveries never runs during a conversion.
+                               'knowledge_build','knowledge_exchange'))
 
 
 def owners(name):
@@ -190,6 +192,11 @@ def knowledge_stamp(system, identity):
     # Neo Geo keys include selected BIOS/prepared regions; the request already
     # fingerprints the BIOS. Its small bank is conservatively scoped to NG.
     record = bank if system == 'ng' else bank.get(identity, {})
+    # Imported hints count too; without them the stamp is unchanged.
+    from .knowledge import imported_record
+    imported = {} if system == 'ng' else imported_record(system, identity)
+    if imported:
+        record = {'bundled': record, 'imported': imported}
     return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 

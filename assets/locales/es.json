@@ -313,7 +313,20 @@
     "options_x68": "Sharp X68000",
     "x68_ipl": "Firmware IPL (iplrom.dat)",
     "x68_cgrom": "ROM de caracteres (cgrom.dat)",
-    "options_x68_note": "Perfil experimental: DIM/XDF y conjuntos M3U ordenados. Aporta tu IPL y ROM de caracteres. Menús, filtros, controles y F8/F9 comunes. La primera conversión descarga las fuentes fijadas de la máquina."
+    "options_x68_note": "Perfil experimental: DIM/XDF y conjuntos M3U ordenados. Aporta tu IPL y ROM de caracteres. Menús, filtros, controles y F8/F9 comunes. La primera conversión descarga las fuentes fijadas de la máquina.",
+    "conversion_queue": "Cola de conversión",
+    "knowledge": "Conocimientos",
+    "knowledge_import": "Importar descubrimientos…",
+    "knowledge_export": "Exportar mis descubrimientos…",
+    "knowledge_file": "Conocimientos de Retro-Recomp",
+    "knowledge_export_empty": "Aún no hay juegos recompilados: primero escanea tus juegos.",
+    "knowledge_working": "Preparando el archivo de conocimientos…",
+    "knowledge_export_done": "{games} juegos de {consoles} consolas exportados ({kib:.1f} KiB). Ya conocidos: {known}; ROM no encontrada: {missing}; no calificados: {unqualified}.",
+    "knowledge_export_none": "Nada nuevo que exportar. Ya conocidos: {known}; ROM no encontrada: {missing}; no calificados: {unqualified}. Solo se exportan los descubrimientos de conversiones correctas que no estén ya en los conocimientos de esta versión.",
+    "knowledge_import_done": "{games} juegos importados: {new} nuevos, {enriched} ampliados, {unchanged} ya conocidos, {replaced} de otra versión del conversor. Cada conversión los sigue comprobando con la CPU de referencia.",
+    "knowledge_failed": "No se pudo usar este archivo de conocimientos: {error}",
+    "tip_knowledge": "Comparte los caminos descubiertos por tus conversiones: exporta un único archivo sin ROM para varios juegos y consolas, o añade el archivo de otra persona a tus conocimientos. Las pistas importadas siempre se vuelven a comprobar al convertir.",
+    "knowledge_missing_hint": "Consejo: indica la Carpeta de ROMs de cada consola en Opciones para encontrar más juegos."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Mayús der.: Mode",

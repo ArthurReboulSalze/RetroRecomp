@@ -360,7 +360,7 @@ class KnowledgeTests(unittest.TestCase):
         output = self.root / 'snapshot.json.gz'
         with patch('tools.build_compilation_knowledge.identify', return_value=item), \
                 patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
-                patch('tools.build_compilation_knowledge.GameMemory', return_value=memory):
+                patch('smsrecomp.knowledge_build.GameMemory', return_value=memory):
             report_path.write_text(json.dumps(report), encoding='utf-8')
             self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
             report['native_validation']['passed'] = True

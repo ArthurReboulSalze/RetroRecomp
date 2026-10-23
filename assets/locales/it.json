@@ -313,7 +313,20 @@
     "options_x68": "Sharp X68000",
     "x68_ipl": "Firmware IPL (iplrom.dat)",
     "x68_cgrom": "ROM dei caratteri (cgrom.dat)",
-    "options_x68_note": "Profilo sperimentale: DIM/XDF e set di dischi M3U ordinati. Fornisci il tuo IPL e la ROM dei caratteri. Menu, filtri, controlli e F8/F9 comuni. La prima conversione scarica i sorgenti fissati della macchina."
+    "options_x68_note": "Profilo sperimentale: DIM/XDF e set di dischi M3U ordinati. Fornisci il tuo IPL e la ROM dei caratteri. Menu, filtri, controlli e F8/F9 comuni. La prima conversione scarica i sorgenti fissati della macchina.",
+    "conversion_queue": "Coda di conversione",
+    "knowledge": "Conoscenze",
+    "knowledge_import": "Importa scoperte condivise…",
+    "knowledge_export": "Esporta le mie scoperte…",
+    "knowledge_file": "Conoscenze Retro-Recomp",
+    "knowledge_export_empty": "Ancora nessun gioco ricompilato: prima scansiona i tuoi giochi.",
+    "knowledge_working": "Preparazione del file di conoscenze…",
+    "knowledge_export_done": "{games} giochi su {consoles} console esportati ({kib:.1f} KiB). Già noti: {known}; ROM non trovata: {missing}; non qualificati: {unqualified}.",
+    "knowledge_export_none": "Niente di nuovo da esportare. Già noti: {known}; ROM non trovata: {missing}; non qualificati: {unqualified}. Si esportano solo le scoperte di conversioni riuscite, oltre alle conoscenze incluse in questa versione.",
+    "knowledge_import_done": "{games} giochi importati: {new} nuovi, {enriched} arricchiti, {unchanged} già noti, {replaced} da un’altra versione del convertitore. Ogni conversione li verifica comunque con la CPU di riferimento.",
+    "knowledge_failed": "Impossibile usare questo file di conoscenze: {error}",
+    "tip_knowledge": "Condividi i percorsi scoperti dalle tue conversioni: esporta un unico file senza ROM per più giochi e console, oppure aggiungi il file di qualcun altro alle tue conoscenze. I suggerimenti importati vengono sempre ricontrollati durante la conversione.",
+    "knowledge_missing_hint": "Suggerimento: imposta la Cartella ROM di ogni console nelle Opzioni per trovare più giochi."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",

@@ -151,6 +151,7 @@ smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/branding.py smsrec
 smsrecomp/nes_build.py tests/test_nes_build.py
 smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
+smsrecomp/knowledge_build.py smsrecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
 smsrecomp/dropfiles.py tests/test_dropfiles.py
 native/snes_dsp1_projection.inc

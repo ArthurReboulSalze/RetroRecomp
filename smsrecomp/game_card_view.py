@@ -3,6 +3,7 @@ from io import BytesIO
 from pathlib import Path
 import queue
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -22,8 +23,7 @@ class GameCardView(ttk.Frame):
         self.info_queue, self.info_current, self.info_count = [], None, 0
         self.info_active = False
         self.columnconfigure(0,weight=1)
-        self.rowconfigure(1,weight=3,minsize=70)
-        self.rowconfigure(2,weight=2,minsize=80)
+        self.rowconfigure(1,weight=1,minsize=70)
         self.title = ttk.Label(self,font=(owner.ui_font,12,'bold'),wraplength=285)
         self.title.grid(row=0,column=0,sticky='ew',pady=(0,8))
         # The image must not impose its original size on the resizable pane.
@@ -31,15 +31,18 @@ class GameCardView(ttk.Frame):
         self.cover_area.grid(row=1,column=0,sticky='nsew')
         self.art = tk.Label(self.cover_area,bg=COLORS['field'],fg=COLORS['disabled'],borderwidth=0)
         self.art.place(relwidth=1,relheight=1)
-        body=ttk.Frame(self)
-        body.grid(row=2,column=0,sticky='nsew',pady=(6,0))
-        self.info=tk.Text(body,wrap='word',height=5,width=26,bg=COLORS['field'],
-            fg=COLORS['text'],relief='flat',borderwidth=0,padx=10,pady=8,
-            font=(owner.ui_font,9),state='disabled',highlightthickness=0)
-        bar=ttk.Scrollbar(body,command=self.info.yview)
-        self.info.configure(yscrollcommand=bar.set)
-        bar.pack(side='right',fill='y')
-        self.info.pack(fill='both',expand=True)
+        # A few light lines under the cover, no cell or scrollbar: the wheel
+        # scrolls them, and they scroll themselves while left untouched.
+        self.info=tk.Text(self,wrap='word',height=4,width=26,bg=COLORS['background'],
+            fg=COLORS['muted'],relief='flat',borderwidth=0,padx=0,pady=0,cursor='arrow',
+            font=(owner.ui_font,8),state='disabled',highlightthickness=0)
+        self.info.grid(row=2,column=0,sticky='ew',pady=(6,0))
+        self.info_hover, self.info_touched = False, time.monotonic()
+        self.info.bind('<Enter>',lambda event:self.touch_info(True))
+        self.info.bind('<Leave>',lambda event:self.touch_info(False))
+        for sequence in ('<MouseWheel>','<Button-4>','<Button-5>'):
+            self.info.bind(sequence,lambda event:self.touch_info(),add='+')
+        self.after(2500,self.scroll_info)
         footer=ttk.Frame(self)
         footer.grid(row=3,column=0,sticky='ew',pady=(6,0))
         self.message=tk.StringVar()
@@ -66,6 +69,21 @@ class GameCardView(ttk.Frame):
         self.after(80,self.drain)
         self.localize()
         self.select(None)
+
+    def touch_info(self, hover=None):
+        if hover is not None:self.info_hover = hover
+        self.info_touched = time.monotonic()
+
+    def scroll_info(self):
+        """One line every 2.5 s after 5 s untouched; back to the top at the end."""
+        if not self.winfo_exists():return
+        if not self.info_hover and time.monotonic() - self.info_touched >= 5:
+            first, last = self.info.yview()
+            if last < 1:self.info.yview_scroll(1,'units')
+            elif first > 0:
+                self.info.yview_moveto(0)
+                self.info_touched = time.monotonic()
+        self.after(2500,self.scroll_info)
 
     def localize(self):
         self.choose.configure(text=self.tr('card_choose_cover'))
@@ -149,6 +167,8 @@ class GameCardView(ttk.Frame):
         self.info.delete('1.0','end')
         self.info.insert('1.0','\n'.join(lines))
         self.info.configure(state='disabled')
+        self.info.yview_moveto(0)
+        self.info_touched = time.monotonic()
         self.controls()
 
     def choose_cover(self):

@@ -26,6 +26,20 @@ aliases merge into the local entry, retaining favorites. A copy of the original
 inventory is kept as `datas/compiled-games.before-path-migration.json`.
 Two existing exports in separate folders remain separate collection entries.
 
+## Toolbar
+
+The queue/collection switch is the toolbar's first button and keeps its place
+and width. It reads **Compiled Games** in the conversion queue and
+**Conversion queue** in the collection. The buttons of the visible view follow
+it: Play, Scan games, Add a games folder and Stop in the collection. The
+**Knowledge** menu, Options, updates and credits stay on the right in both
+views. While games are being reconverted, the last two converter lines appear
+quietly under the progress bar.
+
+Under the cover, the game card shows a few small lines of text without a
+frame or scrollbar. The mouse wheel scrolls them. Left untouched, they scroll
+on their own and then return to the top.
+
 ## Finding a source again
 
 Options includes a ROM folder for each console, on both Windows and Linux.
