@@ -13,3 +13,4 @@
 *.ico binary
 # The catalogue checksum covers exact pinned bytes, including line endings.
 assets/neogeo-catalogue.json -text whitespace=cr-at-eol
+assets/cps1-catalogue.json -text whitespace=cr-at-eol

@@ -74,7 +74,7 @@ private evidence under `.build/` that is not published.
 
 - `PROJECT_STATE.md` — resume point: the current release cycle and the previous one. Older sections are archived under `history/state/`, indexed by period in its `README.md`.
 - `history/x68000/README.md` — the closed X68000 development stages (blocks 1 to 9, GPL-free plan, porting notes).
-- Studies: `AMIGA_NEOGEO_RESEARCH.md`, `AUTO_EXPLORATION.md`, `LEGACY_32BIT_STUDY.md`, `LINUX_PORT_PLAN.md`, `LLM_GAMEPLAY_FEASIBILITY.md`, `MEGADRIVE_SNES_RESEARCH.md`, `NEOGEO_PLAN.md`, `SHARP_X68000_RESEARCH.md`, `research/ONLINE_DISCUSSION_2026-09-27.txt`.
+- Studies: `AMIGA_NEOGEO_RESEARCH.md`, `AUTO_EXPLORATION.md`, `CPS1_RESEARCH.md`, `LEGACY_32BIT_STUDY.md`, `LINUX_PORT_PLAN.md`, `LLM_GAMEPLAY_FEASIBILITY.md`, `MEGADRIVE_SNES_RESEARCH.md`, `NEOGEO_PLAN.md`, `SHARP_X68000_RESEARCH.md`, `research/ONLINE_DISCUSSION_2026-09-27.txt`.
 - Qualification notes: `MEGADRIVE_STABILIZATION.md`, `NATIVE_COVERAGE.md`.
 - X68000 references still current: `X68000_GLUE_SPEC.md` (behavioural specification of the MIT glue), `X68000_REFERENCE_LICENSES.md` (licence audit read by `tools/x68000_reference.py`).
 - Interface notes from the 0.10.x releases: `DATAS_AND_BATCH.md`, `INTERFACE_AND_LANGUAGES.md`, `PLAYER2.md`, `VIDEO_AND_REGENERATION.md`.

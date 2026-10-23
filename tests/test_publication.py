@@ -25,8 +25,8 @@ class PublicationTests(unittest.TestCase):
             knowledge.write_bytes(gzip.compress(json.dumps({'schema': 1, 'consoles': {}}).encode()))
             (source / 'assets/cover-references.json').write_text(
                 json.dumps({'format': 1, 'entries': []}), encoding='utf-8')
-            (source / 'assets/neogeo-catalogue.json').write_bytes(
-                (script.parents[1] / 'assets/neogeo-catalogue.json').read_bytes())
+            for catalogue in ('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json'):
+                (source / catalogue).write_bytes((script.parents[1] / catalogue).read_bytes())
             report = folder / 'audit.json'
             result = subprocess.run([sys.executable, '-I', str(script), '--source', str(source),
                                      '--report', str(report)], cwd=folder, capture_output=True,

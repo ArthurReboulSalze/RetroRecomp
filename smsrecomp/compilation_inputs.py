@@ -30,6 +30,9 @@ def owners(name):
         return frozenset(('gb',))
     if name.startswith(('neogeo', 'ng_')):
         return frozenset(('ng',))
+    # CPS-1 has no export profile yet; its files must not age other exports.
+    if name.startswith('cps1'):
+        return frozenset(('cps1',))
     if name.startswith(('supernintendo', 'snes_', 'retro_snes')):
         return frozenset(('snes',))
     if name.startswith(('megadrive', 'md_', 'retro_md')):
@@ -136,6 +139,8 @@ def _resource_paths(root, system):
                     'Retro-Recomp-logo.png', 'RetroRecomp-UI-JP.otf', 'RetroRecomp-UI-SC.otf'):
                 continue
             if path.name == 'neogeo-catalogue.json' and system != 'ng':
+                continue
+            if path.name.startswith('cps1') and system not in owners(path.name):
                 continue
             # The UPX source archive is downloadable legal material, not an
             # exported game's embedded notice or a compiler input.

@@ -60,6 +60,15 @@ class CompilationInputTests(unittest.TestCase):
         self.assertNotEqual(before['md'],after['md']);self.assertNotEqual(before['ng'],after['ng'])
         self.assertEqual(before['snes'],after['snes'])
 
+    def test_cps1_files_do_not_age_existing_exports(self):
+        before = self.stamps()
+        self.revisions['smsrecomp.cps1'] = 'new romsets'
+        self.revisions['smsrecomp.cps1_catalogue'] = 'new catalogue'
+        self.write('native/cps1_machine.c', 'new board')
+        self.write('assets/cps1-catalogue.json', '{}')
+        self.write('licenses/cps1-machine.md', 'new notice')
+        self.assertEqual(before, self.stamps())
+
     def test_relative_names_and_notices_are_part_of_the_signature(self):
         path=self.write('native/md_one.h','same contents'); before=inputs.engine_stamp('md')
         path.rename(path.with_name('md_two.h'))

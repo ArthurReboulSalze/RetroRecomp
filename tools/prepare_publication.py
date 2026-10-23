@@ -219,6 +219,8 @@ native/neogeo_path_io.h
 tools/neogeo_persistence_selftest.py
 tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
+smsrecomp/cps1.py smsrecomp/cps1_catalogue.py assets/cps1-catalogue.json
+tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
@@ -353,6 +355,10 @@ def check_public_file(name: str, data: bytes) -> None:
         from smsrecomp.neogeo_catalogue import SHA256
         if hashlib.sha256(data).hexdigest()!=SHA256:
             raise ValueError('Neo Geo catalogue failed its integrity check.')
+    if name == 'assets/cps1-catalogue.json':
+        from smsrecomp.cps1_catalogue import SHA256
+        if hashlib.sha256(data).hexdigest()!=SHA256:
+            raise ValueError('CPS-1 catalogue failed its integrity check.')
     if name == 'assets/compilation-knowledge.json.gz':
         import gzip, io
         from smsrecomp.knowledge import MAX_BYTES, validate_payload
