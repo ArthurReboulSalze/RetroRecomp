@@ -1,3 +1,42 @@
+# RetroRecomp v1.2.6 — a steadier converter window and shared discoveries
+
+- **A switch that stays put.** The Compiled Games button is now the first
+  toolbar button and keeps its place and width. In the collection it reads
+  **Conversion queue** and leads back. The buttons of the visible view follow
+  it: Add ROMs, Add folder, Remove and Clear list in the queue; Play, Scan
+  games, Add a games folder and Stop in the collection.
+- **More room for the collection.** The title band and the second row of
+  buttons are gone, and the game count moves to the filter row. While games
+  are being reconverted, the converter's last two lines appear quietly under
+  the progress bar.
+- **A lighter game card.** Under the cover, the summary is small, light text
+  without a frame or scrollbar. The mouse wheel scrolls it; left alone, it
+  scrolls by itself and returns to the top.
+- **Shared discoveries.** The **Knowledge** menu, beside Options in both
+  views, exports one ROM-free `.rrknowledge` file for several games and
+  consoles. It holds only the hints your qualified conversions added beyond
+  the knowledge shipped with this version, with no ROM byte, path or
+  artwork. Importing someone else's file adds to yours without touching the
+  bundled snapshot or your library. Imported hints only guide discovery:
+  every conversion still checks native code against the reference CPU and
+  reports any interpreter fallback. Master System, Game Gear, Game Boy, NES,
+  Mega Drive and Super Nintendo are covered; Neo Geo and Sharp X68000 keep
+  their own knowledge. The export finds ROMs like Reconvert does, so setting
+  each console's ROM folder in Options lets it include more games.
+- **A toolbar that fits every language.** Toolbar buttons take their natural
+  width, and updates and credits become icons with hover hints. All eight
+  languages now fit at the default window size, and the version number shows
+  again.
+
+Generated games are unchanged and keep working as they are. Because the
+converter's knowledge code changed, a conversion batch rebuilds games it
+previously considered current, once. The window was checked with an
+automated interface test in eight languages and captured screens; the export
+was run read-only on a real 1,064-game collection. Linux remains qualified on
+Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.5 — every setting in F2, on every console
 
 - **F2 gathers every setting.** On all seven consoles, F2 opens pages turned
