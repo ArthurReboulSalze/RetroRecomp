@@ -1,3 +1,35 @@
+# RetroRecomp v1.2.3 — longer discovery routes on Mega Drive and Super Nintendo
+
+- **Advanced 16-bit scan.** The *Advanced Mega Drive scan* option becomes the
+  **Advanced 16-bit scan** and now applies to Super Nintendo cartridges too. On
+  both consoles it runs the attract sequence for 24,000 frames and adds two
+  **reproducible pseudo-random play routes** of 18,000 frames each: long
+  movement phases that often hold a button, short taps, paired Start presses
+  that pause and resume, occasional Select and player-two input, and neutral
+  pauses between phases. The routes are ordinary controller input seeded from
+  the exact ROM, so every conversion of the same cartridge replays the same
+  routes and the reference run receives the same script; the report records
+  each route's seed and index. Mega Drive keeps its authored varied-input,
+  early-start and menu replays. Measured with an empty library on Donkey Kong
+  Country, the routes exercised 59 SPC700 opcode variants that the existing
+  scenarios did not reach; on Sonic the Hedgehog they added one Z80 driver
+  image. Neither game reached a later level this way, so the option broadens
+  the tested first-level paths rather than exploring whole games.
+- **Documentation index and link check.** `docs/INDEX.md` lists every public
+  document by theme, and `tools/check_doc_links.py` verifies the relative links
+  of the documentation; it runs in the test suite.
+
+The generated games do not change: regenerating is not needed, and quick
+states, settings, libraries and cartridge saves are unaffected. Because the
+16-bit compiler code changed, the converter may report Mega Drive and Super
+Nintendo games as made by an earlier converter; regenerating them produces the
+same executables. With the option enabled, a conversion takes about eight times
+longer than the standard scan (16 minutes for Sonic the Hedgehog on the test
+machine). The option stays off by default.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.2 — the same shortcuts everywhere and finer menu text
 
 - **F1 for help, Shift+F1 to restart, on every console.** The H key is gone:

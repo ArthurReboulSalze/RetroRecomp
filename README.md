@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.2-d4a737" alt="Release version 1.2.2">
+  <img src="https://img.shields.io/badge/release-1.2.3-d4a737" alt="Release version 1.2.3">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -102,7 +102,12 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.2:** the same shortcuts on every console (F1 help, Shift+F1
+**New in 1.2.3:** the advanced scan now covers Mega Drive and Super Nintendo
+with a 24,000-frame attract test and two reproducible pseudo-random play routes
+of 18,000 frames, seeded from the exact ROM and checked against the reference
+before any learning; plus a documentation index and a link check.
+
+Version 1.2.2 brought the same shortcuts on every console (F1 help, Shift+F1
 restart), Start+Select and L3+R3 held for one second to restart or quit from a
 controller, help screens listed from F1 to F12, and finer, plain-ASCII menu
 text drawn for the window's size.
