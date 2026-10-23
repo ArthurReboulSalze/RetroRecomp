@@ -123,6 +123,9 @@ def main() -> int:
              'routes and, on Mega Drive, the authored replays, with reference checks on each learning pass (default: off).')
     build.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Add NES menu/dialogue/varied-input replays with complete reference CPU/image/audio checks (default: off).')
+    build.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
+        help='Discovery scan level for every console (default: the per-console level saved in Options, '
+             'else standard; --md-advanced-scan means thorough and --nes-advanced-scan extended).')
     build.add_argument("--backend", choices=("functions", "banked"), default="banked",
         help="banked (default): extended native ROM coverage and learned RAM variants, Sega mapper.")
     covers = build.add_mutually_exclusive_group()
@@ -158,6 +161,8 @@ def main() -> int:
         help='Extra Mega Drive / Super Nintendo coverage scan (default: off); ignored for other consoles.')
     batch.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.')
+    batch.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
+        help='Discovery scan level for every console in the batch (default: the per-console levels saved in Options).')
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",
         help="Override console timing for this batch; auto resolves each ROM separately.")
     batch.add_argument("--boxart-dir", type=Path)
@@ -293,6 +298,7 @@ def main() -> int:
                     icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
+                    scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
                     ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
                     x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
                     x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
@@ -301,6 +307,11 @@ def main() -> int:
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
                     save_game_language(game_output, args.language)
+                minutes, seconds = divmod(int(record.get('elapsed_seconds') or 0), 60)
+                print(f"Retro-Recomp: batch finished in {minutes} min {seconds} s: "
+                      f"{record['succeeded']}/{record['requested']} ready, {record['failed']} errors, "
+                      f"{record['current'] + record['existing']} unchanged, {record['pending']} not started.",
+                      file=sys.stderr)
                 print(json.dumps(record, indent=2, ensure_ascii=False))
                 return 1 if record["failed"] else 0
             else:
@@ -315,6 +326,7 @@ def main() -> int:
                     gb_deep_validation=args.gb_deep_validation,
                     md_advanced_scan=args.md_advanced_scan,
                     nes_advanced_scan=args.nes_advanced_scan,
+                    scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
                     ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
                     x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
                     x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),

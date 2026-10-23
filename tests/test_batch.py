@@ -513,6 +513,45 @@ class BatchTests(unittest.TestCase):
         # Both 16-bit compilers share the long pseudo-random routes.
         self.assertTrue(snes_compiler.call_args.kwargs['md_advanced_scan'])
         self.assertTrue(md_compiler.call_args.kwargs['md_advanced_scan'])
+        # The former switch means the thorough level; standard sends no level.
+        self.assertEqual(md_compiler.call_args.kwargs['scan_level'], 'thorough')
+        self.assertNotIn('scan_level', sms_compiler.call_args.kwargs)
+
+    def test_scan_levels_passes_and_frames_resolve_per_console(self):
+        from tests.test_console16 import md, snes
+        master = self.item('sms', 1)
+        genesis = self.root / 'Authored.md'
+        genesis.write_bytes(md(b'U'))
+        super_nintendo = self.root / 'Authored.sfc'
+        super_nintendo.write_bytes(snes())
+        items = [master, identify(genesis), identify(super_nintendo)]
+        console_scan = {'md': {'level': 'extended', 'passes': 2}, 'sms': {'frames': 1800},
+                        'bogus': {'level': 'thorough'}}
+        patches = (patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler),
+                   patch('smsrecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler),
+                   patch('smsrecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler))
+        with patches[0] as sms_compiler, patches[1] as md_compiler, patches[2] as snes_compiler:
+            record = convert_batch(items, self.games_root, console_scan=console_scan, passes=3, frames=3600,
+                                   emit=lambda text: None)
+        self.assertEqual(record['succeeded'], 3)
+        for compiler in (sms_compiler, md_compiler, snes_compiler):
+            self.assertNotIn('console_scan', compiler.call_args.kwargs)
+        md_kwargs = md_compiler.call_args.kwargs
+        self.assertEqual((md_kwargs['scan_level'], md_kwargs['passes'], md_kwargs['frames'], md_kwargs['md_advanced_scan']),
+                         ('extended', 2, 3600, True))
+        snes_kwargs = snes_compiler.call_args.kwargs
+        self.assertEqual((snes_kwargs['passes'], snes_kwargs['frames'], snes_kwargs['md_advanced_scan']), (3, 3600, False))
+        self.assertNotIn('scan_level', snes_kwargs)
+        sms_kwargs = sms_compiler.call_args.kwargs
+        self.assertEqual((sms_kwargs['passes'], sms_kwargs['frames']), (3, 1800))
+        self.assertNotIn('scan_level', sms_kwargs)
+        # A batch-wide level overrides the saved entries; quick runs one capped pass.
+        with patches[0] as sms_compiler, patches[1] as md_compiler, patches[2] as snes_compiler:
+            convert_batch(items, self.games_root, console_scan=console_scan, scan_level='quick', passes=3,
+                          frames=3600, force=True, emit=lambda text: None)
+        for compiler, frames in ((sms_compiler, 1800), (md_compiler, 1200), (snes_compiler, 1200)):
+            kwargs = compiler.call_args.kwargs
+            self.assertEqual((kwargs['scan_level'], kwargs['passes'], kwargs['frames']), ('quick', 1, frames))
 
     def test_advanced_nes_scan_is_filtered_out_of_other_console_compilers(self):
         from tests.test_nes import cartridge

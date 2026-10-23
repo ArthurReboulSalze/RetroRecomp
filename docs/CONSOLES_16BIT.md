@@ -607,12 +607,15 @@ listening review remains with the user.
 
 ## Further validation scope
 
-### Optional advanced 16-bit scan
+### Scan levels
 
-Enable **Options → Mega Drive or Super Nintendo → Advanced 16-bit scan** to
-lengthen discovery on every compile/test/learn pass. On both consoles the
-attract sequence runs for 24,000 frames and two **reproducible pseudo-random
-play routes** of 18,000 frames each are added (`smsrecomp/random_routes.py`).
+Each console tab in **Options** sets a **discovery scan level**, with optional
+pass and frame overrides and a short note on what is recommended. *Quick* runs
+one pass on a capped scenario length; *Standard* is the qualified default (demo
+and play); *Extended* adds a 12,000-frame attract test, the authored Mega Drive
+replays and one **reproducible pseudo-random play route** of 18,000 frames;
+*Thorough* runs the attract sequence for 24,000 frames and two routes
+(`smsrecomp/random_routes.py`, `smsrecomp/scan_levels.py`).
 Their seed is the console and the exact ROM identity, so every conversion of the
 same cartridge replays the same routes, and the same script drives the native
 export and its reference run; the report keeps each route's seed and index. A
@@ -657,11 +660,11 @@ the existing **Maximum passes** limit. It stops when no new paths are found.
 The final report records the scan mode, each scenario's budget, fallback counters
 and reference comparisons. Reaching the pass limit can still leave counted fallback.
 
-The option is off by default and applies to Mega Drive and Super Nintendo. It
-increases conversion time and broadens tested coverage; it cannot explore every
-level or certify independent hardware accuracy. Standard mode retains its two
-reference checked scenarios. Use `--md-advanced-scan` with `convert` or `batch`
-in the CLI.
+Standard is the default. The longer levels increase conversion time and
+broaden tested coverage; they cannot explore every level or certify independent
+hardware accuracy. On the command line, `--scan-level quick|standard|extended|thorough`
+applies to every console of a `convert` or `batch` run; `--md-advanced-scan`
+still means thorough. The report records the level under `advanced_scan.level`.
 
 The offline 68000 analysis also expands reached function tables made of adjacent
 direct jump instructions. It follows their ROM destinations with the normal

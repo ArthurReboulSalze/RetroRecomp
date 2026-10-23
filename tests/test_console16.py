@@ -310,7 +310,8 @@ class Console16Tests(unittest.TestCase):
         executable = self.root / 'project/build/Release/game.exe'
         return executable.parents[2 if os.name == 'nt' else 1] / 'checks'
 
-    def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced'):
+    def scan_conversion(self, *, advanced, fail_reference=False, learn_new=True, learned_scenario='advanced',
+                        scan_level=None):
         """Exercise real conversion scheduling/gates with authored probe results."""
         project = self.root / 'project'
         executable = project / 'build/Release/game.exe'
@@ -379,12 +380,12 @@ class Console16Tests(unittest.TestCase):
             if fail_reference:
                 with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
                     convert16(source, system_id='md', output=self.root / 'reports',
-                              frames=30, passes=3, md_advanced_scan=advanced, emit=lambda text: None)
+                              frames=30, passes=3, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
                 self.assertNotIn('learn', events)
                 self.assertFalse((self.root / 'reports/conversion-report.json').exists())
                 return events, None
             convert16(source, system_id='md', output=self.root / 'reports',
-                      frames=30, passes=3, md_advanced_scan=advanced, emit=lambda text: None)
+                      frames=30, passes=3, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
         return events, report
 
@@ -416,6 +417,22 @@ class Console16Tests(unittest.TestCase):
         self.assertFalse((self.checks_dir() / 'long-1.state').exists())
         self.assertTrue(report['advanced_scan']['reference_before_learning'])
         self.assertTrue(report['native_validation']['passed'])
+
+    def test_extended_level_runs_a_shorter_attract_and_one_route(self):
+        events, report = self.scan_conversion(advanced=False, scan_level='extended')
+        self.assertEqual(events[:7], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
+                                     'native:menu-confirm', 'native:long-1'])
+        self.assertNotIn('native:long-2', events)
+        self.assertEqual([check['frames'] for check in report['final_checks']], [12000, 30, 6000, 1800, 6000, 18000])
+        self.assertEqual(report['advanced_scan']['level'], 'extended')
+        self.assertEqual(report['advanced_scan']['demo_frames'], 12000)
+        self.assertEqual([route['scenario'] for route in report['advanced_scan']['long_routes']], ['long-1'])
+
+    def test_quick_level_wins_over_the_former_switch(self):
+        events, report = self.scan_conversion(advanced=True, scan_level='quick')
+        self.assertEqual(events[:3], ['build', 'native:demo', 'native:play'])
+        self.assertEqual(report['advanced_scan']['level'], 'quick')
+        self.assertFalse(report['advanced_scan']['enabled'])
 
     def test_chained_routes_continue_from_the_previous_route_state_when_enabled(self):
         with patch('smsrecomp.console16.CHAIN_LONG_ROUTES', True):

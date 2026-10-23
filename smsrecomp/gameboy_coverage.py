@@ -73,6 +73,7 @@ def branch_entries(rom: bytes) -> set[Entry]:
 class ProbeScenario:
     name: str
     input_script: str = ''
+    frames: int | None = None  # own budget; None follows the shared limit
 
 
 def varied_scenario(frames: int) -> ProbeScenario:
@@ -88,7 +89,9 @@ def varied_scenario(frames: int) -> ProbeScenario:
     return ProbeScenario('varied', script)
 
 
-def probe_scenarios(frames: int) -> tuple[ProbeScenario, ...]:
+def probe_scenarios(frames: int, *, varied: bool = True, long_routes=()) -> tuple[ProbeScenario, ...]:
+    """Boot, two play runs, the varied replay and any reproducible
+    pseudo-random routes (``random_routes``), each with its own budget."""
     scenarios = [ProbeScenario('boot')]
     for direction in ('R', 'L'):
         actions = ['60:S:2'] if frames > 60 else []
@@ -99,8 +102,11 @@ def probe_scenarios(frames: int) -> tuple[ProbeScenario, ...]:
             actions.extend(f'{frame}:B:8' for frame in range(230, frames, 120))
         if actions:
             scenarios.append(ProbeScenario(f'play_{direction.lower()}', ','.join(actions)))
-    if frames >= 750:
+    if frames >= 750 and varied:
         scenarios.append(varied_scenario(frames))
+    if long_routes:
+        from .random_routes import gameboy_script
+        scenarios.extend(ProbeScenario(route.name, gameboy_script(route), route.frames) for route in long_routes)
     return tuple(scenarios)
 
 

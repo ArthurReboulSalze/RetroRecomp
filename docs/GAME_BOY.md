@@ -383,3 +383,15 @@ not include a played level or a visual review.
 This first profile does not support `.gbc`-only games, link cable,
 Game Boy Camera/Printer or Super Game Boy features. See
 [compatibility](COMPATIBILITY.md) for the current validation scope.
+
+## Scan levels
+
+**Options → Game Boy → Discovery scan** sets how long discovery runs. *Standard*
+(boot, two play runs and the varied replay, with deep validation) is the
+default. *Extended* adds one reproducible pseudo-random route of 18,000 frames
+seeded from the exact ROM, written in the host's `start:buttons:duration`
+grammar (`smsrecomp/random_routes.py`); *Thorough* adds a second. *Quick* keeps
+boot and the two play runs for a single pass and skips the deep CPU
+comparison: use it to check a setting, not for a final export. Passes and
+frames can be set per console; empty fields follow the shared values. The
+report records `scan_level` and the routes' seeds.

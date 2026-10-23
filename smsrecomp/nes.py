@@ -286,13 +286,19 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
             'audio_pcm_sha256': hashlib.sha256(captures[0]).hexdigest() if differential else None}
 
 
-def _write_probe_scripts(project: Path, frames: int, *, advanced: bool = False) -> dict[str, Path | None]:
-    """Keep exercising inputs after boot instead of idling for most of a test."""
+def _write_probe_scripts(project: Path, frames: int, *, advanced: bool = False, play_left: bool = True,
+                         long_routes=()) -> dict[str, Path | None]:
+    """Keep exercising inputs after boot instead of idling for most of a test.
+
+    ``long_routes`` are reproducible pseudo-random routes (``random_routes``)
+    written with their own frame budget; see ``_scenario_frames``."""
     scripts: dict[str, Path | None] = {'boot': None}
     # Different Start timings cover titles that need a few seconds to become
     # interactive. Never pulse Start repeatedly: many games use it to pause.
     for name, direction, start in (('play_right', 'RIGHT', 180),
                                     ('play_left', 'LEFT', 20)):
+        if name == 'play_left' and not play_left:
+            continue
         move = start + 120
         held = direction + '+B'
         events = {start: 'START', start + 12: '-', move: held}
@@ -337,7 +343,19 @@ def _write_probe_scripts(project: Path, frames: int, *, advanced: bool = False) 
             rows.sort(key=lambda row: int(row.split()[0]))
             script.write_text(''.join(rows), encoding='ascii')
             scripts[name] = script
+    if long_routes:
+        from .random_routes import write_route
+        for route in long_routes:
+            scripts[route.name.replace('-', '_')] = write_route(route, project)
     return scripts
+
+
+def _scenario_frames(scripts: dict, frames: int, long_routes=()) -> dict[str, int]:
+    """Frame budget per scenario: the shared limit, or a long route's own."""
+    budgets = {name: frames for name in scripts}
+    for route in long_routes:
+        budgets[route.name.replace('-', '_')] = route.frames
+    return budgets
 
 
 def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None = None,
@@ -345,9 +363,13 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                 backend: str = 'banked', language: str = 'en', cover: Path | None = None,
                 boxart_dir: Path | None = None, online_cover: bool = True,
                 use_cover: bool = True, icon_tags: bool = True,
-                nes_advanced_scan: bool = False,
+                nes_advanced_scan: bool = False, scan_level: str | None = None,
                 standard_override: str | None = None,
                 emit: Callable[[str], None] = print) -> Path:
+    from .scan_levels import LEVELS, legacy_level, nes_budget
+    level = scan_level or legacy_level('nes', nes_advanced_scan=bool(nes_advanced_scan))
+    if level not in LEVELS:
+        raise ConversionError(f'Unknown scan level: {level!r}.')
     if output is None:
         from .batch import convert_batch, identify
         item = identify(rom_path)
@@ -357,7 +379,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         record = convert_batch([item], games_root(), profile=profile, passes=passes,
             frames=frames, backend=backend, language=language, boxart_dir=boxart_dir,
             online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
-            nes_advanced_scan=nes_advanced_scan,
+            scan_level=level,
             standard_override=standard_override, emit=emit)
         if record['failed']:
             raise ConversionError(record['games'][0]['message'])
@@ -427,7 +449,20 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     seed.write_text(trace_text(entries, ram_entries), encoding='ascii')
     imported = len(_seed_sites(seed))
     emit(f'NES converter library: {imported} observed ROM entries and {len(ram_entries)} guarded RAM entries from previous runs.')
-    scripts = _write_probe_scripts(project, frames, advanced=nes_advanced_scan)
+    scan = nes_budget(level)
+    nes_advanced_scan = scan['advanced']
+    long_routes = ()
+    if scan['route_count']:
+        # Reproducible pseudo-random play seeded from the exact ROM; the same
+        # script drives the native run and its reference comparison.
+        from .random_routes import long_routes as pseudo_random_routes
+        long_routes = pseudo_random_routes('nes', rom.sha256, count=scan['route_count'], frames=scan['route_frames'])
+    scripts = _write_probe_scripts(project, frames, advanced=nes_advanced_scan, play_left=scan['play_left'],
+                                   long_routes=long_routes)
+    budgets = _scenario_frames(scripts, frames, long_routes)
+    if long_routes:
+        emit(f"NES scan level {level}: {len(long_routes)} reproducible pseudo-random routes of "
+             f"{long_routes[0].frames} frames join the authored replays.")
     from .platforms import build_executable, cmake_target_args, build_jobs
     executable = build_executable(project / 'build', 'game')
     history: list[dict] = []
@@ -469,7 +504,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         final_checks = []
         compared_executable_sha = hashlib.sha256(executable.read_bytes()).hexdigest()
         for scenario, script in scripts.items():
-            check = _probe(executable, project, scenario, frames, seed, script,
+            check = _probe(executable, project, scenario, budgets[scenario], seed, script,
                            differential=nes_advanced_scan)
             check['executable_sha256'] = compared_executable_sha
             check['input_sha256'] = hashlib.sha256(script.read_bytes()).hexdigest() if script else None
@@ -477,7 +512,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             final_checks.append(check)
             history.append(check)
             emit(f"NES {scenario}: {check['native_percent']:.4f}% native; "
-                 f"{check['interpreter_cycles']} interpreted CPU cycles in {frames} frames.")
+                 f"{check['interpreter_cycles']} interpreted CPU cycles in {budgets[scenario]} frames.")
         new = _seed_sites(seed) - prior
         new_ram = ram_sites(seed) - prior_ram
         if all(check['interpreter_cycles'] == 0 for check in final_checks):
@@ -501,7 +536,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     for scenario, script in (() if nes_advanced_scan else scripts.items()):
         # Include input-driven execution after the delayed Start; 120 frames
         # alone would compare only boot for the late-start gameplay scenario.
-        comparison_frames = frames if nes_advanced_scan or compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(frames, 600 if script else 120)
+        comparison_frames = budgets[scenario] if nes_advanced_scan or compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(budgets[scenario], 600 if script else 120)
         comparison = _probe(executable, project, scenario, comparison_frames, seed,
                             script, differential=True)
         cpu_checks.append(comparison)
@@ -535,7 +570,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'game_states': {'supported': True, 'compatibility': 'same ROM, region and runtime ABI'},
         'artwork': artwork, 'windows_metadata': metadata,
         'runtime_learning': True, 'runtime_feedback': gameplay_feedback, 'library_identity': rom.sha256,
-        'advanced_scan': {'enabled': bool(nes_advanced_scan), 'scenarios': list(scripts),
+        'advanced_scan': {'enabled': bool(nes_advanced_scan), 'level': level, 'scenarios': list(scripts),
+                          'scenario_frames': budgets,
+                          'long_routes': [route.metadata() for route in long_routes],
                           'deterministic_inputs': True, 'full_game': False},
         'host_audio': {'sample_rate': 48000, 'callback_frames_requested': 256,
                        'startup': 'one_device_period_plus_30ms', 'native_s16_or_float': True,

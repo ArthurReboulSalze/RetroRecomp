@@ -189,6 +189,26 @@ def build_player(work, payload_dir, *, emit, machine=(), sdk=ASSETS):
     return build_executable(build/'reference','RetroRecomp-X68000-Native')
 
 
+def route_workers(routes):
+    """Replays this game may run at once: its share of the host CPUs (see
+    platforms.compilation_budget), never more than its routes."""
+    from .platforms import game_cpu_share
+    return max(1,min(int(routes),game_cpu_share()))
+
+
+def run_routes(jobs, workers):
+    """Replay independent routes side by side; results keep the input order
+    and the first failure is raised as the sequential loop would have."""
+    jobs=list(jobs)
+    if workers<=1 or len(jobs)<=1:
+        return [replay(binary,folder,frames,events,**options) for binary,folder,frames,events,options in jobs]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=workers,thread_name_prefix='x68000-route') as pool:
+        futures=[pool.submit(replay,binary,folder,frames,events,**options)
+                 for binary,folder,frames,events,options in jobs]
+        return [future.result() for future in futures]
+
+
 def replay(binary, folder, frames, events, *, reference=False, observe=False, extra=()):
     from tools.x68000_reference_check import validate_trace
     folder.mkdir(parents=True,exist_ok=True)
@@ -210,8 +230,13 @@ def replay(binary, folder, frames, events, *, reference=False, observe=False, ex
 
 
 def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=None,cover=None,
-            use_cover=True,online_cover=True,passes=3,frames=4000,emit=print,qualification_events=None,**unused):
+            use_cover=True,online_cover=True,passes=3,frames=4000,scan_level=None,emit=print,
+            qualification_events=None,**unused):
     if not developer_available():raise ConversionError('The X68000 converter files are missing from this installation.')
+    from .scan_levels import LEVELS, x68000_budget
+    level=scan_level or 'standard'
+    if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
+    scan=x68000_budget(level)
     if unused.get('standard_override') not in (None,'native','auto'):
         raise ConversionError('X68000 timing follows its CRTC; PAL/NTSC overrides do not apply.')
     source,manifest=machine(path,x68_ipl,x68_cgrom,x68_ram)
@@ -269,19 +294,38 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
+        # The scan level chooses the discovery routes: quick keeps the main
+        # route only, standard adds mouse and keyboard exploration, extended
+        # one 18,000-frame pseudo-random route, thorough the three 36,000-frame
+        # routes that qualified the library. Every level keeps the fresh
+        # native/reference comparison on each route it runs.
+        routes=tuple(exploration_routes(count,mouse_controls=mouse_controls(source))) if scan['exploration'] else ()
+        if scan['long_count']:
+            routes+=tuple(long_routes(manifest.sha256,mouse_controls=mouse_controls(source),
+                                      count=scan['long_count'],frames=scan['long_frames']))
+        emit(f'X68000 scan level {level}: {len(routes)} exploration routes besides the main route.')
+        # Every route is an independent cold boot in its own folder, so the
+        # replays run side by side within this game's share of the host CPUs
+        # (the same budget as its compiler jobs). Observations are merged in
+        # route order afterwards, exactly as the sequential loop did.
+        workers=route_workers(len(routes))
         extra_routes=[]
-        for route in (*exploration_routes(count,mouse_controls=mouse_controls(source)),
-                      *long_routes(manifest.sha256,mouse_controls=mouse_controls(source))):
+        for route in routes:
             folder=checks/('reference-'+route.name)
             ref=reference.prepare_bundle(folder,list(source.disks),manifest.firmware.ipl.path,
                 manifest.firmware.cgrom.path,generic,title=title,ram_mib=x68_ram)
             inputs=folder/'inputs.tsv'
             inputs.write_text(''.join(' '.join(map(str,e))+'\n' for e in route.events),encoding='ascii')
             emit('X68000: independent '+route.name+' exploration ('+str(route.frames)+' frames).')
-            replay(ref,folder,route.frames,inputs,reference=True,observe=True,extra=rule_args)
+            extra_routes.append((route,folder,inputs,ref))
+        if workers>1:
+            emit(f'X68000: replaying {len(routes)} exploration routes, {workers} at a time.')
+        run_routes(((ref,folder,route.frames,inputs,dict(reference=True,observe=True,extra=rule_args))
+                    for route,folder,inputs,ref in extra_routes),workers)
+        for route,folder,inputs,_ in extra_routes:
             more=json.loads((folder/'observations.json').read_text())
             observations,_=extend_observations(observations,more)
-            extra_routes.append((route,folder,inputs))
+        extra_routes=[(route,folder,inputs) for route,folder,inputs,_ in extra_routes]
         # Exact-input observations improve discovery, never waive the fresh
         # independent comparison above or the standalone replay below.
         memory=ROOT/'datas/x68000-development'/manifest.sha256
@@ -323,11 +367,15 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 raise ConversionError('X68000 validation did not produce usable picture and PCM.')
             fallback=actual['reference_ram']+actual['reference_ipl']
             additional=[]
+            prepared=[]
             for route,ref_folder,inputs in extra_routes:
                 folder=run_dir/route.name;folder.mkdir()
                 target=folder/candidate.name;shutil.copy2(candidate,target)
                 if os.name!='nt':target.chmod(0o755)
-                result=replay(target,folder,route.frames,inputs,observe=True)
+                prepared.append((route,ref_folder,folder,target,inputs))
+            results=run_routes(((target,folder,route.frames,inputs,dict(observe=True))
+                                for route,ref_folder,folder,target,inputs in prepared),workers)
+            for (route,ref_folder,folder,target,inputs),result in zip(prepared,results):
                 if (folder/'trace.tsv').read_bytes()!=(ref_folder/'trace.tsv').read_bytes():
                     raise ConversionError('X68000 '+route.name+' native/reference trace diverged; existing export preserved.')
                 fallback+=result['reference_ram']+result['reference_ipl']
@@ -385,7 +433,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'native_validation':{'passed':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
           'qualification_inputs_sha256':digest(event_file),'automatic_media_rules':[list(r) for r in rules],
-          'exploration_checks':exploration_checks,
+          'exploration_checks':exploration_checks,'scan_level':level,
           'automatic_disk_changes_observed':actual.get('automatic_disk_changes',0),
           'reference_vdp_trace_match':True,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
           'game_states':{'supported':True,'save_key':'F8','load_key':'F9','fresh_process_verified':True},

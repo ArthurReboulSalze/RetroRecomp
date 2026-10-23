@@ -292,7 +292,7 @@ native/md_z80_resume_checks.c tools/megadrive_z80_resume_selftest.py tools/megad
 smsrecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
-  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md smsrecomp/random_routes.py tests/test_random_routes.py
+  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md smsrecomp/random_routes.py tests/test_random_routes.py smsrecomp/scan_levels.py tests/test_scan_levels.py
 native/gb_input_refresh.inc native/gb_audio_output.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c

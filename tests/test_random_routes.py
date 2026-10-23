@@ -93,8 +93,10 @@ class RandomRouteTests(unittest.TestCase):
             starts = [i for i in range(len(whole)) if whole[i:i + 40] == head]
             self.assertEqual(len(starts), 1, console)
             start = starts[0]
-            self.assertGreaterEqual(start, 6, 'the standalone opening (Start presses and confirmations) is dropped')
-            self.assertTrue(any('start' in step.p1 for step in alone.steps[:start + 1]), console)
+            has_start = rr.CONSOLES[console].get('start', True)
+            self.assertGreaterEqual(start, 6 if has_start else 2,
+                                    'the standalone opening (Start presses and confirmations) is dropped')
+            self.assertEqual(any('start' in step.p1 for step in alone.steps[:start + 1]), has_start, console)
             # Same phases in the same order with the same timing, up to the
             # standalone route's final neutral step; the chained route then
             # keeps playing new phases where the standalone one ended.
@@ -149,9 +151,28 @@ class RandomRouteTests(unittest.TestCase):
 
     def test_invalid_requests_are_refused(self):
         with self.assertRaises(ValueError):
-            rr.long_route('gb', IDENTITY, 0)
+            rr.long_route('x68', IDENTITY, 0)
         with self.assertRaises(ValueError):
             rr.long_route('md', IDENTITY, 0, frames=100)
+
+    def test_game_boy_and_sega_adapters_follow_their_host_grammars(self):
+        import re
+        gb = rr.long_route('gb', IDENTITY, 0, two_players=False)
+        items = rr.gameboy_script(gb).split(',')
+        self.assertTrue(all(re.fullmatch(r'\d+:[UDLRABST]+:\d+', item) for item in items), items[:5])
+        self.assertTrue(any(':S:' in item for item in items), 'Start opens the game')
+        starts = [int(item.split(':')[0]) for item in items]
+        self.assertEqual(starts, sorted(starts))
+        self.assertFalse(any(step.p2 for step in gb.steps), 'one Game Boy player')
+        for console in ('sms', 'gg'):
+            route = rr.long_route(console, IDENTITY, 0, two_players=False)
+            values = rr.sega_press(route)
+            self.assertTrue(all(re.fullmatch(r'\d+:[UDLRABS]*', value) for value in values), values[:5])
+            self.assertEqual(any('S' in value.split(':')[1] for value in values), console == 'gg',
+                             'only the Game Gear has Start')
+            self.assertFalse(any(value.split(':')[1] == '' and index == 0 for index, value in enumerate(values)))
+            self.assertEqual(rr.script_text(route), '\n'.join(values) + '\n')
+        self.assertEqual(rr.gameboy_script(gb), rr.gameboy_script(rr.long_route('gb', IDENTITY, 0, two_players=False)))
 
 
 if __name__ == '__main__':

@@ -82,13 +82,17 @@ for the separate host-buffer correction addressing small sound discontinuities.
 
 ## Advanced exploration and incremental builds
 
-**Options → Nintendo NES → Advanced NES scan** is optional and off by default.
-The CLI exposes `--nes-advanced-scan` for `convert` and `batch`. It adds three
+**Options → Nintendo NES → Discovery scan** offers four levels; *Standard* is
+the default. *Extended* (the former advanced scan, `--nes-advanced-scan`) adds three
 deterministic paths to boot/right/left: released menu/dialogue confirmations,
 Select and separate player-2 input, and varied movement/jump/button releases.
 Each path respects the configured frame budget; Start is pulsed once per
 controller to avoid repeatedly pausing a game. These bounded scripts do not
-guarantee every menu, level or a complete playthrough.
+guarantee every menu, level or a complete playthrough. *Thorough* adds two
+reproducible pseudo-random routes of 18,000 frames seeded from the exact ROM
+(`smsrecomp/random_routes.py`), compared with the reference like the authored
+replays; *Quick* keeps boot and the right-hand play run for a single pass. The
+report records the level and each scenario's frame budget under `advanced_scan`.
 
 Every advanced path compares all its frames with the internal interpreter and
 exact PCM **before the next learning pass**. The fresh final-pass evidence is

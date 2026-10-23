@@ -167,8 +167,22 @@ class Application:
             self.platform_id = LOCAL_PLATFORM
         self.extended = tk.BooleanVar(value=extended_default(preferences))
         self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
-        self.md_advanced_scan = tk.BooleanVar(value=preferences.get('md_advanced_scan', False) is True)
-        self.nes_advanced_scan = tk.BooleanVar(value=preferences.get('nes_advanced_scan', False) is True)
+        # One discovery scan level per console, with optional pass and frame
+        # overrides. The former Mega Drive / NES switches become their levels.
+        from .scan_levels import CONSOLES as SCAN_CONSOLES, legacy_level, normalize as normalize_scan
+        saved_scan = normalize_scan(preferences.get('console_scan'))
+        if not saved_scan and 'console_scan' not in preferences:
+            for console in SCAN_CONSOLES:
+                level = legacy_level(console, md_advanced_scan=preferences.get('md_advanced_scan') is True,
+                                     nes_advanced_scan=preferences.get('nes_advanced_scan') is True)
+                if level != 'standard':
+                    saved_scan[console] = {'level': level}
+        self.scan_level = {console: tk.StringVar(value=saved_scan.get(console, {}).get('level', 'standard'))
+                           for console in SCAN_CONSOLES}
+        self.scan_passes = {console: tk.StringVar(value=str(saved_scan.get(console, {}).get('passes') or ''))
+                            for console in SCAN_CONSOLES}
+        self.scan_frames = {console: tk.StringVar(value=str(saved_scan.get(console, {}).get('frames') or ''))
+                            for console in SCAN_CONSOLES}
         self.passes = tk.IntVar(value=preferences.get('passes', 3) if isinstance(preferences.get('passes', 3), int) else 3)
         self.frames = tk.IntVar(value=preferences.get('frames', 3600) if isinstance(preferences.get('frames', 3600), int) else 3600)
         default_jobs = 3 if os.name == 'nt' else 1
@@ -530,6 +544,22 @@ class Application:
         self.status_key, self.status_values = key, values
         self.status.set(self.tr(key, **values))
 
+    def announce_finished(self, record):
+        """Make the end of a batch unmistakable: a framed log line with the
+        totals and the elapsed time, the system bell and the window title."""
+        minutes, seconds = divmod(int(record.get('elapsed_seconds') or 0), 60)
+        line = self.tr('batch_finished', total=record.get('requested', 0),
+                       succeeded=record.get('succeeded', 0), failed=record.get('failed', 0),
+                       minutes=minutes, seconds=seconds)
+        for text in ('', '=' * 72, line, '=' * 72):
+            self.messages.put(('log', text))
+        try:
+            self.app.bell()
+            self.app.title(APP_NAME + ' - ' + self.tr('finished_title'))
+            self.app.after(20000, lambda: self.app.title(APP_NAME))
+        except tk.TclError:
+            pass
+
     def system_choices(self):
         return (self.tr('automatic'), *(profile.name for profile in PROFILES))
 
@@ -628,8 +658,6 @@ class Application:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
             self.credits_panel.title(APP_NAME + ' - ' + self.tr('credits'))
-        if self.options_panel is not None and self.options_panel.winfo_exists():
-            self.options_panel.title(APP_NAME + ' - ' + self.tr('options'))
         for row, item in self.items.items():
             self.table.set(row, 'system', get_profile(item.system).name if item.system else self.tr('unknown_console'))
             self.table.set(row, 'video', self.video_display(item, self.results.get(row)))
@@ -885,8 +913,7 @@ class Application:
             system_mode=self.system_mode, platform=self.platform_id,
             backend='banked' if self.extended.get() else 'functions',
             gb_deep_validation=self.gb_deep_validation.get(),
-            md_advanced_scan=self.md_advanced_scan.get(),
-            nes_advanced_scan=self.nes_advanced_scan.get(),
+            console_scan=self.console_scan_preferences(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
@@ -894,6 +921,60 @@ class Application:
             x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
             rom_paths={system:value.get().strip() for system,value in self.rom_paths.items() if value.get().strip()})
+
+    def console_scan_preferences(self):
+        """Per-console scan entries; empty pass/frame fields follow the shared values."""
+        settings = {}
+        for console, level in self.scan_level.items():
+            entry = {}
+            if level.get() != 'standard':
+                entry['level'] = level.get()
+            for key, variables, limit in (('passes', self.scan_passes, 10), ('frames', self.scan_frames, 10000)):
+                text = variables[console].get().strip()
+                if not text:
+                    continue
+                try:
+                    value = int(text)
+                except ValueError:
+                    raise ValueError(self.tr('invalid_limits')) from None
+                if not 1 <= value <= limit:
+                    raise ValueError(self.tr('invalid_limits'))
+                entry[key] = value
+            if entry:
+                settings[console] = entry
+        return settings
+
+    def build_scan_options(self, page, console):
+        """Scan level, pass limit and frame budget for one console, with a short
+        note on what is recommended and why."""
+        from .scan_levels import LEVELS
+        section = ttk.LabelFrame(page, text=self.tr('scan_section'), padding=10)
+        section.pack(fill='x', pady=(0, 12))
+        ttk.Label(section, text=self.tr('scan_note_' + console), style='Muted.TLabel',
+                  wraplength=840, justify='left').pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(section)
+        row.pack(anchor='w')
+        labels = {level: self.tr('scan_' + level) for level in LEVELS}
+        shown = tk.StringVar(value=labels[self.scan_level[console].get()])
+        ttk.Label(row, text=self.tr('scan_level')).grid(row=0, column=0, sticky='w', padx=(0, 22))
+        level_box = ttk.Combobox(row, textvariable=shown, values=list(labels.values()), width=16, state='readonly')
+        level_box.grid(row=1, column=0, sticky='w', padx=(0, 22), pady=(5, 0))
+
+        def pick(_event=None, console=console, shown=shown, labels=labels):
+            for level, label in labels.items():
+                if label == shown.get():
+                    self.scan_level[console].set(level)
+        level_box.bind('<<ComboboxSelected>>', pick)
+        self.option_controls.append((level_box, 'readonly'))
+        self.hint(level_box, 'tip_scan_level')
+        for column, (key, variables, limit, shared) in enumerate((
+                ('scan_passes', self.scan_passes, 10, self.passes.get()),
+                ('scan_frames', self.scan_frames, 10000, self.frames.get())), start=1):
+            ttk.Label(row, text=self.tr(key, default=shared)).grid(row=0, column=column, sticky='w', padx=(0, 22))
+            control = ttk.Spinbox(row, textvariable=variables[console], from_=1, to=limit, width=8)
+            control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
+            self.option_controls.append((control, 'normal'))
+            self.hint(control, 'tip_' + key)
 
     def start(self, selected=False):
         if self.busy or self.updating:
@@ -1156,6 +1237,7 @@ class Application:
                     else:
                         record = event[1]
                         self.set_status('summary', **record)
+                        self.announce_finished(record)
                 elif kind == 'update_check':
                     self._offer_update(event[1])
                 elif kind == 'update_ready':
@@ -1225,24 +1307,32 @@ class Application:
         if self.busy:
             return
         if self.options_panel is not None and self.options_panel.winfo_exists():
-            self.options_panel.lift()
-            self.options_panel.focus_set()
+            self.close_options()
             return
-
-        panel = tk.Toplevel(self.app)
+        if self.collection_visible:
+            self.toggle_compiled_games()
+        # The options live inside the main window, in place of the queue, like
+        # the compiled-games view: no second window to find or close.
+        panel = ttk.Frame(self.body)
         self.options_panel = panel
         self.option_controls = []
         self.option_tooltips_start = len(self.tooltips)
-        panel.title(APP_NAME + ' - ' + self.tr('options'))
-        panel.configure(bg=COLORS['background'])
-        panel.transient(self.app)
-        from .dialogs import center_dialog
-        center_dialog(panel, self.app, 1000, 540)
-        panel.minsize(960, 500)
+        for widget in self.compiler_widgets:
+            widget.grid_remove()
+        for widget in self.queue_toolbar:
+            widget.pack_forget()
+        self.body.rowconfigure(1, weight=1, minsize=100)
+        self.body.rowconfigure(7, weight=0, minsize=0)
+        # Same side margins as the queue table and the log below it.
+        panel.grid(row=1, column=0, rowspan=7, sticky='nsew', padx=24, pady=(0, 12))
+        try:
+            self.options_button.state(['selected'])
+        except (AttributeError, tk.TclError):
+            pass
 
         notebook = ttk.Notebook(panel)
         notebook._retro_tab_keys = {}
-        notebook.pack(fill='both', expand=True, padx=18, pady=(18, 8))
+        notebook.pack(fill='both', expand=True, padx=0, pady=(6, 4))
 
         def tab(key):
             page = ttk.Frame(notebook, padding=18)
@@ -1305,6 +1395,7 @@ class Application:
 
         for key in ('sms', 'gg'):
             profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
+            self.build_scan_options(profile_page, key)
             control = checkbox(profile_page, 'extended', self.extended, 'tip_extended')
             if key == 'sms':
                 self.extended_control = control
@@ -1312,30 +1403,25 @@ class Application:
             self.build_feedback_options(profile_page, key)
 
         game_boy = tab('options_game_boy')
+        self.build_scan_options(game_boy, 'gb')
         self.gb_deep_control = checkbox(game_boy, 'gb_deep_validation',
                                         self.gb_deep_validation, 'tip_gb_deep_validation')
         ttk.Label(game_boy, text=self.tr('options_gb_note'), style='Muted.TLabel').pack(anchor='w')
         self.build_feedback_options(game_boy, 'gb')
 
         nes = tab('options_nes')
-        self.nes_scan_control = checkbox(nes, 'nes_advanced_scan',
-                                        self.nes_advanced_scan, 'tip_nes_advanced_scan')
+        self.build_scan_options(nes, 'nes')
         ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
         self.build_feedback_options(nes, 'nes')
         for console in ('md', 'snes'):
             page = tab('options_' + console)
-            # One shared setting: the long attract sequence and the
-            # pseudo-random routes apply to both 16-bit consoles.
-            control = checkbox(page, 'md_advanced_scan', self.md_advanced_scan, 'tip_md_advanced_scan')
-            if console == 'md':
-                self.md_scan_control = control
-            else:
-                self.snes_scan_control = control
+            self.build_scan_options(page, console)
             ttk.Label(page, text=self.tr('options_' + console + '_note'),
                       style='Muted.TLabel', wraplength=590).pack(anchor='w')
             self.build_feedback_options(page, console)
 
         neo_geo = tab('options_ng')
+        self.build_scan_options(neo_geo, 'ng')
         ttk.Label(neo_geo, text=self.tr('options_ng_note'), style='Muted.TLabel',
                   wraplength=880, justify='left').pack(anchor='w', pady=(0, 20))
         ttk.Label(neo_geo, text=self.tr('ng_bios_label')).pack(anchor='w', pady=(0, 8))
@@ -1355,6 +1441,7 @@ class Application:
         self.build_feedback_options(neo_geo, 'ng')
         if any(p.id == 'x68' for p in PROFILES):
             x68 = tab('options_x68')
+            self.build_scan_options(x68, 'x68')
             ttk.Label(x68,text=self.tr('options_x68_note'),style='Muted.TLabel',wraplength=840,justify='left').pack(anchor='w',pady=(0,14))
             for label,variable in (('x68_ipl',self.x68_ipl),('x68_cgrom',self.x68_cgrom)):
                 ttk.Label(x68,text=self.tr(label)).pack(anchor='w',pady=(8,4))
@@ -1374,13 +1461,10 @@ class Application:
         buttons = ttk.Frame(panel)
         # Reserve the footer first: Tk otherwise gives a tall notebook all
         # available height on Linux, clipping the Close button to a few pixels.
-        buttons.pack(side='bottom',before=notebook,fill='x',padx=18,pady=(0,14))
-        ttk.Button(buttons, text=self.tr('close'), width=12,
+        buttons.pack(side='bottom',before=notebook,fill='x',padx=0,pady=(0,6))
+        ttk.Button(buttons, text=self.tr('close_options'), width=26,
                    command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
-        panel.protocol('WM_DELETE_WINDOW', self.close_options)
-        panel.bind('<Escape>', lambda _event: self.close_options())
-        panel.grab_set()
-        panel.focus_set()
+        self.queue_background(self.body)
 
     def build_feedback_options(self, page, system):
         section = ttk.LabelFrame(page,text=self.tr('rom_folder'),padding=10)
@@ -1545,11 +1629,22 @@ class Application:
         for hint in self.tooltips[self.option_tooltips_start:]:
             hint.hide()
         del self.tooltips[self.option_tooltips_start:]
-        panel.grab_release()
+        panel.grid_remove()
         panel.destroy()
         self.options_panel = None
         self.output_field = self.output_browse = None
         self.option_controls = []
+        self.body.rowconfigure(1, weight=4, minsize=100)
+        self.body.rowconfigure(7, weight=2, minsize=52)
+        for widget in self.compiler_widgets:
+            widget.grid()
+        for index, widget in enumerate(self.queue_toolbar):
+            widget.pack(side='left', padx=8 if index % 2 else 0, before=self.compiled_button)
+        try:
+            self.options_button.state(['!selected'])
+        except (AttributeError, tk.TclError):
+            pass
+        self.queue_background(self.body)
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -1636,6 +1731,10 @@ class Application:
         self.library_panels.append(self.library_view.panel)
 
     def toggle_compiled_games(self):
+        if self.options_panel is not None and self.options_panel.winfo_exists():
+            self.close_options()
+            if self.options_panel is not None:
+                return
         if self.compiled_view is None:
             from .compiled_games_view import CompiledGamesView
             self.compiled_view = CompiledGamesView(self, self.body)

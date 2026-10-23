@@ -56,9 +56,14 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
 def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
             use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
             language='en', passes=3, frames=3600, backend='banked', standard_override=None,
-            publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1, emit=print) -> Path:
+            publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1,
+            scan_level=None, emit=print) -> Path:
     started=time.perf_counter()
     workers=max(1,min(4,8//max(1,ng_parallel_games)))
+    from .scan_levels import LEVELS, neogeo_budget
+    level=scan_level or 'standard'
+    if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
+    scan=neogeo_budget(level)
     timings={}
     firmware=selected_bios_path(ng_bios or bios)
     if firmware is None:
@@ -70,6 +75,19 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         raise ConversionError('Neo Geo currently uses the qualified MVS Europe profile.')
     game=read_set(path)
     title=title or game.title
+    if scan['route_count']:
+        # Extended and thorough add credited pseudo-random routes to the
+        # qualification routes of this set, as developer extra routes: same
+        # validation, fallback stays reported rather than fatal.
+        from .random_routes import long_routes as pseudo_random_routes, neogeo_script
+        plans=dict(ng_qualification_routes or {})
+        extra=dict(plans.get(game.set_name,{}))
+        for route in pseudo_random_routes('ng',game.sha256,count=scan['route_count'],frames=scan['route_frames']):
+            extra.setdefault(route.name,(route.frames,neogeo_script(route)))
+        plans[game.set_name]=extra
+        ng_qualification_routes=plans
+        emit(f'Neo Geo scan level {level}: {scan["route_count"]} reproducible pseudo-random routes of '
+             f'{scan["route_frames"]} frames, with a credit, join the qualification routes.')
     presentation={'rom_path':path,'export_identity':game.sha256,'cover':cover,
         'use_cover':use_cover,'online_cover':online_cover,'boxart_dir':boxart_dir,'emit':emit,
         'feedback_output':output}
@@ -168,6 +186,7 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     report['runtime_modes']={'default':'mvs','aes_available':console_available,
         'arcade_only':not console_capable,'aes_bios_present':'aes' in bios_info,'switch_key':'F11',
         'switch_restarts_game':console_available,'enhanced_default':True}
+    report['scan_level']=level
     report['qualification_scope']={'system':'MVS','region':'Europe','bios':'four verified user-supplied components',
         'controls':'ordinary two-player joysticks' if manifest['prepared'].get('ngh')!=0x236 else 'MVS trackball mapping not yet qualified',
         'native_board_families':['standard','LINKABLE','CT0','KOF98','SMA','MSLUGX','PVC'],

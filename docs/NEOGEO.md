@@ -1087,3 +1087,12 @@ here. Replacing the main 68000 BIOS alone does not settle the source/licence of
 the SFIX, SM1 and LO components used by this hardware profile. A future bundled
 replacement must check all four components and retain their applicable notices
 and source obligations. Do not include the current private BIOS in a release.
+
+## Scan levels
+
+**Options → Neo Geo → Discovery scan**: the qualification routes of each
+cartridge are the minimum, so *Quick* equals *Standard*. *Extended* adds one
+reproducible pseudo-random route of 18,000 frames with a credit inserted before
+Start (`smsrecomp/random_routes.py`), *Thorough* two. They run as extra routes
+of the set: same fresh reference comparison, and the fallback they meet stays
+reported rather than fatal. The report records `scan_level`.

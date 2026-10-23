@@ -102,6 +102,15 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
+**Since 1.2.3, in the repository:** every console gets a **discovery scan
+level**, Quick, Standard, Extended or Thorough, with its own passes, frames and
+a short note on what is recommended, all inside the main window instead of a
+separate Options dialog. Extended and Thorough add reproducible pseudo-random
+play routes on every console, Sharp X68000 replays its exploration routes in
+parallel (a thorough conversion drops from about 21 to 9 minutes on the test
+machine), and the end of a batch is announced in the log, the title bar and
+the status line. See [scan levels](docs/CONSOLES_16BIT.md#scan-levels).
+
 **New in 1.2.3:** the advanced scan now covers Mega Drive and Super Nintendo
 with a 24,000-frame attract test and two reproducible pseudo-random play routes
 of 18,000 frames, seeded from the exact ROM and checked against the reference
@@ -239,8 +248,9 @@ Version 1.2.0 brings large speed gains on the low-power Debian test machine. The
 Mega Drive remains its most demanding profile; full-speed gameplay on every
 machine is not established.
 
-Use **Options** for conversion settings and **Check for updates** when you want
-a newer version. Update checks are manual. Updating the converter preserves
+Use **Options** for conversion settings, shown inside the main window with one
+tab per console (scan level, passes, frames, ROM and hint folders), and
+**Check for updates** when you want a newer version. Update checks are manual. Updating the converter preserves
 your games and settings; regenerate games to receive new runtime features.
 Downloaded artwork stays in `datas/BoxArt` beside the converter, sorted by console.
 

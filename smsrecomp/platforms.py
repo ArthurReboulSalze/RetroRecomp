@@ -48,6 +48,13 @@ def build_jobs() -> str:
     return str(min(requested, budget) if budget is not None else requested)
 
 
+def game_cpu_share() -> int:
+    """Host CPUs one game may keep busy with its own replays: its share under
+    compilation_budget, or every CPU when it converts alone."""
+    budget = _BUILD_BUDGET.get()
+    return max(1, budget if budget is not None else available_cpus())
+
+
 @contextmanager
 def compilation_budget(parallel_games):
     """Share host compiler workers across games, without changing validation."""

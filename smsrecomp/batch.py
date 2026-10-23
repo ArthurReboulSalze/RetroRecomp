@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 from threading import Event, Lock
+import time
 
 from .core import slug, executable_name, ConversionError
 from .library import atomic_json
@@ -343,6 +344,23 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             settings.pop('md_advanced_scan', None)
         if system.id != 'nes':
             settings.pop('nes_advanced_scan', None)
+        # Scan level, pass limit and frame budget resolve per console: a
+        # command-line level, else the console's saved entry, else the former
+        # switches. The former switch keys keep their meaning (and the request
+        # signature of standard conversions) for the consoles that had them.
+        from .scan_levels import plan_for
+        plan = plan_for(system.id, settings.pop('console_scan', None),
+                        passes=settings.get('passes', 3), frames=settings.get('frames'),
+                        level=settings.pop('scan_level', None),
+                        md_advanced_scan=bool(settings.get('md_advanced_scan')),
+                        nes_advanced_scan=bool(settings.get('nes_advanced_scan')))
+        settings['passes'], settings['frames'] = plan.passes, plan.frames
+        if system.id in ('md', 'snes'):
+            settings['md_advanced_scan'] = plan.level in ('extended', 'thorough')
+        if system.id == 'nes':
+            settings['nes_advanced_scan'] = plan.level in ('extended', 'thorough')
+        if plan.level != 'standard':
+            settings['scan_level'] = plan.level
         if system.id != 'gb':
             settings.pop('gb_deep_validation', None)
             settings.pop('gb_parallel_games', None)
@@ -436,6 +454,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
     options = {**options, 'gb_parallel_games': jobs, 'ng_parallel_games': jobs}
+    started = time.perf_counter()
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     results: list[dict | None] = [None] * len(items)
@@ -554,6 +573,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     record['existing'] = sum(r['status'] == 'existing' for r in completed)
     record['current'] = sum(r['status'] == 'current' for r in completed)
     record['pending_installations'] = sum(r.get('pending_install', False) for r in completed)
+    record['elapsed_seconds'] = round(time.perf_counter() - started, 3)
     directory = output / "datas"
     directory.mkdir(parents=True, exist_ok=True)
     atomic_json(directory / "Retro-Recomp-batch.json", record)

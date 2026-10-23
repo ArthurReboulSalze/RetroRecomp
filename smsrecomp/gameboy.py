@@ -265,8 +265,14 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                      gb_deep_validation: bool = True,
                      gb_parallel_games: int = 1,
                      standard_override: str | None = None,
+                     scan_level: str | None = None,
                      emit: Callable[[str], None] = print) -> Path:
     from .batch import convert_batch, identify
+    from .scan_levels import LEVELS, gameboy_budget
+    level = scan_level or 'standard'
+    if level not in LEVELS:
+        raise ConversionError(f'Unknown scan level: {level!r}.')
+    scan = gameboy_budget(level)
     if output is None:
         item = identify(rom_path)
         if title:
@@ -275,7 +281,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         record = convert_batch([item], games_root(), profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
-            icon_tags=icon_tags, gb_deep_validation=gb_deep_validation,
+            icon_tags=icon_tags, gb_deep_validation=gb_deep_validation, scan_level=level,
             standard_override=standard_override, emit=emit)
         if record["failed"]:
             raise ConversionError(record["games"][0]["message"])
@@ -344,7 +350,17 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     emit(f"Game Boy extended discovery: {len(static_entries)} ROM branch entries; "
          f"{imported_entries} previously observed entries.")
     trace_input = project / 'compilation-entries.trace'
-    scenarios = probe_scenarios(frames)
+    # Quick skips the varied replay and the deep CPU comparison; extended and
+    # thorough add reproducible pseudo-random routes seeded from the exact ROM.
+    gb_deep_validation = bool(gb_deep_validation and scan['deep_allowed'])
+    long_routes = ()
+    if scan['route_count']:
+        from .random_routes import long_routes as pseudo_random_routes
+        long_routes = pseudo_random_routes('gb', rom.sha256, count=scan['route_count'],
+                                           frames=scan['route_frames'], two_players=False)
+        emit(f"Game Boy scan level {level}: {len(long_routes)} reproducible pseudo-random routes of "
+             f"{long_routes[0].frames} frames.")
+    scenarios = probe_scenarios(frames, varied=scan['varied'], long_routes=long_routes)
     stage_seconds['discovery'] = time.perf_counter() - stage_started
     checks: list[dict] = []
     final_checks: list[dict] = []
@@ -382,7 +398,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         for scenario in scenarios:
             scenario_trace = project / f'observed-{scenario.name}.trace'
             stage_started = time.perf_counter()
-            check = _probe(executable, project, frames, scenario_trace, scenario)
+            check = _probe(executable, project, scenario.frames or frames, scenario_trace, scenario)
             check['wall_seconds'] = round(time.perf_counter() - stage_started, 6)
             stage_seconds['coverage_probes'] += check['wall_seconds']
             check['pass'] = number
@@ -429,6 +445,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     _remember_trace(rom, trace_out)
     generated = json.loads((project / "game_metadata.json").read_text(encoding="utf-8"))
     report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": "gb", "name": "Game Boy"},
+        "scan_level": level, "long_routes": [route.metadata() for route in long_routes],
         "rom": rom.metadata(), "backend": "gb-recompiled-sm83", "compiler": {"url": ENGINE_URL,
             "revision": ENGINE_REV, "license": "MIT"},
         "native_coverage": {"translated_functions": len(generated.get("functions", [])),

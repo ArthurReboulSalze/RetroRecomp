@@ -698,7 +698,8 @@ def reference_differences(system_id: str, native: dict, reference: dict) -> list
 def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profile=None,
               passes=3, frames=3600, backend='banked', language='en', cover=None,
               boxart_dir=None, online_cover=True, use_cover=True, icon_tags=True,
-              standard_override=None, md_advanced_scan=False, publish_result=True, emit=print) -> Path:
+              standard_override=None, md_advanced_scan=False, scan_level=None, publish_result=True,
+              emit=print) -> Path:
     from .artwork import prepare_icon
     from .core import executable_name
     from .metadata import write_game_metadata
@@ -711,10 +712,16 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     standard = (megadrive if system_id == 'md' else supernintendo).video_standard(rom, standard_override)
     gun = guns16.gun_game(system_id, rom.crc32, rom.path.name)
-    # The optional advanced scan serves both 16-bit consoles: a long attract
-    # sequence plus reproducible pseudo-random play routes seeded from the
-    # exact ROM. The authored Mega Drive replays stay Mega Drive only.
-    advanced = system_id in ('md', 'snes') and bool(md_advanced_scan)
+    # The scan level decides how long discovery runs on both 16-bit consoles:
+    # extended and thorough add a long attract sequence plus reproducible
+    # pseudo-random play routes seeded from the exact ROM. The authored Mega
+    # Drive replays stay Mega Drive only. The former switch means thorough.
+    from .scan_levels import LEVELS, console16_budget, legacy_level
+    level = scan_level or legacy_level(system_id, md_advanced_scan=bool(md_advanced_scan))
+    if level not in LEVELS:
+        raise ConversionError(f'Unknown scan level: {level!r}.')
+    budget = console16_budget(level, frames)
+    advanced = budget['advanced']
     fixed_scripts = advanced and system_id == 'md'
     if output is None:
         from .batch import identify, convert_batch
@@ -724,7 +731,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         result = convert_batch([item], games_root(), frames=frames, passes=passes,
             language=language, boxart_dir=boxart_dir, online_cover=online_cover,
             use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
-            md_advanced_scan=advanced, emit=emit)
+            scan_level=level, emit=emit)
         if result['failed']:
             raise ConversionError(result['games'][0]['message'])
         return Path(result['games'][0]['executable'])
@@ -770,7 +777,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     # Later attract scenes can introduce code after the former 18,000-frame
     # scan. Keep the optional advanced route bounded and validate it against
     # the reference CPU before retaining any new observations.
-    demo_frames = max(frames, 24000) if advanced else frames
+    demo_frames = budget['demo_frames']
     early_start_frames = 1800 if fixed_scripts else 0
     menu_confirm_frames = advanced_frames if not gun else 0
     six_buttons = system_id == 'md' and bool(cartridge_profile.get(
@@ -781,9 +788,10 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     # the reference run receives the same script. Gun games keep their own
     # authored mouse routes.
     long_routes = ()
-    if advanced and not gun:
+    if advanced and not gun and budget['route_count']:
         from .random_routes import long_routes as pseudo_random_routes
-        long_routes = pseudo_random_routes(system_id, rom.sha256, six_buttons=six_buttons,
+        long_routes = pseudo_random_routes(system_id, rom.sha256, count=budget['route_count'],
+                                           frames=budget['route_frames'], six_buttons=six_buttons,
                                            chain=CHAIN_LONG_ROUTES)
     long_frames = sum(route.frames for route in long_routes)
     route_metadata = {route.name: route.metadata() for route in long_routes}
@@ -917,7 +925,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'compiler': {'repository': REPOSITORIES[system_id][0], 'revision': REPOSITORIES[system_id][1],
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
-        'advanced_scan': {'enabled': advanced,
+        'advanced_scan': {'enabled': advanced, 'level': level,
                           'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
                                                 + menu_confirm_frames + long_frames),
                           'demo_frames': demo_frames,

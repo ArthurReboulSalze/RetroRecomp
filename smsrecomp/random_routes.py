@@ -51,6 +51,11 @@ CONSOLES = {
     'snes': {'main': ('a', 'b', 'x', 'y'), 'extra': ('l', 'r'), 'select': 'select', 'opening': 240},
     'nes': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
     'ng': {'main': ('a', 'b', 'c', 'd'), 'extra': (), 'select': None, 'opening': 2400},
+    'gb': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
+    # The Master System pad has no Start: menus open with the buttons. Game
+    # Gear adds Start on the console.
+    'sms': {'main': ('a', 'b'), 'extra': (), 'select': None, 'opening': 240, 'start': False},
+    'gg': {'main': ('a', 'b'), 'extra': (), 'select': None, 'opening': 240},
 }
 
 MD_BITS = {'up': 0x01, 'down': 0x02, 'left': 0x04, 'right': 0x08, 'b': 0x10, 'c': 0x20,
@@ -61,6 +66,11 @@ NEOGEO_BITS = {'up': 0x01, 'down': 0x02, 'left': 0x04, 'right': 0x08,
                'a': 0x10, 'b': 0x20, 'c': 0x40, 'd': 0x80}
 NES_NAMES = {'a': 'A', 'b': 'B', 'select': 'SELECT', 'start': 'START',
              'up': 'UP', 'down': 'DOWN', 'left': 'LEFT', 'right': 'RIGHT'}
+# Game Boy host ``--input`` letters (U D L R A B, S = Start, T = Select).
+GB_LETTERS = {'up': 'U', 'down': 'D', 'left': 'L', 'right': 'R', 'a': 'A', 'b': 'B',
+              'start': 'S', 'select': 'T'}
+# Master System / Game Gear host ``--press`` letters (A = button 1, B = button 2).
+SEGA_LETTERS = {'up': 'U', 'down': 'D', 'left': 'L', 'right': 'R', 'a': 'A', 'b': 'B', 'start': 'S'}
 
 
 @dataclass(frozen=True)
@@ -133,6 +143,7 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
         return frame + length
 
     opening = continues_from is None
+    has_start = layout.get('start', True)
     emit(0)
     frame = layout['opening'] + rng.randint(0, 120)
     if console == 'ng':
@@ -146,7 +157,7 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
     # chained route is already in the game: it draws the same numbers so the
     # body below stays identical, but presses nothing before the body.
     for _ in range(rng.randint(2, 4)):
-        frame = tap(frame, {'start'}, 4, pressed=opening) + rng.randint(120, 240)
+        frame = tap(frame, {'start'}, 4, pressed=opening and has_start) + rng.randint(120, 240)
     for _ in range(rng.randint(1, 3)):
         frame = tap(frame, {rng.choice(main)}, 6, pressed=opening) + rng.randint(60, 150)
     if not opening:
@@ -169,12 +180,12 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
             frame = tap(frame, {rng.choice(main)}, rng.randint(3, 12))
         elif roll < 0.78:                             # Start twice: pause and resume, or a menu step
             gap = rng.randint(20, 60)
-            tap(frame, {'start'}, 4)
-            frame = tap(frame + gap, {'start'}, 4)
+            tap(frame, {'start'}, 4, pressed=has_start)
+            frame = tap(frame + gap, {'start'}, 4, pressed=has_start)
         elif roll < 0.84 and layout['select']:        # Select: item or mode switches
             frame = tap(frame, {layout['select']}, 6)
         elif roll < 0.90 and two_players:             # player 2 wakes two-player paths
-            frame = tap(frame, {rng.choice(main + ('start',))}, 6, 'p2')
+            frame = tap(frame, {rng.choice(main + (('start',) if has_start else ()))}, 6, 'p2')
         # otherwise an idle pause
         frame += rng.randint(30, 120)
     emit(last, p1=set(), p2=set(), coin=0)
@@ -237,6 +248,29 @@ def neogeo_script(route: Route) -> str:
     return ''.join(lines)
 
 
+def gameboy_script(route: Route) -> str:
+    """``start:BUTTONS:duration`` items, comma separated, for the Game Boy
+    host's ``--input`` option: one item per held state, no overlap."""
+    items = []
+    for step, following in zip(route.steps, route.steps[1:]):
+        if step.p1:
+            letters = ''.join(GB_LETTERS[name] for name in GB_LETTERS if name in step.p1)
+            items.append(f'{step.frame}:{letters}:{following.frame - step.frame}')
+    return ','.join(items)
+
+
+def sega_press(route: Route) -> list:
+    """``frame:LETTERS`` values for the Master System / Game Gear host's
+    repeated ``--press`` option; an empty letter group releases the pad."""
+    values, previous = [], frozenset()
+    for step in route.steps:
+        if step.p1 != previous:
+            letters = ''.join(SEGA_LETTERS[name] for name in SEGA_LETTERS if name in step.p1)
+            values.append(f'{step.frame}:{letters}')
+        previous = step.p1
+    return values
+
+
 def script_text(route: Route) -> str:
     if route.console in ('md', 'snes'):
         return console16_script(route)
@@ -244,6 +278,10 @@ def script_text(route: Route) -> str:
         return nes_script(route)
     if route.console == 'ng':
         return neogeo_script(route)
+    if route.console == 'gb':
+        return gameboy_script(route)
+    if route.console in ('sms', 'gg'):
+        return '\n'.join(sega_press(route)) + '\n'
     raise ValueError(route.console)
 
 

@@ -782,7 +782,7 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
     env["RETRO_RECOMP_LEARNING"] = "1"
     started = time.perf_counter()
     result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        stderr=subprocess.PIPE, timeout=max(60, frames // 15), creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
     completed = re.search(r"stopped after (\d+) frames; dispatch misses: (\d+)", text)
     percent = re.search(r"([\d.]+)% interp / ([\d.]+)% static", text)
@@ -862,6 +862,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             online_cover: bool = True, use_cover: bool = True, icon_tags: bool = True,
             standard_override: str | None = None,
             md_advanced_scan: bool = False,
+            scan_level: str | None = None,
             publish_result: bool = True,
             emit: Callable[[str], None] = print) -> Path:
     system = profile_for_path(rom_path)
@@ -873,21 +874,21 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             profile=profile, passes=passes, frames=frames, backend=backend, language=language,
             cover=cover, boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
             icon_tags=icon_tags, standard_override=standard_override, md_advanced_scan=md_advanced_scan,
-            publish_result=publish_result, emit=emit)
+            scan_level=scan_level, publish_result=publish_result, emit=emit)
     if system.id == "gb":
         from .gameboy import convert_game_boy
         return convert_game_boy(rom_path, title=title, output=output, profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             cover=cover, boxart_dir=boxart_dir, online_cover=online_cover,
             use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
-            emit=emit)
+            scan_level=scan_level, emit=emit)
     if system.id == "nes":
         from .nes import convert_nes
         return convert_nes(rom_path, title=title, output=output, profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             cover=cover, boxart_dir=boxart_dir, online_cover=online_cover,
             use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
-            emit=emit)
+            scan_level=scan_level, emit=emit)
     if output is None:
         # Single-ROM exports use the same names, reports and replacement policy
         # as the GUI/batch. The batch invokes this compiler with an explicit
@@ -900,7 +901,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         result = convert_batch([item], games_root(), profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
-            standard_override=standard_override,
+            standard_override=standard_override, scan_level=scan_level,
             emit=emit)['games'][0]
         if result['status'] != 'success':
             raise ConversionError(result['message'])
@@ -912,6 +913,11 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
         raise ConversionError("Choisis 1 à 10 passes et 1 à 10000 images par test.")
     banked = backend == "banked"
+    from .scan_levels import LEVELS, sega_budget
+    level = scan_level or 'standard'
+    if level not in LEVELS:
+        raise ConversionError(f'Unknown scan level: {level!r}.')
+    scan = sega_budget(level)
     rom = system.read_rom(rom_path)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
     name = slug(title)
@@ -1008,9 +1014,20 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     native_source = prepare_native_source()
     build = game / "build-native"
     executable = build_executable(build, name)
-    scenarios = [("demo", []), ("play", ["60:S", "65:", "120:B", "125:", "240:R", "360:RA", "390:R", "600:"])
+    scenarios = [("demo", [], frames), ("play", ["60:S", "65:", "120:B", "125:", "240:R", "360:RA", "390:R", "600:"], frames)
                  if system.id == "gg" else
-                 ("play", ["120:B", "125:", "240:R", "360:RA", "390:R", "600:"])]
+                 ("play", ["120:B", "125:", "240:R", "360:RA", "390:R", "600:"], frames)]
+    long_routes = ()
+    if scan['route_count']:
+        # Extended and thorough add reproducible pseudo-random play routes
+        # seeded from the exact ROM: host pad input only, with their own frame
+        # budget, learned and reference-compared like demo and play.
+        from .random_routes import long_routes as pseudo_random_routes, sega_press
+        long_routes = pseudo_random_routes(system.id, rom.sha256, count=scan['route_count'],
+                                           frames=scan['route_frames'], two_players=False)
+        scenarios += [(route.name, sega_press(route), route.frames) for route in long_routes]
+        emit(f"Niveau de scan {level} : {len(long_routes)} parcours pseudo-aléatoires reproductibles de "
+             f"{long_routes[0].frames} images.")
     history = []
     compilation_started = time.perf_counter()
     coverage = None
@@ -1046,14 +1063,14 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         run([cmake, "--build", build, "--config", "Release", "--target", name, "--parallel", build_jobs()], log=log)
         added = 0
         patterns_added = 0
-        for scenario, inputs in scenarios:
-            emit(f"Vérification {scenario} : {frames} images…")
+        for scenario, inputs, budget in scenarios:
+            emit(f"Vérification {scenario} : {budget} images…")
             directory = game / "checks" / f"pass{iteration + 1}_{scenario}"
-            check = probe(executable, directory, frames, press=inputs)
+            check = probe(executable, directory, budget, press=inputs)
             check["scenario"] = scenario
             history.append(check)
             if not check["passed"]:
-                raise ConversionError(f"Le test {scenario} n'a pas atteint {frames} images. Consulte {directory / 'runtime.log'}")
+                raise ConversionError(f"Le test {scenario} n'a pas atteint {budget} images. Consulte {directory / 'runtime.log'}")
             if banked and iteration:
                 previous = game / "checks" / f"pass{iteration}_{scenario}"
                 previous_check = json.loads((previous / "result.json").read_text(encoding="utf-8"))
@@ -1078,8 +1095,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if banked:
             profile_history.append({"pass": iteration + 1, "compiled_windows": len(compiled_patterns),
                 "new_windows": patterns_added,
-                "interpreter_cycles": [c.get("interpreter_cycles") for c in history[-2:]]})
-            if not patterns_added or all(c.get("interpreter_cycles") == 0 for c in history[-2:]):
+                "interpreter_cycles": [c.get("interpreter_cycles") for c in history[-len(scenarios):]]})
+            if not patterns_added or all(c.get("interpreter_cycles") == 0 for c in history[-len(scenarios):]):
                 break
             if iteration + 1 < passes:
                 emit(f"{patterns_added} nouvelles variantes observées : compilation et nouveau contrôle.")
@@ -1087,7 +1104,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             break
         else:
             emit(f"{added} nouvelles entrées repérées : recompilation à la passe suivante.")
-    final_checks = history[-2:]
+    final_checks = history[-len(scenarios):]
     if banked:
         profile_stop = ("zero_fallback_on_tested_scenarios" if all(c.get("interpreter_cycles") == 0 for c in final_checks)
             else "pass_budget" if patterns_added and len(profile_history) == passes else "no_new_patterns")
@@ -1095,13 +1112,13 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             profile_stop == "zero_fallback_on_tested_scenarios" else
             f"Boucle arrêtée ({profile_stop}) : du secours reste présent sur les parcours testés.")
     emit("Vérification du mode strict…")
-    strict_checks = [probe(executable, game / "checks" / f"strict_{scenario}", frames,
-        strict=True, press=inputs) for scenario, inputs in scenarios]
+    strict_checks = [probe(executable, game / "checks" / f"strict_{scenario}", budget,
+        strict=True, press=inputs) for scenario, inputs, budget in scenarios]
     # Shared-runtime differential check: useful for CPU translation, not proof of hardware accuracy.
     emit("Comparaison avec le processeur de référence…")
     reference_dir = game / "checks/reference"
     reference = probe(executable, reference_dir, frames, reference=True)
-    final_demo = game / "checks" / f"pass{len(history) // 2}_demo" / "vdp.csv"
+    final_demo = game / "checks" / f"pass{len(history) // len(scenarios)}_demo" / "vdp.csv"
     reference_trace = reference_dir / "vdp.csv"
     # The upstream CSV also appends RAM and SP columns despite its shorter
     # header. Compare the VDP columns explicitly: an interpreter does not update
@@ -1110,7 +1127,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     b = vdp_states(reference_trace)
     mismatched_frames = [int(x[0]) for x, y in zip(a, b) if x != y]
     matched = reference["passed"] and len(a) == len(b) and not mismatched_frames
-    ram_path = game / "checks" / f"pass{len(history) // 2}_demo/frame.png.ram"
+    ram_path = game / "checks" / f"pass{len(history) // len(scenarios)}_demo/frame.png.ram"
     reference_ram = reference_dir / "frame.png.ram"
     ram_match = reference["passed"] and ram_path.read_bytes() == reference_ram.read_bytes()
     cpu_match = (final_checks[0].get("final_cpu") == reference.get("final_cpu")) if banked else None
@@ -1119,14 +1136,15 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         if value != reference.get("final_cpu", {}).get(key)} if banked else None)
     validation = None
     if banked:
-        reference_play = probe(executable, game / 'checks/reference_play', frames,
-                               reference=True, press=scenarios[1][1])
+        reference_runs = [(reference, reference_dir)]
+        for scenario, inputs, budget in scenarios[1:]:
+            run_dir = game / f'checks/reference_{scenario}'
+            reference_runs.append((probe(executable, run_dir, budget, reference=True, press=inputs), run_dir))
         comparisons = []
-        for index, ref in enumerate((reference, reference_play)):
+        for index, (ref, ref_dir) in enumerate(reference_runs):
             scenario = scenarios[index][0]
             result = compare_execution(final_checks[index], ref,
-                game / f'checks/pass{len(history) // 2}_{scenario}',
-                reference_dir if index == 0 else game / 'checks/reference_play')
+                game / f'checks/pass{len(history) // len(scenarios)}_{scenario}', ref_dir)
             result.update(scenario=scenario, reference=ref)
             # A zero-fallback claim is valid only if the very same scenario
             # also finishes with the fallback explicitly disabled.
@@ -1154,7 +1172,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "quicksave": f"datas/games/{name}-{rom.sha256[:12]}/{name}-quicksave.state" if banked else None,
             "library_identity": rom.sha256, "runtime_learning": True,
             "runtime_feedback": gameplay_feedback},
-        "backend": backend, "target": target_id(), "native_coverage": coverage, "native_validation": validation,
+        "backend": backend, "target": target_id(), "scan_level": level,
+        "long_routes": [route.metadata() for route in long_routes],
+        "native_coverage": coverage, "native_validation": validation,
         "input_players": 1 if system.id == "gg" else 2,
         "game_states": {"supported": banked, "save_key": "F8", "load_key": "F9", "slots": 1,
             "schema": 1, "machine": 3 if system.id == "gg" else 2 if standard == "pal" else 1,
@@ -1191,7 +1211,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         "reference_final_ram_match": ram_match, "reference_final_cpu_match": cpu_match,
         "reference_final_cpu_differences": cpu_differences,
         "reference_check": reference,
-        "reference_final_png_match": (game / "checks" / f"pass{len(history) // 2}_demo/frame.png").read_bytes()
+        "reference_final_png_match": (game / "checks" / f"pass{len(history) // len(scenarios)}_demo/frame.png").read_bytes()
             == (reference_dir / "frame.png").read_bytes() if reference["passed"] else False,
         "strict_checks": strict_checks, "final_checks": final_checks, "history": history,
         "build_directory": str(game), "compiler_signature": signature,
@@ -1216,8 +1236,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         exported_art.mkdir(parents=True, exist_ok=True)
         shutil.copy2(game / "game.ico", exported_art / f"{name}.ico")
         shutil.copy2(game / "game-icon.png", exported_art / f"{name}-icon.png")
-    for scenario, _ in scenarios:
-        src = game / "checks" / f"pass{len(history) // 2}_{scenario}"
+    for scenario, _, _ in scenarios:
+        src = game / "checks" / f"pass{len(history) // len(scenarios)}_{scenario}"
         target = destination / "validation" / scenario
         target.mkdir(parents=True, exist_ok=True)
         for filename in ("frame.png", "runtime.log", "result.json", "vdp.csv"):
