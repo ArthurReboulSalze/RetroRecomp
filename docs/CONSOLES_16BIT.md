@@ -607,13 +607,34 @@ listening review remains with the user.
 
 ## Further validation scope
 
-### Optional advanced Mega Drive scan
+### Optional advanced 16-bit scan
 
-Enable **Options → Mega Drive → Advanced Mega Drive scan** to add a varied-input
-replay to every compile/test/learn pass. It runs for at least 6,000 frames, or the
-configured **Frames per test** when that is higher. Directions, A/B/C, Start and
-player-two controls are exercised; qualified six-button games also use X/Y/Z.
-The T2 profile preserves its original Menacer menu selection and mouse test.
+Enable **Options → Mega Drive or Super Nintendo → Advanced 16-bit scan** to
+lengthen discovery on every compile/test/learn pass. On both consoles the
+attract sequence runs for 24,000 frames and two **reproducible pseudo-random
+play routes** of 18,000 frames each are added (`smsrecomp/random_routes.py`).
+Their seed is the console and the exact ROM identity, so every conversion of the
+same cartridge replays the same routes, and the same script drives the native
+export and its reference run; the report keeps each route's seed and index. A
+route is ordinary host controller input: long movement phases that often hold a
+button, short taps, paired Start presses that pause and resume, occasional
+Select and player-two taps, and neutral pauses between phases. Opposing
+directions are never pressed together and nothing in guest memory or game code
+is patched. Each route boots the game afresh. The converter can also chain the
+second route from the machine state the first one saved at its last frame
+(`--save-state` / `--load-state` of the headless host, one state file per
+engine so the native export and its reference each restore their own, both
+written by the same executable; the report then marks the route with
+`continues_from`). That mode is off by default: measured on 23 October 2026 on
+Sonic and Donkey Kong Country, it found no new opcode variant, because the
+routes do not progress past the first screen and a chained route can end at
+the title screen. Lightgun games keep their authored mouse routes instead.
+
+On Mega Drive the authored varied-input replay is kept as well. It runs for at
+least 6,000 frames, or the configured **Frames per test** when that is higher.
+Directions, A/B/C, Start and player-two controls are exercised; qualified
+six-button games also use X/Y/Z. The T2 profile preserves its original Menacer
+menu selection and mouse test.
 
 An additional 1,800-frame replay presses Start shortly after a fresh boot, then
 tries the main action buttons. The previous demo, play and advanced scripts all
@@ -627,17 +648,20 @@ Controller games also get a menu/dialogue replay of at least 6,000 frames, or
 dialogue before trying directions. Repeating Start alone can miss these paths.
 Lightgun games retain their dedicated menu/aim scenarios.
 
-All five controller scenarios (four for lightgun games) are compared against the internal CPU/video/audio reference
-before new 68000 ROM/RAM entries or Z80 opcode variants enter the local library.
+All seven Mega Drive controller scenarios (four for lightgun games) and the four
+Super Nintendo scenarios are compared against the internal CPU/video/audio
+reference before new 68000 ROM/RAM entries, Z80 opcode variants, 65816 RAM
+variants or SPC700 opcode variants enter the local library.
 The converter regenerates code while verified observations are added, within
 the existing **Maximum passes** limit. It stops when no new paths are found.
 The final report records the scan mode, each scenario's budget, fallback counters
 and reference comparisons. Reaching the pass limit can still leave counted fallback.
 
-The option is off by default and applies only to Mega Drive. It increases
-conversion time and broadens tested coverage; it cannot explore every level or
-certify independent hardware accuracy. Standard mode retains its two reference
-checked scenarios. Use `--md-advanced-scan` with `convert` or `batch` in the CLI.
+The option is off by default and applies to Mega Drive and Super Nintendo. It
+increases conversion time and broadens tested coverage; it cannot explore every
+level or certify independent hardware accuracy. Standard mode retains its two
+reference checked scenarios. Use `--md-advanced-scan` with `convert` or `batch`
+in the CLI.
 
 The offline 68000 analysis also expands reached function tables made of adjacent
 direct jump instructions. It follows their ROM destinations with the normal

@@ -510,7 +510,8 @@ class BatchTests(unittest.TestCase):
                                    md_advanced_scan=True, emit=lambda text: None)
         self.assertEqual(record['succeeded'], 3)
         self.assertNotIn('md_advanced_scan', sms_compiler.call_args.kwargs)
-        self.assertNotIn('md_advanced_scan', snes_compiler.call_args.kwargs)
+        # Both 16-bit compilers share the long pseudo-random routes.
+        self.assertTrue(snes_compiler.call_args.kwargs['md_advanced_scan'])
         self.assertTrue(md_compiler.call_args.kwargs['md_advanced_scan'])
 
     def test_advanced_nes_scan_is_filtered_out_of_other_console_compilers(self):

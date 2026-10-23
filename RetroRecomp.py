@@ -119,7 +119,8 @@ def main() -> int:
     build.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Native discovery is unchanged.")
     build.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Add a longer Mega Drive input replay and reference checks to each learning pass (default: off).')
+        help='Mega Drive / Super Nintendo: add a 24,000-frame attract test, reproducible pseudo-random play '
+             'routes and, on Mega Drive, the authored replays, with reference checks on each learning pass (default: off).')
     build.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Add NES menu/dialogue/varied-input replays with complete reference CPU/image/audio checks (default: off).')
     build.add_argument("--backend", choices=("functions", "banked"), default="banked",
@@ -154,7 +155,7 @@ def main() -> int:
     batch.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
         help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
     batch.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Extra Mega Drive coverage scan (default: off); ignored for other consoles.')
+        help='Extra Mega Drive / Super Nintendo coverage scan (default: off); ignored for other consoles.')
     batch.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
         help='Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.')
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",

@@ -339,7 +339,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             settings.pop('ng_bios', None)
             settings.pop('ng_qualification_routes', None)
             settings.pop('ng_parallel_games', None)
-        if system.id != 'md':
+        if system.id not in ('md', 'snes'):
             settings.pop('md_advanced_scan', None)
         if system.id != 'nes':
             settings.pop('nes_advanced_scan', None)

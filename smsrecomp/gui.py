@@ -1324,9 +1324,13 @@ class Application:
         self.build_feedback_options(nes, 'nes')
         for console in ('md', 'snes'):
             page = tab('options_' + console)
+            # One shared setting: the long attract sequence and the
+            # pseudo-random routes apply to both 16-bit consoles.
+            control = checkbox(page, 'md_advanced_scan', self.md_advanced_scan, 'tip_md_advanced_scan')
             if console == 'md':
-                self.md_scan_control = checkbox(page, 'md_advanced_scan',
-                                                self.md_advanced_scan, 'tip_md_advanced_scan')
+                self.md_scan_control = control
+            else:
+                self.snes_scan_control = control
             ttk.Label(page, text=self.tr('options_' + console + '_note'),
                       style='Muted.TLabel', wraplength=590).pack(anchor='w')
             self.build_feedback_options(page, console)

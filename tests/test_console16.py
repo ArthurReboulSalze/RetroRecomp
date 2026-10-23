@@ -322,15 +322,26 @@ class Console16Tests(unittest.TestCase):
             return executable
 
         def probe(executable, directory, frames, *, play=False, reference=False,
-                  gun_menu=None, scenario=None, input_script=None):
+                  gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None):
             scenario = scenario or ('play' if play else 'demo')
-            events.append(('reference:' if reference else 'native:') + scenario)
+            events.append(('reference:' if reference else 'native:') + scenario
+                          + (f'<{Path(load_state).stem}' if load_state is not None else ''))
             if input_script is not None:
                 self.assertTrue(input_script.is_file())
                 if reference:
                     self.assertEqual(input_script.read_bytes(), scripts[scenario])
                 else:
                     scripts[scenario] = input_script.read_bytes()
+            # A chained route loads the end state the previous route saved in
+            # the same run directory: the native export and the reference each
+            # chain from their own state, written before the next route runs.
+            engine = b'reference' if reference else b'native'
+            if load_state is not None:
+                self.assertEqual(Path(load_state).parent, Path(directory))
+                self.assertEqual(Path(load_state).read_bytes(), engine, 'each engine chains from its own state')
+            if save_state is not None:
+                self.assertEqual(Path(save_state).parent, Path(directory))
+                Path(save_state).write_bytes(engine)
             fields = MD_AUDIO_FIELDS + MD_SRAM_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped','cpu_prefetch_hash',
                 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
                 'cpu_pc', 'vsram_hash', 'vdp_register_hash')
@@ -372,15 +383,49 @@ class Console16Tests(unittest.TestCase):
 
     def test_advanced_md_scan_validates_new_paths_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True)
-        self.assertEqual(events[:12], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
-                                      'native:menu-confirm', 'reference:demo', 'reference:play', 'reference:advanced',
-                                      'reference:early-start', 'reference:menu-confirm', 'learn'])
+        self.assertEqual(events[:16], ['build', 'native:demo', 'native:play', 'native:advanced', 'native:early-start',
+                                      'native:menu-confirm', 'native:long-1', 'native:long-2',
+                                      'reference:demo', 'reference:play', 'reference:advanced',
+                                      'reference:early-start', 'reference:menu-confirm',
+                                      'reference:long-1', 'reference:long-2', 'learn'])
         self.assertEqual(events.count('build'), 2)
-        self.assertEqual([check['frames'] for check in report['final_checks']], [24000, 30, 6000, 1800, 6000])
-        self.assertEqual(report['native_percentage'], [100.0] * 5)
-        self.assertEqual(report['advanced_scan']['additional_frames'], 37770)
+        self.assertEqual([check['frames'] for check in report['final_checks']],
+                         [24000, 30, 6000, 1800, 6000, 18000, 18000])
+        self.assertEqual(report['native_percentage'], [100.0] * 7)
+        self.assertEqual(report['advanced_scan']['additional_frames'], 73770)
         self.assertEqual(report['advanced_scan']['demo_frames'], 24000)
+        # The pseudo-random routes are reproducible: seed and index are kept
+        # in the report, and the same script drove the native and reference runs.
+        routes = report['advanced_scan']['long_routes']
+        self.assertEqual([route['scenario'] for route in routes], ['long-1', 'long-2'])
+        self.assertTrue(all(route['seed'].startswith('md-long:') for route in routes))
+        self.assertEqual([check.get('input_route', {}).get('index') for check in report['final_checks']],
+                         [None, None, None, None, None, 0, 1])
+        # Routes are independent by default: no saved state is written or read.
+        self.assertEqual([route['continues_from'] for route in routes], [None, None])
+        self.assertEqual([check.get('input_route', {}).get('continues_from') for check in report['final_checks']],
+                         [None] * 7)
+        self.assertFalse(any('<' in event for event in events))
+        self.assertFalse((self.root / 'project/checks/long-1.state').exists())
         self.assertTrue(report['advanced_scan']['reference_before_learning'])
+        self.assertTrue(report['native_validation']['passed'])
+
+    def test_chained_routes_continue_from_the_previous_route_state_when_enabled(self):
+        with patch('smsrecomp.console16.CHAIN_LONG_ROUTES', True):
+            events, report = self.scan_conversion(advanced=True)
+        # The second route continues from the first route's saved end state,
+        # on both passes, in the report and on the check itself.
+        self.assertEqual(events[6:8], ['native:long-1', 'native:long-2<long-1'])
+        self.assertEqual(events[13:15], ['reference:long-1', 'reference:long-2<long-1'])
+        routes = report['advanced_scan']['long_routes']
+        self.assertEqual([route['continues_from'] for route in routes], [None, 'long-1'])
+        self.assertEqual([check.get('input_route', {}).get('continues_from') for check in report['final_checks']],
+                         [None, None, None, None, None, None, 'long-1'])
+        self.assertEqual(events.count('native:long-2<long-1'), 2)
+        self.assertEqual(events.count('reference:long-2<long-1'), 2)
+        self.assertTrue((self.root / 'project/checks/long-1.state').is_file())
+        self.assertTrue((self.root / 'project/checks/reference/long-1.state').is_file())
+        self.assertFalse((self.root / 'project/checks/long-2.state').exists(), 'the last route saves nothing')
         self.assertTrue(report['native_validation']['passed'])
         self.assertEqual(datetime.fromisoformat(report['created_utc']).tzinfo, timezone.utc)
 
@@ -467,7 +512,7 @@ class Console16Tests(unittest.TestCase):
         events, report = self.scan_conversion(advanced=True, learned_scenario='demo')
         self.assertEqual(events.count('build'), 2)
         self.assertLess(events.index('reference:demo'), events.index('learn'))
-        self.assertEqual(report['native_percentage'], [100.0] * 5)
+        self.assertEqual(report['native_percentage'], [100.0] * 7)
         self.assertEqual(report['native_validation']['reference_frames'], 24000)
 
     def test_failed_long_attract_reference_never_teaches_the_library(self):
@@ -477,7 +522,7 @@ class Console16Tests(unittest.TestCase):
         events, report = self.scan_conversion(advanced=True, learned_scenario='early-start')
         self.assertEqual(events.count('build'), 2)
         self.assertLess(events.index('reference:early-start'), events.index('learn'))
-        self.assertEqual(report['native_percentage'], [100.0] * 5)
+        self.assertEqual(report['native_percentage'], [100.0] * 7)
 
     def test_failed_early_start_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference='early-start')
@@ -486,7 +531,7 @@ class Console16Tests(unittest.TestCase):
         events, report = self.scan_conversion(advanced=True, learned_scenario='menu-confirm')
         self.assertEqual(events.count('build'), 2)
         self.assertLess(events.index('reference:menu-confirm'), events.index('learn'))
-        self.assertEqual(report['native_percentage'], [100.0] * 5)
+        self.assertEqual(report['native_percentage'], [100.0] * 7)
 
     def test_failed_menu_confirmation_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference='menu-confirm')

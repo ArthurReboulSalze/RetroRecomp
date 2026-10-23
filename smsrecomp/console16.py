@@ -22,6 +22,11 @@ REPOSITORIES = {
     'smw': ('mstan/SuperMarioWorldRecomp', '8dedb2869414f20d1d86d34081be26594560cc15', 'smwrecomp'),
 }
 SUPPORTED_SYSTEMS = ('md', 'snes')
+# Later pseudo-random routes may continue from the saved end state of the
+# previous one. Off: measured on 23 October 2026 (Sonic, Donkey Kong Country)
+# without any new opcode variant, because the routes do not progress past the
+# first screen; the chained second route then wastes its budget at the title.
+CHAIN_LONG_ROUTES = False
 MD_AUDIO_FIELDS = ('fm_samples', 'fm_nonzero', 'fm_peak', 'fm_hash', 'fm_active_frames',
                    'psg_samples', 'psg_nonzero', 'psg_peak', 'psg_hash', 'psg_active_frames',
                    'z80_pc', 'z80_slice_cycles', 'z80_ram_hash', 'z80_cpu_hash', 'ym_timer_hash')
@@ -566,13 +571,21 @@ def _md_menu_confirm_script(directory: Path, frames: int) -> Path:
 
 
 def probe16(executable: Path, directory: Path, frames: int, *, play=False, reference=False,
-            gun_menu=None, scenario=None, input_script=None) -> dict:
+            gun_menu=None, scenario=None, input_script=None, save_state=None, load_state=None) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
     scenario = scenario or ('play' if play else 'demo')
     report = directory / f'{scenario}{"-reference" if reference else ""}.json'
     command = [executable, '--frames', str(frames), '--report', report]
     if input_script is not None:
         command.extend(('--input-script', Path(input_script).resolve()))
+    # Chained scenarios: restore the previous scenario's end state before the
+    # first frame and keep this one's end state for the next. The script still
+    # counts frames from 0 (no --frame-offset), and the headless host only
+    # accepts a state written by the same executable and ROM.
+    if load_state is not None:
+        command.extend(('--load-state', Path(load_state).resolve()))
+    if save_state is not None:
+        command.extend(('--save-state', Path(save_state).resolve()))
     if play:
         command.append('--play')
         if gun_menu:
@@ -599,6 +612,12 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
                 command=failed.get('coprocessor_failed_command',0)
                 raise ConversionError(f'{chip} validation stopped at unsupported device command ${command:02X}. '
                                       f'Previous export preserved; see {directory}.')
+        if result.returncode == 7 and load_state is not None:
+            raise ConversionError(f'16-bit {scenario} probe could not restore the saved state '
+                                  f'{Path(load_state).name} of the previous scenario. See {directory}.')
+        if result.returncode == 8 and save_state is not None:
+            raise ConversionError(f'16-bit {scenario} probe could not save its end state for the next scenario. '
+                                  f'See {directory}.')
         raise ConversionError(f'16-bit {scenario} probe failed (exit {result.returncode}). See {directory}.')
     data = json.loads(report.read_text(encoding='utf-8'))
     if data.get('frames') != frames:
@@ -692,7 +711,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     standard = (megadrive if system_id == 'md' else supernintendo).video_standard(rom, standard_override)
     gun = guns16.gun_game(system_id, rom.crc32, rom.path.name)
-    advanced = system_id == 'md' and bool(md_advanced_scan)
+    # The optional advanced scan serves both 16-bit consoles: a long attract
+    # sequence plus reproducible pseudo-random play routes seeded from the
+    # exact ROM. The authored Mega Drive replays stay Mega Drive only.
+    advanced = system_id in ('md', 'snes') and bool(md_advanced_scan)
+    fixed_scripts = advanced and system_id == 'md'
     if output is None:
         from .batch import identify, convert_batch
         item = identify(rom_path, system_id)
@@ -743,18 +766,51 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                      '104 RCDATA "game_identity.bin"\n')
     learn = megadrive.learn_entries if system_id == 'md' else supernintendo.learn_ram_variants
     gun_menu = 't2' if gun and gun.system == 'md' and gun.title == 'T2 - The Arcade Game' else None
-    advanced_frames = max(frames, 6000) if advanced else 0
+    advanced_frames = max(frames, 6000) if fixed_scripts else 0
     # Later attract scenes can introduce code after the former 18,000-frame
     # scan. Keep the optional advanced route bounded and validate it against
     # the reference CPU before retaining any new observations.
     demo_frames = max(frames, 24000) if advanced else frames
-    early_start_frames = 1800 if advanced else 0
+    early_start_frames = 1800 if fixed_scripts else 0
     menu_confirm_frames = advanced_frames if not gun else 0
+    six_buttons = system_id == 'md' and bool(cartridge_profile.get(
+        'six_buttons', 'street-fighter' in (cartridge_profile.get('id') or '')))
+    # Long pseudo-random routes (host inputs only, never guest patches) reach
+    # later stages and code the game builds after minutes of play. The seed is
+    # the exact ROM identity, so every conversion replays the same routes and
+    # the reference run receives the same script. Gun games keep their own
+    # authored mouse routes.
+    long_routes = ()
+    if advanced and not gun:
+        from .random_routes import long_routes as pseudo_random_routes
+        long_routes = pseudo_random_routes(system_id, rom.sha256, six_buttons=six_buttons,
+                                           chain=CHAIN_LONG_ROUTES)
+    long_frames = sum(route.frames for route in long_routes)
+    route_metadata = {route.name: route.metadata() for route in long_routes}
+    # When chaining is enabled, every route after the first continues from the
+    # state the previous route saved at its last frame. Each engine chains from
+    # its own state file: the native export under `checks`, the reference under
+    # `checks/reference`, both written and read by the executable of the same
+    # pass. The field-by-field comparison is unchanged.
+    chained = {route.name: route.continues_from for route in long_routes if route.continues_from}
+
+    def route_states(scenario, directory):
+        options = {}
+        if scenario in chained.values():
+            options['save_state'] = directory / f'{scenario}.state'
+        if scenario in chained:
+            options['load_state'] = directory / f'{chained[scenario]}.state'
+        return options
+
     if advanced:
-        emit(f'Mega Drive advanced scan: tests the original attract sequence for {demo_frames} frames, '
-             f'adds a {advanced_frames}-frame varied-input replay '
-             f'and a {early_start_frames}-frame early-start replay' +
+        emit(f'{name} advanced scan: tests the original attract sequence for {demo_frames} frames' +
+             (f', adds a {advanced_frames}-frame varied-input replay '
+              f'and a {early_start_frames}-frame early-start replay' if fixed_scripts else '') +
              (f' and a {menu_confirm_frames}-frame menu/dialogue replay' if menu_confirm_frames else '') +
+             (f' and {len(long_routes)} reproducible pseudo-random play routes of '
+              f'{long_routes[0].frames} frames' if long_routes else '') +
+             (', each later route continuing from the saved end state of the previous one'
+              if chained else '') +
              ' on every pass, '
              'with reference CPU/video/audio comparison before learning. Conversion takes longer.')
     history, comparisons = [], []
@@ -768,6 +824,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             options = dict(play=scenario != 'demo', reference=True, gun_menu=gun_menu, scenario=scenario)
             if scenario in scripts:
                 options['input_script'] = scripts[scenario]
+                options.update(route_states(scenario, directory))
             reference = probe16(executable, directory, native['frames'], **options)
             comparisons.append({'scenario': native['scenario'], 'frames': native['frames'],
                                 'differences': reference_differences(system_id, native, reference)})
@@ -786,10 +843,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         scenarios = [(demo_frames if not play else frames, dict(play=play, gun_menu=gun_menu))
                      for play in (False, True)]
         scripts = {}
-        if advanced:
-            scripts['advanced'] = _md_scan_script(checks_dir, advanced_frames,
-                six_buttons=cartridge_profile.get('six_buttons', 'street-fighter' in cartridge_profile['id']),
-                gun_menu=gun_menu)
+        if fixed_scripts:
+            scripts['advanced'] = _md_scan_script(checks_dir, advanced_frames, six_buttons=six_buttons,
+                                                  gun_menu=gun_menu)
             scripts['early-start'] = _md_early_start_script(checks_dir, early_start_frames)
             if menu_confirm_frames:
                 scripts['menu-confirm'] = _md_menu_confirm_script(checks_dir, menu_confirm_frames)
@@ -800,9 +856,18 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             if menu_confirm_frames:
                 scenarios.append((menu_confirm_frames, dict(play=True, gun_menu=gun_menu,
                     scenario='menu-confirm', input_script=scripts['menu-confirm'])))
+        if long_routes:
+            from .random_routes import write_route
+            for route in long_routes:
+                scripts[route.name] = write_route(route, checks_dir)
+                scenarios.append((route.frames, dict(play=True, gun_menu=gun_menu,
+                    scenario=route.name, input_script=scripts[route.name],
+                    **route_states(route.name, checks_dir))))
         for budget, options in scenarios:
             check = probe16(executable, checks_dir, budget, **options)
             check['native_counter_unit'] = 'main CPU opcodes'
+            if check['scenario'] in route_metadata:
+                check['input_route'] = route_metadata[check['scenario']]
             checks.append(check)
             emit(f"{name} {check['scenario']}: {check['frames']} frames, "
                  f"{check.get('main_interpreted_opcodes',check['interpreted_opcodes'])} interpreted main CPU opcodes. Sound CPU: " +
@@ -853,12 +918,16 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                      'license': 'PolyForm Noncommercial 1.0.0'},
         'final_checks': checks, 'passes': history, 'reference_vdp_trace_match': None,
         'advanced_scan': {'enabled': advanced,
-                          'additional_frames': demo_frames - frames + advanced_frames + early_start_frames + menu_confirm_frames,
+                          'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
+                                                + menu_confirm_frames + long_frames),
                           'demo_frames': demo_frames,
-                          'scenario': 'advanced' if advanced else None,
-                          'scenario_frames': ({'advanced': advanced_frames, 'early-start': early_start_frames,
-                                              **({'menu-confirm': menu_confirm_frames} if menu_confirm_frames else {})}
+                          'scenario': 'advanced' if fixed_scripts else (long_routes[0].name if long_routes else None),
+                          'scenario_frames': ({**({'advanced': advanced_frames, 'early-start': early_start_frames}
+                                                 if fixed_scripts else {}),
+                                              **({'menu-confirm': menu_confirm_frames} if menu_confirm_frames else {}),
+                                              **{route.name: route.frames for route in long_routes}}
                                               if advanced else {}),
+                          'long_routes': [route.metadata() for route in long_routes],
                           'reference_before_learning': advanced},
         'native_validation': {'passed': True, 'visible_sequence_match': True,
                               'audio_pcm_match': True,
