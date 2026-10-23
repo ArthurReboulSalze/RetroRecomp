@@ -71,7 +71,7 @@ tests/test_installers.py docs/INSTALLING.md
 smsrecomp/compiled_games.py smsrecomp/compiled_games_view.py smsrecomp/memory_view.py
 smsrecomp/game_details.py smsrecomp/game_metadata.py smsrecomp/game_card_view.py smsrecomp/rom_sources.py
 tests/test_game_cards.py
-docs/COMPILED_GAMES.md
+docs/COMPILED_GAMES.md docs/UPGRADES.md
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
 tests/test_compiled_games.py
 smsrecomp/credits_demo.py smsrecomp/credits_music.py smsrecomp/dialogs.py
@@ -152,6 +152,7 @@ smsrecomp/nes_build.py tests/test_nes_build.py
 smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 smsrecomp/knowledge_build.py smsrecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
+smsrecomp/gameboy_host.py
 smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
 smsrecomp/dropfiles.py tests/test_dropfiles.py
 native/snes_dsp1_projection.inc

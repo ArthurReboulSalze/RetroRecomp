@@ -23,6 +23,61 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'knowledge_build','knowledge_exchange'))
 
 
+# Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
+# the window, menus, options, bindings, on-screen text, fonts, filters, icons
+# and notices, play sound out, and save preferences. The headless runs that
+# discover and validate a game's code never use them; those go through each
+# console's entry (launcher, main, runner), which stays on the game side. A
+# change limited to host inputs upgrades an export without rediscovery.
+# Everything not listed is game-side, so an unclassified input fails closed.
+HOST_MODULES = frozenset((
+    # Embedded artwork, box icons and Windows executable information.
+    'artwork', 'cover_keyring', 'cover_references', 'cover_settings', 'cover_sources',
+    'cover_titles', 'metadata', 'languages',
+    # Placing the finished EXE beside the others.
+    'publishing', 'windows',
+    # Converter-only shells.
+    'branding', 'player_gamepad',
+    # Player shells written as patches: Game Boy platform window, menus,
+    # sound output and input; Mega Drive sound delivery.
+    'gameboy_host', 'gameboy_timing', 'megadrive_audio'))
+HOST_NATIVE = frozenset((
+    # Paths below native/. Shared menu core, identical on every machine.
+    'retro_menu.c', 'retro_menu.h', 'game_options.h', 'game_options_checks.c',
+    'autofire.h', 'retro_keyboard.h',
+    # On-screen text and fonts.
+    'runtime_catalog.inc', 'runtime_i18n.h', 'language_checks.c', 'font6x10.h', 'font10x20.h',
+    # Presentation filters, display settings and the window icon.
+    'scale2x.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'xbr_checks.c',
+    'display_settings.h', 'display_settings_checks.c', 'icon.c', 'icon.h', 'icon_checks.c',
+    # Sound output after each machine's emulated mixer.
+    'audio_filter.h', 'audio_cushion.h', 'audio_output.inc', 'audio_checks.c',
+    'gb_audio_output.inc', 'nes_audio_output.inc', 'nes_audio_checks.c',
+    'md_audio_loop.inc', 'md_audio_resample.inc',
+    # Converter-only controller bridge (never linked into games).
+    'player_gamepad.c',
+    # Each machine family's shell: Master System / Game Gear, Game Boy, NES,
+    # the 16-bit consoles (Mega Drive, SNES, Neo Geo, CPS-1) and X68000.
+    'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
+    'gb_menu.inc', 'gb_input_refresh.inc',
+    'nes_host_ui.c', 'console16_host_ui.c', 'neogeo_ui_test.c',
+    'x68000_reference/player_ui.inc'))
+HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
+HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
+                 'assets/tag-shooting.png')
+
+
+def role(name):
+    """'host' or 'game' for one fingerprinted input (module or file path)."""
+    if name.startswith('smsrecomp.'):
+        return 'host' if name.rsplit('.', 1)[-1] in HOST_MODULES else 'game'
+    if name.startswith('native/'):
+        return 'host' if name[len('native/'):] in HOST_NATIVE else 'game'
+    if name in HOST_FILES or name.startswith(HOST_PREFIXES):
+        return 'host'
+    return 'game'
+
+
 def owners(name):
     """Return the narrowest known scope, keeping unclassified inputs shared."""
     name = Path(name).name.lower()
@@ -180,6 +235,14 @@ def engine_stamp(system):
     for name, fingerprint in input_fingerprints(system):
         value.update(name.encode('utf-8') + b'\0' + fingerprint.encode('ascii') + b'\0')
     return value.hexdigest()
+
+
+def role_stamps(system):
+    """Separate stamps of one console's game-side and host inputs."""
+    values = {part: hashlib.sha256(f'console-{part}-inputs-v1:{system}'.encode()) for part in ('game', 'host')}
+    for name, fingerprint in input_fingerprints(system):
+        values[role(name)].update(name.encode('utf-8') + b'\0' + fingerprint.encode('ascii') + b'\0')
+    return {part: value.hexdigest() for part, value in values.items()}
 
 
 def knowledge_stamp(system, identity):

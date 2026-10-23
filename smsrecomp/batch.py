@@ -343,6 +343,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             item.cover = Cards().override(Game('',item.system,item.sha256,item.title))
         settings = dict(options)
         force = settings.pop('force', False)
+        # Forcing from the queue rediscovers; Reconvert may still upgrade.
+        rediscover = settings.pop('rediscover', force)
         if system.id != 'x68':
             for key in ('x68_ipl', 'x68_cgrom', 'x68_ram'): settings.pop(key, None)
         if system.id != 'ng':
@@ -377,8 +379,9 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             settings['standard_override'] = item.standard_override
         if system.id in ('sms', 'gg'):
             settings['publish_result'] = False
-        from .freshness import request, current, digest, feedback
-        signature = request(item, settings)
+        from .freshness import request_parts, current, digest, feedback, upgradable, upgrade_record
+        parts = request_parts(item, settings)
+        signature = parts['request']
         from .paths import save_game_language
         save_game_language(game_output, settings.get('language', 'en'))
         report_path = reports / 'conversion-report.json'
@@ -388,14 +391,29 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             emit(f'{item.title}: up to date; same version/settings and no new fallback hints.')
             result.update(status='current', executable=str(target), report=str(report_path))
             return result
+        # Only the player shell changed and no new paths were found: rebuild
+        # from the paths already learned, checked on the quick routes only.
+        inherited = None if rediscover or not target.is_file() else upgradable(
+            item, target, report_path, parts, emit)
+        run_settings = settings
+        if inherited:
+            emit(f'{item.title}: only menus/presentation changed and no new paths were found; '
+                 'upgrading the executable without rediscovery (quick check).')
+            quick = plan_for(system.id, None, passes=settings['passes'], frames=settings['frames'], level='quick')
+            run_settings = {**settings, 'passes': quick.passes, 'frames': quick.frames, 'scan_level': 'quick'}
+            for key in ('md_advanced_scan', 'nes_advanced_scan'):
+                if key in run_settings:
+                    run_settings[key] = False
         executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
-            emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **settings)
+            emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **run_settings)
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
         from .languages import LANGUAGES
         report.update(ui_languages=list(LANGUAGES),language_switch_key='F7',
                       language_scope='Retro-Recomp host menus; cartridge text unchanged')
+        if inherited:
+            report['upgrade'] = upgrade_record(inherited)
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output),
@@ -424,8 +442,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                 published_hash = json.loads(job_path(target).read_text(encoding='utf-8'))['sha256']
             else:
                 published_hash = digest(target)
-            report['export_receipt'] = {'schema': 2,
-                                       'request': signature, 'sha256': published_hash}
+            report['export_receipt'] = {'schema': 3, 'request': signature, 'game': parts['game'],
+                                       'host': parts['host'], 'sha256': published_hash}
             atomic_json(report_path, report)
         try:
             if executable != target and executable != Path(report.get('build_executable', '')):
@@ -434,7 +452,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             pass
         measured = [check.get("interpreter_percent") for check in report["final_checks"]]
         result.update(status="success", executable=str(target), report=str(report_path),
-            conversion_stage=report.get('status'),
+            conversion_stage=report.get('status'), upgraded=bool(inherited),
             main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
             audio_cpu=report.get('audio_cpu'),
             audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),

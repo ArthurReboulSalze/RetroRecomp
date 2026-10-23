@@ -1,4 +1,10 @@
-"""Conservative export receipts. Unknown/old evidence always regenerates."""
+"""Conservative export receipts. Unknown/old evidence always regenerates.
+
+A request has a game part (everything that decides which code is discovered,
+translated and validated) and a host part (the player shell: menus, text,
+artwork, notices; see docs/UPGRADES.md). An export whose game part still
+matches, with no new hints, is upgraded without rediscovery.
+"""
 import hashlib
 import json
 from pathlib import Path
@@ -17,7 +23,17 @@ def _input_hash(path, size, modified):
     return digest(path)
 
 
-def request(item, options):
+# Request settings that only shape the player shell or the published file.
+HOST_SETTINGS = frozenset(('language', 'icon_tags', 'online_cover', 'use_cover', 'prefer_3d',
+                           'cover_reference', 'cover', 'title', 'host_inputs'))
+
+
+def _hash(settings):
+    return hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def request_parts(item, options):
+    """The whole request signature, plus its game and host parts."""
     from .platforms import target_id
     settings = {key: value for key, value in options.items()
                 if key not in ('gb_parallel_games', 'ng_parallel_games', 'ng_bios', 'bios')}
@@ -27,7 +43,7 @@ def request(item, options):
         from .x68000_conversion import sdk_stamp
         _, manifest = machine(item.path, options.get('x68_ipl'), options.get('x68_cgrom'), options.get('x68_ram', 2))
         settings['machine_identity'] = manifest.sha256
-        settings['x68_sdk'] = sdk_stamp()
+        settings['x68_sdk'] = sdk_stamp('game')
         settings.pop('x68_ipl', None); settings.pop('x68_cgrom', None)
     if item.system == 'ng':
         from .neogeo import validate_bios
@@ -40,16 +56,39 @@ def request(item, options):
         reference = (cover_reference(item.system, digest(item.path), item.path.stem,
                                     prefer3d=settings['prefer_3d']) if not item.cover else None)
         settings['cover_reference'] = reference['revision'] if reference else None
-    from .compilation_inputs import engine_stamp as console_stamp, knowledge_stamp
-    engine = console_stamp(item.system)
+    from .compilation_inputs import knowledge_stamp, role_stamps
+    stamps = role_stamps(item.system)
     settings['knowledge'] = knowledge_stamp(item.system, item.sha256)
-    settings.update(engine=engine, title=item.title, system=item.system, rom=item.sha256,
-                    cover=digest(item.cover) if item.cover else None)
-    return hashlib.sha256(json.dumps(settings, sort_keys=True, default=str).encode()).hexdigest()
+    settings.update(engine=stamps['game'], host_inputs=stamps['host'], title=item.title,
+                    system=item.system, rom=item.sha256, cover=digest(item.cover) if item.cover else None)
+    return {'request': _hash(settings),
+            'game': _hash({k: v for k, v in settings.items() if k not in HOST_SETTINGS}),
+            'host': _hash({k: v for k, v in settings.items() if k in HOST_SETTINGS})}
+
+
+def request(item, options):
+    return request_parts(item, options)['request']
 
 
 def feedback(report):
     return report.get('runtime_feedback') or report.get('runtime_data', {}).get('runtime_feedback', {})
+
+
+def _no_new_hints(item, report, report_path, emit):
+    previous = feedback(report)
+    latest = ingest(item.system, previous['identity'], report_path.parent, emit=emit)
+    if latest['fingerprint'] != previous['fingerprint']:
+        return False
+    if previous.get('aes'):
+        aes = previous['aes']
+        if ingest(item.system, aes['identity'], report_path.parent, emit=emit)['fingerprint'] != aes['fingerprint']:
+            return False
+    return True
+
+
+def _own_export(item, target, report, receipt):
+    return (report['rom']['sha256'] == item.sha256 and report['executable'] == target.name
+            and receipt['sha256'] == digest(target))
 
 
 def current(item, target, report_path, signature, emit):
@@ -57,20 +96,38 @@ def current(item, target, report_path, signature, emit):
         report = json.loads(report_path.read_text(encoding='utf-8'))
         receipt = report['export_receipt']
         schema = receipt.get('schema', 1)
-        if (schema not in (1, 2) or
+        if (schema not in (1, 2, 3) or
                 (schema == 1 and report['version'] != __version__) or
-                receipt['request'] != signature or
-                report['rom']['sha256'] != item.sha256 or report['executable'] != target.name or
-                receipt['sha256'] != digest(target)):
+                receipt['request'] != signature or not _own_export(item, target, report, receipt)):
             return None
-        previous = feedback(report)
-        latest = ingest(item.system, previous['identity'], report_path.parent, emit=emit)
-        if latest['fingerprint'] != previous['fingerprint']:
-            return None
-        if previous.get('aes'):
-            aes = previous['aes']
-            if ingest(item.system, aes['identity'], report_path.parent, emit=emit)['fingerprint'] != aes['fingerprint']:
-                return None
-        return report
+        return report if _no_new_hints(item, report, report_path, emit) else None
     except (OSError, ValueError, KeyError, TypeError):
         return None
+
+
+def upgradable(item, target, report_path, parts, emit):
+    """The previous report when only host inputs changed: same game part (code,
+    settings, knowledge), the exact EXE it published, a passed validation and
+    no new gameplay hints. Older receipts have no game part: full conversion."""
+    try:
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+        receipt = report['export_receipt']
+        if (receipt.get('schema') != 3 or receipt.get('game') != parts['game']
+                or receipt.get('host') == parts['host'] or not _own_export(item, target, report, receipt)
+                or report.get('native_validation', {}).get('passed') is False):
+            return None
+        return report if _no_new_hints(item, report, report_path, emit) else None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def upgrade_record(previous):
+    """What an upgraded export inherits: the original discovery, kept across
+    successive upgrades, with its own checks (and any fallback they met)."""
+    origin = previous.get('upgrade', {}).get('discovery') or {
+        'version': previous.get('version'), 'created_utc': previous.get('created_utc'),
+        'scan_level': previous.get('scan_level', 'standard'),
+        'final_checks': previous.get('final_checks', [])}
+    return {'reason': 'Only player-shell inputs changed and no new paths were found; '
+                      'the code was rebuilt from the paths already learned and checked on quick routes.',
+            'check_level': 'quick', 'discovery': origin}

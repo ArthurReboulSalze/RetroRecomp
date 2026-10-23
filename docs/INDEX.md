@@ -30,6 +30,7 @@ private evidence under `.build/` that is not published.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — converter pipeline, native backends, the five measures kept separate.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) — shared compilation knowledge: per-console and per-ROM observations, embedded snapshot.
 - [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md) — gameplay fallback feedback written by the exported games.
+- [UPGRADES.md](UPGRADES.md) — upgrading exports without rediscovery; host versus game inputs.
 - [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md) — runtime performance work that does not change the output.
 - [SYSTEM_PROFILES.md](SYSTEM_PROFILES.md) — console profiles and video standards.
 - [VIDEO.md](VIDEO.md) — video presentation and timing: filters, scanlines, display modes.

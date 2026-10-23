@@ -57,7 +57,7 @@ class FreshnessTests(unittest.TestCase):
 
     def test_ui_only_release_keeps_matching_console_receipts(self):
         result=self.run_batch();report_path=Path(result['report'])
-        report=json.loads(report_path.read_text());self.assertEqual(report['export_receipt']['schema'],2)
+        report=json.loads(report_path.read_text());self.assertEqual(report['export_receipt']['schema'],3)
         report['version']='1.1.0';report_path.write_text(json.dumps(report))
         self.assertEqual(self.run_batch()['status'],'current')
         # Old version-based receipts have no independently verified console stamp.
@@ -69,10 +69,54 @@ class FreshnessTests(unittest.TestCase):
         with patch('smsrecomp.systems.game_boy.GameBoyProfile.convert',side_effect=self.compiler) as compiler:
             result=self.run_batch();self.assertEqual(result['status'],'success')
             path=Path(result['report']);report=json.loads(path.read_text());report['version']='1.1.0'
-            self.assertEqual(report['export_receipt']['schema'],2);path.write_text(json.dumps(report))
+            self.assertEqual(report['export_receipt']['schema'],3);path.write_text(json.dumps(report))
             self.assertEqual(self.run_batch()['status'],'current');self.assertEqual(compiler.call_count,1)
-            with patch('smsrecomp.compilation_inputs.engine_stamp',return_value='new-sm83-compiler'):
+            with patch('smsrecomp.compilation_inputs.role_stamps',return_value={'game':'new-sm83-compiler','host':'h'}):
                 self.assertEqual(self.run_batch()['status'],'success')
+
+    def test_host_only_change_upgrades_without_rediscovery(self):
+        stamps={'game':'same-game','host':'menus-v1'}
+        with patch('smsrecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+            self.assertFalse(self.run_batch()['upgraded'])
+            stamps['host']='menus-v2'
+            result=self.run_batch();self.assertTrue(result['upgraded'])
+            options=self.compiler_mock.call_args.kwargs
+            self.assertEqual((options['scan_level'],options['passes']),('quick',1))
+            report=json.loads(Path(result['report']).read_text())
+            self.assertEqual(report['upgrade']['discovery']['scan_level'],'standard')
+            self.assertEqual(report['upgrade']['check_level'],'quick')
+            self.assertEqual(self.run_batch()['status'],'current')
+            # The original discovery is kept across successive upgrades.
+            stamps['host']='menus-v3'
+            again=json.loads(Path(self.run_batch()['report']).read_text())
+            self.assertEqual(again['upgrade']['discovery'],report['upgrade']['discovery'])
+            # Game-side inputs changed: full conversion with the chosen level.
+            stamps.update(game='new-translator',host='menus-v4')
+            self.assertFalse(self.run_batch()['upgraded'])
+            self.assertNotIn('scan_level',self.compiler_mock.call_args.kwargs)
+            # Forcing from the queue rediscovers; Reconvert (rediscover off) upgrades.
+            stamps['host']='menus-v5';self.assertFalse(self.run_batch(force=True)['upgraded'])
+            stamps['host']='menus-v6';self.assertTrue(self.run_batch(force=True,rediscover=False)['upgraded'])
+
+    def test_new_hints_or_other_settings_never_upgrade(self):
+        stamps={'game':'same-game','host':'menus-v1'}
+        with patch('smsrecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+            self.run_batch();stamps['host']='menus-v2'
+            folder=self.output/'Master System/datas/fallbacks';folder.mkdir(parents=True)
+            (folder/f'sms-{self.item.sha256}.rrfb').write_bytes(
+                encode([Observation(1,0x1234,0,b'\x01')],'sms',self.item.sha256))
+            self.assertFalse(self.run_batch()['upgraded'])
+            stamps['host']='menus-v3'
+            self.assertFalse(self.run_batch(frames=7200)['upgraded'])
+
+    def test_upgraded_export_still_reports_inherited_fallback(self):
+        from smsrecomp.compiled_games import game_from_report
+        folder=self.root/'Console/datas/reports/game';folder.mkdir(parents=True)
+        report={'tool':'Retro-Recomp','system':{'id':'sms'},'rom':{'sha256':self.item.sha256},
+                'executable':'Game.exe','final_checks':[{'interpreter_percent':0}],
+                'upgrade':{'discovery':{'final_checks':[{'interpreter_cycles':42}]}}}
+        (folder/'conversion-report.json').write_text(json.dumps(report))
+        self.assertTrue(game_from_report(folder/'conversion-report.json').tested_fallback)
 
     def test_overwrite_off_still_protects_stale_exports(self):
         result=self.run_batch();Path(result['executable']).write_bytes(b'old kept')

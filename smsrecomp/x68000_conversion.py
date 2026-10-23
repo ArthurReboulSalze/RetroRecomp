@@ -62,17 +62,21 @@ SDK_TOOLS=('x68000_native.py','x68000_reference.py','x68000_reference_check.py',
            'x68000_state_hardware.py')
 
 
-def sdk_stamp():
+def sdk_stamp(part=None):
+    """The SDK build identity; part='game' leaves out the player shell
+    (player_ui.inc and host inputs), for upgrades without rediscovery."""
     files = [*sorted((ASSETS/'native/x68000_reference').glob('*')), *sorted((ASSETS/'native/x68000_native').glob('*')),
              *(ASSETS/'tools'/name for name in SDK_TOOLS),
              *sorted(p for p in (ASSETS/'native/x68000_machine').rglob('*') if p.is_file()),
              ASSETS/'smsrecomp/m68000_semantics.py',ASSETS/'smsrecomp/neogeo_codegen.py',
              ASSETS/'smsrecomp/megadrive_codegen.py']
+    from .compilation_inputs import engine_stamp, role, role_stamps
     value=hashlib.sha256()
     for path in files:
+        name=path.relative_to(ASSETS).as_posix()
+        if part=='game' and role(name)=='host':continue
         if path.is_file():value.update(str(path.relative_to(ASSETS)).encode()+b'\0'+path.read_bytes())
-    from .compilation_inputs import engine_stamp
-    value.update(engine_stamp('x68').encode())
+    value.update((role_stamps('x68')['game'] if part=='game' else engine_stamp('x68')).encode())
     from tools.x68000_native import MACHINE_BASE
     value.update(b'machine-base\0'+MACHINE_BASE.encode())
     return value.hexdigest()

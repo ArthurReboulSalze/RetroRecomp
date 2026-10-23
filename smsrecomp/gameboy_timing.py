@@ -1,4 +1,8 @@
-"""Low-latency host policy applied to the pinned generated GB runtime."""
+"""Low-latency host policy applied to the pinned generated GB runtime.
+
+Host only (frame pacing, sound output, input sampling). The guest-side
+JOYP refresh hook it relies on is gameboy_runtime.adapt_input_refresh_hook.
+"""
 from pathlib import Path
 from shutil import copyfile
 
@@ -141,18 +145,4 @@ bool gb_platform_wait_while_menu''')
     };''', '''        .save_rtc_data = sdl_save_rtc_data,
         .refresh_input = rr_gb_refresh_joyp
     };''')
-    path.write_text(source, encoding='utf-8')
-
-    path = project / 'runtime/include/gbrt.h'
-    source = path.read_text(encoding='utf-8')
-    source = replace_once(source, '''} GBPlatformCallbacks;''', '''    /* Host-only input refresh; absent from serialized guest state. */
-    void (*refresh_input)(GBContext* ctx);
-} GBPlatformCallbacks;''')
-    path.write_text(source, encoding='utf-8')
-    path = project / 'runtime/src/gbrt.c'
-    source = path.read_text(encoding='utf-8')
-    source = replace_once(source, '''        if (addr == 0xFF00) {
-            const GBJoypadState* joypad''', '''        if (addr == 0xFF00) {
-            if (!ctx->joypad && ctx->callbacks.refresh_input) ctx->callbacks.refresh_input(ctx);
-            const GBJoypadState* joypad''')
     path.write_text(source, encoding='utf-8')

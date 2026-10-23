@@ -275,7 +275,9 @@ def game_from_report(path, folder=None, *, source=''):
         # Current layout: <console>/datas/reports/<game>/conversion-report.json
         folder = Path(path).parents[3]
     target = Path(folder) / name
-    checks = data.get('final_checks', [])
+    # An upgraded export also carries the checks of the discovery it inherits.
+    checks = [*data.get('final_checks', []),
+              *data.get('upgrade', {}).get('discovery', {}).get('final_checks', [])]
     fallback = any(any(float(check.get(key) or 0) > 0 for key in
         ('interpreter_percent', 'interpreter_cycles', 'interpreted_opcodes', 'audio_interpreted_opcodes'))
         for check in checks if isinstance(check, dict))

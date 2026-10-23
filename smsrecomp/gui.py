@@ -2047,7 +2047,9 @@ class Application:
         for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
                     'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite'):
             options.pop(key,None)
+        # Always rebuild, but only the player shell when nothing else changed.
         options['force'] = True
+        options['rediscover'] = False
         jobs = self.jobs.get()
         self.busy = True
         self.cancel.clear()

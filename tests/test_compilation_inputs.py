@@ -137,4 +137,49 @@ class CompilationInputTests(unittest.TestCase):
             self.assertNotEqual(before,inputs.knowledge_stamp('nes',sha))
 
 
+
+class InputRoleTests(unittest.TestCase):
+    """The player shell is classified the same way on every machine."""
+
+    def test_every_machine_shell_is_host_and_every_entry_is_game(self):
+        shells = ('native/retro_menu.c', 'native/game_options.h', 'native/runtime_catalog.inc',
+                  'native/host.c', 'native/controls.c', 'native/ui.c',          # Master System / Game Gear
+                  'native/gb_menu.inc', 'smsrecomp.gameboy_host',                 # Game Boy
+                  'native/nes_host_ui.c',                                         # NES
+                  'native/console16_host_ui.c',                                   # Mega Drive, SNES, Neo Geo, CPS-1
+                  'native/x68000_reference/player_ui.inc',                        # X68000
+                  'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'smsrecomp.metadata')
+        for name in shells:
+            with self.subTest(name=name):
+                self.assertEqual(inputs.role(name), 'host')
+        # Headless discovery and validation run through these: always game-side.
+        entries = ('native/launcher.c', 'native/console16_main.c', 'native/cps1_main.c',
+                   'native/neogeo_main.c', 'native/x68000_reference/reference_host.c',
+                   'native/x68000_reference/audio_checks.c', 'native/platform_io.c',
+                   'native/embedded_resources.h', 'smsrecomp.gameboy_runtime', 'smsrecomp.nes_runtime',
+                   'smsrecomp.core', 'smsrecomp.knowledge', 'profiles/example.sms.toml',
+                   'assets/neogeo-catalogue.json', 'native/a_new_file.c', 'smsrecomp.a_new_module')
+        for name in entries:
+            with self.subTest(name=name):
+                self.assertEqual(inputs.role(name), 'game')
+
+    def test_listed_host_inputs_exist(self):
+        import importlib.util
+        from smsrecomp.paths import ASSETS
+        self.assertEqual([n for n in inputs.HOST_NATIVE if not (ASSETS / 'native' / n).is_file()], [])
+        self.assertEqual([m for m in inputs.HOST_MODULES
+                          if importlib.util.find_spec('smsrecomp.' + m) is None], [])
+
+    def test_role_stamps_move_independently(self):
+        names = [('native/retro_menu.c', 'a'), ('native/launcher.c', 'b')]
+        with patch('smsrecomp.compilation_inputs.input_fingerprints', side_effect=lambda system: list(names)):
+            before = inputs.role_stamps('sms')
+            names[0] = ('native/retro_menu.c', 'changed menu')
+            menu = inputs.role_stamps('sms')
+            names[1] = ('native/launcher.c', 'changed entry')
+            entry = inputs.role_stamps('sms')
+        self.assertEqual((menu['game'], menu['host'] != before['host']), (before['game'], True))
+        self.assertEqual((entry['host'], entry['game'] != menu['game']), (menu['host'], True))
+
+
 if __name__ == '__main__':unittest.main()
