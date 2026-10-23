@@ -97,9 +97,11 @@ from .game_boy import GAME_BOY  # noqa: E402
 from .nes import NES  # noqa: E402
 from .console16 import MEGA_DRIVE, SUPER_NINTENDO  # noqa: E402
 from .neogeo import NEOGEO  # noqa: E402
+from .cps1 import CPS1  # noqa: E402
 from .x68000 import X68000  # noqa: E402
 
-PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO)
+PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO,
+                                       CPS1)
 # Availability in the converter does not imply the profile has left development.
 from ..x68000 import developer_available  # noqa: E402
 EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = (X68000,) if developer_available() else ()
@@ -139,6 +141,15 @@ def profile_for_path(path: Path, selected_system: str | None = None, *, allow_ex
         if selected_system and selected_system != 'x68':
             raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', 'x68')
         return X68000
+    if suffix == '.zip' and selected_system in (None, 'cps1'):
+        # Arcade romsets are recognised by their program ROM CRCs, never by name.
+        from ..cps1 import looks_like_cps1_zip
+        try:
+            detected_cps1 = selected_system == 'cps1' or looks_like_cps1_zip(path)
+        except ValueError:
+            detected_cps1 = False
+        if detected_cps1:
+            return CPS1
     if suffix in ('.neo', '.zip'):
         from ..neogeo import looks_like_neogeo_zip, parse_neo
         detected_ng = suffix == '.neo' or selected_system == 'ng' or looks_like_neogeo_zip(path)

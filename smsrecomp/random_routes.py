@@ -51,6 +51,8 @@ CONSOLES = {
     'snes': {'main': ('a', 'b', 'x', 'y'), 'extra': ('l', 'r'), 'select': 'select', 'opening': 240},
     'nes': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
     'ng': {'main': ('a', 'b', 'c', 'd'), 'extra': (), 'select': None, 'opening': 2400},
+    # CPS-1 boards show their warning screen for about ten seconds first.
+    'cps1': {'main': ('b1', 'b2', 'b3'), 'extra': ('b4', 'b5', 'b6'), 'select': None, 'opening': 720},
     'gb': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
     # The Master System pad has no Start: menus open with the buttons. Game
     # Gear adds Start on the console.
@@ -64,6 +66,9 @@ SNES_BITS = {'b': 0x01, 'y': 0x02, 'select': 0x04, 'start': 0x08, 'up': 0x10, 'd
              'left': 0x40, 'right': 0x80, 'a': 0x100, 'x': 0x200, 'l': 0x400, 'r': 0x800}
 NEOGEO_BITS = {'up': 0x01, 'down': 0x02, 'left': 0x04, 'right': 0x08,
                'a': 0x10, 'b': 0x20, 'c': 0x40, 'd': 0x80}
+# Host pad bits of native/cps1_host.h; the coin switch is a pad bit there.
+CPS1_BITS = {'b1': 0x01, 'b2': 0x02, 'b3': 0x04, 'b4': 0x08, 'b5': 0x10, 'b6': 0x20,
+             'start': 0x40, 'coin': 0x80, 'up': 0x100, 'down': 0x200, 'left': 0x400, 'right': 0x800}
 NES_NAMES = {'a': 'A', 'b': 'B', 'select': 'SELECT', 'start': 'START',
              'up': 'UP', 'down': 'DOWN', 'left': 'LEFT', 'right': 'RIGHT'}
 # Game Boy host ``--input`` letters (U D L R A B, S = Start, T = Select).
@@ -78,7 +83,7 @@ class Step:
     frame: int
     p1: frozenset
     p2: frozenset
-    coin: int = 0  # Neo Geo only: 1 = player 1 coin switch held
+    coin: int = 0  # Neo Geo and CPS-1: 1 = player 1 coin switch held
 
 
 @dataclass(frozen=True)
@@ -146,7 +151,7 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
     has_start = layout.get('start', True)
     emit(0)
     frame = layout['opening'] + rng.randint(0, 120)
-    if console == 'ng':
+    if console in ('ng', 'cps1'):
         # Arcade boards need a credit before Start does anything.
         if opening:
             emit(frame, coin=1)
@@ -248,6 +253,17 @@ def neogeo_script(route: Route) -> str:
     return ''.join(lines)
 
 
+def cps1_script(route: Route) -> str:
+    """``frame p1 p2`` hexadecimal host pad lines for cps1_main.c."""
+    lines = []
+    for step in route.steps:
+        p1 = _mask(step.p1, CPS1_BITS) | (CPS1_BITS['coin'] if step.coin else 0)
+        lines.append(f'{step.frame} {p1:03x} {_mask(step.p2, CPS1_BITS):03x}\n')
+    if len(lines) > NEOGEO_LINE_LIMIT:
+        raise ValueError(f'Route {route.name} has {len(lines)} lines; the CPS-1 script holds {NEOGEO_LINE_LIMIT}.')
+    return ''.join(lines)
+
+
 def gameboy_script(route: Route) -> str:
     """``start:BUTTONS:duration`` items, comma separated, for the Game Boy
     host's ``--input`` option: one item per held state, no overlap."""
@@ -278,6 +294,8 @@ def script_text(route: Route) -> str:
         return nes_script(route)
     if route.console == 'ng':
         return neogeo_script(route)
+    if route.console == 'cps1':
+        return cps1_script(route)
     if route.console == 'gb':
         return gameboy_script(route)
     if route.console in ('sms', 'gg'):
@@ -287,7 +305,7 @@ def script_text(route: Route) -> str:
 
 def write_route(route: Route, directory: Path) -> Path:
     """Write the route's script beside the other probe scripts (ASCII, LF)."""
-    suffix = '.input' if route.console == 'nes' else '.inputs' if route.console == 'ng' else '-inputs.txt'
+    suffix = '.input' if route.console == 'nes' else '.inputs' if route.console in ('ng', 'cps1') else '-inputs.txt'
     path = Path(directory) / f'{route.name}{suffix}'
     path.write_text(script_text(route), encoding='ascii', newline='\n')
     return path

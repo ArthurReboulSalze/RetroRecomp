@@ -37,6 +37,15 @@ On a controller, **Start+Select (Back)** held for one second restarts and
 **L3+R3** held for one second quits; both can be changed or cleared at the
 bottom of player 1's F2 gamepad page (keyboard combinations: keyboard page).
 
+### Capcom CPS-1
+
+Arrows move; W/X/C are buttons 1–3 and A/S/D buttons 4–6 (Light Punch to
+Heavy Kick in Street Fighter II). Enter is Start and Shift (or Back on a
+controller) inserts a coin. On a controller, A/B/X/Y and the two shoulder
+buttons are buttons 1–6. Player 2 uses the numeric keypad or the second
+controller. Only the buttons a game reads do anything; its F2 page still lists
+all six. Players 3 and 4 are not mapped yet.
+
 ## F2 settings pages
 
 F2 gathers every setting in one place, on every console, as pages:

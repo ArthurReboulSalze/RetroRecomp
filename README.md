@@ -4,7 +4,7 @@
 
 <h1 align="center">RetroRecomp</h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
-<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Sharp X68000</p>
+<p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
@@ -204,6 +204,7 @@ See the [release notes](docs/RELEASE_NOTES.md).
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | Neo Geo | Supported cartridge profile; arcade MVS, optional console AES, two players, scores, memory card and quick states |
+| Capcom CPS-1 | Experimental; MAME/FBNeo ZIP romsets of the standard boards (no QSound), two players, up to six buttons, vertical games rotated, quick states |
 | Sharp X68000 | Experimental; DIM/XDF and M3U disk sets, your own IPL and font ROM, quick states, mouse and keyboard |
 
 Compatibility depends on the game and revision. See the
@@ -217,6 +218,9 @@ separate integration.
 Select your BIOS ZIP in **Options → Neo Geo**, then add cartridge ZIPs or NEO
 files using Automatic detection. See the [Neo Geo guide](docs/NEOGEO.md).
 Its exports remember scores and memory-card data at clean exit, alongside F8/F9.
+Capcom CPS-1 romsets need no BIOS: add MAME or FBNeo ZIPs with Automatic
+detection (a split clone needs its parent ZIP beside it). See the
+[CPS-1 guide](docs/CPS1.md).
 
 ## Beyond the original console limits
 

@@ -48,7 +48,7 @@ int rr_feedback_toggle(void) { if(active && !finished)enabled=!enabled;return en
 const char *rr_feedback_label(void) { return enabled?"F12 Record fallback hints: ON":"F12 Record fallback hints: OFF"; }
 int rr_feedback_pending(void) { return enabled && count!=0; }
 void rr_feedback_note(unsigned kind,uint32_t pc,uint32_t aux,const uint8_t *b,unsigned z) {
-    if(!enabled || !kind || kind>RR_FB_X68000 || !b || !z || z>16)return;
+    if(!enabled || !kind || kind>RR_FB_CPS1_Z80 || !b || !z || z>16)return;
     uint8_t r[RECORD]={0};r[0]=(uint8_t)kind;r[1]=(uint8_t)z;
     put32(r+4,pc);put32(r+8,aux);memcpy(r+12,b,z);add(r);
 }

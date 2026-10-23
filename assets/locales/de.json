@@ -326,7 +326,9 @@
     "knowledge_import_done": "{games} Spiele importiert: {new} neu, {enriched} ergänzt, {unchanged} bereits bekannt, {replaced} aus einer anderen Konverterversion. Jede Konvertierung prüft sie weiterhin gegen die Referenz-CPU.",
     "knowledge_failed": "Diese Wissensdatei konnte nicht verwendet werden: {error}",
     "tip_knowledge": "Teile die Pfade, die deine Konvertierungen entdeckt haben: exportiere eine einzige Datei ohne ROM für mehrere Spiele und Konsolen oder füge die Datei eines anderen deinem Wissen hinzu. Importierte Hinweise werden bei der Konvertierung immer erneut geprüft.",
-    "knowledge_missing_hint": "Tipp: Lege in den Optionen für jede Konsole den ROM-Ordner fest, damit mehr Spiele gefunden werden."
+    "knowledge_missing_hint": "Tipp: Lege in den Optionen für jede Konsole den ROM-Ordner fest, damit mehr Spiele gefunden werden.",
+    "options_cps1": "Capcom CPS-1",
+    "options_cps1_note": "Experimentelles Capcom-CPS-1-Profil: ZIP-Romsets von MAME oder FBNeo, erkannt an den CRCs ihrer ROMs (ein getrennter Klon braucht das Eltern-ZIP daneben). Spieler 1 und 2, bis zu sechs Tasten, Münze auf Umschalt/Back. Vertikale Spiele werden gedreht angezeigt. Gemeinsame Menüs, Filter und F8/F9. Es werden keine ROMs geladen oder mitgeliefert."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",
@@ -563,6 +565,12 @@
     "Enter: remap | Left/Right: page": "Enter: belegen | Links/Rechts: Seite",
     "Quit": "Beenden",
     "Restart": "Neustart",
-    "Gun: mouse/left click": "Pistole: Maus/Linksklick"
+    "Gun: mouse/left click": "Pistole: Maus/Linksklick",
+    "Coin": "Münze",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "Pfeile; W/X/C + A/S/D: Tasten 1-6",
+    "Button 3": "Taste 3",
+    "Button 4": "Taste 4",
+    "Button 5": "Taste 5",
+    "Button 6": "Taste 6"
   }
 }

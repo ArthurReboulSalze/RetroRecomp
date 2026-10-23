@@ -32,7 +32,7 @@ class CompilationInputTests(unittest.TestCase):
         return path
 
     def stamps(self):
-        return {s:inputs.engine_stamp(s) for s in ('sms','gg','gb','nes','md','snes','ng')}
+        return {s:inputs.engine_stamp(s) for s in ('sms','gg','gb','nes','md','snes','ng','cps1')}
 
     def test_interface_and_unrelated_backend_changes_keep_exports(self):
         before = self.stamps()
@@ -67,7 +67,23 @@ class CompilationInputTests(unittest.TestCase):
         self.write('native/cps1_machine.c', 'new board')
         self.write('assets/cps1-catalogue.json', '{}')
         self.write('licenses/cps1-machine.md', 'new notice')
-        self.assertEqual(before, self.stamps())
+        after = self.stamps()
+        self.assertNotEqual(before['cps1'], after['cps1'])
+        del before['cps1'], after['cps1']
+        self.assertEqual(before, after)
+
+    def test_cps1_follows_the_modules_and_host_it_reuses(self):
+        before = self.stamps()
+        self.revisions['smsrecomp.neogeo_codegen'] = 'new semantics'
+        after = self.stamps()
+        self.assertNotEqual(before['cps1'], after['cps1']); self.assertNotEqual(before['ng'], after['ng'])
+        self.assertEqual(before['md'], after['md'])
+        before = after
+        self.write('native/console16_host_ui.c', 'new shared menus')
+        after = self.stamps()
+        for system in ('md', 'snes', 'ng', 'cps1'):
+            self.assertNotEqual(before[system], after[system])
+        self.assertEqual(before['nes'], after['nes'])
 
     def test_relative_names_and_notices_are_part_of_the_signature(self):
         path=self.write('native/md_one.h','same contents'); before=inputs.engine_stamp('md')

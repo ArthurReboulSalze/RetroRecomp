@@ -20,13 +20,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 LEVELS = ('quick', 'standard', 'extended', 'thorough')
-CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68')
+CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
 DEFAULT_PASSES = 3
 DEFAULT_FRAMES = {'sms': 3600, 'gg': 3600, 'gb': 3600, 'nes': 3600, 'md': 3600, 'snes': 1200,
-                  'ng': 3600, 'x68': 4000}
+                  'ng': 3600, 'x68': 4000, 'cps1': 3600}
 # A quick scan caps the scenario length and runs a single pass.
 QUICK_FRAMES = {'sms': 1800, 'gg': 1800, 'gb': 1800, 'nes': 1800, 'md': 1200, 'snes': 1200,
-                'ng': 3600, 'x68': 4000}
+                'ng': 3600, 'x68': 4000, 'cps1': 2400}
 LONG_ROUTE_FRAMES = 18000
 # Pseudo-random routes added on top of the standard scenarios.
 LONG_ROUTES = {'quick': 0, 'standard': 0, 'extended': 1, 'thorough': 2}
@@ -140,6 +140,13 @@ def gameboy_budget(level: str) -> dict:
 def sega_budget(level: str) -> dict:
     """Master System / Game Gear: demo and play, plus pseudo-random routes."""
     return {'route_count': LONG_ROUTES[level], 'route_frames': LONG_ROUTE_FRAMES}
+
+
+def cps1_budget(level: str) -> dict:
+    """CPS-1: attract and a credited play route (quick keeps the play route
+    only); extended and thorough add credited pseudo-random routes."""
+    return {'attract': level != 'quick', 'route_count': LONG_ROUTES[level],
+            'route_frames': LONG_ROUTE_FRAMES}
 
 
 def neogeo_budget(level: str) -> dict:

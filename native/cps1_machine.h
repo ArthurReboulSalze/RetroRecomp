@@ -75,6 +75,13 @@ typedef struct cps1_cpu_state {
 } cps1_cpu_state;
 void cps1_cpu_state_get(cps1_cpu_state *state);
 uint64_t cps1_ram_hash(void);                   /* work RAM, GFX RAM, Z80 RAM */
+uint64_t cps1_cpu_hash(void);                   /* 68000 context and Z80 registers */
+
+/* Quick states between frames: same build only (the host checks the ABI).
+ * Returns the bytes written (0 when the capacity is too small); NULL buffer
+ * returns the size needed. */
+size_t cps1_state_save(uint8_t *buffer, size_t capacity);
+int cps1_state_load(const uint8_t *buffer, size_t size);
 const uint8_t *cps1_work_ram(void);             /* 0xff0000-0xffffff, big-endian */
 
 /* VPA/E-clock wait on interrupt acknowledge (on by default). */

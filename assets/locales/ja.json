@@ -326,7 +326,9 @@
     "knowledge_import_done": "{games} 本のゲームをインポートしました：新規 {new}、追加 {enriched}、既知 {unchanged}、別バージョン {replaced}。どの変換でも参照 CPU との照合は続きます。",
     "knowledge_failed": "この知識ファイルは使用できません: {error}",
     "tip_knowledge": "変換で見つかった経路を共有します。ROM を含まない 1 つのファイルに複数のゲームと機種をエクスポートしたり、他の人のファイルを知識に追加したりできます。インポートしたヒントは変換時に必ず再確認されます。",
-    "knowledge_missing_hint": "ヒント: オプションで各機種の ROM フォルダーを設定すると、より多くのゲームが見つかります。"
+    "knowledge_missing_hint": "ヒント: オプションで各機種の ROM フォルダーを設定すると、より多くのゲームが見つかります。",
+    "options_cps1": "Capcom CPS-1",
+    "options_cps1_note": "実験的な Capcom CPS-1 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。プレイヤー1・2、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",
@@ -563,6 +565,12 @@
     "Enter: remap | Left/Right: page": "Enter: 割り当て | 左右: ページ",
     "Quit": "終了",
     "Restart": "再起動",
-    "Gun: mouse/left click": "ガン: マウス/左クリック"
+    "Gun: mouse/left click": "ガン: マウス/左クリック",
+    "Coin": "コイン",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "矢印；W/X/C + A/S/D：ボタン1-6",
+    "Button 3": "ボタン 3",
+    "Button 4": "ボタン 4",
+    "Button 5": "ボタン 5",
+    "Button 6": "ボタン 6"
   }
 }

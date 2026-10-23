@@ -1,5 +1,16 @@
 # Shared compilation knowledge
 
+## Capcom CPS-1 — local observations (23 October 2026, not in the snapshot)
+
+CPS-1 conversions keep their learned work-RAM 68000 and Z80 RAM code per exact
+romset identity in the converter library (`library/cps1/<identity>/
+observations.json`, with `compilation.json`), merged with opt-in gameplay
+feedback (kinds 14–16) at the next conversion. These observations only add
+guarded native code: every conversion still compares each route with its fresh
+interpreted reference. The first sets (Final Fight, 1941) needed none. CPS-1
+records are not yet part of `assets/compilation-knowledge.json.gz`; adding them
+needs the usual qualification and snapshot step.
+
 ## X68000 stage 9 — private multi-disk and mouse exploration
 
 Six new exact sets (Naious, View Point, Air Combat II, Choujin, Power Unit and

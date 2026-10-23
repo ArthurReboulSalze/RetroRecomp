@@ -80,6 +80,7 @@ docs/*
 !docs/GAME_BOY.md
 !docs/NES.md
 !docs/NEOGEO.md
+!docs/CPS1.md
 !docs/SNES.md
 !docs/CONSOLES_16BIT.md
 !docs/MEGADRIVE_CPU_EXCEPTIONS.md

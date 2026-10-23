@@ -44,7 +44,7 @@ def identify(path: Path, selected_system: str | None = None) -> BatchItem:
     try:
         system = profile_for_path(path, selected_system)
         rom = system.read_rom(path)
-        if system.id == 'ng':
+        if system.id in ('ng', 'cps1'):
             title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", rom.title.split(' / ',1)[0]).strip() or path.stem
         byte_size = rom.size if hasattr(rom, 'size') else len(rom.data)
         return BatchItem(path, title, system.id, rom.sha256, byte_size,

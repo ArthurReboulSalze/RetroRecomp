@@ -66,8 +66,14 @@ def musashi_core(geolith: Path, *, native: bool) -> str:
             }''', 'Musashi dispatch')
     # Bus waits outside an instruction's own timing (VPA autovector sync), and
     # the clocks of an SR write that unmasks an interrupt inside its handler.
+    # Quick states keep the register block only: the cycle tables and host
+    # callbacks after it are this process's addresses, never the saved ones.
     return (core + '\nvoid cps1_m68k_use_cycles(int cycles) { USE_CYCLES(cycles); }\n'
-            'int cps1_m68k_instruction_cycles(void) { return CYC_INSTRUCTION[REG_IR]; }\n')
+            'int cps1_m68k_instruction_cycles(void) { return CYC_INSTRUCTION[REG_IR]; }\n'
+            '#include <stddef.h>\n#include <string.h>\n'
+            'unsigned cps1_m68k_state_bytes(void) { return (unsigned)offsetof(m68ki_cpu_core, cyc_instruction); }\n'
+            'void cps1_m68k_state_get(void *dst) { memcpy(dst, &m68ki_cpu, cps1_m68k_state_bytes()); }\n'
+            'void cps1_m68k_state_set(const void *src) { memcpy(&m68ki_cpu, src, cps1_m68k_state_bytes()); }\n')
 
 
 def z80_core(geolith: Path, *, native: bool) -> str:
@@ -163,10 +169,11 @@ target_link_libraries(cps1_native_probe PRIVATE cps1_native)
     return analysis
 
 
-def _build(project: Path, target: str) -> Path:
+def _build(project: Path, target: str, prefix: Path | None = None) -> Path:
     from .core import run, toolchain
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()],
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
+         *([f'-DCMAKE_PREFIX_PATH={prefix.as_posix()}'] if prefix else [])],
         log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target', target,
          '--parallel', build_jobs()], log=project / 'build.log', timeout=3600)
@@ -184,3 +191,154 @@ def build_native(board: Path, game: dict, observations: dict | None = None,
     project = project or ROOT / '.build' / 'cps1-native' / game['set']
     analysis = prepare_native(project, board, game, observations)
     return _build(project, 'cps1_native_probe'), analysis
+
+
+# ------------------------------------------------------------------ game build
+
+HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_host_ui.c', 'console16_state.c',
+              'console16_state.h', 'console16_video.h', 'platform_io.c', 'platform_io.h',
+              'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h',
+              'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
+              'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h',
+              'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h', 'xbr_filter.h', 'scale2x.h', 'gun16.h')
+NOTICE_FILES = ('LICENSE', 'licenses/cps1-machine.md', 'licenses/cps1-ymfm.md', 'licenses/musashi.md',
+                'licenses/superzazu-z80.md', 'licenses/segagenesisrecomp.md', 'licenses/SDL2.md',
+                'licenses/xbr.md', 'licenses/Noto.md', 'licenses/UPX.md')
+PACK_REGIONS = ('board.txt', 'maincpu.bin', 'audiocpu.bin', 'gfx.bin', 'oki.bin', 'stars.bin')
+# Host pad bits (native/cps1_host.h): buttons 1-6, Start, Coin, Up, Down, Left, Right.
+ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
+           'joystick_up': 8, 'joystick_down': 9, 'joystick_left': 10, 'joystick_right': 11}
+
+
+def input_table(game: dict) -> list[tuple[int, int, int, int]]:
+    """(port, mask, action, player) for players 1 and 2; other controls stay released."""
+    rows = []
+    for index, port in enumerate(('IN0', 'IN1', 'IN2', 'IN3')):
+        for mask, name, player in game['inputs'].get(port, {}).get('inputs', ()):
+            if name[:-1] in ('start', 'coin') and name[-1:].isdigit():
+                name, player = name[:-1], int(name[-1])
+            if name in ACTIONS and player in (1, 2):
+                rows.append((index, mask, ACTIONS[name], player))
+    if not rows:
+        raise ValueError('CPS-1 set ' + game['set'] + ' has no mapped player controls.')
+    return rows
+
+
+def pack(board: Path) -> bytes:
+    """The board folder as resource 201: "CPZ1", size, zlib(CPS1PACK table + regions)."""
+    import zlib
+    entries = [(name, (board / name).read_bytes()) for name in PACK_REGIONS if (board / name).is_file()]
+    raw = b'CPS1PACK' + len(entries).to_bytes(4, 'little')
+    raw += b''.join(name.encode('ascii').ljust(16, b'\0') + len(data).to_bytes(4, 'little') for name, data in entries)
+    raw += b''.join(data for _, data in entries)
+    return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
+
+
+def state_config(game_set, title: str) -> str:
+    """Quick states load only into the same romset and the same board/runtime sources."""
+    import hashlib, importlib, json, os
+    from .core import executable_name, module_fingerprint
+    abi = hashlib.sha256(b'CPS1-frame-state-v1:' + YMFM_REVISION.encode())
+    for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
+                 'cps1_host.c', 'cps1_native.c'):
+        abi.update((ASSETS / 'native' / name).read_bytes())
+    for name in ('smsrecomp.cps1_build', 'smsrecomp.cps1_codegen'):
+        importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
+    if os.name != 'nt':
+        from .platforms import target_id
+        abi.update(target_id().encode())
+    stem = Path(executable_name(title)).stem if os.name == 'nt' else executable_name(title)
+    return ('#pragma once\n#define RR16_STATE_SYSTEM 4\n#define RR16_STATE_PAL 0\n'
+            f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
+            f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
+
+
+def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,
+                 presentation: dict | None = None) -> dict:
+    """A playable game project: native board, shared 16-bit host and embedded regions."""
+    import hashlib, json
+    from . import __version__
+    from .cps1_board import write_board
+    from .megadrive_codegen import write_changed
+    board = project / 'board'
+    write_board(board, game_set, game)
+    analysis = prepare_native(project, board, game, observations)
+    for name in HOST_FILES:
+        _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
+    geolith, ymfm = sources()
+    notices = [(ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES if (ASSETS / name).is_file()]
+    recomp = ROOT / '.deps/segagenesisrecomp/external/m68k-recomp-core/LICENSE'
+    for file in (ymfm / 'LICENSE', geolith / 'src/m68k/readme.txt', recomp):
+        if file.is_file():
+            notices.append(file.read_text(encoding='utf-8'))
+    for file in (geolith / 'src/z80/z80.c', geolith / 'deps/miniz/miniz.c'):
+        notices.append(file.read_text(encoding='utf-8').split('*/', 1)[0] + '*/')
+    write_changed(project / 'notices.txt', '\n\n'.join(notices))
+    packed = project / 'board.pack'
+    payload = pack(board)
+    if not packed.is_file() or packed.read_bytes() != payload:
+        packed.write_bytes(payload)
+    from .core import executable_name
+    from .metadata import write_game_metadata
+    icon, artwork = False, {'embedded': False, 'source': 'disabled'}
+    if presentation is not None:
+        from .artwork import prepare_icon
+        from .paths import boxart_cache_directory
+        artwork = prepare_icon(project, presentation['rom_path'], title,
+            presentation.get('boxart_dir') or ROOT / 'BoxArt', explicit=presentation.get('cover'),
+            online=presentation.get('online_cover', True), enabled=presentation.get('use_cover', True),
+            cache_directory=boxart_cache_directory('cps1'), system_id='cps1', emit=presentation.get('emit', print))
+        icon = artwork['embedded']
+    (project / 'artwork.json').write_text(json.dumps(artwork, indent=2), encoding='utf-8')
+    metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=icon,
+                                   standard='arcade', system_id='cps1')
+    (project / 'export-identity.bin').write_bytes(b'[Retro-Recomp]\0' + game_set.sha256.encode('ascii') + b'\0')
+    write_changed(project / 'content.rc', '#pragma code_page(65001)\n'
+                  f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
+                  '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
+    from .resources import embed_resources
+    embed_resources(project, {201: packed, 203: project / 'notices.txt', 205: project / 'export-identity.bin'})
+    table = ','.join('{%d,%d,%d,%d}' % row for row in input_table(game))
+    write_changed(project / 'cps1_game.h', '#pragma once\n#define RR_CPS1_TITLE ' + json.dumps(title) +
+                  '\n#define RR_CPS1_VERSION ' + json.dumps(__version__) +
+                  f'\n#define RR_CPS1_ROTATION {int(game["rotation"])}\n#define RR_CPS1_INPUT_TABLE {table}\n')
+    write_changed(project / 'retro_gun_game.h', '#pragma once\n#define RR16_GUN 0\n')
+    write_changed(project / 'retro16_state_config.h', state_config(game_set, title))
+    cmake = (project / 'CMakeLists.txt').read_text(encoding='utf-8')
+    cmake = cmake[:cmake.index('add_executable(cps1_native_probe')] + f'''if(WIN32)
+  enable_language(RC)
+else()
+  enable_language(ASM)
+endif()
+target_compile_definitions(cps1_native PUBLIC CPS1_FEEDBACK=1)
+set(GEO "{geolith.as_posix()}")
+find_package(SDL2 CONFIG REQUIRED)
+add_executable(game cps1_main.c cps1_host.c console16_host_ui.c console16_state.c retro_menu.c
+  "${{GEO}}/deps/miniz/miniz.c")
+target_include_directories(game PRIVATE "${{GEO}}/deps/miniz")
+if(WIN32)
+  target_sources(game PRIVATE content.rc)
+  target_link_libraries(game PRIVATE shell32 user32 gdi32)
+else()
+  target_sources(game PRIVATE embedded_resources.c embedded_resources.S)
+  target_link_libraries(game PRIVATE m)
+endif()
+target_link_libraries(game PRIVATE cps1_native SDL2::SDL2-static)
+target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED RR16_CPS1=1 [[RR_RECOMP_VERSION="{__version__}"]])
+if(MSVC)
+  target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+endif()
+'''
+    write_changed(project / 'CMakeLists.txt', cmake)
+    from .feedback import stage
+    stage(project, 'cps1', game_set.sha256)
+    return {'analysis': analysis, 'artwork': artwork, 'windows_metadata': metadata,
+            'packed_sha256': hashlib.sha256(payload).hexdigest()}
+
+
+def build_game(project: Path) -> Path:
+    sdl = ROOT / '.deps/SDL/install'
+    if not (sdl / 'cmake/SDL2/SDL2Config.cmake').exists():
+        from .core import dependencies
+        _, sdl, _, _ = dependencies()
+    return _build(project, 'game', sdl)

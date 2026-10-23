@@ -19,6 +19,17 @@ uint64_t rr16_input_frame(void);
 unsigned rr16_host_frame_limit(void);
 void rr16_host_test_tick(void *window,void *renderer);
 void rr16_host_discontinuity(void);
+#elif RR16_CPS1
+#include "cps1_game.h"
+#include "cps1_host.h"
+/* Backing store fits the 384x224 raster and its 224x384 vertical form. */
+#define RR16_WIDTH 384
+#define RR16_HEIGHT 384
+#define RR16_SECTION L"CPS1"
+#define RR16_CONSOLE "CPS-1"
+#define RR16_FRAME_SECONDS (512.0 * 262.0 / 8000000.0)
+uint64_t rr16_input_frame(void);
+void rr16_host_discontinuity(void);
 #elif RR16_MD
 #include "retro_md_game.h"
 #include "md_timing.h"
@@ -57,7 +68,10 @@ uint64_t rr16_audio_frame_fingerprint(void);
 int rr16_visible_width(void);
 int rr16_visible_height(void);
 int rr16_raster_height(void);
-#if RR16_MD || RR16_NG
+#if RR16_CPS1
+#define rr16_display_width() rr_cps1_display_width()
+void rr16_trace_details(FILE *file);
+#elif RR16_MD || RR16_NG
 #define rr16_display_width() rr16_visible_width()
 void rr16_trace_details(FILE *file);
 #else

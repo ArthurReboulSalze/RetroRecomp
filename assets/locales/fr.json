@@ -234,6 +234,12 @@
     "Enter: remap | Left/Right: page": "Entrée : attribuer | Gauche/Droite : page",
     "Quit": "Quitter",
     "Restart": "Redémarrer",
-    "Gun: mouse/left click": "Gun : souris/clic gauche"
+    "Gun: mouse/left click": "Gun : souris/clic gauche",
+    "Coin": "Crédit",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "Flèches ; W/X/C + A/S/D : boutons 1-6",
+    "Button 3": "Bouton 3",
+    "Button 4": "Bouton 4",
+    "Button 5": "Bouton 5",
+    "Button 6": "Bouton 6"
   }
 }

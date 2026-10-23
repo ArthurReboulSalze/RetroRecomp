@@ -13,7 +13,7 @@ from pathlib import Path
 from types import CodeType
 from functools import lru_cache
 
-SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'))
+SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1'))
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
@@ -30,9 +30,13 @@ def owners(name):
         return frozenset(('x68',))
     if name.startswith(('gameboy', 'game_boy', 'gb_', 'retro_gb')):
         return frozenset(('gb',))
+    # CPS-1 code generation reuses these Neo Geo and Mega Drive modules.
+    if name.split('.')[0] in ('neogeo_codegen', 'neogeo_z80', 'neogeo_build'):
+        return frozenset(('ng', 'cps1'))
+    if name.split('.')[0] in ('megadrive_codegen', 'megadrive_z80'):
+        return frozenset(('md', 'cps1'))
     if name.startswith(('neogeo', 'ng_')):
         return frozenset(('ng',))
-    # CPS-1 has no export profile yet; its files must not age other exports.
     if name.startswith('cps1'):
         return frozenset(('cps1',))
     if name.startswith(('supernintendo', 'snes_', 'retro_snes')):
@@ -42,8 +46,11 @@ def owners(name):
     if name.startswith(('nes_', 'retro_nes')) or name in ('nes', 'nes.py'):
         return frozenset(('nes',))
     if name.startswith('m68000'):
-        return frozenset(('md', 'ng', 'x68'))
-    if name.startswith(('console16', 'retro_console16', 'gun16', 'guns16')):
+        return frozenset(('md', 'ng', 'x68', 'cps1'))
+    # The shared 16-bit host is linked into Neo Geo and CPS-1 games too.
+    if name.startswith(('console16', 'retro_console16', 'gun16')):
+        return frozenset(('md', 'snes', 'ng', 'cps1'))
+    if name.startswith('guns16'):
         return frozenset(('md', 'snes'))
     if name.startswith(('master_system', 'game_gear')) or name in ('cpu', 'cpu.py', 'validation', 'validation.py'):
         return frozenset(('sms', 'gg'))

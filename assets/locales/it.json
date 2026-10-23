@@ -326,7 +326,9 @@
     "knowledge_import_done": "{games} giochi importati: {new} nuovi, {enriched} arricchiti, {unchanged} già noti, {replaced} da un’altra versione del convertitore. Ogni conversione li verifica comunque con la CPU di riferimento.",
     "knowledge_failed": "Impossibile usare questo file di conoscenze: {error}",
     "tip_knowledge": "Condividi i percorsi scoperti dalle tue conversioni: esporta un unico file senza ROM per più giochi e console, oppure aggiungi il file di qualcun altro alle tue conoscenze. I suggerimenti importati vengono sempre ricontrollati durante la conversione.",
-    "knowledge_missing_hint": "Suggerimento: imposta la Cartella ROM di ogni console nelle Opzioni per trovare più giochi."
+    "knowledge_missing_hint": "Suggerimento: imposta la Cartella ROM di ogni console nelle Opzioni per trovare più giochi.",
+    "options_cps1": "Capcom CPS-1",
+    "options_cps1_note": "Profilo Capcom CPS-1 sperimentale: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Giocatori 1 e 2, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",
@@ -563,6 +565,12 @@
     "Enter: remap | Left/Right: page": "Invio: assegna | Sinistra/Destra: pagina",
     "Quit": "Esci",
     "Restart": "Riavvia",
-    "Gun: mouse/left click": "Gun: mouse/sinistro"
+    "Gun: mouse/left click": "Gun: mouse/sinistro",
+    "Coin": "Credito",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "Frecce; W/X/C + A/S/D: pulsanti 1-6",
+    "Button 3": "Pulsante 3",
+    "Button 4": "Pulsante 4",
+    "Button 5": "Pulsante 5",
+    "Button 6": "Pulsante 6"
   }
 }

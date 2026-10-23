@@ -29,6 +29,11 @@ Independent authored hardware fixtures and
 fresh states/ordinary saves complement these routes. Unseen paths still report
 fallback; electrical timing and full playthroughs are separate evidence.
 See [Neo Geo scope](NEOGEO.md).
+The experimental **Capcom CPS-1** profile (`cps1`) reads MAME/FBNeo ZIP romsets
+of the standard boards. Automatic mode checks CPS-1 program ROM CRCs before the
+Neo Geo and single-cartridge readers; a split clone reads its parent ZIP beside
+it. Exports go to `Games/CPS-1` with the shared 16-bit host. See
+[CPS-1](CPS1.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is

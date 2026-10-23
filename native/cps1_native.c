@@ -68,6 +68,8 @@ static const RrCps1NativeStep *guarded_step(uint32_t pc) {
     return op;
 }
 static uint32_t miss_pc=UINT32_MAX;
+/* A loaded state never inherits the last run's failed lookup. */
+void rr_cps1_native_discontinuity(void) {miss_pc=UINT32_MAX;}
 int rr_cps1_trace_native;   /* diagnostic builds: hook every chained instruction */
 int rr_cps1_native_run(void) {
     uint32_t pc=REG_PC;

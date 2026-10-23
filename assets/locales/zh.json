@@ -326,7 +326,9 @@
     "knowledge_import_done": "已导入 {games} 款游戏：新增 {new}，补充 {enriched}，已知 {unchanged}，来自其他转换器版本 {replaced}。每次转换仍会与参考 CPU 进行比对。",
     "knowledge_failed": "无法使用此知识库文件：{error}",
     "tip_knowledge": "分享你的转换发现的路径：将多个游戏和平台导出为一个不含 ROM 的文件，或把别人的文件添加到你的知识库。导入的提示在转换时总会被重新检查。",
-    "knowledge_missing_hint": "提示：在选项中为每个平台设置 ROM 文件夹，即可找到更多游戏。"
+    "knowledge_missing_hint": "提示：在选项中为每个平台设置 ROM 文件夹，即可找到更多游戏。",
+    "options_cps1": "Capcom CPS-1",
+    "options_cps1_note": "实验性 Capcom CPS-1 配置：MAME 或 FBNeo 的 ZIP 游戏包，按 ROM 的 CRC 识别（clone 需要把 parent ZIP 放在同一文件夹）。支持玩家 1 和 2、最多 6 个按钮，Shift/Back 投币。直立画面的游戏会自动调整显示方向。共用菜单、滤镜及 F8/F9。不下载也不提供 ROM。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",
@@ -563,6 +565,12 @@
     "Enter: remap | Left/Right: page": "Enter：重新映射 | 左/右：翻页",
     "Quit": "退出",
     "Restart": "重新开始",
-    "Gun: mouse/left click": "光枪：鼠标/左键"
+    "Gun: mouse/left click": "光枪：鼠标/左键",
+    "Coin": "投币",
+    "Arrows; W/X/C + A/S/D: buttons 1-6": "方向键；W/X/C + A/S/D：按钮1-6",
+    "Button 3": "按钮3",
+    "Button 4": "按钮4",
+    "Button 5": "按钮5",
+    "Button 6": "按钮6"
   }
 }

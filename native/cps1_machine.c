@@ -753,6 +753,141 @@ static uint64_t fnv(uint64_t hash, const void *data, size_t size)
 
 const uint8_t *cps1_work_ram(void) { return M.ram; }
 
+/* Architectural registers and both CPU clocks; never host addresses. */
+uint64_t cps1_cpu_hash(void)
+{
+    uint32_t m68k[22];
+    for (int i = 0; i < 16; i++) m68k[i] = m68k_get_reg(NULL, (m68k_register_t)(M68K_REG_D0 + i));
+    m68k[16] = m68k_get_reg(NULL, M68K_REG_PC); m68k[17] = m68k_get_reg(NULL, M68K_REG_SR);
+    m68k[18] = m68k_get_reg(NULL, M68K_REG_USP); m68k[19] = m68k_get_reg(NULL, M68K_REG_ISP);
+    m68k[20] = (uint32_t)M.m68k_cycles; m68k[21] = (uint32_t)M.z80_clock;
+    const uint16_t z80_regs[] = {M.cpu.pc, M.cpu.sp, M.cpu.ix, M.cpu.iy, M.cpu.af, M.cpu.bc, M.cpu.de, M.cpu.hl,
+                                 M.cpu.a_f_, M.cpu.b_c_, M.cpu.d_e_, M.cpu.h_l_, M.cpu.i, M.cpu.r};
+    return fnv(fnv(0xcbf29ce484222325ull, m68k, sizeof m68k), z80_regs, sizeof z80_regs);
+}
+
+/* ------------------------------------------------------------- quick states */
+
+#define STATE_MAGIC "CPS1S001"
+unsigned cps1_m68k_state_bytes(void);
+void cps1_m68k_state_get(void *dst);
+void cps1_m68k_state_set(const void *src);
+typedef struct { uint8_t *data; size_t size, used; int overflow; } writer_t;
+static void put(writer_t *w, const void *data, size_t size)
+{
+    if (w->data && w->used + size <= w->size) memcpy(w->data + w->used, data, size);
+    else if (w->data) w->overflow = 1;
+    w->used += size;
+}
+typedef struct { const uint8_t *data; size_t size, used; int bad; } reader_t;
+static void get(reader_t *r, void *data, size_t size)
+{
+    if (r->used + size > r->size) { r->bad = 1; return; }
+    memcpy(data, r->data + r->used, size);
+    r->used += size;
+}
+
+/* Fields in a fixed order; host pointers (ROM, callbacks, audio buffer) are
+ * never written and are kept from the running machine on load. */
+#define STATE_FIELDS(X) \
+    X(M.ram) X(M.gfxram) X(M.cps_a) X(M.cps_b) X(M.buffered_obj) X(M.palette) X(M.ports) \
+    X(M.frame) X(M.line) X(M.frame_number) X(M.lines_run) X(M.m68k_cycles) X(M.m68k_target) \
+    X(M.z80_ram) X(M.latch) X(M.sound_bank) X(M.latch_queue) X(M.latch_count) X(M.z80_clock) \
+    X(M.opm_samples) X(M.oki.command) X(M.oki.pin7) X(M.oki.voice) X(M.oki_base_clock) \
+    X(M.oki_base_samples) X(M.oki_samples) X(M.oki_level) X(M.oki_previous) X(M.irq2)
+
+size_t cps1_state_save(uint8_t *buffer, size_t capacity)
+{
+    writer_t w = {buffer, capacity, 0, 0};
+    put(&w, STATE_MAGIC, 8);
+#define SAVE(field) put(&w, &field, sizeof field);
+    STATE_FIELDS(SAVE)
+#undef SAVE
+    z80 cpu = M.cpu;
+    cpu.read_byte = NULL; cpu.write_byte = NULL; cpu.port_in = NULL; cpu.port_out = NULL; cpu.userdata = NULL;
+    put(&w, &cpu, sizeof cpu);
+    uint32_t context_size = cps1_m68k_state_bytes();
+    put(&w, &context_size, sizeof context_size);
+    uint8_t *context = malloc(context_size);
+    if (!context) return 0;
+    cps1_m68k_state_get(context);
+    put(&w, context, context_size);
+    free(context);
+    uint32_t opm_size = (uint32_t)cps1_opm_save(M.opm, NULL, 0);
+    put(&w, &opm_size, sizeof opm_size);
+    uint8_t *opm = malloc(opm_size ? opm_size : 1);
+    if (!opm || cps1_opm_save(M.opm, opm, opm_size) != opm_size) { free(opm); return 0; }
+    put(&w, opm, opm_size);
+    free(opm);
+    if (!buffer) return w.used;
+    return w.overflow ? 0 : w.used;
+}
+
+int cps1_state_load(const uint8_t *buffer, size_t size)
+{
+    reader_t r = {buffer, size, 0, 0};
+    char magic[8];
+    get(&r, magic, 8);
+    if (r.bad || memcmp(magic, STATE_MAGIC, 8)) return 0;
+    /* Read into a copy first so a truncated or foreign state leaves the
+     * running machine untouched. */
+    static uint8_t ram[sizeof M.ram], gfxram[sizeof M.gfxram];
+    uint16_t cps_a[0x20], cps_b[0x20], obj[OBJ_WORDS], ports[CPS1_PORTS];
+    static uint32_t palette[CPS1_PALETTE_SIZE], frame[CPS1_SCREEN_W * CPS1_SCREEN_H];
+    int line, latch_count, irq2;
+    uint64_t frame_number, lines_run, m68k_cycles, m68k_target, z80_clock, opm_samples;
+    uint8_t z80_ram[sizeof M.z80_ram], latch[2], sound_bank;
+    latch_event queue[LATCH_QUEUE];
+    cps1_oki oki = M.oki;
+    uint64_t oki_base_clock, oki_base_samples, oki_samples;
+    int32_t oki_level, oki_previous;
+    get(&r, ram, sizeof ram); get(&r, gfxram, sizeof gfxram); get(&r, cps_a, sizeof cps_a);
+    get(&r, cps_b, sizeof cps_b); get(&r, obj, sizeof obj); get(&r, palette, sizeof palette);
+    get(&r, ports, sizeof ports); get(&r, frame, sizeof frame); get(&r, &line, sizeof line);
+    get(&r, &frame_number, sizeof frame_number); get(&r, &lines_run, sizeof lines_run);
+    get(&r, &m68k_cycles, sizeof m68k_cycles); get(&r, &m68k_target, sizeof m68k_target);
+    get(&r, z80_ram, sizeof z80_ram); get(&r, latch, sizeof latch); get(&r, &sound_bank, sizeof sound_bank);
+    get(&r, queue, sizeof queue); get(&r, &latch_count, sizeof latch_count); get(&r, &z80_clock, sizeof z80_clock);
+    get(&r, &opm_samples, sizeof opm_samples); get(&r, &oki.command, sizeof oki.command);
+    get(&r, &oki.pin7, sizeof oki.pin7); get(&r, oki.voice, sizeof oki.voice);
+    get(&r, &oki_base_clock, sizeof oki_base_clock); get(&r, &oki_base_samples, sizeof oki_base_samples);
+    get(&r, &oki_samples, sizeof oki_samples); get(&r, &oki_level, sizeof oki_level);
+    get(&r, &oki_previous, sizeof oki_previous); get(&r, &irq2, sizeof irq2);
+    z80 cpu;
+    get(&r, &cpu, sizeof cpu);
+    uint32_t context_size = 0, opm_size = 0;
+    get(&r, &context_size, sizeof context_size);
+    if (r.bad || context_size != cps1_m68k_state_bytes() || r.used + context_size > size) return 0;
+    const uint8_t *context = buffer + r.used;
+    r.used += context_size;
+    get(&r, &opm_size, sizeof opm_size);
+    if (r.bad || r.used + opm_size != size || line < 0 || line >= LINES || latch_count < 0 ||
+        latch_count > LATCH_QUEUE || sound_bank > 1 || oki.pin7 > 1) return 0;
+    for (int i = 0; i < 4; i++)
+        if (oki.voice[i].step < 0 || oki.voice[i].step > 48) return 0;
+    if (!cps1_opm_load(M.opm, buffer + r.used, opm_size)) return 0;
+    memcpy(M.ram, ram, sizeof ram); memcpy(M.gfxram, gfxram, sizeof gfxram);
+    memcpy(M.cps_a, cps_a, sizeof cps_a); memcpy(M.cps_b, cps_b, sizeof cps_b);
+    memcpy(M.buffered_obj, obj, sizeof obj); memcpy(M.palette, palette, sizeof palette);
+    memcpy(M.ports, ports, sizeof ports); memcpy(M.frame, frame, sizeof frame);
+    M.line = line; M.frame_number = frame_number; M.lines_run = lines_run;
+    M.m68k_cycles = m68k_cycles; M.m68k_target = m68k_target;
+    memcpy(M.z80_ram, z80_ram, sizeof z80_ram); memcpy(M.latch, latch, sizeof latch);
+    M.sound_bank = sound_bank; memcpy(M.latch_queue, queue, sizeof queue); M.latch_count = latch_count;
+    M.z80_clock = z80_clock; M.opm_samples = opm_samples;
+    M.oki = oki; M.oki_base_clock = oki_base_clock; M.oki_base_samples = oki_base_samples;
+    M.oki_samples = oki_samples; M.oki_level = oki_level; M.oki_previous = oki_previous; M.irq2 = irq2;
+    cpu.read_byte = M.cpu.read_byte; cpu.write_byte = M.cpu.write_byte;
+    cpu.port_in = M.cpu.port_in; cpu.port_out = M.cpu.port_out; cpu.userdata = M.cpu.userdata;
+    M.cpu = cpu;
+    cps1_m68k_state_set(context);
+#ifdef CPS1_NATIVE
+    { extern void rr_cps1_native_discontinuity(void); rr_cps1_native_discontinuity(); }
+#endif
+    M.audio_count = 0;
+    return 1;
+}
+
 /* ------------------------------------------------- native code view/fallback */
 
 /* Side-effect-free code mapping for the native guards. Program ROM is
@@ -812,6 +947,12 @@ static z80_variant_t z80_variants[RAM_VARIANTS];
 static unsigned ram_variant_count, z80_variant_count, misses_truncated;
 uint64_t rr_cps1_interpreted_68k, rr_cps1_interpreted_z80, rr_cps1_native_z80;
 int rr_cps1_force_z80_reference;
+/* Qualification runs record every miss; ordinary play only counts them (and
+ * hands them to the opt-in runtime feedback when a game links it). */
+int rr_cps1_observe = 1;
+#ifdef CPS1_FEEDBACK
+#include "runtime_feedback.h"
+#endif
 
 static void note_miss(miss_t *table, uint32_t pc, uint16_t word)
 {
@@ -826,6 +967,16 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
 {
     if (native) return;
     rr_cps1_interpreted_68k++;
+#ifdef CPS1_FEEDBACK
+    if (rr_feedback_enabled()) {
+        uint32_t region, offset; unsigned available;
+        const uint8_t *bytes = rr_cps1_code_bytes(pc, &region, &offset, &available);
+        if (bytes && available >= 2)
+            rr_feedback_note(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM, offset, 0, bytes,
+                             region == 3 ? (available < 16 ? available & ~1u : 16) : 2);
+    }
+#endif
+    if (!rr_cps1_observe) return;
     uint16_t word = 0;
     rr_cps1_code_word(pc, &word);
     note_miss(m68k_misses, pc & 0xffffffu, word);
@@ -843,6 +994,14 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
 void rr_cps1_z80_note_fallback(uint16_t pc)
 {
     rr_cps1_interpreted_z80++;
+#ifdef CPS1_FEEDBACK
+    if (rr_feedback_enabled()) {
+        uint8_t bytes[4] = {0};
+        for (unsigned n = 0; n < 4; n++) rr_cps1_z80_code_byte((uint16_t)(pc + n), &bytes[n]);
+        rr_feedback_note(RR_FB_CPS1_Z80, pc, 0, bytes, 4);
+    }
+#endif
+    if (!rr_cps1_observe) return;
     uint8_t first = 0;
     rr_cps1_z80_code_byte(pc, &first);
     note_miss(z80_misses, pc, first);

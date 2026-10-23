@@ -93,6 +93,28 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
      SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
 static RrAutofire fire_state[2][FACE_LAST+1];
 void rr16_host_discontinuity(void) {memset(fire_state,0,sizeof fire_state);}
+#elif RR16_CPS1
+/* Bits follow cps1_host.h; each game maps them to its own ports. */
+enum { A, B, C, X, Y, Z, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
+#define FACE_LAST Z
+static const uint16_t bits[ACTIONS] = {1,2,4,8,16,32,64,128,256,512,1024,2048};
+static const char *names[ACTIONS] = {"Button 1","Button 2","Button 3","Button 4","Button 5","Button 6",
+                                     "Start","Coin","Up","Down","Left","Right"};
+static const wchar_t *settings[ACTIONS] = {L"B1",L"B2",L"B3",L"B4",L"B5",L"B6",L"Start",L"Coin",L"Up",L"Down",L"Left",L"Right"};
+static SDL_Scancode keys[2][ACTIONS] = {
+    {SDL_SCANCODE_W,SDL_SCANCODE_X,SDL_SCANCODE_C,SDL_SCANCODE_A,SDL_SCANCODE_S,SDL_SCANCODE_D,
+     SDL_SCANCODE_RETURN,SDL_SCANCODE_LSHIFT,SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT},
+    {SDL_SCANCODE_KP_7,SDL_SCANCODE_KP_8,SDL_SCANCODE_KP_9,SDL_SCANCODE_KP_4,SDL_SCANCODE_KP_6,SDL_SCANCODE_KP_PLUS,
+     SDL_SCANCODE_KP_ENTER,SDL_SCANCODE_KP_0,SDL_SCANCODE_KP_5,SDL_SCANCODE_KP_2,SDL_SCANCODE_KP_1,SDL_SCANCODE_KP_3}};
+static SDL_GameControllerButton buttons[2][ACTIONS] = {
+    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
+     SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,
+     SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
+    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
+     SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,
+     SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
+static RrAutofire fire_state[2][FACE_LAST+1];
+void rr16_host_discontinuity(void) {memset(fire_state,0,sizeof fire_state);}
 #elif RR16_MD
 #if RR_MD_SIX_BUTTONS
 enum { A, B, C, X, Y, Z, MODE, START, UP, DOWN, LEFT, RIGHT, ACTIONS };
@@ -139,7 +161,7 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
 #endif
 static SDL_GameController *pads[2];
-#if !RR16_NG
+#if !RR16_NG && !RR16_CPS1
 static RrAutofire fire_state[2][FACE_LAST+1];
 #endif
 static wchar_t ini_file[32768], data_dir[32768];
@@ -169,6 +191,11 @@ static void load_bindings(void) {
 #if RR16_NG
     keys[0][C] = rr_keyboard_letter(SDLK_c, SDL_SCANCODE_C);
     keys[0][D] = rr_keyboard_letter(SDLK_v, SDL_SCANCODE_V);
+#elif RR16_CPS1
+    keys[0][C] = rr_keyboard_letter(SDLK_c, SDL_SCANCODE_C);
+    keys[0][X] = rr_keyboard_letter(SDLK_a, SDL_SCANCODE_A);
+    keys[0][Y] = rr_keyboard_letter(SDLK_s, SDL_SCANCODE_S);
+    keys[0][Z] = rr_keyboard_letter(SDLK_d, SDL_SCANCODE_D);
 #elif RR16_MD
     keys[0][C] = rr_keyboard_letter(SDLK_c, SDL_SCANCODE_C);
 #if RR_MD_SIX_BUTTONS
@@ -251,7 +278,7 @@ static uint16_t controller_input(int p, uint64_t frame) {
     uint16_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
         bool down = state[keys[p][a]] || (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
-#if RR16_NG
+#if RR16_NG || RR16_CPS1
         if(a==COIN && p==0 && keys[0][COIN]==SDL_SCANCODE_LSHIFT && state[SDL_SCANCODE_RSHIFT])value|=bits[a];
 #endif
         if (a<=FACE_LAST) down=rr_autofire(&fire_state[p][a],down,autofire!=0,frame);
@@ -426,6 +453,11 @@ static void draw_menu(SDL_Renderer *ren) {
 #if RR16_NG
         RR16_TEXT(y, tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
         RR16_TEXT(y + RR_MENU_LINE, rr_ng_aes()?"Enter: Start; Shift/Back: Select":tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
+#elif RR16_CPS1
+        RR16_TEXT(y, rr_tr("Arrows; W/X/C + A/S/D: buttons 1-6"));
+        RR16_TEXT(y + RR_MENU_LINE, rr_tr("Enter: Start; Shift/Back: coin"));
+        RR16_TEXT(y + 2 * RR_MENU_LINE, rr16_audio_interpreted() ? rr_tr("Sound CPU: interpreter fallback") :
+                                                    rr_tr("Sound CPU: native code"));
 #else
         if (RR16_GUN) {
             RR16_TEXT(y, tr("Mouse: aim | Left: fire", "Souris : viser | Gauche : tirer"));
@@ -740,6 +772,8 @@ int rr16_sdl_main(const char *title, int scale) {
         /* Explicit performance reports only; include CPU, audio preparation,
          * drawing and Present, but exclude intentional pacing/menu waits. */
         Uint64 work_started=rr_ng_performance_enabled() && !menu?SDL_GetPerformanceCounter():0;
+        uint64_t input_frame=rr16_input_frame();
+#elif RR16_CPS1
         uint64_t input_frame=rr16_input_frame();
 #else
         uint64_t input_frame=frame;

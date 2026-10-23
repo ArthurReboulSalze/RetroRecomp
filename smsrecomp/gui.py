@@ -750,6 +750,8 @@ class Application:
     def video_display(self, item: BatchItem, result: dict | None = None) -> str:
         if item.error or not item.video_hint:
             return '-'
+        if item.system == 'cps1':
+            return 'Arcade 59.64 Hz'
         if item.system == 'ng':
             return 'MVS Â· Europe'
         if item.standard_override:
@@ -916,7 +918,7 @@ class Application:
                 text += f" Â· {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
-                if item.system in ('md', 'snes', 'ng'):
+                if item.system in ('md', 'snes', 'ng', 'cps1'):
                     text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0),
                         audio_opcodes=result.get('audio_interpreted_opcodes', 0))
                 elif result.get('interpreter_percent') is None or comparison is None:
@@ -1464,6 +1466,11 @@ class Application:
         ttk.Label(neo_geo, textvariable=self.ng_bios_status, style='Muted.TLabel',
                   wraplength=880).pack(anchor='w', pady=(12, 0))
         self.build_feedback_options(neo_geo, 'ng')
+        cps1 = tab('options_cps1')
+        self.build_scan_options(cps1, 'cps1')
+        ttk.Label(cps1, text=self.tr('options_cps1_note'), style='Muted.TLabel',
+                  wraplength=880, justify='left').pack(anchor='w', pady=(0, 14))
+        self.build_feedback_options(cps1, 'cps1')
         if any(p.id == 'x68' for p in PROFILES):
             x68 = tab('options_x68')
             self.build_scan_options(x68, 'x68')
