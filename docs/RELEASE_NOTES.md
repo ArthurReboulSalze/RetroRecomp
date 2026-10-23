@@ -1,3 +1,39 @@
+# RetroRecomp v1.2.5 — every setting in F2, on every console
+
+- **F2 gathers every setting.** On all seven consoles, F2 opens pages turned
+  with Left/Right (or Tab, LB/RB, the D-pad), with small squares at the top
+  right showing how many pages there are and which one is open: each player's
+  keyboard and gamepad controls, the gun page of recognised Light Phaser,
+  Zapper, Menacer and Super Scope games, then **Options**. The options page
+  lists the function-key settings with their current value (filter, display,
+  sprite reduction, palette or enhanced Neo Geo, autofire, language, MVS/AES,
+  fallback recording; Enter runs the same shortcut) and the audio filter. The
+  quit and restart combinations close player 1's keyboard and gamepad pages.
+- **Freed keys.** F10, G and the Mega Drive / SNES gun F5 no longer open
+  anything; the controller Guide button opens F2 on its options page. The
+  Master System pauses with Enter, its default Start/Menu key, and P is free.
+  On Mega Drive, SNES, NES and Neo Geo, P no longer pauses: Enter, the
+  cartridge Start, pauses the game itself, and P can be bound to a game action.
+- **Smaller menu text.** Menus use 5 x 10 cells: help lists one function key
+  per line, and every control of a page is shown at once, without scrolling.
+- **Computer function keys.** On the Sharp X68000, an option on the last F2
+  page hands F1–F10 to the computer; Ctrl+F1 to Ctrl+F12 then reach
+  Retro-Recomp (Ctrl+F2 opens F2, Ctrl+F8/F9 save and load). It is off by
+  default.
+- **Sharp X68000 disk changes.** Every set of two or more disks now changes
+  disks automatically when a game ejects one and asks for another, instead of
+  rules written for three titles.
+
+Existing games keep their menus until they are regenerated; settings, quick
+states, libraries and cartridge saves are unaffected. Saved bindings and
+options are kept, including a Master System pause key explicitly saved as P;
+only the default changes. The menus were checked with synthetic SDL events, virtual
+controllers and captured screens; they do not measure physical input latency
+or certify hardware fidelity. Linux remains qualified on Debian 13 / glibc
+2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.4 — scan levels per console and options in the main window
 
 - **Discovery scan levels.** Every console tab in Options now sets how long

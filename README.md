@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.4-d4a737" alt="Release version 1.2.4">
+  <img src="https://img.shields.io/badge/release-1.2.5-d4a737" alt="Release version 1.2.5">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -102,14 +102,18 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.4:** every console gets a **discovery scan level**, Quick,
-Standard, Extended or Thorough, with its own passes, frames and a short note on
-what is recommended, all inside the main window instead of a separate Options
-dialog. Extended and Thorough add reproducible pseudo-random play routes on
-every console, Sharp X68000 replays its exploration routes in parallel (a
-thorough conversion drops from about 21 to 9 minutes on the test machine), and
-the end of a batch is announced in the log, the title bar and the status line.
-See [scan levels](docs/CONSOLES_16BIT.md#scan-levels).
+**New in 1.2.5:** F2 gathers every setting on every console, as pages
+marked by small squares: each player's controls (player 1 ending with the quit
+and restart combinations), the gun page of gun games, then the options with
+the function-key settings and the audio filter. F10 and the gun shortcuts are
+free, P no longer pauses on Mega Drive, SNES, NES and Neo Geo (Enter does, as
+on the Master System), menu text is smaller so every control fits on one page,
+and the Sharp X68000 can hand F1–F10 to the computer while Ctrl+F1–F12 stay
+Retro-Recomp shortcuts. See [F2 settings pages](docs/CONTROLS.md#f2-settings-pages).
+
+Version 1.2.4 brought a **discovery scan level** for every console, Quick,
+Standard, Extended or Thorough, inside the main window, and parallel X68000
+exploration routes.
 
 Version 1.2.3 brought the advanced scan to Mega Drive and Super Nintendo
 with a 24,000-frame attract test and two reproducible pseudo-random play routes
