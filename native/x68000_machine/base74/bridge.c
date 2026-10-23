@@ -13,6 +13,7 @@ extern uint16_t *videoBuffer;
 extern unsigned RR_FDD_MediaMask(void);
 extern unsigned RR_FDD_BlinkMask(void);
 extern int FDC_IsDataReady(void);
+extern unsigned RR_FDC_DriveInterest(unsigned drive);
 
 RR_X68K_EXPORT const char *rr_x68k_state_compatibility(void) { return RR_X68K_STATE_ABI; }
 RR_X68K_EXPORT const void *rr_x68k_framebuffer(void) { return videoBuffer; }
@@ -25,4 +26,9 @@ unsigned rr_x68000_media_ready(void)
 unsigned rr_x68000_media_activity(void)
 {
    return FDC_IsDataReady() ? 2u : 0u;
+}
+
+unsigned rr_x68000_media_interest(unsigned drive)
+{
+   return RR_FDC_DriveInterest(drive);
 }

@@ -76,24 +76,16 @@ def machine(path, ipl, cgrom, ram=2):
     return source, manifest
 
 
-def automatic_media_rules(source):
-    """Private development policy, gated by the complete ordered disk set.
+def automatic_disk_changes(source):
+    """Every multi-disk set answers the guest's own disk requests.
 
-    These are explicit guest-eject transitions, never title/size heuristics.
-    Unknown or reordered sets retain manual control. Further transitions are
-    added only after the corresponding real request is replayed and checked.
+    The runtime policy (native/x68000_reference/media_session.c) acts only on
+    a drive the guest ejected and then polls or blinks, or an empty drive it
+    blinks; it tries the next disks of the ordered set and moves on when the
+    guest ejects a refused one. No title, size or exact-set rule is involved,
+    and the player keeps manual control. A single disk has nothing to change.
     """
-    if source.sha256 == '65a1633e48b34ddfe486c53a96cf0d3460606370972e202b3066458858589b94':
-        # A ejects boot disk for disk 2, then B flashes empty for disk 3.
-        return ((0, 0, 1), (1, 10, 2))
-    if source.sha256 == '39fff56b6a62ea18dbd7f2572261680b436c1b9967ae078a96d9f01168299261':
-        # Tricorn Final ejects B from FDD1 and requests C there. D is not
-        # inferred: it needs its own observed guest request and validation.
-        return ((1, 1, 2),)
-    if source.sha256 == '06ae8a805f2826bf049febf54aa2734760ac893f95620ee30dcb6c7a60271215':
-        # Power Unit ejects its system image from A before requesting disk 3.
-        return ((0, 0, 2),)
-    return ()
+    return len(source.disks) > 1
 
 
 def mouse_controls(source):

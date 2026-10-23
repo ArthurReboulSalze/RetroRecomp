@@ -16,7 +16,7 @@ from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id
 from .library import atomic_json, entry_lock
-from .x68000 import developer_available, machine, automatic_media_rules, mouse_controls
+from .x68000 import developer_available, machine, automatic_disk_changes, mouse_controls
 
 
 def digest(path):
@@ -111,9 +111,7 @@ def payload(project, source, manifest, title, artwork):
     declarations += ['{'+json.dumps(name)+f',{identifier},{writable}'+'},' for name,identifier,writable in files]
     declarations+=['};','#define RR_X68K_FILE_COUNT (sizeof(rr_x68k_files)/sizeof(rr_x68k_files[0]))',
        'static const volatile unsigned char rr_x68k_export_marker[]={'+','.join(str(c) for c in b'[Retro-Recomp]\0'+source.sha256.encode()+b'\0')+'};']
-    rules=automatic_media_rules(source)
-    declarations+=['#define RR_X68K_AUTO_DISK_COUNT '+str(len(rules)),
-       'static const RRMediaRule rr_x68k_auto_disk_rules[]={'+(','.join('{'+','.join(map(str,r))+'}' for r in rules) or '{0,0,0}')+'};','#endif']
+    declarations+=['#define RR_X68K_AUTO_DISK '+str(int(automatic_disk_changes(source))),'#endif']
     (project/'x68000_payload.h').write_text('\n'.join(declarations)+'\n',encoding='utf-8')
     (project/'runtime_feedback_config.h').write_text(
         '#define RR_FEEDBACK_SYSTEM "x68"\n#define RR_FEEDBACK_IDENTITY "'+manifest.sha256+'"\n',encoding='ascii')
@@ -289,8 +287,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             probe=Path(tempfile.mkdtemp(prefix='reference-',dir=work))
         executable=reference.prepare_bundle(probe,list(source.disks),manifest.firmware.ipl.path,manifest.firmware.cgrom.path,generic,title=title,ram_mib=x68_ram)
         emit('X68000: fresh reference and discovery of RAM/IPL code.')
-        rules=automatic_media_rules(source)
-        rule_args=[arg for rule in rules for arg in ('--auto-disk',','.join(map(str,rule)))]
+        rule_args=['--auto-disk'] if automatic_disk_changes(source) else []
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
@@ -424,7 +421,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             exploration_checks.append({'route':route.name,'frames':route.frames,'native_entries':native_count,
                 'interpreted_opcodes':interpreted,'interpreter_percent':100*interpreted/max(1,native_count+interpreted),
                 'reference_match':True,'trace_sha256':digest(folder/'trace.tsv'),
-                'automatic_disk_changes':result.get('automatic_disk_changes',0)})
+                'automatic_disk_changes':result.get('automatic_disk_changes',0),
+                'media_events':result.get('media_events',[])})
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
           'system':{'id':'x68','name':'Sharp X68000'},'status':'experimental','private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
@@ -432,9 +430,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
           'native_validation':{'passed':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
-          'qualification_inputs_sha256':digest(event_file),'automatic_media_rules':[list(r) for r in rules],
+          'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,
           'automatic_disk_changes_observed':actual.get('automatic_disk_changes',0),
+          'media_events':actual.get('media_events',[]),
           'reference_vdp_trace_match':True,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
           'game_states':{'supported':True,'save_key':'F8','load_key':'F9','fresh_process_verified':True},
           'video_model':{'standard':'native','frameskip':False,'fps':actual['fps']},

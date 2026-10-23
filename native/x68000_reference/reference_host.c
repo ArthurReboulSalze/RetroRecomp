@@ -70,7 +70,7 @@ static struct {
    uint32_t (*video_checks)(const char *), (*audio_checks)(const char *), (*timing_checks)(const char *);
    uint32_t (*session_checks)(const char *);
    unsigned (*disk_checks)(const char *);
-   unsigned (*media_ready)(void),(*media_activity)(void);
+   unsigned (*media_ready)(void),(*media_activity)(void),(*media_interest)(unsigned);
 #ifdef RR_X68000_DEVCPU
    int (*cpu_configure)(int,int);int (*cpu_report)(const char*);
    void (*cpu_stats)(uint64_t*);
@@ -105,8 +105,8 @@ static InputEvent events[MAX_EVENTS];
 static unsigned event_count;
 static DiskEvent disk_events[128];
 static unsigned disk_event_count;
-static RRMediaRule auto_disk_rules[32];
-static unsigned auto_disk_count,auto_disk_changes;
+static bool auto_disk;
+static unsigned auto_disk_changes;
 static unsigned ram_megabytes = 2;
 static struct retro_disk_control_callback disk_callbacks;
 static RRMediaSession media;
@@ -127,6 +127,36 @@ static char status_text[192];
 static char last_error[384];
 static Uint32 status_until;
 static unsigned saved_count,loaded_count,rejected_count,swapped_count;
+/* Bounded media timeline for reports. Observation only: presence and blink
+ * changes made by the guest during a frame, then those made by the host
+ * (menus, automatic changes, disk events, states, restarts). */
+#define MEDIA_LOG_MAX 256u
+enum { MEDIA_GUEST_EJECT, MEDIA_GUEST_INSERT, MEDIA_BLINK_ON, MEDIA_BLINK_OFF, MEDIA_HOST_EJECT, MEDIA_HOST_INSERT, MEDIA_POLLED };
+static const char *const media_log_kinds[]={"guest_eject","guest_insert","blink_on","blink_off","host_eject","host_insert","polled"};
+typedef struct { unsigned frame; unsigned char drive,kind; signed char image; } MediaLogEntry;
+static MediaLogEntry media_log[MEDIA_LOG_MAX];
+static unsigned media_log_count,media_log_dropped,media_log_seen,media_interest_seen[2],media_empty_polls[2];
+static bool media_polled_logged[2];
+static void media_log_scan(bool host){
+   unsigned now=core.media_ready?core.media_ready():0,d;
+   for(d=0;d<2;d++){
+      unsigned present=1u<<d,blink=1u<<(8+d),interest=core.media_interest?core.media_interest(d):0;int kind=-1;
+      /* One entry per empty period: the guest looked at the empty drive. */
+      if(!host&&!(now&present)&&!(media_log_seen&present)&&interest!=media_interest_seen[d]){
+         media_empty_polls[d]+=interest-media_interest_seen[d];
+         if(!media_polled_logged[d]){media_polled_logged[d]=true;
+            if(media_log_count<MEDIA_LOG_MAX)media_log[media_log_count++]=(MediaLogEntry){frame_number,(unsigned char)d,MEDIA_POLLED,(signed char)(media_opened?media.selected[d]:-1)};else media_log_dropped++;}
+      }
+      media_interest_seen[d]=interest;
+      if(now&present)media_polled_logged[d]=false;
+      if((now^media_log_seen)&present)kind=now&present?(host?MEDIA_HOST_INSERT:MEDIA_GUEST_INSERT):(host?MEDIA_HOST_EJECT:MEDIA_GUEST_EJECT);
+      if(kind>=0){if(media_log_count<MEDIA_LOG_MAX)media_log[media_log_count++]=(MediaLogEntry){frame_number,(unsigned char)d,(unsigned char)kind,(signed char)(media_opened?media.selected[d]:-1)};else media_log_dropped++;}
+      if((now^media_log_seen)&blink){
+         if(media_log_count<MEDIA_LOG_MAX)media_log[media_log_count++]=(MediaLogEntry){frame_number,(unsigned char)d,(unsigned char)(now&blink?MEDIA_BLINK_ON:MEDIA_BLINK_OFF),(signed char)(media_opened?media.selected[d]:-1)};
+         else media_log_dropped++;}
+   }
+   media_log_seen=now;
+}
 static void player_present(const void *,unsigned,unsigned,size_t);
 static int player_init(void),player_blocked(void),player_joy(unsigned),player_action(unsigned,unsigned),player_ui_quit(void),player_ui_restart(void);
 static int player_escape_held(void);
@@ -586,7 +616,7 @@ static void *linked_symbol(const char *name){
    BIND(retro_load_game);BIND(retro_unload_game);BIND(retro_serialize_size);BIND(retro_serialize);BIND(retro_unserialize);
    BIND(retro_get_system_av_info);BIND(retro_get_memory_data);BIND(retro_get_memory_size);BIND(retro_set_controller_port_device);
    BIND(rr_x68k_get_cpu);BIND(rr_x68k_set_clock);BIND(rr_x68k_hardware_snapshot);BIND(rr_x68k_video_checks);BIND(rr_x68k_audio_checks);
-   BIND(rr_x68k_timing_checks);BIND(rr_x68k_session_checks);BIND(rr_x68k_disk_checks);BIND(rr_x68000_media_ready);BIND(rr_x68000_media_activity);
+   BIND(rr_x68k_timing_checks);BIND(rr_x68k_session_checks);BIND(rr_x68k_disk_checks);BIND(rr_x68000_media_ready);BIND(rr_x68000_media_activity);BIND(rr_x68000_media_interest);
    BIND(rr_x68k_state_compatibility);BIND(rr_x68k_framebuffer);BIND(rr_x68k_cpu_configure);BIND(rr_x68k_cpu_report);
    BIND(rr_x68k_cpu_stats);BIND(rr_x68k_trace_configure);BIND(rr_x68k_trace_report);BIND(rr_x68k_guard_checks);
 #undef BIND
@@ -650,6 +680,7 @@ static int player_main(int argc,char **argv) {
       if(!strcmp(argv[i],"--headless")) headless=true;
       else if(!strcmp(argv[i],"--mute")) mute=true;
       else if(!strcmp(argv[i],"--state-load-start")) load_start=true;
+      else if(!strcmp(argv[i],"--auto-disk")) auto_disk=true;
 #ifdef RR_X68000_DEVCPU
       else if(!strcmp(argv[i],"--reference-cpu")) reference_cpu=1;
 #endif
@@ -668,7 +699,7 @@ static int player_main(int argc,char **argv) {
               "--frames N (1..36000) --headless --mute --ram-mb 2|4\n"
               "--report JSON --capture PPM --trace TSV --input-events FILE\n"
               "--disk-events FILE (frame drive image; -1 ejects)\n"
-              "--auto-disk DRIVE,PREVIOUS,NEXT (exact-game guest eject rule)\n"
+              "--auto-disk (answer guest disk requests automatically)\n"
               "--video-checks JSON --audio-checks JSON --timing-checks JSON\n"
               "--session-checks JSON --disk-checks JSON (diagnostics then quit)\n"
               "--state-slot FILE --state-save-at FRAME --state-load-at FRAME --state-load-start\n"
@@ -682,12 +713,6 @@ static int player_main(int argc,char **argv) {
          else if(!strcmp(arg,"--ram-mb")) { if(strcmp(argv[i],"2") && strcmp(argv[i],"4")) { fail("RAM must be 2 or 4 MiB"); goto cleanup; } ram_megabytes=(unsigned)atoi(argv[i]); }
          else if(!strcmp(arg,"--input-events")) events_path=argv[i];
          else if(!strcmp(arg,"--disk-events")) disk_events_path=argv[i];
-         else if(!strcmp(arg,"--auto-disk")){
-            RRMediaRule rule;char extra;
-            if(auto_disk_count==32||sscanf(argv[i],"%u,%u,%u%c",&rule.drive,&rule.previous,&rule.next,&extra)!=3||
-               rule.drive>1||rule.previous>RR_MEDIA_MAX||rule.next>=RR_MEDIA_MAX||rule.previous==rule.next){fail("Invalid automatic disk rule");goto cleanup;}
-            auto_disk_rules[auto_disk_count++]=rule;
-         }
          else if(!strcmp(arg,"--video-checks")) video_checks_path=argv[i];
          else if(!strcmp(arg,"--audio-checks")) audio_checks_path=argv[i];
          else if(!strcmp(arg,"--timing-checks")) timing_checks_path=argv[i];
@@ -729,9 +754,8 @@ static int player_main(int argc,char **argv) {
 #ifdef RR_X68K_MOUSE_GAME
    mouse_game=RR_X68K_MOUSE_GAME!=0;
 #endif
-#ifdef RR_X68K_AUTO_DISK_COUNT
-   auto_disk_count=RR_X68K_AUTO_DISK_COUNT;
-   memcpy(auto_disk_rules,rr_x68k_auto_disk_rules,auto_disk_count*sizeof(*auto_disk_rules));
+#ifdef RR_X68K_AUTO_DISK
+   auto_disk=RR_X68K_AUTO_DISK!=0;
 #endif
    }
 #endif
@@ -789,6 +813,7 @@ static int player_main(int argc,char **argv) {
    LOAD(state_compatibility,"rr_x68k_state_compatibility");LOAD(framebuffer,"rr_x68k_framebuffer");
    LOAD(media_ready,"rr_x68000_media_ready");
    LOAD(media_activity,"rr_x68000_media_activity");
+   LOAD(media_interest,"rr_x68000_media_interest");
 #ifdef RR_X68000_DEVCPU
    LOAD(cpu_configure,"rr_x68k_cpu_configure");LOAD(cpu_report,"rr_x68k_cpu_report");
    LOAD(cpu_stats,"rr_x68k_cpu_stats");
@@ -802,6 +827,7 @@ static int player_main(int argc,char **argv) {
    core.set_clock(0); core.init(); initialized=true;
    { struct retro_game_info game={0}; game.path=content; loaded=core.load_game(&game); }
    if(!loaded) { fail("Core rejected the content"); goto cleanup; }
+   media_log_seen=core.media_ready();
    core.set_controller_port_device(0,RETRO_DEVICE_JOYPAD);
    core.set_controller_port_device(1,RETRO_DEVICE_JOYPAD);
    { struct retro_system_av_info av; core.get_system_av_info(&av); fps=av.timing.fps; sample_rate=av.timing.sample_rate;
@@ -831,7 +857,9 @@ static int player_main(int argc,char **argv) {
       /* The peripheral tick ledger owns RTC time. The frontend interval only
        * drives the core's frame callback; never move RTC ahead then back. */
       if(frame_time.callback) frame_time.callback((retro_usec_t)((uint64_t)elapsed_usec-before));
+      media_log_scan(true);
       frame_pcm=FNV_START; frame_samples=0; core.run(); completed++;input_frame++;
+      media_log_scan(false);
       automatic_loading=rr_loading_update(&loading_detector,core.media_activity(),video_hash)!=0;
       if(automatic_loading)loading_candidate_frames++;
       if(fast_forward)accelerated_frames++;
@@ -859,6 +887,7 @@ static int player_main(int argc,char **argv) {
       if(!media_opened){
          media_opened=rr_media_open(&media,content,media_config,&disk_callbacks,select_drive,core.media_ready)!=0;
          if(!media_opened){fail(rr_media_error(&media));break;}
+         rr_media_set_interest(&media,core.media_interest);
 #ifndef RR_X68000_LINKED
          /* Standalone games cold-boot their original pair. Their last data
           * disk belongs to F9, not to the next boot; keep the diagnostic
@@ -875,8 +904,8 @@ static int player_main(int argc,char **argv) {
       }
       /* The initialization frame ran before the restored snapshot. It must
        * not consume a removal tick belonging to the restored machine. */
-      if(auto_disk_count&&!restored_start){
-         int changed=rr_media_auto_advance(&media,auto_disk_rules,auto_disk_count);
+      if(auto_disk&&!restored_start){
+         int changed=rr_media_auto_advance(&media);
          if(changed<0){fail(rr_media_error(&media));break;}
          if(changed){auto_disk_changes+=(unsigned)changed;notify("Next disk inserted automatically");}
       }
@@ -903,6 +932,7 @@ static int player_main(int argc,char **argv) {
             deadline=(double)SDL_GetPerformanceCounter()/frequency;
          }
       }
+      media_log_scan(true);
       frame_number++;
    }
    if(report[0]){ uint32_t regs[18]; FILE *f; size_t ram_size=core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM); uint64_t ram_hash=0;
@@ -925,6 +955,9 @@ static int player_main(int argc,char **argv) {
        hardware[0],hardware[1],hardware[2],hardware[3],hardware[4],hardware[5],hardware[6],hardware[7]);
      fprintf(f,"  \"session\": {\"saved\":%u,\"loaded\":%u,\"rejected\":%u,\"disk_changes\":%u},\n",saved_count,loaded_count,rejected_count,swapped_count);
      fprintf(f,"  \"automatic_disk_changes\":%u,\n",auto_disk_changes);
+     fprintf(f,"  \"media_empty_polls\":[%u,%u],\"media_events_dropped\":%u,\"media_events\":[",media_empty_polls[0],media_empty_polls[1],media_log_dropped);
+     for(i=0;i<media_log_count;i++)fprintf(f,"%s[%u,%u,\"%s\",%d]",i?",":"",media_log[i].frame,media_log[i].drive,media_log_kinds[media_log[i].kind],media_log[i].image);
+     fprintf(f,"],\n");
      fprintf(f,"  \"loading\":{\"waiting_transfer_frames\":%u,\"accelerated_frames\":%u},\n",
        loading_candidate_frames,accelerated_frames);
      /* Explicit end-report only: inspect guest eject/blink requests without

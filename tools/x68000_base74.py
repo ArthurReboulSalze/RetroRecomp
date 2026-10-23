@@ -181,6 +181,26 @@ unsigned RR_FDD_BlinkMask(void)
 '''
 
 
+def adapt_fdc(d: bytes) -> bytes:
+    # Guest interest in each drive, for the frontend's disk requests: reads of
+    # the drive status register selecting it, and FDC commands issued while it
+    # is the active drive. Counters only, never machine state; the frontend
+    # takes differences and resynchronizes after a state load or reset.
+    d = replace(d, 'BYTE FASTCALL FDC_Read(DWORD adr)\n{',
+                '/* Retro-Recomp (MIT): guest drive polls and commands. */\n'
+                'static unsigned rr_fdc_polls[2], rr_fdc_commands[2];\n'
+                'unsigned RR_FDC_DriveInterest(unsigned drive)\n{\n'
+                '\treturn drive < 2 ? rr_fdc_polls[drive] + rr_fdc_commands[drive] : 0u;\n}\n\n'
+                'BYTE FASTCALL FDC_Read(DWORD adr)\n{')
+    d = replace(d, '\t} else if ( adr==0xe94005 ) {\n\t\tif ( (fdc.ctrl&1)&&(FDD_IsReady(0)) ) ret = 0x80;',
+                '\t} else if ( adr==0xe94005 ) {\n'
+                '\t\trr_fdc_polls[0] += fdc.ctrl&1; rr_fdc_polls[1] += (fdc.ctrl>>1)&1;\n'
+                '\t\tif ( (fdc.ctrl&1)&&(FDD_IsReady(0)) ) ret = 0x80;')
+    return replace(d, '\t\t\t\tfdc.cmd = data&0x1f;\n',
+                   '\t\t\t\tfdc.cmd = data&0x1f;\n'
+                   '\t\t\t\tif ( fdc.drv==0||fdc.drv==1 ) rr_fdc_commands[fdc.drv]++;\n')
+
+
 def buffer_mask(prefix: str) -> bytes:
     # Loaded-image mask read by the authored disk checks (our code, MIT).
     return ('\n/* Retro-Recomp (MIT): drives holding a buffered image. */\n'
@@ -298,7 +318,7 @@ ADAPT = {
     'x68k/mem_wrap.c': adapt_mem_wrap, 'x68k/crtc.h': adapt_crtc_h, 'x68k/disk_d88.c': adapt_d88,
     'x68k/crtc.c': adapt_crtc, 'x68k/mfp.c': adapt_mfp, 'x68k/gvram.c': adapt_gvram,
     'x68k/tvram.c': adapt_tvram, 'x68k/dmac.c': adapt_dmac, 'x68k/adpcm.c': adapt_adpcm,
-    'x68k/irqh.c': adapt_irqh, 'x68k/fdd.c': adapt_fdd, 'x68k/disk_dim.c': adapt_dim,
+    'x68k/irqh.c': adapt_irqh, 'x68k/fdd.c': adapt_fdd, 'x68k/fdc.c': adapt_fdc, 'x68k/disk_dim.c': adapt_dim,
     'x68k/disk_xdf.c': adapt_xdf, 'x68k/disk_d88.h': adapt_d88_header,
     'fmgen/fmg_wrap.cpp': adapt_fmg_wrap, 'fmgen/opm.h': adapt_opm_h, 'fmgen/opm.cpp': adapt_opm,
 }

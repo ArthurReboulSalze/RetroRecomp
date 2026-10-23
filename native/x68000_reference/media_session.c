@@ -101,10 +101,13 @@ static int staged_name(const char*name){
 static int actual_choice(RRMediaSession*s,unsigned drive){
     return s->ready_mask && !(s->ready_mask()&(1u<<drive))?-1:s->selected[drive];
 }
+static void clear_request(RRMediaSession*s,unsigned drive){
+    memset(&s->request[drive],0,sizeof(s->request[drive]));s->request[drive].base=s->request[drive].inserted=-1;
+}
 int rr_media_open(RRMediaSession*s,const char*content,const char*session_file,
         const struct retro_disk_control_callback*disk,void(*select_drive)(unsigned),unsigned(*ready_mask)(void)){
     FILE*f;char line[RR_MEDIA_PATH],*slash;unsigned i;uint64_t identity=FNV_START;
-    memset(s,0,sizeof(*s));s->selected[0]=s->selected[1]=-1;
+    memset(s,0,sizeof(*s));s->selected[0]=s->selected[1]=-1;clear_request(s,0);clear_request(s,1);
     if(!content||!session_file||strlen(content)>=sizeof(s->content)||strlen(session_file)>=sizeof(s->session_file)||
        !disk||!disk->get_num_images||!disk->set_eject_state||!disk->set_image_index||!select_drive||!ready_mask)
         return error(s,"Incomplete private media interface");
@@ -128,7 +131,8 @@ int rr_media_open(RRMediaSession*s,const char*content,const char*session_file,
         if(!path(s,i,name,sizeof(name),NULL)||!read_file(name,&b,&size))return error(s,"Unsafe, missing or oversized private disk");free(b);}
     return 1;
 }
-int rr_media_swap(RRMediaSession*s,unsigned drive,int image){
+/* Drive change shared by host actions and automatic answers. */
+static int change_drive(RRMediaSession*s,unsigned drive,int image){
     int old;
     if(drive>1||image< -1||image>=(int)s->count)return error(s,"Drive or disk index is out of bounds");
     /* A single mutable image cannot be inserted in two buffered drives. */
@@ -149,26 +153,62 @@ int rr_media_swap(RRMediaSession*s,unsigned drive,int image){
             "Core could not insert the selected disk");}
     s->selected[drive]=image;return 1;
 }
-int rr_media_auto_advance(RRMediaSession*s,const RRMediaRule*rules,unsigned count){
-    unsigned i;int changes=0;
-    for(i=0;i<count;i++){
-        if(rules[i].drive>1||(rules[i].previous>=s->count&&rules[i].previous!=RR_MEDIA_MAX)||rules[i].next>=s->count||rules[i].previous==rules[i].next){error(s,"Invalid automatic disk rule");return -1;}
+int rr_media_swap(RRMediaSession*s,unsigned drive,int image){
+    if(drive<2)clear_request(s,drive);
+    return change_drive(s,drive,image);
+}
+void rr_media_set_interest(RRMediaSession*s,unsigned(*interest)(unsigned)){
+    unsigned d;s->interest=interest;
+    for(d=0;d<2;d++)s->interest_seen[d]=interest?interest(d):0;
+}
+int rr_media_auto_advance(RRMediaSession*s){
+    unsigned d;int changes=0;
+    if(s->count<2)return 0;
+    for(d=0;d<2;d++){
+        unsigned interest=s->interest?s->interest(d):0;
+        if(actual_choice(s,d)>=0)s->empty_frames[d]=0;
+        else{
+            /* Polls in the frame of the eject itself belong to the eject. */
+            if(s->empty_frames[d]&&interest!=s->interest_seen[d]&&s->request[d].polled<2)s->request[d].polled++;
+            if(s->empty_frames[d]<RR_MEDIA_INSERT_WAIT)s->empty_frames[d]++;
+        }
+        s->interest_seen[d]=interest;
     }
-    for(i=0;i<2;i++){
-        if(actual_choice(s,i)>=0)s->empty_frames[i]=0;
-        else if(s->empty_frames[i]<RR_MEDIA_INSERT_WAIT)s->empty_frames[i]++;
-    }
-    for(i=0;i<count;i++){
-        unsigned d=rules[i].drive;int target=(int)rules[i].next,donor=-1;
-        if(actual_choice(s,d)>=0||s->empty_frames[d]<RR_MEDIA_INSERT_WAIT)continue;
-        if(rules[i].previous==RR_MEDIA_MAX){
-            if(!(s->ready_mask()&(1u<<(8+d)))||!target||actual_choice(s,1-d)!=target-1)continue;
-        }else if(s->selected[d]!=(int)rules[i].previous)continue;
-        if(actual_choice(s,1-d)==target){donor=(int)(1-d);if(!rr_media_swap(s,(unsigned)donor,-1))return -1;}
-        if(!rr_media_swap(s,d,target)){
-            if(donor>=0)rr_media_swap(s,(unsigned)donor,target);
+    for(d=0;d<2;d++){
+        RRMediaRequest*r=&s->request[d];unsigned other=1-d,k;int candidate=-1,moved;
+        if(r->inserted>=0){
+            if(actual_choice(s,d)>=0){if(--r->window==0)clear_request(s,d);continue;}
+            /* Ejected again inside the window: refused. A moved disk goes
+             * back to the drive the guest last saw it in. */
+            r->refused|=(unsigned short)(1u<<r->inserted);
+            if(r->moved&&actual_choice(s,other)<0&&!change_drive(s,other,r->inserted))return -1;
+            r->inserted=-1;r->moved=0;r->window=0;
+        }
+        if(actual_choice(s,d)>=0){if(r->active||r->polled)clear_request(s,d);continue;}
+        if(s->empty_frames[d]<RR_MEDIA_INSERT_WAIT)continue;
+        if(!r->active){
+            int blink=(s->ready_mask()&(1u<<(8+d)))!=0;
+            /* Host ejects clear selected[], so a retained choice is a guest eject. */
+            if(s->selected[d]>=0&&(r->polled>=2||blink))r->base=(signed char)s->selected[d];
+            else if(s->selected[d]<0&&blink)r->base=(signed char)actual_choice(s,other);
+            else continue;
+            /* The ejected disk is never offered back. A blink request does not
+             * take the other drive's disk either. */
+            r->active=1;r->refused=r->base>=0?(unsigned short)(1u<<r->base):0;
+        }
+        if(r->active!=1)continue;
+        for(k=1;k<=s->count&&candidate<0;k++){
+            int c=(r->base+(int)k)%(int)s->count;
+            if(!(r->refused&(1u<<c)))candidate=c;
+        }
+        if(candidate<0){r->active=2;continue;}
+        moved=actual_choice(s,other)==candidate;
+        if(moved&&!change_drive(s,other,-1))return -1;
+        if(!change_drive(s,d,candidate)){
+            if(moved)change_drive(s,other,candidate);
             return -1;
         }
+        r->inserted=(signed char)candidate;r->moved=(unsigned char)moved;r->window=RR_MEDIA_REJECT_WINDOW;
         changes++;
     }
     return changes;
@@ -201,6 +241,26 @@ int rr_media_load_session(RRMediaSession*s){
     if(!rr_media_swap(s,0,-1)||!rr_media_swap(s,1,-1))return 0;
     return rr_media_swap(s,0,a)&&rr_media_swap(s,1,bchoice);
 }
+/* Automatic requests live in the spare words of file entries 1 and 2, zero
+ * when idle and in older snapshots: bits 30-31 active, 29 moved, 25-28 base+1,
+ * 21-24 inserted+1, 19-20 polled frames, 10-18 window, 0-9 refused disks. */
+static uint32_t pack_request(const RRMediaRequest*r){
+    return (uint32_t)r->active<<30|(uint32_t)r->moved<<29|(uint32_t)(r->base+1)<<25|
+        (uint32_t)(r->inserted+1)<<21|(uint32_t)r->polled<<19|(uint32_t)r->window<<10|r->refused;
+}
+static int valid_request(uint32_t v,unsigned count,unsigned drive_choice){
+    unsigned active=v>>30,moved=(v>>29)&1u,base=(v>>25)&15u,inserted=(v>>21)&15u,
+        polled=(v>>19)&3u,window=(v>>10)&511u,refused=v&1023u;
+    if(!active)return !moved&&!base&&!inserted&&!window&&!refused&&polled<=2;
+    return active!=3&&polled<=2&&base<=count&&inserted<=count&&refused<(1u<<count)&&
+        window<=RR_MEDIA_REJECT_WINDOW&&(!inserted)==(!window)&&(active==1||!inserted)&&
+        (!moved||inserted)&&(!inserted||!drive_choice||drive_choice==inserted);
+}
+static void unpack_request(RRMediaRequest*r,uint32_t v){
+    r->active=(unsigned char)(v>>30);r->moved=(unsigned char)((v>>29)&1u);
+    r->base=(signed char)((int)((v>>25)&15u)-1);r->inserted=(signed char)((int)((v>>21)&15u)-1);
+    r->polled=(unsigned char)((v>>19)&3u);r->window=(unsigned short)((v>>10)&511u);r->refused=(unsigned short)(v&1023u);
+}
 int rr_media_capture(RRMediaSession*s,void**data,size_t*size){
     unsigned char*files[RR_MEDIA_MAX]={0},*out=NULL;size_t lengths[RR_MEDIA_MAX]={0},total=HEADER_BYTES,at;unsigned i;
     *data=NULL;*size=0;
@@ -213,6 +273,7 @@ int rr_media_capture(RRMediaSession*s,void**data,size_t*size){
      * Zero identifies an older snapshot, which has no pending transition. */
     put32(out+36,0x1000000u|s->empty_frames[0]|(s->empty_frames[1]<<5)|
         ((unsigned)(s->selected[0]+1)<<12)|((unsigned)(s->selected[1]+1)<<16));
+    put32(out+52,pack_request(&s->request[0]));put32(out+68,pack_request(&s->request[1]));
     at=HEADER_BYTES;
     for(i=0;i<s->count;i++){put32(out+32+i*16,(uint32_t)lengths[i]);put64(out+40+i*16,hash(files[i],lengths[i]));memcpy(out+at,files[i],lengths[i]);at+=lengths[i];}
     put32(out+28,(uint32_t)hash(out+32,HEADER_BYTES-32));
@@ -229,6 +290,8 @@ int rr_media_validate(RRMediaSession*s,const void*data,size_t size){
      if(pending&&(pending&~0x10ff3ffu||!(pending&0x1000000u)||p>s->count||q>s->count||
         x>RR_MEDIA_INSERT_WAIT||y>RR_MEDIA_INSERT_WAIT||(a&&(p!=a||x))||(c&&(q!=c||y))))
         return error(s,"Disk snapshot pending insertion is invalid");}
+    if(!valid_request(get32(b+52),s->count,a)||!valid_request(get32(b+68),s->count,c))
+        return error(s,"Disk snapshot automatic request is invalid");
     for(i=0;i<s->count;i++){size_t n=get32(b+32+i*16);char name[RR_MEDIA_PATH];
         if(!n||n>RR_MEDIA_IMAGE_MAX||n>size-at||get64(b+40+i*16)!=hash(b+at,n)||!path(s,i,name,sizeof(name),NULL)||!safe_file(name,0))return error(s,"Disk snapshot data or private destination is invalid");at+=n;}
     return at==size?1:error(s,"Disk snapshot has trailing data");
@@ -242,6 +305,7 @@ static int apply_files(RRMediaSession*s,const unsigned char*b){
 static void apply_pending(RRMediaSession*s,const unsigned char*b){
     unsigned pending=get32(b+36);s->empty_frames[0]=pending&31u;s->empty_frames[1]=(pending>>5)&31u;
     if(pending){s->selected[0]=(int)((pending>>12)&15u)-1;s->selected[1]=(int)((pending>>16)&15u)-1;}
+    unpack_request(&s->request[0],get32(b+52));unpack_request(&s->request[1],get32(b+68));
 }
 int rr_media_apply(RRMediaSession*s,const void*data,size_t size){
     const unsigned char*b=(const unsigned char*)data;void*before=NULL;size_t before_size;int a,c;

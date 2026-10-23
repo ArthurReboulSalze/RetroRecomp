@@ -10,3 +10,7 @@ unsigned rr_x68000_media_ready(void) {
 unsigned rr_x68000_media_activity(void) {
     return (FDD_IsReading?1u:0u)|(FDC_IsDataReady()?2u:0u);
 }
+unsigned rr_x68000_media_interest(unsigned drive) {
+    /* The earlier development base has no drive counters: blink requests only. */
+    (void)drive;return 0;
+}
