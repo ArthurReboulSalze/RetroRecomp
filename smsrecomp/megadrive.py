@@ -190,7 +190,7 @@ def read_entries(rom) -> set[int]:
     from .console16 import REPOSITORIES
     shared = {address for (address,) in record_for('md', rom, REPOSITORIES['md'][1]).get('rom_entries', [])
               if _entry_signature(rom, address) is not None}
-    shared |= {r.address for r in records('md', rom.sha256, 5)
+    shared |= {r.address for r in records('md', rom.sha256, 5, rom)
                if _entry_signature(rom, r.address) == r.data.hex()}
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
@@ -217,7 +217,7 @@ def read_ram_variants(rom) -> list[dict]:
     from .console16 import REPOSITORIES
     shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1])
     from .feedback import variants
-    shared += variants('md', rom.sha256, 6)
+    shared += variants('md', rom.sha256, 6, rom)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 2 or record.get('rom_sha256') != rom.sha256:

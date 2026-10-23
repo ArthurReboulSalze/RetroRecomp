@@ -40,14 +40,12 @@ class CompiledGamesView(ttk.Frame):
         self.play_button = ttk.Button(bar,text=self.tr('play'),command=self.play,style='Toolbar.Primary.TButton')
         owner.decorate_button(self.play_button,'play',True)
         self.play_button.pack(side='left')
-        self.scan_button = ttk.Button(bar,text=self.tr('scan_games'),command=self.scan,style='Toolbar.TButton')
-        owner.decorate_button(self.scan_button,'refresh')
-        self.scan_button.pack(side='left',padx=8)
-        self.add_button = ttk.Button(bar,text=self.tr('scan_folder'),command=self.add_folder,style='Toolbar.TButton')
-        owner.decorate_button(self.add_button,'add_folder')
-        self.add_button.pack(side='left')
-        self.stop_button = ttk.Button(bar,text=self.tr('stop'),command=owner.stop,style='Toolbar.TButton')
-        owner.decorate_button(self.stop_button,'stop')
+        # Pictures only, named by their hints; the view enables them itself.
+        self.scan_button = owner.icon_button(bar,'scan_games','tip_scan_games',self.scan,'refresh',managed=False)
+        self.scan_button.pack(side='left',padx=(8,0))
+        self.add_button = owner.icon_button(bar,'scan_folder','tip_scan_folder',self.add_folder,'add_exe_folder',managed=False)
+        self.add_button.pack(side='left',padx=(6,0))
+        self.stop_button = owner.icon_button(bar,'stop','tip_stop',owner.stop,'stop',managed=False)
         self.summary = tk.StringVar()
         filters = ttk.Frame(self)
         filters.pack(fill='x',pady=(0,8))
@@ -112,6 +110,8 @@ class CompiledGamesView(ttk.Frame):
         self.localize()
         self.render()
         self.after(80,self.drain)
+        self.played = None
+        self.after(1000,self.watch_played)
         self.after_idle(self.relocate)
         self.after_idle(self.start_controller)
         self.bind('<Destroy>',self.close_controller,add=True)
@@ -157,6 +157,20 @@ class CompiledGamesView(ttk.Frame):
                 self.table.see(row)
         self.after(40,self.poll_controller)
 
+    def quiet_refresh(self, games=None, every=0):
+        """Re-read only rows whose files changed (see the application)."""
+        if not self.running:
+            self.owner.quiet_refresh_collection(games, every)
+
+    def watch_played(self):
+        """A game launched from Play wrote its discoveries on exit: show them."""
+        if not self.winfo_exists():return
+        process = self.game_process
+        if self.played is not None and (process is None or process.poll() is not None):
+            played, self.played = self.played, None
+            self.quiet_refresh([played])
+        self.after(1000,self.watch_played)
+
     def relocate(self):
         if (self.inventory.relocation_pending and not self.relocation_attempted
                 and not self.running and not self.owner.busy and not self.owner.updating):
@@ -198,6 +212,7 @@ class CompiledGamesView(ttk.Frame):
         self.summary.set(self.tr('compiled_summary',count=len(all_games),
             attention=sum(g.status in ATTENTION for g in all_games),
             hints=sum(g.hints for g in all_games)))
+        self.owner.update_new_paths()
         system = self.consoles.current()-1
         state = self.states.current()
         text = self.search.get().casefold().strip()
@@ -280,6 +295,7 @@ class CompiledGamesView(ttk.Frame):
         try:
             path = Path(game.executable)
             self.game_process = subprocess.Popen([str(path)],cwd=path.parent)
+            self.played = game
         except OSError:
             messagebox.showerror(APP_NAME,self.tr('game_launch_failed'),parent=self.owner.app)
 
@@ -350,7 +366,7 @@ class CompiledGamesView(ttk.Frame):
 
     def conversion_state(self):
         if self.owner.busy:
-            if not self.stop_button.winfo_manager():self.stop_button.pack(side='left',padx=8)
+            if not self.stop_button.winfo_manager():self.stop_button.pack(side='left',padx=(6,0))
         else:self.stop_button.pack_forget()
         state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal'
         self.scan_button.configure(state=state)

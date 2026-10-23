@@ -993,16 +993,33 @@ is included when the user's own qualified conversions found hints that the
 knowledge bundled with this converter version lacks; its whole qualified
 record is shared. Unqualified reports, journals modified after their report,
 RAM patterns without the source ROM and games whose ROM cannot be found again
-are left out and counted in the summary. Only qualified games need their ROM;
-they are found like for Reconvert, from remembered paths and then each
-console's ROM folder in Options. With nothing new, a message says so and no
-file is offered. Otherwise a small "achievement unlocked" card shows the
-number of discoveries (hints unknown to the bundled snapshot) before the save
-dialog opens.
+are left out and counted in the summary.
+
+Games whose gameplay hints (F12) are newer than their last conversion also
+share those **raw observations**. Each one becomes `[kind, address,
+auxiliary, length, ROM position]`: the bytes the game recorded are replaced by
+where they appear in the player's own ROM. Code the game built in RAM, absent
+from its ROM, has no such position and stays local (counted as `ram_only`).
+Once a game is reconverted, its observations are consumed and it shares
+qualified hints instead, never both for the same discoveries.
+
+Only those games need their ROM; they are found like for Reconvert, from
+remembered paths and then each console's ROM folder in Options. Each game's
+result is cached in `datas/knowledge/discoveries-cache.json.gz` under its
+files' sizes and dates, the compiler, the converter version and the ROM
+folders, so a later export only revisits games that changed (on a 1,068-game
+collection: 20 s for the first export, 0.1 s for an unchanged one). With
+nothing new, a message says so and no file is offered. Otherwise a small
+"achievement unlocked" card shows the number of discoveries (hints unknown to
+the bundled snapshot, plus raw observations) before the save dialog opens.
+`datas/knowledge/shared.json` records, per channel, what each game last
+shared, so a later sender can send only what changed.
 
 The file is gzip JSON: a `retro-recomp-knowledge` header (format version,
-converter version, UTC date), a short title per game, and a payload with the
-same schema, fields and limits as `assets/compilation-knowledge.json.gz`.
+converter version, UTC date), a short title per game, a payload with the same
+schema, fields and limits as `assets/compilation-knowledge.json.gz`, and
+(format version 2) the ROM-free observations, at most 4,096 per game. Version
+1 files still import.
 The title is there for people only. The file holds no ROM byte, path,
 artwork, code or account data. The export uses the shared builder
 `smsrecomp/knowledge_build.py`, which also builds the bundled snapshot.
@@ -1012,11 +1029,14 @@ knowledge and are not exchanged.
 
 **Import shared discoveries** first checks the chosen file. It validates the
 whole file: unknown keys, paths, non-numeric values, unknown consoles,
-oversized files or unprintable titles reject it. It then counts the hints
-that are neither bundled nor already imported. With none, nothing is imported;
-otherwise the same card shows the count and asks before importing. Accepted
-records go to `datas/knowledge/imported.json.gz`, with titles in
-`imported-titles.json`. The import is additive: records of every compiler
+oversized files or unprintable titles reject it. It then counts the hints and
+observations that are neither bundled, local nor already imported. With none,
+nothing is imported; otherwise the same card shows the count and asks before
+importing. Accepted records go to `datas/knowledge/imported.json.gz`,
+observations to `imported-observations.json.gz`, titles to
+`imported-titles.json`. A conversion reads imported observations back from
+the player's own ROM, only for that exact cartridge, and gives them the same
+byte guards and checks as local gameplay hints. The import is additive: records of every compiler
 revision are kept and merged per ROM. The summary counts new, enriched and
 already known games. The private `datas/library` and the bundled snapshot are
 never modified.

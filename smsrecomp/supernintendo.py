@@ -225,7 +225,7 @@ def knowledge_engine(rom) -> str:
 def read_ram_variants(rom) -> list[dict]:
     shared = shared_ram_variants('snes', rom, knowledge_engine(rom))
     from .feedback import variants
-    shared += variants('snes', rom.sha256, 8)
+    shared += variants('snes', rom.sha256, 8, rom)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:

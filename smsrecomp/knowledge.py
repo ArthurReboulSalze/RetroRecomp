@@ -173,18 +173,97 @@ def write_packed(path: Path, document: dict) -> bytes:
     return packed
 
 
-def discard_imported(system: str, identity: str, reason: str) -> bool:
-    """Remove one cartridge's imported hints after they broke a conversion
-    that succeeded without them; the rejection is logged beside the bank."""
-    path = imported_path()
+# Raw gameplay observations shared by other players, ROM-free: each row is
+# [kind, address, auxiliary, length, rom_offset]; the bytes are read back from
+# this player's own ROM at conversion time (feedback.records).
+OBSERVATION_LIMIT = 4096
+OBSERVATION_OFFSET_LIMIT = 64 * 1024 * 1024
+
+
+def imported_observations_path() -> Path:
+    return imported_path().with_name('imported-observations.json.gz')
+
+
+def valid_observation_rows(system: str, rows) -> list:
+    """Strict numeric rows of one cartridge, or ValueError."""
+    from .feedback import KINDS
+    if not isinstance(rows, list) or len(rows) > OBSERVATION_LIMIT:
+        raise ValueError('Invalid shared observations.')
+    clean = []
+    for row in rows:
+        if (not isinstance(row, list) or len(row) != 5 or any(type(value) is not int for value in row)
+                or row[0] not in KINDS[system] or not 0 <= row[1] <= 0xffffffff
+                or not 0 <= row[2] <= 0xffffffff or not 1 <= row[3] <= 16
+                or not 0 <= row[4] < OBSERVATION_OFFSET_LIMIT):
+            raise ValueError('Invalid shared observation.')
+        clean.append(list(row))
+    return clean
+
+
+def read_observations(path: Path) -> dict:
+    """{system: {sha256: rows}} from a gzip bank, validated."""
+    with gzip.open(path, 'rb') as stream:
+        raw = stream.read(MAX_BYTES + 1)
+    if len(raw) > MAX_BYTES:
+        raise ValueError('Observation bank exceeds its size limit.')
+    data = json.loads(raw)
+    if not isinstance(data, dict) or data.get('schema') != 1 or not isinstance(data.get('consoles'), dict):
+        raise ValueError('Invalid observation bank.')
+    banks = {}
+    for system, games in data['consoles'].items():
+        if system not in FIELDS or not isinstance(games, dict):
+            raise ValueError('Invalid observation bank console.')
+        for identity, rows in games.items():
+            if not isinstance(identity, str) or not re.fullmatch('[0-9a-f]{64}', identity):
+                raise ValueError('Invalid observation bank identity.')
+            banks.setdefault(system, {})[identity] = valid_observation_rows(system, rows)
+    return banks
+
+
+@lru_cache(maxsize=2)
+def _observation_bank(path: str, size: int, modified: int) -> dict:
+    return read_observations(Path(path))
+
+
+def imported_observations(system: str, identity: str) -> list:
+    """Imported ROM-free rows of one cartridge (none while set aside)."""
+    if (system, identity) in _SET_ASIDE or disabled():
+        return []
+    path = imported_observations_path()
     try:
-        consoles = read(path)['consoles']
+        stat = path.stat()
+        return _observation_bank(str(path), stat.st_size, stat.st_mtime_ns).get(system, {}).get(identity, [])
     except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return []
+
+
+def write_observations(banks: dict) -> None:
+    write_packed(imported_observations_path(),
+                 {'schema': 1, 'consoles': {system: games for system, games in sorted(banks.items()) if games}})
+
+
+def discard_imported(system: str, identity: str, reason: str) -> bool:
+    """Remove one cartridge's imported hints and observations after they broke
+    a conversion that succeeded without them; the rejection is logged."""
+    path = imported_path()
+    record = observations = None
+    try:
+        consoles = read(path)['consoles'] if path.is_file() else {}
+        record = consoles.get(system, {}).pop(identity, None)
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        consoles = None
+    try:
+        banks = read_observations(imported_observations_path()) if imported_observations_path().is_file() else {}
+        observations = banks.get(system, {}).pop(identity, None)
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        banks = None
+    if record is None and observations is None:
         return False
-    record = consoles.get(system, {}).pop(identity, None)
-    if record is None:
-        return False
-    write_packed(path, validate_payload({'schema': 1, 'consoles': {k: v for k, v in consoles.items() if v}}))
+    if record is not None:
+        write_packed(path, validate_payload({'schema': 1, 'consoles': {k: v for k, v in consoles.items() if v}}))
+    if observations is not None:
+        write_observations(banks)
+    record = record or {}
     log = path.with_name('imported-rejected.json')
     try:
         entries = json.loads(log.read_text(encoding='utf-8'))
@@ -192,6 +271,7 @@ def discard_imported(system: str, identity: str, reason: str) -> bool:
     except (OSError, ValueError):
         entries = []
     entries.append({'system': system, 'rom_sha256': identity, 'engine': record.get('engine', ''),
+                    'observations': len(observations or []),
                     'reason': str(reason)[:300],
                     'rejected_utc': datetime.now(timezone.utc).isoformat(timespec='seconds')})
     log.write_text(json.dumps(entries[-500:], indent=2) + '\n', encoding='utf-8')

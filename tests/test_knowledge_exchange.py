@@ -185,5 +185,97 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.assertNotIn(str(self.root).replace('\\', '/'), text.replace('\\\\', '/'))
 
 
+class RawObservationTests(unittest.TestCase):
+    """Raw gameplay observations travel as ROM positions, never ROM bytes."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.bank = self.root / 'datas/knowledge/imported.json.gz'
+        self.library = self.root / 'library'
+        self.patches = [patch('smsrecomp.knowledge.imported_path', return_value=self.bank),
+                        patch('smsrecomp.knowledge_exchange.imported_path', return_value=self.bank),
+                        patch('smsrecomp.library.library_root', side_effect=lambda system: self.library / system),
+                        patch('smsrecomp.knowledge_exchange.engines', return_value={'md': ENGINE})]
+        for item in self.patches:
+            item.start()
+        data = b''.join(hashlib.sha256(n.to_bytes(4, 'little')).digest() for n in range(2048))
+        self.rom = SimpleNamespace(sha256=hashlib.sha256(data).hexdigest(), data=data)
+        self.source = self.root / 'Game.md'
+        self.source.write_bytes(data)
+        from smsrecomp.feedback import Observation, encode, private_file
+        self.in_rom = Observation(6, 0xff0000, 0, data[0x1234:0x1240])   # RAM code copied from the ROM
+        self.ram_only = Observation(6, 0xff0100, 0, b'\xde\xad\xbe\xef\x01\x02')
+        target = private_file('md', self.rom.sha256)
+        target.parent.mkdir(parents=True)
+        target.write_bytes(encode([self.in_rom, self.ram_only], 'md', self.rom.sha256))
+
+    def tearDown(self):
+        for item in self.patches:
+            item.stop()
+        knowledge._imported_bank.cache_clear()
+        knowledge._observation_bank.cache_clear()
+        self.temp.cleanup()
+
+    def game(self, watch='', status='new_hints'):
+        return SimpleNamespace(system='md', identity=self.rom.sha256, title='Shared game', source=str(self.source),
+                               report='', status=status, watch=watch)
+
+    def export(self, name='mine.rrknowledge'):
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile), \
+                patch('smsrecomp.knowledge_exchange.load', return_value={'schema': 1, 'consoles': {}}):
+            return knowledge_exchange.export_knowledge([self.game()], self.root / name)
+
+    def test_only_rom_positions_are_shared(self):
+        rows, ram_only = knowledge_exchange.shareable_observations('md', self.rom.sha256, self.rom)
+        self.assertEqual((rows, ram_only), ([[6, 0xff0000, 0, 12, 0x1234]], 1))
+        summary = self.export()
+        self.assertEqual((summary['observation_count'], summary['omitted']['ram_only']), (1, 1))
+        text = gzip.decompress((self.root / 'mine.rrknowledge').read_bytes()).decode('ascii')
+        self.assertNotIn(self.in_rom.data.hex(), text)
+        self.assertNotIn(str(self.root).replace('\\', '/'), text.replace('\\\\', '/'))
+
+    def test_imported_observations_rebuild_from_the_players_rom(self):
+        from smsrecomp.feedback import records, private_file
+        self.export()
+        private_file('md', self.rom.sha256).unlink()        # another player, same cartridge
+        shared = self.root / 'mine.rrknowledge'
+        self.assertEqual(knowledge_exchange.preview_import(shared)['discoveries'], 1)
+        self.assertEqual(knowledge_exchange.import_knowledge(shared)['new'], 1)
+        self.assertEqual(knowledge_exchange.preview_import(shared)['discoveries'], 0)
+        self.assertEqual(records('md', self.rom.sha256), [])
+        self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [self.in_rom])
+        with knowledge.imported_set_aside('md', self.rom.sha256):
+            self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [])
+        from smsrecomp.compilation_inputs import knowledge_stamp
+        before = knowledge_stamp('md', self.rom.sha256)
+        self.assertTrue(knowledge.discard_imported('md', self.rom.sha256, 'failed'))
+        self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [])
+        self.assertNotEqual(knowledge_stamp('md', self.rom.sha256), before)
+
+    def test_reconverted_games_share_hints_not_raw_observations(self):
+        game = self.game(status='covered')                    # feedback consumed by a conversion
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile):
+            summary = knowledge_exchange.collect_knowledge([game])
+        self.assertEqual((summary['observation_count'], summary['omitted']['unqualified']), (0, 1))
+
+    def test_unchanged_games_come_from_the_cache_and_sharing_is_tracked(self):
+        profile = SimpleNamespace(read_rom=lambda path: self.rom)
+        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile) as reader:
+            first = knowledge_exchange.collect_knowledge([self.game(watch='files-v1')])
+            again = knowledge_exchange.collect_knowledge([self.game(watch='files-v1')])
+            self.assertEqual(reader.call_count, 1)
+            self.assertEqual(again['observations'], first['observations'])
+            knowledge_exchange.collect_knowledge([self.game(watch='files-v2')])
+            self.assertEqual(reader.call_count, 2)
+        key = f'md:{self.rom.sha256}'
+        self.assertEqual(knowledge_exchange.pending_since_shared('account', first), [key])
+        knowledge_exchange.mark_shared('account', first)
+        self.assertEqual(knowledge_exchange.pending_since_shared('account', first), [])
+        self.assertEqual(knowledge_exchange.pending_since_shared('file', first), [key])
+
+
 if __name__ == '__main__':
     unittest.main()

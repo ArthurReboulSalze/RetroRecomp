@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import time
 from threading import Event, Lock
 
 from .paths import data_directory, games_root, preferred_games_root, feedback_search_paths
@@ -64,6 +65,8 @@ class Game:
     feedback_error: bool = False
     receipt_hash: str = ''
     favorite: bool = False
+    # Sizes and dates of the files this row depends on (see watch_signature).
+    watch: str = ''
 
     @property
     def key(self):
@@ -289,8 +292,57 @@ def game_from_report(path, folder=None, *, source=''):
                 status='fallback' if fallback else 'no_hints', tested_fallback=fallback)
 
 
+def watch_signature(game):
+    """Stat-only signature of what a row shows: the EXE, its report and the
+    gameplay feedback beside it or in the converter bank. No file is read."""
+    from .feedback import private_file
+    executable = Path(game.executable)
+    paths = [executable, Path(game.report) if game.report else None,
+             executable.parent / 'datas/fallbacks' / f'{game.system}-{game.identity}.rrfb']
+    try:
+        paths.append(private_file(game.system, game.identity))
+    except ValueError:
+        pass
+    parts = []
+    for path in paths:
+        try:
+            stat = path.stat() if path else None
+            parts.append(f'{stat.st_size}:{stat.st_mtime_ns}' if stat else '-')
+        except OSError:
+            parts.append('-')
+    return '|'.join(parts)
+
+
+def refresh_changed(inventory, preferences=None, games=None, *, cancel=None, budget=None):
+    """Refresh only the rows whose files changed since they were last read;
+    the full scan stays available for new folders and moved games. With a
+    `budget` in seconds (closing), stop once it is spent."""
+    changed = 0
+    deadline = time.monotonic() + budget if budget is not None else None
+    for game in (inventory.snapshot() if games is None else games):
+        if cancel is not None and cancel.is_set() or deadline is not None and time.monotonic() > deadline:
+            break
+        if watch_signature(game) == game.watch:
+            continue
+        try:
+            inventory.remember(refresh(Game(**asdict(game)), preferences))
+        except (OSError, ValueError, TypeError, KeyError):
+            continue
+        changed += 1
+    if changed:
+        inventory.save()
+    return changed
+
+
 def refresh(game, preferences=None, *, verify_binary=False):
     """Check one exact binary and its saved hints; no ROM reads or processes."""
+    game = _refresh(game, preferences, verify_binary=verify_binary)
+    # After the check: merging feedback may have rewritten the bank file.
+    game.watch = watch_signature(game)
+    return game
+
+
+def _refresh(game, preferences=None, *, verify_binary=False):
     from .feedback import _load, private_file, encode, _retain
     from .freshness import feedback, digest
     path = Path(game.executable)

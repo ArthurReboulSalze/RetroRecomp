@@ -26,14 +26,36 @@ aliases merge into the local entry, retaining favorites. A copy of the original
 inventory is kept as `datas/compiled-games.before-path-migration.json`.
 Two existing exports in separate folders remain separate collection entries.
 
+## Keeping the list current
+
+Each row remembers the sizes and dates of the files it shows: the game, its
+report and its gameplay hints. When a game launched with **Play** closes, its
+row is read again at once, so discoveries saved on exit appear without a
+scan. When the collection is shown or the window regains focus, only rows
+whose files changed are read again (about 0.2 s for 1,068 unchanged games).
+**Scan games** still walks every folder, for new folders and moved games.
+
+**New paths (N)**, one toolbar button shared by both views, reconverts only
+the games whose play found new paths since their last conversion, upgrading them without rediscovery when nothing else
+changed. Games whose ROM cannot be found are left for later. When
+Retro-Recomp closes with such games on Master System, Game Gear, Game Boy,
+NES, Mega Drive or Super Nintendo, a card offers the same recompilation
+before closing. Its **Send and close** button, like **Send to the shared
+Retro-Recomp base** in the Knowledge menu, stays disabled until the
+connection to the Retro-Recomp web server and database exists.
+
 ## Toolbar
 
 The queue/collection switch is the toolbar's first button and keeps its place
 and width. It reads **Compiled Games** in the conversion queue and
 **Conversion queue** in the collection. The buttons of the visible view follow
-it: Play, Scan games, Add a games folder and Stop in the collection. The
-**Knowledge** menu, Options, updates and credits stay on the right in both
-views. While games are being reconverted, the last two converter lines appear
+it: **Add ROMs…**, then pictures for Add games ROM folder (a folder with a
+cartridge), Remove and Clear list in the queue; **Play game**, then pictures
+for Scan games, Add games exe folder (a folder with a play sign) and Stop in
+the collection. A picture's hover hint names it first. **New paths (N)**
+comes next in both views. The **Knowledge** menu, Options, updates and
+credits stay on the right. Every language fits at the default window
+width. While games are being reconverted, the last two converter lines appear
 quietly under the progress bar.
 
 Under the cover, the game card shows a few small lines of text without a

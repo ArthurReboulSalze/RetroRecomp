@@ -100,18 +100,29 @@ def private_file(system: str, identity: str) -> Path:
     return library_root(system) / '_runtime-feedback' / (identity + '.rrfb')
 
 
-def records(system: str, identity: str, kind: int | None = None) -> list[Observation]:
+def records(system: str, identity: str, kind: int | None = None, rom=None) -> list[Observation]:
+    """This player's candidates; with `rom`, also those other players shared.
+
+    Shared rows carry no ROM bytes, only a position in the ROM: they are read
+    back from this exact ROM, then pass the same checks as local candidates.
+    """
     rows, _ = _read(private_file(system, identity), system, identity)
-    return [row for row in rows if kind is None or row.kind == kind]
+    if rom is not None and getattr(rom, 'sha256', None) == identity:
+        from .knowledge import imported_observations
+        for row_kind, address, auxiliary, length, offset in imported_observations(system, identity):
+            chunk = bytes(rom.data[offset:offset + length])
+            if len(chunk) == length:
+                rows.append(Observation(row_kind, address, auxiliary, chunk))
+    return [row for row in dict.fromkeys(rows) if kind is None or row.kind == kind]
 
 
-def variants(system: str, identity: str, kind: int) -> list[dict]:
-    return [{'address': r.address, 'bytes': r.data.hex()} for r in records(system, identity, kind)]
+def variants(system: str, identity: str, kind: int, rom=None) -> list[dict]:
+    return [{'address': r.address, 'bytes': r.data.hex()} for r in records(system, identity, kind, rom)]
 
 
 def sega_candidates(rom) -> tuple[set, set[bytes]]:
     seeds, patterns = set(), set()
-    for row in records(rom.system_id, rom.sha256, 1):
+    for row in records(rom.system_id, rom.sha256, 1, rom):
         pc, packed = row.address, row.auxiliary
         if pc > 0xffff or packed > 0xffffff or len(row.data) != 4:
             continue
@@ -132,7 +143,7 @@ def sega_candidates(rom) -> tuple[set, set[bytes]]:
 
 def gb_entries(rom) -> set[tuple[int, int]]:
     entries = set()
-    for row in records('gb', rom.sha256, 2):
+    for row in records('gb', rom.sha256, 2, rom):
         pc, bank = row.address, row.auxiliary
         offset = bank*0x4000 + (pc & 0x3fff)
         span = min(len(row.data), 0x4000 - (pc & 0x3fff))
@@ -147,7 +158,7 @@ def nes_sites(rom) -> tuple[set[str], set[tuple[int, int]]]:
     prg_start = 16 + (512 if rom.data[6] & 4 else 0)
     from .nes import _nes_size
     prg_bytes = _nes_size(rom.data[4], rom.data[9] & 15, 16384) if rom.nes2 else rom.data[4]*16384
-    for row in records('nes', rom.sha256):
+    for row in records('nes', rom.sha256, rom=rom):
         pc, bank = row.address, row.auxiliary
         if row.kind == 3 and 0x8000 <= pc <= 0xffff and len(row.data) == 1:
             offset = bank*4096 + (pc & 4095)

@@ -263,10 +263,13 @@ def knowledge_stamp(system, identity):
     # fingerprints the BIOS. Its small bank is conservatively scoped to NG.
     record = bank if system == 'ng' else bank.get(identity, {})
     # Imported hints count too; without them the stamp is unchanged.
-    from .knowledge import imported_record
+    from .knowledge import imported_observations, imported_record
     imported = {} if system == 'ng' else imported_record(system, identity)
-    if imported:
+    observations = [] if system == 'ng' else imported_observations(system, identity)
+    if imported or observations:
         record = {'bundled': record, 'imported': imported}
+        if observations:
+            record['observations'] = observations
     return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 

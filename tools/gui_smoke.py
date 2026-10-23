@@ -150,6 +150,31 @@ def smoke(window):
             patch('smsrecomp.gui.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
         assert card.call_args.args[0] == 9 and not save.called
+    # The closing card (not wired to closing yet) opens, animates and cancels.
+    window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
+    assert application.closing_card(3, 42) is None
+    # Closing offers it when games have new paths; the button counts them.
+    from smsrecomp.compiled_games import Game
+    fresh = [Game(str(Path(fixtures.name) / 'New.exe'), 'gb', 'b' * 64, 'New paths', status='new_hints')]
+    with patch.object(application.compiled_inventory, 'snapshot', return_value=fresh), \
+            patch('smsrecomp.compiled_games.refresh_changed', return_value=0):
+        application.update_new_paths()
+        assert application.new_paths_buttons and all(
+            str(b.cget('state')) == 'normal' and '(1)' in b.cget('text') for b in application.new_paths_buttons)
+        with patch.object(application, 'closing_card', return_value=None):
+            assert application.offer_closing_card() is True and not application.closing_checked
+        with patch.object(application, 'closing_card', return_value='skip'):
+            assert application.offer_closing_card() is False
+        with patch.object(application, 'closing_card', return_value='recompile'), \
+                patch.object(application, 'reconvert_games') as reconvert:
+            assert application.offer_closing_card() is True
+            assert reconvert.call_args.args[0] == fresh and application.close_when_idle
+    application.closing_checked = application.closing_after_recompile = application.close_when_idle = False
+    application.skip_missing_sources = False
+    if application.collection_visible:
+        application.toggle_compiled_games()
+    application.update_new_paths()
+    assert all(str(b.cget('state')) == 'disabled' for b in application.new_paths_buttons)
     with patch('smsrecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
         application.knowledge_done(('preview', (Path('shared.rrknowledge'),
                                                 dict(games=0, discoveries=0, consoles={}))), None)
@@ -227,6 +252,7 @@ def smoke(window):
 tk.Tk.mainloop = smoke
 with tempfile.TemporaryDirectory() as queue_folder, \
         patch('smsrecomp.gui.data_directory',return_value=Path(queue_folder)), \
+        patch('smsrecomp.compiled_games.data_directory',return_value=Path(queue_folder)), \
         patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
         patch('smsrecomp.gui.load_cover_settings', side_effect=cover_defaults), \
         patch('smsrecomp.gui.save_cover_settings'), \

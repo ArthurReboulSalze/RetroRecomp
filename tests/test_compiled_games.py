@@ -321,3 +321,31 @@ class CompiledGamesTests(TestCase):
         self.assertEqual(compiler.call_count,2)
         self.assertEqual(maximum,1)
         self.assertEqual(self.inventory.snapshot()[0].source,str(source))
+
+
+class IncrementalRefreshTests(TestCase):
+    """Rows are read again only when their files change; no full scan."""
+
+    def test_only_rows_whose_files_changed_are_read_again(self):
+        from smsrecomp.compiled_games import refresh_changed, watch_signature
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            exe = root / 'Game.exe'
+            exe.write_bytes(b'MZ game')
+            identity = 'a' * 64
+            inventory = Inventory(root / 'datas/compiled-games.json')
+            inventory.remember(Game(str(exe), 'gb', identity, 'Game'))
+            def read(game, preferences=None):
+                game.watch = watch_signature(game)
+                return game
+            with patch('smsrecomp.library.library_root', return_value=root / 'library'), \
+                    patch('smsrecomp.compiled_games.refresh', side_effect=read) as reader:
+                self.assertEqual(refresh_changed(inventory), 1)
+                self.assertEqual(refresh_changed(inventory), 0)
+                # A game closed after play: its hints file appears beside it.
+                hints = root / 'datas/fallbacks' / f'gb-{identity}.rrfb'
+                hints.parent.mkdir(parents=True)
+                hints.write_bytes(b'saved on exit')
+                self.assertEqual(refresh_changed(inventory), 1)
+                self.assertEqual(refresh_changed(inventory), 0)
+                self.assertEqual(reader.call_count, 2)

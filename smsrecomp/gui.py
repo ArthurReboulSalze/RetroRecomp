@@ -118,8 +118,25 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
           '.....XX.....', '....XXXX....', '...XXXXXX...', '...XXXXXX...')
 
 
-# Interface-only icon: branding.py is a shared compiler input.
+# Sending discoveries needs the Retro-Recomp web server and database; until
+# then the closing card offers to recompile and its Send button stays off.
+SENDING_AVAILABLE = False
+# The closing card: a cartridge sends its discoveries to the shared base.
+CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
+             'X......X', 'XXXXXXXX', 'X.X.X.XX')
+CLOUD = ('....XXX.....', '..XXoooXX...', '.XooooooXXX.', 'XoooooooooXX',
+         'XooooooooooX', '.XXXXXXXXXX.')
+
+
+# Interface-only icons: branding.py is a shared compiler input.
 ICON_PATHS.setdefault('download', ((8, 1, 8, 10), (4, 6, 8, 10, 12, 6), (1, 10, 1, 14, 15, 14, 15, 10)))
+# Adding a folder of ROMs (a cartridge) or of converted games (a play sign),
+# and New paths (a rising route, distinct from the refresh arrows).
+_FOLDER_PLUS = ((1, 4, 6, 4, 8, 6, 15, 6, 15, 15, 1, 15, 1, 4), (11, 0, 11, 4), (9, 2, 13, 2))
+ICON_PATHS.setdefault('add_rom_folder', _FOLDER_PLUS + ((5, 8, 11, 8, 11, 13, 5, 13, 5, 8), (6, 10, 10, 10),
+                                                        (7, 13, 7, 14), (9, 13, 9, 14)))
+ICON_PATHS.setdefault('add_exe_folder', _FOLDER_PLUS + ((6, 8, 11, 11, 6, 14, 6, 8),))
+ICON_PATHS.setdefault('new_paths', ((1, 14, 5, 9, 9, 11, 14, 4), (10, 4, 14, 4, 14, 8)))
 
 
 def _toolbar_styles(style):
@@ -149,6 +166,8 @@ class Application:
         self.results: dict[str, dict] = {}
         self.busy = False
         self.close_when_idle = False
+        self.closing_checked = self.closing_after_recompile = self.skip_missing_sources = False
+        self.collection_refreshing, self.collection_refreshed_at = False, 0.0
         self.updating = False
         self.cancel = threading.Event()
         self.messages = queue.Queue()
@@ -319,9 +338,15 @@ class Application:
         self.queue_actions.pack(side='left', padx=(12, 0))
         self.collection_actions = ttk.Frame(toolbar)
         self.button(self.queue_actions, self.tr('add_roms'), self.choose_roms, primary=True).pack(side='left')
-        self.button(self.queue_actions, self.tr('add_folder'), self.choose_directory).pack(side='left', padx=8)
-        self.button(self.queue_actions, self.tr('remove'), self.remove_selected).pack(side='left')
-        self.button(self.queue_actions, self.tr('clear'), self.clear).pack(side='left', padx=8)
+        # Pictures only, named by their hints, to leave room for New paths.
+        self.icon_button(self.queue_actions, 'add_folder', 'tip_add_folder', self.choose_directory,
+                         'add_rom_folder').pack(side='left', padx=(8, 0))
+        self.icon_button(self.queue_actions, 'remove', 'tip_remove', self.remove_selected, 'remove').pack(side='left', padx=(6, 0))
+        self.icon_button(self.queue_actions, 'clear', 'tip_clear', self.clear, 'clear').pack(side='left', padx=(6, 0))
+        # One button for both views, right after the visible view's buttons:
+        # the same as recompiling at closing, for games with new paths only.
+        self.new_paths_buttons = []
+        self.new_paths_button(toolbar).pack(side='left', padx=(12, 0))
         self.count_label = ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel')
         self.count_label.pack(side='right')
         # Rarely used: icons with their hover hints, so the bar fits every language.
@@ -431,6 +456,9 @@ class Application:
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=(self.ui_font, 9))
         self.tagline.pack(side='right', padx=(12, 0))
         app.protocol('WM_DELETE_WINDOW', self.close)
+        # Games played or converted elsewhere: rows re-read only if changed.
+        app.after(1500, self.quiet_refresh_collection)
+        app.bind('<FocusIn>', lambda event: self.quiet_refresh_collection(every=20), add='+')
         self.file_drop = None
         app.after_idle(self.enable_drops)
         app.after_idle(self.fit_minimum_width)
@@ -720,6 +748,7 @@ class Application:
         self.app.after_idle(self.fit_minimum_width)
         self.knowledge_button.configure(text=self.tr('knowledge') + ' \u25be')
         self.update_compiled_button()
+        self.update_new_paths()
         if self.compiled_view is not None:
             self.compiled_view.localize()
             self.compiled_view.render()
@@ -1145,6 +1174,66 @@ class Application:
         self.system_field.configure(state='readonly' if enabled else 'disabled')
         self.update_output_controls()
         self.selection_changed()
+        self.update_new_paths()
+
+    def icon_button(self, parent, name, tip, command, symbol, *, managed=True):
+        """A toolbar button showing only its picture; its hint starts with
+        its name. Managed buttons follow set_controls like the others."""
+        button = ttk.Button(parent, text=self.tr(name), command=command, style='Toolbar.TButton')
+        self.decorate_button(button, symbol)
+        button.configure(compound='image')
+        if managed:
+            self.controls.append(button)
+        self.tooltips.append(Tooltip(button, lambda: self.tr(name).rstrip('…') + '\n' + self.tr(tip)))
+        return button
+
+    def new_paths_button(self, parent):
+        button = ttk.Button(parent, command=self.recompile_new_paths, style='Toolbar.TButton')
+        self.decorate_button(button, 'new_paths')
+        self.hint(button, 'tip_recompile_new_paths')
+        self.new_paths_buttons.append(button)
+        self.update_new_paths()
+        return button
+
+    def games_with_new_paths(self, shared_only=False):
+        """Games whose saved gameplay hints are newer than their conversion."""
+        from .platforms import target_id
+        from .knowledge_build import SYSTEMS as SHARED
+        return [game for game in self.compiled_inventory.snapshot()
+                if game.status == 'new_hints' and game.target in ('', target_id())
+                and (not shared_only or game.system in SHARED)]
+
+    def update_new_paths(self):
+        count = len(self.games_with_new_paths())
+        for button in getattr(self, 'new_paths_buttons', []):
+            if button.winfo_exists():
+                button.configure(text=self.tr('recompile_new_paths', count=count),
+                                 state='normal' if count and not self.busy and not self.updating else 'disabled')
+
+    def quiet_refresh_collection(self, games=None, every=0):
+        """Re-read only collection rows whose files changed, in the background;
+        Scan games stays available for new folders and moved games."""
+        if (self.collection_refreshing or self.busy or self.updating
+                or time.monotonic() - self.collection_refreshed_at < every):
+            return
+        self.collection_refreshing, self.collection_refreshed_at = True, time.monotonic()
+        preferences = self.preferences()
+        def worker():
+            from .compiled_games import refresh_changed
+            try:changed = refresh_changed(self.compiled_inventory, preferences, games)
+            except Exception:changed = 0
+            self.messages.put(('collection_quiet', changed))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def recompile_new_paths(self, games=None):
+        """Reconvert only the games with new paths (upgrading when nothing else
+        changed); games whose ROM cannot be found are left for later."""
+        if self.busy or self.updating:return
+        games = self.games_with_new_paths() if games is None else games
+        if not games:return
+        self.skip_missing_sources = True
+        if not self.collection_visible:self.toggle_compiled_games()
+        self.reconvert_games(games)
 
     def stop(self):
         self.cancel.set()
@@ -1313,8 +1402,13 @@ class Application:
                     self.knowledge_done(event[1], event[2])
                 elif kind == 'sources_ready':
                     self.finish_source_lookup(event[1])
+                elif kind == 'collection_quiet':
+                    self.collection_refreshing = False
+                    if event[1] and self.compiled_view is not None:self.compiled_view.render()
+                    self.update_new_paths()
                 elif kind == 'collection_done':
                     self.busy = False
+                    self.skip_missing_sources = False
                     self.set_controls(True)
                     if self.compiled_view is not None:
                         self.compiled_view.progress.stop()
@@ -1803,6 +1897,8 @@ class Application:
             self.body.rowconfigure(7, weight=0, minsize=0)
             self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
             self.compiled_view.render()
+            # Games played or converted elsewhere: re-read only what changed.
+            self.compiled_view.after_idle(self.compiled_view.quiet_refresh)
         else:
             self.compiled_view.grid_remove()
             self.body.rowconfigure(1, weight=4, minsize=100)
@@ -1817,14 +1913,24 @@ class Application:
     def update_compiled_button(self):
         """One width for both captions, so the switch never changes size."""
         captions = (self.tr('compiled_games'), self.tr('conversion_queue'))
+        # Width counts average characters ('0'); measure the real text so
+        # wide scripts such as Cyrillic are not cut.
+        from tkinter import font as tkfont
+        measure = tkfont.Font(root=self.app, font=(self.ui_font, 9))
+        zero = measure.measure('0') or 7
+        widest = max(measure.measure(caption) for caption in captions)
         self.compiled_button.configure(text=captions[1] if self.collection_visible else captions[0],
-                                       width=max(len(caption) for caption in captions))
+                                       width=-(-widest // zero) + 1)
 
     def knowledge_menu(self):
         menu = tk.Menu(self.app, tearoff=False, bg=COLORS['button'], fg=COLORS['text'],
                        activebackground=COLORS['selected'], activeforeground=COLORS['gold_hover'])
         menu.add_command(label=self.tr('knowledge_import'), command=self.import_knowledge)
         menu.add_command(label=self.tr('knowledge_export'), command=self.export_knowledge)
+        # Sending to the shared base arrives with the web server and database.
+        menu.add_separator()
+        menu.add_command(label=self.tr('knowledge_export_web'),
+                         state='normal' if SENDING_AVAILABLE else 'disabled')
         button = self.knowledge_button
         try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
         finally:menu.grab_release()
@@ -1860,7 +1966,14 @@ class Application:
             pairs = RomSources().resolve(pending, options, known=known, cancel=self.cancel)
             return {(game.system, game.identity): source for game, source in pairs if source}
         self.cancel.clear()
-        self.knowledge_task(lambda:('collect', collect_knowledge(games, locate)), 'knowledge_counting')
+        def collect():
+            # Discoveries saved since the last look count without a full scan.
+            from .compiled_games import refresh_changed
+            refresh_changed(self.compiled_inventory, options)
+            # Cached results stay valid while the ROM folders stay the same.
+            context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
+            return 'collect', collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
+        self.knowledge_task(collect, 'knowledge_counting')
 
     def import_knowledge(self):
         """Check the chosen file first; import only unknown discoveries."""
@@ -1930,6 +2043,113 @@ class Application:
         go.focus_set()
         self.app.wait_window(window)
         return chosen.get()
+
+    def closing_card(self, games, count):
+        """Before closing with an account: discoveries wait to be sent. Returns
+        'recompile', 'send', 'skip' or None (cancel). Not wired to closing yet;
+        see docs/PROJECT_STATE.md (closing pop-up)."""
+        import math
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        choice = tk.StringVar(value='')
+        body = tk.Frame(window, bg=background, padx=22, pady=18)
+        body.pack(fill='both', expand=True)
+        art = tk.Canvas(body, width=320, height=82, bg=background, highlightthickness=0)
+        art.grid(row=0, column=0, columnspan=2, pady=(0, 10))   # centred above the text
+        def sprite(rows, left, top, cell, light):
+            items = []
+            for y, row in enumerate(rows):
+                for x, mark in enumerate(row):
+                    if mark != '.':
+                        items.append((art.create_rectangle(left + cell*x, top + cell*y, left + cell*(x+1),
+                            top + cell*(y+1), outline='', fill=light if mark == 'o' else COLORS['gold']), mark))
+            return items
+        sprite(CARTRIDGE, 8, 18, 6, COLORS['gold_hover'])
+        cloud = sprite(CLOUD, 228, 16, 7, COLORS['header'])
+        # A faint dotted arc; the discoveries travel along it.
+        start, end, rise = (60, 40), (232, 38), 26
+        point = lambda t: (start[0] + (end[0]-start[0])*t, start[1] + (end[1]-start[1])*t - math.sin(math.pi*t)*rise)
+        for step in range(1, 24):
+            x, y = point(step / 24)
+            art.create_rectangle(x, y, x+2, y+2, outline='', fill=COLORS['border'])
+        bits = [art.create_rectangle(0, 0, 8, 8, outline='', fill=COLORS['gold_hover'], state='hidden')
+                for _ in range(4)]
+        # On arrival each bit shrinks into the base and bursts into four sparks.
+        sparks = [[art.create_rectangle(0, 0, 3, 3, outline='', fill=COLORS['gold_hover'], state='hidden')
+                   for _ in range(4)] for _ in bits]
+        tk.Label(body, text=self.tr('closing_title').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).grid(row=1, column=0, columnspan=2, sticky='w')
+        line = tk.Frame(body, bg=background)
+        line.grid(row=2, column=0, columnspan=2, sticky='w')
+        number = tk.Label(line, text='0', bg=background, fg=COLORS['gold_hover'], font=(self.ui_font, 26, 'bold'))
+        number.pack(side='left')
+        tk.Label(line, text=self.tr('closing_count_one' if count == 1 else 'closing_count'), bg=background,
+                 fg=COLORS['text'], font=(self.ui_font, 11)).pack(side='left', padx=(8, 0), pady=(12, 0))
+        soon = '' if SENDING_AVAILABLE else '_soon'
+        for row, text in enumerate((self.tr('closing_body' + soon, games=games),
+                                    self.tr('closing_recompile_note' + soon)), start=3):
+            tk.Label(body, text=text, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
+                     wraplength=420, justify='left').grid(row=row, column=0, columnspan=2, sticky='w', pady=(10, 0))
+        buttons = tk.Frame(body, bg=background)
+        buttons.grid(row=5, column=0, columnspan=2, sticky='ew', pady=(16, 0))
+        def pick(value):
+            choice.set(value)
+            window.destroy()
+        go = ttk.Button(buttons, text=self.tr('closing_recompile', games=games), style='Primary.TButton',
+                        command=lambda:pick('recompile'))
+        go.pack(fill='x')
+        others = tk.Frame(buttons, bg=background)
+        others.pack(pady=(8, 0))   # centred under the main action
+        send = ttk.Button(others, text=self.tr('closing_send'), command=lambda:pick('send'))
+        send.pack(side='left')
+        if not SENDING_AVAILABLE:
+            send.state(['disabled'])
+            self.tooltips.append(Tooltip(send, lambda: self.tr('tip_closing_send')))
+        ttk.Button(others, text=self.tr('closing_skip'), command=lambda:pick('skip')).pack(side='left', padx=8)
+        ttk.Button(others, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='left')
+        started = time.monotonic()
+        def animate(frame=0):
+            # Bits leave the cartridge one after another and land in the base,
+            # which glows briefly; the count rolls up meanwhile.
+            if not window.winfo_exists():return
+            elapsed = time.monotonic() - started
+            number.configure(text=str(round(count * (1 - (1 - min(1.0, elapsed / 1.2)) ** 3))))
+            landed = False
+            for index, item in enumerate(bits):
+                t = (elapsed / 1.6 - index * 0.25) % 1.0 if elapsed >= index * 0.4 else None
+                if t is None:
+                    continue
+                x, y = point(min(t, 0.86))
+                burst = max(0.0, (t - 0.86) / 0.14)
+                half = 4 * (1 - burst)
+                art.coords(item, x - half, y - half, x + half, y + half)
+                art.itemconfigure(item, state='normal' if half >= 1 else 'hidden')
+                for (dx, dy), spark in zip(((-1, -1), (1, -1), (-1, 1), (1, 1)), sparks[index]):
+                    reach = 3 + 11 * burst
+                    art.coords(spark, x + dx*reach - 1, y + dy*reach - 1, x + dx*reach + 2, y + dy*reach + 2)
+                    art.itemconfigure(spark, state='normal' if 0 < burst < 1 else 'hidden',
+                                      fill=COLORS['gold_hover'] if burst < 0.5 else COLORS['gold'])
+                landed |= 0 < burst < 0.5   # a short glow per arrival
+            for item, mark in cloud:
+                if mark == 'o':
+                    art.itemconfigure(item, fill=COLORS['gold'] if landed else COLORS['header'])
+            window.after(40, animate, frame + 1)
+        window.bind('<Escape>', lambda event:window.destroy())
+        window.update_idletasks()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - window.winfo_reqwidth()) // 2
+        y = self.app.winfo_rooty() + (self.app.winfo_height() - window.winfo_reqheight()) // 3
+        window.geometry(f'+{max(0, x)}+{max(0, y)}')
+        window.deiconify()
+        animate()
+        window.grab_set()
+        go.focus_set()
+        self.app.wait_window(window)
+        return choice.get() or None
 
     def knowledge_done(self, outcome, error):
         self.busy = False
@@ -2028,19 +2248,40 @@ class Application:
         self.busy=False
         self.compiled_view.progress.stop()
         self.set_controls(True)
-        if self.close_when_idle:
+        if self.close_when_idle and (not self.closing_after_recompile or self.cancel.is_set()):
             self.close()
             return
         if self.cancel.is_set():return
         chosen=[]
         for game,source in pairs:
             if source is None:
+                # While closing, or for new paths, a missing ROM waits for later.
+                if self.closing_after_recompile or self.skip_missing_sources:continue
                 name = filedialog.askopenfilename(parent=self.app,
                     title=self.tr('locate_source',title=game.title))
                 if not name:return
                 source = Path(name)
             chosen.append((game,source))
         if chosen:self.begin_reconvert(chosen)
+        elif self.close_when_idle:self.close()
+
+    def offer_closing_card(self):
+        """Before closing: games whose new paths are not recompiled yet, on the
+        consoles that share discoveries. True keeps the window open."""
+        self.closing_checked = True
+        from .compiled_games import refresh_changed
+        try:refresh_changed(self.compiled_inventory, self.preferences(), budget=2.0)
+        except Exception:pass
+        games = self.games_with_new_paths(shared_only=True)
+        if not games:return False
+        choice = self.closing_card(len(games), sum(game.hints for game in games))
+        if choice is None:
+            self.closing_checked = False
+            return True
+        if choice != 'recompile':return False
+        self.closing_after_recompile = self.close_when_idle = True
+        self.recompile_new_paths(games)
+        return True
 
     def begin_reconvert(self, chosen):
         options = self.preferences()
@@ -2128,7 +2369,11 @@ class Application:
             return
         if self.busy:
             self.close_when_idle = True
-            self.stop()
+            # A recompile chosen on the closing card runs to its end first.
+            if not self.closing_after_recompile:
+                self.stop()
+            return
+        if not self.closing_checked and self.offer_closing_card():
             return
         try:
             save_preferences(self.preferences())

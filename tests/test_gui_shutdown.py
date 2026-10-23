@@ -26,7 +26,18 @@ class ShutdownTests(unittest.TestCase):
         application.row_status = {'row': 'converting'}
         application.table = Mock()
         application.language = 'en'
+        # The closing card has its own tests (tools/gui_smoke.py).
+        application.closing_checked = application.closing_after_recompile = False
+        application.offer_closing_card = Mock(return_value=False)
         return application
+
+    def test_recompile_chosen_on_the_closing_card_is_not_interrupted(self):
+        application = self.application()
+        application.closing_after_recompile = True
+        application.close()
+        self.assertTrue(application.close_when_idle)
+        self.assertFalse(application.cancel.is_set())
+        application.app.destroy.assert_not_called()
 
     def test_close_stops_queue_and_exits_after_success_or_failure(self):
         for event in (('done', {}), ('fatal', 'Authored failure')):
