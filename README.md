@@ -8,8 +8,8 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.6-d4a737" alt="Release version 1.2.6">
-  <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
+  <img src="https://img.shields.io/badge/release-1.2.7-d4a737" alt="Release version 1.2.7">
+  <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
 </p>
@@ -102,16 +102,19 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.6:** the converter window is steadier. The Compiled Games switch
-stays first in the toolbar, with the buttons of the visible view after it. The
-collection loses its title band and second button row, and shows the last two
-converter lines while reconverting. The game card's summary is light text that
-scrolls by itself. A **Knowledge** menu exports your conversions' discoveries
-as one ROM-free file for several games and consoles, and imports someone
-else's file. Imported hints only guide discovery; every conversion still
-validates native code and reports any fallback. See
-[sharing discoveries](docs/COMPILATION_LIBRARY.md#sharing-discoveries-between-converters)
-and [the collection toolbar](docs/COMPILED_GAMES.md#toolbar).
+**New in 1.2.7:** an experimental **Capcom CPS-1** profile converts MAME or
+FBNeo romsets of the standard boards (Final Fight, 1941 and others), with the
+shared 16-bit menus, rotated vertical games and F8/F9; see the
+[CPS-1 guide](docs/CPS1.md). **Knowledge** now counts your discoveries on a
+small "achievement unlocked" card before exporting, checks a shared file
+before importing it, and keeps hints from every compiler revision, setting
+aside those that make a conversion fail. Old exports (0.2x) can be reconverted
+from the collection, the Game Gear pauses with Enter only, and the header is
+smaller. See
+[sharing discoveries](docs/COMPILATION_LIBRARY.md#sharing-discoveries-between-converters).
+
+Version 1.2.6 made the converter window steadier (a fixed collection switch, a
+compact collection, a lighter game card) and added the **Knowledge** menu.
 
 Version 1.2.5 gathered every setting in **F2**, as pages on every console, with
 freed function keys and smaller menu text.

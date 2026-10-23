@@ -1,3 +1,46 @@
+# RetroRecomp v1.2.7 — Capcom CPS-1 (experimental) and counted discoveries
+
+- **Capcom CPS-1, experimental.** MAME or FBNeo ZIP romsets of the standard
+  CPS-1 boards (no QSound, CPS-1.5 or CPS-2) are recognised by their ROM CRCs
+  and converted to native 68000 and Z80 code. A split clone needs its parent
+  ZIP beside it; no BIOS is needed. Each conversion compares the native code
+  with an interpreted reference in the same build, frame by frame, and checks
+  F8/F9 in a fresh process. Games use the shared 16-bit menus, two players
+  with up to six buttons, and vertical games are shown rotated. Final Fight
+  and 1941 converted without interpreter fallback on the tested routes. Known
+  limits: sprite/tile priority can be wrong in places (in Final Fight the
+  player sometimes appears behind objects), players 3-4 and DIP switches are
+  not available, and conversion on Linux has not been checked yet. See the
+  [CPS-1 guide](https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/CPS1.md).
+- **Discoveries, counted.** Exporting first counts your discoveries and shows
+  them on a small "achievement unlocked" card before asking where to save;
+  with nothing new, no file is offered. Importing first checks the file and
+  shows how many of its hints you do not know yet; with none, nothing is
+  imported.
+- **Hints from every converter version.** Imported hints are kept and used
+  whatever compiler revision found them. Since they may be wrong for another
+  revision, a conversion that fails with imported hints is run once more
+  without them; if that succeeds, those hints are set aside and logged in
+  `datas/knowledge/imported-rejected.json`.
+- **Old exports reconvert.** Games exported by 0.2x versions, which carry
+  neither an export receipt nor an embedded marker, can be converted again
+  from the collection's right-click menu, as the conversion queue already
+  allowed. Their old quick states may not carry over.
+- **Game Gear pause.** Enter is the default Pause/Menu key and P is free, as
+  on the Master System. Existing Game Gear games keep P until regenerated.
+- **A smaller header.** Logo, wordmark and console artwork take less room.
+- **Fix.** The Options window no longer fails on its new Capcom CPS-1 page.
+
+Because conversion inputs changed, a conversion batch rebuilds games it
+previously considered current, once. The converter was checked with 765
+automated tests and an interface test in eight languages; an old Master System
+export was reconverted on a copy and a Game Gear game converted with the new
+pause key. None of this measures physical input latency or certifies hardware
+fidelity. Linux remains qualified on Debian 13 / glibc 2.41; other baselines
+need testing.
+
+---
+
 # RetroRecomp v1.2.6 — a steadier converter window and shared discoveries
 
 - **A switch that stays put.** The Compiled Games button is now the first
