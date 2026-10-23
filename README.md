@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.7-d4a737" alt="Release version 1.2.7">
+  <img src="https://img.shields.io/badge/release-1.2.8-d4a737" alt="Release version 1.2.8">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -102,15 +102,18 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**New in 1.2.7:** an experimental **Capcom CPS-1** profile converts MAME or
+**New in 1.2.8:** when an update only changes menus, text, filters or other
+parts of the player shell, and a game has nothing new to learn, its export is
+**upgraded** from the paths already learned instead of being rediscovered;
+native code is still checked against the reference CPU on the quick routes.
+Every machine uses the same host/game classification. See
+[upgrading exports](docs/UPGRADES.md).
+
+Version 1.2.7 added an experimental **Capcom CPS-1** profile, which converts MAME or
 FBNeo romsets of the standard boards (Final Fight, 1941 and others), with the
 shared 16-bit menus, rotated vertical games and F8/F9; see the
-[CPS-1 guide](docs/CPS1.md). **Knowledge** now counts your discoveries on a
-small "achievement unlocked" card before exporting, checks a shared file
-before importing it, and keeps hints from every compiler revision, setting
-aside those that make a conversion fail. Old exports (0.2x) can be reconverted
-from the collection, the Game Gear pauses with Enter only, and the header is
-smaller. See
+[CPS-1 guide](docs/CPS1.md). It also counted discoveries before sharing them
+and checked shared files before importing them; see
 [sharing discoveries](docs/COMPILATION_LIBRARY.md#sharing-discoveries-between-converters).
 
 Version 1.2.6 made the converter window steadier (a fixed collection switch, a

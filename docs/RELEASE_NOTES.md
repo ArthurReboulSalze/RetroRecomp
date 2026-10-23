@@ -1,3 +1,37 @@
+# RetroRecomp v1.2.8 — upgrading games without rediscovery
+
+- **Upgrades without rediscovery.** When a converter update only changes the
+  player shell (menus, options, on-screen text, filters, sound output,
+  artwork, notices) and a game has nothing new to learn, its export is rebuilt
+  from the paths already learned instead of replaying discovery. The native
+  code is still compared with the reference CPU on the quick routes, and any
+  interpreter fallback is still reported. The report keeps the original
+  discovery, and the collection still flags the fallback it met.
+- **When a full conversion still happens.** A change to anything that can
+  alter which code runs, how it is translated or how it is validated; new
+  gameplay hints (F12) or imported knowledge for that cartridge; different
+  scan settings; or a forced conversion from the queue. **Reconvert** in the
+  collection upgrades when it can.
+- **One classification for every machine.** Each converter input is either
+  host (the interactive shell) or game. The same menu core, text, filters and
+  sound output files are host on every console, plus one shell per machine
+  family. Anything unclassified counts as game, so it triggers a full
+  conversion. See
+  [upgrading exports](https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/UPGRADES.md).
+- **Game Boy cleanup.** The Game Boy shell patches now live apart from the
+  machine patches; the generated project is byte-identical.
+
+Measured on Windows with real conversions: Bubble Bobble (Game Gear) took
+23 s in full and 13 s as an upgrade; Columns (Mega Drive) 96 s and 51 s; an
+unchanged game is recognised as current in 0.1 s. The saving grows with the
+Extended and Thorough scan levels, whose routes are not replayed. The first
+batch after updating to 1.2.8 still converts each game once in full: older
+receipts do not record the game part. An upgrade is not a fidelity or latency
+measurement. Linux remains qualified on Debian 13 / glibc 2.41; other
+baselines need testing.
+
+---
+
 # RetroRecomp v1.2.7 — Capcom CPS-1 (experimental) and counted discoveries
 
 - **Capcom CPS-1, experimental.** MAME or FBNeo ZIP romsets of the standard
