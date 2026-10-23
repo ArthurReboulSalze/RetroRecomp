@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(RetroRecompX68000Reference LANGUAGES C CXX)
 
 # X68000 machine runtime. The default base is hissorii/px68k 74ddbb3 (phase 4 of
-# docs/X68000_GPL_FREE_PLAN.md): no px68k-libretro file is compiled. The
+# docs/history/x68000/X68000_GPL_FREE_PLAN.md): no px68k-libretro file is compiled. The
 # `current` base rebuilds the earlier px68k-libretro reference for private
 # comparison only; its adapters are not part of the public sources.
 set(RR_X68000_MACHINE_BASE "hissorii" CACHE STRING "X68000 machine sources: hissorii (74ddbb3) or current (px68k-libretro)")
@@ -11,7 +11,7 @@ set(RR_X68000_PAYLOAD_DIR "" CACHE PATH "Private per-game input resources; never
 # Hash of the Python generators when they are not plain files (frozen converter).
 set(RR_X68000_TOOL_STAMP "" CACHE STRING "Generator stamp used instead of hashing tools/*.py")
 option(RR_X68000_HARDWARE_FIXES "Use qualified private stage-4 hardware corrections" ON)
-# Phases 1-2 of docs/X68000_GPL_FREE_PLAN.md: the independently written MIT glue
+# Phases 1-2 of docs/history/x68000/X68000_GPL_FREE_PLAN.md: the independently written MIT glue
 # and RRX68MS1 snapshots in native/x68000_machine. OFF rebuilds the legacy
 # libretro glue of the current base for comparison only.
 option(RR_X68000_MIT_GLUE "Use the MIT X68000 host glue instead of the libretro glue" ON)

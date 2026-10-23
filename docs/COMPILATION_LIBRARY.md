@@ -82,7 +82,7 @@ Two exact-set disk transitions for Metal Sight, a mouse-input profile for
 After Burner II and five approved online front-cover references are recorded.
 The FM LFO now owns a portable, serialized random state and initializes its
 phase; this fixes an authored snapshot test and addresses Linux PCM divergence.
-See the local `docs/SHARP_X68000_LIBRARY_STAGE7.md` and final per-game receipts
+See the local `docs/history/x68000/SHARP_X68000_LIBRARY_STAGE7.md` and final per-game receipts
 under `.build/x68000-stage7`. Raw RAM code, firmware, game snapshots and media
 remain private. This work does not promote X68000 into the public snapshot.
 The final six-game campaign covers 46,000 main frames and 634,977,458 native
@@ -102,7 +102,7 @@ runtime feedback stays an unqualified candidate until a fresh comparison.
 The small Game memory index contains counts/metadata, never instruction words.
 Converter observations and their checksum receipts remain private under
 `datas/x68000-development/<exact identity>/`. See the local
-`docs/SHARP_X68000_CONVERTER.md` and `.build/x68000-stage6/final-proof.json`.
+`docs/history/x68000/SHARP_X68000_CONVERTER.md` and `.build/x68000-stage6/final-proof.json`.
 This does not add an eighth production profile or change the public bank.
 The stage-6 final evidence is 100 X68000 and 83 integration tests per OS,
 62 SDL assertions, and identical 4,000-frame CPU/RAM/video/PCM/clock main
@@ -117,7 +117,7 @@ CPU/RAM/video/PCM/clock trace column, including new-process restoration. Across
 both OS, 263,820,886 native instructions are observed without fallback in the
 bounded original single-disk Cho Ren Sha routes. There are 92 Python tests per
 OS, 11 session and 9 disk vectors, plus the previous hardware/CPU regression.
-See `docs/SHARP_X68000_SESSION.md` and `.build/x68000-stage5/final-proof.json`.
+See `docs/history/x68000/SHARP_X68000_SESSION.md` and `.build/x68000-stage5/final-proof.json`.
 
 An additional exact QA identity combines Cho with two entirely authored disks:
 `1beb31ee72d8444f65d7ccc805b4185d012724fbb94830df5924eba473ee7e6a`.
@@ -137,7 +137,7 @@ the generated CPU now has 23,618 descriptors including nine authored diagnostic
 descriptors. Four fresh paths compare 11,000 complete rows, with 167,794,658
 native instructions observed per OS and no observed fallback. The 58 device
 vectors, integer clock/PCM ledger and 13 CPU/guard checks are separate gates.
-See `docs/SHARP_X68000_HARDWARE.md` and `.build/x68000-stage4` final receipts.
+See `docs/history/x68000/SHARP_X68000_HARDWARE.md` and `.build/x68000-stage4` final receipts.
 The stage-3 private snapshots are archived before the per-identity register is
 updated; raw instruction words remain private. No public X68000 promotion,
 eighth production profile or new release is authorized by this work.
@@ -156,7 +156,7 @@ The X68000 adapter is not yet a public converter profile and its composite
 machine-runtime distribution terms remain unresolved. The existing 1,164-entry
 snapshot below is unchanged. Future promotion must reconstruct instructions from
 the user's exact supplied inputs and pass fresh validation, without borrowing
-another game's profile. See the local `docs/SHARP_X68000_NATIVE.md` and private
+another game's profile. See the local `docs/history/x68000/SHARP_X68000_NATIVE.md` and private
 `.build/x68000-stage3/cross-platform.json` for the development evidence.
 
 ## Release 1.1.8 — Neo Geo campaign and targeted repairs, 20 October 2026

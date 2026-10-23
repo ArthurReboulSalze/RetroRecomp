@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Retro-Recomp contributors. MIT License (see LICENSE).
  *
- * Written from docs/X68000_PHASE3_PORTING.md section 2 and the Musashi API
+ * Written from docs/history/x68000/X68000_PHASE3_PORTING.md section 2 and the Musashi API
  * (m68k.h). Replaces m68000/m68000.c (not used in this build).
  */
 #include "common.h"

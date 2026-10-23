@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Retro-Recomp contributors. MIT License (see LICENSE).
  *
  * Written from the list of identifiers used by the kept sources
- * (docs/X68000_PHASE3_PORTING.md section 1). Fixed widths on every host:
+ * (docs/history/x68000/X68000_PHASE3_PORTING.md section 1). Fixed widths on every host:
  * DWORD is 32-bit on Windows and Linux alike.
  */
 #ifndef RR_BASE74_WINDOWS_H

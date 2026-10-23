@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Retro-Recomp contributors. MIT License (see LICENSE).
  *
- * Written from docs/X68000_PHASE3_PORTING.md section 5 and our glue contract
+ * Written from docs/history/x68000/X68000_PHASE3_PORTING.md section 5 and our glue contract
  * (docs/X68000_GLUE_SPEC.md 3.9). Samples are produced only from elapsed
  * machine clocks (never on host demand), 44.1 kHz stereo 16-bit.
  */

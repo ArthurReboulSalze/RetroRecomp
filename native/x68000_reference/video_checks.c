@@ -1,5 +1,5 @@
 /* Original RetroRecomp authored X68000 video vectors, MIT.
- * See docs/X68000_VIDEO_STAGE4.md for sources and evidence boundaries. */
+ * See docs/history/x68000/X68000_VIDEO_STAGE4.md for sources and evidence boundaries. */
 #include "video_checks.h"
 
 #include <stdbool.h>

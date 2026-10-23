@@ -1,6 +1,6 @@
 # Provenance du runtime X68000 sans GPL
 
-Phase 0 de [X68000_GPL_FREE_PLAN.md](../../docs/X68000_GPL_FREE_PLAN.md), du
+Phase 0 de [X68000_GPL_FREE_PLAN.md](../../docs/history/x68000/X68000_GPL_FREE_PLAN.md), du
 21 octobre 2026. La version lisible par machine est
 [`provenance.json`](provenance.json) ; à partir de la phase 1, le build la
 lira pour refuser tout fichier interdit. Analyse technique, pas avis juridique.
@@ -89,7 +89,7 @@ déjà, et le format n'en reprend rien.)
 
 Pour qualifier la nouvelle base, l'auteur a comparé son comportement avec la
 base actuelle (libretro) et a relu les diffs des onze correctifs listés dans
-`docs/X68000_LIBRETRO_DELTA.md`. Ce qui est repris tient en faits matériels
+`docs/history/x68000/X68000_LIBRETRO_DELTA.md`. Ce qui est repris tient en faits matériels
 (ouverture RAM de 12 Mio, octet haut de R0, drapeaux de pistes DIM) ou en
 corrections évidentes (chaînage des secteurs D88, borne de lecture GVRAM),
 réécrits dans l'adaptateur sans copier de code. Le correctif D88 a de fait la
@@ -126,7 +126,7 @@ PX68k, et tout fichier `x68k/` ou `fmgen/` pris à une autre révision que
 ## À refaire nous-mêmes (documentation, MAME BSD, nos traces)
 
 **Correctifs postérieurs à 2020** (voir
-[X68000_LIBRETRO_DELTA.md](../../docs/X68000_LIBRETRO_DELTA.md)) : valeurs de
+[X68000_LIBRETRO_DELTA.md](../../docs/history/x68000/X68000_LIBRETRO_DELTA.md)) : valeurs de
 reset et masques 10 bits du CRTC, garde `HEND > HSTART`, débordement 16 bits et
 effacement rapide de la GVRAM, décalages de lecture d'opcodes et IPL dès
 `0xfc0000`, limite d'écriture SRAM, masque `keyctrl`, mémoire D88 non

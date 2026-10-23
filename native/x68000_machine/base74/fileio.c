@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2026 Retro-Recomp contributors. MIT License (see LICENSE).
  *
- * Semantics from docs/X68000_PHASE3_PORTING.md section 1 (open read/write
+ * Semantics from docs/history/x68000/X68000_PHASE3_PORTING.md section 1 (open read/write
  * then read-only, NULL on failure; seek returns the absolute position; *_c
  * names are joined onto the directory set by file_setcd). Paths are UTF-8.
  */

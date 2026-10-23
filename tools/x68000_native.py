@@ -99,7 +99,7 @@ endif()
 
 
 # Machine sources under the native CPU: 'hissorii' (default since phase 4) or
-# 'current' (pinned px68k-libretro, comparison only); docs/X68000_GPL_FREE_PLAN.md.
+# 'current' (pinned px68k-libretro, comparison only); docs/history/x68000/X68000_GPL_FREE_PLAN.md.
 MACHINE_BASE=os.environ.get('RR_X68000_MACHINE_BASE','hissorii')
 if MACHINE_BASE not in ('current','hissorii'):raise ValueError('RR_X68000_MACHINE_BASE must be current or hissorii.')
 

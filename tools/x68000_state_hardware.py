@@ -1,6 +1,6 @@
 """MIT machine snapshot serializers appended to pinned X68000 build copies.
 
-Phase 2 of docs/X68000_GPL_FREE_PLAN.md. Each module receives one function,
+Phase 2 of docs/history/x68000/X68000_GPL_FREE_PLAN.md. Each module receives one function,
 written for Retro-Recomp, that visits its mutable state through the RRX68MS1
 API (native/x68000_machine/state/rr_state.h). Upstream checkouts are never
 edited; digests and anchors are verified by tools/x68000_hardware.py. Only

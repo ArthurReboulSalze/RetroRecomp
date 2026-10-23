@@ -1,6 +1,6 @@
 """Generate the X68000 machine build tree from the hissorii PX68k base (74ddbb3).
 
-Phase 3 of docs/X68000_GPL_FREE_PLAN.md. Every kept file is checked byte for
+Phase 3 of docs/history/x68000/X68000_GPL_FREE_PLAN.md. Every kept file is checked byte for
 byte against commit 74ddbb3 of the pinned repository, then copied with LF
 endings and Retro-Recomp's documented adaptations. Original notices are
 kept. The extracted checkout is never modified.

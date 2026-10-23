@@ -3,7 +3,7 @@
  * Hitachi HD63450 datasheet: initiation/termination and CSR, pages 36-37.
  * OKI MSM6258 datasheet: command bits and low-nibble-first bus composition.
  * These checks establish bounded contracts, not complete chip/analogue fidelity.
- * See docs/X68000_AUDIO_STAGE4.md for primary sources and boundaries. */
+ * See docs/history/x68000/X68000_AUDIO_STAGE4.md for primary sources and boundaries. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
