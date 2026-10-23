@@ -1,3 +1,41 @@
+# RetroRecomp v1.2.4 — scan levels per console and options in the main window
+
+- **Discovery scan levels.** Every console tab in Options now sets how long
+  discovery runs: **Quick** (one short pass to check a setting), **Standard**
+  (the qualified default, unchanged from before), **Extended** and
+  **Thorough**, which add one or two reproducible pseudo-random play routes of
+  18,000 frames seeded from the exact ROM and compared with the reference
+  before any learning. Each tab also offers its own passes and frames (empty
+  fields follow the shared values) and a short note on what is recommended and
+  why. On Mega Drive and Super Nintendo, Extended runs a 12,000-frame attract
+  test with one route and Thorough the former advanced scan; on NES, Extended
+  is the former advanced scan and Thorough adds the routes; Master System,
+  Game Gear, Game Boy and Neo Geo gain the routes for the first time. On the
+  command line, `--scan-level` applies to a whole run; the former switches keep
+  their meaning.
+- **Sharp X68000.** The default scan is now Standard: main route plus mouse
+  and keyboard exploration. Thorough keeps the three 36,000-frame routes that
+  qualified the library, and the exploration routes now replay side by side
+  within the game's share of the processor: two games converted together in
+  6 minutes instead of 21 on the test machine.
+- **Options in the main window.** The Options button no longer opens a second
+  window: the tabs take the place of the queue, like the compiled-games view,
+  and close with "Save and close the options".
+- **Finished means finished.** When a batch ends, the log shows a framed
+  "RECOMPILATION FINISHED" line with the totals and the elapsed time, the
+  window rings and changes its title for twenty seconds, the status line
+  starts with "Finished", and the command line prints the same summary.
+
+The generated games do not change: regenerating is not needed, and quick
+states, settings, libraries and cartridge saves are unaffected. Because the
+converter code changed for every console, it may report existing games as made
+by an earlier converter; regenerating them produces the same executables. The
+pseudo-random routes broaden the tested paths of the first level; they do not
+explore whole games, and none of the levels certifies hardware fidelity.
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need testing.
+
+---
+
 # RetroRecomp v1.2.3 — longer discovery routes on Mega Drive and Super Nintendo
 
 - **Advanced 16-bit scan.** The *Advanced Mega Drive scan* option becomes the

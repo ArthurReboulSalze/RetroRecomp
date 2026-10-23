@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.3-d4a737" alt="Release version 1.2.3">
+  <img src="https://img.shields.io/badge/release-1.2.4-d4a737" alt="Release version 1.2.4">
   <img src="https://img.shields.io/badge/console_profiles-8-626262" alt="Eight console profiles, including the experimental Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -102,19 +102,19 @@ See [how the learning loop works](docs/RUNTIME_FEEDBACK.md).
 
 ## One converter, multiple consoles
 
-**Since 1.2.3, in the repository:** every console gets a **discovery scan
-level**, Quick, Standard, Extended or Thorough, with its own passes, frames and
-a short note on what is recommended, all inside the main window instead of a
-separate Options dialog. Extended and Thorough add reproducible pseudo-random
-play routes on every console, Sharp X68000 replays its exploration routes in
-parallel (a thorough conversion drops from about 21 to 9 minutes on the test
-machine), and the end of a batch is announced in the log, the title bar and
-the status line. See [scan levels](docs/CONSOLES_16BIT.md#scan-levels).
+**New in 1.2.4:** every console gets a **discovery scan level**, Quick,
+Standard, Extended or Thorough, with its own passes, frames and a short note on
+what is recommended, all inside the main window instead of a separate Options
+dialog. Extended and Thorough add reproducible pseudo-random play routes on
+every console, Sharp X68000 replays its exploration routes in parallel (a
+thorough conversion drops from about 21 to 9 minutes on the test machine), and
+the end of a batch is announced in the log, the title bar and the status line.
+See [scan levels](docs/CONSOLES_16BIT.md#scan-levels).
 
-**New in 1.2.3:** the advanced scan now covers Mega Drive and Super Nintendo
+Version 1.2.3 brought the advanced scan to Mega Drive and Super Nintendo
 with a 24,000-frame attract test and two reproducible pseudo-random play routes
 of 18,000 frames, seeded from the exact ROM and checked against the reference
-before any learning; plus a documentation index and a link check.
+before any learning, plus a documentation index and a link check.
 
 Version 1.2.2 brought the same shortcuts on every console (F1 help, Shift+F1
 restart), Start+Select and L3+R3 held for one second to restart or quit from a
