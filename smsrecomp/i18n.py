@@ -10,6 +10,8 @@ STRINGS = {
     'x68_ipl': ('IPL firmware (iplrom.dat)', 'Firmware IPL (iplrom.dat)'),
     'x68_cgrom': ('Font ROM (cgrom.dat)', 'ROM de caractères (cgrom.dat)'),
     'options_x68_note': ('Experimental profile: DIM/XDF and ordered M3U disk sets. Supply your own IPL and font ROM. Common menus, filters, controls and F8/F9. The first conversion downloads the pinned machine sources.', 'Profil expérimental : DIM/XDF et ensembles M3U ordonnés. Sélectionne ton IPL et ta ROM de caractères. Menus, filtres, contrôles et F8/F9 communs. La première conversion télécharge les sources épinglées de la machine.'),
+    'x68_sets_grouped': ('Sharp X68000: multi-disk sets grouped: {count} (one row per game).', 'Sharp X68000 : ensembles multi-disquettes regroupés : {count} (une ligne par jeu).'),
+    'x68_set_incomplete': ('Sharp X68000: {title} lacks disk {missing} of {total}; only the disks found are queued.', 'Sharp X68000 : il manque à {title} la disquette {missing} sur {total} ; seules les disquettes trouvées sont dans la file.'),
     'favorite_star': ('★','★'),
     'favorite_empty': ('☆','☆'),
     'card_no_summary': ('No summary available from this source.', 'Aucun résumé disponible dans cette source.'),

@@ -314,6 +314,8 @@
     "x68_ipl": "IPL ファームウェア (iplrom.dat)",
     "x68_cgrom": "フォント ROM (cgrom.dat)",
     "options_x68_note": "実験的プロファイル：DIM/XDF と順序付き M3U ディスクセット。自分の IPL とフォント ROM が必要です。共通メニュー、フィルター、操作と F8/F9 に対応。初回の変換で固定版のマシンソースをダウンロードします。",
+    "x68_sets_grouped": "Sharp X68000: まとめた複数ディスクのゲーム: {count}（1ゲーム1行）。",
+    "x68_set_incomplete": "Sharp X68000: {title} のディスク {missing}/{total} がありません。見つかったディスクのみを追加します。",
     "conversion_queue": "変換キュー",
     "knowledge": "知識",
     "knowledge_import": "共有された発見をインポート…",

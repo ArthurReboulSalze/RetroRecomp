@@ -286,7 +286,16 @@ def main() -> int:
                         paths.extend(discover_roms(source))
                     else:
                         paths.append(source)
-                paths = list(dict.fromkeys(p.resolve() for p in paths))
+                # Each multi-disk X68000 game is converted once, as a playlist.
+                from smsrecomp.rom_sources import disk_sets
+                from smsrecomp.i18n import tr
+                sets = disk_sets(paths)
+                if sets.grouped:
+                    print(tr('x68_sets_grouped', args.language, count=sets.grouped), file=sys.stderr)
+                for title, missing, total in sets.incomplete:
+                    print(tr('x68_set_incomplete', args.language, title=title,
+                             missing=', '.join(map(str, missing)), total=total), file=sys.stderr)
+                paths = list(dict.fromkeys(p.resolve() for p in sets.paths))
                 if not paths:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 record = convert_batch([identify(p, None if args.system == 'auto' else args.system)

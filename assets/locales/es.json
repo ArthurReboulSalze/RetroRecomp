@@ -314,6 +314,8 @@
     "x68_ipl": "Firmware IPL (iplrom.dat)",
     "x68_cgrom": "ROM de caracteres (cgrom.dat)",
     "options_x68_note": "Perfil experimental: DIM/XDF y conjuntos M3U ordenados. Aporta tu IPL y ROM de caracteres. Menús, filtros, controles y F8/F9 comunes. La primera conversión descarga las fuentes fijadas de la máquina.",
+    "x68_sets_grouped": "Sharp X68000: conjuntos de varios disquetes agrupados: {count} (una fila por juego).",
+    "x68_set_incomplete": "Sharp X68000: a {title} le falta el disquete {missing} de {total}; solo los disquetes encontrados pasan a la cola.",
     "conversion_queue": "Cola de conversión",
     "knowledge": "Conocimientos",
     "knowledge_import": "Importar descubrimientos…",

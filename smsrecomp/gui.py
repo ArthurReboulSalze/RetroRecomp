@@ -831,8 +831,16 @@ class Application:
         self.selection_changed()
 
     def add_paths(self, paths):
+        # A multi-disk X68000 game is one row: its disks become one playlist.
+        from .rom_sources import disk_sets
+        sets = disk_sets(paths)
+        if sets.grouped:
+            self.messages.put(('log', self.tr('x68_sets_grouped', count=sets.grouped)))
+        for title, missing, total in sets.incomplete:
+            self.messages.put(('log', self.tr('x68_set_incomplete', title=title,
+                missing=', '.join(map(str, missing)), total=total)))
         existing = {item.path for item in self.items.values()}
-        for path in paths:
+        for path in sets.paths:
             path = Path(path)
             if path.is_dir():
                 try:

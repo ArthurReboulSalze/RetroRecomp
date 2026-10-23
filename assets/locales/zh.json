@@ -314,6 +314,8 @@
     "x68_ipl": "IPL 固件 (iplrom.dat)",
     "x68_cgrom": "字形 ROM (cgrom.dat)",
     "options_x68_note": "实验性配置：DIM/XDF 和有序 M3U 磁盘组。请提供自己的 IPL 和字形 ROM。共用菜单、滤镜、控制及 F8/F9。首次转换会下载固定版本的机器源代码。",
+    "x68_sets_grouped": "Sharp X68000：已合并的多磁盘游戏：{count}（每个游戏一行）。",
+    "x68_set_incomplete": "Sharp X68000：{title} 缺少磁盘 {missing}（共 {total}）；只添加找到的磁盘。",
     "conversion_queue": "转换队列",
     "knowledge": "知识库",
     "knowledge_import": "导入共享的发现…",

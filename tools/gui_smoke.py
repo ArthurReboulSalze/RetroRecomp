@@ -8,7 +8,7 @@ import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.gui import launch
+from smsrecomp.gui import launch, PROFILES
 from smsrecomp.library import library_root, list_games
 from smsrecomp.gameboy import list_memory
 from smsrecomp.nes import list_memory as list_nes_memory
@@ -42,6 +42,21 @@ def smoke(window):
     before = len(application.items)
     application.add_paths([item.path for item in application.items.values()])
     assert len(application.items) == before
+    # The two disks of one X68000 game make one row, from a playlist written
+    # outside the disks' folder.
+    if any(profile.id == 'x68' for profile in PROFILES):
+        disks = Path(fixtures.name) / 'x68000'
+        disks.mkdir()
+        for number in (1, 2):
+            (disks / f'Synthetic (Disk {number} of 2).dim').write_bytes(
+                bytes([0, 1]) + bytes(254) + bytes([number]) * 8192)
+        with patch('smsrecomp.rom_sources.data_directory', return_value=Path(fixtures.name) / 'datas'):
+            application.add_paths([disks])
+        added = [item for item in application.items.values() if item.system == 'x68']
+        assert len(added) == 1 and added[0].path.suffix == '.m3u' and added[0].title == 'Synthetic', added
+        assert added[0].path.is_relative_to(Path(fixtures.name) / 'datas/x68000-sets')
+        assert sorted(p.name for p in disks.iterdir()) == ['Synthetic (Disk 1 of 2).dim', 'Synthetic (Disk 2 of 2).dim']
+        before = len(application.items)
     row = application.table.get_children()[0]
     application.table.selection_set(row)
     application.selection_changed()

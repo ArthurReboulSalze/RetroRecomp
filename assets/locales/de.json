@@ -314,6 +314,8 @@
     "x68_ipl": "IPL-Firmware (iplrom.dat)",
     "x68_cgrom": "Zeichen-ROM (cgrom.dat)",
     "options_x68_note": "Experimentelles Profil: DIM/XDF und geordnete M3U-Diskettensätze. Eigenes IPL und Zeichen-ROM erforderlich. Gemeinsame Menüs, Filter, Steuerung und F8/F9. Die erste Konvertierung lädt die festgelegten Maschinenquellen herunter.",
+    "x68_sets_grouped": "Sharp X68000: zusammengefasste Diskettensätze: {count} (eine Zeile pro Spiel).",
+    "x68_set_incomplete": "Sharp X68000: Bei {title} fehlt Diskette {missing} von {total}; nur die gefundenen Disketten stehen in der Warteschlange.",
     "conversion_queue": "Konvertierungsliste",
     "knowledge": "Wissen",
     "knowledge_import": "Geteilte Entdeckungen importieren…",

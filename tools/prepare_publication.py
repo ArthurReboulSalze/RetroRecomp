@@ -70,7 +70,7 @@ tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
 smsrecomp/compiled_games.py smsrecomp/compiled_games_view.py smsrecomp/memory_view.py
 smsrecomp/game_details.py smsrecomp/game_metadata.py smsrecomp/game_card_view.py smsrecomp/rom_sources.py
-tests/test_game_cards.py
+tests/test_game_cards.py tests/test_disk_sets.py
 docs/COMPILED_GAMES.md docs/UPGRADES.md
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
 tests/test_compiled_games.py
