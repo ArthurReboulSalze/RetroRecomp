@@ -328,6 +328,19 @@ smsrecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
+# Every public converter module is frozen into the executable, including ones
+# no application path imports yet (profiles in development): packaging passes
+# these as hidden imports and audit_executable checks each against its source.
+PUBLIC_MODULES = tuple(sorted(name[:-3].replace("/", ".").removesuffix(".__init__")
+                              for name in PUBLIC_FILES if name.startswith("smsrecomp/") and name.endswith(".py")))
+
+
+def write_module_hook(directory: Path) -> Path:
+    """PyInstaller hook listing PUBLIC_MODULES (a command line would be too long on Windows)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    hook = directory / "hook-smsrecomp.py"
+    hook.write_text("hiddenimports = " + repr(list(PUBLIC_MODULES)) + "\n", encoding="utf-8")
+    return hook
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
@@ -484,10 +497,8 @@ def audit_executable(executable: Path, source: Path) -> dict:
         raise ValueError('The executable needs exactly one controller bridge.')
     pyz = archive.open_embedded_archive("PYZ.pyz")
     modules = []
-    for name in PUBLIC_FILES:
-        if not name.startswith("smsrecomp/"):
-            continue
-        module = name[:-3].replace("/", ".").removesuffix(".__init__")
+    for module in PUBLIC_MODULES:
+        name = module.replace(".", "/") + ("/__init__.py" if (source / module.replace(".", "/")).is_dir() else ".py")
         actual = pyz.extract(module)
         expected = compile((source / name).read_text(encoding="utf-8-sig"),
                            actual.co_filename, "exec", dont_inherit=True, optimize=0)

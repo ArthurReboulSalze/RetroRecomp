@@ -34,6 +34,21 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(report.read_text())['source']['count'], len(PUBLIC_FILES))
 
+    def test_every_public_module_is_frozen_by_both_packaging_scripts(self):
+        from tools.prepare_publication import PUBLIC_MODULES, write_module_hook
+        expected = {name[:-3].replace('/', '.').removesuffix('.__init__') for name in PUBLIC_FILES
+                    if name.startswith('smsrecomp/') and name.endswith('.py')}
+        self.assertEqual(set(PUBLIC_MODULES), expected)
+        self.assertIn('smsrecomp.cps1_codegen', PUBLIC_MODULES)
+        with tempfile.TemporaryDirectory() as temp:
+            hook = write_module_hook(Path(temp))
+            namespace = {}
+            exec(hook.read_text(encoding='utf-8'), namespace)
+            self.assertEqual(namespace['hiddenimports'], list(PUBLIC_MODULES))
+        tools = Path(__file__).resolve().parents[1] / 'tools'
+        self.assertIn('write_module_hook', (tools / 'package.ps1').read_text(encoding='utf-8'))
+        self.assertIn('write_module_hook(hooks)', (tools / 'package_linux.py').read_text(encoding='utf-8'))
+
     def test_game_files_and_private_histories_are_not_public(self):
         for name in ("ROMS/game.sms", "ROMS/game.neo", "assets/cartridge.pack", "boxart/game.png", "Export/game.exe",
                      "profiles/12345678.manifest", "docs/PROJECT_STATE.md",

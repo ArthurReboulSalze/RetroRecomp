@@ -14,7 +14,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from tools.prepare_publication import BUNDLED_FILES, audit_sources, audit_executable
+from tools.prepare_publication import BUNDLED_FILES, audit_sources, audit_executable, write_module_hook
 from smsrecomp import __version__
 
 
@@ -53,6 +53,9 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
         '--add-binary', str(gamepad)+':player-runtime']
     for name in sorted(BUNDLED_FILES):
         command += ['--add-data', str(ROOT/name)+':'+str(Path(name).parent)]
+    # Public modules no application path imports yet must still be frozen
+    # (hook-smsrecomp.py in the same hooks folder).
+    write_module_hook(hooks)
     # Preserve the actual dependency notices, including cryptography's bundled
     # OpenSSL notices, in the binary alongside our hand-maintained attributions.
     notices = {}
