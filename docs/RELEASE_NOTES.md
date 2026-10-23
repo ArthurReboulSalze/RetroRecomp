@@ -1,3 +1,45 @@
+# RetroRecomp v1.2.9 — a collection that keeps itself current
+
+- **No rescan needed.** The collection remembers the sizes and dates of each
+  game's files. When a game launched with **Play** closes, its new
+  discoveries appear at once; when the window comes back, only games whose
+  files changed are read again (about 0.2 s for 1,068 unchanged games).
+  **Scan games** remains for new folders and moved games.
+- **New paths (N).** One toolbar button, in both views, recompiles only the
+  games whose play found new paths since their last conversion, upgrading
+  them without rediscovery when nothing else changed. Games whose ROM cannot
+  be found are left for later.
+- **Before closing.** When games on Master System, Game Gear, Game Boy, NES,
+  Mega Drive or Super Nintendo have new paths, an animated card offers to
+  recompile them before closing. **Send and close**, and **Send to the shared
+  Retro-Recomp base** in the Knowledge menu, are visible but disabled: sending
+  arrives with the connection to the Retro-Recomp web server and database.
+- **Raw observations travel too.** Exports now include gameplay observations
+  not yet turned into hints by a conversion, as ROM positions: the recorded
+  bytes are replaced by where they appear in your own ROM, and code a game
+  builds in RAM stays on your computer. Whoever imports them rebuilds the
+  bytes from their own ROM, under the same checks as their own observations,
+  and a conversion they make fail sets them aside. A reconverted game shares
+  qualified hints instead. Knowledge files are now version 2; version 1 files
+  still import.
+- **Faster exports.** Each game's contribution is cached, so an export only
+  revisits games that changed: 20 s the first time on a 1,068-game
+  collection, 0.1 s afterwards.
+- **A lighter toolbar.** Add ROM folder, Remove, Clear list, Scan games, Add
+  exe folder and Stop are pictures whose hover hint names them; the ROM and
+  executable folders have distinct pictures. The switch no longer cuts its
+  Russian caption, nor the Options close button its German one.
+- **A new README and website.** A summary of what RetroRecomp does, with
+  fresh screenshots in five languages.
+
+Because the way conversions read gameplay hints changed, the next batch
+converts each game in full once; later converter updates that only touch
+the player shell upgrade games without rediscovery. Measured on Windows;
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need
+testing.
+
+---
+
 # RetroRecomp v1.2.8 — upgrading games without rediscovery
 
 - **Upgrades without rediscovery.** When a converter update only changes the
