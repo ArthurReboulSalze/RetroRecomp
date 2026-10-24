@@ -444,6 +444,7 @@
     "online_rate_limited": "尝试次数过多：请稍等片刻再试。",
     "online_terms_needed": "请先接受隐私政策才能接收验证码。",
     "knowledge_sending": "正在将发现发送到共享库…",
+    "knowledge_scope": "共享的主机：Master System、Game Gear、Game Boy、NES、Mega Drive 和 Super Nintendo。Neo Geo 以及实验性的 CPS-1 和 X68000 在未来版本加入共享库之前不会被共享，也不计入排行榜。",
     "knowledge_send_found": "{consoles} 个主机上的 {games} 款游戏有共享库尚未从你这里收到的发现。",
     "knowledge_send_action": "发送",
     "knowledge_send_none": "没有新的内容可发送：共享库已经拥有你合格转换和游戏中的全部发现。",

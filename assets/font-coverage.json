@@ -1,7 +1,7 @@
 {
   "font_sha256": {
-    "JP": "40d2ad27f6def188035011f5edf27055edc00d04b5b3510c3caf864fa5c52111",
-    "SC": "e43a42f02b8c08b00f037dff8acfab03ae7934b5a4ca98c7b26203de1517546c"
+    "JP": "b461953f9f8855111c4034ad0d0b992ea19822f0c0f10d1bb522950d1bbaa364",
+    "SC": "5a2e339b44d5b52c1e01ded0a9a1202916a374e8c153bdd3992c7a9258dedfb4"
   },
   "codepoints": [
     32,
@@ -278,6 +278,7 @@
     12459,
     12460,
     12461,
+    12462,
     12463,
     12464,
     12465,

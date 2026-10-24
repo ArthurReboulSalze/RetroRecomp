@@ -2464,11 +2464,29 @@ class Application:
         threading.Thread(target=worker, daemon=True).start()
         poll()
 
+    def raise_existing(self, name):
+        """One help page and one leaderboard at a time: a second click brings
+        the open window to the front instead of opening another."""
+        window = getattr(self, name, None)
+        try:
+            if window is not None and window.winfo_exists():
+                window.deiconify()
+                window.lift()
+                window.focus_force()
+                return True
+        except tk.TclError:
+            pass
+        setattr(self, name, None)
+        return False
+
     def show_help(self):
         """How Retro-Recomp works, in five steps and the keys every game
         shares; the full guides are one click away."""
+        if self.raise_existing('help_window'):
+            return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
+        self.help_window = window
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('help_title')}")
         window.configure(bg=background)
@@ -2576,9 +2594,10 @@ class Application:
     def show_leaderboard(self):
         """The shared base's ranking in a window: podium order, pseudonyms,
         games and points, all time or this month, with the player's own line."""
-        if not SENDING_AVAILABLE:return
+        if not SENDING_AVAILABLE or self.raise_existing('board_window'):return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
+        self.board_window = window
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('leaderboard')}")
         window.configure(bg=background)
@@ -3059,7 +3078,8 @@ class Application:
                 if self.closing_send:self.close()
                 else:self.knowledge_report(self.tr('knowledge_send_none'))
                 return
-            detail = self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+            detail = (self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+                      + '\n\n' + self.tr('knowledge_scope'))
             # On the closing card the player already chose to send.
             if self.closing_send or self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action')):
                 self.knowledge_task(lambda:('sent', self.upload_discoveries(pending)), 'knowledge_sending')
@@ -3089,7 +3109,8 @@ class Application:
                     text += ' ' + self.tr('knowledge_missing_hint')
                 self.knowledge_report(text)
                 return
-            detail = self.tr('knowledge_export_found', games=summary['games'], consoles=len(summary['consoles']))
+            detail = (self.tr('knowledge_export_found', games=summary['games'], consoles=len(summary['consoles']))
+                      + '\n\n' + self.tr('knowledge_scope'))
             if not self.achievement(summary['discoveries'], detail, self.tr('knowledge_export_action')):
                 return
             from datetime import date
