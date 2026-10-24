@@ -43,9 +43,41 @@ class ServiceError(Exception):
         self.reason = reason
 
 
+def _local_host(host: str) -> bool:
+    """A test service on this computer or the home network may skip TLS."""
+    import ipaddress
+    host = (host or '').strip('[]').lower()
+    if host == 'localhost' or host.endswith(('.localhost', '.test', '.local', '.lan')):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_private or address.is_link_local
+
+
 def service_url() -> str:
+    """The service's base URL: https, or plain http only for a local test host."""
+    from urllib.parse import urlsplit
     value = os.environ.get('RETRO_RECOMP_SERVICE', DEFAULT_SERVICE).strip().rstrip('/')
-    return value if value.startswith(('https://', 'http://')) else ''
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return ''
+    if parts.scheme == 'https' and parts.hostname:
+        return value
+    if parts.scheme == 'http' and parts.hostname and _local_host(parts.hostname):
+        return value
+    return ''
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """The token never follows a redirect, to the same host or another one."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def sending_available() -> bool:
@@ -75,14 +107,33 @@ def _save_account(data: dict | None) -> None:
         path.unlink(missing_ok=True)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    # mkstemp creates the file readable by its owner only on POSIX.
     fd, temporary = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as file:
             json.dump(data, file, indent=1, sort_keys=True)
+        _owner_only(temporary)
         os.replace(temporary, path)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def _owner_only(path: str) -> None:
+    """On Windows the token file would inherit the folder's permissions:
+    keep it to the current user (best effort; the token stays revocable)."""
+    if os.name != 'nt':
+        return
+    import subprocess
+    user = os.environ.get('USERNAME')
+    if not user:
+        return
+    try:
+        subprocess.run(['icacls', path, '/inheritance:r', '/grant:r', f'{user}:F'], check=False, timeout=10,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def _call(method: str, route: str, *, payload: dict | None = None, body: bytes | None = None,
@@ -100,7 +151,7 @@ def _call(method: str, route: str, *, payload: dict | None = None, body: bytes |
         headers['Authorization'] = f'Bearer {token}'
     request = urllib.request.Request(base + API_PATH + route, data=body, method=method, headers=headers)
     try:
-        response = urllib.request.urlopen(request, timeout=timeout)
+        response = _OPENER.open(request, timeout=timeout)
     except urllib.error.HTTPError as error:
         response = error
     except OSError as error:
@@ -150,7 +201,7 @@ def avatar(limit: int = 2 * 1024 * 1024) -> bytes | None:
     request = urllib.request.Request(service_url() + API_PATH + 'account/avatar', headers={
         'User-Agent': f'RetroRecomp/{__version__}', 'Authorization': f"Bearer {current['token']}"})
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with _OPENER.open(request, timeout=20) as response:
             if response.headers.get_content_type() != 'image/webp':
                 return None
             raw = response.read(limit + 1)

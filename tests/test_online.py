@@ -106,6 +106,32 @@ class OnlineTests(unittest.TestCase):
         self.assertTrue(online.sending_available())
         self.assertTrue(online.status()['accepting'])
 
+    def test_plain_http_only_for_a_local_test_service(self):
+        for url, kept in (('https://retro-recomp.com', True), ('http://127.0.0.1:8080', True),
+                          ('http://192.168.1.13:8080', True), ('http://beta.test', True),
+                          ('http://retro-recomp.com', False), ('http://8.8.8.8', False),
+                          ('ftp://retro-recomp.com', False), ('https://', False)):
+            with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': url}):
+                self.assertEqual(bool(online.service_url()), kept, url)
+
+    def test_the_token_never_follows_a_redirect(self):
+        class Redirect(FakeService):
+            def do_GET(self):
+                self.server.calls.append(('GET', self.path, self.headers.get('Authorization')))
+                self.send_response(302)
+                self.send_header('Location', 'http://127.0.0.1:9/api/v1/account')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Redirect)
+        server.calls = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': f'http://127.0.0.1:{server.server_address[1]}'}), \
+                patch.object(online, 'account', return_value={'token': 'rr1_' + 'b' * 43, 'service': ''}):
+            with self.assertRaises(online.ServiceError):
+                online.profile()
+        self.assertEqual(len(server.calls), 1)
+
     def test_sign_in_keeps_a_token_bound_to_its_service(self):
         with self.assertRaises(online.ServiceError) as caught:
             online.sign_in('p@example.test', '000000')
