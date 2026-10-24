@@ -18,6 +18,7 @@ from .neogeo import read_set, validate_bios
 from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV, aes_available, aes_compatible, probe_failure
 from .neogeo_validation import extended_routes, compare, route_arguments
 from .paths import selected_bios_path
+from .toolchain import describe as toolchain_description
 
 
 def check_routes(executable: Path, project: Path, set_name: str, qualification=None, *, workers=1) -> list[dict]:
@@ -177,7 +178,7 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
         'knowledge':{**memory,'use':json.loads((project/'knowledge-use.json').read_text(encoding='utf-8'))},
         'artwork':json.loads((project/'artwork.json').read_text(encoding='utf-8')),
         'windows_metadata':game_metadata(title,False,standard='mvs',system_id='ng'),
-        'executable':executable_name(title),'build_executable':str(executable),
+        'executable':executable_name(title),'build_executable':str(executable),'toolchain':toolchain_description(),
         'build_directory':str(project),
         'packed_candidate_sha256':hashlib.sha256(packed.read_bytes()).hexdigest(),
         'conversion_wall_seconds':round(time.perf_counter()-started,3)}

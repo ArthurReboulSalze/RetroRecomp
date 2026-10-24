@@ -326,9 +326,13 @@ if(RR_X68000_PAYLOAD_DIR)
     if(WIN32)
         # SDL is initialized explicitly by main; keep normal game launch free
         # of a console window while retaining the headless validation entry.
-        set_target_properties(x68000_reference_host PROPERTIES WIN32_EXECUTABLE TRUE)
         if(MSVC)
+            set_target_properties(x68000_reference_host PROPERTIES WIN32_EXECUTABLE TRUE)
             target_link_options(x68000_reference_host PRIVATE /ENTRY:mainCRTStartup)
+        else()
+            # MinGW's -mwindows would look for WinMain; ask for the same
+            # subsystem and entry point as the Visual Studio build instead.
+            target_link_options(x68000_reference_host PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)
         endif()
         enable_language(RC)
         target_sources(x68000_reference_host PRIVATE "${RR_X68000_PAYLOAD_DIR}/game_resources.rc" "${RR_X68000_PAYLOAD_DIR}/game_metadata.rc")
@@ -354,5 +358,8 @@ if(MSVC)
 else()
     target_compile_options(x68000_reference_host PRIVATE -O2 -fno-fast-math)
     target_link_libraries(x68000_reference_host PRIVATE m)
+    if(WIN32)
+        target_link_libraries(x68000_reference_host PRIVATE gdi32 shell32 user32)
+    endif()
 endif()
 add_dependencies(x68000_reference_host rr_px68k_reference)

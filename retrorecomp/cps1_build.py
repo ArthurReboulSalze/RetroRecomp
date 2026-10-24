@@ -389,6 +389,10 @@ target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED RR16_CPS1=1 [[RR_RECOMP
 if(MSVC)
   target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
 endif()
+if(WIN32 AND NOT MSVC)
+  # Same subsystem and entry point as the Visual Studio build: no console window.
+  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)
+endif()
 '''
     write_changed(project / 'CMakeLists.txt', cmake)
     from .feedback import stage

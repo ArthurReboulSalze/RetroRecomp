@@ -15,6 +15,7 @@ from . import __version__
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
+from .toolchain import describe as toolchain_description
 from .library import atomic_json, entry_lock
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
@@ -450,7 +451,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
           'system':{'id':'x68','name':'Sharp X68000'},'status':'experimental','private_development_only':False,
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
-          'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),
+          'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
           'native_validation':{'passed':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],

@@ -402,6 +402,10 @@ add_executable(ng_prepare platform_io.c neogeo_lithogen.c ${{LITHO_CRYPTO}}
   loader_neowrite.c "${{LITHO}}/src/recipes.c" "${{LITHO}}/src/regions.c"
   "${{LITHO}}/src/zipio.c" "${{LITHO}}/miniz/miniz.c")
 target_include_directories(ng_prepare PRIVATE "${{LITHO}}/src" "${{LITHO}}/miniz")
+if(WIN32 AND NOT MSVC)
+  # Visual Studio finds wmain by itself; MinGW needs to be told.
+  target_link_options(ng_prepare PRIVATE -municode)
+endif()
 set(GEO "{geo.as_posix()}")
 file(GLOB GEO_SOURCES "${{CMAKE_CURRENT_SOURCE_DIR}}/engine/geo_*.c")
 list(FILTER GEO_SOURCES EXCLUDE REGEX "geo_chd.c$")
@@ -516,6 +520,10 @@ target_link_libraries(game PRIVATE ng_hardware SDL2::SDL2-static)
 target_compile_definitions(game PRIVATE SDL_MAIN_HANDLED RR16_NG=1 [[RR_RECOMP_VERSION="{__version__}"]])
 if(MSVC)
   target_link_options(game PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+endif()
+if(WIN32 AND NOT MSVC)
+  # Same subsystem and entry point as the Visual Studio build: no console window.
+  target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)
 endif()
 '''
         if native:

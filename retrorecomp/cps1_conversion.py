@@ -23,6 +23,7 @@ from . import __version__
 from .core import ConversionError, executable_name
 from .library import atomic_json, entry_lock
 from .paths import ROOT
+from .toolchain import describe as toolchain_description
 
 STATE_SETTLE = 600   # frames continued after a quick state is loaded
 
@@ -273,7 +274,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'compatibility': 'exact romset, board model and runtime ABI', 'validation': states},
         'ordinary_saves': {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
-        'executable': executable_name(title), 'build_executable': str(executable), 'build_directory': str(project),
+        'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
         'packed_candidate_sha256': _digest(packed), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
         'qualification_scope': {
