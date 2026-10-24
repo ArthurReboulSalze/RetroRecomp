@@ -9,8 +9,8 @@ from .knowledge import ram_variants as shared_ram_variants,record_for
 
 RAM_VARIANT_LIMIT = 16384
 PROFILES = {
-    '0838e531fe22c077528febe14cb3ff7c492f1f5fa8de354192bdff7137c27f5b':
-        {'id': 'smw', 'title': 'Super Mario World', 'legacy_functions': True},
+    # Super Mario World has no entry since 1.4.1: like any cartridge without one,
+    # it gets the generic analysis (no Rust, no foreign function list).
     '7a8ffaf8bb549b400ec2f0bda9f3c0dbf5852c38618cdb21cd783c368383e2c7':
         {'id': 'super-scope-6', 'title': 'Super Scope 6', 'legacy_functions': False},
     '66871d66be19ad2c34c927d6b14cd8eb6fc3181965b6e517cb361f7316009cfb':

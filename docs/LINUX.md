@@ -22,8 +22,8 @@ Conversion still requires the native build tools: `build-essential`, `cmake`,
 Debian and Ubuntu the converter checks them before the first conversion and,
 with your consent, installs only the missing ones through `pkexec apt-get
 install --no-install-recommends`, with a progress window; elsewhere it names
-the missing commands. Rust/Cargo is only needed for Super Mario World's legacy
-SNES path. See [BUILDING.md](BUILDING.md).
+the missing commands. No console needs Rust/Cargo since 1.4.1. See
+[BUILDING.md](BUILDING.md).
 Keep Linux and Windows compiler caches separate. The package contains no ROM
 or BIOS. Supply your own game files and, for Neo Geo, your BIOS.
 

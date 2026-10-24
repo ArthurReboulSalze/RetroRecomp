@@ -118,15 +118,15 @@ progress window: a portable MinGit (40 MB, pinned and SHA-256-checked, in
 `datas/tools/mingit`) and Microsoft's Build Tools limited to the x64 compiler,
 the Windows 11 SDK and CMake (about 3 GB instead of a full Visual Studio;
 the bootstrapper must carry a valid Microsoft signature, and Windows asks for
-administrator rights). Every console uses the same tools. Only Super Mario
-World's legacy SNES path still needs Rust. Source usage keeps the list below.
+administrator rights). Every console uses the same tools, and none needs Rust
+any more (Super Mario World uses the generic SNES analysis since 1.4.1).
+Source usage keeps the list below.
 
 - Python 3.11 or newer for source usage (release built with 3.14.5).
 - Git on PATH.
 - Visual Studio Build Tools 2022 or a detected supported Visual Studio
   installation, with x64 C++ tools, CMake and Windows SDK.
 - Internet for first-time dependency setup; optional for missing-cover lookup.
-- For Super Nintendo conversion: installed stable Rust >= 1.85.
 
 The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
