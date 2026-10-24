@@ -120,7 +120,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     from .scan_levels import LEVELS
     from .cps1 import read_set
     from . import cps1_catalogue
-    from .cps1_build import prepare_game, build_game, YMFM_REVISION
+    from .cps1_build import prepare_game, build_game, player_count, YMFM_REVISION
     from .neogeo_build import GEOLITH_REV as GEOLITH_REVISION
     MAME_REVISION = cps1_catalogue.catalogue()['source']['revision']
     level = scan_level or 'standard'
@@ -276,8 +276,11 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'executable': executable_name(title), 'build_executable': str(executable), 'build_directory': str(project),
         'packed_candidate_sha256': _digest(packed), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'qualification_scope': {'controls': 'players 1 and 2: joystick, up to six buttons, Start, coin',
-                                'dip_switches': 'catalogue defaults', 'universal_zero_fallback_claim': False}}
+        'qualification_scope': {
+            'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
+                        'validation routes drive players 1 and 2',
+            'dip_switches': 'catalogue defaults during validation; adjustable in play (F2)',
+            'universal_zero_fallback_claim': False}}
     atomic_json(output / 'conversion-report.json', report)
     emit(f'CPS-1: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
     # Publishing compacts this same build again (UPX is deterministic).

@@ -44,7 +44,18 @@ Heavy Kick in Street Fighter II). Enter is Start and Shift (or Back on a
 controller) inserts a coin. On a controller, A/B/X/Y and the two shoulder
 buttons are buttons 1–6. Player 2 uses the numeric keypad or the second
 controller. Only the buttons a game reads do anything; its F2 page still lists
-all six. Players 3 and 4 are not mapped yet.
+all six. Three- and four-player boards (Captain Commando, The King of Dragons,
+Knights of the Round, Mercs) add F2 pages for players 3 and 4, played with
+the third and fourth controllers; they have no keyboard keys until you bind
+some there. Each player has a coin and Start of their own.
+
+The **DIP switches** page, after the control pages, lists the board's
+switches with MAME's names and settings (coinage, difficulty, lives, number
+of players…); Up/Down choose one, Enter/A or + the next setting, - the
+previous. Switches that only apply under another setting appear when it is
+chosen. Most boards read their switches at power-on: restart with Shift+F1.
+The choice is kept per game; conversions always check the default settings.
+Captain Commando needs **Play Mode: 4 Players** for four players.
 
 ## F2 settings pages
 

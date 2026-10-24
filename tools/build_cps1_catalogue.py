@@ -19,9 +19,11 @@ sys.path.insert(0, str(ROOT))
 MAME_REPOSITORY = 'https://github.com/mamedev/mame'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 SOURCES = {'src/mame/capcom/cps1.cpp': '986a8870ac1736120167fac2de31a98af60118ca3fe44e82c4ff02f46200c51e',
-           'src/mame/capcom/cps1_v.cpp': 'f899193fb52dd715bf98f056472dc2cb88bdd79eebf6de70de1d43f61cb23115'}
+           'src/mame/capcom/cps1_v.cpp': 'f899193fb52dd715bf98f056472dc2cb88bdd79eebf6de70de1d43f61cb23115',
+           'src/emu/ioport.cpp': 'd0c69fcfe5a2d8ca7d8518972f02e2f2b6576b71d6944cb3e051e54ef4a02604'}
 NOTICE = ('Derived from MAME src/mame/capcom/cps1.cpp and cps1_v.cpp, license BSD-3-Clause, '
-          'copyright-holders: Paul Leaman. See licenses/cps1-machine.md.')
+          'copyright-holders: Paul Leaman; switch labels of src/emu/ioport.cpp, license BSD-3-Clause, '
+          'copyright-holders: Aaron Giles. See licenses/cps1-machine.md.')
 OUTPUT = ROOT / 'assets/cps1-catalogue.json'
 # Programmable logic dumps document the boards; they are never loaded.
 PLD_REGIONS = frozenset(('aboardplds', 'bboardplds', 'cboardplds', 'dboardplds', 'plds', 'pal', 'patchpld'))
@@ -275,13 +277,42 @@ def function_macros(text: str) -> dict:
 
 
 IGNORED_PORT_MACROS = frozenset((
-    'PORT_DIPSETTING', 'PORT_DIPLOCATION', 'PORT_NAME', 'PORT_SENSITIVITY', 'PORT_KEYDELTA',
+    'PORT_DIPLOCATION', 'PORT_NAME', 'PORT_SENSITIVITY', 'PORT_KEYDELTA',
     'PORT_CODE_INC', 'PORT_CODE_DEC', 'PORT_REMAP_TABLE', 'PORT_POSITIONS', 'PORT_CENTERDELTA',
     'PORT_WRITE_LINE_DEVICE_MEMBER', 'PORT_READ_LINE_DEVICE_MEMBER'))
 
 
-def input_ports(text: str, macros: dict) -> dict:
-    """Port definitions per INPUT_PORTS block: fields with masks and defaults.
+def default_strings(text: str) -> dict:
+    """MAME's DEF_STR labels (input_port_default_strings of ioport.cpp)."""
+    table = dict(re.findall(r'\{\s*INPUT_STRING_(\w+)\s*,\s*"([^"\\]*)"\s*\}', text))
+    if len(table) < 100:
+        raise SystemExit('MAME default input strings not found.')
+    return table
+
+
+def collapse(fields: list) -> list:
+    """MAME's ioport_port::insert_field, in definition order: a field drops the
+    earlier fields it overlaps when either has no condition or both share one
+    (switches under different conditions coexist); unknown and unused bits are
+    only narrowed."""
+    kept = []
+    for new in fields:
+        survivors = []
+        for old in kept:
+            if old['mask'] & new['mask'] and (not new.get('condition') or not old.get('condition')
+                                              or old.get('condition') == new.get('condition')):
+                if old['type'] in ('unknown', 'unused') and old['mask'] & ~new['mask']:
+                    old = dict(old, mask=old['mask'] & ~new['mask'], default=old['default'] & ~new['mask'])
+                else:
+                    continue
+            survivors.append(old)
+        kept = survivors + [new]
+    return kept
+
+
+def input_ports(text: str, macros: dict, strings: dict) -> dict:
+    """Port definitions per INPUT_PORTS block: fields with masks and defaults,
+    and the named DIP switches with their settings.
 
     Field defaults follow MAME: active-low inputs and switches default to
     their mask, active-high ones to 0; bits no field covers read as 0.
@@ -293,17 +324,24 @@ def input_ports(text: str, macros: dict) -> dict:
     def active(value):
         return {'IP_ACTIVE_LOW': None, 'IP_ACTIVE_HIGH': 0}.get(value.strip(), 'number')
 
+    def label(text):
+        match = re.fullmatch(r'DEF_STR\s*\(\s*(\w+)\s*\)', text.strip())
+        value = strings.get(match.group(1)) if match else string(text)
+        if value is None or not value.isascii():
+            raise SystemExit('Unsupported switch label: ' + text)
+        return value
+
     def build(name, ports, depth=0):
         if depth > 8 or name not in blocks:
             raise SystemExit('Unknown or recursive input block ' + name)
         current, field = None, None
 
-        def add(mask, default, kind, dip):
+        def add(mask, default, kind, dip, title=None):
             nonlocal field
             if current is None:
                 raise SystemExit(f'{name}: field outside a port')
-            ports[current] = [f for f in ports[current] if not f['mask'] & mask]
-            field = {'mask': mask, 'default': default & mask, 'type': kind, 'dip': dip, 'player': 1}
+            field = {'mask': mask, 'default': default & mask, 'type': kind, 'dip': dip, 'player': 1,
+                     'name': title, 'settings': []}
             ports[current].append(field)
 
         def walk(body):
@@ -328,9 +366,14 @@ def input_ports(text: str, macros: dict) -> dict:
                 elif call in ('PORT_SERVICE', 'PORT_SERVICE_DIPLOC', 'PORT_SERVICE_NO_TOGGLE'):
                     mask = number(args[0], macros)
                     add(mask, mask if active(args[1]) is None else 0, 'service', call != 'PORT_SERVICE_NO_TOGGLE')
-                elif call in ('PORT_DIPNAME', 'PORT_DIPUNUSED', 'PORT_DIPUNUSED_DIPLOC',
-                              'PORT_DIPUNKNOWN', 'PORT_DIPUNKNOWN_DIPLOC'):
+                elif call == 'PORT_DIPNAME':
+                    add(number(args[0], macros), number(args[1], macros), 'dip', True, label(args[2]))
+                elif call in ('PORT_DIPUNUSED', 'PORT_DIPUNUSED_DIPLOC', 'PORT_DIPUNKNOWN', 'PORT_DIPUNKNOWN_DIPLOC'):
                     add(number(args[0], macros), number(args[1], macros), 'dip', True)
+                elif call == 'PORT_DIPSETTING':
+                    if field is None or field['type'] != 'dip':
+                        raise SystemExit(f'{name}: setting outside a switch {raw}')
+                    field['settings'].append([number(args[0], macros), label(args[1])])
                 elif call == 'PORT_CONDITION':
                     if field is None or args[2].strip() not in ('EQUALS', 'NOTEQUALS'):
                         raise SystemExit(f'{name}: unsupported condition {raw}')
@@ -343,9 +386,9 @@ def input_ports(text: str, macros: dict) -> dict:
         walk(blocks[name])
         return ports
 
-    result = {}
+    result, switches = {}, {}
     for name in blocks:
-        ports = build(name, {})
+        ports = {port: collapse(fields) for port, fields in build(name, {}).items()}
         defaults = {port: 0 for port in ports}
         for conditional in (False, True):
             for port, fields in ports.items():
@@ -363,7 +406,16 @@ def input_ports(text: str, macros: dict) -> dict:
                                'switches': sorted([f['mask'], f['default']] + ([f['condition']] if f.get('condition') else [])
                                                   for f in fields if f['dip'])}
                         for port, fields in ports.items()}
-    return result
+        # Named switches the player may set, by port as MAME lists them (DSWA,
+        # DSWB, DSWC) then in definition order; unused, unknown and service
+        # switches stay at their defaults.
+        switches[name] = [
+            {'port': port, 'mask': f['mask'], 'default': f['default'], 'name': f['name'], 'settings': f['settings'],
+             **({'condition': f['condition']} if f.get('condition') else {})}
+            for port, fields in sorted(ports.items()) for f in fields
+            if f['type'] == 'dip' and f['name'] not in (None, strings['Unused'], strings['Unknown'])
+            and len(f['settings']) > 1]
+    return result, switches
 
 
 def support(row: dict, config: dict) -> tuple[str, str]:
@@ -393,7 +445,8 @@ def build(cache: Path, *, offline: bool = False) -> dict:
     sets, rows = rom_sets(driver_clean, driver_macros), drivers(driver_clean)
     configs = configurations(video, video_macros)
     board_table, mapper_table = boards(video_clean, video_macros), mappers(video_clean, video_macros)
-    port_blocks = input_ports(driver_clean, driver_macros)
+    port_blocks, switch_blocks = input_ports(driver_clean, driver_macros,
+                                             default_strings(texts['src/emu/ioport.cpp']))
     games = []
     for row in rows:
         config = configs.get(row['set'])
@@ -417,7 +470,9 @@ def build(cache: Path, *, offline: bool = False) -> dict:
             'source': {'repository': MAME_REPOSITORY, 'revision': MAME_REVISION, 'sha256': SOURCES,
                        'license': 'BSD-3-Clause'},
             'gfx_types': {key[8:].lower(): value for key, value in GFX_TYPES.items()},
-            'boards': board_table, 'mappers': mapper_table, 'games': games}
+            'boards': board_table, 'mappers': mapper_table,
+            'dip_blocks': {name: switch_blocks[name] for name in sorted({game['input'] for game in games})},
+            'games': games}
 
 
 def encode(catalogue: dict) -> bytes:

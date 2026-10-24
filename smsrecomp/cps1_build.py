@@ -103,6 +103,32 @@ static int rr_cps1_z80_try(z80 *z,unsigned *cycles) {
 #undef GET_BIT''', 'Z80 helpers end')
 
 
+def ymfm_source(name: str, text: str) -> str:
+    """Quick states continue exactly like the saved run.
+
+    - The YM2151 fills its noise LFO waveform as the noise LFSR runs; ymfm
+      does not save that table, so a restored game using the noise LFO
+      sounded different until it refilled. It is saved with the registers.
+    - ymfm's save_restore ends by invalidating its caches, which forces a
+      channel prepare and resets the 4096-sample prepare cadence, so the
+      active-channel mask of a restored run could differ from the saved one.
+      The engine keeps those three values instead, and each operator rebuilds
+      its cache, a pure function of the registers restored before it."""
+    if name == 'ymfm_opm.cpp':
+        return _replace_once(text, '\tstate.save_restore(m_regdata);\n}',
+            '\tstate.save_restore(m_regdata);\n\t// Retro-Recomp CPS-1: the noise LFO waveform is running state\n'
+            '\tstate.save_restore(m_lfo_waveform[3]);\n}', 'ymfm OPM registers state')
+    if name != 'ymfm_fm.ipp':
+        return text
+    text = _replace_once(text, '\t// invalidate any caches\n\tinvalidate_caches();\n}',
+        '\t// Retro-Recomp CPS-1: keep the prepare cadence and channel masks\n'
+        '\tstate.save_restore(m_active_channels);\n\tstate.save_restore(m_modified_channels);\n'
+        '\tstate.save_restore(m_prepare_count);\n}', 'ymfm engine state')
+    return _replace_once(text, '\tstate.save_restore(m_keyon_live);\n}',
+        '\tstate.save_restore(m_keyon_live);\n\tif (!state.saving())\n'
+        '\t\tm_regs.cache_operator_data(m_choffs, m_opoffs, m_cache);\n}', 'ymfm operator state')
+
+
 def _engine(project: Path, *, native: bool) -> None:
     geolith, ymfm = sources()
     for name in NATIVE_FILES + (AOT_FILES if native else ()):
@@ -114,7 +140,7 @@ def _engine(project: Path, *, native: bool) -> None:
     _write(project / 'engine/z80/z80.h', (geolith / 'src/z80/z80.h').read_text(encoding='utf-8'))
     _write(project / 'engine/z80/z80.c', z80_core(geolith, native=native))
     for name in YMFM_FILES:
-        _write(project / 'engine/ymfm' / name, (ymfm / 'src' / name).read_text(encoding='utf-8'))
+        _write(project / 'engine/ymfm' / name, ymfm_source(name, (ymfm / 'src' / name).read_text(encoding='utf-8')))
 
 
 CMAKE_HEAD = '''cmake_minimum_required(VERSION 3.20)
@@ -211,17 +237,48 @@ ACTIONS = {**{f'button{n}': n - 1 for n in range(1, 7)}, 'start': 6, 'coin': 7,
 
 
 def input_table(game: dict) -> list[tuple[int, int, int, int]]:
-    """(port, mask, action, player) for players 1 and 2; other controls stay released."""
+    """(port, mask, action, player) for players 1 to 4 (Start/Coin n belong to
+    player n); other controls (service, test) stay released."""
     rows = []
     for index, port in enumerate(('IN0', 'IN1', 'IN2', 'IN3')):
         for mask, name, player in game['inputs'].get(port, {}).get('inputs', ()):
             if name[:-1] in ('start', 'coin') and name[-1:].isdigit():
                 name, player = name[:-1], int(name[-1])
-            if name in ACTIONS and player in (1, 2):
+            if name in ACTIONS and player in (1, 2, 3, 4):
                 rows.append((index, mask, ACTIONS[name], player))
     if not rows:
         raise ValueError('CPS-1 set ' + game['set'] + ' has no mapped player controls.')
     return rows
+
+
+def player_count(game: dict) -> int:
+    """Players the host offers controls for: at least two, as on every board."""
+    return max(2, max(player for *_, player in input_table(game)))
+
+
+DIP_PORTS = ('DSWA', 'DSWB', 'DSWC')
+DIP_SETTINGS = 24    # RR_CPS1_DIP_SETTINGS in native/cps1_host.h
+
+
+def dip_table(game: dict) -> tuple[int, str]:
+    """(count, C initializer) of the RrCps1Dip rows: port, mask, default, name,
+    settings, then the condition (port, equals, mask, value; port -1 = none)."""
+    import json
+    from .cps1_catalogue import dips
+    rows = []
+    for dip in dips(game):
+        settings = dip['settings']
+        if dip['port'] not in DIP_PORTS or not 1 < len(settings) <= DIP_SETTINGS:
+            raise ValueError(f'Unsupported CPS-1 switch {dip["name"]} in {game["set"]}.')
+        condition = dip.get('condition')
+        if condition and condition[0] not in DIP_PORTS:
+            raise ValueError(f'Unsupported CPS-1 switch condition in {game["set"]}.')
+        rows.append('{%d,%d,%d,%s,%d,{%s},{%s},%s}' % (
+            DIP_PORTS.index(dip['port']), dip['mask'], dip['default'], json.dumps(dip['name']), len(settings),
+            ','.join(str(value) for value, _ in settings), ','.join(json.dumps(label) for _, label in settings),
+            '%d,%d,%d,%d' % (DIP_PORTS.index(condition[0]), int(condition[2]), condition[1], condition[3])
+            if condition else '-1,0,0,0'))
+    return len(rows), ','.join(rows) or '{0}'
 
 
 def pack(board: Path) -> bytes:
@@ -299,9 +356,13 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     from .resources import embed_resources
     embed_resources(project, {201: packed, 203: project / 'notices.txt', 205: project / 'export-identity.bin'})
     table = ','.join('{%d,%d,%d,%d}' % row for row in input_table(game))
+    dip_count, dip_rows = dip_table(game)
     write_changed(project / 'cps1_game.h', '#pragma once\n#define RR_CPS1_TITLE ' + json.dumps(title) +
+                  '\n#define RR_CPS1_SET ' + json.dumps(game['set']) +
                   '\n#define RR_CPS1_VERSION ' + json.dumps(__version__) +
-                  f'\n#define RR_CPS1_ROTATION {int(game["rotation"])}\n#define RR_CPS1_INPUT_TABLE {table}\n')
+                  f'\n#define RR_CPS1_ROTATION {int(game["rotation"])}\n#define RR_CPS1_PLAYERS {player_count(game)}'
+                  f'\n#define RR_CPS1_INPUT_TABLE {table}\n#define RR_CPS1_DIP_COUNT {dip_count}'
+                  f'\n#define RR_CPS1_DIP_TABLE {dip_rows}\n')
     write_changed(project / 'retro_gun_game.h', '#pragma once\n#define RR16_GUN 0\n')
     write_changed(project / 'retro16_state_config.h', state_config(game_set, title))
     cmake = (project / 'CMakeLists.txt').read_text(encoding='utf-8')

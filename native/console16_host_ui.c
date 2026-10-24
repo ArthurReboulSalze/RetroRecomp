@@ -75,6 +75,16 @@ static void rr_host_timing_write(const char *path,const RrHostTiming *timing,
     fprintf(file,"}\n");fclose(file);
 }
 
+/* Control slots: CPS-1 three- and four-player boards also read the third and
+ * fourth controllers (rr16_players() of them get F2 pages and pads). */
+#if RR16_CPS1
+#define RR16_PLAYERS 4
+#define rr16_players() RR_CPS1_PLAYERS
+#else
+#define RR16_PLAYERS 2
+#define rr16_players() 2
+#endif
+
 #if RR16_NG
 enum { A, B, C, D, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
 #define FACE_LAST D
@@ -101,19 +111,18 @@ static const uint16_t bits[ACTIONS] = {1,2,4,8,16,32,64,128,256,512,1024,2048};
 static const char *names[ACTIONS] = {"Button 1","Button 2","Button 3","Button 4","Button 5","Button 6",
                                      "Start","Coin","Up","Down","Left","Right"};
 static const wchar_t *settings[ACTIONS] = {L"B1",L"B2",L"B3",L"B4",L"B5",L"B6",L"Start",L"Coin",L"Up",L"Down",L"Left",L"Right"};
-static SDL_Scancode keys[2][ACTIONS] = {
+/* Players 3 and 4 have no default keys (the keyboard is full); F2 binds them. */
+static SDL_Scancode keys[RR16_PLAYERS][ACTIONS] = {
     {SDL_SCANCODE_W,SDL_SCANCODE_X,SDL_SCANCODE_C,SDL_SCANCODE_A,SDL_SCANCODE_S,SDL_SCANCODE_D,
      SDL_SCANCODE_RETURN,SDL_SCANCODE_LSHIFT,SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT},
     {SDL_SCANCODE_KP_7,SDL_SCANCODE_KP_8,SDL_SCANCODE_KP_9,SDL_SCANCODE_KP_4,SDL_SCANCODE_KP_6,SDL_SCANCODE_KP_PLUS,
-     SDL_SCANCODE_KP_ENTER,SDL_SCANCODE_KP_0,SDL_SCANCODE_KP_5,SDL_SCANCODE_KP_2,SDL_SCANCODE_KP_1,SDL_SCANCODE_KP_3}};
-static SDL_GameControllerButton buttons[2][ACTIONS] = {
-    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
-     SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,
-     SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
-    {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,
-     SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK,
-     SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
-static RrAutofire fire_state[2][FACE_LAST+1];
+     SDL_SCANCODE_KP_ENTER,SDL_SCANCODE_KP_0,SDL_SCANCODE_KP_5,SDL_SCANCODE_KP_2,SDL_SCANCODE_KP_1,SDL_SCANCODE_KP_3},
+    {SDL_SCANCODE_UNKNOWN}, {SDL_SCANCODE_UNKNOWN}};
+#define RR16_CPS1_PAD {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y, \
+     SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_BACK, \
+     SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}
+static SDL_GameControllerButton buttons[RR16_PLAYERS][ACTIONS] = {RR16_CPS1_PAD, RR16_CPS1_PAD, RR16_CPS1_PAD, RR16_CPS1_PAD};
+static RrAutofire fire_state[RR16_PLAYERS][FACE_LAST+1];
 void rr16_host_discontinuity(void) {memset(fire_state,0,sizeof fire_state);}
 #elif RR16_MD
 #if RR_MD_SIX_BUTTONS
@@ -160,7 +169,7 @@ static SDL_GameControllerButton buttons[2][ACTIONS] = {
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT}};
 #endif
-static SDL_GameController *pads[2];
+static SDL_GameController *pads[RR16_PLAYERS];
 #if !RR16_NG && !RR16_CPS1
 static RrAutofire fire_state[2][FACE_LAST+1];
 #endif
@@ -217,7 +226,7 @@ static void load_bindings(void) {
                          rr_ng_enhanced()?1:0, ini_file)==1);
 #endif
     wchar_t sec[64];
-    for (int p = 0; p < 2; ++p) for (int mode = 0; mode < 2; ++mode) {
+    for (int p = 0; p < rr16_players(); ++p) for (int mode = 0; mode < 2; ++mode) {
         section(sec, p, mode != 0);
         for (int a = 0; a < ACTIONS; ++a) {
             int old = mode ? buttons[p][a] : keys[p][a];
@@ -238,6 +247,7 @@ static void load_bindings(void) {
     scope_turbo = rr_ini_int(RR16_SECTION L".Gun", L"turbo", 1, ini_file) != 0;
 }
 
+#if !RR16_CPS1
 static void gun_option(int direction) {
     if (row == 0) gun_shape = !gun_shape;
     if (row == 1) gun_size = (gun_size - 1 + direction + 12) % 12 + 1;
@@ -250,6 +260,70 @@ static void gun_option(int direction) {
     rr_mkdir(data_dir);
     rr_ini_set(RR16_SECTION L".Gun", labels[row], value, ini_file);
 }
+#endif
+
+#if RR16_CPS1
+/* DIP switches, per set in the export's settings file: applied before the
+ * first frame and kept across Shift+F1 and F9. Only bits of known settings are
+ * read back; anything else keeps the catalogue default. */
+static const wchar_t *const dip_keys[3] = {L"DSWA", L"DSWB", L"DSWC"};
+static void dip_section(wchar_t *out, size_t size) {
+    const wchar_t *prefix = L"CPS1.Dips.";
+    const char *set = RR_CPS1_SET;
+    size_t n = 0;
+    for (; prefix[n] && n + 1 < size; ++n) out[n] = prefix[n];
+    for (size_t i = 0; set[i] && n + 1 < size; ++i) out[n++] = (wchar_t)(unsigned char)set[i];
+    out[n] = 0;
+}
+static void load_dips(void) {
+    if (!ini_file[0] || !rr_cps1_dip_count()) return;
+    wchar_t sec[64]; dip_section(sec, 64);
+    uint16_t values[3]; rr_cps1_dip_values(values);
+    bool stored_any = false;
+    for (int port = 0; port < 3; ++port) {
+        int stored = rr_ini_int(sec, dip_keys[port], -1, ini_file);
+        if (stored < 0 || stored > 0xffff) continue;
+        for (int i = 0; i < rr_cps1_dip_count(); ++i) {
+            const RrCps1Dip *dip = rr_cps1_dip(i);
+            for (int k = 0; dip->port == port && k < dip->count; ++k)
+                if ((stored & dip->mask) == dip->values[k]) {
+                    values[port] = (uint16_t)((values[port] & ~dip->mask) | dip->values[k]);
+                    stored_any = true;
+                    break;
+                }
+        }
+    }
+    if (stored_any) rr_cps1_set_dip_values(values);
+}
+static void save_dips(void) {
+    if (!ini_file[0]) return;
+    rr_mkdir(data_dir);
+    wchar_t sec[64], value[16]; dip_section(sec, 64);
+    uint16_t values[3]; rr_cps1_dip_values(values);
+    for (int port = 0; port < 3; ++port) { swprintf(value, 16, L"%d", values[port]); rr_ini_set(sec, dip_keys[port], value, ini_file); }
+}
+/* Rows of the DIP page: the switches whose condition holds now. */
+static int dip_rows(int *rows) {
+    int count = 0;
+    for (int i = 0; i < rr_cps1_dip_count(); ++i) if (rr_cps1_dip_visible(i)) rows[count++] = i;
+    return count;
+}
+static void dip_option(int step) {
+    int rows[RR_CPS1_DIP_COUNT + 1], count = dip_rows(rows);
+    if (!count) return;
+    if (row >= count) row = count - 1;
+    rr_cps1_dip_cycle(rows[row], step);
+    save_dips();
+    /* Most boards read their switches at power-on. */
+    snprintf(status, sizeof status, "%s", rr_tr("Shift+F1: restart"));
+    status_until = SDL_GetTicks64() + 2500;
+}
+#define RR16_MACHINE_PAGE (rr_cps1_dip_count() > 0)
+#define RR16_MACHINE_TITLE "DIP switches"
+#else
+#define RR16_MACHINE_PAGE 0
+#define RR16_MACHINE_TITLE "Retro-Recomp - Gun"
+#endif
 
 static void store_binding(void) {
     if (!ini_file[0]) return;
@@ -261,15 +335,15 @@ static void store_binding(void) {
 }
 
 static void open_pads(void) {
-    for (int i = 0; i < 2; ++i) if (pads[i] && !SDL_GameControllerGetAttached(pads[i])) {
+    for (int i = 0; i < RR16_PLAYERS; ++i) if (pads[i] && !SDL_GameControllerGetAttached(pads[i])) {
         SDL_GameControllerClose(pads[i]); pads[i] = NULL;
     }
     for (int i = 0; i < SDL_NumJoysticks(); ++i) if (SDL_IsGameController(i)) {
         SDL_JoystickID id = SDL_JoystickGetDeviceInstanceID(i);
         bool known = false;
-        for (int p = 0; p < 2; ++p) if (pads[p] && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[p])) == id) known = true;
+        for (int p = 0; p < RR16_PLAYERS; ++p) if (pads[p] && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[p])) == id) known = true;
         if (known) continue;
-        for (int p = 0; p < 2; ++p) if (!pads[p]) { pads[p] = SDL_GameControllerOpen(i); break; }
+        for (int p = 0; p < rr16_players(); ++p) if (!pads[p]) { pads[p] = SDL_GameControllerOpen(i); break; }
     }
 }
 
@@ -370,7 +444,7 @@ static void draw_gun(SDL_Renderer *renderer, const SDL_Rect *dst) {
 
 /* F2 pages: each player's keyboard then gamepad, the gun on gun games, then
  * the options. Player 1's pages end with the quit and restart combinations. */
-static RrPages settings_pages(void) { return (RrPages){4, RR16_GUN ? 1 : 0}; }
+static RrPages settings_pages(void) { return (RrPages){2 * rr16_players(), RR16_GUN || RR16_MACHINE_PAGE ? 1 : 0}; }
 static int settings_page(void) { return rr_pages_index(settings_pages(), menu, player * 2 + (gamepad_page ? 1 : 0)); }
 static int page_rows(void) { return ACTIONS + (player ? 0 : RR_COMBO_ROWS); }
 /* Control pages share their rows, so the selected row survives between them. */
@@ -422,7 +496,7 @@ static void draw_menu(SDL_Renderer *ren) {
     char heading[64];
     snprintf(heading, sizeof(heading), rr_tr(gamepad_page ? "Player %d - Gamepad" : "Player %d - Keyboard"), player + 1);
     if (menu == 2 || menu == RR_GUN_MENU)
-        rr_menu_page_header(ren, ox, oy, unit, menu == 2 ? heading : rr_tr("Retro-Recomp - Gun"), page, total);
+        rr_menu_page_header(ren, ox, oy, unit, menu == 2 ? heading : rr_tr(RR16_MACHINE_TITLE), page, total);
     else RR16_TEXT(RR_MENU_TITLE_LINE, tr("RetroRecomp - Help", "RetroRecomp - Aide"));
     if (menu == 1) {
         /* One line per function key, then the console's own controls. */
@@ -490,7 +564,7 @@ static void draw_menu(SDL_Renderer *ren) {
                 snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_combo_label(a - ACTIONS), value);
             } else {
                 const char *bound = gamepad_page ? SDL_GameControllerGetStringForButton(buttons[player][a]) :
-                    rr_keyboard_name(keys[player][a]);
+                    keys[player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(keys[player][a]);
                 snprintf(line, sizeof(line), "%c %s: %s", a == row ? '>' : ' ', rr_tr(names[a]),
                          capturing && a == row ? tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
             }
@@ -499,6 +573,31 @@ static void draw_menu(SDL_Renderer *ren) {
         RR16_TEXT(RR_MENU_HINT_LINE, row >= ACTIONS ? rr_combo_hint(row - ACTIONS) :
             capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
     } else if (menu == RR_GUN_MENU) {
+#if RR16_CPS1
+        /* Twelve switches at a time, the selected one written out in full
+         * below them; MAME's English names and settings. */
+        int rows[RR_CPS1_DIP_COUNT + 1], count = dip_rows(rows);
+        if (row >= count) row = count ? count - 1 : 0;
+        const int shown = 12, top = row < shown ? 0 : row - shown + 1;
+        for (int n = 0; n < shown && top + n < count; ++n) {
+            const RrCps1Dip *dip = rr_cps1_dip(rows[top + n]);
+            const int setting = rr_cps1_dip_setting(rows[top + n]), y = RR_MENU_FIRST_LINE + n * RR_MENU_LINE;
+            char name[48];
+            if (top + n == row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
+            snprintf(name, sizeof name, "%c %s", top + n == row ? '>' : ' ', dip->name);
+            rr_menu_text_fit(ren, ox, oy, unit, 14, y, 126, name, RR_MENU_GOLD);
+            rr_menu_text_fit(ren, ox, oy, unit, 144, y, 98, setting < 0 ? "?" : dip->labels[setting], RR_MENU_GOLD);
+        }
+        if (count) {
+            const RrCps1Dip *dip = rr_cps1_dip(rows[row]);
+            const int setting = rr_cps1_dip_setting(rows[row]);
+            char full[96];
+            snprintf(full, sizeof full, "%s: %s", dip->name, setting < 0 ? "?" : dip->labels[setting]);
+            rr_menu_text_fit(ren, ox, oy, unit, 14, RR_MENU_FIRST_LINE + shown * RR_MENU_LINE, 228, full, RR_MENU_ACCENT);
+        }
+        RR16_TEXT(RR_MENU_HINT_LINE, rr_tr("Enter / A / +: next | -: previous"));
+        if (!status[0]) RR16_TEXT(RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"));
+#else
         char line[100];
         const char *colors[] = {rr_tr("Red"),rr_tr("White"),rr_tr("Green")};
         const int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
@@ -514,6 +613,7 @@ static void draw_menu(SDL_Renderer *ren) {
         }
         RR16_TEXT(RR_MENU_HINT_LINE, rr_tr("Enter / A / +: next | -: previous"));
         if (!status[0]) RR16_TEXT(RR_MENU_LAST_LINE, rr_tr("Left/Right: page | Esc: close"));
+#endif
     }
     if (menu == 1) rr_menu_build_footer(ren, ox, oy, unit);
     else if (status[0]) RR16_TEXT(RR_MENU_LAST_LINE, status);
@@ -559,6 +659,9 @@ int rr16_sdl_main(const char *title, int scale) {
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0) return 1;
     load_bindings();
+#if RR16_CPS1
+    load_dips();
+#endif
     rr_options_init(RR16_SECTION);
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     unsigned test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
@@ -736,12 +839,22 @@ int rr16_sdl_main(const char *title, int scale) {
                 pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
             } else if (menu == RR_GUN_MENU) {
                 /* Left/Right turn pages: Enter / + choose the next value, - the previous. */
+#if RR16_CPS1
+                int shown[RR_CPS1_DIP_COUNT + 1], rows = dip_rows(shown);
+                if (!rows) continue;
+                if (key == SDL_SCANCODE_UP) row = (row + rows - 1) % rows;
+                else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % rows;
+                else if (key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) dip_option(-1);
+                else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER || key == SDL_SCANCODE_EQUALS ||
+                         key == SDL_SCANCODE_KP_PLUS) dip_option(1);
+#else
                 int rows = RR16_GUN == RR_GUN_SCOPE ? 4 : 3;
                 if (key == SDL_SCANCODE_UP) row = (row + rows - 1) % rows;
                 else if (key == SDL_SCANCODE_DOWN) row = (row + 1) % rows;
                 else if (key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) gun_option(-1);
                 else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER || key == SDL_SCANCODE_EQUALS ||
                          key == SDL_SCANCODE_KP_PLUS) gun_option(1);
+#endif
             } else if (menu == 2) {
                 bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
                 if (key == SDL_SCANCODE_UP) row = (row + page_rows() - 1) % page_rows();
@@ -784,6 +897,10 @@ int rr16_sdl_main(const char *title, int scale) {
             if(timing_enabled)timing_ticks[1]=SDL_GetPerformanceCounter();
 #if RR16_NG
             rr_ng_audio_queue_probe(audio_playing,audio?SDL_GetQueuedAudioSize(audio):0,(unsigned)have.freq,have.samples);
+#endif
+#if RR16_CPS1
+            rr_cps1_set_extra_pads(rr16_players() > 2 ? controller_input(2, input_frame) : 0,
+                                   rr16_players() > 3 ? controller_input(3, input_frame) : 0);
 #endif
             if (!rr16_frame(pad1, RR16_GUN ? 0 : controller_input(1, input_frame))) { running = false; break; }
             ++frame;
@@ -889,7 +1006,7 @@ int rr16_sdl_main(const char *title, int scale) {
         fprintf(stderr, "[host] audio reserve=+%d ms (raised %d times); physical latency unmeasured\n",
             rr_cushion_ms(&cushion), SDL_AtomicGet(&cushion.raises));
     if (audio) SDL_CloseAudioDevice(audio);
-    for (int p = 0; p < 2; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
+    for (int p = 0; p < RR16_PLAYERS; ++p) if (pads[p]) SDL_GameControllerClose(pads[p]);
     rr_menu_shutdown(); free(upscaled); if (tex) SDL_DestroyTexture(tex);
     rr_xbr_destroy(&xbr);
     rr_scanlines_destroy(&scanlines);

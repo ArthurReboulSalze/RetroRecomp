@@ -10,7 +10,7 @@ import json
 from .paths import ASSETS
 
 RESOURCE = 'assets/cps1-catalogue.json'
-SHA256 = '1b73f96f47c495ff628ff96bf42ccbb63b8651d13583011ed31742a876dab68f'
+SHA256 = 'a9534c512a1db2e2f67d1205839174bc11df7fb069f5b8f4115a0496bf35cfb1'
 MAME_REVISION = '61a222977fd29f22ce11fbea3f7c290fd7ced091'
 MAX_BYTES = 2 * 1024 * 1024
 # Phase 1 runs standard 10/12 MHz boards: 68000, Z80, YM2151, OKI MSM6295.
@@ -83,6 +83,11 @@ def files(game: dict) -> list[dict]:
 
 def program_files(game: dict) -> list[dict]:
     return [item for item in files(game) if item['region'] == 'maincpu']
+
+
+def dips(game: dict) -> list[dict]:
+    """The set's named DIP switches with MAME's settings, in MAME's order."""
+    return catalogue()['dip_blocks'].get(game['input'], [])
 
 
 def supported(game: dict) -> bool:

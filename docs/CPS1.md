@@ -45,22 +45,66 @@ playthroughs and physical latency are not claimed.
 The game uses the shared 16-bit menus (F1 help, F2 controls, F3 filter, F4
 display, F6 autofire, F7 language, F8/F9 quick state, F12 gameplay feedback).
 See [controls](CONTROLS.md#capcom-cps-1). The 384×224 picture is shown at 4:3;
-vertical games (1941, Varth, Mercs…) are rotated and shown at 3:4. DIP
-switches keep the catalogue defaults. The board keeps no non-volatile memory,
-so there are no ordinary saves besides F8/F9.
+vertical games (1941, Varth, Mercs…) are rotated and shown at 3:4. Three- and
+four-player boards take the third and fourth controllers. The F2 **DIP
+switches** page sets the board's switches with MAME's names and settings; the
+choice is kept per game and most boards read it at power-on (Shift+F1).
+Conversions always validate the default switches and drive players 1 and 2
+only. The board keeps no non-volatile memory, so there are no ordinary saves
+besides F8/F9.
 
 The window title says **Native code** or **Interpreter fallback**; F1 also shows
 the sound CPU's state. With F12 enabled, interpreted instructions met while
 playing are recorded beside the game and used at the next conversion.
 
-## First qualified sets (23 October 2026, Windows)
+## Qualified sets (24 October 2026, Windows)
 
-| Set | Routes | 68000 fallback | Z80 fallback | F8/F9 |
+Standard scan level: attract and credited play routes of 3,600 frames each,
+up to eight conversions at once, the parent ZIPs of the NAS (FBNeo). Every
+set passed the fresh interpreted reference on each route, the compressed
+executable comparison and the fresh-process F8/F9 check, with the default
+DIP switches; validation routes drive players 1 and 2.
+
+| Game | Set | 68000 fallback | Z80 fallback | Notes |
 | --- | --- | --- | --- | --- |
-| ffight | attract + play, 3,600 frames each | 0 | 0 | fresh-process match |
-| 1941 (vertical) | play, 3,600 frames (quick) | 0 | 0 | fresh-process match |
+| 1941: Counter Attack | `1941` | 0 | 0 | vertical |
+| Adventure Quiz Capcom World 2 | `cworld2j` | 0 | 0 |  |
+| Captain Commando | `captcomm` | 0 | 0 | 4 players |
+| Carrier Air Wing | `cawing` | 0 | 0 |  |
+| Dynasty Wars | `dynwar` | 0 | 0 |  |
+| Final Fight | `ffight` | 0 | 0 |  |
+| Ghouls'n Ghosts | `ghouls` | 0 | 0 |  |
+| Knights of the Round | `knights` | 0 | 0 | 3 players |
+| Magic Sword: Heroic Fantasy | `msword` | 0 | 0 |  |
+| Mega Man: The Power Battle | `megaman` | 0 | 0 |  |
+| Mega Twins | `mtwins` | 0 | 0 |  |
+| Mercs | `mercs` | 0 | 0 | vertical, 3 players |
+| Nemo | `nemo` | 0 | 0 |  |
+| Pnickies | `pnickj` | 0 | 0 | graphics mapper unverified by MAME |
+| Pokonyan! Balloon | `pokonyan` | 0 | 0 | graphics mapper unverified by MAME |
+| Quiz & Dragons: Capcom Quiz Game | `qad` | 0 | 0 |  |
+| Quiz Tonosama no Yabou 2: Zenkoku-ban | `qtono2j` | 0 | 0 |  |
+| Street Fighter II': Champion Edition | `sf2ce` | 75,546 (0.06%) | 0 |  |
+| Street Fighter II': Hyper Fighting | `sf2hf` | 0 | 0 |  |
+| Street Fighter II: The World Warrior | `sf2` | 0 | 0 |  |
+| Strider | `strider` | 0 | 0 |  |
+| The King of Dragons | `kod` | 0 | 0 | 3 players |
+| Three Wonders | `3wonders` | 0 | 0 |  |
+| U.N. Squadron | `unsquad` | 0 | 0 |  |
+| Varth: Operation Thunderstorm | `varth` | 0 | 0 | vertical |
+| Willow | `willow` | 0 | 0 |  |
+
+Street Fighter II': Champion Edition runs part of its code from graphics
+RAM, which native code does not cover yet: those instructions are
+interpreted, counted and reported. No set needed learned RAM code, so CPS-1
+adds nothing to the shared knowledge snapshot yet. Final Fight gives the
+same route hashes on Windows and on Debian 13.
 
 Earlier native/reference agreement (step 3) also covered sf2, ghouls,
-captcomm, megaman and strider. Final Fight and Ghouls'n Ghosts matched MAME
-0.289 pixel for pixel over 214 compared frames; that comparison is a
-development check, not part of each conversion.
+captcomm, megaman and strider. Since overlapping sprites are drawn in MAME's
+order (the first sprite of the list stays on top, 24 October 2026), the
+attract modes of ffight, ghouls, sf2, captcomm, strider and megaman match
+MAME 0.289 pixel for pixel on every compared frame: one frame in 30 over
+9,000 frames, 300 per set. That comparison is a development check, not part
+of each conversion, and it measures agreement with MAME, not with the
+original boards.

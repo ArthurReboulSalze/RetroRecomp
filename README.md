@@ -140,7 +140,7 @@ recovers hints from games stored elsewhere. See
 | Mega Drive | Supported; standard cartridges, PAL/NTSC, SRAM/supported EEPROM, quick states and Menacer |
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | Neo Geo | Supported cartridge profile; arcade MVS, optional console AES, two players, scores, memory card and quick states |
-| Capcom CPS-1 | Experimental; MAME/FBNeo ZIP romsets of the standard boards (no QSound), two players, up to six buttons, vertical games rotated, quick states |
+| Capcom CPS-1 | Experimental; MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states |
 | Sharp X68000 | Experimental; DIM/XDF and M3U disk sets, your own IPL and font ROM, quick states, mouse and keyboard |
 
 Compatibility depends on the game and revision; see the

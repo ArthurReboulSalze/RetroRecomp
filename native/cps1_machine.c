@@ -299,20 +299,58 @@ static int bank_mapper(int type, int code)
     return -1;
 }
 
-/* Pen of one pixel. Layouts follow MAME's gfx_cps1: four bit planes in
- * consecutive bytes (most significant plane last), 8 bytes per 16-pixel row
- * for 8x8 and 16x16 tiles, 16 bytes per row for 32x32 tiles. */
-static int tile_pen(int size, int half, int code, int x, int y)
+/* The graphics ROM decoded once, one pen per byte. MAME's gfx_cps1 layout
+ * keeps eight pixels in each group of four bytes (four bit planes, most
+ * significant plane last), with 8 bytes per 16-pixel row for 8x8 and 16x16
+ * tiles and 16 bytes per row for 32x32 tiles; decoded, a tile row of any size
+ * is contiguous. sprite_blank flags 16x16 tiles whose pens are all 15: like
+ * MAME's pen usage test, skipping them changes nothing. */
+static uint8_t *gfx_pens, *sprite_blank;
+
+static void free_gfx(void)
 {
-    size_t bytes = size == 32 ? 512 : size == 16 ? 128 : 64;
-    size_t count = M.rom.gfx_size / bytes;
-    if (!count) return 15;
-    size_t row = (size_t)((unsigned)code % count) * bytes + (size_t)y * (size == 32 ? 16 : 8);
-    const uint8_t *p = M.rom.gfx + row + (size_t)(size == 8 ? half * 4 : (x >> 3) * 4);
-    const int bit = 7 - (x & 7);
-    return (p[3] >> bit & 1) << 3 | (p[2] >> bit & 1) << 2 | (p[1] >> bit & 1) << 1 | (p[0] >> bit & 1);
+    free(gfx_pens); free(sprite_blank);
+    gfx_pens = sprite_blank = NULL;
 }
 
+static int decode_gfx(void)
+{
+    free_gfx();
+    const size_t groups = M.rom.gfx_size / 4, sprites = M.rom.gfx_size / 128;
+    if (!groups) return 1;
+    gfx_pens = malloc(groups * 8);
+    sprite_blank = malloc(sprites ? sprites : 1);
+    if (!gfx_pens || !sprite_blank) { free_gfx(); return 0; }
+    for (size_t g = 0; g < groups; g++) {
+        const uint8_t *p = M.rom.gfx + g * 4;
+        for (int x = 0; x < 8; x++) {
+            const int bit = 7 - x;
+            gfx_pens[g * 8 + (size_t)x] =
+                (uint8_t)((p[3] >> bit & 1) << 3 | (p[2] >> bit & 1) << 2 | (p[1] >> bit & 1) << 1 | (p[0] >> bit & 1));
+        }
+    }
+    for (size_t s = 0; s < sprites; s++) {
+        const uint8_t *pens = gfx_pens + s * 256;
+        size_t n = 0;
+        while (n < 256 && pens[n] == 15) n++;
+        sprite_blank[s] = n == 256;
+    }
+    return 1;
+}
+
+/* Pens of row y of a tile, or NULL (all pens 15) when the ROM holds no tile of
+ * this size. Codes wrap at the tile count like MAME's gfx element. */
+static const uint8_t *tile_row(int size, int half, int code, int y)
+{
+    const size_t bytes = size == 32 ? 512 : size == 16 ? 128 : 64;
+    const size_t count = M.rom.gfx_size / bytes;
+    if (!count) return NULL;
+    const size_t row = (size_t)((unsigned)code % count) * bytes + (size_t)y * (size == 32 ? 16 : 8);
+    return gfx_pens + 2 * row + (size == 8 ? (size_t)half * 8 : 0);
+}
+
+/* One tilemap pass, a tile row at a time: each scanline is cut into runs that
+ * stay in one tile, whose code, attributes and pens are looked up once. */
 static void draw_layer(int layer, int high)
 {
     static const int sizes[3] = {8, 16, 32}, types[3] = {GFX_SCROLL1, GFX_SCROLL2, GFX_SCROLL3};
@@ -326,16 +364,19 @@ static void draw_layer(int layer, int high)
     uint16_t mask[4];
     for (int i = 0; i < 4; i++)
         mask[i] = M.board.priority[i] != -1 ? M.cps_b[M.board.priority[i] / 2] : 0;
-    const int flip = M.cps_a[A_VIDEO] >> 15 & 1;
+    const int flip = M.cps_a[A_VIDEO] >> 15 & 1, step = flip ? -1 : 1;
     for (int y = 0; y < CPS1_SCREEN_H; y++) {
         const int raster_y = flip ? LINES - 1 - (y + VISIBLE_Y) : y + VISIBLE_Y;
-        const int ty = (raster_y + scroll_y) & extent;
+        const int ty = (raster_y + scroll_y) & extent, row = ty / size;
         int line_x = scroll_x;
         if (rowscroll) line_x += other[(raster_y + M.cps_a[A_ROWSCROLL]) & 0x3ff];
-        for (int x = 0; x < CPS1_SCREEN_W; x++) {
+        uint16_t *pens = M.pens + y * CPS1_SCREEN_W;
+        uint8_t *priority = M.priority + y * CPS1_SCREEN_W;
+        for (int x = 0; x < CPS1_SCREEN_W;) {
             const int raster_x = flip ? (int)LINE_PIXELS - 1 - (x + VISIBLE_X) : x + VISIBLE_X;
-            const int tx = (raster_x + line_x) & extent;
-            const int col = tx / size, row = ty / size;
+            const int tx = (raster_x + line_x) & extent, col = tx / size, first = tx % size;
+            int run = flip ? first + 1 : size - first;
+            if (run > CPS1_SCREEN_W - x) run = CPS1_SCREEN_W - x;
             int index;
             if (layer == 0) index = (row & 0x1f) + ((col & 0x3f) << 5) + ((row & 0x20) << 6);
             else if (layer == 1) index = (row & 0x0f) + ((col & 0x3f) << 4) + ((row & 0x30) << 6);
@@ -344,36 +385,55 @@ static void draw_layer(int layer, int high)
             const uint16_t attr = map[2 * index + 1];
             if (layer == 2) code &= 0x3fff;
             code = bank_mapper(types[layer], code);
-            int px = tx % size, py = ty % size, pen = 15;
-            if (attr & 0x20) px = size - 1 - px;
-            if (attr & 0x40) py = size - 1 - py;
-            if (code != -1) pen = tile_pen(size, index >> 5 & 1, code, px, py);
-            const int at = y * CPS1_SCREEN_W + x;
+            const int py = attr & 0x40 ? size - 1 - ty % size : ty % size;
+            const uint8_t *src = code != -1 ? tile_row(size, index >> 5 & 1, code, py) : NULL;
+            int px = first, advance = step;
+            if (attr & 0x20) { px = size - 1 - first; advance = -step; }
             if (high) {
-                if (mask[(attr >> 7) & 3] >> pen & 1) M.priority[at] |= 1;
-            } else if (pen != 15) {
-                M.pens[at] = (uint16_t)(((attr & 0x1f) + colors[layer]) * 16 + pen);
+                const uint16_t pen_mask = mask[(attr >> 7) & 3];
+                if (!src) {
+                    if (pen_mask >> 15 & 1) for (int k = 0; k < run; k++) priority[x + k] |= 1;
+                } else if (pen_mask) {
+                    for (int k = 0; k < run; k++, px += advance)
+                        if (pen_mask >> src[px] & 1) priority[x + k] |= 1;
+                }
+            } else if (src) {
+                const uint16_t colour = (uint16_t)(((attr & 0x1f) + colors[layer]) * 16);
+                for (int k = 0; k < run; k++, px += advance) {
+                    const int pen = src[px];
+                    if (pen != 15) pens[x + k] = (uint16_t)(colour + pen);
+                }
             }
+            x += run;
         }
     }
 }
 
 static void draw_sprite(int code, int color, int flipx, int flipy, int sx, int sy)
 {
+    const size_t count = M.rom.gfx_size / 128;
+    if (!count || sprite_blank[(unsigned)code % count]) return;
     if (M.cps_a[A_VIDEO] & 0x8000) {            /* MAME DRAWSPRITE, flipped screen */
         flipx = !flipx; flipy = !flipy;
         sx = 512 - 16 - sx; sy = 256 - 16 - sy;
     }
+    const int x0 = sx < VISIBLE_X ? VISIBLE_X - sx : 0;
+    const int x1 = sx + 16 > VISIBLE_X + CPS1_SCREEN_W ? VISIBLE_X + CPS1_SCREEN_W - sx : 16;
+    if (x0 >= x1) return;
+    const uint16_t colour = (uint16_t)(color * 16);
     for (int y = 0; y < 16; y++) {
         const int raster_y = sy + y;
         if (raster_y < VISIBLE_Y || raster_y >= VISIBLE_Y + CPS1_SCREEN_H) continue;
-        for (int x = 0; x < 16; x++) {
-            const int raster_x = sx + x;
-            if (raster_x < VISIBLE_X || raster_x >= VISIBLE_X + CPS1_SCREEN_W) continue;
-            const int pen = tile_pen(16, 0, code, flipx ? 15 - x : x, flipy ? 15 - y : y);
+        const uint8_t *src = tile_row(16, 0, code, flipy ? 15 - y : y);
+        const int line = (raster_y - VISIBLE_Y) * CPS1_SCREEN_W + sx - VISIBLE_X;
+        for (int x = x0; x < x1; x++) {
+            const int pen = src[flipx ? 15 - x : x];
             if (pen == 15) continue;
-            const int at = (raster_y - VISIBLE_Y) * CPS1_SCREEN_W + (raster_x - VISIBLE_X);
-            if (!((1u << (M.priority[at] & 0x1f)) & 0x02)) M.pens[at] = (uint16_t)(color * 16 + pen);
+            const int at = line + x;
+            /* MAME prio_transpen with pmask 0x02 plus its implicit bit 31: a
+             * high tile (1) or an earlier sprite (31) keeps the pixel, so the
+             * first sprite of the list stays on top. */
+            if (!((1u << (M.priority[at] & 0x1f)) & 0x80000002u)) M.pens[at] = (uint16_t)(colour + pen);
             M.priority[at] = 31;
         }
     }
@@ -666,6 +726,7 @@ int cps1_init(const cps1_board *board, const cps1_regions *regions)
     memset(&M, 0, sizeof M);
     M.board = *board;
     M.rom = *regions;
+    if (!decode_gfx()) return 0;
     M.opm = cps1_opm_create(opm_irq, NULL);
     if (!M.opm) return 0;
     m68k_init();
@@ -715,6 +776,7 @@ void cps1_shutdown(void)
 {
     if (M.opm) cps1_opm_destroy(M.opm);
     free(M.audio);
+    free_gfx();
     memset(&M, 0, sizeof M);
 }
 

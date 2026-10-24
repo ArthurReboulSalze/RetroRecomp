@@ -14,15 +14,71 @@ static SDL_AudioStream *resampler;
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
 static const RrCps1Input inputs[] = {RR_CPS1_INPUT_TABLE};
 
+static uint16_t extra_pads[2];
+static const RrCps1Dip dips[] = {RR_CPS1_DIP_TABLE};
+static uint16_t dip_values[3];
+static bool dip_override;
+
 int rr_cps1_rotated(void) { return RR_CPS1_ROTATION == 270; }
+
+/* ------------------------------------------------------------ DIP switches */
+
+int rr_cps1_dip_count(void) { return RR_CPS1_DIP_COUNT; }
+const RrCps1Dip *rr_cps1_dip(int index) { return index >= 0 && index < RR_CPS1_DIP_COUNT ? &dips[index] : NULL; }
+void rr_cps1_dip_values(uint16_t values[3])
+{
+    for (int i = 0; i < 3; i++) values[i] = dip_override ? dip_values[i] : cps1_port_default(CPS1_DSWA + i);
+}
+static void apply_dips(void)
+{
+    if (dip_override) for (int i = 0; i < 3; i++) cps1_set_port(CPS1_DSWA + i, dip_values[i]);
+}
+void rr_cps1_set_dip_values(const uint16_t values[3])
+{
+    memcpy(dip_values, values, sizeof dip_values);
+    dip_override = true;
+    apply_dips();
+}
+bool rr_cps1_dip_visible(int index)
+{
+    const RrCps1Dip *dip = rr_cps1_dip(index);
+    if (!dip) return false;
+    if (dip->condition_port < 0) return true;
+    uint16_t values[3];
+    rr_cps1_dip_values(values);
+    return ((values[dip->condition_port] & dip->condition_mask) == dip->condition_value) == (dip->condition_equals != 0);
+}
+int rr_cps1_dip_setting(int index)
+{
+    const RrCps1Dip *dip = rr_cps1_dip(index);
+    uint16_t values[3];
+    rr_cps1_dip_values(values);
+    for (int k = 0; dip && k < dip->count; k++)
+        if ((values[dip->port] & dip->mask) == dip->values[k]) return k;
+    return -1;
+}
+void rr_cps1_dip_cycle(int index, int step)
+{
+    const RrCps1Dip *dip = rr_cps1_dip(index);
+    if (!dip) return;
+    int current = rr_cps1_dip_setting(index);
+    int next = current < 0 ? 0 : (current + step + dip->count) % dip->count;
+    uint16_t values[3];
+    rr_cps1_dip_values(values);
+    values[dip->port] = (uint16_t)((values[dip->port] & ~dip->mask) | dip->values[next]);
+    rr_cps1_set_dip_values(values);
+}
+
+void rr_cps1_set_extra_pads(uint16_t p3, uint16_t p4) { extra_pads[0] = p3; extra_pads[1] = p4; }
 
 /* Ports are active low: a pressed control clears its bit. */
 void rr_cps1_apply_pads(uint16_t p1, uint16_t p2)
 {
+    const uint16_t pads[4] = {p1, p2, extra_pads[0], extra_pads[1]};
     uint16_t ports[4];
     for (int i = 0; i < 4; i++) ports[i] = cps1_port_default(CPS1_IN0 + i);
     for (size_t i = 0; i < sizeof inputs / sizeof *inputs; i++) {
-        uint16_t pad = inputs[i].player == 1 ? p1 : inputs[i].player == 2 ? p2 : 0;
+        uint16_t pad = inputs[i].player >= 1 && inputs[i].player <= 4 ? pads[inputs[i].player - 1] : 0;
         if (pad & (1u << inputs[i].action)) ports[inputs[i].port] &= (uint16_t)~inputs[i].mask;
     }
     for (int i = 0; i < 4; i++) cps1_set_port(CPS1_IN0 + i, ports[i]);
@@ -32,6 +88,7 @@ bool rr16_init(bool headless) { (void)headless; return true; }
 void rr16_reset(void)
 {
     rr_cps1_reset_machine();
+    apply_dips();
     if (resampler) SDL_AudioStreamClear(resampler);
     rr16_host_discontinuity();
 }
@@ -113,6 +170,7 @@ bool rr16_state_restore(const uint8_t *data, size_t size)
     if (!data || size < STATE_HEADER || memcmp(data, "RCPS1ST1", 8) || get32(data + 12) != size - STATE_HEADER)
         return false;
     if (!cps1_state_load(data + STATE_HEADER, size - STATE_HEADER)) return false;
+    apply_dips();                               /* the switches shown in F2 */
     rr_cps1_restore_frame(get32(data + 8));
     if (resampler) SDL_AudioStreamClear(resampler);
     rr16_host_discontinuity();

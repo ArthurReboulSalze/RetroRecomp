@@ -40,15 +40,16 @@ static const char *report_path, *trace_path, *save_path, *load_path, *capture_di
 static unsigned save_at, capture_every = 600, measure_from;
 static struct { unsigned frame; const char *path; } checkpoints[8];
 static unsigned checkpoint_count;
-static int ignore_load_error, state_loaded, load_rejected, save_failed;
+static int ignore_load_error, state_loaded, load_rejected, save_failed, dips_given;
+static uint16_t dips[3];
 static FILE *trace_file, *pcm;
 static unsigned measured_frames, over_budget_frames;
 static double simulation_ms, simulation_max_ms, loop_wall_seconds;
 static uint64_t performance_frequency;
-typedef struct { unsigned frame, p1, p2; } Input;
+typedef struct { unsigned frame, p1, p2, p3, p4; } Input;
 static Input script[8192];
 static unsigned script_count, script_pos;
-static uint16_t script_p1, script_p2;
+static uint16_t script_p1, script_p2, script_p3, script_p4;
 
 static wchar_t *wide(const char *text)
 {
@@ -73,7 +74,8 @@ static int state_file(const char *path, int load)
 }
 static uint32_t le32(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 
-/* "frame p1 p2": host pad bits in hex, held from that frame on. */
+/* "frame p1 p2 [p3 p4]": host pad bits in hex, held from that frame on;
+ * players 3 and 4 stay released when their columns are absent. */
 static int load_script(const char *path)
 {
     FILE *f = file_open(path, L"rb");
@@ -84,8 +86,10 @@ static int load_script(const char *path)
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
         if (script_count >= 8192) { fclose(f); return 0; }
         Input *row = &script[script_count];
-        if (sscanf(line, "%u %x %x", &row->frame, &row->p1, &row->p2) != 3 || row->frame < last ||
-            row->p1 > 0xfff || row->p2 > 0xfff) { fclose(f); return 0; }
+        row->p3 = row->p4 = 0;
+        int fields = sscanf(line, "%u %x %x %x %x", &row->frame, &row->p1, &row->p2, &row->p3, &row->p4);
+        if ((fields != 3 && fields != 5) || row->frame < last ||
+            row->p1 > 0xfff || row->p2 > 0xfff || row->p3 > 0xfff || row->p4 > 0xfff) { fclose(f); return 0; }
         last = row->frame;
         script_count++;
     }
@@ -152,8 +156,10 @@ static void scripted_pads(void)
 {
     while (script_pos < script_count && script[script_pos].frame <= frame) {
         script_p1 = (uint16_t)script[script_pos].p1; script_p2 = (uint16_t)script[script_pos].p2;
+        script_p3 = (uint16_t)script[script_pos].p3; script_p4 = (uint16_t)script[script_pos].p4;
         script_pos++;
     }
+    rr_cps1_set_extra_pads(script_p3, script_p4);
     rr_cps1_apply_pads(script_p1, script_p2);
 }
 
@@ -166,7 +172,7 @@ void rr_cps1_host_frame(uint16_t p1, uint16_t p2)
 uint32_t rr_cps1_frame_index(void) { return frame; }
 void rr_cps1_restore_frame(uint32_t value)
 {
-    frame = value; script_pos = 0; script_p1 = script_p2 = 0;
+    frame = value; script_pos = 0; script_p1 = script_p2 = script_p3 = script_p4 = 0;
     audio_taken = 1; frame_audio_count = 0;
 }
 void rr_cps1_reset_machine(void) { cps1_reset(); rr_cps1_restore_frame(0); }
@@ -258,6 +264,12 @@ static int execute(int argc, char **argv)
         }
         else if (i + 1 < argc && !strcmp(argv[i], "--load-state")) load_path = argv[++i];
         else if (!strcmp(argv[i], "--ignore-load-error")) ignore_load_error = 1;
+        /* Development checks only (conversions keep the defaults): DSWA,DSWB,DSWC. */
+        else if (i + 1 < argc && !strcmp(argv[i], "--dips")) {
+            unsigned a, b, c;
+            if (sscanf(argv[++i], "%i,%i,%i", (int *)&a, (int *)&b, (int *)&c) != 3 || (a | b | c) > 0xffff) return 2;
+            dips[0] = (uint16_t)a; dips[1] = (uint16_t)b; dips[2] = (uint16_t)c; dips_given = 1;
+        }
         else if (i + 1 < argc && !strcmp(argv[i], "--trace")) trace_path = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture")) capture_dir = argv[++i];
         else if (i + 1 < argc && !strcmp(argv[i], "--capture-every")) capture_every = (unsigned)atoi(argv[++i]);
@@ -288,6 +300,7 @@ static int execute(int argc, char **argv)
     cps1_regions rom = {regions[1].data, regions[1].size, regions[2].data, regions[2].size, regions[3].data,
                         regions[3].size, regions[4].data, regions[4].size, regions[5].data, regions[5].size};
     if (!cps1_init(&board, &rom)) { free(content); SDL_Quit(); return 3; }
+    if (dips_given) rr_cps1_set_dip_values(dips);
     rr_cps1_apply_pads(0, 0);
     if (pcm_path && !(pcm = file_open(pcm_path, L"wb"))) return 3;
     if (trace_path) {

@@ -36,6 +36,8 @@ LONG_ROUTE_COUNT = 2
 LONG_ROUTE_FRAMES = 18000
 # Neutral frames at the start of a route that continues from a saved state.
 CHAIN_SETTLE_FRAMES = 60
+# CPS-1: earliest second credit, after the longest start-up test seen.
+CPS1_LATE_CREDIT = 1320
 CONSOLE16_LINE_LIMIT = 4096
 NEOGEO_LINE_LIMIT = 8192
 
@@ -165,6 +167,15 @@ def long_route(console: str, identity: str, index: int, *, frames: int = LONG_RO
         frame = tap(frame, {'start'}, 4, pressed=opening and has_start) + rng.randint(120, 240)
     for _ in range(rng.randint(1, 3)):
         frame = tap(frame, {rng.choice(main)}, 6, pressed=opening) + rng.randint(60, 150)
+    if console == 'cps1' and opening:
+        # Some boards ignore coins during a long start-up test (Ghouls'n
+        # Ghosts: about 1,300 frames), so a second credit and Start follow the
+        # menus, from frame 1,320 on. No number is drawn, so the body that
+        # follows draws the same numbers, only later.
+        frame = max(frame, CPS1_LATE_CREDIT)
+        emit(frame, coin=1)
+        emit(frame + 8, coin=0)
+        frame = tap(frame + 60, {'start'}, 4) + 120
     if not opening:
         frame = CHAIN_SETTLE_FRAMES
     while frame < frames - 200:

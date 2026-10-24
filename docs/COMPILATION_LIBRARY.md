@@ -1,15 +1,23 @@
 # Shared compilation knowledge
 
-## Capcom CPS-1 — local observations (23 October 2026, not in the snapshot)
+## Capcom CPS-1 — local observations (24 October 2026, not in the snapshot)
 
 CPS-1 conversions keep their learned work-RAM 68000 and Z80 RAM code per exact
 romset identity in the converter library (`library/cps1/<identity>/
 observations.json`, with `compilation.json`), merged with opt-in gameplay
 feedback (kinds 14–16) at the next conversion. These observations only add
 guarded native code: every conversion still compares each route with its fresh
-interpreted reference. The first sets (Final Fight, 1941) needed none. CPS-1
-records are not yet part of `assets/compilation-knowledge.json.gz`; adding them
-needs the usual qualification and snapshot step.
+interpreted reference.
+
+The first wide qualification (26 parent sets of the NAS, standard scan level,
+eight concurrent conversions) needed no learned RAM code at all: zero 68000
+and zero Z80 RAM variants for every set, and zero fallback for 25 of them.
+Street Fighter II': Champion Edition interprets 0.06% of its 68000
+instructions, run from graphics RAM, which native code does not cover yet.
+With nothing to share, CPS-1 records are still not part of
+`assets/compilation-knowledge.json.gz`; graphics-RAM variants copied from the
+ROM would be the first candidates. Per-set results:
+[CPS-1 guide](CPS1.md#qualified-sets-24-october-2026-windows).
 
 ## X68000 stage 9 — private multi-disk and mouse exploration
 

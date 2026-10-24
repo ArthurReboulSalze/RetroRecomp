@@ -9,7 +9,7 @@ import zipfile
 import zlib
 
 from smsrecomp import cps1_catalogue
-from smsrecomp.cps1_build import input_table, pack
+from smsrecomp.cps1_build import DIP_PORTS, dip_table, input_table, pack, player_count
 from smsrecomp.cps1_conversion import merge, routes
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,9 +58,41 @@ class ControlTests(unittest.TestCase):
         self.assertIn((2, 1, 3, 1), rows)       # IN2 bit 0 -> player 1 button 4
         self.assertIn((2, 64, 5, 2), rows)      # IN2 bit 6 -> player 2 button 6
 
-    def test_third_and_fourth_players_stay_released(self):
-        game = cps1_catalogue.by_set()['captcomm']
-        self.assertTrue(all(player in (1, 2) for *_, player in input_table(game)))
+    def test_third_and_fourth_players_use_their_own_ports(self):
+        games = cps1_catalogue.by_set()
+        rows = input_table(games['captcomm'])
+        self.assertIn((2, 16, 0, 3), rows)      # IN2 bit 4 -> player 3 button 1
+        self.assertIn((2, 64, 7, 3), rows)      # coin 3 -> player 3 coin
+        self.assertIn((3, 128, 6, 4), rows)     # start 4 -> player 4 Start
+        self.assertIn((3, 1, 11, 4), rows)      # IN3 bit 0 -> player 4 right
+        self.assertEqual([player_count(games[name]) for name in ('ffight', 'sf2', 'kod', 'mercs', 'captcomm')],
+                         [2, 2, 3, 3, 4])
+
+    def test_dip_table_keeps_mame_names_settings_and_conditions(self):
+        games = cps1_catalogue.by_set()
+        count, rows = dip_table(games['ffight'])
+        self.assertEqual(count, 13)
+        self.assertIn('{2,16,16,"Flip Screen",2,{16,0},{"Off","On"},-1,0,0,0}', rows)
+        self.assertNotIn('Unused', rows)
+        conditional = [dip for dip in cps1_catalogue.dips(games['ghouls']) if 'condition' in dip]
+        self.assertTrue(conditional)
+        count, rows = dip_table(games['ghouls'])
+        port, mask, equals, value = (DIP_PORTS.index(conditional[0]['condition'][0]), conditional[0]['condition'][1],
+                                     int(conditional[0]['condition'][2]), conditional[0]['condition'][3])
+        self.assertIn(f',{port},{equals},{mask},{value}}}', rows)
+
+    def test_switches_under_different_conditions_coexist_as_in_mame(self):
+        # MAME 0.289 reads DSWA/DSWB/DSWC = 0xff/0xff/0xfa on Willow with no change.
+        ports = cps1_catalogue.by_set()['willow']['inputs']
+        self.assertEqual([ports[name]['default'] for name in ('DSWA', 'DSWB', 'DSWC')], [0xff, 0xff, 0xfa])
+
+    def test_extra_players_reach_the_host_and_scripts(self):
+        ui = (ROOT / 'native/console16_host_ui.c').read_text(encoding='utf-8')
+        self.assertIn('#define rr16_players() RR_CPS1_PLAYERS', ui)
+        self.assertIn('(RrPages){2 * rr16_players()', ui)
+        self.assertIn('rr_cps1_set_extra_pads(', ui)
+        main = (ROOT / 'native/cps1_main.c').read_text(encoding='utf-8')
+        self.assertIn('fields != 3 && fields != 5', main)
 
     def test_host_menu_and_pad_bits_agree(self):
         ui = (ROOT / 'native/console16_host_ui.c').read_text(encoding='utf-8')

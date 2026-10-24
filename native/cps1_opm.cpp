@@ -112,7 +112,8 @@ int cps1_opm_load(cps1_opm *chip, const uint8_t *buffer, size_t size)
     chip->chip.save_restore(state);
     std::memcpy(chip->intf.timer, buffer + data.size(), sizeof chip->intf.timer);
     std::memcpy(&chip->intf.busy_end, buffer + data.size() + sizeof chip->intf.timer, sizeof chip->intf.busy_end);
-    chip->chip.invalidate_caches();
+    /* The adapted save_restore (cps1_build.ymfm_source) restores the channel
+     * masks and operator caches: invalidating here would re-prepare. */
     return 1;
 }
 

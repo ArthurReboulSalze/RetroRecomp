@@ -25,6 +25,10 @@ from MAME's CPS-1 driver at revision
 `src/mame/capcom/cps1.cpp` (set list and ROM layouts) and
 `src/mame/capcom/cps1_v.cpp` (CPS-B board registers and graphics mappers).
 Both files state `license:BSD-3-Clause` and `copyright-holders:Paul Leaman`.
+The DIP switch names and settings come from those input definitions; the
+shared labels they name (`DEF_STR`) come from the `input_port_default_strings`
+table of `src/emu/ioport.cpp` (`license:BSD-3-Clause`,
+`copyright-holders:Aaron Giles`) at the same revision.
 `tools/build_cps1_catalogue.py` reads them at that revision, checks their
 SHA-256 values and writes the catalogue; the catalogue records the same
 revision and notice. No ROM data is included.
