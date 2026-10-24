@@ -46,7 +46,7 @@ native/x68000_reference/check_compat.h native/x68000_reference/CMakeLists.txt
 native/x68000_reference/disk_checks.c native/x68000_reference/disk_checks.h
 native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.h
 native/x68000_reference/loading.h native/x68000_reference/media_probe.c
-native/x68000_reference/media_session.c native/x68000_reference/media_session.h
+native/x68000_reference/media_session.c native/x68000_reference/media_session.h native/x68000_reference/mouse_games.json
 native/x68000_reference/payload.c native/x68000_reference/payload.h
 native/x68000_reference/player_ui.inc native/x68000_reference/probe.c
 native/x68000_reference/probe.h native/x68000_reference/reference_host.c

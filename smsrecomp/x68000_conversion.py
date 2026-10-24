@@ -16,7 +16,8 @@ from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id
 from .library import atomic_json, entry_lock
-from .x68000 import developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse
+from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
+                     MOUSE_GAME_READS)
 
 
 def digest(path):
@@ -301,9 +302,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         except (OSError,ValueError,AttributeError):remembered=False
         # A reviewed exact set follows the mouse list. Other sets are found by
         # their own code: loaded code that reads the mouse lengthens the mouse
-        # route, and reads executed on a fresh route turn on the player's
-        # mouse controls. A game confirmed by an earlier conversion of the
-        # same exact set keeps them in a shorter scan.
+        # route, and at least MOUSE_GAME_READS reads executed on fresh routes
+        # turn on the player's mouse controls. A game confirmed by an earlier
+        # conversion of the same exact set keeps them in a shorter scan.
         listed=listed_mouse(source)
         mouse_code,mouse_calls=mouse_reads(observations)
         mouse_route=listed if listed is not None else mouse_code or remembered
@@ -339,12 +340,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             more=json.loads((folder/'observations.json').read_text())
             mouse_calls+=mouse_reads(more)[1]
             observations,_=extend_observations(observations,more)
-        # Without a mouse route, loaded mouse-reading code is the best evidence.
-        mouse_game=(listed if listed is not None else
-                    bool(mouse_calls) or remembered or (mouse_code and not routes))
+        mouse_game=listed if listed is not None else mouse_calls>=MOUSE_GAME_READS or remembered
         emit('X68000: mouse controls '+('on' if mouse_game else 'off')+
              (' (reviewed list)' if listed is not None else '')+
-             f'; {mouse_calls} IOCS mouse reads on fresh routes.')
+             f'; {mouse_calls} mouse reads on fresh routes.')
         extra_routes=[(route,folder,inputs) for route,folder,inputs,_ in extra_routes]
         # Exact-input observations improve discovery, never waive the fresh
         # independent comparison above or the standalone replay below.
@@ -455,7 +454,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
           'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,
-          'mouse_controls':{'enabled':mouse_game,'listed':listed,'iocs_mouse_reads':mouse_calls,
+          'mouse_controls':{'enabled':mouse_game,'listed':listed,'mouse_reads':mouse_calls,
                             'mouse_code_loaded':mouse_code,'remembered':remembered},
           'automatic_disk_changes_observed':actual.get('automatic_disk_changes',0),
           'media_events':actual.get('media_events',[]),
@@ -474,7 +473,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             'schema':1,'title':title,'system':'x68','source_identity':manifest.sha256,
             'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
             'private_development_only':True,'fresh_reference_passed':True,
-            # Only executed reads are remembered, never the quick-scan fallback.
-            'mouse_controls':bool(mouse_calls) or remembered})
+            # Only observed reads are remembered, never the reviewed list's choice.
+            'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
         emit('X68000: validated standalone player ready (experimental profile).')
         return candidate

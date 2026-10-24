@@ -89,7 +89,7 @@ def automatic_disk_changes(source):
     return len(source.disks) > 1
 
 
-MOUSE_LIST = 'assets/x68000-mouse-games.json'
+MOUSE_LIST = 'native/x68000_reference/mouse_games.json'
 
 
 def listed_mouse(source):
@@ -106,24 +106,36 @@ def listed_mouse(source):
     return value if isinstance(value, bool) else None
 
 
+# Fewer executed reads than this are polling, not play: the reviewed sets
+# with mouse controls read the mouse at least this often on the mouse route.
+MOUSE_GAME_READS = 1000
 # IOCS calls that read the mouse: _MS_GETDT, _MS_CURGT, _MS_OFFTM, _MS_ONTM.
 # _MS_INIT and _MS_CUROF alone only hide the pointer, as most games do.
 MOUSE_READS = frozenset((0x74, 0x75, 0x78, 0x79))
+# The mouse's serial line, SCC channel B: command $E98001 and data $E98003,
+# also reached by word accesses at $E98000/$E98002 (Lemmings, Populous).
+# Channel A from $E98004 is the RS-232C port and is not counted.
+MOUSE_PORTS = frozenset(('00e98000', '00e98001', '00e98002', '00e98003'))
 
 
 def mouse_reads(record):
-    """(present, executed) IOCS mouse reads in one route's observations.
+    """(present, executed) mouse reads in one route's observations.
 
-    A read is `moveq #call,d0` followed by `trap #15`, as the IOCS macro
-    writes it. Present includes code found by static expansion that has not
-    run yet; executed counts the trap's own hits during that route. No title
-    or exact-set rule is involved.
+    Two ways are recognized: the IOCS macro, `moveq #call,d0` followed by
+    `trap #15`, and RAM code naming the mouse's serial channel as an address,
+    as games with their own mouse driver do (the IPL's handler runs from ROM
+    and is not counted). Present includes code found by static expansion that
+    has not run yet; executed counts its hits during that route. No title or
+    exact-set rule is involved.
     """
     words = {row['pc']: row['words'].lower() for row in record['variants']}
     hits = {row['pc']: row.get('hits', 0) for row in record['variants']}
     sites = [pc + 2 for pc, word in words.items()
              if len(word) == 4 and word[:2] == '70' and int(word[2:], 16) in MOUSE_READS
              and words.get(pc + 2) == '4e4f']
+    # Addresses are whole extension words, never a match across two words.
+    sites += [pc for pc, word in words.items() if pc < 0xc00000 and
+              any(word[i:i + 8] in MOUSE_PORTS for i in range(4, len(word) - 7, 4))]
     return bool(sites), sum(hits.get(site, 0) for site in sites)
 
 

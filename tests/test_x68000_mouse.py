@@ -22,6 +22,18 @@ class MouseReadTests(unittest.TestCase):
         self.assertEqual(mouse_reads(record((0x8000, '7075', 3), (0x8002, '4e4f', 3),
                                             (0x9000, '7079', 1), (0x9002, '4e4f', 1))), (True, 4))
 
+    def test_a_games_own_driver_on_the_mouse_serial_channel_counts(self):
+        # lea $E98001,a0 in RAM, as Cameltry does, and move.b $E98003,d0.
+        self.assertEqual(mouse_reads(record((0x8bfd2, '41f900e98001', 70), (0x8c000, '103900e98003', 5))), (True, 75))
+        # Word accesses, as Lemmings and Populous: move.w $E98002,d0 and
+        # move.w #$38,$E98000.
+        self.assertEqual(mouse_reads(record((0x35428, '303900e98002', 12), (0x35450, '33fc003800e98000', 12))), (True, 24))
+        # The IPL's own handler in ROM, the RS-232C channel A and digits that
+        # only line up across word boundaries are not a game reading the mouse.
+        self.assertEqual(mouse_reads(record((0xff1000, '41f900e98001', 9))), (False, 0))
+        self.assertEqual(mouse_reads(record((0x8000, '41f900e98005', 9), (0x9000, '103900e98007', 9))), (False, 0))
+        self.assertEqual(mouse_reads(record((0x8000, '4e700e98001e', 9))), (False, 0))
+
     def test_loaded_code_that_has_not_run_is_only_present(self):
         # Static expansion records reachable code with no hits.
         self.assertEqual(mouse_reads(record((0x8000, '7074', 0), (0x8002, '4e4f', 0))), (True, 0))
@@ -35,6 +47,23 @@ class MouseReadTests(unittest.TestCase):
 
 
 class MouseListTests(unittest.TestCase):
+    def test_the_shipped_list_names_exact_sets_and_no_paths(self):
+        from smsrecomp.paths import ASSETS
+        data = json.loads((ASSETS / MOUSE_LIST).read_text(encoding='utf-8'))
+        self.assertEqual(data['schema'], 1)
+        for identity, entry in data['games'].items():
+            self.assertRegex(identity, r'^[0-9a-f]{64}$')
+            self.assertEqual(set(entry), {'title', 'mouse'})
+            self.assertIsInstance(entry['mouse'], bool)
+            self.assertTrue(entry['title'] and '/' not in entry['title'] and '\\' not in entry['title'])
+        games = data['games']
+        # The two sets the former exact-hash rule covered keep their controls.
+        self.assertTrue(games['24bf876f9d31a622313c4e6fb0f4c8134259c11e1dd0fea28124a44498c797e3']['mouse'])
+        self.assertTrue(games['06ae8a805f2826bf049febf54aa2734760ac893f95620ee30dcb6c7a60271215']['mouse'])
+        sight = [entry for entry in games.values() if entry['title'] == 'Metal Sight']
+        self.assertEqual(sight, [{'title': 'Metal Sight', 'mouse': False}])
+
+
     def test_only_reviewed_exact_sets_are_listed(self):
         with TemporaryDirectory() as folder:
             root = Path(folder)
