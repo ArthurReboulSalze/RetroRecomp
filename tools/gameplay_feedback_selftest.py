@@ -15,11 +15,11 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp import feedback
+from retrorecomp import feedback
 
 
 def sega(work,system):
-    from smsrecomp.core import convert
+    from retrorecomp.core import convert
     data=bytearray([0xc9]*8192);data[:3]=bytes.fromhex('c3 00 01')
     program=bytes.fromhex('f3 31 f0 df 3e 00 32 00 c0 3e 02 32 01 c0 2a 00 c0 e9')
     data[0x100:0x100+len(program)]=program
@@ -51,8 +51,8 @@ def sega(work,system):
 
 def snes(work):
     from tools.snes_ram_selftest import ram_cartridge
-    from smsrecomp.console16 import prepare16,probe16,reference_differences
-    from smsrecomp.cartridge16 import read_snes_rom
+    from retrorecomp.console16 import prepare16,probe16,reference_differences
+    from retrorecomp.cartridge16 import read_snes_rom
     path=work/'authored.sfc';data=ram_cartridge();data[0x7fc0:0x7fc0+21]=b'RR FEEDBACK FIXTURE'.ljust(21,b' ');path.write_bytes(data)
     rom=read_snes_rom(path);first=prepare16(path,'snes',emit=lambda _:None)
     before=probe16(first,work,20,scenario='before')
@@ -72,8 +72,8 @@ def snes(work):
 
 
 def md(work):
-    from smsrecomp.console16 import prepare16,probe16,reference_differences
-    from smsrecomp.cartridge16 import read_megadrive_rom
+    from retrorecomp.console16 import prepare16,probe16,reference_differences
+    from retrorecomp.cartridge16 import read_megadrive_rom
     data=bytearray(32768)
     for offset,value in ((0,0xffff00),(4,0x200),(0x70,0x240),(0x78,0x240)):
         data[offset:offset+4]=value.to_bytes(4,'big')
@@ -101,7 +101,7 @@ def md(work):
 
 def nes(work):
     from tools.nes_native_selftest import fixture
-    from smsrecomp.nes import convert_nes,read_nes_rom
+    from retrorecomp.nes import convert_nes,read_nes_rom
     data=bytearray(fixture(0))
     # NES deliberately retains interrupted-build RAM candidates. Give every
     # authored test invocation a distinct ROM identity, rather than mistaking
@@ -130,10 +130,10 @@ def nes(work):
 
 
 def gb(work):
-    from smsrecomp.core import run
-    from smsrecomp.gameboy import _dependencies,_known_entries,read_game_boy_rom,CPU_MATCH
-    from smsrecomp.gameboy_runtime import adapt_generated_project
-    from smsrecomp.gameboy_coverage import write_entries
+    from retrorecomp.core import run
+    from retrorecomp.gameboy import _dependencies,_known_entries,read_game_boy_rom,CPU_MATCH
+    from retrorecomp.gameboy_runtime import adapt_generated_project
+    from retrorecomp.gameboy_coverage import write_entries
     data=bytearray(32768);data[0x100:0x103]=bytes.fromhex('c3 50 01')
     code=bytes.fromhex('f3 af e0 40 31 f0 df 3e 00 ea 00 c0 3e 02 ea 01 c0 fa 00 c0 6f fa 01 c0 67 e9')
     data[0x150:0x150+len(code)]=code

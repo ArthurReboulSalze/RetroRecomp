@@ -8,18 +8,18 @@ from unittest.mock import patch
 import zipfile
 import zlib
 
-from smsrecomp import cps1_catalogue
-from smsrecomp.cps1_build import DIP_PORTS, dip_table, input_table, pack, player_count
-from smsrecomp.cps1_conversion import merge, routes
+from retrorecomp import cps1_catalogue
+from retrorecomp.cps1_build import DIP_PORTS, dip_table, input_table, pack, player_count
+from retrorecomp.cps1_conversion import merge, routes
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProfileTests(unittest.TestCase):
     def test_registered_profile_metadata_and_scan_levels(self):
-        from smsrecomp.systems import PROFILES, get_profile
-        from smsrecomp.metadata import game_metadata
-        from smsrecomp.scan_levels import plan_for
+        from retrorecomp.systems import PROFILES, get_profile
+        from retrorecomp.metadata import game_metadata
+        from retrorecomp.scan_levels import plan_for
         profile = get_profile('cps1')
         self.assertIn(profile, PROFILES)
         self.assertEqual((profile.export_folder, profile.video_modes), ('CPS-1', ('arcade',)))
@@ -27,18 +27,18 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(plan_for('cps1', level='quick').frames, 2400)
 
     def test_zip_detection_precedes_neo_geo_and_respects_a_chosen_console(self):
-        from smsrecomp.systems import profile_for_path
+        from retrorecomp.systems import profile_for_path
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'demo.zip'
             with zipfile.ZipFile(path, 'w') as archive:
                 archive.writestr('demo.bin', b'synthetic')
-            with patch('smsrecomp.cps1.looks_like_cps1_zip', return_value=True):
+            with patch('retrorecomp.cps1.looks_like_cps1_zip', return_value=True):
                 self.assertEqual(profile_for_path(path).id, 'cps1')
-            with patch('smsrecomp.cps1.looks_like_cps1_zip', side_effect=AssertionError):
+            with patch('retrorecomp.cps1.looks_like_cps1_zip', side_effect=AssertionError):
                 self.assertEqual(profile_for_path(path, 'cps1').id, 'cps1')
 
     def test_feedback_kinds_match_the_runtime(self):
-        from smsrecomp.feedback import KINDS
+        from retrorecomp.feedback import KINDS
         self.assertEqual(KINDS['cps1'], {14, 15, 16})
         header = (ROOT / 'native/runtime_feedback.h').read_text(encoding='utf-8')
         self.assertIn('RR_FB_CPS1_ROM=14, RR_FB_CPS1_RAM=15, RR_FB_CPS1_Z80=16', header)

@@ -7,11 +7,11 @@ from zipfile import ZipFile
 
 from PIL import Image
 
-from smsrecomp.artwork import prepare_icon
-from smsrecomp.batch import identify
-from smsrecomp.core import ConversionError
-from smsrecomp.gameboy import read_game_boy_rom
-from smsrecomp.systems import profile_for_path
+from retrorecomp.artwork import prepare_icon
+from retrorecomp.batch import identify
+from retrorecomp.core import ConversionError
+from retrorecomp.gameboy import read_game_boy_rom
+from retrorecomp.systems import profile_for_path
 
 
 def cartridge(cgb_flag=0):
@@ -55,7 +55,7 @@ class GameBoyTests(unittest.TestCase):
         image = Image.new('RGB', (32, 32), 'blue')
         buffer = BytesIO()
         image.save(buffer, format='PNG')
-        with patch('smsrecomp.artwork._get', return_value=buffer.getvalue()) as get:
+        with patch('retrorecomp.artwork._get', return_value=buffer.getvalue()) as get:
             result = prepare_icon(build, source, 'Sample', self.root / 'BoxArt', system_id='gb')
         self.assertTrue(result['embedded'])
         self.assertIn('Nintendo_-_Game_Boy', get.call_args.args[0])

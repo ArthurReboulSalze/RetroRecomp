@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from smsrecomp import random_routes as rr
+from retrorecomp import random_routes as rr
 
 IDENTITY = 'a' * 64
 OTHER = 'b' * 64

@@ -11,9 +11,9 @@ import subprocess
 
 from PIL import Image
 
-from smsrecomp.artwork import ArtworkError, ICON_SIZES, REPOSITORIES, _get, choose_cover, prepare_icon, resolve_cover
-from smsrecomp.cover_settings import defaults
-from smsrecomp.paths import boxart_cache_directory
+from retrorecomp.artwork import ArtworkError, ICON_SIZES, REPOSITORIES, _get, choose_cover, prepare_icon, resolve_cover
+from retrorecomp.cover_settings import defaults
+from retrorecomp.paths import boxart_cache_directory
 
 
 def png():
@@ -38,7 +38,7 @@ class ArtworkTests(unittest.TestCase):
         source = self.art / "Game (Europe).png"
         source.write_bytes(png())
         before = source.read_bytes()
-        with patch("smsrecomp.artwork._get", side_effect=AssertionError("local art must not use the network")):
+        with patch("retrorecomp.artwork._get", side_effect=AssertionError("local art must not use the network")):
             report = prepare_icon(self.game, self.rom, "Game", self.art, online=False)
         self.assertTrue(report["embedded"])
         self.assertEqual(report["source"], "local")
@@ -64,12 +64,12 @@ class ArtworkTests(unittest.TestCase):
                          "Factory Panic (Europe, Brazil).png")
 
     def test_online_download_is_cached_and_then_works_offline(self):
-        with patch("smsrecomp.artwork._get", return_value=png()) as request:
+        with patch("retrorecomp.artwork._get", return_value=png()) as request:
             report = prepare_icon(self.game, self.rom, "Game", self.art)
         self.assertTrue(report["embedded"])
         self.assertEqual(report["source"], "libretro")
         self.assertIn("Game%20%28Europe%29.png", request.call_args.args[0])
-        with patch("smsrecomp.artwork._get", side_effect=AssertionError("cached art must work offline")):
+        with patch("retrorecomp.artwork._get", side_effect=AssertionError("cached art must work offline")):
             cached = prepare_icon(self.game, self.rom, "Game", self.art, online=False)
         self.assertEqual(cached["source"], "libretro_cache")
         self.assertEqual(cached["icon_sha256"], report["icon_sha256"])
@@ -103,13 +103,13 @@ class ArtworkTests(unittest.TestCase):
         out = BytesIO(); Image.new('RGB', (800, 300), 'blue').save(out, format='PNG')
         source.write_bytes(out.getvalue())
         before = source.read_bytes()
-        with patch('smsrecomp.artwork._get', return_value=png()) as client:
+        with patch('retrorecomp.artwork._get', return_value=png()) as client:
             cover = resolve_cover(self.rom, 'Game', self.art, settings=defaults(), emit=lambda _: None)
         self.assertEqual(cover['source'], 'libretro')
         self.assertEqual(cover['style'], 'front')
         self.assertEqual(client.call_count, 1)
         self.assertEqual(source.read_bytes(), before)
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('validated download should be reused')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('validated download should be reused')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=defaults(), emit=lambda _: None)
         self.assertEqual(cached['source'], 'libretro_cache')
         self.assertEqual(cached['data'], cover['data'])
@@ -118,7 +118,7 @@ class ArtworkTests(unittest.TestCase):
         self.art.mkdir()
         selected = self.art / 'Chosen.png'
         selected.write_bytes(png())
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('honor the manual choice')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('honor the manual choice')):
             cover = resolve_cover(self.rom, 'Game', self.art, explicit=selected, settings=defaults())
         self.assertEqual(cover['source'], 'explicit')
         self.assertEqual(cover['data'], selected.read_bytes())
@@ -131,7 +131,7 @@ class ArtworkTests(unittest.TestCase):
         def unavailable(url, maximum):
             requests.append(url)
             raise urllib.error.URLError('offline')
-        with patch('smsrecomp.artwork._get', side_effect=unavailable):
+        with patch('retrorecomp.artwork._get', side_effect=unavailable):
             cover = resolve_cover(self.rom, 'Game', self.art, settings=defaults(), emit=lambda _: None)
         self.assertEqual(cover['source'], 'local')
         self.assertTrue(requests)
@@ -141,18 +141,18 @@ class ArtworkTests(unittest.TestCase):
         self.art.mkdir()
         for name in ('Game (USA).png', 'Game (Japan).png'):
             (self.art / name).write_bytes(png())
-        with patch('smsrecomp.artwork._get', return_value=png()):
+        with patch('retrorecomp.artwork._get', return_value=png()):
             cover = resolve_cover(self.rom, 'Game', self.art, settings=defaults(), emit=lambda _: None)
         self.assertEqual(cover['source'], 'libretro')
 
     def test_separate_data_cache_does_not_write_to_user_boxart(self):
         cache = self.root / "datas/BoxArt"
-        with patch("smsrecomp.artwork._get", return_value=png()):
+        with patch("retrorecomp.artwork._get", return_value=png()):
             report = prepare_icon(self.game, self.rom, "Game", self.art, cache_directory=cache)
         self.assertTrue(report["embedded"])
         self.assertFalse(self.art.exists())
         self.assertTrue(Path(report["image"]).is_relative_to(cache))
-        with patch("smsrecomp.artwork._get", side_effect=AssertionError("offline cache must not connect")):
+        with patch("retrorecomp.artwork._get", side_effect=AssertionError("offline cache must not connect")):
             cached = prepare_icon(self.game, self.rom, "Game", self.art, online=False, cache_directory=cache)
         self.assertEqual(cached["source"], "libretro_cache")
 
@@ -164,11 +164,11 @@ class ArtworkTests(unittest.TestCase):
                 rom = folder / ('Game (Europe).' + system)
                 rom.write_bytes(b'authored fixture ' + system.encode())
                 build = folder / 'build'; build.mkdir()
-                with patch('smsrecomp.paths.data_directory', return_value=self.root / 'datas'):
+                with patch('retrorecomp.paths.data_directory', return_value=self.root / 'datas'):
                     cache = boxart_cache_directory(system)
                 self.assertEqual(cache, self.root / 'datas/BoxArt' / system)
                 out = BytesIO(); Image.new('RGB', (96, 120), (len(system) * 40, 60, 90)).save(out, format='PNG')
-                with patch('smsrecomp.artwork._get', return_value=out.getvalue()) as client:
+                with patch('retrorecomp.artwork._get', return_value=out.getvalue()) as client:
                     first = prepare_icon(build, rom, 'Game', self.art, cache_directory=cache,
                                          system_id=system, settings=defaults(), emit=lambda _: None)
                 self.assertTrue(first['embedded'])
@@ -184,8 +184,8 @@ class ArtworkTests(unittest.TestCase):
                 settings = defaults()
                 settings['accounts']['thegamesdb']['apikey'] = 'fixture-key'
                 settings['revision'] = 'changed-fixture-settings'
-                with patch('smsrecomp.artwork._get', side_effect=AssertionError('no network on regeneration')), \
-                        patch('smsrecomp.artwork.fetch', side_effect=AssertionError('no API on regeneration')), \
+                with patch('retrorecomp.artwork._get', side_effect=AssertionError('no network on regeneration')), \
+                        patch('retrorecomp.artwork.fetch', side_effect=AssertionError('no API on regeneration')), \
                         patch.object(Path, 'rglob', side_effect=AssertionError('saved identity avoids directory scans')):
                     reused = prepare_icon(regenerated, moved, 'New display title', self.art,
                                           cache_directory=cache, system_id=system, settings=settings,
@@ -197,12 +197,12 @@ class ArtworkTests(unittest.TestCase):
     def test_saved_download_survives_a_move_of_the_converter_cache(self):
         self.rom.write_bytes(b'authored ROM for portable cover cache')
         cache = self.root / 'datas/BoxArt/sms'
-        with patch('smsrecomp.artwork._get', return_value=png()):
+        with patch('retrorecomp.artwork._get', return_value=png()):
             original = resolve_cover(self.rom, 'Game', self.art, cache_directory=cache,
                                      settings=defaults(), emit=lambda _: None)
         moved = self.root / 'moved-cache'
         cache.rename(moved)
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('cache paths are relative')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('cache paths are relative')):
             reused = resolve_cover(self.rom, 'Game', self.art, cache_directory=moved,
                                    settings=defaults(), emit=lambda _: None)
         self.assertEqual(reused['data'], original['data'])
@@ -213,11 +213,11 @@ class ArtworkTests(unittest.TestCase):
         for corrupt in (b'not an image', png() + b'changed valid image bytes'):
             with self.subTest(corrupt=corrupt[:12]), tempfile.TemporaryDirectory() as temp:
                 cache = Path(temp)
-                with patch('smsrecomp.artwork._get', return_value=png()):
+                with patch('retrorecomp.artwork._get', return_value=png()):
                     original = resolve_cover(self.rom, 'Game', self.art, cache_directory=cache,
                                              settings=defaults(), emit=lambda _: None)
                 original['path'].write_bytes(corrupt)
-                with patch('smsrecomp.artwork._get', return_value=png()) as client:
+                with patch('retrorecomp.artwork._get', return_value=png()) as client:
                     repaired = resolve_cover(self.rom, 'Game', self.art, cache_directory=cache,
                                              settings=defaults(), emit=lambda _: None)
                 self.assertEqual(client.call_count, 1)
@@ -237,8 +237,8 @@ class ArtworkTests(unittest.TestCase):
         other.parent.mkdir(parents=True)
         other.write_bytes(b'not SMS artwork')
         before = (legacy.read_bytes(), sidecar.read_bytes(), other.read_bytes())
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('old downloads stay usable')), \
-                patch('smsrecomp.artwork.fetch', side_effect=AssertionError('no API')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('old downloads stay usable')), \
+                patch('retrorecomp.artwork.fetch', side_effect=AssertionError('no API')):
             cover = resolve_cover(self.rom, 'Game', self.art, cache_directory=base / 'sms',
                                   settings=defaults(), emit=lambda _: None)
         self.assertEqual(cover['source'], 'libretro_cache')
@@ -249,7 +249,7 @@ class ArtworkTests(unittest.TestCase):
     def test_empty_offline_cache_creates_no_files(self):
         self.rom.write_bytes(b'authored ROM without artwork')
         cache = self.root / 'absent-cache'
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
             with self.assertRaises(ArtworkError):
                 resolve_cover(self.rom, 'Game', self.art, cache_directory=cache,
                               online=False, settings=defaults(), emit=lambda _: None)
@@ -262,7 +262,7 @@ class ArtworkTests(unittest.TestCase):
             {"type": "blob", "path": "Named_Boxarts/Game (World).png"},
             {"type": "blob", "path": "Named_Boxarts/Game II (World).png"},
             {"type": "blob", "path": "Named_Boxarts/../escape.png"}]}).encode()
-        with patch("smsrecomp.artwork._get", side_effect=[missing, missing, catalog, png()]) as request:
+        with patch("retrorecomp.artwork._get", side_effect=[missing, missing, catalog, png()]) as request:
             report = prepare_icon(self.game, self.rom, "Game", self.art)
         self.assertTrue(report["embedded"])
         self.assertEqual(Path(report["image"]).name, "Game (World).png")
@@ -270,7 +270,7 @@ class ArtworkTests(unittest.TestCase):
         self.assertIn('git/trees/master?recursive=1', request.call_args_list[2].args[0])
 
     def test_public_server_recovers_a_github_network_failure(self):
-        with patch('smsrecomp.artwork._get', side_effect=[urllib.error.URLError('blocked'), png()]) as client:
+        with patch('retrorecomp.artwork._get', side_effect=[urllib.error.URLError('blocked'), png()]) as client:
             report = prepare_icon(self.game, self.rom, 'Game', self.art, emit=lambda text: None)
         self.assertTrue(report['embedded'])
         self.assertEqual(report['media_style'], 'front')
@@ -293,7 +293,7 @@ class ArtworkTests(unittest.TestCase):
             if 'thumbnails.libretro.com' in url and 'Game%20%28World%29.png' in url:
                 return png()
             raise urllib.error.HTTPError(url, 404, 'missing', {}, None)
-        with patch('smsrecomp.artwork._get', side_effect=request):
+        with patch('retrorecomp.artwork._get', side_effect=request):
             report = prepare_icon(self.game, self.rom, 'Game', self.art, emit=lambda text: None)
         self.assertTrue(report['embedded'])
         self.assertEqual(Path(report['image']).name, 'Game (World).png')
@@ -306,19 +306,19 @@ class ArtworkTests(unittest.TestCase):
             if 'git/trees/' in url:
                 return b'{"truncated":false,"tree":[]}'
             raise urllib.error.HTTPError(url, 404, 'missing', {}, None)
-        with patch('smsrecomp.artwork._get', side_effect=request) as client:
+        with patch('retrorecomp.artwork._get', side_effect=request) as client:
             report = prepare_icon(self.game, self.rom, 'Game', self.art, emit=lambda text: None)
         self.assertTrue(report['embedded'])
         self.assertEqual(report['media_style'], 'title')
         self.assertFalse(any('/Named_Snaps/' in call.args[0] for call in client.call_args_list))
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
             cached = prepare_icon(self.game, self.rom, 'Game', self.art, online=False, emit=lambda text: None)
         self.assertEqual(cached['media_style'], 'title')
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('regeneration reuses saved artwork')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('regeneration reuses saved artwork')):
             reused = prepare_icon(self.game, self.rom, 'Game', self.art, emit=lambda text: None)
         self.assertEqual(reused['media_style'], 'title')
         self.assertEqual(reused['icon_sha256'], report['icon_sha256'])
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
             offline = prepare_icon(self.game, self.rom, 'Game', self.art, online=False, emit=lambda text: None)
         self.assertEqual(offline['media_style'], 'title')
 
@@ -334,7 +334,7 @@ class ArtworkTests(unittest.TestCase):
                             {'type': 'blob', 'path': category + '/Game II (Europe).png'}
                             for category in ('Named_Boxarts', 'Named_Titles', 'Named_Snaps')]}).encode()
                     raise urllib.error.HTTPError(url, 404, 'missing', {}, None)
-                with patch('smsrecomp.artwork._get', side_effect=request):
+                with patch('retrorecomp.artwork._get', side_effect=request):
                     report = prepare_icon(self.game, self.rom, 'Game', directory, emit=lambda text: None)
                 self.assertEqual(report['embedded'], correct_title)
                 if correct_title:
@@ -342,7 +342,7 @@ class ArtworkTests(unittest.TestCase):
 
     def test_invalid_remote_image_and_network_failure_do_not_block_conversion(self):
         for failure in (b"<html>not a cover</html>", urllib.error.URLError("offline")):
-            with patch("smsrecomp.artwork._get", **({"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure})):
+            with patch("retrorecomp.artwork._get", **({"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure})):
                 report = prepare_icon(self.game, self.rom, "Game", self.art)
             self.assertFalse(report["embedded"])
             self.assertIn("warning", report)
@@ -354,7 +354,7 @@ class ArtworkTests(unittest.TestCase):
         self.art.mkdir()
         (self.art / "Game (Europe).png").write_bytes(png())
         self.assertTrue(prepare_icon(self.game, self.rom, "Game", self.art, online=False)["embedded"])
-        with patch("smsrecomp.artwork._get", side_effect=AssertionError("disabled art must not use the network")):
+        with patch("retrorecomp.artwork._get", side_effect=AssertionError("disabled art must not use the network")):
             report = prepare_icon(self.game, self.rom, "Game", self.art, enabled=False)
         self.assertFalse(report["embedded"])
         self.assertNotIn("101 ICON", (self.game / "game_resources.rc").read_text())
@@ -412,19 +412,19 @@ class ArtworkTests(unittest.TestCase):
     def test_frozen_windows_https_transport_checks_status_and_size(self):
         body = png()
         success = subprocess.CompletedProcess([], 0, body + b"200", b"")
-        with patch("smsrecomp.artwork.sys.frozen", True, create=True), patch("smsrecomp.artwork.subprocess.run", return_value=success) as client:
+        with patch("retrorecomp.artwork.sys.frozen", True, create=True), patch("retrorecomp.artwork.subprocess.run", return_value=success) as client:
             self.assertEqual(_get("https://example.test/cover.png", len(body)), body)
             self.assertFalse(client.call_args.kwargs.get("shell", False))
             self.assertIn("--proto-redir", client.call_args.args[0])
             self.assertIn("--max-filesize", client.call_args.args[0])
         missing = subprocess.CompletedProcess([], 22, b"404", b"")
-        with patch("smsrecomp.artwork.sys.frozen", True, create=True), patch("smsrecomp.artwork.subprocess.run", return_value=missing):
+        with patch("retrorecomp.artwork.sys.frozen", True, create=True), patch("retrorecomp.artwork.subprocess.run", return_value=missing):
             with self.assertRaises(urllib.error.HTTPError) as error:
                 _get("https://example.test/missing.png", 100)
             self.assertEqual(error.exception.code, 404)
             error.exception.close()
         too_large = subprocess.CompletedProcess([], 63, b"200", b"")
-        with patch("smsrecomp.artwork.sys.frozen", True, create=True), patch("smsrecomp.artwork.subprocess.run", return_value=too_large):
+        with patch("retrorecomp.artwork.sys.frozen", True, create=True), patch("retrorecomp.artwork.subprocess.run", return_value=too_large):
             with self.assertRaises(ArtworkError):
                 _get("https://example.test/large.png", 100)
 

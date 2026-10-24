@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.core import ConversionError
-from smsrecomp import snes_codegen, supernintendo
+from retrorecomp.core import ConversionError
+from retrorecomp import snes_codegen, supernintendo
 
 
 def source_fixture():

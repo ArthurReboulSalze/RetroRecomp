@@ -6,9 +6,9 @@ import string
 import tempfile
 import unittest
 
-from smsrecomp.i18n import STRINGS, catalog, tr
-from smsrecomp.languages import GAME_LANGUAGES, LANGUAGES, LANGUAGE_NAMES, language_code, language_name
-from smsrecomp.paths import ASSETS, save_game_language
+from retrorecomp.i18n import STRINGS, catalog, tr
+from retrorecomp.languages import GAME_LANGUAGES, LANGUAGES, LANGUAGE_NAMES, language_code, language_name
+from retrorecomp.paths import ASSETS, save_game_language
 
 
 class LanguageTests(unittest.TestCase):

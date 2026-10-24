@@ -37,9 +37,9 @@ class PublicationTests(unittest.TestCase):
     def test_every_public_module_is_frozen_by_both_packaging_scripts(self):
         from tools.prepare_publication import PUBLIC_MODULES, write_module_hook
         expected = {name[:-3].replace('/', '.').removesuffix('.__init__') for name in PUBLIC_FILES
-                    if name.startswith('smsrecomp/') and name.endswith('.py')}
+                    if name.startswith('retrorecomp/') and name.endswith('.py')}
         self.assertEqual(set(PUBLIC_MODULES), expected)
-        self.assertIn('smsrecomp.cps1_codegen', PUBLIC_MODULES)
+        self.assertIn('retrorecomp.cps1_codegen', PUBLIC_MODULES)
         with tempfile.TemporaryDirectory() as temp:
             hook = write_module_hook(Path(temp))
             namespace = {}

@@ -1,7 +1,7 @@
 """Guard source drift: never silently stage a partially adapted VDP."""
 import unittest
-from smsrecomp import megadrive_fifo
-from smsrecomp.core import ConversionError
+from retrorecomp import megadrive_fifo
+from retrorecomp.core import ConversionError
 
 
 class FifoStagingTests(unittest.TestCase):

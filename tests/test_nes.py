@@ -4,14 +4,14 @@ import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
 
-from smsrecomp.batch import identify
-from smsrecomp.core import ConversionError, run, toolchain
-from smsrecomp.nes import _probe, _write_probe_scripts, read_nes_rom
-from smsrecomp.nes_codegen import prepare_compiler
-from smsrecomp.nes_catalog import zapper_game
-from smsrecomp.metadata import game_metadata
-from smsrecomp.paths import ROOT
-from smsrecomp.systems import profile_for_path
+from retrorecomp.batch import identify
+from retrorecomp.core import ConversionError, run, toolchain
+from retrorecomp.nes import _probe, _write_probe_scripts, read_nes_rom
+from retrorecomp.nes_codegen import prepare_compiler
+from retrorecomp.nes_catalog import zapper_game
+from retrorecomp.metadata import game_metadata
+from retrorecomp.paths import ROOT
+from retrorecomp.systems import profile_for_path
 
 
 def cartridge(*, nes2=False, timing=0, battery=False):
@@ -91,11 +91,11 @@ class NesProfileTests(unittest.TestCase):
         executable = self.root / 'game.exe'
         executable.write_bytes(b'fixture executable')
         seed = self.root / 'seeds.trace'
-        with patch('smsrecomp.nes.run', return_value='mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'):
+        with patch('retrorecomp.nes.run', return_value='mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'):
             self.assertEqual(_probe(executable, self.root, 'boot', 1, seed)['interpreter_cycles'], 0)
         output = ('mode=native frames=1 cycles=100 native_cycles=90 (90.0%)\n'
                   '  interpreted: ROM 2 (2.0%)  RAM 3 (3.0%)  $2000-$7FFF 4 (4.0%)\n')
-        with patch('smsrecomp.nes.run', return_value=output):
+        with patch('retrorecomp.nes.run', return_value=output):
             result = _probe(executable, self.root, 'boot', 1, seed)
             self.assertEqual(result['interpreter_cycles'], 9)
             self.assertEqual(result['non_dispatch_cycles'], 1)
@@ -132,7 +132,7 @@ class NesProfileTests(unittest.TestCase):
                         wav.writeframes(b'\x01\x00' if audio_mode == 'different' and '--interp-only' in command else b'\x00\x00')
             return 'mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'
 
-        with patch('smsrecomp.nes.run', side_effect=simulate_game):
+        with patch('retrorecomp.nes.run', side_effect=simulate_game):
             _probe(executable, self.root, 'coverage', 1, self.root / 'seeds.trace')
             result = _probe(executable, self.root, 'compare', 1,
                             self.root / 'seeds.trace', differential=True)

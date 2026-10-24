@@ -4,7 +4,7 @@ from threading import Event
 import unittest
 from unittest.mock import Mock, patch
 
-from smsrecomp.gui import Application
+from retrorecomp.gui import Application
 
 
 class ShutdownTests(unittest.TestCase):
@@ -43,8 +43,8 @@ class ShutdownTests(unittest.TestCase):
         for event in (('done', {}), ('fatal', 'Authored failure')):
             with self.subTest(event=event[0]):
                 application = self.application()
-                with patch('smsrecomp.gui.messagebox.showinfo') as info, \
-                        patch('smsrecomp.gui.save_preferences') as save:
+                with patch('retrorecomp.gui.messagebox.showinfo') as info, \
+                        patch('retrorecomp.gui.save_preferences') as save:
                     application.close()
                     self.assertTrue(application.cancel.is_set())
                     self.assertTrue(application.close_when_idle)
@@ -60,14 +60,14 @@ class ShutdownTests(unittest.TestCase):
     def test_close_of_idle_application_remains_immediate(self):
         application = self.application()
         application.busy = False
-        with patch('smsrecomp.gui.save_preferences'):
+        with patch('retrorecomp.gui.save_preferences'):
             application.close()
         application.app.destroy.assert_called_once()
 
     def test_close_releases_reserved_recovery_queue(self):
         application=self.application();application.busy=False
         application.recovered_batch=Mock()
-        with patch('smsrecomp.gui.save_preferences'):
+        with patch('retrorecomp.gui.save_preferences'):
             application.close()
         application.recovered_batch.close.assert_called_once()
         application.app.destroy.assert_called_once()

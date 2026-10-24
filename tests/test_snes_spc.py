@@ -10,8 +10,8 @@ import unittest
 from unittest.mock import patch
 import zlib
 
-from smsrecomp import snes_spc
-from smsrecomp.core import ConversionError
+from retrorecomp import snes_spc
+from retrorecomp.core import ConversionError
 
 
 def fixture():

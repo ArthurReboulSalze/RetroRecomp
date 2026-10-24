@@ -7,8 +7,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp import megadrive_sram, megadrive_memory, megadrive_cart
+from retrorecomp.core import run, toolchain
+from retrorecomp import megadrive_sram, megadrive_memory, megadrive_cart
 
 
 def main():

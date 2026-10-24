@@ -6,8 +6,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
-from smsrecomp.megadrive_z80 import generate
+from retrorecomp.core import run
+from retrorecomp.megadrive_z80 import generate
 from tools.megadrive_bus_selftest import executable
 
 

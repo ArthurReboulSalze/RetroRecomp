@@ -7,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 import json,sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 from tools.snes_scheduler_selftest import cartridge
-from smsrecomp.console16 import prepare16
-from smsrecomp.core import run
+from retrorecomp.console16 import prepare16
+from retrorecomp.core import run
 
 def fixture(mode=6,pal=False):
     data=cartridge(bytes.fromhex('40'),pal)

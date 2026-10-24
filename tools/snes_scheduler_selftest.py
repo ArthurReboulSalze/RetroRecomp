@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp import supernintendo
-from smsrecomp.cartridge16 import read_snes_rom
-from smsrecomp.console16 import prepare16, probe16, reference_differences
-from smsrecomp.library import atomic_json
+from retrorecomp import supernintendo
+from retrorecomp.cartridge16 import read_snes_rom
+from retrorecomp.console16 import prepare16, probe16, reference_differences
+from retrorecomp.library import atomic_json
 
 
 def cartridge(handler, pal=False, irq=False):

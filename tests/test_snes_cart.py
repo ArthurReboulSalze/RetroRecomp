@@ -2,8 +2,8 @@ import unittest
 import tempfile,json
 from pathlib import Path
 from types import SimpleNamespace
-from smsrecomp import snes_cart, supernintendo
-from smsrecomp.core import ConversionError
+from retrorecomp import snes_cart, supernintendo
+from retrorecomp.core import ConversionError
 from tools.snes_scheduler_selftest import cartridge
 
 

@@ -7,10 +7,10 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp import __version__
-from smsrecomp.core import ROOT, probe, read_rom
-from smsrecomp.paths import games_directory
-from smsrecomp.validation import compare_execution
+from retrorecomp import __version__
+from retrorecomp.core import ROOT, probe, read_rom
+from retrorecomp.paths import games_directory
+from retrorecomp.validation import compare_execution
 
 
 def main():

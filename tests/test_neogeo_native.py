@@ -3,12 +3,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 import tempfile
-from smsrecomp.neogeo_validation import FIELDS,compare
-from smsrecomp.megadrive_z80 import opcode_key
+from retrorecomp.neogeo_validation import FIELDS,compare
+from retrorecomp.megadrive_z80 import opcode_key
 
 class NeoGeoNativeGates(unittest.TestCase):
     def test_shared_68000_forms_keep_distinct_offline_immediates(self):
-        from smsrecomp.neogeo_codegen import structural_key,structural_body,canonical_instruction
+        from retrorecomp.neogeo_codegen import structural_key,structural_body,canonical_instruction
         ins=dict(addr=0x420,mnemonic=1,size=4,words=[0x203c,0x1122,0x3344,0,0,0,0,0],
                  word_count=3,byte_length=6,src_ea=60,dst_ea=0,reg=0,imm32=0x11223344,
                  target_addr=0,has_target=0,dst_is_ea=1,predec_mem_form=0,mem_shift=0)
@@ -21,7 +21,7 @@ class NeoGeoNativeGates(unittest.TestCase):
         self.assertNotEqual(structural_key(ins),structural_key(dict(ins,dst_ea=1)))
 
     def test_shared_relative_targets_rebase_and_absolute_targets_do_not(self):
-        from smsrecomp.neogeo_codegen import canonical_instruction
+        from retrorecomp.neogeo_codegen import canonical_instruction
         for name in ('MN_BRA','MN_BSR','MN_Bcc','MN_DBcc'):
             a=canonical_instruction(dict(addr=0x1000,target_addr=0xff0),name)
             b=canonical_instruction(dict(addr=0x2000,target_addr=0x1ff0),name)
@@ -68,8 +68,8 @@ class NeoGeoNativeGates(unittest.TestCase):
         self.assertNotEqual(opcode_key(bytes.fromhex('ddcb0946')),opcode_key(bytes.fromhex('ddcb094e')))
 
     def test_rebuilding_prepared_inputs_never_selects_their_own_staging_folder(self):
-        from smsrecomp.neogeo_build import staging_project
-        with tempfile.TemporaryDirectory() as temp,patch('smsrecomp.neogeo_build.ROOT',Path(temp)):
+        from retrorecomp.neogeo_build import staging_project
+        with tempfile.TemporaryDirectory() as temp,patch('retrorecomp.neogeo_build.ROOT',Path(temp)):
             identity='a'*64
             for native in (False,True):
                 normal=staging_project(identity,native,[])
@@ -79,21 +79,21 @@ class NeoGeoNativeGates(unittest.TestCase):
                 self.assertEqual(alternate.parent,normal.parent)
 
     def test_banked_and_ram_pcs_cannot_create_guessed_cart_roots(self):
-        from smsrecomp.neogeo_codegen import code_entries
+        from retrorecomp.neogeo_codegen import code_entries
         self.assertEqual(code_entries(1,0,0x200000,{0x400,0x100400,0x280400}),[0x400])
         self.assertEqual(code_entries(1,0,0x200000,{0x280400},{'p':[0x180400]}),[0x180400])
 
     def test_same_logical_pc_can_supply_multiple_observed_physical_banks(self):
-        from smsrecomp.neogeo_codegen import code_entries
+        from retrorecomp.neogeo_codegen import code_entries
         self.assertEqual(code_entries(1,0,0x400000,{0x200400},{'p':[0x100400,0x300400]}),[0x100400,0x300400])
         self.assertEqual(code_entries(2,0xc00000,0x20000,{0xc40200},{'bios':[0x300]}),[0xc00200,0xc00300])
 
     def test_physical_root_bounds_and_alignment_are_checked(self):
-        from smsrecomp.neogeo_codegen import code_entries
+        from retrorecomp.neogeo_codegen import code_entries
         self.assertEqual(code_entries(1,0,0x200000,set(),{'p':[-2,False,'4',5,0x200000,0x200]}),[0x200])
 
     def test_private_ram_observations_are_bounded_and_preserve_distinct_variants(self):
-        from smsrecomp.neogeo_codegen import ram_observations
+        from retrorecomp.neogeo_codegen import ram_observations
         records=[{'offset':0xfc00,'words':words} for words in ('7001','7007','7001')]
         records += [{'offset':-2,'words':'7001'},{'offset':False,'words':'7001'},
                     {'offset':1,'words':'7001'},{'offset':0,'words':'zzzz'},
@@ -101,7 +101,7 @@ class NeoGeoNativeGates(unittest.TestCase):
         self.assertEqual(ram_observations(records),[(0xfc00,bytes.fromhex('7001')),(0xfc00,bytes.fromhex('7007'))])
 
     def test_qualification_routes_preserve_nam_and_use_only_valid_controller_inputs(self):
-        from smsrecomp.neogeo_validation import ROUTES,qualification_routes
+        from retrorecomp.neogeo_validation import ROUTES,qualification_routes
         self.assertTrue(all(qualification_routes('nam1975')[name]==route for name,route in ROUTES.items()))
         masks=[int(line.split()[1],16) for line in qualification_routes('authored-new-cart')['actions'][1].splitlines()]
         for button in (16,32,64,128):self.assertTrue(any(mask&button for mask in masks))
@@ -116,14 +116,14 @@ class NeoGeoNativeGates(unittest.TestCase):
                     self.assertTrue(0<=int(coin,16)<4 and 0<=int(start,16)<16)
 
     def test_qualification_modes_keep_standard_aes_and_enhanced_separate(self):
-        from smsrecomp.neogeo_validation import route_arguments
+        from retrorecomp.neogeo_validation import route_arguments
         self.assertEqual(route_arguments('two-player-explore'),[])
         self.assertEqual(route_arguments('aes-play-reference'),['--aes'])
         self.assertEqual(route_arguments('enhanced-two-player-reference'),['--enhanced'])
         self.assertEqual(route_arguments('aes-enhanced-actions-native'),['--aes','--enhanced'])
 
     def test_extended_routes_cannot_replace_product_gates_or_inject_invalid_inputs(self):
-        from smsrecomp.neogeo_validation import extended_routes,qualification_routes
+        from retrorecomp.neogeo_validation import extended_routes,qualification_routes
         standard=qualification_routes('authored')
         plans={'authored':{'sustained':(900,'0 10 00 0 0\n800 00 00 1 1\n')}}
         routes=extended_routes('authored',plans)

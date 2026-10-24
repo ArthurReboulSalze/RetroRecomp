@@ -3,7 +3,7 @@
 RetroRecomp has supported **Master System**, **Game Gear**, **Game Boy**,
 **Nintendo NES**, **Mega Drive** (`md`) and standard **Super Nintendo** (`snes`) profiles; see
 [16-bit scope](CONSOLES_16BIT.md). All profiles are registered through
-`smsrecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM
+`retrorecomp/systems/__init__.py`. A profile owns its cartridge extensions, ROM
 reader, converter, export category and supported video modes. Unknown formats
 are rejected; ZIP inputs must contain exactly one supported cartridge, including
 `.sms`, `.gg`, `.gb`, `.nes`, `.bin`, `.rom`, linear `.md`/`.gen` and validated

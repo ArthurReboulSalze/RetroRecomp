@@ -14,9 +14,9 @@ import time
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
-from smsrecomp.neogeo_build import prepare_project
-from smsrecomp.neogeo_validation import FIELDS, qualification_routes, compare
+from retrorecomp.core import run,toolchain
+from retrorecomp.neogeo_build import prepare_project
+from retrorecomp.neogeo_validation import FIELDS, qualification_routes, compare
 
 def check_presentation(executable: Path,output: Path,summary: dict,frames=600):
     env=os.environ.copy();env.update(SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy')

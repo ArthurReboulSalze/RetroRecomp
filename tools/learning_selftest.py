@@ -13,8 +13,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, convert, read_rom, probe
-from smsrecomp.library import GameMemory, entry_lock
+from retrorecomp.core import ROOT, convert, read_rom, probe
+from retrorecomp.library import GameMemory, entry_lock
 
 
 def main():

@@ -3,9 +3,9 @@ from pathlib import Path
 import json,struct,sys
 from zipfile import ZipFile
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.neogeo_build import prepare_project
-from smsrecomp.neogeo_codegen import generate
-from smsrecomp.core import run,toolchain
+from retrorecomp.neogeo_build import prepare_project
+from retrorecomp.neogeo_codegen import generate
+from retrorecomp.core import run,toolchain
 
 def main():
     project=ROOT/'.build/neogeo-m68000-selftest';project.mkdir(exist_ok=True)

@@ -11,11 +11,11 @@ import os
 import subprocess
 import sys
 
-from smsrecomp.gui import update_error_text
-from smsrecomp.updater import (Update, UpdateConnectionError, UpdateServiceError,
+from retrorecomp.gui import update_error_text
+from retrorecomp.updater import (Update, UpdateConnectionError, UpdateServiceError,
                                _install_files, apply_update, check_for_update,
                                discard_update, finish_update, prepare_update, select_update)
-from smsrecomp.updater import _wait_for_process
+from retrorecomp.updater import _wait_for_process
 
 
 class UpdaterTests(unittest.TestCase):
@@ -29,7 +29,7 @@ class UpdaterTests(unittest.TestCase):
     def _prepare(self, data=b"MZnew converter"):
         update = Update("0.14.2", "https://github.com/example/Retro-Recomp.exe",
                         "https://github.com/example/tag", hashlib.sha256(data).hexdigest(), len(data))
-        with patch("smsrecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
+        with patch("retrorecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
             return prepare_update(update, self.exe)
 
     def test_selects_newest_executable_and_ignores_drafts_and_zips(self):
@@ -46,7 +46,7 @@ class UpdaterTests(unittest.TestCase):
 
     def test_firewall_block_uses_a_plain_localized_message(self):
         raw = urllib.error.URLError(PermissionError(13, "raw access denied 10013"))
-        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+        with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=raw):
             with self.assertRaises(UpdateConnectionError) as caught:
                 check_for_update()
         self.assertIs(caught.exception.__cause__, raw)
@@ -58,7 +58,7 @@ class UpdaterTests(unittest.TestCase):
 
         update = Update("0.14.3", "https://github.com/example/Retro-Recomp.exe",
                         "page", "0" * 64, 123)
-        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+        with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=raw):
             with self.assertRaises(UpdateConnectionError):
                 prepare_update(update, self.exe)
         self.assertEqual(list(self.root.iterdir()), [self.exe])
@@ -67,7 +67,7 @@ class UpdaterTests(unittest.TestCase):
         raw = urllib.error.HTTPError("https://github.com/example", 503,
                                      "Service Unavailable", {}, None)
         self.addCleanup(raw.close)
-        with patch("smsrecomp.updater.urllib.request.urlopen", side_effect=raw):
+        with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=raw):
             with self.assertRaises(UpdateServiceError) as caught:
                 check_for_update()
         english = update_error_text(caught.exception, "en")
@@ -79,7 +79,7 @@ class UpdaterTests(unittest.TestCase):
             def read(self, _size=-1):
                 raise PermissionError(13, "raw read access denied")
 
-        with patch("smsrecomp.updater.urllib.request.urlopen", return_value=BlockedResponse()):
+        with patch("retrorecomp.updater.urllib.request.urlopen", return_value=BlockedResponse()):
             with self.assertRaises(UpdateConnectionError) as caught:
                 check_for_update()
         self.assertNotIn("raw read", update_error_text(caught.exception, "en"))
@@ -99,7 +99,7 @@ class UpdaterTests(unittest.TestCase):
         data = b"MZnew converter"
         update = Update("0.14.2", "https://github.com/example/Retro-Recomp.exe", "page",
                         "0" * 64, len(data))
-        with patch("smsrecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
+        with patch("retrorecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
             with self.assertRaisesRegex(ValueError, "checksum"):
                 prepare_update(update, self.exe)
         with self.assertRaisesRegex(ValueError, "Windows executable"):
@@ -116,7 +116,7 @@ class UpdaterTests(unittest.TestCase):
                 raise OSError("installation interrupted")
             return real_replace(source, target)
 
-        with patch("smsrecomp.updater.os.replace", side_effect=fail_exe):
+        with patch("retrorecomp.updater.os.replace", side_effect=fail_exe):
             with self.assertRaisesRegex(OSError, "installation interrupted"):
                 _install_files(job_dir, self.exe, files)
         self.assertEqual(self.exe.read_bytes(), b"MZold converter")
@@ -138,16 +138,16 @@ class UpdaterTests(unittest.TestCase):
 
     def test_restart_failure_rolls_back_to_old_converter(self):
         job_dir, token = self._prepare()
-        with patch("smsrecomp.updater._wait_for_process"), \
-             patch("smsrecomp.updater.subprocess.Popen", side_effect=OSError("restart failed")):
+        with patch("retrorecomp.updater._wait_for_process"), \
+             patch("retrorecomp.updater.subprocess.Popen", side_effect=OSError("restart failed")):
             self.assertEqual(apply_update(job_dir, token), 1)
         self.assertEqual(self.exe.read_bytes(), b"MZold converter")
         self.assertIn("restart failed", (job_dir / "job.json").read_text())
 
     def test_detached_helper_restarts_and_new_app_cleans_stage(self):
         job_dir, token = self._prepare()
-        with patch("smsrecomp.updater._wait_for_process") as wait, \
-             patch("smsrecomp.updater.subprocess.Popen") as restart:
+        with patch("retrorecomp.updater._wait_for_process") as wait, \
+             patch("retrorecomp.updater.subprocess.Popen") as restart:
             self.assertEqual(apply_update(job_dir, token), 0)
             self.assertEqual(self.exe.read_bytes(), b"MZnew converter")
             self.assertEqual(restart.call_args.args[0][1:3],
@@ -182,11 +182,11 @@ class LinuxUpdaterTests(unittest.TestCase):
             saved=root/'datas';saved.mkdir();(saved/'cover-sources.json').write_text('private reference')
             raw=self.elf()
             update=Update('1.1.0','https://example.test/update','page',hashlib.sha256(raw).hexdigest(),len(raw),'linux-x86_64')
-            with patch('smsrecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
+            with patch('retrorecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
                 job,token=prepare_update(update,exe)
             self.assertTrue((job/'updater-helper').exists())
             if os.name!='nt':self.assertTrue((job/'files/Retro-Recomp').stat().st_mode & 0o100)
-            with patch('smsrecomp.updater._wait_for_process'),patch('smsrecomp.updater.subprocess.Popen'):
+            with patch('retrorecomp.updater._wait_for_process'),patch('retrorecomp.updater.subprocess.Popen'):
                 self.assertEqual(apply_update(job,token),0)
                 self.assertIsNone(finish_update(job,token,12345))
             self.assertEqual(exe.read_bytes(),raw)
@@ -199,7 +199,7 @@ class LinuxUpdaterTests(unittest.TestCase):
             exe=Path(temp)/'Retro-Recomp';exe.write_bytes(self.elf())
             raw=self.elf(machine=183)
             update=Update('1.1.0','https://example.test/update','page',hashlib.sha256(raw).hexdigest(),len(raw),'linux-x86_64')
-            with patch('smsrecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
+            with patch('retrorecomp.updater.urllib.request.urlopen',return_value=io.BytesIO(raw)):
                 with self.assertRaisesRegex(ValueError,'Linux x86-64'):
                     prepare_update(update,exe)
             self.assertEqual(list(Path(temp).iterdir()),[exe])

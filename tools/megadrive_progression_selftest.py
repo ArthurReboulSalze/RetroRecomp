@@ -17,8 +17,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.console16 import reference_differences
-from smsrecomp.library import atomic_json
+from retrorecomp.console16 import reference_differences
+from retrorecomp.library import atomic_json
 
 
 class ProbeFailure(RuntimeError):

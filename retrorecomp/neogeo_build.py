@@ -566,7 +566,7 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     # verified module fingerprint path rather than reading missing source files.
     import importlib
     from .core import module_fingerprint
-    for name in ('smsrecomp.neogeo_build','smsrecomp.neogeo_codegen','smsrecomp.neogeo_z80'):
+    for name in ('retrorecomp.neogeo_build','retrorecomp.neogeo_codegen','retrorecomp.neogeo_z80'):
         importlib.import_module(name);abi.update(name.encode());abi.update(module_fingerprint(name).encode())
     if os.name != 'nt':
         from .platforms import target_id

@@ -1,9 +1,9 @@
 """Reject incomplete geometry and keep pinned engine adaptation fail-closed."""
 import unittest
 from pathlib import Path
-from smsrecomp import snes_video, supernintendo
-from smsrecomp.console16 import reference_differences
-from smsrecomp.core import ConversionError
+from retrorecomp import snes_video, supernintendo
+from retrorecomp.console16 import reference_differences
+from retrorecomp.core import ConversionError
 
 class SnesVideoTests(unittest.TestCase):
     def test_geometry_is_required_and_modes_are_preserved(self):

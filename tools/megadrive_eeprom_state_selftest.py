@@ -5,7 +5,7 @@ Test writes are isolated. The source cartridge and player files are untouched.
 from pathlib import Path
 import argparse,json,sys,tempfile
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run
+from retrorecomp.core import run
 from tools.megadrive_bus_selftest import executable
 
 MAIN=r'''

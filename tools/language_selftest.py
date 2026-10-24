@@ -3,8 +3,8 @@ from pathlib import Path
 import os
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, dependencies, run
-from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
+from retrorecomp.core import ROOT, dependencies, run
+from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 
 def main():
     _,sdl,cmake,generator=dependencies()

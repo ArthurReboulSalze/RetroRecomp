@@ -14,7 +14,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.credits_music import TRACKS, Decoder, library_path
+from retrorecomp.credits_music import TRACKS, Decoder, library_path
 
 
 def reference_decoder(path, data):

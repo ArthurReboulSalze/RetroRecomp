@@ -11,9 +11,9 @@ import os
 import subprocess
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from smsrecomp.paths import ROOT, ASSETS
-from smsrecomp.core import toolchain, run
-from smsrecomp.platforms import cmake_target_args, build_executable
+from retrorecomp.paths import ROOT, ASSETS
+from retrorecomp.core import toolchain, run
+from retrorecomp.platforms import cmake_target_args, build_executable
 
 
 def function(source, name):
@@ -139,7 +139,7 @@ Controls controls;
 uint64_t glue_frame_count(void);
 '''+declarations+function(text,'read_controls')+setup+TEST
     # Exercise the exact checked replacement emitted into the GB SDL runtime.
-    code=(ROOT/'smsrecomp/gameboy_runtime.py').read_text()
+    code=(ROOT/'retrorecomp/gameboy_runtime.py').read_text()
     tree=ast.parse(code)
     replacements=[node.args[2].value for node in ast.walk(tree) if isinstance(node,ast.Call)
         and isinstance(node.func,ast.Name) and node.func.id=='replace_once' and len(node.args)>2

@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.core import ConversionError
-from smsrecomp.console16_optimization import build_game
+from retrorecomp.core import ConversionError
+from retrorecomp.console16_optimization import build_game
 
 
 class HardwareOptimizationTests(unittest.TestCase):
@@ -42,8 +42,8 @@ class HardwareOptimizationTests(unittest.TestCase):
             return ''
 
         def invoke():
-            with patch('smsrecomp.console16_optimization.run', side_effect=command), \
-                 patch('smsrecomp.console16_optimization.build_executable', return_value=built):
+            with patch('retrorecomp.console16_optimization.run', side_effect=command), \
+                 patch('retrorecomp.console16_optimization.build_executable', return_value=built):
                 build_game(project, Path('cmake'), 'Ninja', project / 'sdl', lambda _: None)
 
         return project, built, modes, invoke

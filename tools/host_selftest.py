@@ -12,9 +12,9 @@ import sys
 import argparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, dependencies, run
-from smsrecomp.paths import games_directory
-from smsrecomp.platforms import cmake_target_args, build_jobs, build_executable
+from retrorecomp.core import ROOT, ASSETS, dependencies, run
+from retrorecomp.paths import games_directory
+from retrorecomp.platforms import cmake_target_args, build_jobs, build_executable
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
          "-DGAME_NAME=Alex_Kidd_in_Miracle_World", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}",
          "-DSMSRECOMP_HOST_CHECKS=ON"])
     run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_host_checks", "--parallel", build_jobs()])
-    from smsrecomp.core import slug
+    from retrorecomp.core import slug
     artifacts = ROOT / ".build/host-checks-artifacts" / slug(args.game)
     artifacts.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()

@@ -7,9 +7,9 @@ import json
 import os
 import tempfile
 import unittest
-from smsrecomp import knowledge, gameboy, core
-from smsrecomp.library import GameMemory, write_manifest
-from smsrecomp import snes_spc, supernintendo
+from retrorecomp import knowledge, gameboy, core
+from retrorecomp.library import GameMemory, write_manifest
+from retrorecomp import snes_spc, supernintendo
 
 
 class KnowledgeTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class KnowledgeTests(unittest.TestCase):
         path = self.root/knowledge.RESOURCE;path.parent.mkdir(exist_ok=True)
         path.write_bytes(gzip.compress(json.dumps(payload).encode(),mtime=0))
         self.addCleanup(patch.stopall)
-        patch('smsrecomp.knowledge.ASSETS',self.root).start()
+        patch('retrorecomp.knowledge.ASSETS',self.root).start()
         return payload
 
     def test_read_only_hints_bound_to_console_engine_size_and_rom(self):
@@ -43,7 +43,7 @@ class KnowledgeTests(unittest.TestCase):
     def test_bundled_and_local_gb_entries_merge_custom_library_can_start_empty(self):
         self.install('gb',{'rom_entries':[[1,0x4567]]},gameboy.ENGINE_REV)
         trace = self.root/'local.trace';trace.write_text('2:6000\n')
-        with patch('smsrecomp.gameboy._verified_trace',return_value=trace):
+        with patch('retrorecomp.gameboy._verified_trace',return_value=trace):
             self.assertEqual(gameboy._known_entries(self.rom),{(1,0x4567),(2,0x6000)})
             for variable in ('RETRO_RECOMP_LIBRARY_DIR','SMSRECOMP_LIBRARY_DIR','RETRO_RECOMP_BUNDLED_KNOWLEDGE'):
                 with patch.dict(os.environ,{variable:'0'}):
@@ -86,7 +86,7 @@ class KnowledgeTests(unittest.TestCase):
         engine=supernintendo.knowledge_engine(self.rom)
         payload=self.install('snes',{'ram_opcode_refs':[[0x7e0100,0xa9]]},engine)
         journal=self.root/'absent'/'native-ram.json'
-        with patch('smsrecomp.supernintendo.memory_file',return_value=journal):
+        with patch('retrorecomp.supernintendo.memory_file',return_value=journal):
             self.assertEqual(supernintendo.read_ram_opcodes(self.rom),[(0x7e0100,0xa9)])
             self.assertFalse(journal.parent.exists())
             wrong=SimpleNamespace(data=b'x'*len(self.rom.data),sha256=self.rom.sha256)
@@ -105,11 +105,11 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(expanded,{tuple(e) for e in refs})
         engine = supernintendo.knowledge_engine(self.rom)
         self.install('snes',{'spc_refs':refs},engine)
-        with patch('smsrecomp.snes_spc.memory_file',return_value=self.root/'absent'):
+        with patch('retrorecomp.snes_spc.memory_file',return_value=self.root/'absent'):
             legacy = snes_spc.read_masks(self.rom)
         payload = self.install('snes',{'spc_ranges':ranges},engine)
         knowledge.load.cache_clear()
-        with patch('smsrecomp.snes_spc.memory_file',return_value=self.root/'absent'):
+        with patch('retrorecomp.snes_spc.memory_file',return_value=self.root/'absent'):
             self.assertEqual(snes_spc.read_masks(self.rom),legacy)
         record=payload['consoles']['snes'][self.rom.sha256]
         for invalid in ([9,8,0],[0,65536,0],[0xef,0x100,0],[0x100,0x100,len(self.rom.data)]):
@@ -120,7 +120,7 @@ class KnowledgeTests(unittest.TestCase):
 
     def test_bounded_loader_rejects_oversized_snapshot(self):
         self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
-        with patch('smsrecomp.knowledge.MAX_BYTES', 32):
+        with patch('retrorecomp.knowledge.MAX_BYTES', 32):
             with self.assertRaisesRegex(ValueError, 'size limit'):
                 knowledge.load(self.root / knowledge.RESOURCE)
             self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
@@ -141,7 +141,7 @@ class KnowledgeTests(unittest.TestCase):
         for value in self.rom.data[address:address+256]:fnv=((fnv^value)*16777619)&0xffffffff
         entry=[address,0,1,0,fnv]
         self.install('sms',{'rom_entries':[entry],'pattern_refs':[[10]]},core.ENGINE_REV)
-        with patch('smsrecomp.library.library_root',return_value=self.root/'local'):
+        with patch('retrorecomp.library.library_root',return_value=self.root/'local'):
             memory=GameMemory(self.rom)
         self.assertEqual(memory.seeds(),{tuple(entry)})
 
@@ -163,7 +163,7 @@ class KnowledgeTests(unittest.TestCase):
                   'opcode_masks': base64.b64encode(zlib.compress(masks)).decode()}
         path.write_text(json.dumps(record), encoding='utf-8')
         before = path.read_bytes()
-        with patch('smsrecomp.snes_spc.memory_file', return_value=path):
+        with patch('retrorecomp.snes_spc.memory_file', return_value=path):
             merged = snes_spc.read_masks(self.rom)
             self.assertEqual(merged[0x200 * 32], 1 << 5)
             self.assertEqual(merged[0x200 * 32 + 2], 1 << 1)
@@ -187,10 +187,10 @@ class KnowledgeTests(unittest.TestCase):
         destination = self.root / 'snapshot.json.gz'
         with patch('tools.build_compilation_knowledge.identify', return_value=item), \
                 patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
-                patch('smsrecomp.supernintendo.read_ram_variants', return_value=[
+                patch('retrorecomp.supernintendo.read_ram_variants', return_value=[
                     {'address': 0x7e0100, 'bytes': self.rom.data[10:14].hex()},
                     {'address': 0x7e0200, 'bytes': 'ffffeeee'}]), \
-                patch('smsrecomp.snes_spc.read_masks', return_value=bytes(masks)):
+                patch('retrorecomp.snes_spc.read_masks', return_value=bytes(masks)):
             summary = build([self.rom.path], reports=reports, output=destination)
             self.assertEqual(summary['consoles']['snes']['games'], 0)
             report = {'system': {'id': 'snes'}, 'rom': {'sha256': self.rom.sha256},
@@ -224,10 +224,10 @@ class KnowledgeTests(unittest.TestCase):
         output=self.root/'updated.json.gz'
         with patch('tools.build_compilation_knowledge.identify',return_value=SimpleNamespace(system='snes',sha256=self.rom.sha256,error=None)), \
              patch('tools.build_compilation_knowledge.get_profile',return_value=SimpleNamespace(read_rom=lambda _:self.rom)), \
-             patch('smsrecomp.supernintendo.memory_file',return_value=main), \
-             patch('smsrecomp.snes_spc.memory_file',return_value=sound), \
-             patch('smsrecomp.supernintendo.read_ram_variants',return_value=[]), \
-             patch('smsrecomp.snes_spc.read_masks',return_value=bytes(snes_spc.MASK_BYTES)):
+             patch('retrorecomp.supernintendo.memory_file',return_value=main), \
+             patch('retrorecomp.snes_spc.memory_file',return_value=sound), \
+             patch('retrorecomp.supernintendo.read_ram_variants',return_value=[]), \
+             patch('retrorecomp.snes_spc.read_masks',return_value=bytes(snes_spc.MASK_BYTES)):
             for p in (main,sound):
                 os.utime(p,(when+1,when+1))
                 summary=build([self.rom.path],reports=reports,output=output,base=base)
@@ -241,7 +241,7 @@ class KnowledgeTests(unittest.TestCase):
     def test_md_refresh_does_not_promote_observations_after_qualification(self):
         from datetime import datetime
         from tools.build_compilation_knowledge import build
-        from smsrecomp.console16 import REPOSITORIES
+        from retrorecomp.console16 import REPOSITORIES
         engine = REPOSITORIES['md'][1]
         reports = self.root / 'reports'
         report_path = reports / 'Mega Drive/datas/reports/fixture/conversion-report.json'
@@ -264,11 +264,11 @@ class KnowledgeTests(unittest.TestCase):
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
         with patch('tools.build_compilation_knowledge.identify', return_value=item), \
                 patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
-                patch('smsrecomp.megadrive.memory_file', return_value=main), \
-                patch('smsrecomp.megadrive_z80.memory_file', return_value=sound), \
-                patch('smsrecomp.megadrive.read_entries', return_value={0x200, 0x210}), \
-                patch('smsrecomp.megadrive.read_ram_variants', return_value=[]), \
-                patch('smsrecomp.megadrive_z80.read_variants', return_value=[]):
+                patch('retrorecomp.megadrive.memory_file', return_value=main), \
+                patch('retrorecomp.megadrive_z80.memory_file', return_value=sound), \
+                patch('retrorecomp.megadrive.read_entries', return_value={0x200, 0x210}), \
+                patch('retrorecomp.megadrive.read_ram_variants', return_value=[]), \
+                patch('retrorecomp.megadrive_z80.read_variants', return_value=[]):
             report_path.write_text(json.dumps(report), encoding='utf-8')
             for modified in (main, sound):
                 with self.subTest(cpu=modified.name):
@@ -314,7 +314,7 @@ class KnowledgeTests(unittest.TestCase):
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
         with patch('tools.build_compilation_knowledge.identify', return_value=item), \
                 patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
-                patch('smsrecomp.gameboy._verified_trace', return_value=trace):
+                patch('retrorecomp.gameboy._verified_trace', return_value=trace):
             summary = build([self.rom.path], reports=reports, output=output, base=base)
             self.assertEqual(knowledge.load(output)['consoles']['gb'][self.rom.sha256], record)
             self.assertEqual(summary['refresh']['gb'], {'retained': 1, 'requalified': 0, 'added': 0})
@@ -360,7 +360,7 @@ class KnowledgeTests(unittest.TestCase):
         output = self.root / 'snapshot.json.gz'
         with patch('tools.build_compilation_knowledge.identify', return_value=item), \
                 patch('tools.build_compilation_knowledge.get_profile', return_value=profile), \
-                patch('smsrecomp.knowledge_build.GameMemory', return_value=memory):
+                patch('retrorecomp.knowledge_build.GameMemory', return_value=memory):
             report_path.write_text(json.dumps(report), encoding='utf-8')
             self.assertEqual(build([self.rom.path], reports=reports, output=output)['consoles']['sms']['games'], 0)
             report['native_validation']['passed'] = True

@@ -12,9 +12,9 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
-from smsrecomp.megadrive_codegen import generate_steps, adapt_interpreter, adapt_cpu_snapshot, decode
+from retrorecomp.core import run, toolchain
+from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
+from retrorecomp.megadrive_codegen import generate_steps, adapt_interpreter, adapt_cpu_snapshot, decode
 
 
 def discovery_checks(engine, project):

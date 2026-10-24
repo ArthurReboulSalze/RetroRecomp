@@ -69,7 +69,7 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 
 def role(name):
     """'host' or 'game' for one fingerprinted input (module or file path)."""
-    if name.startswith('smsrecomp.'):
+    if name.startswith('retrorecomp.'):
         return 'host' if name.rsplit('.', 1)[-1] in HOST_MODULES else 'game'
     if name.startswith('native/'):
         return 'host' if name[len('native/'):] in HOST_NATIVE else 'game'
@@ -165,15 +165,15 @@ def _code_digest(name, size, modified):
 
 
 def _module_inputs(system):
-    for package in ('smsrecomp', 'smsrecomp.systems'):
+    for package in ('retrorecomp', 'retrorecomp.systems'):
         spec = importlib.util.find_spec(package)
         names = {m.name for m in pkgutil.iter_modules(spec.submodule_search_locations, package + '.')}
         # Frozen package finders must enumerate their modules too. Never keep
         # exports current on the strength of an empty/partial source glob.
-        required = package + ('.core' if package == 'smsrecomp' else '.master_system')
+        required = package + ('.core' if package == 'retrorecomp' else '.master_system')
         if required not in names:
             raise ValueError('Cannot enumerate the bundled compiler package: ' + package)
-        if package != 'smsrecomp':
+        if package != 'retrorecomp':
             names.add(package)
         for name in sorted(names):
             leaf = name.rsplit('.', 1)[-1]

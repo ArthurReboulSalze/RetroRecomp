@@ -9,8 +9,8 @@ import unittest
 from unittest.mock import patch
 import os
 
-from smsrecomp.core import default_config, read_rom, set_video_standard
-from smsrecomp.library import GameMemory, atomic_json, classify, read_observations, read_code_patterns
+from retrorecomp.core import default_config, read_rom, set_video_standard
+from retrorecomp.library import GameMemory, atomic_json, classify, read_observations, read_code_patterns
 
 
 def fnv(data):
@@ -135,7 +135,7 @@ class LibraryTests(unittest.TestCase):
         source = legacy / 'observations.log'
         source.write_text('4100 00 03 02 %08X\n4100 00 03 02 00000000\n' % self.good[4])
         original = source.read_bytes()
-        with patch.dict(os.environ, {'LOCALAPPDATA': str(legacy_base)}, clear=True), patch('smsrecomp.library.data_directory', return_value=self.root/'portable/datas'):
+        with patch.dict(os.environ, {'LOCALAPPDATA': str(legacy_base)}, clear=True), patch('retrorecomp.library.data_directory', return_value=self.root/'portable/datas'):
             imported = GameMemory(self.rom)
             self.assertEqual(imported.seeds(), {self.good})
             self.assertTrue(imported.directory.name.startswith('Same_name-'))

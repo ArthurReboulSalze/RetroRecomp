@@ -10,9 +10,9 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.feedback import MAX_BYTES, decode, stage
-from smsrecomp.platforms import cmake_target_args, build_executable
+from retrorecomp.core import run, toolchain
+from retrorecomp.feedback import MAX_BYTES, decode, stage
+from retrorecomp.platforms import cmake_target_args, build_executable
 
 
 def main():

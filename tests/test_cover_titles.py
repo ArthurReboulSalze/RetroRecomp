@@ -9,9 +9,9 @@ import urllib.parse
 
 from PIL import Image
 
-from smsrecomp.artwork import choose_cover, normalized, resolve_cover
-from smsrecomp import cover_sources as api
-from smsrecomp.cover_titles import matching_indices, search_queries
+from retrorecomp.artwork import choose_cover, normalized, resolve_cover
+from retrorecomp import cover_sources as api
+from retrorecomp.cover_titles import matching_indices, search_queries
 
 
 def png():
@@ -140,7 +140,7 @@ class CoverTitleTests(unittest.TestCase):
                     source = directory / (candidate + ' (USA).png')
                     data = png()
                     source.write_bytes(data)
-                    with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+                    with patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
                         cover = resolve_cover(root / (query + ' (USA).rom'), query, directory,
                                               online=False, system_id=system, emit=lambda _: None)
                     self.assertEqual(cover['path'], source)

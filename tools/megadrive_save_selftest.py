@@ -11,7 +11,7 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
+from retrorecomp.core import run,toolchain
 
 HARNESS=r'''
 #include <windows.h>

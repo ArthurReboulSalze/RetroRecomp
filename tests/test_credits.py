@@ -7,9 +7,9 @@ import time
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.credits_demo import ScrollState, PercussionMotion
-from smsrecomp.credits_music import TRACKS, MusicSession, MusicPlayer, choose_track, percussion_map
-from smsrecomp.compilation_inputs import INTERFACE_MODULES
+from retrorecomp.credits_demo import ScrollState, PercussionMotion
+from retrorecomp.credits_music import TRACKS, MusicSession, MusicPlayer, choose_track, percussion_map
+from retrorecomp.compilation_inputs import INTERFACE_MODULES
 
 
 class CreditsTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class CreditsTests(unittest.TestCase):
         self.assertEqual(seen, set(TRACKS))
 
     def test_choice_and_mute_survive_a_new_application(self):
-        with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.credits_music.MusicPlayer'):
+        with tempfile.TemporaryDirectory() as folder, patch('retrorecomp.credits_music.MusicPlayer'):
             path = Path(folder)/'datas/credits.json'
             previous = None
             for _ in range(20):
@@ -107,7 +107,7 @@ class CreditsTests(unittest.TestCase):
         self.assertEqual(state.direction, 1)
 
     def test_missing_player_does_not_leave_a_thread_or_crash_ui(self):
-        with patch('smsrecomp.credits_music.Decoder', side_effect=OSError('no device')):
+        with patch('retrorecomp.credits_music.Decoder', side_effect=OSError('no device')):
             player = MusicPlayer(TRACKS[0])
             player.thread.join(3)
             self.assertFalse(player.thread.is_alive())
@@ -125,7 +125,7 @@ class CreditsTests(unittest.TestCase):
             def start(self): calls.append('start')
             def close(self): calls.append('close')
 
-        with patch('smsrecomp.credits_music.Decoder', SlowDecoder):
+        with patch('retrorecomp.credits_music.Decoder', SlowDecoder):
             player = MusicPlayer(TRACKS[0])
             self.assertTrue(entered.wait(2))
             player.close()
@@ -150,7 +150,7 @@ class CreditsTests(unittest.TestCase):
                 time.sleep(.03)
                 if self in active: active.remove(self)
 
-        with patch('smsrecomp.credits_music.Decoder', FakeDecoder):
+        with patch('retrorecomp.credits_music.Decoder', FakeDecoder):
             first = MusicPlayer(TRACKS[0])
             limit = time.monotonic()+2
             while first.status != 'playing' and time.monotonic()<limit: time.sleep(.01)

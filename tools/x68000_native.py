@@ -22,11 +22,11 @@ SDK=ROOT
 NO_WINDOW=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
 sys.path.insert(0,str(ROOT))
 from tools.x68000_reference import ensure_sources, PX68K_REV,prepare_bundle,_atomic_text
-from smsrecomp.core import run,toolchain
-from smsrecomp.platforms import build_executable,cmake_target_args
-from smsrecomp.m68000 import adapt_semantics,operation_bodies,mnemonic_names,instruction_literal
-from smsrecomp.neogeo_codegen import canonical_instruction,structural_key,structural_body
-from smsrecomp.megadrive_codegen import write_changed
+from retrorecomp.core import run,toolchain
+from retrorecomp.platforms import build_executable,cmake_target_args
+from retrorecomp.m68000 import adapt_semantics,operation_bodies,mnemonic_names,instruction_literal
+from retrorecomp.neogeo_codegen import canonical_instruction,structural_key,structural_body
+from retrorecomp.megadrive_codegen import write_changed
 
 
 def private_path(path:Path)->Path:
@@ -76,7 +76,7 @@ def source_receipts(paths)->list[dict]:
 
 
 def decoder(project:Path,engine:Path)->Path:
-    from smsrecomp.neogeo_codegen import decoder_tool
+    from retrorecomp.neogeo_codegen import decoder_tool
     decoder_tool(engine) # Qualified decoder, exception normalizer and cycle helpers.
     directory=project/'decoder';directory.mkdir(exist_ok=True)
     write_changed(directory/'CMakeLists.txt',f'''cmake_minimum_required(VERSION 3.20)
@@ -222,7 +222,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
     project=private_path(project);project.mkdir(parents=True,exist_ok=True)
     engine=ROOT/'.deps/segagenesisrecomp'
     geo=ROOT/'.deps/geolith-libretro'
-    from smsrecomp.neogeo_build import GEOLITH_REV
+    from retrorecomp.neogeo_build import GEOLITH_REV
     if subprocess.check_output(['git','-C',str(geo),'rev-parse','HEAD'],text=True,creationflags=NO_WINDOW).strip()!=GEOLITH_REV:
         raise ValueError('Qualified reference MC68000 dependency changed.')
     if subprocess.check_output(['git','-C',str(geo),'status','--porcelain','--untracked-files=no'],text=True,creationflags=NO_WINDOW).strip():
@@ -253,7 +253,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
         # retain its source bytes exactly, including the original encoding.
         data=source.encode('utf-8',errors='surrogateescape');target=project/filename
         if not target.is_file() or target.read_bytes()!=data:target.write_bytes(data)
-    from smsrecomp.console16 import REPOSITORIES
+    from retrorecomp.console16 import REPOSITORIES
     if subprocess.check_output(['git','-C',str(engine),'rev-parse','HEAD'],text=True,creationflags=NO_WINDOW).strip()!=REPOSITORIES['md'][1]:
         raise ValueError('Qualified MC68000 dependency changed.')
     decode_tool=decoder(project,engine)
@@ -507,7 +507,7 @@ def build(work:Path,px:Path,sdl:Path,jobs:int=8,machine_base:str|None=None,extra
 
 
 def prepare_native(output,disks,ipl,cgrom,executable,generation,ram_mib=2):
-    from smsrecomp.x68000_media import build_manifest,MachineConfig
+    from retrorecomp.x68000_media import build_manifest,MachineConfig
     manifest=build_manifest(disks,ipl,cgrom,config=MachineConfig(ram_bytes=ram_mib*1024*1024),
                             initial_drives=(0,1 if len(disks)>1 else None))
     allowed={item['identity'] for item in generation['observation_sources']}

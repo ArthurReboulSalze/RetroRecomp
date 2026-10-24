@@ -3,11 +3,11 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import argparse,json,sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
-from smsrecomp.nes_codegen import prepare_compiler
-from smsrecomp.nes_machine import prepare_machine
-from smsrecomp.nes_ram import write_guards
-from smsrecomp.nes import read_nes_rom
+from retrorecomp.core import run,toolchain
+from retrorecomp.nes_codegen import prepare_compiler
+from retrorecomp.nes_machine import prepare_machine
+from retrorecomp.nes_ram import write_guards
+from retrorecomp.nes import read_nes_rom
 from tools.nes_native_selftest import fixture
 
 BOARDS=[(40,0,0),(69,0,8),(21,1,7),(21,2,5),(22,0,7),(22,0,0),

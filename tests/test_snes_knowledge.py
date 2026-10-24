@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.knowledge import validate_payload
-from smsrecomp import snes_knowledge, knowledge, snes_spc, supernintendo
+from retrorecomp.knowledge import validate_payload
+from retrorecomp import snes_knowledge, knowledge, snes_spc, supernintendo
 
 
 class SpcKnowledgeTests(unittest.TestCase):
@@ -74,9 +74,9 @@ class SpcKnowledgeTests(unittest.TestCase):
             def save():
                 path.write_bytes(gzip.compress(json.dumps(payload).encode(),mtime=0))
                 knowledge.load.cache_clear()
-            with patch('smsrecomp.knowledge.ASSETS',root), \
-                    patch('smsrecomp.snes_spc.memory_file',return_value=root/'absent'), \
-                    patch('smsrecomp.feedback.records',return_value=[]), \
+            with patch('retrorecomp.knowledge.ASSETS',root), \
+                    patch('retrorecomp.snes_spc.memory_file',return_value=root/'absent'), \
+                    patch('retrorecomp.feedback.records',return_value=[]), \
                     patch.dict('os.environ',{},clear=True):
                 save();before=snes_spc.read_masks(rom)
                 self.assertTrue(snes_knowledge.compact(record));save()

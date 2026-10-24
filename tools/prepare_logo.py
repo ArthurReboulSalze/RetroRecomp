@@ -4,9 +4,9 @@ import shutil
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-from smsrecomp.paths import ROOT
-from smsrecomp.artwork import ICON_SIZES
-from smsrecomp.branding import COLORS, wordmark_rectangles
+from retrorecomp.paths import ROOT
+from retrorecomp.artwork import ICON_SIZES
+from retrorecomp.branding import COLORS, wordmark_rectangles
 
 def main():
     directory = ROOT / "assets"

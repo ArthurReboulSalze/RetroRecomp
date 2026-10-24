@@ -3,8 +3,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from smsrecomp.gameboy_build import compact_dispatch, preserve_unchanged_sources, share_native_bodies, safe_body_entries
-from smsrecomp.gameboy_boundary import repair_bank_boundaries
+from retrorecomp.gameboy_build import compact_dispatch, preserve_unchanged_sources, share_native_bodies, safe_body_entries
+from retrorecomp.gameboy_boundary import repair_bank_boundaries
 from unittest.mock import patch
 
 

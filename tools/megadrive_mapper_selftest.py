@@ -6,11 +6,11 @@ import sys
 import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.console16 import prepare16
-from smsrecomp.core import run,toolchain
-from smsrecomp.cartridge16 import read_megadrive_rom
-from smsrecomp.megadrive_codegen import generate_steps
-from smsrecomp.platforms import build_jobs
+from retrorecomp.console16 import prepare16
+from retrorecomp.core import run,toolchain
+from retrorecomp.cartridge16 import read_megadrive_rom
+from retrorecomp.megadrive_codegen import generate_steps
+from retrorecomp.platforms import build_jobs
 from tools.megadrive_bus_selftest import executable
 
 

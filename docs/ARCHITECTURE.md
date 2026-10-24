@@ -22,7 +22,7 @@ exact ROM SHA256, byte size and engine revision. Numeric hints and ROM offsets
 do not bypass validation or live-memory guards. See the
 [compilation library](COMPILATION_LIBRARY.md) for its schema and refresh workflow.
 
-`smsrecomp/systems` registers a console profile before a ROM reaches the batch
+`retrorecomp/systems` registers a console profile before a ROM reaches the batch
 compiler. The Master System profile owns `.sms` identification, its PAL/NTSC
 default, output category and backend adapter. New console modules must supply
 their own parser, runtime and timing vocabulary. A video mode belongs to its
@@ -210,15 +210,15 @@ the dependency itself is unchanged. See [game-state format and limits](GAME_STAT
 
 | Area | Files |
 | --- | --- |
-| Desktop/CLI | `RetroRecomp.py`, `smsrecomp/gui.py`, `smsrecomp/i18n.py` |
-| Console profiles | `smsrecomp/systems/__init__.py`, `smsrecomp/systems/master_system.py` |
-| Conversion and CPU adaptations | `smsrecomp/core.py`, `smsrecomp/cpu.py`, `native/banked_*` |
-| Learning and file identity | `smsrecomp/library.py`, `native/learning.c`, `native/manifest.inc` |
+| Desktop/CLI | `RetroRecomp.py`, `retrorecomp/gui.py`, `retrorecomp/i18n.py` |
+| Console profiles | `retrorecomp/systems/__init__.py`, `retrorecomp/systems/master_system.py` |
+| Conversion and CPU adaptations | `retrorecomp/core.py`, `retrorecomp/cpu.py`, `native/banked_*` |
+| Learning and file identity | `retrorecomp/library.py`, `native/learning.c`, `native/manifest.inc` |
 | Inputs and presentation | `native/host.c`, `native/controls.c`, `native/ui.c` |
 | Video hardware | `native/video_mode4.inc`, `native/video_frame.h`, generated `runtime_video.c` |
-| Covers and icons | `smsrecomp/artwork.py`, `native/icon.c` |
-| Regeneration | `smsrecomp/batch.py`, `smsrecomp/publishing.py` |
-| Validation | `smsrecomp/validation.py`, `native/*checks.c`, `tools/*selftest.py` |
+| Covers and icons | `retrorecomp/artwork.py`, `native/icon.c` |
+| Regeneration | `retrorecomp/batch.py`, `retrorecomp/publishing.py` |
+| Validation | `retrorecomp/validation.py`, `native/*checks.c`, `tools/*selftest.py` |
 
 AI exploration is a future direction. The current converter learns from
 fixed conversion scripts; it does not ship a local LLM or AI player.

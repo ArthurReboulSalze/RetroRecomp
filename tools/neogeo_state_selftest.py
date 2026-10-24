@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from smsrecomp.neogeo_state_checks import check, check_invalid, probe, reframe
+from retrorecomp.neogeo_state_checks import check, check_invalid, probe, reframe
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('exe',type=Path);p.add_argument('--output',type=Path,required=True)

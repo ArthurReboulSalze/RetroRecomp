@@ -1,5 +1,5 @@
 import unittest
-from smsrecomp.peripherals import LIGHT_PHASER_GAMES, light_phaser_game, game_tags
+from retrorecomp.peripherals import LIGHT_PHASER_GAMES, light_phaser_game, game_tags
 
 
 class PeripheralTests(unittest.TestCase):

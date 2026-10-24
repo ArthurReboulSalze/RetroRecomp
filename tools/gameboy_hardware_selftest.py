@@ -7,9 +7,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
-from smsrecomp.gameboy import _dependencies
-from smsrecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.core import run
+from retrorecomp.gameboy import _dependencies
+from retrorecomp.gameboy_runtime import adapt_generated_project
 
 
 def main():

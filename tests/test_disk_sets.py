@@ -4,9 +4,9 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-from smsrecomp.batch import identify
-from smsrecomp.rom_sources import RomSources, disk_sets, disk_tag
-from smsrecomp.x68000 import read_input
+from retrorecomp.batch import identify
+from retrorecomp.rom_sources import RomSources, disk_sets, disk_tag
+from retrorecomp.x68000 import read_input
 
 
 def synthetic_dim(path, fill):

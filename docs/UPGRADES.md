@@ -46,7 +46,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 ## Host or game: the classification
 
-Every input that shapes an export is fingerprinted (`smsrecomp/compilation_inputs.py`).
+Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).
 `role()` splits them in two. **Host** inputs are the interactive player
 shell. They are never used by the headless runs that discover and validate a
 game's code; those go through each console's entry (launcher, main, runner),

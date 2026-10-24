@@ -14,8 +14,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.core import executable_name, module_fingerprint
-from smsrecomp.library import atomic_text, entry_lock
+from retrorecomp.core import executable_name, module_fingerprint
+from retrorecomp.library import atomic_text, entry_lock
 
 
 class CompilerDurabilityTests(unittest.TestCase):
@@ -53,7 +53,7 @@ class CompilerDurabilityTests(unittest.TestCase):
 
     def test_long_titles_reserve_a_distinct_suffix_on_both_hosts(self):
         for host in ('nt', 'posix'):
-            with self.subTest(host=host), patch('smsrecomp.core.os.name', host):
+            with self.subTest(host=host), patch('retrorecomp.core.os.name', host):
                 title = 'Very long title ' * 30
                 names = [executable_name(title, suffix=f' ({n})') for n in range(2, 10)]
                 self.assertEqual(len(set(names)), 8)
@@ -66,7 +66,7 @@ class CompilerDurabilityTests(unittest.TestCase):
                     self.assertLessEqual(len(executable_name('🎮' * 150, suffix=' (2)').encode('utf-16-le')), 308)
 
     def test_name_reservation_terminates_and_preserves_existing_files(self):
-        from smsrecomp.batch import BatchItem, _OutputNames, export_target
+        from retrorecomp.batch import BatchItem, _OutputNames, export_target
         title = 'Long name ' * 35
         item = BatchItem(self.root / 'authored.sms', title, 'sms', 'a' * 64)
         old = self.root / executable_name(title)
@@ -81,7 +81,7 @@ class CompilerDurabilityTests(unittest.TestCase):
         self.assertEqual(old.read_bytes(), b'unrelated user file')
 
     def test_streamed_export_identity_matches_the_complete_file_rules(self):
-        from smsrecomp.batch import _embedded_export_identity
+        from retrorecomp.batch import _embedded_export_identity
         def original(data):
             if not data.startswith((b'MZ', b'\x7fELF')) or b'[Retro-Recomp]' not in data:
                 return None
@@ -104,7 +104,7 @@ class CompilerDurabilityTests(unittest.TestCase):
                         self.assertEqual(_embedded_export_identity(path), original(data))
 
     def test_lock_timeout_and_release_across_real_processes(self):
-        script = ('import sys\nfrom pathlib import Path\nfrom smsrecomp.library import entry_lock\n'
+        script = ('import sys\nfrom pathlib import Path\nfrom retrorecomp.library import entry_lock\n'
                   'with entry_lock(Path(sys.argv[1])):\n print("locked",flush=True)\n sys.stdin.read()\n')
         child = subprocess.Popen([sys.executable, '-c', script, str(self.root)],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -125,15 +125,15 @@ class CompilerDurabilityTests(unittest.TestCase):
     def test_atomic_trace_failure_keeps_previous_observations(self):
         path = self.root / 'entries.trace'
         atomic_text(path, 'old entries\n')
-        with patch('smsrecomp.library.os.replace', side_effect=OSError('authored disk failure')):
+        with patch('retrorecomp.library.os.replace', side_effect=OSError('authored disk failure')):
             with self.assertRaises(OSError):
                 atomic_text(path, 'new entries\n')
         self.assertEqual(path.read_text(), 'old entries\n')
         self.assertFalse(list(self.root.glob('*.tmp')))
 
     def test_gameboy_concurrent_memory_merges_do_not_lose_entries(self):
-        from smsrecomp.gameboy import GameBoyRom, _remember_trace, _verified_trace
-        from smsrecomp.gameboy_coverage import read_entries, write_entries
+        from retrorecomp.gameboy import GameBoyRom, _remember_trace, _verified_trace
+        from retrorecomp.gameboy_coverage import read_entries, write_entries
         data = bytes(65536)
         rom = GameBoyRom(self.root / 'authored.gb', data, 0, hashlib.sha256(data).hexdigest(), 'TEST', 0)
         traces = []
@@ -145,7 +145,7 @@ class CompilerDurabilityTests(unittest.TestCase):
         def work(path):
             barrier.wait(timeout=5)
             _remember_trace(rom, path)
-        with patch('smsrecomp.gameboy.library_root', return_value=self.root / 'library'):
+        with patch('retrorecomp.gameboy.library_root', return_value=self.root / 'library'):
             with ThreadPoolExecutor(max_workers=8) as pool:
                 list(pool.map(work, traces))
             stored = _verified_trace(rom)
@@ -155,16 +155,16 @@ class CompilerDurabilityTests(unittest.TestCase):
             self.assertEqual(stored.stat().st_mtime_ns, stamp)
 
     def test_gameboy_interrupted_manifest_commit_preserves_verified_memory(self):
-        from smsrecomp.gameboy import GameBoyRom, _remember_trace, _verified_trace, list_memory
-        from smsrecomp.gameboy_coverage import read_entries, write_entries
+        from retrorecomp.gameboy import GameBoyRom, _remember_trace, _verified_trace, list_memory
+        from retrorecomp.gameboy_coverage import read_entries, write_entries
         data = bytes(65536)
         rom = GameBoyRom(self.root / 'authored.gb', data, 0, hashlib.sha256(data).hexdigest(), 'TEST', 0)
         trace = self.root / 'observed.trace'
-        with patch('smsrecomp.gameboy.library_root', return_value=self.root / 'library'):
+        with patch('retrorecomp.gameboy.library_root', return_value=self.root / 'library'):
             write_entries(trace, {(1, 0x4000)})
             _remember_trace(rom, trace)
             write_entries(trace, {(2, 0x5000)})
-            with patch('smsrecomp.gameboy.atomic_json', side_effect=OSError('interrupted manifest commit')):
+            with patch('retrorecomp.gameboy.atomic_json', side_effect=OSError('interrupted manifest commit')):
                 with self.assertRaises(OSError):
                     _remember_trace(rom, trace)
             recovered = _verified_trace(rom)
@@ -176,8 +176,8 @@ class CompilerDurabilityTests(unittest.TestCase):
             self.assertFalse(recovered.exists())
 
     def test_nes_keeps_late_discoveries_and_ram_guards_from_other_conversions(self):
-        from smsrecomp.nes import _remember_seed, _seed_sites
-        from smsrecomp.nes_ram import read_sites, trace_text
+        from retrorecomp.nes import _remember_seed, _seed_sites
+        from retrorecomp.nes_ram import read_sites, trace_text
         traces = []
         target = self.root / 'library/rom/revision/cycle-seeds.trace'
         target.parent.mkdir(parents=True)

@@ -9,7 +9,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from smsrecomp import compilation_inputs as inputs
+from retrorecomp import compilation_inputs as inputs
 
 
 class CompilationInputTests(unittest.TestCase):
@@ -18,8 +18,8 @@ class CompilationInputTests(unittest.TestCase):
         self.root = Path(directory.name)
         self.revisions = {}
         for target, value in (
-                ('smsrecomp.paths.ASSETS', self.root),
-                ('smsrecomp.compilation_inputs._code_digest', self.code_digest)):
+                ('retrorecomp.paths.ASSETS', self.root),
+                ('retrorecomp.compilation_inputs._code_digest', self.code_digest)):
             mocked = patch(target, **({'side_effect':value} if callable(value) else {'new':value}))
             mocked.start(); self.addCleanup(mocked.stop)
 
@@ -37,9 +37,9 @@ class CompilationInputTests(unittest.TestCase):
     def test_interface_and_unrelated_backend_changes_keep_exports(self):
         before = self.stamps()
         for name in ('gui','i18n','updater','ui_fonts','linux_desktop','queue_state'):
-            self.revisions['smsrecomp.' + name] = 'ui-release'
+            self.revisions['retrorecomp.' + name] = 'ui-release'
         self.assertEqual(before, self.stamps())
-        self.revisions['smsrecomp.megadrive_bus'] = 'new-bus'
+        self.revisions['retrorecomp.megadrive_bus'] = 'new-bus'
         after = self.stamps()
         self.assertNotEqual(before['md'], after['md'])
         for system in ('sms','gg','gb','nes','snes','ng'):
@@ -62,8 +62,8 @@ class CompilationInputTests(unittest.TestCase):
 
     def test_cps1_files_do_not_age_existing_exports(self):
         before = self.stamps()
-        self.revisions['smsrecomp.cps1'] = 'new romsets'
-        self.revisions['smsrecomp.cps1_catalogue'] = 'new catalogue'
+        self.revisions['retrorecomp.cps1'] = 'new romsets'
+        self.revisions['retrorecomp.cps1_catalogue'] = 'new catalogue'
         self.write('native/cps1_machine.c', 'new board')
         self.write('assets/cps1-catalogue.json', '{}')
         self.write('licenses/cps1-machine.md', 'new notice')
@@ -74,7 +74,7 @@ class CompilationInputTests(unittest.TestCase):
 
     def test_cps1_follows_the_modules_and_host_it_reuses(self):
         before = self.stamps()
-        self.revisions['smsrecomp.neogeo_codegen'] = 'new semantics'
+        self.revisions['retrorecomp.neogeo_codegen'] = 'new semantics'
         after = self.stamps()
         self.assertNotEqual(before['cps1'], after['cps1']); self.assertNotEqual(before['ng'], after['ng'])
         self.assertEqual(before['md'], after['md'])
@@ -115,7 +115,7 @@ class CompilationInputTests(unittest.TestCase):
         code=compile(source,'temporary.py','exec')
         expected=inputs.code_fingerprint(code)
         self.assertEqual(expected,inputs.code_fingerprint(marshal.loads(marshal.dumps(code))))
-        script='from smsrecomp.compilation_inputs import code_fingerprint;print(code_fingerprint(compile('+repr(source)+',"different.py","exec")))'
+        script='from retrorecomp.compilation_inputs import code_fingerprint;print(code_fingerprint(compile('+repr(source)+',"different.py","exec")))'
         for seed in ('1','2','17','random'):
             value=subprocess.check_output([sys.executable,'-c',script],env={**os.environ,'PYTHONHASHSEED':seed},text=True).strip()
             self.assertEqual(value,expected)
@@ -144,11 +144,11 @@ class InputRoleTests(unittest.TestCase):
     def test_every_machine_shell_is_host_and_every_entry_is_game(self):
         shells = ('native/retro_menu.c', 'native/game_options.h', 'native/runtime_catalog.inc',
                   'native/host.c', 'native/controls.c', 'native/ui.c',          # Master System / Game Gear
-                  'native/gb_menu.inc', 'smsrecomp.gameboy_host',                 # Game Boy
+                  'native/gb_menu.inc', 'retrorecomp.gameboy_host',                 # Game Boy
                   'native/nes_host_ui.c',                                         # NES
                   'native/console16_host_ui.c',                                   # Mega Drive, SNES, Neo Geo, CPS-1
                   'native/x68000_reference/player_ui.inc',                        # X68000
-                  'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'smsrecomp.metadata')
+                  'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'retrorecomp.metadata')
         for name in shells:
             with self.subTest(name=name):
                 self.assertEqual(inputs.role(name), 'host')
@@ -156,23 +156,23 @@ class InputRoleTests(unittest.TestCase):
         entries = ('native/launcher.c', 'native/console16_main.c', 'native/cps1_main.c',
                    'native/neogeo_main.c', 'native/x68000_reference/reference_host.c',
                    'native/x68000_reference/audio_checks.c', 'native/platform_io.c',
-                   'native/embedded_resources.h', 'smsrecomp.gameboy_runtime', 'smsrecomp.nes_runtime',
-                   'smsrecomp.core', 'smsrecomp.knowledge', 'profiles/example.sms.toml',
-                   'assets/neogeo-catalogue.json', 'native/a_new_file.c', 'smsrecomp.a_new_module')
+                   'native/embedded_resources.h', 'retrorecomp.gameboy_runtime', 'retrorecomp.nes_runtime',
+                   'retrorecomp.core', 'retrorecomp.knowledge', 'profiles/example.sms.toml',
+                   'assets/neogeo-catalogue.json', 'native/a_new_file.c', 'retrorecomp.a_new_module')
         for name in entries:
             with self.subTest(name=name):
                 self.assertEqual(inputs.role(name), 'game')
 
     def test_listed_host_inputs_exist(self):
         import importlib.util
-        from smsrecomp.paths import ASSETS
+        from retrorecomp.paths import ASSETS
         self.assertEqual([n for n in inputs.HOST_NATIVE if not (ASSETS / 'native' / n).is_file()], [])
         self.assertEqual([m for m in inputs.HOST_MODULES
-                          if importlib.util.find_spec('smsrecomp.' + m) is None], [])
+                          if importlib.util.find_spec('retrorecomp.' + m) is None], [])
 
     def test_role_stamps_move_independently(self):
         names = [('native/retro_menu.c', 'a'), ('native/launcher.c', 'b')]
-        with patch('smsrecomp.compilation_inputs.input_fingerprints', side_effect=lambda system: list(names)):
+        with patch('retrorecomp.compilation_inputs.input_fingerprints', side_effect=lambda system: list(names)):
             before = inputs.role_stamps('sms')
             names[0] = ('native/retro_menu.c', 'changed menu')
             menu = inputs.role_stamps('sms')

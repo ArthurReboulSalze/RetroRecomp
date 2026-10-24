@@ -10,17 +10,17 @@ from unittest.mock import patch
 from zipfile import ZipFile
 import zlib
 
-from smsrecomp.batch import identify,convert_batch
-from smsrecomp.core import ConversionError
-from smsrecomp.neogeo import read_set,canonical_archive,selected_members,parent_archives
-from smsrecomp.neogeo_knowledge import key,validate_record,compact_record,expanded_record
-from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
+from retrorecomp.batch import identify,convert_batch
+from retrorecomp.core import ConversionError
+from retrorecomp.neogeo import read_set,canonical_archive,selected_members,parent_archives
+from retrorecomp.neogeo_knowledge import key,validate_record,compact_record,expanded_record
+from retrorecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
 
 class NeoGeoConverterTests(unittest.TestCase):
     def test_failed_probe_preserves_bounded_runner_diagnostic(self):
         from types import SimpleNamespace
-        from smsrecomp.neogeo_build import probe_failure
+        from retrorecomp.neogeo_build import probe_failure
         result=SimpleNamespace(returncode=3,stderr=b'This title is incompatible with AES systems\n',stdout=b'')
         message=str(probe_failure('aes-attract-reference',result))
         self.assertIn('exit 3',message)
@@ -40,7 +40,7 @@ class NeoGeoConverterTests(unittest.TestCase):
         path=self.root/'source.neo';path.write_bytes(header+bytes(sum(lengths)));return path
 
     def test_machine_capabilities_distinguish_mvs_only_revisions(self):
-        from smsrecomp.neogeo_build import aes_compatible,mode_config
+        from retrorecomp.neogeo_build import aes_compatible,mode_config
         def cartridge(ngh,size=512,markers=()):
             original=self.neo().read_bytes();data=bytearray(original[:4096])+bytearray(size)+original[4096+512:]
             struct.pack_into('<I',data,4,size);struct.pack_into('<I',data,40,ngh)
@@ -53,7 +53,7 @@ class NeoGeoConverterTests(unittest.TestCase):
             self.assertTrue(aes_compatible(cartridge(ngh,size,[(offset,value)])))
             self.assertFalse(aes_compatible(cartridge(ngh,size,[(offset^1,value)])))
         bios={'sha256':'a'*64,'aes':{'sha256':'b'*64}}
-        with patch('smsrecomp.neogeo.validate_bios',return_value=bios):
+        with patch('retrorecomp.neogeo.validate_bios',return_value=bios):
             config=mode_config(cartridge(0x236),self.root/'bios.zip')
             self.assertIn('#define RR_NG_ARCADE_ONLY 1',config)
             self.assertIn('#define RR_NG_AES_AVAILABLE 0',config)
@@ -62,7 +62,7 @@ class NeoGeoConverterTests(unittest.TestCase):
             self.assertIn('#define RR_NG_AES_AVAILABLE 1',config)
 
     def test_unavailable_aes_cannot_be_requested_through_an_extra_route(self):
-        from smsrecomp.neogeo_validation import extended_routes
+        from retrorecomp.neogeo_validation import extended_routes
         with self.assertRaisesRegex(ValueError,'unavailable machine'):
             extended_routes('authored',{'authored':{'aes-test':(30,'0 00 00 0 0\n')}},aes=False)
 
@@ -80,7 +80,7 @@ class NeoGeoConverterTests(unittest.TestCase):
             'compiler':{'revision':GEOLITH_REV,'loader_revision':LITHOGEN_REV},
             'build_executable':str(self.root/'project/build/Release/game.exe'),
             'runtime_modes':{'aes_available':False}}
-        with patch('smsrecomp.neogeo_build.aes_available',return_value=True) as capability:
+        with patch('retrorecomp.neogeo_build.aes_available',return_value=True) as capability:
             for executable in ('project/build/Release/game.exe','project/build/game'):
                 report['build_executable']=str(self.root/executable)
                 with self.assertRaisesRegex(ValueError,'verified cartridge/BIOS'):
@@ -91,17 +91,17 @@ class NeoGeoConverterTests(unittest.TestCase):
                 qualified_record(report)
 
     def test_auto_detection_needs_no_compiler_or_bios(self):
-        with patch('smsrecomp.neogeo_build.preparation_tool',side_effect=AssertionError('identification built a tool')):
+        with patch('retrorecomp.neogeo_build.preparation_tool',side_effect=AssertionError('identification built a tool')):
             item=identify(self.neo())
         self.assertEqual((item.system,item.title,item.video_hint),('ng','Authored','mvs'))
         self.assertFalse(item.error)
 
     def test_optional_aes_firmware_has_its_own_identity_and_is_verified(self):
-        from smsrecomp.neogeo import BIOS_MEMBERS, validate_bios
-        from smsrecomp.neogeo_build import aes_identity
+        from retrorecomp.neogeo import BIOS_MEMBERS, validate_bios
+        from retrorecomp.neogeo_build import aes_identity
         records=[dict(name=name,bytes=size,crc32=crc,sha256=str(i)*64)
                  for i,(name,(size,crc)) in enumerate(BIOS_MEMBERS.items())]
-        with patch('smsrecomp.neogeo.archive_members',return_value=records):
+        with patch('retrorecomp.neogeo.archive_members',return_value=records):
             mvs=validate_bios(self.root/'authored.zip')
             self.assertNotIn('aes',mvs)
             records.append(dict(name='neo-epo.bin',bytes=0x20000,crc32=0xd27a71f1,sha256='a'*64))
@@ -112,9 +112,9 @@ class NeoGeoConverterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'AES export BIOS'):validate_bios(self.root/'authored.zip')
 
     def test_missing_bios_fails_before_conversion_or_output_creation(self):
-        from smsrecomp.neogeo_conversion import convert
+        from retrorecomp.neogeo_conversion import convert
         output=self.root/'not-created'
-        with patch('smsrecomp.neogeo_conversion.convert_reference') as build:
+        with patch('retrorecomp.neogeo_conversion.convert_reference') as build:
             with self.assertRaisesRegex(ConversionError,'Select your BIOS'):
                 convert(self.neo(),output=output)
         build.assert_not_called();self.assertFalse(output.exists())
@@ -241,16 +241,16 @@ class NeoGeoConverterTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_record(identity,packed)
 
     def test_bios_preferences_are_portable_and_independent_of_cwd(self):
-        from smsrecomp.paths import save_preferences,load_preferences,selected_bios_path
+        from retrorecomp.paths import save_preferences,load_preferences,selected_bios_path
         app=self.root/'Portable';bios=app/'Bios/bios.zip'
-        with patch('smsrecomp.paths.export_directory',return_value=app):
+        with patch('retrorecomp.paths.export_directory',return_value=app):
             self.assertIsNone(selected_bios_path(['malformed']))
             save_preferences({'ng_bios':str(bios)})
             saved=load_preferences()['ng_bios'];self.assertFalse(Path(saved).is_absolute())
             self.assertEqual(selected_bios_path(saved),bios)
 
     def test_artwork_collapses_same_game_aliases_without_confusing_years(self):
-        from smsrecomp.artwork import choose_cover
+        from retrorecomp.artwork import choose_cover
         names=["The King of Fighters '98 - The Slugfest _ King of Fighters '98 - Dream Match Never Ends (NGM-2420).png",
                "The King of Fighters '99 (NGM-2510).png"]
         self.assertEqual(choose_cover(names,'kof98',"The King of Fighters '98 - The Slugfest"),names[0])

@@ -615,7 +615,7 @@ one pass on a capped scenario length; *Standard* is the qualified default (demo
 and play); *Extended* adds a 12,000-frame attract test, the authored Mega Drive
 replays and one **reproducible pseudo-random play route** of 18,000 frames;
 *Thorough* runs the attract sequence for 24,000 frames and two routes
-(`smsrecomp/random_routes.py`, `smsrecomp/scan_levels.py`).
+(`retrorecomp/random_routes.py`, `retrorecomp/scan_levels.py`).
 Their seed is the console and the exact ROM identity, so every conversion of the
 same cartridge replays the same routes, and the same script drives the native
 export and its reference run; the report keeps each route's seed and index. A

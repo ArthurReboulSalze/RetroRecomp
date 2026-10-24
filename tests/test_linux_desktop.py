@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.linux_desktop import publish_launcher, retire_launcher, _argument
+from retrorecomp.linux_desktop import publish_launcher, retire_launcher, _argument
 
 
 class LinuxDesktopTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class LinuxDesktopTests(unittest.TestCase):
         self.art.write_bytes(b'already validated PNG')
         self.report = {'rom': {'sha256': 'a'*64}, 'artwork': {'embedded': True}}
 
-    @patch('smsrecomp.linux_desktop.platform.system', return_value='Linux')
+    @patch('retrorecomp.linux_desktop.platform.system', return_value='Linux')
     def test_cover_launcher_and_non_destructive_hidden_merge(self, _):
         (self.root / '.hidden').write_text('existing user file\n')
         path = publish_launcher(self.exe, self.report_path, self.report)
@@ -40,7 +40,7 @@ class LinuxDesktopTests(unittest.TestCase):
         self.assertEqual(Path(entry['Icon']).read_bytes(), b'replacement cover')
         self.assertEqual(self.exe.read_bytes(), b'\x7fELFtest')
 
-    @patch('smsrecomp.linux_desktop.platform.system', return_value='Linux')
+    @patch('retrorecomp.linux_desktop.platform.system', return_value='Linux')
     def test_protect_other_launcher_and_reject_unknown_identity(self, _):
         path = self.exe.with_name(self.exe.name + '.desktop')
         path.write_text('[Desktop Entry]\nName=User launcher\n')
@@ -50,13 +50,13 @@ class LinuxDesktopTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             publish_launcher(self.exe, self.report_path, {})
 
-    @patch('smsrecomp.linux_desktop.platform.system', return_value='Windows')
+    @patch('retrorecomp.linux_desktop.platform.system', return_value='Windows')
     def test_windows_has_no_launcher_side_effect(self, _):
         self.assertIsNone(publish_launcher(self.exe, self.report_path, self.report))
         self.assertFalse((self.root / '.hidden').exists())
         self.assertFalse((self.root / 'datas/launchers').exists())
 
-    @patch('smsrecomp.linux_desktop.platform.system',return_value='Linux')
+    @patch('retrorecomp.linux_desktop.platform.system',return_value='Linux')
     def test_retire_old_title_preserves_new_cover_and_unrelated_starters(self,_):
         old=publish_launcher(self.exe,self.report_path,self.report)
         replacement=self.exe.with_name('New title');replacement.write_bytes(self.exe.read_bytes())

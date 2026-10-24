@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from smsrecomp.batch import BatchItem
-from smsrecomp.queue_state import BatchJournal,recover
+from retrorecomp.batch import BatchItem
+from retrorecomp.queue_state import BatchJournal,recover
 
 
 class QueueRecoveryTests(unittest.TestCase):
@@ -54,7 +54,7 @@ class QueueRecoveryTests(unittest.TestCase):
         definition=json.loads(journal.path.read_text());definition['target']='foreign-architecture'
         journal.path.write_text(json.dumps(definition));self.assertIsNone(recover(self.folder))
         journal.path.write_text('{broken');self.assertIsNone(recover(self.folder))
-        with patch('smsrecomp.queue_state.MAX_BYTES',4):self.assertIsNone(recover(self.folder))
+        with patch('retrorecomp.queue_state.MAX_BYTES',4):self.assertIsNone(recover(self.folder))
 
     def test_definition_is_unchanged_while_small_checkpoints_advance(self):
         journal=self.create();before=journal.path.read_bytes()

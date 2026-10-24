@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp import megadrive
-from smsrecomp.megadrive_codegen import translated_body, operation_name, jump_table_entries
-from smsrecomp.core import ConversionError
+from retrorecomp import megadrive
+from retrorecomp.megadrive_codegen import translated_body, operation_name, jump_table_entries
+from retrorecomp.core import ConversionError
 
 
 class MegaDriveMemoryTests(unittest.TestCase):

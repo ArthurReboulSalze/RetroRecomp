@@ -7,11 +7,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.core import ConversionError
-from smsrecomp.platforms import build_executable
-from smsrecomp.gameboy import (GameBoyRom, _cpu_compare, _gb_parallelism, _probe, _remember_trace,
+from retrorecomp.core import ConversionError
+from retrorecomp.platforms import build_executable
+from retrorecomp.gameboy import (GameBoyRom, _cpu_compare, _gb_parallelism, _probe, _remember_trace,
                               _verified_trace, convert_game_boy)
-from smsrecomp.gameboy_coverage import (branch_entries, cpu_validation_scenarios,
+from retrorecomp.gameboy_coverage import (branch_entries, cpu_validation_scenarios,
                                       probe_scenarios, read_entries, write_entries)
 
 
@@ -51,7 +51,7 @@ class CoverageTests(unittest.TestCase):
         data = bytes(65536)
         rom = GameBoyRom(self.root / 'authored.gb', data, 0, hashlib.sha256(data).hexdigest(), 'TEST', 0)
         trace = self.root / 'observed.trace'
-        with patch('smsrecomp.gameboy.library_root', return_value=self.root / 'library'):
+        with patch('retrorecomp.gameboy.library_root', return_value=self.root / 'library'):
             write_entries(trace, {(1, 0x4000)})
             _remember_trace(rom, trace)
             write_entries(trace, {(3, 0x7000)})
@@ -64,7 +64,7 @@ class CoverageTests(unittest.TestCase):
             self.assertEqual(read_entries(_verified_trace(rom), len(data)), {(3, 0x7000)})
 
     def test_cpu_check_requires_the_requested_frames_not_just_matched_steps(self):
-        with patch('smsrecomp.gameboy.run', return_value='[DIFF] Matched generated and interpreter execution for 1000000 steps / 29 frames'):
+        with patch('retrorecomp.gameboy.run', return_value='[DIFF] Matched generated and interpreter execution for 1000000 steps / 29 frames'):
             with self.assertRaises(ConversionError):
                 _cpu_compare(self.root / 'game.exe', self.root, 30)
 
@@ -73,11 +73,11 @@ class CoverageTests(unittest.TestCase):
                '[INTERP] Fallback inventory: sites=1 dropped=0 complete=yes\n'
                '[INTERP] Fallback site #1 00A:4567 reason=address_not_compiled entries=2 instructions=2 cycles=32\n'
                '[INTERP] Summary: fallbacks=2 interpreter_entries=2 interpreter_instructions=2 interpreter_cycles=32')
-        with patch('smsrecomp.gameboy.run', return_value=log):
+        with patch('retrorecomp.gameboy.run', return_value=log):
             result = _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
         self.assertEqual(result['fallback_details'][0]['bank'], 10)
         self.assertEqual(result['interpreter_cycles'], 32)
-        with patch('smsrecomp.gameboy.run', return_value=log.replace('[LIMIT] Reached frame limit 1200', '')):
+        with patch('retrorecomp.gameboy.run', return_value=log.replace('[LIMIT] Reached frame limit 1200', '')):
             with self.assertRaises(ConversionError):
                 _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
 
@@ -111,20 +111,20 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(budgets(10, deep=True), [('boot', 10)])
 
     def test_parallelism_respects_batch_cpu_share(self):
-        from smsrecomp.platforms import build_jobs
+        from retrorecomp.platforms import build_jobs
         limit=int(build_jobs())
-        with patch('smsrecomp.gameboy.available_cpus', return_value=24):
+        with patch('retrorecomp.gameboy.available_cpus', return_value=24):
             self.assertEqual(_gb_parallelism(1), (min(24,limit), 3))
             self.assertEqual(_gb_parallelism(3), (min(8,limit), 3))
             self.assertEqual(_gb_parallelism(8), (min(3,limit), 1))
-        with patch('smsrecomp.gameboy.available_cpus', return_value=4):
+        with patch('retrorecomp.gameboy.available_cpus', return_value=4):
             self.assertEqual(_gb_parallelism(1), (min(4,limit), 2))
             self.assertEqual(_gb_parallelism(3), (1, 1))
 
     def test_parallelism_honors_explicit_limit_and_process_cpu_budget(self):
-        from smsrecomp.platforms import compilation_budget
-        with patch('smsrecomp.platforms.available_cpus',return_value=4), \
-                patch('smsrecomp.gameboy.available_cpus',return_value=4), \
+        from retrorecomp.platforms import compilation_budget
+        with patch('retrorecomp.platforms.available_cpus',return_value=4), \
+                patch('retrorecomp.gameboy.available_cpus',return_value=4), \
                 patch.dict('os.environ',{'RETRO_RECOMP_BUILD_JOBS':'1'}):
             self.assertEqual(_gb_parallelism(1),(1,2))
             with compilation_budget(6):self.assertEqual(_gb_parallelism(6),(1,1))
@@ -170,7 +170,7 @@ class CoverageTests(unittest.TestCase):
                        '_verified_trace': lambda rom: prior, 'run': fake_command, '_probe': fake_probe,
                        '_cpu_compare': fake_compare, '_remember_trace': lambda *a: None}
             for name, value in patches.items():
-                stack.enter_context(patch('smsrecomp.gameboy.' + name, value))
+                stack.enter_context(patch('retrorecomp.gameboy.' + name, value))
             for deep in (False, True):
                 with self.subTest(deep=deep):
                     generations.clear()

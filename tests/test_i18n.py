@@ -2,17 +2,17 @@ from pathlib import Path
 import configparser
 import tempfile
 import unittest
-from smsrecomp.i18n import tr, extended_default, game_boy_validation_default, log_text
-from smsrecomp.paths import save_game_language
-from smsrecomp.paths import games_directory, games_root, preferred_games_root, ROOT, save_preferences, export_directory, workspace_directory, data_directory
+from retrorecomp.i18n import tr, extended_default, game_boy_validation_default, log_text
+from retrorecomp.paths import save_game_language
+from retrorecomp.paths import games_directory, games_root, preferred_games_root, ROOT, save_preferences, export_directory, workspace_directory, data_directory
 import json
 from unittest.mock import patch
 
 
 class LanguageTests(unittest.TestCase):
     def test_portable_default_groups_games_by_system(self):
-        with patch('smsrecomp.paths.sys.frozen', True, create=True), \
-                patch('smsrecomp.paths.sys.executable', str(ROOT / 'Export/Retro-Recomp.exe')):
+        with patch('retrorecomp.paths.sys.frozen', True, create=True), \
+                patch('retrorecomp.paths.sys.executable', str(ROOT / 'Export/Retro-Recomp.exe')):
             self.assertEqual(games_directory(), ROOT / 'Export/Games/Master System')
             self.assertEqual(games_root(), ROOT / 'Export/Games')
             self.assertEqual(games_directory('.'), ROOT / 'Export')
@@ -22,12 +22,12 @@ class LanguageTests(unittest.TestCase):
     def test_packaged_export_keeps_the_project_workspace_and_shared_data(self):
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder).resolve()
-            (project / 'smsrecomp').mkdir()
+            (project / 'retrorecomp').mkdir()
             (project / 'RetroRecomp.py').write_text('')
-            (project / 'smsrecomp/core.py').write_text('')
+            (project / 'retrorecomp/core.py').write_text('')
             application = project / 'Export'
-            with patch('smsrecomp.paths.sys.frozen', True, create=True), \
-                    patch('smsrecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
+            with patch('retrorecomp.paths.sys.frozen', True, create=True), \
+                    patch('retrorecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
                 self.assertEqual(workspace_directory(), project)
                 self.assertEqual(export_directory(), application)
                 self.assertEqual(data_directory(), application / 'datas')
@@ -36,8 +36,8 @@ class LanguageTests(unittest.TestCase):
     def test_moved_standalone_converter_does_not_add_a_second_export_folder(self):
         with tempfile.TemporaryDirectory() as folder:
             application = Path(folder).resolve() / 'Portable'
-            with patch('smsrecomp.paths.sys.frozen', True, create=True), \
-                    patch('smsrecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
+            with patch('retrorecomp.paths.sys.frozen', True, create=True), \
+                    patch('retrorecomp.paths.sys.executable', str(application / 'Retro-Recomp.exe')):
                 self.assertEqual(workspace_directory(), application)
                 self.assertEqual(games_directory(), application / 'Games/Master System')
                 self.assertEqual(games_root(), application / 'Games')
@@ -55,7 +55,7 @@ class LanguageTests(unittest.TestCase):
     def test_saving_preferences_keeps_local_output_relative(self):
         with tempfile.TemporaryDirectory() as folder:
             directory = Path(folder).resolve()
-            with patch('smsrecomp.paths.ROOT', directory):
+            with patch('retrorecomp.paths.ROOT', directory):
                 save_preferences({'output': str(directory / 'Export'), 'language': 'fr'})
                 saved = json.loads((directory / 'Export/datas/Retro-Recomp.json').read_text())
                 self.assertEqual(saved['output'], '.')

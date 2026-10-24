@@ -8,13 +8,13 @@ import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.gui import launch, PROFILES
-from smsrecomp.library import library_root, list_games
-from smsrecomp.gameboy import list_memory
-from smsrecomp.nes import list_memory as list_nes_memory
-from smsrecomp.neogeo_knowledge import list_memory as list_ng_memory
-from smsrecomp.cover_settings import defaults as cover_defaults
-from smsrecomp.languages import LANGUAGES, LANGUAGE_NAMES
+from retrorecomp.gui import launch, PROFILES
+from retrorecomp.library import library_root, list_games
+from retrorecomp.gameboy import list_memory
+from retrorecomp.nes import list_memory as list_nes_memory
+from retrorecomp.neogeo_knowledge import list_memory as list_ng_memory
+from retrorecomp.cover_settings import defaults as cover_defaults
+from retrorecomp.languages import LANGUAGES, LANGUAGE_NAMES
 
 
 def smoke(window):
@@ -50,7 +50,7 @@ def smoke(window):
         for number in (1, 2):
             (disks / f'Synthetic (Disk {number} of 2).dim').write_bytes(
                 bytes([0, 1]) + bytes(254) + bytes([number]) * 8192)
-        with patch('smsrecomp.rom_sources.data_directory', return_value=Path(fixtures.name) / 'datas'):
+        with patch('retrorecomp.rom_sources.data_directory', return_value=Path(fixtures.name) / 'datas'):
             application.add_paths([disks])
         added = [item for item in application.items.values() if item.system == 'x68']
         assert len(added) == 1 and added[0].path.suffix == '.m3u' and added[0].title == 'Synthetic', added
@@ -97,7 +97,7 @@ def smoke(window):
     application.feedback_paths['sms'].set(before_feedback)
     assert set(application.feedback_import_buttons) == set(application.feedback_paths)
     report = dict(files=1,games=1,updated_games=1,observations=3,invalid_files=0,bytes=192)
-    with patch('smsrecomp.feedback.import_saved_feedback',return_value=report) as recover:
+    with patch('retrorecomp.feedback.import_saved_feedback',return_value=report) as recover:
         application.feedback_import_buttons['sms'].invoke()
         deadline = time.monotonic()+5
         while application.feedback_importing and time.monotonic()<deadline:
@@ -125,7 +125,7 @@ def smoke(window):
     assert str(application.gb_deep_control.cget('state')) == 'disabled'
     application.set_controls(True)
     assert str(application.gb_deep_control.cget('state')) == 'normal'
-    with patch('smsrecomp.gui.save_preferences'):
+    with patch('retrorecomp.gui.save_preferences'):
         application.close_options()
     assert application.options_panel is None
     assert len(application.tooltips) >= 10
@@ -135,7 +135,7 @@ def smoke(window):
     switch_width = application.compiled_button.cget('width')
     assert toolbar_slaves()[0] is application.compiled_button
     assert application.queue_actions.winfo_manager() and not application.collection_actions.winfo_manager()
-    with patch('smsrecomp.compiled_games_view.CompiledGamesView.scan'):
+    with patch('retrorecomp.compiled_games_view.CompiledGamesView.scan'):
         application.toggle_compiled_games()
     window.update_idletasks()
     assert toolbar_slaves()[0] is application.compiled_button
@@ -157,22 +157,22 @@ def smoke(window):
     # Discoveries are counted before choosing a file; nothing new means a
     # message only, never a save dialog or an import.
     omitted = dict(already_known=2, missing_rom=0, unqualified=1, ram_without_rom_source=0)
-    with patch('smsrecomp.gui.messagebox.showinfo') as info, \
-            patch('smsrecomp.gui.filedialog.asksaveasfilename') as save:
+    with patch('retrorecomp.gui.messagebox.showinfo') as info, \
+            patch('retrorecomp.gui.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=0, consoles={}, discoveries=0, omitted=omitted)), None)
         assert info.called and not save.called
     with patch.object(application, 'achievement', return_value=False) as card, \
-            patch('smsrecomp.gui.filedialog.asksaveasfilename') as save:
+            patch('retrorecomp.gui.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
         assert card.call_args.args[0] == 9 and not save.called
     # The closing card (not wired to closing yet) opens, animates and cancels.
     window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
     assert application.closing_card(3, 42) is None
     # Closing offers it when games have new paths; the button counts them.
-    from smsrecomp.compiled_games import Game
+    from retrorecomp.compiled_games import Game
     fresh = [Game(str(Path(fixtures.name) / 'New.exe'), 'gb', 'b' * 64, 'New paths', status='new_hints')]
     with patch.object(application.compiled_inventory, 'snapshot', return_value=fresh), \
-            patch('smsrecomp.compiled_games.refresh_changed', return_value=0):
+            patch('retrorecomp.compiled_games.refresh_changed', return_value=0):
         application.update_new_paths()
         assert application.new_paths_buttons and all(
             str(b.cget('state')) == 'normal' and '(1)' in b.cget('text') for b in application.new_paths_buttons)
@@ -190,7 +190,7 @@ def smoke(window):
         application.toggle_compiled_games()
     application.update_new_paths()
     assert all(str(b.cget('state')) == 'disabled' for b in application.new_paths_buttons)
-    with patch('smsrecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
+    with patch('retrorecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
         application.knowledge_done(('preview', (Path('shared.rrknowledge'),
                                                 dict(games=0, discoveries=0, consoles={}))), None)
         assert info.called and not card.called
@@ -200,14 +200,14 @@ def smoke(window):
     table = next(widget for widget in descendants(panel) if widget.winfo_class() == "Treeview")
     # Game Memory intentionally loads one console asynchronously. Its first
     # page must not parse the entire GB/Neo Geo libraries just to open a dialog.
-    from smsrecomp.memory_view import summaries
+    from retrorecomp.memory_view import summaries
     expected=len(summaries('sms')[0])
     deadline=time.monotonic()+10
     while len(table.get_children())!=expected and time.monotonic()<deadline:
         window.update();time.sleep(.01)
     assert len(table.get_children())==expected
     old_output = application.output.get()
-    with tempfile.TemporaryDirectory() as folder, patch('smsrecomp.gui.save_preferences') as save:
+    with tempfile.TemporaryDirectory() as folder, patch('retrorecomp.gui.save_preferences') as save:
         application.output.set(folder)
         application.language_name.set('Français')
         application.change_language()
@@ -233,7 +233,7 @@ def smoke(window):
                 games.append(result);on_event('result',index,result)
             return dict(games=games,succeeded=0,current=len(items),existing=0,unrecognized=0,
                         skipped=0,failed=0,duplicates=0,pending=0)
-        with patch('smsrecomp.gui.convert_batch',side_effect=selected_batch), patch('smsrecomp.gui.save_preferences'):
+        with patch('retrorecomp.gui.convert_batch',side_effect=selected_batch), patch('retrorecomp.gui.save_preferences'):
             application.selected_button.invoke()
             deadline=time.monotonic()+5
             while application.busy and time.monotonic()<deadline:
@@ -266,10 +266,10 @@ def smoke(window):
 
 tk.Tk.mainloop = smoke
 with tempfile.TemporaryDirectory() as queue_folder, \
-        patch('smsrecomp.gui.data_directory',return_value=Path(queue_folder)), \
-        patch('smsrecomp.compiled_games.data_directory',return_value=Path(queue_folder)), \
-        patch('smsrecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
-        patch('smsrecomp.gui.load_cover_settings', side_effect=cover_defaults), \
-        patch('smsrecomp.gui.save_cover_settings'), \
-        patch('smsrecomp.gui.save_preferences'):
+        patch('retrorecomp.gui.data_directory',return_value=Path(queue_folder)), \
+        patch('retrorecomp.compiled_games.data_directory',return_value=Path(queue_folder)), \
+        patch('retrorecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
+        patch('retrorecomp.gui.load_cover_settings', side_effect=cover_defaults), \
+        patch('retrorecomp.gui.save_cover_settings'), \
+        patch('retrorecomp.gui.save_preferences'):
     launch()

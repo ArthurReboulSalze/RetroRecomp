@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, convert
+from retrorecomp.core import ROOT, convert
 
 
 def run_case(directory, name, data, expected, *, fallback=False, minimum_interp=0, passes=1):
@@ -186,7 +186,7 @@ def main():
     # Inject a reference mismatch into the actual conversion path, after build.
     import hashlib
     from unittest.mock import patch
-    from smsrecomp import core
+    from retrorecomp import core
     output = directory / 'Banked_Mutating_RAM_Guard'
     exported = output / 'Banked_Mutating_RAM_Guard.exe'
     before = hashlib.sha256(exported.read_bytes()).hexdigest()

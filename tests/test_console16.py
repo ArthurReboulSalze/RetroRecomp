@@ -6,12 +6,12 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
-from smsrecomp.cartridge16 import read_megadrive_rom, read_snes_rom
-from smsrecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, MD_SRAM_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script, _md_menu_confirm_script
-from smsrecomp.core import ConversionError, module_fingerprint
-from smsrecomp.systems import profile_for_path, discover_roms
-from smsrecomp.batch import identify, system_output
-from smsrecomp.metadata import game_metadata
+from retrorecomp.cartridge16 import read_megadrive_rom, read_snes_rom
+from retrorecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, MD_SRAM_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script, _md_menu_confirm_script
+from retrorecomp.core import ConversionError, module_fingerprint
+from retrorecomp.systems import profile_for_path, discover_roms
+from retrorecomp.batch import identify, system_output
+from retrorecomp.metadata import game_metadata
 
 
 def md(region=b'JUE'):
@@ -48,8 +48,8 @@ class Console16Tests(unittest.TestCase):
         return path
 
     def test_previous_md_state_abi_requires_same_engine_and_disk_layout(self):
-        from smsrecomp.console16 import REPOSITORIES
-        from smsrecomp.console16_state import write_config
+        from retrorecomp.console16 import REPOSITORIES
+        from retrorecomp.console16_state import write_config
         rom = read_megadrive_rom(self.source('state.md', md()))
         (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
         write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
@@ -59,7 +59,7 @@ class Console16Tests(unittest.TestCase):
                              (self.root/'retro16_state_config.h').read_text())
             # Check the retained Windows migration contract independently of
             # the machine executing these pure source-generation tests.
-            with patch('smsrecomp.console16_state.os.name','nt'):
+            with patch('retrorecomp.console16_state.os.name','nt'):
                 write_config(self.root,rom,'md','Test',REPOSITORIES)
         self.assertIn('RR16_STATE_COMPAT_ABI "ea70d6ee',
                       (self.root/'retro16_state_config.h').read_text())
@@ -78,7 +78,7 @@ class Console16Tests(unittest.TestCase):
         changed = {**REPOSITORIES, 'md': ('other/engine', '0'*40, 'other')}
         write_config(self.root, rom, 'md', 'Test', changed)
         self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
-        with patch('smsrecomp.console16_state.PORTABLE_STATE_ABI', 3):
+        with patch('retrorecomp.console16_state.PORTABLE_STATE_ABI', 3):
             write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
             self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
 
@@ -162,7 +162,7 @@ class Console16Tests(unittest.TestCase):
                     self.assertEqual(rom.data, payload)
                     self.assertEqual(path.read_bytes(), payload)
                     payload[offset+22] = 0x13
-                    with patch('smsrecomp.console16.dependencies16') as dependencies:
+                    with patch('retrorecomp.console16.dependencies16') as dependencies:
                         with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
                             conversion_rom(self.source('Japanese SuperFX.sfc', payload), 'snes')
                         dependencies.assert_not_called()
@@ -231,7 +231,7 @@ class Console16Tests(unittest.TestCase):
             profile_for_path(path, 'snes')
 
     def test_unknown_rom_gets_its_own_profile_without_a_catalogue_entry(self):
-        from smsrecomp import megadrive, supernintendo
+        from retrorecomp import megadrive, supernintendo
         for system, path in (('md', self.source('Game.md', md())),
                              ('snes', self.source('Game.sfc', snes()))):
             adapter = megadrive if system == 'md' else supernintendo
@@ -271,8 +271,8 @@ class Console16Tests(unittest.TestCase):
 
     def test_unsupported_16bit_hardware_rejected_before_dependencies(self):
         payload = bytearray(snes()); payload[0x7fd6] = 0x13
-        with patch('smsrecomp.console16.dependencies16') as dependencies:
-            from smsrecomp.console16 import prepare16
+        with patch('retrorecomp.console16.dependencies16') as dependencies:
+            from retrorecomp.console16 import prepare16
             with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
                 prepare16(self.source('SuperFX.sfc', payload), 'snes')
             large = md() + bytes(0x400000)
@@ -284,13 +284,13 @@ class Console16Tests(unittest.TestCase):
             dependencies.assert_not_called()
 
     def test_eeprom_save_limitation_does_not_disable_game_conversion(self):
-        from smsrecomp import megadrive
+        from retrorecomp import megadrive
         payload = bytearray(md()); payload[0x1b0:0x1b4] = b'RA\xe8\x40'
         rom = conversion_rom(self.source('EEPROM.md', payload), 'md')
         self.assertIn('EEPROM', megadrive.profile_for(rom)['limitations'][0])
 
     def test_unknown_snes_lorom_hirom_and_regions_use_instruction_maps(self):
-        from smsrecomp import supernintendo
+        from retrorecomp import supernintendo
         for mapping in ('lorom', 'hirom'):
             for region, standard in ((1, 'ntsc'), (2, 'pal')):
                 with self.subTest(mapping=mapping, standard=standard):
@@ -373,10 +373,10 @@ class Console16Tests(unittest.TestCase):
             events.append('learn')
             return int(any(check['rom_entries'] for check in checks))
 
-        with patch('smsrecomp.console16.prepare16', side_effect=prepare), \
-                patch('smsrecomp.console16.probe16', side_effect=probe), \
-                patch('smsrecomp.megadrive.learn_entries', side_effect=learn), \
-                patch('smsrecomp.megadrive_z80.learn_variants', return_value=0):
+        with patch('retrorecomp.console16.prepare16', side_effect=prepare), \
+                patch('retrorecomp.console16.probe16', side_effect=probe), \
+                patch('retrorecomp.megadrive.learn_entries', side_effect=learn), \
+                patch('retrorecomp.megadrive_z80.learn_variants', return_value=0):
             if fail_reference:
                 with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
                     convert16(source, system_id='md', output=self.root / 'reports',
@@ -435,7 +435,7 @@ class Console16Tests(unittest.TestCase):
         self.assertFalse(report['advanced_scan']['enabled'])
 
     def test_chained_routes_continue_from_the_previous_route_state_when_enabled(self):
-        with patch('smsrecomp.console16.CHAIN_LONG_ROUTES', True):
+        with patch('retrorecomp.console16.CHAIN_LONG_ROUTES', True):
             events, report = self.scan_conversion(advanced=True)
         # The second route continues from the first route's saved end state,
         # on both passes, in the report and on the check itself.
@@ -486,7 +486,7 @@ class Console16Tests(unittest.TestCase):
         def probe(executable, directory, frames, *, play=False, reference=False, **options):
             scenario = 'play' if play else 'demo'
             events.append(('reference:' if reference else 'native:') + scenario)
-            from smsrecomp.snes_cart import REPORT_FIELDS
+            from retrorecomp.snes_cart import REPORT_FIELDS
             fields = SNES_AUDIO_FIELDS + REPORT_FIELDS + ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash',
                 'vram_hash', 'cram_hash', 'cpu_pc', 'oam_hash', 'high_oam_hash', 'apu_ram_hash',
                 'cpu_cycles', 'master_cycles', 'apu_cycles')
@@ -507,11 +507,11 @@ class Console16Tests(unittest.TestCase):
 
         for fail in (True, False):
             events.clear(); passes[0] = 0
-            with patch('smsrecomp.console16.prepare16', side_effect=prepare), \
-                    patch('smsrecomp.console16.probe16', side_effect=probe), \
-                    patch('smsrecomp.supernintendo.learn_ram_variants', return_value=0), \
-                    patch('smsrecomp.snes_spc.learn', side_effect=learn), \
-                    patch('smsrecomp.console16.reference_differences', return_value=['pcm_hash'] if fail else []):
+            with patch('retrorecomp.console16.prepare16', side_effect=prepare), \
+                    patch('retrorecomp.console16.probe16', side_effect=probe), \
+                    patch('retrorecomp.supernintendo.learn_ram_variants', return_value=0), \
+                    patch('retrorecomp.snes_spc.learn', side_effect=learn), \
+                    patch('retrorecomp.console16.reference_differences', return_value=['pcm_hash'] if fail else []):
                 if fail:
                     with self.assertRaisesRegex(ConversionError, 'reference comparison failed'):
                         convert16(source, system_id='snes', output=self.root / 'reports',
@@ -605,7 +605,7 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual(rows[2700], (128, 0))
 
     def test_md_pal_header_is_not_overridden_by_a_mislabelled_filename(self):
-        with patch('smsrecomp.megadrive.profile_for') as profile:
+        with patch('retrorecomp.megadrive.profile_for') as profile:
             for region in (b'E', b'8', b'A', b'2'):
                 path = self.source('Game (USA).md', md(region))
                 with self.assertRaisesRegex(ConversionError, 'declares PAL'):
@@ -613,30 +613,30 @@ class Console16Tests(unittest.TestCase):
             profile.assert_not_called()
 
     def test_md_timing_uses_header_without_requiring_revision_qualification(self):
-        from smsrecomp.megadrive import video_standard
+        from retrorecomp.megadrive import video_standard
         for header in (b'E', b'8', b'A', b'2'):
             rom = read_megadrive_rom(self.source('Game (USA).md', md(header)))
-            with patch('smsrecomp.megadrive.profile_for', return_value={'standards': ('pal',)}):
+            with patch('retrorecomp.megadrive.profile_for', return_value={'standards': ('pal',)}):
                 self.assertEqual(video_standard(rom), 'pal')
                 self.assertEqual(video_standard(rom, 'pal'), 'pal')
                 with self.assertRaisesRegex(ConversionError, 'cannot be forced'):
                     video_standard(rom, 'ntsc')
         rom = read_megadrive_rom(self.source('Game.md', md()))
-        with patch('smsrecomp.megadrive.profile_for', return_value={}):
+        with patch('retrorecomp.megadrive.profile_for', return_value={}):
             self.assertEqual(video_standard(rom), 'ntsc')
             self.assertEqual(video_standard(rom, 'pal'), 'pal')
-        with patch('smsrecomp.megadrive.profile_for', return_value={'standards': ('ntsc', 'pal')}):
+        with patch('retrorecomp.megadrive.profile_for', return_value={'standards': ('ntsc', 'pal')}):
             self.assertEqual(video_standard(rom, 'pal'), 'pal')
 
     def test_md_unknown_region_rejected_before_profile_analysis(self):
-        with patch('smsrecomp.megadrive.profile_for') as profile:
+        with patch('retrorecomp.megadrive.profile_for') as profile:
             for override in (None, 'ntsc'):
                 with self.assertRaisesRegex(ConversionError, 'unrecognized region'):
                     conversion_rom(self.source('Game (USA).md', md(b'???')), 'md', override)
             profile.assert_not_called()
 
     def test_md_legacy_region_exception_is_bound_to_the_entire_rom(self):
-        from smsrecomp import megadrive
+        from retrorecomp import megadrive
         for header, mask in ((b'   ', 1), (b'US ', 4)):
             rom = read_megadrive_rom(self.source('Legacy (Europe).md', md(header)))
             profile = {'legacy_region_mask': mask}
@@ -680,14 +680,14 @@ class Console16Tests(unittest.TestCase):
             self.assertIn('retired_instruction_count', differences)
 
     def test_validation_rejects_memory_timing_and_retired_count_differences(self):
-        from smsrecomp.console16 import MD_AUDIO_FIELDS
+        from retrorecomp.console16 import MD_AUDIO_FIELDS
         fields = MD_AUDIO_FIELDS + MD_SRAM_FIELDS + SNES_AUDIO_FIELDS + ('console_version', 'cpu_sr', 'cpu_usp', 'cpu_ssp', 'cpu_stopped','cpu_prefetch_hash', 'frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash', 'vram_hash', 'cram_hash',
                   'cpu_pc', 'vsram_hash', 'vdp_register_hash', 'oam_hash', 'high_oam_hash',
                   'apu_ram_hash', 'cpu_cycles', 'master_cycles', 'apu_cycles',
                   'visible_width', 'visible_height', 'active_raster_height', 'interlace_mode',
                   'output_row_density', 'captured_rows', 'video_modes_seen', 'interlace_frames', 'field_parity')
         fields += ('sram_mapping',)
-        from smsrecomp.snes_chips import REPORT_FIELDS
+        from retrorecomp.snes_chips import REPORT_FIELDS
         fields += REPORT_FIELDS
         native = dict.fromkeys(fields, 1) | {'native_entries': 100, 'interpreted_opcodes': 0,
             'audio_native_opcodes': 90, 'audio_interpreted_opcodes': 10,

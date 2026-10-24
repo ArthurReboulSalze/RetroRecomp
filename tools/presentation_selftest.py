@@ -8,8 +8,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, video_standard
-from smsrecomp.metadata import write_game_metadata
+from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, video_standard
+from retrorecomp.metadata import write_game_metadata
 
 
 def version_strings(executable: Path, expected: dict) -> dict:

@@ -4,8 +4,8 @@ import unittest
 import zlib
 from pathlib import Path
 
-from smsrecomp.core import ConversionError, read_rom, set_video_standard, slug, video_standard
-from smsrecomp.systems import MASTER_SYSTEM, get_profile, profile_for_path
+from retrorecomp.core import ConversionError, read_rom, set_video_standard, slug, video_standard
+from retrorecomp.systems import MASTER_SYSTEM, get_profile, profile_for_path
 
 
 class RomTests(unittest.TestCase):

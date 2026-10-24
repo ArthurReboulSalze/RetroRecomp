@@ -10,9 +10,9 @@ import urllib.error
 
 from PIL import Image
 
-from smsrecomp import cover_sources as api
-from smsrecomp.artwork import ArtworkError, _atomic, _catalog, _public_url, normalized, prepare_icon, resolve_cover
-from smsrecomp.cover_settings import CONFIG_NAME, defaults, load_settings, save_settings
+from retrorecomp import cover_sources as api
+from retrorecomp.artwork import ArtworkError, _atomic, _catalog, _public_url, normalized, prepare_icon, resolve_cover
+from retrorecomp.cover_settings import CONFIG_NAME, defaults, load_settings, save_settings
 
 
 def png(transparent=False, size=(120, 180)):
@@ -204,13 +204,13 @@ class CoverSourceTests(unittest.TestCase):
 
     def test_provider_failure_falls_back_and_validated_download_works_offline(self):
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
-        with patch('smsrecomp.artwork.fetch', side_effect=api.CoverServiceError('unavailable')), \
-                patch('smsrecomp.artwork._get', return_value=png()):
+        with patch('retrorecomp.artwork.fetch', side_effect=api.CoverServiceError('unavailable')), \
+                patch('retrorecomp.artwork._get', return_value=png()):
             report = prepare_icon(self.game, self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(report['source'], 'libretro')
         self.assertEqual(report['box_style'], 'original')
-        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('offline')), \
-                patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+        with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('offline')), \
+                patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
             cached = prepare_icon(self.game, self.rom, 'Game', self.art, online=False, settings=self.settings)
         self.assertEqual(report['icon_sha256'], cached['icon_sha256'])
 
@@ -219,27 +219,27 @@ class CoverSourceTests(unittest.TestCase):
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'synthetic-secret'}
         remote = api.RemoteCover('screenscraper', png(transparent=True),
             'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=remote), \
-                patch('smsrecomp.artwork._get', side_effect=AssertionError('API has a cover')):
+        with patch('retrorecomp.artwork.fetch', return_value=remote), \
+                patch('retrorecomp.artwork._get', side_effect=AssertionError('API has a cover')):
             report = prepare_icon(self.game, self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(report['box_style'], 'source_3d')
         self.assertIsNone(report['url'])
         for file in self.art.rglob('*.json'):
             self.assertNotIn('synthetic-secret', file.read_text())
-        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('cached')):
+        with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('cached')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(cached['source'], 'screenscraper_cache')
 
     def test_configuring_a_service_keeps_the_saved_download_without_network_requests(self):
         self.settings['box_3d'] = True
-        with patch('smsrecomp.artwork._get', return_value=png()):
+        with patch('retrorecomp.artwork._get', return_value=png()):
             initial = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(initial['source'], 'libretro')
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
         remote = api.RemoteCover('screenscraper', png(transparent=True),
             'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=remote) as fetch, \
-                patch('smsrecomp.artwork._get', side_effect=AssertionError('public cache already exists')):
+        with patch('retrorecomp.artwork.fetch', return_value=remote) as fetch, \
+                patch('retrorecomp.artwork._get', side_effect=AssertionError('public cache already exists')):
             upgraded = resolve_cover(self.rom, 'Game', self.root / 'empty', cache_directory=self.art,
                                      settings=self.settings)
         self.assertEqual(fetch.call_count, 0)
@@ -247,14 +247,14 @@ class CoverSourceTests(unittest.TestCase):
         self.assertEqual(upgraded['data'], initial['data'])
 
     def test_api_upgrade_failure_keeps_the_valid_existing_cover(self):
-        with patch('smsrecomp.artwork._get', return_value=png()):
+        with patch('retrorecomp.artwork._get', return_value=png()):
             initial = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.settings['accounts']['thegamesdb']['apikey'] = 'test'
-        with patch('smsrecomp.artwork.fetch', side_effect=api.CoverServiceError('offline')), \
-                patch('smsrecomp.artwork._get', side_effect=AssertionError('keep valid cover')):
+        with patch('retrorecomp.artwork.fetch', side_effect=api.CoverServiceError('offline')), \
+                patch('retrorecomp.artwork._get', side_effect=AssertionError('keep valid cover')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(initial['data'], cached['data'])
-        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('configuration already checked')):
+        with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('configuration already checked')):
             resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
 
     def test_previous_thumbnail_cache_remains_usable_without_a_new_download(self):
@@ -262,7 +262,7 @@ class CoverSourceTests(unittest.TestCase):
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
         small = api.RemoteCover('screenscraper', png(transparent=True),
                     'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=small):
+        with patch('retrorecomp.artwork.fetch', return_value=small):
             initial = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         metadata = initial['path'].with_suffix('.png.json')
         record = json.loads(metadata.read_text())
@@ -270,12 +270,12 @@ class CoverSourceTests(unittest.TestCase):
         metadata.write_text(json.dumps(record))
         large = api.RemoteCover('screenscraper', png(transparent=True, size=(800, 1200)),
                     small.source_page, 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=large) as client:
+        with patch('retrorecomp.artwork.fetch', return_value=large) as client:
             upgraded = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(client.call_count, 0)
         with Image.open(BytesIO(upgraded['data'])) as image:
             self.assertEqual(image.size, (120, 180))
-        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('HD source already checked')):
+        with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('HD source already checked')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(upgraded['data'], cached['data'])
 
@@ -284,7 +284,7 @@ class CoverSourceTests(unittest.TestCase):
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
         remote = api.RemoteCover('screenscraper', png(transparent=True),
                                  'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=remote):
+        with patch('retrorecomp.artwork.fetch', return_value=remote):
             return resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
 
     def test_style_change_downloads_missing_front_and_reuses_the_original_box(self):
@@ -292,7 +292,7 @@ class CoverSourceTests(unittest.TestCase):
         for requested, style in ((False, 'front'), (True, 'box3d')):
             self.settings['box_3d'] = requested
             remote = api.RemoteCover('screenscraper', png(transparent=requested), box['source_page'], style)
-            with patch('smsrecomp.artwork.fetch', return_value=remote) as client:
+            with patch('retrorecomp.artwork.fetch', return_value=remote) as client:
                 cover = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
             self.assertEqual(cover['style'], style)
             self.assertEqual(client.call_count, 0 if requested else 1)
@@ -300,36 +300,36 @@ class CoverSourceTests(unittest.TestCase):
                 self.assertIs(client.call_args.kwargs['prefer3d'], requested)
             else:
                 self.assertEqual(cover['data'], box['data'])
-            with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('choice already checked')):
+            with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('choice already checked')):
                 cached = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
             self.assertEqual(cached['data'], cover['data'])
 
     def test_cached_box_can_be_replaced_with_public_front_without_accounts(self):
         self.cached_box()
-        with patch('smsrecomp.artwork.fetch', side_effect=AssertionError('no accounts')), \
-                patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))) as client:
+        with patch('retrorecomp.artwork.fetch', side_effect=AssertionError('no accounts')), \
+                patch('retrorecomp.artwork._get', return_value=png(size=(800, 1200))) as client:
             cover = resolve_cover(self.rom, 'Game', self.root / 'empty',
                                   cache_directory=self.art, settings=defaults())
         self.assertEqual(cover['source'], 'libretro')
         self.assertEqual(cover['style'], 'front')
         self.assertEqual(client.call_count, 1)
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('already downloaded')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('already downloaded')):
             cached = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
         self.assertEqual(cached['style'], 'front')
 
     def test_front_refresh_failure_keeps_box_on_disk_but_does_not_reuse_it(self):
         initial = self.cached_box()
-        with patch('smsrecomp.artwork._get', side_effect=urllib.error.URLError('offline')):
+        with patch('retrorecomp.artwork._get', side_effect=urllib.error.URLError('offline')):
             with self.assertRaises(ArtworkError):
                 resolve_cover(self.rom, 'Game', self.art, settings=defaults())
         self.assertEqual(initial['path'].read_bytes(), initial['data'])
         record = json.loads(initial['path'].with_suffix('.png.json').read_text())
         self.assertEqual(record['style'], 'box3d')
         self.assertTrue(record['checked_box_3d'])
-        with patch('smsrecomp.artwork._get', side_effect=AssertionError('offline use')):
+        with patch('retrorecomp.artwork._get', side_effect=AssertionError('offline use')):
             offline = resolve_cover(self.rom, 'Game', self.art, online=False, settings=defaults())
         self.assertEqual(offline['data'], initial['data'])
-        with patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+        with patch('retrorecomp.artwork._get', return_value=png(size=(800, 1200))):
             front = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
         self.assertEqual(front['style'], 'front')
 
@@ -339,7 +339,7 @@ class CoverSourceTests(unittest.TestCase):
         record = json.loads(sidecar.read_text())
         record.update(checked_box_3d=False, checked_sources=[], settings_revision='')
         sidecar.write_text(json.dumps(record))
-        with patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+        with patch('retrorecomp.artwork._get', return_value=png(size=(800, 1200))):
             front = resolve_cover(self.rom, 'Game', self.art, settings=defaults())
         self.assertEqual(front['style'], 'front')
         self.assertNotEqual(front['data'], initial['data'])
@@ -349,8 +349,8 @@ class CoverSourceTests(unittest.TestCase):
         self.settings['accounts']['screenscraper'] = {'devid': 'test', 'devpassword': 'test'}
         remote = api.RemoteCover('screenscraper', png(transparent=True),
             'https://www.screenscraper.fr/gameinfos.php?gameid=1', 'box3d')
-        with patch('smsrecomp.artwork.fetch', return_value=remote), \
-                patch('smsrecomp.artwork._get', return_value=png(size=(800, 1200))):
+        with patch('retrorecomp.artwork.fetch', return_value=remote), \
+                patch('retrorecomp.artwork._get', return_value=png(size=(800, 1200))):
             front = resolve_cover(self.rom, 'Game', self.art, settings=self.settings)
         self.assertEqual(front['source'], 'libretro')
         self.assertEqual(front['style'], 'front')
@@ -389,7 +389,7 @@ class CoverSourceTests(unittest.TestCase):
     def test_complete_libretro_catalog_keeps_entries_after_1000_and_rejects_truncated_tree(self):
         rows = [{'type': 'blob', 'path': f'Named_Boxarts/Game {n}.png'} for n in range(1100)]
         rows += [{'type': 'blob', 'path': 'Named_Snaps/Game.png'}]
-        with patch('smsrecomp.artwork._get', return_value=json.dumps({'truncated': False, 'tree': rows}).encode()):
+        with patch('retrorecomp.artwork._get', return_value=json.dumps({'truncated': False, 'tree': rows}).encode()):
             catalog = _catalog(self.art, 'gb')
         self.assertEqual(len(catalog), 1100)
         self.assertIn('Game 1099.png', catalog)

@@ -11,7 +11,7 @@ class SetupLockTests(unittest.TestCase):
         worker = r'''
 import json,sys,time
 from pathlib import Path
-from smsrecomp import core
+from retrorecomp import core
 core.ROOT=Path(sys.argv[1])
 counter=core.ROOT/'counter.json'
 @core.serialized_setup
@@ -37,7 +37,7 @@ for _ in range(3):outer()
 
     def test_exception_releases_nested_gate(self):
         from unittest.mock import patch
-        from smsrecomp import core
+        from retrorecomp import core
         with tempfile.TemporaryDirectory(prefix='rr-setup-error-') as temp:
             @core.serialized_setup
             def fail():

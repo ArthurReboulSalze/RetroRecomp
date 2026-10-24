@@ -1,6 +1,6 @@
 """Converter navigation edges are independent of controller polling frequency."""
 import unittest
-from smsrecomp.player_gamepad import Navigation
+from retrorecomp.player_gamepad import Navigation
 
 
 class NavigationTests(unittest.TestCase):

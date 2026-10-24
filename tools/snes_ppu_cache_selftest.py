@@ -7,9 +7,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
-from smsrecomp.snes_video import legacy
+from retrorecomp.core import run, toolchain
+from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
+from retrorecomp.snes_video import legacy
 
 
 def main():

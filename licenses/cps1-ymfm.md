@@ -3,7 +3,7 @@
 The CPS-1 runtime generates YM2151 (OPM) sound with ymfm by Aaron Giles,
 [`aaronsgiles/ymfm` at `81aec25ccbb98f4873a255f7551ac4dadac59b4a`](https://github.com/aaronsgiles/ymfm/tree/81aec25ccbb98f4873a255f7551ac4dadac59b4a):
 `src/ymfm.h`, `ymfm_fm.h`, `ymfm_fm.ipp`, `ymfm_opm.h` and `ymfm_opm.cpp`,
-compiled unmodified from a copy made by `smsrecomp/cps1_build.py`.
+compiled unmodified from a copy made by `retrorecomp/cps1_build.py`.
 `native/cps1_opm.cpp` is the Retro-Recomp interface (timers, interrupt and
 busy flag on the Z80 clock). The Neo Geo uses a separate C port of other ymfm
 cores through Geolith.

@@ -5,9 +5,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.nes_machine import prepare_machine
-from smsrecomp.platforms import build_executable, build_jobs, cmake_target_args
+from retrorecomp.core import run, toolchain
+from retrorecomp.nes_machine import prepare_machine
+from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
 
 
 def main():

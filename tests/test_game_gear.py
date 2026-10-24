@@ -7,10 +7,10 @@ from zipfile import ZipFile
 
 from PIL import Image
 
-from smsrecomp.artwork import prepare_icon
-from smsrecomp.batch import identify
-from smsrecomp.core import read_game_gear_rom
-from smsrecomp.systems import profile_for_path
+from retrorecomp.artwork import prepare_icon
+from retrorecomp.batch import identify
+from retrorecomp.core import read_game_gear_rom
+from retrorecomp.systems import profile_for_path
 
 
 def cartridge(region=7):
@@ -53,7 +53,7 @@ class GameGearTests(unittest.TestCase):
         image = Image.new('RGB', (32, 32), 'red')
         buffer = BytesIO()
         image.save(buffer, format='PNG')
-        with patch('smsrecomp.artwork._get', return_value=buffer.getvalue()) as get:
+        with patch('retrorecomp.artwork._get', return_value=buffer.getvalue()) as get:
             result = prepare_icon(build, source, 'Sample', self.root / 'BoxArt', system_id='gg')
         self.assertTrue(result['embedded'])
         self.assertIn('Sega_-_Game_Gear', get.call_args.args[0])

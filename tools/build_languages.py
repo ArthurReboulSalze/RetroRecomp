@@ -16,7 +16,7 @@ import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.languages import GAME_LANGUAGES, LANGUAGES, LANGUAGE_NAMES
+from retrorecomp.languages import GAME_LANGUAGES, LANGUAGES, LANGUAGE_NAMES
 
 GERMAN = str.maketrans({'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue', 'ß': 'ss'})
 PUNCTUATION = str.maketrans({'«': '"', '»': '"', '“': '"', '”': '"', '‘': "'", '’': "'",
@@ -66,7 +66,7 @@ def ui_fonts(data,cjk):
     from fontTools import subset
     from fontTools.ttLib import TTFont
     ui = ''.join(LANGUAGE_NAMES) + ''.join(json.dumps(v,ensure_ascii=False) for v in data.values())
-    from smsrecomp.i18n import STRINGS
+    from retrorecomp.i18n import STRINGS
     ui += ''.join(''.join(pair) for pair in STRINGS.values())
     points = set(range(32,127)) | {ord(c) for c in ui if ord(c)>=32}
     font_hashes = {}

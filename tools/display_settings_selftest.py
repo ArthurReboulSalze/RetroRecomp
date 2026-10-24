@@ -3,7 +3,7 @@ from pathlib import Path
 import sys,subprocess,shutil,tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import dependencies,run
+from retrorecomp.core import dependencies,run
 def main():
     project=ROOT/'.build/display-settings-selftest'; project.mkdir(parents=True,exist_ok=True)
     _,sdl,cmake,generator=dependencies(lambda t:None)

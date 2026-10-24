@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.megadrive_codegen import adapt_interpreter, generate_steps
+from retrorecomp.core import run, toolchain
+from retrorecomp.megadrive_codegen import adapt_interpreter, generate_steps
 
 
 REGS = [*(f'd{i}' for i in range(8)), *(f'a{i}' for i in range(7)), 'usp', 'ssp', 'sr', 'pc']

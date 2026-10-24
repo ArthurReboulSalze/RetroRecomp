@@ -90,7 +90,7 @@ Each path respects the configured frame budget; Start is pulsed once per
 controller to avoid repeatedly pausing a game. These bounded scripts do not
 guarantee every menu, level or a complete playthrough. *Thorough* adds two
 reproducible pseudo-random routes of 18,000 frames seeded from the exact ROM
-(`smsrecomp/random_routes.py`), compared with the reference like the authored
+(`retrorecomp/random_routes.py`), compared with the reference like the authored
 replays; *Quick* keeps boot and the right-hand play run for a single pass. The
 report records the level and each scenario's frame budget under `advanced_scan`.
 

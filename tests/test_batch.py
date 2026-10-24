@@ -6,10 +6,10 @@ from threading import Barrier, Event
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.batch import identify, convert_batch, system_output
-from smsrecomp.systems import discover_roms
-from smsrecomp.core import ConversionError, executable_name
-from smsrecomp.library import atomic_json
+from retrorecomp.batch import identify, convert_batch, system_output
+from retrorecomp.systems import discover_roms
+from retrorecomp.core import ConversionError, executable_name
+from retrorecomp.library import atomic_json
 
 
 EXT = '.exe' if os.name == 'nt' else ''
@@ -27,7 +27,7 @@ def folder_entries(names):
 
 class BatchTests(unittest.TestCase):
     def test_single_rom_inventory_does_not_open_other_reported_executables(self):
-        from smsrecomp.batch import _foreign_binary
+        from retrorecomp.batch import _foreign_binary
         selected, unrelated = self.item('selected', 1), self.item('unrelated', 2)
         self.output.mkdir(parents=True)
         selected.title, unrelated.title = 'Selected', 'Unrelated'
@@ -42,8 +42,8 @@ class BatchTests(unittest.TestCase):
         def header(path):
             self.assertNotEqual(path, blocked, 'An unrelated EXE must not delay this conversion')
             return _foreign_binary(path)
-        with patch('smsrecomp.batch._foreign_binary', side_effect=header), \
-                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.batch._foreign_binary', side_effect=header), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             record = convert_batch([selected], self.games_root, emit=lambda _: None)
         self.assertEqual((record['succeeded'], record['failed']), (1, 0))
         self.assertEqual(Path(record['games'][0]['executable']).name, 'Selected' + EXT)
@@ -59,29 +59,29 @@ class BatchTests(unittest.TestCase):
             report.parent.mkdir(parents=True)
             atomic_json(report, {'executable': target.name,
                 'rom': {'sha256': item.sha256, 'name': item.path.name}})
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             record = convert_batch([first], self.games_root, emit=lambda _: None)
         self.assertEqual(record['succeeded'], 1)
         self.assertNotEqual(Path(record['games'][0]['executable']), target)
         self.assertEqual(target.read_bytes(), original)
 
     def test_stopping_during_inventory_never_starts_a_compiler(self):
-        from smsrecomp.batch import _OutputNames
+        from retrorecomp.batch import _OutputNames
         item = self.item('selected', 1)
         stop = Event()
         def inspect(*args, **kwargs):
             value = _OutputNames(*args, **kwargs)
             stop.set()
             return value
-        with patch('smsrecomp.batch._OutputNames', side_effect=inspect), \
-                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert') as compiler:
+        with patch('retrorecomp.batch._OutputNames', side_effect=inspect), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert') as compiler:
             record = convert_batch([item], self.games_root, cancel=stop, emit=lambda _: None)
         compiler.assert_not_called()
         self.assertTrue(record['cancelled'])
         self.assertEqual((record['succeeded'], record['pending']), (0, 1))
 
     def test_a_foreign_target_export_is_never_claimed_for_replacement(self):
-        from smsrecomp.batch import _export_records
+        from retrorecomp.batch import _export_records
         item = self.item('foreign', 1)
         self.output.mkdir(parents=True)
         candidate = self.output / ('Same title' + EXT)
@@ -97,7 +97,7 @@ class BatchTests(unittest.TestCase):
     def test_old_unmarked_exports_are_owned_through_their_reports_only(self):
         # Exports from before receipts and markers (0.2x) can be reconverted
         # from the collection, with the queue's rule: one exact report claim.
-        from smsrecomp.batch import reported_owner
+        from retrorecomp.batch import reported_owner
         item, other = self.item('old', 1), self.item('other', 2)
         self.output.mkdir(parents=True)
         candidate = self.output / ('Same title' + EXT)
@@ -123,7 +123,7 @@ class BatchTests(unittest.TestCase):
             self.assertEqual(RetroRecomp.main(), 0)
 
     def test_branded_elf_ownership_requires_one_exact_identity(self):
-        from smsrecomp.batch import _embedded_export_identity
+        from retrorecomp.batch import _embedded_export_identity
         with tempfile.TemporaryDirectory() as folder:
             candidate = Path(folder) / 'Linux game'
             marker = b'[Retro-Recomp]\0'
@@ -139,7 +139,7 @@ class BatchTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         # Synthetic fixture bytes are not PE files; exercise publication
         # compression separately with a real Windows executable.
-        packer = patch('smsrecomp.publishing.compact_executable')
+        packer = patch('retrorecomp.publishing.compact_executable')
         packer.start()
         self.addCleanup(packer.stop)
         # Match production path resolution even when TEMP uses a Windows 8.3 alias.
@@ -166,7 +166,7 @@ class BatchTests(unittest.TestCase):
 
     def test_console_folder_isolates_same_title_editions_and_deduplicates_exact_rom(self):
         first, second, alias = self.item("one", 1), self.item("two", 2), self.item("alias", 1)
-        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
+        with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
             record = convert_batch([first, second, alias], self.games_root, emit=lambda text: None)
         self.assertEqual((record["succeeded"], record["duplicates"]), (2, 1))
         self.assertEqual(compiler.call_count, 2)
@@ -179,12 +179,12 @@ class BatchTests(unittest.TestCase):
             report = self.output / "datas/reports" / item.key / "conversion-report.json"
             self.assertEqual(json.loads(report.read_text())["executable"], names[item.sha256])
         # Reversed order in a later conversion must preserve revision/name pairing.
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             repeated = convert_batch([second, first], self.games_root, emit=lambda text: None)
         self.assertEqual([Path(game['executable']).name for game in repeated['games']],
                          [names[second.sha256], names[first.sha256]])
         # Regenerating only one edition must not discard its region/version label.
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             alone = convert_batch([first], self.games_root, emit=lambda text: None)
         self.assertEqual(Path(alone['games'][0]['executable']).name, names[first.sha256])
         self.assertEqual({path.name for path in exports(self.output)}, set(names.values()))
@@ -198,7 +198,7 @@ class BatchTests(unittest.TestCase):
             if path == first.path:
                 raise ConversionError("Invalid encoding")
             return self.compiler(path, **options)
-        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=compile):
+        with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=compile):
             result = convert_batch([first, second], self.games_root, emit=lambda text: None)
         self.assertEqual((result["failed"], result["succeeded"]), (1, 1))
         self.assertEqual(old.read_bytes(), b"previous good executable")
@@ -209,13 +209,13 @@ class BatchTests(unittest.TestCase):
         def event(kind, index, value):
             if kind == "result":
                 stop.set()
-        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
+        with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler) as compiler:
             result = convert_batch([first, second], self.games_root, cancel=stop, on_event=event, emit=lambda text: None)
         self.assertEqual(compiler.call_count, 1)
         self.assertTrue(result["cancelled"])
         self.assertEqual(result["pending"], 1)
         first.path.write_bytes(bytes([9])*8192)
-        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=AssertionError("modified ROM must not compile")):
+        with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=AssertionError("modified ROM must not compile")):
             result = convert_batch([first], self.games_root, emit=lambda text: None)
         self.assertEqual(result["failed"], 1)
 
@@ -230,8 +230,8 @@ class BatchTests(unittest.TestCase):
             rendezvous.wait(timeout=5)  # All three conversions must overlap.
             return self.compiler(path, **options)
 
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile), \
-                patch('smsrecomp.systems.game_gear.GameGearProfile.convert', side_effect=compile):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile), \
+                patch('retrorecomp.systems.game_gear.GameGearProfile.convert', side_effect=compile):
             record = convert_batch([first, second, third], self.games_root,
                                    jobs=3, emit=lambda text: None)
         self.assertEqual(record['succeeded'], 3)
@@ -261,7 +261,7 @@ class BatchTests(unittest.TestCase):
             rendezvous.wait(timeout=5)
             return self.compiler(path, **options)
 
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
             record = convert_batch(items, self.games_root, jobs=2, cancel=stop,
                                    on_event=event, emit=lambda text: None)
         self.assertEqual(compiler.call_count, 2)
@@ -274,14 +274,14 @@ class BatchTests(unittest.TestCase):
         first_path.write_bytes(bytes([7]) * 8192)
         sequel_path.write_bytes(first_path.read_bytes())
         first, sequel = identify(first_path), identify(sequel_path)
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
             record = convert_batch([first, sequel], self.games_root, jobs=2,
                                    emit=lambda message: None)
         self.assertEqual(compiler.call_count, 1)
         self.assertEqual((record['succeeded'], record['duplicates']), (1, 1))
         self.assertEqual(record['games'][1]['duplicate_of'], 'Strider')
         self.assertEqual({path.name for path in exports(self.output)}, {('Strider' + EXT)})
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',
                    side_effect=AssertionError('Do not relabel identical ROM bytes')):
             again = convert_batch([sequel], self.games_root, emit=lambda message: None)
         self.assertEqual(again['games'][0]['duplicate_of'], 'Strider')
@@ -296,7 +296,7 @@ class BatchTests(unittest.TestCase):
             rendezvous.wait(timeout=5)
             return self.compiler(path, **options)
 
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
             record = convert_batch([first, alias, other], self.games_root, jobs=2,
                                    emit=lambda message: None)
         self.assertEqual(compiler.call_count, 2)
@@ -315,7 +315,7 @@ class BatchTests(unittest.TestCase):
                 other_started.set()
             return self.compiler(path, **options)
 
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile) as compiler:
             record = convert_batch([first, alias, other], self.games_root, jobs=2,
                                    emit=lambda message: None)
         self.assertEqual(compiler.call_count, 3)
@@ -326,7 +326,7 @@ class BatchTests(unittest.TestCase):
         paths = [self.root / f'Game ({region}).sms' for region in ('USA', 'Europe')]
         for value, path in enumerate(paths, 1):
             path.write_bytes(bytes([value]) * 8192)
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             record = convert_batch([identify(path) for path in paths], self.games_root,
                                    jobs=2, emit=lambda message: None)
         self.assertEqual([Path(game['executable']).name for game in record['games']],
@@ -334,11 +334,11 @@ class BatchTests(unittest.TestCase):
 
     def test_disabling_overwrite_skips_a_finished_game_without_touching_its_executable(self):
         item = self.item('one', 1)
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             first = convert_batch([item], self.games_root, emit=lambda message: None)
         executable = Path(first['games'][0]['executable'])
         before = executable.read_bytes()
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',
                    side_effect=AssertionError('Existing game must not be recompiled')):
             record = convert_batch([item], self.games_root, overwrite=False,
                                    emit=lambda message: None)
@@ -355,7 +355,7 @@ class BatchTests(unittest.TestCase):
             if path.name == "conversion-report.json":
                 raise PermissionError("report is locked")
             return atomic_json(path, value)
-        with patch("smsrecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler), patch("smsrecomp.batch.atomic_json", side_effect=write_report):
+        with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=self.compiler), patch("retrorecomp.batch.atomic_json", side_effect=write_report):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual(result["failed"], 1)
         self.assertEqual(old.read_bytes(), b"previous good executable")
@@ -377,7 +377,7 @@ class BatchTests(unittest.TestCase):
         reports.mkdir(parents=True)
         (reports / 'conversion-report.json').write_text(json.dumps({
             'executable': legacy.name, 'rom': {'sha256': item.sha256}}))
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual(result['succeeded'], 1)
         self.assertEqual(Path(result['games'][0]['executable']).name, ('Same title (2)' + EXT))
@@ -387,7 +387,7 @@ class BatchTests(unittest.TestCase):
 
     def test_renamed_game_replaces_its_previous_export_without_keeping_copies(self):
         item = self.item('one', 1)
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             convert_batch([item], self.games_root, emit=lambda text: None)
             item.title = 'New game title'
             result = convert_batch([item], self.games_root, emit=lambda text: None)
@@ -396,7 +396,7 @@ class BatchTests(unittest.TestCase):
         self.assertFalse((self.output / 'datas/previous-executables').exists())
 
     def test_old_revision_report_cannot_claim_current_branded_export_or_source_name(self):
-        from smsrecomp.batch import _OutputNames
+        from retrorecomp.batch import _OutputNames
         item = self.item('current', 1)
         old = self.item('old', 2)
         self.output.mkdir(parents=True)
@@ -411,14 +411,14 @@ class BatchTests(unittest.TestCase):
         names = _OutputNames(self.output)
         self.assertEqual(names.owners[target.name.casefold()], {item.sha256})
         self.assertTrue(names.same_source_name(item, target))
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual((result['succeeded'], result['duplicates']), (1, 0))
         self.assertEqual(Path(result['games'][0]['executable']), target)
         self.assertEqual({p.name for p in exports(self.output)}, {target.name})
 
     def test_conflicting_reports_do_not_claim_an_unbranded_file(self):
-        from smsrecomp.batch import _OutputNames
+        from retrorecomp.batch import _OutputNames
         first, second = self.item('first', 1), self.item('second', 2)
         self.output.mkdir(parents=True)
         target = self.output / ('Same title' + EXT)
@@ -450,7 +450,7 @@ class BatchTests(unittest.TestCase):
         revision.write_bytes(generated(second))
         duplicate = self.output / ('Same title (3)' + EXT)
         duplicate.write_bytes(generated(first))
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([second, first], self.games_root, emit=lambda text: None)
         names = {item.sha256: f'Same title (Europe, version {letter}){EXT}'
                  for letter, item in zip('AB', sorted((first, second), key=lambda game: game.sha256))}
@@ -466,16 +466,16 @@ class BatchTests(unittest.TestCase):
         unknown = self.output / ('Same title' + EXT)
         original = (NATIVE_MAGIC + b'\x00') + item.sha256.encode('ascii') + b'\x00'
         unknown.write_bytes(original)
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler):
             result = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual(Path(result['games'][0]['executable']).name, ('Same title (2)' + EXT))
         self.assertEqual(unknown.read_bytes(), original)
 
     def test_single_rom_default_uses_the_shared_folder_and_keeps_custom_options(self):
         item = self.item('one', 1)
-        import smsrecomp.core as core
-        with patch('smsrecomp.core.games_root', return_value=self.games_root), \
-                patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
+        import retrorecomp.core as core
+        with patch('retrorecomp.core.games_root', return_value=self.games_root), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as compiler:
             executable = core.convert(item.path, title='Custom title', frames=5, passes=2,
                                       online_cover=False, use_cover=False, icon_tags=False)
         self.assertEqual(executable, self.output / ('Custom title' + EXT))
@@ -488,7 +488,7 @@ class BatchTests(unittest.TestCase):
         first, second = self.item('one', 1), self.item('two', 2)
         self.assertEqual((first.system, first.video_hint), ('sms', 'pal'))
         first.standard_override = 'ntsc'
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',
                    side_effect=self.compiler) as compiler:
             record = convert_batch([first, second], self.games_root, emit=lambda text: None)
         self.assertEqual(record['succeeded'], 2)
@@ -502,9 +502,9 @@ class BatchTests(unittest.TestCase):
         gg.write_bytes(bytes(32768))
         gb = self.root / 'Authored.gb'
         gb.write_bytes(bytes(32768))
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as sms_compiler, \
-                patch('smsrecomp.systems.game_gear.GameGearProfile.convert', side_effect=self.compiler) as gg_compiler, \
-                patch('smsrecomp.systems.game_boy.GameBoyProfile.convert', side_effect=self.compiler) as gb_compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as sms_compiler, \
+                patch('retrorecomp.systems.game_gear.GameGearProfile.convert', side_effect=self.compiler) as gg_compiler, \
+                patch('retrorecomp.systems.game_boy.GameBoyProfile.convert', side_effect=self.compiler) as gb_compiler:
             record = convert_batch([sms, identify(gg), identify(gb)], self.games_root,
                                    gb_deep_validation=True, emit=lambda text: None)
         self.assertEqual(record['succeeded'], 3)
@@ -522,9 +522,9 @@ class BatchTests(unittest.TestCase):
         genesis.write_bytes(md(b'U'))
         super_nintendo = self.root / 'Authored.sfc'
         super_nintendo.write_bytes(snes())
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as sms_compiler, \
-                patch('smsrecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler) as md_compiler, \
-                patch('smsrecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler) as snes_compiler:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler) as sms_compiler, \
+                patch('retrorecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler) as md_compiler, \
+                patch('retrorecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler) as snes_compiler:
             record = convert_batch([master, identify(genesis), identify(super_nintendo)], self.games_root,
                                    md_advanced_scan=True, emit=lambda text: None)
         self.assertEqual(record['succeeded'], 3)
@@ -546,9 +546,9 @@ class BatchTests(unittest.TestCase):
         items = [master, identify(genesis), identify(super_nintendo)]
         console_scan = {'md': {'level': 'extended', 'passes': 2}, 'sms': {'frames': 1800},
                         'bogus': {'level': 'thorough'}}
-        patches = (patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler),
-                   patch('smsrecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler),
-                   patch('smsrecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler))
+        patches = (patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler),
+                   patch('retrorecomp.systems.console16.MegaDriveProfile.convert', side_effect=self.compiler),
+                   patch('retrorecomp.systems.console16.SnesProfile.convert', side_effect=self.compiler))
         with patches[0] as sms_compiler, patches[1] as md_compiler, patches[2] as snes_compiler:
             record = convert_batch(items, self.games_root, console_scan=console_scan, passes=3, frames=3600,
                                    emit=lambda text: None)
@@ -576,8 +576,8 @@ class BatchTests(unittest.TestCase):
         from tests.test_nes import cartridge
         master=self.item('sms',1)
         path=self.root/'Authored.nes';path.write_bytes(cartridge())
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',side_effect=self.compiler) as sega, \
-                patch('smsrecomp.systems.nes.NesProfile.convert',side_effect=self.compiler) as nes:
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',side_effect=self.compiler) as sega, \
+                patch('retrorecomp.systems.nes.NesProfile.convert',side_effect=self.compiler) as nes:
             record=convert_batch([master,identify(path)],self.games_root,
                 nes_advanced_scan=True,emit=lambda _message:None)
         self.assertEqual(record['succeeded'],2)
@@ -601,8 +601,8 @@ class BatchTests(unittest.TestCase):
         before = {path: path.read_bytes() for path in (sms, gg, other)}
         paths = discover_roms(source)
         self.assertEqual(paths, [other, gg, sms])
-        with patch('smsrecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler), \
-                patch('smsrecomp.systems.game_gear.GameGearProfile.convert', side_effect=self.compiler):
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=self.compiler), \
+                patch('retrorecomp.systems.game_gear.GameGearProfile.convert', side_effect=self.compiler):
             record = convert_batch([identify(path) for path in paths], self.games_root,
                                    emit=lambda text: None)
         self.assertEqual((record['succeeded'], record['unrecognized'], record['failed']), (2, 1, 0))

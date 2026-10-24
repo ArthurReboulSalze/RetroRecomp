@@ -1,6 +1,6 @@
 import unittest
-from smsrecomp import megadrive_read
-from smsrecomp.core import ConversionError
+from retrorecomp import megadrive_read
+from retrorecomp.core import ConversionError
 
 
 class ReadStagingTests(unittest.TestCase):

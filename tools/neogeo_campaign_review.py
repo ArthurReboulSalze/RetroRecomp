@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.neogeo_validation import compare, route_arguments
+from retrorecomp.neogeo_validation import compare, route_arguments
 
 
 def replay(path,root):

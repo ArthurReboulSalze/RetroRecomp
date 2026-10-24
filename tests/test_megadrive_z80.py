@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import patch
-from smsrecomp import megadrive_z80 as z80
+from retrorecomp import megadrive_z80 as z80
 
 
 class MegaDriveZ80Tests(unittest.TestCase):

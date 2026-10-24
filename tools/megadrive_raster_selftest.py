@@ -4,8 +4,8 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
-from smsrecomp.megadrive_runtime import timing_vdp
+from retrorecomp.core import run,toolchain
+from retrorecomp.megadrive_runtime import timing_vdp
 
 def main():
     work=ROOT/'.build/megadrive-raster-selftest';work.mkdir(parents=True,exist_ok=True)

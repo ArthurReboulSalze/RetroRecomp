@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run
+from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run
 
 def files(directory):
     return {p.relative_to(directory).as_posix(): p.read_bytes() for p in directory.rglob('*') if p.is_file()}

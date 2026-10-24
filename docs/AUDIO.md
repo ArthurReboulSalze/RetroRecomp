@@ -9,7 +9,7 @@ other console backends retain their own audio implementations.
 
 ## Game Boy output
 
-`smsrecomp/gameboy_timing.py` adapts the pinned Game Boy host and includes
+`retrorecomp/gameboy_timing.py` adapts the pinned Game Boy host and includes
 `native/gb_audio_output.inc`. The APU, its 44.1 kHz PCM, saved state layout,
 CPU clock and input handling remain unchanged. This is a host output change
 for all newly generated Game Boy games, not a cartridge-specific patch.

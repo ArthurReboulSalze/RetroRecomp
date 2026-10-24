@@ -1,7 +1,7 @@
 """Scan levels: shared vocabulary, per-console budgets and preference parsing."""
 import unittest
 
-from smsrecomp import scan_levels as sl
+from retrorecomp import scan_levels as sl
 
 
 class ScanLevelTests(unittest.TestCase):
@@ -57,9 +57,9 @@ class ScanLevelTests(unittest.TestCase):
     def test_nes_and_game_boy_scenario_builders_follow_the_budgets(self):
         import tempfile
         from pathlib import Path
-        from smsrecomp import random_routes as rr
-        from smsrecomp.nes import _write_probe_scripts, _scenario_frames
-        from smsrecomp.gameboy_coverage import probe_scenarios
+        from retrorecomp import random_routes as rr
+        from retrorecomp.nes import _write_probe_scripts, _scenario_frames
+        from retrorecomp.gameboy_coverage import probe_scenarios
         identity = 'c' * 64
         with tempfile.TemporaryDirectory() as temp:
             routes = rr.long_routes('nes', identity, count=2, frames=18000)

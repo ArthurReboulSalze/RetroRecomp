@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.x68000 import developer_available
+from retrorecomp.x68000 import developer_available
 
 BUNDLED = ('native/x68000_native/CMakeLists.txt', 'native/x68000_reference/CMakeLists.txt',
            'native/x68000_machine/base74/musashi/m68kconf.h', 'tools/x68000_base74.py')
@@ -14,15 +14,15 @@ class AvailabilityTests(unittest.TestCase):
     def test_bundled_files_and_importable_generators_are_both_required(self):
         with TemporaryDirectory() as folder:
             root = Path(folder)
-            with patch('smsrecomp.x68000.ASSETS', root):
+            with patch('retrorecomp.x68000.ASSETS', root):
                 self.assertFalse(developer_available())
                 for name in BUNDLED:
                     path = root / name
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text('synthetic SDK marker')
-                with patch('smsrecomp.x68000.importlib.util.find_spec', return_value=None):
+                with patch('retrorecomp.x68000.importlib.util.find_spec', return_value=None):
                     self.assertFalse(developer_available())
-                with patch('smsrecomp.x68000.importlib.util.find_spec', return_value=object()):
+                with patch('retrorecomp.x68000.importlib.util.find_spec', return_value=object()):
                     self.assertTrue(developer_available())
 
     def test_no_libretro_checkout_is_needed(self):
@@ -33,7 +33,7 @@ class AvailabilityTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('synthetic SDK marker')
             self.assertFalse((root / '.deps').exists())
-            with patch('smsrecomp.x68000.ASSETS', root),                     patch('smsrecomp.x68000.importlib.util.find_spec', return_value=object()):
+            with patch('retrorecomp.x68000.ASSETS', root),                     patch('retrorecomp.x68000.importlib.util.find_spec', return_value=object()):
                 self.assertTrue(developer_available())
 
 
@@ -41,7 +41,7 @@ class PackagedSourceTests(unittest.TestCase):
     """A packaged converter extracts itself to a new folder on every launch."""
 
     def test_bundled_sources_are_copied_to_a_stable_workspace_folder(self):
-        from smsrecomp import x68000_conversion as conversion
+        from retrorecomp import x68000_conversion as conversion
         with TemporaryDirectory() as folder:
             assets, root = Path(folder, 'extracted'), Path(folder, 'workspace')
             for name in ('native/x68000_native/CMakeLists.txt', 'tools/x68000_base74.py', 'LICENSE'):

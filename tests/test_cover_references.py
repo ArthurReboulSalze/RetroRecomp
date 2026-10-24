@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from smsrecomp.artwork import ArtworkError, resolve_cover
-from smsrecomp.cover_references import find, load, validate_payload
+from retrorecomp.artwork import ArtworkError, resolve_cover
+from retrorecomp.cover_references import find, load, validate_payload
 from tools.prepare_publication import check_public_file
 
 
@@ -52,7 +52,7 @@ class CoverReferenceTests(unittest.TestCase):
     def test_exact_identity_names_console_style_and_ambiguity(self):
         value = payload()
         digest = value['entries'][0]['rom_sha256'][0]
-        with patch('smsrecomp.cover_references.load', return_value=value):
+        with patch('retrorecomp.cover_references.load', return_value=value):
             self.assertEqual(find('sms', digest, 'renamed')['id'], 'sms-authored-game')
             self.assertIsNotNone(find('sms', None, 'Authored Game (Europe)'))
             for system, name, box3d in [('sms', 'Authored Game II (Europe)', False),
@@ -76,7 +76,7 @@ class CoverReferenceTests(unittest.TestCase):
     def test_neo_geo_reference_is_scoped_to_console_and_exact_archive(self):
         value=payload();value['entries'][0]['system_id']='ng'
         validate_payload(value)
-        with patch('smsrecomp.cover_references.load',return_value=value):
+        with patch('retrorecomp.cover_references.load',return_value=value):
             digest=value['entries'][0]['rom_sha256'][0]
             self.assertIsNotNone(find('ng',digest,'renamed.zip'))
             self.assertIsNone(find('sms',digest,'renamed.zip'))
@@ -87,18 +87,18 @@ class CoverReferenceTests(unittest.TestCase):
             root = Path(temp); rom = root / 'Authored Game (Europe).sms'
             rom.write_bytes(b'authored cartridge fixture')
             cache = root / 'cache'
-            with patch('smsrecomp.cover_references.load', return_value={'format': 1, 'entries': []}), \
-                 patch('smsrecomp.artwork._get', return_value=png('orange')):
+            with patch('retrorecomp.cover_references.load', return_value={'format': 1, 'entries': []}), \
+                 patch('retrorecomp.artwork._get', return_value=png('orange')):
                 wrong = resolve_cover(rom, 'Authored Game', cache, emit=lambda text: None)
-            with patch('smsrecomp.cover_references.load', return_value=payload()), \
-                 patch('smsrecomp.artwork._get', return_value=png('blue')) as network:
+            with patch('retrorecomp.cover_references.load', return_value=payload()), \
+                 patch('retrorecomp.artwork._get', return_value=png('blue')) as network:
                 reviewed = resolve_cover(rom, 'Authored Game', cache, emit=lambda text: None)
             self.assertEqual(reviewed['source'], 'reference')
             self.assertNotEqual(wrong['data'], reviewed['data'])
             self.assertEqual(network.call_count, 1)
             renamed = root / 'Renamed.sms'; renamed.write_bytes(rom.read_bytes())
-            with patch('smsrecomp.cover_references.load', return_value=payload()), \
-                 patch('smsrecomp.artwork._get', side_effect=AssertionError('cache must avoid network')):
+            with patch('retrorecomp.cover_references.load', return_value=payload()), \
+                 patch('retrorecomp.artwork._get', side_effect=AssertionError('cache must avoid network')):
                 reused = resolve_cover(renamed, 'Renamed', cache, emit=lambda text: None)
                 self.assertEqual(reused['data'], reviewed['data'])
                 self.assertEqual(reused['source'], 'reference_cache')
@@ -111,25 +111,25 @@ class CoverReferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); rom = root / 'Authored Game (Europe).sms'
             rom.write_bytes(b'authored cartridge fixture'); cache = root / 'cache'
-            with patch('smsrecomp.cover_references.load', return_value=payload()), \
-                 patch('smsrecomp.artwork._get', return_value=png('blue')):
+            with patch('retrorecomp.cover_references.load', return_value=payload()), \
+                 patch('retrorecomp.artwork._get', return_value=png('blue')):
                 first = resolve_cover(rom, 'Authored Game', cache, emit=lambda text: None)
             update = payload(); update['entries'][0]['image_urls'] = ['https://example.test/corrected.png']
-            with patch('smsrecomp.cover_references.load', return_value=update), \
-                 patch('smsrecomp.artwork._get', return_value=png('green')) as network:
+            with patch('retrorecomp.cover_references.load', return_value=update), \
+                 patch('retrorecomp.artwork._get', return_value=png('green')) as network:
                 second = resolve_cover(rom, 'Authored Game', cache, emit=lambda text: None)
             self.assertEqual(network.call_count, 1)
             self.assertNotEqual(first['reference_revision'], second['reference_revision'])
             manual = root / 'explicit.png'; manual.write_bytes(png('red'))
-            with patch('smsrecomp.artwork._get', side_effect=AssertionError('explicit is offline')):
+            with patch('retrorecomp.artwork._get', side_effect=AssertionError('explicit is offline')):
                 self.assertEqual(resolve_cover(rom, 'Authored Game', cache, explicit=manual)['source'], 'explicit')
 
     def test_offline_reference_does_not_create_a_cache_or_contact_the_network(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); cache = root / 'absent'; rom = root / 'Authored Game (Europe).sms'
             rom.write_bytes(b'authored cartridge fixture')
-            with patch('smsrecomp.cover_references.load', return_value=payload()), \
-                 patch('smsrecomp.artwork._get', side_effect=AssertionError('offline')):
+            with patch('retrorecomp.cover_references.load', return_value=payload()), \
+                 patch('retrorecomp.artwork._get', side_effect=AssertionError('offline')):
                 with self.assertRaises(ArtworkError):
                     resolve_cover(rom, 'Authored Game', cache, online=False)
             self.assertFalse(cache.exists())

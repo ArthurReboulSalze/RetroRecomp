@@ -13,7 +13,7 @@ def workspace_directory() -> Path:
     project = application.parent
     if (application.name.casefold() == 'export' and
             (project / 'RetroRecomp.py').is_file() and
-            (project / 'smsrecomp/core.py').is_file()):
+            (project / 'retrorecomp/core.py').is_file()):
         return project
     return application
 

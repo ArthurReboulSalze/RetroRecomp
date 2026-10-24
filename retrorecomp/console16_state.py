@@ -105,7 +105,7 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
     digest.update(str(MD_PORTABLE_STATE_ABI if system_id == 'md' else PORTABLE_STATE_ABI).encode())
     if system_id=='snes':
         from .core import module_fingerprint
-        for module in ('smsrecomp.snes_timing','smsrecomp.snes_video','smsrecomp.snes_cart','smsrecomp.snes_dma','smsrecomp.snes_bus','smsrecomp.snes_ppu_bus','smsrecomp.snes_chips'):
+        for module in ('retrorecomp.snes_timing','retrorecomp.snes_video','retrorecomp.snes_cart','retrorecomp.snes_dma','retrorecomp.snes_bus','retrorecomp.snes_ppu_bus','retrorecomp.snes_chips'):
             digest.update(module.encode());digest.update(module_fingerprint(module).encode())
     digest.update(json.dumps(revisions,sort_keys=True).encode())
     if os.name != 'nt':

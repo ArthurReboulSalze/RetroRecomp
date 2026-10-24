@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse,os,shutil,subprocess,sys,tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
+from retrorecomp.core import run,toolchain
 def check(project):
     source=project/'rr_display_checks.cpp'
     source.write_text('''#define SDL_MAIN_HANDLED

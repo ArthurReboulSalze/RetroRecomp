@@ -12,11 +12,11 @@ import json
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.batch import identify
-from smsrecomp.knowledge import RESOURCE, FIELDS, MAX_BYTES, load, validate_payload
-from smsrecomp.knowledge_build import (build_record, compact_snes, compact_spc_refs, engines as current_engines,
+from retrorecomp.batch import identify
+from retrorecomp.knowledge import RESOURCE, FIELDS, MAX_BYTES, load, validate_payload
+from retrorecomp.knowledge_build import (build_record, compact_snes, compact_spc_refs, engines as current_engines,
                                        qualified_reports)
-from smsrecomp.systems import get_profile
+from retrorecomp.systems import get_profile
 
 
 def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dict:

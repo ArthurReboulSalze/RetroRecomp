@@ -6,8 +6,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.snes_timing import apu_clock
+from retrorecomp.core import run, toolchain
+from retrorecomp.snes_timing import apu_clock
 
 
 def main():

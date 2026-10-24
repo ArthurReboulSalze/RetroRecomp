@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.core import ConversionError
-from smsrecomp.nes_build import prepare_native, preserve_inputs, stage_native
+from retrorecomp.core import ConversionError
+from retrorecomp.nes_build import prepare_native, preserve_inputs, stage_native
 
 
 class NesBuildTests(unittest.TestCase):
@@ -30,8 +30,8 @@ class NesBuildTests(unittest.TestCase):
         return 'Native PRG ROM positions: 16384/16384\n'
 
     def prepare(self, entries=None, guards=None):
-        with patch('smsrecomp.nes_build.run',side_effect=self.emit), \
-                patch('smsrecomp.nes_ram.opcode_sources',return_value={0xEA:16}):
+        with patch('retrorecomp.nes_build.run',side_effect=self.emit), \
+                patch('retrorecomp.nes_ram.opcode_sources',return_value={0xEA:16}):
             return prepare_native(self.project,self.compiler,self.rom,entries or set(),guards or set())
 
     def test_ram_discovery_updates_only_umbrella_and_preserves_rom_body_paths(self):
@@ -72,7 +72,7 @@ class NesBuildTests(unittest.TestCase):
     def test_failed_generation_keeps_last_active_code_and_receipt(self):
         self.prepare();active=self.project/'cycle/native/generated/game_cyc.c'
         original=active.read_bytes();manifest=(self.project/'cycle/sources.cmake').read_bytes()
-        with patch('smsrecomp.nes_build.run',side_effect=ConversionError('authored emitter failure')):
+        with patch('retrorecomp.nes_build.run',side_effect=ConversionError('authored emitter failure')):
             with self.assertRaises(ConversionError):
                 prepare_native(self.project,self.compiler,self.rom,{'4k:1:9000'},set())
         self.assertEqual(active.read_bytes(),original)
@@ -85,7 +85,7 @@ class NesBuildTests(unittest.TestCase):
             result=self.emit(command,**kwargs)
             (kwargs['cwd']/'generated/game_cyc_live.c').unlink()
             return result
-        with patch('smsrecomp.nes_build.run',side_effect=incomplete):
+        with patch('retrorecomp.nes_build.run',side_effect=incomplete):
             with self.assertRaises(ConversionError):
                 prepare_native(self.project,self.compiler,self.rom,{'4k:1:9000'},set())
         self.assertEqual(active.read_bytes(),original)

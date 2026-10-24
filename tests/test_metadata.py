@@ -1,8 +1,8 @@
 from pathlib import Path
 import tempfile
 import unittest
-from smsrecomp import __version__
-from smsrecomp.metadata import write_game_metadata, game_metadata
+from retrorecomp import __version__
+from retrorecomp.metadata import write_game_metadata, game_metadata
 
 
 class MetadataTests(unittest.TestCase):

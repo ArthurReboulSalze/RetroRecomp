@@ -1,9 +1,9 @@
 from pathlib import Path
 import tempfile,unittest
-from smsrecomp.core import ConversionError
-from smsrecomp.nes import read_nes_rom,_seed_sites
-from smsrecomp.nes_ram import read_sites,trace_text,write_guards,opcode_sources,shared_sites
-from smsrecomp.knowledge import validate_payload
+from retrorecomp.core import ConversionError
+from retrorecomp.nes import read_nes_rom,_seed_sites
+from retrorecomp.nes_ram import read_sites,trace_text,write_guards,opcode_sources,shared_sites
+from retrorecomp.knowledge import validate_payload
 from tools.nes_state_selftest import resume_input
 
 class NesRamTests(unittest.TestCase):
@@ -80,8 +80,8 @@ class NesRamTests(unittest.TestCase):
         import gzip,json,os
         from types import SimpleNamespace
         from unittest.mock import patch
-        from smsrecomp.nes import ENGINE_REV
-        from smsrecomp.knowledge import load
+        from retrorecomp.nes import ENGINE_REV
+        from retrorecomp.knowledge import load
         from tools.build_compilation_knowledge import build
         library=self.root/'library';directory=library/self.rom.sha256/ENGINE_REV
         directory.mkdir(parents=True);trace=directory/'cycle-seeds.trace'
@@ -95,7 +95,7 @@ class NesRamTests(unittest.TestCase):
         profile=SimpleNamespace(read_rom=lambda _:self.rom);out=self.root/'snapshot.json.gz'
         with patch('tools.build_compilation_knowledge.identify',return_value=item),\
                 patch('tools.build_compilation_knowledge.get_profile',return_value=profile),\
-                patch('smsrecomp.knowledge_build.library_root',return_value=library):
+                patch('retrorecomp.knowledge_build.library_root',return_value=library):
             os.utime(trace,(qualified_at+1,qualified_at+1))
             summary=build([self.rom.path],reports=self.root/'reports',output=out)
             self.assertEqual(summary['consoles']['nes']['games'],0)

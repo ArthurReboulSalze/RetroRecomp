@@ -1,7 +1,7 @@
 """Reject drift before any ambiguous DMA, IRQ or old-state adaptation."""
 import unittest
-from smsrecomp import megadrive_dma
-from smsrecomp.core import ConversionError
+from retrorecomp import megadrive_dma
+from retrorecomp.core import ConversionError
 
 
 class DmaStagingTests(unittest.TestCase):

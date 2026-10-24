@@ -7,8 +7,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp import snes_spc
+from retrorecomp.core import run, toolchain
+from retrorecomp import snes_spc
 
 
 def main():

@@ -12,10 +12,10 @@ from zipfile import ZipFile
 
 from PIL import Image
 
-from smsrecomp.compiled_games import Game, Inventory
-from smsrecomp.game_details import Cards, synopsis, pe_icon
-from smsrecomp.rom_sources import RomSources, rom_folders
-from smsrecomp import game_metadata as metadata
+from retrorecomp.compiled_games import Game, Inventory
+from retrorecomp.game_details import Cards, synopsis, pe_icon
+from retrorecomp.rom_sources import RomSources, rom_folders
+from retrorecomp import game_metadata as metadata
 
 
 class CardTests(TestCase):
@@ -51,11 +51,11 @@ class CardTests(TestCase):
         resolver=RomSources(self.root/'converter')
         pairs=resolver.resolve([self.game],{},known=[other])
         self.assertEqual(pairs[0][1],source)
-        with patch('smsrecomp.rom_sources.export_directory',return_value=self.root):
+        with patch('retrorecomp.rom_sources.export_directory',return_value=self.root):
             self.assertEqual(rom_folders({'rom_paths':{'sms':'roms','unknown':'x'}}),{'sms':self.root/'roms'})
 
     def test_source_report_path_is_durable_and_reused_after_index_reload(self):
-        from smsrecomp.compiled_games import game_from_report
+        from retrorecomp.compiled_games import game_from_report
         report=self.root/'conversion-report.json'
         source=self.root/'source.sms'
         report.write_text(json.dumps(dict(tool='Retro-Recomp',system={'id':'sms'},
@@ -70,7 +70,7 @@ class CardTests(TestCase):
                     source='https://example.org/game/2',language='en')
         self.cards.save_metadata(self.game,'fr',record)
         loaded=Cards(self.root/'converter')
-        with patch('smsrecomp.cover_sources.request',side_effect=AssertionError('No network for saved cards')):
+        with patch('retrorecomp.cover_sources.request',side_effect=AssertionError('No network for saved cards')):
             self.assertEqual(loaded.metadata(self.game,'fr')['description'],'Existing source summary.')
             self.assertEqual(loaded.metadata(self.game,'fr')['language'],'en')
             self.assertEqual(loaded.metadata(self.game,'en'),{})
@@ -84,7 +84,7 @@ class CardTests(TestCase):
         raw=BytesIO();Image.new('RGB',(100,150),'red').save(raw,format='PNG')
         path=self.cards.set_cover(self.game,raw.getvalue(),override=True)
         self.assertEqual(self.cards.override(self.game),path)
-        with patch('smsrecomp.game_details.pe_icon',side_effect=AssertionError('Cache comes first')):
+        with patch('retrorecomp.game_details.pe_icon',side_effect=AssertionError('Cache comes first')):
             self.assertEqual(self.cards.cover(self.game),path.read_bytes())
         self.cards.save_metadata(self.game,'en',{'description':'Summary'})
         self.assertEqual(self.cards.override(self.game),path)
@@ -95,12 +95,12 @@ class CardTests(TestCase):
         report=self.root/'report.json'
         report.write_text(json.dumps({'artwork':{'image':str(image)}}))
         self.game.report=str(report)
-        with (patch('smsrecomp.cover_sources.request',side_effect=AssertionError('Offline')),
-              patch('smsrecomp.game_details.pe_icon',side_effect=AssertionError('Cache comes first'))):
+        with (patch('retrorecomp.cover_sources.request',side_effect=AssertionError('Offline')),
+              patch('retrorecomp.game_details.pe_icon',side_effect=AssertionError('Cache comes first'))):
             self.assertEqual(self.cards.cover(self.game),image.read_bytes())
 
     def test_regeneration_refreshes_automatic_card_cover_and_preserves_manual_choice(self):
-        from smsrecomp.game_details import read_json
+        from retrorecomp.game_details import read_json
         old=self.root/'old.png';front=self.root/'corrected-front.png'
         Image.new('RGB',(32,48),'green').save(old)
         Image.new('RGB',(32,48),'red').save(front)
@@ -109,8 +109,8 @@ class CardTests(TestCase):
         # Older card caches have no report fingerprint and must migrate offline.
         self.cards.set_cover(self.game,old.read_bytes())
         self.cards.save_metadata(self.game,'en',{'description':'Saved summary'})
-        with (patch('smsrecomp.cover_sources.request',side_effect=AssertionError('Offline')),
-              patch('smsrecomp.game_details.pe_icon',side_effect=AssertionError('Prefer cached image'))):
+        with (patch('retrorecomp.cover_sources.request',side_effect=AssertionError('Offline')),
+              patch('retrorecomp.game_details.pe_icon',side_effect=AssertionError('Prefer cached image'))):
             self.cards.cover(self.game)
             report.write_text(json.dumps({'artwork':{'image':str(front)}}))
             refreshed=self.cards.cover(self.game)
@@ -119,7 +119,7 @@ class CardTests(TestCase):
             def cached_json(path,*args,**kwargs):
                 self.assertNotEqual(Path(path),report,'Unchanged cover must avoid parsing the report again')
                 return read_json(path,*args,**kwargs)
-            with patch('smsrecomp.game_details.read_json',side_effect=cached_json):
+            with patch('retrorecomp.game_details.read_json',side_effect=cached_json):
                 self.cards.cover(self.game)
             manual=BytesIO();Image.new('RGB',(32,48),'gold').save(manual,format='PNG')
             chosen=self.cards.set_cover(self.game,manual.getvalue(),override=True)
@@ -165,7 +165,7 @@ class CardTests(TestCase):
 
     def test_elf_icon_recovery_is_portable_without_loading_binary(self):
         import struct
-        from smsrecomp.game_details import elf_icon
+        from retrorecomp.game_details import elf_icon
         raw=BytesIO();Image.new('RGBA',(256,256),'blue').save(raw,format='BMP')
         image=raw.getvalue()
         data=bytearray(256+len(image))
@@ -180,8 +180,8 @@ class CardTests(TestCase):
         self.assertEqual(elf_icon(path),image)
 
     def test_gui_source_lookup_delivers_exact_path_before_requesting_manual_input(self):
-        from smsrecomp.gui import Application
-        from smsrecomp.platforms import target_id
+        from retrorecomp.gui import Application
+        from retrorecomp.platforms import target_id
         source=self.root/'roms/renamed.sms';source.parent.mkdir()
         source.write_bytes(self.payload)
         self.game.target=target_id()
@@ -191,8 +191,8 @@ class CardTests(TestCase):
         owner.items={};owner.cancel=Event();owner.messages=Queue();owner.set_controls=Mock()
         owner.compiled_view=Mock();owner.language='en';owner.begin_reconvert=Mock()
         owner.preferences=Mock(return_value={'rom_paths':{'sms':str(source.parent)}})
-        with patch('smsrecomp.gui.filedialog.askopenfilename',side_effect=AssertionError('Should find exact source')):
-            with patch('smsrecomp.rom_sources.data_directory',return_value=self.root/'converter'):
+        with patch('retrorecomp.gui.filedialog.askopenfilename',side_effect=AssertionError('Should find exact source')):
+            with patch('retrorecomp.rom_sources.data_directory',return_value=self.root/'converter'):
                 owner.reconvert_games([self.game])
                 kind,pairs=owner.messages.get(timeout=10)
             self.assertEqual(kind,'sources_ready')
@@ -200,7 +200,7 @@ class CardTests(TestCase):
             owner.begin_reconvert.assert_called_once_with([(self.game,source)])
 
     def test_bulk_metadata_is_explicit_and_skips_already_saved_cards(self):
-        from smsrecomp.game_card_view import GameCardView
+        from retrorecomp.game_card_view import GameCardView
         view=GameCardView.__new__(GameCardView)
         view.cards=self.cards;view.owner=Mock();view.owner.language='en'
         view.tr=lambda key,**kwargs:key
@@ -212,7 +212,7 @@ class CardTests(TestCase):
         self.assertEqual(view.run.call_args.args[0],'candidates')
 
     def test_automatic_card_selection_never_starts_online_search(self):
-        from smsrecomp.game_card_view import GameCardView
+        from retrorecomp.game_card_view import GameCardView
         view=GameCardView.__new__(GameCardView)
         view.owner=Mock();view.owner.language='fr';view.tr=lambda key:key
         view.token=0;view.title=Mock();view.message=Mock();view.draw_cover=Mock()
@@ -244,5 +244,5 @@ class CardTests(TestCase):
         self.assertEqual(self.cards.metadata(self.game,'en')['source'],'')
 
     def test_native_cards_do_not_change_other_console_knowledge(self):
-        from smsrecomp.compilation_inputs import INTERFACE_MODULES
+        from retrorecomp.compilation_inputs import INTERFACE_MODULES
         self.assertTrue({'game_details','game_metadata','rom_sources','game_card_view'}<=INTERFACE_MODULES)

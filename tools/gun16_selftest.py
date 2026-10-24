@@ -8,8 +8,8 @@ import shutil
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.gun16_runtime import snes_joypad
+from retrorecomp.core import run, toolchain
+from retrorecomp.gun16_runtime import snes_joypad
 
 
 def main():

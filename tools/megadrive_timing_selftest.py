@@ -6,8 +6,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.megadrive_runtime import timing_source, timing_vdp
+from retrorecomp.core import run, toolchain
+from retrorecomp.megadrive_runtime import timing_source, timing_vdp
 
 
 def main():

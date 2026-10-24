@@ -2,11 +2,11 @@
 from pathlib import Path
 import argparse,json,sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
-from smsrecomp.nes_codegen import prepare_compiler
-from smsrecomp.nes_machine import prepare_machine
-from smsrecomp.nes_ram import write_guards
-from smsrecomp.nes import read_nes_rom
+from retrorecomp.core import run,toolchain
+from retrorecomp.nes_codegen import prepare_compiler
+from retrorecomp.nes_machine import prepare_machine
+from retrorecomp.nes_ram import write_guards
+from retrorecomp.nes import read_nes_rom
 from tools.nes_native_selftest import fixture
 
 def authored(mapper):

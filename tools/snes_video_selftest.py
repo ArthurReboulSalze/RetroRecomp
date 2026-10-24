@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 import json,sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.console16 import prepare16
-from smsrecomp.core import run,toolchain
+from retrorecomp.console16 import prepare16
+from retrorecomp.core import run,toolchain
 from tools.snes_scheduler_selftest import cartridge
 
 def scene_cartridge(mode=5,pseudo=False,overscan=False,interlace=False,pal=False):

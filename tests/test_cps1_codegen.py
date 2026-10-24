@@ -2,7 +2,7 @@
 from pathlib import Path
 import unittest
 
-from smsrecomp import cps1_build, cps1_catalogue, cps1_codegen
+from retrorecomp import cps1_build, cps1_catalogue, cps1_codegen
 
 ROOT = Path(__file__).resolve().parents[1]
 GEOLITH = ROOT / '.deps/geolith-libretro'
@@ -80,8 +80,8 @@ class NativeRelocationTests(unittest.TestCase):
     def test_branch_targets_keep_a_flagged_pc(self):
         """Native branches relocated at a PC whose high byte carries a flag keep
         it, as the reference's 32-bit PC does (Neo Geo rule)."""
-        from smsrecomp.core import ConversionError, toolchain
-        from smsrecomp.platforms import build_executable, cmake_target_args
+        from retrorecomp.core import ConversionError, toolchain
+        from retrorecomp.platforms import build_executable, cmake_target_args
         decoder = ROOT / '.deps/segagenesisrecomp/external/m68k-recomp-core/common'
         if not (decoder / 'm68k_decoder.h').is_file():
             self.skipTest('pinned m68k-recomp-core sources are not cached')

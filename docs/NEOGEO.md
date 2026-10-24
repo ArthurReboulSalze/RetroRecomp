@@ -698,7 +698,7 @@ prototype receipts under `.build/neogeo-expansion-20261014` and
 
 ## Reusing the existing 68000
 
-`smsrecomp/m68000.py` contains the corrected instruction semantics, operation
+`retrorecomp/m68000.py` contains the corrected instruction semantics, operation
 extraction, literal descriptors and timing helpers used by Mega Drive. Board
 hook names can be supplied explicitly; the Mega Drive defaults keep its current
 symbol names. `native/m68000_state_helpers.h` shares stack selection and the
@@ -713,7 +713,7 @@ not a list of approved game names. Unknown cartridge mappings remain fallback;
 BIOS and ordinary RAM keep their own identities. Protection response ports are
 not instruction ROM: guards never consume CT0 responses or SMA random values.
 Instructions cannot straddle these ports or KOF '98's mutable header overlay.
-`smsrecomp/neogeo_codegen.py` translates reached P/BIOS entries and static
+`retrorecomp/neogeo_codegen.py` translates reached P/BIOS entries and static
 successors through our existing 68000 decoder and corrected semantic bodies.
 Observed entries retain their physical offset in the selected bank. A banked
 logical PC is never guessed to belong to the first megabyte; RAM PCs are not
@@ -740,7 +740,7 @@ our corrected MOVEM discarded read differ from Musashi's access count, even when
 retired clocks and the serialized machine state agree. Wait counters describe
 events in this reference profile, not independently measured electrical waits.
 
-`smsrecomp/neogeo_z80.py` reuses our structural-key and opcode-body extraction
+`retrorecomp/neogeo_z80.py` reuses our structural-key and opcode-body extraction
 strategy with Geolith's own Z80 ABI. Physical M1/SM1 maps select fixed operations;
 bank boundaries, structural bytes and the observed mutable RAM routine are
 guarded. Immediates/displacements, data and full 16-bit ports are live accesses.
@@ -1122,6 +1122,6 @@ and source obligations. Do not include the current private BIOS in a release.
 **Options → Neo Geo → Discovery scan**: the qualification routes of each
 cartridge are the minimum, so *Quick* equals *Standard*. *Extended* adds one
 reproducible pseudo-random route of 18,000 frames with a credit inserted before
-Start (`smsrecomp/random_routes.py`), *Thorough* two. They run as extra routes
+Start (`retrorecomp/random_routes.py`), *Thorough* two. They run as extra routes
 of the set: same fresh reference comparison, and the fallback they meet stays
 reported rather than fatal. The report records `scan_level`.

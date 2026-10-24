@@ -9,7 +9,7 @@ import wave
 import hashlib
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run, ConversionError
+from retrorecomp.core import run, ConversionError
 
 def resume_input(source: Path, start: int, target: Path) -> Path:
     """Replay held keys and future events after a fresh-process quick load."""

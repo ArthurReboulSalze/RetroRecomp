@@ -7,8 +7,8 @@ import subprocess
 import sys
 import uuid
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.neogeo_build import prepare_project
-from smsrecomp.core import run,toolchain
+from retrorecomp.neogeo_build import prepare_project
+from retrorecomp.core import run,toolchain
 
 
 def check(output: Path):

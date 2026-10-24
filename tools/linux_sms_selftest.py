@@ -7,9 +7,9 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import convert, dependencies, run, prepare_native_source
-from smsrecomp.paths import ROOT
-from smsrecomp.platforms import cmake_target_args, build_jobs, target_id
+from retrorecomp.core import convert, dependencies, run, prepare_native_source
+from retrorecomp.paths import ROOT
+from retrorecomp.platforms import cmake_target_args, build_jobs, target_id
 
 
 def main():

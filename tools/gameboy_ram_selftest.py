@@ -4,10 +4,10 @@ import json
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
-from smsrecomp.gameboy import _dependencies
-from smsrecomp.gameboy_runtime import adapt_generated_project
-from smsrecomp.paths import ASSETS
+from retrorecomp.core import run
+from retrorecomp.gameboy import _dependencies
+from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.paths import ASSETS
 
 def main():
     project = ROOT / '.build/gb-ram-selftest'
@@ -35,7 +35,7 @@ target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)
     output = run([project / 'build/Release/retro_gb_ram_checks.exe'], timeout=180)
     (project / 'checks.log').write_text(output, encoding='utf-8')
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
-    from smsrecomp.gameboy import CPU_MATCH
+    from retrorecomp.gameboy import CPU_MATCH
     executable = project / 'build/Release/game.exe'
     cpu = run([executable, '--differential', '--differential-frames', '1'], timeout=180)
     assert CPU_MATCH.search(cpu), cpu

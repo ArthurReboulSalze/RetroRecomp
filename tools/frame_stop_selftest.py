@@ -7,9 +7,9 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
+from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
 
-from smsrecomp.platforms import cmake_target_args, build_executable, build_jobs
+from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs
 
 def main():
     directory = ROOT / '.build/frame-stop-selftest'

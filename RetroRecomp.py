@@ -4,27 +4,27 @@ import json
 import os
 from pathlib import Path
 import sys
-from smsrecomp.platforms import restore_system_library_path
+from retrorecomp.platforms import restore_system_library_path
 restore_system_library_path()
-from smsrecomp.core import ConversionError, convert, dependencies, read_rom
-from smsrecomp.library import GameMemory, list_games, library_root
-from smsrecomp.paths import ROOT, save_game_language, games_root, load_preferences
-from smsrecomp.i18n import log_text
-from smsrecomp.batch import identify, convert_batch, system_output
-from smsrecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
+from retrorecomp.core import ConversionError, convert, dependencies, read_rom
+from retrorecomp.library import GameMemory, list_games, library_root
+from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences
+from retrorecomp.i18n import log_text
+from retrorecomp.batch import identify, convert_batch, system_output
+from retrorecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
 PROFILES = available_profiles()
 
 
 def main() -> int:
     if len(sys.argv)==3 and sys.argv[1] in ('_compilation-stamps','_compilation-inputs'):
         # Package qualification only: no ROM access, GUI or compiler launch.
-        from smsrecomp.compilation_inputs import engine_stamp,input_fingerprints
-        from smsrecomp.library import atomic_json
+        from retrorecomp.compilation_inputs import engine_stamp,input_fingerprints
+        from retrorecomp.library import atomic_json
         describe=input_fingerprints if sys.argv[1]=='_compilation-inputs' else engine_stamp
         atomic_json(Path(sys.argv[2]),{s:describe(s) for s in ('sms','gg','gb','nes','md','snes','ng')})
         return 0
     if sys.argv[1:] == ['_install-launcher'] and sys.platform == 'linux':
-        from smsrecomp.linux_desktop import publish_converter_launcher
+        from retrorecomp.linux_desktop import publish_converter_launcher
         publish_converter_launcher()
         return 0
     if len(sys.argv) >= 3 and sys.argv[1] == '_snes-generate':
@@ -77,16 +77,16 @@ def main() -> int:
             return 1
         return 0
     if len(sys.argv) == 3 and sys.argv[1] == '_verify-update':
-        from smsrecomp import __version__
+        from retrorecomp import __version__
 
         return 0 if __version__ == sys.argv[2] else 1
     if len(sys.argv) == 4 and sys.argv[1] == '_apply-update':
-        from smsrecomp.updater import apply_update
+        from retrorecomp.updater import apply_update
 
         return apply_update(Path(sys.argv[2]), sys.argv[3])
     if len(sys.argv) == 5 and sys.argv[1] == '_finish-update':
-        from smsrecomp.updater import finish_update
-        from smsrecomp.gui import launch
+        from retrorecomp.updater import finish_update
+        from retrorecomp.gui import launch
 
         try:
             error = finish_update(Path(sys.argv[2]), sys.argv[3], int(sys.argv[4]))
@@ -95,7 +95,7 @@ def main() -> int:
         launch(update_error=error)
         return 0
     if len(sys.argv) == 4 and sys.argv[1] == '_install-pending':
-        from smsrecomp.publishing import install_pending
+        from retrorecomp.publishing import install_pending
         return install_pending(Path(sys.argv[2]), sys.argv[3])
     for stream in (sys.stdout, sys.stderr):
         if stream is not None and hasattr(stream, "reconfigure"):
@@ -179,7 +179,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command in (None, "gui"):
-            from smsrecomp.gui import launch
+            from retrorecomp.gui import launch
             launch()
         elif args.command == "inspect":
             system = profile_for_path(args.rom)
@@ -192,9 +192,9 @@ def main() -> int:
         elif args.command == "setup":
             dependencies()
             if os.name == 'nt':
-                from smsrecomp.gameboy import _dependencies
+                from retrorecomp.gameboy import _dependencies
                 _dependencies(print)
-                from smsrecomp.nes import _dependencies as nes_dependencies
+                from retrorecomp.nes import _dependencies as nes_dependencies
                 nes_dependencies(print)
         elif args.command == "memory":
             if args.rom:
@@ -202,7 +202,7 @@ def main() -> int:
                 if system.id=='ng':
                     if args.import_manifest:
                         raise ConversionError('Neo Geo uses BIOS-scoped numeric memory, not Sega observation manifests.')
-                    from smsrecomp.neogeo_knowledge import list_memory as ng_memory
+                    from retrorecomp.neogeo_knowledge import list_memory as ng_memory
                     rom=system.read_rom(args.rom)
                     print(json.dumps({'console':'ng','rom_sha256':rom.sha256,
                         'memories':[r for r in ng_memory() if r.get('source_sha256')==rom.sha256],
@@ -211,22 +211,22 @@ def main() -> int:
                 if system.id in ('md', 'snes'):
                     if args.import_manifest:
                         raise ConversionError('16-bit proofs do not import Z80 observation manifests.')
-                    from smsrecomp.console16 import conversion_rom, REPOSITORIES
+                    from retrorecomp.console16 import conversion_rom, REPOSITORIES
                     rom = conversion_rom(args.rom, system.id)
-                    from smsrecomp import megadrive, supernintendo
+                    from retrorecomp import megadrive, supernintendo
                     entries = megadrive.read_entries(rom) if system.id == 'md' else set()
                     ram = (megadrive.read_ram_variants(rom) if system.id == 'md' else
                            supernintendo.read_ram_variants(rom))
                     record = (megadrive.memory_file(rom) if system.id == 'md' else
                               supernintendo.memory_file(rom))
                     if system.id == 'snes':
-                        from smsrecomp import snes_spc
+                        from retrorecomp import snes_spc
                         masks = snes_spc.read_masks(rom)
                         sound_record = snes_spc.memory_file(rom)
                         sound = {'cpu': 'SPC700', 'guarded_opcode_variants': sum(value.bit_count() for value in masks),
                                  'library_bytes': sound_record.stat().st_size if sound_record.is_file() else 0}
                     else:
-                        from smsrecomp import megadrive_z80
+                        from retrorecomp import megadrive_z80
                         sound_record = megadrive_z80.memory_file(rom)
                         sound = {'cpu': 'Z80', 'guarded_opcode_variants': len(megadrive_z80.read_variants(rom)),
                                  'library_bytes': sound_record.stat().st_size if sound_record.is_file() else 0}
@@ -241,13 +241,13 @@ def main() -> int:
                 if system.id == 'gb':
                     if args.import_manifest:
                         raise ConversionError("Game Boy uses verified entry traces, not Sega observation manifests.")
-                    from smsrecomp.gameboy import memory_summary
+                    from retrorecomp.gameboy import memory_summary
                     print(json.dumps(memory_summary(system.read_rom(args.rom)), indent=2, ensure_ascii=False))
                     return 0
                 if system.id == 'x68':
                     if args.import_manifest:
                         raise ConversionError('X68000 observations require exact media/firmware identity and fresh validation.')
-                    from smsrecomp.compiled_games import read_json
+                    from retrorecomp.compiled_games import read_json
                     rom=system.read_rom(args.rom)
                     profiles=[read_json(p) for p in library_root('x68').glob('*/compilation.json')]
                     print(json.dumps({'system':'x68','sha256':rom.sha256,
@@ -256,7 +256,7 @@ def main() -> int:
                 if system.id == 'nes':
                     if args.import_manifest:
                         raise ConversionError("NES uses ROM-specific cycle traces, not Sega observation manifests.")
-                    from smsrecomp.nes import memory_summary
+                    from retrorecomp.nes import memory_summary
                     print(json.dumps(memory_summary(system.read_rom(args.rom)), indent=2, ensure_ascii=False))
                     return 0
                 game = GameMemory(system.read_rom(args.rom),
@@ -267,9 +267,9 @@ def main() -> int:
             else:
                 if args.import_manifest:
                     parser.error("Provide a ROM to verify imported observations.")
-                from smsrecomp.gameboy import list_memory
-                from smsrecomp.nes import list_memory as list_nes_memory
-                from smsrecomp.neogeo_knowledge import list_memory as list_ng_memory
+                from retrorecomp.gameboy import list_memory
+                from retrorecomp.nes import list_memory as list_nes_memory
+                from retrorecomp.neogeo_knowledge import list_memory as list_ng_memory
                 print(json.dumps({"directory": str(library_root()), "games": list_games(),
                     "game_boy_traces": list_memory(), "nes_cycle_traces": list_nes_memory(),
                     'neo_geo_memories':list_ng_memory()},
@@ -287,8 +287,8 @@ def main() -> int:
                     else:
                         paths.append(source)
                 # Each multi-disk X68000 game is converted once, as a playlist.
-                from smsrecomp.rom_sources import disk_sets
-                from smsrecomp.i18n import tr
+                from retrorecomp.rom_sources import disk_sets
+                from retrorecomp.i18n import tr
                 sets = disk_sets(paths)
                 if sets.grouped:
                     print(tr('x68_sets_grouped', args.language, count=sets.grouped), file=sys.stderr)

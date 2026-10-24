@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT, ASSETS, convert, dependencies, run
+from retrorecomp.core import ROOT, ASSETS, convert, dependencies, run
 
 
 def check(report_path, directory, frames=None):

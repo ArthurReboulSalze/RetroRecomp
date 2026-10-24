@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from smsrecomp.validation import compare_execution
+from retrorecomp.validation import compare_execution
 
 
 class NativeValidationTests(unittest.TestCase):

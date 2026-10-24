@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.x68000 import MOUSE_LIST, listed_mouse, mouse_reads
+from retrorecomp.x68000 import MOUSE_LIST, listed_mouse, mouse_reads
 
 
 def record(*rows):
@@ -48,7 +48,7 @@ class MouseReadTests(unittest.TestCase):
 
 class MouseListTests(unittest.TestCase):
     def test_the_shipped_list_names_exact_sets_and_no_paths(self):
-        from smsrecomp.paths import ASSETS
+        from retrorecomp.paths import ASSETS
         data = json.loads((ASSETS / MOUSE_LIST).read_text(encoding='utf-8'))
         self.assertEqual(data['schema'], 1)
         for identity, entry in data['games'].items():
@@ -68,7 +68,7 @@ class MouseListTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             root = Path(folder)
             set_of = lambda value: SimpleNamespace(sha256=value * 64)
-            with patch('smsrecomp.x68000.ASSETS', root):
+            with patch('retrorecomp.x68000.ASSETS', root):
                 self.assertIsNone(listed_mouse(set_of('a')))
                 path = root / MOUSE_LIST
                 path.parent.mkdir(parents=True)

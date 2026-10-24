@@ -5,11 +5,11 @@ import unittest
 from unittest.mock import patch
 from zipfile import ZipFile
 
-from smsrecomp import supernintendo, snes_timing
-from smsrecomp.cartridge16 import read_snes_rom
-from smsrecomp.console16 import conversion_rom, reference_differences
-from smsrecomp.core import ConversionError
-from smsrecomp.systems import profile_for_path
+from retrorecomp import supernintendo, snes_timing
+from retrorecomp.cartridge16 import read_snes_rom
+from retrorecomp.console16 import conversion_rom, reference_differences
+from retrorecomp.core import ConversionError
+from retrorecomp.systems import profile_for_path
 
 
 def authored(region, hirom=False):

@@ -3,8 +3,8 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
-from smsrecomp.megadrive_codegen import write_changed
+from retrorecomp.core import run,toolchain
+from retrorecomp.megadrive_codegen import write_changed
 
 def main():
     project=ROOT/'.build/neogeo-prototype-20261013/cpu-boundary'

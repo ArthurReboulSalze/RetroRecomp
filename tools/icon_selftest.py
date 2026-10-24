@@ -7,9 +7,9 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.artwork import ICON_SIZES
-from smsrecomp.core import ROOT, ASSETS, dependencies, run, slug
-from smsrecomp.paths import games_directory
+from retrorecomp.artwork import ICON_SIZES
+from retrorecomp.core import ROOT, ASSETS, dependencies, run, slug
+from retrorecomp.paths import games_directory
 
 
 def embedded_icons(executable: Path, expected: Path, resource_id: int = 101) -> list[int]:

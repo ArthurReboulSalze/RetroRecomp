@@ -1,8 +1,8 @@
 """Cartridge RAM capability checks with authored headers."""
 from types import SimpleNamespace
 import unittest
-from smsrecomp.core import ConversionError
-from smsrecomp.megadrive_sram import layout
+from retrorecomp.core import ConversionError
+from retrorecomp.megadrive_sram import layout
 
 
 def rom(ram_type=0xf8, start=0x200001, end=0x203fff, device=0x20):

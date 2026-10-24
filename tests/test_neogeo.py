@@ -9,9 +9,9 @@ from unittest.mock import patch
 from zipfile import ZipFile, ZipInfo, ZIP_STORED
 import zlib
 
-from smsrecomp.neogeo import (archive_members, identify_set, read_set, parse_neo,
+from retrorecomp.neogeo import (archive_members, identify_set, read_set, parse_neo,
     looks_like_neogeo_zip, validate_bios, combined_identity, BIOS_MEMBERS)
-from smsrecomp.systems import profile_for_path, NEOGEO, PROFILES, UnsupportedConsoleError
+from retrorecomp.systems import profile_for_path, NEOGEO, PROFILES, UnsupportedConsoleError
 
 
 class NeoGeoInputsTests(unittest.TestCase):
@@ -79,7 +79,7 @@ class NeoGeoInputsTests(unittest.TestCase):
         for n in range(9):
             item=ZipInfo(f'component-{n}.bin');item.file_size=128*1024*1024;item.CRC=0
             entries.append(item)
-        with patch('smsrecomp.neogeo.ZipFile') as archive:
+        with patch('retrorecomp.neogeo.ZipFile') as archive:
             archive.return_value.__enter__.return_value.infolist.return_value=entries[:8]
             self.assertEqual(len(archive_members(self.path)),8)
             archive.return_value.__enter__.return_value.infolist.return_value=entries
@@ -146,12 +146,12 @@ class NeoGeoInputsTests(unittest.TestCase):
     def test_bios_needs_all_selected_members_and_correct_revision(self):
         records=[{'name':name,'bytes':size,'crc32':crc,'sha256':'a'*64}
                  for name,(size,crc) in BIOS_MEMBERS.items()]
-        with patch('smsrecomp.neogeo.archive_members',return_value=records):
+        with patch('retrorecomp.neogeo.archive_members',return_value=records):
             self.assertEqual(validate_bios(self.path)['system'],'mvs')
-        with patch('smsrecomp.neogeo.archive_members',return_value=records[1:]):
+        with patch('retrorecomp.neogeo.archive_members',return_value=records[1:]):
             with self.assertRaisesRegex(ValueError,'requires'):validate_bios(self.path)
         records[0]['crc32']^=1
-        with patch('smsrecomp.neogeo.archive_members',return_value=records):
+        with patch('retrorecomp.neogeo.archive_members',return_value=records):
             with self.assertRaisesRegex(ValueError,'Incorrect BIOS'):validate_bios(self.path)
 
     def test_compilation_identity_includes_bios_and_tool_revisions(self):
@@ -172,30 +172,30 @@ class NeoGeoInputsTests(unittest.TestCase):
         return target,{name:(len(content),zlib.crc32(content)) for name,content in data.items()}
 
     def test_state_identity_is_independent_of_title_and_unselected_bios_files(self):
-        from smsrecomp.neogeo_build import state_config
+        from retrorecomp.neogeo_build import state_config
         target=self.neo();bios,records=self.authored_bios()
-        with patch('smsrecomp.neogeo.BIOS_MEMBERS',records):first=state_config(target,bios,'Authored')
+        with patch('retrorecomp.neogeo.BIOS_MEMBERS',records):first=state_config(target,bios,'Authored')
         data=bytearray(target.read_bytes());data[44:52]=b'Renamed!';target.write_bytes(data)
         bios,records=self.authored_bios(extra=True)
-        with patch('smsrecomp.neogeo.BIOS_MEMBERS',records):second=state_config(target,bios,'Renamed')
+        with patch('retrorecomp.neogeo.BIOS_MEMBERS',records):second=state_config(target,bios,'Renamed')
         def identity(header):return next(line for line in header.splitlines() if line.startswith('#define RR16_STATE_ROM '))
         self.assertEqual(identity(first),identity(second))
         self.assertNotEqual(first,second)  # Display/file names are still allowed to differ.
 
     def test_state_identity_changes_for_cart_or_selected_bios_content(self):
-        from smsrecomp.neogeo_build import state_config
+        from retrorecomp.neogeo_build import state_config
         target=self.neo();bios,records=self.authored_bios()
-        with patch('smsrecomp.neogeo.BIOS_MEMBERS',records):first=state_config(target,bios,'Authored')
+        with patch('retrorecomp.neogeo.BIOS_MEMBERS',records):first=state_config(target,bios,'Authored')
         data=bytearray(target.read_bytes());data[4096]^=1;target.write_bytes(data)
-        with patch('smsrecomp.neogeo.BIOS_MEMBERS',records):cart_changed=state_config(target,bios,'Authored')
+        with patch('retrorecomp.neogeo.BIOS_MEMBERS',records):cart_changed=state_config(target,bios,'Authored')
         bios,records=self.authored_bios(changed=True)
-        with patch('smsrecomp.neogeo.BIOS_MEMBERS',records):bios_changed=state_config(target,bios,'Authored')
+        with patch('retrorecomp.neogeo.BIOS_MEMBERS',records):bios_changed=state_config(target,bios,'Authored')
         self.assertNotEqual(first,cart_changed);self.assertNotEqual(cart_changed,bios_changed)
 
     def test_state_abi_can_use_frozen_modules_without_python_asset_files(self):
         import importlib
-        from smsrecomp.neogeo_build import state_config
-        from smsrecomp.paths import ASSETS
+        from retrorecomp.neogeo_build import state_config
+        from retrorecomp.paths import ASSETS
         from contextlib import ExitStack
         target=self.neo();bios,records=self.authored_bios()
         only_assets=self.root/'frozen-assets'
@@ -206,9 +206,9 @@ class NeoGeoInputsTests(unittest.TestCase):
         class FrozenLoader:
             def get_code(self,name):return compile('authored_compiler = 1','random-extraction/module.py','exec')
         with ExitStack() as stack:
-            stack.enter_context(patch('smsrecomp.neogeo_build.ASSETS',only_assets))
-            stack.enter_context(patch('smsrecomp.neogeo.BIOS_MEMBERS',records))
-            for name in ('smsrecomp.neogeo_build','smsrecomp.neogeo_codegen','smsrecomp.neogeo_z80'):
+            stack.enter_context(patch('retrorecomp.neogeo_build.ASSETS',only_assets))
+            stack.enter_context(patch('retrorecomp.neogeo.BIOS_MEMBERS',records))
+            for name in ('retrorecomp.neogeo_build','retrorecomp.neogeo_codegen','retrorecomp.neogeo_z80'):
                 module=importlib.import_module(name)
                 stack.enter_context(patch.object(module,'__file__',str(only_assets/'absent.py')))
                 stack.enter_context(patch.object(module,'__loader__',FrozenLoader()))

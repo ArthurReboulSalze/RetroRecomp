@@ -2,8 +2,8 @@
 from pathlib import Path
 import sys,json
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.console16 import prepare16
-from smsrecomp.core import run,toolchain
+from retrorecomp.console16 import prepare16
+from retrorecomp.core import run,toolchain
 from tools.snes_scheduler_selftest import cartridge
 def main():
     work=ROOT/'.build/snes-chip-selftest';work.mkdir(parents=True,exist_ok=True)

@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
+from retrorecomp.core import run
 import tools.megadrive_save_selftest as build
 
 HARNESS = r'''

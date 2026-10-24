@@ -12,10 +12,10 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import ROOT
-from smsrecomp import __version__
-from smsrecomp.paths import export_directory
-from smsrecomp.publishing import is_pending, _running
+from retrorecomp.core import ROOT
+from retrorecomp import __version__
+from retrorecomp.paths import export_directory
+from retrorecomp.publishing import is_pending, _running
 
 
 def main():

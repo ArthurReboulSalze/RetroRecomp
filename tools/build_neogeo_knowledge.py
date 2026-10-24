@@ -8,10 +8,10 @@ from pathlib import Path
 import sys
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.knowledge import load,validate_payload,MAX_BYTES
-from smsrecomp.neogeo_knowledge import context,numeric_record,FIELDS,IDENTITY_FIELDS,validate_record,expanded_record,compact_record
-from smsrecomp.neogeo import parse_neo
-from smsrecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
+from retrorecomp.knowledge import load,validate_payload,MAX_BYTES
+from retrorecomp.neogeo_knowledge import context,numeric_record,FIELDS,IDENTITY_FIELDS,validate_record,expanded_record,compact_record
+from retrorecomp.neogeo import parse_neo
+from retrorecomp.neogeo_build import GEOLITH_REV,LITHOGEN_REV
 
 
 def qualified_record(report: dict):
@@ -37,7 +37,7 @@ def qualified_record(report: dict):
     executable=Path(report['build_executable']).resolve()
     project=(Path(report['build_directory']).resolve() if report.get('build_directory') else
              executable.parents[2 if executable.suffix.casefold()=='.exe' else 1])
-    from smsrecomp.neogeo_build import aes_available
+    from retrorecomp.neogeo_build import aes_available
     expected_aes=aes_available(project)
     if report.get('runtime_modes',{}).get('aes_available') is not expected_aes:
         raise ValueError('Neo Geo machine qualification differs from the verified cartridge/BIOS.')

@@ -4,7 +4,7 @@ import argparse
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.neogeo_build import convert_reference,convert_native
+from retrorecomp.neogeo_build import convert_reference,convert_native
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

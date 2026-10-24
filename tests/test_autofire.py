@@ -46,7 +46,7 @@ class AutofireTests(unittest.TestCase):
     def test_guest_frame_cadence_in_c_and_cpp(self):
         cmake=shutil.which('cmake')
         if not cmake:
-            from smsrecomp.core import toolchain
+            from retrorecomp.core import toolchain
             try:cmake,_=toolchain()
             except RuntimeError:pass
         if not cmake:self.skipTest('CMake unavailable')

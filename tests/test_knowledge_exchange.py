@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp import knowledge, knowledge_exchange
+from retrorecomp import knowledge, knowledge_exchange
 
 ENGINE = 'a' * 40
 OTHER = 'b' * 40
@@ -24,9 +24,9 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.bank = self.root / 'datas/knowledge/imported.json.gz'
         self.engine = {'md': ENGINE}
-        self.patches = [patch('smsrecomp.knowledge.imported_path', return_value=self.bank),
-                        patch('smsrecomp.knowledge_exchange.imported_path', return_value=self.bank),
-                        patch('smsrecomp.knowledge_exchange.engines', side_effect=lambda: self.engine)]
+        self.patches = [patch('retrorecomp.knowledge.imported_path', return_value=self.bank),
+                        patch('retrorecomp.knowledge_exchange.imported_path', return_value=self.bank),
+                        patch('retrorecomp.knowledge_exchange.engines', side_effect=lambda: self.engine)]
         for item in self.patches:
             item.start()
 
@@ -104,7 +104,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
         data = bytes(range(256)) * 256
         rom = SimpleNamespace(sha256=hashlib.sha256(data).hexdigest(), data=data)
         bundled = {'schema': 1, 'consoles': {'md': {rom.sha256: md([0x200])}}}
-        with patch('smsrecomp.knowledge.load', return_value=bundled):
+        with patch('retrorecomp.knowledge.load', return_value=bundled):
             self.assertEqual(knowledge.record_for('md', rom, ENGINE)['rom_entries'], [[0x200]])
             knowledge_exchange.import_knowledge(self.write('share.rrknowledge', self.document(
                 {'md': {rom.sha256: md([0x300])}})))
@@ -113,7 +113,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
             self.assertEqual(knowledge.record_for('md', rom, OTHER)['rom_entries'], [[0x300]])
 
     def test_failed_conversion_retries_without_imported_hints_and_sets_them_aside(self):
-        from smsrecomp import batch
+        from retrorecomp import batch
         sha = hashlib.sha256(b'cartridge').hexdigest()
         knowledge_exchange.import_knowledge(self.write('share.rrknowledge', self.document(
             {'md': {sha: md([0x200])}})))
@@ -125,7 +125,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
             seen.append(bool(hints))
             return {'status': 'error', 'message': 'reference mismatch'} if hints else {'status': 'success'}
 
-        with patch('smsrecomp.batch._convert_one', side_effect=convert):
+        with patch('retrorecomp.batch._convert_one', side_effect=convert):
             result = batch._convert_in_budget(1, 0, item, 1, None, None, None, None, [], messages.append, {})
         self.assertEqual(seen, [True, False])
         self.assertEqual(result['status'], 'success')
@@ -136,7 +136,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
         # A failure the hints did not cause keeps them.
         knowledge_exchange.import_knowledge(self.write('again.rrknowledge', self.document(
             {'md': {sha: md([0x200])}})))
-        with patch('smsrecomp.batch._convert_one', return_value={'status': 'error', 'message': 'no'}):
+        with patch('retrorecomp.batch._convert_one', return_value={'status': 'error', 'message': 'no'}):
             self.assertEqual(batch._convert_in_budget(1, 0, item, 1, None, None, None, None, [],
                                                       messages.append, {})['status'], 'error')
         self.assertTrue(knowledge.imported_record('md', sha))
@@ -163,11 +163,11 @@ class KnowledgeExchangeTests(unittest.TestCase):
             return {('md', rom.sha256): source}
 
         def export(record):
-            with patch('smsrecomp.knowledge_exchange.load', return_value=bundled), \
-                    patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile), \
-                    patch('smsrecomp.knowledge_exchange.qualified_reports', return_value=qualified), \
-                    patch('smsrecomp.knowledge_exchange.engines', return_value={'md': ENGINE}), \
-                    patch('smsrecomp.knowledge_exchange.build_record', return_value=record):
+            with patch('retrorecomp.knowledge_exchange.load', return_value=bundled), \
+                    patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
+                    patch('retrorecomp.knowledge_exchange.qualified_reports', return_value=qualified), \
+                    patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE}), \
+                    patch('retrorecomp.knowledge_exchange.build_record', return_value=record):
                 return knowledge_exchange.export_knowledge(games, destination, locate)
 
         summary = export(md([0x200]))
@@ -193,17 +193,17 @@ class RawObservationTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.bank = self.root / 'datas/knowledge/imported.json.gz'
         self.library = self.root / 'library'
-        self.patches = [patch('smsrecomp.knowledge.imported_path', return_value=self.bank),
-                        patch('smsrecomp.knowledge_exchange.imported_path', return_value=self.bank),
-                        patch('smsrecomp.library.library_root', side_effect=lambda system: self.library / system),
-                        patch('smsrecomp.knowledge_exchange.engines', return_value={'md': ENGINE})]
+        self.patches = [patch('retrorecomp.knowledge.imported_path', return_value=self.bank),
+                        patch('retrorecomp.knowledge_exchange.imported_path', return_value=self.bank),
+                        patch('retrorecomp.library.library_root', side_effect=lambda system: self.library / system),
+                        patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE})]
         for item in self.patches:
             item.start()
         data = b''.join(hashlib.sha256(n.to_bytes(4, 'little')).digest() for n in range(2048))
         self.rom = SimpleNamespace(sha256=hashlib.sha256(data).hexdigest(), data=data)
         self.source = self.root / 'Game.md'
         self.source.write_bytes(data)
-        from smsrecomp.feedback import Observation, encode, private_file
+        from retrorecomp.feedback import Observation, encode, private_file
         self.in_rom = Observation(6, 0xff0000, 0, data[0x1234:0x1240])   # RAM code copied from the ROM
         self.ram_only = Observation(6, 0xff0100, 0, b'\xde\xad\xbe\xef\x01\x02')
         target = private_file('md', self.rom.sha256)
@@ -223,8 +223,8 @@ class RawObservationTests(unittest.TestCase):
 
     def export(self, name='mine.rrknowledge'):
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
-        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile), \
-                patch('smsrecomp.knowledge_exchange.load', return_value={'schema': 1, 'consoles': {}}):
+        with patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
+                patch('retrorecomp.knowledge_exchange.load', return_value={'schema': 1, 'consoles': {}}):
             return knowledge_exchange.export_knowledge([self.game()], self.root / name)
 
     def test_only_rom_positions_are_shared(self):
@@ -237,7 +237,7 @@ class RawObservationTests(unittest.TestCase):
         self.assertNotIn(str(self.root).replace('\\', '/'), text.replace('\\\\', '/'))
 
     def test_imported_observations_rebuild_from_the_players_rom(self):
-        from smsrecomp.feedback import records, private_file
+        from retrorecomp.feedback import records, private_file
         self.export()
         private_file('md', self.rom.sha256).unlink()        # another player, same cartridge
         shared = self.root / 'mine.rrknowledge'
@@ -248,7 +248,7 @@ class RawObservationTests(unittest.TestCase):
         self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [self.in_rom])
         with knowledge.imported_set_aside('md', self.rom.sha256):
             self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [])
-        from smsrecomp.compilation_inputs import knowledge_stamp
+        from retrorecomp.compilation_inputs import knowledge_stamp
         before = knowledge_stamp('md', self.rom.sha256)
         self.assertTrue(knowledge.discard_imported('md', self.rom.sha256, 'failed'))
         self.assertEqual(records('md', self.rom.sha256, 6, self.rom), [])
@@ -257,13 +257,13 @@ class RawObservationTests(unittest.TestCase):
     def test_reconverted_games_share_hints_not_raw_observations(self):
         game = self.game(status='covered')                    # feedback consumed by a conversion
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
-        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile):
+        with patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile):
             summary = knowledge_exchange.collect_knowledge([game])
         self.assertEqual((summary['observation_count'], summary['omitted']['unqualified']), (0, 1))
 
     def test_unchanged_games_come_from_the_cache_and_sharing_is_tracked(self):
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
-        with patch('smsrecomp.knowledge_exchange.profile_for_path', return_value=profile) as reader:
+        with patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile) as reader:
             first = knowledge_exchange.collect_knowledge([self.game(watch='files-v1')])
             again = knowledge_exchange.collect_knowledge([self.game(watch='files-v1')])
             self.assertEqual(reader.call_count, 1)

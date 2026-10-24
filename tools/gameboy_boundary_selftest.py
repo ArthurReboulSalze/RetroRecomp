@@ -5,12 +5,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
-from smsrecomp.gameboy import _dependencies
-from smsrecomp.gameboy_boundary import boundary_instruction, instruction_length
-from smsrecomp.gameboy_build import safe_body_entries
-from smsrecomp.gameboy_runtime import adapt_generated_project
-from smsrecomp.paths import ASSETS
+from retrorecomp.core import run
+from retrorecomp.gameboy import _dependencies
+from retrorecomp.gameboy_boundary import boundary_instruction, instruction_length
+from retrorecomp.gameboy_build import safe_body_entries
+from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.paths import ASSETS
 
 
 def main():

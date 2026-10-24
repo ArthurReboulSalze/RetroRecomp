@@ -4,9 +4,9 @@ from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.megadrive_runtime import timing_vdp
-from smsrecomp.platforms import cmake_target_args, build_executable, build_jobs
+from retrorecomp.core import run, toolchain
+from retrorecomp.megadrive_runtime import timing_vdp
+from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs
 
 
 def main():

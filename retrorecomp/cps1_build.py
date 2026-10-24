@@ -299,7 +299,7 @@ def state_config(game_set, title: str) -> str:
     for name in ('cps1_machine.c', 'cps1_machine.h', 'cps1_oki.c', 'cps1_oki.h', 'cps1_opm.cpp',
                  'cps1_host.c', 'cps1_native.c'):
         abi.update((ASSETS / 'native' / name).read_bytes())
-    for name in ('smsrecomp.cps1_build', 'smsrecomp.cps1_codegen'):
+    for name in ('retrorecomp.cps1_build', 'retrorecomp.cps1_codegen'):
         importlib.import_module(name); abi.update(name.encode()); abi.update(module_fingerprint(name).encode())
     if os.name != 'nt':
         from .platforms import target_id

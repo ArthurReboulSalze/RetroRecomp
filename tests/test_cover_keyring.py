@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from smsrecomp import cover_settings as settings
-from smsrecomp.cover_keyring import KeyringError
+from retrorecomp import cover_settings as settings
+from retrorecomp.cover_keyring import KeyringError
 
 
 class CoverKeyringTests(unittest.TestCase):

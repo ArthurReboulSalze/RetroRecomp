@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from smsrecomp import __version__
-from smsrecomp.batch import identify, convert_batch
-from smsrecomp.feedback import ingest, encode, Observation
+from retrorecomp import __version__
+from retrorecomp.batch import identify, convert_batch
+from retrorecomp.feedback import ingest, encode, Observation
 
 
 class FreshnessTests(unittest.TestCase):
@@ -14,12 +14,12 @@ class FreshnessTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name).resolve();self.output=self.root/'Games'
         rom=self.root/'Authored.sms';rom.write_bytes(bytes(8192));self.item=identify(rom)
-        for name,value in [('smsrecomp.publishing.compact_executable',None),
-                           ('smsrecomp.paths.load_preferences',{}),
-                           ('smsrecomp.cover_settings.load_settings',{}),
-                           ('smsrecomp.library.library_root',self.root/'bank')]:
+        for name,value in [('retrorecomp.publishing.compact_executable',None),
+                           ('retrorecomp.paths.load_preferences',{}),
+                           ('retrorecomp.cover_settings.load_settings',{}),
+                           ('retrorecomp.library.library_root',self.root/'bank')]:
             mocked=patch(name,return_value=value);mocked.start();self.addCleanup(mocked.stop)
-        mocked=patch('smsrecomp.systems.master_system.MasterSystemProfile.convert',side_effect=self.compiler)
+        mocked=patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',side_effect=self.compiler)
         self.compiler_mock=mocked.start();self.addCleanup(mocked.stop)
 
     def compiler(self,path,*,output,title,**options):
@@ -66,17 +66,17 @@ class FreshnessTests(unittest.TestCase):
 
     def test_gameboy_uses_console_scoped_receipts_too(self):
         rom=self.root/'Authored.gb';rom.write_bytes(bytes(32768));self.item=identify(rom)
-        with patch('smsrecomp.systems.game_boy.GameBoyProfile.convert',side_effect=self.compiler) as compiler:
+        with patch('retrorecomp.systems.game_boy.GameBoyProfile.convert',side_effect=self.compiler) as compiler:
             result=self.run_batch();self.assertEqual(result['status'],'success')
             path=Path(result['report']);report=json.loads(path.read_text());report['version']='1.1.0'
             self.assertEqual(report['export_receipt']['schema'],3);path.write_text(json.dumps(report))
             self.assertEqual(self.run_batch()['status'],'current');self.assertEqual(compiler.call_count,1)
-            with patch('smsrecomp.compilation_inputs.role_stamps',return_value={'game':'new-sm83-compiler','host':'h'}):
+            with patch('retrorecomp.compilation_inputs.role_stamps',return_value={'game':'new-sm83-compiler','host':'h'}):
                 self.assertEqual(self.run_batch()['status'],'success')
 
     def test_host_only_change_upgrades_without_rediscovery(self):
         stamps={'game':'same-game','host':'menus-v1'}
-        with patch('smsrecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
             self.assertFalse(self.run_batch()['upgraded'])
             stamps['host']='menus-v2'
             result=self.run_batch();self.assertTrue(result['upgraded'])
@@ -100,7 +100,7 @@ class FreshnessTests(unittest.TestCase):
 
     def test_new_hints_or_other_settings_never_upgrade(self):
         stamps={'game':'same-game','host':'menus-v1'}
-        with patch('smsrecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
             self.run_batch();stamps['host']='menus-v2'
             folder=self.output/'Master System/datas/fallbacks';folder.mkdir(parents=True)
             (folder/f'sms-{self.item.sha256}.rrfb').write_bytes(
@@ -110,7 +110,7 @@ class FreshnessTests(unittest.TestCase):
             self.assertFalse(self.run_batch(frames=7200)['upgraded'])
 
     def test_upgraded_export_still_reports_inherited_fallback(self):
-        from smsrecomp.compiled_games import game_from_report
+        from retrorecomp.compiled_games import game_from_report
         folder=self.root/'Console/datas/reports/game';folder.mkdir(parents=True)
         report={'tool':'Retro-Recomp','system':{'id':'sms'},'rom':{'sha256':self.item.sha256},
                 'executable':'Game.exe','final_checks':[{'interpreter_percent':0}],
@@ -124,7 +124,7 @@ class FreshnessTests(unittest.TestCase):
         self.assertEqual(Path(result['executable']).read_bytes(),b'old kept')
 
     def test_corrected_cover_reference_invalidates_only_automatic_artwork(self):
-        with patch('smsrecomp.cover_references.find',return_value=None) as reference:
+        with patch('retrorecomp.cover_references.find',return_value=None) as reference:
             self.run_batch()
             self.assertEqual(self.run_batch()['status'],'current')
             reference.return_value={'revision':'reviewed-front-v1'}

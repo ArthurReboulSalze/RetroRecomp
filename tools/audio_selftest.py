@@ -6,9 +6,9 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import run, toolchain
-from smsrecomp.paths import ROOT, ASSETS
-from smsrecomp.platforms import build_executable, cmake_target_args
+from retrorecomp.core import run, toolchain
+from retrorecomp.paths import ROOT, ASSETS
+from retrorecomp.platforms import build_executable, cmake_target_args
 
 
 def main():

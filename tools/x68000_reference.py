@@ -19,7 +19,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.x68000_media import MachineConfig, build_manifest
+from retrorecomp.x68000_media import MachineConfig, build_manifest
 
 PX68K_URL = 'https://github.com/libretro/px68k-libretro.git'
 PX68K_REV = '0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6'
@@ -55,8 +55,8 @@ def ensure_sources(source: Path) -> Path:
 
 
 def build_reference(build: Path, source: Path, sdl: Path, jobs: int = 4) -> Path:
-    from smsrecomp.core import toolchain
-    from smsrecomp.platforms import cmake_target_args
+    from retrorecomp.core import toolchain
+    from retrorecomp.platforms import cmake_target_args
     source = ensure_sources(source)
     cmake, generator = toolchain()
     build = build.resolve()
@@ -243,7 +243,7 @@ def prepare_bundle(output: Path, disks: list[Path], ipl: Path, cgrom: Path,
     if os.name != 'nt':
         desktop = output / f'{title}.desktop'
         # Use the existing tested quoting for a path with spaces; no shell.
-        from smsrecomp.linux_desktop import _argument, _value
+        from retrorecomp.linux_desktop import _argument, _value
         _atomic_text(desktop, '[Desktop Entry]\nType=Application\n'
                      f'Name={_value(title)} — X68000 reference\n'
                      f'Exec={_argument(target)}\n'

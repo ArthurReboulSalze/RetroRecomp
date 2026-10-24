@@ -12,8 +12,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import dependencies, default_config, read_rom, run
-from smsrecomp.cpu import prepare_cpu_headers, prepare_reference
+from retrorecomp.core import dependencies, default_config, read_rom, run
+from retrorecomp.cpu import prepare_cpu_headers, prepare_reference
 from fetch_z80_vectors import fetch
 
 FIELDS = 'pc sp a f b c d e h l i r ix iy wz af_ bc_ de_ hl_ im iff1 iff2 ei p q cycles'.split()

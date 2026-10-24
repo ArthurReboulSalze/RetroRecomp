@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from smsrecomp import feedback
+from retrorecomp import feedback
 
 
 class FeedbackTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class FeedbackTests(unittest.TestCase):
         for name, value in (('games_directory', self.root/'default games'),
                             ('preferred_games_root', (self.root/'configured games', False)),
                             ('load_preferences', {})):
-            setting = patch('smsrecomp.paths.'+name, return_value=value)
+            setting = patch('retrorecomp.paths.'+name, return_value=value)
             setting.start()
             self.addCleanup(setting.stop)
         self.identity = 'a'*64
@@ -62,20 +62,20 @@ class FeedbackTests(unittest.TestCase):
         file.write_bytes(feedback.encode([row],'sms',self.identity))
         before={p:p.stat().st_mtime_ns for p in (self.root/'moved').rglob('*')}
         settings={'feedback_paths':{'sms':str(self.root/'moved')}}
-        with patch('smsrecomp.paths.load_preferences',return_value=settings):
+        with patch('retrorecomp.paths.load_preferences',return_value=settings):
             self.assertEqual(feedback.ingest('sms',self.identity,self.root/'new output')['unique_candidates'],1)
             self.assertEqual(feedback.ingest('gg',self.identity,self.root/'new output')['unique_candidates'],0)
         self.assertEqual(before,{p:p.stat().st_mtime_ns for p in (self.root/'moved').rglob('*')})
 
     def test_feedback_search_preferences_support_relative_paths_and_ignore_invalid_fields(self):
-        from smsrecomp.paths import feedback_search_paths
-        with patch('smsrecomp.paths.export_directory',return_value=self.root):
+        from retrorecomp.paths import feedback_search_paths
+        with patch('retrorecomp.paths.export_directory',return_value=self.root):
             self.assertEqual(feedback_search_paths({'feedback_paths':{'sms':'Moved/SMS','gb':23,'unknown':'no'}}),
                              {'sms':(self.root/'Moved/SMS').resolve()})
         self.assertEqual(feedback_search_paths({'feedback_paths':[]}),{})
 
     def test_x68000_feedback_folder_is_kept(self):
-        from smsrecomp.paths import feedback_search_paths
+        from retrorecomp.paths import feedback_search_paths
         folder=self.root/'x68 games'
         self.assertEqual(feedback_search_paths({'feedback_paths':{'x68':str(folder)}}),{'x68':folder.resolve()})
 
@@ -184,7 +184,7 @@ class FeedbackTests(unittest.TestCase):
 
     def test_nes_opcode_sites_and_mapped_rom(self):
         from tools.nes_native_selftest import fixture
-        from smsrecomp.nes import read_nes_rom
+        from retrorecomp.nes import read_nes_rom
         path=self.root/'fixture.nes';path.write_bytes(fixture(0));rom=read_nes_rom(path)
         pc=0x8000;opcode=rom.data[16:17]
         self.save('nes',[feedback.Observation(3,pc,0,opcode),feedback.Observation(4,0x6000,0,b'\x60'),
@@ -193,7 +193,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(feedback.nes_sites(rom),({'4k:0:8000'},{(0x6000,0x60)}))
 
     def test_16bit_readers_keep_existing_bounds(self):
-        from smsrecomp import megadrive,megadrive_z80,supernintendo,snes_spc
+        from retrorecomp import megadrive,megadrive_z80,supernintendo,snes_spc
         rom=SimpleNamespace(data=b'\0'*32768,sha256=self.identity,path=Path('fixture.bin'),mapping='lorom')
         self.save('md',[feedback.Observation(5,0x200,0,b'\0'*8),
                         feedback.Observation(6,0xff0010,0,b'\x4e\x75'),
@@ -211,7 +211,7 @@ class FeedbackTests(unittest.TestCase):
         self.assertTrue(snes_spc.read_masks(rom)[0x300*32+0x6f//8] & (1<<(0x6f&7)))
 
     def test_neogeo_keeps_cart_and_bios_identity_and_live_guards(self):
-        from smsrecomp import neogeo_knowledge
+        from retrorecomp import neogeo_knowledge
         identity = neogeo_knowledge.key('a'*64,'b'*64)
         sources={1:bytes.fromhex('4e714e75'),2:bytes.fromhex('4e73'),3:b'\0'*65536,4:b'\0'*131072}
         self.save('ng',[feedback.Observation(10,0,1,bytes.fromhex('4e71')),
@@ -220,7 +220,7 @@ class FeedbackTests(unittest.TestCase):
                         feedback.Observation(12,0xf800,0,bytes.fromhex('3e017600'))],identity)
         feedback.ingest('ng',identity,self.root/'games')
         with patch.object(neogeo_knowledge,'context',return_value=(identity,{},sources)):
-            with patch('smsrecomp.neogeo_knowledge.validate_bios', return_value={}):
+            with patch('retrorecomp.neogeo_knowledge.validate_bios', return_value={}):
                 physical,ram,z80,_=neogeo_knowledge.hints(self.root)
         self.assertEqual(physical,{'p':{0},'bios':set()})
         self.assertEqual(ram,[{'offset':0x100,'words':'70014e75'}])

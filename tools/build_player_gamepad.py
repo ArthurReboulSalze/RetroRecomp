@@ -5,9 +5,9 @@ import shutil
 import sys
 import tempfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.core import SDL_REV, toolchain, run
-from smsrecomp.paths import ROOT
-from smsrecomp.platforms import cmake_target_args
+from retrorecomp.core import SDL_REV, toolchain, run
+from retrorecomp.paths import ROOT
+from retrorecomp.platforms import cmake_target_args
 
 
 def build():

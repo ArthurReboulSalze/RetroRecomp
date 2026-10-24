@@ -13,10 +13,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp import __version__ as VERSION
+from retrorecomp import __version__ as VERSION
 PUBLIC_FILES = tuple("""
-smsrecomp/x68000.py smsrecomp/x68000_media.py smsrecomp/x68000_conversion.py
-smsrecomp/systems/x68000.py docs/X68000.md
+retrorecomp/x68000.py retrorecomp/x68000_media.py retrorecomp/x68000_conversion.py
+retrorecomp/systems/x68000.py docs/X68000.md
 tests/test_x68000_availability.py tests/test_x68000_mouse.py tests/test_x68000_native_forms.py
 native/x68000_machine/base74/alias/libretro/dswin.h
 native/x68000_machine/base74/alias/libretro/joystick.h
@@ -59,33 +59,33 @@ native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
 native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
 tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py
-smsrecomp/x68000_scan.py
+retrorecomp/x68000_scan.py
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
-native/player_gamepad.c smsrecomp/player_gamepad.py tools/build_player_gamepad.py
+native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py
 tools/player_gamepad/CMakeLists.txt
 native/game_options_checks.c tools/game_options_selftest.py tests/test_player_gamepad.py
 tools/package_installers.py tools/installers/windows.iss
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
-smsrecomp/compiled_games.py smsrecomp/compiled_games_view.py smsrecomp/memory_view.py
-smsrecomp/game_details.py smsrecomp/game_metadata.py smsrecomp/game_card_view.py smsrecomp/rom_sources.py
+retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py
+retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
 tests/test_game_cards.py tests/test_disk_sets.py
 docs/COMPILED_GAMES.md docs/UPGRADES.md
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
 tests/test_compiled_games.py
-smsrecomp/credits_demo.py smsrecomp/credits_music.py smsrecomp/dialogs.py
+retrorecomp/credits_demo.py retrorecomp/credits_music.py retrorecomp/dialogs.py
 tools/credits_audio/CMakeLists.txt tools/credits_audio/player.c tools/build_credits_audio.py
 tests/test_credits.py tools/credits_selftest.py
 assets/credits/NOTICE.md docs/CREDITS.md
 MEDIAS/trackers_chiploom/night_vector.mod
 MEDIAS/trackers_chiploom/Pixel_Rush.mod
 MEDIAS/trackers_chiploom/pocket_signals_v2.mod
-smsrecomp/platforms.py native/platform_io.h native/platform_io.c
-smsrecomp/linux_desktop.py tests/test_linux_desktop.py
-smsrecomp/languages.py
-smsrecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
-smsrecomp/resources.py native/embedded_resources.h
+retrorecomp/platforms.py native/platform_io.h native/platform_io.c
+retrorecomp/linux_desktop.py tests/test_linux_desktop.py
+retrorecomp/languages.py
+retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
+retrorecomp/resources.py native/embedded_resources.h
 docs/LANGUAGES.md
 docs/QUALITY_REVIEW.md
 native/language_checks.c tools/language_selftest.py
@@ -95,15 +95,15 @@ assets/locales/zh.json assets/locales/ja.json assets/locales/ru.json
 assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
 native/paths_posix.inc native/learning_posix.c native/font6x10.h native/font10x20.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py
-smsrecomp/freshness.py smsrecomp/compilation_inputs.py tests/test_compilation_inputs.py
-smsrecomp/snes_knowledge.py tests/test_snes_knowledge.py
+retrorecomp/freshness.py retrorecomp/compilation_inputs.py tests/test_compilation_inputs.py
+retrorecomp/snes_knowledge.py tests/test_snes_knowledge.py
 tests/test_build_budget.py
 tests/test_compiler_durability.py
-smsrecomp/queue_state.py tests/test_queue_state.py
+retrorecomp/queue_state.py tests/test_queue_state.py
 tools/queue_recovery_selftest.py
 tests/test_freshness.py
 tests/test_gui_shutdown.py
-smsrecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
+retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py
 .gitattributes .gitignore .github/workflows/checks.yml
@@ -145,32 +145,32 @@ licenses/upx-5.2.1-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
-smsrecomp/__init__.py smsrecomp/artwork.py smsrecomp/batch.py
-smsrecomp/cover_settings.py smsrecomp/cover_sources.py tests/test_cover_sources.py
-smsrecomp/cover_titles.py tests/test_cover_titles.py
-smsrecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-smsrecomp/core.py smsrecomp/cpu.py smsrecomp/gui.py smsrecomp/branding.py smsrecomp/i18n.py smsrecomp/updater.py
-smsrecomp/nes_build.py tests/test_nes_build.py
-smsrecomp/library.py smsrecomp/knowledge.py smsrecomp/paths.py smsrecomp/publishing.py smsrecomp/packing.py
+retrorecomp/__init__.py retrorecomp/artwork.py retrorecomp/batch.py
+retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
+retrorecomp/cover_titles.py tests/test_cover_titles.py
+retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
+retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py retrorecomp/i18n.py retrorecomp/updater.py
+retrorecomp/nes_build.py tests/test_nes_build.py
+retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
-smsrecomp/knowledge_build.py smsrecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
-smsrecomp/gameboy_host.py
-smsrecomp/tooltips.py smsrecomp/validation.py smsrecomp/windows.py
-smsrecomp/dropfiles.py tests/test_dropfiles.py
+retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
+retrorecomp/gameboy_host.py
+retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
+retrorecomp/dropfiles.py tests/test_dropfiles.py
 native/snes_dsp1_projection.inc
 native/snes_dsp1_vectors.h
 tools/snes_hdma_selftest.py
-smsrecomp/peripherals.py
-smsrecomp/metadata.py tests/test_metadata.py
-smsrecomp/systems/__init__.py smsrecomp/systems/master_system.py
-smsrecomp/systems/game_gear.py smsrecomp/systems/game_boy.py
-smsrecomp/gameboy.py smsrecomp/gameboy_runtime.py
-smsrecomp/gameboy_build.py smsrecomp/gameboy_boundary.py tests/test_gameboy_build.py
+retrorecomp/peripherals.py
+retrorecomp/metadata.py tests/test_metadata.py
+retrorecomp/systems/__init__.py retrorecomp/systems/master_system.py
+retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py
+retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
+retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-smsrecomp/gameboy_timing.py smsrecomp/gameboy_hardware.py
+retrorecomp/gameboy_timing.py retrorecomp/gameboy_hardware.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
-smsrecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
-smsrecomp/nes.py smsrecomp/nes_codegen.py smsrecomp/nes_runtime.py smsrecomp/nes_ram.py smsrecomp/systems/nes.py tests/test_nes.py
+retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
+retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/systems/nes.py tests/test_nes.py
 tests/test_nes_ram.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
@@ -195,19 +195,19 @@ native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc nati
 native/nes_machine_checks.c tools/nes_machine_selftest.py
 native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py
 tools/nes_state_selftest.py
-smsrecomp/nes_machine.py smsrecomp/nes_catalog.py smsrecomp/nes_optimization.py
-smsrecomp/cartridge16.py smsrecomp/console16.py smsrecomp/megadrive.py smsrecomp/megadrive_codegen.py smsrecomp/systems/console16.py
-smsrecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
+retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
+retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/systems/console16.py
+retrorecomp/m68000.py native/m68000_state_helpers.h native/m68000_backend.h native/m68000_backend.c
 native/m68000_backend_checks.c tools/m68000_backend_selftest.py
-smsrecomp/neogeo.py smsrecomp/neogeo_build.py smsrecomp/systems/neogeo.py
-smsrecomp/neogeo_catalogue.py smsrecomp/neogeo_conversion.py
-smsrecomp/neogeo_state_checks.py smsrecomp/neogeo_knowledge.py
-smsrecomp/neogeo_persistence_checks.py
+retrorecomp/neogeo.py retrorecomp/neogeo_build.py retrorecomp/systems/neogeo.py
+retrorecomp/neogeo_catalogue.py retrorecomp/neogeo_conversion.py
+retrorecomp/neogeo_state_checks.py retrorecomp/neogeo_knowledge.py
+retrorecomp/neogeo_persistence_checks.py
 tests/test_neogeo_converter.py tools/build_neogeo_knowledge.py
 assets/neogeo-catalogue.json
 native/neogeo_input.h native/neogeo_lithogen.c native/neogeo_main.c native/neogeo_reference.h native/neogeo_reference.c
 tools/neogeo_prototype.py tools/neogeo_qualification.py tests/test_neogeo.py docs/NEOGEO.md
-smsrecomp/neogeo_codegen.py smsrecomp/neogeo_z80.py smsrecomp/neogeo_validation.py
+retrorecomp/neogeo_codegen.py retrorecomp/neogeo_z80.py retrorecomp/neogeo_validation.py
 native/neogeo_native.c native/neogeo_native.h native/neogeo_z80_native.h native/neogeo_decode.c
 native/neogeo_code_view.inc native/neogeo_board_checks.c tools/neogeo_board_selftest.py
 native/neogeo_lspc_state.inc native/neogeo_sprite_decode.h
@@ -223,26 +223,26 @@ native/neogeo_path_io.h
 tools/neogeo_persistence_selftest.py
 tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
-smsrecomp/cps1.py smsrecomp/cps1_catalogue.py assets/cps1-catalogue.json
+retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
-smsrecomp/cps1_board.py smsrecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
+retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
 native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
-smsrecomp/cps1_codegen.py tests/test_cps1_codegen.py
-native/cps1_host.c native/cps1_host.h native/cps1_main.c smsrecomp/cps1_conversion.py
-smsrecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
+retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
+native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
+retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
 native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
 native/console16_state.c native/console16_state.h native/md_portable_state.inc
-smsrecomp/console16_state.py tools/console16_state_selftest.py
+retrorecomp/console16_state.py tools/console16_state_selftest.py
 native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_exception_decode.h native/md_step_dispatch.c
-native/md_battery.c native/md_battery.h smsrecomp/megadrive_sram.py smsrecomp/megadrive_memory.py
+native/md_battery.c native/md_battery.h retrorecomp/megadrive_sram.py retrorecomp/megadrive_memory.py
 native/md_cart.h native/md_cart.inc native/md_eeprom.h native/md_eeprom_checks.c
 native/md_cart_checks.c native/md_mapper_checks.c
-smsrecomp/megadrive_cart.py tools/megadrive_eeprom_selftest.py tools/megadrive_mapper_selftest.py
+retrorecomp/megadrive_cart.py tools/megadrive_eeprom_selftest.py tools/megadrive_mapper_selftest.py
 tools/megadrive_eeprom_state_selftest.py tools/megadrive_irq_collision_selftest.py tests/test_setup_lock.py
 native/md_sram_checks.c tools/megadrive_sram_selftest.py tests/test_megadrive_sram.py
 tools/megadrive_save_selftest.py
@@ -252,42 +252,42 @@ native/md_exception_checks.c tools/megadrive_exception_selftest.py
 tests/fixtures/md-exceptions/cases.json tests/fixtures/md-exceptions/LICENSE
 docs/MEGADRIVE_CPU_EXCEPTIONS.md
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
-smsrecomp/snes_codegen.py smsrecomp/supernintendo.py
-smsrecomp/snes_timing.py native/snes_timing.h
-smsrecomp/snes_video.py
-smsrecomp/snes_dma.py native/snes_dma.h native/snes_hdma.inc
-smsrecomp/snes_bus.py native/snes_bus.h native/snes_bus.inc
-smsrecomp/snes_ppu_bus.py native/snes_ppu_bus.inc
+retrorecomp/snes_codegen.py retrorecomp/supernintendo.py
+retrorecomp/snes_timing.py native/snes_timing.h
+retrorecomp/snes_video.py
+retrorecomp/snes_dma.py native/snes_dma.h native/snes_hdma.inc
+retrorecomp/snes_bus.py native/snes_bus.h native/snes_bus.inc
+retrorecomp/snes_ppu_bus.py native/snes_ppu_bus.inc
 native/snes_ppu_cache.inc native/snes_ppu_cache_checks.c tools/snes_ppu_cache_selftest.py
-smsrecomp/console16_optimization.py tests/test_console16_optimization.py
-smsrecomp/megadrive_audio.py native/md_audio_loop.inc native/md_audio_bridge_checks.c
+retrorecomp/console16_optimization.py tests/test_console16_optimization.py
+retrorecomp/megadrive_audio.py native/md_audio_loop.inc native/md_audio_bridge_checks.c
 native/md_audio_resample.inc native/md_audio_mix.h native/md_audio_mix_checks.c
 tools/megadrive_audio_bridge_selftest.py
 native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
 native/snes_bus_checks.c tools/snes_bus_selftest.py
-smsrecomp/snes_chips.py
+retrorecomp/snes_chips.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
-smsrecomp/snes_cart.py native/snes_cart.h native/snes_battery.c native/snes_battery.h
+retrorecomp/snes_cart.py native/snes_cart.h native/snes_battery.c native/snes_battery.h
 native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
 tools/snes_ram_selftest.py
 native/snes_video_checks.c tools/snes_video_selftest.py tools/snes_object_selftest.py
 tests/test_snes_video.py
 docs/SNES.md
 native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
-smsrecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
+retrorecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py
-smsrecomp/guns16.py smsrecomp/gun16_runtime.py
-smsrecomp/megadrive_runtime.py native/md_ym_timers.h native/md_timing.h tools/megadrive_audio_selftest.py
+retrorecomp/guns16.py retrorecomp/gun16_runtime.py
+retrorecomp/megadrive_runtime.py native/md_ym_timers.h native/md_timing.h tools/megadrive_audio_selftest.py
 native/md_timing_checks.c tools/megadrive_timing_selftest.py
 native/console16_video.h native/md_video_checks.c tools/megadrive_video_selftest.py
 native/md_raster_checks.c tools/megadrive_raster_selftest.py
 docs/MEGADRIVE_VIDEO.md
-smsrecomp/megadrive_fifo.py native/md_vdp_fifo.h native/md_vdp_fifo.inc
+retrorecomp/megadrive_fifo.py native/md_vdp_fifo.h native/md_vdp_fifo.inc
 native/md_fifo_checks.c tools/megadrive_fifo_selftest.py tests/test_megadrive_fifo.py
-smsrecomp/megadrive_dma.py native/md_vdp_dma.h native/md_vdp_dma.inc
-smsrecomp/megadrive_read.py native/md_vdp_read.h native/md_vdp_read.inc
-smsrecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
+retrorecomp/megadrive_dma.py native/md_vdp_dma.h native/md_vdp_dma.inc
+retrorecomp/megadrive_read.py native/md_vdp_read.h native/md_vdp_read.inc
+retrorecomp/megadrive_bus.py native/md_bus_scheduler.h native/md_z80_bus.inc
 native/md_prefetch.h native/md_prefetch.inc native/md_prefetch_checks.c
 native/md_prefetch_plan_checks.c tools/megadrive_prefetch_plan_selftest.py
 tools/megadrive_prefetch_selftest.py tests/fixtures/md-prefetch/cases.json tests/fixtures/md-prefetch/authored.json tests/fixtures/md-prefetch/LICENSE
@@ -295,17 +295,17 @@ docs/MEGADRIVE_PREFETCH.md
 native/md_bus_checks.c tools/megadrive_bus_selftest.py
 native/md_boundary_checks.c tools/megadrive_boundary_selftest.py
 native/md_vdp_batch_checks.c tools/megadrive_vdp_batch_selftest.py
-native/md_vdp_pixels.inc smsrecomp/megadrive_video.py
+native/md_vdp_pixels.inc retrorecomp/megadrive_video.py
 native/md_read_checks.c tools/megadrive_read_selftest.py tests/test_megadrive_read.py
 native/md_dma_checks.c tools/megadrive_dma_selftest.py tests/test_megadrive_dma.py
-smsrecomp/megadrive_z80.py native/md_z80_native.h native/md_z80_runtime.c
-smsrecomp/megadrive_z80_timing.py tests/fixtures/z80_phases.json docs/MEGADRIVE_Z80_TIMING.md
+retrorecomp/megadrive_z80.py native/md_z80_native.h native/md_z80_runtime.c
+retrorecomp/megadrive_z80_timing.py tests/fixtures/z80_phases.json docs/MEGADRIVE_Z80_TIMING.md
 native/md_z80_checks.c tools/megadrive_z80_selftest.py tests/test_megadrive_z80.py
 native/md_z80_resume_checks.c tools/megadrive_z80_resume_selftest.py tools/megadrive_interrupt_selftest.py
-smsrecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
+retrorecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/test_megadrive_progression.py docs/MEGADRIVE_EEPROM.md docs/MEGADRIVE_MAPPERS.md
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
-  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md smsrecomp/random_routes.py tests/test_random_routes.py smsrecomp/scan_levels.py tests/test_scan_levels.py
+  tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md retrorecomp/random_routes.py tests/test_random_routes.py retrorecomp/scan_levels.py tests/test_scan_levels.py
 native/gb_input_refresh.inc native/gb_audio_output.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
@@ -330,7 +330,7 @@ tools/lightphaser_selftest.py tools/video_selftest.py docs/LIGHT_PHASER.md docs/
 native/sms_sprite_probe.c tools/sms_sprite_selftest.py
 tools/frame_stop_selftest.py
 tests/test_game_gear.py tests/test_game_boy.py
-smsrecomp/cover_keyring.py tests/test_cover_keyring.py
+retrorecomp/cover_keyring.py tests/test_cover_keyring.py
 tools/package_linux.py docs/LINUX.md licenses/Linux-desktop.md
 """.split())
 PUBLIC_SET = frozenset(PUBLIC_FILES)
@@ -338,13 +338,13 @@ PUBLIC_SET = frozenset(PUBLIC_FILES)
 # no application path imports yet (profiles in development): packaging passes
 # these as hidden imports and audit_executable checks each against its source.
 PUBLIC_MODULES = tuple(sorted(name[:-3].replace("/", ".").removesuffix(".__init__")
-                              for name in PUBLIC_FILES if name.startswith("smsrecomp/") and name.endswith(".py")))
+                              for name in PUBLIC_FILES if name.startswith("retrorecomp/") and name.endswith(".py")))
 
 
 def write_module_hook(directory: Path) -> Path:
     """PyInstaller hook listing PUBLIC_MODULES (a command line would be too long on Windows)."""
     directory.mkdir(parents=True, exist_ok=True)
-    hook = directory / "hook-smsrecomp.py"
+    hook = directory / "hook-retrorecomp.py"
     hook.write_text("hiddenimports = " + repr(list(PUBLIC_MODULES)) + "\n", encoding="utf-8")
     return hook
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
@@ -371,21 +371,21 @@ def check_public_file(name: str, data: bytes) -> None:
     if name not in PUBLIC_SET:
         raise ValueError(f"Not on the public allowlist: {name}")
     if name == 'assets/cover-references.json':
-        from smsrecomp.cover_references import MAX_BYTES, validate_payload
+        from retrorecomp.cover_references import MAX_BYTES, validate_payload
         if len(data) > MAX_BYTES:
             raise ValueError('Cover references exceed their size limit.')
         validate_payload(json.loads(data))
     if name == 'assets/neogeo-catalogue.json':
-        from smsrecomp.neogeo_catalogue import SHA256
+        from retrorecomp.neogeo_catalogue import SHA256
         if hashlib.sha256(data).hexdigest()!=SHA256:
             raise ValueError('Neo Geo catalogue failed its integrity check.')
     if name == 'assets/cps1-catalogue.json':
-        from smsrecomp.cps1_catalogue import SHA256
+        from retrorecomp.cps1_catalogue import SHA256
         if hashlib.sha256(data).hexdigest()!=SHA256:
             raise ValueError('CPS-1 catalogue failed its integrity check.')
     if name == 'assets/compilation-knowledge.json.gz':
         import gzip, io
-        from smsrecomp.knowledge import MAX_BYTES, validate_payload
+        from retrorecomp.knowledge import MAX_BYTES, validate_payload
         with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
             raw = stream.read(MAX_BYTES + 1)
         if len(raw) > MAX_BYTES:

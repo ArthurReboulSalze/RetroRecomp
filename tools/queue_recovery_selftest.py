@@ -8,9 +8,9 @@ import time
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.batch import BatchItem
-from smsrecomp.gui import Application
-from smsrecomp.queue_state import BatchJournal
+from retrorecomp.batch import BatchItem
+from retrorecomp.gui import Application
+from retrorecomp.queue_state import BatchJournal
 
 
 def main():
@@ -20,9 +20,9 @@ def main():
                for i in range(2)]
         journal=BatchJournal.create(data/'pending-batches',items,root/'Games')
         journal.result(0,{'status':'success'});journal.close() # model process exit without finish
-        with patch('smsrecomp.gui.data_directory',return_value=data), \
-                patch('smsrecomp.gui.load_preferences',return_value={}), \
-                patch('smsrecomp.gui.save_preferences'):
+        with patch('retrorecomp.gui.data_directory',return_value=data), \
+                patch('retrorecomp.gui.load_preferences',return_value={}), \
+                patch('retrorecomp.gui.save_preferences'):
             for reopening in range(3):
                 window=tk.Tk();window.withdraw();application=Application(window)
                 try:
@@ -39,9 +39,9 @@ def main():
                 finally:application.close()
         assert not any(root.glob('*.sms')), 'Recovery must not create or read a source ROM'
         journal=BatchJournal.create(data/'pending-batches',items,root/'Games');journal.close()
-        with patch('smsrecomp.gui.data_directory',return_value=data), \
-                patch('smsrecomp.gui.load_preferences',return_value={}), \
-                patch('smsrecomp.gui.save_preferences'):
+        with patch('retrorecomp.gui.data_directory',return_value=data), \
+                patch('retrorecomp.gui.load_preferences',return_value={}), \
+                patch('retrorecomp.gui.save_preferences'):
             window=tk.Tk();window.withdraw();application=Application(window)
             try:
                 assert application.restore_queue()
@@ -50,7 +50,7 @@ def main():
                     assert selected==[items[0]]
                     on_event('result',0,{'status':'current'})
                     return {'pending':0,'games':[]}
-                with patch('smsrecomp.gui.convert_batch',side_effect=convert):
+                with patch('retrorecomp.gui.convert_batch',side_effect=convert):
                     application.start(selected=True)
                     deadline=time.monotonic()+10
                     while True:

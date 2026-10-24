@@ -5,11 +5,11 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smsrecomp.gameboy import _dependencies
-from smsrecomp.gameboy_runtime import adapt_generated_project
-from smsrecomp.paths import ROOT, ASSETS
-from smsrecomp.core import run
-from smsrecomp.platforms import build_executable, cmake_target_args
+from retrorecomp.gameboy import _dependencies
+from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.paths import ROOT, ASSETS
+from retrorecomp.core import run
+from retrorecomp.platforms import build_executable, cmake_target_args
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     adapt_generated_project(project, 'latency-fixture', '0' * 64, 'Authored latency fixture')
     (project / 'game_resources.rc').write_text('1 RCDATA { 0 }\n', encoding='utf-8')
     if os.name != 'nt':
-        from smsrecomp.resources import embed_resources
+        from retrorecomp.resources import embed_resources
         embed_resources(project, {})
     with (project / 'CMakeLists.txt').open('a', encoding='utf-8') as out:
         out.write(f'''\nadd_executable(retro_gb_latency_checks "{(ASSETS / 'native/gb_latency_checks.cpp').as_posix()}")

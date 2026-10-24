@@ -18,7 +18,7 @@ LONG=('nam1975','mslug','pbobblen','samsho2','turfmast','blazstar')
 
 
 def long_route(name,frames=54000):
-    from smsrecomp.neogeo_validation import qualification_routes
+    from retrorecomp.neogeo_validation import qualification_routes
     events={}
     for line in qualification_routes(name)['play'][1].splitlines():
         f,*v=line.split();events[int(f)]=tuple(int(x,16) for x in v)
@@ -41,7 +41,7 @@ def long_route(name,frames=54000):
 
 
 def prepare(root,source):
-    from smsrecomp.batch import identify
+    from retrorecomp.batch import identify
     inputs=root/'inputs';inputs.mkdir(parents=True,exist_ok=True)
     snapshot=root/'base-knowledge.json.gz'
     if not snapshot.exists():shutil.copy2(ROOT/'assets/compilation-knowledge.json.gz',snapshot)
@@ -60,7 +60,7 @@ def prepare(root,source):
 
 
 def batch(root,number,retry=None):
-    from smsrecomp.batch import identify,convert_batch
+    from retrorecomp.batch import identify,convert_batch
     names=tuple(retry) if retry else SETS if number==0 else SETS[(number-1)*8:number*8]
     assert names and (len(names)<=8 or number==0) and all(n in SETS for n in names)
     plans={name:{'sustained-play':long_route(name)} for name in LONG}

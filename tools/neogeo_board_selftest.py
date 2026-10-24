@@ -2,9 +2,9 @@
 from pathlib import Path
 import json,sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
-from smsrecomp.neogeo_build import prepare_project
-from smsrecomp.core import run,toolchain
-from smsrecomp.platforms import build_executable,cmake_target_args,build_jobs
+from retrorecomp.neogeo_build import prepare_project
+from retrorecomp.core import run,toolchain
+from retrorecomp.platforms import build_executable,cmake_target_args,build_jobs
 
 
 def main():

@@ -18,7 +18,7 @@ and F7 updates both. Display settings, bindings and other entries are preserved.
 These options translate Retro-Recomp's menus, not a cartridge's dialogue.
 Window execution labels remain English (`Native code` / `Interpreter fallback`).
 
-Translation sources are `smsrecomp/i18n.py` for the original converter EN/FR
+Translation sources are `retrorecomp/i18n.py` for the original converter EN/FR
 strings and `assets/locales/*.json` for additional converter/runtime text.
 All runtime adapters use the shared catalogue and ASCII drawing service in
 `native/retro_menu.c`; stray accented Latin-1 letters fall back to their base

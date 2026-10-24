@@ -69,8 +69,8 @@ def sdk_stamp(part=None):
     files = [*sorted((ASSETS/'native/x68000_reference').glob('*')), *sorted((ASSETS/'native/x68000_native').glob('*')),
              *(ASSETS/'tools'/name for name in SDK_TOOLS),
              *sorted(p for p in (ASSETS/'native/x68000_machine').rglob('*') if p.is_file()),
-             ASSETS/'smsrecomp/m68000_semantics.py',ASSETS/'smsrecomp/neogeo_codegen.py',
-             ASSETS/'smsrecomp/megadrive_codegen.py',
+             ASSETS/'retrorecomp/m68000_semantics.py',ASSETS/'retrorecomp/neogeo_codegen.py',
+             ASSETS/'retrorecomp/megadrive_codegen.py',
              # Shared 68000 sources the generator copies into every X68000 CPU.
              ASSETS/'native/neogeo_native.h',ASSETS/'native/neogeo_native.c',ASSETS/'native/md_prefetch.inc']
     from .compilation_inputs import engine_stamp, role, role_stamps

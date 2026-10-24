@@ -10,8 +10,8 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.console16 import prepare16
-from smsrecomp.core import run
+from retrorecomp.console16 import prepare16
+from retrorecomp.core import run
 from tools.snes_scheduler_selftest import cartridge
 
 

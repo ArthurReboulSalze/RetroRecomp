@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import unittest
 
-from smsrecomp import cps1_board, cps1_catalogue
+from retrorecomp import cps1_board, cps1_catalogue
 
 ROOT = Path(__file__).resolve().parents[1]
 

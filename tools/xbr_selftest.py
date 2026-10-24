@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.core import run,toolchain
+from retrorecomp.core import run,toolchain
 
 def main():
     project=ROOT/'.build/xbr-selftest';project.mkdir(parents=True,exist_ok=True)

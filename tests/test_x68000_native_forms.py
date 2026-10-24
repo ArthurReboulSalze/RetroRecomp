@@ -1,11 +1,11 @@
 """The X68000 generator adapts the shared 68000 forms by an exact prologue.
 
-A change to the shared Neo Geo form (smsrecomp.neogeo_codegen) must fail here,
+A change to the shared Neo Geo form (retrorecomp.neogeo_codegen) must fail here,
 not only when an X68000 conversion generates its CPU.
 """
 import unittest
 
-from smsrecomp.neogeo_codegen import structural_body
+from retrorecomp.neogeo_codegen import structural_body
 from tools.x68000_native import FORM_COPY
 
 

@@ -6,7 +6,7 @@ import unittest
 import zipfile
 import zlib
 
-from smsrecomp import cps1, cps1_catalogue
+from retrorecomp import cps1, cps1_catalogue
 from tools import build_cps1_catalogue as builder
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -18,7 +18,7 @@ The snapshot now holds **1,305 exact identities, including 214 Mega Drive and
 records of release 1.2.9 are byte-identical; only new identities were added.
 The raw size reached 98 % of the former 64 MiB bound (Mega Drive Z80
 references, about 13,000 per game, dominate). At the user's request the
-decompressed bound is now **128 MiB** (`smsrecomp/knowledge.py`), shared by the
+decompressed bound is now **128 MiB** (`retrorecomp/knowledge.py`), shared by the
 loader, both builders, knowledge exchange and the package audit. Loading and
 validating the current snapshot takes about 7 s once per converter process
 (4 s for release 1.2.9); a compact Mega Drive format remains possible later. Full-game validation, hardware
@@ -1088,7 +1088,7 @@ schema, fields and limits as `assets/compilation-knowledge.json.gz`, and
 1 files still import.
 The title is there for people only. The file holds no ROM byte, path,
 artwork, code or account data. The export uses the shared builder
-`smsrecomp/knowledge_build.py`, which also builds the bundled snapshot.
+`retrorecomp/knowledge_build.py`, which also builds the bundled snapshot.
 Master System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo are
 included. Neo Geo, X68000 and CPS-1 keep their own, separately scoped
 knowledge and are not exchanged.

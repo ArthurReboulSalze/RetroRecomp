@@ -4,9 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 import json,os,subprocess,sys,uuid
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from smsrecomp.console16 import prepare16,probe16,reference_differences
-from smsrecomp.cartridge16 import read_snes_rom
-from smsrecomp import supernintendo
+from retrorecomp.console16 import prepare16,probe16,reference_differences
+from retrorecomp.cartridge16 import read_snes_rom
+from retrorecomp import supernintendo
 from tools.snes_scheduler_selftest import cartridge
 from tools.console16_state_selftest import check
 WORK=None

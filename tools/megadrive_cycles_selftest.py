@@ -12,8 +12,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.megadrive_codegen import generate_steps, adapt_interpreter
+from retrorecomp.core import run, toolchain
+from retrorecomp.megadrive_codegen import generate_steps, adapt_interpreter
 
 # Totals are literal manual expectations, not obtained from our cycle table.
 CASES = [

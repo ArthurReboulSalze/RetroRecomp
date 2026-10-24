@@ -390,7 +390,7 @@ Game Boy Camera/Printer or Super Game Boy features. See
 (boot, two play runs and the varied replay, with deep validation) is the
 default. *Extended* adds one reproducible pseudo-random route of 18,000 frames
 seeded from the exact ROM, written in the host's `start:buttons:duration`
-grammar (`smsrecomp/random_routes.py`); *Thorough* adds a second. *Quick* keeps
+grammar (`retrorecomp/random_routes.py`); *Thorough* adds a second. *Quick* keeps
 boot and the two play runs for a single pass and skips the deep CPU
 comparison: use it to check a setting, not for a final export. Passes and
 frames can be set per console; empty fields follow the shared values. The

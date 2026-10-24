@@ -7,13 +7,13 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run
-from smsrecomp.platforms import build_executable, cmake_target_args, build_jobs
+from retrorecomp.core import run
+from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 
 
 def native_executable(project, output, harness, z80_source=None):
     """Link authored fixtures against current production objects, never run its ROM."""
-    from smsrecomp.core import toolchain
+    from retrorecomp.core import toolchain
     output.mkdir(parents=True, exist_ok=True)
     work = output / 'harness'
     work.mkdir(exist_ok=True)

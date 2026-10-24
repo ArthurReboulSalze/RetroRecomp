@@ -12,9 +12,9 @@ from unittest.mock import Mock
 from threading import Event, Lock
 from queue import Queue
 
-from smsrecomp.compiled_games import Inventory, Game, game_from_report, refresh, scan
-from smsrecomp.feedback import Observation, encode
-from smsrecomp.memory_view import summaries
+from retrorecomp.compiled_games import Inventory, Game, game_from_report, refresh, scan
+from retrorecomp.feedback import Observation, encode
+from retrorecomp.memory_view import summaries
 
 
 class CompiledGamesTests(TestCase):
@@ -49,7 +49,7 @@ class CompiledGamesTests(TestCase):
         self.inventory.remember(game)
         self.inventory.roots = [str(self.console)]
         self.inventory.save()
-        with patch('smsrecomp.compiled_games.scan',side_effect=AssertionError('No startup scan')):
+        with patch('retrorecomp.compiled_games.scan',side_effect=AssertionError('No startup scan')):
             restored = Inventory(self.inventory.path)
         self.assertEqual([asdict(g) for g in restored.snapshot()],[asdict(game)])
         self.assertEqual(restored.roots,self.inventory.roots)
@@ -80,8 +80,8 @@ class CompiledGamesTests(TestCase):
         inventory.save()
         new=self.root/'installed'
         shutil.copytree(old,new)
-        with patch('smsrecomp.compiled_games.scan',side_effect=AssertionError('No startup scan')), \
-             patch('smsrecomp.batch._embedded_export_identity',side_effect=AssertionError('Do not inspect binaries')):
+        with patch('retrorecomp.compiled_games.scan',side_effect=AssertionError('No startup scan')), \
+             patch('retrorecomp.batch._embedded_export_identity',side_effect=AssertionError('Do not inspect binaries')):
             restored=Inventory(new/'datas/compiled-games.json')
             restored.relocate()
         game=restored.snapshot()[0]
@@ -106,7 +106,7 @@ class CompiledGamesTests(TestCase):
         original=json.dumps(dict(schema=1,roots=[str(old/'Games')],games=[asdict(old_game),asdict(local)]))
         path.write_text(original,encoding='utf-8')
         inventory=Inventory(path)
-        with patch('smsrecomp.batch._embedded_export_identity',side_effect=AssertionError('No binary scan')):
+        with patch('retrorecomp.batch._embedded_export_identity',side_effect=AssertionError('No binary scan')):
             self.assertEqual(inventory.relocate(),1)
         games=inventory.snapshot()
         self.assertEqual(len(games),1)
@@ -274,8 +274,8 @@ class CompiledGamesTests(TestCase):
         self.assertEqual(opened.count(folder/'trace.json'),1)
 
     def test_reconvert_uses_the_exact_source_and_destination_with_normal_conversion(self):
-        from smsrecomp.gui import Application
-        from smsrecomp.batch import BatchItem
+        from retrorecomp.gui import Application
+        from retrorecomp.batch import BatchItem
         source = self.root/'original.sms'
         source.write_bytes(b'placeholder')
         game = game_from_report(self.report,source=str(source))
@@ -289,7 +289,7 @@ class CompiledGamesTests(TestCase):
         owner.set_controls=Mock();owner.preferences=Mock(return_value={})
         owner.compiled_inventory=self.inventory
         owner.compiled_view=Mock()
-        from smsrecomp.platforms import target_id
+        from retrorecomp.platforms import target_id
         game.target=target_id()
         second.target=target_id()
         item=BatchItem(source,'Example',system='sms',sha256=self.identity)
@@ -311,8 +311,8 @@ class CompiledGamesTests(TestCase):
             args[7].write_bytes(self.exe.read_bytes())
             with lock:active-=1
             return {'status':'success','report':str(path),'executable':str(args[7])}
-        with patch('smsrecomp.gui.identify',return_value=item), \
-             patch('smsrecomp.batch._convert_in_budget',side_effect=convert) as compiler:
+        with patch('retrorecomp.gui.identify',return_value=item), \
+             patch('retrorecomp.batch._convert_in_budget',side_effect=convert) as compiler:
             owner.begin_reconvert([(game,source),(second,source)])
             while True:
                 event=owner.messages.get(timeout=10)
@@ -327,7 +327,7 @@ class IncrementalRefreshTests(TestCase):
     """Rows are read again only when their files change; no full scan."""
 
     def test_only_rows_whose_files_changed_are_read_again(self):
-        from smsrecomp.compiled_games import refresh_changed, watch_signature
+        from retrorecomp.compiled_games import refresh_changed, watch_signature
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()
             exe = root / 'Game.exe'
@@ -338,8 +338,8 @@ class IncrementalRefreshTests(TestCase):
             def read(game, preferences=None):
                 game.watch = watch_signature(game)
                 return game
-            with patch('smsrecomp.library.library_root', return_value=root / 'library'), \
-                    patch('smsrecomp.compiled_games.refresh', side_effect=read) as reader:
+            with patch('retrorecomp.library.library_root', return_value=root / 'library'), \
+                    patch('retrorecomp.compiled_games.refresh', side_effect=read) as reader:
                 self.assertEqual(refresh_changed(inventory), 1)
                 self.assertEqual(refresh_changed(inventory), 0)
                 # A game closed after play: its hints file appears beside it.

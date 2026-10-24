@@ -6,8 +6,8 @@ import shutil
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.snes_codegen import native_source, adapt_core, mirrored_rom
+from retrorecomp.core import run, toolchain
+from retrorecomp.snes_codegen import native_source, adapt_core, mirrored_rom
 
 
 def main():

@@ -8,8 +8,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from smsrecomp.publishing import publish_executable, job_path, is_pending, install_pending
-from smsrecomp.publishing import _start_installer, _running
+from retrorecomp.publishing import publish_executable, job_path, is_pending, install_pending
+from retrorecomp.publishing import _start_installer, _running
 
 
 @contextmanager
@@ -47,14 +47,14 @@ class PublishingTests(unittest.TestCase):
         def compact(staged):
             self.assertEqual(self.source.read_bytes(), b'new generation')
             staged.write_bytes(b'compact generation')
-        with patch('smsrecomp.publishing.compact_executable', side_effect=compact) as packer:
+        with patch('retrorecomp.publishing.compact_executable', side_effect=compact) as packer:
             self.assertFalse(publish_executable(self.source, self.target, compact=True))
         packer.assert_called_once()
         self.assertEqual(self.target.read_bytes(), b'compact generation')
         self.assertEqual(self.source.read_bytes(), b'new generation')
 
     def test_compaction_failure_preserves_previous_executable(self):
-        with patch('smsrecomp.publishing.compact_executable', side_effect=RuntimeError('UPX failed')):
+        with patch('retrorecomp.publishing.compact_executable', side_effect=RuntimeError('UPX failed')):
             with self.assertRaisesRegex(RuntimeError, 'UPX failed'):
                 publish_executable(self.source, self.target, compact=True)
         self.assertEqual(self.target.read_bytes(), b'previous generation')
@@ -84,7 +84,7 @@ class PublishingTests(unittest.TestCase):
             child = _start_installer(marker, token)
             children.append(child)
             return child
-        with patch('smsrecomp.publishing._start_installer', side_effect=start):
+        with patch('retrorecomp.publishing._start_installer', side_effect=start):
             with locked_file(self.target):
                 self.assertTrue(publish_executable(self.source, self.target))
                 self.assertTrue(is_pending(self.target))
@@ -104,8 +104,8 @@ class PublishingTests(unittest.TestCase):
     def test_real_permission_failure_preserves_the_old_game(self):
         error = PermissionError('ACL denied')
         error.winerror = 5
-        with patch('smsrecomp.publishing.os.replace', side_effect=error), \
-             patch('smsrecomp.publishing._running', return_value=False):
+        with patch('retrorecomp.publishing.os.replace', side_effect=error), \
+             patch('retrorecomp.publishing._running', return_value=False):
             with self.assertRaises(PermissionError):
                 publish_executable(self.source, self.target)
         self.assertEqual(self.target.read_bytes(), b'previous generation')

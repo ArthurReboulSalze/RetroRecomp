@@ -1,10 +1,10 @@
 import unittest
-from smsrecomp.snes_chips import identify
-from smsrecomp.snes_cart import layout_bytes,ram_offset
-from smsrecomp.snes_codegen import native_source
-from smsrecomp.supernintendo import validate_cartridge,support_stage
-from smsrecomp.cartridge16 import snes_header
-from smsrecomp.core import ConversionError
+from retrorecomp.snes_chips import identify
+from retrorecomp.snes_cart import layout_bytes,ram_offset
+from retrorecomp.snes_codegen import native_source
+from retrorecomp.supernintendo import validate_cartridge,support_stage
+from retrorecomp.cartridge16 import snes_header
+from retrorecomp.core import ConversionError
 from tools.snes_scheduler_selftest import cartridge
 from tests.test_snes import source_fixture
 from types import SimpleNamespace

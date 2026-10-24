@@ -8,9 +8,9 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from smsrecomp.core import run, toolchain
-from smsrecomp.megadrive_sram import bus_header, bus_source
-from smsrecomp.megadrive_memory import runtime_source
+from retrorecomp.core import run, toolchain
+from retrorecomp.megadrive_sram import bus_header, bus_source
+from retrorecomp.megadrive_memory import runtime_source
 
 
 def main():
