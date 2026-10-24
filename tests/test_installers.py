@@ -31,6 +31,29 @@ class InstallerPayloadTests(unittest.TestCase):
             self.assertEqual(payload['Retro-Recomp.exe'], executable.read_bytes())
             self.assertEqual(probe.call_args.args[0][1:], ['_verify-update', '1.1.5'])
 
+    def test_debian_tree_runs_a_private_copy_per_user(self):
+        from tools.package_installers import APP_ID, deb_tree
+        files = {'Retro-Recomp': b'\x7fELF binary', 'Retro-Recomp.png': b'icon', 'LICENSE.txt': b'MIT',
+                 'THIRD_PARTY_NOTICES.md': b'notices', 'INSTALL.txt': b'guide', 'uninstall.sh': b'unused'}
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'pkg'
+            deb_tree(files, '1.4.1', root)
+            listed = sorted(p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file())
+            self.assertEqual(listed, sorted([
+                'DEBIAN/control', 'opt/retro-recomp/INSTALL.txt', 'opt/retro-recomp/LICENSE.txt',
+                'opt/retro-recomp/Retro-Recomp', 'opt/retro-recomp/Retro-Recomp.png',
+                'opt/retro-recomp/THIRD_PARTY_NOTICES.md', 'opt/retro-recomp/VERSION', 'usr/bin/retro-recomp',
+                f'usr/share/applications/{APP_ID}.desktop', 'usr/share/doc/retro-recomp/copyright',
+                f'usr/share/icons/hicolor/256x256/apps/{APP_ID}.png']))
+            control = (root / 'DEBIAN/control').read_text()
+            self.assertIn('Package: retro-recomp\nVersion: 1.4.1\nArchitecture: amd64', control)
+            self.assertIn('Depends: libc6 (>= 2.41)', control)
+            self.assertIn('Exec=retro-recomp', (root / f'usr/share/applications/{APP_ID}.desktop').read_text())
+            launcher = (root / 'usr/bin/retro-recomp').read_bytes()
+            self.assertNotIn(b'\r\n', launcher)
+            self.assertIn(b'.local/opt/Retro-Recomp', launcher)
+            self.assertEqual((root / 'opt/retro-recomp/VERSION').read_text(), '1.4.1\n')
+
     def test_reproducible_linux_payload_contains_only_plain_files(self):
         files = {'Retro-Recomp': b'authored binary', 'uninstall.sh': b'authored uninstaller', 'INSTALL.txt': b'guide'}
         first = linux_archive(files)

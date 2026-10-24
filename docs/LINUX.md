@@ -4,7 +4,9 @@ This first native package targets **Linux x86-64, built on Debian 13
 (glibc 2.41)**. Older distributions and ARM64 are not qualified yet. It uses the
 same console implementations and verified compilation knowledge as Windows.
 
-Use the per-user `.run` installer to add Retro-Recomp to your applications menu:
+On Debian and Ubuntu, double-click the `.deb` package of the release (see
+[installation](INSTALLING.md)). Elsewhere, use the per-user `.run` installer to
+add Retro-Recomp to your applications menu:
 `bash Retro-Recomp-1.1.6-linux-x86_64-install.run`. It installs without sudo in
 `~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves data
 on uninstall. See [installation](INSTALLING.md).

@@ -168,7 +168,7 @@ needs your own IPL and font ROM ([status](docs/X68000.md)).
 
 ## Get started
 
-1. Download the **Windows setup EXE** or **Linux x86-64 `.run` installer** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases). Portable downloads remain available.
+1. Download the **Windows setup EXE**, the **`.deb` package** (Debian, Ubuntu: double-click it) or the **Linux x86-64 `.run` installer** from the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases). Portable downloads remain available.
 2. Add your ROMs or folders, leave console detection on **Automatic**, and convert.
 3. Open the generated games in their console folders under **Games** beside the app.
 

@@ -35,7 +35,7 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(json.loads(report.read_text())['source']['count'], len(PUBLIC_FILES))
 
     def test_every_public_module_is_frozen_by_both_packaging_scripts(self):
-        from tools.prepare_publication import PUBLIC_MODULES, write_module_hook
+        from tools.prepare_publication import PUBLIC_MODULES, RUNTIME_MODULES, write_module_hook
         expected = {name[:-3].replace('/', '.').removesuffix('.__init__') for name in PUBLIC_FILES
                     if name.startswith('retrorecomp/') and name.endswith('.py')}
         self.assertEqual(set(PUBLIC_MODULES), expected)
@@ -44,7 +44,9 @@ class PublicationTests(unittest.TestCase):
             hook = write_module_hook(Path(temp))
             namespace = {}
             exec(hook.read_text(encoding='utf-8'), namespace)
-            self.assertEqual(namespace['hiddenimports'], list(PUBLIC_MODULES))
+            self.assertEqual(namespace['hiddenimports'], list(PUBLIC_MODULES) + list(RUNTIME_MODULES))
+            # The Linux interface needs Pillow's Tk bridge (ImageTk pictures).
+            self.assertIn('PIL._tkinter_finder', namespace['hiddenimports'])
         tools = Path(__file__).resolve().parents[1] / 'tools'
         self.assertIn('write_module_hook', (tools / 'package.ps1').read_text(encoding='utf-8'))
         self.assertIn('write_module_hook(hooks)', (tools / 'package_linux.py').read_text(encoding='utf-8'))

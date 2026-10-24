@@ -65,7 +65,7 @@ native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py
 tools/player_gamepad/CMakeLists.txt
 native/game_options_checks.c tools/game_options_selftest.py tests/test_player_gamepad.py
-tools/package_installers.py tools/installers/windows.iss
+tools/package_installers.py tools/installers/windows.iss tools/installers/deb_launcher.sh
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
 retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py
@@ -344,11 +344,17 @@ PUBLIC_MODULES = tuple(sorted(name[:-3].replace("/", ".").removesuffix(".__init_
                               for name in PUBLIC_FILES if name.startswith("retrorecomp/") and name.endswith(".py")))
 
 
+# Third-party modules the interface needs that PyInstaller's analysis can miss.
+# PIL._tkinter_finder registers Pillow's Tk image bridge (ImageTk): without it
+# the Linux converter stopped at its first header picture ("PyImagingPhoto").
+RUNTIME_MODULES = ("PIL._tkinter_finder", "PIL.ImageTk")
+
+
 def write_module_hook(directory: Path) -> Path:
     """PyInstaller hook listing PUBLIC_MODULES (a command line would be too long on Windows)."""
     directory.mkdir(parents=True, exist_ok=True)
     hook = directory / "hook-retrorecomp.py"
-    hook.write_text("hiddenimports = " + repr(list(PUBLIC_MODULES)) + "\n", encoding="utf-8")
+    hook.write_text("hiddenimports = " + repr(list(PUBLIC_MODULES) + list(RUNTIME_MODULES)) + "\n", encoding="utf-8")
     return hook
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
                           if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
@@ -514,6 +520,11 @@ def audit_executable(executable: Path, source: Path) -> dict:
         if actual != expected:
             raise ValueError(f"Frozen Python differs from public source: {module}")
         modules.append(module)
+    for module in RUNTIME_MODULES:
+        try:
+            pyz.extract(module)
+        except Exception as error:
+            raise ValueError(f"The executable lacks a module its interface needs: {module}") from error
     entry = marshal.loads(archive.extract("RetroRecomp"))
     expected = compile((source / "RetroRecomp.py").read_text(encoding="utf-8-sig"),
                        entry.co_filename, "exec", dont_inherit=True, optimize=0)
