@@ -10,6 +10,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -80,11 +81,59 @@ def linux_archive(files: dict[str, bytes]) -> bytes:
     return gzip.compress(archive.getvalue(), compresslevel=6, mtime=0)
 
 
+APP_ID = 'io.github.ArthurReboulSalze.RetroRecomp'
+DEB_MAINTAINER = 'Arthur Reboul Salze <22814805+ArthurReboulSalze@users.noreply.github.com>'
+
+
+def deb_tree(files: dict[str, bytes], version: str, root: Path) -> None:
+    """The Debian package's files under `root`: the application in
+    /opt/retro-recomp, a launcher in /usr/bin that runs each user's private
+    copy (settings and games stay beside it, updates keep working), a menu
+    entry and an icon. Removing the package keeps every user's data."""
+    def put(relative: str, data: bytes, mode: int = 0o644) -> None:
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        path.chmod(mode)
+    for name in ('Retro-Recomp', 'Retro-Recomp.png', 'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'INSTALL.txt'):
+        put(f'opt/retro-recomp/{name}', files[name], 0o755 if name == 'Retro-Recomp' else 0o644)
+    put('opt/retro-recomp/VERSION', (version + '\n').encode('ascii'))
+    launcher = (ROOT / 'tools/installers/deb_launcher.sh').read_bytes().replace(b'\r\n', b'\n')
+    put('usr/bin/retro-recomp', launcher, 0o755)
+    put(f'usr/share/applications/{APP_ID}.desktop', '\n'.join((
+        '[Desktop Entry]', 'Type=Application', 'Version=1.0', 'Name=Retro-Recomp',
+        'Comment=Convert your retro games into native executables', 'Exec=retro-recomp',
+        f'Icon={APP_ID}', 'Terminal=false', 'Categories=Game;Utility;', 'StartupNotify=false', '')).encode('utf-8'))
+    put(f'usr/share/icons/hicolor/256x256/apps/{APP_ID}.png', files['Retro-Recomp.png'])
+    put('usr/share/doc/retro-recomp/copyright', files['LICENSE.txt'] + b'\n' + files['THIRD_PARTY_NOTICES.md'])
+    size = sum(path.stat().st_size for path in root.rglob('*') if path.is_file())
+    put('DEBIAN/control', '\n'.join((
+        'Package: retro-recomp', f'Version: {version}', 'Architecture: amd64', 'Section: games',
+        'Priority: optional', f'Maintainer: {DEB_MAINTAINER}', 'Depends: libc6 (>= 2.41)',
+        f'Installed-Size: {(size + 1023) // 1024}', 'Homepage: https://retro-recomp.com',
+        'Description: retro game recompiler into native executables',
+        ' Retro-Recomp converts your own Master System, Game Gear, Game Boy, NES,',
+        ' Mega Drive, Super Nintendo, Neo Geo, CPS-1 and X68000 games into native',
+        ' Linux executables. Each user gets a private copy in ~/.local/opt that keeps',
+        ' its settings and games and updates itself; removing the package keeps them.', '')).encode('utf-8'))
+    for path in [root, *root.rglob('*')]:
+        if path.is_dir():
+            path.chmod(0o755)   # never group-writable, whatever the build host's umask
+        os.utime(path, (0, 0))
+
+
 def build(executable: Path, version: str, target: str, output: Path, *,
           iscc: Path | None = None, application_id: str | None = None, notes: Path | None = None) -> Path:
-    files = payload_files(executable, version, target, notes)
+    files = payload_files(executable, version, 'linux' if target == 'deb' else target, notes)
     output.mkdir(parents=True, exist_ok=True)
-    if target == 'linux':
+    if target == 'deb':
+        with tempfile.TemporaryDirectory(prefix='RetroRecomp-deb-') as temp:
+            root = Path(temp) / 'retro-recomp'
+            deb_tree(files, version, root)
+            destination = output / f'retro-recomp_{version}_amd64.deb'
+            subprocess.run(['dpkg-deb', '--root-owner-group', '-Zxz', '--build', str(root), str(destination)],
+                           check=True, env={**os.environ, 'SOURCE_DATE_EPOCH': '0'})
+    elif target == 'linux':
         archive = linux_archive(files)
         header = (ROOT / 'tools/installers/linux_install.sh').read_text(encoding='utf-8')
         header = header.replace('@VERSION@', version).replace('@PAYLOAD_SHA256@', hashlib.sha256(archive).hexdigest())
@@ -117,7 +166,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable', type=Path, required=True)
     parser.add_argument('--version', required=True)
-    parser.add_argument('--target', choices=('windows', 'linux'), required=True)
+    parser.add_argument('--target', choices=('windows', 'linux', 'deb'), required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--iscc', type=Path)
     parser.add_argument('--application-id', help='Use a separate registration identity for isolated installer tests')

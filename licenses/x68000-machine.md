@@ -28,8 +28,7 @@ savestate system and any libretro-era change.
 hissorii did not attach a separate licence to the PX68k port. Retro-Recomp uses
 these changes on the same noncommercial terms as the rest of the Kenjo lineage,
 as PX68k has been distributed since 2013 (the libretro core list labels it
-"Custom Non-Commercial"). Permission was requested publicly in [hissorii/px68k#15](https://github.com/hissorii/px68k/issues/15),
-without an answer; the author has been inactive for years. NONAKA's files are
+"Custom Non-Commercial"); Retro-Recomp's own glue around it is MIT. NONAKA's files are
 BSD-licensed, and Kenjo's terms allow noncommercial modification and reuse
 without any obligation to contact the author.
 

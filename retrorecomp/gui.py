@@ -75,12 +75,17 @@ UPSTREAM_CREDITS = (
     )),
     ('Super Nintendo', (
         ('RetroPortingToolKit/snesrecomp', 'https://github.com/RetroPortingToolKit/snesrecomp', 'credits_recompiler'),
-        ('mstan/SuperMarioWorldRecomp', 'https://github.com/mstan/SuperMarioWorldRecomp', 'credits_recompiler'),
     )),
     ('Neo Geo', (
         ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_hardware'),
         ('carmiker/lithogen', 'https://github.com/carmiker/lithogen', 'credits_cartridge_loader'),
         ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_68000'),
+    )),
+    ('Capcom CPS-1', (
+        ('mamedev/mame', 'https://github.com/mamedev/mame', 'credits_cps1_board'),
+        ('aaronsgiles/ymfm', 'https://github.com/aaronsgiles/ymfm', 'credits_cps1_sound'),
+        ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_cps1_cpu'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
     )),
     ('Sharp X68000', (
         ('hissorii/px68k', 'https://github.com/hissorii/px68k', 'credits_x68_hardware'),
@@ -94,9 +99,9 @@ UPSTREAM_CREDITS = (
 
 HATCH_SPACING = 4
 # The header artwork is drawn smaller than its 600 x 132 source.
-HEADER_SCALE = 0.72
+HEADER_SCALE = 0.6
 HEADER_HEIGHT = round(132 * HEADER_SCALE)
-PORTRAIT_SIZE = 46
+PORTRAIT_SIZE = 44
 
 
 def _scaled_photo(path, master, scale=HEADER_SCALE):
@@ -194,7 +199,8 @@ def _toolbar_styles(style):
         style.configure(name, width=-1)
     # The header's small controls: selectors and the account's two buttons.
     style.configure('Header.TButton', width=-1, padding=(7, 2))
-    style.configure('Help.Header.TButton', width=-1, padding=(8, 2), foreground=c['gold'])
+    style.configure('Help.Toolbar.TButton', width=-1, padding=(11, 5), foreground=c['gold'],
+                    font=('TkDefaultFont', 10, 'bold'))
     style.configure('Header.TCombobox', padding=(4, 1))
     style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
@@ -360,19 +366,19 @@ class Application:
         self.portrait_item = header.create_image(0, 12, anchor='ne', tags='portrait')
         self.player_name = header.create_text(0, 10, text='', anchor='ne', fill=COLORS['text'],
                                               font=(self.ui_font, 10, 'bold'), tags='player')
-        self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'],
+        self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'], width=270,
                                                font=(self.ui_font, 8), justify='right', tags='player')
         self.player_actions = ttk.Frame(header)
+        try:
+            self.trophy_icon = _scaled_photo(ASSETS / 'assets/board-trophy.png', app, 17 / 72)
+        except (OSError, ValueError, tk.TclError):
+            self.trophy_icon = ''
         self.board_button = ttk.Button(self.player_actions, text=self.tr('leaderboard'), style='Header.TButton',
-                                       command=self.show_leaderboard)
+                                       image=self.trophy_icon, compound='left', command=self.show_leaderboard)
         self.sign_in_button = ttk.Button(self.player_actions, text=self.tr('account_sign_in'),
                                          style='Header.TButton', command=self.sign_in_from_header)
         self.hint(self.sign_in_button, 'tip_account')
-        # Help: the guides, always at hand beside the account.
-        self.help_button = ttk.Button(self.player_actions, text='?', style='Help.Header.TButton',
-                                      command=self.show_help)
-        self.hint(self.help_button, 'tip_help')
-        self.player_window = header.create_window(0, HEADER_HEIGHT - 8, window=self.player_actions, anchor='se')
+        self.player_window = header.create_window(0, HEADER_HEIGHT // 2, window=self.player_actions, anchor='e')
         self.render_player()
         header.bind('<Configure>', self.layout_header)
         stripe = tk.Canvas(app, height=2, bg=COLORS['subtle_border'], highlightthickness=0)
@@ -418,6 +424,10 @@ class Application:
         self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits)
         self.credits_button.configure(compound='image')
         self.credits_button.pack(side='right', padx=(0, 12))
+        # Help: how Retro-Recomp works, left of the credits and information.
+        self.help_button = ttk.Button(toolbar, text='?', style='Help.Toolbar.TButton', command=self.show_help)
+        self.hint(self.help_button, 'tip_help')
+        self.help_button.pack(side='right', padx=(0, 8))
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
         self.update_button.configure(compound='image')
         self.update_button.pack(side='right', padx=(0, 8))
@@ -605,12 +615,18 @@ class Application:
         divider = right - max(field.winfo_reqwidth() for field in self.header_fields) - 18
         self.header.coords(self.header_divider, divider, 14, divider, HEADER_HEIGHT - 14)
         self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
-        account = divider - 18
-        self.header.coords(self.portrait_item, account, 12)
+        # Right to left: the two account buttons, the portrait, name and score.
+        self.header.coords(self.player_window, divider - 16, HEADER_HEIGHT // 2)
+        account = divider - 16 - self.player_actions.winfo_reqwidth() - 12
+        self.header.coords(self.portrait_item, account, (HEADER_HEIGHT - PORTRAIT_SIZE) // 2)
         text = account - PORTRAIT_SIZE - 12
-        self.header.coords(self.player_name, text, 10)
-        self.header.coords(self.player_score, text, 29)
-        self.header.coords(self.player_window, account, HEADER_HEIGHT - 8)
+        name_box = self.header.bbox(self.player_name) or (0, 0, 0, 0)
+        score_box = self.header.bbox(self.player_score) or (0, 0, 0, 0)
+        block = (name_box[3] - name_box[1]) + 3 + (score_box[3] - score_box[1])
+        top = max(4, (HEADER_HEIGHT - block) // 2)
+        self.header.coords(self.player_name, text, top)
+        self.header.coords(self.player_score, text, top + (name_box[3] - name_box[1]) + 3)
+
 
     def draw_background(self, event):
         canvas = event.widget
@@ -760,7 +776,6 @@ class Application:
         self.version_label.configure(text=f'v{__version__} · {PLATFORMS[self.platform_id]}')
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         self.board_button.configure(text=self.tr('leaderboard'))
-        self.sign_in_button.configure(text=self.tr('account_sign_in'))
         self.render_player()
         reverse = {tr(key, code): key for key in STRINGS for code in LANGUAGES if '{' not in STRINGS[key][0]}
         def update(widget):
@@ -790,6 +805,15 @@ class Application:
                     widget.tab(page, text=self.tr(key))
             for child in widget.winfo_children(): update(child)
         update(self.app)
+        # Section titles whose English text another key shares ("Box art").
+        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart')):
+            frame = getattr(self, name, None)
+            try:
+                if frame is not None and frame.winfo_exists():
+                    frame.configure(text=self.tr(key))
+            except tk.TclError:
+                pass
+        self.update_account_options()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -1752,7 +1776,32 @@ class Application:
             self.hint(control, hint)
             return control
 
-        common = tab('options_common')
+        # Common holds the shared settings, the account and box art: it
+        # scrolls when the window is shorter than its content.
+        common_page = tab('options_common')
+        common_page.configure(padding=0)
+        scroller = tk.Canvas(common_page, bg=COLORS['background'], highlightthickness=0, borderwidth=0)
+        common_bar = ttk.Scrollbar(common_page, orient='vertical', command=scroller.yview)
+        scroller.configure(yscrollcommand=common_bar.set)
+        common_bar.pack(side='right', fill='y')
+        scroller.pack(side='left', fill='both', expand=True)
+        common = ttk.Frame(scroller, padding=18)
+        common_window = scroller.create_window(0, 0, window=common, anchor='nw')
+        def fit_common(event=None):
+            scroller.itemconfigure(common_window, width=scroller.winfo_width())
+            scroller.configure(scrollregion=(0, 0, scroller.winfo_width(), common.winfo_reqheight()))
+            if common.winfo_reqheight() <= scroller.winfo_height():
+                common_bar.pack_forget()
+            elif not common_bar.winfo_ismapped():
+                common_bar.pack(side='right', fill='y', before=scroller)
+        scroller.bind('<Configure>', fit_common)
+        common.bind('<Configure>', fit_common)
+        def wheel(event):
+            if common_bar.winfo_ismapped():
+                scroller.yview_scroll(-1 if event.delta > 0 else 1, 'units')
+        for widget in (scroller, common):
+            widget.bind('<Enter>', lambda event: panel.bind_all('<MouseWheel>', wheel))
+            widget.bind('<Leave>', lambda event: panel.unbind_all('<MouseWheel>'))
         common.columnconfigure(0, weight=1)
         ttk.Label(common, text=self.tr('output')).grid(row=0, column=0, sticky='w', pady=(0, 8))
         self.custom_output_control = ttk.Checkbutton(common, text=self.tr('custom_output'),
@@ -1797,6 +1846,14 @@ class Application:
             control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
             self.option_controls.append((control, 'readonly' if kind == 'combo' else 'normal'))
             self.hint(control, hint)
+
+        # The Retro-Recomp account, then box art, below the shared settings.
+        account = self.account_frame = ttk.LabelFrame(common, text=self.tr('options_account'), padding=(12, 8))
+        account.grid(row=5, column=0, sticky='ew', pady=(18, 0))
+        self.build_account_options(account)
+        covers = self.covers_frame = ttk.LabelFrame(common, text=self.tr('options_boxart'), padding=(12, 8))
+        covers.grid(row=6, column=0, sticky='ew', pady=(14, 0))
+        self.build_cover_options(covers, checkbox)
 
         for key in ('sms', 'gg'):
             profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
@@ -1866,7 +1923,6 @@ class Application:
             control=ttk.Combobox(x68,textvariable=self.x68_ram,values=(2,4),width=8,state='readonly');control.pack(anchor='w')
             self.option_controls.append((control,'readonly'))
             self.build_feedback_options(x68,'x68')
-        self.build_cover_options(tab('options_boxart'), checkbox)
 
         buttons = ttk.Frame(panel)
         # Reserve the footer first: Tk otherwise gives a tall notebook all
@@ -1961,6 +2017,44 @@ class Application:
         except ValueError as exc:
             self.ng_bios_status.set(self.tr('ng_bios_invalid', error=str(exc)))
             return False
+
+    def build_account_options(self, page):
+        """The Retro-Recomp account in Options: who is signed in, sign in or
+        out, and the account page of the site."""
+        self.account_status = tk.StringVar()
+        ttk.Label(page, textvariable=self.account_status, wraplength=600).pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(page)
+        row.pack(anchor='w')
+        self.account_sign_button = ttk.Button(row, command=self.account_sign_toggle)
+        self.account_sign_button.pack(side='left')
+        self.account_site_button = ttk.Button(row, text=self.tr('account_open_site'),
+            command=lambda: webbrowser.open_new_tab(online.service_url() + '/account'))
+        self.account_site_button.pack(side='left', padx=(8, 0))
+        self.update_account_options()
+
+    def update_account_options(self):
+        if getattr(self, 'account_status', None) is None:
+            return
+        try:
+            current = online.account() if SENDING_AVAILABLE else None
+            if not SENDING_AVAILABLE:
+                self.account_status.set(self.tr('account_coming'))
+            elif current:
+                self.account_status.set(self.tr('account_signed_as', email=current.get('email', '')))
+            else:
+                self.account_status.set(self.tr('account_invite'))
+            self.account_sign_button.configure(text=self.tr('account_sign_out' if current else 'account_sign_in'),
+                                               state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.account_site_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+        except tk.TclError:
+            pass
+
+    def account_sign_toggle(self):
+        if online.account():
+            self.sign_out()
+        else:
+            self.sign_in_from_header()
+        self.update_account_options()
 
     def build_cover_options(self, page, checkbox):
         self.cover_settings = load_cover_settings()
@@ -2281,24 +2375,30 @@ class Application:
     # --- The player's corner of the header ---------------------------------
 
     def sign_in_from_header(self):
+        """The header's second button: sign in, or sign out once signed in."""
         if self.busy or self.updating or not SENDING_AVAILABLE:return
-        self.sign_in_dialog()
+        if online.account():
+            self.sign_out()
+        else:
+            self.sign_in_dialog()
 
-    def refresh_player(self):
-        """Fetch the signed-in player's profile, portrait and place on the
-        board off Tk; the header redraws when the answer comes back. Without an
-        account, or when the service is closed, nothing is fetched."""
+    def refresh_player(self, force=False):
+        """Show the player's corner from the local cache at once, then, off Tk,
+        refresh it from the site only when it is older than 30 minutes (or
+        after a sign-in). Without an account, nothing is fetched."""
         if not SENDING_AVAILABLE or not online.account():
             self.render_player(None)
             return
+        cached = online.cached_player()
+        if cached:
+            self.render_player(cached)
         def worker():
-            data = {'account': online.account()}
             try:
-                data['profile'] = online.profile()
-                data['avatar'] = online.avatar() if (data['profile'] or {}).get('avatar', {}).get('state') else None
-                data['board'] = online.board('all')
+                data = online.player(force=force) or {'account': online.account()}
             except (online.ServiceError, online.ServiceConnectionError) as error:
-                data['error'] = self.online_message(error)
+                if cached:
+                    return   # offline: the last known corner stays as it is
+                data = {'account': online.account(), 'error': self.online_message(error)}
             self.messages.put(('player', data))
         threading.Thread(target=worker, daemon=True).start()
 
@@ -2308,22 +2408,24 @@ class Application:
         invitation to sign in, disabled until the online service opens."""
         if data is not ...:
             self.player = data or {}
+        self.update_account_options()
         player = self.player
         account = player.get('account') or (online.account() if SENDING_AVAILABLE else None)
         header = self.header
         for child in self.player_actions.winfo_children():
             child.pack_forget()
-        self.help_button.pack(side='right', padx=(6, 0))
         if not account:
             self.portrait = _portrait_photo(self.app)
             header.itemconfigure(self.portrait_item, image=self.portrait)
             header.itemconfigure(self.player_name, text=self.tr('account_not_signed'))
             header.itemconfigure(self.player_score,
                                  text=self.tr('account_invite') if SENDING_AVAILABLE else self.tr('account_coming'))
-            self.sign_in_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
-            self.sign_in_button.pack(side='right')
-            if SENDING_AVAILABLE:
-                self.board_button.pack(side='right', padx=(0, 6))
+            self.board_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.sign_in_button.configure(text=self.tr('account_sign_in'),
+                                          state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.board_button.pack(side='top', fill='x')
+            self.sign_in_button.pack(side='top', fill='x', pady=(4, 0))
+            self.app.after_idle(self.layout_header)
             return
         profile = player.get('profile') or {}
         name = profile.get('pseudonym') or account.get('pseudonym') or str(account.get('email', '')).split('@')[0]
@@ -2342,7 +2444,11 @@ class Application:
         if you.get('pending'):
             score += '\n' + self.tr('account_pending', count=you['pending'])
         header.itemconfigure(self.player_score, text=score)
-        self.board_button.pack(side='right')
+        self.board_button.configure(state='normal')
+        self.sign_in_button.configure(text=self.tr('account_sign_out'), state='normal')
+        self.board_button.pack(side='top', fill='x')
+        self.sign_in_button.pack(side='top', fill='x', pady=(4, 0))
+        self.app.after_idle(self.layout_header)
 
     # --- Build tools ---------------------------------------------------------
 
@@ -2455,11 +2561,29 @@ class Application:
         threading.Thread(target=worker, daemon=True).start()
         poll()
 
+    def raise_existing(self, name):
+        """One help page and one leaderboard at a time: a second click brings
+        the open window to the front instead of opening another."""
+        window = getattr(self, name, None)
+        try:
+            if window is not None and window.winfo_exists():
+                window.deiconify()
+                window.lift()
+                window.focus_force()
+                return True
+        except tk.TclError:
+            pass
+        setattr(self, name, None)
+        return False
+
     def show_help(self):
         """How Retro-Recomp works, in five steps and the keys every game
         shares; the full guides are one click away."""
+        if self.raise_existing('help_window'):
+            return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
+        self.help_window = window
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('help_title')}")
         window.configure(bg=background)
@@ -2567,9 +2691,10 @@ class Application:
     def show_leaderboard(self):
         """The shared base's ranking in a window: podium order, pseudonyms,
         games and points, all time or this month, with the player's own line."""
-        if not SENDING_AVAILABLE:return
+        if not SENDING_AVAILABLE or self.raise_existing('board_window'):return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
+        self.board_window = window
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('leaderboard')}")
         window.configure(bg=background)
@@ -2832,7 +2957,7 @@ class Application:
             state['signed'] = True
             self.messages.put(('log', self.tr('signin_done', email=data['email'])))
             window.destroy()
-            self.refresh_player()
+            self.refresh_player(force=True)
         def submit():
             address = email.get().strip()
             if state['stage'] == 'email' or not code.get().strip():
@@ -3050,7 +3175,8 @@ class Application:
                 if self.closing_send:self.close()
                 else:self.knowledge_report(self.tr('knowledge_send_none'))
                 return
-            detail = self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+            detail = (self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+                      + '\n\n' + self.tr('knowledge_scope'))
             # On the closing card the player already chose to send.
             if self.closing_send or self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action')):
                 self.knowledge_task(lambda:('sent', self.upload_discoveries(pending)), 'knowledge_sending')
@@ -3080,7 +3206,8 @@ class Application:
                     text += ' ' + self.tr('knowledge_missing_hint')
                 self.knowledge_report(text)
                 return
-            detail = self.tr('knowledge_export_found', games=summary['games'], consoles=len(summary['consoles']))
+            detail = (self.tr('knowledge_export_found', games=summary['games'], consoles=len(summary['consoles']))
+                      + '\n\n' + self.tr('knowledge_scope'))
             if not self.achievement(summary['discoveries'], detail, self.tr('knowledge_export_action')):
                 return
             from datetime import date

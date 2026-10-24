@@ -56,8 +56,8 @@ claim: [machine runtime](licenses/x68000-machine.md), [FMGEN](licenses/fmgen.md)
 [Musashi](licenses/musashi.md). Status and links: [the X68000 status](docs/X68000.md).
 
 hissorii's port is used on the same noncommercial terms as the rest of the
-Kenjo lineage, as PX68k has been distributed since 2013; permission was
-requested publicly in [hissorii/px68k#15](https://github.com/hissorii/px68k/issues/15), without an answer. The converter
+Kenjo lineage, as PX68k has been distributed since 2013; Retro-Recomp's own
+glue around it is MIT. The converter
 includes Retro-Recomp's X68000 sources (MIT) and fetches hissorii/px68k, Geolith
 and GenesisRecomp at their pinned revisions on first conversion, as for the other
 profiles. No X68000 disk, firmware, generated game or private observation is
@@ -78,11 +78,12 @@ shipped; you supply your own IPL and font ROM.
 | emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
 | segagenesisrecomp and m68k-recomp-core (experimental Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
 | RetroPortingToolKit/snesrecomp (experimental SNES) | PolyForm Noncommercial 1.0.0 plus MIT/ISC and other retained vendor licences | [Notices](licenses/snesrecomp.md) |
-| SuperMarioWorldRecomp game analysis | PolyForm Noncommercial 1.0.0 | [Full text](licenses/SuperMarioWorldRecomp.md) |
 | Geolith (experimental Neo Geo hardware runtime) | BSD-3-Clause with retained component notices | [Full text](licenses/geolith.md) |
 | lithogen and the ROM-free Neo Geo layout catalogue | BSD-3-Clause; Rupert Carmichael and attributed MAME contributors | [Full text and attribution](licenses/lithogen.md) |
 | Musashi MC680x0 core (Geolith copy; Neo Geo and X68000) | MIT, Karl Stenerud; `m68kmmu.h` BSD-3-Clause | [Full text](licenses/musashi.md) |
 | Sharp X68000 machine (hissorii/px68k `74ddbb3`; experimental, fetched at its pinned revision on first conversion) | Kenjo's noncommercial terms; BSD-2-Clause, NONAKA Kimihiro; hissorii's port used on the lineage's noncommercial terms | [Notices and original text](licenses/x68000-machine.md) |
+| Capcom CPS-1 board catalogue, DIP switches and machine runtime (experimental; adapted from MAME's CPS-1 driver and OKI MSM6295 at `61a2229`) | BSD-3-Clause; Paul Leaman, Mirko Buffoni, Aaron Giles, Andrew Gardner and MAME contributors | [Full text](licenses/cps1-machine.md) |
+| ymfm YM2151 (OPM) in the CPS-1 runtime | BSD-3-Clause; Aaron Giles | [Full text](licenses/cps1-ymfm.md) |
 | FMGEN OPM (X68000; part of the hissorii/px68k sources) | cisc's freeware terms (noncommercial distribution, notice, modifications stated) | [Original text and modifications](licenses/fmgen.md) |
 
 Game toolchain source and test vectors are not bundled in the converter executable.

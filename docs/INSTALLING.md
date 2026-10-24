@@ -23,9 +23,22 @@ if you no longer need them. Installing again in the same location reuses them.
 
 ## Linux x86-64
 
-Download `Retro-Recomp-1.1.8-linux-x86_64-install.run` from the same release.
-This is a per-user installer, not a DEB/RPM system package. Run it in a terminal
-as your normal desktop user, **without sudo**:
+**Debian, Ubuntu and derivatives (simplest):** download
+`retro-recomp_<version>_amd64.deb` from the release and double-click it: the
+software center installs it after asking for your password (or run
+`sudo apt install ./retro-recomp_<version>_amd64.deb`). Retro-Recomp then
+appears in your applications menu. The package puts the application in
+`/opt/retro-recomp`; on first start, each user gets a private copy in
+`~/.local/opt/Retro-Recomp`, where settings, games and compiler caches are
+kept and where **Check for updates** keeps working without a password. A newer
+package refreshes that copy on the next start. Removing the package
+(`sudo apt remove retro-recomp`) keeps every user's copy and data.
+
+**Any distribution (per-user `.run` installer):** download
+`Retro-Recomp-<version>-linux-x86_64-install.run` from the same release. Browsers
+remove the execute permission from downloads, so a double-click does nothing:
+run it in a terminal as your normal desktop user, **without sudo** (the
+installer refuses sudo, since it installs in your home folder):
 
 ```sh
 bash Retro-Recomp-1.1.8-linux-x86_64-install.run

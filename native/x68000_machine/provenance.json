@@ -83,6 +83,6 @@
                        "NONAKA BSD notices of every kept x11/ and win32api/ file, including the 4-clause acknowledgment",
                        "Masaru OKI notice (peace.c)", "Karl Stenerud Musashi notice", "m68kmmu.h notice",
                        "PolyForm Noncommercial 1.0.0 and mstan permission"],
-  "open_points": ["hissorii's own modifications carry no explicit license (hissorii/px68k#15)",
+  "open_points": ["hissorii's own modifications carry no explicit license; used on the Kenjo lineage's noncommercial terms",
                   "opna/psg needed or not by fmg_wrap.cpp without Mercury"]
 }
