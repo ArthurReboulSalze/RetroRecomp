@@ -1,3 +1,40 @@
+# RetroRecomp v1.4.0 — the shared base opens: accounts, leaderboard, retro-recomp.com
+
+- **retro-recomp.com is open.** RetroRecomp now has its own website, with
+  downloads, release news, the leaderboard and your account page.
+- **Sign in from the converter.** **Sign in** in the header asks for your
+  e-mail address and sends a 6-digit code; the converter then keeps a
+  revocable token for this installation. No password is stored by the
+  converter, and your address is never shown to others.
+- **Send your discoveries.** **Knowledge → Send my discoveries to the shared
+  base**, or **Send and close** on the closing card, uploads the same ROM-free
+  file as an export, only for games whose discoveries changed since your last
+  send. A large first send leaves as several files and resumes where it
+  stopped if interrupted. Every upload is rechecked before it can help a
+  future version; nothing enters the bundled knowledge without a qualified
+  conversion.
+- **Your corner of the header.** Your portrait (from the site), pseudonym,
+  points, rank and paths awaiting confirmation sit at the right of the header,
+  beside the console format and language fields. Signed out, a pixel-art
+  question mark invites you to sign in.
+- **The leaderboard.** A window with the trophy, a podium whose steps rise with
+  the three best players and their crowns, Gold, Platinum and Diamond counts
+  per player, all time or this month, your own line in gold.
+- **A help page.** The **?** button explains how RetroRecomp works in five
+  steps (add, convert, play, learn while playing, share) and lists the keys
+  every game shares.
+- **A new header.** "Rediscover your games."; the version and platform now sit
+  at the bottom right.
+- **Safer by default.** The service is reached over HTTPS only, the converter
+  never follows a redirect with its token, and on Windows the token file is
+  readable by your account only.
+
+Because one shared conversion input changed (the list of converter-only
+modules), the next batch converts each exported game in full once. Measured
+on Windows; Linux remains qualified on Debian 13 / glibc 2.41.
+
+---
+
 # RetroRecomp v1.3.1 — what's new before you update, no more sorting by hand
 
 - **What's new, before you download.** When **Check for updates** finds a

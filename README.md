@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.3.1-d4a737" alt="Release version 1.3.1">
+  <img src="https://img.shields.io/badge/release-1.4.0-d4a737" alt="Release version 1.4.0">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -20,7 +20,7 @@
   <a href="docs/COMPATIBILITY.md">Compatibility</a> ·
   <a href="docs/RELEASE_NOTES.md">What's new</a> ·
   <a href="THIRD_PARTY_NOTICES.md">Credits and licensing</a> ·
-  <a href="https://arthurreboulsalze.github.io/RetroRecomp/">Website</a>
+  <a href="https://retro-recomp.com">Website</a>
 </p>
 
 <p align="center">
@@ -73,6 +73,12 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
   observations alike, as one ROM-free file, or import someone else's. Only
   numbers travel: addresses and positions in the ROM, never ROM bytes. Imported
   hints are always rechecked, and set aside if they make a conversion fail.
+- **The shared base and its leaderboard.** Sign in at
+  [retro-recomp.com](https://retro-recomp.com) with an e-mailed code and send
+  your discoveries from the Knowledge menu or when closing. Your portrait,
+  points and rank sit in the converter's header; confirmed paths earn Gold,
+  Platinum and Diamond points on the leaderboard. Every upload is rechecked
+  before it can help a future version.
 
 **Play**
 
@@ -111,7 +117,7 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 <p align="center">
   <img src="MEDIAS/RetroRecomp_Master_System_Collection.png" alt="Generated Master System games in Windows Explorer" width="760">
 </p>
-<p align="center"><sub><em>Generated Master System games, with optional box-art icons. A narrated overview video is on the <a href="https://arthurreboulsalze.github.io/RetroRecomp/#video">website</a>.</em></sub></p>
+<p align="center"><sub><em>Generated Master System games, with optional box-art icons. More on the <a href="https://retro-recomp.com">website</a>.</em></sub></p>
 
 ## Play. Learn. Recompile.
 
