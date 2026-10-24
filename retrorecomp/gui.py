@@ -121,6 +121,20 @@ def _portrait_photo(master, raw=None, initial=''):
             raw = None
     if not raw:
         picture = Image.new('RGBA', (size, size), COLORS['button'])
+        if not initial:
+            # Nobody signed in: a pixel-art question mark in gold.
+            mark = ('.XXXXX.', 'XX...XX', '.....XX', '....XX.', '...XX..', '...XX..', '.......', '...XX..')
+            # Blocks of 3 display pixels, aligned to the 4x drawing grid so
+            # the final downscale keeps them sharp.
+            cell = 12
+            left = (size - cell * len(mark[0])) // 8 * 4
+            top = (size - cell * len(mark)) // 8 * 4
+            draw = ImageDraw.Draw(picture)
+            for y, row in enumerate(mark):
+                for x, pixel in enumerate(row):
+                    if pixel == 'X':
+                        draw.rectangle((left + x * cell, top + y * cell, left + (x + 1) * cell - 1,
+                                        top + (y + 1) * cell - 1), fill=COLORS['gold'])
         if initial:
             from PIL import ImageFont
             try:
