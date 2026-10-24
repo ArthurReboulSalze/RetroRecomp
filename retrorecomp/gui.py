@@ -2284,21 +2284,23 @@ class Application:
         if self.busy or self.updating or not SENDING_AVAILABLE:return
         self.sign_in_dialog()
 
-    def refresh_player(self):
-        """Fetch the signed-in player's profile, portrait and place on the
-        board off Tk; the header redraws when the answer comes back. Without an
-        account, or when the service is closed, nothing is fetched."""
+    def refresh_player(self, force=False):
+        """Show the player's corner from the local cache at once, then, off Tk,
+        refresh it from the site only when it is older than 30 minutes (or
+        after a sign-in). Without an account, nothing is fetched."""
         if not SENDING_AVAILABLE or not online.account():
             self.render_player(None)
             return
+        cached = online.cached_player()
+        if cached:
+            self.render_player(cached)
         def worker():
-            data = {'account': online.account()}
             try:
-                data['profile'] = online.profile()
-                data['avatar'] = online.avatar() if (data['profile'] or {}).get('avatar', {}).get('state') else None
-                data['board'] = online.board('all')
+                data = online.player(force=force) or {'account': online.account()}
             except (online.ServiceError, online.ServiceConnectionError) as error:
-                data['error'] = self.online_message(error)
+                if cached:
+                    return   # offline: the last known corner stays as it is
+                data = {'account': online.account(), 'error': self.online_message(error)}
             self.messages.put(('player', data))
         threading.Thread(target=worker, daemon=True).start()
 
@@ -2839,7 +2841,7 @@ class Application:
             state['signed'] = True
             self.messages.put(('log', self.tr('signin_done', email=data['email'])))
             window.destroy()
-            self.refresh_player()
+            self.refresh_player(force=True)
         def submit():
             address = email.get().strip()
             if state['stage'] == 'email' or not code.get().strip():

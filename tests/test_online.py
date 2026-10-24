@@ -128,6 +128,41 @@ class OnlineTests(unittest.TestCase):
         self.assertEqual(sent, set(games))
         self.assertEqual(online.pending(everything)['games'], 0)
 
+    def test_player_corner_is_cached_and_the_portrait_downloaded_once(self):
+        self.sign_in()
+        calls = []
+        portrait = {'url': '/avatars/' + 'a' * 32 + '.webp'}
+        def profile():
+            calls.append('profile')
+            return {'pseudonym': 'Pat', 'avatar': {'state': 'approved', 'url': portrait['url']}}
+        def board(period='all'):
+            calls.append('board')
+            return {'you': {'rank': 2, 'total': 40, 'pending': 1}, 'entries': []}
+        def avatar():
+            calls.append('avatar')
+            return b'RIFF portrait'
+        with patch.object(online, 'profile', side_effect=profile), \
+                patch.object(online, 'board', side_effect=board), \
+                patch.object(online, 'avatar', side_effect=avatar):
+            first = online.player(now=1000)
+            self.assertEqual(calls, ['profile', 'board', 'avatar'])
+            self.assertEqual(first['avatar'], b'RIFF portrait')
+            # Reopening within 30 minutes: no request at all.
+            again = online.player(now=1000 + 60)
+            self.assertEqual(calls, ['profile', 'board', 'avatar'])
+            self.assertEqual((again['profile']['pseudonym'], again['avatar']), ('Pat', b'RIFF portrait'))
+            self.assertEqual(online.cached_player()['board']['you']['rank'], 2)
+            # Stale: profile and score again, but the same portrait is not downloaded.
+            online.player(now=1000 + online.PLAYER_REFRESH + 1)
+            self.assertEqual(calls[3:], ['profile', 'board'])
+            # A new portrait on the site (new public name): downloaded once more.
+            portrait['url'] = '/avatars/' + 'b' * 32 + '.webp'
+            online.player(force=True, now=9999)
+            self.assertEqual(calls[5:], ['profile', 'board', 'avatar'])
+        online.sign_out()
+        self.assertIsNone(online.cached_player())
+        self.assertFalse((self.data / online.AVATAR_NAME).exists())
+
     def test_plain_http_only_for_a_local_test_service(self):
         for url, kept in (('https://retro-recomp.com', True), ('http://127.0.0.1:8080', True),
                           ('http://192.168.1.13:8080', True), ('http://beta.test', True),

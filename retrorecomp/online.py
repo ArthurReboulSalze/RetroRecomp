@@ -108,6 +108,7 @@ def _save_account(data: dict | None) -> None:
     path = _account_path()
     if data is None:
         path.unlink(missing_ok=True)
+        _forget_player()
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     # mkstemp creates the file readable by its owner only on POSIX.
@@ -225,6 +226,97 @@ def board(period: str = 'all') -> dict:
     entries = answer.get('entries')
     answer['entries'] = [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
     return answer
+
+
+# The header's player corner is kept locally: opening the converter shows the
+# last portrait and score without a request. Profile and score are refreshed
+# at most every PLAYER_REFRESH seconds (or after a sign-in); the portrait is
+# downloaded again only when its public file name changes on the site.
+PLAYER_NAME = 'account-player.json'
+AVATAR_NAME = 'account-avatar.webp'
+PLAYER_REFRESH = 30 * 60
+
+
+def _player_path() -> Path:
+    return _account_path().with_name(PLAYER_NAME)
+
+
+def _avatar_path() -> Path:
+    return _account_path().with_name(AVATAR_NAME)
+
+
+def _forget_player() -> None:
+    _player_path().unlink(missing_ok=True)
+    _avatar_path().unlink(missing_ok=True)
+
+
+def cached_player() -> dict | None:
+    """The last profile, board place and portrait of the signed-in account,
+    read from disk only; None when there is none for this account."""
+    current = account()
+    if not current:
+        return None
+    try:
+        data = json.loads(_player_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if (not isinstance(data, dict) or data.get('service') != current['service']
+            or data.get('email') != current.get('email')):
+        return None
+    avatar_bytes = None
+    if data.get('avatar_url'):
+        try:
+            avatar_bytes = _avatar_path().read_bytes()
+        except OSError:
+            avatar_bytes = None
+    return {'account': current, 'profile': data.get('profile') or {}, 'board': data.get('board') or {},
+            'avatar': avatar_bytes, 'fetched': data.get('fetched', 0)}
+
+
+def player(force: bool = False, now: float | None = None) -> dict | None:
+    """Profile, portrait and board place for the header. Within PLAYER_REFRESH
+    of the last fetch, and unless `force`, nothing goes to the network."""
+    import time
+    now = time.time() if now is None else now
+    cached = cached_player()
+    if cached and not force and 0 <= now - cached['fetched'] < PLAYER_REFRESH:
+        return cached
+    current = account()
+    if not current:
+        return None
+    details = profile() or {}
+    you = board('all').get('you') or {}
+    url = (details.get('avatar') or {}).get('url')
+    picture = cached['avatar'] if cached and cached['avatar'] and url and _cached_avatar_url() == url else None
+    if url and picture is None:
+        picture = avatar()
+        if picture:
+            _write_bytes(_avatar_path(), picture)
+    if not url:
+        _avatar_path().unlink(missing_ok=True)
+    record = {'service': current['service'], 'email': current.get('email'), 'fetched': now,
+              'profile': details, 'board': {'you': you}, 'avatar_url': url if picture else None}
+    _write_bytes(_player_path(), json.dumps(record, indent=1, sort_keys=True).encode('utf-8'))
+    return {'account': current, 'profile': details, 'board': {'you': you}, 'avatar': picture, 'fetched': now}
+
+
+def _cached_avatar_url() -> str | None:
+    try:
+        return json.loads(_player_path().read_text(encoding='utf-8')).get('avatar_url')
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _write_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as file:
+            file.write(data)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def request_code(email: str, language: str = 'en') -> None:
