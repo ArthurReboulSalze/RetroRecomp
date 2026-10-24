@@ -97,7 +97,7 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     timings['prepare_translate_build_and_compare']=round(time.perf_counter()-started,3)
     phase=time.perf_counter()
     import os
-    project=executable.parents[2 if os.name=='nt' else 1]
+    project=executable.parents[2 if executable.parent.name == 'Release' else 1]
     manifest=json.loads((project/'input.json').read_text(encoding='utf-8'))
     if manifest['bios']['sha256']!=bios_info['sha256'] or manifest['source']['sha256']!=game.sha256:
         raise ConversionError('Neo Geo cartridge or BIOS changed during conversion; add the files again.')

@@ -146,6 +146,9 @@ def stage_native(project: Path, source: Path) -> Path:
 
 
 def object_stamps(build: Path) -> dict[str, int]:
+    # Visual Studio keeps objects per configuration, Ninja under CMakeFiles.
     folder = build / 'game.dir/Release'
+    if not folder.is_dir():
+        folder = build / 'CMakeFiles/game.dir'
     return {p.relative_to(folder).as_posix(): p.stat().st_mtime_ns
-            for p in folder.rglob('*.obj')} if folder.is_dir() else {}
+            for pattern in ('*.obj', '*.o') for p in folder.rglob(pattern)} if folder.is_dir() else {}
