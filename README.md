@@ -112,6 +112,14 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
     <td align="center"><sub><em>Credits, in Japanese: a demoscene backdrop with live ChipLoom music.</em></sub></td>
     <td align="center"><sub><em>Before closing, in Italian: recompile the games with new paths.</em></sub></td>
   </tr>
+  <tr>
+    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Help_fr.png" alt="Help page in French: how RetroRecomp works in five steps and the keys every game shares" width="400"></td>
+    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Leaderboard_fr.png" alt="Leaderboard window in French with the trophy, a podium with three crowns and the class gems, sample data" width="420"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><em>Help, in French: how it works in five steps.</em></sub></td>
+    <td align="center"><sub><em>The leaderboard, in French (sample players): podium, crowns and class gems.</em></sub></td>
+  </tr>
 </table>
 
 <p align="center">

@@ -1,4 +1,7 @@
-"""Assemble the GitHub Pages site from site/ and resized public media."""
+"""Assemble the former GitHub Pages site from site/ and resized public media.
+
+GitHub Pages is switched off since 1.4.0 (the website is retro-recomp.com); the
+MEDIA list below still names the shared screenshots and pictures."""
 from __future__ import annotations
 
 import argparse

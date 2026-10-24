@@ -108,7 +108,7 @@ retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h nati
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py
 .gitattributes .gitignore .github/workflows/checks.yml
-.github/workflows/pages.yml tools/build_site.py tests/test_site.py
+tools/build_site.py tests/test_site.py
 site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
@@ -123,6 +123,7 @@ MEDIAS/RetroRecomp_Master_System_Collection.png
 MEDIAS/RetroRecomp_Compiled_Games.png MEDIAS/RetroRecomp_Credits.png
 MEDIAS/RetroRecomp_Queue_en.png MEDIAS/RetroRecomp_Collection_fr.png MEDIAS/RetroRecomp_Options_de.png
 MEDIAS/RetroRecomp_Credits_ja.png MEDIAS/RetroRecomp_Closing_it.gif
+MEDIAS/RetroRecomp_Help_fr.png MEDIAS/RetroRecomp_Leaderboard_fr.png
 MEDIAS/RetroRecomp_learning_cycle.png
 MEDIAS/RetroRecomp_Native_Games_web.mp4
 MEDIAS/RetroRecomp_Native_Games_poster.jpg
