@@ -1,5 +1,33 @@
 # Neo Geo development and qualification
 
+## Library completed — 24 October 2026 (local)
+
+Of the 135 game archives in the NAS `neogeo` folder, 134 exact identities are
+now qualified (125 in 1.2.9, nine added at the extended scan level: the four
+World Heroes, Zed Blade, Zupapa!, Tecmo World Soccer '96 and Mutation Nation,
+all with zero observed main/sound fallback, plus Voltage Fighter Gowcaizer after the
+32-bit PC fix below). Remaining:
+
+| Set | Status |
+|---|---|
+| `fightfev` | Input incomplete: clone `fightfeva` without `060-s1.s1`, parent archive absent. |
+| `pnyaa` | Same contents as the qualified `pnyaaa`. |
+
+Nine further Neo Geo sets sit in the NAS `fbneo` folder (four mahjong games
+needing a panel that is not emulated, five quiz/board games) and two in `mame`
+(`ironclad`, `lasthope`); they are outside this campaign. Irritating Maze's
+trackball stays unqualified. Evidence: `.build/neogeo-final-20261024`.
+
+**32-bit PC after flagged jumps.** Gowcaizer sets bit 7 in a pointer's high byte
+and jumps through it; the reference CPU keeps the full PC, so `BSR` pushes
+`0x8004e806`. Native code used to relocate with a 24-bit PC and push
+`0x0004e806`. `rr_ng_relocate_instruction` and the generated bodies now keep the
+high byte (lookups still mask); the 68000 checks add a region entered at
+`0x80000200` (the former code fails it). This is reference agreement, not proof
+of real 68000 behaviour. CPS-1 shares the pattern (reported to its session);
+Mega Drive generation masks too and is checked during its campaign. Existing
+Neo Geo exports need a regeneration to receive the fix.
+
 ## Release 1.1.8 — machine capabilities and native link-board code
 
 For cartridges supported only in arcade MVS by the pinned loader, **F11 shows

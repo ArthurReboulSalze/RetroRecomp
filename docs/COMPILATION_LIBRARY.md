@@ -1,5 +1,60 @@
 # Shared compilation knowledge
 
+## Mega Drive collection campaign, first four tranches — 24 October 2026 (local)
+
+The user-approved campaign over the 904 unqualified ROMs of the NAS `megadrive`
+folder runs at the extended scan level, eight conversions at a time, in
+tranches of 50 (after an eight-game pilot). Each tranche is qualified with the
+ordinary builder rule (fresh reference before learning, packed replay,
+fresh-process states, current engine, private observations matching the report),
+promoted additively and its build caches removed. Pilot and tranches 1–3:
+**132 of 158 ROMs qualified**, three of them with remaining 68000 fallback
+(Brian Lara Cricket, Brian Lara Cricket 96, Clay Fighter); 26 failures are kept
+in the private registers (`.build/md-campaign-20261024/tranche-NN-register.json`).
+
+The snapshot now holds **1,305 exact identities, including 214 Mega Drive and
+134 Neo Geo**: 63,964,798 raw / **15,453,304 gzip bytes**, SHA-256
+`41315eed4d51597c9621eaeebe5df1945abbb2ce282bf13371b05246b62a90fa`. All 1,164
+records of release 1.2.9 are byte-identical; only new identities were added.
+The raw size is now within 2 % of the 64 MiB bound: Mega Drive Z80 references
+(about 13,000 per game) dominate, so the campaign is paused before tranche 4
+until the format or the budget is revisited. Full-game validation, hardware
+fidelity and physical latency remain separate claims.
+
+## Neo Geo library completed — 24 October 2026 (local, not released)
+
+The final campaign covers the last convertible sets of the NAS `neogeo` folder,
+at the extended scan level (one extra 18,000-frame pseudo-random credited route
+per game), with up to eight concurrent conversions. Eight sets qualify as new
+exact identities: World Heroes, World Heroes 2, World Heroes 2 Jet, World
+Heroes Perfect, Zed Blade, Zupapa!, Tecmo World Soccer '96 (archive `tws96`,
+identified as `twsoc96`) and Mutation Nation (converted in 1.0.2 outside any
+campaign, now freshly requalified). Each passes every fresh-reference/packed
+route, including the extended route, with zero observed 68000 and Z80 fallback,
+plus three MVS and two AES fresh-process state points and the ordinary-save
+checks. Their numeric observations are promoted additively.
+
+With these eight, the snapshot reached 1,172 identities (133 Neo Geo), SHA-256
+`d7f4677c…`. Every
+previous observation and the six other console banks are preserved. A local
+`-NoInstall` converter build embeds it; nothing is installed or published.
+
+Voltage Fighter Gowcaizer first failed its AES attract comparison: after a
+`JMP (A6)` to a pointer whose high byte carries a flag, the reference keeps the
+32-bit PC while native code pushed a 24-bit return address. Native Neo Geo code
+now keeps all 32 PC bits for relocated branch targets and return addresses
+(code lookups still mask to 24 bits), with an authored flagged-PC region in the
+68000 checks. Gowcaizer then qualifies on every route with zero fallback; World
+Heroes Perfect and Zed Blade, regenerated as controls, still qualify. Snapshot
+after the Neo Geo campaign: **1,173 exact identities, 134 Neo Geo**, 37,986,888 raw / **9,096,841
+gzip bytes**, SHA-256 `97b69f45c6eceae144870a1f69ddb7b51cd3374bff3c14392a209e36b63f1ca5`
+(diagnosis: `.build/neogeo-final-20261024/gowcaizr-diagnosis.md`). Fight Fever's archive is
+an incomplete clone without its parent; `pnyaa.zip` is the already qualified
+`pnyaaa` identity. Full-game validation, hardware fidelity and physical latency
+remain separate claims. No ROM, BIOS, art or raw private library is included.
+Evidence: `.build/neogeo-final-20261024` (`register.json`, `qualification.json`,
+`knowledge.json`, `package-audit.json`).
+
 ## Capcom CPS-1 — local observations (24 October 2026, not in the snapshot)
 
 CPS-1 conversions keep their learned work-RAM 68000 and Z80 RAM code per exact

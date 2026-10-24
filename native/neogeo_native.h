@@ -44,10 +44,12 @@ static inline void rr_ng_cpu_idle(unsigned clocks) {(void)clocks;}
 unsigned rr_ng_multiply_clocks(uint16_t,int);
 unsigned rr_ng_divide_clocks(uint32_t,uint16_t,int);
 void rr_ng_arithmetic_phase(unsigned,unsigned,int);
+/* The reference keeps all 32 PC bits after a jump through a pointer whose
+ * high byte carries a flag; return addresses and branch targets keep them. */
 static inline void rr_ng_relocate_instruction(M68KInstr *ins,uint32_t pc) {
     if(ins->mnemonic==MN_BRA || ins->mnemonic==MN_BSR ||
        ins->mnemonic==MN_Bcc || ins->mnemonic==MN_DBcc)
-        ins->target_addr=(ins->target_addr+pc-ins->addr)&0xffffffu;
+        ins->target_addr=(pc&0xff000000u)|((ins->target_addr+pc-ins->addr)&0xffffffu);
     ins->addr=pc;
 }
 typedef struct { M68KInstr instruction; M68kiStatus (*execute)(const M68KInstr*,uint32_t*); } RrNgNativeStep;

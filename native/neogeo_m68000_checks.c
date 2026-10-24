@@ -25,7 +25,7 @@ void m68k_write_memory_8(unsigned a,unsigned v) {
 void m68k_write_memory_16(unsigned a,unsigned v) {m68k_write_memory_8(a,v>>8);m68k_write_memory_8(a+1,v);}
 void m68k_write_memory_32(unsigned a,unsigned v) {m68k_write_memory_16(a,v>>16);m68k_write_memory_16(a+2,v);}
 int rr_ng_code_location(uint32_t pc,RrM68000CodeLocation *loc) {
-    memset(loc,0,sizeof *loc);
+    memset(loc,0,sizeof *loc);pc&=0xffffffu;
     if(pc<0x10000) {loc->region=1;loc->physical_offset=pc;loc->available_bytes=0x10000-pc;return 1;}
     if(pc>=0xc00000 && pc<0xc20000) {loc->region=2;loc->physical_offset=pc-0xc00000;loc->available_bytes=0xc20000-pc;return 1;}
     if(pc>=0x100000 && pc<0x200000) {
@@ -100,10 +100,12 @@ static void initial(unsigned pc,unsigned seed,unsigned irq) {
 }
 int main(void) {
     unsigned comparisons=0,guards=0;
-    for(unsigned region=0;region<6;++region)for(unsigned i=0;i<sizeof instructions/sizeof *instructions;++i)
+    /* Region 6 enters cartridge code through a pointer with a flagged high
+     * byte: branch targets and pushed return addresses keep the 32-bit PC. */
+    for(unsigned region=0;region<7;++region)for(unsigned i=0;i<sizeof instructions/sizeof *instructions;++i)
     for(unsigned seed=0;seed<16;++seed) {
         active_bank=region==3;
-        unsigned pc=(region>=4?(region==4?0x10f000:0x1af000):region>=2?0x200000:region?0xc00000:0)+0x200+i*32;
+        unsigned pc=(region==6?0x80000000u:region>=4?(region==4?0x10f000:0x1af000):region>=2?0x200000:region?0xc00000:0)+0x200+i*32;
         rr_ng_force_reference=1;initial(pc,seed,0);int clocks=m68k_execute(1);state(result);memcpy(expected,memory+0x100000,sizeof expected);
         rr_ng_force_reference=0;initial(pc,seed,0);int actual=m68k_execute(1);uint32_t values[20];state(values);
         if(clocks!=actual || memcmp(result,values,sizeof result) || memcmp(expected,memory+0x100000,sizeof expected) || native_count!=1) {

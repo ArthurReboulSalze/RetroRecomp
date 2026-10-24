@@ -50,7 +50,7 @@ def structural_body(ins,name,body):
         return match[0]
     body=re.sub(r'ins->(\w+)(?:\[(\d+)\])?',literal,body)
     return ('    M68KInstr decoded=*compiled;\n'
-        '    rr_ng_relocate_instruction(&decoded,g_cpu.PC & 0xffffffu);\n'
+        '    rr_ng_relocate_instruction(&decoded,g_cpu.PC);\n'
         '    const M68KInstr *ins=&decoded;\n    ExtR er;er_init(&er,ins);\n'
         f'    const uint32_t fall=ins->addr+{ins["byte_length"]}u;\n    *next_pc=fall;\n'
         f'    const M68KSize sz=(M68KSize){ins["size"]};\n'
