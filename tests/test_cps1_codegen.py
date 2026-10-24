@@ -49,6 +49,63 @@ class PinnedAdaptationTests(unittest.TestCase):
         self.assertEqual(native.count('if(!rr_cps1_z80_try(z,&cyc))'), 1)
 
 
+RELOCATE_HARNESS = r'''#include "cps1_native.h"
+#include <stdio.h>
+static int failures;
+static void check(M68KMnemonic mnemonic, uint32_t pc, uint32_t target) {
+    M68KInstr ins = {0};
+    ins.mnemonic = mnemonic; ins.addr = 0x200; ins.target_addr = 0x250;
+    rr_cps1_relocate_instruction(&ins, pc);
+    if (ins.addr != pc || ins.target_addr != target) {
+        printf("mnemonic %d pc %08x: addr %08x target %08x, expected %08x\n",
+               (int)mnemonic, pc, ins.addr, ins.target_addr, target);
+        ++failures;
+    }
+}
+int main(void) {
+    const M68KMnemonic branches[] = {MN_BRA, MN_BSR, MN_Bcc, MN_DBcc};
+    for (unsigned n = 0; n < 4; ++n) {
+        check(branches[n], 0x0004e7b6u, 0x0004e806u);   /* ordinary 24-bit PC */
+        check(branches[n], 0x8004e7b6u, 0x8004e806u);   /* flagged high byte kept */
+        check(branches[n], 0x00fffff0u, 0x00000040u);   /* 24-bit wrap as before */
+    }
+    check(MN_NOP, 0x8004e7b6u, 0x250u);                 /* other targets untouched */
+    printf("%d\n", failures);
+    return failures != 0;
+}
+'''
+
+
+class NativeRelocationTests(unittest.TestCase):
+    def test_branch_targets_keep_a_flagged_pc(self):
+        """Native branches relocated at a PC whose high byte carries a flag keep
+        it, as the reference's 32-bit PC does (Neo Geo rule)."""
+        from smsrecomp.core import ConversionError, toolchain
+        from smsrecomp.platforms import build_executable, cmake_target_args
+        decoder = ROOT / '.deps/segagenesisrecomp/external/m68k-recomp-core/common'
+        if not (decoder / 'm68k_decoder.h').is_file():
+            self.skipTest('pinned m68k-recomp-core sources are not cached')
+        try:
+            cmake, generator = toolchain()
+        except ConversionError as exc:
+            self.skipTest(str(exc))
+        import subprocess
+        work = ROOT / '.build/cps1-native-relocate'
+        work.mkdir(parents=True, exist_ok=True)
+        (work / 'relocate.c').write_text(RELOCATE_HARNESS, encoding='utf-8')
+        (work / 'CMakeLists.txt').write_text(
+            'cmake_minimum_required(VERSION 3.20)\nproject(cps1_relocate C)\nadd_executable(relocate relocate.c)\n'
+            f'target_include_directories(relocate PRIVATE "{(ROOT / "native").as_posix()}" "{decoder.as_posix()}"\n'
+            f' "{(ROOT / ".deps/segagenesisrecomp/recompiler/src").as_posix()}")\n', encoding='utf-8')
+        for command in ([str(cmake), '-S', str(work), '-B', str(work / 'build'), '-G', generator, *cmake_target_args()],
+                        [str(cmake), '--build', str(work / 'build'), '--config', 'Release']):
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = subprocess.run([str(build_executable(work / 'build', 'relocate'))], capture_output=True, text=True,
+                                timeout=60)
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, '0'), result.stdout + result.stderr)
+
+
 @unittest.skipUnless((YMFM / 'src/ymfm_fm.ipp').is_file(), 'pinned ymfm sources are not cached')
 class YmfmStateTests(unittest.TestCase):
     def test_restored_states_keep_the_prepare_cadence(self):
