@@ -438,7 +438,7 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
         notices = []
         for file in (geo / 'LICENSE', geo / 'src/m68k/readme.txt',
                      geo / 'deps/speex/COPYING', litho / 'LICENSE',
-                     ASSETS / 'LICENSE', ASSETS / 'licenses/SDL2.md', ASSETS / 'licenses/xbr.md', ASSETS / 'licenses/Noto.md', ASSETS / 'licenses/UPX.md'):
+                     ASSETS / 'LICENSE', ASSETS / 'licenses/SDL2.md', ASSETS / 'licenses/xbr.md', ASSETS / 'licenses/Noto.md', ASSETS / 'licenses/UPX.md', ASSETS / 'licenses/llvm-mingw.md'):
             if file.is_file(): notices.append(file.read_text(encoding='utf-8'))
         # Component headers carry additional complete notices retained here.
         for file in (geo / 'src/z80/z80.c', geo / 'src/ymfm/ymfm_opn.c',

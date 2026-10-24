@@ -426,7 +426,8 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                                   ('NESRecomp', engine / 'LICENSE'),
                                   ('emu2413', engine / 'runner/cyc/vendor/emu2413/LICENSE'),
                                   ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
-                                  ('SDL2', ASSETS / 'licenses/SDL2.md')]:
+                                  ('SDL2', ASSETS / 'licenses/SDL2.md'),
+                                  ('Portable compiler runtime', ASSETS / 'licenses/llvm-mingw.md')]:
             notice += f'## {component}\n\n' + source.read_text(encoding='utf-8') + '\n\n'
         (project / 'game_legal.md').write_text(notice, encoding='utf-8')
         (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')

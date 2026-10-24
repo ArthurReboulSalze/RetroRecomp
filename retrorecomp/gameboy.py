@@ -332,7 +332,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                                 ("Dear ImGui", "licenses/dear-imgui.md"),
                                 ("xBR", "licenses/xbr.md"),
                                 ("Noto fonts", "licenses/Noto.md"),
-                                ("SDL2", "licenses/SDL2.md")):
+                                ("SDL2", "licenses/SDL2.md"),
+                                ("Portable compiler runtime", "licenses/llvm-mingw.md")):
         notice += f"## {component}\n\n" + (ASSETS / filename).read_text(encoding="utf-8") + "\n\n"
     (project / "game_legal.md").write_text(notice, encoding="utf-8")
     (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')

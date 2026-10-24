@@ -69,6 +69,7 @@ shipped; you supply your own IPL and font ROM.
 | z80-recomp-core | PolyForm Noncommercial 1.0.0 and author clarification | [Full text](licenses/z80-recomp-core.md) |
 | superzazu/z80 reference interpreter | MIT; copyright Nicolas Allemand | [Full text](licenses/superzazu-z80.md) |
 | SDL2 | zlib; copyright Sam Lantinga | [Full text](licenses/SDL2.md) |
+| Portable compiler runtime (llvm-mingw 20261006: libc++, libc++abi, libunwind, compiler-rt, MinGW-w64 runtime, winpthreads) | Apache-2.0 with LLVM exceptions; MinGW-w64 and winpthreads permissive licences; statically linked into games built with the portable build tools | [Full text](licenses/llvm-mingw.md) |
 | xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
 | SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |

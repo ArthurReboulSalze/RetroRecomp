@@ -396,7 +396,7 @@ def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: st
             image.convert('RGBA').save(buffer, format='BMP')
             icon_data = buffer.getvalue()
     legal = '\n\n'.join((ASSETS / name).read_text(encoding='utf-8') for name in
-        ('THIRD_PARTY_NOTICES.md', 'licenses/SDL2.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md', 'licenses/xbr.md', 'licenses/Noto.md'))
+        ('THIRD_PARTY_NOTICES.md', 'licenses/SDL2.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md', 'licenses/xbr.md', 'licenses/Noto.md', 'licenses/llvm-mingw.md'))
     (game / 'embedded_icon.h').write_text('#include <stddef.h>\nextern const unsigned char rr_icon_data[];\nextern const size_t rr_icon_size;\nextern const char rr_game_legal[];\n', encoding='ascii')
     (game / 'embedded_icon.c').write_text('#include "embedded_icon.h"\nconst unsigned char rr_icon_data[]={' +
         ','.join(str(n) for n in icon_data or b'\0') + '};\nconst size_t rr_icon_size=' + str(len(icon_data)) +

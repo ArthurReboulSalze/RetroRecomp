@@ -460,7 +460,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
 
 def _notice(engine: Path, system_id: str) -> str:
     components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'), ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
-                  ('UPX', ASSETS / 'licenses/UPX.md')]
+                  ('UPX', ASSETS / 'licenses/UPX.md'), ('Portable compiler runtime', ASSETS / 'licenses/llvm-mingw.md')]
     if system_id == 'md':
         components += [('GenesisRecomp', engine / 'LICENSE.md'),
                        ('GenesisRecomp recompiler', engine / 'LICENSE-recompiler'),

@@ -139,7 +139,7 @@ assets/Retro-Recomp-icon-256.png
 assets/tools/upx.exe
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
-licenses/UPX.md
+licenses/UPX.md licenses/llvm-mingw.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md
 licenses/geolith.md licenses/lithogen.md licenses/musashi.md
 licenses/x68000-machine.md licenses/fmgen.md
