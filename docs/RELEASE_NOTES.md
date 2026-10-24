@@ -1,3 +1,23 @@
+# RetroRecomp v1.3.1 — what's new before you update, no more sorting by hand
+
+- **What's new, before you download.** When **Check for updates** finds a
+  newer version, the dialog shows the published release notes of every
+  version newer than yours, up to the one offered, newest first, before you
+  choose **Download and restart** or **Later**. The notes are shown in
+  English, as published. The Windows installer shows the same notes before
+  installing.
+- **Already compiled games, asked once.** When the ROMs you add to the queue
+  (files, a folder or a mixed drop) include games that already have an export
+  in the output folder, the queue asks once whether to keep them for a
+  reconversion. **No** leaves them out and keeps only the games not compiled
+  yet, and the log says how many were left out. Nothing is asked for ROMs
+  given on the command line before the window opens.
+
+No conversion input changes: games converted with 1.3.0 stay current. Measured
+on Windows; Linux remains qualified on Debian 13 / glibc 2.41.
+
+---
+
 # RetroRecomp v1.3.0 — the Neo Geo library completed, CPS-1 drawn like MAME
 
 - **The whole convertible Neo Geo library.** Of the 135 archives in the test
