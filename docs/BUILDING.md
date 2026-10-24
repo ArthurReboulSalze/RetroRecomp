@@ -112,6 +112,15 @@ Debian 13/glibc 2.41; older distributions require separate build/compatibility w
 
 ## Windows x64 prerequisites
 
+**Packaged converter (since 1.4.1):** before the first conversion, Retro-Recomp
+checks for Git and a C++ compiler and offers to install what is missing, with a
+progress window: a portable MinGit (40 MB, pinned and SHA-256-checked, in
+`datas/tools/mingit`) and Microsoft's Build Tools limited to the x64 compiler,
+the Windows 11 SDK and CMake (about 3 GB instead of a full Visual Studio;
+the bootstrapper must carry a valid Microsoft signature, and Windows asks for
+administrator rights). Every console uses the same tools. Only Super Mario
+World's legacy SNES path still needs Rust. Source usage keeps the list below.
+
 - Python 3.11 or newer for source usage (release built with 3.14.5).
 - Git on PATH.
 - Visual Studio Build Tools 2022 or a detected supported Visual Studio

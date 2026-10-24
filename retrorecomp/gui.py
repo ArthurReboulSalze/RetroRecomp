@@ -573,15 +573,13 @@ class Application:
         self.messages.put((kind, paths))
 
     def drop_paths(self, paths):
-        if self.busy or self.updating:
+        if self.busy or self.updating or getattr(self, 'importing', False):
             self.messages.put(('log', self.tr('drop_blocked')))
             return
-        before = len(self.items)
         try:
-            self.add_paths(paths)
+            self.import_paths(paths)
         except OSError:
             self.messages.put(('log', self.tr('drop_unreadable')))
-        self.set_status('drop_added', count=len(self.items) - before)
 
     def fit_minimum_width(self):
         # French labels and a large ROM count must keep every action visible.
@@ -933,87 +931,185 @@ class Application:
         return messagebox.askyesno(APP_NAME, self.tr('already_compiled', count=count, examples=examples),
                                    default='no', parent=self.app)
 
-    def _add_paths(self, paths):
-        # A multi-disk X68000 game is one row: its disks become one playlist.
+    def _expand_paths(self, paths, found=lambda count: None, cancel=None):
+        """Files to queue from files, folders and disk sets, without Tk calls.
+        A multi-disk X68000 game is one entry: its disks become one playlist."""
         from .rom_sources import disk_sets
-        sets = disk_sets(paths)
-        if sets.grouped:
-            self.messages.put(('log', self.tr('x68_sets_grouped', count=sets.grouped)))
-        for title, missing, total in sets.incomplete:
-            self.messages.put(('log', self.tr('x68_set_incomplete', title=title,
-                missing=', '.join(map(str, missing)), total=total)))
-        existing = {item.path for item in self.items.values()}
-        for path in sets.paths:
-            path = Path(path)
-            if path.is_dir():
-                try:
-                    candidates = discover_roms(path)
-                except OSError:
-                    self.messages.put(('log', self.tr('drop_unreadable')))
+        files, logs = [], []
+        def walk(entries):
+            sets = disk_sets(entries)
+            if sets.grouped:
+                logs.append(self.tr('x68_sets_grouped', count=sets.grouped))
+            for title, missing, total in sets.incomplete:
+                logs.append(self.tr('x68_set_incomplete', title=title,
+                                    missing=', '.join(map(str, missing)), total=total))
+            for path in sets.paths:
+                if cancel is not None and cancel.is_set():
+                    return
+                path = Path(path)
+                if path.is_dir():
+                    try:
+                        walk(discover_roms(path))
+                    except OSError:
+                        logs.append(self.tr('drop_unreadable'))
                     continue
-                self.add_paths(candidates)
-                existing = {item.path for item in self.items.values()}
-                continue
-            if path.resolve() in existing:
-                continue
-            item = identify(path, None if self.system_mode == 'auto' else self.system_mode)
-            status = ('skipped' if item.skipped else 'unrecognized' if item.unknown
-                      else 'invalid' if item.error else 'waiting')
-            row = self.table.insert('', 'end', values=(item.title,
-                get_profile(item.system).name if item.system else self.tr('unknown_console'),
-                self.video_display(item),
-                self.tr('size', value=item.size//1024) if item.size else '-',
-                self.tr('auto'), self.tr(status)),
-                tags=('error',) if item.error else ())
-            self.items[row] = item
-            self.row_status[row] = status
-            if item.error:
-                existing.add(item.path)
-                continue
-            folder = system_output(Path(self.output.get()).expanduser(), item.system)
-            report_path = folder / 'datas/reports' / item.key / 'conversion-report.json'
-            try:
-                report = json.loads(report_path.read_text(encoding='utf-8'))
-                filename = report['executable']
-                if Path(filename).name != filename:
-                    raise ValueError('Invalid executable filename in report')
-                target = folder / filename
-                if not item.error and target.is_file() and report.get('rom', {}).get('sha256') == item.sha256:
-                    measured = [c.get('interpreter_percent') for c in report['final_checks']]
-                    self.results[row] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
-                        conversion_stage=report.get('status'),
-                        main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
-                        audio_cpu=report.get('audio_cpu'),
-                        audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
-                        pending_install=is_pending(target),
-                        interpreter_percent=max((p for p in measured if p is not None), default=None),
-                        interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
-                        reference_vdp_trace_match=report.get('reference_vdp_trace_match'))
-                    self.row_status[row] = 'pending_install' if is_pending(target) else 'created'
-                    if report.get('status') == 'experimental' and not is_pending(target):
-                        self.row_status[row] = 'created_experimental'
-                    self.table.set(row, 'status', self.tr(self.row_status[row]))
-                    self.results[row]['video_standard'] = report.get('video_model', {}).get('standard', item.video_hint)
-                    self.table.set(row, 'video', self.video_display(item, self.results[row]))
-                    self.table.item(row, tags=('success',))
-                    self.compiled_added.append(row)
-            except (OSError, ValueError, KeyError, TypeError, AttributeError):
-                pass
-            existing.add(item.path)
+                files.append(path)
+                found(len(files))
+        walk(list(paths))
+        return files, logs
+
+    def _prepare_path(self, path, mode, output):
+        """Identify one ROM and read its existing export, without Tk calls."""
+        item = identify(path, None if mode == 'auto' else mode)
+        status = ('skipped' if item.skipped else 'unrecognized' if item.unknown
+                  else 'invalid' if item.error else 'waiting')
+        prepared = {'item': item, 'status': status, 'result': None}
+        if item.error:
+            return prepared
+        folder = system_output(output, item.system)
+        report_path = folder / 'datas/reports' / item.key / 'conversion-report.json'
+        try:
+            report = json.loads(report_path.read_text(encoding='utf-8'))
+            filename = report['executable']
+            if Path(filename).name != filename:
+                raise ValueError('Invalid executable filename in report')
+            target = folder / filename
+            if target.is_file() and report.get('rom', {}).get('sha256') == item.sha256:
+                measured = [c.get('interpreter_percent') for c in report['final_checks']]
+                pending = is_pending(target)
+                prepared['result'] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
+                    conversion_stage=report.get('status'),
+                    main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+                    audio_cpu=report.get('audio_cpu'),
+                    audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+                    pending_install=pending,
+                    interpreter_percent=max((p for p in measured if p is not None), default=None),
+                    interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
+                    reference_vdp_trace_match=report.get('reference_vdp_trace_match'),
+                    video_standard=report.get('video_model', {}).get('standard', item.video_hint))
+                prepared['status'] = ('pending_install' if pending else
+                                      'created_experimental' if report.get('status') == 'experimental' else 'created')
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            pass
+        return prepared
+
+    def _insert_prepared(self, prepared):
+        item, status, result = prepared['item'], prepared['status'], prepared['result']
+        row = self.table.insert('', 'end', values=(item.title,
+            get_profile(item.system).name if item.system else self.tr('unknown_console'),
+            self.video_display(item, result),
+            self.tr('size', value=item.size//1024) if item.size else '-',
+            self.tr('auto'), self.tr(status)),
+            tags=('error',) if item.error else ('success',) if result else ())
+        self.items[row] = item
+        self.row_status[row] = status
+        if result:
+            self.results[row] = result
+            self.compiled_added.append(row)
+        return row
+
+    def _finish_adding(self):
         self.count.set(f'{len(self.items)} ROM' + ('s' if len(self.items) != 1 else ''))
         self.update_empty_state()
         self.app.after_idle(self.fit_minimum_width)
+
+    def _add_paths(self, paths):
+        files, logs = self._expand_paths(paths)
+        for line in logs:
+            self.messages.put(('log', line))
+        existing = {item.path for item in self.items.values()}
+        output = Path(self.output.get()).expanduser()
+        for path in files:
+            if path.resolve() in existing:
+                continue
+            prepared = self._prepare_path(path, self.system_mode, output)
+            self._insert_prepared(prepared)
+            existing.add(prepared['item'].path)
+        self._finish_adding()
+
+    def import_paths(self, paths):
+        """Add files or folders from the window: folders are walked and ROMs
+        read in a worker, with a progress bar, so a slow computer never looks
+        frozen. A few plain files are added at once."""
+        paths = [Path(path) for path in paths]
+        if not paths:
+            return
+        if len(paths) <= 8 and not any(path.is_dir() for path in paths):
+            before = len(self.items)
+            self.add_paths(paths)
+            self.set_status('drop_added', count=len(self.items) - before)
+            return
+        self.importing = True
+        self.cancel.clear()
+        self.set_controls(False)
+        self.compiled_added = []
+        before = len(self.items)
+        mode, output = self.system_mode, Path(self.output.get()).expanduser()
+        existing = {item.path for item in self.items.values()}
+        state = {'found': 0, 'total': 0, 'done': 0, 'ready': [], 'logs': [], 'finished': False}
+        self.progress.configure(mode='indeterminate', value=0)
+        self.progress.start(12)
+        self.set_status('import_scanning', count=0)
+
+        def worker():
+            try:
+                files, logs = self._expand_paths(paths, lambda count: state.update(found=count), self.cancel)
+                state['logs'] = logs
+                state['total'] = len(files)
+                for path in files:
+                    if self.cancel.is_set():
+                        break
+                    try:
+                        if path.resolve() not in existing:
+                            prepared = self._prepare_path(path, mode, output)
+                            existing.add(prepared['item'].path)
+                            state['ready'].append(prepared)
+                    except OSError:
+                        pass
+                    state['done'] += 1
+            finally:
+                state['finished'] = True
+
+        def poll():
+            ready, state['ready'] = state['ready'], []
+            for prepared in ready:
+                self._insert_prepared(prepared)
+            if state['total']:
+                if str(self.progress.cget('mode')) != 'determinate':
+                    self.progress.stop()
+                    self.progress.configure(mode='determinate', maximum=state['total'])
+                self.progress.configure(value=state['done'])
+                self.set_status('import_reading', done=state['done'], total=state['total'])
+            else:
+                self.set_status('import_scanning', count=state['found'])
+            if ready:
+                self._finish_adding()
+            if not state['finished'] or state['ready']:
+                self.app.after(80, poll)
+                return
+            self.progress.stop()
+            self.progress.configure(mode='determinate', value=0)
+            for line in state['logs']:
+                self.messages.put(('log', line))
+            self._finish_adding()
+            self.importing = False
+            self.set_controls(True)
+            self.set_status('drop_added', count=len(self.items) - before)
+            self.offer_compiled(self.compiled_added)
+
+        threading.Thread(target=worker, daemon=True).start()
+        poll()
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
             filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.md *.gen *.pce *.dim *.xdf *.m3u'),
                        ('All files', '*.*')])
-        self.add_paths(paths)
+        self.import_paths(paths)
 
     def choose_directory(self):
         path = filedialog.askdirectory(title=self.tr('pick_folder'), initialdir=ROOT / 'ROMS')
         if path:
-            self.add_paths([Path(path)])
+            self.import_paths([Path(path)])
 
     def remove_selected(self):
         if self.busy:
@@ -1167,7 +1263,9 @@ class Application:
             self.hint(control, 'tip_' + key)
 
     def start(self, selected=False):
-        if self.busy or self.updating:
+        if self.busy or self.updating or getattr(self, 'importing', False):
+            return
+        if not self.ensure_build_tools(lambda: self.start(selected)):
             return
         chosen_rows = [row for row in self.table.get_children()
                        if not selected or row in self.table.selection()]
@@ -1976,8 +2074,8 @@ class Application:
         panel = tk.Toplevel(parent)
         panel.title(APP_NAME + ' - ' + self.tr('credits_notices'))
         panel.configure(bg=COLORS['background'])
-        panel.geometry('880x630')
-        panel.minsize(650, 420)
+        center_dialog(panel, parent, 880, 630)
+        panel.minsize(min(650, panel.winfo_screenwidth() - 40), min(420, panel.winfo_screenheight() - 90))
         panel.transient(parent)
         body = tk.Frame(panel, bg=COLORS['background'], padx=16, pady=16)
         body.pack(fill='both', expand=True)
@@ -2246,6 +2344,124 @@ class Application:
         header.itemconfigure(self.player_score, text=score)
         self.board_button.pack(side='right')
 
+    # --- Build tools ---------------------------------------------------------
+
+    def ensure_build_tools(self, retry):
+        """True when a conversion can start; otherwise offer to install what is
+        missing and run `retry` once it is installed."""
+        from .updater import missing_build_tools
+        try:
+            missing = missing_build_tools()
+        except Exception:
+            return True   # the conversion reports its own precise error
+        if not missing:
+            return True
+        if os.name == 'nt':
+            items = [self.tr(f'tools_item_{key}') for key in ('git', 'compiler') if missing.get(key)]
+            text = self.tr('tools_intro', items='\n• ' + '\n• '.join(items))
+        elif missing.get('packages'):
+            text = self.tr('tools_intro_linux', count=len(missing['packages']),
+                           packages=' '.join(missing['packages']))
+        else:
+            messagebox.showwarning(APP_NAME, self.tr('tools_manual_linux', commands=', '.join(missing['commands'])),
+                                   parent=self.app)
+            return False
+        if messagebox.askyesno(APP_NAME, text + '\n\n' + self.tr('tools_question'), parent=self.app):
+            self.install_build_tools(missing, retry)
+        return False
+
+    def install_build_tools(self, missing, retry):
+        """Install in a worker; a small window follows the downloads and steps."""
+        from . import updater
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(f"{APP_NAME} — {self.tr('tools_title')}")
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        window.protocol('WM_DELETE_WINDOW', lambda: None)   # the installer cannot be interrupted midway
+        body = tk.Frame(window, bg=background, padx=22, pady=18,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('tools_title').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 10, 'bold')).pack(anchor='w')
+        step = tk.Label(body, text=self.tr('tools_preparing'), bg=background, fg=COLORS['text'],
+                        font=(self.ui_font, 9), wraplength=440, justify='left')
+        step.pack(anchor='w', pady=(10, 6))
+        bar = ttk.Progressbar(body, length=440, mode='determinate')
+        bar.pack(fill='x')
+        detail = tk.Label(body, text='', bg=background, fg=COLORS['muted'], font=(self.ui_font, 8),
+                          wraplength=440, justify='left')
+        detail.pack(anchor='w', pady=(6, 0))
+        window.update_idletasks()
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        window.deiconify()
+        state = {'label': '', 'done': 0, 'total': 0, 'result': None}
+        self.updating = True
+        self.set_controls(False)
+
+        def progress(label, done, total):
+            state.update(label=label, done=done, total=total)
+
+        def worker():
+            try:
+                if os.name == 'nt':
+                    if missing.get('git'):
+                        updater.install_git(progress)
+                    if missing.get('compiler'):
+                        updater.install_compiler(progress)
+                else:
+                    updater.install_linux_packages(missing['packages'], progress)
+                state['result'] = ('ok', None)
+            except updater.ToolInstallError as error:
+                state['result'] = ('failed', str(error))
+            except Exception as error:
+                state['result'] = ('failed', str(error) or type(error).__name__)
+
+        def poll():
+            if not window.winfo_exists():
+                return
+            label, done, total = state['label'], state['done'], state['total']
+            if label == 'Visual Studio Build Tools' and not total and done == 0:
+                # Microsoft's installer works in its own window from here on.
+                if str(bar.cget('mode')) != 'indeterminate':
+                    bar.configure(mode='indeterminate')
+                    bar.start(12)
+                step.configure(text=self.tr('tools_step_vs'))
+                detail.configure(text='')
+            elif label and total:
+                if str(bar.cget('mode')) != 'determinate':
+                    bar.stop()
+                    bar.configure(mode='determinate')
+                bar.configure(maximum=total, value=done)
+                if label in ('Download', 'Install'):
+                    step.configure(text=self.tr('tools_step_packages' if label == 'Install' else 'tools_step_fetch'))
+                    detail.configure(text=f'{done * 100 // max(total, 1)} %')
+                else:
+                    step.configure(text=self.tr('tools_step_download', name=label))
+                    detail.configure(text=f'{done / 1048576:.1f} / {total / 1048576:.1f} MB')
+            if state['result'] is None:
+                window.after(150, poll)
+                return
+            bar.stop()
+            window.destroy()
+            self.updating = False
+            self.set_controls(True)
+            outcome, error = state['result']
+            if outcome == 'ok':
+                self.messages.put(('log', self.tr('tools_done')))
+                messagebox.showinfo(APP_NAME, self.tr('tools_done'), parent=self.app)
+                retry()
+            else:
+                manual = (self.tr('tools_manual_windows') if os.name == 'nt' else
+                          'sudo ' + ' '.join(updater.linux_install_command(missing.get('packages', ()))))
+                messagebox.showerror(APP_NAME, self.tr('tools_failed', error=error) + '\n\n' + manual,
+                                     parent=self.app)
+
+        threading.Thread(target=worker, daemon=True).start()
+        poll()
+
     def show_help(self):
         """How Retro-Recomp works, in five steps and the keys every game
         shares; the full guides are one click away."""
@@ -2254,11 +2470,21 @@ class Application:
         window.withdraw()
         window.title(f"{APP_NAME} — {self.tr('help_title')}")
         window.configure(bg=background)
-        window.resizable(False, False)
         window.transient(self.app)
-        body = tk.Frame(window, bg=background, padx=24, pady=18,
-                        highlightthickness=1, highlightbackground=COLORS['gold'])
-        body.pack(fill='both', expand=True)
+        # The page scrolls when the screen is shorter than it (small laptops).
+        frame = tk.Frame(window, bg=background, highlightthickness=1, highlightbackground=COLORS['gold'])
+        frame.pack(fill='both', expand=True)
+        scroller = tk.Canvas(frame, bg=background, highlightthickness=0, borderwidth=0)
+        bar = ttk.Scrollbar(frame, orient='vertical', command=scroller.yview)
+        scroller.configure(yscrollcommand=bar.set)
+        scroller.pack(side='left', fill='both', expand=True)
+        body = tk.Frame(scroller, bg=background, padx=24, pady=18)
+        scroller.create_window(0, 0, window=body, anchor='nw')
+        body.bind('<Configure>', lambda event: scroller.configure(scrollregion=scroller.bbox('all')))
+        def wheel(event):
+            if bar.winfo_ismapped():
+                scroller.yview_scroll(-1 if event.delta > 0 else 1, 'units')
+        window.bind('<MouseWheel>', wheel)
         window.pictures = []
         if self.banner is not None:
             tk.Label(body, image=self.banner, bg=background).pack(anchor='w')
@@ -2331,12 +2557,17 @@ class Application:
         keys.pack(fill='x', pady=(12, 0))
         foot.pack(fill='x', pady=(14, 0))
         window.update_idletasks()
-        width, height = window.winfo_reqwidth(), window.winfo_reqheight()
+        width, height = body.winfo_reqwidth() + 2, body.winfo_reqheight() + 2
         for widget in (*rows, keys, foot):
             widget.pack_forget()
-        x = self.app.winfo_rootx() + (self.app.winfo_width() - width) // 2
-        y = self.app.winfo_rooty() + max(20, (self.app.winfo_height() - height) // 2)
-        window.geometry(f'{width}x{height}+{max(0, x)}+{max(0, y)}')
+        from .dialogs import screen_room
+        room_width, room_height = screen_room(self.app)
+        if height > room_height:
+            bar.pack(side='right', fill='y')
+            width += bar.winfo_reqwidth()
+        scroller.configure(width=body.winfo_reqwidth(), height=min(height, room_height))
+        center_dialog(window, self.app, width, height)
+        window.minsize(min(width, 420), min(height, 320))
         window.deiconify()
         reveal()
 
@@ -2908,6 +3139,7 @@ class Application:
 
     def reconvert_games(self, games):
         if self.busy or self.updating or not games:return
+        if not self.ensure_build_tools(lambda: self.reconvert_games(games)):return
         from .platforms import target_id
         for game in games:
             if game.target and game.target != target_id():
@@ -3072,6 +3304,8 @@ class Application:
 
 
 def launch(update_error: str | None = None):
+    from .updater import use_installed_tools
+    use_installed_tools()
     set_converter_identity()
     load_fonts()
     app = tk.Tk()

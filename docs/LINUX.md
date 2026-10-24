@@ -17,8 +17,13 @@ launcher with its icon after moving the folder, run
 Generated games have their own cover launchers beside their native executables.
 
 Conversion still requires the native build tools: `build-essential`, `cmake`,
-`ninja-build`, `git`, `pkg-config`, `curl`, Rust/Cargo and the SDL2 development
-dependencies used by the selected console. See [BUILDING.md](BUILDING.md).
+`ninja-build`, `git`, `pkg-config`, `curl` and the SDL2 development dependencies
+(X11, Wayland, ALSA, PulseAudio, udev, OpenGL/EGL/GLES, DRM/GBM, D-Bus). On
+Debian and Ubuntu the converter checks them before the first conversion and,
+with your consent, installs only the missing ones through `pkexec apt-get
+install --no-install-recommends`, with a progress window; elsewhere it names
+the missing commands. Rust/Cargo is only needed for Super Mario World's legacy
+SNES path. See [BUILDING.md](BUILDING.md).
 Keep Linux and Windows compiler caches separate. The package contains no ROM
 or BIOS. Supply your own game files and, for Neo Geo, your BIOS.
 

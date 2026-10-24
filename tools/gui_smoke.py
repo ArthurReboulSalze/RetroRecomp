@@ -46,6 +46,18 @@ def smoke(window):
     before = len(application.items)
     application.add_paths([item.path for item in application.items.values()])
     assert len(application.items) == before
+    # A folder is read in a worker with a progress bar; the window keeps living.
+    import_folder = Path(fixtures.name) / 'import'
+    import_folder.mkdir()
+    for number in range(12):
+        (import_folder / f'Imported {number} (Europe).sms').write_bytes(bytes([number + 40]) * 8192)
+    application.import_paths([import_folder])
+    deadline = time.monotonic() + 20
+    while getattr(application, 'importing', False) and time.monotonic() < deadline:
+        window.update()
+        time.sleep(0.01)
+    assert not application.importing and len(application.items) == before + 12, len(application.items)
+    assert str(application.start_button.cget('state')) == 'normal'
     # A game already compiled in the output folder is offered for removal
     # once the whole addition is in; No leaves it out, Yes keeps it.
     from retrorecomp.batch import identify, system_output

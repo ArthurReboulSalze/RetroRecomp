@@ -298,7 +298,8 @@ class CreditsDemo:
         panel.configure(bg=BG)
         panel.transient(owner.app)
         center_dialog(panel, owner.app, 890, 780)
-        panel.minsize(700, 540)
+        # Small laptops: the scrolling list absorbs what the screen lacks.
+        panel.minsize(min(700, panel.winfo_screenwidth() - 40), min(540, panel.winfo_screenheight() - 90))
 
         self.header = tk.Canvas(panel, height=128, bg=BG, highlightthickness=0)
         self.header.pack(fill='x')

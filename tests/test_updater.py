@@ -29,7 +29,7 @@ class UpdaterTests(unittest.TestCase):
     def _prepare(self, data=b"MZnew converter"):
         update = Update("0.14.2", "https://github.com/example/Retro-Recomp.exe",
                         "https://github.com/example/tag", hashlib.sha256(data).hexdigest(), len(data))
-        with patch("retrorecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
+        with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=lambda *a, **k: self._response(data)):
             return prepare_update(update, self.exe)
 
     def test_selects_newest_executable_and_ignores_drafts_and_zips(self):
@@ -65,6 +65,66 @@ class UpdaterTests(unittest.TestCase):
         self.assertNotIn("**", update.notes)
         self.assertNotIn("---", update.notes)
         self.assertEqual(Update("1.0.0", "u", "p", "d", 1).notes, "")
+
+    @staticmethod
+    def _response(data):
+        response = io.BytesIO(data)
+        response.headers = {'Content-Length': str(len(data))}
+        return response
+
+    def test_build_tools_portable_git_is_pinned_and_checked(self):
+        import zipfile
+        from retrorecomp import updater
+        payload = io.BytesIO()
+        with zipfile.ZipFile(payload, 'w') as archive:
+            archive.writestr('cmd/git.exe', b'MZ git')
+        data = payload.getvalue()
+        seen = []
+        with patch.object(updater, 'tools_directory', return_value=self.root / 'tools'), \
+                patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(data)), \
+                patch.object(updater, 'MINGIT_SHA256', hashlib.sha256(data).hexdigest()):
+            updater.install_git(lambda label, done, total: seen.append(done))
+        self.assertEqual((self.root / 'tools/mingit/cmd/git.exe').read_bytes(), b'MZ git')
+        self.assertEqual(seen[-1], len(data))
+        with patch.object(updater, 'tools_directory', return_value=self.root / 'other'), \
+                patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(data)):
+            with self.assertRaises(updater.ToolInstallError):
+                updater.install_git(lambda *args: None)
+        self.assertFalse((self.root / 'other/mingit').exists())
+
+    def test_build_tools_compiler_needs_microsoft_signature(self):
+        from retrorecomp import updater
+        with patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(b'MZ boot')), \
+                patch.object(updater, '_microsoft_signed', return_value=False), \
+                patch('retrorecomp.updater.subprocess.run') as run:
+            with self.assertRaises(updater.ToolInstallError):
+                updater.install_compiler(lambda *args: None)
+        run.assert_not_called()
+        with patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(b'MZ boot')), \
+                patch.object(updater, '_microsoft_signed', return_value=True), \
+                patch('retrorecomp.updater.subprocess.run') as run:
+            run.return_value.returncode = 3010
+            updater.install_compiler(lambda *args: None)
+        command = run.call_args.args[0]
+        self.assertIn('--passive', command)
+        self.assertEqual([command[i + 1] for i, part in enumerate(command) if part == '--add'],
+                         list(updater.VS_COMPONENTS))
+
+    def test_build_tools_linux_progress_from_apt_status(self):
+        from retrorecomp import updater
+        lines = ['dlstatus:1:12.5:Retrieving file 1\n', 'pmstatus:cmake:60.0:Installing cmake\n', 'noise\n']
+        process = unittest.mock.Mock()
+        process.stdout = iter(lines)
+        process.wait.return_value = 0
+        seen = []
+        with patch('retrorecomp.updater.shutil.which', return_value='/usr/bin/pkexec'), \
+                patch('retrorecomp.updater.subprocess.Popen', return_value=process) as popen:
+            updater.install_linux_packages(['cmake'], lambda label, done, total: seen.append((label, done, total)))
+        self.assertEqual(seen, [('Download', 125, 1000), ('Install', 600, 1000)])
+        command = popen.call_args.args[0]
+        self.assertEqual(command[:2], ['pkexec', 'apt-get'])
+        self.assertIn('--no-install-recommends', command)
+        self.assertEqual(command[-1], 'cmake')
 
     def test_release_notes_are_bounded_plain_text(self):
         from retrorecomp.updater import release_notes
@@ -129,7 +189,7 @@ class UpdaterTests(unittest.TestCase):
         data = b"MZnew converter"
         update = Update("0.14.2", "https://github.com/example/Retro-Recomp.exe", "page",
                         "0" * 64, len(data))
-        with patch("retrorecomp.updater.urllib.request.urlopen", return_value=io.BytesIO(data)):
+        with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=lambda *a, **k: self._response(data)):
             with self.assertRaisesRegex(ValueError, "checksum"):
                 prepare_update(update, self.exe)
         with self.assertRaisesRegex(ValueError, "Windows executable"):

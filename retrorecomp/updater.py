@@ -387,3 +387,193 @@ def finish_update(job_dir: Path, token: str, helper_pid: int) -> str | None:
         # delayed by an antivirus scanner. No games or user data are touched.
         pass
     return error
+
+
+# --- Build tools ------------------------------------------------------------
+# Converting a game compiles its generated C code on this computer (the ROM
+# never leaves it), so conversion needs a C/C++ toolchain; playing does not.
+# The converter installs the smallest set itself, with the user's consent:
+# on Windows a portable Git and Microsoft's C++ build tools (compiler,
+# Windows SDK, CMake only), on Debian/Ubuntu the apt packages below.
+# This lives beside the converter updater, which is interface code: it never
+# changes a generated game.
+
+MINGIT_URL = ('https://github.com/git-for-windows/git/releases/download/'
+              'v2.56.0.windows.3/MinGit-2.56.0.3-64-bit.zip')
+MINGIT_SHA256 = '2e5619966e588fde5f8122c5557cad50c0fbafcaed736689f40ec1dfb1d78ea7'
+MINGIT_BYTES = 39854943
+VS_BOOTSTRAPPER_URL = 'https://aka.ms/vs/17/release/vs_BuildTools.exe'
+VS_COMPONENTS = ('Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+                 'Microsoft.VisualStudio.Component.Windows11SDK.22621',
+                 'Microsoft.VisualStudio.Component.VC.CMake.Project')
+# Debian 13 / Ubuntu: what a conversion and the pinned SDL2 build use.
+LINUX_PACKAGES = ('build-essential', 'cmake', 'ninja-build', 'pkg-config', 'git', 'curl',
+                  'libx11-dev', 'libxext-dev', 'libxrandr-dev', 'libxcursor-dev', 'libxi-dev',
+                  'libxinerama-dev', 'libxss-dev', 'libxfixes-dev', 'libxkbcommon-dev', 'libwayland-dev',
+                  'libasound2-dev', 'libpulse-dev', 'libudev-dev', 'libgl-dev', 'libegl-dev', 'libgles-dev',
+                  'libdrm-dev', 'libgbm-dev', 'libdbus-1-dev')
+
+
+class ToolInstallError(Exception):
+    """A build tool could not be installed; the message is for the user."""
+
+
+def tools_directory() -> Path:
+    from .paths import data_directory
+    return data_directory() / 'tools'
+
+
+def use_installed_tools() -> None:
+    """Put the converter's own portable Git first on PATH (call at start)."""
+    git = tools_directory() / 'mingit' / 'cmd'
+    if os.name == 'nt' and (git / 'git.exe').is_file():
+        entries = os.environ.get('PATH', '').split(os.pathsep)
+        if str(git) not in entries:
+            os.environ['PATH'] = os.pathsep.join([str(git), *entries])
+
+
+def _windows_compiler() -> bool:
+    try:
+        from .core import ConversionError, toolchain
+        toolchain()
+        return True
+    except (ConversionError, OSError, ValueError, KeyError, subprocess.SubprocessError):
+        return False
+
+
+def _linux_missing_packages() -> list[str]:
+    if not shutil.which('dpkg-query'):
+        return []
+    try:
+        result = subprocess.run(['dpkg-query', '-W', '-f', '${Package} ${db:Status-Status}\\n', *LINUX_PACKAGES],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    installed = {line.split()[0] for line in result.stdout.splitlines()
+                 if line.strip().endswith(' installed')}
+    return [name for name in LINUX_PACKAGES if name not in installed]
+
+
+def missing_build_tools() -> dict:
+    """What a conversion still needs on this computer: {} when ready.
+
+    Windows: {'git': bool, 'compiler': bool}; Linux: {'packages': [...]}
+    (Debian/Ubuntu), or {'commands': [...]} on other distributions."""
+    use_installed_tools()
+    if os.name == 'nt':
+        needs = {'git': not shutil.which('git'), 'compiler': not _windows_compiler()}
+        return {key: True for key, value in needs.items() if value}
+    commands = [name for name in ('cmake', 'ninja', 'cc', 'c++', 'git', 'pkg-config') if not shutil.which(name)]
+    packages = _linux_missing_packages()
+    if packages:
+        return {'packages': packages}
+    return {'commands': commands} if commands else {}
+
+
+def _download(url: str, destination: Path, progress, *, limit: int, label: str) -> None:
+    request = urllib.request.Request(url, headers={'User-Agent': f'RetroRecomp/{__version__}'})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response, destination.open('wb') as out:
+            total = int(response.headers.get('Content-Length') or 0)
+            done = 0
+            while True:
+                block = response.read(1 << 16)
+                if not block:
+                    break
+                done += len(block)
+                if done > limit:
+                    raise ToolInstallError(f'{label}: unexpected download size.')
+                out.write(block)
+                progress(label, done, total)
+    except urllib.error.URLError as error:
+        raise ToolInstallError(f'{label}: download failed ({error.reason}).') from error
+    except OSError as error:
+        raise ToolInstallError(f'{label}: download failed ({error}).') from error
+
+
+def install_git(progress) -> None:
+    """Portable MinGit, pinned and hash-checked, in datas/tools/mingit."""
+    import zipfile
+    target = tools_directory() / 'mingit'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=target.parent) as temp:
+        archive = Path(temp) / 'mingit.zip'
+        _download(MINGIT_URL, archive, progress, limit=MINGIT_BYTES + 1, label='Git')
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != MINGIT_SHA256:
+            raise ToolInstallError('Git: the download does not match its expected checksum.')
+        unpacked = Path(temp) / 'mingit'
+        with zipfile.ZipFile(archive) as package:
+            for member in package.infolist():
+                if not (unpacked / member.filename).resolve().is_relative_to(unpacked.resolve()):
+                    raise ToolInstallError('Git: unsafe archive member.')
+            package.extractall(unpacked)
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(unpacked), str(target))
+    use_installed_tools()
+
+
+def _microsoft_signed(path: Path) -> bool:
+    # The path travels in the environment, never inside the command text.
+    script = ("$s = Get-AuthenticodeSignature -LiteralPath $env:RR_SIGNED_FILE; "
+              "if ($s.Status -eq 'Valid' -and $s.SignerCertificate.Subject -match 'O=Microsoft Corporation') "
+              "{ 'ok' } else { 'bad' }")
+    try:
+        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=60,
+                                env={**os.environ, 'RR_SIGNED_FILE': str(path)},
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.stdout.strip() == 'ok'
+
+
+def install_compiler(progress) -> None:
+    """Microsoft's C++ build tools, only the compiler, Windows SDK and CMake.
+    Windows asks for administrator rights; Microsoft's installer shows its own
+    progress window. Exit code 3010 means a restart is advised, not required."""
+    with tempfile.TemporaryDirectory() as temp:
+        bootstrapper = Path(temp) / 'vs_BuildTools.exe'
+        _download(VS_BOOTSTRAPPER_URL, bootstrapper, progress, limit=64 << 20, label='Visual Studio Build Tools')
+        if not _microsoft_signed(bootstrapper):
+            raise ToolInstallError('Visual Studio Build Tools: the installer is not signed by Microsoft.')
+        progress('Visual Studio Build Tools', 0, 0)
+        command = [str(bootstrapper), '--passive', '--wait', '--norestart', '--nocache']
+        for component in VS_COMPONENTS:
+            command += ['--add', component]
+        try:
+            code = subprocess.run(command, timeout=3 * 3600).returncode
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ToolInstallError(f'Visual Studio Build Tools: {error}') from error
+    if code not in (0, 3010):
+        raise ToolInstallError(f'Visual Studio Build Tools: the installer stopped (code {code}).')
+
+
+def linux_install_command(packages) -> list[str]:
+    return ['apt-get', 'install', '-y', '--no-install-recommends', *packages]
+
+
+def install_linux_packages(packages, progress) -> None:
+    """apt through pkexec (the desktop asks for the password); progress comes
+    from apt's status lines."""
+    if not shutil.which('pkexec'):
+        raise ToolInstallError('pkexec is missing: run in a terminal: sudo '
+                               + ' '.join(linux_install_command(packages)))
+    command = ['pkexec', *linux_install_command(packages)[:1], '-o', 'APT::Status-Fd=1',
+               *linux_install_command(packages)[1:]]
+    try:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                   env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
+    except OSError as error:
+        raise ToolInstallError(str(error)) from error
+    for line in process.stdout:
+        parts = line.strip().split(':', 3)
+        if len(parts) >= 3 and parts[0] in ('dlstatus', 'pmstatus'):
+            try:
+                percent = float(parts[2])
+            except ValueError:
+                continue
+            label = 'Download' if parts[0] == 'dlstatus' else 'Install'
+            progress(label, int(percent * 10), 1000)
+    if process.wait() != 0:
+        raise ToolInstallError('The packages could not be installed (apt-get stopped or the password was refused).')
