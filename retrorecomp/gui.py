@@ -194,7 +194,8 @@ def _toolbar_styles(style):
         style.configure(name, width=-1)
     # The header's small controls: selectors and the account's two buttons.
     style.configure('Header.TButton', width=-1, padding=(7, 2))
-    style.configure('Help.Header.TButton', width=-1, padding=(8, 2), foreground=c['gold'])
+    style.configure('Help.Toolbar.TButton', width=-1, padding=(11, 5), foreground=c['gold'],
+                    font=('TkDefaultFont', 10, 'bold'))
     style.configure('Header.TCombobox', padding=(4, 1))
     style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
@@ -368,10 +369,6 @@ class Application:
         self.sign_in_button = ttk.Button(self.player_actions, text=self.tr('account_sign_in'),
                                          style='Header.TButton', command=self.sign_in_from_header)
         self.hint(self.sign_in_button, 'tip_account')
-        # Help: the guides, always at hand beside the account.
-        self.help_button = ttk.Button(self.player_actions, text='?', style='Help.Header.TButton',
-                                      command=self.show_help)
-        self.hint(self.help_button, 'tip_help')
         self.player_window = header.create_window(0, HEADER_HEIGHT - 8, window=self.player_actions, anchor='se')
         self.render_player()
         header.bind('<Configure>', self.layout_header)
@@ -418,6 +415,10 @@ class Application:
         self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits)
         self.credits_button.configure(compound='image')
         self.credits_button.pack(side='right', padx=(0, 12))
+        # Help: how Retro-Recomp works, left of the credits and information.
+        self.help_button = ttk.Button(toolbar, text='?', style='Help.Toolbar.TButton', command=self.show_help)
+        self.hint(self.help_button, 'tip_help')
+        self.help_button.pack(side='right', padx=(0, 8))
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
         self.update_button.configure(compound='image')
         self.update_button.pack(side='right', padx=(0, 8))
@@ -610,7 +611,7 @@ class Application:
         text = account - PORTRAIT_SIZE - 12
         self.header.coords(self.player_name, text, 10)
         self.header.coords(self.player_score, text, 29)
-        self.header.coords(self.player_window, account, HEADER_HEIGHT - 8)
+        self.header.coords(self.player_window, text, HEADER_HEIGHT - 8)
 
     def draw_background(self, event):
         canvas = event.widget
@@ -790,6 +791,15 @@ class Application:
                     widget.tab(page, text=self.tr(key))
             for child in widget.winfo_children(): update(child)
         update(self.app)
+        # Section titles whose English text another key shares ("Box art").
+        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart')):
+            frame = getattr(self, name, None)
+            try:
+                if frame is not None and frame.winfo_exists():
+                    frame.configure(text=self.tr(key))
+            except tk.TclError:
+                pass
+        self.update_account_options()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -1752,7 +1762,32 @@ class Application:
             self.hint(control, hint)
             return control
 
-        common = tab('options_common')
+        # Common holds the shared settings, the account and box art: it
+        # scrolls when the window is shorter than its content.
+        common_page = tab('options_common')
+        common_page.configure(padding=0)
+        scroller = tk.Canvas(common_page, bg=COLORS['background'], highlightthickness=0, borderwidth=0)
+        common_bar = ttk.Scrollbar(common_page, orient='vertical', command=scroller.yview)
+        scroller.configure(yscrollcommand=common_bar.set)
+        common_bar.pack(side='right', fill='y')
+        scroller.pack(side='left', fill='both', expand=True)
+        common = ttk.Frame(scroller, padding=18)
+        common_window = scroller.create_window(0, 0, window=common, anchor='nw')
+        def fit_common(event=None):
+            scroller.itemconfigure(common_window, width=scroller.winfo_width())
+            scroller.configure(scrollregion=(0, 0, scroller.winfo_width(), common.winfo_reqheight()))
+            if common.winfo_reqheight() <= scroller.winfo_height():
+                common_bar.pack_forget()
+            elif not common_bar.winfo_ismapped():
+                common_bar.pack(side='right', fill='y', before=scroller)
+        scroller.bind('<Configure>', fit_common)
+        common.bind('<Configure>', fit_common)
+        def wheel(event):
+            if common_bar.winfo_ismapped():
+                scroller.yview_scroll(-1 if event.delta > 0 else 1, 'units')
+        for widget in (scroller, common):
+            widget.bind('<Enter>', lambda event: panel.bind_all('<MouseWheel>', wheel))
+            widget.bind('<Leave>', lambda event: panel.unbind_all('<MouseWheel>'))
         common.columnconfigure(0, weight=1)
         ttk.Label(common, text=self.tr('output')).grid(row=0, column=0, sticky='w', pady=(0, 8))
         self.custom_output_control = ttk.Checkbutton(common, text=self.tr('custom_output'),
@@ -1797,6 +1832,14 @@ class Application:
             control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
             self.option_controls.append((control, 'readonly' if kind == 'combo' else 'normal'))
             self.hint(control, hint)
+
+        # The Retro-Recomp account, then box art, below the shared settings.
+        account = self.account_frame = ttk.LabelFrame(common, text=self.tr('options_account'), padding=(12, 8))
+        account.grid(row=5, column=0, sticky='ew', pady=(18, 0))
+        self.build_account_options(account)
+        covers = self.covers_frame = ttk.LabelFrame(common, text=self.tr('options_boxart'), padding=(12, 8))
+        covers.grid(row=6, column=0, sticky='ew', pady=(14, 0))
+        self.build_cover_options(covers, checkbox)
 
         for key in ('sms', 'gg'):
             profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
@@ -1866,7 +1909,6 @@ class Application:
             control=ttk.Combobox(x68,textvariable=self.x68_ram,values=(2,4),width=8,state='readonly');control.pack(anchor='w')
             self.option_controls.append((control,'readonly'))
             self.build_feedback_options(x68,'x68')
-        self.build_cover_options(tab('options_boxart'), checkbox)
 
         buttons = ttk.Frame(panel)
         # Reserve the footer first: Tk otherwise gives a tall notebook all
@@ -1961,6 +2003,44 @@ class Application:
         except ValueError as exc:
             self.ng_bios_status.set(self.tr('ng_bios_invalid', error=str(exc)))
             return False
+
+    def build_account_options(self, page):
+        """The Retro-Recomp account in Options: who is signed in, sign in or
+        out, and the account page of the site."""
+        self.account_status = tk.StringVar()
+        ttk.Label(page, textvariable=self.account_status, wraplength=600).pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(page)
+        row.pack(anchor='w')
+        self.account_sign_button = ttk.Button(row, command=self.account_sign_toggle)
+        self.account_sign_button.pack(side='left')
+        self.account_site_button = ttk.Button(row, text=self.tr('account_open_site'),
+            command=lambda: webbrowser.open_new_tab(online.service_url() + '/account'))
+        self.account_site_button.pack(side='left', padx=(8, 0))
+        self.update_account_options()
+
+    def update_account_options(self):
+        if getattr(self, 'account_status', None) is None:
+            return
+        try:
+            current = online.account() if SENDING_AVAILABLE else None
+            if not SENDING_AVAILABLE:
+                self.account_status.set(self.tr('account_coming'))
+            elif current:
+                self.account_status.set(self.tr('account_signed_as', email=current.get('email', '')))
+            else:
+                self.account_status.set(self.tr('account_invite'))
+            self.account_sign_button.configure(text=self.tr('account_sign_out' if current else 'account_sign_in'),
+                                               state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.account_site_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+        except tk.TclError:
+            pass
+
+    def account_sign_toggle(self):
+        if online.account():
+            self.sign_out()
+        else:
+            self.sign_in_from_header()
+        self.update_account_options()
 
     def build_cover_options(self, page, checkbox):
         self.cover_settings = load_cover_settings()
@@ -2310,12 +2390,12 @@ class Application:
         invitation to sign in, disabled until the online service opens."""
         if data is not ...:
             self.player = data or {}
+        self.update_account_options()
         player = self.player
         account = player.get('account') or (online.account() if SENDING_AVAILABLE else None)
         header = self.header
         for child in self.player_actions.winfo_children():
             child.pack_forget()
-        self.help_button.pack(side='right', padx=(6, 0))
         if not account:
             self.portrait = _portrait_photo(self.app)
             header.itemconfigure(self.portrait_item, image=self.portrait)

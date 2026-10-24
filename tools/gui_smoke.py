@@ -144,11 +144,12 @@ def smoke(window):
     application.show_options()
     options_panel = application.options_panel
     notebook = next(widget for widget in options_panel.winfo_children() if widget.winfo_class() == 'TNotebook')
-    # Nine pages, plus the X68000 and CPS-1 pages when available.
-    assert 9 <= len(notebook.tabs()) <= 11
+    # Eight pages (box art is in Common), plus the X68000 and CPS-1 pages when available.
+    assert 8 <= len(notebook.tabs()) <= 10
     assert notebook.tab(0, 'text') == application.tr('options_common')
     assert notebook.tab(7, 'text') == application.tr('options_ng')
-    assert notebook.tab(len(notebook.tabs()) - 1, 'text') == application.tr('options_boxart')
+    assert all(notebook.tab(i, 'text') != application.tr('options_boxart') for i in range(len(notebook.tabs())))
+    assert application.account_status.get() == application.tr('account_coming')
     assert application.preferences()['ng_bios'] == application.ng_bios.get()
     assert set(application.feedback_paths) >= {'sms','gg','gb','nes','md','snes','ng'}
     before_feedback=application.feedback_paths['sms'].get()
@@ -335,7 +336,9 @@ def smoke(window):
         assert len(application.items) == before
         assert application.options_button.cget('text') == application.tr('options')
         assert open_notebook.tab(0, 'text') == application.tr('options_common')
-        assert open_notebook.tab(len(open_notebook.tabs()) - 1, 'text') == application.tr('options_boxart')
+        common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
+        frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
+        assert {application.tr('options_account'), application.tr('options_boxart')} <= frames, frames
         assert application.compiled_button.cget('text') == application.tr('compiled_games')
         assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
         window.update_idletasks()
