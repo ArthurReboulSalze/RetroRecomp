@@ -14,7 +14,7 @@ import time
 from . import __version__
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
-from .platforms import build_jobs, cmake_target_args, build_executable, target_id
+from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .library import atomic_json, entry_lock
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
@@ -185,7 +185,7 @@ def build_player(work, payload_dir, *, emit, machine=(), sdk=ASSETS):
     fresh_cache(build,sdk/'native/x68000_native')
     run([cmake,'-S',sdk/'native/x68000_native','-B',build,'-G',generator,*cmake_target_args(),
          f'-DPX68K_DIR={(ROOT/".deps/px68k-reference").as_posix()}',
-         f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}',
+         f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}',
          f'-DRR_X68000_GENERATED={work.as_posix()}',f'-DRR_X68000_PAYLOAD_DIR={payload_dir.as_posix()}',
          f'-DRR_X68000_MACHINE_BASE={MACHINE_BASE}',*machine,
          f'-DRR_RECOMP_VERSION={__version__}'],log=work/'build.log')
@@ -269,7 +269,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         generic=Path(json.loads(ready.read_text())['executable']) if ready.exists() else None
         if not generic or not generic.is_file():
             native.generate(common,[],ROOT/'.deps/px68k-reference')
-            generic=native.build(common,ROOT/'.deps/px68k-reference',ROOT/'.deps/SDL/install',int(build_jobs()),
+            generic=native.build(common,ROOT/'.deps/px68k-reference',sdl_install(),int(build_jobs()),
                                  extra=machine_settings)
             atomic_json(ready,{'executable':str(generic),'sdk':stamp})
     work=base/manifest.sha256[:16]

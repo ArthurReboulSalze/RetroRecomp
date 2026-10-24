@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
 
-from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs
+from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs, recompiler_build
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -38,7 +38,7 @@ def main():
     prepare_runtime(directory, rom, 'Authored persistent state fixture', engine,
                     'pal' if args.pal else 'ntsc')
     log = directory / 'build.log'
-    run([build_executable(ROOT / '.deps/recompiler-build', 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
+    run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
     source = prepare_native_source()
     build = directory / 'build'
     run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),

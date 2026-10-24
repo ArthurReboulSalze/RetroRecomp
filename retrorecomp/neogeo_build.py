@@ -13,7 +13,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from .core import serialized_setup
 
 from .paths import ROOT, ASSETS
-from .platforms import build_executable, cmake_target_args, build_jobs
+from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
@@ -584,8 +584,8 @@ def state_config(content: Path,bios: Path,title: str) -> str:
 def configure_build(project: Path, target: str) -> Path:
     from .core import run, toolchain
     cmake, generator = toolchain()
-    sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / 'cmake/SDL2/SDL2Config.cmake').exists():
+    sdl = sdl_install()
+    if not (sdl / sdl_library()).exists():
         from .core import dependencies
         _, sdl, _, _ = dependencies()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),

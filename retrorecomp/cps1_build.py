@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .paths import ROOT, ASSETS
-from .platforms import build_executable, cmake_target_args, build_jobs
+from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
 YMFM_REVISION = '81aec25ccbb98f4873a255f7551ac4dadac59b4a'
@@ -398,8 +398,8 @@ endif()
 
 
 def build_game(project: Path) -> Path:
-    sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / 'cmake/SDL2/SDL2Config.cmake').exists():
+    sdl = sdl_install()
+    if not (sdl / sdl_library()).exists():
         from .core import dependencies
         _, sdl, _, _ = dependencies()
     return _build(project, 'game', sdl)

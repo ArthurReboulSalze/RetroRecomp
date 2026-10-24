@@ -92,23 +92,90 @@ class UpdaterTests(unittest.TestCase):
                 updater.install_git(lambda *args: None)
         self.assertFalse((self.root / 'other/mingit').exists())
 
-    def test_build_tools_compiler_needs_microsoft_signature(self):
-        from retrorecomp import updater
-        with patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(b'MZ boot')), \
-                patch.object(updater, '_microsoft_signed', return_value=False), \
-                patch('retrorecomp.updater.subprocess.run') as run:
+    def _toolchain_archives(self):
+        import zipfile
+        def archive(files):
+            payload = io.BytesIO()
+            with zipfile.ZipFile(payload, 'w') as package:
+                for name, content in files.items():
+                    package.writestr(name, content)
+            return payload.getvalue()
+        return {
+            'cmake': archive({'cmake-9.9.9-windows-x86_64/bin/cmake.exe': b'MZ cmake',
+                              'cmake-9.9.9-windows-x86_64/bin/cmake-gui.exe': b'MZ gui',
+                              'cmake-9.9.9-windows-x86_64/doc/manual.html': b'doc',
+                              'cmake-9.9.9-windows-x86_64/share/cmake-9.9/Help/page.rst': b'help',
+                              'cmake-9.9.9-windows-x86_64/share/cmake-9.9/Modules/A.cmake': b'module'}),
+            'ninja': archive({'ninja.exe': b'MZ ninja'}),
+            'llvm-mingw': archive({'llvm-mingw-1-ucrt-x86_64/bin/clang.exe': b'MZ clang',
+                                   'llvm-mingw-1-ucrt-x86_64/bin/ld.lld.exe': b'MZ lld',
+                                   'llvm-mingw-1-ucrt-x86_64/bin/lldb.exe': b'MZ lldb',
+                                   'llvm-mingw-1-ucrt-x86_64/bin/libpython3.14.dll': b'py',
+                                   'llvm-mingw-1-ucrt-x86_64/i686-w64-mingw32/lib/a.a': b'32',
+                                   'llvm-mingw-1-ucrt-x86_64/python/x.py': b'py',
+                                   'llvm-mingw-1-ucrt-x86_64/x86_64-w64-mingw32/lib/a.a': b'64',
+                                   'llvm-mingw-1-ucrt-x86_64/lib/clang/23/lib/linux/asan.a': b'linux',
+                                   'llvm-mingw-1-ucrt-x86_64/lib/clang/23/lib/windows/rt.a': b'windows'}),
+        }
+
+    def test_build_tools_portable_compiler_is_pinned_checked_and_pruned(self):
+        from retrorecomp import updater, toolchain
+        archives = self._toolchain_archives()
+        urls = {toolchain.CMAKE_URL: archives['cmake'], toolchain.NINJA_URL: archives['ninja'],
+                toolchain.LLVM_MINGW_URL: archives['llvm-mingw']}
+        def opener(request, *args, **kwargs):
+            return self._response(urls[request.full_url])
+        seen = []
+        tools = self.root / 'tools'
+        with patch.object(toolchain, 'tools_directory', return_value=tools), \
+                patch('retrorecomp.updater.urllib.request.urlopen', side_effect=opener), \
+                patch.object(toolchain, 'CMAKE_SHA256', hashlib.sha256(archives['cmake']).hexdigest()), \
+                patch.object(toolchain, 'CMAKE_BYTES', len(archives['cmake'])), \
+                patch.object(toolchain, 'NINJA_SHA256', hashlib.sha256(archives['ninja']).hexdigest()), \
+                patch.object(toolchain, 'NINJA_BYTES', len(archives['ninja'])), \
+                patch.object(toolchain, 'LLVM_MINGW_SHA256', hashlib.sha256(archives['llvm-mingw']).hexdigest()), \
+                patch.object(toolchain, 'LLVM_MINGW_BYTES', len(archives['llvm-mingw'])), \
+                patch.object(updater, '_verify_toolchain') as verify:
+            updater.install_toolchain(lambda label, done, total: seen.append(label))
+            installed = toolchain.portable_installed()
+        verify.assert_called_once()
+        self.assertTrue(installed)
+        self.assertEqual({'CMake', 'Ninja', 'LLVM-MinGW'}, set(seen))
+        self.assertEqual((tools / 'llvm-mingw/bin/clang.exe').read_bytes(), b'MZ clang')
+        self.assertEqual((tools / 'cmake/bin/cmake.exe').read_bytes(), b'MZ cmake')
+        self.assertEqual((tools / 'ninja/ninja.exe').read_bytes(), b'MZ ninja')
+        self.assertTrue((tools / 'llvm-mingw/lib/clang/23/lib/windows/rt.a').is_file())
+        self.assertTrue((tools / 'cmake/share/cmake-9.9/Modules/A.cmake').is_file())
+        for pruned in ('llvm-mingw/bin/lldb.exe', 'llvm-mingw/bin/libpython3.14.dll', 'llvm-mingw/i686-w64-mingw32',
+                       'llvm-mingw/python', 'llvm-mingw/lib/clang/23/lib/linux', 'cmake/bin/cmake-gui.exe',
+                       'cmake/doc', 'cmake/share/cmake-9.9/Help'):
+            self.assertFalse((tools / pruned).exists(), pruned)
+        self.assertEqual(json.loads((tools / 'ninja' / toolchain.STAMP).read_text())['version'], toolchain.NINJA_VERSION)
+
+    def test_build_tools_portable_compiler_rejects_a_bad_checksum_and_installs_nothing(self):
+        from retrorecomp import updater, toolchain
+        archives = self._toolchain_archives()
+        tools = self.root / 'tools'
+        with patch.object(toolchain, 'tools_directory', return_value=tools), \
+                patch('retrorecomp.updater.urllib.request.urlopen',
+                      side_effect=lambda *a, **k: self._response(archives['cmake'])), \
+                patch.object(toolchain, 'CMAKE_BYTES', len(archives['cmake'])):
             with self.assertRaises(updater.ToolInstallError):
-                updater.install_compiler(lambda *args: None)
-        run.assert_not_called()
-        with patch('retrorecomp.updater.urllib.request.urlopen', side_effect=lambda *a, **k: self._response(b'MZ boot')), \
-                patch.object(updater, '_microsoft_signed', return_value=True), \
-                patch('retrorecomp.updater.subprocess.run') as run:
-            run.return_value.returncode = 3010
-            updater.install_compiler(lambda *args: None)
-        command = run.call_args.args[0]
-        self.assertIn('--passive', command)
-        self.assertEqual([command[i + 1] for i, part in enumerate(command) if part == '--add'],
-                         list(updater.VS_COMPONENTS))
+                updater.install_toolchain(lambda *args: None)
+            self.assertFalse(toolchain.portable_installed())
+        self.assertFalse((tools / 'cmake').exists())
+        self.assertFalse((tools / 'llvm-mingw').exists())
+
+    def test_build_tools_unsafe_archive_member_is_refused(self):
+        import zipfile
+        from retrorecomp import updater
+        archive = self.root / 'evil.zip'
+        with zipfile.ZipFile(archive, 'w') as package:
+            package.writestr('top/ok.txt', b'ok')
+            package.writestr('top/../../escape.txt', b'bad')
+        with self.assertRaises(updater.ToolInstallError):
+            updater._unpack(archive, self.root / 'out', lambda name: True, 'Test')
+        self.assertFalse((self.root / 'escape.txt').exists())
 
     def test_build_tools_linux_progress_from_apt_status(self):
         from retrorecomp import updater

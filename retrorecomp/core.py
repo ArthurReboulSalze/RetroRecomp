@@ -27,7 +27,8 @@ from .cpu import prepare_cpu_headers, prepare_reference
 from .peripherals import light_phaser_game, game_tags
 from .validation import compare_execution, vdp_states
 from .systems import MASTER_SYSTEM, archive_rom, profile_for_path
-from .platforms import build_executable, cmake_target_args, build_jobs, target_id, claim_cache
+from .platforms import build_executable, cmake_target_args, build_jobs, target_id, claim_cache, sdl_install, sdl_library
+from .toolchain import active as active_toolchain, suffix, describe as toolchain_description
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
 SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
@@ -210,6 +211,8 @@ def executable_name(title: str, *, suffix: str = '') -> str:
 def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
         emit: Callable[[str], None] = print, timeout: int = 600) -> str:
     command = [str(arg) for arg in args]
+    from .toolchain import reset_incompatible_cache
+    reset_incompatible_cache(command, cwd)
     result = subprocess.run(command, cwd=cwd, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, encoding="utf-8", errors="replace", timeout=timeout,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
@@ -233,22 +236,12 @@ def toolchain() -> tuple[Path, str]:
         if missing:
             raise ConversionError('Missing Linux build tools: ' + ', '.join(missing))
         return Path(shutil.which('cmake')), 'Ninja'
-    vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
-    installations = []
-    if vswhere.exists():
-        installations = json.loads(run([vswhere, "-all", "-products", "*", "-requires",
-            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-format", "json"]))
-    for major, generator in ((17, "Visual Studio 17 2022"), (18, "Visual Studio 18 2026")):
-        for install in installations:
-            if not install["installationVersion"].startswith(f"{major}."):
-                continue
-            cmake = Path(install["installationPath"]) / "Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
-            candidate = shutil.which("cmake")
-            if not cmake.exists() and candidate:
-                cmake = Path(candidate)
-            if cmake.exists():
-                return cmake, generator
-    raise ConversionError("Il faut Visual Studio Build Tools (C++ x64 et CMake). Aucun compilateur compatible trouvé.")
+    from . import toolchain as selection
+    try:
+        chosen = selection.select()
+    except selection.ToolchainError as exc:
+        raise ConversionError(str(exc)) from exc
+    return chosen.cmake, chosen.generator
 
 
 @serialized_setup
@@ -325,21 +318,24 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
         (source / "src/code_generator.c").write_text(generator_source, encoding="utf-8")
         (source / "src/main_sms.c").write_text(main_source, encoding="utf-8")
         marker.write_text(expected)
-    recomp = build_executable(dep / 'recompiler-build', 'SmsRecomp')
-    compiled_marker = dep / "recompiler-build/compiled.sha256"
+    recomp_build = dep / ('recompiler-build' + suffix())
+    recomp = build_executable(recomp_build, 'SmsRecomp')
+    compiled_marker = recomp_build / "compiled.sha256"
     if patch_changed or not recomp.exists() or not compiled_marker.exists() or compiled_marker.read_text() != expected:
         emit("Compilation du traducteur Z80 → C…")
-        run([cmake, "-S", source, "-B", dep / "recompiler-build", "-G", generator, *cmake_target_args()], log=log)
-        run([cmake, "--build", dep / "recompiler-build", "--config", "Release", "--parallel", build_jobs()], log=log)
+        run([cmake, "-S", source, "-B", recomp_build, "-G", generator, *cmake_target_args()], log=log)
+        run([cmake, "--build", recomp_build, "--config", "Release", "--parallel", build_jobs()], log=log)
         compiled_marker.write_text(expected)
-    prefix = sdl / "install"
-    if not (prefix / ('lib/SDL2-static.lib' if os.name == 'nt' else 'lib/libSDL2.a')).exists():
+    prefix = sdl_install()
+    if not (prefix / sdl_library()).exists():
         emit("Compilation de SDL2 statique (première utilisation)…")
-        run([cmake, "-S", sdl, "-B", sdl / "build", "-G", generator, *cmake_target_args(),
+        sdl_build = sdl / ("build" + suffix())
+        run([cmake, "-S", sdl, "-B", sdl_build, "-G", generator, *cmake_target_args(),
             "-DSDL_SHARED=OFF", "-DSDL_STATIC=ON", "-DSDL_TEST=OFF", "-DSDL_TESTS=OFF",
-            "-DSDL_FORCE_STATIC_VCRT=ON", f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
-        run([cmake, "--build", sdl / "build", "--config", "Release", "--parallel", build_jobs()], log=log)
-        run([cmake, "--install", sdl / "build", "--config", "Release"], log=log)
+            *(["-DSDL_FORCE_STATIC_VCRT=ON"] if active_toolchain() == "msvc" else []),
+            f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}"], log=log)
+        run([cmake, "--build", sdl_build, "--config", "Release", "--parallel", build_jobs()], log=log)
+        run([cmake, "--install", sdl_build, "--config", "Release"], log=log)
     return engine, prefix, cmake, generator
 
 
@@ -1041,7 +1037,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             write_code_patterns(game / "native.patterns", compiled_patterns)
             for stale in (game / "generated").glob("game_banked_ops_*.c"):
                 stale.unlink()
-        result = run([build_executable(ROOT / '.deps/recompiler-build', 'SmsRecomp'), "--game", game / "game.toml",
+        result = run([build_executable(ROOT / ('.deps/recompiler-build' + suffix()), 'SmsRecomp'), "--game", game / "game.toml",
                       *(["--banked-step"] if banked else [])], log=log)
         if "FATAL" in result:
             raise ConversionError(result[-4000:])
@@ -1200,7 +1196,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             "mouse_player": 1 if system.id == "sms" else None, "hardware_accuracy_validated": False},
         "conversion_wall_seconds": round(time.perf_counter() - compilation_started, 6),
         "executable_bytes": executable.stat().st_size,
-        "build_executable": str(executable),
+        "build_executable": str(executable), "toolchain": toolchain_description(),
         "rom": rom.metadata(), "engine_revision": ENGINE_REV, "sdl_revision": SDL_REV,
         "executable": final_executable.name, "embedded_rom": True, "static_sdl": True,
         "latency_ms": None, "hardware_accuracy_validated": False,

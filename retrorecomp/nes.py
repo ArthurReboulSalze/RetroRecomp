@@ -117,8 +117,9 @@ def _dependencies(emit: Callable[[str], None]) -> tuple[Path, Path, Path, Path, 
     from .platforms import require_backend
     require_backend('nes')
     cmake, generator = toolchain()
-    sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / ('lib/SDL2-static.lib' if os.name == 'nt' else 'lib/libSDL2.a')).is_file():
+    from .platforms import sdl_install, sdl_library
+    sdl = sdl_install()
+    if not (sdl / sdl_library()).is_file():
         _, sdl, cmake, generator = dependencies(emit)
     engine = ROOT / '.deps/nesrecomp'
     if not engine.exists():

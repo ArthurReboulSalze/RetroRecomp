@@ -112,19 +112,25 @@ Debian 13/glibc 2.41; older distributions require separate build/compatibility w
 
 ## Windows x64 prerequisites
 
-**Packaged converter (since 1.4.1):** before the first conversion, Retro-Recomp
-checks for Git and a C++ compiler and offers to install what is missing, with a
-progress window: a portable MinGit (40 MB, pinned and SHA-256-checked, in
-`datas/tools/mingit`) and Microsoft's Build Tools limited to the x64 compiler,
-the Windows 11 SDK and CMake (about 3 GB instead of a full Visual Studio;
-the bootstrapper must carry a valid Microsoft signature, and Windows asks for
-administrator rights). Every console uses the same tools, and none needs Rust
-any more (Super Mario World uses the generic SNES analysis since 1.4.1).
-Source usage keeps the list below.
+**Packaged converter:** before the first conversion, Retro-Recomp checks for
+Git and a C/C++ compiler and offers to install what is missing, with a progress
+window. Everything goes into `datas/tools` beside the converter, without
+administrator rights: a portable MinGit (40 MB), and the build tools, pinned and
+SHA-256-checked: llvm-mingw 20261006 (clang and lld with the MinGW-w64 headers
+and `windres`, UCRT variant), CMake 4.4.4 and Ninja 1.13.2. The download is about
+245 MB and 380 MB are installed once the unused parts (32-bit and ARM targets,
+Python, debugger) are left out. Every console uses the same tools, and none needs
+Rust any more (Super Mario World uses the generic SNES analysis since 1.4.1).
+Games built this way need Windows 10 or later (UCRT). A Visual Studio Build Tools
+installation stays a fallback: the converter uses it only when the portable tools
+are absent, and `RETRO_RECOMP_TOOLCHAIN=llvm` or `msvc` forces one of the two
+(the two never share a build folder; switching rebuilds). Source usage keeps the
+list below.
 
 - Python 3.11 or newer for source usage (release built with 3.14.5).
 - Git on PATH.
-- Visual Studio Build Tools 2022 or a detected supported Visual Studio
+- The portable build tools above (installed by the converter on first use) or
+  Visual Studio Build Tools 2022 or a detected supported Visual Studio
   installation, with x64 C++ tools, CMake and Windows SDK.
 - Internet for first-time dependency setup; optional for missing-cover lookup.
 

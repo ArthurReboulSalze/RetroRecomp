@@ -2410,7 +2410,7 @@ class Application:
                     if missing.get('git'):
                         updater.install_git(progress)
                     if missing.get('compiler'):
-                        updater.install_compiler(progress)
+                        updater.install_toolchain(progress)
                 else:
                     updater.install_linux_packages(missing['packages'], progress)
                 state['result'] = ('ok', None)
@@ -2423,14 +2423,7 @@ class Application:
             if not window.winfo_exists():
                 return
             label, done, total = state['label'], state['done'], state['total']
-            if label == 'Visual Studio Build Tools' and not total and done == 0:
-                # Microsoft's installer works in its own window from here on.
-                if str(bar.cget('mode')) != 'indeterminate':
-                    bar.configure(mode='indeterminate')
-                    bar.start(12)
-                step.configure(text=self.tr('tools_step_vs'))
-                detail.configure(text='')
-            elif label and total:
+            if label and total:
                 if str(bar.cget('mode')) != 'determinate':
                     bar.stop()
                     bar.configure(mode='determinate')

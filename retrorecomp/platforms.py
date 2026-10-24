@@ -34,11 +34,36 @@ def target_id() -> str:
 
 
 def cmake_target_args() -> list[str]:
-    return ['-A', 'x64'] if os.name == 'nt' else ['-DCMAKE_BUILD_TYPE=Release']
+    from . import toolchain
+    return toolchain.cmake_arguments()
 
 
 def build_executable(build: Path, name: str) -> Path:
-    return build / 'Release' / (name + '.exe') if os.name == 'nt' else build / name
+    """Where a CMake build leaves a program: Visual Studio builds keep one
+    folder per configuration, Ninja builds (portable tools, Linux) do not."""
+    from . import toolchain
+    if os.name == 'nt' and toolchain.active() == toolchain.MSVC:
+        return build / 'Release' / (name + '.exe')
+    return build / (name + '.exe' if os.name == 'nt' else name)
+
+
+def recompiler_build() -> Path:
+    """Where the Master System / Game Gear translator is built."""
+    from . import toolchain
+    from .paths import ROOT
+    return ROOT / ('.deps/recompiler-build' + toolchain.suffix())
+
+
+def sdl_install() -> Path:
+    """The pinned SDL2 static build for the active toolchain."""
+    from . import toolchain
+    from .paths import ROOT
+    return ROOT / '.deps/SDL' / ('install' + toolchain.suffix())
+
+
+def sdl_library() -> str:
+    from . import toolchain
+    return 'lib/SDL2-static.lib' if os.name == 'nt' and toolchain.active() == toolchain.MSVC else 'lib/libSDL2.a'
 
 
 def build_jobs() -> str:

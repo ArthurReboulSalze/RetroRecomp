@@ -9,7 +9,7 @@ import sys
 import time
 
 from .paths import ROOT, ASSETS
-from .platforms import build_executable, cmake_target_args, build_jobs
+from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
@@ -52,8 +52,8 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
     from .platforms import require_backend
     require_backend(system_id)
     cmake, generator = toolchain()
-    sdl = ROOT / '.deps/SDL/install'
-    if not (sdl / ('lib/SDL2-static.lib' if os.name=='nt' else 'lib/libSDL2.a')).is_file():
+    sdl = sdl_install()
+    if not (sdl / sdl_library()).is_file():
         from .core import dependencies
         _, sdl, cmake, generator = dependencies(emit)
     names = (system_id, 'smw') if system_id == 'snes' and legacy_smw else (system_id,)
