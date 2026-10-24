@@ -277,5 +277,37 @@ class RawObservationTests(unittest.TestCase):
         self.assertEqual(knowledge_exchange.pending_since_shared('file', first), [key])
 
 
+class DiscoveryPathTests(unittest.TestCase):
+    """Keys of the online leaderboard: only what the bundled snapshot lacks."""
+    def document(self, record, rows=()):
+        observations = {'gb': {'f' * 64: [list(row) for row in rows]}} if rows else {}
+        return {'knowledge': {'schema': 1, 'consoles': {'md': {'a' * 64: record}}}, 'observations': observations}
+
+    def test_new_hints_and_observations_become_keys(self):
+        bundled = md([0x200, 0x300])
+        with patch('retrorecomp.knowledge_exchange._bundled', side_effect=lambda s, i: bundled if s == 'md' else {}):
+            paths = knowledge_exchange.discovery_paths(self.document(md([0x200, 0x300, 0x400]),
+                                                                     [(2, 0x4000, 1, 3, 9), (2, 0x4000, 1, 3, 77)]))
+        game = paths[('md', 'a' * 64)]
+        self.assertTrue(game['known'])
+        self.assertEqual(len(game['hints']), 1, 'bundled hints are not discoveries')
+        self.assertTrue(all(len(key) == 16 for key in game['hints']))
+        played = paths[('gb', 'f' * 64)]
+        self.assertFalse(played['known'])
+        self.assertEqual(len(played['observations']), 1, 'the ROM offset is not part of the path')
+        # Same path, same key, whoever sends it.
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={}):
+            again = knowledge_exchange.discovery_paths(self.document(md([0x400])))
+        self.assertEqual(again[('md', 'a' * 64)]['hints'], game['hints'])
+
+    def test_a_new_game_cannot_flood_the_board(self):
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={}):
+            paths = knowledge_exchange.discovery_paths(self.document(md(range(0x200, 0x200 + 2 * 5000, 2))))
+        game = paths[('md', 'a' * 64)]
+        self.assertFalse(game['known'])
+        self.assertEqual(len(game['hints']), knowledge_exchange.PATH_LIMIT)
+        self.assertEqual(game['hints'], sorted(game['hints']))
+
+
 if __name__ == '__main__':
     unittest.main()

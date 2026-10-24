@@ -12,7 +12,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__
+from . import __version__, online
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
 from .library import list_games, library_root
@@ -37,6 +37,7 @@ from .dialogs import center_dialog
 from .platforms import target_id, open_local
 LOCAL_PLATFORM = 'windows-x64' if os.name == 'nt' else target_id()
 PLATFORMS = {LOCAL_PLATFORM: 'Windows version' if os.name == 'nt' else 'Linux version'}
+HELP_URL = 'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INDEX.md'
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
                   'e522cbde7ca6e7e6eccc0c901389a4178492e6d7/'
                   'licenses/upx-5.2.1-src.tar.xz')
@@ -95,14 +96,44 @@ HATCH_SPACING = 4
 # The header artwork is drawn smaller than its 600 x 132 source.
 HEADER_SCALE = 0.72
 HEADER_HEIGHT = round(132 * HEADER_SCALE)
+PORTRAIT_SIZE = 46
 
 
-def _scaled_photo(path, master):
+def _scaled_photo(path, master, scale=HEADER_SCALE):
     """Header artwork at its displayed size, resampled smoothly."""
     from PIL import Image, ImageTk
     with Image.open(path) as image:
-        size = (round(image.width * HEADER_SCALE), round(image.height * HEADER_SCALE))
+        size = (round(image.width * scale), round(image.height * scale))
         return ImageTk.PhotoImage(image.convert('RGBA').resize(size, Image.Resampling.LANCZOS), master=master)
+
+
+def _portrait_photo(master, raw=None, initial=''):
+    """A round player portrait: the server's WebP when there is one, else a
+    quiet disc with the player's initial, ringed in gold."""
+    from PIL import Image, ImageDraw, ImageTk
+    import io
+    size = PORTRAIT_SIZE * 4
+    if raw:
+        try:
+            with Image.open(io.BytesIO(raw)) as image:
+                picture = image.convert('RGBA').resize((size, size), Image.Resampling.LANCZOS)
+        except (OSError, ValueError):
+            raw = None
+    if not raw:
+        picture = Image.new('RGBA', (size, size), COLORS['button'])
+        if initial:
+            from PIL import ImageFont
+            try:
+                font = ImageFont.truetype('segoeuib.ttf' if os.name == 'nt' else 'DejaVuSans-Bold.ttf', size // 2)
+            except OSError:
+                font = ImageFont.load_default()
+            ImageDraw.Draw(picture).text((size / 2, size / 2), initial.upper(), fill=COLORS['gold'],
+                                         font=font, anchor='mm')
+    mask = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+    picture.putalpha(mask)
+    ImageDraw.Draw(picture).ellipse((2, 2, size - 3, size - 3), outline=COLORS['gold'], width=6)
+    return ImageTk.PhotoImage(picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS), master=master)
 
 
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
@@ -119,9 +150,9 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
           '.....XX.....', '....XXXX....', '...XXXXXX...', '...XXXXXX...')
 
 
-# Sending discoveries needs the Retro-Recomp web server and database; until
-# then the closing card offers to recompile and its Send button stays off.
-SENDING_AVAILABLE = False
+# Sending discoveries needs the Retro-Recomp web service (online.py); until it
+# opens, the closing card offers to recompile and its Send button stays off.
+SENDING_AVAILABLE = online.sending_available()
 # The closing card: a cartridge sends its discoveries to the shared base.
 CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
              'X......X', 'XXXXXXXX', 'X.X.X.XX')
@@ -147,6 +178,10 @@ def _toolbar_styles(style):
     # eleven-character minimum, so the bar fits every language.
     for name in ('Toolbar.TButton', 'Toolbar.Primary.TButton'):
         style.configure(name, width=-1)
+    # The header's small controls: selectors and the account's two buttons.
+    style.configure('Header.TButton', width=-1, padding=(7, 2))
+    style.configure('Help.Header.TButton', width=-1, padding=(8, 2), foreground=c['gold'])
+    style.configure('Header.TCombobox', padding=(4, 1))
     style.configure('Compiled.Toolbar.TButton', background=c['gold'], foreground=c['gold_text'],
                     bordercolor=c['gold_hover'], lightcolor=c['gold'], darkcolor=c['gold'],
                     focuscolor=c['gold_text'], relief='raised')
@@ -167,7 +202,7 @@ class Application:
         self.results: dict[str, dict] = {}
         self.busy = False
         self.close_when_idle = False
-        self.closing_checked = self.closing_after_recompile = self.skip_missing_sources = False
+        self.closing_checked = self.closing_after_recompile = self.skip_missing_sources = self.closing_send = False
         self.collection_refreshing, self.collection_refreshed_at = False, 0.0
         self.updating = False
         self.cancel = threading.Event()
@@ -264,10 +299,6 @@ class Application:
             header.create_image(24, 0, image=self.banner, anchor='nw', tags='banner')
         except (OSError, ValueError, tk.TclError):
             self.banner = None
-        try:
-            self.console_art = _scaled_photo(ASSETS / 'assets/Retro-Recomp-consoles.png', app)
-        except (OSError, ValueError, tk.TclError):
-            self.console_art = None
         # The wordmark starts at x=172 of the banner; the tagline sits under it.
         self.brand_tagline = header.create_text(24 + round(172 * HEADER_SCALE), round(92 * HEADER_SCALE),
             text=self.tr('brand_tagline'),
@@ -288,28 +319,51 @@ class Application:
             app.iconphoto(True, *self.window_icons)
         except (OSError, tk.TclError):
             self.window_icons = []
+        # Console format and language: two small rows, one under the other,
+        # left of the account.
         self.system_name = tk.StringVar(value=self.system_display())
-        self.system_field = ttk.Combobox(header, textvariable=self.system_name,
-            values=self.system_choices(), width=15, state='readonly')
+        self.system_field = ttk.Combobox(header, textvariable=self.system_name, style='Header.TCombobox',
+            values=self.system_choices(), width=14, state='readonly', font=(self.ui_font, 8))
         self.system_field.bind('<<ComboboxSelected>>', self.change_system)
         self.hint(self.system_field, 'tip_console_format')
-
-        self.platform_text = header.create_text(0, HEADER_HEIGHT - 26, text=PLATFORMS[self.platform_id],
-            anchor='e', fill=COLORS['muted'], font=(self.ui_font, 9), tags='platform_version')
-
         self.language_name = tk.StringVar(value=language_name(self.language))
-        self.language_field = ttk.Combobox(header, textvariable=self.language_name,
-                                           values=LANGUAGE_NAMES, width=10, state='readonly')
+        self.language_field = ttk.Combobox(header, textvariable=self.language_name, style='Header.TCombobox',
+                                           values=LANGUAGE_NAMES, width=14, state='readonly', font=(self.ui_font, 8))
         self.language_field.bind('<<ComboboxSelected>>', self.change_language)
         self.hint(self.language_field, 'tip_language')
         self.header_fields = (self.system_field, self.language_field)
         self.header_labels = {
-            key: header.create_text(0, 10, text=self.tr(key), anchor='nw',
-                                    fill=COLORS['muted'], font=(self.ui_font, 9), tags='selector_label')
+            key: header.create_text(0, 10, text=self.tr(key), anchor='ne',
+                                    fill=COLORS['muted'], font=(self.ui_font, 8), tags='selector_label')
             for key in ('console_format', 'language')
         }
-        self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='nw')
+        self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='ne')
                                     for field in self.header_fields)
+        # The player's account: portrait, name, score and the board.
+        self.player = {}
+        self.portrait = None
+        # A thin gold-tipped divider separates the account from the selectors.
+        self.header_divider = header.create_line(0, 14, 0, HEADER_HEIGHT - 14, fill=COLORS['subtle_border'],
+                                                 tags='divider')
+        self.header_divider_tip = header.create_rectangle(0, 0, 0, 0, fill=COLORS['gold'], outline='',
+                                                          tags='divider')
+        self.portrait_item = header.create_image(0, 12, anchor='ne', tags='portrait')
+        self.player_name = header.create_text(0, 10, text='', anchor='ne', fill=COLORS['text'],
+                                              font=(self.ui_font, 10, 'bold'), tags='player')
+        self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'],
+                                               font=(self.ui_font, 8), justify='right', tags='player')
+        self.player_actions = ttk.Frame(header)
+        self.board_button = ttk.Button(self.player_actions, text=self.tr('leaderboard'), style='Header.TButton',
+                                       command=self.show_leaderboard)
+        self.sign_in_button = ttk.Button(self.player_actions, text=self.tr('account_sign_in'),
+                                         style='Header.TButton', command=self.sign_in_from_header)
+        self.hint(self.sign_in_button, 'tip_account')
+        # Help: the guides, always at hand beside the account.
+        self.help_button = ttk.Button(self.player_actions, text='?', style='Help.Header.TButton',
+                                      command=lambda: webbrowser.open_new_tab(HELP_URL))
+        self.hint(self.help_button, 'tip_help')
+        self.player_window = header.create_window(0, HEADER_HEIGHT - 8, window=self.player_actions, anchor='se')
+        self.render_player()
         header.bind('<Configure>', self.layout_header)
         stripe = tk.Canvas(app, height=2, bg=COLORS['subtle_border'], highlightthickness=0)
         stripe.pack(fill='x')
@@ -362,8 +416,6 @@ class Application:
         # Shared discoveries: visible beside the queue and the collection.
         self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu)
         self.knowledge_button.pack(side='right', padx=(0, 8))
-        ttk.Label(toolbar, text=f'v{__version__}', style='Muted.TLabel',
-                  font=(self.ui_font, 9)).pack(side='right', padx=(0, 12))
 
         table_frame = ttk.Frame(body)
         table_frame.grid(row=1, column=0, sticky='nsew', padx=24)
@@ -454,11 +506,21 @@ class Application:
         status_dot.pack(side='left', padx=(0, 6))
         self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel', font=(self.ui_font, 9))
         self.footer_label.pack(side='left')
+        # Bottom right: the two gold squares in the corner, the version and
+        # platform, then the motto.
+        squares = tk.Canvas(footer, width=26, height=18, bg=COLORS['background'], highlightthickness=0)
+        for x, y, size in ((16, 8, 8), (4, 0, 10)):
+            squares.create_rectangle(x, y, x + size, y + size, fill=COLORS['gold'], outline='')
+        squares.pack(side='right')
+        self.version_label = ttk.Label(footer, text=f'v{__version__} · {PLATFORMS[self.platform_id]}',
+                                       style='Muted.TLabel', font=(self.ui_font, 9))
+        self.version_label.pack(side='right', padx=(0, 14))
         self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=(self.ui_font, 9))
-        self.tagline.pack(side='right', padx=(12, 0))
+        self.tagline.pack(side='right', padx=(12, 18))
         app.protocol('WM_DELETE_WINDOW', self.close)
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)
+        app.after(2500, self.refresh_player)
         app.bind('<FocusIn>', lambda event: self.quiet_refresh_collection(every=20), add='+')
         self.file_drop = None
         app.after_idle(self.enable_drops)
@@ -525,14 +587,22 @@ class Application:
     def layout_header(self, event=None):
         header_width = event.width if event is not None else self.header.winfo_width()
         self.queue_background(self.header)
-        widths = [field.winfo_reqwidth() for field in self.header_fields]
-        left = max(24, header_width - 24 - sum(widths) - 8 * (len(widths) - 1))
-        for key, window, field_width in zip(self.header_labels, self.header_windows, widths):
-            self.header.coords(self.header_labels[key], left, 6)
-            self.header.coords(window, left, 24)
-            left += field_width + 8
-        # System information sits beside the gold squares below the selectors.
-        self.header.coords(self.platform_text, header_width - 96, HEADER_HEIGHT - 26)
+        right = header_width - 24
+        # The two selector rows keep the right end, each label above its
+        # field; the player's account sits just left of them.
+        for row, (key, window) in enumerate(zip(self.header_labels, self.header_windows)):
+            top = 7 + row * 43
+            self.header.coords(self.header_labels[key], right, top)
+            self.header.coords(window, right, top + 15)
+        divider = right - max(field.winfo_reqwidth() for field in self.header_fields) - 18
+        self.header.coords(self.header_divider, divider, 14, divider, HEADER_HEIGHT - 14)
+        self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
+        account = divider - 18
+        self.header.coords(self.portrait_item, account, 12)
+        text = account - PORTRAIT_SIZE - 12
+        self.header.coords(self.player_name, text, 10)
+        self.header.coords(self.player_score, text, 29)
+        self.header.coords(self.player_window, account, HEADER_HEIGHT - 8)
 
     def draw_background(self, event):
         canvas = event.widget
@@ -550,7 +620,7 @@ class Application:
         padding = 10
         areas = []
         if canvas is self.header:
-            for label in (*self.header_labels.values(), self.platform_text):
+            for label in (*self.header_labels.values(), self.player_name, self.player_score):
                 box = canvas.bbox(label)
                 if box:
                     areas.append((box[0]-padding, box[1]-padding,
@@ -593,22 +663,6 @@ class Application:
             canvas.create_line(offset, 0, offset + height, height,
                                fill=hatch, width=1,
                                tags=('background_motif', 'background_hatch'))
-        if canvas is self.header:
-            if self.console_art is not None:
-                # Decorative background: preserve the original banner height.
-                # The canvas clips the large artwork; selectors stay above it.
-                # It ends where it always did, before the platform text.
-                left = width - 190 - self.console_art.width()
-                if self.banner is not None:left = max(left, 36 + self.banner.width())
-                canvas.create_image(left, round(22 * HEADER_SCALE), image=self.console_art,
-                                    anchor='nw', tags=('background_motif', 'hardware'))
-            bottom = HEADER_HEIGHT - 28
-            for x, y, size in ((width-80, bottom, 8), (width-69, bottom-10, 10)):
-                if any(x < x2 and x+size > x1 and y < y2 and y+size > y1
-                       for x1, y1, x2, y2 in protected):
-                    continue
-                canvas.create_rectangle(x, y, x+size, y+size, fill=COLORS['gold'],
-                                        outline='', tags=('background_motif', 'background_square'))
         canvas.tag_lower('background_motif')
 
     def hint(self, widget, key):
@@ -695,11 +749,13 @@ class Application:
         self.language_name.set(language_name(self.language))
         self.system_field.configure(values=self.system_choices())
         self.system_name.set(self.system_display())
-        self.header.itemconfigure(self.platform_text, text=PLATFORMS[self.platform_id],
-                                  font=(self.ui_font, 9))
+        self.version_label.configure(text=f'v{__version__} · {PLATFORMS[self.platform_id]}')
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         for key, item in self.header_labels.items():
             self.header.itemconfigure(item, text=self.tr(key))
+        self.board_button.configure(text=self.tr('leaderboard'))
+        self.sign_in_button.configure(text=self.tr('account_sign_in'))
+        self.render_player()
         reverse = {tr(key, code): key for key in STRINGS for code in LANGUAGES if '{' not in STRINGS[key][0]}
         def update(widget):
             if not widget.winfo_exists(): return
@@ -1496,6 +1552,8 @@ class Application:
                     if self.compiled_view is not None:self.compiled_view.render()
                 elif kind == 'knowledge_done':
                     self.knowledge_done(event[1], event[2])
+                elif kind == 'player':
+                    self.render_player(event[1])
                 elif kind == 'sources_ready':
                     self.finish_source_lookup(event[1])
                 elif kind == 'collection_quiet':
@@ -2023,10 +2081,17 @@ class Application:
                        activebackground=COLORS['selected'], activeforeground=COLORS['gold_hover'])
         menu.add_command(label=self.tr('knowledge_import'), command=self.import_knowledge)
         menu.add_command(label=self.tr('knowledge_export'), command=self.export_knowledge)
-        # Sending to the shared base arrives with the web server and database.
         menu.add_separator()
-        menu.add_command(label=self.tr('knowledge_export_web'),
-                         state='normal' if SENDING_AVAILABLE else 'disabled')
+        if not SENDING_AVAILABLE:
+            # Sending arrives with the web service.
+            menu.add_command(label=self.tr('knowledge_export_web'), state='disabled')
+        else:
+            menu.add_command(label=self.tr('knowledge_send'), command=self.send_knowledge)
+            signed = online.account()
+            if signed:
+                menu.add_command(label=self.tr('knowledge_sign_out', email=signed['email']), command=self.sign_out)
+            else:
+                menu.add_command(label=self.tr('knowledge_sign_in'), command=self.sign_in_dialog)
         button = self.knowledge_button
         try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
         finally:menu.grab_release()
@@ -2047,9 +2112,15 @@ class Application:
     def export_knowledge(self):
         """Count the discoveries first; ask where to save only if there are some."""
         if self.busy or self.updating:return
+        self.collect_discoveries('collect')
+
+    def collect_discoveries(self, kind):
+        """Collect the shareable discoveries off Tk; `kind` tells knowledge_done
+        whether they go to a file ('collect') or to the shared base ('send_collect')."""
         games = self.compiled_inventory.snapshot()
         if not games:
             messagebox.showinfo(APP_NAME, self.tr('knowledge_export_empty'), parent=self.app)
+            if self.closing_send:self.close()
             return
         from .knowledge_exchange import collect_knowledge
         # Qualified games whose source moved are found like for Reconvert.
@@ -2068,8 +2139,286 @@ class Application:
             refresh_changed(self.compiled_inventory, options)
             # Cached results stay valid while the ROM folders stay the same.
             context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
-            return 'collect', collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
+            return kind, collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
         self.knowledge_task(collect, 'knowledge_counting')
+
+    def send_knowledge(self, closing=False):
+        """Send the discoveries the shared base has not received from this
+        account yet; with `closing`, the window closes once it is done."""
+        if self.busy or self.updating:return
+        self.closing_send = closing
+        if not online.account() and not self.sign_in_dialog():
+            if closing:self.close()
+            return
+        self.collect_discoveries('send_collect')
+
+    def online_message(self, error):
+        if isinstance(error, online.ServiceConnectionError):
+            return self.tr('online_unreachable')
+        known = {'invalid_code': 'online_invalid_code', 'invalid_email': 'online_invalid_email',
+                 'rate_limited': 'online_rate_limited', 'quota': 'online_rate_limited',
+                 'terms_required': 'online_terms_needed'}
+        reason = getattr(error, 'reason', '') or type(error).__name__
+        return self.tr(known[reason]) if reason in known else self.tr('online_refused', reason=reason)
+
+    def upload_discoveries(self, pending):
+        """Worker side of a send: a summary, or {'error': text} to report."""
+        try:
+            return online.send(pending)
+        except (online.ServiceError, online.ServiceConnectionError) as error:
+            return {'error': self.online_message(error)}
+
+    def sign_out(self):
+        if self.busy or self.updating:return
+        self.knowledge_task(lambda:(online.sign_out(), ('signed_out', None))[1], 'knowledge_working')
+
+    # --- The player's corner of the header ---------------------------------
+
+    def sign_in_from_header(self):
+        if self.busy or self.updating or not SENDING_AVAILABLE:return
+        self.sign_in_dialog()
+
+    def refresh_player(self):
+        """Fetch the signed-in player's profile, portrait and place on the
+        board off Tk; the header redraws when the answer comes back. Without an
+        account, or when the service is closed, nothing is fetched."""
+        if not SENDING_AVAILABLE or not online.account():
+            self.render_player(None)
+            return
+        def worker():
+            data = {'account': online.account()}
+            try:
+                data['profile'] = online.profile()
+                data['avatar'] = online.avatar() if (data['profile'] or {}).get('avatar', {}).get('state') else None
+                data['board'] = online.board('all')
+            except (online.ServiceError, online.ServiceConnectionError) as error:
+                data['error'] = self.online_message(error)
+            self.messages.put(('player', data))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def render_player(self, data=...):
+        """Draw the account corner from the last answer: a portrait, the
+        pseudonym (or the e-mail's user name), points and rank; or the
+        invitation to sign in, disabled until the online service opens."""
+        if data is not ...:
+            self.player = data or {}
+        player = self.player
+        account = player.get('account') or (online.account() if SENDING_AVAILABLE else None)
+        header = self.header
+        for child in self.player_actions.winfo_children():
+            child.pack_forget()
+        self.help_button.pack(side='right', padx=(6, 0))
+        if not account:
+            self.portrait = _portrait_photo(self.app)
+            header.itemconfigure(self.portrait_item, image=self.portrait)
+            header.itemconfigure(self.player_name, text=self.tr('account_not_signed'))
+            header.itemconfigure(self.player_score,
+                                 text=self.tr('account_invite') if SENDING_AVAILABLE else self.tr('account_coming'))
+            self.sign_in_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.sign_in_button.pack(side='right')
+            if SENDING_AVAILABLE:
+                self.board_button.pack(side='right', padx=(0, 6))
+            return
+        profile = player.get('profile') or {}
+        name = profile.get('pseudonym') or account.get('pseudonym') or str(account.get('email', '')).split('@')[0]
+        self.portrait = _portrait_photo(self.app, player.get('avatar'), name[:1])
+        header.itemconfigure(self.portrait_item, image=self.portrait)
+        header.itemconfigure(self.player_name, text=name)
+        you = (player.get('board') or {}).get('you') or {}
+        if player.get('error'):
+            score = player['error']
+        elif (player.get('board') or {}).get('demo'):
+            score = self.tr('account_board_soon')
+        elif you.get('rank'):
+            score = self.tr('account_points', points=you.get('total', 0), rank=you['rank'])
+        else:
+            score = self.tr('account_unranked', points=you.get('total', 0))
+        if you.get('pending'):
+            score += '\n' + self.tr('account_pending', count=you['pending'])
+        header.itemconfigure(self.player_score, text=score)
+        self.board_button.pack(side='right')
+
+    def show_leaderboard(self):
+        """The shared base's ranking in a window: podium order, pseudonyms,
+        games and points, all time or this month, with the player's own line."""
+        if not SENDING_AVAILABLE:return
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(f"{APP_NAME} — {self.tr('leaderboard')}")
+        window.configure(bg=background)
+        window.transient(self.app)
+        body = tk.Frame(window, bg=background, padx=18, pady=14,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        top = tk.Frame(body, bg=background)
+        top.pack(fill='x')
+        tk.Label(top, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).pack(side='left')
+        period = tk.StringVar(value='all')
+        for value, key in (('month', 'leaderboard_month'), ('all', 'leaderboard_all')):
+            ttk.Radiobutton(top, text=self.tr(key), value=value, variable=period,
+                            command=lambda: load()).pack(side='right', padx=(8, 0))
+        note = tk.Label(body, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
+                        font=(self.ui_font, 9), wraplength=560, justify='left')
+        note.pack(anchor='w', pady=(8, 6))
+        columns = ('rank', 'player', 'games', 'gold', 'platinum', 'diamond', 'points')
+        table = ttk.Treeview(body, columns=columns, show='headings', height=12, selectmode='none')
+        for key, caption, width, anchor in (
+                ('rank', self.tr('leaderboard_rank'), 50, 'e'), ('player', self.tr('leaderboard_player'), 220, 'w'),
+                ('games', self.tr('leaderboard_games'), 60, 'e'), ('gold', 'Gold', 60, 'e'),
+                ('platinum', 'Platinum', 70, 'e'), ('diamond', 'Diamond', 70, 'e'),
+                ('points', self.tr('leaderboard_points'), 80, 'e')):
+            table.heading(key, text=caption)
+            table.column(key, width=width, anchor=anchor, stretch=key == 'player')
+        table.tag_configure('you', foreground=COLORS['gold'])
+        table.pack(fill='both', expand=True)
+        you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
+        you_line.pack(anchor='w', pady=(8, 0))
+        ttk.Button(body, text=self.tr('knowledge_cancel'), command=window.destroy).pack(anchor='e', pady=(10, 0))
+        def show(answer, error):
+            if not window.winfo_exists():return
+            table.delete(*table.get_children())
+            if error:
+                note.configure(text=error)
+                return
+            entries = answer.get('entries', [])
+            note.configure(text=self.tr('leaderboard_demo') if answer.get('demo')
+                           else self.tr('leaderboard_empty') if not entries else self.tr('leaderboard_rules'))
+            mine = (self.player.get('profile') or {}).get('pseudonym') or (self.player.get('account') or {}).get('pseudonym')
+            for entry in entries:
+                # The server counts classes per console: {console: {gold, platinum, diamond}}.
+                counts = {}
+                for console in (entry.get('counts') or {}).values():
+                    for name, value in (console.items() if isinstance(console, dict) else ()):
+                        if isinstance(value, (int, float)):
+                            counts[name] = counts.get(name, 0) + int(value)
+                name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
+                table.insert('', 'end', values=(entry.get('rank', ''), name, entry.get('games', 0),
+                    counts.get('gold', 0), counts.get('platinum', 0), counts.get('diamond', 0), entry.get('total', 0)),
+                    tags=('you',) if mine and name == mine else ())
+            you = answer.get('you') or {}
+            if you.get('rank'):
+                you_line.configure(text=self.tr('leaderboard_you', rank=you['rank'], points=you.get('total', 0)))
+            elif online.account():
+                you_line.configure(text=self.tr('account_unranked', points=you.get('total', 0)))
+            else:
+                you_line.configure(text='')
+        def load():
+            note.configure(text=self.tr('leaderboard_loading'))
+            wanted = period.get()
+            result = []
+            def worker():
+                # No Tk call here: the window polls for the answer.
+                try:result.append((online.board(wanted), None))
+                except (online.ServiceError, online.ServiceConnectionError) as exc:
+                    result.append((None, self.online_message(exc)))
+            def poll():
+                if not window.winfo_exists():return
+                if result:show(*result[0])
+                else:window.after(50, poll)
+            threading.Thread(target=worker, daemon=True).start()
+            poll()
+        window.bind('<Escape>', lambda event: window.destroy())
+        window.update_idletasks()
+        center_dialog(window, self.app, 680, 460)
+        window.deiconify()
+        load()
+
+    def sign_in_dialog(self):
+        """E-mail, then the e-mailed code; True once this converter has a token."""
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        body = tk.Frame(window, bg=background, padx=22, pady=18,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('signin_title').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).grid(row=0, column=0, columnspan=2, sticky='w')
+        tk.Label(body, text=self.tr('signin_intro'), bg=background, fg=COLORS['text'], font=(self.ui_font, 9),
+                 wraplength=400, justify='left').grid(row=1, column=0, columnspan=2, sticky='w', pady=(8, 12))
+        tk.Label(body, text=self.tr('signin_email'), bg=background, fg=COLORS['muted'],
+                 font=(self.ui_font, 9)).grid(row=2, column=0, columnspan=2, sticky='w')
+        email = tk.StringVar(value=(online.account() or {}).get('email', ''))
+        email_field = ttk.Entry(body, textvariable=email, width=44)
+        email_field.grid(row=3, column=0, columnspan=2, sticky='ew', pady=(2, 8))
+        terms = tk.BooleanVar(value=False)
+        consent = tk.Frame(body, bg=background)
+        consent.grid(row=4, column=0, columnspan=2, sticky='w')
+        ttk.Checkbutton(consent, text=self.tr('signin_terms'), variable=terms).pack(side='left')
+        privacy = tk.Label(consent, text=self.tr('signin_privacy'), bg=background, fg=COLORS['gold_hover'],
+                           font=(self.ui_font, 9, 'underline'), cursor='hand2')
+        privacy.pack(side='left', padx=(8, 0))
+        privacy.bind('<Button-1>', lambda event:webbrowser.open_new_tab(online.service_url() + '/privacy'))
+        code_label = tk.Label(body, text=self.tr('signin_code'), bg=background, fg=COLORS['muted'],
+                              font=(self.ui_font, 9))
+        code = tk.StringVar()
+        code_field = ttk.Entry(body, textvariable=code, width=12)
+        message = tk.StringVar()
+        tk.Label(body, textvariable=message, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
+                 wraplength=400, justify='left').grid(row=7, column=0, columnspan=2, sticky='w', pady=(10, 0))
+        buttons = tk.Frame(body, bg=background)
+        buttons.grid(row=8, column=0, columnspan=2, sticky='e', pady=(14, 0))
+        ttk.Button(buttons, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='right')
+        go = ttk.Button(buttons, text=self.tr('signin_send_code'), style='Primary.TButton')
+        go.pack(side='right', padx=(0, 8))
+        state = {'stage': 'email', 'signed': False}
+        def run(call, done):
+            # The network call runs off Tk; the dialog polls for its answer.
+            go.state(['disabled'])
+            answer = {}
+            def worker():
+                try:answer['value'] = call()
+                except Exception as error:answer['error'] = error
+            threading.Thread(target=worker, daemon=True).start()
+            def wait():
+                if not window.winfo_exists():return
+                if not answer:
+                    window.after(100, wait)
+                    return
+                go.state(['!disabled'])
+                if 'error' in answer:message.set(self.online_message(answer['error']))
+                else:done(answer['value'])
+            wait()
+        def code_sent(_):
+            state['stage'] = 'code'
+            message.set(self.tr('signin_code_sent', email=email.get().strip()))
+            code_label.grid(row=5, column=0, columnspan=2, sticky='w', pady=(10, 0))
+            code_field.grid(row=6, column=0, sticky='w', pady=(2, 0))
+            go.configure(text=self.tr('signin_submit'))
+            code_field.focus_set()
+        def signed_in(data):
+            state['signed'] = True
+            self.messages.put(('log', self.tr('signin_done', email=data['email'])))
+            window.destroy()
+            self.refresh_player()
+        def submit():
+            address = email.get().strip()
+            if state['stage'] == 'email' or not code.get().strip():
+                if not terms.get():
+                    message.set(self.tr('online_terms_needed'))
+                    return
+                run(lambda:online.request_code(address, self.language), code_sent)
+            else:
+                from .platforms import target_id
+                run(lambda:online.sign_in(address, code.get().strip(), f'Retro-Recomp {__version__} ({target_id()})'),
+                    signed_in)
+        go.configure(command=submit)
+        window.bind('<Escape>', lambda event:window.destroy())
+        window.bind('<Return>', lambda event:go.invoke())
+        window.update_idletasks()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - window.winfo_reqwidth()) // 2
+        y = self.app.winfo_rooty() + (self.app.winfo_height() - window.winfo_reqheight()) // 3
+        window.geometry(f'+{max(0, x)}+{max(0, y)}')
+        window.deiconify()
+        window.grab_set()
+        email_field.focus_set()
+        self.app.wait_window(window)
+        return state['signed']
 
     def import_knowledge(self):
         """Check the chosen file first; import only unknown discoveries."""
@@ -2141,9 +2490,8 @@ class Application:
         return chosen.get()
 
     def closing_card(self, games, count):
-        """Before closing with an account: discoveries wait to be sent. Returns
-        'recompile', 'send', 'skip' or None (cancel). Not wired to closing yet;
-        see docs/PROJECT_STATE.md (closing pop-up)."""
+        """Before closing: discoveries wait to be sent. Returns 'recompile',
+        'send', 'skip' or None (cancel); see offer_closing_card."""
         import math
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
@@ -2256,8 +2604,36 @@ class Application:
             self.messages.put(('log', text))
             if self.compiled_view is not None:self.compiled_view.status.set(text)
             messagebox.showerror(APP_NAME, text, parent=self.app)
+            if self.closing_send:self.close()
             return
         kind, summary = outcome
+        if kind == 'send_collect':
+            pending = online.pending(summary)
+            if not pending['games']:
+                if self.closing_send:self.close()
+                else:self.knowledge_report(self.tr('knowledge_send_none'))
+                return
+            detail = self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+            # On the closing card the player already chose to send.
+            if self.closing_send or self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action')):
+                self.knowledge_task(lambda:('sent', self.upload_discoveries(pending)), 'knowledge_sending')
+            return
+        if kind in ('sent', 'signed_out'):
+            if kind == 'signed_out':
+                text = self.tr('signed_out')
+                self.render_player(None)
+            elif 'error' in summary:
+                text = summary['error']
+            else:
+                text = self.tr('knowledge_send_done', games=summary['games'], kib=summary.get('bytes', 0) / 1024)
+            self.messages.put(('log', text))
+            if self.compiled_view is not None:self.compiled_view.status.set(text)
+            if self.closing_send:
+                if 'error' in (summary or {}):messagebox.showwarning(APP_NAME, text, parent=self.app)
+                self.close()
+            else:
+                messagebox.showinfo(APP_NAME, text, parent=self.app)
+            return
         if kind == 'collect':
             omitted = summary['omitted']
             if not summary['games']:
@@ -2373,6 +2749,9 @@ class Application:
         choice = self.closing_card(len(games), sum(game.hints for game in games))
         if choice is None:
             self.closing_checked = False
+            return True
+        if choice == 'send':
+            self.send_knowledge(closing=True)
             return True
         if choice != 'recompile':return False
         self.closing_after_recompile = self.close_when_idle = True

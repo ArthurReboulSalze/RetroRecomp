@@ -184,7 +184,8 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
                             compact_snes(record)
                         found = unknown_hints(game.system, record, _bundled(game.system, game.identity))
                         if found:
-                            outcome.update(record=record, found=found)
+                            outcome.update(record=record, found=found,
+                                           level=str(qualified[key].get('scan_level') or 'standard'))
                         else:
                             outcome['omitted']['already_known'] += 1
                 else:
@@ -200,7 +201,7 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
         write_packed(_cache_path(), {'schema': 1, 'converter': __version__, 'games': fresh})
     except (OSError, ValueError):
         pass
-    consoles, observations, titles, discoveries = {}, {}, {}, 0
+    consoles, observations, titles, levels, discoveries = {}, {}, {}, {}, 0
     omitted = _empty_outcome()['omitted']
     for (system, identity), (game, outcome) in outcomes.items():
         for name, value in outcome['omitted'].items():
@@ -208,6 +209,9 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
         if outcome['record']:
             consoles.setdefault(system, {})[identity] = outcome['record']
             discoveries += outcome['found']
+            # The scan level of the qualified conversion; the online board
+            # rewards longer scans. Never written into the shared file.
+            levels.setdefault(system, {})[identity] = outcome.get('level', 'standard')
         if outcome['observations']:
             observations.setdefault(system, {})[identity] = outcome['observations']
             discoveries += len(outcome['observations'])
@@ -218,17 +222,20 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
             'discoveries': discoveries, 'omitted': omitted,
             'observations': observations, 'observation_count': sum(
                 len(rows) for games in observations.values() for rows in games.values()),
-            'payload': validate_payload({'schema': 1, 'consoles': consoles}), 'titles': titles}
+            'payload': validate_payload({'schema': 1, 'consoles': consoles}), 'titles': titles,
+            'levels': levels}
 
 
-def write_knowledge(collected: dict, destination: Path, channel: str = 'file') -> dict:
-    """Write what `collect_knowledge` found to one shared file."""
+def write_knowledge(collected: dict, destination: Path, channel: str | None = 'file') -> dict:
+    """Write what `collect_knowledge` found to one shared file. With no
+    `channel`, nothing is marked as shared: an upload marks it once accepted."""
     document = {'format': FORMAT, 'version': VERSION, 'converter': __version__,
                 'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 'titles': collected['titles'], 'knowledge': collected['payload'],
                 'observations': collected.get('observations', {})}
     packed = write_packed(Path(destination), document)
-    mark_shared(channel, collected)
+    if channel:
+        mark_shared(channel, collected)
     return {**{key: collected[key] for key in ('games', 'consoles', 'discoveries', 'omitted')},
             'observation_count': collected.get('observation_count', 0), 'bytes': len(packed)}
 
@@ -322,6 +329,35 @@ def read_exchange(path: Path) -> dict:
         if not isinstance(value, str) or len(value) > 64:
             raise ValueError('Invalid knowledge file header.')
     return document
+
+
+PATH_LIMIT = 4096
+
+
+def _path_key(value) -> str:
+    return hashlib.sha256(json.dumps(value, separators=(',', ':')).encode()).hexdigest()[:16]
+
+
+def discovery_paths(document: dict) -> dict:
+    """The discoveries of a validated shared file, as short stable keys per
+    game, for the online leaderboard: hints the bundled snapshot lacks and
+    raw observations (by kind, address, auxiliary and length). `known` tells
+    whether the bundled snapshot already had this ROM. At most PATH_LIMIT
+    keys of each kind per game (the smallest ones), so a game converted for
+    the first time cannot flood the board."""
+    games = {}
+    for system, records in document['knowledge']['consoles'].items():
+        for identity, record in records.items():
+            bundled = _bundled(system, identity)
+            known = _entries(system, bundled) if bundled.get('rom_bytes') == record.get('rom_bytes') else set()
+            keys = sorted({_path_key([name, list(entry)]) for name, entry in _entries(system, record) - known})
+            games[(system, identity)] = {'known': bool(bundled), 'hints': keys[:PATH_LIMIT], 'observations': []}
+    for system, rows_by_game in document['observations'].items():
+        for identity, rows in rows_by_game.items():
+            game = games.setdefault((system, identity), {'known': bool(_bundled(system, identity)), 'hints': [],
+                                                         'observations': []})
+            game['observations'] = sorted({_path_key(['obs', *row[:4]]) for row in rows})[:PATH_LIMIT]
+    return games
 
 
 def _unknown_observations(system: str, identity: str, rows, imported) -> list:

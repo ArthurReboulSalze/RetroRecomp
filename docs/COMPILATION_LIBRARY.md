@@ -1123,6 +1123,17 @@ files are not qualification evidence: only a qualified local conversion can
 add a game to a future bundled snapshot. `RETRO_RECOMP_BUNDLED_KNOWLEDGE=0`
 disables both the bundled and imported knowledge.
 
+**Sending to the shared base** (not open yet)
+uses the same file. The Knowledge menu and the closing card's *Send and close*
+collect the discoveries as above, keep the games not yet sent with this
+account (channel `account` of `shared.json`) and upload them after an e-mailed
+sign-in code. They are marked as sent only once the server accepted them. The
+server checks the structure only; the maintainer revalidates every upload with
+`read_exchange`, imports the valid ones into his own converter and reconverts
+those ROMs. As for imported files, an upload is not qualification evidence:
+only the maintainer's qualified conversions can add a game to a future bundled
+snapshot.
+
 ## Release 0.24.0 snapshot
 
 | Console | Exact cartridge records |

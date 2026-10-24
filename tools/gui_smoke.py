@@ -100,7 +100,20 @@ def smoke(window):
             yield child
             yield from descendants(child)
     assert application.language in LANGUAGES and application.extended.get()
-    assert application.header.itemcget(application.platform_text,'text') in ('Windows version','Linux version')
+    # The version and platform sit in the footer; the header's right end is
+    # the player's corner, which waits for the online service.
+    assert application.version_label.cget('text').endswith(('Windows version', 'Linux version'))
+    assert application.version_label.master is application.tagline.master
+    assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
+    assert str(application.sign_in_button.cget('state')) == 'disabled'
+    assert application.help_button.winfo_manager() == 'pack'
+    application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat'},
+                               'board': {'you': {'rank': 3, 'total': 42, 'pending': 2}}})
+    assert application.header.itemcget(application.player_name, 'text') == 'Pat'
+    assert application.header.itemcget(application.player_score, 'text') == (
+        application.tr('account_points', points=42, rank=3) + '\n' + application.tr('account_pending', count=2))
+    application.render_player(None)
+    assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
     initial_tags = application.icon_tags.get()
     assert application.preferences()['icon_tags'] == initial_tags
     initial_deep = application.gb_deep_validation.get()
@@ -191,7 +204,7 @@ def smoke(window):
             patch('retrorecomp.gui.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
         assert card.call_args.args[0] == 9 and not save.called
-    # The closing card (not wired to closing yet) opens, animates and cancels.
+    # The closing card opens, animates and cancels.
     window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
     assert application.closing_card(3, 42) is None
     # Closing offers it when games have new paths; the button counts them.
@@ -210,6 +223,29 @@ def smoke(window):
                 patch.object(application, 'reconvert_games') as reconvert:
             assert application.offer_closing_card() is True
             assert reconvert.call_args.args[0] == fresh and application.close_when_idle
+        with patch.object(application, 'closing_card', return_value='send'), \
+                patch.object(application, 'send_knowledge') as send:
+            application.closing_checked = False
+            assert application.offer_closing_card() is True and send.call_args.kwargs == {'closing': True}
+    # Sending: only games not yet sent with the account, after the card.
+    application.closing_send = False
+    pending = dict(games=1, consoles={'gb': 1}, discoveries=4, observations={}, titles={}, payload={})
+    with patch('retrorecomp.online.pending', return_value=pending), \
+            patch.object(application, 'achievement', return_value=True) as card, \
+            patch.object(application, 'knowledge_task') as task:
+        application.knowledge_done(('send_collect', dict(games=1)), None)
+        assert card.call_args.args[0] == 4 and card.call_args.args[2] == application.tr('knowledge_send_action')
+        assert task.called
+    with patch('retrorecomp.online.pending', return_value=dict(pending, games=0)), \
+            patch('retrorecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
+        application.knowledge_done(('send_collect', dict(games=0)), None)
+        assert info.call_args.args[1] == application.tr('knowledge_send_none') and not card.called
+    with patch('retrorecomp.gui.messagebox.showinfo') as info:
+        application.knowledge_done(('sent', {'error': application.tr('online_unreachable')}), None)
+        assert info.call_args.args[1] == application.tr('online_unreachable')
+    # The sign-in dialog opens on the e-mail step and cancels.
+    window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
+    assert application.sign_in_dialog() is False
     application.closing_checked = application.closing_after_recompile = application.close_when_idle = False
     application.skip_missing_sources = False
     if application.collection_visible:
