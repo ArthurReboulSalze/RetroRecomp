@@ -206,6 +206,11 @@ add_library(rr_px68k_reference ${RR_X68000_LIBRARY_TYPE}
     ${PX68K_C_SOURCES} ${PX68K_CXX_SOURCES} ${RR_REFERENCE_HELPERS})
 set_target_properties(rr_px68k_reference PROPERTIES
     PREFIX "" WINDOWS_EXPORT_ALL_SYMBOLS ON)
+if(WIN32 AND NOT MSVC)
+    # Visual Studio exports everything through WINDOWS_EXPORT_ALL_SYMBOLS; the
+    # reference host looks its checks up by name, so MinGW needs the same.
+    target_link_options(rr_px68k_reference PRIVATE -Wl,--export-all-symbols)
+endif()
 if(RR_X68000_MIT_GLUE)
     target_include_directories(rr_px68k_reference PRIVATE "${RR_GLUE_DIR}/state")
 endif()

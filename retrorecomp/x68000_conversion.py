@@ -15,7 +15,7 @@ from . import __version__
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
-from .toolchain import describe as toolchain_description
+from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 from .library import atomic_json, entry_lock
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
@@ -254,7 +254,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     native.ROOT=reference.ROOT=ROOT
     # MSBuild's file tracker still has short-path limits even when Python and
     # Windows support long paths. Full identities stay in the receipts.
-    stamp=sdk_stamp();base=ROOT/'.build/x68'/('win' if os.name=='nt' else 'linux')/stamp[:12]
+    stamp=sdk_stamp();base=ROOT/'.build/x68'/(('win'+toolchain_suffix()) if os.name=='nt' else 'linux')/stamp[:12]
     base.mkdir(parents=True,exist_ok=True)
     if not output:
         from .paths import games_directory
