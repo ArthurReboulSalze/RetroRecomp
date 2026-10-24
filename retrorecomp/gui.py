@@ -75,12 +75,17 @@ UPSTREAM_CREDITS = (
     )),
     ('Super Nintendo', (
         ('RetroPortingToolKit/snesrecomp', 'https://github.com/RetroPortingToolKit/snesrecomp', 'credits_recompiler'),
-        ('mstan/SuperMarioWorldRecomp', 'https://github.com/mstan/SuperMarioWorldRecomp', 'credits_recompiler'),
     )),
     ('Neo Geo', (
         ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_hardware'),
         ('carmiker/lithogen', 'https://github.com/carmiker/lithogen', 'credits_cartridge_loader'),
         ('mstan/segagenesisrecomp', 'https://github.com/mstan/segagenesisrecomp', 'credits_68000'),
+    )),
+    ('Capcom CPS-1', (
+        ('mamedev/mame', 'https://github.com/mamedev/mame', 'credits_cps1_board'),
+        ('aaronsgiles/ymfm', 'https://github.com/aaronsgiles/ymfm', 'credits_cps1_sound'),
+        ('libretro/geolith-libretro', 'https://github.com/libretro/geolith-libretro', 'credits_cps1_cpu'),
+        ('mstan/m68k-recomp-core', 'https://github.com/mstan/m68k-recomp-core', 'credits_68000'),
     )),
     ('Sharp X68000', (
         ('hissorii/px68k', 'https://github.com/hissorii/px68k', 'credits_x68_hardware'),

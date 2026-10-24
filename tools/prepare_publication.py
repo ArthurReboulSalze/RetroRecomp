@@ -140,7 +140,7 @@ assets/tools/upx.exe
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md
-licenses/segagenesisrecomp.md licenses/snesrecomp.md licenses/SuperMarioWorldRecomp.md
+licenses/segagenesisrecomp.md licenses/snesrecomp.md
 licenses/geolith.md licenses/lithogen.md licenses/musashi.md
 licenses/x68000-machine.md licenses/fmgen.md
 licenses/upx-5.2.1-src.tar.xz

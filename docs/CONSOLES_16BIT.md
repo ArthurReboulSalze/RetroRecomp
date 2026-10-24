@@ -835,14 +835,12 @@ These profiles use pinned sources downloaded into `.deps` on first conversion:
 | --- | --- |
 | [segagenesisrecomp](https://github.com/mstan/segagenesisrecomp) | `00c60bc855a7998f92e5614585d52bca8fffcaf2` |
 | [snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp) | `a00df26a87831113fec91b9225bf16b049d40775` |
-| [SuperMarioWorldRecomp](https://github.com/mstan/SuperMarioWorldRecomp) | `8dedb2869414f20d1d86d34081be26594560cc15` |
 
-The existing Windows C++ toolchain is required for conversion. The SNES
-function analyzer for Super Mario World additionally requires an installed stable Rust toolchain, minimum
-1.85; this integration does not install Rust automatically. Generated games
-need none of those development tools to run.
-Ordinary SNES instruction maps do not require that function analyzer or
-the separate SuperMarioWorldRecomp dependency.
+A C++ toolchain is required for conversion; the converter offers to install it.
+Since 1.4.1, every SNES cartridge, Super Mario World included, uses the
+generic instruction-map analysis: no Rust and no separate
+SuperMarioWorldRecomp dependency. Generated games need none of those
+development tools to run.
 
 Generated-source analysis is cached for the exact ROM, pinned engine/game
 profile, adapter revision and verified observations. Changes to that identity
@@ -855,8 +853,8 @@ so restarting the converter does not invalidate unchanged compiler inputs.
 
 Component licences and notices are embedded in each game EXE. The imported
 frameworks retain their **PolyForm Noncommercial 1.0.0** terms; RetroRecomp's
-MIT licence does not replace them. See [Genesis notices](../licenses/segagenesisrecomp.md),
-[SNES notices](../licenses/snesrecomp.md) and [SMW notices](../licenses/SuperMarioWorldRecomp.md).
+MIT licence does not replace them. See [Genesis notices](../licenses/segagenesisrecomp.md) and
+[SNES notices](../licenses/snesrecomp.md).
 
 Further work includes broader Mega Drive gameplay and additional mapper qualification,
 broader SNES RAM/gameplay coverage, unsupported enhancement chips and finer
