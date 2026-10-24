@@ -2296,10 +2296,9 @@ class Application:
         ttk.Button(body, text=self.tr('close'), command=window.destroy).pack(anchor='e', pady=(10, 0))
 
         # Opening animation: the steps rise one after the other (third, second,
-        # first), then each player's name, points and gems appear on top; the
-        # table's rows follow one by one.
+        # first), carrying each player's crown, name, points and gems up.
         podium.started = time.monotonic()
-        RISE, DELAYS = 0.45, {3: 0.0, 2: 0.15, 1: 0.3}
+        RISE, DELAYS = 0.6, {3: 0.0, 2: 0.18, 1: 0.36}
 
         def crown(middle, base, place, colour):
             """Gold: five points and a jewel; silver: three points; bronze: a
@@ -2353,7 +2352,7 @@ class Application:
                 if height > 44:
                     podium.create_text(middle, bottom - (height - 40) // 2 - 2, text=str(place),
                                        fill=shades[place], font=(self.ui_font, 16, 'bold'))
-                if place > len(rows) or progress < 0.85:
+                if place > len(rows) or progress < 0.2:
                     continue
                 top += shift
                 entry, counts = rows[place - 1]
@@ -2406,18 +2405,9 @@ class Application:
                 lines.append(((entry.get('rank', ''), name, entry.get('games', 0), counts.get('gold', 0),
                                counts.get('platinum', 0), counts.get('diamond', 0), entry.get('total', 0)),
                               ('you',) if mine and name == mine else ()))
-            draw_podium(rows[:3], animate=True)
-            # The table fills in once the podium stands, a row every 35 ms;
-            # a new answer (another period) restarts it.
-            podium.fill = getattr(podium, 'fill', 0) + 1
-            generation = podium.fill
-            def add(index=0):
-                if not window.winfo_exists() or podium.fill != generation or index >= len(lines):
-                    return
-                values, tags = lines[index]
+            for values, tags in lines:
                 table.insert('', 'end', values=values, tags=tags)
-                window.after(35, add, index + 1)
-            window.after(int((DELAYS[1] + RISE) * 1000), add)
+            draw_podium(rows[:3], animate=True)
             you = answer.get('you') or {}
             if you.get('rank'):
                 you_line.configure(text=self.tr('leaderboard_you', rank=you['rank'], points=you.get('total', 0)))
