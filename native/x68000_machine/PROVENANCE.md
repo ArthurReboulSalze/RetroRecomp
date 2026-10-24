@@ -155,8 +155,8 @@ core.
 
 - Décidé : les modifications de hissorii (passage GTK→SDL, ports), sans licence
   propre, sont utilisées aux mêmes conditions non commerciales que le reste de
-  la lignée Kenjo, comme PX68k est diffusé depuis 2013. Demande publique restée
-  sans réponse : [hissorii/px68k#15](https://github.com/hissorii/px68k/issues/15). Ce n'est plus un frein à la publication.
+  la lignée Kenjo, comme PX68k est diffusé depuis 2013 ; la colle propre à
+  Retro-Recomp est sous MIT. Ce n'est pas un frein à la publication.
 - Réglé en phase 3 : `opna.cpp`/`psg.cpp` ne sont pas nécessaires, le bloc
   Mercury de `fmg_wrap.cpp` est retiré par l'adaptateur.
 - Depuis la phase 4, le build par défaut est la marche B (`74ddbb3`). La base

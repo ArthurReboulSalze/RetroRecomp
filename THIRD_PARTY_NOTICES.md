@@ -56,8 +56,8 @@ claim: [machine runtime](licenses/x68000-machine.md), [FMGEN](licenses/fmgen.md)
 [Musashi](licenses/musashi.md). Status and links: [the X68000 status](docs/X68000.md).
 
 hissorii's port is used on the same noncommercial terms as the rest of the
-Kenjo lineage, as PX68k has been distributed since 2013; permission was
-requested publicly in [hissorii/px68k#15](https://github.com/hissorii/px68k/issues/15), without an answer. The converter
+Kenjo lineage, as PX68k has been distributed since 2013; Retro-Recomp's own
+glue around it is MIT. The converter
 includes Retro-Recomp's X68000 sources (MIT) and fetches hissorii/px68k, Geolith
 and GenesisRecomp at their pinned revisions on first conversion, as for the other
 profiles. No X68000 disk, firmware, generated game or private observation is
