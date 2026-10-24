@@ -1123,11 +1123,14 @@ files are not qualification evidence: only a qualified local conversion can
 add a game to a future bundled snapshot. `RETRO_RECOMP_BUNDLED_KNOWLEDGE=0`
 disables both the bundled and imported knowledge.
 
-**Sending to the shared base** (not open yet)
+**Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed
-sign-in code. They are marked as sent only once the server accepted them. The
+sign-in code. They are marked as sent only once the server accepted them. A
+large first send leaves as several files of at most about 12 MiB of JSON each
+(the service refuses more than 16 MiB once decompressed); each accepted file
+marks its own games, so an interrupted send resumes where it stopped. The
 server checks the structure only; the maintainer revalidates every upload with
 `read_exchange`, imports the valid ones into his own converter and reconverts
 those ROMs. As for imported files, an upload is not qualification evidence:

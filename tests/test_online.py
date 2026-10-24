@@ -95,9 +95,12 @@ class OnlineTests(unittest.TestCase):
         online.request_code('p@example.test', 'fr')
         return online.sign_in('p@example.test', '123456', 'Retro-Recomp test')
 
-    def test_unavailable_until_a_service_is_configured(self):
+    def test_the_public_service_by_default_and_an_empty_value_turns_it_off(self):
+        self.assertEqual(online.DEFAULT_SERVICE, 'https://retro-recomp.com')
+        with patch.dict(os.environ):
+            os.environ.pop('RETRO_RECOMP_SERVICE', None)
+            self.assertEqual(online.service_url(), 'https://retro-recomp.com')
         with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': ''}):
-            self.assertEqual(online.DEFAULT_SERVICE, '')
             self.assertFalse(online.sending_available())
             with self.assertRaises(online.ServiceError):
                 online.status()
@@ -105,6 +108,25 @@ class OnlineTests(unittest.TestCase):
             self.assertFalse(online.sending_available())
         self.assertTrue(online.sending_available())
         self.assertTrue(online.status()['accepting'])
+
+    def test_a_large_first_send_leaves_as_several_files(self):
+        games = {('%064x' % number): f'Game {number}' for number in range(6)}
+        rows = [[2, 0x4000 + n, 1, 3, 0x1234 + n] for n in range(400)]
+        everything = collected(rows=rows, games=games)
+        self.sign_in()
+        with patch.object(online, 'PART_BYTES', 30000):
+            result = online.send(online.pending(everything))
+        uploads = [call for call in self.server.calls if call[1].endswith('/contributions')]
+        self.assertGreater(len(uploads), 1)
+        self.assertEqual(result['games'], 6)
+        self.assertEqual(result['files'], len(uploads))
+        sent = set()
+        for call in uploads:
+            document = json.loads(gzip.decompress(call[3]))
+            self.assertLess(len(gzip.decompress(call[3])), 30000 * 2)
+            sent |= set(document['titles']['gb'])
+        self.assertEqual(sent, set(games))
+        self.assertEqual(online.pending(everything)['games'], 0)
 
     def test_plain_http_only_for_a_local_test_service(self):
         for url, kept in (('https://retro-recomp.com', True), ('http://127.0.0.1:8080', True),

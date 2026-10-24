@@ -1,6 +1,7 @@
 """Check that the desktop form initializes with a ROM without showing a window."""
 from pathlib import Path
 import json
+import os
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -9,6 +10,8 @@ import time
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# The check never reaches the online service: the account corner stays signed out.
+os.environ['RETRO_RECOMP_SERVICE'] = ''
 from retrorecomp.gui import launch, PROFILES
 from retrorecomp.library import library_root, list_games
 from retrorecomp.gameboy import list_memory

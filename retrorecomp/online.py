@@ -21,12 +21,15 @@ import urllib.request
 
 from . import __version__
 
-# Empty until the service opens: sending stays unavailable in the interface.
-# RETRO_RECOMP_SERVICE=<base URL> points a test converter at a beta server.
-DEFAULT_SERVICE = ''
+# RETRO_RECOMP_SERVICE=<base URL> points a test converter at another server
+# (an empty value turns the service off).
+DEFAULT_SERVICE = 'https://retro-recomp.com'
 API_PATH = '/api/v1/'
 ANSWER_LIMIT = 1024 * 1024
 UPLOAD_LIMIT = 8 * 1024 * 1024
+# The service refuses files above 16 MiB once decompressed; larger sends
+# are split by game, with room left for the file's own wrapping.
+PART_BYTES = 12 * 1024 * 1024
 ACCOUNT_NAME = 'account.json'
 
 
@@ -255,8 +258,13 @@ def sign_out() -> None:
 def pending(collected: dict) -> dict:
     """`collected` restricted to the games whose discoveries changed since
     they were last sent with an account."""
-    from .knowledge_exchange import _bundled, pending_since_shared, unknown_hints
-    keys = set(pending_since_shared('account', collected))
+    from .knowledge_exchange import pending_since_shared
+    return _restrict(collected, set(pending_since_shared('account', collected)))
+
+
+def _restrict(collected: dict, keys: set) -> dict:
+    """`collected` limited to the games `keys` ('system:identity') name."""
+    from .knowledge_exchange import _bundled, unknown_hints
     consoles, observations, titles, discoveries = {}, {}, {}, 0
     for system, records in collected['payload'].get('consoles', {}).items():
         for identity, record in records.items():
@@ -281,15 +289,61 @@ def pending(collected: dict) -> dict:
             'payload': {'schema': 1, 'consoles': consoles}}
 
 
+def _parts(collected: dict, limit: int | None = None) -> list:
+    """Groups of games whose file stays under the server's decompressed
+    bound; a first upload of a large collection leaves as several files."""
+    limit = limit or PART_BYTES
+    sizes = {}
+    def add(system, identity, value):
+        key = f'{system}:{identity}'
+        sizes[key] = sizes.get(key, 0) + len(json.dumps(value, separators=(',', ':')))
+    for system, records in collected['payload'].get('consoles', {}).items():
+        for identity, record in records.items():
+            add(system, identity, record)
+    for system, games in collected.get('observations', {}).items():
+        for identity, rows in games.items():
+            add(system, identity, rows)
+    for system, names in collected.get('titles', {}).items():
+        for identity, title in names.items():
+            add(system, identity, title)
+    parts, current, size = [], set(), 0
+    for key in sorted(sizes):
+        if current and size + sizes[key] > limit:
+            parts.append(current)
+            current, size = set(), 0
+        current.add(key)
+        size += sizes[key]
+    if current:
+        parts.append(current)
+    return parts
+
+
 def send(collected: dict) -> dict:
-    """Upload what `pending` kept, as one `.rrknowledge` file; on success the
-    games are marked as shared on the 'account' channel."""
-    from .knowledge_exchange import mark_shared, write_knowledge
+    """Upload what `pending` kept, as `.rrknowledge` files under the server's
+    bound; each accepted file marks its games as shared on the 'account'
+    channel, so an interrupted send resumes with the games still pending."""
     current = account()
     if not current:
         raise ServiceError(401, 'unauthorized')
     if not collected['games']:
         return {'games': 0, 'discoveries': 0}
+    parts = _parts(collected)
+    if len(parts) == 1:
+        return _send_one(collected, current)
+    total = {'games': 0, 'discoveries': 0, 'bytes': 0, 'files': 0, 'duplicate': True}
+    for keys in parts:
+        result = _send_one(_restrict(collected, keys), current)
+        total['games'] += result['games']
+        total['discoveries'] += result['discoveries']
+        total['bytes'] += result['bytes']
+        total['files'] += 1
+        total['duplicate'] = total['duplicate'] and result['duplicate']
+        total['id'] = result.get('id')
+    return total
+
+
+def _send_one(collected: dict, current: dict) -> dict:
+    from .knowledge_exchange import mark_shared, write_knowledge
     from .paths import data_directory
     folder = data_directory() / 'knowledge'
     folder.mkdir(parents=True, exist_ok=True)
