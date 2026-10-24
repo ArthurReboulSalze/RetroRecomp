@@ -610,7 +610,9 @@ class Application:
         divider = right - max(field.winfo_reqwidth() for field in self.header_fields) - 18
         self.header.coords(self.header_divider, divider, 14, divider, HEADER_HEIGHT - 14)
         self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
-        account = divider - 18
+        # Right to left: the two account buttons, the portrait, name and score.
+        self.header.coords(self.player_window, divider - 16, HEADER_HEIGHT // 2)
+        account = divider - 16 - self.player_actions.winfo_reqwidth() - 12
         self.header.coords(self.portrait_item, account, (HEADER_HEIGHT - PORTRAIT_SIZE) // 2)
         text = account - PORTRAIT_SIZE - 12
         name_box = self.header.bbox(self.player_name) or (0, 0, 0, 0)
@@ -619,8 +621,7 @@ class Application:
         top = max(4, (HEADER_HEIGHT - block) // 2)
         self.header.coords(self.player_name, text, top)
         self.header.coords(self.player_score, text, top + (name_box[3] - name_box[1]) + 3)
-        widest = max(name_box[2] - name_box[0], score_box[2] - score_box[0])
-        self.header.coords(self.player_window, text - widest - 14, HEADER_HEIGHT // 2)
+
 
     def draw_background(self, event):
         canvas = event.widget
@@ -770,7 +771,6 @@ class Application:
         self.version_label.configure(text=f'v{__version__} · {PLATFORMS[self.platform_id]}')
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
         self.board_button.configure(text=self.tr('leaderboard'))
-        self.sign_in_button.configure(text=self.tr('account_sign_in'))
         self.render_player()
         reverse = {tr(key, code): key for key in STRINGS for code in LANGUAGES if '{' not in STRINGS[key][0]}
         def update(widget):
@@ -2370,8 +2370,12 @@ class Application:
     # --- The player's corner of the header ---------------------------------
 
     def sign_in_from_header(self):
+        """The header's second button: sign in, or sign out once signed in."""
         if self.busy or self.updating or not SENDING_AVAILABLE:return
-        self.sign_in_dialog()
+        if online.account():
+            self.sign_out()
+        else:
+            self.sign_in_dialog()
 
     def refresh_player(self, force=False):
         """Show the player's corner from the local cache at once, then, off Tk,
@@ -2411,11 +2415,12 @@ class Application:
             header.itemconfigure(self.player_name, text=self.tr('account_not_signed'))
             header.itemconfigure(self.player_score,
                                  text=self.tr('account_invite') if SENDING_AVAILABLE else self.tr('account_coming'))
-            self.sign_in_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
-            if SENDING_AVAILABLE:
-                self.board_button.pack(side='top', fill='x')
-            self.sign_in_button.pack(side='top', fill='x', pady=(4, 0) if SENDING_AVAILABLE else 0)
-            self.layout_header()
+            self.board_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.sign_in_button.configure(text=self.tr('account_sign_in'),
+                                          state='normal' if SENDING_AVAILABLE else 'disabled')
+            self.board_button.pack(side='top', fill='x')
+            self.sign_in_button.pack(side='top', fill='x', pady=(4, 0))
+            self.app.after_idle(self.layout_header)
             return
         profile = player.get('profile') or {}
         name = profile.get('pseudonym') or account.get('pseudonym') or str(account.get('email', '')).split('@')[0]
@@ -2434,8 +2439,11 @@ class Application:
         if you.get('pending'):
             score += '\n' + self.tr('account_pending', count=you['pending'])
         header.itemconfigure(self.player_score, text=score)
+        self.board_button.configure(state='normal')
+        self.sign_in_button.configure(text=self.tr('account_sign_out'), state='normal')
         self.board_button.pack(side='top', fill='x')
-        self.layout_header()
+        self.sign_in_button.pack(side='top', fill='x', pady=(4, 0))
+        self.app.after_idle(self.layout_header)
 
     # --- Build tools ---------------------------------------------------------
 
