@@ -198,10 +198,16 @@ const RrX68NativeStep *rr_x68k_lookup_next(const RrX68NativeStep *previous,uint3
 '''
 
 # Forms on the hissorii base read their own absolute descriptor: every step
-# is keyed by its exact address, so the relocation copy is an identity.
+# is keyed by its exact 24-bit address, so relocating a copy is an identity.
+# Only a PC whose high byte carries a flag (a JMP through such a pointer)
+# needs the copy, as on the Neo Geo since 84ebeec: the fallthrough, branch
+# targets and return addresses then keep the reference's upper PC byte.
 FORM_COPY=('    M68KInstr decoded=*compiled;\n'
-           '    rr_x68k_relocate_instruction(&decoded,g_cpu.PC & 0xffffffu);\n'
+           '    rr_x68k_relocate_instruction(&decoded,g_cpu.PC);\n'
            '    const M68KInstr *ins=&decoded;\n')
+FORM_ABSOLUTE=('    M68KInstr decoded;\n'
+               '    const M68KInstr *ins=compiled;\n'
+               '    if(g_cpu.PC>0xffffffu){decoded=*compiled;rr_x68k_relocate_instruction(&decoded,g_cpu.PC);ins=&decoded;}\n')
 
 
 def shared_registers(text:str)->str:
@@ -380,7 +386,7 @@ def generate(project:Path,samples:list[tuple[int,str]],px:Path,receipts=(),machi
             body=structural_body(ins,name,bodies[name]).replace('rr_ng_','rr_x68k_')
             if machine_base=='hissorii':
                 if body.count(FORM_COPY)!=1:raise ValueError('Pinned native form prologue changed.')
-                body=body.replace(FORM_COPY,'    const M68KInstr *ins=compiled;\n')
+                body=body.replace(FORM_COPY,FORM_ABSOLUTE)
             chunks[(ins['words'][0]>>1)%16].append(f'M68kiStatus {symbol}(const M68KInstr *compiled,uint32_t *next_pc) {{\n{body}}}\n')
             declarations.append(f'extern M68kiStatus {symbol}(const M68KInstr*,uint32_t*);\n')
         descriptor=ins if machine_base=='hissorii' else canonical_instruction(ins,name)
