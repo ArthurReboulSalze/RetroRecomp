@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.2.9-d4a737" alt="Release version 1.2.9">
+  <img src="https://img.shields.io/badge/release-1.3.0-d4a737" alt="Release version 1.3.0">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -66,8 +66,9 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 
 - **Play to improve.** A game that meets interpreter fallback saves small hints
   when it closes; the next conversion uses them.
-- **Shared knowledge.** Verified hints for **1,164 cartridge revisions** ship
-  with the converter; your own discoveries stay in your local library.
+- **Shared knowledge.** Verified hints for **1,305 exact game identities** ship
+  with the converter, the whole convertible Neo Geo library among them; your
+  own discoveries stay in your local library.
 - **Knowledge files.** Export your discoveries, qualified hints and raw
   observations alike, as one ROM-free file, or import someone else's. Only
   numbers travel: addresses and positions in the ROM, never ROM bytes. Imported
@@ -141,7 +142,7 @@ recovers hints from games stored elsewhere. See
 | Super Nintendo | Supported standard cartridges; LoROM/HiROM, PAL/NTSC, quick states, battery saves and Super Scope |
 | Neo Geo | Supported cartridge profile; arcade MVS, optional console AES, two players, scores, memory card and quick states |
 | Capcom CPS-1 | Experimental; MAME/FBNeo ZIP romsets of the standard boards (no QSound), up to four players and six buttons, DIP switches, vertical games rotated, quick states |
-| Sharp X68000 | Experimental; DIM/XDF and M3U disk sets, your own IPL and font ROM, quick states, mouse and keyboard |
+| Sharp X68000 | Experimental; DIM/XDF disks and multi-disk sets, your own IPL and font ROM, quick states, mouse and keyboard |
 
 Compatibility depends on the game and revision; see the
 [compatibility guide](docs/COMPATIBILITY.md) and

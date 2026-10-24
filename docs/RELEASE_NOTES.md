@@ -1,3 +1,56 @@
+# RetroRecomp v1.3.0 — the Neo Geo library completed, CPS-1 drawn like MAME
+
+- **The whole convertible Neo Geo library.** Of the 135 archives in the test
+  collection, **134 exact identities** are qualified: nine more than 1.2.9
+  (the four World Heroes, Zed Blade, Zupapa!, Tecmo World Soccer '96, Mutation
+  Nation and Voltage Fighter Gowcaizer), with no observed 68000 or Z80 fallback
+  on the qualified routes. Fight Fever stays out (incomplete archive). Full-game
+  validation and physical latency are not measured.
+- **A Mega Drive collection campaign.** 132 more exact identities are qualified
+  (214 in all); three keep some 68000 fallback (Brian Lara Cricket, Brian Lara
+  Cricket 96, Clay Fighter). Two timing corrections: the interpreted reference
+  keeps the immediate Z80 rendezvous, and the Z80 no longer runs ahead while
+  the VDP's Z80 interrupt changes. Known limits: the SVP chip (Virtua Racing),
+  the RESET instruction (Boxing Legends, Dragon's Revenge), an undecodable
+  opcode reached in the header (Barkley).
+- **CPS-1 drawn like MAME.** Overlapping sprites follow MAME's order (Final
+  Fight's characters pass behind objects), and a tile renderer cuts drawing
+  time by ten (5.2 → 0.5 ms per frame on Windows). Three- and four-player boards
+  take the third and fourth controllers (Captain Commando, The King of Dragons,
+  Knights of the Round, Mercs). A **DIP switches** page on F2 sets each board's
+  switches with MAME's names, kept per game. **26 parent sets** are qualified at
+  the Standard level, 25 without fallback; Street Fighter II': Champion Edition
+  runs 0.06 % of its code from graphics RAM, interpreted and reported. Quick
+  states now keep the sound chip's noise table (F9 on U.N. Squadron and
+  Willow), and file names carry subtitles like the other consoles. Hardware
+  fidelity means conformance with MAME 0.289, not with the real board.
+- **A 32-bit program counter after flagged pointer jumps**, shared by Neo
+  Geo, CPS-1 and X68000 native code (Voltage Fighter Gowcaizer needed it).
+- **X68000 sets and mice.** The disks of one game, named `(Disk 1 of 2)`,
+  `(Disk 2)`, `(Disk B)` in one folder, are queued once as an ordered playlist
+  written under `datas/x68000-sets`, nothing beside the disks. Mouse controls
+  come from a reviewed list of 84 collection sets (70 with a mouse) and,
+  elsewhere, from the code a game executes (IOCS mouse calls or its own SCC
+  driver, 1,000 reads on fresh routes). A short campaign of eight games ran
+  without interpreted opcodes on the main, mouse and keyboard routes.
+- **Shared knowledge.** The snapshot holds **1,305 exact identities** (1,164
+  in 1.2.9, all byte-identical): 606 Game Boy, 258 Master System, 214 Mega
+  Drive, 134 Neo Geo, 44 Super Nintendo, 36 NES, 13 Game Gear. Its decompressed
+  bound rises from 64 to 128 MiB; loading it takes about 7 s once per process
+  (4 s before).
+- **A renamed package.** The converter's Python package is now `retrorecomp`
+  (it was `smsrecomp`, the project's Master System name). Nothing changes for
+  players or exported games; the C runtime keeps its internal names.
+
+Because shared conversion inputs changed (the knowledge bound, a CPS-1 route
+step, Mega Drive Z80 timing and the shared 68000 form), the next batch
+converts every exported game in full once; later converter updates that only
+touch the player shell upgrade games without rediscovery. Measured on Windows;
+Linux remains qualified on Debian 13 / glibc 2.41; other baselines need
+testing.
+
+---
+
 # RetroRecomp v1.2.9 — a collection that keeps itself current
 
 - **No rescan needed.** The collection remembers the sizes and dates of each
