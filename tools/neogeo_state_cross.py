@@ -14,8 +14,20 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from retrorecomp.neogeo_state_checks import probe
+import csv
+import subprocess
 from retrorecomp.neogeo_validation import ROUTES
+
+
+def probe(exe, output, name, frames, script, *extra, rtc=True):
+    """Same command line as retrorecomp.neogeo_state_checks.probe; CPS-1 has no RTC seed."""
+    report, trace = output / (name + '.json'), output / (name + '.csv')
+    args = [str(exe), '--headless', '--frames', str(frames), *(['--rtc-seed', '1760000000'] if rtc else []),
+            '--report', str(report), '--trace', str(trace), '--script', str(script), *map(str, extra)]
+    result = subprocess.run(args, capture_output=True, timeout=max(240, frames / 60 * 4))
+    if result.returncode:
+        raise RuntimeError(f'{name}: exit {result.returncode}: {result.stderr[-2000:]!r}')
+    return json.loads(report.read_text(encoding='utf-8')), list(csv.DictReader(trace.open(newline='')))
 
 
 def main() -> int:
@@ -25,6 +37,7 @@ def main() -> int:
     parser.add_argument('--warmup', type=int, default=2600)
     parser.add_argument('--replay', type=int, default=300)
     parser.add_argument('--input-script', type=Path)
+    parser.add_argument('--cps1', action='store_true', help='CPS-1 games take no RTC seed')
     args = parser.parse_args()
     exes = {'a': args.first.resolve(), 'b': args.second.resolve()}
     result = {}
@@ -38,7 +51,7 @@ def main() -> int:
             folders[name].mkdir()
             state = folders[name] / 'frame.rrstate'
             report, rows = probe(exe, folders[name], 'continuous', args.warmup + args.replay, script,
-                                 '--checkpoint', args.warmup, state)
+                                 '--checkpoint', args.warmup, state, rtc=not args.cps1)
             traces[name] = (report, rows)
         rows_a, rows_b = traces['a'][1], traces['b'][1]
         mismatch = next((n for n, (x, y) in enumerate(zip(rows_a, rows_b)) if x != y), None)
@@ -50,7 +63,7 @@ def main() -> int:
         for label, writer, reader in (('a_to_b', 'a', 'b'), ('b_to_a', 'b', 'a')):
             state = folders[writer] / 'frame.rrstate'
             restored, rows = probe(exes[reader], folders[reader], f'restored-{label}', args.replay, script,
-                                   '--load-state', state)
+                                   '--load-state', state, rtc=not args.cps1)
             ok = restored['state_loaded'] and len(rows) == args.replay and \
                 traces[writer][1][args.warmup:args.warmup + args.replay] == rows
             result['states_resume_across_builds'] &= bool(ok)
