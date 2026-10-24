@@ -191,6 +191,8 @@ class CardTests(TestCase):
         owner.items={};owner.cancel=Event();owner.messages=Queue();owner.set_controls=Mock()
         owner.compiled_view=Mock();owner.language='en';owner.begin_reconvert=Mock()
         owner.preferences=Mock(return_value={'rom_paths':{'sms':str(source.parent)}})
+        # The build tools of the test machine are not the subject here.
+        owner.ensure_build_tools=Mock(return_value=True)
         with patch('retrorecomp.gui.filedialog.askopenfilename',side_effect=AssertionError('Should find exact source')):
             with patch('retrorecomp.rom_sources.data_directory',return_value=self.root/'converter'):
                 owner.reconvert_games([self.game])
