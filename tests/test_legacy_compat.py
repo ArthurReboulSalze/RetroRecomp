@@ -61,9 +61,35 @@ class StateCompatibilityTests(unittest.TestCase):
         current = re.search(r'#define RR16_STATE_ABI "([0-9a-f]{64})"', text).group(1)
         self.assertNotEqual(current, CPS1_ABI_141)
 
+    def sixteen_bit_config(self, system):
+        import importlib
+        import tempfile
+        from retrorecomp import console16_state
+        from retrorecomp.console16 import REPOSITORIES
+        for module in ('snes_timing', 'snes_video', 'snes_cart', 'snes_dma', 'snes_bus', 'snes_ppu_bus', 'snes_chips'):
+            importlib.import_module('retrorecomp.' + module)
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            (project / ('retro_md_game.h' if system == 'md' else 'retro_snes_game.h')).write_text('#define X 1' + chr(10))
+            console16_state.write_config(project, SimpleNamespace(sha256='d' * 64), system, 'Test', REPOSITORIES)
+            return (project / 'retro16_state_config.h').read_text(encoding='ascii')
+
+    def test_mega_drive_states_of_release_141_are_accepted(self):
+        from retrorecomp.console16_state import MD_STATE_ABI_141
+        text = self.sixteen_bit_config('md')
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI_23 "{MD_STATE_ABI_141}"', text)
+        self.assertEqual(MD_STATE_ABI_141, '58e2c720c4d5988484fb970ca2a0d0b9b722a5023d5806cd58da56d67ea96164')
+        self.assertNotIn(f'RR16_STATE_ABI "{MD_STATE_ABI_141}"', text)
+
+    def test_super_nintendo_states_of_release_141_are_accepted(self):
+        from retrorecomp.console16_state import SNES_STATE_ABI_141
+        text = self.sixteen_bit_config('snes')
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{SNES_STATE_ABI_141}"', text)
+        self.assertEqual(SNES_STATE_ABI_141, '396976503cf0a7478e85bd818d8ec5a1ccf5dab95d306550b1fd5c73ebbd0d1b')
+
     def test_the_shared_16_bit_state_loader_knows_the_compatibility_macros_used(self):
         loader = (ASSETS / 'native/console16_state.c').read_text(encoding='utf-8')
-        for macro in ('RR16_STATE_COMPAT_ABI', 'RR16_STATE_COMPAT_ABI_3'):
+        for macro in ('RR16_STATE_COMPAT_ABI', 'RR16_STATE_COMPAT_ABI_3', 'RR16_STATE_COMPAT_ABI_23'):
             self.assertRegex(loader, rf'#ifdef {macro}\b')
 
 

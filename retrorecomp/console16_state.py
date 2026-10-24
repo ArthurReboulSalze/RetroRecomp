@@ -96,6 +96,11 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 '''
 
 
+# State keys written by release 1.4.1 (found in its executables, and reproduced from its tag).
+MD_STATE_ABI_141 = '58e2c720c4d5988484fb970ca2a0d0b9b722a5023d5806cd58da56d67ea96164'
+SNES_STATE_ABI_141 = '396976503cf0a7478e85bd818d8ec5a1ccf5dab95d306550b1fd5c73ebbd0d1b'
+
+
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
     from .core import slug
     digest = hashlib.sha256()
@@ -155,4 +160,9 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
         # Source-priority ACK adds no serialized fields. This predecessor
         # has the same validated EEPROM/mapper layout and stable boundaries.
         text += '#define RR16_STATE_COMPAT_ABI_22 "db79f598ed89c45cfd6205701e7e0630feb004e1b8f67ee1826c69fbe74b7714"\n'
+        # Release 1.4.1 (Visual Studio): the key also covers the CMake file and the repository list,
+        # which changed to build with the portable tools; the serialized layout did not.
+        text += f'#define RR16_STATE_COMPAT_ABI_23 {json.dumps(MD_STATE_ABI_141)}\n'
+    if os.name == 'nt' and system_id == 'snes':
+        text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(SNES_STATE_ABI_141)}\n'
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')

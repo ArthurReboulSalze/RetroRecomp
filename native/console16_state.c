@@ -24,6 +24,9 @@ static uint64_t hash(const uint8_t *p, size_t n) {
 }
 static bool compatible_abi(const uint8_t *value) {
     if (!memcmp(value,RR16_STATE_ABI,64)) return true;
+#ifdef RR16_STATE_COMPAT_ABI_23
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_23,64)) return true;
+#endif
 #ifdef RR16_STATE_COMPAT_ABI_21
     if (!memcmp(value,RR16_STATE_COMPAT_ABI_21,64)) return true;
 #endif

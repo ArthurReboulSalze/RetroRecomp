@@ -69,6 +69,8 @@ def main() -> int:
     parser.add_argument('--warmup', type=int, default=1200)
     parser.add_argument('--replay', type=int, default=300)
     parser.add_argument('--input-script', type=Path)
+    parser.add_argument('--one-way', action='store_true',
+                        help='only a state written by A must resume in B (an earlier release against its upgraded export)')
     args = parser.parse_args()
     total = args.warmup + args.replay
     first, second = args.first.resolve(), args.second.resolve()
@@ -90,11 +92,11 @@ def main() -> int:
         result['same_final_guest_state'] = all(report_a.get(k) == report_b.get(k) for k in GUEST_FIELDS)
         sizes = {}
         for label, writer, reader, folder, base in (('a_to_b', first, second, folders['a'], baselines['a']),
-                                                    ('b_to_a', second, first, folders['b'], baselines['b'])):
+                                                    ('b_to_a', second, first, folders['b'], baselines['b']))[:1 if args.one_way else 2]:
             sizes[label] = resume(writer, reader, folder, args.warmup, args.replay, script, *base)
         result['state_bytes'] = sizes
         result['states_resume_across_builds'] = True
-        result['same_state_size'] = sizes['a_to_b'] == sizes['b_to_a']
+        result['same_state_size'] = args.one_way or sizes['a_to_b'] == sizes['b_to_a']
     print(json.dumps(result, indent=2))
     return 0 if result['same_trace_in_both_builds'] and result['same_final_guest_state'] and result['same_state_size'] else 1
 

@@ -38,6 +38,8 @@ def main() -> int:
     parser.add_argument('--replay', type=int, default=300)
     parser.add_argument('--input-script', type=Path)
     parser.add_argument('--cps1', action='store_true', help='CPS-1 games take no RTC seed')
+    parser.add_argument('--one-way', action='store_true',
+                        help='only a state written by A must resume in B (an earlier release against its upgraded export)')
     args = parser.parse_args()
     exes = {'a': args.first.resolve(), 'b': args.second.resolve()}
     result = {}
@@ -60,7 +62,7 @@ def main() -> int:
         result['first_trace_mismatch'] = mismatch
         result['state_bytes'] = {}
         result['states_resume_across_builds'] = True
-        for label, writer, reader in (('a_to_b', 'a', 'b'), ('b_to_a', 'b', 'a')):
+        for label, writer, reader in (('a_to_b', 'a', 'b'), ('b_to_a', 'b', 'a'))[:1 if args.one_way else 2]:
             state = folders[writer] / 'frame.rrstate'
             restored, rows = probe(exes[reader], folders[reader], f'restored-{label}', args.replay, script,
                                    '--load-state', state, rtc=not args.cps1)
@@ -68,7 +70,7 @@ def main() -> int:
                 traces[writer][1][args.warmup:args.warmup + args.replay] == rows
             result['states_resume_across_builds'] &= bool(ok)
             result['state_bytes'][label] = state.stat().st_size
-        result['same_state_size'] = result['state_bytes']['a_to_b'] == result['state_bytes']['b_to_a']
+        result['same_state_size'] = args.one_way or result['state_bytes']['a_to_b'] == result['state_bytes']['b_to_a']
     print(json.dumps(result, indent=2))
     good = result['same_trace_in_both_builds'] and result['states_resume_across_builds'] and result['same_state_size']
     return 0 if good else 1
