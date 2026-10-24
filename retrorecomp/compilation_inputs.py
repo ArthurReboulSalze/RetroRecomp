@@ -202,6 +202,9 @@ def _resource_paths(root, system):
                     'font-coverage.json', 'Retro-Recomp-banner.png', 'Retro-Recomp-consoles.png',
                     'Retro-Recomp-logo.png', 'RetroRecomp-UI-JP.otf', 'RetroRecomp-UI-SC.otf'):
                 continue
+            # Converter-only pictures (the leaderboard's trophy and gems).
+            if path.name.startswith('board-'):
+                continue
             if path.name == 'neogeo-catalogue.json' and system != 'ng':
                 continue
             if path.name.startswith('cps1') and system not in owners(path.name):

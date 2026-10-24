@@ -92,6 +92,7 @@ native/language_checks.c tools/language_selftest.py
 native/runtime_i18n.h native/runtime_catalog.inc
 assets/locales/fr.json assets/locales/it.json assets/locales/es.json assets/locales/de.json
 assets/locales/zh.json assets/locales/ja.json assets/locales/ru.json
+assets/board-trophy.png assets/board-gem-gold.png assets/board-gem-platinum.png assets/board-gem-diamond.png
 assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
 native/paths_posix.inc native/learning_posix.c native/font6x10.h native/font10x20.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py

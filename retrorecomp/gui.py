@@ -2251,41 +2251,149 @@ class Application:
         body = tk.Frame(window, bg=background, padx=18, pady=14,
                         highlightthickness=1, highlightbackground=COLORS['gold'])
         body.pack(fill='both', expand=True)
+        # The site's trophy and class gems, as converter pictures.
+        pictures = window.pictures = {}
+        for name, size in (('trophy', 72), ('gem-gold', 20), ('gem-platinum', 20), ('gem-diamond', 20)):
+            try:
+                pictures[name] = _scaled_photo(ASSETS / f'assets/board-{name}.png',
+                                               window, size / 40 if name.startswith('gem') else size / 72)
+            except (OSError, ValueError, tk.TclError):
+                pictures[name] = ''
         top = tk.Frame(body, bg=background)
         top.pack(fill='x')
-        tk.Label(top, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
-                 font=(self.ui_font, 9, 'bold')).pack(side='left')
+        tk.Label(top, image=pictures['trophy'], bg=background).pack(side='left', padx=(0, 12))
+        titles = tk.Frame(top, bg=background)
+        titles.pack(side='left', fill='y')
+        tk.Label(titles, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 14, 'bold')).pack(anchor='w', pady=(6, 0))
+        note = tk.Label(titles, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
+                        font=(self.ui_font, 9), wraplength=430, justify='left')
+        note.pack(anchor='w')
         period = tk.StringVar(value='all')
+        switches = tk.Frame(top, bg=background)
+        switches.pack(side='right', anchor='n', pady=(8, 0))
         for value, key in (('month', 'leaderboard_month'), ('all', 'leaderboard_all')):
-            ttk.Radiobutton(top, text=self.tr(key), value=value, variable=period,
+            ttk.Radiobutton(switches, text=self.tr(key), value=value, variable=period,
                             command=lambda: load()).pack(side='right', padx=(8, 0))
-        note = tk.Label(body, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
-                        font=(self.ui_font, 9), wraplength=560, justify='left')
-        note.pack(anchor='w', pady=(8, 6))
+        # Podium: second, first, third, on steps of different heights.
+        podium = tk.Canvas(body, height=196, bg=background, highlightthickness=0)
+        podium.pack(fill='x', pady=(10, 8))
+        podium.rows = []
+        podium.bind('<Configure>', lambda event: draw_podium(podium.rows))
         columns = ('rank', 'player', 'games', 'gold', 'platinum', 'diamond', 'points')
-        table = ttk.Treeview(body, columns=columns, show='headings', height=12, selectmode='none')
+        table = ttk.Treeview(body, columns=columns, show='headings', height=9, selectmode='none')
         for key, caption, width, anchor in (
                 ('rank', self.tr('leaderboard_rank'), 50, 'e'), ('player', self.tr('leaderboard_player'), 220, 'w'),
-                ('games', self.tr('leaderboard_games'), 60, 'e'), ('gold', 'Gold', 60, 'e'),
-                ('platinum', 'Platinum', 70, 'e'), ('diamond', 'Diamond', 70, 'e'),
+                ('games', self.tr('leaderboard_games'), 60, 'e'), ('gold', self.tr('class_gold'), 80, 'e'),
+                ('platinum', self.tr('class_platinum'), 90, 'e'), ('diamond', self.tr('class_diamond'), 90, 'e'),
                 ('points', self.tr('leaderboard_points'), 80, 'e')):
-            table.heading(key, text=caption)
+            table.heading(key, text=caption, image=pictures.get('gem-' + key, ''))
             table.column(key, width=width, anchor=anchor, stretch=key == 'player')
         table.tag_configure('you', foreground=COLORS['gold'])
         table.pack(fill='both', expand=True)
         you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
         you_line.pack(anchor='w', pady=(8, 0))
-        ttk.Button(body, text=self.tr('knowledge_cancel'), command=window.destroy).pack(anchor='e', pady=(10, 0))
+        ttk.Button(body, text=self.tr('close'), command=window.destroy).pack(anchor='e', pady=(10, 0))
+
+        # Opening animation: the steps rise one after the other (third, second,
+        # first), then each player's name, points and gems appear on top; the
+        # table's rows follow one by one.
+        podium.started = time.monotonic()
+        RISE, DELAYS = 0.45, {3: 0.0, 2: 0.15, 1: 0.3}
+
+        def crown(middle, base, place, colour):
+            """Gold: five points and a jewel; silver: three points; bronze: a
+            low band with two points."""
+            shapes = {
+                1: (-20, 0, -20, -16, -10, -6, 0, -20, 10, -6, 20, -16, 20, 0),
+                2: (-16, 0, -16, -13, -6, -6, 0, -15, 6, -6, 16, -13, 16, 0),
+                3: (-15, 0, -15, -10, -7, -5, 0, -11, 7, -5, 15, -10, 15, 0)}
+            podium.create_polygon(*[middle + v if i % 2 == 0 else base + v for i, v in enumerate(shapes[place])],
+                                  fill=colour, outline='')
+            # A darker band at the foot, and one jewel per rank's worth.
+            podium.create_rectangle(middle + shapes[place][0], base - 3, middle - shapes[place][0], base,
+                                    fill=_tint(colour, '#000000', 0.35), outline='')
+            jewels = {1: (-10, 0, 10), 2: (-6, 6), 3: (0,)}[place]
+            for offset in jewels:
+                podium.create_oval(middle + offset - 2, base - 8, middle + offset + 2, base - 4,
+                                   fill=COLORS['panel'], outline='')
+
+        def draw_podium(rows, animate=False):
+            podium.rows = rows
+            if animate:
+                podium.started = time.monotonic()
+            podium.delete('all')
+            width, bottom = podium.winfo_width(), int(podium.cget('height'))
+            if width < 300:
+                return
+            elapsed = time.monotonic() - podium.started
+            step = 170
+            left = (width - 3 * step) // 2
+            # Each place: its column, the top of its name, and its step's height.
+            places = {2: (left, 38, 100), 1: (left + step, 16, 122), 3: (left + 2 * step, 56, 82)}
+            shades = {1: COLORS['gold'], 2: '#c9ced6', 3: '#c58a4a'}
+            if not rows:
+                podium.create_text(width // 2, bottom // 2, text=self.tr('leaderboard_empty'),
+                                   fill=COLORS['muted'], font=(self.ui_font, 9))
+                return
+            podium.create_line(left, bottom - 1, left + 3 * step, bottom - 1, fill=COLORS['border'])
+            moving = False
+            for place in (3, 2, 1):
+                x, top, full = places[place]
+                progress = min(1.0, max(0.0, (elapsed - DELAYS[place]) / RISE))
+                moving |= progress < 1.0
+                eased = 1 - (1 - progress) ** 3
+                height = max(2, round(full * eased))
+                shift = full - height
+                middle = x + step // 2
+                podium.create_rectangle(x + 8, bottom - height, x + step - 8, bottom - 1,
+                                        fill=COLORS['button'], outline=shades[place])
+                podium.create_rectangle(x + 8, bottom - height, x + step - 8, bottom - height + 3,
+                                        fill=shades[place], outline='')
+                if height > 44:
+                    podium.create_text(middle, bottom - (height - 40) // 2 - 2, text=str(place),
+                                       fill=shades[place], font=(self.ui_font, 16, 'bold'))
+                if place > len(rows) or progress < 0.85:
+                    continue
+                top += shift
+                entry, counts = rows[place - 1]
+                name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
+                crown(middle, top - 4, place, shades[place])
+                podium.create_text(middle, top + 9, text=name, fill=COLORS['text'],
+                                   font=(self.ui_font, 10, 'bold'), width=step_width - 16)
+                podium.create_text(middle, top + 28, text=f"{entry.get('total', 0)} pts",
+                                   fill=shades[place], font=(self.ui_font, 9, 'bold'))
+                # The three class gems with this player's counts, on the step.
+                gems = [(pictures.get(f'gem-{kind}'), counts.get(kind, 0)) for kind in ('gold', 'platinum', 'diamond')]
+                spot = middle - 66
+                for picture, count in gems:
+                    if picture:
+                        podium.create_image(spot + 10, bottom - height + 22, image=picture)
+                    podium.create_text(spot + 22, bottom - height + 22, text=str(count), anchor='w',
+                                       fill=COLORS['text'], font=(self.ui_font, 9))
+                    spot += 46
+            if moving or elapsed < DELAYS[1] + RISE + 0.05:
+                pending = getattr(podium, 'frame', None)
+                if pending:
+                    podium.after_cancel(pending)
+                podium.frame = podium.after(16, lambda: window.winfo_exists() and draw_podium(podium.rows))
+            else:
+                podium.frame = None
+
+        step_width = 170
+
         def show(answer, error):
             if not window.winfo_exists():return
             table.delete(*table.get_children())
             if error:
                 note.configure(text=error)
+                draw_podium([])
                 return
             entries = answer.get('entries', [])
             note.configure(text=self.tr('leaderboard_demo') if answer.get('demo')
                            else self.tr('leaderboard_empty') if not entries else self.tr('leaderboard_rules'))
             mine = (self.player.get('profile') or {}).get('pseudonym') or (self.player.get('account') or {}).get('pseudonym')
+            rows, lines = [], []
             for entry in entries:
                 # The server counts classes per console: {console: {gold, platinum, diamond}}.
                 counts = {}
@@ -2293,10 +2401,23 @@ class Application:
                     for name, value in (console.items() if isinstance(console, dict) else ()):
                         if isinstance(value, (int, float)):
                             counts[name] = counts.get(name, 0) + int(value)
+                rows.append((entry, counts))
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
-                table.insert('', 'end', values=(entry.get('rank', ''), name, entry.get('games', 0),
-                    counts.get('gold', 0), counts.get('platinum', 0), counts.get('diamond', 0), entry.get('total', 0)),
-                    tags=('you',) if mine and name == mine else ())
+                lines.append(((entry.get('rank', ''), name, entry.get('games', 0), counts.get('gold', 0),
+                               counts.get('platinum', 0), counts.get('diamond', 0), entry.get('total', 0)),
+                              ('you',) if mine and name == mine else ()))
+            draw_podium(rows[:3], animate=True)
+            # The table fills in once the podium stands, a row every 35 ms;
+            # a new answer (another period) restarts it.
+            podium.fill = getattr(podium, 'fill', 0) + 1
+            generation = podium.fill
+            def add(index=0):
+                if not window.winfo_exists() or podium.fill != generation or index >= len(lines):
+                    return
+                values, tags = lines[index]
+                table.insert('', 'end', values=values, tags=tags)
+                window.after(35, add, index + 1)
+            window.after(int((DELAYS[1] + RISE) * 1000), add)
             you = answer.get('you') or {}
             if you.get('rank'):
                 you_line.configure(text=self.tr('leaderboard_you', rank=you['rank'], points=you.get('total', 0)))
@@ -2321,7 +2442,7 @@ class Application:
             poll()
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, 680, 460)
+        center_dialog(window, self.app, 720, 680)
         window.deiconify()
         load()
 
