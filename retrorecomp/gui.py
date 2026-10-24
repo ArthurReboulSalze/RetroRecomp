@@ -333,24 +333,20 @@ class Application:
             app.iconphoto(True, *self.window_icons)
         except (OSError, tk.TclError):
             self.window_icons = []
-        # Console format and language: two small rows, one under the other,
-        # left of the account.
+        # Console format and language: two small fields, one under the other,
+        # at the right end. They speak for themselves; their hint names them.
         self.system_name = tk.StringVar(value=self.system_display())
         self.system_field = ttk.Combobox(header, textvariable=self.system_name, style='Header.TCombobox',
             values=self.system_choices(), width=14, state='readonly', font=(self.ui_font, 8))
         self.system_field.bind('<<ComboboxSelected>>', self.change_system)
-        self.hint(self.system_field, 'tip_console_format')
         self.language_name = tk.StringVar(value=language_name(self.language))
         self.language_field = ttk.Combobox(header, textvariable=self.language_name, style='Header.TCombobox',
                                            values=LANGUAGE_NAMES, width=14, state='readonly', font=(self.ui_font, 8))
         self.language_field.bind('<<ComboboxSelected>>', self.change_language)
-        self.hint(self.language_field, 'tip_language')
+        for field, name, tip in ((self.system_field, 'console_format', 'tip_console_format'),
+                                 (self.language_field, 'language', 'tip_language')):
+            self.tooltips.append(Tooltip(field, lambda name=name, tip=tip: f'{self.tr(name)}\n{self.tr(tip)}'))
         self.header_fields = (self.system_field, self.language_field)
-        self.header_labels = {
-            key: header.create_text(0, 10, text=self.tr(key), anchor='ne',
-                                    fill=COLORS['muted'], font=(self.ui_font, 8), tags='selector_label')
-            for key in ('console_format', 'language')
-        }
         self.header_windows = tuple(header.create_window(0, 28, window=field, anchor='ne')
                                     for field in self.header_fields)
         # The player's account: portrait, name, score and the board.
@@ -374,7 +370,7 @@ class Application:
         self.hint(self.sign_in_button, 'tip_account')
         # Help: the guides, always at hand beside the account.
         self.help_button = ttk.Button(self.player_actions, text='?', style='Help.Header.TButton',
-                                      command=lambda: webbrowser.open_new_tab(HELP_URL))
+                                      command=self.show_help)
         self.hint(self.help_button, 'tip_help')
         self.player_window = header.create_window(0, HEADER_HEIGHT - 8, window=self.player_actions, anchor='se')
         self.render_player()
@@ -604,10 +600,10 @@ class Application:
         right = header_width - 24
         # The two selector rows keep the right end, each label above its
         # field; the player's account sits just left of them.
-        for row, (key, window) in enumerate(zip(self.header_labels, self.header_windows)):
-            top = 7 + row * 43
-            self.header.coords(self.header_labels[key], right, top)
-            self.header.coords(window, right, top + 15)
+        field_height = self.system_field.winfo_reqheight()
+        first = (HEADER_HEIGHT - 2 * field_height - 6) // 2
+        for row, window in enumerate(self.header_windows):
+            self.header.coords(window, right, first + row * (field_height + 6))
         divider = right - max(field.winfo_reqwidth() for field in self.header_fields) - 18
         self.header.coords(self.header_divider, divider, 14, divider, HEADER_HEIGHT - 14)
         self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
@@ -634,7 +630,7 @@ class Application:
         padding = 10
         areas = []
         if canvas is self.header:
-            for label in (*self.header_labels.values(), self.player_name, self.player_score):
+            for label in (self.player_name, self.player_score):
                 box = canvas.bbox(label)
                 if box:
                     areas.append((box[0]-padding, box[1]-padding,
@@ -765,8 +761,6 @@ class Application:
         self.system_name.set(self.system_display())
         self.version_label.configure(text=f'v{__version__} · {PLATFORMS[self.platform_id]}')
         self.header.itemconfigure(self.brand_tagline, text=self.tr('brand_tagline'))
-        for key, item in self.header_labels.items():
-            self.header.itemconfigure(item, text=self.tr(key))
         self.board_button.configure(text=self.tr('leaderboard'))
         self.sign_in_button.configure(text=self.tr('account_sign_in'))
         self.render_player()
@@ -2251,6 +2245,100 @@ class Application:
             score += '\n' + self.tr('account_pending', count=you['pending'])
         header.itemconfigure(self.player_score, text=score)
         self.board_button.pack(side='right')
+
+    def show_help(self):
+        """How Retro-Recomp works, in five steps and the keys every game
+        shares; the full guides are one click away."""
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(f"{APP_NAME} — {self.tr('help_title')}")
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        body = tk.Frame(window, bg=background, padx=24, pady=18,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        window.pictures = []
+        if self.banner is not None:
+            tk.Label(body, image=self.banner, bg=background).pack(anchor='w')
+        tk.Label(body, text=self.tr('help_title').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 13, 'bold')).pack(anchor='w', pady=(10, 2))
+        tk.Label(body, text=self.tr('help_intro'), bg=background, fg=COLORS['text'], font=(self.ui_font, 10),
+                 wraplength=600, justify='left').pack(anchor='w', pady=(0, 12))
+        steps = tk.Frame(body, bg=background)
+        steps.pack(fill='x')
+        icons = ('add_rom_folder', 'refresh', 'play', 'new_paths', None)
+        rows = []
+        for index, icon in enumerate(icons, 1):
+            row = tk.Frame(steps, bg=background)
+            badge = tk.Canvas(row, width=46, height=58, bg=background, highlightthickness=0)
+            badge.pack(side='left', anchor='n')
+            # A gold pixel tile with the step's picture; a dotted line joins the steps.
+            badge.create_rectangle(4, 4, 42, 42, fill=COLORS['button'], outline=COLORS['gold'], width=2)
+            badge.create_rectangle(4, 4, 12, 12, fill=COLORS['gold'], outline='')
+            badge.create_text(8, 8, text=str(index), fill=COLORS['gold_text'], font=(self.ui_font, 7, 'bold'))
+            if icon:
+                picture = make_icon(window, icon, COLORS['gold'], size=22)
+            else:
+                try:
+                    picture = _scaled_photo(ASSETS / 'assets/board-trophy.png', window, 26 / 72)
+                except (OSError, ValueError, tk.TclError):
+                    picture = ''
+            window.pictures.append(picture)
+            badge.create_image(24, 25, image=picture)
+            if index < len(icons):
+                for y in range(46, 58, 4):
+                    badge.create_rectangle(22, y, 25, y + 2, fill=COLORS['subtle_border'], outline='')
+            text = tk.Frame(row, bg=background)
+            text.pack(side='left', fill='x', padx=(12, 0))
+            tk.Label(text, text=self.tr(f'help_step{index}'), bg=background, fg=COLORS['text'],
+                     font=(self.ui_font, 10, 'bold')).pack(anchor='w', pady=(4, 0))
+            tk.Label(text, text=self.tr(f'help_step{index}_text'), bg=background, fg=COLORS['muted'],
+                     font=(self.ui_font, 9), wraplength=540, justify='left').pack(anchor='w')
+            rows.append(row)
+        keys = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['subtle_border'],
+                        padx=12, pady=10)
+        tk.Label(keys, text=self.tr('help_keys'), bg=COLORS['field'], fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).grid(row=0, column=0, columnspan=6, sticky='w', pady=(0, 6))
+        for column, (key, label) in enumerate((('F1', 'help_key_help'), ('F2', 'help_key_menu'),
+                                               ('F3', 'help_key_filters'), ('F4', 'help_key_fullscreen'),
+                                               ('F8 F9', 'help_key_states'), ('F12', 'help_key_learning'))):
+            cell = tk.Frame(keys, bg=COLORS['field'])
+            cell.grid(row=1, column=column, sticky='w', padx=(0, 14))
+            tk.Label(cell, text=key, bg=COLORS['button'], fg=COLORS['gold'], font=(self.ui_font, 8, 'bold'),
+                     padx=6, pady=1, highlightthickness=1, highlightbackground=COLORS['border']).pack(anchor='w')
+            tk.Label(cell, text=self.tr(label), bg=COLORS['field'], fg=COLORS['text'],
+                     font=(self.ui_font, 8)).pack(anchor='w', pady=(3, 0))
+        foot = tk.Frame(body, bg=background)
+        tk.Label(foot, text=self.tr('help_private'), bg=background, fg=COLORS['muted'],
+                 font=(self.ui_font, 8)).pack(side='left')
+        ttk.Button(foot, text=self.tr('close'), command=window.destroy).pack(side='right')
+        ttk.Button(foot, text=self.tr('help_guides'), command=lambda: webbrowser.open_new_tab(HELP_URL)).pack(
+            side='right', padx=(0, 8))
+        window.bind('<Escape>', lambda event: window.destroy())
+        # The steps arrive one after the other, then the keys and the buttons.
+        def reveal(index=0):
+            if not window.winfo_exists():return
+            if index < len(rows):
+                rows[index].pack(fill='x', pady=(0, 2))
+                window.after(110, reveal, index + 1)
+            else:
+                keys.pack(fill='x', pady=(12, 0))
+                foot.pack(fill='x', pady=(14, 0))
+        for row in rows:
+            row.pack(fill='x', pady=(0, 2))
+        keys.pack(fill='x', pady=(12, 0))
+        foot.pack(fill='x', pady=(14, 0))
+        window.update_idletasks()
+        width, height = window.winfo_reqwidth(), window.winfo_reqheight()
+        for widget in (*rows, keys, foot):
+            widget.pack_forget()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - width) // 2
+        y = self.app.winfo_rooty() + max(20, (self.app.winfo_height() - height) // 2)
+        window.geometry(f'{width}x{height}+{max(0, x)}+{max(0, y)}')
+        window.deiconify()
+        reveal()
 
     def show_leaderboard(self):
         """The shared base's ranking in a window: podium order, pseudonyms,

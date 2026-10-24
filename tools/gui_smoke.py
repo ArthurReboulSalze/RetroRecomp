@@ -107,6 +107,9 @@ def smoke(window):
     assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
     assert str(application.sign_in_button.cget('state')) == 'disabled'
     assert application.help_button.winfo_manager() == 'pack'
+    application.show_help()
+    help_page = [w for w in window.winfo_children() if w.winfo_class() == 'Toplevel'][-1]
+    help_page.destroy()
     application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat'},
                                'board': {'you': {'rank': 3, 'total': 42, 'pending': 2}}})
     assert application.header.itemcget(application.player_name, 'text') == 'Pat'
