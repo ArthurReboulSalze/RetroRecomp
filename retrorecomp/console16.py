@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import sys
 import time
 
 from .paths import ROOT, ASSETS
@@ -20,7 +19,6 @@ from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
     'snes': ('RetroPortingToolKit/snesrecomp', 'a00df26a87831113fec91b9225bf16b049d40775', 'snesrecomp'),
-    'smw': ('mstan/SuperMarioWorldRecomp', '8dedb2869414f20d1d86d34081be26594560cc15', 'smwrecomp'),
 }
 SUPPORTED_SYSTEMS = ('md', 'snes')
 # Later pseudo-random routes may continue from the saved end state of the
@@ -49,7 +47,7 @@ def conversion_rom(path: Path, system_id: str, standard_override: str | None = N
 
 
 @serialized_setup
-def dependencies16(system_id: str, emit, *, legacy_smw=True):
+def dependencies16(system_id: str, emit):
     from .platforms import require_backend
     require_backend(system_id)
     cmake, generator = toolchain()
@@ -57,8 +55,7 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
     if not (sdl / sdl_library()).is_file():
         from .core import dependencies
         _, sdl, cmake, generator = dependencies(emit)
-    names = (system_id, 'smw') if system_id == 'snes' and legacy_smw else (system_id,)
-    for key in names:
+    for key in (system_id,):
         repo, revision, directory = REPOSITORIES[key]
         checkout = ROOT / '.deps' / directory
         if not (checkout / '.git').exists():
@@ -85,15 +82,7 @@ def dependencies16(system_id: str, emit, *, legacy_smw=True):
             run([cmake, '-S', engine / 'recompiler', '-B', build, '-G', generator, *cmake_target_args()], log=build / 'configure.log')
             run([cmake, '--build', build, '--config', 'Release', '--parallel', build_jobs()], log=build / 'build.log')
     else:
-        compiler = engine / 'recompiler-rs/target/release/snesrecomp-analyze.exe'
-        if legacy_smw and not compiler.is_file():
-            # Use the installed stable toolchain instead of silently downloading
-            # the upstream development pin. The crate requires Rust >= 1.85.
-            emit('Building the SNES native analyzer with installed Rust…')
-            if not shutil.which('cargo'):
-                raise ConversionError('The experimental SNES analyzer requires installed Rust >= 1.85 (stable toolchain).')
-            run(['cargo', '+stable', 'build', '--locked', '--release', '--bin', 'snesrecomp-analyze'],
-                cwd=engine / 'recompiler-rs', log=ROOT / '.build/snes-analyzer.log', timeout=600)
+        compiler = None   # the Super Nintendo analysis runs inside the converter
     return engine, compiler, sdl, cmake, generator
 
 
@@ -285,7 +274,7 @@ endif()
     else:
         from .snes_codegen import generate, adapt_core, adapt_bridge, adapt_frame_driver
         from .cartridge16 import read_snes_rom
-        rom = read_snes_rom(project / ('smw.sfc' if (project / 'smw.sfc').exists() else 'cartridge.sfc'))
+        rom = read_snes_rom(project / 'cartridge.sfc')
         generate(engine, project, rom)
         shutil.copy2(ASSETS / 'native/snes_native_steps.h', project / 'snes_native_steps.h')
         from . import snes_spc
@@ -295,10 +284,7 @@ endif()
         from .snes_cart import adapt_cart, adapt_loader, adapt_cpu
         for name in ('snes_cart.h', 'snes_battery.h', 'snes_battery.c'):
             shutil.copy2(ASSETS / 'native' / name, project / name)
-        if supernintendo.profile_for(rom)['legacy_functions']:
-            shutil.copy2(ROOT / '.deps/smwrecomp/src/variables.h', project / 'variables.h')
-        else:
-            (project / 'variables.h').write_text('/* No foreign game RAM aliases. */\n', encoding='ascii')
+        (project / 'variables.h').write_text('/* No foreign game RAM aliases. */\n', encoding='ascii')
         # Upstream uses one GCC alignment annotation in its PPU header.
         # Preserve the required alignment on MSVC in a private runtime copy.
         staged = project / 'engine'
@@ -412,22 +398,19 @@ endif()
 def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=None, standard_override=None):
     rom = conversion_rom(path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
-    legacy_smw = cartridge_profile.get('legacy_functions', False)
-    engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit, legacy_smw=legacy_smw)
+    engine, compiler, sdl, cmake, generator = dependencies16(system_id, emit)
     md_profile = cartridge_profile if system_id == 'md' else None
     project = (supernintendo.project_path(ROOT,rom,cartridge_profile) if system_id=='snes' else
                ROOT / '.build' / (system_id + '-' + cartridge_profile['id']))
     project.mkdir(parents=True, exist_ok=True)
-    rom_file = project / ('cartridge.bin' if system_id == 'md' else 'smw.sfc' if legacy_smw else 'cartridge.sfc')
+    rom_file = project / ('cartridge.bin' if system_id == 'md' else 'cartridge.sfc')
     rom_file.write_bytes(rom.data)
     title = title or cartridge_profile['title']
     guns16.write_header(project, rom)
     if system_id == 'snes':
         supernintendo.write_profile(project, rom, title)
     cache = project / 'generation-identity.json'
-    identity = {'rom': rom.sha256, 'engine': REPOSITORIES[system_id][1],
-                'game': REPOSITORIES['smw'][1] if system_id == 'snes' else REPOSITORIES['md'][1],
-                'schema': 1}
+    identity = {'rom': rom.sha256, 'engine': REPOSITORIES[system_id][1], 'schema': 2}
     if system_id == 'md':
         entries = megadrive.read_entries(rom)
         megadrive.write_profile(project, engine, rom, entries)
@@ -441,14 +424,6 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
         emit('Reusing native source analysis for this exact ROM and pinned engine.')
     elif system_id == 'md':
         megadrive.generate(compiler, project, rom_file, instruction_map=True)
-    elif legacy_smw:
-        arguments = ['generate', '--rom', rom_file, '--cfg-dir', ROOT / '.deps/smwrecomp/recomp',
-                     '--out-dir', project / 'generated', '--funcs-h', project / 'funcs.h',
-                     '--project-root', ROOT / '.deps/smwrecomp', '--cfg-roots', '--json-progress',
-                     '--expected-sha256', rom.sha256]
-        command = ([sys.executable, '_snes-generate', engine] if getattr(sys, 'frozen', False) else
-                   [sys.executable, engine / 'snesrecomp_cli.py'])
-        run([*command, *arguments], log=project / 'generate.log', timeout=1200)
     atomic_json(cache, identity)
     if system_id == 'md':
         import re
@@ -483,7 +458,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     return build_executable(project / 'build','game')
 
 
-def _notice(engine: Path, system_id: str, *, legacy_smw=True) -> str:
+def _notice(engine: Path, system_id: str) -> str:
     components = [('RetroRecomp', ASSETS / 'LICENSE'), ('SDL2', ASSETS / 'licenses/SDL2.md'), ('xBR', ASSETS / 'licenses/xbr.md'), ('Noto fonts', ASSETS / 'licenses/Noto.md'),
                   ('UPX', ASSETS / 'licenses/UPX.md')]
     if system_id == 'md':
@@ -501,8 +476,6 @@ def _notice(engine: Path, system_id: str, *, legacy_smw=True) -> str:
     else:
         components += [('SNESRecomp', engine / 'LICENSE'),
                        ('SNES third-party attribution', engine / 'THIRD_PARTY_ATTRIBUTION.md')]
-        if legacy_smw:
-            components += [('SuperMarioWorldRecomp', ROOT / '.deps/smwrecomp/LICENSE')]
         components += [('Color-science core ' + name, engine / 'third_party/psxrecomp_color_lut' / name)
                        for name in ('LICENSE-MIT.txt', 'LICENSE-APACHE-2.0.txt',
                                     'LICENSE-POLYFORM-NONCOMMERCIAL-1.0.0.txt')]
@@ -766,8 +739,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         metadata.update(write_game_metadata(project, title, executable_name(title),
             light_phaser=False, icon=artwork['embedded'], standard=standard, system_id=system_id,
             gun_device=gun.device if gun else None))
-        (project / 'game_legal.md').write_text(_notice(engine, system_id,
-            legacy_smw=cartridge_profile.get('legacy_functions', False)), encoding='utf-8')
+        (project / 'game_legal.md').write_text(_notice(engine, system_id), encoding='utf-8')
         (project / 'game_identity.bin').write_bytes(b'[Retro-Recomp]\0' + rom.sha256.encode('ascii') + b'\0')
         with (project / 'game_resources.rc').open('a', encoding='utf-8') as rc:
             rc.write('102 RCDATA "game_legal.md"\n' + f'103 RCDATA "{rom_file.name}"\n' +
