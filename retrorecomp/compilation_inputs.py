@@ -23,6 +23,39 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'knowledge_build','knowledge_exchange','online'))
 
 
+# Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
+# A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
+# Studio). It never decides which guest code a game runs. A change limited to
+# build inputs rebuilds an export from the paths already learned, like a host
+# change, because the executable is recompiled and rechecked on the quick routes.
+BUILD_MODULES = frozenset(('toolchain',))
+
+# Game stamps of earlier releases whose exports stay upgradable: the code that
+# differed from today's was only how the game is built, and the exports were
+# rebuilt and compared frame by frame with the new build before being listed
+# (docs/COMPILATION_LIBRARY.md). A receipt with one of these stamps is never
+# current: it is always rebuilt and rechecked, or converted in full.
+# Release procedure: remove the entries, or complete them, whenever a release
+# really changes what a game does.
+LEGACY_GAME_STAMPS = {
+    # Release 1.4.1 (tag v1.4.1, Python 3.14.5). Each stamp reproduced the game part of a real receipt written by
+    # the released Retro-Recomp.exe (see docs/COMPILATION_LIBRARY.md). A console without a verified receipt has no entry:
+    # the X68000 request also carries an SDK stamp that could not be reproduced from the tag, so it is converted in full.
+    'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',),
+    'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',),
+    'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',),
+    'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',),
+    'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',),
+    'ng': ('bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',),
+    'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',),
+    'snes': ('f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',),
+}
+
+
+def legacy_game_stamps(system):
+    return tuple(LEGACY_GAME_STAMPS.get(system, ()))
+
+
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
 # the window, menus, options, bindings, on-screen text, fonts, filters, icons
 # and notices, play sound out, and save preferences. The headless runs that
@@ -68,9 +101,10 @@ HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.
 
 
 def role(name):
-    """'host' or 'game' for one fingerprinted input (module or file path)."""
+    """'host', 'build' or 'game' for one fingerprinted input (module or file path)."""
     if name.startswith('retrorecomp.'):
-        return 'host' if name.rsplit('.', 1)[-1] in HOST_MODULES else 'game'
+        leaf = name.rsplit('.', 1)[-1]
+        return 'host' if leaf in HOST_MODULES else 'build' if leaf in BUILD_MODULES else 'game'
     if name.startswith('native/'):
         return 'host' if name[len('native/'):] in HOST_NATIVE else 'game'
     if name in HOST_FILES or name.startswith(HOST_PREFIXES):
@@ -241,8 +275,8 @@ def engine_stamp(system):
 
 
 def role_stamps(system):
-    """Separate stamps of one console's game-side and host inputs."""
-    values = {part: hashlib.sha256(f'console-{part}-inputs-v1:{system}'.encode()) for part in ('game', 'host')}
+    """Separate stamps of one console's game-side, host and build inputs."""
+    values = {part: hashlib.sha256(f'console-{part}-inputs-v1:{system}'.encode()) for part in ('game', 'host', 'build')}
     for name, fingerprint in input_fingerprints(system):
         values[role(name)].update(name.encode('utf-8') + b'\0' + fingerprint.encode('ascii') + b'\0')
     return {part: value.hexdigest() for part, value in values.items()}

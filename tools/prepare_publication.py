@@ -81,7 +81,7 @@ assets/credits/NOTICE.md docs/CREDITS.md
 MEDIAS/trackers_chiploom/night_vector.mod
 MEDIAS/trackers_chiploom/Pixel_Rush.mod
 MEDIAS/trackers_chiploom/pocket_signals_v2.mod
-retrorecomp/platforms.py native/platform_io.h native/platform_io.c
+retrorecomp/platforms.py retrorecomp/toolchain.py native/platform_io.h native/platform_io.c
 retrorecomp/linux_desktop.py tests/test_linux_desktop.py
 retrorecomp/languages.py
 retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
@@ -321,6 +321,8 @@ native/presentation_checks.c tools/presentation_selftest.py
 native/audio_output.inc native/audio_checks.c tools/audio_selftest.py
 tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
+tests/test_toolchain.py tests/test_legacy_compat.py tools/toolchain_compare.py tools/nes_state_cross.py
+tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py

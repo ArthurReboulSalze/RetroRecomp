@@ -27,6 +27,12 @@ still converts each game once in full. A forced conversion from the queue
 always rediscovers; **Reconvert** in the collection always rebuilds, but
 upgrades when the conditions above hold.
 
+A third role, **build**, covers the choice of the C toolchain
+(`retrorecomp/toolchain.py`): changing the compiler or its options also upgrades an
+export, because the executable is recompiled and rechecked on the quick routes.
+Exports of an earlier release can be accepted the same way through an explicit list of
+equivalent game stamps; see [Build inputs](COMPILATION_LIBRARY.md#build-inputs-and-exports-of-an-earlier-release-that-stay-upgradable-150).
+
 ## What an upgrade does
 
 The console's normal conversion runs at the **quick** scan level: one pass on

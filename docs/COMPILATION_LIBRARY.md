@@ -1,5 +1,73 @@
 # Shared compilation knowledge
 
+## Build inputs, and exports of an earlier release that stay upgradable (1.5.0)
+
+Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`)
+and falls in one of three roles:
+
+| Role | Examples | A change means |
+| --- | --- | --- |
+| game | translators, CPUs, video, sound, learning, validation, the CMake files of a game | full conversion |
+| host | menus, text, fonts, filters, icons, notices | upgrade: rebuilt from the learned paths, quick routes |
+| build | `retrorecomp/toolchain.py`: which C toolchain builds the game and with which options | upgrade, like a host change |
+
+The **build** stamp goes into the host part of the receipt (`build_inputs` in
+`freshness.HOST_SETTINGS`), so changing the compiler, its options or its pinned
+versions rebuilds and rechecks the exports without rediscovery. It never touches the
+game part.
+
+### `LEGACY_GAME_STAMPS`
+
+Release 1.5.0 changes game-side files only to build with the portable tools
+(llvm-mingw, CMake, Ninja) instead of Visual Studio: toolchain selection, Ninja build
+folders, clang-only branches of the CMake files, the compiler in the report, notices of
+the statically linked runtime, and the removal of the unused Super Mario World path.
+Without further care every 1.4.1 export would be converted in full. Instead
+`compilation_inputs.LEGACY_GAME_STAMPS` lists, per console, the game stamp of
+release 1.4.1. A receipt whose game part equals the hash computed with one of these
+stamps is accepted by `freshness.upgradable()` as the same game part:
+
+- it is **never current**: it is always rebuilt with the current tools and rechecked on
+  the quick routes, with the report's `upgrade.from_release` set to `1.4.1`;
+- if the rebuild or its checks fail, `batch._convert_one` says so
+  ("did not pass its checks … converting the game in full instead") and converts the game
+  in full; the earlier executable stays in place until something has passed;
+- other settings still count: the knowledge stamp, the scan level, the video standard,
+  new gameplay hints (a receipt with new hints is not upgraded).
+
+How the stamps were found and checked:
+
+1. computed from the `v1.4.1` tag with the release's Python (3.14.5):
+   `role_stamps(system)['game']` for each console;
+2. for each console, one export was made by the released `Retro-Recomp.exe` 1.4.1 in a
+   separate workspace; this branch's own `convert` path, asked about that export with the
+   tag's stamp as the only legacy entry, reproduced the receipt's game part exactly
+   (Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, CPS-1).
+   A console without such a receipt has no entry and keeps the full conversion. That is the
+   case of the **X68000**: its request also carries an SDK stamp (`x68000_conversion.sdk_stamp`)
+   computed over the files bundled in the executable, which could not be reproduced from the
+   tag, so its exports are converted in full once;
+3. the game-side files that differ between the tag and 1.5.0 were reviewed one by one
+   (list in the release notes of the work) and the exports of both toolchains were
+   compared frame by frame (CPU, memory, image and sound hashes) on 16 games before
+   the list was accepted.
+
+Quick states of upgraded exports: Mega Drive, Super Nintendo, NES, Master System, Game
+Gear and Game Boy states load as before (same source ABI). Neo Geo and CPS-1 build their
+state key from Python module fingerprints, so the 1.4.1 key is added as
+`RR16_STATE_COMPAT_ABI` (Neo Geo: `_3`); the state of both builds is written field by
+field with the same sizes. X68000 states carry the compiler's identity in their key by
+design, so a 1.4.1 state is refused cleanly ("Requested startup state rejected") by an
+upgraded export; the profile is experimental. The Super Nintendo analysis cache identity
+changed once (the removed Super Mario World repository was part of it): the analysis of
+the ROM is redone during the upgrade, in a few minutes, without rediscovery.
+
+**Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
+complete them, whenever the release really changes what a game does (translation,
+CPU, video, sound, learning, validation). Entries are only valid for a release whose
+game-side differences are build-only and were qualified as such.
+
+
 ## Mega Drive collection campaign, first four tranches — 24 October 2026 (local)
 
 The user-approved campaign over the 904 unqualified ROMs of the NAS `megadrive`

@@ -396,16 +396,35 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         inherited = None if rediscover or not target.is_file() else upgradable(
             item, target, report_path, parts, emit)
         run_settings = settings
-        if inherited:
+        legacy = inherited.get('legacy_release') if inherited else None
+        if legacy:
+            emit(f'{item.title}: exported by Retro-Recomp {legacy}; its game code is listed as equivalent, so the '
+                 'executable is rebuilt with the current tools and rechecked on the quick routes '
+                 '(a full conversion follows if that does not pass).')
+        elif inherited:
             emit(f'{item.title}: only menus/presentation changed and no new paths were found; '
                  'upgrading the executable without rediscovery (quick check).')
+        if inherited:
             quick = plan_for(system.id, None, passes=settings['passes'], frames=settings['frames'], level='quick')
             run_settings = {**settings, 'passes': quick.passes, 'frames': quick.frames, 'scan_level': 'quick'}
             for key in ('md_advanced_scan', 'nes_advanced_scan'):
                 if key in run_settings:
                     run_settings[key] = False
-        executable = system.convert(item.path, title=item.title, output=reports, cover=item.cover,
-            emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **run_settings)
+        def convert_with(arguments):
+            return system.convert(item.path, title=item.title, output=reports, cover=item.cover,
+                emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **arguments)
+        try:
+            executable = convert_with(run_settings)
+        except Exception as exc:
+            if not legacy:
+                raise
+            # The earlier export is still in place: nothing was published. Never leave it
+            # half-upgraded; convert the game in full, with every route, instead.
+            emit(f'{item.title}: the rebuilt export of Retro-Recomp {legacy} did not pass its checks '
+                 f'({str(exc).strip().splitlines()[0][:200] if str(exc).strip() else type(exc).__name__}); '
+                 'converting the game in full instead.')
+            inherited, run_settings = None, settings
+            executable = convert_with(run_settings)
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))

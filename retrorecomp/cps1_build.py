@@ -291,6 +291,9 @@ def pack(board: Path) -> bytes:
     return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
 
 
+LEGACY_STATE_ABI_141 = 'd92d265ba352da2602ee7a74492a02f6397477a131b79afab1ef42fa66f1d557'
+
+
 def state_config(game_set, title: str) -> str:
     """Quick states load only into the same romset and the same board/runtime sources."""
     import hashlib, importlib, json, os
@@ -307,7 +310,9 @@ def state_config(game_set, title: str) -> str:
     stem = Path(executable_name(title)).stem if os.name == 'nt' else executable_name(title)
     return ('#pragma once\n#define RR16_STATE_SYSTEM 4\n#define RR16_STATE_PAL 0\n'
             f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
-            f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
+            f'#define RR16_STATE_NAME {json.dumps(stem)}\n'
+            # Release 1.4.1 (Visual Studio): the quick states of an upgraded export stay valid.
+            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_141)}\n' if os.name == 'nt' else ''))
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,

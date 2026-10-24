@@ -25,7 +25,7 @@ def _input_hash(path, size, modified):
 
 # Request settings that only shape the player shell or the published file.
 HOST_SETTINGS = frozenset(('language', 'icon_tags', 'online_cover', 'use_cover', 'prefer_3d',
-                           'cover_reference', 'cover', 'title', 'host_inputs'))
+                           'cover_reference', 'cover', 'title', 'host_inputs', 'build_inputs'))
 
 
 def _hash(settings):
@@ -56,14 +56,17 @@ def request_parts(item, options):
         reference = (cover_reference(item.system, digest(item.path), item.path.stem,
                                     prefer3d=settings['prefer_3d']) if not item.cover else None)
         settings['cover_reference'] = reference['revision'] if reference else None
-    from .compilation_inputs import knowledge_stamp, role_stamps
+    from .compilation_inputs import knowledge_stamp, legacy_game_stamps, role_stamps
     stamps = role_stamps(item.system)
     settings['knowledge'] = knowledge_stamp(item.system, item.sha256)
-    settings.update(engine=stamps['game'], host_inputs=stamps['host'], title=item.title,
-                    system=item.system, rom=item.sha256, cover=digest(item.cover) if item.cover else None)
-    return {'request': _hash(settings),
-            'game': _hash({k: v for k, v in settings.items() if k not in HOST_SETTINGS}),
-            'host': _hash({k: v for k, v in settings.items() if k in HOST_SETTINGS})}
+    settings.update(engine=stamps['game'], host_inputs=stamps['host'], build_inputs=stamps.get('build', ''),
+                    title=item.title, system=item.system, rom=item.sha256,
+                    cover=digest(item.cover) if item.cover else None)
+    game = {k: v for k, v in settings.items() if k not in HOST_SETTINGS}
+    return {'request': _hash(settings), 'game': _hash(game),
+            'host': _hash({k: v for k, v in settings.items() if k in HOST_SETTINGS}),
+            # The game part an earlier release would have written for this same request.
+            'legacy_games': [_hash({**game, 'engine': stamp}) for stamp in legacy_game_stamps(item.system)]}
 
 
 def request(item, options):
@@ -106,17 +109,25 @@ def current(item, target, report_path, signature, emit):
 
 
 def upgradable(item, target, report_path, parts, emit):
-    """The previous report when only host inputs changed: same game part (code,
-    settings, knowledge), the exact EXE it published, a passed validation and
-    no new gameplay hints. Older receipts have no game part: full conversion."""
+    """The previous report when only host or build inputs changed: same game part
+    (code, settings, knowledge), the exact EXE it published, a passed validation
+    and no new gameplay hints. Older receipts have no game part: full conversion.
+
+    A receipt carrying a game part listed in LEGACY_GAME_STAMPS is accepted too,
+    even if nothing else changed: it is never current, always rebuilt. The
+    returned report then names the release that wrote it under 'legacy_release'."""
     try:
         report = json.loads(report_path.read_text(encoding='utf-8'))
         receipt = report['export_receipt']
-        if (receipt.get('schema') != 3 or receipt.get('game') != parts['game']
-                or receipt.get('host') == parts['host'] or not _own_export(item, target, report, receipt)
+        legacy = receipt.get('game') in parts.get('legacy_games', ())
+        if (receipt.get('schema') != 3 or not (receipt.get('game') == parts['game'] or legacy)
+                or (receipt.get('host') == parts['host'] and not legacy)
+                or not _own_export(item, target, report, receipt)
                 or report.get('native_validation', {}).get('passed') is False):
             return None
-        return report if _no_new_hints(item, report, report_path, emit) else None
+        if not _no_new_hints(item, report, report_path, emit):
+            return None
+        return {**report, 'legacy_release': str(report.get('version'))} if legacy else report
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
@@ -124,10 +135,15 @@ def upgradable(item, target, report_path, parts, emit):
 def upgrade_record(previous):
     """What an upgraded export inherits: the original discovery, kept across
     successive upgrades, with its own checks (and any fallback they met)."""
+    legacy = previous.get('legacy_release')
     origin = previous.get('upgrade', {}).get('discovery') or {
         'version': previous.get('version'), 'created_utc': previous.get('created_utc'),
         'scan_level': previous.get('scan_level', 'standard'),
         'final_checks': previous.get('final_checks', [])}
-    return {'reason': 'Only player-shell inputs changed and no new paths were found; '
-                      'the code was rebuilt from the paths already learned and checked on quick routes.',
-            'check_level': 'quick', 'discovery': origin}
+    reason = ('Only player-shell inputs changed and no new paths were found; '
+              'the code was rebuilt from the paths already learned and checked on quick routes.')
+    if legacy:
+        reason = (f'Exported by Retro-Recomp {legacy}, whose game code is listed as equivalent: only how the game is '
+                  'built changed. The code was rebuilt from the paths already learned and checked on quick routes.')
+    return {'reason': reason, 'check_level': 'quick', 'discovery': origin,
+            **({'from_release': legacy} if legacy else {})}

@@ -98,6 +98,91 @@ class FreshnessTests(unittest.TestCase):
             stamps['host']='menus-v5';self.assertFalse(self.run_batch(force=True)['upgraded'])
             stamps['host']='menus-v6';self.assertTrue(self.run_batch(force=True,rediscover=False)['upgraded'])
 
+    def test_build_only_change_upgrades_without_rediscovery(self):
+        stamps={'game':'same-game','host':'menus-v1','build':'tools-v1'}
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+            self.assertFalse(self.run_batch()['upgraded'])
+            self.assertEqual(self.run_batch()['status'],'current')
+            stamps['build']='tools-v2'
+            result=self.run_batch();self.assertTrue(result['upgraded'])
+            self.assertEqual(self.compiler_mock.call_args.kwargs['scan_level'],'quick')
+            self.assertNotIn('from_release',json.loads(Path(result['report']).read_text())['upgrade'])
+
+    def test_build_inputs_are_a_third_role_beside_game_and_host(self):
+        from retrorecomp import compilation_inputs as inputs
+        self.assertEqual(inputs.role('retrorecomp.toolchain'),'build')
+        self.assertEqual(inputs.role('retrorecomp.platforms'),'game')
+        self.assertEqual(inputs.role('retrorecomp.metadata'),'host')
+        self.assertEqual(set(inputs.role_stamps('sms')),{'game','host','build'})
+
+    def legacy_setup(self):
+        """An export written by an earlier release, whose game stamp is now listed as equivalent."""
+        stamps={'game':'release-1.4.1-game','host':'shell','build':'visual-studio'}
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
+            first=self.run_batch()
+        self.assertEqual(first['status'],'success')
+        stamps.update(game='release-1.5.0-game',build='portable-tools')
+        return stamps,first
+
+    def test_listed_legacy_game_stamp_is_always_rebuilt_never_current(self):
+        stamps,first=self.legacy_setup()
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)), \
+                patch.dict('retrorecomp.compilation_inputs.LEGACY_GAME_STAMPS',{'sms':('release-1.4.1-game',)}):
+            result=self.run_batch()
+            self.assertEqual((result['status'],result['upgraded']),('success',True))
+            options=self.compiler_mock.call_args.kwargs
+            self.assertEqual((options['scan_level'],options['passes']),('quick',1))
+            upgrade=json.loads(Path(result['report']).read_text())['upgrade']
+            self.assertEqual(upgrade['from_release'],__version__)
+            self.assertIn('listed as equivalent',upgrade['reason'])
+            self.assertEqual(self.run_batch()['status'],'current')   # now written by this release
+
+    def test_unlisted_game_stamp_still_means_a_full_conversion(self):
+        stamps,first=self.legacy_setup()
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)), \
+                patch.dict('retrorecomp.compilation_inputs.LEGACY_GAME_STAMPS',{'sms':('another-release',),'gb':('release-1.4.1-game',)}):
+            result=self.run_batch()
+            self.assertEqual((result['status'],result['upgraded']),('success',False))
+            self.assertNotIn('scan_level',self.compiler_mock.call_args.kwargs)
+
+    def test_legacy_upgrade_that_does_not_pass_falls_back_to_a_full_conversion(self):
+        from retrorecomp.core import ConversionError
+        stamps,first=self.legacy_setup()
+        messages=[];calls=[];real=self.compiler
+        def convert(path,**options):
+            calls.append(dict(options))
+            if options.get('scan_level')=='quick':
+                raise ConversionError('Native and reference CPU diverged after 12 frames.\nmore detail')
+            return real(path,**options)
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)), \
+                patch.dict('retrorecomp.compilation_inputs.LEGACY_GAME_STAMPS',{'sms':('release-1.4.1-game',)}), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',side_effect=convert):
+            result=convert_batch([self.item],self.output,emit=messages.append)['games'][0]
+        self.assertEqual((result['status'],result['upgraded']),('success',False))
+        self.assertEqual([call.get('scan_level') for call in calls],['quick',None])
+        text='\n'.join(messages)
+        self.assertIn('did not pass its checks',text);self.assertIn('Native and reference CPU diverged after 12 frames.',text)
+        self.assertIn('converting the game in full instead',text);self.assertNotIn('more detail',text)
+        report=json.loads(Path(result['report']).read_text())
+        self.assertNotIn('upgrade',report)                       # a full conversion, not an inherited one
+        self.assertEqual(Path(result['executable']).read_bytes(),b'authored executable')
+
+    def test_failed_legacy_upgrade_and_failed_full_conversion_keep_the_earlier_export(self):
+        from retrorecomp.core import ConversionError
+        stamps,first=self.legacy_setup()
+        target=Path(first['executable']);target.write_bytes(b'working 1.4.1 export')
+        # The receipt hashes the executable: write it back so the export is still its own.
+        report_path=Path(first['report']);report=json.loads(report_path.read_text())
+        from retrorecomp.freshness import digest
+        report['export_receipt']['sha256']=digest(target);report_path.write_text(json.dumps(report))
+        with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)), \
+                patch.dict('retrorecomp.compilation_inputs.LEGACY_GAME_STAMPS',{'sms':('release-1.4.1-game',)}), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',
+                      side_effect=ConversionError('compiler stopped')):
+            result=convert_batch([self.item],self.output,emit=lambda _:None)['games'][0]
+        self.assertEqual(result['status'],'error')
+        self.assertEqual(target.read_bytes(),b'working 1.4.1 export')
+
     def test_new_hints_or_other_settings_never_upgrade(self):
         stamps={'game':'same-game','host':'menus-v1'}
         with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):
