@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run,toolchain
 
 def main():
@@ -12,8 +13,8 @@ project(XbrChecks C)
 add_executable(checks "{ROOT.as_posix()}/native/xbr_checks.c")
 ''')
     cmake,generator=toolchain();log=project/'build.log'
-    run([cmake,'-S',project,'-B',project/'build','-G',generator,'-A','x64'],log=log)
+    run([cmake,'-S',project,'-B',project/'build','-G',generator,*cmake_target_args()],log=log)
     run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=log)
-    result=run([project/'build/Release/checks.exe'],timeout=60)
+    result=run([build_executable(project / 'build', 'checks')],timeout=60)
     (project/'checks.log').write_text(result);print(result)
 if __name__=='__main__': main()

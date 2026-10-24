@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.core import toolchain, run
 from retrorecomp.paths import ROOT
 from retrorecomp.platforms import cmake_target_args, build_executable
@@ -36,7 +37,7 @@ endforeach()
     cmake,generator=toolchain()
     log=out/'build.log'
     run([cmake,'-S',out,'-B',out/'build','-G',generator,*cmake_target_args(),
-        f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}'],log=log)
+        f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}'],log=log)
     run([cmake,'--build',out/'build','--config','Release','--parallel','4'],log=log)
     env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy')
     records={}

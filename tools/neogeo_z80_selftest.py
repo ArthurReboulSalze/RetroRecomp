@@ -3,6 +3,7 @@ from pathlib import Path
 import json,struct,sys
 from zipfile import ZipFile
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.neogeo_build import prepare_project
 from retrorecomp.neogeo_z80 import generate
 from retrorecomp.core import run,toolchain
@@ -31,12 +32,12 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{ROOT.as_posix()}/native/neogeo_z80_checks.c" engine/z80/z80.c)
 target_include_directories(checks PRIVATE . engine)
 target_compile_definitions(checks PRIVATE __BYTE_ORDER__=1234 __ORDER_LITTLE_ENDIAN__=1234)
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''',encoding='utf-8')
     cmake,generator=toolchain()
-    run([cmake,'-S',project,'-B',project/'build','-G',generator,'-A','x64'],log=project/'build.log')
+    run([cmake,'-S',project,'-B',project/'build','-G',generator,*cmake_target_args()],log=project/'build.log')
     run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=project/'build.log')
-    result=json.loads(run([project/'build/Release/checks.exe']).strip());result['analysis']=stats
+    result=json.loads(run([build_executable(project / 'build', 'checks')]).strip());result['analysis']=stats
     (project/'results.json').write_text(json.dumps(result,indent=2),encoding='utf-8');print(json.dumps(result))
 
 if __name__=='__main__':main()

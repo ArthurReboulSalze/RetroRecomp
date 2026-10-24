@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args, recompiler_build
 from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, video_standard
 from retrorecomp.metadata import write_game_metadata
 
@@ -49,25 +50,25 @@ def main():
     title = 'Été "test"\\name\nline'
     expected = write_game_metadata(directory, title, 'Authored.exe', light_phaser=True, icon=False)
     log = directory / 'build.log'
-    run([ROOT / '.deps/recompiler-build/Release/SmsRecomp.exe', '--game', directory / 'game.toml', '--banked-step'], log=log)
+    run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
     source = ROOT / '.build/native-source'
     source.mkdir(parents=True, exist_ok=True)
     for file in (ASSETS / 'native').iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     build = directory / 'build'
-    run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={directory.as_posix()}',
          '-DGAME_NAME=AuthoredPresentation', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          '-DSMSRECOMP_BANKED_AOT=ON', '-DSMSRECOMP_PRESENTATION_CHECKS=ON',
          '-DSMSRECOMP_VIDEO_CHECKS=ON'], log=log)
     run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_presentation_checks', '--parallel', '4'], log=log)
     run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_video_checks', '--parallel', '4'], log=log)
-    ntsc_test = subprocess.run([str(build / 'Release/smsrecomp_video_checks.exe')],
+    ntsc_test = subprocess.run([str(build_executable(build, 'smsrecomp_video_checks'))],
         cwd=directory, capture_output=True, text=True, timeout=60,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     assert ntsc_test.returncode == 0, ntsc_test.stdout + ntsc_test.stderr
     print(ntsc_test.stdout)
-    executable = build / 'Release/smsrecomp_presentation_checks.exe'
+    executable = build_executable(build, 'smsrecomp_presentation_checks')
     metadata = version_strings(executable, expected)
     ini = directory / 'test-controls.ini'
     ini.unlink(missing_ok=True)
@@ -89,13 +90,13 @@ def main():
     prepare_runtime(pal_dir, pal_rom, 'Authored PAL timing fixture', engine, 'pal')
     shutil.copytree(directory / 'generated', pal_dir / 'generated', dirs_exist_ok=True)
     pal_build = pal_dir / 'build'
-    run([cmake, '-S', source, '-B', pal_build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', pal_build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={pal_dir.as_posix()}',
          '-DGAME_NAME=AuthoredPalTiming', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          '-DSMSRECOMP_BANKED_AOT=ON', '-DSMSRECOMP_VIDEO_CHECKS=ON'], log=log)
     run([cmake, '--build', pal_build, '--config', 'Release', '--target',
          'smsrecomp_video_checks', '--parallel', '4'], log=log)
-    pal_test = subprocess.run([str(pal_build / 'Release/smsrecomp_video_checks.exe')],
+    pal_test = subprocess.run([str(build_executable(pal_build, 'smsrecomp_video_checks'))],
         cwd=pal_dir, capture_output=True, text=True, timeout=60,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     (pal_dir / 'checks.log').write_text(pal_test.stdout + pal_test.stderr, encoding='utf-8')

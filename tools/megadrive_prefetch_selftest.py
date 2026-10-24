@@ -91,7 +91,7 @@ add_executable(checks "{ROOT.as_posix()}/native/md_prefetch_checks.c" reference.
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(checks PRIVATE . "{prefix}/runner" "{prefix}/runner/include" "{prefix}/recompiler/src")
 if(MSVC)
-  target_compile_options(checks PRIVATE /utf-8 /wd4996)
+  target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 endif()
 ''', encoding='utf-8')
     cmake, generator = toolchain()

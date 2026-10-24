@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable
 from retrorecomp.core import ROOT, ASSETS, dependencies, run
 from retrorecomp.paths import games_directory
 
@@ -39,7 +40,7 @@ def main():
     run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_cpu_checks", "--parallel", "4"], log=log)
     env = os.environ.copy()
     env["SMSRECOMP_LIBRARY_DIR"] = str(game / "checks/cpu-learning")
-    result = subprocess.run([str(build / "Release/smsrecomp_cpu_checks.exe")], cwd=game,
+    result = subprocess.run([str(build_executable(build, 'smsrecomp_cpu_checks'))], cwd=game,
         env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120,
         creationflags=subprocess.CREATE_NO_WINDOW)
     text = result.stdout.decode("utf-8", errors="replace")

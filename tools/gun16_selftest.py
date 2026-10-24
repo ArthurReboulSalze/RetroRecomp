@@ -8,6 +8,7 @@ import shutil
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.gun16_runtime import snes_joypad
 
@@ -48,12 +49,12 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks gun16_checks.c gun16.c {extra})
 target_include_directories(checks PRIVATE . {includes})
 target_compile_definitions(checks PRIVATE RR16_MD={int(kind < 3)})
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''', encoding='utf-8')
         cmake, generator = toolchain()
-        run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
+        run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
         run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
-        results.append(json.loads(run([project / 'build/Release/checks.exe']).strip()))
+        results.append(json.loads(run([build_executable(project / 'build', 'checks')]).strip()))
     (ROOT / '.build/gun16-results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(results))
 

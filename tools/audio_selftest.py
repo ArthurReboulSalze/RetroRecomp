@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.core import run, toolchain
 from retrorecomp.paths import ROOT, ASSETS
 from retrorecomp.platforms import build_executable, cmake_target_args
@@ -17,7 +18,7 @@ def main():
     args = parser.parse_args()
     project = ROOT / '.build/sms-audio-selftest'
     project.mkdir(parents=True, exist_ok=True)
-    sdl = ROOT / '.deps/SDL/install'
+    sdl = sdl_install()
     if not any((sdl / name).is_file() for name in
                ('cmake/SDL2Config.cmake', 'lib/cmake/SDL2/SDL2Config.cmake')):
         raise SystemExit('Build the SDL2 dependency first (see docs/BUILDING.md).')

@@ -33,7 +33,7 @@ add_executable(checks checks.c ${{STEPS}}
 target_include_directories(checks PRIVATE "{fixture.as_posix()}" "{engine.as_posix()}/runner"
  "{engine.as_posix()}/runner/include" "{engine.as_posix()}/recompiler/src")
 if(MSVC)
- target_compile_options(checks PRIVATE /utf-8 /wd4996)
+ target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 endif()
 ''', encoding='utf-8')
     cmake, generator = toolchain()

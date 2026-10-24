@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run,toolchain
 from retrorecomp.megadrive_runtime import timing_vdp
 
@@ -20,13 +21,13 @@ foreach(PAL RANGE 0 1)
  add_executable(checks${{PAL}} "{ROOT.as_posix()}/native/md_raster_checks.c" vdp.c)
  target_compile_definitions(checks${{PAL}} PRIVATE RR_MD_PAL=${{PAL}})
  target_include_directories(checks${{PAL}} PRIVATE . "{ROOT.as_posix()}/native" "{engine.as_posix()}" "{engine.as_posix()}/video")
- target_compile_options(checks${{PAL}} PRIVATE /utf-8)
+ target_compile_options(checks${{PAL}} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 endforeach()
 ''',encoding='utf-8')
     cmake,generator=toolchain()
-    run([cmake,'-S',work,'-B',work/'build','-G',generator,'-A','x64'],log=work/'build.log')
+    run([cmake,'-S',work,'-B',work/'build','-G',generator,*cmake_target_args()],log=work/'build.log')
     run([cmake,'--build',work/'build','--config','Release','--parallel','2'],log=work/'build.log')
-    results=[dict(standard=standard,**json.loads(run([work/f'build/Release/checks{pal}.exe']).strip())) for pal,standard in enumerate(('ntsc','pal'))]
+    results=[dict(standard=standard,**json.loads(run([build_executable(work / 'build', f'checks{pal}')]).strip())) for pal,standard in enumerate(('ntsc','pal'))]
     result=dict(passed=all(r['passed'] for r in results),results=results)
     (work/'results.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result))

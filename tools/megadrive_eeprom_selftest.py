@@ -7,6 +7,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp import megadrive_sram, megadrive_memory, megadrive_cart
 
@@ -20,12 +21,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{ROOT.as_posix()}/native/md_eeprom_checks.c")
 target_include_directories(checks PRIVATE "{ROOT.as_posix()}/native")
-target_compile_options(checks PRIVATE /utf-8 /W4)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/W4>")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project/'build', '-G', generator, '-A', 'x64'], log=project/'build.log')
+    run([cmake, '-S', project, '-B', project/'build', '-G', generator, *cmake_target_args()], log=project/'build.log')
     run([cmake, '--build', project/'build', '--config', 'Release', '--parallel', '4'], log=project/'build.log')
-    result = json.loads(run([project/'build/Release/checks.exe']).strip())
+    result = json.loads(run([build_executable(project / 'build', 'checks')]).strip())
     bus_project = project / 'bus'
     bus_project.mkdir(exist_ok=True)
     runtime = bus_project / 'runtime'
@@ -50,17 +51,17 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     for kind in (1,2,3):
         cmake_text+=f'''add_executable(bus{kind} fixture.c runtime/video/genesis_bus.c md_battery.c)
 target_include_directories(bus{kind} PRIVATE . runtime)
-target_compile_options(bus{kind} PRIVATE /utf-8)
+target_compile_options(bus{kind} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 target_compile_definitions(bus{kind} PRIVATE RR_MD_EEPROM_KIND={kind} RR_MD_EEPROM_WIRING={kind})
 '''
     (bus_project/'CMakeLists.txt').write_text(cmake_text,encoding='utf-8')
-    run([cmake,'-S',bus_project,'-B',bus_project/'build','-G',generator,'-A','x64'],log=bus_project/'build.log')
+    run([cmake,'-S',bus_project,'-B',bus_project/'build','-G',generator,*cmake_target_args()],log=bus_project/'build.log')
     run([cmake,'--build',bus_project/'build','--config','Release','--parallel','3'],log=bus_project/'build.log')
     result['bus']=[]
     with tempfile.TemporaryDirectory(prefix='rr-eeprom-') as temp:
         root=Path(temp)
         for kind in (1,2,3):
-            exe=bus_project/f'build/Release/bus{kind}.exe'
+            exe=build_executable(bus_project / 'build', f'bus{kind}')
             result['bus'].append(json.loads(run([exe]).strip()))
             clean=root/f'clean{kind}/datas/saves/authored.rrsram'
             run([exe,'clean',clean]);assert not clean.parent.parent.exists()

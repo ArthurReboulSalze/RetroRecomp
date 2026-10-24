@@ -6,6 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.megadrive_runtime import timing_source, timing_vdp
 
@@ -29,13 +30,13 @@ foreach(PAL RANGE 0 1)
   target_include_directories(checks${{PAL}} PRIVATE . "{engine.as_posix()}" "{engine.as_posix()}/video"
     "{engine.as_posix()}/external/superzazu" "{engine.as_posix()}/external/clowncommon"
     "{engine.as_posix()}/include")
-  target_compile_options(checks${{PAL}} PRIVATE /utf-8)
+  target_compile_options(checks${{PAL}} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 endforeach()
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
-    results = [json.loads(run([project / f'build/Release/checks{pal}.exe']).strip()) for pal in (0, 1)]
+    results = [json.loads(run([build_executable(project / 'build', f'checks{pal}')]).strip()) for pal in (0, 1)]
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
     print(json.dumps(results))
 

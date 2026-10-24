@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args, recompiler_build
 from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run
 
 def files(directory):
@@ -24,13 +25,13 @@ def main():
     engine, sdl, cmake, generator = dependencies()
     prepare_runtime(directory, rom, 'Authored lazy data fixture', engine)
     log = directory / 'build.log'
-    run([ROOT / '.deps/recompiler-build/Release/SmsRecomp.exe', '--game', directory / 'game.toml', '--banked-step'], log=log)
+    run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
     # Keep the fixture's staged source separate from an active batch build.
     source = directory / 'native-source'; source.mkdir(parents=True, exist_ok=True)
     for file in (ASSETS / 'native').iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     build = directory / 'build-isolated'
-    run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={directory.as_posix()}',
          '-DGAME_NAME=AuthoredLazy', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          '-DSMSRECOMP_BANKED_AOT=ON', '-DSMSRECOMP_LAZY_DATA_CHECKS=ON'], log=log)
@@ -51,7 +52,7 @@ def main():
         results={}
         for mode in ('read','legacy','legacy_edit','existing','config','save','learn'):
             root=work/mode;root.mkdir();exe=root/'renamed.exe'
-            shutil.copy2(build/'Release/smsrecomp_lazy_data_checks.exe',exe)
+            shutil.copy2(build_executable(build, 'smsrecomp_lazy_data_checks'),exe)
             if mode in ('legacy','legacy_edit'):
                 (root/'SMSRecomp.ini').write_text('[Clavier]\nbouton1=C\n[Video]\nfiltre=3\nmasquer_bord_gauche=0\n[ClavierJ2]\nhaut=I\nbas=K\ngauche=J\ndroite=L\nbouton1=N\nbouton2=M\nselect=Keypad 4\n',encoding='ascii')
             if mode=='existing':
@@ -76,7 +77,7 @@ def main():
         # The converter's per-scenario library can exceed MAX_PATH for long
         # game titles. Check the real C writer, not just Python file access.
         root=work/'long-learning';root.mkdir();exe=root/'renamed.exe'
-        shutil.copy2(build/'Release/smsrecomp_lazy_data_checks.exe',exe)
+        shutil.copy2(build_executable(build, 'smsrecomp_lazy_data_checks'),exe)
         library=root/('mémoire-'+('a'*90))/('sondes-'+('b'*90))
         assert len(str(library)) > 260
         probe_env=env.copy();probe_env['RETRO_RECOMP_LEARNING']='1'
@@ -87,7 +88,7 @@ def main():
         results['long_unicode_learning']={'root_characters':len(str(library)),
                                          'files':sorted(created)}
         # Exercise the real shipped launcher, normal headless boot and explicit --log.
-        root=work/'standalone';root.mkdir();exe=root/'game.exe';shutil.copy2(build/'Release/AuthoredLazy.exe',exe)
+        root=work/'standalone';root.mkdir();exe=root/'game.exe';shutil.copy2(build_executable(build, 'AuthoredLazy'),exe)
         before=files(root);launch(exe,['--headless','--frames','2','--mute']);assert files(root)==before
         diagnostic=root/'requested.log';launch(exe,['--headless','--frames','2','--mute','--log',str(diagnostic)])
         assert set(files(root))-set(before)=={'requested.log'} and '[exec]' in diagnostic.read_text()

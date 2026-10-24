@@ -14,6 +14,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.nes_codegen import prepare_compiler
 from retrorecomp.nes_machine import prepare_machine
@@ -79,15 +80,15 @@ add_executable(checks ${{NESRECOMP_CYC_SOURCES}}
 target_include_directories(checks PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} generated "{ROOT.as_posix()}/native" "{project.as_posix()}")
 target_compile_definitions(checks PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL={int(standard == 'pal')})
 if(MSVC)
-    target_compile_options(checks PRIVATE /bigobj)
+    target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/bigobj>")
 endif()
 target_link_libraries(checks PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 ''', encoding='utf-8')
-        run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'],
+        run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()],
             log=project / 'build.log', timeout=600)
         run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'],
             log=project / 'build.log', timeout=1800)
-        output = run([project / 'build/Release/checks.exe', rom], timeout=600)
+        output = run([build_executable(project / 'build', 'checks'), rom], timeout=600)
         result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
         result['standard'] = standard
         results.append(result)

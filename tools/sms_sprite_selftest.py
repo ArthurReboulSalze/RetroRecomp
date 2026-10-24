@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import ROOT, ASSETS, dependencies, run, slug
 
 
@@ -27,7 +28,7 @@ def main():
     engine, sdl, cmake, generator = dependencies()
     build = directory / 'build'
     log = directory / 'build.log'
-    run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={Path(report["build_directory"]).as_posix()}',
          '-DGAME_NAME=SmsSpriteProbe', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          '-DSMSRECOMP_SPRITE_PROBE=ON'], log=log)
@@ -40,7 +41,7 @@ def main():
     for reference in (False, True):
         for improved in (False, True):
             name = ('reference' if reference else 'native') + ('_improved' if improved else '_console')
-            command = [build / 'Release/smsrecomp_sprite_probe.exe', args.frames,
+            command = [build_executable(build, 'smsrecomp_sprite_probe'), args.frames,
                        directory / f'{name}.csv', int(improved)]
             if reference: command.append('reference')
             result = subprocess.run([str(v) for v in command], cwd=directory,

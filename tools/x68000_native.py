@@ -89,7 +89,7 @@ add_executable(x68_decode "{SDK.as_posix()}/native/x68000_native/decode.c"
 target_include_directories(x68_decode PRIVATE "{(ROOT/'.build/megadrive-step-decoder').as_posix()}"
  "{engine.as_posix()}/recompiler/src")
 if(MSVC)
- target_compile_options(x68_decode PRIVATE /utf-8 /wd4996)
+ target_compile_options(x68_decode PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 endif()
 ''')
     cmake,generator=toolchain()

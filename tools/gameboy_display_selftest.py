@@ -4,6 +4,7 @@ import argparse,os,shutil,subprocess,sys,tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from retrorecomp.core import run,toolchain
+from retrorecomp.platforms import build_executable
 def check(project):
     source=project/'rr_display_checks.cpp'
     source.write_text('''#define SDL_MAIN_HANDLED
@@ -66,7 +67,7 @@ int main() {
     addition='''
 add_executable(rr_display_checks rr_display_checks.cpp)
 target_link_libraries(rr_display_checks PRIVATE gbrt)
-target_compile_options(rr_display_checks PRIVATE /utf-8)
+target_compile_options(rr_display_checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 '''
     if 'add_executable(rr_display_checks' not in cmaketext:
         cmakefile.write_text(cmaketext+addition,encoding='utf-8')
@@ -74,7 +75,7 @@ target_compile_options(rr_display_checks PRIVATE /utf-8)
     run([cmake,'-S',project,'-B',project/'build'],log=project/'display-checks-build.log')
     run([cmake,'--build',project/'build','--target','rr_display_checks','--config','Release','--parallel','4'],log=project/'display-checks-build.log')
     with tempfile.TemporaryDirectory(prefix='rr-gb-display-') as temp:
-        exe=Path(temp)/'checks.exe'; shutil.copy2(project/'build/Release/rr_display_checks.exe',exe)
+        exe=Path(temp)/'checks.exe'; shutil.copy2(build_executable(project/'build','rr_display_checks'),exe)
         env=os.environ.copy(); env['SDL_VIDEODRIVER']='dummy'; env['SDL_AUDIODRIVER']='dummy'
         env.pop('GBRECOMP_BENCHMARK',None)
         launch=Path(temp)/'unrelated-working-folder'; launch.mkdir()

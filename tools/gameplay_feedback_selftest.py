@@ -15,6 +15,7 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp import feedback
 
 
@@ -154,9 +155,9 @@ def gb(work):
             marker='void gb_dispatch(GBContext* ctx, uint16_t addr) {'
             text=text.replace(marker,marker+'\n    if(addr==0x150) { gbrt_execute_dispatch_fallback(ctx,0,addr,GB_DISPATCH_FALLBACK_ADDRESS_NOT_COMPILED,0);return;}')
             target.write_text(text)
-        run([cmake,'-S',folder,'-B',folder/'build','-G',generator,'-A','x64',f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],log=folder/'build.log')
+        run([cmake,'-S',folder,'-B',folder/'build','-G',generator,*cmake_target_args(),f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],log=folder/'build.log')
         run([cmake,'--build',folder/'build','--config','Release','--target','game','--parallel','4'],log=folder/'build.log')
-        return folder/'build/Release/game.exe'
+        return build_executable(folder / 'build', 'game')
     first=build(work/'first',force=True)
     env=os.environ.copy();env['RETRO_RECOMP_FEEDBACK']='1'
     subprocess.run([first,'--headless','--limit-frames','3'],env=env,check=True,capture_output=True,timeout=60)

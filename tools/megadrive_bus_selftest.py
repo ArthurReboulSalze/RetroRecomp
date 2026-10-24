@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.core import run
 from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 
@@ -26,6 +27,9 @@ def native_executable(project, output, harness, z80_source=None):
         excluded.add('md_z80_generated')
     resources=[]
     if os.name=='nt':
+        from retrorecomp import toolchain
+        if toolchain.active() != toolchain.MSVC:
+            raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
         # Incremental MSBuild tlogs retain old input sets. The current project
         # is the authority; using its first historical tlog record omitted
         # later state, battery and feedback objects from the fixture link.
@@ -74,13 +78,13 @@ target_include_directories(checks PRIVATE "{project.as_posix()}" "{project.as_po
  "{(ROOT/'.deps/segagenesisrecomp/recompiler/src').as_posix()}")
 target_link_libraries(checks PRIVATE {libraries})
 if(MSVC)
- target_compile_options(checks PRIVATE /utf-8 /wd4996)
+ target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
  target_link_options(checks PRIVATE /CETCOMPAT:NO)
 endif()
 ''', encoding='utf-8')
     cmake, generator = toolchain()
     run([cmake, '-S', work, '-B', work/'build', '-G', generator, *cmake_target_args(),
-         '-DCMAKE_PREFIX_PATH='+(ROOT/'.deps/SDL/install').as_posix()], log=work/'build.log')
+         '-DCMAKE_PREFIX_PATH='+sdl_install().as_posix()], log=work/'build.log')
     run([cmake, '--build', work/'build', '--config', 'Release', '--parallel', build_jobs()], log=work/'build.log')
     return build_executable(work/'build', 'checks')
 

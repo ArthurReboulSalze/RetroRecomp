@@ -7,6 +7,7 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.artwork import ICON_SIZES
 from retrorecomp.core import ROOT, ASSETS, dependencies, run, slug
 from retrorecomp.paths import games_directory
@@ -76,13 +77,13 @@ def main():
     for file in (ASSETS / "native").iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     build = ROOT / ".build/icon-checks-build"
-    run([cmake, "-S", source, "-B", build, "-G", generator, "-A", "x64",
+    run([cmake, "-S", source, "-B", build, "-G", generator, *cmake_target_args(),
         f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
         f"-DSMSRECOMP_BANKED_AOT={'ON' if report['backend']=='banked' else 'OFF'}",
         f"-DGAME_NAME={slug(Path(report['executable']).stem)}", f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}",
         "-DSMSRECOMP_ICON_CHECKS=ON"])
     run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_icon_checks", "--parallel", "4"])
-    print(run([build / "Release/smsrecomp_icon_checks.exe"]).strip())
+    print(run([build_executable(build, 'smsrecomp_icon_checks')]).strip())
 
 
 if __name__ == "__main__":

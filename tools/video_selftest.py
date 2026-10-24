@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import ROOT, ASSETS, dependencies, run, slug
 
 def main():
@@ -27,14 +28,14 @@ def main():
         if file.is_file(): shutil.copy2(file, source / file.name)
     engine, sdl, cmake, generator = dependencies()
     build = directory / 'build'
-    run([cmake, '-S', source, '-B', build, '-G', generator, '-A', 'x64',
+    run([cmake, '-S', source, '-B', build, '-G', generator, *cmake_target_args(),
          f'-DENGINE_DIR={engine.as_posix()}', f'-DGAME_DIR={Path(report["build_directory"]).as_posix()}',
          f'-DGAME_NAME={slug(Path(report["executable"]).stem)}', f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}',
          f'-DSMSRECOMP_BANKED_AOT={"ON" if report["backend"] == "banked" else "OFF"}',
          '-DSMSRECOMP_VIDEO_CHECKS=ON', f'-DSMSRECOMP_VIDEO_PROBE={"ON" if args.probe else "OFF"}'])
     targets = ['smsrecomp_video_checks'] + (['smsrecomp_video_probe'] if args.probe else [])
     run([cmake, '--build', build, '--config', 'Release', '--target', *targets, '--parallel', '4'])
-    log = run([build / 'Release/smsrecomp_video_checks.exe'])
+    log = run([build_executable(build, 'smsrecomp_video_checks')])
     proof = {'chip_fixtures_passed': True, 'visual_review_performed': False}
     if args.probe:
         # Keep diagnostic learning outputs local to this private test directory.
@@ -43,7 +44,7 @@ def main():
         environment['SMSRECOMP_STRICT'] = '1'
         for reference in (False, True):
             trace = directory / ('reference.csv' if reference else 'native.csv')
-            command = [build / 'Release/smsrecomp_video_probe.exe', str(args.frames), trace]
+            command = [build_executable(build, 'smsrecomp_video_probe'), str(args.frames), trace]
             if reference: command.append('reference')
             result = subprocess.run([str(p) for p in command], cwd=directory, env=environment,
                 capture_output=True, encoding='utf-8', errors='replace', timeout=120,

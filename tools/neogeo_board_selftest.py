@@ -33,7 +33,7 @@ target_link_libraries(lspc_checks PRIVATE ng_hardware)
         source.write('''
 foreach(check board_checks lspc_checks timer_checks sound_checks ym_checks)
   if(MSVC)
-    target_compile_options(${check} PRIVATE /utf-8 /wd4996)
+    target_compile_options(${check} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
   else()
     target_link_libraries(${check} PRIVATE m)
   endif()

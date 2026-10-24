@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.core import run, toolchain
 from retrorecomp.platforms import build_executable, cmake_target_args
 
@@ -20,7 +21,7 @@ target_link_libraries(checks PRIVATE SDL2::SDL2-static)
 ''')
     log = project / 'build.log'
     run([cmake, '-S', project, '-B', project/'build', '-G', generator, *cmake_target_args(),
-         f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}'], log=log)
+         f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}'], log=log)
     run([cmake, '--build', project/'build', '--config', 'Release', '--parallel', '4'], log=log)
     result = run([build_executable(project/'build', 'checks')], timeout=60)
     (project/'checks.log').write_text(result)

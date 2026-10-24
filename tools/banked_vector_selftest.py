@@ -12,6 +12,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args, recompiler_build
 from retrorecomp.core import dependencies, default_config, read_rom, run
 from retrorecomp.cpu import prepare_cpu_headers, prepare_reference
 from fetch_z80_vectors import fetch
@@ -86,7 +87,7 @@ def main():
     if not args.reuse_build:
         for stale in (game / 'generated').glob('game_banked_ops_*.c'):
             stale.unlink()
-        run([ROOT / '.deps/recompiler-build/Release/SmsRecomp.exe', '--game', game / 'game.toml', '--banked-step'], log=game / 'build.log')
+        run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', game / 'game.toml', '--banked-step'], log=game / 'build.log')
         stamp.write_text(emitter_digest)
     (game / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
 project(BankedVectors C)
@@ -96,16 +97,16 @@ file(GLOB bodies "generated/game_banked_ops_*.c")
 add_executable(banked_vectors "{(ROOT / 'native/banked_vectors.c').as_posix()}" generated/game_banked_index.c ${{bodies}})
 target_include_directories(banked_vectors PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")
 target_compile_definitions(banked_vectors PRIVATE SMSRECOMP_BANKED_AOT _CRT_SECURE_NO_WARNINGS)
-target_compile_options(banked_vectors PRIVATE /W2 /MP4)
+target_compile_options(banked_vectors PRIVATE "$<$<C_COMPILER_ID:MSVC>:/W2;/MP4>")
 add_executable(reference_vectors "{(ROOT / 'native/banked_vectors.c').as_posix()}" runtime_reference.c)
 target_include_directories(reference_vectors PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}" "${{CMAKE_CURRENT_SOURCE_DIR}}/generated")
 target_compile_definitions(reference_vectors PRIVATE VECTOR_REFERENCE _CRT_SECURE_NO_WARNINGS)
 ''', encoding='utf-8')
-    run([cmake, '-S', game, '-B', game / 'build', '-G', generator, '-A', 'x64'], log=game / 'build.log')
+    run([cmake, '-S', game, '-B', game / 'build', '-G', generator, *cmake_target_args()], log=game / 'build.log')
     print(f'Compiling {len(windows)} exact encodings for {len(cases)} vectors...', flush=True)
     target = 'reference_vectors' if args.reference else 'banked_vectors'
     run([cmake, '--build', game / 'build', '--config', 'Release', '--target', target, '--parallel', '4'], log=game / 'build.log', timeout=900)
-    result = subprocess.run([str(game / f'build/Release/{target}.exe'), str(game / 'vectors.bin')],
+    result = subprocess.run([str(build_executable(game / 'build', target)), str(game / 'vectors.bin')],
         capture_output=True, text=True, timeout=120, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     (game / f'{target}.log').write_text(result.stdout + result.stderr, encoding='utf-8')
     failures, details = Counter(), []
@@ -119,7 +120,7 @@ target_compile_definitions(reference_vectors PRIVATE VECTOR_REFERENCE _CRT_SECUR
         checked_utc=datetime.now(timezone.utc).isoformat(), emitter_sha256=emitter_digest,
         reference_sha256=hashlib.sha256((game / 'runtime_reference.c').read_bytes()).hexdigest(),
         helpers_sha256=hashlib.sha256((game / 'z80_ops.h').read_bytes()).hexdigest(),
-        executable_sha256=hashlib.sha256((game / f'build/Release/{target}.exe').read_bytes()).hexdigest(),
+        executable_sha256=hashlib.sha256(build_executable(game / 'build', target).read_bytes()).hexdigest(),
         families=len(vectors['families']), cases=len(cases), selected_per_family=args.samples,
         exact_encodings=len(windows), exit_code=result.returncode, failure_counts=dict(failures), failures=details,
         scope='Generated native bodies: registers, flags, WZ/Q/P, total cycles, all memory writes and low-byte SMS ports; not bus waveforms or hardware fidelity')

@@ -11,6 +11,7 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
 from retrorecomp.core import run,toolchain
 
 HARNESS=r'''
@@ -115,6 +116,9 @@ int wmain(int argc,wchar_t **argv) {
 
 
 def check(project,output):
+    from retrorecomp import toolchain
+    if toolchain.active() != toolchain.MSVC:
+        raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
     project=project.resolve();output.mkdir(parents=True,exist_ok=True)
     log=project/'build/game.dir/Release/game.tlog/link.command.1.tlog'
     lines=log.read_text(encoding='utf-16').splitlines()
@@ -140,13 +144,13 @@ target_include_directories(checks PRIVATE "{project.as_posix()}" "{runner}" "{ru
  "{runner}/video" "{runner}/audio" "{runner}/external/superzazu" "{runner}/external/clowncommon")
 target_link_libraries(checks PRIVATE SDL2::SDL2-static ws2_32 comdlg32 {resources})
 target_link_options(checks PRIVATE /CETCOMPAT:NO)
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''',encoding='utf-8')
     cmake,generator=toolchain()
-    run([cmake,'-S',work,'-B',work/'build','-G',generator,'-A','x64',
-         '-DCMAKE_PREFIX_PATH='+(ROOT/'.deps/SDL/install').as_posix()],log=work/'build.log')
+    run([cmake,'-S',work,'-B',work/'build','-G',generator,*cmake_target_args(),
+         '-DCMAKE_PREFIX_PATH='+sdl_install().as_posix()],log=work/'build.log')
     run([cmake,'--build',work/'build','--config','Release','--parallel','2'],log=work/'build.log')
-    exe=work/'build/Release/checks.exe'
+    exe=build_executable(work / 'build', 'checks')
     results=[]
     with tempfile.TemporaryDirectory(prefix='rr-md-saves-') as temp:
         storage=Path(temp); cold=storage/'cold.rrstate';warm=storage/'warm.rrstate';battery=storage/'datas/saves/authored.rrsram'

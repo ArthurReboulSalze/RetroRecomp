@@ -7,6 +7,7 @@ import subprocess
 import sys
 import uuid
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.neogeo_build import prepare_project
 from retrorecomp.core import run,toolchain
 
@@ -19,10 +20,10 @@ def check(output: Path):
         file.write(f'\nadd_executable(persistence_checks "{ROOT.as_posix()}/native/neogeo_persistence_checks.c" neogeo_persistence.c)\n'
                    'target_link_libraries(persistence_checks PRIVATE ng_hardware)\n')
     cmake,generator=toolchain()
-    run([cmake,'-S',project,'-B',project/'build','-G',generator,'-A','x64'],log=project/'build.log')
+    run([cmake,'-S',project,'-B',project/'build','-G',generator,*cmake_target_args()],log=project/'build.log')
     run([cmake,'--build',project/'build','--config','Release','--target','persistence_checks','--parallel','4'],log=project/'build.log')
     folder=output/('fresh Été-'+uuid.uuid4().hex[:8]);folder.mkdir()
-    exe=folder/'checks.exe';shutil.copy2(project/'build/Release/persistence_checks.exe',exe)
+    exe=folder/'checks.exe';shutil.copy2(build_executable(project/'build','persistence_checks'),exe)
     saved=folder/'datas/saves'/('NeoGeo-'+'a'*64+'.rrsave')
     if saved.exists():saved.unlink()
     checks=0

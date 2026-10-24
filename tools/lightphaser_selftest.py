@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import ROOT, ASSETS, convert, dependencies, run
 
 
@@ -24,7 +25,7 @@ def check(report_path, directory, frames=None):
         if file.is_file():
             shutil.copy2(file, source / file.name)
     build = directory / "build"
-    run([cmake, "-S", source, "-B", build, "-G", generator, "-A", "x64",
+    run([cmake, "-S", source, "-B", build, "-G", generator, *cmake_target_args(),
          f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
          f"-DSMSRECOMP_BANKED_AOT={'ON' if report['backend'] == 'banked' else 'OFF'}",
          f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}", "-DGAME_NAME=PhaserProof", "-DSMSRECOMP_PHASER_CHECKS=ON"])
@@ -32,7 +33,7 @@ def check(report_path, directory, frames=None):
     env = os.environ.copy()
     env["SMSRECOMP_LIBRARY_DIR"] = str(directory / "learning")
     env["SMSRECOMP_STRICT"] = "1"
-    args = [str(build / "Release/smsrecomp_phaser_checks.exe")]
+    args = [str(build_executable(build, 'smsrecomp_phaser_checks'))]
     if frames:
         args += ["--game", str(frames)]
     result = subprocess.run(args, cwd=directory, env=env, capture_output=True, timeout=120)

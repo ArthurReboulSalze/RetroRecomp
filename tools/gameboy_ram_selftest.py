@@ -4,6 +4,7 @@ import json
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_runtime import adapt_generated_project
@@ -28,15 +29,15 @@ def main():
         out.write(f'''\nadd_executable(retro_gb_ram_checks "{(ASSETS / 'native/gb_ram_checks.c').as_posix()}")
 target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)
 ''')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=log)
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target',
          'retro_gb_ram_checks', 'game', '--parallel', '4'], log=log, timeout=600)
-    output = run([project / 'build/Release/retro_gb_ram_checks.exe'], timeout=180)
+    output = run([build_executable(project / 'build', 'retro_gb_ram_checks')], timeout=180)
     (project / 'checks.log').write_text(output, encoding='utf-8')
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
     from retrorecomp.gameboy import CPU_MATCH
-    executable = project / 'build/Release/game.exe'
+    executable = build_executable(project / 'build', 'game')
     cpu = run([executable, '--differential', '--differential-frames', '1'], timeout=180)
     assert CPU_MATCH.search(cpu), cpu
     native = run([executable, '--headless', '--limit-frames', '1',

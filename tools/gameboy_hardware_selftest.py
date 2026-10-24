@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_runtime import adapt_generated_project
@@ -37,7 +38,7 @@ def main():
             stub = '' if name == 'rr_gb_audio' else ' no_guest_cpu.c'
             out.write(f'\nadd_executable({name} "{source.as_posix()}"{stub})\n'
                       f'target_link_libraries({name} PRIVATE gbrt)\n')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=log)
     audio = project / 'runtime/src/audio.c'
     adapted = audio.read_bytes()
@@ -46,7 +47,7 @@ def main():
         shutil.copyfile(engine / 'runtime/src/audio.c', audio)
         run([cmake, '--build', project / 'build', '--config', 'Release', '--target', 'rr_gb_audio',
              '--parallel', '4'], log=log, timeout=600)
-        baseline = subprocess.run([project / 'build/Release/rr_gb_audio.exe'],
+        baseline = subprocess.run([build_executable(project / 'build', 'rr_gb_audio')],
                                   capture_output=True, text=True, timeout=60)
         (project / 'baseline.log').write_text(baseline.stdout + baseline.stderr, encoding='utf-8')
     finally:
@@ -56,7 +57,7 @@ def main():
          '--parallel', '4'], log=log, timeout=600)
     results = {}
     for name in checks:
-        output = run([project / f'build/Release/{name}.exe'], timeout=60)
+        output = run([build_executable(project / 'build', f'{name}')], timeout=60)
         (project / f'{name}.log').write_text(output, encoding='utf-8')
         results[name] = {'passed': True, 'output': output.strip()}
         print(name, output.strip() or 'PASS', flush=True)

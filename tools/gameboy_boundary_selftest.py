@@ -5,6 +5,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_boundary import boundary_instruction, instruction_length
@@ -51,11 +52,11 @@ def main():
     (project / 'runtime/include/gb_boundary_generated.inc').write_text('\n'.join(source), encoding='utf-8')
     with (project / 'CMakeLists.txt').open('a', encoding='utf-8') as out:
         out.write(f'\nadd_executable(retro_gb_boundary_checks "{(ASSETS / "native/gb_boundary_checks.c").as_posix()}")\ntarget_link_libraries(retro_gb_boundary_checks PRIVATE gbrt)\n')
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64',
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
          f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=log, timeout=600)
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target',
          'retro_gb_boundary_checks', '--parallel', '4'], log=log, timeout=600)
-    output = run([project / 'build/Release/retro_gb_boundary_checks.exe'], timeout=180)
+    output = run([build_executable(project / 'build', 'retro_gb_boundary_checks')], timeout=180)
     (project / 'checks.log').write_text(output, encoding='utf-8')
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
     (project / 'results.json').write_text(json.dumps(result, indent=2) + '\n')

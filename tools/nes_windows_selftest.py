@@ -3,6 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 import argparse,json,sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run,toolchain
 from retrorecomp.nes_codegen import prepare_compiler
 from retrorecomp.nes_machine import prepare_machine
@@ -46,18 +47,18 @@ add_executable(checks${{pal}} ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/nati
 target_include_directories(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_INCLUDE_DIRS}} generated "{ROOT.as_posix()}/native" "{work.as_posix()}")
 target_compile_definitions(checks${{pal}} PRIVATE _CRT_SECURE_NO_WARNINGS RR_NES_PAL=${{pal}})
 if(MSVC)
-target_compile_options(checks${{pal}} PRIVATE /bigobj)
+target_compile_options(checks${{pal}} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/bigobj>")
 endif()
 target_link_libraries(checks${{pal}} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
 endforeach()
 ''')
-    run([cmake,'-S',work,'-B',work/'build','-G',generator,'-A','x64'],log=work/'build.log')
+    run([cmake,'-S',work,'-B',work/'build','-G',generator,*cmake_target_args()],log=work/'build.log')
     run([cmake,'--build',work/'build','--config','Release','--parallel','4'],log=work/'build.log',timeout=1800)
     def check(pal,mapper,sub,ram):
         rom=work/f'board-{mapper}-{sub}-{ram}.nes'
         # Only live bodies and lower-alias dense_step are executed. No hot
         # block compiled for the base mapper is used on another board.
-        result=json.loads(run([work/f'build/Release/checks{pal}.exe',rom],cwd=work,timeout=900).strip())
+        result=json.loads(run([build_executable(work / 'build', f'checks{pal}'),rom],cwd=work,timeout=900).strip())
         result['pal']=pal;result['ram_exponent']=ram
         (work/f'result-{pal}-{mapper}-{sub}-{ram}.json').write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result),flush=True)

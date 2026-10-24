@@ -6,6 +6,7 @@ import shutil
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.snes_codegen import native_source, adapt_core, mirrored_rom
 
@@ -52,13 +53,13 @@ target_compile_definitions(checks PRIVATE FIXTURE_CART_TYPE=CART_LOROM)
 target_compile_definitions(checks_hirom PRIVATE FIXTURE_CART_TYPE=CART_HIROM)
 foreach(target checks checks_hirom)
   target_include_directories(${{target}} PRIVATE . "{staged.as_posix()}/src" "{staged.as_posix()}/src/snes")
-  target_compile_options(${{target}} PRIVATE /utf-8 /wd4996)
+  target_compile_options(${{target}} PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 endforeach()
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
-    results = {mapping: json.loads(run([project / f'build/Release/{name}.exe']))
+    results = {mapping: json.loads(run([build_executable(project / 'build', f'{name}')]))
                for mapping, name in (('lorom', 'checks'), ('hirom', 'checks_hirom'))}
     result = {'mappings': results, 'instruction_state_bus_comparisons':
               sum(row['instruction_state_bus_comparisons'] for row in results.values()),

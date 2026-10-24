@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import ROOT, convert, dependencies, run
 
 
@@ -30,13 +31,13 @@ def main():
             frames=2, passes=1, backend=backend, use_cover=False, online_cover=False)
         report = json.loads((exe.parent / "conversion-report.json").read_text(encoding="utf-8"))
         build = directory / f"{backend}-build"
-        run([cmake, "-S", ROOT / ".build/native-source", "-B", build, "-G", generator, "-A", "x64",
+        run([cmake, "-S", ROOT / ".build/native-source", "-B", build, "-G", generator, *cmake_target_args(),
             f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={Path(report['build_directory']).as_posix()}",
             f"-DSMSRECOMP_BANKED_AOT={'ON' if backend == 'banked' else 'OFF'}",
             f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}", "-DGAME_NAME=InputProof", "-DSMSRECOMP_INPUT_CHECKS=ON"])
         run([cmake, "--build", build, "--config", "Release", "--target", "smsrecomp_input_checks", "--parallel", "4"])
         env = os.environ.copy(); env["SMSRECOMP_STRICT"] = "1"
-        result = subprocess.run([str(build / "Release/smsrecomp_input_checks.exe")],
+        result = subprocess.run([str(build_executable(build, 'smsrecomp_input_checks'))],
             cwd=directory, env=env, capture_output=True, timeout=45)
         (directory / f"{backend}-cpu.log").write_bytes(result.stdout + result.stderr)
         print(result.stdout.decode("utf-8", errors="replace"))

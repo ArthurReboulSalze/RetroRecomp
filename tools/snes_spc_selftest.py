@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp import snes_spc
 
@@ -43,12 +44,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{ROOT.as_posix()}/native/snes_spc_checks.c" spc.c snes_spc_runtime.c)
 target_include_directories(checks PRIVATE . "{staged.as_posix()}/src" "{staged.as_posix()}/src/snes")
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project / 'build.log')
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')
-    result = json.loads(run([project / 'build/Release/checks.exe']))
+    result = json.loads(run([build_executable(project / 'build', 'checks')]))
     result['guarded_variants'] = guarded
     (project / 'results.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))

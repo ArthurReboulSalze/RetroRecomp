@@ -12,6 +12,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.megadrive_codegen import generate_steps, adapt_interpreter
 
@@ -86,12 +87,12 @@ file(GLOB STEPS "steps/*.c")
 add_executable(checks "{ROOT.as_posix()}/native/md_cycle_checks.c" reference.c ${{STEPS}}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(checks PRIVATE . "{prefix}/runner" "{prefix}/runner/include" "{prefix}/recompiler/src")
-target_compile_options(checks PRIVATE /utf-8 /wd4996)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, '-A', 'x64'], log=project/'build.log')
+    run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project/'build.log')
     run([cmake, '--build', project/'build', '--config', 'Release', '--parallel', '4'], log=project/'build.log')
-    result = json.loads(run([project/'build/Release/checks.exe']).strip())
+    result = json.loads(run([build_executable(project / 'build', 'checks')]).strip())
     result.update(source='https://www.nxp.com/docs/en/reference-manual/MC68000UM.pdf',
                   tables=['8-5', '8-6', '8-7', '8-8'], original_board_claimed=False)
     (project/'results.json').write_text(json.dumps(result, indent=2)+'\n')

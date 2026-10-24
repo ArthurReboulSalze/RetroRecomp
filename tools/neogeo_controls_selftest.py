@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
 from retrorecomp.core import toolchain,run
 from retrorecomp.feedback import stage
 
@@ -18,12 +19,12 @@ find_package(SDL2 CONFIG REQUIRED)
 add_executable(checks "{(ROOT/'native/neogeo_controls_checks.c').as_posix()}" "{(ROOT/'native/retro_menu.c').as_posix()}")
 target_include_directories(checks PRIVATE . "{(ROOT/'native').as_posix()}")
 target_compile_definitions(checks PRIVATE RR16_NG=1)
-target_compile_options(checks PRIVATE /utf-8 /UNDEBUG)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/UNDEBUG>")
 target_link_libraries(checks PRIVATE SDL2::SDL2-static user32 gdi32)
 ''',encoding='utf-8')
     stage(p,'ng','0'*64,target='checks')
-    cmake,generator=toolchain();sdl=ROOT/'.deps/SDL/install'
-    run([cmake,'-S',p,'-B',p/'build','-G',generator,'-A','x64',f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],log=p/'build.log')
+    cmake,generator=toolchain();sdl=sdl_install()
+    run([cmake,'-S',p,'-B',p/'build','-G',generator,*cmake_target_args(),f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],log=p/'build.log')
     run([cmake,'--build',p/'build','--config','Release','--parallel','4'],log=p/'build.log')
-    result=run([p/'build/Release/checks.exe']);(p/'result.json').write_text(result,encoding='utf-8');print(result.strip())
+    result=run([build_executable(p / 'build', 'checks')]);(p/'result.json').write_text(result,encoding='utf-8');print(result.strip())
 if __name__=='__main__':main()

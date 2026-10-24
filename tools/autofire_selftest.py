@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.paths import ROOT, ASSETS
 from retrorecomp.core import toolchain, run
 from retrorecomp.platforms import cmake_target_args, build_executable
@@ -184,7 +185,7 @@ def main():
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     systems=('sms','gg','gb','nes','md','snes','ng')
     for system in systems:(out/(system+'.c')).write_text(source(system),encoding='utf-8')
-    cmake,generator=toolchain();sdl=ROOT/'.deps/SDL/install'
+    cmake,generator=toolchain();sdl=sdl_install()
     targets='\n'.join(f'add_executable({s} {s}.c)\ntarget_include_directories({s} PRIVATE "{(ASSETS/"native").as_posix()}")\ntarget_link_libraries({s} PRIVATE SDL2::SDL2-static)' for s in systems)
     (out/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.20)\nproject(AutofireChecks C)\nfind_package(SDL2 REQUIRED CONFIG)\n'+targets+'\n')
     log=out/'build.log'

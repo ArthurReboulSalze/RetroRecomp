@@ -8,6 +8,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.megadrive_sram import bus_header, bus_source
 from retrorecomp.megadrive_memory import runtime_source
@@ -46,23 +47,24 @@ project(RetroMdSramChecks C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(checks "{ROOT.as_posix()}/native/md_sram_checks.c" runtime/video/genesis_bus.c md_battery.c)
+target_link_options(checks PRIVATE "$<$<AND:$<C_COMPILER_ID:Clang>,$<PLATFORM_ID:Windows>>:-municode>")
 target_include_directories(checks PRIVATE . runtime "{ROOT.as_posix()}/native")
-target_compile_options(checks PRIVATE /utf-8)
+target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_executable(baseline baseline.c "{engine.as_posix()}/video/genesis_bus.c")
 target_include_directories(baseline PRIVATE . "{engine.as_posix()}")
-target_compile_options(baseline PRIVATE /utf-8)
+target_compile_options(baseline PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 ''', encoding='utf-8')
     cmake, generator = toolchain()
-    run([cmake, '-S', project, '-B', project/'build', '-G', generator, '-A', 'x64'], log=project/'build.log')
+    run([cmake, '-S', project, '-B', project/'build', '-G', generator, *cmake_target_args()], log=project/'build.log')
     run([cmake, '--build', project/'build', '--config', 'Release', '--parallel', '4'], log=project/'build.log')
-    exe = project/'build/Release/checks.exe'
+    exe = build_executable(project / 'build', 'checks')
     def check(*args):
         return json.loads(run([exe,*args]).strip())
     result = check()
-    baseline = subprocess.run([project/'build/Release/baseline.exe'],capture_output=True,text=True)
+    baseline = subprocess.run([build_executable(project / 'build', 'baseline')],capture_output=True,text=True)
     assert baseline.returncode == 1 and 'gbus_read16(&bus,0x200000)==0xff34' in baseline.stderr
     result['upstream_parallel_ram_regression_reproduced'] = True
-    mirror = subprocess.run([project/'build/Release/baseline.exe','mirror'],capture_output=True,text=True)
+    mirror = subprocess.run([build_executable(project / 'build', 'baseline'),'mirror'],capture_output=True,text=True)
     assert mirror.returncode == 1 and 'gbus_read16(&bus,0xff1234)==0x1234' in mirror.stderr
     result['upstream_work_ram_mirror_regression_reproduced'] = True
     with tempfile.TemporaryDirectory(prefix='rr-sram-') as temp:

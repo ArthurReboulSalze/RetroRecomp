@@ -14,6 +14,7 @@ import time
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
 from retrorecomp.core import run,toolchain
 from retrorecomp.neogeo_build import prepare_project
 from retrorecomp.neogeo_validation import FIELDS, qualification_routes, compare
@@ -75,8 +76,8 @@ def check(executable: Path,project: Path,output: Path,*,presentation_frames=600)
     plain=output/'plain-reference'
     prepare_project(plain,content=project/'cartridge.neo',bios=project/'bios.zip',title=manifest['prepared']['title'])
     cmake,generator=toolchain()
-    run([cmake,'-S',plain,'-B',plain/'build','-G',generator,'-A','x64',
-         '-DRR_NG_PLAIN_REFERENCE=ON',f'-DCMAKE_PREFIX_PATH={(ROOT/".deps/SDL/install").as_posix()}'],log=plain/'build.log')
+    run([cmake,'-S',plain,'-B',plain/'build','-G',generator,*cmake_target_args(),
+         '-DRR_NG_PLAIN_REFERENCE=ON',f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}'],log=plain/'build.log')
     run([cmake,'--build',plain/'build','--config','Release','--target','game','--parallel','4'],log=plain/'build.log')
     # Real input masks only: no guest-memory patching or function overrides.
     summary={'set':set_name,'input_identity':manifest['identity'],'routes':[],
@@ -84,7 +85,7 @@ def check(executable: Path,project: Path,output: Path,*,presentation_frames=600)
     for name,(frames,text) in routes.items():
         script=output/(name+'.inputs');script.write_text(text,encoding='ascii')
         reports=[]
-        for label,binary in (('adapter',executable),('plain',plain/'build/Release/game.exe')):
+        for label,binary in (('adapter',executable),('plain',build_executable(plain / 'build', 'game'))):
             report=output/f'{name}-{label}.json'
             arguments=[str(binary),'--headless','--frames',str(frames),'--script',str(script),'--report',str(report),
                        '--rtc-seed','1760000000']
