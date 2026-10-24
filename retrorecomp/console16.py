@@ -818,7 +818,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     for attempt in range(passes):
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources,
                                standard_override=standard)
-        checks_dir = executable.parents[2 if executable.parent.name == 'Release' else 1] / 'checks'
+        checks_dir = executable.parents[2 if os.name == 'nt' and executable.parent.name == 'Release' else 1] / 'checks'
         checks_dir.mkdir(exist_ok=True)
         checks = []
         scenarios = [(demo_frames if not play else frames, dict(play=play, gun_menu=gun_menu))
@@ -935,7 +935,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'runtime_learning': True, 'runtime_feedback': gameplay_feedback,
         'physical_latency_measured': False, 'artwork': artwork, 'windows_metadata': metadata,
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
-        'build_directory': str(executable.parents[2 if executable.parent.name == 'Release' else 1]),
+        'build_directory': str(executable.parents[2 if os.name == 'nt' and executable.parent.name == 'Release' else 1]),
         'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
     atomic_json(output / 'conversion-report.json', report)
     return executable
