@@ -23,7 +23,7 @@ NO_WINDOW=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
 sys.path.insert(0,str(ROOT))
 from tools.x68000_reference import ensure_sources, PX68K_REV,prepare_bundle,_atomic_text
 from retrorecomp.core import run,toolchain
-from retrorecomp.platforms import build_executable,cmake_target_args
+from retrorecomp.platforms import build_executable,cmake_target_args,sdl_install
 from retrorecomp.m68000 import adapt_semantics,operation_bodies,mnemonic_names,instruction_literal
 from retrorecomp.neogeo_codegen import canonical_instruction,structural_key,structural_body
 from retrorecomp.megadrive_codegen import write_changed
@@ -561,7 +561,7 @@ def main():
     parser.add_argument('--work',type=Path,required=True)
     parser.add_argument('--observations',type=Path,action='append',default=[])
     parser.add_argument('--source',type=Path,default=ROOT/'.deps/px68k-reference')
-    parser.add_argument('--sdl',type=Path,default=ROOT/'.deps/SDL/install')
+    parser.add_argument('--sdl',type=Path,default=sdl_install())
     parser.add_argument('--jobs',type=int,default=8)
     parser.add_argument('--prepare',type=Path)
     parser.add_argument('--disk',type=Path,action='append',default=[])

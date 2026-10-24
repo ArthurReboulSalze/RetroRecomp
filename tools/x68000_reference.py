@@ -19,6 +19,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from retrorecomp.platforms import sdl_install
 from retrorecomp.x68000_media import MachineConfig, build_manifest
 
 PX68K_URL = 'https://github.com/libretro/px68k-libretro.git'
@@ -64,9 +65,8 @@ def build_reference(build: Path, source: Path, sdl: Path, jobs: int = 4) -> Path
              '-G', generator, *cmake_target_args(), f'-DPX68K_DIR={source.as_posix()}',
              f'-DCMAKE_PREFIX_PATH={sdl.resolve().as_posix()}'])
     command([cmake, '--build', build, '--config', 'Release', '--parallel', str(jobs)])
-    binary_dir = build / 'Release' if os.name == 'nt' else build
-    executable = binary_dir / ('RetroRecomp-X68000-Reference.exe' if os.name == 'nt'
-                               else 'RetroRecomp-X68000-Reference')
+    from retrorecomp.platforms import build_executable
+    executable = build_executable(build, 'RetroRecomp-X68000-Reference')
     if not executable.is_file():
         raise ValueError(f'Reference build did not produce {executable}')
     return executable
@@ -264,7 +264,7 @@ def main():
     build = sub.add_parser('build')
     build.add_argument('--source', type=Path, default=ROOT / '.deps/px68k-reference')
     build.add_argument('--build-dir', type=Path, default=ROOT / '.build/x68000-stage1/build')
-    build.add_argument('--sdl-prefix', type=Path, default=ROOT / '.deps/SDL/install')
+    build.add_argument('--sdl-prefix', type=Path, default=sdl_install())
     build.add_argument('--jobs', type=int, choices=range(1, 9), default=4)
     stage = sub.add_parser('prepare')
     stage.add_argument('--disk', type=Path, action='append', required=True)
