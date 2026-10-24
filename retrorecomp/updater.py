@@ -64,6 +64,50 @@ class Update:
     digest: str
     size: int
     target: str = 'windows-x86_64'
+    # Plain-text release notes of every version newer than the installed one,
+    # newest first, so a skipped version's changes are shown too.
+    notes: str = ''
+
+
+NOTES_LIMIT = 12000
+
+
+def release_notes(body, limit: int = NOTES_LIMIT) -> str:
+    """The GitHub release body as readable plain text.
+
+    The notes are written in Markdown and hard-wrapped; a dialog wraps them
+    itself. Headings, emphasis, code marks and link targets are dropped, the
+    lines of one paragraph or bullet are joined, and the text is bounded."""
+    if not isinstance(body, str) or not body.strip():
+        return ''
+    text = body.replace('\r\n', '\n')[:limit * 2]
+    text = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text)
+    text = re.sub(r'(\*\*|__|`)', '', text)
+    blocks, current = [], []
+    def flush():
+        if current:
+            blocks.append(' '.join(part.strip() for part in current))
+            current.clear()
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if not stripped or stripped == '---':
+            flush()
+            continue
+        if stripped.startswith('#'):
+            flush()
+            blocks.append(stripped.lstrip('#').strip())
+            continue
+        if re.match(r'^[-*+]\s+', stripped):
+            flush()
+            current.append('• ' + stripped[1:].strip())
+            continue
+        current.append(stripped)
+    flush()
+    result = '\n\n'.join(block for block in blocks if block)
+    if len(result) > limit:
+        cut = result[:limit].rsplit('\n', 1)[0].rstrip()
+        result = cut + '\n…'
+    return result
 
 
 def release_asset(target: str) -> str:
@@ -94,11 +138,15 @@ def select_update(releases: list[dict], current: str = __version__, *, target: s
     if installed is None:
         raise ValueError("Invalid installed version")
     candidates = []
+    notes = []
     for release in releases:
         tag = release.get("tag_name", "")
         number = _version(tag)
         if not number or number <= installed or release.get("draft"):
             continue
+        text = release_notes(release.get("body"))
+        if text:
+            notes.append((number, f"{tag[1:]}\n\n{text}" if not text.startswith(tag[1:]) else text))
         # Pre-releases are intentional in this project; GitHub's /latest omits them.
         for asset in release.get("assets", []):
             name = asset.get("name")
@@ -107,10 +155,16 @@ def select_update(releases: list[dict], current: str = __version__, *, target: s
             if (name == wanted and asset.get("state") == "uploaded"
                     and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
                     and isinstance(size, int) and 0 < size <= MAX_ARCHIVE_BYTES):
-                candidates.append((number, Update(tag[1:],
-                    f"{RELEASE_BASE}/download/{tag}/{name}",
-                    f"{RELEASE_BASE}/tag/{tag}", digest[7:].lower(), size, target)))
-    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+                candidates.append((number, tag, name, digest[7:].lower(), size))
+    if not candidates:
+        return None
+    number, tag, name, digest, size = max(candidates, key=lambda item: item[0])
+    # Only versions up to the offered one; newest first, bounded as a whole.
+    text = "\n\n".join(entry for n, entry in sorted(notes, reverse=True) if n <= number)
+    if len(text) > NOTES_LIMIT:
+        text = text[:NOTES_LIMIT].rsplit("\n", 1)[0].rstrip() + "\n…"
+    return Update(tag[1:], f"{RELEASE_BASE}/download/{tag}/{name}",
+                  f"{RELEASE_BASE}/tag/{tag}", digest, size, target, text)
 
 
 def check_for_update() -> Update | None:

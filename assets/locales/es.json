@@ -4,6 +4,8 @@
     "empty_title": "No hay ROMs en la lista",
     "empty_hint": "Arrastra ROMs o carpetas aquí para empezar",
     "drop_added": "{count} ROMs añadidas. Listas para convertir.",
+    "already_compiled": "{count} de los juegos añadidos ya están compilados ({examples}). ¿Mantenerlos en la lista para reconvertirlos?\nNo conserva solo los juegos aún no compilados.",
+    "already_compiled_left_out": "{count} juegos ya compilados excluidos de la lista.",
     "drop_blocked": "Espera a que termine la conversión o actualización antes de soltar ROMs.",
     "drop_unreadable": "No se pudieron leer algunos archivos o carpetas.",
     "drop_unavailable": "No se puede arrastrar y soltar. Usa Añadir ROMs o Añadir carpeta.",

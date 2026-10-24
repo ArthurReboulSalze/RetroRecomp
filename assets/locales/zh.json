@@ -4,6 +4,8 @@
     "empty_title": "列表中没有 ROM",
     "empty_hint": "将 ROM 或文件夹拖到此处开始",
     "drop_added": "已添加 {count} 个 ROM，可以开始转换。",
+    "already_compiled": "添加的游戏中有 {count} 个已经编译（{examples}）。是否保留在列表中以便重新转换？\n选择“否”则只保留尚未编译的游戏。",
+    "already_compiled_left_out": "已从列表中排除 {count} 个已编译的游戏。",
     "drop_blocked": "请等待当前转换或更新完成后再拖入 ROM。",
     "drop_unreadable": "部分文件或文件夹无法读取。",
     "drop_unavailable": "无法拖放，请使用添加 ROM 或添加文件夹。",

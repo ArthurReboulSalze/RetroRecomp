@@ -31,6 +31,7 @@ from .systems import available_profiles, discover_roms, get_profile
 PROFILES = available_profiles()
 from .updater import UpdateConnectionError, UpdateServiceError
 from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
+from .dialogs import center_dialog
 
 
 from .platforms import target_id, open_local
@@ -831,6 +832,44 @@ class Application:
         self.selection_changed()
 
     def add_paths(self, paths):
+        """Add ROMs, folders or disk sets to the queue. Once the whole addition
+        is in, games that already have an export are offered for removal."""
+        outer = not getattr(self, 'adding_depth', 0)
+        if outer:
+            self.compiled_added = []
+        self.adding_depth = getattr(self, 'adding_depth', 0) + 1
+        try:
+            self._add_paths(paths)
+        finally:
+            self.adding_depth -= 1
+        if outer:
+            self.offer_compiled(self.compiled_added)
+
+    def offer_compiled(self, rows):
+        """Ask once whether games already compiled in the output folder stay in
+        the list for a reconversion; otherwise leave them out, so the user
+        need not sort a mixed folder by hand. Nothing is asked before the
+        window shows (ROMs given on the command line)."""
+        rows = [row for row in rows if self.table.exists(row)]
+        if not rows or not self.app.winfo_viewable():
+            return
+        examples = ', '.join(self.items[row].title for row in rows[:3]) + ('…' if len(rows) > 3 else '')
+        if self.confirm_compiled(len(rows), examples):
+            return
+        for row in rows:
+            self.table.delete(row)
+            self.items.pop(row, None)
+            self.results.pop(row, None)
+            self.row_status.pop(row, None)
+        self.count.set(f'{len(self.items)} ROM' + ('s' if len(self.items) != 1 else ''))
+        self.messages.put(('log', self.tr('already_compiled_left_out', count=len(rows))))
+        self.selection_changed()
+
+    def confirm_compiled(self, count, examples):
+        return messagebox.askyesno(APP_NAME, self.tr('already_compiled', count=count, examples=examples),
+                                   default='no', parent=self.app)
+
+    def _add_paths(self, paths):
         # A multi-disk X68000 game is one row: its disks become one playlist.
         from .rom_sources import disk_sets
         sets = disk_sets(paths)
@@ -893,6 +932,7 @@ class Application:
                     self.results[row]['video_standard'] = report.get('video_model', {}).get('standard', item.video_hint)
                     self.table.set(row, 'video', self.video_display(item, self.results[row]))
                     self.table.item(row, tags=('success',))
+                    self.compiled_added.append(row)
             except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 pass
             existing.add(item.path)
@@ -1274,9 +1314,11 @@ class Application:
             messagebox.showinfo(APP_NAME, self.tr('update_source', version=update.version,
                                                  page=update.page))
             return
-        if not messagebox.askyesno(APP_NAME, self.tr('update_available',
-                                                    version=update.version,
-                                                    megabytes=round(update.size / 1048576, 1))):
+        question = self.tr('update_available', version=update.version,
+                           megabytes=round(update.size / 1048576, 1))
+        accepted = (self.update_dialog(update, question) if update.notes
+                    else messagebox.askyesno(APP_NAME, question))
+        if not accepted:
             return
         self.updating = True
         self.update_button.configure(state='disabled')
@@ -1289,6 +1331,52 @@ class Application:
             except Exception as exc:
                 self.messages.put(('update_error', exc))
         threading.Thread(target=worker, daemon=True).start()
+
+    def update_dialog(self, update, question):
+        """The update question with what changed since the installed version.
+        The notes are the published release notes, in English only; the two
+        buttons answer the localized question. True when the download is chosen."""
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.transient(self.app)
+        chosen = tk.BooleanVar(value=False)
+        body = tk.Frame(window, bg=background, padx=18, pady=14,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=question, bg=background, fg=COLORS['text'], font=(self.ui_font, 10),
+                 wraplength=560, justify='left').pack(anchor='w')
+        tk.Label(body, text="What's new", bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).pack(anchor='w', pady=(12, 4))
+        frame = tk.Frame(body, bg=background)
+        frame.pack(fill='both', expand=True)
+        text = tk.Text(frame, width=72, height=18, wrap='word', bg=COLORS['field'], fg=COLORS['text'],
+                       font=(self.ui_font, 9), relief='flat', padx=10, pady=8,
+                       highlightthickness=1, highlightbackground=COLORS['border'])
+        bar = ttk.Scrollbar(frame, orient='vertical', command=text.yview)
+        text.configure(yscrollcommand=bar.set)
+        text.insert('1.0', update.notes)
+        text.configure(state='disabled')
+        text.pack(side='left', fill='both', expand=True)
+        bar.pack(side='right', fill='y')
+        buttons = tk.Frame(body, bg=background)
+        buttons.pack(fill='x', pady=(12, 0))
+        ttk.Button(buttons, text='Later', command=window.destroy).pack(side='right')
+        go = ttk.Button(buttons, text='Download and restart', style='Primary.TButton',
+                        command=lambda: (chosen.set(True), window.destroy()))
+        go.pack(side='right', padx=(0, 8))
+        window.bind('<Escape>', lambda event: window.destroy())
+        window.bind('<Return>', lambda event: go.invoke())
+        window.update_idletasks()
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        window.minsize(520, 360)
+        window.deiconify()
+        window.grab_set()
+        go.focus_set()
+        self.app.wait_window(window)
+        return chosen.get()
 
     def _start_prepared_update(self, job_dir: Path, token: str):
         from .updater import discard_update, start_update_helper

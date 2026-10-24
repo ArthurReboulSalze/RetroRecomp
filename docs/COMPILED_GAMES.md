@@ -58,6 +58,12 @@ credits stay on the right. Every language fits at the default window
 width. While games are being reconverted, the last two converter lines appear
 quietly under the progress bar.
 
+When the ROMs you add (files, a folder or a mixed drop) include games that
+already have an export in the output folder, the queue asks once whether to
+keep them for a reconversion. **No** leaves them out and keeps only the games
+not compiled yet, so a mixed folder needs no sorting by hand; the log says how
+many were left out.
+
 Under the cover, the game card shows a few small lines of text without a
 frame or scrollbar. The mouse wheel scrolls them. Left untouched, they scroll
 on their own and then return to the top.

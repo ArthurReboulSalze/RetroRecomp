@@ -4,6 +4,8 @@
     "empty_title": "Nessuna ROM in elenco",
     "empty_hint": "Trascina qui ROM o cartelle per iniziare",
     "drop_added": "{count} ROM aggiunte. Pronte per la conversione.",
+    "already_compiled": "{count} dei giochi aggiunti sono già compilati ({examples}). Tenerli nell'elenco per riconvertirli?\nNo conserva solo i giochi non ancora compilati.",
+    "already_compiled_left_out": "{count} giochi già compilati esclusi dall'elenco.",
     "drop_blocked": "Attendi il termine della conversione o dell’aggiornamento prima di trascinare ROM.",
     "drop_unreadable": "Alcuni file o cartelle trascinati non sono leggibili.",
     "drop_unavailable": "Trascinamento non disponibile. Usa Aggiungi ROM o Aggiungi cartella.",

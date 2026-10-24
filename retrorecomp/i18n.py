@@ -126,6 +126,8 @@ STRINGS = {
     'empty_title': ('No ROMs in the list', 'Aucune ROM dans la liste'),
     'empty_hint': ('Drop ROMs or folders here to get started', 'Glisse des ROMs ou des dossiers ici pour commencer'),
     'drop_added': ('{count} ROMs added. Ready to convert.', '{count} ROMs ajoutées. Prêtes à convertir.'),
+    'already_compiled': ('{count} of the games you added are already compiled ({examples}). Keep them in the list to reconvert them?\nNo keeps only the games not compiled yet.', '{count} des jeux ajoutés sont déjà compilés ({examples}). Les garder dans la liste pour les reconvertir ?\nNon ne garde que les jeux pas encore compilés.'),
+    'already_compiled_left_out': ('{count} already compiled games left out of the list.', '{count} jeux déjà compilés laissés hors de la liste.'),
     'drop_blocked': ('Finish the current conversion or update before dropping ROMs.', 'Attends la fin de la conversion ou de la mise à jour avant de déposer des ROMs.'),
     'drop_unreadable': ('Some dropped files or folders could not be read.', 'Certains fichiers ou dossiers déposés sont illisibles.'),
     'drop_unavailable': ('Drag and drop is unavailable. Use Add ROMs or Add folder.', 'Le glisser-déposer est indisponible. Utilise Ajouter des ROMs ou Ajouter un dossier.'),

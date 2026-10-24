@@ -4,6 +4,8 @@
     "empty_title": "ROMがありません",
     "empty_hint": "ROMやフォルダーをここにドロップ",
     "drop_added": "ROMを{count}本追加しました。変換できます。",
+    "already_compiled": "追加したゲームのうち {count} 本はすでにコンパイル済みです（{examples}）。再変換のためにリストに残しますか？\n「いいえ」でまだコンパイルされていないゲームだけを残します。",
+    "already_compiled_left_out": "コンパイル済みの {count} 本をリストから除外しました。",
     "drop_blocked": "変換または更新が終わってからドロップしてください。",
     "drop_unreadable": "一部のファイルやフォルダーを読み取れませんでした。",
     "drop_unavailable": "ドラッグ＆ドロップを使えません。追加ボタンを使ってください。",

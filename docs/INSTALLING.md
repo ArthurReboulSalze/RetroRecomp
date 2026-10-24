@@ -58,7 +58,11 @@ Close the converter and any conversions before installation or uninstall.
 
 ## Updates and existing portable data
 
-Use **Check for updates** inside the installed application. It downloads the
+Use **Check for updates** inside the installed application. When a newer
+version exists, the dialog shows what changed since your version (the
+published release notes of every skipped version, in English) before you
+choose to download it. The Windows installer shows the same notes before
+installing. The update downloads the
 matching native converter, checks size, SHA-256, architecture and version, then
 replaces only the application and restarts it. You do not need to download the
 installer again for a converter update. The install location and shortcuts remain

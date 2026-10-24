@@ -39,6 +39,7 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 LicenseFile={#PayloadDir}\LICENSE.txt
+InfoBeforeFile={#PayloadDir}\RELEASE_NOTES.txt
 InfoAfterFile={#PayloadDir}\INSTALL.txt
 
 [Languages]
@@ -57,6 +58,7 @@ Source: "{#PayloadDir}\Retro-Recomp.exe"; DestDir: "{app}"; Flags: restartreplac
 Source: "{#PayloadDir}\LICENSE.txt"; DestDir: "{app}"
 Source: "{#PayloadDir}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"
 Source: "{#PayloadDir}\INSTALL.txt"; DestDir: "{app}"
+Source: "{#PayloadDir}\RELEASE_NOTES.txt"; DestDir: "{app}"
 
 [Icons]
 Name: "{group}\Retro-Recomp"; Filename: "{app}\Retro-Recomp.exe"; WorkingDir: "{app}"

@@ -26,7 +26,8 @@ class InstallerPayloadTests(unittest.TestCase):
             with patch('tools.package_installers.subprocess.run') as probe:
                 payload = payload_files(executable, '1.1.5', 'windows')
             self.assertEqual(set(payload), {'Retro-Recomp.exe', 'Retro-Recomp.ico',
-                             'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'INSTALL.txt'})
+                             'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'INSTALL.txt', 'RELEASE_NOTES.txt'})
+            self.assertIn(b'releases/tag/v1.1.5', payload['RELEASE_NOTES.txt'])
             self.assertEqual(payload['Retro-Recomp.exe'], executable.read_bytes())
             self.assertEqual(probe.call_args.args[0][1:], ['_verify-update', '1.1.5'])
 

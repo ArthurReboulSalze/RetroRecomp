@@ -1,5 +1,6 @@
 """Check that the desktop form initializes with a ROM without showing a window."""
 from pathlib import Path
+import json
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -42,6 +43,31 @@ def smoke(window):
     before = len(application.items)
     application.add_paths([item.path for item in application.items.values()])
     assert len(application.items) == before
+    # A game already compiled in the output folder is offered for removal
+    # once the whole addition is in; No leaves it out, Yes keeps it.
+    from retrorecomp.batch import identify, system_output
+    output = Path(fixtures.name) / 'out'
+    compiled = Path(fixtures.name) / 'Synthetic compiled (Europe).sms'
+    compiled.write_bytes(bytes([9]) * 8192)
+    item = identify(compiled, 'sms')
+    folder = system_output(output, item.system)
+    (folder / 'datas/reports' / item.key).mkdir(parents=True)
+    (folder / 'Synthetic compiled.exe').write_bytes(b'MZ')
+    (folder / 'datas/reports' / item.key / 'conversion-report.json').write_text(json.dumps(
+        {'executable': 'Synthetic compiled.exe', 'rom': {'sha256': item.sha256}, 'final_checks': [],
+         'status': 'converted'}), encoding='utf-8')
+    application.output.set(str(output))
+    with patch.object(application.app, 'winfo_viewable', return_value=True), \
+            patch.object(application, 'confirm_compiled', return_value=False) as asked:
+        application.add_paths([compiled])
+    assert asked.call_args.args == (1, 'Synthetic compiled'), asked.call_args
+    assert compiled.resolve() not in {i.path for i in application.items.values()}
+    with patch.object(application.app, 'winfo_viewable', return_value=True), \
+            patch.object(application, 'confirm_compiled', return_value=True):
+        application.add_paths([compiled])
+    kept = [row for row, i in application.items.items() if i.path == compiled.resolve()]
+    assert len(kept) == 1 and application.row_status[kept[0]] == 'created', kept
+    application.remove_selected()
     # The two disks of one X68000 game make one row, from a playlist written
     # outside the disks' folder.
     if any(profile.id == 'x68' for profile in PROFILES):

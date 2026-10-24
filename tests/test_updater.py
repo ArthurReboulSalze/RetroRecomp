@@ -44,6 +44,36 @@ class UpdaterTests(unittest.TestCase):
         self.assertTrue(update.url.endswith("/Retro-Recomp.exe"))
         self.assertIsNone(select_update(releases, current="0.14.2", target='windows-x86_64'))
 
+    def test_offer_carries_the_published_notes_of_every_skipped_version(self):
+        def release(version, body, asset=True):
+            return {"tag_name": version, "draft": False, "body": body,
+                    "assets": [{"name": "Retro-Recomp.exe", "state": "uploaded", "size": 25,
+                                "digest": "sha256:" + "b" * 64}] if asset else []}
+        releases = [release("v0.14.1", "# RetroRecomp v0.14.1 — old\n\n- **Old.** Installed already."),
+                    release("v0.14.2", "# RetroRecomp v0.14.2 — fixes\n\n- **Fix one.** A long line\n  wrapped by hand, with `code` and a [link](https://x).\n- Second.\n\n---\n"),
+                    release("v0.14.3", "# RetroRecomp v0.14.3 — latest\n\n- **New.** Newest first.", asset=False),
+                    release("v0.15.0", "Future notes", asset=False)]
+        releases[3]["draft"] = True
+        update = select_update(releases, current="0.14.1", target='windows-x86_64')
+        self.assertEqual(update.version, "0.14.2")
+        # 0.14.3 has notes but no converter yet: only versions up to the offer.
+        self.assertIn("RetroRecomp v0.14.2 — fixes", update.notes)
+        self.assertNotIn("0.14.3", update.notes)
+        self.assertNotIn("Installed already", update.notes)
+        self.assertNotIn("Future", update.notes)
+        self.assertIn("• Fix one. A long line wrapped by hand, with code and a link.", update.notes)
+        self.assertNotIn("**", update.notes)
+        self.assertNotIn("---", update.notes)
+        self.assertEqual(Update("1.0.0", "u", "p", "d", 1).notes, "")
+
+    def test_release_notes_are_bounded_plain_text(self):
+        from retrorecomp.updater import release_notes
+        self.assertEqual(release_notes(None), "")
+        self.assertEqual(release_notes("   \n"), "")
+        text = release_notes("- " + "x" * 50 + "\n" * 2 + "- " + "y" * 50, limit=60)
+        self.assertLessEqual(len(text), 62)
+        self.assertTrue(text.endswith("…"))
+
     def test_firewall_block_uses_a_plain_localized_message(self):
         raw = urllib.error.URLError(PermissionError(13, "raw access denied 10013"))
         with patch("retrorecomp.updater.urllib.request.urlopen", side_effect=raw):

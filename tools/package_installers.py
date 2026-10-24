@@ -21,7 +21,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def payload_files(executable: Path, version: str, target: str) -> dict[str, bytes]:
+def release_notes_text(version: str, notes: Path | None) -> bytes:
+    """What the Windows installer shows before installing: the release notes
+    as plain text (English, as published), or a pointer to them."""
+    from retrorecomp.updater import release_notes
+    text = release_notes(notes.read_text(encoding='utf-8')) if notes else ''
+    if not text:
+        text = (f'Retro-Recomp {version}\n\nRelease notes:\n'
+                f'https://github.com/ArthurReboulSalze/RetroRecomp/releases/tag/v{version}')
+    return (text.replace('\r\n', '\n').replace('\n', '\r\n') + '\r\n').encode('utf-8')
+
+
+def payload_files(executable: Path, version: str, target: str, notes: Path | None = None) -> dict[str, bytes]:
     if not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Expected a three-part release version')
     raw = executable.read_bytes()
@@ -50,7 +61,8 @@ def payload_files(executable: Path, version: str, target: str) -> dict[str, byte
             'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INSTALLING.md\n').encode('utf-8'),
     }
     if target == 'windows':
-        return common | {'Retro-Recomp.exe': raw, 'Retro-Recomp.ico': (ROOT / 'assets/Retro-Recomp.ico').read_bytes()}
+        return common | {'Retro-Recomp.exe': raw, 'Retro-Recomp.ico': (ROOT / 'assets/Retro-Recomp.ico').read_bytes(),
+                         'RELEASE_NOTES.txt': release_notes_text(version, notes)}
     return common | {'Retro-Recomp': raw,
                      'Retro-Recomp.png': (ROOT / 'assets/Retro-Recomp-icon-256.png').read_bytes(),
                      'uninstall.sh': (ROOT / 'tools/installers/linux_uninstall.sh').read_bytes().replace(b'\r\n', b'\n')}
@@ -69,8 +81,8 @@ def linux_archive(files: dict[str, bytes]) -> bytes:
 
 
 def build(executable: Path, version: str, target: str, output: Path, *,
-          iscc: Path | None = None, application_id: str | None = None) -> Path:
-    files = payload_files(executable, version, target)
+          iscc: Path | None = None, application_id: str | None = None, notes: Path | None = None) -> Path:
+    files = payload_files(executable, version, target, notes)
     output.mkdir(parents=True, exist_ok=True)
     if target == 'linux':
         archive = linux_archive(files)
@@ -109,9 +121,10 @@ def main() -> None:
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--iscc', type=Path)
     parser.add_argument('--application-id', help='Use a separate registration identity for isolated installer tests')
+    parser.add_argument('--notes', type=Path, help='Markdown release notes shown by the Windows installer')
     args = parser.parse_args()
     print(build(args.executable, args.version, args.target, args.output,
-                iscc=args.iscc, application_id=args.application_id))
+                iscc=args.iscc, application_id=args.application_id, notes=args.notes))
 
 
 if __name__ == '__main__':
