@@ -1,3 +1,33 @@
+# RetroRecomp v1.4.1 — build tools installed for you, friendlier on small PCs
+
+- **Build tools, installed for you.** Converting a game compiles it on your
+  computer, so your ROMs never leave it; playing needs nothing. Before the
+  first conversion, RetroRecomp now checks what is missing and, with your
+  consent, installs only that, behind a progress window:
+  - **Windows:** a portable Git (40 MB, beside RetroRecomp) and Microsoft's
+    C++ build tools limited to the compiler, the Windows SDK and CMake (about
+    3 GB instead of a full Visual Studio). The installer must carry a valid
+    Microsoft signature; Windows asks for administrator rights.
+  - **Debian / Ubuntu:** the missing packages only, through your desktop's
+    password prompt (`pkexec apt-get --no-install-recommends`).
+  Every console uses the same tools.
+- **No more Rust.** Super Mario World is now converted like every other Super
+  Nintendo cartridge, by the generic analysis (measured: 0 interpreted main
+  or sound CPU opcodes on its routes, reference comparison identical). No
+  console needs Rust any more.
+- **Importing big folders shows its progress.** Folders, and drops or picks of
+  many files, are read in the background: the progress bar counts the files
+  found, then the games read, and Stop interrupts. A slow computer no longer
+  looks frozen.
+- **Small screens.** The help page, credits and license windows fit 1280×720
+  and 1366×768 screens; the help page scrolls when needed.
+
+Super Nintendo exports are converted in full once (Super Mario World's
+profile changed); games of the other consoles stay current. Measured on
+Windows; Linux remains qualified on Debian 13 / glibc 2.41.
+
+---
+
 # RetroRecomp v1.4.0 — the shared base opens: accounts, leaderboard, retro-recomp.com
 
 - **retro-recomp.com is open.** RetroRecomp now has its own website, with

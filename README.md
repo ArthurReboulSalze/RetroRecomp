@@ -8,7 +8,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.4.0-d4a737" alt="Release version 1.4.0">
+  <img src="https://img.shields.io/badge/release-1.4.1-d4a737" alt="Release version 1.4.1">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -172,7 +172,9 @@ needs your own IPL and font ROM ([status](docs/X68000.md)).
 2. Add your ROMs or folders, leave console detection on **Automatic**, and convert.
 3. Open the generated games in their console folders under **Games** beside the app.
 
-Conversion needs a supported build toolchain; see the
+Converting compiles each game on your computer: before the first conversion,
+RetroRecomp offers to install the missing build tools itself (a portable Git and
+Microsoft's C++ build tools on Windows, a few packages on Debian/Ubuntu); see the
 [setup guide](docs/BUILDING.md). Playing the exported games needs no
 development tools. ROMs and downloaded box art are not included.
 
