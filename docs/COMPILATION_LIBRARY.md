@@ -16,9 +16,12 @@ The snapshot now holds **1,305 exact identities, including 214 Mega Drive and
 134 Neo Geo**: 63,964,798 raw / **15,453,304 gzip bytes**, SHA-256
 `41315eed4d51597c9621eaeebe5df1945abbb2ce282bf13371b05246b62a90fa`. All 1,164
 records of release 1.2.9 are byte-identical; only new identities were added.
-The raw size is now within 2 % of the 64 MiB bound: Mega Drive Z80 references
-(about 13,000 per game) dominate, so the campaign is paused before tranche 4
-until the format or the budget is revisited. Full-game validation, hardware
+The raw size reached 98 % of the former 64 MiB bound (Mega Drive Z80
+references, about 13,000 per game, dominate). At the user's request the
+decompressed bound is now **128 MiB** (`smsrecomp/knowledge.py`), shared by the
+loader, both builders, knowledge exchange and the package audit. Loading and
+validating the current snapshot takes about 7 s once per converter process
+(4 s for release 1.2.9); a compact Mega Drive format remains possible later. Full-game validation, hardware
 fidelity and physical latency remain separate claims.
 
 ## Neo Geo library completed — 24 October 2026 (local, not released)

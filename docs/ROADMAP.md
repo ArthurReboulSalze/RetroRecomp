@@ -101,7 +101,7 @@ long-filename fixes on Windows and Linux, without scanning more games.
 | NES | Broaden VRC/Taito guarded-RAM and lower-ROM-alias qualification, PAL, peripheral and gameplay validation. |
 | Mega Drive | Extend gameplay and unusual cartridge circuits beyond the qualified standard profile; refine electrical, field and bus-error behavior with independent evidence. |
 | Super Nintendo | Extend gameplay beyond the completed standard-profile qualification; refine instruction-internal and parked-CPU phases, disputed OAM access and CX4 native coverage. Other cartridge circuits have separate support gates. |
-| Knowledge size | Lossless SPC compaction is included; continue tracking growth within the bounded 64 MiB decompressed budget and every qualification gate. |
+| Knowledge size | Lossless SPC compaction is included; continue tracking growth within the bounded 128 MiB decompressed budget (64 MiB until the Mega Drive collection campaign) and every qualification gate. |
 
 ## Recompilation priorities after 0.25.0
 
