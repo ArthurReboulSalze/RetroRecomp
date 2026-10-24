@@ -55,6 +55,17 @@ class WindowsDropTests(unittest.TestCase):
         self.assertIsNotNone(self.app.file_drop)
         self.addCleanup(self.cleanup_window)
 
+    def settle(self):
+        """Folders are read in a worker; wait for the import to finish."""
+        import time
+        deadline = time.monotonic() + 20
+        while getattr(self.app, 'importing', False) and time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.01)
+        self.root.update()
+        self.app.drain()   # the log lines of the import
+        self.assertFalse(getattr(self.app, 'importing', False))
+
     def cleanup_window(self):
         def widgets(parent):
             yield parent
@@ -145,6 +156,7 @@ class WindowsDropTests(unittest.TestCase):
             target.writestr('a.sms', sms)
         before = {p: hashlib.sha256(p.read_bytes()).digest() for p in (*files, archive)}
         self.send_drop(self.app.table, [self.folder, files[0]])
+        self.settle()
         self.assertEqual(len(self.app.items), 8)  # Six consoles + ZIP + unsupported ROM.
         valid = [item for item in self.app.items.values() if not item.error]
         self.assertEqual({item.system for item in valid}, {'sms', 'gg', 'gb', 'nes', 'md', 'snes'})
@@ -174,6 +186,7 @@ class WindowsDropTests(unittest.TestCase):
         path = self.fixture('a.sms', bytes(8192))
         with patch('retrorecomp.gui.discover_roms', side_effect=PermissionError('denied')):
             self.send_drop(self.app.table, [self.folder, path])
+            self.settle()
         self.assertEqual(len(self.app.items), 1)
         self.assertIn(tr('drop_unreadable', 'en'), self.app.log.get('1.0', 'end'))
 
