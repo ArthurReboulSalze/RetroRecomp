@@ -135,6 +135,12 @@ class IdentificationTests(unittest.TestCase):
         same = cps1.read_set(self.archive('demo.zip', self.parent_members()), self.games)
         self.assertEqual(game.sha256, same.sha256)
 
+    def test_titles_separate_subtitles_like_the_other_consoles(self):
+        self.assertEqual(cps1.display_title("Street Fighter II': Champion Edition (World 920513)"),
+                         "Street Fighter II' - Champion Edition (World 920513)")
+        self.assertEqual(cps1.display_title('1941: Counter Attack'), '1941 - Counter Attack')
+        self.assertEqual(cps1.display_title('Final Fight (World, set 1)'), 'Final Fight (World, set 1)')
+
     def test_split_clone_reads_its_parent_beside_it(self):
         clone = self.archive('democ.zip', {'c.p1': self.data['c.p1']})
         with self.assertRaisesRegex(ValueError, 'Place demo.zip beside it'):

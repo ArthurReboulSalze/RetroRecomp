@@ -21,6 +21,13 @@ MAX_MEMBER_BYTES = 16 * 1024 * 1024
 MAX_MEMBERS = 1024
 
 
+def display_title(title: str) -> str:
+    """MAME's title with the subtitle separated as in the other consoles'
+    names ("1941 - Counter Attack", not "1941: Counter Attack", which Windows
+    filenames would turn into "1941_ Counter Attack")."""
+    return title.replace(': ', ' - ')
+
+
 @dataclass(frozen=True)
 class Cps1Set:
     path: Path
@@ -194,6 +201,6 @@ def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | Non
     # Archive names, dialect and member aliases do not change the board's bytes.
     identity = hashlib.sha256(json.dumps({'set': game['set'], 'files': [
         [item['name'], item['bytes'], item['sha256']] for item in members]}).encode()).hexdigest()
-    return Cps1Set(path, game['title'], game['set'], game['parent'], tuple(members), identity,
+    return Cps1Set(path, display_title(game['title']), game['set'], game['parent'], tuple(members), identity,
                    game['support'], game['reason'], game['rotation'], game['board'], game['mapper'],
                    tuple(other['set'] for other in others))
