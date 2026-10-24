@@ -94,9 +94,9 @@ UPSTREAM_CREDITS = (
 
 HATCH_SPACING = 4
 # The header artwork is drawn smaller than its 600 x 132 source.
-HEADER_SCALE = 0.72
+HEADER_SCALE = 0.6
 HEADER_HEIGHT = round(132 * HEADER_SCALE)
-PORTRAIT_SIZE = 46
+PORTRAIT_SIZE = 44
 
 
 def _scaled_photo(path, master, scale=HEADER_SCALE):
@@ -361,15 +361,19 @@ class Application:
         self.portrait_item = header.create_image(0, 12, anchor='ne', tags='portrait')
         self.player_name = header.create_text(0, 10, text='', anchor='ne', fill=COLORS['text'],
                                               font=(self.ui_font, 10, 'bold'), tags='player')
-        self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'],
+        self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'], width=270,
                                                font=(self.ui_font, 8), justify='right', tags='player')
         self.player_actions = ttk.Frame(header)
+        try:
+            self.trophy_icon = _scaled_photo(ASSETS / 'assets/board-trophy.png', app, 17 / 72)
+        except (OSError, ValueError, tk.TclError):
+            self.trophy_icon = ''
         self.board_button = ttk.Button(self.player_actions, text=self.tr('leaderboard'), style='Header.TButton',
-                                       command=self.show_leaderboard)
+                                       image=self.trophy_icon, compound='left', command=self.show_leaderboard)
         self.sign_in_button = ttk.Button(self.player_actions, text=self.tr('account_sign_in'),
                                          style='Header.TButton', command=self.sign_in_from_header)
         self.hint(self.sign_in_button, 'tip_account')
-        self.player_window = header.create_window(0, HEADER_HEIGHT - 8, window=self.player_actions, anchor='se')
+        self.player_window = header.create_window(0, HEADER_HEIGHT // 2, window=self.player_actions, anchor='e')
         self.render_player()
         header.bind('<Configure>', self.layout_header)
         stripe = tk.Canvas(app, height=2, bg=COLORS['subtle_border'], highlightthickness=0)
@@ -607,11 +611,16 @@ class Application:
         self.header.coords(self.header_divider, divider, 14, divider, HEADER_HEIGHT - 14)
         self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
         account = divider - 18
-        self.header.coords(self.portrait_item, account, 12)
+        self.header.coords(self.portrait_item, account, (HEADER_HEIGHT - PORTRAIT_SIZE) // 2)
         text = account - PORTRAIT_SIZE - 12
-        self.header.coords(self.player_name, text, 10)
-        self.header.coords(self.player_score, text, 29)
-        self.header.coords(self.player_window, text, HEADER_HEIGHT - 8)
+        name_box = self.header.bbox(self.player_name) or (0, 0, 0, 0)
+        score_box = self.header.bbox(self.player_score) or (0, 0, 0, 0)
+        block = (name_box[3] - name_box[1]) + 3 + (score_box[3] - score_box[1])
+        top = max(4, (HEADER_HEIGHT - block) // 2)
+        self.header.coords(self.player_name, text, top)
+        self.header.coords(self.player_score, text, top + (name_box[3] - name_box[1]) + 3)
+        widest = max(name_box[2] - name_box[0], score_box[2] - score_box[0])
+        self.header.coords(self.player_window, text - widest - 14, HEADER_HEIGHT // 2)
 
     def draw_background(self, event):
         canvas = event.widget
@@ -2403,9 +2412,10 @@ class Application:
             header.itemconfigure(self.player_score,
                                  text=self.tr('account_invite') if SENDING_AVAILABLE else self.tr('account_coming'))
             self.sign_in_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
-            self.sign_in_button.pack(side='right')
             if SENDING_AVAILABLE:
-                self.board_button.pack(side='right', padx=(0, 6))
+                self.board_button.pack(side='top', fill='x')
+            self.sign_in_button.pack(side='top', fill='x', pady=(4, 0) if SENDING_AVAILABLE else 0)
+            self.layout_header()
             return
         profile = player.get('profile') or {}
         name = profile.get('pseudonym') or account.get('pseudonym') or str(account.get('email', '')).split('@')[0]
@@ -2424,7 +2434,8 @@ class Application:
         if you.get('pending'):
             score += '\n' + self.tr('account_pending', count=you['pending'])
         header.itemconfigure(self.player_score, text=score)
-        self.board_button.pack(side='right')
+        self.board_button.pack(side='top', fill='x')
+        self.layout_header()
 
     # --- Build tools ---------------------------------------------------------
 
