@@ -85,7 +85,12 @@ void rr_md_cpu_budget_until(uint32_t counter);
 static void rr_z80_run(void *unused);
 static void rr_z80_rendezvous(void);
 static int rr_lazy_eligible(void) {
+    /* While the VDP's Z80 interrupt line is due to change (VINT armed at the
+     * first blank line until it drops on the next), the Z80 must not run
+     * ahead of it: where the Z80 stands when the line changes decides when
+     * it takes the interrupt. Those lines keep the immediate schedule. */
     return RR_MD_LAZY_Z80 && !RR_MD_REPEAT_Z80_BOUNDARIES && !RR_MD_HOST_ONLY_Z80_BOUNDARIES &&
+        !g_machine.vdp.rr_irq.vint_stage &&
         rr_bus_scheduling && rr_bus_nested_active && rr_z80_time<rr_z80_limit &&
         g_machine.bus.z80_reset_off && !g_machine.bus.z80_busreq && !g_machine.bus.z80_reset_pending;
 }
