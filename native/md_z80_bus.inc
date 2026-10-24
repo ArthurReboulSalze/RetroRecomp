@@ -40,9 +40,13 @@ static void rr_bus_cpu_until(GenesisMachine *,unsigned,uint32_t,unsigned,unsigne
  * host pays the queued points in order: each keeps the arbiter's own deadline
  * and early-return test, in one 68000 run when no host event intervenes. If the
  * 68000 touches Z80 RAM or bus control while the Z80 is ahead, the Z80 is put
- * back on the exact point (instruction snapshot, RAM undo, replay) first. */
+ * back on the exact point (instruction snapshot, RAM undo, replay) first.
+ * The interpreted reference keeps the immediate rendezvous: under that CPU the
+ * replay diverged from the immediate schedule (sound/FM hashes), so it would
+ * no longer be the exact model the native run is compared with. */
 #ifndef RR_MD_LAZY_Z80
-#define RR_MD_LAZY_Z80 1
+int genesis_force_interp(void);
+#define RR_MD_LAZY_Z80 (!genesis_force_interp())
 #endif
 #define RR_LAZY_POINTS 256u
 #define RR_LAZY_UNDO 1024u
