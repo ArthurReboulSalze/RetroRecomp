@@ -163,7 +163,7 @@ STRINGS = {
     'class_diamond': ('Diamond', 'Diamant'),
     'tip_help': ('Help: how Retro-Recomp works, in five steps.', 'Aide : comment marche Retro-Recomp, en cinq étapes.'),
     'help_title': ('How Retro-Recomp works', 'Comment marche Retro-Recomp'),
-    'help_intro': ('Retro-Recomp turns your own game dumps into standalone Windows or Linux games, running as much native code as possible: no emulator to set up, no FPGA.', 'Retro-Recomp transforme tes propres copies de jeux en jeux autonomes pour Windows ou Linux, avec le plus de code natif possible : aucun émulateur à régler, pas de FPGA.'),
+    'help_intro': ('Retro-Recomp turns your own game dumps into standalone Windows or Linux games, translated into native code. A way to truly rediscover them: lively, sharp, and sometimes beyond the original machine, with fewer flickering sprites, more sprites per line and quick states.', 'Retro-Recomp transforme tes propres copies de jeux en jeux autonomes pour Windows ou Linux, traduits en code natif. De quoi les redécouvrir vraiment : vifs, nets, et parfois au-delà de la machine d’origine, avec moins de clignotements, plus de sprites par ligne et des sauvegardes instantanées.'),
     'help_step1': ('Add your games', 'Ajoute tes jeux'),
     'help_step1_text': ('Drop ROMs, ZIPs or whole folders. The console is recognized automatically, and games already converted are pointed out.', 'Glisse tes ROMs, ZIP ou dossiers entiers. La console est reconnue toute seule, et les jeux déjà convertis te sont signalés.'),
     'help_step2': ('Convert', 'Convertis'),

@@ -16,7 +16,7 @@
     "class_diamond": "钻石",
     "tip_help": "帮助：用五个步骤了解 Retro-Recomp 的工作方式。",
     "help_title": "Retro-Recomp 如何工作",
-    "help_intro": "Retro-Recomp 将你自己的游戏备份变成独立的 Windows 或 Linux 游戏，尽可能运行原生代码：无需设置模拟器，也不需要 FPGA。",
+    "help_intro": "Retro-Recomp 将你自己的游戏备份变成翻译为原生代码的独立 Windows 或 Linux 游戏。让你真正重新发现它们：流畅、清晰，有时甚至超越原始主机——更少的精灵闪烁、每行更多精灵，以及快速存档。",
     "help_step1": "添加游戏",
     "help_step1_text": "拖入 ROM、ZIP 或整个文件夹。主机会被自动识别，已经转换过的游戏会被标出。",
     "help_step2": "转换",

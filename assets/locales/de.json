@@ -16,7 +16,7 @@
     "class_diamond": "Diamant",
     "tip_help": "Hilfe: So funktioniert Retro-Recomp, in fünf Schritten.",
     "help_title": "So funktioniert Retro-Recomp",
-    "help_intro": "Retro-Recomp macht aus deinen eigenen Spielkopien eigenständige Spiele für Windows oder Linux, mit so viel nativem Code wie möglich: kein Emulator einzurichten, kein FPGA.",
+    "help_intro": "Retro-Recomp macht aus deinen eigenen Spielkopien eigenständige Spiele für Windows oder Linux, übersetzt in nativen Code. So entdeckst du sie wirklich neu: lebendig, scharf und manchmal über die Originalmaschine hinaus, mit weniger flackernden Sprites, mehr Sprites pro Zeile und Schnellspeicherständen.",
     "help_step1": "Füge deine Spiele hinzu",
     "help_step1_text": "Zieh ROMs, ZIPs oder ganze Ordner hinein. Die Konsole wird automatisch erkannt, bereits konvertierte Spiele werden angezeigt.",
     "help_step2": "Konvertiere",
