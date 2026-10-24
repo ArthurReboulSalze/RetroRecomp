@@ -26,6 +26,7 @@ from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
 from .platforms import build_executable, cmake_target_args, build_jobs, target_id, available_cpus
+from .toolchain import describe as toolchain_description
 
 
 ENGINE_URL = "https://github.com/arcanite24/gb-recompiled.git"
@@ -476,7 +477,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             "apu_sample_rate": 44100,
             "input_before_cpu_slice": True, "live_joyp_refresh_interval_us": 1000,
             "generated_optimization_level": 2, "physical_latency_measured": False},
-        "build_executable": str(executable), "executable": executable.name,
+        "build_executable": str(executable), "executable": executable.name, "toolchain": toolchain_description(),
         "build_directory": str(project),
         "stage_seconds": {key: round(value, 6) for key, value in stage_seconds.items()},
         "conversion_wall_seconds": round(time.perf_counter() - started, 6)}

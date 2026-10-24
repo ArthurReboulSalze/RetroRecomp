@@ -22,6 +22,7 @@ from typing import Callable
 from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
+from .toolchain import describe as toolchain_description
 from .library import atomic_json, atomic_text, entry_lock, library_root
 from .nes_build import object_stamps, prepare_native, preserve_inputs, write_changed
 from .knowledge import record_for
@@ -579,7 +580,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                        'startup': 'one_device_period_plus_30ms', 'native_s16_or_float': True,
                        'bounded_pcm_ring': True},
         'physical_latency_measured': False,
-        'build_executable': str(executable), 'executable': executable.name,
+        'build_executable': str(executable), 'executable': executable.name, 'toolchain': toolchain_description(),
         'build_directory': str(project),
         'conversion_wall_seconds': round(time.perf_counter() - started, 6)}
     atomic_json(destination / 'conversion-report.json', report)

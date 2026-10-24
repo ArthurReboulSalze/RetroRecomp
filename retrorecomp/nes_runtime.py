@@ -154,6 +154,13 @@ if(MSVC)
     target_compile_options(nes_hardware PRIVATE $<$<CONFIG:Release>:/GL>)
     target_link_options(game PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
+if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    # The same split as /GL and /LTCG above: only the machine core is built
+    # for link-time optimization, the generated 6502 code stays native.
+    target_link_options(game PRIVATE -mwindows)
+    target_compile_options(nes_hardware PRIVATE $<$<CONFIG:Release>:-flto>)
+    target_link_options(game PRIVATE $<$<CONFIG:Release>:-flto>)
+endif()
 find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(game PRIVATE SDL2::SDL2)
 
