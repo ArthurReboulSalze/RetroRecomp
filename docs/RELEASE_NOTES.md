@@ -22,6 +22,14 @@
   Super Nintendo games redo their ROM analysis once (a few minutes, no
   rediscovery). **X68000** exports are converted again in full once, and their
   earlier quick states are refused (its state key includes the compiler).
+- **Smaller Linux games.** Linux exports are now compressed with the same
+  UPX 5.2.1 as Windows, after their validation: about a third of their
+  size or less (Super Nintendo ActRaiser 36.4 → 7.5 MB), measured on eight
+  consoles on Debian 13 with native validation passed and no interpreted
+  instruction before or after; quick states load across raw and compressed
+  builds. X68000 games stay uncompressed on Linux for now. A compressed
+  Linux game moved without its `datas` folder is no longer recognized from
+  its file alone (it is kept, never overwritten), as on Windows.
 - **Linux starts again, and installs with a double-click.** Linux releases
   1.3.1 to 1.4.1 could stop at startup ("invalid command name
   PyImagingPhoto"): download 1.5.0 again, since those versions cannot open
