@@ -1822,6 +1822,20 @@ class Application:
                     self.disk_state = ({'phase': 'error', 'error': error} if error else
                                        {'phase': 'done', 'outcome': outcome})
                     self.render_disk_space()
+                elif kind == 'tools_space_measured':
+                    token, folders, error = event[1:]
+                    if token is getattr(self, 'tools_cancel', None) and not token.is_set():
+                        self.tools_state = ({'phase': 'error', 'error': error} if error else
+                                            {'phase': 'measured', 'folders': folders})
+                        self.render_disk_space()
+                elif kind == 'tools_space_removed':
+                    outcome, error = event[1:]
+                    self.busy = False
+                    self.set_controls(True)
+                    self.tools_state = ({'phase': 'error', 'error': error} if error else
+                                        {'phase': 'done', 'outcome': outcome})
+                    self.render_disk_space()
+                    self.measure_disk_space()      # the per-game folders went with .build
                 elif kind == 'collection_changed':
                     if self.compiled_view is not None:self.compiled_view.render()
                 elif kind == 'knowledge_done':
@@ -2237,6 +2251,70 @@ class Application:
             self.render_disk_space()      # a removal started earlier is still running
         else:
             self.measure_disk_space()
+        # The build tools and compiler caches of a packaged installation: the
+        # documented way to leave nothing behind before removing Retro-Recomp
+        # (or its Debian package, which cannot ask).
+        self.tools_row = tools = ttk.Frame(page)
+        self.tools_note = ttk.Label(tools, text=self.tr('tools_space_note'), style='Muted.TLabel',
+                                    wraplength=600, justify='left')
+        self.tools_note.pack(anchor='w', pady=(0, 8))
+        tools_line = ttk.Frame(tools)
+        tools_line.pack(anchor='w', fill='x')
+        self.tools_button = ttk.Button(tools_line, command=self.remove_tool_space)
+        self.tools_button.pack(side='left')
+        self.hint(self.tools_button, 'tip_tools_space')
+        self.tools_status = tk.StringVar()
+        ttk.Label(tools_line, textvariable=self.tools_status, style='Muted.TLabel',
+                  wraplength=460, justify='left').pack(side='left', padx=(12, 0))
+        if getattr(self, 'tools_state', {}).get('phase') == 'working':
+            self.render_disk_space()
+        else:
+            self.measure_tool_space()
+
+    def measure_tool_space(self):
+        """Measure datas/tools, .deps and .build off Tk; the section only
+        exists for a packaged installation."""
+        from . import build_cleanup
+        root = build_cleanup.managed_root()
+        self.tools_root = root
+        cancel = self.tools_cancel = threading.Event()
+        self.tools_state = {'phase': 'measuring'} if root is not None else {'phase': 'unavailable'}
+        self.render_disk_space()
+        if root is None:
+            return
+        def worker():
+            try:
+                self.messages.put(('tools_space_measured', cancel, build_cleanup.tool_folders(root, cancel=cancel), None))
+            except InterruptedError:
+                pass
+            except Exception as exc:
+                self.messages.put(('tools_space_measured', cancel, None, str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def remove_tool_space(self):
+        state = getattr(self, 'tools_state', {})
+        folders = state.get('folders') or []
+        root = getattr(self, 'tools_root', None)
+        if self.busy or self.updating or state.get('phase') != 'measured' or not folders or root is None:
+            return
+        size = self.size_text(sum(folder.size for folder in folders))
+        if not messagebox.askyesno(APP_NAME, self.tr('tools_space_confirm', size=size),
+                                   icon='warning', default='no', parent=self.app):
+            return
+        # No conversion starts while the folders are removed.
+        self.busy = True
+        self.set_controls(False)
+        self.stop_button.configure(state='disabled')
+        self.tools_state = {'phase': 'working'}
+        self.render_disk_space()
+        def worker():
+            from .build_cleanup import remove_tool_folders
+            try:
+                outcome = remove_tool_folders(root, emit=lambda text: self.messages.put(('log', text)))
+                self.messages.put(('tools_space_removed', outcome, None))
+            except Exception as exc:
+                self.messages.put(('tools_space_removed', None, str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
 
     def measure_disk_space(self):
         """Measure off Tk: a long-used workspace holds thousands of folders."""
@@ -2297,6 +2375,45 @@ class Application:
             button.configure(text=self.tr('disk_space_free_size', size=size(removable)) if ready
                              else self.tr('disk_space_free'),
                              state='normal' if ready and not self.busy and not self.updating else 'disabled')
+        except tk.TclError:
+            pass
+        self.render_tool_space()
+
+    def render_tool_space(self):
+        """The build tools and caches line and button (hidden outside a
+        packaged installation), from self.tools_state."""
+        button, state = getattr(self, 'tools_button', None), getattr(self, 'tools_state', None)
+        try:
+            if button is None or state is None or not button.winfo_exists():
+                return
+            if state['phase'] == 'unavailable':
+                self.tools_row.pack_forget()
+                return
+            if not self.tools_row.winfo_manager():
+                self.tools_row.pack(anchor='w', fill='x', pady=(14, 0))
+        except tk.TclError:
+            return
+        phase = state['phase']
+        folders = state.get('folders') or []
+        total = sum(folder.size for folder in folders)
+        if phase == 'measured':
+            text = self.tr('tools_space_found', size=self.size_text(total)) if folders else self.tr('tools_space_none')
+        elif phase == 'done':
+            outcome = state['outcome']
+            text = self.tr('tools_space_done', size=self.size_text(outcome['freed']))
+            if outcome['kept'] or outcome['errors']:
+                text += ' ' + self.tr('disk_space_not_removed', count=outcome['kept'] + len(outcome['errors']))
+        elif phase == 'error':
+            text = self.tr('tools_space_error', error=state['error'])
+        else:
+            text = self.tr('tools_space_measuring' if phase == 'measuring' else 'tools_space_working')
+        try:
+            self.tools_status.set(text)
+            ready = phase == 'measured' and bool(folders)
+            button.configure(text=self.tr('tools_space_remove_size', size=self.size_text(total)) if ready
+                             else self.tr('tools_space_remove'),
+                             state='normal' if ready and not self.busy and not self.updating else 'disabled')
+            self.tools_note.configure(text=self.tr('tools_space_note'))
         except tk.TclError:
             pass
 

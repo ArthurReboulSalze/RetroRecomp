@@ -72,11 +72,201 @@ class InstallerPayloadTests(unittest.TestCase):
                 self.assertEqual(tar.extractfile(member).read(), files[member.name])
 
     def test_windows_installer_preserves_untracked_data(self):
-        text = (ROOT / 'tools/installers/windows.iss').read_text()
+        # UTF-8 with a byte order mark: the uninstaller's messages are not ASCII.
+        raw = (ROOT / 'tools/installers/windows.iss').read_bytes()
+        self.assertTrue(raw.startswith(b'\xef\xbb\xbf'))
+        text = raw.decode('utf-8-sig')
         self.assertIn('PrivilegesRequired=lowest', text)
         self.assertNotIn('\n[UninstallDelete]', text)
         self.assertNotIn('recursesubdirs', text)
         self.assertNotIn('Source: "{#PayloadDir}\\*', text)
+
+    def test_windows_uninstaller_offers_to_remove_only_the_tools_and_caches(self):
+        text = (ROOT / 'tools/installers/windows.iss').read_bytes().decode('utf-8-sig')
+        code = text[text.index('[Code]'):]
+        # Asked (default No) in an interactive uninstall; a silent one needs /PURGETOOLS.
+        self.assertIn('/PURGETOOLS', code)
+        self.assertIn('(not UninstallSilent)', code)
+        self.assertIn('MB_YESNO or MB_DEFBUTTON2, IDNO', code)
+        # Exactly the three folders, below {app}; links are never followed.
+        for folder in ("'\\datas\\tools'", "'\\.deps'", "'\\.build'"):
+            self.assertIn(folder, code)
+        self.assertIn('AttrReparsePoint', code)
+        self.assertEqual(code.count('RemoveTree('), 3)       # declaration, recursion, one call
+        self.assertNotIn('DelTree', code)
+        # Every language the script declares has the three messages.
+        languages = {line.split('"')[1] for line in text.splitlines() if line.startswith('Name: "') and 'MessagesFile' in line}
+        for language in languages:
+            for message in ('PurgeToolsQuestion', 'PurgeToolsQuestionNoSize', 'PurgeToolsRemoving', 'PurgeToolsMB', 'PurgeToolsGB'):
+                self.assertIn(f'\n{language}.{message}=', text, (language, message))
+
+
+def find_bash():
+    """A real bash: Git Bash on Windows (the WindowsApps stub is not one)."""
+    if os.name == 'nt':
+        for base in (os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)'),
+                     os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs')):
+            candidate = Path(base or '.') / 'Git/bin/bash.exe'
+            if candidate.is_file():
+                return str(candidate)
+        return None
+    return shutil.which('bash')
+
+
+def make_link(link: Path, target: Path):
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        raise unittest.SkipTest('No symbolic links on this system.')
+
+
+@unittest.skipUnless(find_bash(), 'Bash is needed to run the generated uninstaller')
+class UninstallScriptTests(unittest.TestCase):
+    """uninstall.sh on a temporary prefix: program files always go, games and
+    settings always stay, the build tools and caches only on request."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='rr-uninstall-')
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.prefix = self.root / 'App space' / 'Retro-Recomp'
+        self.outside = self.root / 'outside'
+        (self.outside / 'folder').mkdir(parents=True)
+        (self.outside / 'folder/precious.txt').write_bytes(b'precious')
+        self.managed = ['Retro-Recomp', 'Retro-Recomp.png', 'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'INSTALL.txt']
+        self.player = {'Games/Game Boy/Tetris/Tetris': b'game', 'datas/Retro-Recomp.json': b'preferences',
+                       'datas/library/observations.json': b'discoveries', 'datas/BoxArt/gb/a.png': b'cover',
+                       'My notes.txt': b'notes'}
+        self.tools = {'datas/tools/llvm-mingw/bin/clang': b'x' * 3000, 'datas/tools/mingit/cmd/git': b'git',
+                      '.deps/SDL/src/a.c': b'source', '.deps/SDL/checkout/objects/aa': b'read-only',
+                      '.build/native-source/n.c': b'cache', '.build/gb_Tetris_0123456789ab_9150f87d/g.c': b'game'}
+
+    def populate(self, tools=True):
+        self.prefix.mkdir(parents=True, exist_ok=True)
+        script = (ROOT / 'tools/installers/linux_uninstall.sh').read_bytes().replace(b'\r\n', b'\n')
+        (self.prefix / 'uninstall.sh').write_bytes(script)
+        (self.prefix / '.retro-recomp-install').write_bytes(b'Retro-Recomp per-user installation v1\n1.5.2\n\n')
+        for name in self.managed:
+            (self.prefix / name).write_bytes(b'managed')
+        for name, raw in {**self.player, **(self.tools if tools else {})}.items():
+            path = self.prefix / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        if tools:
+            (self.prefix / '.deps/SDL/checkout/objects/aa').chmod(0o444)
+
+    def remove(self, path: Path):
+        shutil.rmtree(path, onexc=lambda function, name, error: (os.chmod(name, 0o666), function(name)))
+
+    def uninstall(self, *arguments, success=True):
+        result = subprocess.run([find_bash(), (self.prefix / 'uninstall.sh').as_posix(), *arguments],
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
+        return result
+
+    def assertPlayerKept(self):
+        for name, raw in self.player.items():
+            self.assertEqual((self.prefix / name).read_bytes(), raw, name)
+
+    def test_without_the_option_everything_but_the_program_is_kept(self):
+        self.populate()
+        result = self.uninstall()        # no terminal: nothing is asked, tools stay
+        for name in self.managed + ['uninstall.sh']:
+            self.assertFalse((self.prefix / name).exists(), name)
+        # The marker stays with the data, so a later reinstall recognises the folder.
+        self.assertTrue((self.prefix / '.retro-recomp-install').exists())
+        self.assertPlayerKept()
+        for name, raw in self.tools.items():
+            self.assertEqual((self.prefix / name).read_bytes(), raw, name)
+        self.assertIn('build tools and compiler caches remain', result.stdout)
+
+    def test_purge_removes_the_tools_and_caches_only(self):
+        self.populate()
+        make_link(self.prefix / '.deps/SDL/linked', self.outside / 'folder')
+        make_link(self.prefix / '.build/linked', self.outside / 'folder')
+        result = self.uninstall('--purge-tools')
+        for name in ('datas/tools', '.deps', '.build'):
+            self.assertFalse((self.prefix / name).exists(), name)
+        self.assertPlayerKept()
+        self.assertEqual((self.outside / 'folder/precious.txt').read_bytes(), b'precious')
+        for name in self.managed + ['uninstall.sh']:
+            self.assertFalse((self.prefix / name).exists(), name)
+        self.assertIn('with its build tools and compiler caches', result.stdout)
+
+    def test_purge_with_only_tools_leaves_no_folder_behind(self):
+        self.populate(tools=True)
+        for name in self.player:
+            (self.prefix / name).unlink()
+        shutil.rmtree(self.prefix / 'datas/library')
+        shutil.rmtree(self.prefix / 'datas/BoxArt')
+        shutil.rmtree(self.prefix / 'Games')
+        (self.prefix / 'My notes.txt').unlink(missing_ok=True)
+        self.uninstall('--purge-tools')
+        self.assertFalse(self.prefix.exists())
+
+    def test_a_link_in_place_of_a_folder_is_never_followed_or_removed(self):
+        self.populate()
+        self.remove(self.prefix / '.deps')
+        make_link(self.prefix / '.deps', self.outside / 'folder')
+        self.remove(self.prefix / 'datas/tools')
+        elsewhere = self.root / 'elsewhere'
+        (elsewhere / 'tools').mkdir(parents=True)
+        (elsewhere / 'tools/t').write_bytes(b'tool')
+        self.remove(self.prefix / 'datas')
+        make_link(self.prefix / 'datas', elsewhere)
+        self.uninstall('--purge-tools')
+        self.assertTrue((self.prefix / '.deps').is_symlink())
+        self.assertEqual((self.outside / 'folder/precious.txt').read_bytes(), b'precious')
+        self.assertEqual((elsewhere / 'tools/t').read_bytes(), b'tool')
+        self.assertFalse((self.prefix / '.build').exists())      # the real folder still went
+        self.assertEqual((self.prefix / 'Games/Game Boy/Tetris/Tetris').read_bytes(), b'game')
+
+    def test_unknown_option_is_refused_and_help_changes_nothing(self):
+        self.populate()
+        self.uninstall('--wipe', success=False)
+        self.assertIn('--purge-tools', self.uninstall('--help').stdout)
+        for name in self.managed:
+            self.assertTrue((self.prefix / name).exists(), name)
+        for name in self.tools:
+            self.assertTrue((self.prefix / name).exists(), name)
+
+    def ask(self, answer: bytes):
+        """Run uninstall.sh in a terminal and type ``answer`` at its question."""
+        import pty
+        self.remove(self.prefix) if self.prefix.exists() else None
+        self.populate()
+        master, slave = pty.openpty()
+        process = subprocess.Popen([find_bash(), (self.prefix / 'uninstall.sh').as_posix()],
+                                   stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+        os.close(slave)
+        output = b''
+        while b'[y/N]' not in output:
+            output += os.read(master, 4096)
+        os.write(master, answer)
+        try:
+            while True:
+                chunk = os.read(master, 4096)
+                if not chunk:
+                    break
+                output += chunk
+        except OSError:
+            pass                      # the terminal closed with the script
+        self.assertEqual(process.wait(timeout=60), 0, output)
+        os.close(master)
+        return output.decode(errors='replace')
+
+    @unittest.skipUnless(os.name == 'posix', 'needs a pseudo-terminal')
+    def test_a_terminal_session_is_asked_and_the_default_is_no(self):
+        question = self.ask(b'\n')                   # just Enter: keep
+        self.assertIn('Also remove the build tools and compiler caches (', question)
+        self.assertIn('Your games, settings and discoveries are kept. [y/N]', question)
+        self.assertTrue((self.prefix / '.deps/SDL/src/a.c').exists())
+        self.assertFalse((self.prefix / 'Retro-Recomp').exists())
+        self.assertPlayerKept()
+        self.ask(b'y\n')
+        for name in ('datas/tools', '.deps', '.build'):
+            self.assertFalse((self.prefix / name).exists(), name)
+        self.assertPlayerKept()
 
 
 @unittest.skipUnless(sys.platform == 'linux' and os.getuid() != 0 and shutil.which('bash'),

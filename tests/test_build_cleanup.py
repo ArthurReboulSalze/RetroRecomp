@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import threading
@@ -297,6 +298,126 @@ class RemovalTests(unittest.TestCase):
     def test_nothing_to_list_without_a_build_folder(self):
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(leftover_projects(Path(folder)), [])
+
+
+class ToolFolderTests(unittest.TestCase):
+    """Options > Disk space > "Remove build tools and caches": datas/tools, .deps
+    and .build of an installation, and nothing else."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve() / 'Retro-Recomp'
+        self.root.mkdir()
+        self.outside = Path(temporary.name).resolve() / 'outside'
+        self.log = []
+        self.tools = files(self.root / 'datas/tools/llvm-mingw', 'bin/clang.exe', size=5000)
+        files(self.root / 'datas/tools/mingit', 'cmd/git.exe', size=100)
+        self.deps = files(self.root / '.deps/SDL', 'src/a.c', 'checkout/objects/aa/bb', size=700)
+        self.build = self.root / '.build'
+        files(self.build / 'native-source', 'x.c', size=50)
+        files(self.build / f'gb_Tetris_{SHA[:12]}_9150f87d', 'g.c', size=40)
+        # Everything the player owns.
+        files(self.root / 'Games/Game Boy', 'Tetris/Tetris.exe')
+        files(self.root / 'datas', 'Retro-Recomp.json', 'library/observations.json', 'BoxArt/gb/a.png')
+        files(self.root / 'My games', 'x.exe')
+
+    def assertKept(self):
+        for path in (self.root / 'Games/Game Boy/Tetris/Tetris.exe', self.root / 'datas/Retro-Recomp.json',
+                     self.root / 'datas/library/observations.json', self.root / 'datas/BoxArt/gb/a.png',
+                     self.root / 'My games/x.exe'):
+            self.assertTrue(path.is_file(), path)
+
+    def test_measures_the_three_folders_without_following_links(self):
+        files(self.outside, 'big.bin', size=999999)
+        link(self.build / 'elsewhere', self.outside)
+        found = {folder.path: folder.size for folder in build_cleanup.tool_folders(self.root)}
+        self.assertEqual(found, {self.root / 'datas/tools': 5100, self.root / '.deps': 1400,
+                                 self.root / '.build': 90})
+
+    def test_removes_the_tools_and_caches_and_keeps_games_settings_and_discoveries(self):
+        files(self.outside, 'precious.bin', size=123)
+        link(self.deps / 'linked', self.outside)
+        link(self.build / 'elsewhere', self.outside)
+        (self.deps / 'checkout/objects/aa/bb').chmod(0o444)
+        outcome = build_cleanup.remove_tool_folders(self.root, emit=self.log.append)
+        self.assertEqual(outcome['errors'], [])
+        self.assertEqual(outcome['kept'], 0)
+        self.assertEqual(outcome['freed'], 5100 + 1400 + 90)
+        for name in ('datas/tools', '.deps', '.build'):
+            self.assertFalse((self.root / name).exists(), name)
+        self.assertEqual([p.name for p in self.root.iterdir() if p.name.startswith(REMOVING)], [])
+        self.assertEqual([p.name for p in (self.root / 'datas').iterdir() if p.name.startswith(REMOVING)], [])
+        self.assertKept()
+        self.assertTrue((self.outside / 'precious.bin').is_file())     # never followed
+        self.assertEqual(build_cleanup.tool_folders(self.root), [])
+        self.assertIn('Build tools and caches', self.log[-1])
+        # Nothing left: a second run is harmless.
+        self.assertEqual(build_cleanup.remove_tool_folders(self.root)['removed'], 0)
+
+    def test_a_link_in_place_of_a_folder_is_left_alone(self):
+        files(self.outside, 'SDL/a.c', size=10)
+        shutil.rmtree(self.deps.parent)
+        link(self.root / '.deps', self.outside)
+        outcome = build_cleanup.remove_tool_folders(self.root)
+        self.assertEqual(len(outcome['errors']), 1)
+        self.assertTrue((self.outside / 'SDL/a.c').is_file())
+        self.assertFalse((self.root / 'datas/tools').exists())
+        self.assertEqual([f.path for f in build_cleanup.tool_folders(self.root)], [])
+        self.assertKept()
+        # datas itself as a link: its tools are not reached.
+        shutil.rmtree(self.root / 'datas')
+        other = self.outside.parent / 'other-datas'
+        files(other, 'tools/t.exe', size=10)
+        link(self.root / 'datas', other)
+        build_cleanup.remove_tool_folders(self.root)
+        self.assertTrue((other / 'tools/t.exe').is_file())
+
+    def test_a_running_conversion_and_a_source_tree_are_respected(self):
+        locked = age(files(self.build / 'cps1' / ('ffight-' + SHA[:12])))
+        with entry_lock(locked, timeout=1):
+            outcome = build_cleanup.remove_tool_folders(self.root)
+        self.assertEqual(outcome['kept'], 1)
+        self.assertTrue((locked / 'generated/game.c').is_file())
+        self.assertFalse((self.build / 'native-source').exists())
+        self.assertFalse((self.root / 'datas/tools').exists())
+        # The shared setup of .deps keeps it whole while another process runs it.
+        files(self.deps, 'src/a.c')
+        with entry_lock(self.deps.parent / 'shared-setup', timeout=1):
+            outcome = build_cleanup.remove_tool_folders(self.root)
+        self.assertEqual(outcome['kept'], 1)
+        self.assertTrue((self.deps / 'src/a.c').is_file())
+        (self.root / 'RetroRecomp.py').write_text('')
+        with self.assertRaises(ValueError):
+            build_cleanup.remove_tool_folders(self.root)
+
+    def test_an_unfinished_removal_is_finished_and_a_stuck_folder_is_reported(self):
+        files(self.root / (REMOVING + '0123456789abcdef'), size=5)
+        files(self.root / 'datas' / (REMOVING + 'fedcba9876543210'), size=5)
+        outcome = build_cleanup.remove_tool_folders(self.root)
+        self.assertEqual(outcome['errors'], [])
+        self.assertFalse(any(p.name.startswith(REMOVING) for p in self.root.iterdir()))
+        files(self.root / '.deps' / 'again', size=5)
+        with patch('retrorecomp.build_cleanup._delete_tree', side_effect=OSError('file in use')):
+            outcome = build_cleanup.remove_tool_folders(self.root)
+        self.assertEqual(len(outcome['errors']), 1)
+        self.assertIn('.deps', outcome['errors'][0])
+        self.assertKept()
+
+    def test_only_a_packaged_installation_offers_it(self):
+        self.assertIsNone(build_cleanup.managed_root())              # sources
+        with patch('retrorecomp.build_cleanup.sys.frozen', True, create=True), \
+                patch('retrorecomp.paths.sys.frozen', True, create=True), \
+                patch('retrorecomp.paths.sys.executable', str(self.root / 'Retro-Recomp.exe')), \
+                patch('retrorecomp.build_cleanup.ROOT', self.root):
+            self.assertEqual(build_cleanup.managed_root(), self.root)
+            (self.root / 'RetroRecomp.py').write_text('')            # a project, not an installation
+            self.assertIsNone(build_cleanup.managed_root())
+        with patch('retrorecomp.build_cleanup.sys.frozen', True, create=True), \
+                patch('retrorecomp.paths.sys.frozen', True, create=True), \
+                patch('retrorecomp.paths.sys.executable', str(self.root / 'Export/Retro-Recomp.exe')), \
+                patch('retrorecomp.build_cleanup.ROOT', self.root):
+            self.assertIsNone(build_cleanup.managed_root())          # Export of a project
 
 
 class BatchCleanupTests(unittest.TestCase):

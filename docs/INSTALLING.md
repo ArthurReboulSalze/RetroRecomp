@@ -17,9 +17,25 @@ account can write to, so the in-app updater can replace the converter.
 The installer is not code-signed. Windows may show its usual downloaded-app
 warning. Release checksums are provided in `SHA256SUMS.txt`.
 
-Uninstall through Windows Settings or the Start menu entry. Games, `datas`,
-compiler dependencies and build caches are kept. You can remove those separately
-if you no longer need them. Installing again in the same location reuses them.
+Uninstall through Windows Settings or the Start menu entry. Games, `datas`
+(settings, library, discoveries, covers) are always kept. The uninstaller then
+asks, with the size, whether to also remove the **build tools and compiler
+caches** that Retro-Recomp installed beside itself (`datas\tools`, `.deps` and
+`.build` in the installation folder, often several hundred megabytes). The
+default answer is No: installing again in the same location then reuses them.
+Answer Yes and only those three folders go; a link or junction is never
+followed. A silent uninstall (`/SILENT`, `/VERYSILENT`) keeps them unless you
+add `/PURGETOOLS`:
+
+```bat
+"%LOCALAPPDATA%\Programs\Retro-Recomp\uninstall\unins000.exe" /VERYSILENT /PURGETOOLS
+```
+
+The question comes with the uninstaller of a setup from version 1.5.2 or later;
+an older installation gets it once you run the newer setup over it. If you
+keep them and want the space back later, delete those three folders by hand or
+use **Options > Common > Disk space > Remove build tools and caches** (below).
+The next conversion offers to install the tools again.
 
 ## Linux x86-64
 
@@ -32,7 +48,11 @@ appears in your applications menu. The package puts the application in
 `~/.local/opt/Retro-Recomp`, where settings, games and compiler caches are
 kept and where **Check for updates** keeps working without a password. A newer
 package refreshes that copy on the next start. Removing the package
-(`sudo apt remove retro-recomp`) keeps every user's copy and data.
+(`sudo apt remove retro-recomp`) keeps every user's copy and data: a package
+removal cannot ask questions and never touches home folders. To leave nothing
+behind, first open **Options > Common > Disk space** in Retro-Recomp and use
+**Remove build tools and caches** (see below), then remove the package; your
+games, settings and discoveries stay in `~/.local/opt/Retro-Recomp`.
 
 **Any distribution (per-user `.run` installer):** download
 `Retro-Recomp-<version>-linux-x86_64-install.run` from the same release. Browsers
@@ -66,8 +86,31 @@ To uninstall while keeping all games, settings and learning data:
 ```
 
 Use your chosen prefix instead if you installed elsewhere. The uninstaller
-removes only its managed program files and matching application-menu entry.
+removes its managed program files and matching application-menu entry, and
+keeps your games, settings and discoveries. In a terminal it also asks
+`Also remove the build tools and compiler caches (size)? [y/N]` (default No):
+Yes removes `datas/tools`, `.deps` and `.build` under the installation folder
+and nothing else, and never follows a symbolic link. In a script, add
+`--purge-tools` to remove them, otherwise they are kept:
+
+```sh
+"$HOME/.local/opt/Retro-Recomp/uninstall.sh" --purge-tools
+```
+
 Close the converter and any conversions before installation or uninstall.
+
+### Removing the build tools and compiler caches from the application
+
+Whatever the installer, **Options > Common > Disk space** has a second action,
+**Remove build tools and caches (size)**, after the removal of leftover
+per-game build folders. It asks for confirmation, then removes `datas/tools`
+(portable compiler, CMake, Ninja and Git on Windows), `.deps` (engine sources,
+SDL2, translators) and `.build` (shared caches, leftover projects) from the
+installation folder, and keeps games, settings, discoveries and covers. It is
+the way to free this space before removing the Debian package, and it is
+offered only by an installed application (not by a copy run from a project's
+`Export` folder or from the sources). The next conversion offers to install the
+missing tools again, then prepares the shared pieces (a few minutes).
 
 ## Updates and existing portable data
 
@@ -84,7 +127,8 @@ unchanged. An installed current version offers no update to itself.
 Settings, favorites, cards, downloaded covers and compilation observations stay
 in `datas` in the installation folder; generated games default to `Games` there.
 The installer and updater preserve these directories, including your private
-compilation library. Uninstall also leaves them in place. Back them up if needed.
+compilation library. Uninstall also leaves them in place (only the build tools
+and compiler caches can be removed with it, when you ask). Back them up if needed.
 
 An existing portable installation is not imported automatically. You can keep
 using it, or close both copies and copy its `datas` and `Games` into the new

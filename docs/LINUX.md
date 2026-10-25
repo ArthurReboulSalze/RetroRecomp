@@ -8,8 +8,10 @@ On Debian and Ubuntu, double-click the `.deb` package of the release (see
 [installation](INSTALLING.md)). Elsewhere, use the per-user `.run` installer to
 add Retro-Recomp to your applications menu:
 `bash Retro-Recomp-1.1.6-linux-x86_64-install.run`. It installs without sudo in
-`~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves data
-on uninstall. See [installation](INSTALLING.md).
+`~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves your
+games and settings on uninstall; `uninstall.sh` also offers to remove the build
+tools and compiler caches (`--purge-tools` in scripts), and Options > Common >
+Disk space does the same before removing the `.deb`. See [installation](INSTALLING.md).
 
 For a portable copy, extract the archive into a writable local folder. Run `./Retro-Recomp` (or make
 it executable with `chmod +x Retro-Recomp`). Python is included; no virtual

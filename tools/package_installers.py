@@ -52,7 +52,8 @@ def payload_files(executable: Path, version: str, target: str, notes: Path | Non
             'Updates replace only the converter; your games and private data are kept.\n\n'
             'Your settings, collection, covers and learning data are in datas beside\n'
             'the converter. Generated games default to Games in the same folder.\n'
-            'Uninstall keeps these folders and your compiler caches.\n'
+            'Uninstall keeps these folders, and asks whether to also remove the build\n'
+            'tools and compiler caches installed beside the converter.\n'
             'Close the app and any conversions before installing or uninstalling.\n\n'
             + ('Uninstall through Windows Settings or the Start menu entry.\n' if target == 'windows' else
                'Uninstall by running uninstall.sh in this installation folder, without sudo.\n')
