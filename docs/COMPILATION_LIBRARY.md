@@ -52,15 +52,31 @@ How the stamps were found and checked:
    compared frame by frame (CPU, memory, image and sound hashes) on 16 games before
    the list was accepted.
 
-Quick states of upgraded exports: Mega Drive, Super Nintendo, NES, Master System, Game
-Gear and Game Boy states load as before (same source ABI). Neo Geo and CPS-1 build their
-state key from Python module fingerprints, so the 1.4.1 key is added as
-`RR16_STATE_COMPAT_ABI` (Neo Geo: `_3`); the state of both builds is written field by
-field with the same sizes. X68000 states carry the compiler's identity in their key by
-design, so a 1.4.1 state is refused cleanly ("Requested startup state rejected") by an
-upgraded export; the profile is experimental. The Super Nintendo analysis cache identity
-changed once (the removed Super Mario World repository was part of it): the analysis of
-the ROM is redone during the upgrade, in a few minutes, without rediscovery.
+Quick states of upgraded exports (checked with the real 1.4.1 executables against their
+upgraded exports, a state written by the old one being resumed by the new one):
+
+- Mega Drive, Super Nintendo, Neo Geo and CPS-1: the state key covers native files, the
+  repository list or Python module fingerprints, all of which changed, so the 1.4.1 key is
+  added to the accepted keys (`RR16_STATE_COMPAT_ABI_23` for Mega Drive, `RR16_STATE_COMPAT_ABI`
+  for Super Nintendo and CPS-1, `RR16_STATE_COMPAT_ABI_3` for Neo Geo). The 1.4.1 keys were found in
+  the released executables and reproduced from the tag. States are written field by field with
+  the same sizes in both builds; frame-by-frame traces of the old and the upgraded executable are
+  identical.
+- NES: the key covers the engine files as written in the player's project folder, including
+  its path, so it is the same before and after the upgrade in the same workspace (checked: the
+  tag and this branch give the same key for the same path, and that key is in the released
+  executable). It never moved between workspaces.
+- Master System, Game Gear, Game Boy: the state header holds the ROM identity, a schema number
+  and sizes; the state code is byte for byte the one of 1.4.1. They cannot be saved without a
+  window, so only the final video trace (Master System, Game Gear) or the final state dump
+  (Game Boy) of the old and the upgraded executable were compared: identical.
+- X68000: the state key carries the compiler's identity by design, so a 1.4.1 state is refused
+  cleanly ("Requested startup state rejected") by an upgraded export; the profile is experimental.
+  The X68000 is not in the list, so it is converted in full anyway.
+
+The Super Nintendo analysis cache identity changed once (the removed Super Mario World repository
+was part of it): the analysis of the ROM is redone during the upgrade, in a few minutes, without
+rediscovery.
 
 **Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
 complete them, whenever the release really changes what a game does (translation,
