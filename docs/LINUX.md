@@ -17,6 +17,11 @@ environment is needed to open the converter. To create or refresh a local
 launcher with its icon after moving the folder, run
 `./Retro-Recomp _install-launcher`. Dolphin may ask you to trust that launcher.
 Generated games have their own cover launchers beside their native executables.
+Since 1.5.0, a validated game ELF is packed with the bundled UPX 5.2.1 before it
+is published, as on Windows; X68000 exports stay uncompressed for now. UPX
+restores the program in memory when it starts; `upx -d` gives the unpacked file
+back. Sizes and start-up times measured on Debian are in
+[BUILDING.md](BUILDING.md#linux-game-compression).
 
 Conversion still requires the native build tools: `build-essential`, `cmake`,
 `ninja-build`, `git`, `pkg-config`, `curl` and the SDL2 development dependencies

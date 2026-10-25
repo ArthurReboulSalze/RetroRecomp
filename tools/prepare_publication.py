@@ -154,7 +154,7 @@ retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
 retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
-retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py
+retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
 retrorecomp/online.py tests/test_online.py
