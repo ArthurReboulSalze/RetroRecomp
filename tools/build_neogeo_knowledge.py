@@ -37,6 +37,9 @@ def qualified_record(report: dict):
     executable=Path(report['build_executable']).resolve()
     project=(Path(report['build_directory']).resolve() if report.get('build_directory') else
              executable.parents[2 if executable.suffix.casefold()=='.exe' else 1])
+    if not project.is_dir():
+        raise ValueError('The Neo Geo build folder was removed after publication; convert again with '
+                         '--keep-build (or RETRO_RECOMP_KEEP_BUILD=1) to qualify its hints.')
     from retrorecomp.neogeo_build import aes_available
     expected_aes=aes_available(project)
     if report.get('runtime_modes',{}).get('aes_available') is not expected_aes:
