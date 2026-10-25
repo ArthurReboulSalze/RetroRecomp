@@ -1700,6 +1700,13 @@ class Application:
                     self.drop_paths(event[1])
                 elif kind == 'drop_blocked':
                     self.messages.put(('log', self.tr('drop_blocked')))
+                elif kind == 'raise':
+                    # A second start of this installation: show this window.
+                    self.app.deiconify()
+                    self.app.lift()
+                    self.app.focus_force()
+                    self.app.attributes('-topmost', True)
+                    self.app.after(300, lambda: self.app.attributes('-topmost', False))
                 elif kind == 'drop_error':
                     self.messages.put(('log', self.tr('drop_unavailable')))
                 elif kind == 'start':
@@ -1740,6 +1747,8 @@ class Application:
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
                     self.busy = False
+                    from .core import reset_stop
+                    reset_stop()
                     for index in self.running_jobs:
                         row = self.active_rows[index]
                         self.row_status[row] = 'waiting'
@@ -2598,8 +2607,15 @@ class Application:
             missing = missing_build_tools()
         except Exception:
             return True   # the conversion reports its own precise error
+        from .core import dependencies_ready
         if not missing:
-            return True
+            if dependencies_ready():
+                return True
+            # Tools present, shared pieces not built yet: prepare them now,
+            # behind the progress window, rather than inside the first game.
+            if messagebox.askyesno(APP_NAME, self.tr('deps_intro') + '\n\n' + self.tr('deps_question'), parent=self.app):
+                self.install_build_tools({}, retry)
+            return False
         if os.name == 'nt':
             items = [self.tr(f'tools_item_{key}') for key in ('git', 'compiler') if missing.get(key)]
             text = self.tr('tools_intro', items='\n• ' + '\n• '.join(items))
@@ -2610,6 +2626,7 @@ class Application:
             messagebox.showwarning(APP_NAME, self.tr('tools_manual_linux', commands=', '.join(missing['commands'])),
                                    parent=self.app)
             return False
+        text += '\n\n' + self.tr('tools_deps_note')
         if messagebox.askyesno(APP_NAME, text + '\n\n' + self.tr('tools_question'), parent=self.app):
             self.install_build_tools(missing, retry)
         return False
@@ -2641,9 +2658,14 @@ class Application:
         window.update_idletasks()
         center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
         window.deiconify()
-        state = {'label': '', 'done': 0, 'total': 0, 'result': None}
+        state = {'label': '', 'done': 0, 'total': 0, 'step': '', 'result': None}
         self.updating = True
         self.set_controls(False)
+        # The shared pieces (engine sources, Z80 → C translator, static SDL2)
+        # follow the tools, so the first conversion starts at once.
+        steps = {'Téléchargement de smsggrecomp…': 'deps_step_engine', 'Téléchargement de SDL…': 'deps_step_sdl_fetch',
+                 'Compilation du traducteur Z80 → C…': 'deps_step_translator',
+                 'Compilation de SDL2 statique (première utilisation)…': 'deps_step_sdl'}
 
         def progress(label, done, total):
             state.update(label=label, done=done, total=total)
@@ -2655,8 +2677,13 @@ class Application:
                         updater.install_git(progress)
                     if missing.get('compiler'):
                         updater.install_toolchain(progress)
-                else:
+                elif missing.get('packages'):
                     updater.install_linux_packages(missing['packages'], progress)
+                from .core import dependencies, dependencies_ready, reset_stop
+                if not dependencies_ready():
+                    reset_stop()
+                    state.update(label='', total=0, step='deps_step_start')
+                    dependencies(emit=lambda text: state.update(step=steps.get(text, text)))
                 state['result'] = ('ok', None)
             except updater.ToolInstallError as error:
                 state['result'] = ('failed', str(error))
@@ -2678,6 +2705,13 @@ class Application:
                 else:
                     step.configure(text=self.tr('tools_step_download', name=label))
                     detail.configure(text=f'{done / 1048576:.1f} / {total / 1048576:.1f} MB')
+            elif state['step']:
+                if str(bar.cget('mode')) != 'indeterminate':
+                    bar.configure(mode='indeterminate')
+                    bar.start(12)
+                key = state['step']
+                step.configure(text=self.tr(key) if key in STRINGS else log_text(key, self.language))
+                detail.configure(text=self.tr('deps_step_hint'))
             if state['result'] is None:
                 window.after(150, poll)
                 return
@@ -3562,13 +3596,85 @@ class Application:
         self.app.destroy()
 
 
+def instance_token():
+    """One converter per installation folder; two installations may run."""
+    import hashlib
+    digest = hashlib.sha256(str(ROOT.resolve()).lower().encode('utf-8')).hexdigest()
+    return digest[:16], 49152 + int(digest[:4], 16) % 16000
+
+
+def claim_instance():
+    """The first converter of an installation listens on a local port; a later
+    start finds it, asks it to come to the front, and leaves. Returns the
+    listening socket, None when another converter answered, or False when the
+    port belongs to something else (then both run, as before)."""
+    import socket
+    token, port = instance_token()
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server.bind(('127.0.0.1', port))
+        server.listen(2)
+        return server
+    except OSError:
+        server.close()
+    try:
+        with socket.create_connection(('127.0.0.1', port), timeout=1) as peer:
+            peer.settimeout(1)
+            peer.sendall(token.encode('ascii') + b'\n')
+            if peer.recv(32).startswith(b'RR ' + token.encode('ascii')):
+                return None
+    except OSError:
+        pass
+    return False
+
+
+def serve_instance(server, application):
+    """Answer later starts: the token proves it is Retro-Recomp, the window is
+    raised from the Tk thread through the message queue."""
+    import socket
+    token, _ = instance_token()
+    def listen():
+        while True:
+            try:
+                peer, _ = server.accept()
+            except OSError:
+                return
+            with peer:
+                try:
+                    peer.settimeout(1)
+                    if peer.recv(64).strip() == token.encode('ascii'):
+                        peer.sendall(b'RR ' + token.encode('ascii'))
+                        application.messages.put(('raise', None))
+                except OSError:
+                    pass
+    threading.Thread(target=listen, daemon=True, name='retro-recomp-instance').start()
+
+
+def close_splash():
+    """The start-up picture shown by the packaged converter while it unpacks."""
+    try:
+        import pyi_splash
+        if pyi_splash.is_alive():
+            pyi_splash.close()
+    except Exception:
+        pass
+
+
 def launch(update_error: str | None = None):
     from .updater import use_installed_tools
     use_installed_tools()
+    server = claim_instance()
+    if server is None:
+        close_splash()
+        return
     set_converter_identity()
     load_fonts()
-    app = tk.Tk()
+    # The class name is what Linux desktops match the launcher's
+    # StartupWMClass against, to stop their "starting" cursor.
+    app = tk.Tk(className='Retro-Recomp')
     application = Application(app)
+    if server:
+        serve_instance(server, application)
     roms = ROOT / 'ROMS'
     if not application.restore_queue() and roms.is_dir():
         application.add_paths(discover_roms(roms))
@@ -3576,4 +3682,5 @@ def launch(update_error: str | None = None):
     if update_error:
         app.after(200, lambda: messagebox.showerror(APP_NAME,
             application.tr('update_failed', error=update_error)))
+    app.after_idle(close_splash)
     app.mainloop()

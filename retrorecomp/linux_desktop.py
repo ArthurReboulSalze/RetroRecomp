@@ -24,7 +24,7 @@ def publish_converter_launcher(executable: Path | None = None) -> Path:
     text = '\n'.join(('[Desktop Entry]', 'Type=Application', 'Version=1.0',
         'Name=Retro-Recomp', 'Exec='+_argument(executable), 'Path='+_value(folder),
         'Icon='+_value(icon), 'Terminal=false', 'Categories=Game;Utility;',
-        'StartupNotify=false', marker, ''))
+        'StartupNotify=true', 'StartupWMClass=Retro-Recomp', marker, ''))
     _write(launcher, text.encode('utf-8'), 0o755)
     return launcher
 

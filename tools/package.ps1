@@ -30,6 +30,7 @@ try {
     $resourceArguments += (Join-Path $projectRoot '.build\packaging-hooks')
     python -m PyInstaller --noconfirm --onefile --windowed --name Retro-Recomp `
         --icon "$projectRoot\assets\Retro-Recomp.ico" `
+        --splash "$projectRoot\assets\Retro-Recomp-splash.png" `
         --version-file "$projectRoot\.build\converter-version.txt" `
         --add-binary "$creditsAudio;credits-runtime" `
         --add-binary "$playerGamepad;player-runtime" `

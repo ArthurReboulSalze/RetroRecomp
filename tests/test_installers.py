@@ -48,10 +48,15 @@ class InstallerPayloadTests(unittest.TestCase):
             control = (root / 'DEBIAN/control').read_text()
             self.assertIn('Package: retro-recomp\nVersion: 1.4.1\nArchitecture: amd64', control)
             self.assertIn('Depends: libc6 (>= 2.41)', control)
-            self.assertIn('Exec=retro-recomp', (root / f'usr/share/applications/{APP_ID}.desktop').read_text())
+            entry = (root / f'usr/share/applications/{APP_ID}.desktop').read_text()
+            self.assertIn('Exec=retro-recomp', entry)
+            # The desktop shows its starting cursor until the window, of
+            # Tk class Retro-Recomp, appears.
+            self.assertIn('StartupNotify=true\nStartupWMClass=Retro-Recomp', entry)
             launcher = (root / 'usr/bin/retro-recomp').read_bytes()
             self.assertNotIn(b'\r\n', launcher)
             self.assertIn(b'.local/opt/Retro-Recomp', launcher)
+            self.assertIn(b'PYINSTALLER_SUPPRESS_SPLASH_SCREEN', launcher)
             self.assertEqual((root / 'opt/retro-recomp/VERSION').read_text(), '1.4.1\n')
 
     def test_reproducible_linux_payload_contains_only_plain_files(self):

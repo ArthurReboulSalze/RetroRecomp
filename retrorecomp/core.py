@@ -301,6 +301,18 @@ def toolchain() -> tuple[Path, str]:
     return chosen.cmake, chosen.generator
 
 
+def dependencies_ready() -> bool:
+    """Whether the shared pieces every conversion needs are already built:
+    the pinned engine sources, the Z80 → C translator and the static SDL2."""
+    try:
+        dep = ROOT / ".deps"
+        return ((dep / "smsggrecomp/external/z80-recomp-core/include/sms_runtime.h").exists()
+                and build_executable(dep / ('recompiler-build' + suffix()), 'SmsRecomp').exists()
+                and (sdl_install() / sdl_library()).exists())
+    except Exception:
+        return False
+
+
 @serialized_setup
 def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path, str]:
     cmake, generator = toolchain()

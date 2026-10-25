@@ -6,6 +6,7 @@ independently runnable ELF and a tar.gz with that executable and usage notes.
 import argparse
 import importlib.metadata
 import json
+import os
 import platform
 from pathlib import Path
 import subprocess
@@ -47,6 +48,7 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
 ''', encoding='utf-8')
     command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
         '--name', 'Retro-Recomp', '--exclude-module', 'numpy', '--exclude-module', 'pytest',
+        '--splash', str(ROOT/'assets/Retro-Recomp-splash.png'),
         '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
         '--specpath', str(stage), '--additional-hooks-dir', str(hooks),
         '--add-binary', str(credits_audio)+':credits-runtime',
@@ -97,7 +99,8 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
     proof.update(bytes=destination.stat().st_size, target='linux-x86_64',
                  build_glibc=platform.libc_ver(), archive=archive_path.name)
     (stage/'audit.json').write_text(json.dumps(proof, indent=2)+'\n', encoding='utf-8')
-    subprocess.run([str(destination), '_install-launcher'], check=True)
+    subprocess.run([str(destination), '_install-launcher'], check=True,
+                   env={**os.environ, 'PYINSTALLER_SUPPRESS_SPLASH_SCREEN': '1'})
     print(json.dumps({'executable':str(destination), 'sha256':proof['sha256'],
                       'bytes':proof['bytes'], 'archive':str(archive_path)}))
 

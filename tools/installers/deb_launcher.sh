@@ -34,4 +34,6 @@ if [ "$refresh" = 1 ]; then
     printf '%s\n' 'Retro-Recomp per-user installation v1' "$version" '' > "$marker"
     printf '%s\n' "$version" > "$stamp"
 fi
+# A command (batch, checks) shows no start-up picture; the window does.
+[ $# -eq 0 ] || export PYINSTALLER_SUPPRESS_SPLASH_SCREEN=1
 exec "$prefix/Retro-Recomp" "$@"

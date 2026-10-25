@@ -16,6 +16,9 @@ PROFILES = available_profiles()
 
 
 def main() -> int:
+    # The packaged converter shows a start-up picture while it unpacks; the
+    # converters it starts itself (bridges, update checks) must not.
+    os.environ.setdefault('PYINSTALLER_SUPPRESS_SPLASH_SCREEN', '1')
     if len(sys.argv)==3 and sys.argv[1] in ('_compilation-stamps','_compilation-inputs'):
         # Package qualification only: no ROM access, GUI or compiler launch.
         from retrorecomp.compilation_inputs import engine_stamp,input_fingerprints

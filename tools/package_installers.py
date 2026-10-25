@@ -103,7 +103,8 @@ def deb_tree(files: dict[str, bytes], version: str, root: Path) -> None:
     put(f'usr/share/applications/{APP_ID}.desktop', '\n'.join((
         '[Desktop Entry]', 'Type=Application', 'Version=1.0', 'Name=Retro-Recomp',
         'Comment=Convert your retro games into native executables', 'Exec=retro-recomp',
-        f'Icon={APP_ID}', 'Terminal=false', 'Categories=Game;Utility;', 'StartupNotify=false', '')).encode('utf-8'))
+        f'Icon={APP_ID}', 'Terminal=false', 'Categories=Game;Utility;', 'StartupNotify=true',
+        'StartupWMClass=Retro-Recomp', '')).encode('utf-8'))
     put(f'usr/share/icons/hicolor/256x256/apps/{APP_ID}.png', files['Retro-Recomp.png'])
     put('usr/share/doc/retro-recomp/copyright', files['LICENSE.txt'] + b'\n' + files['THIRD_PARTY_NOTICES.md'])
     size = sum(path.stat().st_size for path in root.rglob('*') if path.is_file())

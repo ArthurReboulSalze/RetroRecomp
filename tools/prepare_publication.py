@@ -137,6 +137,7 @@ assets/Retro-Recomp-icon-24.png assets/Retro-Recomp-icon-32.png
 assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
+assets/Retro-Recomp-splash.png
 assets/tools/upx.exe
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md

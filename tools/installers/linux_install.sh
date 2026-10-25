@@ -86,7 +86,7 @@ printf '%s\n' "$MARKER" "$VERSION" "$desktop" > "$stage/.retro-recomp-install"
 printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Version=1.0' 'Name=Retro-Recomp' \
     "Exec=$(argument "$prefix/Retro-Recomp")" "Path=$(value "$prefix")" \
     "Icon=$(value "$prefix/Retro-Recomp.png")" 'Terminal=false' 'Categories=Game;Utility;' \
-    'StartupNotify=false' "X-RetroRecomp-InstallRoot=$(value "$prefix")" > "$stage/launcher.desktop"
+    'StartupNotify=true' 'StartupWMClass=Retro-Recomp' "X-RetroRecomp-InstallRoot=$(value "$prefix")" > "$stage/launcher.desktop"
 mkdir -p -- "${desktop%/*}"
 # Commit only after the entire payload and native version have been checked.
 for file in Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install Retro-Recomp; do
