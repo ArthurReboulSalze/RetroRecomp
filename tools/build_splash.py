@@ -1,6 +1,8 @@
-"""The start-up picture the packaged converter shows while it unpacks: the
-application's own banner (as in the header and on the site) and its version.
-Packaging writes it next to its work files, so the version always matches."""
+"""The start-up picture the packaged converter shows while it unpacks: step 1
+of the start-up window that takes over once Python runs (gui.startup_picture):
+the logo with its own outline (transparent on Windows, a dark card on Linux),
+the first gold segment and the version. Packaging writes it next to its work
+files, so the version always matches."""
 from __future__ import annotations
 
 import argparse
@@ -10,23 +12,14 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def build(destination: Path, version: str) -> Path:
-    from PIL import Image, ImageDraw, ImageFont
-    banner = Image.open(ROOT / 'assets/Retro-Recomp-banner.png').convert('RGBA')
-    banner = banner.resize((420, round(banner.height * 420 / banner.width)), Image.LANCZOS)
-    width, height = 480, 170
-    image = Image.new('RGB', (width, height), '#1c1c1c')
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((0, 0, width - 1, height - 1), outline='#d4a737', width=2)
-    image.paste(banner, ((width - banner.width) // 2, 26), banner)
-    draw.rectangle((150, 132, width - 150, 134), fill='#d4a737')
-    # The interface font subset carries the Latin digits and letters.
-    font = ImageFont.truetype(str(ROOT / 'assets/RetroRecomp-UI-JP.otf'), 13)
-    text = f'v{version}'
-    left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-    draw.text((width - 14 - (right - left), height - 12 - bottom), text, font=font, fill='#9a9a9a')
+def build(destination: Path, version: str, transparent: bool | None = None) -> Path:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from retrorecomp.gui import startup_picture
+    transparent = sys.platform == 'win32' if transparent is None else transparent
+    picture = startup_picture(1, '', version, transparent)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    image.save(destination, optimize=True)
+    picture.save(destination, optimize=True)
     return destination
 
 

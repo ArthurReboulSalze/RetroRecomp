@@ -106,6 +106,7 @@ tools/queue_recovery_selftest.py
 tests/test_freshness.py
 tests/test_gui_shutdown.py
 tests/test_stop_now.py
+tests/test_startup_splash.py
 retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py

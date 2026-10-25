@@ -543,9 +543,11 @@ class Application:
         # queue and the log keep the height.
         footer = ttk.Frame(body)
         footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(4, 5))
-        status_dot = tk.Canvas(footer, width=10, height=12, bg=COLORS['background'], highlightthickness=0)
-        status_dot.create_oval(1, 3, 7, 9, fill=COLORS['green'], outline='')
+        status_dot = self.status_dot = tk.Canvas(footer, width=12, height=12, bg=COLORS['background'],
+                                                 highlightthickness=0)
+        status_dot.create_oval(2, 3, 8, 9, fill=COLORS['green'], outline='', tags='dot')
         status_dot.pack(side='left', padx=(0, 5))
+        self.sending_count = 0
         self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel',
                                       font=(self.ui_font, 8), padding=0)
         self.footer_label.pack(side='left')
@@ -2611,10 +2613,9 @@ class Application:
             menu.add_command(label=self.tr('knowledge_export_web'), state='disabled')
         else:
             menu.add_command(label=self.tr('knowledge_send'), command=self.send_knowledge)
-            signed = online.account()
-            if signed:
-                menu.add_command(label=self.tr('knowledge_sign_out', email=signed['email']), command=self.sign_out)
-            else:
+            # Signing out lives in the header (and Options); signing in stays
+            # here too, next to the send that needs it.
+            if not online.account():
                 menu.add_command(label=self.tr('knowledge_sign_in'), command=self.sign_in_dialog)
         button = self.knowledge_button
         try:menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
@@ -2742,6 +2743,36 @@ class Application:
             except OSError:
                 pass
 
+    def sending_started(self):
+        """While discoveries travel to the server, the status line's green dot
+        becomes a small turning gold circle and the line says so."""
+        self.sending_count = getattr(self, 'sending_count', 0) + 1
+        if self.sending_count > 1 or not hasattr(self, 'status_dot'):
+            return
+        self.footer_label.configure(text=self.tr('sending_discoveries'))
+        def turn(angle=0):
+            if self.sending_count <= 0:
+                return
+            dot = self.status_dot
+            dot.delete('spinner')
+            dot.itemconfigure('dot', state='hidden')
+            dot.create_arc(1, 1, 11, 11, start=angle, extent=270, style='arc', outline=COLORS['gold'],
+                           width=2, tags='spinner')
+            self.spin_after = dot.after(60, turn, (angle - 30) % 360)
+        turn()
+
+    def sending_finished(self):
+        self.sending_count = max(0, getattr(self, 'sending_count', 0) - 1)
+        if self.sending_count or not hasattr(self, 'status_dot'):
+            return
+        try:
+            self.status_dot.after_cancel(self.spin_after)
+        except (AttributeError, tk.TclError, ValueError):
+            pass
+        self.status_dot.delete('spinner')
+        self.status_dot.itemconfigure('dot', state='normal')
+        self.footer_label.configure(text=self.tr('footer'))
+
     def send_new_discoveries(self):
         """After a batch, signed in with the option on: send the discoveries the
         shared base has not received from this account, then their claims, in
@@ -2752,6 +2783,7 @@ class Application:
             return
         collect = self.discoveries_collector(threading.Event())
         self.auto_sending = True
+        self.sending_started()
         def worker():
             try:
                 with self.knowledge_lock:
@@ -2763,6 +2795,7 @@ class Application:
 
     def auto_sent(self, summary, error):
         self.auto_sending = False
+        self.sending_finished()
         if error is not None:
             self.messages.put(('log', self.tr('auto_send_failed', error=self.service_problem(error))))
             return
@@ -3628,6 +3661,9 @@ class Application:
     def knowledge_done(self, outcome, error):
         self.busy = False
         self.set_controls(True)
+        if getattr(self, 'manual_sending', False):
+            self.manual_sending = False
+            self.sending_finished()
         if self.compiled_view is not None:self.compiled_view.progress.stop()
         if error:
             text = self.tr('knowledge_failed', error=error)
@@ -3647,6 +3683,8 @@ class Application:
                       + '\n\n' + self.tr('knowledge_scope'))
             # On the closing card the player already chose to send.
             if self.closing_send or self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action')):
+                self.sending_started()
+                self.manual_sending = True
                 self.knowledge_task(lambda:('sent', self.upload_discoveries(pending)), 'knowledge_sending')
             return
         if kind in ('sent', 'signed_out'):
@@ -3968,6 +4006,80 @@ def close_splash():
         pass
 
 
+SPLASH_STEPS = 4
+SPLASH_KEY = '#ff00ff'   # Windows: the colour the start-up window shows as transparent
+
+
+def startup_picture(step, text, version, transparent, language='en'):
+    """The start-up picture: the logo with its own outline, gold segments that
+    light up one by one, the current step and the version. The packaged
+    converter's unpacking picture (tools/build_splash.py) is step 1 of it.
+    Where the window can be transparent (Windows), edges are kept sharp: a
+    pixel is either fully shown or keyed out, so no tinted fringe appears."""
+    from PIL import Image, ImageDraw, ImageFont
+    gold = (212, 167, 55, 255)
+    width, height = 300, 290
+    image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    if not transparent:   # Linux: no transparent windows, a dark card instead
+        draw.rounded_rectangle((0, 0, width - 1, height - 1), 22, fill=(24, 24, 24, 255), outline=gold, width=2)
+    logo = Image.open(ASSETS / 'assets/Retro-Recomp-icon-256.png').convert('RGBA').resize((230, 230), Image.LANCZOS)
+    image.alpha_composite(logo, ((width - 230) // 2, 8))
+    left, top, segment, gap = 60, 226, 40, 6
+    for index in range(SPLASH_STEPS):
+        if index < step or not transparent:
+            x = left + index * (segment + gap)
+            draw.rounded_rectangle((x, top, x + segment, top + 5), 2, fill=gold if index < step else (70, 70, 70, 255))
+    face = 'SC' if language_code(language) == 'zh' else 'JP'
+    font = ImageFont.truetype(str(ASSETS / f'assets/RetroRecomp-UI-{face}.otf'), 13)
+    if text:
+        draw.text((width // 2, top + 20), text, font=font, fill=(235, 235, 235, 255), anchor='mm')
+    small = ImageFont.truetype(str(ASSETS / f'assets/RetroRecomp-UI-{face}.otf'), 12)
+    draw.text((width // 2, top + 40), 'v' + version, font=small, fill=(196, 158, 62, 255), anchor='mm')
+    if transparent:
+        # Half-covered pixels are laid on the dark logo colour and made opaque.
+        dark = Image.new('RGBA', image.size, (20, 20, 20, 255))
+        solid = Image.alpha_composite(dark, image)
+        mask = image.getchannel('A').point(lambda alpha: 255 if alpha >= 110 else 0)
+        image = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        image.paste(solid, (0, 0), mask)
+    return image
+
+
+class StartupSplash:
+    """The start-up window once Python runs: the same picture as the unpacking
+    one, its segments moving on while the interface loads."""
+    def __init__(self, app, language):
+        self.app, self.language = app, language
+        self.transparent = os.name == 'nt'
+        window = self.window = tk.Toplevel(app)
+        window.overrideredirect(True)
+        window.attributes('-topmost', True)
+        background = SPLASH_KEY if self.transparent else '#000000'
+        window.configure(bg=background)
+        if self.transparent:
+            window.attributes('-transparentcolor', SPLASH_KEY)
+        self.canvas = tk.Canvas(window, width=300, height=290, bg=background, highlightthickness=0, borderwidth=0)
+        self.canvas.pack()
+        x = (window.winfo_screenwidth() - 300) // 2
+        y = (window.winfo_screenheight() - 290) // 2
+        window.geometry(f'300x290+{x}+{y}')
+
+    def step(self, step, key):
+        from PIL import ImageTk
+        picture = startup_picture(step, tr(key, self.language), __version__, self.transparent, self.language)
+        self.photo = ImageTk.PhotoImage(picture, master=self.window)
+        self.canvas.delete('all')
+        self.canvas.create_image(0, 0, image=self.photo, anchor='nw')
+        self.window.update()
+
+    def close(self):
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
+
+
 def launch(update_error: str | None = None):
     from .updater import use_installed_tools
     use_installed_tools()
@@ -3980,6 +4092,17 @@ def launch(update_error: str | None = None):
     # The class name is what Linux desktops match the launcher's
     # StartupWMClass against, to stop their "starting" cursor.
     app = tk.Tk(className='Retro-Recomp')
+    app.withdraw()
+    splash = None
+    try:
+        splash = StartupSplash(app, load_preferences().get('language', 'en'))
+        splash.step(2, 'splash_starting')
+    except Exception:
+        splash = None
+    # Our own picture is up at the same place: the unpacking one can go.
+    close_splash()
+    if splash:
+        splash.step(3, 'splash_interface')
     application = Application(app)
     if server:
         serve_instance(server, application)
@@ -3990,5 +4113,9 @@ def launch(update_error: str | None = None):
     if update_error:
         app.after(200, lambda: messagebox.showerror(APP_NAME,
             application.tr('update_failed', error=update_error)))
-    app.after_idle(close_splash)
+    if splash:
+        splash.step(4, 'splash_ready')
+        app.after(250, lambda: (splash.close(), app.deiconify()))
+    else:
+        app.deiconify()
     app.mainloop()
