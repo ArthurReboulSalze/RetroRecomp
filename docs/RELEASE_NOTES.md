@@ -1,3 +1,49 @@
+# RetroRecomp v1.5.2 — a shop for your coins, problem reports, a lighter start
+
+- **The RR coin shop.** Coins now buy more than titles: a name style (gold,
+  gradient, sparkle), console badges, a trophy pin, a header theme for the
+  converter (neon, night, gold) and portrait frames (gold, platinum,
+  diamond). Buy and equip them on your account page at retro-recomp.com;
+  the converter shows what you equipped: the frame around your portrait,
+  your name style and pin in the header, badges and pins on its leaderboard.
+  **Options › Common › Account › Shop on the site** opens the shop.
+- **Fairer points.** Per game, points now grow like a square root of the
+  paths' value (5 × √): the first paths of a game count most, every further
+  path still adds, and a console whose conversions yield thousands of finer
+  paths no longer outweighs the others. A game the shared knowledge already
+  had counts ×2 (was ×3). The leaderboard is recomputed with the new rule.
+- **No rediscovery of a known game.** At the Standard level, a game the
+  bundled knowledge already holds is rebuilt from its paths with the quick
+  check (a failed check discovers it in full); Extended and Thorough still
+  search further. During a long batch, new discoveries are also sent every
+  15 minutes, with a small turning circle in the status line while they
+  travel.
+- **Report a problem.** Right-click a game that failed (in the queue or in
+  Compiled games) and choose **Report this problem**, or use **Report a
+  problem** in the help window to write freely. The error and the end of the
+  game's log are attached; your folders, user name and e-mail addresses are
+  masked first, and you see everything before it is sent.
+- **Stop, your way.** The Stop button (now a plain square) asks: stop now
+  (the running conversions are interrupted, earlier exports kept) or wait for
+  the running games (no new game starts).
+- **Lighter screens.** A new start-up picture: the logo alone with its
+  outline, gold segments for each step and the version. The credits page has
+  a thinner header (logo left, credits right, a small sound icon) and a
+  one-line footer; the help window takes the credits' darker look. Big
+  numbers read 110.9K and 1.2M on the leaderboard and in the header.
+  Clicking your portrait opens your account page. Signing out stays in the
+  header and Options (no longer in the Knowledge menu).
+- **Uninstall cleans up if you want.** The Windows uninstaller and the
+  Linux `.run` uninstaller offer to remove the build tools and compiler
+  caches as well (games, settings and discoveries are always kept).
+  **Options › Common › Disk space** can remove them too (the way for `.deb`
+  users before removing the package); the next conversion reinstalls what
+  it needs.
+- **On retro-recomp.com:** the shop, an animated background of 0s and 1s, a
+  news page with a summary column, and lighter images.
+
+---
+
 # RetroRecomp v1.5.1 — the shared base syncs, points at once, no more Visual Studio
 
 - **The shared base works both ways.** Signed in, before each batch
