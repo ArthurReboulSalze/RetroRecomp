@@ -191,6 +191,40 @@ def smoke(window):
     application.layout_header()
     assert (application.header.coords(application.player_name)[1] < application.header.coords(application.player_title)[1]
             < application.header.coords(application.player_score)[1])
+    # The RR coin shop's equipped items: a frame larger than the 44 px
+    # portrait, a styled name (one item per letter), the pin, a header theme.
+    from PIL import Image
+    import io
+    from retrorecomp.gui import frame_side, PORTRAIT_SIZE
+    ring = io.BytesIO()
+    Image.new('RGBA', (256, 256), (40, 90, 230, 255)).save(ring, 'PNG')
+    shop = {'name_gradient': {'id': 'name_gradient', 'slot': 'name_style',
+                              'data': {'style': 'gradient', 'colors': ['#ffd24a', '#ff9a1f']}},
+            'pin_gold': {'id': 'pin_gold', 'slot': 'pin', 'data': {'tier': 'gold', 'color': '#ffd24a'}},
+            'header_neon': {'id': 'header_neon', 'slot': 'header_theme',
+                            'data': {'theme': 'neon', 'colors': ['#1a0b33', '#3a0f5c', '#ff3fd2']}},
+            'frame_gold': {'id': 'frame_gold', 'slot': 'frame', 'data': {'image': '/media/frames/frame_gold.webp',
+                                                                          'hole': 0.646}}}
+    application.render_player({'account': {'email': 'pat@example.test'}, 'board': {'you': {'rank': 3, 'total': 42}},
+                               'profile': {'pseudonym': 'Pat', 'title': {'id': 'explorer', 'name': {'en': 'Explorer'}},
+                                           'equipped': {'name_style': 'name_gradient', 'pin': 'pin_gold',
+                                                        'header_theme': 'header_neon', 'frame': 'frame_gold'}},
+                               'shop': shop, 'frame': ring.getvalue()})
+    application.layout_header()
+    assert application.portrait.width() == frame_side(0.646) > PORTRAIT_SIZE
+    assert len([item for item in application.header.find_withtag('player_extra')
+                if application.header.type(item) == 'text']) == 3
+    assert application.header.itemcget(application.player_name, 'fill') == ''
+    application.paint_background(application.header)
+    assert application.header.find_withtag('header_theme') and application.header.cget('bg') == '#1a0b33'
+    # Without the catalog (offline, older server): the plain corner.
+    application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat',
+                               'equipped': {'name_style': 'name_gradient', 'frame': 'frame_gold'}}})
+    application.layout_header()
+    application.paint_background(application.header)
+    assert application.portrait.width() == PORTRAIT_SIZE
+    assert not application.header.find_withtag('player_extra')
+    assert not application.header.find_withtag('header_theme')
     application.render_player(None)
     assert application.header.itemcget(application.player_title, 'text') == ''
     assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
