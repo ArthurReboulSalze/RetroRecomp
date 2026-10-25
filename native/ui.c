@@ -125,7 +125,11 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
         text(r, 14, RR_MENU_LAST_LINE, TR("Left/Right: page | Esc: close", "Gauche/Droite : page | Echap : fermer"), RR_MENU_HINT);
     } else if (kind == 3) {
         text(r, 14, 62, TR("Game paused", "Jeu en pause"), RR_MENU_GOLD);
+#ifdef RETRO_GAME_GEAR
+        text(r, 14, 90, TR("P: resume", "P : reprendre"), RR_MENU_GOLD);
+#else
         text(r, 14, 90, TR("Enter: resume", "Entree : reprendre"), RR_MENU_GOLD);
+#endif
         text(r, 14, 118, TR("Shift+F1: restart", "Maj+F1 : redemarrer"), RR_MENU_HINT);
         char sprites[64];
         snprintf(sprites, sizeof(sprites), TR("F5 Sprite flicker reduction: %s", "F5 Reduction scintillement : %s"),
@@ -145,14 +149,18 @@ void ui_menu(SDL_Renderer *r, int kind, int player, int row, bool gamepad, bool 
             autofire, "F7  Next language",
             TR("F8  Save game state", "F8  Sauvegarder l'etat"), TR("F9  Load game state", "F9  Charger l'etat"),
             rr_feedback_label(),
+#ifdef RETRO_GAME_GEAR
+            TR("P  Pause | Enter  Start", "P  Pause | Entree  Start"),
+#else
             TR("Enter  Pause", "Entree  Pause"),
+#endif
             TR("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)")};
         /* One line per function key, then the console's own controls. */
         for (int i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); ++i)
             text(r, 14, RR_MENU_FIRST_LINE + RR_MENU_LINE * i, lines[i], RR_MENU_GOLD);
         if (sms_light_phaser) text(r, 14, RR_MENU_HINT_LINE, TR("Gun: mouse/left click", "Gun : souris/clic gauche"), RR_MENU_ACCENT);
 #ifdef RETRO_GAME_GEAR
-        text(r, 14, RR_MENU_HINT_LINE, TR("S / pad Start: cartridge Start", "S / Start manette : Start jeu"), RR_MENU_ACCENT);
+        text(r, 14, RR_MENU_HINT_LINE, TR("Enter / pad Start: cartridge Start", "Entree / Start manette : Start jeu"), RR_MENU_ACCENT);
 #endif
         text(r, 14, RR_MENU_LAST_LINE, TR("F1 / Esc: close", "F1 / Echap : fermer"), RR_MENU_HINT);
         rr_menu_build_footer(r, ox, oy, unit);

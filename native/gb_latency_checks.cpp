@@ -213,6 +213,11 @@ static void input_checks(GBContext* ctx) {
     test_keys[SDL_SCANCODE_LSHIFT] = 1;
     test_clock += interval;
     assert(!(gb_read8(ctx, 0xFF00) & 4));
+    // Either Shift is Select: the second slot keeps the upstream Right Shift.
+    test_keys[SDL_SCANCODE_LSHIFT] = 0; test_clock += interval;
+    assert(gb_read8(ctx, 0xFF00) & 4);
+    test_keys[SDL_SCANCODE_RSHIFT] = 1; test_clock += interval;
+    assert(!(gb_read8(ctx, 0xFF00) & 4));
     memset(test_keys, 0, sizeof(test_keys));
     assert(gb_platform_set_input_script("0:A:2"));
     test_keys[SDL_SCANCODE_X] = 1;

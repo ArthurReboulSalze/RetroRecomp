@@ -36,6 +36,7 @@ PREAMBLE='''#undef NDEBUG
 #include <string.h>
 #include <wchar.h>
 #include "autofire.h"
+#include "retro_keyboard.h"
 static Uint8 held_keys[SDL_NUM_SCANCODES];
 static uint64_t fixture_frame;
 static const Uint8 *fixture_keyboard(int *n) {(void)n;return held_keys;}
@@ -92,14 +93,16 @@ int main(void) {
 '''
 
 
-def source(system):
-    if system in ('ng','md','snes','nes'):
+def source(system, test=TEST):
+    """The fixture's C source: the console's real declarations and reader, then `test`."""
+    if system in ('ng','cps1','md','snes','nes'):
         path='nes_host_ui.c' if system=='nes' else 'console16_host_ui.c'
         text=(ASSETS/'native'/path).read_text()
         first=text.index('enum { A, B, SELECT') if system=='nes' else text.index('#if RR16_NG\nenum')
         declarations=text[first:text.index('static wchar_t ini_file',first)]
         reader=function(text,'controller_input')
-        definitions=f'#define RR16_NG {int(system=="ng")}\n#define RR16_MD {int(system=="md")}\n#define RR_MD_SIX_BUTTONS 1\n'
+        definitions=(f'#define RR16_NG {int(system=="ng")}\n#define RR16_CPS1 {int(system=="cps1")}\n#define RR16_MD {int(system=="md")}\n'
+                     f'#define RR16_PLAYERS {4 if system=="cps1" else 2}\n#define rr16_players() RR16_PLAYERS\n#define RR_MD_SIX_BUTTONS 1\n')
         setup='''
 static int autofire;
 #define PLAYERS 2
@@ -114,7 +117,7 @@ static void remap(int p,int a,int b) {buttons[p][a]=(SDL_GameControllerButton)b;
 static void keyboard(int p,int a,int down) {held_keys[keys[p][a]]=(Uint8)down;}
 static uint16_t sample(int p,uint64_t frame) {return controller_input(p,frame);}
 '''.replace('LAST_FIRE','B' if system=='nes' else 'FACE_LAST')
-        return PREAMBLE+definitions+declarations+'\nstatic int autofire;\n'+reader+setup+TEST
+        return PREAMBLE+definitions+declarations+'\nstatic int autofire;\n'+reader+setup+test
     if system in ('sms','gg'):
         text=(ASSETS/'native/controls.c').read_text()
         declarations=text[text.index('static SDL_Scancode default_keys'):text.index('const char *controls_text')]
@@ -138,9 +141,9 @@ static uint16_t sample(int p,uint64_t frame) {fixture_frame=frame;return read_co
 enum {SMS_PAD_UP=1,SMS_PAD_DOWN=2,SMS_PAD_LEFT=4,SMS_PAD_RIGHT=8,SMS_PAD_B1=16,SMS_PAD_B2=32,SMS_PAD_START=64};
 Controls controls;
 uint64_t glue_frame_count(void);
-'''+declarations+function(text,'read_controls')+setup+TEST
+'''+declarations+function(text,'read_controls')+setup+test
     # Exercise the exact checked replacement emitted into the GB SDL runtime.
-    code=(ROOT/'retrorecomp/gameboy_runtime.py').read_text()
+    code=(ROOT/'retrorecomp/gameboy_host.py').read_text()
     tree=ast.parse(code)
     replacements=[node.args[2].value for node in ast.walk(tree) if isinstance(node,ast.Call)
         and isinstance(node.func,ast.Name) and node.func.id=='replace_once' and len(node.args)>2
@@ -177,13 +180,13 @@ static uint16_t sample(int p,uint64_t frame) {
     for(int a=0;a<8;++a)g_controller_button_binding_pressed[a][0]=SDL_GameControllerGetButton(pads[p],buttons[a])!=0;
     rebuild_manual_joypad_state_from_bindings();return (uint8_t)~g_manual_joypad_buttons;
 }
-'''+TEST
+'''+test
 
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT/'.build/autofire-selftest')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
-    systems=('sms','gg','gb','nes','md','snes','ng')
+    systems=('sms','gg','gb','nes','md','snes','ng','cps1')
     for system in systems:(out/(system+'.c')).write_text(source(system),encoding='utf-8')
     cmake,generator=toolchain();sdl=sdl_install()
     targets='\n'.join(f'add_executable({s} {s}.c)\ntarget_include_directories({s} PRIVATE "{(ASSETS/"native").as_posix()}")\ntarget_link_libraries({s} PRIVATE SDL2::SDL2-static)' for s in systems)

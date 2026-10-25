@@ -29,7 +29,7 @@ static const uint8_t bits[ACTIONS] = {128, 64, 32, 16, 8, 4, 2, 1};
 static const char *names[ACTIONS] = {"A", "B", "Select", "Start", "Up", "Down", "Left", "Right"};
 static const wchar_t *settings[ACTIONS] = {L"A", L"B", L"Select", L"Start", L"Up", L"Down", L"Left", L"Right"};
 static SDL_Scancode keys[2][ACTIONS] = {
-    {SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RSHIFT, SDL_SCANCODE_RETURN,
+    {SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_RETURN,
      SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT},
     {SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_9, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_7,
      SDL_SCANCODE_KP_5, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_3}
@@ -128,7 +128,9 @@ static uint8_t controller_input(int p, uint64_t frame) {
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint8_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
-        bool down=state[keys[p][a]] || (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
+        /* Enter is Start and either Shift is Select (retro_keyboard.h). */
+        bool down=rr_keyboard_held(state,keys[p][a],&keys[0][0],(int)(sizeof keys/sizeof keys[0][0])) ||
+            (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
         if (a<=B) down=rr_autofire(&fire_state[p][a],down,autofire!=0,frame);
         if (down) value|=bits[a];
     }
