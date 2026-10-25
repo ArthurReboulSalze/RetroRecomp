@@ -44,11 +44,15 @@ class ShutdownTests(unittest.TestCase):
             with self.subTest(event=event[0]):
                 application = self.application()
                 with patch('retrorecomp.gui.messagebox.showinfo') as info, \
-                        patch('retrorecomp.gui.messagebox.askyesno', return_value=True) as ask, \
+                        patch.object(Application, 'stop_dialog', return_value='now') as ask, \
+                        patch('retrorecomp.core.stop_processes') as kill, \
                         patch('retrorecomp.gui.save_preferences') as save:
                     application.close()
-                    # Closing a busy window stops it now, once confirmed.
+                    # Closing a busy window offers the same two ways to stop;
+                    # "stop now" kills the running conversions.
                     ask.assert_called_once()
+                    kill.assert_called_once()
+                    application.set_status.assert_called_with('stopping')
                     self.assertTrue(application.cancel.is_set())
                     self.assertTrue(application.close_when_idle)
                     application.app.destroy.assert_not_called()
@@ -59,6 +63,40 @@ class ShutdownTests(unittest.TestCase):
                     self.assertFalse(application.running_jobs)
                     save.assert_called_once_with({})
                     application.app.after.assert_not_called()
+
+    def test_waiting_for_the_running_games_does_not_kill_them(self):
+        application = self.application()
+        with patch.object(Application, 'stop_dialog', return_value='wait') as ask,                 patch('retrorecomp.core.stop_processes') as kill:
+            self.assertTrue(application.stop())
+        ask.assert_called_once()
+        kill.assert_not_called()
+        # No new game starts; the running ones finish.
+        self.assertTrue(application.cancel.is_set())
+        application.set_status.assert_called_with('stopping_wait')
+        application.stop_button.configure.assert_called_with(state='disabled')
+
+    def test_closing_the_stop_dialog_changes_nothing(self):
+        application = self.application()
+        with patch.object(Application, 'stop_dialog', return_value=None),                 patch('retrorecomp.core.stop_processes') as kill:
+            self.assertFalse(application.stop())
+        kill.assert_not_called()
+        self.assertFalse(application.cancel.is_set())
+        application.set_status.assert_not_called()
+
+    def test_closing_the_window_after_choosing_to_wait_just_waits(self):
+        application = self.application()
+        with patch.object(Application, 'stop_dialog', return_value='wait'),                 patch('retrorecomp.core.stop_processes') as kill,                 patch('retrorecomp.gui.save_preferences'):
+            application.close()
+            # A second close asks nothing more: the games are already finishing.
+            with patch.object(Application, 'stop_dialog') as again:
+                application.close()
+                again.assert_not_called()
+        kill.assert_not_called()
+        self.assertTrue(application.close_when_idle)
+        application.app.destroy.assert_not_called()
+        application.messages.put(('done', {}))
+        application.drain()
+        application.app.destroy.assert_called_once()
 
     def test_close_of_idle_application_remains_immediate(self):
         application = self.application()

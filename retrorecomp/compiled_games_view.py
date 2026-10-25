@@ -280,6 +280,10 @@ class CompiledGamesView(ttk.Frame):
         menu.add_command(label=self.tr('rescan'),command=self.rescan,
                          state='disabled' if self.running else 'normal')
         menu.add_command(label=self.tr('open_folder'),command=lambda:open_local(Path(self.chosen()[0].executable).parent))
+        menu.add_separator()
+        # A game that was created but is wrong: the report carries its conversion report.
+        menu.add_command(label=self.tr('report_problem'),command=lambda:self.owner.report_game_problem(self.chosen()[0]),
+                         state='normal' if len(self.chosen())==1 and self.owner.report_available() else 'disabled')
         try:menu.tk_popup(event.x_root,event.y_root)
         finally:menu.grab_release()
 

@@ -132,6 +132,50 @@ def smoke(window):
     application.show_help()   # a second click raises the same page
     assert len(toplevels()) == before_help + 1
     toplevels()[-1].destroy()
+    # With the service on, the help window offers a free-text report.
+    with patch('retrorecomp.gui.SENDING_AVAILABLE', True):
+        application.show_help()
+    labels = [w.cget('text') for w in descendants(toplevels()[-1]) if w.winfo_class() == 'TButton']
+    assert application.tr('report_title') in labels and application.tr('help_guides') in labels, labels
+    toplevels()[-1].destroy()
+    # Stop offers exactly two ways to stop; closing the dialog changes nothing.
+    def when_open(action):
+        # The dialog is modal: act once it holds the grab.
+        def poll():
+            if window.grab_current() is not None:
+                action()
+            else:
+                window.after(20, poll)
+        window.after(20, poll)
+    def dialog_buttons():
+        return [w for w in descendants(window.grab_current()) if w.winfo_class() == 'TButton']
+    for index, expected in ((0, 'now'), (1, 'wait')):
+        when_open(lambda index=index: dialog_buttons()[index].invoke())
+        assert application.stop_dialog() == expected
+    when_open(lambda: window.grab_current().destroy())
+    assert application.stop_dialog() is None
+    # A report shows what is sent and needs a message when nothing else says what is wrong.
+    def write_and_send():
+        dialog = window.grab_current()
+        send = next(w for w in descendants(dialog) if w.winfo_class() == 'TButton'
+                    and w.cget('text') == application.tr('report_send'))
+        assert 'disabled' in send.state(), 'a free-text report needs its message'
+        entry = [w for w in descendants(dialog) if w.winfo_class() == 'Text'][-1]
+        entry.insert('1.0', 'The menu overlaps  ')
+        dialog.update()
+        assert 'disabled' not in send.state()
+        send.invoke()
+    when_open(write_and_send)
+    assert application.report_dialog('manual', {}) == 'The menu overlaps'
+    context = {'game': {'system': 'snes', 'identity': 'ab' * 32, 'title': 'Mario'}, 'error': 'Build failed',
+               'log': 'a\nb', 'report': {'status': 'experimental'}}
+    when_open(lambda: next(w for w in descendants(window.grab_current()) if w.winfo_class() == 'TButton'
+                                  and w.cget('text') == application.tr('report_send')).invoke())
+    assert application.report_dialog('conversion', context) == '', 'an error says enough: the message is optional'
+    when_open(lambda: window.grab_current().destroy())
+    assert application.report_dialog('conversion', context) is None
+    # The portrait is a link once signed in.
+    assert application.header.tag_bind('portrait', '<Button-1>')
     application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat'},
                                'board': {'you': {'rank': 3, 'total': 42, 'pending': 2}}})
     assert application.header.itemcget(application.player_name, 'text') == 'Pat'
@@ -427,7 +471,7 @@ def smoke(window):
             while application.busy and time.monotonic()<deadline:
                 window.update();time.sleep(.01)
             assert not application.busy
-            assert application.active_rows==selected
+            assert application.active_rows==selected, (application.active_rows, selected, application.status.get())
             assert all(application.row_status[row]=='current' for row in selected)
     application.show_options()
     open_notebook = next(widget for widget in application.options_panel.winfo_children()
