@@ -14,7 +14,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from tools.prepare_publication import BUNDLED_FILES, audit_sources, audit_executable, write_module_hook
+from tools.prepare_publication import BUNDLED_FILES, PACKER, audit_sources, audit_executable, write_module_hook
 from retrorecomp import __version__
 
 
@@ -51,6 +51,10 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
         '--specpath', str(stage), '--additional-hooks-dir', str(hooks),
         '--add-binary', str(credits_audio)+':credits-runtime',
         '--add-binary', str(gamepad)+':player-runtime']
+    # PyInstaller restores a data file's execute bit only when the source has
+    # it. The bundled UPX packs games (retrorecomp/packing.py) and must run.
+    packer = ROOT/PACKER
+    packer.chmod(packer.stat().st_mode | 0o755)
     for name in sorted(BUNDLED_FILES):
         command += ['--add-data', str(ROOT/name)+':'+str(Path(name).parent)]
     # Public modules no application path imports yet must still be frozen
@@ -81,6 +85,8 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
     for name, contents in notices.items():
         if archive.extract(name) != contents:
             raise RuntimeError('Missing runtime notice: '+name)
+    if archive.toc.get(PACKER, ('',))[-1] != 'b':
+        raise RuntimeError('The bundled UPX would not be executable once unpacked.')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     # Atomic replacement preserves games, cover caches and private settings.

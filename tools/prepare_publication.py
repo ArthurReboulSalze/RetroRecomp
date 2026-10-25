@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import marshal
+import os
 from pathlib import Path
 import re
 import shutil
@@ -136,7 +137,7 @@ assets/Retro-Recomp-icon-24.png assets/Retro-Recomp-icon-32.png
 assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
-assets/tools/upx.exe
+assets/tools/upx.exe assets/tools/upx-amd64_linux
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md
 licenses/UPX.md licenses/llvm-mingw.md
@@ -358,12 +359,17 @@ def write_module_hook(directory: Path) -> Path:
     hook = directory / "hook-retrorecomp.py"
     hook.write_text("hiddenimports = " + repr(list(PUBLIC_MODULES) + list(RUNTIME_MODULES)) + "\n", encoding="utf-8")
     return hook
+# Each converter carries only the UPX build that packs its own games
+# (retrorecomp/packing.py): the Windows one, or the Linux x86-64 one.
+PACKERS = frozenset(("assets/tools/upx.exe", "assets/tools/upx-amd64_linux"))
+PACKER = "assets/tools/upx.exe" if os.name == "nt" else "assets/tools/upx-amd64_linux"
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
-                          if p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
+                          if (p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"}
                           # X68000 generators: hashed into the SDK stamp, read as files by CMake.
                           or p.startswith("tools/x68000_"))
+                          and (p not in PACKERS or p == PACKER))
 TEXT_EXTENSIONS = {".py", ".md", ".c", ".cpp", ".h", ".inc", ".ps1", ".toml", ".yml", ".json", ".html", ".css"}
 SENSITIVE = {
     "private drive path": re.compile(r"(?i)\b[A-Z]:[\\/](?:Users|Projects)[\\/]"),
