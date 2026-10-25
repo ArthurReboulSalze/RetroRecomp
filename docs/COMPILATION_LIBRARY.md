@@ -9,12 +9,48 @@ and falls in one of three roles:
 | --- | --- | --- |
 | game | translators, CPUs, video, sound, learning, validation, the CMake files of a game | full conversion |
 | host | menus, text, fonts, filters, icons, notices | upgrade: rebuilt from the learned paths, quick routes |
-| build | `retrorecomp/toolchain.py`: which C toolchain builds the game and with which options | upgrade, like a host change |
+| build | `retrorecomp/toolchain.py`: which C toolchain builds the game and with which options; `retrorecomp/packing.py`: how the finished executable is packed (UPX) | upgrade, like a host change |
 
 The **build** stamp goes into the host part of the receipt (`build_inputs` in
 `freshness.HOST_SETTINGS`), so changing the compiler, its options or its pinned
 versions rebuilds and rechecks the exports without rediscovery. It never touches the
 game part.
+
+### Packing is a build input (1.5.0, Linux compression)
+
+`retrorecomp/packing.py` packs the validated executable with the bundled, unmodified
+UPX 5.2.1 just before it is published. UPX restores the same program in memory before
+it starts; it never chooses which guest code is discovered, translated or validated.
+Neo Geo and CPS-1 also replay their routes on the packed executable and compare it with
+the reference, so a packing that changed the game would fail there. Until 1.5.0 the module
+was game-side by default (every unlisted module is), and turning on Linux compression would
+have converted every export in full. It is now in `BUILD_MODULES`, beside the toolchain:
+
+- a later change of packing (another UPX version, other flags, another console packed)
+  rebuilds and rechecks the exports on the quick routes, like any build change;
+- release 1.4.1 receipts are still accepted through their frozen `LEGACY_GAME_STAMPS`:
+  the legacy hash replaces today's game stamp with the listed one, so it does not depend
+  on where packing is classified (`tests/test_legacy_compat.py`,
+  `LegacyReceiptTests.test_exports_of_release_141_are_upgraded_not_reconverted_on_each_listed_console`;
+  `PackingBuildRoleTests` checks that a packing change moves only the build stamp, for every
+  console);
+- receipts written by unreleased 1.5.0 builds made before this change are converted in full:
+  `compilation_inputs.py` is itself a game-side input and changed with this classification.
+  No published release wrote such receipts.
+
+Observed on Debian (25 October 2026, one game per console: Master System, Game Gear, Game Boy,
+NES, Mega Drive, Super Nintendo, Neo Geo, CPS-1; quick scan level). Exports of the commit before
+this change were converted in full by it, as expected (8/8, not upgraded), now compressed. A
+copy of this tree whose only difference was a packing constant then **upgraded** those 8
+compressed exports without rediscovery (quick checks, 8/8 `upgraded`, zero interpreted
+instructions) and rebuilt them byte for byte (the NES export differs by its project-path state
+key only, since the tree's folder differed). Sizes and the other checks are in
+[BUILDING.md](BUILDING.md#linux-game-compression).
+
+Linux exports of 1.4.1 are not expected to be covered by `LEGACY_GAME_STAMPS`, before or after
+this change: the stamps were reproduced from Windows receipts (Python 3.14.5), code fingerprints
+are bytecode, and the Linux converter is built with Python 3.13 (not checked with a real Linux
+1.4.1 receipt).
 
 ### `LEGACY_GAME_STAMPS`
 

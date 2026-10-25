@@ -53,7 +53,8 @@ python3 -m venv .venv
 
 The game is an executable ELF, with its ROM, SDL2, menu font and notices embedded.
 It needs compatible Linux system/display/audio libraries, with no Python or
-compiler required to play. Linux game ELF compression is not enabled.
+compiler required to play. Validated Linux x86-64 game ELFs are packed with the
+bundled UPX 5.2.1, like Windows games (below); X68000 Linux exports stay uncompressed.
 The converter supports manual GitHub updates. `--credits` prints the game notices. Settings,
 quick states and shutdown-only fallback hints use `datas` beside the game.
 Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
@@ -136,14 +137,68 @@ list below.
 
 The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
-The converter bundles UPX 5.2.1 and compacts each validated Windows game
-executable before replacing the previous export. This applies to Master
-System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo; only newly
-generated games are affected.
-Current development builds also support these checks and compression for
-qualified MVS Europe Neo Geo exports. A user-selected BIOS is required; it is not downloaded.
+The converter bundles UPX 5.2.1 and compacts each validated game executable
+before replacing the previous export, then has UPX test it. On Windows
+(`assets/tools/upx.exe`, `-9 --compress-resources=0 --compress-icons=0`) every
+console is packed; resources stay readable. On Linux x86-64
+(`assets/tools/upx-amd64_linux`, `-9`) every console is packed except the X68000,
+whose Linux exports have not been run compressed yet and stay as built. Both
+binaries are the unmodified official builds of the v5.2.1 release, checked by
+SHA-256 before each use (`retrorecomp/packing.py`): the Linux one is `upx` from
+`upx-5.2.1-amd64_linux.tar.xz` (archive
+`402162aad30af47e60dbd767fb2e64ca394ace9727ba1f40283641f1d1b91657`, binary
+`287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1`). Each
+converter carries only its own packer. Neo Geo and CPS-1 replay their routes
+on the packed executable; the other consoles validate the build before packing.
+UPX restores the same program in memory at start-up: Linux games still find
+their folder through `/proc/self/exe`, and the Neo Geo MVS/AES switch re-runs
+the same file. A Linux ELF packs its marker with the rest of the program, so a
+Linux game moved without its `datas/reports` is no longer recognized by its
+content (like Master System, Game Gear and Game Boy games on Windows); it is
+then kept, never overwritten. Packing is a build input: changing it rebuilds
+exports without rediscovery ([compilation library](COMPILATION_LIBRARY.md)).
+A NeoGeo BIOS selected by the user is required for Neo Geo; it is not downloaded.
 The UPX license and packed-executable exception are in
 [licenses/UPX.md](../licenses/UPX.md).
+
+### Linux game compression
+
+Measured on the Debian 13 build machine (4 cores), one game per console, quick
+scan level, 25 October 2026. Each game was converted by the commit before this
+change (uncompressed) and again by this change (compressed, full conversion).
+`upx -d` of every compressed game gives back, byte for byte, the uncompressed
+export of the earlier commit, except the NES one: 136 bytes differ, a 64-digit
+key and the ELF build ID, because the NES state key covers the project folder,
+which differed between the two source trees. Start-up is the time from
+launch to the first visible window under Xvfb, median of 7 runs with a warm
+file cache; it includes SDL start-up and is not a latency measurement.
+
+| Console | Game | Uncompressed | Compressed | Ratio | Start-up, uncompressed → compressed |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Master System | Alex Kidd in Miracle World | 5,954,280 | 1,890,160 | 0.32 | 235 → 208 ms |
+| Game Gear | Sonic The Hedgehog | 8,401,680 | 2,637,684 | 0.31 | 223 → 207 ms |
+| Game Boy | Tetris | 6,326,048 | 1,775,320 | 0.28 | 512 → 506 ms |
+| NES | Super Mario Bros. | 10,177,128 | 3,278,740 | 0.32 | 198 → 231 ms |
+| Mega Drive | Sonic The Hedgehog | 12,560,192 | 3,555,956 | 0.28 | 414 → 531 ms |
+| Super Nintendo | ActRaiser | 36,434,712 | 7,469,468 | 0.21 | 211 → 274 ms |
+| Neo Geo (MVS) | 2020 Super Baseball | 21,829,440 | 7,413,940 | 0.34 | 196 → 265 ms |
+| CPS-1 | 1941: Counter Attack | 17,560,992 | 4,975,132 | 0.28 | 211 → 294 ms |
+
+Separately for every game: native validation passed before and after, with
+zero interpreted instructions both times (main and audio CPUs); `upx -t`
+passes; the compressed game keeps its execute bit and its `.desktop` launcher
+is unchanged; it was still running after 10 s under `xvfb-run`. Quick states
+between the uncompressed and compressed builds of the same game: a state saved
+by one resumes in the other with identical per-frame traces and the same state
+size, both ways (`tools/state16_cross.py` for Mega Drive and Super Nintendo,
+`tools/neogeo_state_cross.py` for Neo Geo and CPS-1, `tools/nes_state_cross.py`).
+Master System, Game Gear and Game Boy were checked only through their window
+(F8 in the earlier build, then F9 and F8 in the compressed one): the state file
+has the same size and the game keeps running; the restored frame was not
+compared. The Neo Geo AES restart could not be exercised (no AES BIOS in the
+test archive); a packed test program re-running `/proc/self/exe` works. CPU
+fidelity, hardware fidelity, gameplay and physical latency are not measured by
+these checks.
 
 ```powershell
 python -m pip install -r requirements.txt

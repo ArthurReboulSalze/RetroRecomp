@@ -3,8 +3,10 @@
 The 1.4.1 values below were computed from the v1.4.1 tag and found, byte for
 byte, in executables and receipts written by the released Retro-Recomp.exe.
 """
+import json
 import os
 import re
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,6 +41,72 @@ class LegacyStampTests(unittest.TestCase):
             after = inputs.role_stamps('sms')
         self.assertNotEqual(before['build'], after['build'])
         self.assertEqual((before['game'], before['host']), (after['game'], after['host']))
+
+
+class PackingBuildRoleTests(unittest.TestCase):
+    """Packing (UPX) is how a game is built: changing it, as Linux compression did
+    in release 1.5.0, rebuilds exports from the paths already learned."""
+
+    def test_packing_is_a_build_input_of_every_console(self):
+        self.assertEqual(inputs.role('retrorecomp.packing'), 'build')
+        self.assertEqual(inputs.BUILD_MODULES, frozenset(('toolchain', 'packing')))
+        for system in sorted(inputs.SYSTEMS):
+            self.assertIn('retrorecomp.packing', dict(inputs.input_fingerprints(system)), system)
+
+    def test_a_packing_change_changes_no_game_or_host_stamp_on_any_console(self):
+        for system in sorted(inputs.SYSTEMS):
+            with patch.object(inputs, '_code_digest', side_effect=lambda name, *a: 'pack-v1'):
+                before = inputs.role_stamps(system)
+            with patch.object(inputs, '_code_digest',
+                              side_effect=lambda name, *a: 'pack-v2' if name == 'retrorecomp.packing' else 'pack-v1'):
+                after = inputs.role_stamps(system)
+            self.assertNotEqual(before['build'], after['build'], system)
+            self.assertEqual((before['game'], before['host']), (after['game'], after['host']), system)
+
+
+class LegacyReceiptTests(unittest.TestCase):
+    """A receipt written by release 1.4.1 stays upgradable on each listed console,
+    whatever today's game stamp is (it changed when packing became a build input)."""
+
+    def parts(self, system, game_stamp=None):
+        from retrorecomp import freshness
+        item = SimpleNamespace(system=system, path=Path('game.bin'), sha256='e' * 64, title='Game', cover=None)
+        real = inputs.role_stamps
+        stamps = (lambda name: {**real(name), 'game': game_stamp}) if game_stamp else real
+        with patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': 'b' * 64}),                 patch('retrorecomp.paths.selected_bios_path', return_value=Path('neogeo.zip')),                 patch('retrorecomp.compilation_inputs.role_stamps', side_effect=stamps):
+            return item, freshness.request_parts(item, {'use_cover': False})
+
+    def receipt(self, folder, item, game):
+        from retrorecomp.freshness import digest
+        target = Path(folder) / 'Game'
+        target.write_bytes(b'export written by 1.4.1')
+        report = {'version': '1.4.1', 'rom': {'sha256': item.sha256}, 'executable': target.name,
+                  'native_validation': {'passed': True},
+                  'export_receipt': {'schema': 3, 'request': 'request-1.4.1', 'game': game,
+                                     'host': 'host-1.4.1', 'sha256': digest(target)}}
+        path = Path(folder) / 'conversion-report.json'
+        path.write_text(json.dumps(report), encoding='utf-8')
+        return target, path
+
+    def test_exports_of_release_141_are_upgraded_not_reconverted_on_each_listed_console(self):
+        from retrorecomp import freshness
+        for system, stamps in sorted(inputs.LEGACY_GAME_STAMPS.items()):
+            with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
+                item, parts = self.parts(system)
+                self.assertEqual(len(parts['legacy_games']), len(stamps))
+                self.assertNotIn(parts['game'], parts['legacy_games'])
+                # Independent of today's game stamp: the frozen 1.4.1 stamp is used.
+                self.assertEqual(self.parts(system, 'game-stamp-before-packing-moved')[1]['legacy_games'],
+                                 parts['legacy_games'])
+                with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                    target, path = self.receipt(folder, item, parts['legacy_games'][0])
+                    self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
+                    previous = freshness.upgradable(item, target, path, parts, print)
+                    self.assertEqual(previous['legacy_release'], '1.4.1')
+                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.4.1')
+                    # Any other game part (another release, other code) is converted in full.
+                    target, path = self.receipt(folder, item, 'f' * 64)
+                    self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
 
 @unittest.skipUnless(os.name == 'nt', 'Windows state compatibility lines')

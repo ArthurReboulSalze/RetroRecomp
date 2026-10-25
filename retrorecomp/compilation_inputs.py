@@ -25,10 +25,12 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
 
 # Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
 # A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
-# Studio). It never decides which guest code a game runs. A change limited to
-# build inputs rebuilds an export from the paths already learned, like a host
-# change, because the executable is recompiled and rechecked on the quick routes.
-BUILD_MODULES = frozenset(('toolchain',))
+# Studio), or packs the finished executable (packing: UPX, which restores the
+# same program in memory before it starts). It never decides which guest code a
+# game runs. A change limited to build inputs rebuilds an export from the paths
+# already learned, like a host change, because the executable is recompiled and
+# rechecked on the quick routes.
+BUILD_MODULES = frozenset(('toolchain', 'packing'))
 
 # Game stamps of earlier releases whose exports stay upgradable: the code that
 # differed from today's was only how the game is built, and the exports were
