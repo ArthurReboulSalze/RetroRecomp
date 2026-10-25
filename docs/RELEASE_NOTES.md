@@ -1,5 +1,22 @@
-# RetroRecomp v1.5.0 — no more Visual Studio, a .deb for Linux, a lighter header
+# RetroRecomp v1.5.1 — the shared base syncs, points at once, no more Visual Studio
 
+- **The shared base works both ways.** Signed in, before each batch
+  RetroRecomp fetches, in one request, the paths other players already found
+  for the games of the batch, even if nobody confirmed them yet. They only
+  guide the conversion, which always rechecks them (a failure retries
+  without them and sets them aside). When they come from a scan at least as
+  thorough as yours, the game is rebuilt from them with a quick check
+  instead of a new discovery. After each batch, your new discoveries are
+  sent automatically. Both are on by default and can be turned off in
+  **Options › Common › Account**.
+- **Points at once, coins on confirmation.** The first player to send a path
+  the base did not have earns its points immediately, all of them (no more
+  decreasing value on big games). When another player finds it again, it is
+  confirmed: its class may rise (Platinum, Diamond), the first finder earns
+  RR coins, and the confirming player earns a few too. A path nobody
+  confirmed keeps its points. Coins unlock **titles** on your account page;
+  the chosen title shows under your name, in the header and on the
+  leaderboard, beside your coins.
 - **No more Visual Studio on Windows.** Before the first conversion,
   RetroRecomp now installs a portable compiler beside itself: llvm-mingw,
   CMake and Ninja, pinned and SHA-256-checked, about 245 MB to download and
@@ -38,7 +55,7 @@
   caches every conversion reuses. A reconversion then rebuilds from scratch.
 - **Linux starts again, and installs with a double-click.** Linux releases
   1.3.1 to 1.4.1 could stop at startup ("invalid command name
-  PyImagingPhoto"): download 1.5.0 again, since those versions cannot open
+  PyImagingPhoto"): download 1.5.1 again, since those versions cannot open
   their updater. Debian and Ubuntu also get a **`.deb` package**: double-click
   it, and RetroRecomp appears in the applications menu; each user keeps a
   private copy where settings, games and in-app updates work without a
