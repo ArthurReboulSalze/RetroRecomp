@@ -203,8 +203,24 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(record['ram_opcode_refs'],[[0x7e0100,10],[0x7e0200,255]])
         self.assertEqual(record['spc_refs'], [[0x200, 17]])
         self.assertEqual(summary['omitted']['ram_without_rom_source'], 0)
+        self.assertEqual(summary['qualification'], {'standard': 1})
         self.assertNotIn('bytes', record)
         self.assertNotIn(str(self.root), gzip.decompress(destination.read_bytes()).decode())
+
+    def test_builder_counts_quick_checks_from_shared_paths_apart(self):
+        from tools.build_compilation_knowledge import qualification_origin
+        self.assertEqual(qualification_origin({}), 'standard')
+        self.assertEqual(qualification_origin({'scan_level': 'extended'}), 'extended')
+        self.assertEqual(qualification_origin({'scan_level': 'quick', 'shared_paths': {
+            'level': 'standard', 'records': 1, 'quick': True}}), 'quick_shared_paths')
+        self.assertEqual(qualification_origin({'scan_level': 'quick', 'bundled_paths': {
+            'level': 'standard', 'quick': True}}), 'quick_bundled_paths')
+        self.assertEqual(qualification_origin({'scan_level': 'quick', 'upgrade': {}}), 'quick')
+        self.assertEqual(qualification_origin({'upgrade': {'from': '1.5.0'}}), 'quick_upgrade')
+        # A console whose report has no scan_level: the batch's record decides.
+        self.assertEqual(qualification_origin({'shared_paths': {'level': 'standard', 'quick': True}}),
+                         'quick_shared_paths')
+        self.assertEqual(qualification_origin({'shared_paths': {'level': 'standard', 'quick': False}}), 'standard')
 
     def test_snes_refresh_keeps_qualified_record_when_either_cpu_journal_is_newer(self):
         from datetime import datetime
