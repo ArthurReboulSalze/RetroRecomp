@@ -732,3 +732,27 @@ class Console16Tests(unittest.TestCase):
         self.assertNotIn('bus_timing_budget', reference_differences('md', {}, {}))
         self.assertNotIn('bus_timing_budget', reference_differences('snes',
             {'bus_budget_misses': 1}, {'bus_budget_misses': 1}))
+
+
+class Probe16LaunchTests(unittest.TestCase):
+    """Release 1.5.1 lost probe16's subprocess import when its launch moved to
+    core.run_process: every Mega Drive and Super Nintendo conversion stopped on
+    Windows with "name 'subprocess' is not defined" before its first check."""
+
+    def test_probe_starts_the_executable_without_a_console_window(self):
+        import os
+        import subprocess
+        from types import SimpleNamespace
+        from retrorecomp.console16 import probe16
+        calls = []
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder).resolve()
+
+            def run(command, **options):
+                calls.append(options)
+                (directory / 'demo.json').write_text(json.dumps({'frames': 12}), encoding='utf-8')
+                return SimpleNamespace(returncode=0, stdout='', stderr='')
+            with patch('retrorecomp.core.run_process', side_effect=run):
+                data = probe16(directory / 'game.exe', directory, 12)
+        self.assertEqual(data, {'scenario': 'demo', 'frames': 12})
+        self.assertEqual(calls[0]['creationflags'], subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
