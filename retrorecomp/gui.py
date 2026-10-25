@@ -3050,7 +3050,7 @@ class Application:
         tk.Label(titles, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
                  font=(self.ui_font, 14, 'bold')).pack(anchor='w', pady=(6, 0))
         note = tk.Label(titles, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
-                        font=(self.ui_font, 9), wraplength=430, justify='left')
+                        font=(self.ui_font, 9), wraplength=400, justify='left')
         note.pack(anchor='w')
         period = tk.StringVar(value='all')
         switches = tk.Frame(top, bg=background)
@@ -3074,9 +3074,11 @@ class Application:
             table.column(key, width=width, anchor=anchor, stretch=key == 'player')
         table.tag_configure('you', foreground=COLORS['gold'])
         table.pack(fill='both', expand=True)
+        # The footer is reserved first: a longer note above never clips it.
         you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
-        you_line.pack(anchor='w', pady=(8, 0))
-        ttk.Button(body, text=self.tr('close'), command=window.destroy).pack(anchor='e', pady=(10, 0))
+        close = ttk.Button(body, text=self.tr('close'), command=window.destroy)
+        close.pack(side='bottom', anchor='e', pady=(10, 0), before=table)
+        you_line.pack(side='bottom', anchor='w', pady=(8, 0), before=table)
 
         # Opening animation: the steps rise one after the other (third, second,
         # first), carrying each player's crown, name, points and gems up.
