@@ -326,6 +326,7 @@
     "credits_module_info": "4-Kanal-MOD · Pattern {pattern} / Zeile {row}",
     "credits_audio_starting": "Musikplayer wird geöffnet…",
     "credits_audio_missing": "Audio nicht verfügbar · Credits bleiben bedienbar",
+    "credits_effects_reduced": "Effekte für diesen Rechner reduziert",
     "compiled_games": "Kompilierte Spiele",
     "compiled_intro": "Deine erzeugten Spiele, über Sitzungen hinweg gespeichert.",
     "compiled_summary": "{count} Spiele · {attention} prüfen · {hints} gespeicherte Hinweise",

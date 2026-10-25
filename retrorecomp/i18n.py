@@ -327,6 +327,7 @@ STRINGS = {
     'credits_module_info': ('4-channel MOD · pattern {pattern} / row {row}', 'MOD 4 voies · motif {pattern} / ligne {row}'),
     'credits_audio_starting': ('Opening the music player…', 'Ouverture du lecteur musical…'),
     'credits_audio_missing': ('Audio unavailable · credits remain interactive', 'Audio indisponible · les crédits restent accessibles'),
+    'credits_effects_reduced': ('Effects reduced for this computer', 'Effets réduits pour cette machine'),
     'credits_intro': ('RetroRecomp brings several independent programs together: console-specific recompilers and runtimes, with one shared conversion interface.', 'RetroRecomp réunit plusieurs programmes indépendants : recompileurs et moteurs propres à chaque console, dans une interface de conversion commune.'),
     'credits_author': ('Created and integrated by', 'Créé et intégré par'),
     'credits_repositories': ('CONSOLE RECOMPILERS', 'RECOMPILEURS PAR CONSOLE'),

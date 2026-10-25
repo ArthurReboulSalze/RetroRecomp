@@ -6,6 +6,7 @@ remain clickable; any wheel/key/scrollbar gesture hands scrolling to the user.
 from __future__ import annotations
 import math
 import random
+import sys
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -22,6 +23,67 @@ GOLD = COLORS['gold']
 WHITE = COLORS['text']
 MUTED = COLORS['muted']
 BACKGROUND_SPEED = 4.0
+# Effects stages, richest first: 'light' drops the spheres and boxes, 'minimal'
+# also drops the stars and curves. Text, grid, beam, meter and music remain.
+STAGES = ('full', 'light', 'minimal')
+# The loop idles 33 ms after each frame, so fps = 1/(33 ms + drawing time):
+# 20 fps means 17 ms of drawing per frame, 15 fps 33 ms. Restoring needs the
+# current stage to cost under 5.5 ms; 28 fps would demand under 2.7 ms, which
+# even a fast desktop barely reaches with the stars and curves (measured).
+SHED_FPS = {'full': 20., 'light': 15.}
+RESTORE_FPS = 26.
+CUBE_VERTICES = [(x, y, z) for x in (-1,1) for y in (-1,1) for z in (-1,1)]
+CUBE_EDGES = [(a,b) for a in range(8) for b in range(a+1,8)
+              if sum(CUBE_VERTICES[a][j] != CUBE_VERTICES[b][j] for j in range(3)) == 1]
+
+
+class EffectsGovernor:
+    """Choose the effects stage from the achieved frame rate, one way per opening.
+
+    Drawn frames are counted after a warm-up second, in two-second windows.
+    A window under the stage's threshold sheds one stage; shedding is never
+    undone while the window stays open. A remembered lighter stage is tried
+    one stage richer, once, after two consecutive strong windows, and may
+    fall back once if that proves too slow. No other transition exists, so the
+    scene cannot flicker between stages.
+    """
+    WARMUP, WINDOW, STRONG_WINDOWS = 1., 2., 2
+
+    def __init__(self, stage='full', now=0.):
+        self.stage = stage if stage in STAGES else 'full'
+        self.shed = self.tried_richer = False
+        self.strong = 0
+        self.reset(now)
+
+    def reset(self, now):
+        """Start a new warm-up: the scene changed or stopped being drawn."""
+        self.warm_until, self.window_start, self.frames = now+self.WARMUP, None, 0
+
+    def frame(self, now):
+        """Count one drawn frame; return the stage for the frames that follow."""
+        if now < self.warm_until:
+            return self.stage
+        if self.window_start is None:
+            self.window_start = now
+            return self.stage
+        self.frames += 1
+        elapsed = now-self.window_start
+        if elapsed >= self.WINDOW:
+            fps = self.frames/elapsed
+            self.window_start, self.frames = now, 0
+            self.decide(fps, now)  # a stage change restarts the warm-up instead
+        return self.stage
+
+    def decide(self, fps, now):
+        index = STAGES.index(self.stage)
+        if fps < SHED_FPS.get(self.stage, 0.):
+            self.stage, self.shed, self.strong = STAGES[index+1], True, 0
+            self.reset(now)
+        elif index and not self.shed and not self.tried_richer:
+            self.strong = self.strong+1 if fps >= RESTORE_FPS else 0
+            if self.strong >= self.STRONG_WINDOWS:
+                self.stage, self.tried_richer = STAGES[index-1], True
+                self.reset(now)
 
 
 class PercussionMotion:
@@ -104,7 +166,7 @@ class BouncingSphere:
     """
     def __init__(self, canvas, side):
         self.canvas, self.side = canvas, side
-        self.shadows = [canvas.create_oval(0, 0, 1, 1, fill=color, outline='', tags='scene')
+        self.shadows = [canvas.create_oval(0, 0, 1, 1, fill=color, outline='', tags=('scene','ball'))
                         for color in ('#181712', '#11110e', '#080808')]
         rings, segments = 10, 20
         self.vertices = []
@@ -122,13 +184,23 @@ class BouncingSphere:
                 indices = (ring*segments+segment, ring*segments+following,
                            (ring+1)*segments+following, (ring+1)*segments+segment)
                 item = canvas.create_polygon(0, 0, 1, 0, 0, 1, outline='',
-                                             state='hidden', tags='scene')
+                                             state='hidden', tags=('scene','ball'))
                 self.faces.append((indices, (ring//2+segment//2) % 2, item))
         # Low contrast, metallic gold/silver, leaving the foreground text clear.
         bases = ((173, 138, 55), (64, 62, 54)) if side == 0 else ((150, 150, 141), (103, 84, 39))
         self.palette = [[('#%02x%02x%02x' % tuple(min(255, int(v*(.34+i*.026))) for v in base))
                          for i in range(32)] for base in bases]
         self.styles = {}
+
+    def show(self, visible):
+        c = self.canvas
+        for item in self.shadows:
+            c.itemconfigure(item, state='normal' if visible else 'hidden')
+        if not visible:
+            for _, _, item in self.faces: c.itemconfigure(item, state='hidden')
+        # A shown ball restyles every face on its next draw: front faces get
+        # their shade back, back faces are hidden again instead of lingering.
+        self.styles = {item: '' for _, _, item in self.faces} if visible else {}
 
     def draw(self, t, width, height, horizon, lift, impact, shimmer):
         c, side = self.canvas, self.side
@@ -179,22 +251,41 @@ class DemoBackground:
         rng = random.Random(1975)
         self.stars = [(math.sqrt(rng.uniform(.015,.48)),
             rng.uniform(0,math.tau), rng.random(), rng.uniform(.65,1.),
-            canvas.create_line(0, 0, 1, 1, fill='#777269', capstyle='round', tags='scene'))
+            canvas.create_line(0, 0, 1, 1, fill='#777269', capstyle='round', tags=('scene','star')))
             for _ in range(64)]
         self.star_styles = {}
         self.percussion = PercussionMotion()
         self.grid = [canvas.create_line(0, 0, 0, 0, fill='#332c1d', tags='scene') for _ in range(29)]
-        self.waves = [canvas.create_line(0, 0, 0, 0, fill=color, width=1, tags='scene')
+        self.waves = [canvas.create_line(0, 0, 0, 0, fill=color, width=1, tags=('scene','wave'))
                       for color in ('#3e351f', '#6c5628', '#423a28')]
-        self.wire = [canvas.create_line(0, 0, 0, 0, fill='#5e5132', tags='scene') for _ in range(24)]
+        self.wire = [canvas.create_line(0, 0, 0, 0, fill='#5e5132', tags=('scene','cube')) for _ in range(24)]
         self.cube_shades = [None, None]
         self.spheres = [BouncingSphere(canvas, side) for side in range(2)]
+        self.stage = 'full'
+
+    def set_stage(self, stage):
+        """Hide shed effects at once; draw() then skips their arithmetic too."""
+        self.stage = stage
+        for tag, shown in (('star', stage != 'minimal'), ('wave', stage != 'minimal'), ('cube', stage == 'full')):
+            self.canvas.itemconfigure(tag, state='normal' if shown else 'hidden')
+        for sphere in self.spheres:
+            sphere.show(stage == 'full')
 
     def draw(self, t, width, height, pulse, beats=(0,)*6, music_active=False):
         c = self.canvas
         motion = t * BACKGROUND_SPEED
         horizon = height * .66
         self.percussion.update(t, beats, music_active)
+        # Perspective floor moving toward the viewer, restrained around text.
+        for i in range(15):
+            bottom = width * (i - 7) / 5 + width / 2
+            c.coords(self.grid[i], width/2+(bottom-width/2)*.035, horizon, bottom, height+5)
+        for i in range(14):
+            z = ((i / 14 + motion * .05) % 1) ** 2
+            yy = horizon + (height - horizon) * z
+            c.coords(self.grid[15+i], 0, yy, width, yy)
+        if self.stage == 'minimal':
+            return
         cx,cy = width*.5,height*.46
         for start_radius,angle,phase,speed,item in self.stars:
             # One camera, forward travel along Z: every streak shares the same
@@ -217,14 +308,6 @@ class DemoBackground:
                 self.star_styles[item] = shade
                 color = '#%02x%02x%02x' % (48+shade*8,47+shade*8,43+shade*7)
                 c.itemconfigure(item,fill=color,width=1+head*.9)
-        # Perspective floor moving toward the viewer, restrained around text.
-        for i in range(15):
-            bottom = width * (i - 7) / 5 + width / 2
-            c.coords(self.grid[i], width/2+(bottom-width/2)*.035, horizon, bottom, height+5)
-        for i in range(14):
-            z = ((i / 14 + motion * .05) % 1) ** 2
-            yy = horizon + (height - horizon) * z
-            c.coords(self.grid[15+i], 0, yy, width, yy)
         for layer, item in enumerate(self.waves):
             points = []
             for x in range(0, width + 9, 9):
@@ -232,19 +315,18 @@ class DemoBackground:
                 y += math.sin(x*.006-motion*.4)*22
                 points += [x, y]
             c.coords(item, *points)
+        if self.stage != 'full':
+            return
         # Two cubes travel across the whole stage and reflect at its edges.
         # Camera distance changes their size; projected extents keep even the
         # nearest rotated corners inside the stage when it is resized.
-        vertices = [(x, y, z) for x in (-1,1) for y in (-1,1) for z in (-1,1)]
-        edges = [(a,b) for a in range(8) for b in range(a+1,8)
-                 if sum(vertices[a][j] != vertices[b][j] for j in range(3)) == 1]
         for side in range(2):
             angle = motion*.30 + side*1.5
             near = .5+.5*math.sin(t*(.76 if side == 0 else .59)+side*2.1)
             distance = 5.4-3.5*near
             radius = min(100, width*.12, height*.22)
             projected = []
-            for x,y,z in vertices:
+            for x,y,z in CUBE_VERTICES:
                 a = x*math.cos(angle)-z*math.sin(angle)
                 b = x*math.sin(angle)+z*math.cos(angle)
                 yy = y*math.cos(angle*.7)-b*math.sin(angle*.7)
@@ -265,7 +347,7 @@ class DemoBackground:
                 for item in self.wire[side*12:side*12+12]:
                     c.itemconfigure(item, fill=color)
             projected = [(cx+x, cy+y) for x,y in projected]
-            for i,(a,b) in enumerate(edges):
+            for i,(a,b) in enumerate(CUBE_EDGES):
                 c.coords(self.wire[side*12+i], *projected[a], *projected[b])
         for side,sphere in enumerate(self.spheres):
             sphere.draw(t,width,height,horizon,self.percussion.height[side],
@@ -290,6 +372,7 @@ class CreditsDemo:
             owner.credits_music = MusicSession()
         self.session = owner.credits_music
         self.player = self.session.open()
+        self.governor = EffectsGovernor(self.session.effects, self.started)
 
         panel = self.panel = tk.Toplevel(owner.app)
         owner.credits_panel = panel
@@ -319,6 +402,7 @@ class CreditsDemo:
         self.canvas = tk.Canvas(stage, bg=BG, highlightthickness=0, takefocus=True)
         self.canvas.pack(side='left', fill='both', expand=True)
         self.scene = DemoBackground(self.canvas)
+        self.scene.set_stage(self.governor.stage)
         self.canvas.bind('<Configure>', self._layout)
         panel.bind('<MouseWheel>', self._wheel)
         panel.bind('<Button-4>', lambda e: self._manual(self.scroll.position-65))
@@ -335,7 +419,19 @@ class CreditsDemo:
         panel.deiconify()
         panel.grab_set()
         self.canvas.focus_set()
+        self._timer_resolution(True)
         self._frame()
+
+    @staticmethod
+    def _timer_resolution(fine):
+        """Windows rounds Tk timers to 15.6 ms steps otherwise: after(33) then
+        wakes every 46.8 ms and no machine, however fast, exceeds 21 fps."""
+        if sys.platform != 'win32': return
+        try:
+            import ctypes
+            (ctypes.windll.winmm.timeBeginPeriod if fine else ctypes.windll.winmm.timeEndPeriod)(1)
+        except (AttributeError, OSError):
+            pass
 
     def _header(self, event):
         c, w = self.header, event.width
@@ -371,6 +467,7 @@ class CreditsDemo:
         self.meter = tk.Canvas(playback,width=52,height=26,bg='#202020',highlightthickness=0)
         self.meter.pack(side='left',padx=(0,9))
         self.meter_items = []
+        self.meter_colors = [['#39352b']*8 for _ in range(4)]
         for ch in range(4):
             bars = []
             for step in range(8):
@@ -410,6 +507,7 @@ class CreditsDemo:
         w,h = event.width,event.height
         if (w,h) == (self.layout_width,self.layout_height): return
         self.layout_width,self.layout_height = w,h
+        self.governor.reset(time.monotonic())  # resizing hitches are not slowness
         self.canvas.delete('credit')
         self.offset_drawn = 0
         c = self.canvas
@@ -467,8 +565,9 @@ class CreditsDemo:
         self.canvas.itemconfigure(item,fill=COLORS['gold_hover'] if value else GOLD)
 
     def _position(self):
-        self.canvas.move('credit',0,self.offset_drawn-self.scroll.position)
-        self.offset_drawn = self.scroll.position
+        if self.offset_drawn != self.scroll.position:
+            self.canvas.move('credit',0,self.offset_drawn-self.scroll.position)
+            self.offset_drawn = self.scroll.position
         self.scrollbar.set(self.scroll.position/self.total_height,
                            min(1,(self.scroll.position+self.layout_height)/self.total_height))
 
@@ -527,12 +626,22 @@ class CreditsDemo:
                 self.levels[channel] = max(target,self.levels[channel]-delta*1.8)
                 for step,item in enumerate(self.meter_items[channel]):
                     color = (GOLD if step<6 else '#f2d887') if step/8<self.levels[channel] else '#39352b'
-                    self.meter.itemconfigure(item,fill=color)
+                    if self.meter_colors[channel][step] != color:
+                        self.meter_colors[channel][step] = color
+                        self.meter.itemconfigure(item,fill=color)
             if self.player.status == 'playing':
                 info = self.tr('credits_module_info',pattern=f'{values[1]:02X}',row=f'{values[2]:02X}')
             else:
                 info = self.tr('credits_audio_missing' if self.player.status == 'unavailable' else 'credits_audio_starting')
+            if self.scene.stage != 'full':
+                info += ' · '+self.tr('credits_effects_reduced')
             if self.track_info.cget('text') != info: self.track_info.configure(text=info)
+            stage = self.governor.frame(time.monotonic())
+            if stage != self.scene.stage:
+                self.scene.set_stage(stage)
+                self.session.set_effects(stage)
+        else:
+            self.governor.reset(now)  # hidden windows are not drawn, so not measured
         self.timer = self.panel.after(33,self._frame)
 
     def _destroyed(self, event):
@@ -544,6 +653,7 @@ class CreditsDemo:
         if self.timer:
             self.panel.after_cancel(self.timer)
             self.timer = None
+        self._timer_resolution(False)
         self.player.close()
         self.sound_hint.hide()
         if self.owner.credits_panel is self.panel:

@@ -99,7 +99,10 @@ class Decoder:
 
 
 class MusicSession:
-    """Selection/mute survives reopening; disk writes occur only on user actions."""
+    """Selection, mute and effects stage survive reopening.
+
+    Disk writes occur on user actions and when the scene settles on a stage.
+    """
     def __init__(self, path=None):
         self.path = path or data_directory() / 'credits-player.json'
         try:
@@ -110,11 +113,14 @@ class MusicSession:
             state = {}
         self.previous = state.get('last_track')
         self.muted = state.get('muted') is True
+        # Validated by the credits scene; anything odd falls back to 'full'.
+        self.effects = state.get('effects') if isinstance(state.get('effects'), str) else 'full'
 
     def save(self):
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_text(self.path, json.dumps({'last_track': self.previous, 'muted': self.muted})+'\n')
+            atomic_text(self.path, json.dumps({'last_track': self.previous, 'muted': self.muted,
+                                               'effects': self.effects})+'\n')
         except OSError:
             pass  # Read-only installations still retain their in-process state.
 
@@ -126,6 +132,11 @@ class MusicSession:
     def set_muted(self, muted):
         self.muted = bool(muted)
         self.save()
+
+    def set_effects(self, stage):
+        if stage != self.effects:
+            self.effects = stage
+            self.save()
 
 
 class MusicPlayer:

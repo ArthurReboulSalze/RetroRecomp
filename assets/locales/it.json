@@ -326,6 +326,7 @@
     "credits_module_info": "MOD a 4 canali · pattern {pattern} / riga {row}",
     "credits_audio_starting": "Avvio del lettore musicale…",
     "credits_audio_missing": "Audio non disponibile · crediti accessibili",
+    "credits_effects_reduced": "Effetti ridotti per questo computer",
     "compiled_games": "Giochi ricompilati",
     "compiled_intro": "I tuoi giochi generati, salvati tra le sessioni.",
     "compiled_summary": "{count} giochi · {attention} da verificare · {hints} indizi salvati",

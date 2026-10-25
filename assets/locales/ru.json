@@ -326,6 +326,7 @@
     "credits_module_info": "4-канальный MOD · паттерн {pattern} / строка {row}",
     "credits_audio_starting": "Запуск музыкального проигрывателя…",
     "credits_audio_missing": "Звук недоступен · титры остаются доступны",
+    "credits_effects_reduced": "Эффекты упрощены для этого компьютера",
     "compiled_games": "Скомпилированные игры",
     "compiled_intro": "Созданные игры сохраняются между сеансами.",
     "compiled_summary": "{count} игр · проверить: {attention} · подсказок: {hints}",

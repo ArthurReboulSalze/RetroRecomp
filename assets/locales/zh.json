@@ -326,6 +326,7 @@
     "credits_module_info": "4 声道 MOD · 模式 {pattern} / 行 {row}",
     "credits_audio_starting": "正在打开音乐播放器…",
     "credits_audio_missing": "音频不可用，仍可查看制作名单",
+    "credits_effects_reduced": "已为这台电脑简化效果",
     "compiled_games": "已编译游戏",
     "compiled_intro": "在不同会话之间保留已生成的游戏。",
     "compiled_summary": "{count} 个游戏 · {attention} 个待检查 · {hints} 条已保存线索",

@@ -326,6 +326,7 @@
     "credits_module_info": "4 チャンネル MOD · パターン {pattern} / 行 {row}",
     "credits_audio_starting": "音楽プレーヤーを起動中…",
     "credits_audio_missing": "音声を利用できません。クレジットは操作できます",
+    "credits_effects_reduced": "このパソコン向けに効果を軽減",
     "compiled_games": "コンパイル済みゲーム",
     "compiled_intro": "生成したゲームを次回の起動時にも表示します。",
     "compiled_summary": "{count} ゲーム · 要確認 {attention} · 保存ヒント {hints}",
