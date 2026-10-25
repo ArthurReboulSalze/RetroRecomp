@@ -30,6 +30,12 @@
   states load across raw and compressed builds. A compressed
   Linux game moved without its `datas` folder is no longer recognized from
   its file alone (it is kept, never overwritten), as on Windows.
+- **No build leftovers.** Once a game is converted and published, its build
+  project (generated C, object files, raw executables, checks; 20 to 100 MB
+  or more per game) is deleted, on Windows and Linux; a failed or stopped
+  conversion keeps it for diagnosis. **Options › Common › Disk space** shows
+  how much earlier conversions left behind and frees it, keeping the shared
+  caches every conversion reuses. A reconversion then rebuilds from scratch.
 - **Linux starts again, and installs with a double-click.** Linux releases
   1.3.1 to 1.4.1 could stop at startup ("invalid command name
   PyImagingPhoto"): download 1.5.0 again, since those versions cannot open
