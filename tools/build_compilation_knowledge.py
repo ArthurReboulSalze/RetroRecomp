@@ -19,6 +19,25 @@ from retrorecomp.knowledge_build import (build_record, compact_snes, compact_spc
 from retrorecomp.systems import get_profile
 
 
+def qualification_origin(report: dict) -> str:
+    """How the report that qualifies a refreshed record was obtained.
+
+    Any natively validated report qualifies (native code compared with the
+    reference CPU, interpreter use measured). A quick check rebuilds from
+    paths already learned, on the quick routes only: from paths shared by
+    players (`shared_paths`, e.g. `service_sync.py integrate`), from the
+    bundled snapshot (`bundled_paths`) or after a player-shell upgrade. The
+    summary counts each origin so that a snapshot says what qualified it.
+    The batch's own record decides: not every console writes `scan_level`."""
+    if (report.get('shared_paths') or {}).get('quick'):
+        return 'quick_shared_paths'
+    if (report.get('bundled_paths') or {}).get('quick'):
+        return 'quick_bundled_paths'
+    if report.get('upgrade'):
+        return 'quick_upgrade'
+    return str(report.get('scan_level') or 'standard')
+
+
 def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dict:
     engines = current_engines()
     # A collection may be regenerated one console at a time, or its old
@@ -33,6 +52,7 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
     qualified = qualified_reports(reports.glob('*/datas/reports/*/conversion-report.json'))
     seen = set()
     omitted = {'unqualified': 0, 'ram_without_rom_source': 0}
+    qualification = {}
     for path in roms:
         item = identify(path)
         key = (item.system, item.sha256)
@@ -45,6 +65,8 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
             continue
         consoles[item.system][rom.sha256] = record
         refreshed[item.system].add(rom.sha256)
+        origin = qualification_origin(qualified[key])
+        qualification[origin] = qualification.get(origin, 0) + 1
     for record in consoles.get('snes', {}).values():
         compact_snes(record)
     payload = validate_payload({'schema': 1, 'consoles': consoles})
@@ -57,6 +79,7 @@ def build(roms, *, reports: Path, output: Path, base: Path | None = None) -> dic
     load.cache_clear()
     return {'rom_free': True, 'raw_bytes': len(raw), 'compressed_bytes': len(packed),
             'sha256': hashlib.sha256(packed).hexdigest(), 'omitted': omitted,
+            'qualification': dict(sorted(qualification.items())),
             'refresh': {system: {
                 'retained': len(retained[system] - refreshed[system]),
                 'requalified': len(retained[system] & refreshed[system]),

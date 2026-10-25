@@ -1401,6 +1401,105 @@ name styles, up to three console badges, pins and titles. The public catalog
 every 30 minutes and frame pictures are downloaded once
 (`datas/shop-frame-*`); without a catalog nothing extra is drawn.
 
+## Integrating shared uploads
+
+Since 1.5.2 one maintainer command brings the players' uploaded paths into
+the bundled snapshot, and it is run at every release. It lives with the site's
+tools (`tools/service_sync.py`, in the private site repository) because it
+talks to the service; everything it
+does on the converter side uses this repository's code and
+`tools/build_compilation_knowledge.py`.
+
+**Release checklist**
+
+1. Before building a release: `python tools/service_sync.py --target production
+   integrate`. Commit the rebuilt `assets/compilation-knowledge.json.gz` with
+   the printed summary, and list the integrated games in the release notes.
+2. After the release is published and verified (never before):
+   `python tools/service_sync.py --target production integrate --after-release`.
+   It marks the settled uploads `integrated` and purges their files on the
+   server; their rows and discovery paths stay, so every point and RR coin
+   stays.
+
+Both steps are idempotent: running one again resumes or does nothing more.
+
+**What `integrate` does**
+
+1. Validates the uploads still `received` (`validate`: `read_exchange`, the
+   board's paths, the verdict).
+2. Gathers the `valid` uploads not yet integrated or purged.
+3. Keeps the games that bring hints the current snapshot lacks, or raw
+   observations; a game whose paths are all in the snapshot is reported as
+   *nothing new*.
+4. Finds their ROMs by SHA-256 (the converter's own reader, ZIPs included) in
+   the maintainer's ROM folders, one per console on the NAS (`--rom-dir` adds
+   folders). Files named like a wanted title are hashed first; hashes are
+   cached in `.build/integrate-rom-hashes.json`. ROMs are only read.
+5. Converts those games, up to eight at once, in a throwaway workspace,
+   `.build/integrate-<date>/`, used as the converter's Export folder: its own
+   `datas` (imported banks, library) and `Games`. The maintainer's Export, its
+   `datas` and its library are neither read nor written. The uploads are
+   imported into that workspace's imported bank and every game gets
+   `shared_paths` at level standard, so the batch takes the **quick check**
+   instead of discovery: the game is rebuilt from the shared paths, its native
+   code is compared with the reference CPU on the quick routes, and interpreter
+   use is measured and reported as usual. A game whose check fails is not
+   converted again without the paths (the batch's usual fallback for players):
+   it is reported as failed, with the reason, and stays out of the snapshot.
+   The conversions run with `RETRO_RECOMP_SERVICE` empty: they never talk to the
+   service themselves. Build folders are cleaned after each success as usual.
+6. Rebuilds the snapshot with `build_compilation_knowledge.build`: the current
+   snapshot as base, refreshed only for the games that passed, from the
+   workspace's own qualified reports and library. Nothing else changes.
+7. Prints and writes the summary: games integrated with the paths added,
+   failures with their reason, missing ROMs, games with nothing new, each
+   upload's state, the durations. It lands in `.build/integrate-<date>/summary.json`
+   (with `snapshot.json.gz`, the snapshot as built, `conversions.log` and the
+   workspace), and `.build/integrate-latest.json` points to it.
+
+A rerun resumes the open workspace (the latest one whose after-release step
+has not run; `--fresh` starts another): verified games are skipped unless a
+new upload brought them more paths, failed games and missing ROMs are tried
+again, and the snapshot is only rebuilt when something changed. An upload is
+*integrated* once each of its games is verified or already known, otherwise
+*partial*: `--after-release` keeps partial uploads `valid` (the next run
+retries their pending games) unless `--partial` settles them anyway.
+`--after-release` first checks, in the converter's latest release tag (or
+`--release`), that the released snapshot holds every path this run integrated,
+and refuses otherwise (`--force` skips that check). Already marked or purged
+uploads are left as they are.
+
+**Why the quick check qualifies.** `build_compilation_knowledge.py` accepts any
+report whose native validation passed; it never required the Standard level.
+A quick check seeded by shared paths is such a report, and it records its
+origin: `scan_level: quick` and `shared_paths: {level, records, quick: true}`.
+The builder's summary now counts what qualified each refreshed record
+(`qualification`: `standard`, `extended`, `thorough`, `quick_shared_paths`,
+`quick_bundled_paths`, `quick_upgrade`). A Standard discovery seeded by the
+paths would also have qualified, at several times the cost, and would mix the
+maintainer's own new discoveries into what is meant to verify the players'
+paths. Shared observations still never bypass validation: a path enters the
+snapshot only through a conversion made here whose native validation passed.
+
+These checks measure native code against the reference CPU on the quick routes
+and interpreter use. They do not validate CPU fidelity, hardware fidelity,
+complete gameplay or physical latency.
+
+**First run, for 1.5.2 (25 October 2026, Windows, eight at once).** Four
+valid uploads (#1 to #4), 33 games, every ROM found on the NAS, 33 verified
+by the quick check from the shared paths, none failed, none already known:
+Super Nintendo 27 (all new to the snapshot), NES 3 (two new), Mega Drive 2,
+Game Boy 1. 2,280,968 hints added (SNES SPC700 references counted one by
+one). Interpreter use reported by the checks: zero opcodes for 32 games, 576
+main-CPU opcodes for *Ball Bullet Gun - Survival Game Simulation*. Snapshot
+15,453,304 → 16,895,274 bytes (69.5 MB of JSON of the 128 MiB budget); SNES
+records 44 → 71, NES 36 → 38. Durations: validation 37 s, gathering 12 s, ROM
+search 83 s (hashes cached afterwards), conversions 547 s, snapshot 67 s, 766 s
+in all, plus a first trial on upload #1 (316 s). That trial found that Mega
+Drive and Super Nintendo checks failed on Windows with a `NameError`
+(`subprocess` no longer imported in `console16.probe16`, since 1.5.1); fixed
+for 1.5.2.
+
 ## Release 0.24.0 snapshot
 
 | Console | Exact cartridge records |
