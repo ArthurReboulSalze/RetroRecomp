@@ -32,6 +32,7 @@ def main():
     from tools.build_credits_audio import build as build_credits_audio
     credits_audio = build_credits_audio()
     from tools.build_player_gamepad import build as build_gamepad
+    from tools.build_splash import build as build_splash
     gamepad = build_gamepad()
     stage = ROOT/'.build/linux-package'
     hooks = stage/'hooks'
@@ -48,7 +49,7 @@ binaries = [(str(f), dest) for f in (p/"tkdnd"/variant).glob("*.so")]
 ''', encoding='utf-8')
     command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
         '--name', 'Retro-Recomp', '--exclude-module', 'numpy', '--exclude-module', 'pytest',
-        '--splash', str(ROOT/'assets/Retro-Recomp-splash.png'),
+        '--splash', str(build_splash(stage/'splash.png', __version__)),
         '--distpath', str(stage/'dist'), '--workpath', str(stage/'work'),
         '--specpath', str(stage), '--additional-hooks-dir', str(hooks),
         '--add-binary', str(credits_audio)+':credits-runtime',

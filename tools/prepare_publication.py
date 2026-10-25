@@ -63,7 +63,7 @@ tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardwa
 retrorecomp/x68000_scan.py
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py tools/start_select_selftest.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
-native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py
+native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py tools/build_splash.py
 tools/player_gamepad/CMakeLists.txt
 native/game_options_checks.c tools/game_options_selftest.py tests/test_player_gamepad.py
 tools/package_installers.py tools/installers/windows.iss tools/installers/deb_launcher.sh
@@ -138,7 +138,6 @@ assets/Retro-Recomp-icon-24.png assets/Retro-Recomp-icon-32.png
 assets/Retro-Recomp-icon-40.png assets/Retro-Recomp-icon-48.png
 assets/Retro-Recomp-icon-64.png assets/Retro-Recomp-icon-128.png
 assets/Retro-Recomp-icon-256.png
-assets/Retro-Recomp-splash.png
 assets/tools/upx.exe assets/tools/upx-amd64_linux
 licenses/z80-recomp-core.md licenses/superzazu-z80.md licenses/SDL2.md licenses/xbr.md
 licenses/gb-recompiled.md licenses/dear-imgui.md licenses/nesrecomp.md licenses/emu2413.md

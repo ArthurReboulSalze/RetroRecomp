@@ -10,6 +10,7 @@ try {
     python -X utf8 tools/prepare_logo.py
     if ($LASTEXITCODE -ne 0) { throw 'La préparation du logo a échoué.' }
     python -c "from pathlib import Path; from retrorecomp.metadata import write_converter_version; write_converter_version(Path('.build/converter-version.txt'))"
+    python -B tools/build_splash.py .build/splash.png
     if ($LASTEXITCODE -ne 0) { throw 'Les métadonnées Windows sont indisponibles.' }
     # Bundle declared resources only; local game profiles and old logos stay local.
     $resourcePaths = @(python -c "from tools.prepare_publication import BUNDLED_FILES; print(chr(10).join(sorted(BUNDLED_FILES)))")
@@ -30,7 +31,7 @@ try {
     $resourceArguments += (Join-Path $projectRoot '.build\packaging-hooks')
     python -m PyInstaller --noconfirm --onefile --windowed --name Retro-Recomp `
         --icon "$projectRoot\assets\Retro-Recomp.ico" `
-        --splash "$projectRoot\assets\Retro-Recomp-splash.png" `
+        --splash "$projectRoot\.build\splash.png" `
         --version-file "$projectRoot\.build\converter-version.txt" `
         --add-binary "$creditsAudio;credits-runtime" `
         --add-binary "$playerGamepad;player-runtime" `
