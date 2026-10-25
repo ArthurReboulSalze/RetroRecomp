@@ -12,6 +12,10 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # The check never reaches the online service: the account corner stays signed out.
 os.environ['RETRO_RECOMP_SERVICE'] = ''
+# Nor does it depend on this checkout's build tools: a fresh worktree without
+# them must not stop on the "install tools / prepare dependencies" questions.
+patch('retrorecomp.updater.missing_build_tools', return_value={}).start()
+patch('retrorecomp.core.dependencies_ready', return_value=True).start()
 from retrorecomp.gui import launch, PROFILES
 from retrorecomp.library import library_root, list_games
 from retrorecomp.gameboy import list_memory
