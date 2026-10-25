@@ -52,6 +52,8 @@ int main() {
     assert(g_rr_language==1 && g_rr_autofire);
     assert(g_keyboard_bindings[GB_INPUT_ACTION_START][0].code==SDL_SCANCODE_RETURN);
     assert(g_keyboard_bindings[GB_INPUT_ACTION_SELECT][0].code==SDL_SCANCODE_LSHIFT);
+    assert(g_keyboard_bindings[GB_INPUT_ACTION_SELECT][1].code==SDL_SCANCODE_RSHIFT);
+    assert(g_keyboard_bindings[GB_INPUT_ACTION_TOGGLE_MENU][0].code==SDL_SCANCODE_P);
     gb_platform_shutdown();
     assert(fs::exists(path) && !fs::exists("imgui.ini"));
     assert(!fs::exists(fs::current_path()/"Retro-Recomp-GameBoy.ini"));

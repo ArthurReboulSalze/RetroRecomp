@@ -539,9 +539,14 @@ static bool handle_event(const SDL_Event *e) {
         reset_requested = true; return false;
     }
     bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
-    /* Master System and Game Gear pause with Enter (their default
-     * Pause/Menu key) or its remapped key; P is free. */
+#ifdef RETRO_GAME_GEAR
+    /* Enter is the cartridge Start: only the Pause/Menu binding (P) pauses. */
+    bool pause_key = false;
+#else
+    /* The Master System pauses with Enter (its default Start/Menu key) or
+     * the remapped key; P is free. */
     bool pause_key = enter;
+#endif
     if (!rr_options_component(key,button) && (((!rr_pages_open(menu) || !enter) && (pause_key || controls_system_key(key, CONTROL_PAUSE))) ||
         controls_system_button(event_player, button, CONTROL_PAUSE))) {
         menu = menu == 3 ? 0 : 3; parent_menu = 0; capturing = false; return true;

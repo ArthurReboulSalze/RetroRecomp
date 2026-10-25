@@ -52,8 +52,15 @@ int main(void) {
         memset(mock_keys,0,sizeof mock_keys);mock_keys[keys[p][a]]=1;
         assert(controller_input(p,0)==expected[a]);assert(controller_input(!p,0)==0);++checked;
     }
+    /* Enter is Start; either Shift inserts the coin unless the other Shift
+     * has a binding of its own, for any player. */
     memset(mock_keys,0,sizeof mock_keys);
+    assert(keys[0][START]==SDL_SCANCODE_RETURN && keys[0][COIN]==SDL_SCANCODE_LSHIFT);++checked;
     mock_keys[SDL_SCANCODE_RSHIFT]=1;assert(controller_input(0,0)==512);++checked;
+    SDL_Scancode d=keys[0][D];keys[0][D]=SDL_SCANCODE_RSHIFT;assert(controller_input(0,0)==128);keys[0][D]=d;++checked;
+    SDL_Scancode kp0=keys[1][COIN];keys[1][COIN]=SDL_SCANCODE_RSHIFT;assert(controller_input(0,0)==0 && controller_input(1,0)==512);keys[1][COIN]=kp0;++checked;
+    keys[0][COIN]=SDL_SCANCODE_RSHIFT;mock_keys[SDL_SCANCODE_RSHIFT]=0;mock_keys[SDL_SCANCODE_LSHIFT]=1;assert(controller_input(0,0)==512);++checked;
+    mock_keys[SDL_SCANCODE_LSHIFT]=0;mock_keys[SDL_SCANCODE_RSHIFT]=1;
     keys[0][COIN]=SDL_SCANCODE_J;assert(controller_input(0,0)==0);++checked;
     for(int p=0;p<2;++p) {
         memset(mock_keys,0,sizeof mock_keys);mock_keys[keys[p][UP]]=mock_keys[keys[p][DOWN]]=1;

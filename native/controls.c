@@ -35,10 +35,12 @@ static const char *filters[2][FILTER_COUNT] = {
     {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"},
     {"Pixels nets", "xBR smooth", "Scale2x", "Scanlines"}};
 static SDL_Scancode default_keys[CONTROL_PLAYERS][CONTROL_ACTIONS] = {
-    /* Enter is the default Pause/Menu key on both consoles; P is free. */
+    /* Master System: Enter is the default Start/Menu (pause) key and P is
+     * free. Game Gear: Enter is the cartridge Start, as on every console with
+     * a Start button, and P opens the pause menu, as on Game Boy. */
 #ifdef RETRO_GAME_GEAR
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RETURN, SDL_SCANCODE_S},
+     SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_P, SDL_SCANCODE_RETURN},
 #else
     {SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
      SDL_SCANCODE_W, SDL_SCANCODE_X, SDL_SCANCODE_RETURN, SDL_SCANCODE_UNKNOWN},
@@ -208,14 +210,18 @@ void controls_load(void) {
     for (int p = 0; p < CONTROL_PLAYERS; ++p) for (int i = CONTROL_PAUSE; i < controls_action_count(p); ++i) {
         read_name(key_sections[p], entries[i], value, sizeof(value));
         SDL_Scancode key = SDL_GetScancodeFromName(value);
+        /* Enter may serve either system row: the menu or the cartridge Start. */
         bool allowed = !controls_reserved(key) || key == default_keys[0][i] ||
-            (i == CONTROL_PAUSE && (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER));
+            key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
         controls.keys[p][i] = allowed ? key : default_keys[p][i];
         read_name(button_sections[p], entries[i], value, sizeof(value));
         SDL_GameControllerButton button = SDL_GameControllerGetButtonFromString(value);
         controls.buttons[p][i] = button == SDL_CONTROLLER_BUTTON_INVALID ? default_buttons[p][i] : button;
+        /* An explicit menu binding wins over the same key or button on Start. */
         if (i == CONTROL_RESET && controls.buttons[p][i] == controls.buttons[p][CONTROL_PAUSE])
             controls.buttons[p][i] = SDL_CONTROLLER_BUTTON_INVALID;
+        if (i == CONTROL_RESET && controls.keys[p][i] == controls.keys[p][CONTROL_PAUSE])
+            controls.keys[p][i] = SDL_SCANCODE_UNKNOWN;
     }
     for (int p = 0; p < CONTROL_PLAYERS; ++p) for (int i = 0; i < CONTROL_GAME_ACTIONS; ++i) {
         read_name(key_sections[p], entries[i], value, sizeof(value));
@@ -278,7 +284,7 @@ bool controls_bind(int player, int row, bool gamepad, int value) {
     } else {
         if (value < 0 || value >= SDL_NUM_SCANCODES) return false;
         SDL_Scancode key = (SDL_Scancode)value;
-        bool system_alias = row == CONTROL_PAUSE && (key == SDL_SCANCODE_P || key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER);
+        bool system_alias = row >= CONTROL_PAUSE && (key == SDL_SCANCODE_P || key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER);
         if (controls_reserved(key) && !system_alias) return false;
         if (row < CONTROL_GAME_ACTIONS && (controls_system_key(key, CONTROL_PAUSE) ||
             controls_system_key(key, CONTROL_RESET) || controls_guest_start_key(player, key))) return false;

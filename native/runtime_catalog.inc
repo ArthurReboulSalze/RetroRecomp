@@ -53,6 +53,7 @@ static const char *const rr_translations[][5] = {
     {"Enter / A / +: next | -: previous","Entree / A / + : suivant | - : precedent","Invio / A / +: succ. | -: prec.","Enter / A / +: siguiente | -: anterior","Enter / A / +: weiter | -: zurueck"},
     {"Enter / A: change","Entree / A : modifier","Invio / A: cambia","Enter / A: cambiar","Enter / A: aendern"},
     {"Enter / A: change | X: clear","Entree / A : modifier | X : effacer","Invio / A: cambia | X: cancella","Enter / A: cambiar | X: borrar","Enter / A: aendern | X: loeschen"},
+    {"Enter / pad Start: cartridge Start","Entree / Start manette : Start jeu","Invio / Start pad: Start del gioco","Intro / Start del mando: Start del juego","Eingabe / Pad-Start: Modul-Start"},
     {"Enter Start; Shift Select","Entree Start; Maj Select","Invio Start; Maiusc Select","Intro Start; Mayus Select","Eingabe Start; Umschalt Select"},
     {"Enter/A: bind | D: defaults","Entree/A : changer | D : defauts","Invio/A: assegna | D: predefiniti","Intro/A: asignar | D: restaurar","Eingabe/A: belegen | D: Standard"},
     {"Enter: Start; Shift/Back: Select","Entree : Start; Maj/Back : Select","Invio: Start; Maiusc/Back: Select","Intro: Start; Mayus/Back: Select","Eingabe: Start; Umschalt/Back: Select"},

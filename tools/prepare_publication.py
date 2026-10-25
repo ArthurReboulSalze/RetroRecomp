@@ -60,7 +60,7 @@ native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
 tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py
 retrorecomp/x68000_scan.py
-native/autofire.h tools/autofire_selftest.py tests/test_autofire.py
+native/autofire.h tools/autofire_selftest.py tests/test_autofire.py tools/start_select_selftest.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py
 tools/player_gamepad/CMakeLists.txt

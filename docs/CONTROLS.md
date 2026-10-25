@@ -27,8 +27,17 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F10 | Free: the options are the last F2 page |
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
-| Enter / keypad Enter / P | Pause/resume: Master System and Game Gear use Enter, their default Start/Menu or Pause/Menu key; Game Boy uses P. On Mega Drive, SNES, NES and Neo Geo, P is free: Enter (the cartridge Start) pauses the game itself |
+| Enter / keypad Enter / P | Pause/resume: the Master System uses Enter, its default Start/Menu key (its Pause button is on the console). Game Gear and Game Boy use P. On Mega Drive, SNES, NES, Neo Geo and CPS-1, P is free: Enter (the cartridge Start) pauses the game itself |
 | Esc | Close a menu or quit |
+
+On every console whose controller has a **Start** button (Game Gear, Game Boy,
+NES, Mega Drive, SNES, Neo Geo, CPS-1), the default keyboard layout is the
+same since 1.5.0: **Enter** is Start and **Shift** is Select (the coin on
+arcade boards; Mode on a six-button Mega Drive pad). Either Shift works: a
+binding on one Shift also answers to the other one, unless that other key has
+a binding of its own on any player's page. F2 shows the bound key ("Left
+Shift"); everything stays rebindable there, and saved bindings are kept. The
+Master System has no Start on its pad, so Enter remains its Pause/Menu key.
 
 Every console uses the same two system shortcuts: **F1** opens help and
 **Shift+F1** restarts the game. The help lists the function keys in order,
@@ -152,10 +161,12 @@ or the selected player's controller button. Esc cancels capture; D restores
 that player's defaults for the input type. C on a Master System gamepad page
 swaps controller assignments.
 
-Game Gear has one player and no gun. Arrows and W/X control the game; **S** is
-the cartridge Start button. On a gamepad, A/B are the two game buttons,
-Start reaches the cartridge and Back opens the pause/menu. Enter also opens
-that menu (P is free since 1.2.7), while F1 opens help and Shift+F1 restarts the game. F2 maps the single player's keys
+Game Gear has one player and no gun. Arrows and W/X control the game; **Enter**
+is the cartridge Start button (S before 1.5.0). On a gamepad, A/B are the two
+game buttons, Start reaches the cartridge and Back opens the pause/menu. **P**
+opens that menu on the keyboard (Enter did before 1.5.0; a saved Pause/Menu
+binding is kept, and a saved Enter there wins over the cartridge Start), while
+F1 opens help and Shift+F1 restarts the game. F2 maps the single player's keys
 and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.

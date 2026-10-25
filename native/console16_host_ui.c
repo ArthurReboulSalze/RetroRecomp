@@ -163,7 +163,7 @@ static const uint16_t bits[ACTIONS] = {256,1,512,2,1024,2048,4,8,16,32,64,128};
 static const char *names[ACTIONS] = {"A","B","X","Y","L","R","Select","Start","Up","Down","Left","Right"};
 static const wchar_t *settings[ACTIONS] = {L"A",L"B",L"X",L"Y",L"L",L"R",L"Select",L"Start",L"Up",L"Down",L"Left",L"Right"};
 static SDL_Scancode keys[2][ACTIONS] = {
-    {SDL_SCANCODE_W,SDL_SCANCODE_X,SDL_SCANCODE_A,SDL_SCANCODE_S,SDL_SCANCODE_Q,SDL_SCANCODE_E,SDL_SCANCODE_RSHIFT,SDL_SCANCODE_RETURN,SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT},
+    {SDL_SCANCODE_W,SDL_SCANCODE_X,SDL_SCANCODE_A,SDL_SCANCODE_S,SDL_SCANCODE_Q,SDL_SCANCODE_E,SDL_SCANCODE_LSHIFT,SDL_SCANCODE_RETURN,SDL_SCANCODE_UP,SDL_SCANCODE_DOWN,SDL_SCANCODE_LEFT,SDL_SCANCODE_RIGHT},
     {SDL_SCANCODE_KP_8,SDL_SCANCODE_KP_9,SDL_SCANCODE_KP_0,SDL_SCANCODE_KP_PERIOD,SDL_SCANCODE_KP_DIVIDE,SDL_SCANCODE_KP_MULTIPLY,SDL_SCANCODE_KP_4,SDL_SCANCODE_KP_7,SDL_SCANCODE_KP_5,SDL_SCANCODE_KP_2,SDL_SCANCODE_KP_1,SDL_SCANCODE_KP_3}};
 static SDL_GameControllerButton buttons[2][ACTIONS] = {
     {SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_X,SDL_CONTROLLER_BUTTON_Y,SDL_CONTROLLER_BUTTON_LEFTSHOULDER,SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT},
@@ -351,10 +351,9 @@ static uint16_t controller_input(int p, uint64_t frame) {
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint16_t value = 0;
     for (int a = 0; a < ACTIONS; ++a) {
-        bool down = state[keys[p][a]] || (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
-#if RR16_NG || RR16_CPS1
-        if(a==COIN && p==0 && keys[0][COIN]==SDL_SCANCODE_LSHIFT && state[SDL_SCANCODE_RSHIFT])value|=bits[a];
-#endif
+        /* Enter is Start and either Shift is Select/Coin (retro_keyboard.h). */
+        bool down = rr_keyboard_held(state, keys[p][a], &keys[0][0], (int)(sizeof keys / sizeof keys[0][0])) ||
+            (pads[p] && SDL_GameControllerGetButton(pads[p],buttons[p][a]));
         if (a<=FACE_LAST) down=rr_autofire(&fire_state[p][a],down,autofire!=0,frame);
         if (down) value |= bits[a];
     }
