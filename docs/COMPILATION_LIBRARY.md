@@ -47,6 +47,15 @@ instructions) and rebuilt them byte for byte (the NES export differs by its proj
 key only, since the tree's folder differed). Sizes and the other checks are in
 [BUILDING.md](BUILDING.md#linux-game-compression).
 
+The X68000 was packed on Linux afterwards, a change of `packing.py` only (another console
+packed). Same machine and day, quick scan level, the same user IPL and font ROM: the
+uncompressed exports of Active Shoot (Satou Kouji) (disk SHA-256
+`50503f58a64f48f39f37d1bc22796eb5f9fd5541ba1ec1ace3b1d1b655b8ddb0`) and Alien Syndrome
+(Dempa) (`8fa632f082c4330f20349604977dc3ac3e59e8a292b6e390d08a07356209e030`) made by the
+commit before were **upgraded** by it without rediscovery (2/2 `upgraded`, zero interpreted
+instructions), and the upgraded, compressed executables are identical to those of a full
+conversion by the same commit.
+
 Linux exports of 1.4.1 are not expected to be covered by `LEGACY_GAME_STAMPS`, before or after
 this change: the stamps were reproduced from Windows receipts (Python 3.14.5), code fingerprints
 are bytecode, and the Linux converter is built with Python 3.13 (not checked with a real Linux

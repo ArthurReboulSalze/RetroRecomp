@@ -53,8 +53,8 @@ python3 -m venv .venv
 
 The game is an executable ELF, with its ROM, SDL2, menu font and notices embedded.
 It needs compatible Linux system/display/audio libraries, with no Python or
-compiler required to play. Validated Linux x86-64 game ELFs are packed with the
-bundled UPX 5.2.1, like Windows games (below); X68000 Linux exports stay uncompressed.
+compiler required to play. Validated Linux x86-64 game ELFs, X68000 games
+included, are packed with the bundled UPX 5.2.1, like Windows games (below).
 The converter supports manual GitHub updates. `--credits` prints the game notices. Settings,
 quick states and shutdown-only fallback hints use `datas` beside the game.
 Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
@@ -141,8 +141,8 @@ The converter bundles UPX 5.2.1 and compacts each validated game executable
 before replacing the previous export, then has UPX test it. On Windows
 (`assets/tools/upx.exe`, `-9 --compress-resources=0 --compress-icons=0`) every
 console is packed; resources stay readable. On Linux x86-64
-(`assets/tools/upx-amd64_linux`, `-9`) every console is packed except the X68000,
-whose Linux exports have not been run compressed yet and stay as built. Both
+(`assets/tools/upx-amd64_linux`, `-9`) every console is packed too, the X68000
+included. Both
 binaries are the unmodified official builds of the v5.2.1 release, checked by
 SHA-256 before each use (`retrorecomp/packing.py`): the Linux one is `upx` from
 `upx-5.2.1-amd64_linux.tar.xz` (archive
@@ -152,8 +152,11 @@ converter carries only its own packer. Neo Geo and CPS-1 replay their routes
 on the packed executable; the other consoles validate the build before packing.
 UPX restores the same program in memory at start-up: Linux games still find
 their folder through `/proc/self/exe`, and the Neo Geo MVS/AES switch re-runs
-the same file. A Linux ELF packs its marker with the rest of the program, so a
-Linux game moved without its `datas/reports` is no longer recognized by its
+the same file. No game reads its own file: an X68000 game's disks, IPL and font
+ROM are linked into the program (`retrorecomp/resources.py`), restored by UPX
+with the rest and copied from memory to `datas/games/x68-<identity>`; on Windows
+they are PE resources, read from memory too. A Linux ELF packs its marker with
+the rest of the program, so a Linux game moved without its `datas/reports` is no longer recognized by its
 content (like Master System, Game Gear and Game Boy games on Windows); it is
 then kept, never overwritten. Packing is a build input: changing it rebuilds
 exports without rediscovery ([compilation library](COMPILATION_LIBRARY.md)).
@@ -183,6 +186,8 @@ file cache; it includes SDL start-up and is not a latency measurement.
 | Super Nintendo | ActRaiser | 36,434,712 | 7,469,468 | 0.21 | 211 → 274 ms |
 | Neo Geo (MVS) | 2020 Super Baseball | 21,829,440 | 7,413,940 | 0.34 | 196 → 265 ms |
 | CPS-1 | 1941: Counter Attack | 17,560,992 | 4,975,132 | 0.28 | 211 → 294 ms |
+| X68000 | Active Shoot | 14,836,976 | 3,756,180 | 0.25 | 121 → 170 ms |
+| X68000 | Alien Syndrome | 11,534,544 | 3,307,136 | 0.29 | 115 → 160 ms |
 
 Separately for every game: native validation passed before and after, with
 zero interpreted instructions both times (main and audio CPUs); `upx -t`
@@ -191,7 +196,8 @@ is unchanged; it was still running after 10 s under `xvfb-run`. Quick states
 between the uncompressed and compressed builds of the same game: a state saved
 by one resumes in the other with identical per-frame traces and the same state
 size, both ways (`tools/state16_cross.py` for Mega Drive and Super Nintendo,
-`tools/neogeo_state_cross.py` for Neo Geo and CPS-1, `tools/nes_state_cross.py`).
+`tools/neogeo_state_cross.py` for Neo Geo and CPS-1, `tools/nes_state_cross.py`,
+`tools/x68000_cross.py --same-compiler` for X68000).
 Master System, Game Gear and Game Boy were checked only through their window
 (F8 in the earlier build, then F9 and F8 in the compressed one): the state file
 has the same size and the game keeps running; the restored frame was not
@@ -199,6 +205,20 @@ compared. The Neo Geo AES restart could not be exercised (no AES BIOS in the
 test archive); a packed test program re-running `/proc/self/exe` works. CPU
 fidelity, hardware fidelity, gameplay and physical latency are not measured by
 these checks.
+
+The X68000 rows were measured afterwards on the same machine and day: the
+uncompressed export by the commit that still left X68000 games as built, the
+compressed one by the commit that packs them. `upx -d` of each compressed game
+gives back that uncompressed export byte for byte. The headless X68000 state
+check used the converter's input route, with a state saved at frame 3,200 and
+resumed for 400 frames, and one saved during boot (frame 120) and resumed for
+40. X68000 quick states were also exercised through the window, with XTest keys
+under Xvfb: F8 in the uncompressed export, then the compressed one, published
+over it, loaded that state with F9 (none rejected) and saved again with F8,
+same state size. The X68000 start-up times come from a separate probe with the
+same definition (median of 7 launches, alternated between the two builds after
+one warm-up each; a second pass gave 116 → 168 and 113 → 161 ms): compare them
+within a row. Resident memory 13 s after launch differed by less than 4 MB.
 
 ```powershell
 python -m pip install -r requirements.txt
