@@ -412,7 +412,8 @@ class Application:
         # Pictures only, named by their hints, to leave room for New paths.
         self.icon_button(self.queue_actions, 'add_folder', 'tip_add_folder', self.choose_directory,
                          'add_rom_folder').pack(side='left', padx=(8, 0))
-        self.icon_button(self.queue_actions, 'remove', 'tip_remove', self.remove_selected, 'remove').pack(side='left', padx=(6, 0))
+        # Removing rows lives in the table's right-click menu and on Delete;
+        # only emptying the whole list keeps a toolbar button.
         self.icon_button(self.queue_actions, 'clear', 'tip_clear', self.clear, 'clear').pack(side='left', padx=(6, 0))
         # One button for both views, right after the visible view's buttons:
         # the same as recompiling at closing, for games with new paths only.
@@ -447,6 +448,7 @@ class Application:
             self.table.column(key, width=width, minwidth=60, stretch=key in ('title', 'status'))
         self.table.tag_configure('error', foreground=COLORS['error'])
         self.table.tag_configure('success', foreground=COLORS['success'])
+        self.table.tag_configure('stopped', foreground=COLORS['muted'])
         scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.table.yview)
         self.table.configure(yscrollcommand=scrollbar.set)
         self.table.pack(side='left', fill='both', expand=True)
@@ -454,6 +456,9 @@ class Application:
         scrollbar.pack(side='right', fill='y')
         self.table.bind('<<TreeviewSelect>>', lambda event: self.selection_changed())
         self.table.bind('<Double-1>', lambda event: self.play())
+        self.table.bind('<Button-3>', self.queue_menu)
+        self.table.bind('<Delete>', lambda event: self.remove_selected())
+        self.table.bind('<Control-a>', lambda event: (self.select_all_rows(), 'break')[1])
         self.empty_state = tk.Frame(self.table, bg=COLORS['field'], cursor='hand2')
         self.empty_art = tk.Canvas(self.empty_state, width=72, height=48,
                                    bg=COLORS['field'], highlightthickness=0)
@@ -503,6 +508,11 @@ class Application:
         self.decorate_button(self.stop_button, 'stop')
         self.stop_button.pack(side='left', padx=8)
         self.hint(self.stop_button, 'tip_stop')
+        # Retry: the rows that failed or were stopped, as one more batch.
+        self.retry_button = ttk.Button(actions, text=self.tr('retry'), command=self.retry_failed, state='disabled')
+        self.decorate_button(self.retry_button, 'refresh')
+        self.retry_button.pack(side='left')
+        self.hint(self.retry_button, 'tip_retry')
         open_button = ttk.Button(actions, text=self.tr('open_folder'), command=self.open_output)
         self.decorate_button(open_button, 'folder')
         open_button.pack(side='right')
@@ -1139,6 +1149,58 @@ class Application:
         if path:
             self.import_paths([Path(path)])
 
+    def select_all_rows(self):
+        self.table.selection_set(self.table.get_children())
+
+    def queue_menu(self, event):
+        """Right-click on the queue: the row's actions, then list housekeeping.
+        Removing rows never touches the ROM files, and the label says so."""
+        row = self.table.identify_row(event.y)
+        if row and row not in self.table.selection():
+            self.table.selection_set(row)
+            self.table.focus(row)
+        rows = self.table.selection()
+        if not rows:
+            return
+        one = len(rows) == 1
+        item = self.items.get(rows[0]) if one else None
+        result = self.results.get(rows[0], {}) if one else {}
+        free = not self.busy and not self.updating
+        def state(enabled):
+            return 'normal' if enabled else 'disabled'
+        colors = dict(bg=COLORS['button'], fg=COLORS['text'], activebackground=COLORS['selected'],
+                      activeforeground=COLORS['gold_hover'])
+        menu = tk.Menu(self.app, tearoff=False, **colors)
+        playable = (one and free and result.get('status') in ('success', 'existing', 'current')
+                    and not result.get('pending_install'))
+        menu.add_command(label=self.tr('play'), command=self.play, state=state(playable))
+        menu.add_command(label=self.tr('start_selected'), command=lambda: self.start(selected=True), state=state(free))
+        if any(self.row_status.get(row) in ('error', 'stopped') for row in rows):
+            menu.add_command(label=self.tr('retry'), command=self.retry_failed, state=state(free))
+        menu.add_separator()
+        menu.add_command(label=self.tr('choose_cover'), command=self.choose_cover, state=state(one and free))
+        menu.add_command(label=self.tr('auto_cover'), command=self.automatic_cover, state=state(free))
+        if item is not None and not item.error:
+            video = tk.Menu(menu, tearoff=False, **colors)
+            for label in (self.tr('auto'), *(mode.upper() for mode in get_profile(item.system).video_modes)):
+                video.add_radiobutton(label=label, variable=self.video_name, value=label, command=self.change_video)
+            menu.add_cascade(label=self.tr('video_timing'), menu=video, state=state(free))
+        menu.add_separator()
+        menu.add_command(label=self.tr('open_rom_folder'), state=state(item is not None),
+                         command=lambda: item and open_local(item.path.parent))
+        executable = result.get('executable')
+        menu.add_command(label=self.tr('open_game_folder'), state=state(bool(executable)),
+                         command=lambda: executable and open_local(Path(executable).parent))
+        menu.add_separator()
+        menu.add_command(label=self.tr('remove_from_list', count=len(rows)), command=self.remove_selected,
+                         state=state(free))
+        menu.add_command(label=self.tr('clear'), command=self.clear, state=state(free))
+        menu.add_command(label=self.tr('select_all'), command=self.select_all_rows)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
     def remove_selected(self):
         if self.busy:
             return
@@ -1406,8 +1468,12 @@ class Application:
                 control.configure(state=active_state if enabled else 'disabled')
             for system in self.feedback_importing:
                 self.feedback_import_buttons[system].configure(state='disabled')
+        # The credits stay open to visitors during a batch; the compiled games,
+        # the help, the leaderboard and the account are not managed here.
+        self.credits_button.configure(state='normal')
         self.start_button.configure(state='normal' if enabled else 'disabled')
         self.stop_button.configure(state='disabled' if enabled else 'normal')
+        self.update_retry_button()
         self.language_field.configure(state='readonly' if enabled else 'disabled')
         self.system_field.configure(state='readonly' if enabled else 'disabled')
         self.update_output_controls()
@@ -1474,9 +1540,35 @@ class Application:
         self.reconvert_games(games)
 
     def stop(self):
+        """Stop at once: no more games start, and the build or validation
+        processes of the running conversions are killed. Nothing is published
+        before a conversion ends, so earlier exports stay as they were."""
+        if not self.busy or self.cancel.is_set():
+            return False
+        if not messagebox.askyesno(APP_NAME, self.tr('stop_confirm'), icon='warning', default='no', parent=self.app):
+            return False
+        if not self.busy:
+            return False
         self.cancel.set()
+        from .core import stop_processes
+        stop_processes()
         self.stop_button.configure(state='disabled')
         self.set_status('stopping')
+        return True
+
+    def failed_rows(self):
+        return [row for row in self.table.get_children() if self.row_status.get(row) in ('error', 'stopped')]
+
+    def update_retry_button(self):
+        self.retry_button.configure(state='normal' if self.failed_rows() and not self.busy and not self.updating
+                                    else 'disabled')
+
+    def retry_failed(self):
+        rows = self.failed_rows()
+        if not rows or self.busy:
+            return
+        self.table.selection_set(rows)
+        self.start(selected=True)
 
     def check_updates(self):
         """Only the button starts a network request; startup never checks."""
@@ -1627,7 +1719,7 @@ class Application:
                         result = {**self.results[row], **result}
                     self.results[row] = result
                     self.table.set(row, 'video', self.video_display(self.items[row], result))
-                    status_key = {'success': 'created', 'error': 'error',
+                    status_key = {'success': 'created', 'error': 'error', 'stopped': 'stopped',
                                   'duplicate': 'duplicate', 'unrecognized': 'unrecognized',
                                   'skipped': 'skipped', 'existing': 'existing', 'current': 'current'}[result['status']]
                     if result['status'] == 'success' and result.get('conversion_stage') == 'experimental':
@@ -3454,10 +3546,11 @@ class Application:
             messagebox.showinfo(APP_NAME, self.tr('wait_update'))
             return
         if self.busy:
+            # A recompile chosen on the closing card runs to its end first;
+            # otherwise closing means stopping now, once confirmed.
+            if not self.closing_after_recompile and not self.cancel.is_set() and not self.stop():
+                return
             self.close_when_idle = True
-            # A recompile chosen on the closing card runs to its end first.
-            if not self.closing_after_recompile:
-                self.stop()
             return
         if not self.closing_checked and self.offer_closing_card():
             return

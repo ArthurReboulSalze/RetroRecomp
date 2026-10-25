@@ -20,7 +20,7 @@ import subprocess
 import time
 
 from . import __version__
-from .core import ConversionError, executable_name
+from .core import ConversionError, executable_name, run_process
 from .library import atomic_json, entry_lock
 from .paths import ROOT
 from .toolchain import describe as toolchain_description
@@ -51,7 +51,7 @@ def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *e
         ends_at: int | None = None) -> dict:
     folder.mkdir(parents=True, exist_ok=True)
     report, trace = folder / (name + '.json'), folder / (name + '.csv')
-    completed = subprocess.run([str(executable), '--headless', '--frames', str(frames), '--script', str(script),
+    completed = run_process([str(executable), '--headless', '--frames', str(frames), '--script', str(script),
                                 '--trace', str(trace), '--report', str(report), *extra],
                                capture_output=True, text=True, timeout=max(300, frames // 20))
     if completed.returncode:
@@ -106,7 +106,7 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
         raise ConversionError('CPS-1 F9 continuation differs from its saved timeline; existing export preserved.')
     invalid = folder / 'invalid.rrstate'
     invalid.write_bytes(state.read_bytes()[:-17])
-    rejected = subprocess.run([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
+    rejected = run_process([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
                               capture_output=True, timeout=120)
     if rejected.returncode != 4:
         raise ConversionError('CPS-1 accepted a truncated quick state.')

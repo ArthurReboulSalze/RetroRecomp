@@ -11,7 +11,7 @@ import shutil
 from threading import Event, Lock
 import time
 
-from .core import slug, executable_name, ConversionError
+from .core import slug, executable_name, ConversionError, StopRequested, reset_stop
 from .library import atomic_json
 from . import __version__
 from .publishing import publish_executable
@@ -416,7 +416,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         try:
             executable = convert_with(run_settings)
         except Exception as exc:
-            if not legacy:
+            if not legacy or isinstance(exc, StopRequested):
                 raise
             # The earlier export is still in place: nothing was published. Never leave it
             # half-upgraded; convert the game in full, with every route, instead.
@@ -480,6 +480,10 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             interpreter_percent=max((p for p in measured if p is not None), default=None),
             interpreter_cycles=max((c.get("interpreter_cycles", 0) for c in report["final_checks"]), default=0),
             reference_vdp_trace_match=report.get("reference_vdp_trace_match"))
+    except StopRequested:
+        # Killed by Stop: the earlier export, if any, is untouched.
+        result.update(status="stopped", message="Conversion arrêtée ; l’export précédent est conservé.")
+        emit(f"{item.title} : {result['message']}")
     except Exception as exc:
         result.update(status="error", message=str(exc))
         emit(f"{item.title} : {exc}")
@@ -536,6 +540,7 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
 
     stopped = False
     queued = list(range(len(items)))
+    reset_stop()
     with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix='retro-recomp') as executor:
         pending = {}
         while queued or pending:
@@ -625,7 +630,9 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
     record = {"tool": "Retro-Recomp", "version": __version__,
         "created_utc": datetime.now(timezone.utc).isoformat(), "output": str(output),
         "requested": len(items), "jobs": jobs, "cancelled": stopped,
-        "pending": len(items)-len(completed),
+        # Rows killed by Stop count as remaining: they were not converted.
+        "pending": len(items)-len(completed) + sum(r["status"] == "stopped" for r in completed),
+        "stopped": sum(r["status"] == "stopped" for r in completed),
         "succeeded": sum(r["status"] == "success" for r in completed),
         "failed": sum(r["status"] == "error" for r in completed),
         "unrecognized": sum(r["status"] == "unrecognized" for r in completed),

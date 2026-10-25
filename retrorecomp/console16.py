@@ -565,7 +565,7 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         if gun_menu:
             command.extend(('--gun-menu', gun_menu))
     import os
-    import subprocess
+    from .core import run_process
     env = os.environ.copy()
     if reference:
         env.update(GENESIS_FORCE_INTERP='1', SNESRECOMP_LLE_BOUNCE='0', RR_SNES_FORCE_INTERP='1')
@@ -573,7 +573,7 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         env.pop('GENESIS_FORCE_INTERP', None)
         env.pop('SNESRECOMP_LLE_BOUNCE', None)
         env.pop('RR_SNES_FORCE_INTERP', None)
-    result = subprocess.run([str(arg) for arg in command], cwd=directory, env=env,
+    result = run_process([str(arg) for arg in command], cwd=directory, env=env,
         capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
         result.stdout + result.stderr, encoding='utf-8')

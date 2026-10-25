@@ -12,7 +12,8 @@ def probe(exe,output,name,frames,script=None,*extra,mode=None):
           '--report',str(report),'--trace',str(trace)]
     if script:args+=['--script',str(script)]
     if mode=='aes':args+=['--aes']
-    result=subprocess.run([*args,*map(str,extra)],capture_output=True,timeout=max(240,frames/60*4))
+    from .core import run_process
+    result=run_process([*args,*map(str,extra)],capture_output=True,timeout=max(240,frames/60*4))
     if result.returncode:raise RuntimeError(f'{name}: exit {result.returncode}: {result.stderr[-2000:]!r}')
     return json.loads(report.read_text(encoding='utf-8')),list(csv.DictReader(trace.open(newline='')))
 

@@ -13,7 +13,7 @@ import subprocess
 import time
 from . import __version__
 from .paths import ROOT, ASSETS, boxart_cache_directory
-from .core import ConversionError, toolchain, run, executable_name
+from .core import ConversionError, toolchain, run, run_process, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 from .library import atomic_json, entry_lock
@@ -225,7 +225,7 @@ def replay(binary, folder, frames, events, *, reference=False, observe=False, ex
     args+=list(map(str,extra))
     with (folder/'stdout.log').open('wb') as out,(folder/'stderr.log').open('wb') as err:
         # No console window per validation run in the windowed converter.
-        result=subprocess.run(args,stdout=out,stderr=err,timeout=max(360,frames//3),
+        result=run_process(args,stdout=out,stderr=err,timeout=max(360,frames//3),
                               creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     if result.returncode:
         raise ConversionError('X68000 replay failed: '+(folder/'stderr.log').read_text(errors='replace')[-2000:])

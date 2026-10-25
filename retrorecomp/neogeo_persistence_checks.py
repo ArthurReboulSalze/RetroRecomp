@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from .core import ConversionError
+from .core import ConversionError, run_process
 
 
 def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None,mode=None) -> dict:
@@ -17,7 +17,7 @@ def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None,
                   '--rtc-seed','1760000000','--report',str(report)]
             if script:args+=['--script',str(script)]
             if mode=='aes':args+=['--aes']
-            run=subprocess.run(args,capture_output=True,timeout=240)
+            run=run_process(args,capture_output=True,timeout=240)
             if run.returncode:raise ConversionError(f'Neo Geo ordinary save {label} failed ({run.returncode}).')
             data=json.loads(report.read_text(encoding='utf-8'))
             return data

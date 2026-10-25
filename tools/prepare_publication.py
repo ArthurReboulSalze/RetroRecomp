@@ -104,6 +104,7 @@ retrorecomp/queue_state.py tests/test_queue_state.py
 tools/queue_recovery_selftest.py
 tests/test_freshness.py
 tests/test_gui_shutdown.py
+tests/test_stop_now.py
 retrorecomp/feedback.py native/runtime_feedback.c native/runtime_feedback.h native/runtime_feedback_sdl.h
 tools/runtime_feedback_selftest.py native/runtime_feedback_checks.c tests/test_feedback.py
 tools/gameplay_feedback_selftest.py

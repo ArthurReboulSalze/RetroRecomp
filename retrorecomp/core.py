@@ -12,7 +12,7 @@ import unicodedata
 import zlib
 import time
 from functools import wraps
-from threading import RLock
+from threading import Event, Lock, RLock
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +60,63 @@ def serialized_setup(function):
 
 class ConversionError(RuntimeError):
     pass
+
+
+class StopRequested(ConversionError):
+    """The player pressed Stop: the running step was killed on purpose."""
+
+
+# Stop, from the window: every build or validation process of the batch is
+# registered while it runs, so it can be killed at once rather than finishing
+# a conversion that may last minutes. Nothing is published before the end of a
+# conversion, so an earlier export is never left half replaced.
+_STOP = Event()
+_PROCESSES: set[subprocess.Popen] = set()
+_PROCESSES_LOCK = Lock()
+
+
+def reset_stop() -> None:
+    _STOP.clear()
+
+
+def stop_requested() -> bool:
+    return _STOP.is_set()
+
+
+def stop_processes() -> int:
+    """Kill the registered processes; later run_process calls raise at once."""
+    _STOP.set()
+    with _PROCESSES_LOCK:
+        running = list(_PROCESSES)
+    for process in running:
+        try:
+            process.kill()
+        except OSError:
+            pass
+    return len(running)
+
+
+def run_process(args, *, timeout=None, capture_output=False, input=None, **kwargs) -> subprocess.CompletedProcess:
+    """subprocess.run for the conversion path, interruptible by Stop."""
+    if _STOP.is_set():
+        raise StopRequested('Arrêt demandé.')
+    if capture_output:
+        kwargs['stdout'] = kwargs['stderr'] = subprocess.PIPE
+    with subprocess.Popen(args, **kwargs) as process:
+        with _PROCESSES_LOCK:
+            _PROCESSES.add(process)
+        try:
+            out, err = process.communicate(input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            raise
+        finally:
+            with _PROCESSES_LOCK:
+                _PROCESSES.discard(process)
+    if _STOP.is_set():
+        raise StopRequested('Arrêt demandé.')
+    return subprocess.CompletedProcess(args, process.returncode, out, err)
 
 
 def module_fingerprint(name: str) -> str:
@@ -213,7 +270,7 @@ def run(args: list[str | Path], *, cwd: Path = ROOT, log: Path | None = None,
     command = [str(arg) for arg in args]
     from .toolchain import reset_incompatible_cache
     reset_incompatible_cache(command, cwd)
-    result = subprocess.run(command, cwd=cwd, stdout=subprocess.PIPE,
+    result = run_process(command, cwd=cwd, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, encoding="utf-8", errors="replace", timeout=timeout,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     if log:

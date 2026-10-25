@@ -37,6 +37,18 @@
   scrolls when the window is short: a light scrollbar appears, and the wheel
   scrolls anywhere on the page (no longer changing a list under the
   pointer). Signing out asks for confirmation.
+- **Stop means stop.** The Stop button now interrupts the running conversions
+  at once (their compiler and validation processes are killed) instead of
+  waiting for them to finish; it asks first, and earlier exports are kept
+  since nothing is published before a conversion ends. Stopped rows are
+  marked as such, and a **Retry** button converts the failed or stopped games
+  again, in one more batch. During a batch, the compiled games, the help, the
+  leaderboard and the credits stay open.
+- **Right-click in the queue.** The ROM list has the same kind of menu as the
+  compiled games: play, convert the selection, retry, box art, video
+  standard, open the ROM or game folder, remove from the list (the ROM files
+  stay on disk; Delete does the same), clear, select all. The remove button
+  left the toolbar.
   Your portrait and score come from a local cache, refreshed at most every 30
   minutes, instead of a request at every start.
 - **What counts on the leaderboard.** Only Master System, Game Gear, Game Boy,

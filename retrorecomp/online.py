@@ -197,8 +197,9 @@ def profile() -> dict | None:
 
 
 def avatar(limit: int = 2 * 1024 * 1024) -> bytes | None:
-    """The player's own portrait as the server re-encoded it (WebP, 256 px),
-    pending or approved; None without an account or a portrait."""
+    """The player's own portrait as the server re-encoded it (WebP, 256 px):
+    public as soon as it is sent (the maintainer moderates afterwards), or a
+    legacy pending one; None without an account or a portrait."""
     current = account()
     if not current:
         return None

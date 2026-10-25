@@ -44,8 +44,11 @@ class ShutdownTests(unittest.TestCase):
             with self.subTest(event=event[0]):
                 application = self.application()
                 with patch('retrorecomp.gui.messagebox.showinfo') as info, \
+                        patch('retrorecomp.gui.messagebox.askyesno', return_value=True) as ask, \
                         patch('retrorecomp.gui.save_preferences') as save:
                     application.close()
+                    # Closing a busy window stops it now, once confirmed.
+                    ask.assert_called_once()
                     self.assertTrue(application.cancel.is_set())
                     self.assertTrue(application.close_when_idle)
                     application.app.destroy.assert_not_called()

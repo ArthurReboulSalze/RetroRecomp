@@ -743,7 +743,8 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     references={};seeds=set();ram=[];main_ram=[];physical={'p':set(),'bios':set()}
     def probe(binary,name,frames,script):
         destination=observations/(name+'.json')
-        result=subprocess.run([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
+        from .core import run_process
+        result=run_process([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
             '--rtc-seed','1760000000','--report',str(destination)],capture_output=True,timeout=max(180,frames/60*4))
         if result.returncode:raise probe_failure(name, result)
         return json.loads(destination.read_text(encoding='utf-8'))
