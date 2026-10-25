@@ -1260,6 +1260,82 @@ those ROMs. As for imported files, an upload is not qualification evidence:
 only the maintainer's qualified conversions can add a game to a future bundled
 snapshot.
 
+Right after each accepted file, the converter sends its **claims**: for every
+game of that exact file, the short path keys that `discovery_paths` computes
+from it (hints the bundled snapshot lacks and raw observation keys, at most
+4,096 of each), whether the snapshot already knew the ROM, and the scan level
+of the qualified conversion (standard for raw observations alone). The claims
+carry no other data; they let the first finder's points count at once.
+Large claims leave in several requests, gzipped. Claims that could not be
+delivered (offline, service busy) wait in `datas/account-claims.json` for the
+next send; claims the service refuses for good are mentioned once in the log.
+With a service that does not know claims, the converter sends the scan levels
+as 1.5.0 did.
+
+**Shared paths before a batch, new discoveries after it** (1.5.1). Two
+options of Options › Common › Retro-Recomp account, shown once signed in and
+both on by default, connect each batch to the shared base. A batch from the
+queue and a reconversion from the collection behave the same way.
+
+*Use the shared base.* Before the batch, the converter asks the shared base,
+in one request per 128 ROMs, for the paths other players sent for the batch's
+exact ROMs (Master System, Game Gear, Game Boy, NES, Mega Drive and Super
+Nintendo). The player's own uploads are not served back. Each ROM keeps the
+cursor of what it already received, with the best scan level received, in
+`datas/knowledge/shared-cursors.json`, beside the imported banks (removing
+that folder starts the sync over). Only newer contributions come back; a ROM
+whose answer is full is asked again from its new cursor, ten times at most.
+What arrives is the same ROM-free numbers as a shared file: every record and
+observation row is validated like an imported file and joins
+`imported.json.gz` and `imported-observations.json.gz` (an invalid one is
+skipped; the banks keep their bounds). The log says how many games received
+paths, or that nothing new came.
+
+These paths are then checked exactly like imported hints. Every conversion
+still compares native code with the reference CPU. A conversion that fails
+while the imported banks hold hints or observations for its ROM runs once
+more without them; if that succeeds they leave the banks (logged in
+`imported-rejected.json`) and their level no longer allows a quick check.
+New shared paths also change the game's knowledge stamp, so an export made
+without them is converted again.
+
+The quick path rule: when the best scan level received for a ROM is at least
+the level chosen for its console (each console page of Options), and the
+imported banks hold its shared paths, the conversion skips discovery. It runs
+the quick level from those paths (one pass, capped frames, no long routes),
+like an upgrade of the player shell. When the shared level is lower, discovery
+runs normally at the chosen level, starting from them. Forcing from the queue
+always rediscovers. The log says which ("shared paths, level standard: quick
+check instead of discovery", or "…: thorough discovery starting from them"),
+and the conversion report records `shared_paths: {level, records, quick}`. A
+quick check measures native code against the reference CPU on the quick
+routes only, and still reports any interpreter fallback; it is not a gameplay
+validation and says nothing about hardware fidelity beyond those checks.
+
+*Send my new discoveries after each batch.* Once the batch is over, a
+background worker collects the discoveries as **Send** does, uploads the games
+whose discoveries changed since the last send with this account, then sends
+the claims of each accepted file. Paths learned from the shared base and
+revalidated by the player's own conversion leave like any discovery; another
+player's path found again counts as a confirmation. The window stays usable;
+nothing runs while an update installs. A failure is one log line, and the
+games stay pending for the next batch.
+
+Without an account, with an option off, offline, or with
+`RETRO_RECOMP_SERVICE` empty, nothing is fetched or sent and the conversions
+run as before (an offline batch still uses the paths received earlier).
+
+What the player sees: a path the shared base did not have yet earns its points
+at once for the first player who sends it; a later player's identical path
+earns no points but confirms it. Once confirmed by another player or by a
+release, the path can rise to Platinum or Diamond and brings RR coins;
+confirming paths also brings a few coins. The header shows the points, the RR
+coins balance beside them and, under the pseudonym, the title chosen on the
+site. Options › Common › Retro-Recomp account shows the balance and a
+**Titles on the site** button: titles are bought with RR coins and chosen on
+the account page of retro-recomp.com. The leaderboard shows each player's
+title.
+
 ## Release 0.24.0 snapshot
 
 | Console | Exact cartridge records |

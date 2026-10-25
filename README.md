@@ -74,11 +74,15 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
   numbers travel: addresses and positions in the ROM, never ROM bytes. Imported
   hints are always rechecked, and set aside if they make a conversion fail.
 - **The shared base and its leaderboard.** Sign in at
-  [retro-recomp.com](https://retro-recomp.com) with an e-mailed code and send
-  your discoveries from the Knowledge menu or when closing. Your portrait,
-  points and rank sit in the converter's header; confirmed paths earn Gold,
-  Platinum and Diamond points on the leaderboard. Every upload is rechecked
-  before it can help a future version.
+  [retro-recomp.com](https://retro-recomp.com) with an e-mailed code. Before
+  each batch, the converter fetches the paths other players found for your
+  exact ROMs (checked again by every conversion; when they come from a scan at
+  least as long as yours, a quick check replaces discovery), and after it,
+  sends your new discoveries in the background. Both are options. A new path
+  earns points at once for its first finder; confirmed paths rise to Platinum
+  or Diamond and bring RR coins, which buy a title shown under your pseudonym.
+  Your portrait, points, coins and title sit in the converter's header. Every
+  upload is rechecked before it can help a future version.
 
 **Play**
 
