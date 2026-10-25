@@ -17,6 +17,13 @@ def layout_bytes(data, mapping):
         raise ConversionError('SNES cartridge RAM above 128 KiB is not supported yet.')
     from .snes_chips import identify
     circuit=identify(data)
+    if circuit=='superfx':
+        # Same rule as the pinned loader: version-3 headers ($33 maker) give
+        # Game Pak RAM in $FFBD; older boards (Star Fox) default to 64 KiB.
+        extended=data[offset-3] if data[offset+26]==0x33 else 0
+        size=1<<(10+extended) if 1<=extended<=8 else 0x10000
+        return {'bytes': size, 'battery': chip in (0x15,0x1a),
+                'mapping': detected, 'rom_bytes': len(data), 'chip': circuit}
     size = (1 << (10+exponent)) if chip in (1, 2, 3, 5) and exponent else 0
     return {'bytes': size, 'battery': chip in (2,5) and bool(size),
             'mapping': detected, 'rom_bytes': len(data),'chip':circuit}
@@ -27,7 +34,9 @@ def layout(rom):
 
 
 def ram_offset(memory, address):
-    if not isinstance(address, int) or not 0 <= address <= 0xffffff or not memory['bytes']:
+    if (not isinstance(address, int) or not 0 <= address <= 0xffffff or not memory['bytes']
+            or memory.get('chip')=='superfx'):
+        # Game Pak RAM shared with the GSU is never a guarded 65816 code window.
         return None
     bank, adr = address >> 16, address & 0xffff
     if bank in (0x7e, 0x7f):

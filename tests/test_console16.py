@@ -164,10 +164,10 @@ class Console16Tests(unittest.TestCase):
                     self.assertEqual((rom.title, rom.mapping, rom.standard), ('SFC ｶﾀｶﾅ', mapping, standard))
                     self.assertEqual(rom.data, payload)
                     self.assertEqual(path.read_bytes(), payload)
-                    payload[offset+22] = 0x13
+                    payload[offset+22] = 0x34
                     with patch('retrorecomp.console16.dependencies16') as dependencies:
                         with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
-                            conversion_rom(self.source('Japanese SuperFX.sfc', payload), 'snes')
+                            conversion_rom(self.source('Japanese SA-1.sfc', payload), 'snes')
                         dependencies.assert_not_called()
 
     def test_snes_header_titles_reject_non_jis_bytes_and_still_reject_bad_checksums(self):
@@ -273,11 +273,11 @@ class Console16Tests(unittest.TestCase):
         self.assertIn('retired_instruction_count', reference_differences('snes', native, reference))
 
     def test_unsupported_16bit_hardware_rejected_before_dependencies(self):
-        payload = bytearray(snes()); payload[0x7fd6] = 0x13
+        payload = bytearray(snes()); payload[0x7fd6] = 0x34
         with patch('retrorecomp.console16.dependencies16') as dependencies:
             from retrorecomp.console16 import prepare16
             with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
-                prepare16(self.source('SuperFX.sfc', payload), 'snes')
+                prepare16(self.source('SA-1.sfc', payload), 'snes')
             large = md() + bytes(0x400000)
             with self.assertRaisesRegex(ConversionError, 'bank mapper'):
                 prepare16(self.source('Banked.md', large), 'md')

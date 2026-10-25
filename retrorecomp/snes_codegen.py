@@ -71,7 +71,7 @@ def native_source(source: str, rom: bytes, ram_variants=(), *, mapping='lorom',r
     cart_type = 'CART_LOROM' if mapping == 'lorom' else 'CART_HIROM'
     from .snes_chips import identify
     cart_type={'none':cart_type,'dsp1-lo':'CART_DSP1','dsp1-hi':'CART_DSP1_HIROM',
-               'cx4':'CART_CX4'}[identify(rom)]
+               'cx4':'CART_CX4','superfx':'CART_SUPERFX'}[identify(rom)]
     rom_mapping=mapping
     bodies, cycles = operation_bodies(source), cycle_costs(source)
     functions = []
@@ -138,11 +138,24 @@ bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
     }}
     return true;
 }}
+static uint8_t *rr_sn_rom_ptr(uint8_t bank, uint16_t adr) {{
+    /* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
+     * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
+     * ($40-$5F) views; the fetched-opcode check below still rejects a byte the
+     * GSU bus replaced while the coprocessor owns ROM. */
+    if (g_snes->cart->type != CART_SUPERFX) return cart_getRomPtr(g_snes->cart, bank, adr);
+    uint8_t b = bank & 0x7f;
+    if (b < 0x40 && adr >= 0x8000)
+        return &g_snes->cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % g_snes->cart->romSize];
+    if (b >= 0x40 && b < 0x60)
+        return &g_snes->cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % g_snes->cart->romSize];
+    return NULL;
+}}
 static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_enabled || !g_snes || !g_snes->cart || g_snes->cart->type != {cart_type} ||
         g_snes->cart->romSize != {len(bus_rom)}u ||
         g_snes->cart->romImageSize != {len(rom)}u) return NULL;
-    uint8_t *mapped = cart_getRomPtr(g_snes->cart, (uint8_t)(pc>>16), (uint16_t)pc);
+    uint8_t *mapped = rr_sn_rom_ptr((uint8_t)(pc>>16), (uint16_t)pc);
     {ram_lookup}
     size_t offset = (size_t)(mapped - g_snes->cart->rom);
     if (offset >= {len(bus_rom)}u) return NULL;

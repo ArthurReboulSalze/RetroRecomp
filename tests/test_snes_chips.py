@@ -21,7 +21,7 @@ class ChipTests(unittest.TestCase):
         for mode,kind,sub,want in ((0x20,3,0,'dsp1-lo'),(0x31,5,0,'dsp1-hi'),(0x20,0xf3,0x10,'cx4')):
             rom=self.rom(mode,kind,sub);self.assertEqual(identify(rom.data),want)
             validate_cartridge(rom)
-        for mode,kind,sub in ((0x30,3,0),(0x20,5,0),(0x30,5,0),(0x20,0xf3,0),(0x20,0x13,0),(0x20,0x43,0)):
+        for mode,kind,sub in ((0x30,3,0),(0x20,5,0),(0x30,5,0),(0x20,0xf3,0),(0x20,0x16,0),(0x21,0x13,0),(0x20,0x43,0)):
             with self.subTest(mode=mode,kind=kind):
                 with self.assertRaises(ConversionError):identify(self.rom(mode,kind,sub).data)
     def test_support_remains_scoped_to_qualified_circuits(self):
@@ -31,7 +31,7 @@ class ChipTests(unittest.TestCase):
                     self.assertEqual(support_stage(self.rom(mode,kind,ram=int(kind!=0))),'supported')
         for mode,kind,sub in ((0x20,3,0),(0x31,5,0),(0x20,0xf3,0x10)):
             self.assertEqual(support_stage(self.rom(mode,kind,sub)),'supported')
-        for mode,kind in ((0x23,0x35),(0x20,0x13),(0x20,0x43)):
+        for mode,kind in ((0x23,0x35),(0x20,0x16),(0x20,0x43)):
             with self.assertRaises(ConversionError):support_stage(self.rom(mode,kind))
     def test_dsp1_battery_window_does_not_become_code_or_overlap_ports(self):
         rom=self.rom(0x31,5,ram=1);memory=layout_bytes(rom.data,rom.mapping)
@@ -47,6 +47,23 @@ class ChipTests(unittest.TestCase):
             self.assertIn('g_snes->cart->romImageSize != 65536u',source)
             self.assertIn('fetched==operation->opcode',source)
             self.assertIn('cart_getRomPtr',source)
+    def test_superfx_boards_are_experimental_with_their_game_pak_ram(self):
+        for kind,battery in ((0x13,False),(0x14,False),(0x15,True),(0x1a,True)):
+            with self.subTest(kind=kind):
+                rom=self.rom(0x20,kind)
+                self.assertEqual(identify(rom.data),'superfx')
+                self.assertEqual(support_stage(rom),'experimental')
+                memory=layout_bytes(rom.data,rom.mapping)
+                # Without a version-3 header ($33 maker) the loader's 64 KiB default applies.
+                self.assertEqual((memory['bytes'],memory['battery']),(0x10000,battery))
+                # Game Pak RAM shared with the GSU never becomes guarded 65816 code.
+                for addr in (0x700000,0x710000,0x006000,0x7fe000):self.assertIsNone(ram_offset(memory,addr))
+        data=bytearray(self.rom(0x20,0x15).data);data[0x7fda]=0x33;data[0x7fbd]=5
+        self.assertEqual(layout_bytes(bytes(data),'lorom')['bytes'],0x8000)
+        source=native_source(source_fixture(),self.rom(0x20,0x14).data,mapping='lorom')
+        self.assertIn('g_snes->cart->type != CART_SUPERFX',source)
+        self.assertIn('rr_sn_rom_ptr',source)
+        self.assertIn('fetched==operation->opcode',source)
     def test_sa1_header_is_identified_before_explicit_hardware_refusal(self):
         rom=self.rom(0x23,0x35)
         self.assertEqual(snes_header(rom.data),(0x7fc0,'lorom'))

@@ -21,6 +21,7 @@
 #include "snes/saveload.h"
 #include "snes_battery.h"
 #include "snes/cx4.h"
+#include "snes/superfx.h"
 #include "snes/dsp1.h"
 
 static uint32_t pixels[RR16_WIDTH * RR16_HEIGHT];
@@ -182,7 +183,8 @@ int rr16_visible_height(void) { return raster_height*row_density; }
 int rr16_raster_height(void) { return raster_height; }
 static uint64_t chip_interpreted(void) {
     return !g_snes ? 0 : cx4_instructions_executed(g_snes->cart->cx4)+
-        dsp1_instructions_executed(g_snes->cart->dsp1);
+        dsp1_instructions_executed(g_snes->cart->dsp1)+
+        (g_snes->cart->superfx ? g_snes->cart->superfx->instruction_count : 0);
 }
 uint64_t rr16_interpreted(void) { return interpreted+chip_interpreted(); }
 uint64_t rr16_native_entries(void) { return native_entries; }
@@ -211,13 +213,14 @@ void rr16_report_details(FILE *file) {
     HashStream chip={{hash_state,NULL},14695981039346656037ull};
     if(cart->cx4) { cx4_saveload(cart->cx4,&chip.stream);cx4_saveload_clock(cart->cx4,&chip.stream); }
     if(cart->dsp1)dsp1_saveload(cart->dsp1,&chip.stream);
+    if(cart->superfx)superfx_saveload(cart->superfx,&chip.stream);
     uint64_t commands=0;
     if(cart->dsp1)for(unsigned n=0;n<256;n++)commands+=dsp1_command_count(cart->dsp1,n);
     fprintf(file,",\"cartridge_chip\":\"%s\",\"coprocessor_mode\":\"%s\","
         "\"coprocessor_state_hash\":\"%016llx\",\"coprocessor_instructions\":%llu,"
         "\"coprocessor_failed\":%u,\"main_interpreted_opcodes\":%llu",
-        cart->cx4 ? "cx4" : cart->dsp1 ? "dsp1" : "none",
-        cart->cx4 ? "interpreted" : cart->dsp1 ? "command_model" : "not_run",chip.hash,
+        cart->cx4 ? "cx4" : cart->dsp1 ? "dsp1" : cart->superfx ? "superfx" : "none",
+        cart->cx4 || cart->superfx ? "interpreted" : cart->dsp1 ? "command_model" : "not_run",chip.hash,
         chip_interpreted(),cart->cx4 ? cx4_locked(cart->cx4) : cart->dsp1 ? dsp1_hle_failed(cart->dsp1) : 0,
         interpreted);
     fprintf(file,",\"coprocessor_commands\":%llu,\"coprocessor_failed_command\":%u",commands,

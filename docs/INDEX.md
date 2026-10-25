@@ -62,6 +62,7 @@ private evidence under `.build/` that is not published.
 - [MEGADRIVE_VIDEO.md](MEGADRIVE_VIDEO.md) — Mega Drive video qualification.
 - [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md) — Z80 machine-cycle placement.
 - [SNES.md](SNES.md) — Super Nintendo development and qualification.
+- [SNES_SUPERFX.md](SNES_SUPERFX.md) — Super FX (GSU) study, experimental first slice and costed plan.
 
 ### Neo Geo
 

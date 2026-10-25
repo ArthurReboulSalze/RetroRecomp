@@ -281,7 +281,7 @@ native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
 tools/snes_ram_selftest.py
 native/snes_video_checks.c tools/snes_video_selftest.py tools/snes_object_selftest.py
 tests/test_snes_video.py
-docs/SNES.md
+docs/SNES.md docs/SNES_SUPERFX.md
 native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
 retrorecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py

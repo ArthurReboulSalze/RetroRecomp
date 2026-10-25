@@ -1,7 +1,11 @@
-"""Explicit DSP-1 and CX4 integration; other cartridge circuits remain gated."""
+"""Explicit DSP-1, CX4 and Super FX integration; other cartridge circuits remain gated."""
 from .cartridge16 import snes_header
 from .core import ConversionError
 from .snes_timing import replace
+
+# Super FX (MARIO chip, GSU-1, GSU-2) boards: map $20, cartridge type $13-$15 or
+# $1A. The GSU itself runs on the pinned engine's counted instruction core.
+SUPERFX_TYPES=(0x13,0x14,0x15,0x1a)
 
 REPORT_FIELDS=('cartridge_chip','coprocessor_mode','coprocessor_state_hash',
                'coprocessor_instructions','coprocessor_failed','coprocessor_commands')
@@ -31,12 +35,13 @@ def identify(data):
     if mode==0x20 and kind==0xf3 and offset>=16 and data[offset-1]==0x10:return 'cx4'
     if mode==0x20 and kind==3:return 'dsp1-lo'
     if mode==0x31 and kind==5 and mapping=='hirom':return 'dsp1-hi'
+    if mode==0x20 and kind in SUPERFX_TYPES and mapping=='lorom':return 'superfx'
     family=({1:'Super FX',3:'SA-1',4:'S-DD1'}.get(kind>>4) or
             ('DSP-4' if mode==0x30 and kind==3 else
              'DSP-2' if mode==0x20 and kind==5 else
              'SPC7110' if mode==0x3a and kind in (0xf5,0xf9) else 'custom circuitry'))
     raise ConversionError(f'SNES enhancement chip {family} is not integrated yet (map ${mode:02X}, type ${kind:02X}). '
-                          'DSP-2/3/4, Super FX, SA-1, S-DD1 and other custom chips remain unsupported.')
+                          'DSP-2/3/4, SA-1, S-DD1 and other custom chips remain unsupported.')
 
 
 def cart_header(source):

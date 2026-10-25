@@ -725,6 +725,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         from .snes_chips import identify
         chip=identify(rom.data)
         if chip=='cx4':emit('CX4 device uses its counted instruction interpreter; main/audio native coverage is measured separately.')
+        elif chip=='superfx':emit('Super FX (GSU) uses its counted instruction interpreter; main/audio native coverage is measured separately.')
         elif chip.startswith('dsp1'):emit('DSP-1 uses a firmware-free command model; unsupported commands stop validation.')
     for limitation in cartridge_profile.get('limitations', ()):
         emit('Limitation: ' + limitation)

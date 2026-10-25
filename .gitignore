@@ -83,6 +83,7 @@ docs/*
 !docs/NEOGEO.md
 !docs/CPS1.md
 !docs/SNES.md
+!docs/SNES_SUPERFX.md
 !docs/CONSOLES_16BIT.md
 !docs/MEGADRIVE_CPU_EXCEPTIONS.md
 !docs/MEGADRIVE_VIDEO.md

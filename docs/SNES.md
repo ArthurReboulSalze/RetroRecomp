@@ -320,8 +320,9 @@ conversion validation. Device snapshots include their protocol/matrix/cache
 state, fractional clocks and absolute clock anchors. Firmware files in the
 working directory cannot silently replace the selected device model.
 
-Super FX, SA-1, S-DD1, SPC7110 and other custom circuitry remain unsupported by
-this integration. Credible SA-1 headers are now recognized and receive an
+SA-1, S-DD1, SPC7110 and other custom circuitry remain unsupported by this
+integration. Super FX boards are experimental on the study branch, with the
+GSU as a counted interpreted device; see [SNES_SUPERFX.md](SNES_SUPERFX.md). Credible SA-1 headers are now recognized and receive an
 explicit circuit-support error, instead of being mistaken for invalid ROMs.
 Their presence in the imported engine is not product qualification.
 
