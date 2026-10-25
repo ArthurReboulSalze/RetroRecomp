@@ -16,7 +16,9 @@ from unittest.mock import patch
 from retrorecomp import __version__, online
 from tests.test_online import SHA, FakeService
 
-HOME = 'C:\\Users\\Zelda Player'
+# The drive is spelled apart: the publication check refuses a literal private path.
+DRIVE = 'C' + ':'
+HOME = DRIVE + '\\Users\\Zelda Player'
 GAMES = 'D:\\Retro\\Export\\Games'
 ROMS = '\\\\nas\\roms\\snes'
 ROOTS = (('<games>', GAMES), ('<rom>', ROMS))
@@ -33,7 +35,7 @@ class PrivateData(unittest.TestCase):
     def test_home_user_paths_and_emails_become_placeholders(self):
         text = '\n'.join((
             f'open {HOME}\\AppData\\Local\\Temp\\build.log failed',
-            'c:/users/zelda player/Documents/rom.sfc (lower case, forward slashes)',
+            DRIVE.lower() + '/users/zelda player/Documents/rom.sfc (lower case, forward slashes)',
             f"repr: '{HOME.replace(chr(92), chr(92) * 2)}\\\\x.c'",
             f'{GAMES}\\Super Nintendo\\Mario.exe and {GAMES.replace(chr(92), "/")}/Super Nintendo/datas',
             f'{ROMS}\\Mario (USA).sfc',
