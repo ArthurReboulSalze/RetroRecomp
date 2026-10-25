@@ -1,5 +1,22 @@
-# RetroRecomp v1.5.2 — a shop for your coins, problem reports, a lighter start
+# RetroRecomp v1.5.2 — Mega Drive and Super Nintendo fixed on Windows, a shop for your coins, problem reports
 
+- **Mega Drive and Super Nintendo convert again on Windows.** In 1.5.1 the
+  Windows converter stopped every Mega Drive and Super Nintendo game before
+  its first check (`name 'subprocess' is not defined`). Linux was not
+  affected. Games that failed this way are converted normally by 1.5.2.
+- **Your 1.5.1 exports are kept.** Games converted by 1.5.1 (Master System,
+  Game Gear, Game Boy, NES, Neo Geo, CPS-1) are rebuilt with the current
+  tools and rechecked on the quick routes instead of being converted again;
+  1.4.1 exports stay upgradable too.
+- **The players' discoveries are in the converter.** The bundled knowledge
+  now holds the paths players sent to the shared base: 33 games, each
+  rechecked here first (native code compared with the reference CPU on the
+  quick routes; the fallback interpreter ran 576 main-CPU opcodes in
+  *Ball Bullet Gun*, none in the 32 others). 27 Super Nintendo games
+  (BASS Masters Classic to Bazooka Blitzkrieg), 3-D WorldRunner and The
+  Addams Family on the NES are new to it; Battletoads, Menacer, Shining
+  Force and Super Mario Land gain paths. The players keep their points,
+  coins and the record of what they found.
 - **The RR coin shop.** Coins now buy more than titles: a name style (gold,
   gradient, sparkle), console badges, a trophy pin, a header theme for the
   converter (neon, night, gold) and portrait frames (gold, platinum,
