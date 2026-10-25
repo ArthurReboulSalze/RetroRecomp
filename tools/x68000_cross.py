@@ -1,6 +1,7 @@
 """X68000: two builds of one exported game, frame by frame, and a quick state across them.
 
     python tools/x68000_cross.py A.exe B.exe [--frames N] [--save-at N] [--resume N] [--events FILE]
+                                 [--same-compiler]
 
 A and B are the Visual Studio and the portable-toolchain builds of one game.
 Both run headless from a cold start (with the same optional input events);
@@ -8,6 +9,10 @@ their per-frame traces (CPU, memory, image and sound hashes) must be identical.
 Each build writes a quick state and resumes it in a fresh process on its own
 timeline. A state of the other compiler is refused: the X68000 state key
 includes the compiler, by design.
+
+With --same-compiler, A and B are two builds of one compiler, such as the
+uncompressed and the UPX-compressed Linux export of one game: the state of
+each must then resume in the other, on the timeline of the build that wrote it.
 """
 import argparse
 from pathlib import Path
@@ -42,6 +47,8 @@ def main() -> int:
     parser.add_argument('--save-at', type=int, default=800)
     parser.add_argument('--resume', type=int, default=300)
     parser.add_argument('--events', type=Path, help='input events file, as written by the converter')
+    parser.add_argument('--same-compiler', action='store_true',
+                        help='A and B share a compiler: each resumes the state of the other')
     args = parser.parse_args()
     events = ['--input-events', args.events.resolve()] if args.events else []
     exes = {'a': args.first.resolve(), 'b': args.second.resolve()}
@@ -59,7 +66,7 @@ def main() -> int:
         # The state key includes the compiler's identity (x68000_reference/CMakeLists.txt): a build
         # resumes its own states, and refuses another compiler's, by design.
         result['own_states_resume'] = True
-        result['other_compiler_state_refused'] = True
+        result['other_build_states_resume' if args.same_compiler else 'other_compiler_state_refused'] = True
         result['state_bytes'] = {}
         for name, exe in exes.items():
             resumed = replay(exe, folders[name] / 'resume', args.resume, '--state-load-start', '--state-slot', slots[name], *events)
@@ -67,6 +74,13 @@ def main() -> int:
             result['own_states_resume'] &= bool(own) and own == columns(resumed)[2:2 + len(own)]
             result['state_bytes'][name] = slots[name].stat().st_size
         for name, other in (('a', 'b'), ('b', 'a')):
+            if args.same_compiler:
+                resumed = replay(exes[name], folders[name] / 'other', args.resume, '--state-load-start',
+                                 '--state-slot', slots[other], *events)
+                written = columns(rows[other])[args.save_at + 2:args.save_at + 1 + args.resume]
+                result['other_build_states_resume'] &= (bool(written) and
+                                                        written == columns(resumed)[2:2 + len(written)])
+                continue
             try:
                 replay(exes[name], folders[name] / 'foreign', 20, '--state-load-start', '--state-slot', slots[other], *events)
             except RuntimeError as error:
@@ -77,6 +91,8 @@ def main() -> int:
     import json
     print(json.dumps(result, indent=2))
     good = result['same_trace_in_both_builds'] and result['own_states_resume'] and result['same_state_size']
+    if args.same_compiler:
+        good = good and result['other_build_states_resume']
     return 0 if good else 1
 
 
