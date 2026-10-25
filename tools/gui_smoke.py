@@ -168,6 +168,42 @@ def smoke(window):
         assert recover.call_args.args[0] == 'sms'
         assert application.feedback_status['sms'].get() == application.tr('feedback_import_summary',**report,kib=192/1024)
         assert str(application.feedback_import_buttons['sms'].cget('state')) == 'normal'
+    # Options › Common › Disk space: measured off Tk, removed only once confirmed.
+    from retrorecomp.build_cleanup import Project
+    assert application.disk_frame.cget('text') == application.tr('options_disk_space')
+    megabyte = 1048576
+    leftovers = [Project(Path(fixtures.name) / 'gb_A_0123456789ab_9150f87d', 'gb', 300 * megabyte),
+                 Project(Path(fixtures.name) / 'nes_B_0123456789ab_1b0c621a_ntsc', 'nes', 2048 * megabyte),
+                 Project(Path(fixtures.name) / 'sms_C_00000000_0123456789ab', 'sms', 5 * megabyte, in_use=True)]
+    freed = {'removed': 2, 'freed': 2348 * megabyte, 'kept': 0, 'kept_bytes': 0, 'errors': []}
+    def settle(condition):
+        deadline = time.monotonic() + 10
+        while not condition() and time.monotonic() < deadline:
+            window.update()
+            time.sleep(.01)
+        assert condition()
+    with patch('retrorecomp.build_cleanup.leftover_projects', return_value=leftovers), \
+            patch('retrorecomp.build_cleanup.remove_projects', return_value=freed) as remove, \
+            patch('retrorecomp.gui.messagebox.askyesno', side_effect=[False, True]) as ask:
+        application.measure_disk_space()
+        settle(lambda: application.disk_state['phase'] == 'measured')
+        assert application.size_text(2348 * megabyte) == '2.3 GB'
+        assert application.disk_button.cget('text') == application.tr('disk_space_free_size', size='2.3 GB')
+        assert str(application.disk_button.cget('state')) == 'normal'
+        assert application.disk_status.get() == (application.tr('disk_space_found', count=2, size='2.3 GB') + ' ' +
+                                                 application.tr('disk_space_in_use', count=1, size='5 MB'))
+        application.disk_button.invoke()                      # declined: nothing removed
+        assert not remove.called and not application.busy
+        application.disk_button.invoke()
+        assert '2.3 GB' in ask.call_args.args[1]
+        settle(lambda: not application.busy)
+        assert list(remove.call_args.args[0]) == leftovers[:2]   # never the folder in use
+        assert application.disk_status.get() == application.tr('disk_space_done', size='2.3 GB', count=2)
+        assert str(application.disk_button.cget('state')) == 'disabled'
+        assert str(application.start_button.cget('state')) == 'normal'
+        application.language = 'fr'
+        assert application.size_text(2348 * megabyte) == '2,3 Go'
+        application.language = 'en'
     assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
     assert not application.cover_3d.get()
     application.gb_deep_control.invoke()
@@ -338,7 +374,8 @@ def smoke(window):
         assert open_notebook.tab(0, 'text') == application.tr('options_common')
         common_page = open_notebook.nametowidget(open_notebook.tabs()[0])
         frames = {w.cget('text') for w in descendants(common_page) if w.winfo_class() == 'TLabelframe'}
-        assert {application.tr('options_account'), application.tr('options_boxart')} <= frames, frames
+        assert {application.tr('options_account'), application.tr('options_boxart'),
+                application.tr('options_disk_space')} <= frames, frames
         assert application.compiled_button.cget('text') == application.tr('compiled_games')
         assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
         window.update_idletasks()
