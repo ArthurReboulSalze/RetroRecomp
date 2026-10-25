@@ -30,6 +30,9 @@ static bool compatible_abi(const uint8_t *value) {
 #ifdef RR16_STATE_COMPAT_ABI_22
     if (!memcmp(value,RR16_STATE_COMPAT_ABI_22,64)) return true;
 #endif
+#ifdef RR16_STATE_COMPAT_ABI_23
+    if (!memcmp(value,RR16_STATE_COMPAT_ABI_23,64)) return true;
+#endif
 #ifdef RR16_STATE_COMPAT_ABI_20
     if (!memcmp(value,RR16_STATE_COMPAT_ABI_20,64)) return true;
 #endif

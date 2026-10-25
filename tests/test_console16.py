@@ -75,6 +75,9 @@ class Console16Tests(unittest.TestCase):
                       (self.root/'retro16_state_config.h').read_text())
         self.assertIn('RR16_STATE_COMPAT_ABI_7 "b5a707ff',
                       (self.root/'retro16_state_config.h').read_text())
+        # 1.4.1 quick states still load after the 1.5.0 default-key change.
+        self.assertIn('RR16_STATE_COMPAT_ABI_23 "58e2c720',
+                      (self.root/'retro16_state_config.h').read_text())
         changed = {**REPOSITORIES, 'md': ('other/engine', '0'*40, 'other')}
         write_config(self.root, rom, 'md', 'Test', changed)
         self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())

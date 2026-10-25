@@ -155,4 +155,7 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
         # Source-priority ACK adds no serialized fields. This predecessor
         # has the same validated EEPROM/mapper layout and stable boundaries.
         text += '#define RR16_STATE_COMPAT_ABI_22 "db79f598ed89c45cfd6205701e7e0630feb004e1b8f67ee1826c69fbe74b7714"\n'
+        # 1.4.1's signature. The 1.5.0 default keys (Enter = Start, either
+        # Shift = Select) change only the player shell, never a serialized byte.
+        text += '#define RR16_STATE_COMPAT_ABI_23 "58e2c720c4d5988484fb970ca2a0d0b9b722a5023d5806cd58da56d67ea96164"\n'
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')
