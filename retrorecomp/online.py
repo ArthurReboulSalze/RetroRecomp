@@ -25,6 +25,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -170,10 +171,11 @@ def _owner_only(path: str) -> None:
 
 def _call(method: str, route: str, *, payload: dict | None = None, body: bytes | None = None,
           token: str | None = None, timeout: int = 20, limit: int = ANSWER_LIMIT,
-          compressed: bool = False, pack: bool = False) -> tuple[int, dict]:
+          compressed: bool = False, pack: bool | int = False) -> tuple[int, dict]:
     """One API request. `compressed` asks for a gzipped answer; `limit`
     bounds the answer read and, once decompressed, the JSON parsed. With
-    `pack`, a JSON body above GZIP_BODY leaves gzipped."""
+    `pack`, a JSON body above GZIP_BODY (or above the size `pack` gives)
+    leaves gzipped."""
     base = service_url()
     if not base:
         raise ServiceError(0, 'unavailable')
@@ -183,7 +185,7 @@ def _call(method: str, route: str, *, payload: dict | None = None, body: bytes |
     if payload is not None:
         body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
         headers['Content-Type'] = 'application/json'
-        if pack and len(body) > GZIP_BODY:
+        if pack and len(body) > (GZIP_BODY if pack is True else pack):
             body = gzip.compress(body, mtime=0)
             headers['Content-Encoding'] = 'gzip'
     elif body is not None:
@@ -878,3 +880,221 @@ def send_after_batch(collect, enabled: bool = True) -> dict | None:
     if not enabled or not sending_available() or not account():
         return None
     return send(pending(collect()))
+
+
+# --- Problem reports ----------------------------------------------------------
+#
+# A signed-in player can report a conversion that failed (or produced a wrong
+# game) or write a free-text report. What leaves the computer is shown to the
+# player first (`build_report` is what `send_report` posts): the game's name and
+# identity, the error, the tail of the conversion's log and a few fields of
+# its report. Never ROM bytes. The home folder, the user name and absolute
+# paths become placeholders and e-mail addresses are removed (`scrub`).
+
+REPORT_ERROR_LIMIT = 4 * 1024
+REPORT_LOG_LIMIT = 64 * 1024
+REPORT_FIELDS_LIMIT = 64 * 1024
+REPORT_MESSAGE_LIMIT = 4 * 1024
+REPORT_BODY_LIMIT = 256 * 1024
+REPORT_PACK = 16 * 1024
+REPORT_KINDS = ('conversion', 'manual')
+
+# The fields of conversion-report.json that help to understand a failure.
+# Folders, artwork, build paths and Windows metadata stay out.
+REPORT_FIELDS = (
+    'tool', 'version', 'created_utc', 'status', 'system', 'backend', 'engine_revision', 'sdl_revision',
+    'compiler', 'compiler_signature', 'video_model', 'audio_cpu', 'input_players', 'embedded_rom', 'static_sdl',
+    'native_coverage', 'native_validation', 'native_percentage', 'hardware_accuracy_validated',
+    'full_game_validated', 'latency_ms', 'physical_latency_measured', 'game_states', 'runtime_learning',
+    'conversion_wall_seconds', 'executable_bytes', 'upgrade', 'shared_paths', 'bundled_paths',
+    'final_checks', 'strict_checks', 'history', 'learning')
+REPORT_ROM_FIELDS = ('name', 'bytes', 'crc32', 'sha256', 'system_id')
+# Dropped first when the selection is too large.
+REPORT_BULKY = ('history', 'strict_checks', 'learning', 'final_checks', 'native_validation', 'native_coverage')
+
+_EMAIL = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+')
+_DRIVE_PATH = re.compile(r'(?<![\w])[A-Za-z]:[\\/]+[^\s"\'<>|*?:]*')
+_UNC_PATH = re.compile(r'(?<![\w\\])\\\\+[^\s\\/"\'<>|*?:]+[\\/]+[^\s"\'<>|*?:]*')
+_POSIX_PATH = re.compile(r'(?<![\w<>.:/\\-])/(?:home|Users|root|mnt|media|run|tmp|var|opt|srv|usr|private|Volumes|'
+                         r'Library|data|storage|sdcard)(?:/[^\s"\'<>|*?:]*)?')
+_PATH_END = '.,;)]}'
+
+
+def _root_pattern(path):
+    """A pattern for a folder in any spelling: either slash, repeated
+    backslashes (as a repr shows them), any case."""
+    text = str(path).strip()
+    parts = [part for part in re.split(r'[\\/]+', text) if part]
+    if not parts:
+        return None
+    lead = r'[\\/]{1,4}' if text[:1] in '\\/' else ''
+    return re.compile(lead + r'[\\/]+'.join(re.escape(part) for part in parts) + r'(?![\w-])', re.IGNORECASE)
+
+
+def _user_names() -> set:
+    import getpass
+    names = {os.environ.get('USERNAME', ''), os.environ.get('USER', ''), Path.home().name}
+    try:
+        names.add(getpass.getuser())
+    except Exception:   # no user database (some containers)
+        pass
+    return {name for name in names if len(name) >= 3}
+
+
+def _generic_path(match) -> str:
+    text = match.group(0)
+    tail = ''
+    while text and text[-1] in _PATH_END:
+        text, tail = text[:-1], text[-1] + tail
+    last = re.split(r'[\\/]+', text.rstrip('\\/'))[-1]
+    return '<path>' + ('/' + last if '.' in last and not last.startswith('.') else '') + tail
+
+
+class Scrubber:
+    """Replaces what identifies the player. `roots` are (placeholder, folder)
+    pairs such as ('<games>', games folder) or ('<rom>', a ROM folder); the
+    home folder, the temporary folder and this installation are always known."""
+
+    def __init__(self, roots=()):
+        from .paths import ROOT
+        known = [(name, folder) for name, folder in roots if folder]
+        known += [('<app>', ROOT), ('<temp>', tempfile.gettempdir()), ('<home>', Path.home())]
+        # The longest folder first: a games folder inside the home folder is <games>.
+        known.sort(key=lambda pair: -len(str(pair[1])))
+        patterns = [(name, _root_pattern(folder)) for name, folder in known]
+        self.roots = [(name, pattern) for name, pattern in patterns if pattern is not None]
+        names = sorted(_user_names(), key=len, reverse=True)
+        self.user = (re.compile(r'(?<![\w])(?:' + '|'.join(map(re.escape, names)) + r')(?![\w])', re.IGNORECASE)
+                     if names else None)
+
+    def text(self, value) -> str:
+        if not isinstance(value, str):
+            return ''
+        value = _EMAIL.sub('<email>', value)
+        for placeholder, pattern in self.roots:
+            value = pattern.sub(lambda match, placeholder=placeholder: placeholder, value)
+        for pattern in (_DRIVE_PATH, _UNC_PATH, _POSIX_PATH):
+            value = pattern.sub(_generic_path, value)
+        return self.user.sub('<user>', value) if self.user else value
+
+    def value(self, value):
+        """The same, through nested lists and dictionaries (JSON values)."""
+        if isinstance(value, str):
+            return self.text(value)
+        if isinstance(value, list):
+            return [self.value(item) for item in value]
+        if isinstance(value, dict):
+            return {self.text(str(key)): self.value(item) for key, item in value.items()}
+        return value
+
+
+def scrub(value, roots=()):
+    """`value` (text or JSON-like data) without the home folder, user name,
+    absolute paths or e-mail addresses."""
+    return Scrubber(roots).value(value)
+
+
+def _head(text: str, limit: int) -> str:
+    data = text.encode('utf-8')
+    return text if len(data) <= limit else data[:limit].decode('utf-8', 'ignore')
+
+
+def _tail(text: str, limit: int) -> str:
+    """The end of a log, from a whole line, within `limit` bytes."""
+    data = text.encode('utf-8')
+    if len(data) <= limit:
+        return text
+    cut = data[-limit:].decode('utf-8', 'ignore')
+    newline = cut.find('\n')
+    return cut[newline + 1:] if 0 <= newline < len(cut) - 1 else cut
+
+
+def _json_size(value) -> int:
+    """Bytes of `value` as it travels (non-ASCII escaped, the larger form)."""
+    return len(json.dumps(value, separators=(',', ':')).encode('utf-8'))
+
+
+def report_fields(report, roots=()):
+    """The selected fields of a conversion report, scrubbed and within
+    REPORT_FIELDS_LIMIT (the bulkiest are dropped first); None without one."""
+    if not isinstance(report, dict):
+        return None
+    chosen = {key: report[key] for key in REPORT_FIELDS if key in report}
+    chosen.update({key: value for key, value in report.items() if key.startswith('reference_')})
+    if isinstance(report.get('rom'), dict):
+        chosen['rom'] = {key: report['rom'][key] for key in REPORT_ROM_FIELDS if key in report['rom']}
+    chosen = Scrubber(roots).value(chosen)
+    for key in REPORT_BULKY:
+        if _json_size(chosen) <= REPORT_FIELDS_LIMIT:
+            break
+        chosen.pop(key, None)
+    while chosen and _json_size(chosen) > REPORT_FIELDS_LIMIT:
+        chosen.pop(max(chosen, key=lambda key: _json_size(chosen[key])))
+    return chosen or None
+
+
+def report_platform() -> str:
+    from .platforms import target_id
+    try:
+        target = target_id()
+    except RuntimeError:
+        return sys.platform
+    return target.replace('windows-x86_64', 'windows-x64')
+
+
+def build_report(kind: str, *, game: dict | None = None, error: str | None = None, log: str | None = None,
+                 report: dict | None = None, message: str = '', language: str = 'en', roots=()) -> dict:
+    """The exact body of `POST reports`, private data already removed.
+    `game` is {'system', 'identity' (64 hex), 'title'}; without a valid
+    identity it is left out and the title goes into the error."""
+    if kind not in REPORT_KINDS:
+        raise ValueError(f'Unknown report kind: {kind!r}')
+    cleaner = Scrubber(roots)
+    message = _head(cleaner.text((message or '').strip()), REPORT_MESSAGE_LIMIT)
+    if kind == 'manual' and not message:
+        raise ValueError('A free-text report needs a message.')
+    entry = None
+    if isinstance(game, dict) and game.get('system') and re.fullmatch(r'[0-9a-f]{64}', str(game.get('identity') or '')):
+        entry = {'system': str(game['system']), 'identity': game['identity'],
+                 'title': cleaner.text(str(game.get('title') or ''))[:200]}
+    elif isinstance(game, dict) and game.get('title') and error:
+        error = f"{game['title']}: {error}"
+    text = _head(cleaner.text(error), REPORT_ERROR_LIMIT) if error else None
+    tail = _tail(cleaner.text(log), REPORT_LOG_LIMIT) if log else None
+    body = {'kind': kind, 'converter': __version__, 'platform': report_platform(), 'language': language,
+            'game': entry, 'error': text or None, 'log': tail or None,
+            'report': report_fields(report, roots), 'message': message}
+    # The service refuses (it never truncates) a body above REPORT_BODY_LIMIT
+    # once decompressed: escaped non-ASCII text can grow, so the log's start
+    # (then the report) gives way until the body fits.
+    while _json_size(body) > REPORT_BODY_LIMIT:
+        if body['log']:
+            body['log'] = _tail(body['log'], len(body['log'].encode('utf-8')) * 3 // 4) or None
+        elif body['report']:
+            body['report'] = None
+        else:
+            break
+    return body
+
+
+def send_report(kind: str, *, game: dict | None = None, error: str | None = None, log: str | None = None,
+                report: dict | None = None, message: str = '', language: str = 'en', roots=()) -> int:
+    """Send a problem report with the signed-in account; returns its id.
+    Raises ServiceError (401 without an account; 413 too_large, 429
+    rate_limited, 400 invalid_report from the service) or
+    ServiceConnectionError."""
+    current = account()
+    if not current:
+        raise ServiceError(401, 'unauthorized')
+    body = build_report(kind, game=game, error=error, log=log, report=report, message=message,
+                        language=language, roots=roots)
+    try:
+        answer = _call('POST', 'reports', payload=body, token=current['token'], timeout=30, pack=REPORT_PACK)[1]
+    except ServiceError as caught:
+        if caught.status == 401:
+            _save_account(None)   # revoked or deleted elsewhere: sign in again
+        raise
+    identifier = answer.get('id')
+    if type(identifier) is not int:
+        raise ServiceError(200, 'bad_answer')
+    return identifier

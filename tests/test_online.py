@@ -105,6 +105,10 @@ class FakeService(BaseHTTPRequestHandler):
             self.claims(data)
         elif self.path.endswith('/knowledge/fetch'):
             self.fetch(data)
+        elif self.path.endswith('/reports') and mode in ('limited', 'large', 'invalid'):
+            status, reason = {'limited': (429, 'rate_limited'), 'large': (413, 'too_large'),
+                              'invalid': (400, 'invalid_report')}[mode]
+            self.answer(status, {'error': reason})
         elif mode == 'fail':
             self.answer(500, {'error': 'server'})
         elif mode == 'revoked':
