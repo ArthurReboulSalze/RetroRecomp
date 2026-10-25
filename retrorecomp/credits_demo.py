@@ -23,6 +23,7 @@ GOLD = COLORS['gold']
 WHITE = COLORS['text']
 MUTED = COLORS['muted']
 BACKGROUND_SPEED = 4.0
+HEADER_HEIGHT = 84  # a thin band: logo and name left, author credits right
 # Effects stages, richest first: 'light' drops the spheres and boxes, 'minimal'
 # also drops the stars and curves. Text, grid, beam, meter and music remain.
 STAGES = ('full', 'light', 'minimal')
@@ -384,8 +385,9 @@ class CreditsDemo:
         # Small laptops: the scrolling list absorbs what the screen lacks.
         panel.minsize(min(700, panel.winfo_screenwidth() - 40), min(540, panel.winfo_screenheight() - 90))
 
-        self.header = tk.Canvas(panel, height=128, bg=BG, highlightthickness=0)
+        self.header = tk.Canvas(panel, height=HEADER_HEIGHT, bg=BG, highlightthickness=0)
         self.header.pack(fill='x')
+        self._sound()
         self.header.bind('<Configure>', self._header)
         self.beam = None
         hintbar = tk.Frame(panel, bg='#202020')
@@ -433,75 +435,78 @@ class CreditsDemo:
         except (AttributeError, OSError):
             pass
 
+    @staticmethod
+    def _glow(y):
+        shade = 20 + int(10*math.sin(y/HEADER_HEIGHT*math.pi))
+        return '#%02x%02x%02x' % (shade,shade,shade)
+
     def _header(self, event):
-        c, w = self.header, event.width
+        c, w, h = self.header, event.width, HEADER_HEIGHT
         c.delete('all')
         # Horizontal raster glow, with only the lower edge in strong gold.
-        for y in range(0,128,4):
-            shade = 20 + int(10*math.sin(y/128*math.pi))
-            color = '#%02x%02x%02x' % (shade,shade,shade)
-            c.create_rectangle(0,y,w,y+4,fill=color,outline='')
+        for y in range(0,h,4):
+            c.create_rectangle(0,y,w,y+4,fill=self._glow(y),outline='')
         try:
             if not hasattr(self, 'logo'):
                 from PIL import Image, ImageTk
                 self.logo = ImageTk.PhotoImage(Image.open(ASSETS/'assets/Retro-Recomp-icon-128.png')
-                    .resize((90,90),Image.Resampling.LANCZOS), master=c)
-            c.create_image(w/2-235,63,image=self.logo)
+                    .resize((58,58),Image.Resampling.LANCZOS), master=c)
+            c.create_image(47,(h-3)/2,image=self.logo)
         except (OSError, tk.TclError):
             pass
-        for bounds,color in wordmark_rectangles(w/2-165,38,4.2):
+        for bounds,color in wordmark_rectangles(90,21,3):
             c.create_rectangle(*bounds,fill=color,outline='')
-        c.create_text(w/2-163,88,text=self.tr('brand_tagline'),anchor='w',
-                      fill=MUTED,font=(self.font,9))
-        c.create_text(w-18,16,text='v'+__version__,anchor='ne',fill='#777777',font=(self.font,8))
-        c.create_line(0,126,w,126,fill='#574925')
-        self.beam = c.create_line(0,126,130,126,fill=GOLD,width=2)
-        for x,y,size,color in ((w-42,86,10,GOLD),(w-55,99,7,'#8b702e')):
-            c.create_rectangle(x,y,x+size,y+size,fill=color,outline='')
+        c.create_text(91,57,text=self.tr('brand_tagline'),anchor='w',fill=MUTED,font=(self.font,8))
+        # Arthur's credits, right-aligned on two lines and centred in the band.
+        for dy,label,color,url in ((-9,self.tr('credits_author')+' · Arthur Reboul Salze',MUTED,'https://github.com/ArthurReboulSalze'),
+                                   (9,self.tr('credits_chiploom'),GOLD,'https://github.com/ArthurReboulSalze/ChipLoom')):
+            item = c.create_text(w-18,(h-3)/2+dy,text=label,anchor='e',fill=color,font=(self.font,9,'underline'))
+            c.tag_bind(item,'<Enter>',lambda e,i=item,k=color:self._credit_hover(i,k,True))
+            c.tag_bind(item,'<Leave>',lambda e,i=item,k=color:self._credit_hover(i,k,False))
+            c.tag_bind(item,'<Button-1>',lambda e,address=url:webbrowser.open_new_tab(address))
+        self.mute_button.configure(bg=self._glow(14),activebackground=self._glow(14))
+        c.create_window(w-10,5,window=self.mute_button,anchor='ne')
+        c.create_line(0,h-2,w,h-2,fill='#574925')
+        self.beam = c.create_line(0,h-2,130,h-2,fill=GOLD,width=2)
+
+    def _credit_hover(self, item, color, value):
+        self.header.configure(cursor='hand2' if value else '')
+        self.header.itemconfigure(item,fill=COLORS['gold_hover'] if value and color == GOLD else
+                                  WHITE if value else color)
+
+    def _sound(self):
+        from .branding import make_icon
+        from .tooltips import Tooltip
+        self.sound_icons = [make_icon(self.panel, name, GOLD, 16) for name in ('speaker', 'muted')]
+        self.mute_button = tk.Label(self.header,bd=0,padx=3,pady=2,cursor='hand2')
+        self.mute_button.bind('<Button-1>',lambda _e:self._mute())
+        self.sound_hint = Tooltip(self.mute_button,lambda:self.tr('credits_sound_toggle'))
+        self._mute_text()
 
     def _footer(self):
-        footer = tk.Frame(self.panel,bg='#202020',padx=14,pady=6)
+        bg = '#202020'
+        footer = tk.Frame(self.panel,bg=bg,padx=14,pady=3)
         footer.pack(fill='x')
-        playback = tk.Frame(footer,bg='#202020')
-        playback.pack(fill='x')
-        self.meter = tk.Canvas(playback,width=52,height=26,bg='#202020',highlightthickness=0)
+        # Packed right to left, so a narrow window clips the track text first.
+        tk.Label(footer,text='v'+__version__,bg=bg,fg='#777777',font=(self.font,8)).pack(side='right',padx=(10,0))
+        ttk.Style(self.panel).configure('Credits.TButton',padding=(9,1))
+        ttk.Button(footer,text=self.tr('close'),command=self.close,style='Credits.TButton').pack(side='right',padx=(6,0))
+        ttk.Button(footer,text=self.tr('credits_notices'),command=self.owner.show_legal_notices,
+                   style='Credits.TButton').pack(side='right')
+        self.meter = tk.Canvas(footer,width=36,height=18,bg=bg,highlightthickness=0)
         self.meter.pack(side='left',padx=(0,9))
         self.meter_items = []
         self.meter_colors = [['#39352b']*8 for _ in range(4)]
         for ch in range(4):
-            bars = []
-            for step in range(8):
-                bars.append(self.meter.create_rectangle(2+ch*13,23-step*3,10+ch*13,25-step*3,
-                                                        fill='#39352b',outline=''))
-            self.meter_items.append(bars)
-        track = tk.Frame(playback,bg='#202020')
+            self.meter_items.append([self.meter.create_rectangle(1+ch*9,16-step*2,7+ch*9,17-step*2,
+                                                                 fill='#39352b',outline='')
+                                     for step in range(8)])
+        track = tk.Frame(footer,bg=bg)
         track.pack(side='left',fill='x',expand=True)
-        tk.Label(track,text=self.player.title,bg='#202020',fg=WHITE,
-                 font=(self.font,9),anchor='w').pack(anchor='w')
-        self.track_info = tk.Label(track,text=self.tr('credits_audio_starting'),bg='#202020',fg=MUTED,
+        tk.Label(track,text=self.player.title,bg=bg,fg=WHITE,font=(self.font,9),anchor='w').pack(side='left')
+        self.track_info = tk.Label(track,text=self.tr('credits_audio_starting'),bg=bg,fg=MUTED,
                                    font=(self.font,8),anchor='w')
-        self.track_info.pack(anchor='w')
-        from .branding import make_icon
-        self.sound_icons = [make_icon(self.panel, name, GOLD, 20) for name in ('speaker', 'muted')]
-        self.mute_button = ttk.Button(playback,command=self._mute,style='Icon.TButton',width=2)
-        self.mute_button.pack(side='right')
-        from .tooltips import Tooltip
-        self.sound_hint = Tooltip(self.mute_button,lambda:self.tr('credits_sound_toggle'))
-        self._mute_text()
-        actions = tk.Frame(footer,bg='#202020')
-        actions.pack(fill='x',pady=(5,0))
-        ttk.Button(actions,text=self.tr('credits_notices'),command=self.owner.show_legal_notices).pack(side='left')
-        ttk.Button(actions,text=self.tr('close'),command=self.close).pack(side='left',padx=6)
-        author = tk.Frame(actions,bg='#202020')
-        author.pack(side='right')
-        name = tk.Label(author,text=self.tr('credits_author')+' · Arthur Reboul Salze',bg='#202020',fg=MUTED,
-                        cursor='hand2',font=(self.font,8,'underline'))
-        name.pack(anchor='e')
-        name.bind('<Button-1>',lambda _e:webbrowser.open_new_tab('https://github.com/ArthurReboulSalze'))
-        link = tk.Label(author,text=self.tr('credits_chiploom'),bg='#202020',fg=GOLD,
-                        cursor='hand2',font=(self.font,8,'underline'))
-        link.pack(anchor='e',pady=(3,0))
-        link.bind('<Button-1>',lambda _e:webbrowser.open_new_tab('https://github.com/ArthurReboulSalze/ChipLoom'))
+        self.track_info.pack(side='left',padx=(8,0))
 
     def _layout(self, event):
         w,h = event.width,event.height
@@ -620,7 +625,7 @@ class CreditsDemo:
             if self.beam:
                 width = self.header.winfo_width()
                 x = (math.sin((now-self.started)*.35)*.5+.5)*max(1,width-140)
-                self.header.coords(self.beam,x,126,x+140,126)
+                self.header.coords(self.beam,x,HEADER_HEIGHT-2,x+140,HEADER_HEIGHT-2)
             for channel in range(4):
                 target = values[4+channel]/64 if pulse else 0
                 self.levels[channel] = max(target,self.levels[channel]-delta*1.8)
