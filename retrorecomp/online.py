@@ -316,8 +316,11 @@ def cached_player() -> dict | None:
             avatar_bytes = _avatar_path().read_bytes()
         except OSError:
             avatar_bytes = None
-    return {'account': current, 'profile': data.get('profile') or {}, 'board': data.get('board') or {},
-            'avatar': avatar_bytes, 'fetched': data.get('fetched', 0)}
+    profile = data.get('profile') or {}
+    catalog = cached_shop()
+    return {'account': current, 'profile': profile, 'board': data.get('board') or {},
+            'avatar': avatar_bytes, 'fetched': data.get('fetched', 0), 'shop': catalog,
+            'frame': frame_picture(looks(catalog, equipped(profile))['frame'], download=False)}
 
 
 def player(force: bool = False, now: float | None = None) -> dict | None:
@@ -344,7 +347,189 @@ def player(force: bool = False, now: float | None = None) -> dict | None:
     record = {'service': current['service'], 'email': current.get('email'), 'fetched': now,
               'profile': details, 'board': {'you': you}, 'avatar_url': url if picture else None}
     _write_bytes(_player_path(), json.dumps(record, indent=1, sort_keys=True).encode('utf-8'))
-    return {'account': current, 'profile': details, 'board': {'you': you}, 'avatar': picture, 'fetched': now}
+    # The shop's catalog follows the player (at most every PLAYER_REFRESH too);
+    # the equipped frame's image is downloaded once.
+    catalog = shop(force=force, now=now)
+    frame = frame_picture(looks(catalog, equipped(details))['frame'])
+    return {'account': current, 'profile': details, 'board': {'you': you}, 'avatar': picture, 'fetched': now,
+            'shop': catalog, 'frame': frame}
+
+
+# The RR coin shop (1.5.2) is cosmetic and its purchases happen on the site:
+# the converter only draws what the account equips (`items` and `equipped` of
+# the account view, kept with the player corner). The public catalog (`GET
+# shop`) is cached beside it and refreshed with the player, at most every
+# PLAYER_REFRESH; a frame's image is downloaded once, then read from `datas/`.
+# Without a catalog (offline, older server) nothing extra is drawn.
+SHOP_NAME = 'shop-catalog.json'
+FRAME_PREFIX = 'shop-frame-'
+FRAME_LIMIT = 1024 * 1024
+FRAME_TYPES = {'image/webp': '.webp', 'image/png': '.png'}
+SHOP_SLOTS = ('title', 'name_style', 'background', 'hover', 'header_theme', 'pin', 'frame')
+SHOP_BADGES = 3
+_MEDIA_PATH = re.compile(r'/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*')
+
+
+def _shop_path() -> Path:
+    return _account_path().with_name(SHOP_NAME)
+
+
+def _catalog(items) -> dict:
+    """{id: item} from the `items` of `GET shop`, malformed entries left out."""
+    catalog = {}
+    for item in items if isinstance(items, list) else ():
+        if (isinstance(item, dict) and isinstance(item.get('id'), str) and isinstance(item.get('slot'), str)
+                and item['id'] not in catalog):
+            data = item.get('data')
+            catalog[item['id']] = {**item, 'data': data if isinstance(data, dict) else {}}
+    return catalog
+
+
+def _shop_record() -> dict | None:
+    try:
+        data = json.loads(_shop_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not service_url() or data.get('service') != service_url():
+        return None
+    return data
+
+
+def cached_shop() -> dict:
+    """The last catalog of this service, {id: item}, read from disk only."""
+    record = _shop_record()
+    return _catalog(record.get('items')) if record else {}
+
+
+def shop(force: bool = False, now: float | None = None) -> dict:
+    """The shop's catalog {id: item}: the cached one within PLAYER_REFRESH,
+    else `GET shop` (public, no token). A server without the shop leaves an
+    empty catalog until the next refresh; offline, the last one stays."""
+    import time
+    now = time.time() if now is None else now
+    record = _shop_record()
+    try:
+        fetched = float(record.get('fetched') or 0) if record else 0.0
+    except (TypeError, ValueError):
+        fetched = 0.0
+    if record and not force and 0 <= now - fetched < PLAYER_REFRESH:
+        return _catalog(record.get('items'))
+    try:
+        items = _call('GET', 'shop', timeout=10)[1].get('items')
+    except ServiceConnectionError:
+        return _catalog(record.get('items')) if record else {}
+    except ServiceError as error:
+        if error.reason == 'unavailable':
+            return {}
+        items = []
+    catalog = _catalog(items)
+    try:
+        _write_bytes(_shop_path(), json.dumps({'service': service_url(), 'fetched': now, 'items': list(catalog.values())},
+                                              indent=1, sort_keys=True, ensure_ascii=False).encode('utf-8'))
+    except OSError:
+        pass
+    _prune_frames(catalog)
+    return catalog
+
+
+def equipped(profile) -> dict:
+    """The equipped ids of an account view or a board entry: one id (or None)
+    per slot and up to SHOP_BADGES `badges`."""
+    source = profile.get('equipped') if isinstance(profile, dict) else None
+    source = source if isinstance(source, dict) else {}
+    view = {slot: source.get(slot) if isinstance(source.get(slot), str) else None for slot in SHOP_SLOTS}
+    badges = source.get('badges')
+    view['badges'] = [value for value in badges if isinstance(value, str)][:SHOP_BADGES] if isinstance(badges, list) else []
+    return view
+
+
+def owned(profile) -> list:
+    """The shop items the account owns (`items` of the account view)."""
+    items = profile.get('items') if isinstance(profile, dict) else None
+    return [value for value in items if isinstance(value, str)] if isinstance(items, list) else []
+
+
+def looks(catalog: dict, view: dict) -> dict:
+    """The catalog items behind equipped ids, each kept only in its own slot:
+    {slot: item | None, 'badges': [items]}. Unknown ids draw nothing."""
+    catalog = catalog if isinstance(catalog, dict) else {}
+    view = view if isinstance(view, dict) else {}
+    def item(identifier, slot):
+        found = catalog.get(identifier) if isinstance(identifier, str) else None
+        return found if isinstance(found, dict) and found.get('slot') == slot else None
+    result = {slot: item(view.get(slot), slot) for slot in SHOP_SLOTS}
+    badges = view.get('badges') if isinstance(view.get('badges'), list) else []
+    result['badges'] = [found for found in (item(identifier, 'badge') for identifier in badges) if found][:SHOP_BADGES]
+    return result
+
+
+def _media_url(value) -> str | None:
+    """A picture of the catalog on the service itself (a path of the site, or
+    an absolute URL under the service's own address); None otherwise."""
+    base = service_url()
+    if not base or not isinstance(value, str):
+        return None
+    if value.startswith(base + '/'):
+        value = value[len(base):]
+    return base + value if _MEDIA_PATH.fullmatch(value) and '..' not in value else None
+
+
+def _frame_path(url: str) -> Path:
+    import hashlib
+    suffix = '.png' if url.lower().endswith('.png') else '.webp'
+    return _account_path().with_name(FRAME_PREFIX + hashlib.sha256(url.encode('utf-8')).hexdigest()[:20] + suffix)
+
+
+def _prune_frames(catalog: dict) -> None:
+    """Frame pictures the catalog no longer names are deleted."""
+    kept = {_frame_path(url).name for url in (_media_url((item.get('data') or {}).get('image'))
+                                              for item in catalog.values() if item.get('slot') == 'frame') if url}
+    try:
+        stale = [path for path in _account_path().parent.glob(FRAME_PREFIX + '*') if path.name not in kept]
+    except OSError:
+        return
+    for path in stale:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def frame_picture(item, download: bool = True) -> bytes | None:
+    """The image of a frame item (WebP or PNG from the site), cached in
+    `datas/` once downloaded; None without one, or on any failure (a frame is
+    decoration, never an error)."""
+    data = item.get('data') if isinstance(item, dict) and item.get('slot') == 'frame' else None
+    url = _media_url(data.get('image')) if isinstance(data, dict) else None
+    if not url:
+        return None
+    path = _frame_path(url)
+    try:
+        cached = path.read_bytes()
+        if 0 < len(cached) <= FRAME_LIMIT:
+            return cached
+    except OSError:
+        pass
+    if not download:
+        return None
+    request = urllib.request.Request(url, headers={'User-Agent': f'RetroRecomp/{__version__}'})
+    try:
+        with _OPENER.open(request, timeout=20) as response:
+            if response.headers.get_content_type() not in FRAME_TYPES:
+                return None
+            raw = response.read(FRAME_LIMIT + 1)
+    except urllib.error.HTTPError as error:
+        error.close()
+        return None
+    except (OSError, http.client.IncompleteRead, ValueError):
+        return None
+    if not 0 < len(raw) <= FRAME_LIMIT:
+        return None
+    try:
+        _write_bytes(path, raw)
+    except OSError:
+        pass
+    return raw
 
 
 def _cached_avatar_url() -> str | None:

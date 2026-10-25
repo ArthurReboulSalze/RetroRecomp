@@ -161,7 +161,7 @@ retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
 retrorecomp/online.py tests/test_online.py tests/test_shared_sync.py
-tests/test_problem_reports.py tests/test_gui_player.py
+tests/test_problem_reports.py tests/test_gui_player.py tests/test_shop_display.py
 retrorecomp/gameboy_host.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py

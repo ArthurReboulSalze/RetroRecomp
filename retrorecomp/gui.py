@@ -137,10 +137,58 @@ def _scaled_photo(path, master, scale=HEADER_SCALE):
         return ImageTk.PhotoImage(image.convert('RGBA').resize(size, Image.Resampling.LANCZOS), master=master)
 
 
-def _portrait_photo(master, raw=None, initial=''):
+def _portrait_photo(master, raw=None, initial='', frame=None):
+    """The header's portrait as a Tk picture (see _portrait_picture)."""
+    from PIL import ImageTk
+    return ImageTk.PhotoImage(_portrait_picture(raw, initial, frame), master=master)
+
+
+def frame_side(hole, portrait=PORTRAIT_SIZE):
+    """The side of a shop frame drawn around a `portrait` px portrait: the
+    portrait covers the frame's hole and a little of its inner rim, so the
+    frame is portrait / (hole x 1.04), rounded down to the portrait's parity
+    (both stay centred on whole pixels). None for an unusable hole."""
+    try:
+        hole = float(hole)
+    except (TypeError, ValueError):
+        return None
+    if not 0.2 <= hole <= 1.0:
+        return None
+    side = int(portrait / (hole * 1.04))
+    if (side - portrait) % 2:
+        side -= 1
+    return max(side, portrait)
+
+
+def _framed(picture, frame, portrait=PORTRAIT_SIZE):
+    """The frame image (bytes, hole) at its larger size with the round
+    portrait (a PIL picture drawn at 4x) composited ON TOP, centred; None
+    when the frame cannot be drawn."""
+    from PIL import Image
+    import io
+    raw, hole = frame
+    side = frame_side(hole, portrait)
+    if not raw or side is None:
+        return None
+    scale = picture.width // portrait
+    try:
+        with Image.open(io.BytesIO(raw)) as image:
+            if max(image.size) > 4096:
+                return None
+            ring = image.convert('RGBA').resize((side * scale, side * scale), Image.Resampling.LANCZOS)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    offset = (side - portrait) * scale // 2
+    ring.alpha_composite(picture, (offset, offset))
+    return ring.resize((side, side), Image.Resampling.LANCZOS)
+
+
+def _portrait_picture(raw=None, initial='', frame=None):
     """A round player portrait: the server's WebP when there is one, else a
-    quiet disc with the player's initial, ringed in gold."""
-    from PIL import Image, ImageDraw, ImageTk
+    quiet disc with the player's initial, ringed in gold. With an equipped
+    shop `frame` (image bytes, hole ratio) the portrait keeps its 44 px and
+    the frame is drawn larger behind it, in one picture."""
+    from PIL import Image, ImageDraw
     import io
     size = PORTRAIT_SIZE * 4
     if raw:
@@ -176,8 +224,11 @@ def _portrait_photo(master, raw=None, initial=''):
     mask = Image.new('L', (size, size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
     picture.putalpha(mask)
+    framed = _framed(picture, frame) if frame else None
+    if framed is not None:
+        return framed
     ImageDraw.Draw(picture).ellipse((2, 2, size - 3, size - 3), outline=COLORS['gold'], width=6)
-    return ImageTk.PhotoImage(picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS), master=master)
+    return picture.resize((PORTRAIT_SIZE, PORTRAIT_SIZE), Image.Resampling.LANCZOS)
 
 
 def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
@@ -186,6 +237,228 @@ def _tint(base: str, foreground: str, visibility: float = 0.50) -> str:
     values = [round(channel(base, at) * (1 - visibility) +
                     channel(foreground, at) * visibility) for at in (1, 3, 5)]
     return '#{:02x}{:02x}{:02x}'.format(*values)
+
+
+# --- RR coin shop: what the converter draws of the equipped items -----------
+# (bought and equipped on the site; the catalog's `data` says how to draw.)
+def _colour(value, fallback):
+    """A '#rrggbb' colour from the catalog, else the fallback."""
+    if isinstance(value, str) and len(value) == 7 and value[0] == '#':
+        try:
+            int(value[1:], 16)
+            return value.lower()
+        except ValueError:
+            pass
+    return fallback
+
+
+NAME_GOLD, NAME_AMBER, NAME_LIGHT = '#ffd24a', '#ff9a1f', '#fff4c2'
+# The sparkling name: a light band sweeps slowly across the gold, a few
+# frames a second, and only while the window is shown.
+SPARKLE_PERIOD = 3.2
+SPARKLE_FRAME = 150
+
+
+def name_colours(style, count, phase=None):
+    """Per-character colours of a pseudonym in its shop style (gold, gold to
+    amber gradient, sparkling gold at `phase` in [0, 1)); None when the name
+    keeps the interface colour."""
+    data = style.get('data') if isinstance(style, dict) else None
+    kind = data.get('style') if isinstance(data, dict) else None
+    if kind not in ('gold', 'gradient', 'sparkle') or count <= 0:
+        return None
+    colours = data.get('colors') if isinstance(data.get('colors'), list) else []
+    first = _colour(colours[0] if colours else None, NAME_GOLD)
+    second = _colour(colours[1] if len(colours) > 1 else None, NAME_AMBER if kind == 'gradient' else NAME_LIGHT)
+    if kind == 'gold':
+        return [first] * count
+    if kind == 'gradient':
+        return [_tint(first, second, index / (count - 1) if count > 1 else 0.0) for index in range(count)]
+    if phase is None:
+        return [first] * count
+    # The band crosses the name in the first part of the period, then rests.
+    centre = -0.3 + 2.2 * (phase % 1.0)
+    return [_tint(first, second, 0.85 * max(0.0, 1 - abs((index + 0.5) / count - centre) / 0.3))
+            for index in range(count)]
+
+
+def _glyphs(text):
+    """Characters as drawn, combining marks kept with their letter."""
+    import unicodedata
+    glyphs = []
+    for character in text:
+        if glyphs and (unicodedata.combining(character) or character in '‍︎️'):
+            glyphs[-1] += character
+        else:
+            glyphs.append(character)
+    return glyphs
+
+
+def _font(canvas, spec):
+    """A measurable Tk font for a font tuple, kept on the canvas."""
+    from tkinter import font as tkfont
+    fonts = canvas.__dict__.setdefault('_shop_fonts', {})
+    key = tuple(spec)
+    if key not in fonts:
+        family_name, size, *rest = spec
+        fonts[key] = tkfont.Font(canvas, family=family_name, size=size,
+                                 weight='bold' if 'bold' in rest else 'normal')
+    return fonts[key]
+
+
+def elide(font, text, width):
+    """`text` shortened with an ellipsis to fit `width` pixels."""
+    if width <= 0 or font.measure(text) <= width:
+        return text
+    while text and font.measure(text + '…') > width:
+        text = text[:-1]
+    return text + '…' if text else ''
+
+
+def draw_styled_text(canvas, x, y, text, font, style, anchor='nw', tags=(), fill=None):
+    """Draw a pseudonym on a canvas in its shop style: one item per character
+    for a coloured style (a sparkling one is animated by start_sparkle), one
+    plain item otherwise. `anchor`: 'nw', 'ne', 'n' (y = top) or 'w', 'e',
+    'center' (y = middle). Returns (items, width)."""
+    measure = _font(canvas, font)
+    width = measure.measure(text)
+    glyphs = _glyphs(text)
+    colours = name_colours(style, len(glyphs))
+    if not colours:
+        item = canvas.create_text(x, y, text=text, anchor=anchor, font=font, tags=tags,
+                                  fill=fill or COLORS['text'])
+        return [item], width
+    left = x if anchor in ('nw', 'w') else x - width if anchor in ('ne', 'e') else x - width / 2
+    vertical = 'nw' if anchor in ('n', 'nw', 'ne') else 'w'
+    items, done = [], ''
+    sparkle = (style.get('data') or {}).get('style') == 'sparkle'
+    entries = canvas.__dict__.setdefault('_sparkle', [])
+    for index, glyph in enumerate(glyphs):
+        item = canvas.create_text(left + measure.measure(done), y, text=glyph, anchor=vertical, font=font,
+                                  fill=colours[index], tags=tags)
+        items.append(item)
+        done += glyph
+        if sparkle:
+            entries.append((item, index, len(glyphs), style))
+    if sparkle:
+        start_sparkle(canvas)
+    return items, width
+
+
+def sparkle_frame(canvas, now=None):
+    """Recolour the sparkling names of a canvas once; False when nothing is
+    left to animate or the window is hidden (the animation then stops)."""
+    entries = [entry for entry in getattr(canvas, '_sparkle', ()) if canvas.type(entry[0])]
+    canvas._sparkle = entries
+    if not entries or not canvas.winfo_viewable():
+        return False
+    phase = ((time.monotonic() if now is None else now) % SPARKLE_PERIOD) / SPARKLE_PERIOD
+    palettes = {}
+    for item, index, count, style in entries:
+        key = (id(style), count)
+        if key not in palettes:
+            palettes[key] = name_colours(style, count, phase)
+        canvas.itemconfigure(item, fill=palettes[key][index])
+    return True
+
+
+def start_sparkle(canvas):
+    """Animate the canvas's sparkling names at a few frames a second; hidden
+    (minimised or withdrawn), the animation stops and resumes once shown."""
+    if getattr(canvas, '_sparkle_job', None):
+        return
+    top = canvas.winfo_toplevel()
+    if not getattr(canvas, '_sparkle_resume', False):
+        canvas._sparkle_resume = True
+        top.bind('<Map>', lambda event: start_sparkle(canvas)
+                 if event.widget is top and canvas.winfo_exists() else None, add='+')
+    def tick():
+        canvas._sparkle_job = None
+        try:
+            if canvas.winfo_exists() and sparkle_frame(canvas):
+                canvas._sparkle_job = canvas.after(SPARKLE_FRAME, tick)
+        except tk.TclError:
+            pass
+    canvas._sparkle_job = canvas.after(SPARKLE_FRAME, tick)
+
+
+# The site's pin: a small pixel trophy in its tier's colour.
+PIN = ('X.XXX.X', 'X.XXX.X', '.XXXXX.', '..XXX..', '...X...', '..XXX..', '.XXXXX.')
+PIN_CELL = 2
+PIN_SIZE = len(PIN) * PIN_CELL
+PIN_COLOURS = {'bronze': '#cd7f32', 'silver': '#c0c7d1', 'gold': '#ffd24a'}
+
+
+def draw_pin(canvas, x, y, pin, tags=()):
+    """The equipped pin with its top-left corner at (x, y); its width."""
+    data = pin.get('data') if isinstance(pin, dict) else None
+    if not isinstance(data, dict):
+        return 0
+    colour = _colour(data.get('color'), PIN_COLOURS.get(data.get('tier'), COLORS['gold']))
+    for row, line in enumerate(PIN):
+        for column, cell in enumerate(line):
+            if cell == 'X':
+                canvas.create_rectangle(x + column * PIN_CELL, y + row * PIN_CELL, x + (column + 1) * PIN_CELL,
+                                        y + (row + 1) * PIN_CELL, fill=colour, outline='', tags=tags)
+    return PIN_SIZE
+
+
+def _rounded(canvas, x0, y0, x1, y1, radius, **options):
+    points = (x0 + radius, y0, x1 - radius, y0, x1, y0, x1, y0 + radius, x1, y1 - radius, x1, y1,
+              x1 - radius, y1, x0 + radius, y1, x0, y1, x0, y1 - radius, x0, y0 + radius, x0, y0)
+    return canvas.create_polygon(points, smooth=True, **options)
+
+
+BADGE_HEIGHT = 14
+
+
+def badges_width(canvas, badges, font):
+    measure = _font(canvas, font)
+    labels = [_badge_label(badge) for badge in badges]
+    return sum(measure.measure(label) + 8 for label in labels) + 3 * max(0, len(labels) - 1)
+
+
+def _badge_label(badge):
+    data = badge.get('data') or {}
+    label = data.get('label') if isinstance(data.get('label'), str) else data.get('console')
+    return str(label or badge.get('id', ''))[:6].upper()
+
+
+def draw_badges(canvas, x, middle, badges, font, tags=()):
+    """Up to three console badges, small rounded labels in the console's
+    colour, from x at the height `middle`; their total width."""
+    measure = _font(canvas, font)
+    start = x
+    for badge in badges[:3]:
+        label = _badge_label(badge)
+        width = measure.measure(label) + 8
+        colour = _colour((badge.get('data') or {}).get('color'), COLORS['button'])
+        _rounded(canvas, x, middle - BADGE_HEIGHT / 2, x + width, middle + BADGE_HEIGHT / 2, 4,
+                 fill=colour, outline=_tint(colour, '#ffffff', 0.25), tags=tags)
+        canvas.create_text(x + width / 2, middle, text=label, fill='#ffffff', font=font, tags=tags)
+        x += width + 3
+    return max(0, x - 3 - start)
+
+
+# Header band variants of the shop (classic is the interface's own): top
+# and bottom of a vertical gradient, and an accent for the raster.
+HEADER_THEMES = {'neon': ('#1a0b33', '#3a0f5c', '#ff3fd2'), 'night': ('#0a1022', '#18213d', '#7aa2ff'),
+                 'gold': ('#3a2a06', '#6b4c0c', '#ffd24a')}
+
+
+def header_theme(item):
+    """(theme, top, bottom, accent) of an equipped header theme; None for the
+    classic band (or without one)."""
+    data = item.get('data') if isinstance(item, dict) else None
+    kind = data.get('theme') if isinstance(data, dict) else None
+    if not isinstance(kind, str) or kind == 'classic':
+        return None
+    known = HEADER_THEMES.get(kind)
+    colours = data.get('colors') if isinstance(data.get('colors'), list) else []
+    if len(colours) < 3 and not known:
+        return None
+    known = known or (COLORS['header'], COLORS['header'], COLORS['gold'])
+    return (kind, *(_colour(colours[index] if index < len(colours) else None, known[index]) for index in range(3)))
 
 
 # Pixel trophy of the knowledge 'achievement' card ('o': highlight).
@@ -400,7 +673,10 @@ class Application:
                                                  tags='divider')
         self.header_divider_tip = header.create_rectangle(0, 0, 0, 0, fill=COLORS['gold'], outline='',
                                                           tags='divider')
-        self.portrait_item = header.create_image(0, 12, anchor='ne', tags='portrait')
+        # Centred: an equipped shop frame makes the picture larger than the
+        # 44 px portrait, which stays in the same place.
+        self.portrait_item = header.create_image(0, HEADER_HEIGHT // 2, anchor='center', tags='portrait')
+        self.looks = online.looks({}, {})
         # The portrait opens the player's account page on the site, like the
         # Options button; signed out, it opens the sign-in instead.
         header.tag_bind('portrait', '<Button-1>', lambda event: self.portrait_clicked())
@@ -680,10 +956,17 @@ class Application:
         self.header.coords(self.header_divider_tip, divider - 1, 14, divider + 2, 26)
         # Right to left: the two account buttons, the portrait, name and score.
         self.header.coords(self.player_window, divider - 16, HEADER_HEIGHT // 2)
-        account = divider - 16 - self.player_actions.winfo_reqwidth() - 12
-        self.header.coords(self.portrait_item, account, (HEADER_HEIGHT - PORTRAIT_SIZE) // 2)
-        text = account - PORTRAIT_SIZE - 12
-        # Name, title (when one is chosen) and score, centred as one block.
+        # A shop frame is wider than the portrait: its ring takes room on both sides.
+        try:
+            ring = max(0, (self.portrait.width() - PORTRAIT_SIZE) // 2) if self.portrait else 0
+        except (AttributeError, tk.TclError):
+            ring = 0
+        account = divider - 16 - self.player_actions.winfo_reqwidth() - 12 - ring
+        self.header.coords(self.portrait_item, account - PORTRAIT_SIZE / 2, HEADER_HEIGHT / 2)
+        text = account - PORTRAIT_SIZE - 12 - ring
+        # Name, title (when one is chosen) and score, centred as one block
+        # (a styled name is measured on its plain item, drawn again after).
+        self.header.itemconfigure(self.player_name, fill=COLORS['text'])
         lines = [item for item in (self.player_name, self.player_title, self.player_score)
                  if self.header.itemcget(item, 'text')]
         heights = {item: (lambda box: box[3] - box[1])(self.header.bbox(item) or (0, 0, 0, 0)) for item in lines}
@@ -692,6 +975,30 @@ class Application:
             self.header.coords(item, text, top)
             if item in heights:
                 top += heights[item] + 2
+        self.draw_player_extras()
+
+    def draw_player_extras(self):
+        """The equipped shop items around the account's text: the pseudonym in
+        its name style and the pin beside the title (beside the name without
+        a title). Nothing without a catalog or an equipped item."""
+        header = self.header
+        header.delete('player_extra')
+        looks = getattr(self, 'looks', None) or {}
+        name = header.itemcget(self.player_name, 'text')
+        style = looks.get('name_style')
+        header.itemconfigure(self.player_name, fill=COLORS['text'])
+        target = self.player_title if header.itemcget(self.player_title, 'text') else self.player_name
+        box = header.bbox(target)
+        if name and name_colours(style, 1):
+            # The plain item keeps its place (an empty fill hides it); the glyphs draw it.
+            header.itemconfigure(self.player_name, fill='')
+            x, y = header.coords(self.player_name)
+            draw_styled_text(header, x, y, name, (self.ui_font, 10, 'bold'), style, anchor='ne',
+                             tags=('player_extra',))
+        pin = looks.get('pin')
+        if pin and name and box:
+            draw_pin(header, box[0] - 4 - PIN_SIZE, (box[1] + box[3]) // 2 - PIN_SIZE // 2, pin,
+                     tags=('player_extra',))
 
 
     def draw_background(self, event):
@@ -710,7 +1017,7 @@ class Application:
         padding = 10
         areas = []
         if canvas is self.header:
-            for label in (self.player_name, self.player_title, self.player_score):
+            for label in (self.player_name, self.player_title, self.player_score, 'player_extra'):
                 box = canvas.bbox(label)
                 if box:
                     areas.append((box[0]-padding, box[1]-padding,
@@ -739,11 +1046,18 @@ class Application:
             return
         width, height = canvas.winfo_width(), canvas.winfo_height()
         protected = self.protected_square_areas(canvas)
-        extent = (width, height, protected)
+        theme = header_theme((getattr(self, 'looks', None) or {}).get('header_theme')) if canvas is self.header else None
+        extent = (width, height, protected, theme)
         if extent == getattr(canvas, '_background_extent', None):
             return
         canvas._background_extent = extent
         canvas.delete('background_motif')
+        if canvas is self.header:
+            canvas.configure(bg=theme[1] if theme else COLORS['header'])
+            canvas.itemconfigure(self.header_divider_tip, fill=theme[3] if theme else COLORS['gold'])
+            if theme:
+                self.paint_header_theme(canvas, width, height, protected, *theme)
+                return
         base = canvas.cget('bg')
         # Continuous, very quiet diagonal texture. The opaque table and terminal
         # keep their own flat surfaces, like the supplied identity board.
@@ -753,6 +1067,42 @@ class Application:
             canvas.create_line(offset, 0, offset + height, height,
                                fill=hatch, width=1,
                                tags=('background_motif', 'background_hatch'))
+        canvas.tag_lower('background_motif')
+
+    @staticmethod
+    def paint_header_theme(canvas, width, height, protected, kind, top, bottom, accent):
+        """A shop header band: a vertical gradient and the theme's raster
+        (neon grid, night stars, gold hatching), kept faint and away from the
+        account's text so everything stays readable."""
+        tags = ('background_motif', 'header_theme')
+        for y in range(height):
+            colour = _tint(top, bottom, y / max(1, height - 1))
+            canvas.create_line(0, y, width, y, fill=colour, tags=tags)
+        def clear(x, y):
+            return not any(left <= x <= right and upper <= y <= lower for left, upper, right, lower in protected)
+        if kind == 'neon':
+            line = _tint(bottom, accent, 0.12)
+            for x in range(0, width, 18):
+                canvas.create_line(x, 0, x, height, fill=line, tags=tags)
+            for y in range(6, height, 12):
+                canvas.create_line(0, y, width, y, fill=line, tags=tags)
+            canvas.create_line(0, height - 1, width, height - 1, fill=_tint(bottom, accent, 0.7), tags=tags)
+        elif kind == 'night':
+            import random
+            stars = random.Random(7)
+            for _ in range(max(1, width // 10)):
+                x, y = stars.randrange(width), stars.randrange(height)
+                if clear(x, y):
+                    size = 2 if stars.random() < 0.15 else 1
+                    canvas.create_rectangle(x, y, x + size, y + size, outline='', tags=tags,
+                                            fill=_tint(top, accent if stars.random() < 0.5 else '#ffffff',
+                                                       stars.uniform(0.3, 0.75)))
+        else:
+            hatch = _tint(bottom, accent, 0.08)
+            first = -((height + HATCH_SPACING - 1) // HATCH_SPACING) * HATCH_SPACING
+            for offset in range(first, width + HATCH_SPACING, HATCH_SPACING * 2):
+                canvas.create_line(offset, 0, offset + height, height, fill=hatch, tags=tags)
+            canvas.create_line(0, height - 1, width, height - 1, fill=_tint(bottom, accent, 0.6), tags=tags)
         canvas.tag_lower('background_motif')
 
     def hint(self, widget, key):
@@ -2279,14 +2629,16 @@ class Application:
         self.account_site_button = ttk.Button(row, text=self.tr('account_open_site'),
             command=self.open_account_site)
         self.account_site_button.pack(side='left', padx=(8, 0))
-        # Signed in: the RR coins and the title, bought and chosen on the site.
+        # Signed in: the RR coins, spent in the site's shop (titles, name
+        # styles, badges, pins, frames, header themes); the converter only
+        # draws what the account equips.
         self.account_rewards = ttk.Frame(page)
         self.account_balance = tk.StringVar()
         ttk.Label(self.account_rewards, textvariable=self.account_balance).pack(side='left')
-        titles = ttk.Button(self.account_rewards, text=self.tr('account_titles_site'),
-                            command=self.open_account_site)
-        titles.pack(side='left', padx=(12, 0))
-        self.hint(titles, 'tip_account_titles')
+        shop = ttk.Button(self.account_rewards, text=self.tr('account_shop_site'),
+                          command=self.open_account_shop)
+        shop.pack(side='left', padx=(12, 0))
+        self.hint(shop, 'tip_account_shop')
         # Signed in: the shared base before and after each batch.
         self.account_sync = ttk.Frame(page)
         for key, variable in (('use_shared_base', self.use_shared_base), ('send_after_batch', self.send_after_batch)):
@@ -3242,6 +3594,11 @@ class Application:
         if SENDING_AVAILABLE:
             webbrowser.open_new_tab(online.service_url() + '/account')
 
+    def open_account_shop(self):
+        """The shop section of the account page (its anchor on the site)."""
+        if SENDING_AVAILABLE:
+            webbrowser.open_new_tab(online.service_url() + '/account#shop')
+
     def portrait_clicked(self):
         """Signed in: the account page on the site; signed out: the sign-in."""
         if not SENDING_AVAILABLE:
@@ -3309,6 +3666,9 @@ class Application:
         header = self.header
         for child in self.player_actions.winfo_children():
             child.pack_forget()
+        # The shop items the account equips, drawn when the catalog knows them.
+        profile = player.get('profile') or {}
+        self.looks = online.looks(player.get('shop') or {}, online.equipped(profile) if account else {})
         if not account:
             self.portrait = _portrait_photo(self.app)
             header.itemconfigure(self.portrait_item, image=self.portrait)
@@ -3323,9 +3683,10 @@ class Application:
             self.sign_in_button.pack(side='top', fill='x', pady=(4, 0))
             self.app.after_idle(self.layout_header)
             return
-        profile = player.get('profile') or {}
         name = profile.get('pseudonym') or account.get('pseudonym') or str(account.get('email', '')).split('@')[0]
-        self.portrait = _portrait_photo(self.app, player.get('avatar'), name[:1])
+        frame = self.looks.get('frame')
+        frame = (player['frame'], frame['data'].get('hole')) if frame and player.get('frame') else None
+        self.portrait = _portrait_photo(self.app, player.get('avatar'), name[:1], frame)
         header.itemconfigure(self.portrait_item, image=self.portrait)
         header.itemconfigure(self.player_name, text=name)
         header.itemconfigure(self.player_title, text=self.title_name(profile.get('title')))
@@ -3618,9 +3979,100 @@ class Application:
         window.deiconify()
         reveal()
 
+    # The ranking's columns: key, caption, width (0: the player's, the rest) and alignment.
+    BOARD_COLUMNS = (('rank', 'leaderboard_rank', 50, 'e'), ('player', 'leaderboard_player', 0, 'w'),
+                     ('games', 'leaderboard_games', 64, 'e'), ('gold', 'class_gold', 84, 'e'),
+                     ('platinum', 'class_platinum', 96, 'e'), ('diamond', 'class_diamond', 96, 'e'),
+                     ('points', 'leaderboard_points', 84, 'e'))
+    BOARD_ROW = 26
+    BOARD_HEADING = 26
+
+    def board_columns(self, width):
+        """{key: (left, right)} of the ranking's columns for a list `width` wide."""
+        fixed = sum(size for _, _, size, _ in self.BOARD_COLUMNS)
+        spans, left = {}, 0
+        for key, _, size, _ in self.BOARD_COLUMNS:
+            size = size or max(160, width - fixed)
+            spans[key] = (left, left + size)
+            left += size
+        return spans
+
+    def draw_board_heading(self, canvas, width, pictures):
+        canvas.delete('all')
+        spans = self.board_columns(width)
+        font = (self.ui_font, 9, 'bold')
+        measure = _font(canvas, font)
+        middle = self.BOARD_HEADING // 2
+        for key, caption, _, anchor in self.BOARD_COLUMNS:
+            left, right = spans[key]
+            text = self.tr(caption)
+            if anchor == 'e':
+                canvas.create_text(right - 8, middle, text=text, anchor='e', fill=COLORS['text'], font=font)
+                picture = pictures.get('gem-' + key)
+                if picture:
+                    canvas.create_image(right - 8 - measure.measure(text) - 12, middle, image=picture)
+            else:
+                canvas.create_text(left + 8, middle, text=text, anchor='w', fill=COLORS['text'], font=font)
+            if left:
+                canvas.create_line(left, 4, left, self.BOARD_HEADING - 4, fill=COLORS['subtle_border'])
+
+    def draw_board_rows(self, canvas, rows, width, mine, catalog):
+        """The ranking's lines on a canvas: rank, the pseudonym in its shop
+        style, up to three console badges, the pin and the title, then games,
+        class counts and points. The player's own line is highlighted."""
+        canvas.delete('all')
+        canvas._sparkle = []
+        spans = self.board_columns(width)
+        font, small, badge_font = (self.ui_font, 9), (self.ui_font, 8), (self.ui_font, 7, 'bold')
+        name_font = (self.ui_font, 9, 'bold')
+        measure, small_measure = _font(canvas, name_font), _font(canvas, small)
+        row_height = self.BOARD_ROW
+        for index, (entry, counts) in enumerate(rows):
+            top, middle = index * row_height, index * row_height + row_height // 2
+            name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
+            you = bool(mine) and name == mine
+            if you:
+                canvas.create_rectangle(0, top, width, top + row_height, fill=COLORS['selected'], outline='')
+            elif index % 2:
+                canvas.create_rectangle(0, top, width, top + row_height, outline='',
+                                        fill=_tint(COLORS['field'], '#ffffff', 0.03))
+            colour = COLORS['gold'] if you else COLORS['text']
+            canvas.create_text(spans['rank'][1] - 8, middle, text=str(entry.get('rank', '')), anchor='e',
+                               fill=colour, font=font)
+            look = online.looks(catalog, online.equipped(entry))
+            title = self.title_name(entry.get('title'))
+            left, right = spans['player'][0] + 8, spans['player'][1] - 8
+            badges = look['badges']
+            badge_room = badges_width(canvas, badges, badge_font) + 6 if badges else 0
+            extra = PIN_SIZE + 4 if look['pin'] else 0
+            tail = min(140, extra + small_measure.measure(title) + 10) if (title or extra) else 0
+            shown = elide(measure, name, max(40, right - left - badge_room - tail))
+            items, used = draw_styled_text(canvas, left, middle, shown, name_font, look['name_style'],
+                                           anchor='w', fill=colour, tags=('board_name',))
+            x = left + used + 6
+            if badges:
+                x += draw_badges(canvas, x, middle, badges, badge_font, tags=('board_badge',)) + 4
+            if title or look['pin']:
+                x += 6
+                if look['pin']:
+                    draw_pin(canvas, x, middle - PIN_SIZE // 2, look['pin'], tags=('board_pin',))
+                    x += PIN_SIZE + 4
+                if title:
+                    canvas.create_text(x, middle, text=elide(small_measure, title, right - x), anchor='w',
+                                       fill=COLORS['muted'], font=small, tags=('board_title',))
+            for key, value in (('games', entry.get('games', 0)), ('gold', counts.get('gold', 0)),
+                               ('platinum', counts.get('platinum', 0)), ('diamond', counts.get('diamond', 0)),
+                               ('points', entry.get('total', 0))):
+                canvas.create_text(spans[key][1] - 8, middle, text=self.count_text(value), anchor='e',
+                                   fill=colour, font=font)
+        canvas.configure(scrollregion=(0, 0, width, max(1, len(rows)) * row_height))
+
     def show_leaderboard(self):
         """The shared base's ranking in a window: podium order, pseudonyms,
-        games and points, all time or this month, with the player's own line."""
+        games and points, all time or this month, with the player's own line.
+        What players equip in the site's shop shows as there: name styles, up
+        to three console badges, pins (titles as before); nothing without the
+        shop's catalog."""
         if not SENDING_AVAILABLE or self.raise_existing('board_window'):return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
@@ -3658,27 +4110,45 @@ class Application:
         for value, key in (('month', 'leaderboard_month'), ('all', 'leaderboard_all')):
             ttk.Radiobutton(switches, text=self.tr(key), value=value, variable=period,
                             command=lambda: load()).pack(side='right', padx=(8, 0))
+        # The shop's catalog ({id: item}) once the board has answered.
+        catalog = {}
         # Podium: second, first, third, on steps of different heights.
         podium = tk.Canvas(body, height=196, bg=background, highlightthickness=0)
         podium.pack(fill='x', pady=(10, 8))
         podium.rows = []
         podium.bind('<Configure>', lambda event: draw_podium(podium.rows))
-        columns = ('rank', 'player', 'games', 'gold', 'platinum', 'diamond', 'points')
-        table = ttk.Treeview(body, columns=columns, show='headings', height=9, selectmode='none')
-        for key, caption, width, anchor in (
-                ('rank', self.tr('leaderboard_rank'), 50, 'e'), ('player', self.tr('leaderboard_player'), 220, 'w'),
-                ('games', self.tr('leaderboard_games'), 60, 'e'), ('gold', self.tr('class_gold'), 80, 'e'),
-                ('platinum', self.tr('class_platinum'), 90, 'e'), ('diamond', self.tr('class_diamond'), 90, 'e'),
-                ('points', self.tr('leaderboard_points'), 80, 'e')):
-            table.heading(key, text=caption, image=pictures.get('gem-' + key, ''))
-            table.column(key, width=width, anchor=anchor, stretch=key == 'player')
-        table.tag_configure('you', foreground=COLORS['gold'])
-        table.pack(fill='both', expand=True)
+        # The ranking: a canvas list, so a name can carry its style, badges and pin.
+        listing = tk.Frame(body, bg=COLORS['field'], highlightthickness=1, highlightbackground=COLORS['border'])
+        heading = tk.Canvas(listing, height=self.BOARD_HEADING, bg=COLORS['button'], highlightthickness=0)
+        table = tk.Canvas(listing, height=self.BOARD_ROW * 9, bg=COLORS['field'], highlightthickness=0,
+                          yscrollincrement=self.BOARD_ROW)
+        bar = ttk.Scrollbar(listing, orient='vertical', command=table.yview)
+        table.configure(yscrollcommand=bar.set)
+        heading.grid(row=0, column=0, sticky='ew')
+        table.grid(row=1, column=0, sticky='nsew')
+        bar.grid(row=0, column=1, rowspan=2, sticky='ns')
+        listing.grid_columnconfigure(0, weight=1)
+        listing.grid_rowconfigure(1, weight=1)
+        listing.pack(fill='both', expand=True)
+        table.rows, table.mine = [], None
+        def draw_table(event=None):
+            width = table.winfo_width()
+            if width < 300:
+                return
+            self.draw_board_heading(heading, width, pictures)
+            self.draw_board_rows(table, table.rows, width, table.mine, catalog)
+        table.bind('<Configure>', draw_table)
+        def scroll(event):
+            steps = -1 if getattr(event, 'num', 0) == 4 or getattr(event, 'delta', 0) > 0 else 1
+            table.yview_scroll(steps * max(1, abs(getattr(event, 'delta', 0)) // 120), 'units')
+            return 'break'
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            table.bind(sequence, scroll)
         # The footer is reserved first: a longer note above never clips it.
         you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
         close = ttk.Button(body, text=self.tr('close'), command=window.destroy)
-        close.pack(side='bottom', anchor='e', pady=(10, 0), before=table)
-        you_line.pack(side='bottom', anchor='w', pady=(8, 0), before=table)
+        close.pack(side='bottom', anchor='e', pady=(10, 0), before=listing)
+        you_line.pack(side='bottom', anchor='w', pady=(8, 0), before=listing)
 
         # Opening animation: the steps rise one after the other (third, second,
         # first), carrying each player's crown, name, points and gems up.
@@ -3707,6 +4177,7 @@ class Application:
             if animate:
                 podium.started = time.monotonic()
             podium.delete('all')
+            podium._sparkle = []
             width, bottom = podium.winfo_width(), int(podium.cget('height'))
             if width < 300:
                 return
@@ -3722,6 +4193,7 @@ class Application:
                 return
             podium.create_line(left, bottom - 1, left + 3 * step, bottom - 1, fill=COLORS['border'])
             moving = False
+            name_font, title_font, badge_font = (self.ui_font, 10, 'bold'), (self.ui_font, 8), (self.ui_font, 7, 'bold')
             for place in (3, 2, 1):
                 x, top, full = places[place]
                 progress = min(1.0, max(0.0, (elapsed - DELAYS[place]) / RISE))
@@ -3741,15 +4213,30 @@ class Application:
                     continue
                 top += shift
                 entry, counts = rows[place - 1]
+                look = online.looks(catalog, online.equipped(entry))
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
                 crown(middle, top - 4, place, shades[place])
-                podium.create_text(middle, top + 9, text=name, fill=COLORS['text'],
-                                   font=(self.ui_font, 10, 'bold'), width=step_width - 16)
+                if name_colours(look['name_style'], 1):
+                    draw_styled_text(podium, middle, top + 9, elide(_font(podium, name_font), name, step_width - 16),
+                                     name_font, look['name_style'], anchor='center', tags=('podium_name',))
+                else:
+                    podium.create_text(middle, top + 9, text=name, fill=COLORS['text'],
+                                       font=name_font, width=step_width - 16)
                 podium.create_text(middle, top + 28, text=f"{self.count_text(entry.get('total', 0))} pts",
                                    fill=shades[place], font=(self.ui_font, 9, 'bold'))
-                if self.title_name(entry.get('title')):
-                    podium.create_text(middle, top + 43, text=self.title_name(entry.get('title')),
-                                       fill=COLORS['muted'], font=(self.ui_font, 8), width=step_width - 16)
+                # The title, its pin before it (alone without a title).
+                title, pin = self.title_name(entry.get('title')), look['pin']
+                if title or pin:
+                    measure = _font(podium, title_font)
+                    room = step_width - 16 - (PIN_SIZE + 4 if pin else 0)
+                    shown = elide(measure, title, room) if title else ''
+                    spot = middle - (measure.measure(shown) + (PIN_SIZE + (4 if shown else 0) if pin else 0)) / 2
+                    if pin:
+                        draw_pin(podium, round(spot), top + 43 - PIN_SIZE // 2, pin, tags=('podium_pin',))
+                        spot += PIN_SIZE + 4
+                    if shown:
+                        podium.create_text(spot, top + 43, text=shown, anchor='w', fill=COLORS['muted'],
+                                           font=title_font)
                 # The three class gems with this player's counts, on the step.
                 # They share the step's width; big counts shorten (1.2K) when they would not fit.
                 values = [counts.get(kind, 0) for kind in ('gold', 'platinum', 'diamond')]
@@ -3766,6 +4253,11 @@ class Application:
                     podium.create_text(spot + 22, bottom - height + 22, text=text, anchor='w',
                                        fill=COLORS['text'], font=count_font)
                     spot += width + 8
+                # Up to three console badges under the gems, once the step is tall enough.
+                if look['badges'] and height > 60:
+                    wide = badges_width(podium, look['badges'], badge_font)
+                    draw_badges(podium, middle - wide / 2, bottom - height + 42, look['badges'], badge_font,
+                                tags=('podium_badge',))
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
                 if pending:
@@ -3776,18 +4268,21 @@ class Application:
 
         step_width = 170
 
-        def show(answer, error):
+        def show(answer, error, shop=None):
             if not window.winfo_exists():return
-            table.delete(*table.get_children())
+            catalog.clear()
+            catalog.update(shop or {})
             if error:
                 note.configure(text=error)
+                table.rows = []
+                draw_table()
                 draw_podium([])
                 return
             entries = answer.get('entries', [])
             note.configure(text=self.tr('leaderboard_demo') if answer.get('demo')
                            else self.tr('leaderboard_empty') if not entries else self.tr('leaderboard_rules'))
             mine = (self.player.get('profile') or {}).get('pseudonym') or (self.player.get('account') or {}).get('pseudonym')
-            rows, lines = [], []
+            rows = []
             for entry in entries:
                 # The server counts classes per console: {console: {gold, platinum, diamond}}.
                 counts = {}
@@ -3796,15 +4291,9 @@ class Application:
                         if isinstance(value, (int, float)):
                             counts[name] = counts.get(name, 0) + int(value)
                 rows.append((entry, counts))
-                name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
-                # The title the player chose on the site, after the pseudonym.
-                shown = name + (' · ' + self.title_name(entry.get('title')) if self.title_name(entry.get('title')) else '')
-                lines.append(((entry.get('rank', ''), shown, *map(self.count_text, (
-                    entry.get('games', 0), counts.get('gold', 0), counts.get('platinum', 0),
-                    counts.get('diamond', 0), entry.get('total', 0)))),
-                              ('you',) if mine and name == mine else ()))
-            for values, tags in lines:
-                table.insert('', 'end', values=values, tags=tags)
+            table.rows, table.mine = rows, mine
+            table.yview_moveto(0)
+            draw_table()
             draw_podium(rows[:3], animate=True)
             you = answer.get('you') or {}
             if you.get('rank'):
@@ -3818,10 +4307,18 @@ class Application:
             wanted = period.get()
             result = []
             def worker():
-                # No Tk call here: the window polls for the answer.
-                try:result.append((online.board(wanted), None))
+                # No Tk call here: the window polls for the answer. The shop's
+                # catalog comes from its cache (refreshed every 30 minutes at most).
+                try:
+                    board = online.board(wanted)
                 except (online.ServiceError, online.ServiceConnectionError) as exc:
-                    result.append((None, self.online_message(exc)))
+                    result.append((None, self.online_message(exc), {}))
+                    return
+                try:
+                    shop = online.shop()
+                except Exception:
+                    shop = {}
+                result.append((board, None, shop))
             def poll():
                 if not window.winfo_exists():return
                 if result:show(*result[0])
@@ -3830,7 +4327,7 @@ class Application:
             poll()
         window.bind('<Escape>', lambda event: window.destroy())
         window.update_idletasks()
-        center_dialog(window, self.app, 720, 680)
+        center_dialog(window, self.app, 760, 700)
         window.deiconify()
         load()
 

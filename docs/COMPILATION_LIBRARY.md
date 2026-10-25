@@ -1343,9 +1343,17 @@ release, the path can rise to Platinum or Diamond and brings RR coins;
 confirming paths also brings a few coins. The header shows the points, the RR
 coins balance beside them and, under the pseudonym, the title chosen on the
 site. Options › Common › Retro-Recomp account shows the balance and a
-**Titles on the site** button: titles are bought with RR coins and chosen on
-the account page of retro-recomp.com. The leaderboard shows each player's
-title.
+**Shop on the site** button (the account page's `#shop` section): titles and
+the other cosmetic items of the RR coin shop are bought and equipped on
+retro-recomp.com; the converter only draws them. The header shows the
+equipped name style (gold, gold to amber, sparkling gold with a slow shimmer
+that stops while the window is hidden), the pin beside the title, the
+portrait frame (drawn larger behind the 44 px portrait, which stays on top)
+and the header theme (classic, neon, night, gold). The leaderboard shows
+name styles, up to three console badges, pins and titles. The public catalog
+(`GET shop`, `datas/shop-catalog.json`) is refreshed with the player at most
+every 30 minutes and frame pictures are downloaded once
+(`datas/shop-frame-*`); without a catalog nothing extra is drawn.
 
 ## Release 0.24.0 snapshot
 
