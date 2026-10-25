@@ -345,6 +345,9 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         force = settings.pop('force', False)
         # Forcing from the queue rediscovers; Reconvert may still upgrade.
         rediscover = settings.pop('rediscover', force)
+        # What the shared base gave this ROM before the batch (online.prepare_batch):
+        # it may choose the quick plan below and is never part of the request.
+        shared = (settings.pop('shared_paths', None) or {}).get(f'{system.id}:{item.sha256}')
         if system.id != 'x68':
             for key in ('x68_ipl', 'x68_cgrom', 'x68_ram'): settings.pop(key, None)
         if system.id != 'ng':
@@ -404,7 +407,21 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         elif inherited:
             emit(f'{item.title}: only menus/presentation changed and no new paths were found; '
                  'upgrading the executable without rediscovery (quick check).')
-        if inherited:
+        shared_used = None
+        if shared and not inherited:
+            from .knowledge import imported_observations, imported_record
+            from .scan_levels import LEVELS
+            # Only while the imported banks hold them (not set aside after a failure).
+            if imported_record(system.id, item.sha256) or imported_observations(system.id, item.sha256):
+                level = shared.get('level') if shared.get('level') in LEVELS else None
+                shared_used = {'level': level, 'records': int(shared.get('records') or 0),
+                               'quick': bool(level and not rediscover
+                                             and LEVELS.index(level) >= LEVELS.index(plan.level))}
+                emit(f'{item.title}: shared paths, level {level}: quick check instead of discovery.'
+                     if shared_used['quick'] else
+                     f'{item.title}: shared paths{f", level {level}" if level else ""}: '
+                     f'{plan.level} discovery starting from them.')
+        if inherited or (shared_used and shared_used['quick']):
             quick = plan_for(system.id, None, passes=settings['passes'], frames=settings['frames'], level='quick')
             run_settings = {**settings, 'passes': quick.passes, 'frames': quick.frames, 'scan_level': 'quick'}
             for key in ('md_advanced_scan', 'nes_advanced_scan'):
@@ -433,6 +450,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                       language_scope='Retro-Recomp host menus; cartridge text unchanged')
         if inherited:
             report['upgrade'] = upgrade_record(inherited)
+        if shared_used:
+            report['shared_paths'] = shared_used
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output),
@@ -480,6 +499,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             interpreter_percent=max((p for p in measured if p is not None), default=None),
             interpreter_cycles=max((c.get("interpreter_cycles", 0) for c in report["final_checks"]), default=0),
             reference_vdp_trace_match=report.get("reference_vdp_trace_match"))
+        if shared_used:
+            result['shared_paths'] = shared_used
     except StopRequested:
         # Killed by Stop: the earlier export, if any, is untouched.
         result.update(status="stopped", message="Conversion arrêtée ; l’export précédent est conservé.")
@@ -493,14 +514,16 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
 def _convert_in_budget(parallel_games, *args):
     # Context-local caps cannot leak between simultaneous workers.
     from .platforms import compilation_budget
-    from .knowledge import discard_imported, imported_record, imported_set_aside
+    from .knowledge import discard_imported, imported_observations, imported_record, imported_set_aside
     item, emit = args[1], args[8]
     with compilation_budget(parallel_games):
         result = _convert_one(*args)
         # Shared hints may come from another converter and be wrong: a failed
-        # conversion that had some is retried once without them. If it then
-        # succeeds, they caused the failure and leave the imported bank.
-        if result['status'] != 'error' or not item.system or not imported_record(item.system, item.sha256):
+        # conversion that had some (hints or observations) is retried once
+        # without them. If it then succeeds, they caused the failure and leave
+        # the imported banks.
+        if result['status'] != 'error' or not item.system or not (
+                imported_record(item.system, item.sha256) or imported_observations(item.system, item.sha256)):
             return result
         emit(f'{item.title}: failed with imported discoveries; converting again without them.')
         with imported_set_aside(item.system, item.sha256):

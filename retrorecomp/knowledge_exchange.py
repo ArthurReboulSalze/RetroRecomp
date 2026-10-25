@@ -6,7 +6,8 @@ gameplay observations not yet turned into hints by a conversion, as positions
 in the ROM: no ROM byte, path, image or code. An import validates the file like the bundled
 bank and adds it to a separate imported bank; every later conversion still
 checks native code against the reference CPU, so a wrong hint costs at most
-a fallback, never a different game.
+a fallback, never a different game. Paths fetched from the shared base before
+a batch (`import_fetched`) join the same banks under the same checks.
 """
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ VERSION = 2
 SUFFIX = '.rrknowledge'
 TITLE_LIMIT = 160
 CACHE_NAME = 'discoveries-cache.json.gz'
+# Games per console in a knowledge payload (validate_payload's bound).
+CONSOLE_LIMIT = 4096
 
 
 def _entries(system: str, record: dict) -> set:
@@ -398,7 +401,63 @@ def import_knowledge(path: Path) -> dict:
     discovery, and each conversion still validates the native code. Raw
     observations join their own ROM-free bank.
     """
-    document = read_exchange(Path(path))
+    return _import_document(read_exchange(Path(path)))
+
+
+def _valid_record(system: str, identity: str, record) -> dict | None:
+    """One cartridge record checked like a shared file's, or None."""
+    try:
+        return validate_payload({'schema': 1, 'consoles': {system: {identity: record}}})['consoles'][system][identity]
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return None
+
+
+def import_fetched(roms: dict) -> dict:
+    """Add what the shared base served before a batch (`online.fetch_knowledge`:
+    {'system:sha256': {'records': [...], 'observations': [...]}}) to the
+    imported banks, exactly like an imported file. Each record and row is
+    checked like a shared file's; an invalid one is skipped, not the ROM.
+    `accepted` counts, per ROM, the valid records and distinct rows received."""
+    consoles, observations, accepted = {}, {}, {}
+    for key, value in roms.items():
+        system, _, identity = key.partition(':') if isinstance(key, str) else ('', '', '')
+        if system not in SYSTEMS or len(identity) != 64 or set(identity) - set('0123456789abcdef') \
+                or not isinstance(value, dict):
+            continue
+        record, count = None, 0
+        for raw in value.get('records') if isinstance(value.get('records'), list) else ():
+            candidate = _valid_record(system, identity, raw)
+            if candidate is None:
+                continue
+            count += 1
+            merged = merge_records(system, record, candidate) if record else candidate
+            if system == 'snes' and merged is not candidate:
+                compact_snes(merged)
+            # Merging never pushes a record past the bank's own limits.
+            record = merged if merged is candidate else _valid_record(system, identity, merged) or record
+        rows, seen = [], set()
+        for row in value.get('observations') if isinstance(value.get('observations'), list) else ():
+            try:
+                clean = valid_observation_rows(system, [row])[0]
+            except (ValueError, TypeError, KeyError):
+                continue
+            if _observation_key(clean) not in seen and len(rows) < OBSERVATION_LIMIT:
+                seen.add(_observation_key(clean))
+                rows.append(clean)
+        if record:
+            consoles.setdefault(system, {})[identity] = record
+        if rows:
+            observations.setdefault(system, {})[identity] = rows
+        accepted[key] = {'records': count, 'observations': len(rows)}
+    outcome = (_import_document({'knowledge': {'schema': 1, 'consoles': consoles}, 'observations': observations,
+                                 'titles': {}, 'converter': ''})
+               if consoles or observations else {'games': 0, 'consoles': {}, 'converter': '',
+                                                  'new': 0, 'enriched': 0, 'unchanged': 0})
+    return {**outcome, 'accepted': accepted}
+
+
+def _import_document(document: dict) -> dict:
+    """The additive merge behind `import_knowledge` and `import_fetched`."""
     target = imported_path()
     bank, observed = _imported_bank(), _observation_bank()
     outcome = {}
@@ -407,13 +466,20 @@ def import_knowledge(path: Path) -> dict:
         for identity, record in records.items():
             known = games.get(identity, {})
             existed = bool(known) or bool(observed.get(system, {}).get(identity))
-            if not unknown_hints(system, record, _bundled(system, identity), known):
+            # The bank keeps the bundled catalogue's bound of games per console.
+            full = not known and len(games) >= CONSOLE_LIMIT
+            if full or not unknown_hints(system, record, _bundled(system, identity), known):
                 outcome.setdefault((system, identity), 'unchanged')
                 continue
             if known:
-                record = merge_records(system, known, record)
+                merged = merge_records(system, known, record)
                 if system == 'snes':
-                    compact_snes(record)
+                    compact_snes(merged)
+                record = _valid_record(system, identity, merged)
+                if record is None:
+                    # The union would exceed a field's bound: keep what is there.
+                    outcome.setdefault((system, identity), 'unchanged')
+                    continue
             games[identity] = record
             outcome[(system, identity)] = 'enriched' if existed else 'new'
     for system, games in document['observations'].items():

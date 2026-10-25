@@ -24,18 +24,56 @@ def collected(rows=None, games=None):
             'payload': {'schema': 1, 'consoles': {}}, 'titles': {'gb': dict(games)}}
 
 
+LEVELS = ('quick', 'standard', 'extended', 'thorough')
+
+
 class FakeService(BaseHTTPRequestHandler):
-    """Just enough of the PHP API; behaviour switched through `server.mode`."""
+    """Just enough of the PHP API; behaviour switched through `server.mode`
+    (uploads), `server.claims` ('ok', 'missing' as on an older server, 'busy')
+    and `server.store` ({'system:sha256': [{'id', 'record', 'rows', 'level'}]},
+    what knowledge/fetch serves)."""
     def log_message(self, *args):
         pass
 
-    def answer(self, status, payload):
+    def answer(self, status, payload, compress=False):
         data = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        if compress:
+            data = gzip.compress(data)
+            self.send_header('Content-Encoding', 'gzip')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def claims(self, data):
+        mode = getattr(self.server, 'claims', 'ok')
+        if mode == 'missing':
+            self.answer(404, {'error': 'not_found'})
+        elif mode == 'busy':
+            self.answer(503, {'error': 'busy'})
+        elif mode == 'refused':   # the contribution was found invalid
+            self.answer(409, {'error': 'refused'})
+        else:
+            games = json.loads(data)['games']
+            paths = sum(len(game['hints']) + len(game['observations']) for game in games)
+            self.answer(200, {'games': len(games), 'paths': paths, 'new': paths})
+
+    def fetch(self, data):
+        self.server.encodings.append(self.headers.get('Accept-Encoding'))
+        served = {}
+        for key, cursor in json.loads(data)['roms'].items():
+            # As on the site: at most 64 stored records per ROM in one answer.
+            entries = sorted((entry for entry in getattr(self.server, 'store', {}).get(key, [])
+                              if entry['id'] > cursor), key=lambda entry: entry['id'])[:64]
+            if entries:
+                levels = [entry['level'] for entry in entries if entry.get('level')]
+                served[key] = {'cursor': max(entry['id'] for entry in entries),
+                               'level': max(levels, key=LEVELS.index) if levels else None,
+                               'records': [entry['record'] for entry in entries if entry.get('record')],
+                               'observations': [row for entry in entries for row in entry.get('rows', [])]}
+        # PHP writes an empty object as an empty list.
+        self.answer(200, {'roms': served or []}, compress='gzip' in (self.headers.get('Accept-Encoding') or ''))
 
     def body(self):
         return self.rfile.read(int(self.headers.get('Content-Length') or 0))
@@ -49,6 +87,9 @@ class FakeService(BaseHTTPRequestHandler):
 
     def do_POST(self):
         data = self.body()
+        if self.headers.get('Content-Encoding') == 'gzip':
+            data = gzip.decompress(data)
+            self.server.packed = getattr(self.server, 'packed', []) + [self.path]
         self.server.calls.append(('POST', self.path, self.headers.get('Authorization'), data))
         mode = self.server.mode
         if self.path.endswith('/auth/code'):
@@ -60,6 +101,10 @@ class FakeService(BaseHTTPRequestHandler):
                 self.answer(200, {'token': 'rr1_' + 'a' * 43, 'account': {'email': 'p@example.test', 'pseudonym': None}})
         elif self.path.endswith('/levels'):
             self.answer(200, {'levels': len(json.loads(data)['levels'])})
+        elif self.path.endswith('/claims'):
+            self.claims(data)
+        elif self.path.endswith('/knowledge/fetch'):
+            self.fetch(data)
         elif mode == 'fail':
             self.answer(500, {'error': 'server'})
         elif mode == 'revoked':
@@ -73,7 +118,8 @@ class OnlineTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.data = Path(self.temp.name) / 'datas'
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), FakeService)
-        self.server.calls, self.server.mode = [], 'ok'
+        self.server.calls, self.server.mode, self.server.claims = [], 'ok', 'ok'
+        self.server.store, self.server.encodings = {}, []
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = f'http://127.0.0.1:{self.server.server_address[1]}'
         bank = self.data / 'knowledge/imported.json.gz'
@@ -217,7 +263,7 @@ class OnlineTests(unittest.TestCase):
         self.server.mode = 'ok'
         result = online.send(online.pending(found))
         self.assertEqual((result['games'], result['id']), (1, 7))
-        sent = self.server.calls[-1]
+        sent = [call for call in self.server.calls if call[1].endswith('/contributions')][-1]
         self.assertEqual(sent[2], 'Bearer rr1_' + 'a' * 43)
         path = Path(self.temp.name) / 'sent.rrknowledge'
         path.write_bytes(sent[3])
@@ -232,18 +278,41 @@ class OnlineTests(unittest.TestCase):
         more = collected(games={SHA: 'Super Mario Land', OTHER: 'Tetris'})
         self.assertEqual(sorted(online.pending(more)['titles']['gb']), [OTHER])
 
-    def test_scan_levels_follow_the_upload_not_the_file(self):
+    def test_claims_follow_the_upload_with_its_scan_levels(self):
         self.sign_in()
         found = collected()
         found['levels'] = {'gb': {SHA: 'thorough'}, 'md': {OTHER: 'quick'}}
         pending = online.pending(found)
         self.assertEqual(pending['levels'], {'gb': {SHA: 'thorough'}}, 'only the games sent')
-        online.send(pending)
-        upload, levels = self.server.calls[-2], self.server.calls[-1]
+        result = online.send(pending)
+        upload, claims = self.server.calls[-2], self.server.calls[-1]
         self.assertTrue(upload[1].endswith('/contributions'))
+        self.assertTrue(claims[1].endswith('/contributions/7/claims'))
+        self.assertEqual(claims[2], 'Bearer rr1_' + 'a' * 43)
+        # The claimed keys are those of the exact file sent, as the maintainer reads it.
+        path = Path(self.temp.name) / 'sent.rrknowledge'
+        path.write_bytes(upload[3])
+        paths = knowledge_exchange.discovery_paths(knowledge_exchange.read_exchange(path))
+        self.assertEqual(json.loads(claims[3]), {'games': [{
+            'system': 'gb', 'identity': SHA, 'known': False, 'level': 'thorough', 'hints': [],
+            'observations': paths[('gb', SHA)]['observations']}]})
+        self.assertEqual(result['claims'], {'games': 1, 'paths': 1, 'new': 1})
+        self.assertFalse(any(call[1].endswith('/levels') for call in self.server.calls))
+        self.assertNotIn(b'thorough', gzip.decompress(upload[3]), 'the shared file keeps its format')
+
+    def test_an_older_server_without_claims_still_gets_the_scan_levels(self):
+        self.sign_in()
+        self.server.claims = 'missing'
+        found = collected()
+        found['levels'] = {'gb': {SHA: 'thorough'}}
+        result = online.send(online.pending(found))
+        claims, levels = self.server.calls[-2], self.server.calls[-1]
+        self.assertTrue(claims[1].endswith('/contributions/7/claims'))
         self.assertTrue(levels[1].endswith('/contributions/7/levels'))
         self.assertEqual(json.loads(levels[3]), {'levels': {f'gb:{SHA}': 'thorough'}})
-        self.assertNotIn(b'thorough', gzip.decompress(upload[3]), 'the shared file keeps its format')
+        self.assertIsNone(result['claims'])
+        self.assertEqual(online.waiting_claims(), 0, 'nothing waits for a server without claims')
+        self.assertEqual(online.pending(found)['games'], 0)
 
     def test_offline_and_revoked_uploads(self):
         self.sign_in()
