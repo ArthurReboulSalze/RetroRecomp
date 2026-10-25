@@ -234,6 +234,38 @@ def smoke(window):
         application.language = 'fr'
         assert application.size_text(2348 * megabyte) == '2,3 Go'
         application.language = 'en'
+    # The second action: build tools and caches, only for a packaged installation.
+    from retrorecomp.build_cleanup import ToolFolder
+    installation = Path(fixtures.name) / 'installation'
+    tool_folders = [ToolFolder(installation / 'datas/tools', 380 * megabyte),
+                    ToolFolder(installation / '.deps', 700 * megabyte),
+                    ToolFolder(installation / '.build', 20 * megabyte)]
+    tools_removed = {'removed': 3, 'freed': 1100 * megabyte, 'kept': 0, 'kept_bytes': 0, 'errors': []}
+    application.measure_tool_space()                       # sources: the section stays hidden
+    settle(lambda: application.tools_state['phase'] == 'unavailable')
+    assert not application.tools_row.winfo_manager()
+    with patch('retrorecomp.build_cleanup.managed_root', return_value=installation), \
+            patch('retrorecomp.build_cleanup.tool_folders', return_value=tool_folders), \
+            patch('retrorecomp.build_cleanup.remove_tool_folders', return_value=tools_removed) as remove_tools, \
+            patch('retrorecomp.build_cleanup.leftover_projects', return_value=[]), \
+            patch('retrorecomp.gui.messagebox.askyesno', side_effect=[False, True]) as ask:
+        application.measure_tool_space()
+        settle(lambda: application.tools_state['phase'] == 'measured')
+        assert application.tools_row.winfo_manager()
+        assert application.tools_button.cget('text') == application.tr('tools_space_remove_size', size='1.1 GB')
+        assert application.tools_status.get() == application.tr('tools_space_found', size='1.1 GB')
+        assert str(application.tools_button.cget('state')) == 'normal'
+        application.tools_button.invoke()                  # declined: nothing removed
+        assert not remove_tools.called and not application.busy
+        application.tools_button.invoke()
+        assert '1.1 GB' in ask.call_args.args[1]
+        settle(lambda: not application.busy)
+        assert remove_tools.call_args.args[0] == installation
+        assert application.tools_status.get() == application.tr('tools_space_done', size='1.1 GB')
+        assert str(application.tools_button.cget('state')) == 'disabled'
+        assert str(application.start_button.cget('state')) == 'normal'
+    application.measure_tool_space()
+    settle(lambda: application.tools_state['phase'] == 'unavailable')
     assert set(application.cover_accounts) == {'screenscraper', 'thegamesdb', 'igdb', 'arcadeitalia'}
     assert not application.cover_3d.get()
     application.gb_deep_control.invoke()

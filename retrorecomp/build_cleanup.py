@@ -19,6 +19,13 @@ last hour (``RECENT_SECONDS``) or locked by a running CPS-1/X68000 conversion
 is kept, since another Retro-Recomp process may still be using it.
 ``RETRO_RECOMP_KEEP_BUILD=1`` (or ``--keep-build``) keeps projects for the
 developer checks that read them after a conversion.
+
+The last section, "build tools and caches", is the other action of Options >
+Common > Disk space: it removes everything a packaged installation downloaded
+or built beside itself (``datas/tools``, ``.deps``, ``.build``) and nothing
+else, so that Retro-Recomp can be removed cleanly. Games, settings and
+discoveries are never in those folders. The next conversion offers to install
+the tools again and prepares ``.deps`` on demand.
 """
 from dataclasses import dataclass
 from functools import lru_cache
@@ -28,6 +35,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import sys
 import time
 import uuid
 
@@ -254,9 +262,16 @@ def _remove(path, build: Path, *, keep_recent: bool, cancel=None) -> tuple[str, 
     size, newest = _measure(path, cancel)
     if (keep_recent and newest > time.time() - RECENT_SECONDS) or _locked(path, system):
         return 'in_use', size
+    return _discard(path, build, size, renamed=system == 'removing')
+
+
+def _discard(path: Path, parent: Path, size: int, *, renamed: bool = False) -> tuple[str, int]:
+    """Remove a folder in two steps: rename it to a unique name beside the
+    others (so nothing ever sees a half-deleted folder under its real name),
+    then delete it. ('removed' | 'in_use' | 'missing', bytes)."""
     target = path
-    if system != 'removing':
-        target = build / (REMOVING + uuid.uuid4().hex[:16])
+    if not renamed:
+        target = parent / (REMOVING + uuid.uuid4().hex[:16])
         # Windows refuses to rename a folder while a process has a file open
         # in it: that project is in use. The retries cover antivirus scans.
         for attempt in range(3):
@@ -421,6 +436,17 @@ def release_build(item, report: dict, emit=print, root: Path | None = None) -> i
 
 # ------------------------------------------------------------- free space
 
+def _candidates(build: Path) -> list[tuple[str, ...]]:
+    """Where per-game projects can be, as parts below .build (not yet checked
+    by ``classify``)."""
+    candidates = [(name,) for name in _subfolders(build)]
+    candidates += [('cps1', name) for name in _subfolders(build / 'cps1')]
+    candidates += [('x68', host, sdk, name) for host in _subfolders(build / 'x68')
+                   for sdk in _subfolders(build / 'x68' / host)
+                   for name in _subfolders(build / 'x68' / host / sdk)]
+    return candidates
+
+
 def leftover_projects(root: Path | None = None, *, cancel=None) -> list[Project]:
     """Every per-game project under .build with its size, including removals
     an earlier session could not finish. Read only; may take a while."""
@@ -430,14 +456,9 @@ def leftover_projects(root: Path | None = None, *, cancel=None) -> list[Project]
             return []
     except OSError:
         return []
-    candidates = [(name,) for name in _subfolders(build)]
-    candidates += [('cps1', name) for name in _subfolders(build / 'cps1')]
-    candidates += [('x68', host, sdk, name) for host in _subfolders(build / 'x68')
-                   for sdk in _subfolders(build / 'x68' / host)
-                   for name in _subfolders(build / 'x68' / host / sdk)]
     found = []
     now = time.time()
-    for parts in candidates:
+    for parts in _candidates(build):
         kind = classify(parts)
         if kind is None:
             continue
@@ -476,5 +497,183 @@ def remove_projects(projects, root: Path | None = None, *, cancel=None, emit=Non
             summary['kept_bytes'] += size
     if emit:
         emit(f"Disk space: {summary['removed']} build folders removed, {_megabytes(summary['freed'])} freed; "
+             f"{summary['kept']} kept in use." + ''.join('\n  ' + error for error in summary['errors']))
+    return summary
+
+
+# ------------------------------------------------- build tools and caches
+
+# What a packaged installation creates beside itself, as parts below its folder:
+# the portable compiler, CMake, Ninja and Git; the engine sources, SDL2 and the
+# translators; the shared caches and any per-game project left over.
+TOOL_FOLDERS = (('datas', 'tools'), ('.deps',), ('.build',))
+
+
+@dataclass(frozen=True)
+class ToolFolder:
+    path: Path
+    size: int
+
+
+def managed_root() -> Path | None:
+    """The folder of a packaged installation, when this process runs from one;
+    None for sources, for a converter run from a project's Export folder or for
+    a development tree, where these folders belong to the developer."""
+    if not getattr(sys, 'frozen', False):
+        return None
+    from .paths import export_directory
+    root = Path(os.path.abspath(ROOT))
+    if os.path.normcase(root) != os.path.normcase(os.path.abspath(export_directory())):
+        return None
+    return None if (root / 'RetroRecomp.py').exists() else root
+
+
+def _folder_below(base: Path, parts) -> Path | None:
+    """The folder ``parts`` below ``base`` when every step is a real folder
+    (no link or junction on the way); None when absent or not safe."""
+    current = base
+    for part in parts:
+        current = current / part
+        try:
+            info = os.lstat(_native(current))
+        except OSError:
+            return None
+        if _link(info) or not stat.S_ISDIR(info.st_mode):
+            return None
+    return current
+
+
+def tool_folders(root: Path | None = None, *, cancel=None) -> list[ToolFolder]:
+    """The tool and cache folders present, with their apparent sizes. Read
+    only; may take a while on a well-used installation."""
+    base = Path(os.path.abspath(root or ROOT))
+    found = []
+    for parts in TOOL_FOLDERS:
+        path = _folder_below(base, parts)
+        if path is not None:
+            found.append(ToolFolder(path, _measure(path, cancel)[0]))
+    return found
+
+
+def _locked_entries(build: Path) -> set[str]:
+    """Top-level names under .build holding a project that a CPS-1 or X68000
+    conversion is working in right now."""
+    names = set()
+    for parts in _candidates(build):
+        kind = classify(parts)
+        if kind and _locked(build.joinpath(*parts), kind[0]):
+            names.add(parts[0])
+    return names
+
+
+def _setup_in_use(deps: Path) -> bool:
+    """True while a converter process prepares the shared pieces in .deps."""
+    lock = deps / 'shared-setup' / 'entry.lock'
+    if not lock.is_file():
+        return False
+    from .library import entry_lock
+    try:
+        with entry_lock(lock.parent, timeout=0):
+            return False
+    except (TimeoutError, OSError):
+        return True
+
+
+def _scan(parent: Path) -> list[str]:
+    try:
+        with os.scandir(_native(parent)) as found:
+            return sorted(entry.name for entry in found)
+    except OSError:
+        return []
+
+
+def remove_tool_folders(root: Path | None = None, *, cancel=None, emit=None) -> dict:
+    """Remove ``datas/tools``, ``.deps`` and ``.build`` under ``root`` (the
+    installation folder) and nothing else. Links and junctions are never
+    followed (one met inside is removed itself; one standing in place of a
+    folder is left alone), a folder holding a running conversion's lock is
+    kept, and a folder a process has open stays and is reported.
+    Raises ValueError when ``root`` looks like a source tree."""
+    base = Path(os.path.abspath(root or ROOT))
+    if (base / 'RetroRecomp.py').exists():
+        raise ValueError(f'A source tree, not an installation: {base}')
+    summary = {'removed': 0, 'freed': 0, 'kept': 0, 'kept_bytes': 0, 'errors': []}
+
+    def discard(path: Path, parent: Path, size: int, *, renamed=False):
+        outcome, freed = _discard(path, parent, size, renamed=renamed)
+        if outcome == 'removed':
+            summary['removed'] += 1
+            summary['freed'] += freed
+        elif outcome == 'in_use':
+            summary['kept'] += 1
+            summary['kept_bytes'] += freed
+
+    def attempt(label, action):
+        try:
+            action()
+        except InterruptedError:
+            raise
+        except (OSError, ValueError) as exc:
+            summary['errors'].append(f'{label}: {exc}')
+
+    def remove_entry(path: Path, build: Path):
+        info = os.lstat(_native(path))
+        if _link(info):
+            try:
+                os.unlink(_native(path))
+            except OSError:
+                os.rmdir(_native(path))
+        elif stat.S_ISDIR(info.st_mode):
+            discard(path, build, _measure(path, cancel)[0], renamed=bool(_REMOVING.fullmatch(path.name)))
+        else:
+            _unlink(_native(path))
+            summary['freed'] += info.st_size
+
+    try:
+        for parts in TOOL_FOLDERS:
+            if cancel is not None and cancel.is_set():
+                break
+            parent = base if len(parts) == 1 else _folder_below(base, parts[:-1])
+            if parent is None:
+                continue
+            path = parent / parts[-1]
+            # An unfinished removal of an earlier session.
+            if parts != ('.build',):
+                for name in _scan(parent):
+                    if _REMOVING.fullmatch(name) and _folder_below(parent, (name,)) is not None:
+                        attempt(name, lambda name=name: discard(parent / name, parent, 0, renamed=True))
+            try:
+                info = os.lstat(_native(path))
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                summary['errors'].append(f'{"/".join(parts)}: {exc}')
+                continue
+            if _link(info) or not stat.S_ISDIR(info.st_mode):
+                summary['errors'].append(f'{"/".join(parts)}: link or not a folder, left alone')
+                continue
+            if parts == ('.deps',) and _setup_in_use(path):
+                summary['kept'] += 1
+                continue
+            if parts != ('.build',):
+                attempt('/'.join(parts), lambda: discard(path, parent, _measure(path, cancel)[0]))
+                continue
+            # .build: entry by entry, so a running conversion's project stays.
+            busy = _locked_entries(path)
+            for name in _scan(path):
+                if cancel is not None and cancel.is_set():
+                    break
+                if name in busy:
+                    summary['kept'] += 1
+                    continue
+                attempt('.build/' + name, lambda name=name: remove_entry(path / name, path))
+            try:
+                os.rmdir(_native(path))
+            except OSError:
+                pass
+    except InterruptedError:
+        pass
+    if emit:
+        emit(f"Build tools and caches: {summary['removed']} folders removed, {_megabytes(summary['freed'])} freed; "
              f"{summary['kept']} kept in use." + ''.join('\n  ' + error for error in summary['errors']))
     return summary

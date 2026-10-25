@@ -95,6 +95,6 @@ done
 install -m 644 -- "$stage/launcher.desktop" "$desktop"
 if command -v update-desktop-database >/dev/null; then update-desktop-database "${desktop%/*}" >/dev/null 2>&1 || true; fi
 echo "Installed. Open Retro-Recomp from your applications menu, or run: $prefix/Retro-Recomp"
-echo "Uninstall (keeps your data): $prefix/uninstall.sh"
+echo "Uninstall (keeps your games and settings; asks about the build tools): $prefix/uninstall.sh"
 exit 0
 __ARCHIVE_BELOW__
