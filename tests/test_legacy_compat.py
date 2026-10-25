@@ -1,7 +1,9 @@
-"""Exports of release 1.4.1 stay upgradable, and their quick states stay readable.
+"""Exports of releases 1.4.1 and 1.5.1 stay upgradable, and 1.4.1 quick states stay readable.
 
 The 1.4.1 values below were computed from the v1.4.1 tag and found, byte for
 byte, in executables and receipts written by the released Retro-Recomp.exe.
+The 1.5.1 game stamps were computed from the v1.5.1 tag and each one reproduced
+the game part of a receipt written by the released Windows Retro-Recomp.exe 1.5.1.
 """
 import json
 import os
@@ -18,6 +20,29 @@ from retrorecomp.paths import ASSETS
 NEO_GEO_ABI_141 = 'b3305fddf7b7c0b961d6abb04f401e0a7ca8d55974dd13c8b05f2fda60df7e5e'
 CPS1_ABI_141 = 'd92d265ba352da2602ee7a74492a02f6397477a131b79afab1ef42fa66f1d557'
 
+# Game stamps of the releases whose exports are upgraded rather than reconverted.
+GAME_STAMPS_141 = {
+    'cps1': '65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
+    'gb': '9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
+    'gg': 'c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
+    'md': 'd6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',
+    'nes': 'e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
+    'ng': 'bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
+    'sms': '3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
+    'snes': 'f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',
+}
+# Mega Drive and Super Nintendo: the released Windows 1.5.1 converter could not convert
+# them, so no receipt exists. X68000: no verified receipt (SDK stamp), as for 1.4.1.
+GAME_STAMPS_151 = {
+    'cps1': '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f',
+    'gb': '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c',
+    'gg': '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3',
+    'nes': 'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980',
+    'ng': 'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
+    'sms': '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
+}
+RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151))
+
 
 class LegacyStampTests(unittest.TestCase):
     def test_listed_stamps_are_wellformed_and_never_the_current_one(self):
@@ -28,8 +53,11 @@ class LegacyStampTests(unittest.TestCase):
                 self.assertRegex(stamp, r'^[0-9a-f]{64}$')
                 self.assertNotEqual(stamp, inputs.role_stamps(system)['game'],
                                     'a stale list must not shadow the current game part')
-        # Only consoles whose 1.4.1 game part was reproduced from a real receipt are listed.
+        # Only consoles whose game part was reproduced from a real receipt are listed, release by release.
         self.assertEqual(sorted(inputs.LEGACY_GAME_STAMPS), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms', 'snes'])
+        for system, stamps in inputs.LEGACY_GAME_STAMPS.items():
+            self.assertEqual(stamps, tuple(table[system] for _, table in RELEASES if system in table), system)
+        self.assertEqual(sorted(GAME_STAMPS_151), ['cps1', 'gb', 'gg', 'nes', 'ng', 'sms'])
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
 
@@ -65,8 +93,9 @@ class PackingBuildRoleTests(unittest.TestCase):
 
 
 class LegacyReceiptTests(unittest.TestCase):
-    """A receipt written by release 1.4.1 stays upgradable on each listed console,
-    whatever today's game stamp is (it changed when packing became a build input)."""
+    """A receipt written by release 1.4.1 or 1.5.1 stays upgradable on each listed
+    console, whatever today's game stamp is (it changed when packing became a build
+    input, and again after 1.5.1)."""
 
     def parts(self, system, game_stamp=None):
         from retrorecomp import freshness
@@ -76,14 +105,14 @@ class LegacyReceiptTests(unittest.TestCase):
         with patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': 'b' * 64}),                 patch('retrorecomp.paths.selected_bios_path', return_value=Path('neogeo.zip')),                 patch('retrorecomp.compilation_inputs.role_stamps', side_effect=stamps):
             return item, freshness.request_parts(item, {'use_cover': False})
 
-    def receipt(self, folder, item, game):
+    def receipt(self, folder, item, game, release='1.4.1'):
         from retrorecomp.freshness import digest
         target = Path(folder) / 'Game'
-        target.write_bytes(b'export written by 1.4.1')
-        report = {'version': '1.4.1', 'rom': {'sha256': item.sha256}, 'executable': target.name,
+        target.write_bytes(f'export written by {release}'.encode())
+        report = {'version': release, 'rom': {'sha256': item.sha256}, 'executable': target.name,
                   'native_validation': {'passed': True},
-                  'export_receipt': {'schema': 3, 'request': 'request-1.4.1', 'game': game,
-                                     'host': 'host-1.4.1', 'sha256': digest(target)}}
+                  'export_receipt': {'schema': 3, 'request': f'request-{release}', 'game': game,
+                                     'host': f'host-{release}', 'sha256': digest(target)}}
         path = Path(folder) / 'conversion-report.json'
         path.write_text(json.dumps(report), encoding='utf-8')
         return target, path
@@ -99,11 +128,14 @@ class LegacyReceiptTests(unittest.TestCase):
                 self.assertEqual(self.parts(system, 'game-stamp-before-packing-moved')[1]['legacy_games'],
                                  parts['legacy_games'])
                 with patch('retrorecomp.freshness._no_new_hints', return_value=True):
-                    target, path = self.receipt(folder, item, parts['legacy_games'][0])
-                    self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
-                    previous = freshness.upgradable(item, target, path, parts, print)
-                    self.assertEqual(previous['legacy_release'], '1.4.1')
-                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.4.1')
+                    releases = [release for release, table in RELEASES if system in table]
+                    self.assertEqual(len(releases), len(stamps))
+                    for release, game in zip(releases, parts['legacy_games']):
+                        target, path = self.receipt(folder, item, game, release)
+                        self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
+                        previous = freshness.upgradable(item, target, path, parts, print)
+                        self.assertEqual(previous['legacy_release'], release)
+                        self.assertEqual(freshness.upgrade_record(previous)['from_release'], release)
                     # Any other game part (another release, other code) is converted in full.
                     target, path = self.receipt(folder, item, 'f' * 64)
                     self.assertIsNone(freshness.upgradable(item, target, path, parts, print))

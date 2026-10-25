@@ -69,11 +69,14 @@ folders, clang-only branches of the CMake files, the compiler in the report, not
 the statically linked runtime, and the removal of the unused Super Mario World path.
 Without further care every 1.4.1 export would be converted in full. Instead
 `compilation_inputs.LEGACY_GAME_STAMPS` lists, per console, the game stamp of
-release 1.4.1. A receipt whose game part equals the hash computed with one of these
-stamps is accepted by `freshness.upgradable()` as the same game part:
+release 1.4.1, followed by the one of release 1.5.1 where a real receipt confirmed it
+([below](#release-151-entries-25-october-2026-windows)). A receipt whose game part equals the
+hash computed with one of these stamps is accepted by `freshness.upgradable()` as the same
+game part:
 
 - it is **never current**: it is always rebuilt with the current tools and rechecked on
-  the quick routes, with the report's `upgrade.from_release` set to `1.4.1`;
+  the quick routes, with the report's `upgrade.from_release` set to the release that wrote
+  it (`1.4.1` or `1.5.1`);
 - if the rebuild or its checks fail, `batch._convert_one` says so
   ("did not pass its checks … converting the game in full instead") and converts the game
   in full; the earlier executable stays in place until something has passed;
@@ -122,6 +125,49 @@ upgraded exports, a state written by the old one being resumed by the new one):
 The Super Nintendo analysis cache identity changed once (the removed Super Mario World repository
 was part of it): the analysis of the ROM is redone during the upgrade, in a few minutes, without
 rediscovery.
+
+#### Release 1.5.1 entries (25 October 2026, Windows)
+
+Since the `v1.5.1` tag the game-side Python inputs that changed are `retrorecomp/batch.py`
+(a game the bundled knowledge holds starts with the quick check, with a full discovery as its
+fallback: conversion flow, not the generated game), `retrorecomp/console16.py` (the restored
+`subprocess` import below) and `compilation_inputs.py` itself (this list). No file below
+`native/` changed. Each verified console's tuple therefore gets the 1.5.1 game stamp as a second
+value, found the same way as the 1.4.1 ones:
+
+1. computed from the `v1.5.1` tag (commit `3ef2222`) with Python 3.14.5,
+   `role_stamps(system)['game']`, for the nine consoles;
+2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.1
+   (SHA-256 `8018b0444fcdd784c0777b9c2274253fc2f65045c64efc6fdecbeed932a4ad8b`), from the command
+   line, in its own workspace (its own `.deps`, `datas` and `Games`), quick scan level, local box
+   art only, Visual Studio Build Tools; then this branch's own `batch` path, asked about each
+   export with the console's 1.5.1 stamp as the only legacy entry, reproduced the receipt's game
+   part exactly: Master System (Fantasy Zone), Game Gear (Bubble Bobble), Game Boy (Tetris),
+   NES (1942), Neo Geo (Magician Lord) and CPS-1 (1941 - Counter Attack). Only those six
+   consoles have a 1.5.1 entry;
+3. this branch then upgraded those six exports for real: "exported by Retro-Recomp 1.5.1 …
+   rebuilt with the current tools and rechecked on the quick routes", 6/6 `upgraded`, report
+   `upgrade.from_release` = `1.5.1`, `check_level` `quick`, native validation passed, zero
+   interpreted instructions. Each upgraded executable then ran offscreen (SDL `offscreen` video,
+   `dummy` sound, no window on the desktop) for 12 s without exiting; the CPS-1 and Neo Geo ones
+   also completed 600 headless frames with zero interpreted 68000 and Z80 instructions.
+
+Consoles without a 1.5.1 entry, whose 1.5.1 exports are converted in full once:
+
+- **Mega Drive and Super Nintendo**: the released Windows 1.5.1 cannot convert them at all.
+  `console16.probe16` lost its `import subprocess` when its launch moved to `core.run_process`,
+  and it still reads `subprocess.CREATE_NO_WINDOW` on Windows, so every conversion stops before its
+  first check with "name 'subprocess' is not defined" (seen with Columns and F-Zero). No 1.5.1
+  Windows receipt exists for these consoles. The import is restored
+  (`tests/test_console16.py`, `Probe16LaunchTests`).
+- **X68000**: no receipt. Its reference run could not prepare its private game data in the deep
+  test workspace (a Windows path-length limit; the first Master System choice, Alex Kidd, failed
+  the same way under MSBuild and was replaced by the shorter Fantasy Zone), and its request carries
+  the SDK stamp that already kept it out of the 1.4.1 list.
+
+Quick-state keys are unchanged since 1.5.1: the Neo Geo, CPS-1, Mega Drive and Super Nintendo
+`RR16_STATE_ABI` values computed from the tag and from this branch are identical, and the other
+consoles' keys depend on native files only.
 
 **Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
 complete them, whenever the release really changes what a game does (translation,
