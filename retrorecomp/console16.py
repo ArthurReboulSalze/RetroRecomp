@@ -565,6 +565,7 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         if gun_menu:
             command.extend(('--gun-menu', gun_menu))
     import os
+    import subprocess
     from .core import run_process
     env = os.environ.copy()
     if reference:
