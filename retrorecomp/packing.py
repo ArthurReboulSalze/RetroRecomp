@@ -21,9 +21,6 @@ UPX_SHA256 = "d20ebe0b7b22b6be968c8c34be61f94ddea12cb11462e2cec27f548ef9574df8"
 # Official upx-5.2.1-amd64_linux.tar.xz (SHA-256 402162aa...1b91657), its upx file.
 UPX_LINUX = "assets/tools/upx-amd64_linux"
 UPX_LINUX_SHA256 = "287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1"
-# Linux exports not yet run compressed stay as built. X68000 games are known by
-# the private payload table every X68000 player embeds (x68000_conversion.payload).
-LINUX_AS_BUILT = (b'system/keropi/iplrom.dat\0',)
 # Large Mega Drive and Super Nintendo ELFs take longer than PEs to pack at -9.
 LINUX_TIMEOUT = 300
 
@@ -53,17 +50,6 @@ def compact_executable(path: Path) -> None:
                                f"{detail[-1] if detail else 'unknown error'}")
 
 
-def _contains(path: Path, needles) -> bool:
-    carry, overlap = b'', max(len(n) for n in needles) - 1
-    with path.open('rb') as stream:
-        while chunk := stream.read(1024 * 1024):
-            data = carry + chunk
-            if any(needle in data for needle in needles):
-                return True
-            carry = data[-overlap:] if overlap else b''
-    return False
-
-
 def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
     """The verified packer, and a private copy to delete when the bundled one
     is not executable (a converter unpacked without file modes)."""
@@ -83,7 +69,11 @@ def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
 
 
 def compact_linux(path: Path) -> None:
-    """Pack a native Linux x86-64 game; leave other ELFs as built."""
+    """Pack a native Linux x86-64 game; leave other ELFs as built.
+
+    Every console is packed. Players only use /proc/self/exe to find their
+    folder; their data, X68000 disks and firmware included, is linked into the
+    program (resources.embed_resources) and restored by UPX with the rest."""
     with path.open('rb') as stream:
         header = stream.read(20)
     if header[:4] != b'\x7fELF':
@@ -91,8 +81,6 @@ def compact_linux(path: Path) -> None:
     # 64-bit little-endian x86-64 only: the bundled UPX is an x86-64 program.
     if (header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != 62
             or platform.machine().lower() not in ('x86_64', 'amd64')):
-        return
-    if _contains(path, LINUX_AS_BUILT):
         return
     tool, private = _linux_tool(path.parent)
     try:

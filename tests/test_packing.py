@@ -86,17 +86,20 @@ class LinuxPackingTests(unittest.TestCase):
                 packing.compact_linux(self.game)
         run.assert_not_called()
 
-    def test_x68000_and_other_architectures_stay_as_built(self):
-        x68000 = self.root / 'X68000 Game'
-        # The payload table may straddle a read boundary.
-        x68000.write_bytes(ELF_X86_64 + bytes(1024 * 1024 - 30) + b'system/keropi/iplrom.dat\0' + bytes(16))
+    def test_x68000_games_are_packed_like_every_console(self):
+        # Its disks and firmware are linked into the program, not read from the file.
+        self.game.write_bytes(ELF_X86_64 + bytes(1024 * 1024 - 30) + b'system/keropi/iplrom.dat\0' + bytes(16))
+        calls = self.run_packer()
+        self.assertEqual([command[1:] for command, _ in calls],
+                         [('-9', '-q', str(self.game)), ('-t', '-q', str(self.game))])
+
+    def test_other_architectures_stay_as_built(self):
         arm = self.root / 'Arm Game'
         arm.write_bytes(ELF_ARM64 + bytes(64))
         with patch('retrorecomp.packing.subprocess.run') as run:
-            for path in (x68000, arm):
-                before = path.read_bytes()
-                packing.compact_linux(path)
-                self.assertEqual(path.read_bytes(), before)
+            before = arm.read_bytes()
+            packing.compact_linux(arm)
+            self.assertEqual(arm.read_bytes(), before)
             with patch('retrorecomp.packing.platform.machine', return_value='aarch64'):
                 packing.compact_linux(self.game)
         run.assert_not_called()
