@@ -7,12 +7,67 @@ import time
 import unittest
 from unittest.mock import patch
 
-from retrorecomp.credits_demo import ScrollState, PercussionMotion
+from retrorecomp.credits_demo import ScrollState, PercussionMotion, EffectsGovernor
 from retrorecomp.credits_music import TRACKS, MusicSession, MusicPlayer, choose_track, percussion_map
 from retrorecomp.compilation_inputs import INTERFACE_MODULES
 
 
+def run_frames(governor, fps, seconds, start=0.):
+    """Feed evenly spaced frames; return the stages seen and the end time."""
+    stages, now = [], start
+    for _ in range(int(seconds*fps)):
+        now += 1/fps
+        stages.append(governor.frame(now))
+    return stages, now
+
+
 class CreditsTests(unittest.TestCase):
+    def test_effects_shed_in_stages_and_never_return_in_the_same_opening(self):
+        governor = EffectsGovernor('full')
+        stages,_ = run_frames(governor, 30, 20)
+        self.assertEqual(set(stages), {'full'})
+        governor = EffectsGovernor('full')
+        stages,now = run_frames(governor, 18, 8)
+        self.assertEqual(stages[0], 'full')
+        self.assertEqual(governor.stage, 'light')  # 18 fps is below 20 but above 15
+        self.assertLess(stages.index('light')/18, 3.5)  # one warm-up second and one window
+        self.assertEqual(stages, sorted(stages, key=('full','light','minimal').index))
+        stages,_ = run_frames(governor, 60, 20, now)
+        self.assertEqual(set(stages), {'light'})  # faster later, but no flicker back
+        governor = EffectsGovernor('full')
+        stages,_ = run_frames(governor, 12, 10)
+        self.assertEqual(governor.stage, 'minimal')
+        self.assertEqual([s for i,s in enumerate(stages) if i == 0 or s != stages[i-1]], ['full','light','minimal'])
+        stages,_ = run_frames(EffectsGovernor('light'), 12, 10)
+        self.assertEqual(stages[-1], 'minimal')
+
+    def test_warm_up_and_hidden_time_are_not_measured(self):
+        governor = EffectsGovernor('full')
+        stages,now = run_frames(governor, 5, 1)  # the first second is always ignored
+        stages,now = run_frames(governor, 30, 6, now)
+        self.assertEqual(set(stages), {'full'})
+        governor.reset(now+30)  # minimized for half a minute, then shown again
+        stages,_ = run_frames(governor, 30, 6, now+30)
+        self.assertEqual(set(stages), {'full'})
+
+    def test_remembered_stage_is_upgraded_once_when_the_machine_is_comfortable(self):
+        governor = EffectsGovernor('light')
+        stages,now = run_frames(governor, 24, 20)
+        self.assertEqual(set(stages), {'light'})  # fine, but not comfortably so
+        governor = EffectsGovernor('light')
+        stages,now = run_frames(governor, 30, 20)
+        self.assertEqual(governor.stage, 'full')
+        self.assertGreater(stages.index('full')/30, 4)  # several strong seconds first
+        stages,now = run_frames(governor, 18, 10, now)
+        self.assertEqual(governor.stage, 'light')  # the richer stage proved too slow
+        stages,_ = run_frames(governor, 60, 20, now)
+        self.assertEqual(set(stages), {'light'})  # tried once per opening only
+        governor = EffectsGovernor('minimal')
+        run_frames(governor, 30, 20)
+        self.assertEqual(governor.stage, 'light')  # one stage richer, not two
+        self.assertEqual(EffectsGovernor('bogus').stage, 'full')
+        self.assertEqual(EffectsGovernor(None).stage, 'full')
+
     def test_percussion_roles_exclude_melodic_samples(self):
         root = Path(__file__).resolve().parents[1]/'MEDIAS/trackers_chiploom'
         for track in TRACKS:
@@ -58,17 +113,21 @@ class CreditsTests(unittest.TestCase):
                 self.assertNotEqual(session.previous, previous)
                 session.set_muted(True)
                 previous = session.previous
+            self.assertEqual(session.effects, 'full')
+            session.set_effects('light')
             session = MusicSession(path)
             self.assertTrue(session.muted)
             self.assertEqual(session.previous, previous)
+            self.assertEqual(session.effects, 'light')
             self.assertLess(path.stat().st_size, 200)
 
     def test_invalid_saved_state_is_nonfatal(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'state.json'
-            for state in ('{bad', '[]', 'null', '{"muted": "yes"}'):
+            for state in ('{bad', '[]', 'null', '{"muted": "yes"}', '{"effects": 3}'):
                 path.write_text(state)
                 self.assertFalse(MusicSession(path).muted)
+                self.assertEqual(MusicSession(path).effects, 'full')
 
     def test_scrolling_resumes_after_interaction_and_holds_while_dragging(self):
         state = ScrollState()
