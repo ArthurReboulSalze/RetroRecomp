@@ -94,6 +94,7 @@
     "options_account": "Cuenta Retro-Recomp",
     "account_signed_as": "Sesión iniciada como {email}.",
     "account_sign_out": "Cerrar sesión",
+    "account_sign_out_confirm": "¿Cerrar la sesión de {email} en este ordenador? Tus juegos y descubrimientos se quedan aquí; puedes volver a iniciar sesión cuando quieras con un nuevo código.",
     "account_open_site": "Mi cuenta en el sitio",
     "cover_box_3d": "Preferir cajas reales en tres cuartos",
     "cover_sources_note": "El modo automático prioriza carátulas en línea: servicios configurados y después Libretro. Las descargas se guardan. Las imágenes locales y capturas son alternativas; la selección manual tiene prioridad.",

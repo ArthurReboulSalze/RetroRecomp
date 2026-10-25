@@ -519,24 +519,28 @@ class Application:
         self.log.configure(yscrollcommand=log_scroll.set)
         log_scroll.pack(side='right', fill='y')
         self.log.pack(side='left', fill='both', expand=True)
+        # A thin status line: one row of small text, tight margins, so the
+        # queue and the log keep the height.
         footer = ttk.Frame(body)
-        footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(10, 16))
-        status_dot = tk.Canvas(footer, width=12, height=14, bg=COLORS['background'], highlightthickness=0)
-        status_dot.create_oval(1, 3, 9, 11, fill=COLORS['green'], outline='')
-        status_dot.pack(side='left', padx=(0, 6))
-        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel', font=(self.ui_font, 9))
+        footer.grid(row=8, column=0, sticky='ew', padx=24, pady=(4, 5))
+        status_dot = tk.Canvas(footer, width=10, height=12, bg=COLORS['background'], highlightthickness=0)
+        status_dot.create_oval(1, 3, 7, 9, fill=COLORS['green'], outline='')
+        status_dot.pack(side='left', padx=(0, 5))
+        self.footer_label = ttk.Label(footer, text=self.tr('footer'), style='Muted.TLabel',
+                                      font=(self.ui_font, 8), padding=0)
         self.footer_label.pack(side='left')
         # Bottom right: the two gold squares in the corner, the version and
         # platform, then the motto.
-        squares = tk.Canvas(footer, width=26, height=18, bg=COLORS['background'], highlightthickness=0)
-        for x, y, size in ((16, 8, 8), (4, 0, 10)):
+        squares = tk.Canvas(footer, width=18, height=12, bg=COLORS['background'], highlightthickness=0)
+        for x, y, size in ((11, 6, 6), (3, 0, 7)):
             squares.create_rectangle(x, y, x + size, y + size, fill=COLORS['gold'], outline='')
         squares.pack(side='right')
         self.version_label = ttk.Label(footer, text=f'v{__version__} · {PLATFORMS[self.platform_id]}',
-                                       style='Muted.TLabel', font=(self.ui_font, 9))
-        self.version_label.pack(side='right', padx=(0, 14))
-        self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel', font=(self.ui_font, 9))
-        self.tagline.pack(side='right', padx=(12, 18))
+                                       style='Muted.TLabel', font=(self.ui_font, 8), padding=0)
+        self.version_label.pack(side='right', padx=(0, 10))
+        self.tagline = ttk.Label(footer, text=self.tr('tagline'), style='Muted.TLabel',
+                                 font=(self.ui_font, 8), padding=0)
+        self.tagline.pack(side='right', padx=(12, 14))
         app.protocol('WM_DELETE_WINDOW', self.close)
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)
@@ -1763,11 +1767,17 @@ class Application:
         notebook._retro_tab_keys = {}
         notebook.pack(fill='both', expand=True, padx=0, pady=(6, 4))
 
+        # Every tab scrolls when the window is shorter than its content: a
+        # light scrollbar appears, and the wheel scrolls anywhere on the page.
+        self.option_scrollers = []
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            panel.bind_all(sequence, self.options_wheel)
+
         def tab(key):
-            page = ttk.Frame(notebook, padding=18)
+            page = ttk.Frame(notebook)
             notebook.add(page, text=self.tr(key))
             notebook._retro_tab_keys[str(page)] = key
-            return page
+            return self.scrolled_page(page)
 
         def checkbox(parent, key, variable, hint):
             control = ttk.Checkbutton(parent, text=self.tr(key), variable=variable)
@@ -1776,32 +1786,8 @@ class Application:
             self.hint(control, hint)
             return control
 
-        # Common holds the shared settings, the account and box art: it
-        # scrolls when the window is shorter than its content.
-        common_page = tab('options_common')
-        common_page.configure(padding=0)
-        scroller = tk.Canvas(common_page, bg=COLORS['background'], highlightthickness=0, borderwidth=0)
-        common_bar = ttk.Scrollbar(common_page, orient='vertical', command=scroller.yview)
-        scroller.configure(yscrollcommand=common_bar.set)
-        common_bar.pack(side='right', fill='y')
-        scroller.pack(side='left', fill='both', expand=True)
-        common = ttk.Frame(scroller, padding=18)
-        common_window = scroller.create_window(0, 0, window=common, anchor='nw')
-        def fit_common(event=None):
-            scroller.itemconfigure(common_window, width=scroller.winfo_width())
-            scroller.configure(scrollregion=(0, 0, scroller.winfo_width(), common.winfo_reqheight()))
-            if common.winfo_reqheight() <= scroller.winfo_height():
-                common_bar.pack_forget()
-            elif not common_bar.winfo_ismapped():
-                common_bar.pack(side='right', fill='y', before=scroller)
-        scroller.bind('<Configure>', fit_common)
-        common.bind('<Configure>', fit_common)
-        def wheel(event):
-            if common_bar.winfo_ismapped():
-                scroller.yview_scroll(-1 if event.delta > 0 else 1, 'units')
-        for widget in (scroller, common):
-            widget.bind('<Enter>', lambda event: panel.bind_all('<MouseWheel>', wheel))
-            widget.bind('<Leave>', lambda event: panel.unbind_all('<MouseWheel>'))
+        # Common holds the shared settings, the account and box art.
+        common = tab('options_common')
         common.columnconfigure(0, weight=1)
         ttk.Label(common, text=self.tr('output')).grid(row=0, column=0, sticky='w', pady=(0, 8))
         self.custom_output_control = ttk.Checkbutton(common, text=self.tr('custom_output'),
@@ -1923,6 +1909,16 @@ class Application:
             control=ttk.Combobox(x68,textvariable=self.x68_ram,values=(2,4),width=8,state='readonly');control.pack(anchor='w')
             self.option_controls.append((control,'readonly'))
             self.build_feedback_options(x68,'x68')
+
+        # Over a list or a number field, the wheel scrolls the page rather
+        # than changing the value under the pointer by accident.
+        def guard(widget):
+            for child in widget.winfo_children():
+                if child.winfo_class() in ('TCombobox', 'TSpinbox'):
+                    for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+                        child.bind(sequence, lambda event: (self.options_wheel(event), 'break')[1])
+                guard(child)
+        guard(notebook)
 
         buttons = ttk.Frame(panel)
         # Reserve the footer first: Tk otherwise gives a tall notebook all
@@ -2133,6 +2129,9 @@ class Application:
         for hint in self.tooltips[self.option_tooltips_start:]:
             hint.hide()
         del self.tooltips[self.option_tooltips_start:]
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            panel.unbind_all(sequence)
+        self.option_scrollers = []
         panel.grid_remove()
         panel.destroy()
         self.options_panel = None
@@ -2148,6 +2147,49 @@ class Application:
         except (AttributeError, tk.TclError):
             pass
         self.queue_background(self.body)
+
+    def scrolled_page(self, parent, padding=18):
+        """A frame inside parent that scrolls vertically once its content is
+        taller than the room: a light scrollbar appears only then."""
+        canvas = tk.Canvas(parent, bg=COLORS['background'], highlightthickness=0, borderwidth=0,
+                           yscrollincrement=20)
+        bar = ttk.Scrollbar(parent, orient='vertical', command=canvas.yview, style='Slim.Vertical.TScrollbar')
+        canvas.configure(yscrollcommand=bar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        inner = ttk.Frame(canvas, padding=padding)
+        item = canvas.create_window(0, 0, window=inner, anchor='nw')
+        def fit(event=None):
+            width, height = canvas.winfo_width(), inner.winfo_reqheight()
+            canvas.itemconfigure(item, width=width)
+            canvas.configure(scrollregion=(0, 0, width, height))
+            if height <= canvas.winfo_height():
+                if bar.winfo_ismapped():
+                    bar.pack_forget()
+                canvas.yview_moveto(0)
+            elif not bar.winfo_ismapped():
+                bar.pack(side='right', fill='y', padx=(0, 2), pady=2, before=canvas)
+        canvas.bind('<Configure>', fit)
+        inner.bind('<Configure>', fit)
+        canvas._retro_scroll_bar = bar
+        self.option_scrollers.append(canvas)
+        return inner
+
+    def options_wheel(self, event):
+        """The wheel scrolls the options page under the pointer, wherever it
+        is on that page (labels, fields, frames), when the page overflows."""
+        try:
+            widget = self.app.winfo_containing(event.x_root, event.y_root)
+        except (KeyError, tk.TclError):
+            return
+        while widget is not None and widget not in self.option_scrollers:
+            widget = getattr(widget, 'master', None)
+        if widget is None or not widget._retro_scroll_bar.winfo_ismapped():
+            return
+        if getattr(event, 'num', None) in (4, 5):
+            step = -1 if event.num == 4 else 1
+        else:
+            step = -1 if event.delta > 0 else 1
+        widget.yview_scroll(step * 3, 'units')
 
     def show_credits(self):
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -2370,6 +2412,10 @@ class Application:
 
     def sign_out(self):
         if self.busy or self.updating:return
+        signed = online.account() or {}
+        if not messagebox.askyesno(APP_NAME, self.tr('account_sign_out_confirm', email=signed.get('email', '')),
+                                   icon='question', default='no', parent=self.app):
+            return
         self.knowledge_task(lambda:(online.sign_out(), ('signed_out', None))[1], 'knowledge_working')
 
     # --- The player's corner of the header ---------------------------------

@@ -94,6 +94,7 @@
     "options_account": "Retro-Recomp 账户",
     "account_signed_as": "已登录：{email}。",
     "account_sign_out": "退出登录",
+    "account_sign_out_confirm": "要在这台电脑上退出 {email} 吗？你的游戏和发现会保留在这里；你可以随时用新的验证码重新登录。",
     "account_open_site": "网站上的我的账户",
     "cover_box_3d": "优先使用真实的三维包装盒图片",
     "cover_sources_note": "自动模式优先使用已配置服务和公共 Libretro 服务器上的封面。下载的图片会缓存。本地图片和游戏画面作为备用，手动选择的图片优先。",

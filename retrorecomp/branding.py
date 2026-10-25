@@ -81,6 +81,14 @@ def apply_theme(app, font_family='Segoe UI'):
                         arrowcolor=c['muted'], bordercolor=c['subtle_border'],
                         lightcolor=c['button'], darkcolor=c['button'])
         style.map(name, background=[('active', c['hover'])])
+    # A light scrollbar for pages that scroll only when the window is short:
+    # a narrow thumb on the page background, no arrows.
+    style.layout('Slim.Vertical.TScrollbar', [('Vertical.Scrollbar.trough', {'sticky': 'ns', 'children': [
+        ('Vertical.Scrollbar.thumb', {'expand': '1', 'sticky': 'nswe'})]})])
+    style.configure('Slim.Vertical.TScrollbar', arrowsize=7, gripcount=0, background=c['button'],
+                    troughcolor=c['background'], bordercolor=c['background'],
+                    lightcolor=c['button'], darkcolor=c['button'])
+    style.map('Slim.Vertical.TScrollbar', background=[('active', c['hover'])])
     style.configure('TNotebook', background=c['background'], bordercolor=c['border'])
     style.configure('TNotebook.Tab', padding=(10, 6), background=c['field'], foreground=c['muted'])
     style.map('TNotebook.Tab', background=[('selected', c['button']), ('active', c['hover'])],

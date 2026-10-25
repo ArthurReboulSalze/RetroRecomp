@@ -94,6 +94,7 @@
     "options_account": "Account Retro-Recomp",
     "account_signed_as": "Connesso come {email}.",
     "account_sign_out": "Esci",
+    "account_sign_out_confirm": "Disconnettere {email} da questo computer? I tuoi giochi e le tue scoperte restano qui; puoi accedere di nuovo in qualsiasi momento con un nuovo codice.",
     "account_open_site": "Il mio account sul sito",
     "cover_box_3d": "Preferisci vere scatole di tre quarti",
     "cover_sources_note": "In automatico si preferiscono le copertine online: servizi configurati, poi server pubblici Libretro. I download vengono conservati. Immagini locali e schermate sono riserve; le immagini scelte manualmente hanno priorità.",

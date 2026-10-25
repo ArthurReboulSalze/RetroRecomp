@@ -244,6 +244,7 @@ STRINGS = {
     'options_account': ('Retro-Recomp account', 'Compte Retro-Recomp'),
     'account_signed_as': ('Signed in as {email}.', 'Connecté avec {email}.'),
     'account_sign_out': ('Sign out', 'Se déconnecter'),
+    'account_sign_out_confirm': ('Sign out of {email} on this computer? Your games and discoveries stay here; you can sign in again at any time with a new code.', 'Te déconnecter de {email} sur cet ordinateur ? Tes jeux et tes découvertes restent ici ; tu pourras te reconnecter à tout moment avec un nouveau code.'),
     'account_open_site': ('My account on the site', 'Mon compte sur le site'),
     'cover_box_3d': ('Prefer real three-quarter boxes', 'Préférer les vraies boîtes de trois quarts'),
     'tip_cover_box_3d': ('Front covers are the default. Enable this to look for real three-quarter boxes, with a front cover as fallback. No spine or perspective is generated. Local artwork keeps its original appearance.', 'Les jaquettes de face sont utilisées par défaut. Active cette option pour chercher de vraies boîtes de trois quarts, avec une jaquette de face à défaut. Aucune tranche ni perspective générée. Les images locales gardent leur aspect.'),

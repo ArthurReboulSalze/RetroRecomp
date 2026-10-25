@@ -33,6 +33,10 @@
   **Leaderboard** and **Sign in / Sign out** beside it; help (**?**) moved to
   the toolbar; Options › Common gathers your RetroRecomp account and box art.
   The help page and the leaderboard open only once, however often you click.
+  The status line at the bottom is about half as tall. Every Options tab
+  scrolls when the window is short: a light scrollbar appears, and the wheel
+  scrolls anywhere on the page (no longer changing a list under the
+  pointer). Signing out asks for confirmation.
   Your portrait and score come from a local cache, refreshed at most every 30
   minutes, instead of a request at every start.
 - **What counts on the leaderboard.** Only Master System, Game Gear, Game Boy,

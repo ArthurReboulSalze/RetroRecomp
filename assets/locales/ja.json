@@ -94,6 +94,7 @@
     "options_account": "Retro-Recomp アカウント",
     "account_signed_as": "{email} でサインイン中。",
     "account_sign_out": "サインアウト",
+    "account_sign_out_confirm": "このコンピューターで {email} からサインアウトしますか？ゲームと発見はここに残ります。新しいコードでいつでも再びサインインできます。",
     "account_open_site": "サイトのマイアカウント",
     "cover_box_3d": "実物の斜め向きパッケージを優先",
     "cover_sources_note": "自動では設定済みサービス、次にLibretroから画像を探し、保存します。ローカル画像やゲーム画面は代替として使い、手動選択を優先します。",

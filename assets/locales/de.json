@@ -94,6 +94,7 @@
     "options_account": "Retro-Recomp-Konto",
     "account_signed_as": "Angemeldet als {email}.",
     "account_sign_out": "Abmelden",
+    "account_sign_out_confirm": "{email} auf diesem Computer abmelden? Deine Spiele und Entdeckungen bleiben hier; du kannst dich jederzeit mit einem neuen Code wieder anmelden.",
     "account_open_site": "Mein Konto auf der Website",
     "cover_box_3d": "Echte Boxen in Dreiviertelansicht bevorzugen",
     "cover_sources_note": "Automatik bevorzugt Online-Cover: eingerichtete Dienste, dann öffentliche Libretro-Server. Downloads werden gespeichert. Lokale Bilder und Spielansichten dienen als Ersatz; manuell gewählte Bilder haben Vorrang.",
