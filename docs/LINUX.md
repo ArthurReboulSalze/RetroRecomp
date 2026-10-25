@@ -33,6 +33,11 @@ the missing commands. No console needs Rust/Cargo since 1.4.1. See
 [BUILDING.md](BUILDING.md).
 Keep Linux and Windows compiler caches separate. The package contains no ROM
 or BIOS. Supply your own game files and, for Neo Geo, your BIOS.
+Each game is built in its own folder under `.build` beside the converter
+(`~/.local/opt/Retro-Recomp/.build` for the per-user install), removed once the
+game is published, after its launcher has taken the game's icon. Folders left
+by earlier versions or by failed conversions are removed from **Options ›
+Common › Disk space**; see [build folders](BUILDING.md#build-folders).
 
 Drag ROMs or folders into the main window, including filenames with spaces or
 accents. The converter identifies consoles automatically and ignores duplicate
