@@ -1,6 +1,7 @@
 # Super FX (GSU) on the Super Nintendo: study and plan
 
-Status on 25 October 2026: **experimental, not released.** Players of release
+Status on 26 October 2026: **experimental, not released; the study branch is
+paused and unfinished.** Players of release
 1.5.2 reported Doom, Dirt Trax FX and Dirt Racer failing with
 `SNES enhancement chip Super FX is not integrated yet (map $20, type $14)`.
 This page records what Super FX boards are, what the pinned SNES engine
@@ -21,10 +22,12 @@ gathered, and a costed plan. Nothing here is a fidelity or latency claim.
   sizes their Game Pak RAM like the engine, lets the native 65816 lookup see
   the board's ROM views, reports the GSU as a **counted interpreted device**
   exactly like the CX4, and marks the conversion **experimental**.
-- With it, Doom and Dirt Trax FX convert at the quick level in about a minute
-  each, draw their 3D views, pass the internal native/reference comparison and
-  a quick-state round trip. Against MAME they show the same scenes but are
-  **not frame-aligned**; timing is the first open question.
+- With it, **all eight local Super FX cartridges convert at the Standard
+  level** (2-3 minutes each) with zero interpreted 65816 and SPC700 opcodes on
+  their validated routes, matching internal native/reference comparisons,
+  exact quick-state round trips and visible 3D or sprite-scaling scenes. Doom
+  and Dirt Trax FX against MAME show the same scenes but are **not
+  frame-aligned**; timing is the first open question.
 - Native recompilation of GSU code is possible in principle (the code is in
   ROM) but is a separate multi-week project; the interpreter stays the
   measured fallback and remains visible.
@@ -114,6 +117,8 @@ reconversion when this ships. The pinned engine is not modified.
 
 ## Evidence from the study branch
 
+### Quick level spike (25 October 2026)
+
 Quick level, one pass, empty private library per game, Windows, headless,
 build folders removed after publication. Outputs under
 `.build/superfx-spike/` (not committed).
@@ -146,8 +151,48 @@ build folders removed after publication. Outputs under
   agrees; **timing does not**, and neither side is ground truth yet. MAME
   needs the 64-byte SPC700 IPL; the comparison wrote it locally from the pinned
   engine's `apu.c` into the spike folder (CRC `44bb3a40`), nothing distributed.
-- Not yet run: Star Fox, Stunt Race FX, Vortex, Yoshi's Island, Star Fox 2,
-  Dirt Racer (PAL), battery saves, long routes, packed exports.
+### Standard level, all eight cartridges (26 October 2026)
+
+Standard scan level, default two passes, empty private library per game, four
+conversions at a time on Windows, headless, build folders removed after
+publication. Outputs under `.build/superfx-standard/` (not committed). Every
+report has status `experimental`.
+
+| Game | Standard | Conversion | GSU instructions demo / play (1,200 frames) | Visible frames demo / play | Game Pak RAM, battery | Host ms/frame (3,000 frames, demo / play) |
+|---|---|---|---|---|---|---|
+| Star Fox | NTSC | 165 s | 61,130,576 / 47,044,442 | 1,050 / 943 | 64 KiB, no | 13.1 / 11.8 |
+| Stunt Race FX | NTSC | 135 s | 2,837,423 / 19,868,394 | 1,072 / 979 | 64 KiB, yes | 10.4 / 10.6 |
+| Vortex | NTSC | 172 s | 30,439,017 / 22,452,661 | 894 / 808 | 32 KiB, no | 16.0 / 15.8 |
+| Dirt Trax FX | NTSC | 128 s | 71,616,564 / 64,974,903 | 977 / 896 | 64 KiB, no | 11.9 / 11.2 |
+| Dirt Racer | PAL | 178 s | 169,935,148 / 183,639,604 | 1,034 / 957 | 32 KiB, no | 15.8 / 16.1 |
+| Yoshi's Island | NTSC | 151 s | 15,634,003 / 50,649,004 | 1,111 / 1,010 | 32 KiB, yes | 10.8 / 11.2 |
+| Doom | NTSC | 110 s | 16,307,193 / 36,960,441 | 883 / 883 | 64 KiB, no | 12.0 / 11.1 |
+| Star Fox 2 | NTSC | 159 s | 84,295,754 / 55,837,942 | 1,027 / 856 | 64 KiB, yes | 12.5 / 10.4 |
+
+- Final checks of all eight: **0 interpreted 65816 opcodes and 0 interpreted
+  SPC700 opcodes** on the demo and play routes; the internal reference
+  comparison (CPU, memory, visible frames, audio PCM, GSU state) matches.
+  At the Standard level the WRAM routines of Dirt Trax FX are learned too.
+- Beyond the validated 1,200 frames some 65816 code is still met for the first
+  time and interpreted (for example Stunt Race FX: about 4.7 million opcodes by
+  frame 3,000 in its demo; Star Fox 2 and Yoshi's Island a few thousand). Long
+  routes will have to learn it.
+- Quick states (save at 1,500, resume for 300 frames, compared with an
+  uninterrupted 1,800-frame run): frame, CPU, WRAM, VRAM, GSU state, Game Pak
+  RAM and APU RAM hashes are identical for all eight.
+- Pictures at frames 1,500 and 3,000, demo and play: every game shows its own
+  content (Star Fox space intro and title, Star Fox 2 map and dialogue, Stunt
+  Race FX race, Yoshi's Island intro, Vortex briefing and stage cards, Doom
+  rooms, Dirt Trax FX race and menu, Dirt Racer demo). The automatic Start
+  presses of the play route do not enter gameplay in Star Fox (title) or Dirt
+  Racer (language menu); dedicated input routes are needed. No picture is
+  compared with an independent reference here.
+- Host cost is unpinned, includes process start and is not a latency claim.
+  Vortex (16 ms) is close to the 16.7 ms NTSC frame; Dirt Racer (PAL, 16 ms)
+  has a 20 ms frame. GSU cost is the main factor; it is the strongest argument
+  for option B.
+- Not yet run: battery save round trips, long routes, packed exports, the
+  Japanese Star Fox 2 prototype.
 
 ## Options
 
@@ -178,8 +223,9 @@ Specific difficulties:
   directly ($3100-$32FF). Such code stays interpreted; cache-resident code is
   native only while its bytes still match ROM.
 
-Benefit: host speed (the interpreter already fits in a frame on this PC for
-Doom) and a growing native share. Cost: a second recompiler with its own
+Benefit: host speed (the interpreted GSU fits in a frame on this PC, but
+Vortex already takes about 16 ms of a 16.7 ms NTSC frame) and a growing native
+share. Cost: a second recompiler with its own
 guards, learning records and checks. Do it only after A is qualified.
 
 ### C. Title-level replacement (rejected)
@@ -261,7 +307,7 @@ reflect unknown integration bugs.
 | Step | Work | Estimate |
 |---|---|---|
 | 0 | Recognition, counted interpreter path, experimental label, spike on Doom and Dirt Trax FX (this branch) | done |
-| 1 | Standard-level conversions of all eight local cartridges, ordinary and packed; battery saves; PAL; long routes; fix what breaks (Game Pak RAM DMA, bus ownership, idle polling) | 4-8 |
+| 1 | Standard-level conversions of all eight local cartridges (done 26 October, see above); still to do: packed exports, battery save round trips, long routes with inputs that reach gameplay, fix what breaks | 3-6 |
 | 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | 1-2 |
 | 3 | Timing investigation against MAME with the job log; frame-alignment tool | 3-6 |
 | 4 | Authored GSU checks in `native/snes_chip_checks.c` | 2-4 |
