@@ -7,8 +7,8 @@ games; see [BUILDING.md](BUILDING.md). Exported games need no development tools.
 
 ## Windows x64
 
-Download `Retro-Recomp-1.1.8-windows-x64-setup.exe` from the
-[1.1.8 release](https://github.com/ArthurReboulSalze/RetroRecomp/releases/tag/v1.1.8).
+Download `Retro-Recomp-<version>-windows-x64-setup.exe` from the
+[latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases/latest).
 Run the setup wizard. The default is a per-user installation in
 `%LOCALAPPDATA%\Programs\Retro-Recomp`, with a Start menu shortcut and an optional
 desktop shortcut. It requires no administrator password. Keep a directory your
@@ -41,7 +41,7 @@ run it in a terminal as your normal desktop user, **without sudo** (the
 installer refuses sudo, since it installs in your home folder):
 
 ```sh
-bash Retro-Recomp-1.1.8-linux-x86_64-install.run
+bash Retro-Recomp-<version>-linux-x86_64-install.run
 ```
 
 Confirm installation in `~/.local/opt/Retro-Recomp`. The installer checks its
@@ -49,7 +49,7 @@ payload and the native converter before installing, then adds **Retro-Recomp**
 to your applications menu with its icon. To choose another new, writable folder:
 
 ```sh
-bash Retro-Recomp-1.1.8-linux-x86_64-install.run --prefix "$HOME/Applications/Retro-Recomp"
+bash Retro-Recomp-<version>-linux-x86_64-install.run --prefix "$HOME/Applications/Retro-Recomp"
 ```
 
 `--yes` skips the confirmation for unattended installation. Re-running the
@@ -103,13 +103,13 @@ Windows uses [Inno Setup 6.7.3](https://jrsoftware.org/isdl.php), with
 for per-user installation. Run on Windows:
 
 ```powershell
-python -B tools/package_installers.py --target windows --version 1.1.8 --executable Export/Retro-Recomp.exe --output .build/installers --iscc "path/to/ISCC.exe"
+python -B tools/package_installers.py --target windows --version <version> --executable Export/Retro-Recomp.exe --output .build/installers --iscc "path/to/ISCC.exe"
 ```
 
 Build the Linux installer on Linux, using the already audited native binary:
 
 ```sh
-python3 -B tools/package_installers.py --target linux --version 1.1.8 --executable Export/Retro-Recomp --output .build/installers
+python3 -B tools/package_installers.py --target linux --version <version> --executable Export/Retro-Recomp --output .build/installers
 ```
 
 Launchers follow the [Desktop Entry specification](https://specifications.freedesktop.org/desktop-entry/latest-single/).
