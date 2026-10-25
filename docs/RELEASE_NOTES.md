@@ -1,3 +1,54 @@
+# RetroRecomp v1.5.0 — no more Visual Studio, a .deb for Linux, a lighter header
+
+- **No more Visual Studio on Windows.** Before the first conversion,
+  RetroRecomp now installs a portable compiler beside itself: llvm-mingw,
+  CMake and Ninja, pinned and SHA-256-checked, about 245 MB to download and
+  380 MB on disk, **without administrator rights**. Visual Studio is still used
+  if it is already installed and the portable tools are not. Games built with
+  the portable tools need Windows 10 or later.
+- **Same games, measured.** Sixteen games of the nine profiles were converted
+  with both compilers from the same source: native, CPU, RAM, video and image
+  proofs are identical, with no extra interpreted cycle or opcode. Host time
+  per frame (same PC, one pinned core, no window) is 0.75× to 1.01× that of the
+  Visual Studio builds. This measures host cost only, not gameplay or latency.
+- **Your 1.4.1 games are upgraded, not converted again.** Their game code is
+  unchanged, so each export of Master System, Game Gear, Game Boy, NES, Mega
+  Drive, Super Nintendo, Neo Geo and CPS-1 is rebuilt with the current tools
+  and rechecked on the quick routes, without rediscovery; if that check does
+  not pass, the game is converted in full and the earlier export stays until
+  a new one passes. Quick states (F8/F9) of Mega Drive, Super Nintendo, Neo
+  Geo and CPS-1 games keep working; Master System, Game Gear and Game Boy
+  states are unchanged; NES states work in the same work folder, as before.
+  Super Nintendo games redo their ROM analysis once (a few minutes, no
+  rediscovery). **X68000** exports are converted again in full once, and their
+  earlier quick states are refused (its state key includes the compiler).
+- **Linux starts again, and installs with a double-click.** Linux releases
+  1.3.1 to 1.4.1 could stop at startup ("invalid command name
+  PyImagingPhoto"): download 1.5.0 again, since those versions cannot open
+  their updater. Debian and Ubuntu also get a **`.deb` package**: double-click
+  it, and RetroRecomp appears in the applications menu; each user keeps a
+  private copy where settings, games and in-app updates work without a
+  password. The `.run` installer remains for other distributions.
+- **A lighter header.** A more compact banner; your portrait with
+  **Leaderboard** and **Sign in / Sign out** beside it; help (**?**) moved to
+  the toolbar; Options › Common gathers your RetroRecomp account and box art.
+  The help page and the leaderboard open only once, however often you click.
+  Your portrait and score come from a local cache, refreshed at most every 30
+  minutes, instead of a request at every start.
+- **What counts on the leaderboard.** Only Master System, Game Gear, Game Boy,
+  NES, Mega Drive and Super Nintendo discoveries are shared and counted; Neo
+  Geo and the experimental CPS-1 and X68000 count for nothing until they join
+  the shared base. The sending cards now say so.
+- **Credits.** Capcom CPS-1 has its own credits (MAME, ymfm, Geolith,
+  m68k-recomp-core); the unused Super Mario World notice is gone; the portable
+  compiler's runtime licences ship with the converter and in every exported
+  game.
+
+Measured on Windows; Linux remains qualified on Debian 13 / glibc 2.41 (GCC,
+unchanged toolchain).
+
+---
+
 # RetroRecomp v1.4.1 — build tools installed for you, friendlier on small PCs
 
 - **Build tools, installed for you.** Converting a game compiles it on your
