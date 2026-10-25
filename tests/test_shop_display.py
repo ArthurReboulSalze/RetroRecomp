@@ -267,7 +267,10 @@ class NameStyles(unittest.TestCase):
 class Drawing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = tk.Tk()
+        try:
+            cls.root = tk.Tk()
+        except tk.TclError as error:  # a CI runner without a display
+            raise unittest.SkipTest(str(error))
         cls.root.withdraw()
 
     @classmethod

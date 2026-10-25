@@ -92,7 +92,8 @@ class ReportFlow(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.folder = Path(self.temp.name)
+        # Resolved: Windows runners hand out 8.3 temporary names (RUNNER~1).
+        self.folder = Path(self.temp.name).resolve()
 
     def failed_row(self):
         rom = self.folder / 'ROMS' / 'Mario (USA).sfc'
