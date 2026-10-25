@@ -46,13 +46,23 @@ LEGACY_GAME_STAMPS = {
     # Release 1.4.1 (tag v1.4.1, Python 3.14.5). Each stamp reproduced the game part of a real receipt written by
     # the released Retro-Recomp.exe (see docs/COMPILATION_LIBRARY.md). A console without a verified receipt has no entry:
     # the X68000 request also carries an SDK stamp that could not be reproduced from the tag, so it is converted in full.
-    'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',),
-    'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',),
-    'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',),
+    # Release 1.5.1 (tag v1.5.1, Python 3.14.5), second value where present: same rule, one real receipt per console
+    # (Master System, Game Gear, Game Boy, NES, Neo Geo, CPS-1). The released Windows Retro-Recomp.exe 1.5.1 cannot
+    # convert Mega Drive or Super Nintendo games (probe16 lost its subprocess import), so those consoles have no 1.5.1
+    # receipt and no 1.5.1 entry; the X68000 still has none either.
+    'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
+             '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f'),
+    'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
+           '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c'),
+    'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
+           '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3'),
     'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',),
-    'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',),
-    'ng': ('bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',),
-    'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',),
+    'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
+            'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980'),
+    'ng': ('bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
+           'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee'),
+    'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
+            '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e'),
     'snes': ('f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',),
 }
 
