@@ -820,7 +820,8 @@ class Application:
             for child in widget.winfo_children(): update(child)
         update(self.app)
         # Section titles whose English text another key shares ("Box art").
-        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart')):
+        for name, key in (('account_frame', 'options_account'), ('covers_frame', 'options_boxart'),
+                          ('disk_frame', 'options_disk_space')):
             frame = getattr(self, name, None)
             try:
                 if frame is not None and frame.winfo_exists():
@@ -828,6 +829,7 @@ class Application:
             except tk.TclError:
                 pass
         self.update_account_options()
+        self.render_disk_space()
         for panel in self.library_panels:
             if panel.winfo_exists(): panel.title(APP_NAME + ' - ' + self.tr('memory'))
         if self.credits_panel is not None and self.credits_panel.winfo_exists():
@@ -1479,6 +1481,7 @@ class Application:
         self.update_output_controls()
         self.selection_changed()
         self.update_new_paths()
+        self.render_disk_space()
 
     def icon_button(self, parent, name, tip, command, symbol, *, managed=True):
         """A toolbar button showing only its picture; its hint starts with
@@ -1783,6 +1786,20 @@ class Application:
                     else:
                         self.feedback_status[system].set(self.tr('feedback_import_summary',
                             **report, kib=report['bytes']/1024))
+                elif kind == 'disk_space_measured':
+                    token, projects, error = event[1:]
+                    # Only the latest measurement of the open options counts.
+                    if token is getattr(self, 'disk_cancel', None) and not token.is_set():
+                        self.disk_state = ({'phase': 'error', 'error': error} if error else
+                                           {'phase': 'measured', 'projects': projects})
+                        self.render_disk_space()
+                elif kind == 'disk_space_freed':
+                    outcome, error = event[1:]
+                    self.busy = False
+                    self.set_controls(True)
+                    self.disk_state = ({'phase': 'error', 'error': error} if error else
+                                       {'phase': 'done', 'outcome': outcome})
+                    self.render_disk_space()
                 elif kind == 'collection_changed':
                     if self.compiled_view is not None:self.compiled_view.render()
                 elif kind == 'knowledge_done':
@@ -1941,6 +1958,10 @@ class Application:
         covers = self.covers_frame = ttk.LabelFrame(common, text=self.tr('options_boxart'), padding=(12, 8))
         covers.grid(row=6, column=0, sticky='ew', pady=(14, 0))
         self.build_cover_options(covers, checkbox)
+        # Disk space: the build folders that earlier conversions left.
+        disk = self.disk_frame = ttk.LabelFrame(common, text=self.tr('options_disk_space'), padding=(12, 8))
+        disk.grid(row=7, column=0, sticky='ew', pady=(14, 0))
+        self.build_disk_options(disk)
 
         for key in ('sms', 'gg'):
             profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
@@ -2146,6 +2167,111 @@ class Application:
         except tk.TclError:
             pass
 
+    def build_disk_options(self, page):
+        """Options › Common › Disk space: the per-game build folders earlier
+        conversions left under .build (retrorecomp/build_cleanup.py), measured
+        in a worker when the options open, removed only after a confirmation."""
+        ttk.Label(page, text=self.tr('disk_space_note'), style='Muted.TLabel',
+                  wraplength=600, justify='left').pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(page)
+        row.pack(anchor='w', fill='x')
+        self.disk_button = ttk.Button(row, command=self.free_disk_space)
+        self.disk_button.pack(side='left')
+        self.hint(self.disk_button, 'tip_disk_space')
+        self.disk_status = tk.StringVar()
+        ttk.Label(row, textvariable=self.disk_status, style='Muted.TLabel',
+                  wraplength=460, justify='left').pack(side='left', padx=(12, 0))
+        if getattr(self, 'disk_state', {}).get('phase') == 'working':
+            self.render_disk_space()      # a removal started earlier is still running
+        else:
+            self.measure_disk_space()
+
+    def measure_disk_space(self):
+        """Measure off Tk: a long-used workspace holds thousands of folders."""
+        cancel = self.disk_cancel = threading.Event()
+        self.disk_state = {'phase': 'measuring'}
+        self.render_disk_space()
+        def worker():
+            from .build_cleanup import leftover_projects
+            try:
+                self.messages.put(('disk_space_measured', cancel, leftover_projects(cancel=cancel), None))
+            except InterruptedError:
+                pass
+            except Exception as exc:
+                self.messages.put(('disk_space_measured', cancel, None, str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def size_text(self, count):
+        """Megabytes under a gigabyte, else gigabytes, as the language writes them."""
+        megabytes = count / 1048576
+        if megabytes < 1024:
+            return self.tr('size_megabytes', value=str(max(1, round(megabytes)) if count else 0))
+        value = f'{megabytes / 1024:.1f}'
+        if language_code(self.language) in ('fr', 'it', 'es', 'de', 'ru'):
+            value = value.replace('.', ',')
+        return self.tr('size_gigabytes', value=value)
+
+    def render_disk_space(self):
+        """The Disk space line and button, from self.disk_state (also after a
+        language change)."""
+        button, state = getattr(self, 'disk_button', None), getattr(self, 'disk_state', None)
+        try:
+            if button is None or state is None or not button.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        phase = state['phase']
+        projects = state.get('projects') or []
+        removable = [project for project in projects if not project.in_use]
+        kept = [project for project in projects if project.in_use]
+        size = lambda chosen: self.size_text(sum(project.size for project in chosen))
+        if phase == 'measured':
+            text = (self.tr('disk_space_found', count=len(removable), size=size(removable)) if removable else
+                    '' if kept else self.tr('disk_space_none'))
+            if kept:
+                text = (text + ' ' if text else '') + self.tr('disk_space_in_use', count=len(kept), size=size(kept))
+        elif phase == 'done':
+            outcome = state['outcome']
+            text = self.tr('disk_space_done', size=self.size_text(outcome['freed']), count=outcome['removed'])
+            if outcome['kept'] or outcome['errors']:
+                text += ' ' + self.tr('disk_space_not_removed', count=outcome['kept'] + len(outcome['errors']))
+        elif phase == 'error':
+            text = self.tr('disk_space_error', error=state['error'])
+        else:
+            text = self.tr('disk_space_measuring' if phase == 'measuring' else 'disk_space_working')
+        try:
+            self.disk_status.set(text)
+            ready = phase == 'measured' and bool(removable)
+            button.configure(text=self.tr('disk_space_free_size', size=size(removable)) if ready
+                             else self.tr('disk_space_free'),
+                             state='normal' if ready and not self.busy and not self.updating else 'disabled')
+        except tk.TclError:
+            pass
+
+    def free_disk_space(self):
+        state = getattr(self, 'disk_state', {})
+        removable = [project for project in state.get('projects') or [] if not project.in_use]
+        if self.busy or self.updating or state.get('phase') != 'measured' or not removable:
+            return
+        size = self.size_text(sum(project.size for project in removable))
+        if not messagebox.askyesno(APP_NAME, self.tr('disk_space_confirm', count=len(removable), size=size),
+                                   icon='warning', default='no', parent=self.app):
+            return
+        # No conversion starts while folders are removed; there is nothing to stop.
+        self.busy = True
+        self.set_controls(False)
+        self.stop_button.configure(state='disabled')
+        self.disk_state = {'phase': 'working'}
+        self.render_disk_space()
+        def worker():
+            from .build_cleanup import remove_projects
+            try:
+                outcome = remove_projects(removable, emit=lambda text: self.messages.put(('log', text)))
+                self.messages.put(('disk_space_freed', outcome, None))
+            except Exception as exc:
+                self.messages.put(('disk_space_freed', None, str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
     def account_sign_toggle(self):
         if online.account():
             self.sign_out()
@@ -2233,6 +2359,9 @@ class Application:
         for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
             panel.unbind_all(sequence)
         self.option_scrollers = []
+        if getattr(self, 'disk_cancel', None) is not None:
+            self.disk_cancel.set()      # a measurement still running stops
+        self.disk_button = None
         panel.grid_remove()
         panel.destroy()
         self.options_panel = None

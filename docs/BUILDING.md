@@ -289,6 +289,27 @@ reduce build work without changing native discovery or the CPU comparisons.
 An initial conversion still compiles new code; repeat-build timings should not
 be presented as cold-build timings. See [Game Boy build evidence](GAME_BOY.md).
 
+## Build folders
+
+Each conversion builds its game in a project folder of its own under `.build`
+beside the converter (the project root from source, the converter's folder
+when packaged): generated C, object files, the raw executable and validation
+runs, about 25 to 110 MB for an 8-bit game and more for 16-bit and arcade games.
+Since 1.5.1 that folder is removed once the game is published in the games
+folder; a failed or stopped conversion keeps it, as its messages point into
+it. Shared caches stay: `.deps`, `.build/native-source`, the NES and Mega Drive
+compilers and step decoders, `neogeo-preparation`, `cps1-reference` and the
+X68000 SDK bases. Learned paths live in the library under `datas`, so a later
+upgrade or reconversion needs nothing from the removed folder; it only rebuilds
+from scratch, without the incremental build an earlier folder allowed.
+**Options › Common › Disk space** measures the folders left by earlier versions
+or by failed and stopped conversions, and removes them after a confirmation.
+Only folders named like one game's project are counted (per console, by the
+ROM identity in the name); links are not followed, and a folder used within the
+last hour, or locked by a running CPS-1 or X68000 conversion, is kept.
+`--keep-build` on `convert` and `batch` (or `RETRO_RECOMP_KEEP_BUILD=1`) keeps
+the folder for the developer checks below.
+
 ## Pinned game dependencies
 
 | Dependency | Revision |
@@ -318,11 +339,20 @@ python tools/snes_native_selftest.py
 
 Python tests use temporary synthetic fixtures and require no commercial ROM.
 Native CPU/input checks build authored diagnostic programs locally. Host
-checks need an already converted game supplied by the tester:
+checks need an already converted game supplied by the tester, converted with
+`--keep-build` so that its build folder is still there:
 
 ```powershell
+python RetroRecomp.py batch "ROMS/your-game.sms" --keep-build
 python tools/host_selftest.py --game "Your game title"
 ```
+
+The same applies to every helper that reads a report's `build_directory`
+(`icon_selftest`, `banked_cpu_selftest`, `sms_sprite_selftest`,
+`video_selftest`, `banked_verify`, `neogeo_campaign_review`) and to
+`build_neogeo_knowledge.py`, which refuses a removed Neo Geo build folder.
+`RETRO_RECOMP_KEEP_BUILD=1` does the same for scripts; `publishing_selftest`
+sets it.
 
 Some historical helpers target the locally tested titles and need those ROMs.
 The GUI smoke helper checks a local queue of five supplied games. These checks

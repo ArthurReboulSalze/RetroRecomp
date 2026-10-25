@@ -137,6 +137,7 @@ def main() -> int:
     build.add_argument("--boxart-dir", type=Path, help="Box art folder (default: BoxArt beside Retro-Recomp.exe).")
     build.add_argument("--no-online-cover", action="store_true", help="Use local box art only, without network access.")
     build.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
+    build.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
     batch.add_argument("roms", type=Path, nargs="*")
     batch.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
@@ -172,6 +173,7 @@ def main() -> int:
     batch.add_argument("--no-cover", action="store_true")
     batch.add_argument("--no-online-cover", action="store_true")
     batch.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
+    batch.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
     inspect = sub.add_parser("inspect", help="Identify a ROM without modifying it.")
     inspect.add_argument("rom", type=Path)
     sub.add_parser("setup", help="Prepare dependencies and compiler.")
@@ -278,6 +280,9 @@ def main() -> int:
                     'neo_geo_memories':list_ng_memory()},
                     indent=2, ensure_ascii=False))
         elif args.command in ("convert", "batch"):
+            if args.keep_build:
+                from retrorecomp.build_cleanup import KEEP_VARIABLE
+                os.environ[KEEP_VARIABLE] = '1'
             if not 1 <= args.passes <= 10 or not 1 <= args.frames <= 10000:
                 parser.error("--passes must be 1–10; --frames must be 1–10000.")
             if args.command == 'batch' and not 1 <= args.jobs <= 8:

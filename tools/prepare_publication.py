@@ -151,6 +151,7 @@ licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Pyth
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
 retrorecomp/__init__.py retrorecomp/artwork.py retrorecomp/batch.py
+retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py

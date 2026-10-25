@@ -13,6 +13,7 @@ import time
 
 from .core import slug, executable_name, ConversionError, StopRequested, reset_stop
 from .library import atomic_json
+from .build_cleanup import release_build
 from . import __version__
 from .publishing import publish_executable
 from .systems import profile_for_path, get_profile, UnsupportedConsoleError, ConsoleMismatchError
@@ -469,6 +470,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                 executable.unlink()
         except OSError:
             pass
+        # Published: nothing reads the game's build project again.
+        release_build(item, report, emit)
         measured = [check.get("interpreter_percent") for check in report["final_checks"]]
         result.update(status="success", executable=str(target), report=str(report_path),
             conversion_stage=report.get('status'), upgraded=bool(inherited),

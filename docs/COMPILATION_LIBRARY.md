@@ -687,7 +687,9 @@ the packed game and fresh-process states before replacing an export.
 Local qualified records live in `datas/library/ng/<cart-and-BIOS-key>` beside
 the converter. `tools/build_neogeo_knowledge.py` accepts integrated conversion
 reports only after reference/packed/state qualification and candidate-hash
-verification, and preserves every other console's records. Earlier prototype
+verification, and preserves every other console's records. It reads the game's
+build folder, which a conversion removes after publication since 1.5.1: convert
+the qualifying games with `--keep-build`. Earlier prototype
 receipts below remain private; they are not imported as unchecked journals.
 
 The standard-board and protected-board Neo Geo prototypes store private numeric reached-PC/guard and

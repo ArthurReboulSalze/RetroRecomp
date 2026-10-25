@@ -27,8 +27,9 @@ def main():
     data[:8] = bytes.fromhex('F3 31 F0 DF 00 C3 04 00')
     rom.write_bytes(data)
     env = os.environ.copy()
+    # The check reads each conversion's build executable: keep the build folder.
     env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy',
-               RETRO_RECOMP_LIBRARY_DIR=str(directory / 'library'))
+               RETRO_RECOMP_LIBRARY_DIR=str(directory / 'library'), RETRO_RECOMP_KEEP_BUILD='1')
     app = export_directory() / 'Retro-Recomp.exe'
     command = [str(app), 'batch', str(rom), '--output', str(shared), '--frames', '10',
                '--passes', '1', '--no-cover', '--no-online-cover']

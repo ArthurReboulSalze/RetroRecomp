@@ -80,6 +80,10 @@ class NeoGeoConverterTests(unittest.TestCase):
             'compiler':{'revision':GEOLITH_REV,'loader_revision':LITHOGEN_REV},
             'build_executable':str(self.root/'project/build/Release/game.exe'),
             'runtime_modes':{'aes_available':False}}
+        # A build folder removed after publication cannot qualify hints.
+        with self.assertRaisesRegex(ValueError,'--keep-build'):
+            qualified_record(report)
+        (self.root/'project').mkdir(exist_ok=True)
         with patch('retrorecomp.neogeo_build.aes_available',return_value=True) as capability:
             for executable in ('project/build/Release/game.exe','project/build/game'):
                 report['build_executable']=str(self.root/executable)
