@@ -203,6 +203,37 @@ class BatchTests(unittest.TestCase):
         self.assertEqual((result["failed"], result["succeeded"]), (1, 1))
         self.assertEqual(old.read_bytes(), b"previous good executable")
 
+    def test_a_game_the_bundled_knowledge_holds_gets_the_quick_check(self):
+        item = self.item('known', 1)
+        seen = []
+        def compile(path, **options):
+            seen.append(options.get('scan_level'))
+            return self.compiler(path, **options)
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={'rom_entries': [[512]]}), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile):
+            record = convert_batch([item], self.games_root, emit=lambda text: None)
+        self.assertEqual((record['succeeded'], seen), (1, ['quick']))
+        # Unknown to the bundled knowledge, or a deeper level asked: a real discovery.
+        seen.clear()
+        other = self.item('unknown', 2)
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={}), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile):
+            convert_batch([other], self.games_root, emit=lambda text: None)
+        self.assertEqual(seen, [None])
+
+    def test_a_failed_quick_check_from_the_bundled_knowledge_discovers_in_full(self):
+        item = self.item('known', 1)
+        seen = []
+        def compile(path, **options):
+            seen.append(options.get('scan_level'))
+            if options.get('scan_level') == 'quick':
+                raise ConversionError('quick routes failed')
+            return self.compiler(path, **options)
+        with patch('retrorecomp.knowledge_exchange._bundled', return_value={'rom_entries': [[512]]}), \
+                patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile):
+            record = convert_batch([item], self.games_root, emit=lambda text: None)
+        self.assertEqual((record['succeeded'], seen), (1, ['quick', None]))
+
     def test_stop_waits_for_current_game_and_changed_rom_is_refused(self):
         first, second = self.item("one", 1), self.item("two", 2)
         stop = Event()

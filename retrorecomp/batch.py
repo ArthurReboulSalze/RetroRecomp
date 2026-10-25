@@ -422,7 +422,17 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                      if shared_used['quick'] else
                      f'{item.title}: shared paths{f", level {level}" if level else ""}: '
                      f'{plan.level} discovery starting from them.')
-        if inherited or (shared_used and shared_used['quick']):
+        # A game the bundled snapshot already knows: its paths come from a qualified
+        # Standard conversion, so a Standard scan would find nothing more. Rebuild
+        # from them with the quick check rather than rediscover (Extended and
+        # Thorough still search further).
+        known_used = None
+        if not inherited and not (shared_used and shared_used['quick']) and not rediscover and plan.level == 'standard':
+            from .knowledge_exchange import _bundled, _entries
+            if _entries(system.id, _bundled(system.id, item.sha256)):
+                known_used = {'level': 'standard', 'quick': True}
+                emit(f'{item.title}: already known to the bundled knowledge: quick check instead of discovery.')
+        if inherited or (shared_used and shared_used['quick']) or known_used:
             quick = plan_for(system.id, None, passes=settings['passes'], frames=settings['frames'], level='quick')
             run_settings = {**settings, 'passes': quick.passes, 'frames': quick.frames, 'scan_level': 'quick'}
             for key in ('md_advanced_scan', 'nes_advanced_scan'):
@@ -434,14 +444,16 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         try:
             executable = convert_with(run_settings)
         except Exception as exc:
-            if not legacy or isinstance(exc, StopRequested):
+            if not (legacy or known_used) or isinstance(exc, StopRequested):
                 raise
             # The earlier export is still in place: nothing was published. Never leave it
             # half-upgraded; convert the game in full, with every route, instead.
-            emit(f'{item.title}: the rebuilt export of Retro-Recomp {legacy} did not pass its checks '
-                 f'({str(exc).strip().splitlines()[0][:200] if str(exc).strip() else type(exc).__name__}); '
-                 'converting the game in full instead.')
-            inherited, run_settings = None, settings
+            reason = str(exc).strip().splitlines()[0][:200] if str(exc).strip() else type(exc).__name__
+            emit(f'{item.title}: the rebuilt export of Retro-Recomp {legacy} did not pass its checks ({reason}); '
+                 'converting the game in full instead.' if legacy else
+                 f'{item.title}: the quick check from the bundled knowledge did not pass ({reason}); '
+                 'discovering the game in full instead.')
+            inherited, known_used, run_settings = None, None, settings
             executable = convert_with(run_settings)
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
@@ -453,6 +465,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             report['upgrade'] = upgrade_record(inherited)
         if shared_used:
             report['shared_paths'] = shared_used
+        if known_used:
+            report['bundled_paths'] = known_used
         shutil.copy2(Path(report.get('build_executable', executable)), temporary)
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output),

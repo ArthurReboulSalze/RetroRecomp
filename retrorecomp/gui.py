@@ -172,6 +172,8 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 # Sending discoveries needs the Retro-Recomp web service (online.py); until it
 # opens, the closing card offers to recompile and its Send button stays off.
 SENDING_AVAILABLE = online.sending_available()
+# During a long batch, new discoveries also leave every 15 minutes (one request then).
+SEND_EVERY = 15 * 60
 # The closing card: a cartridge sends its discoveries to the shared base.
 CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
              'X......X', 'XXXXXXXX', 'X.X.X.XX')
@@ -1416,6 +1418,7 @@ class Application:
             return
         self.busy = True
         self.cancel.clear()
+        self.last_auto_send = time.monotonic()   # the first send of a long batch comes after SEND_EVERY
         self.active_rows = chosen_rows
         self.running_jobs.clear()
         self.completed_jobs = 0
@@ -1767,6 +1770,10 @@ class Application:
                     self.table.set(row, 'status', text)
                     self.table.item(row, tags=('error',) if result['status'] in ('error', 'unrecognized', 'skipped') else (result['status'],))
                     self.progress.configure(value=self.completed_jobs)
+                    # A long batch (slow computer, big collection) also sends what it
+                    # found so far, every SEND_EVERY seconds, so points do not wait for its end.
+                    if result['status'] == 'success' and time.monotonic() - getattr(self, 'last_auto_send', 0) > SEND_EVERY:
+                        self.send_new_discoveries()
                     if not self.cancel.is_set():
                         self.set_status('batch_running', completed=self.completed_jobs,
                                         total=len(self.active_rows), active=len(self.running_jobs))
@@ -2783,6 +2790,7 @@ class Application:
             return
         collect = self.discoveries_collector(threading.Event())
         self.auto_sending = True
+        self.last_auto_send = time.monotonic()
         self.sending_started()
         def worker():
             try:
