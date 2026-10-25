@@ -49,6 +49,26 @@
   standard, open the ROM or game folder, remove from the list (the ROM files
   stay on disk; Delete does the same), clear, select all. The remove button
   left the toolbar.
+- **Enter is Start, Shift is Select.** On every console whose pad has Start
+  (Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, CPS-1),
+  the keyboard default is Enter = Start and either Shift = Select (Coin on
+  arcade, Mode on the six-button Mega Drive pad). On Game Gear, the game
+  menu moves from Enter to P, as on Game Boy. Master System keeps Enter as
+  Pause, since its pad has no Start. Saved bindings are kept; only defaults
+  changed. Default pad buttons were checked on every console.
+- **Starting feels like starting.** A small picture with the logo shows
+  while the converter unpacks; on Linux the desktop's starting cursor
+  follows it. Clicking the launcher again brings the open window to the
+  front instead of opening a second converter.
+- **Ready before the first game.** Right after the build tools, the shared
+  pieces every conversion needs (engine sources, Z80 → C translator, a
+  static SDL2) are downloaded and compiled once behind the same progress
+  window, so the first conversion starts at once.
+- **Credits on small computers.** The credits page measures its frame rate:
+  below 20 fps it drops the spheres and boxes, below 15 the stars and
+  curves too, and remembers it; a faster computer gets the effects back.
+  On Windows it also no longer stalls at 21 fps because of the system
+  timer.
   Your portrait and score come from a local cache, refreshed at most every 30
   minutes, instead of a request at every start.
 - **What counts on the leaderboard.** Only Master System, Game Gear, Game Boy,
