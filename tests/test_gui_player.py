@@ -59,6 +59,28 @@ def application(**attributes):
     return app
 
 
+class SameRom(unittest.TestCase):
+    """Two dumps of one ROM often share a display title: the label names the other file."""
+
+    def application(self):
+        app = Application.__new__(Application)
+        app.language = 'fr'
+        first = BatchItem(Path('Der Langrisser (Japan - Translated).zip'), 'Der Langrisser', 'snes', SHA)
+        second = BatchItem(Path('Der Langrisser (Japan) (Translated En).zip'), 'Der Langrisser', 'snes', SHA)
+        app.items = {'a': first, 'b': second}
+        app.row_status = {'a': 'created', 'b': 'duplicate'}
+        return app
+
+    def test_the_label_names_the_converted_file_when_the_titles_are_the_same(self):
+        app = self.application()
+        self.assertEqual(app.same_rom_text('b', {'duplicate_of': 'Der Langrisser'}),
+                         'Même ROM que Der Langrisser (Japan - Translated).zip')
+
+    def test_a_different_title_is_kept(self):
+        app = self.application()
+        self.assertEqual(app.same_rom_text('b', {'duplicate_of': 'Langrisser'}), 'Même ROM que Langrisser')
+
+
 class Portrait(unittest.TestCase):
     def test_signed_in_the_portrait_opens_the_account_page_of_the_site(self):
         app = application(sign_in_dialog=Mock())

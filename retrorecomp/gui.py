@@ -1242,7 +1242,7 @@ class Application:
             self.table.set(row, 'size', self.tr('size', value=item.size//1024) if item.size else '-')
             self.table.set(row, 'cover', self.tr('chosen' if item.cover else 'auto'))
             result = self.results.get(row, {})
-            self.table.set(row, 'status', self.tr('same_rom', title=result['duplicate_of'])
+            self.table.set(row, 'status', self.same_rom_text(row, result)
                 if self.row_status[row] == 'duplicate' and result.get('duplicate_of')
                 else self.tr(self.row_status[row]))
         self.status.set(self.tr(self.status_key, **self.status_values))
@@ -1581,10 +1581,11 @@ class Application:
         menu.add_command(label=self.tr('start_selected'), command=lambda: self.start(selected=True), state=state(free))
         if any(self.row_status.get(row) in ('error', 'stopped') for row in rows):
             menu.add_command(label=self.tr('retry'), command=self.retry_failed, state=state(free))
-        # A failed row, or a game that was created but is wrong, can be reported.
+        # A failed row, or a game that was created but is wrong, can be reported (an identical
+        # ROM skipped is not a problem: its first copy was converted).
         menu.add_command(label=self.tr('report_problem'), command=self.report_row_problem,
                          state=state(one and self.report_available()
-                                     and self.row_status.get(rows[0]) not in ('waiting', 'converting', None)))
+                                     and self.row_status.get(rows[0]) not in ('waiting', 'converting', 'duplicate', None)))
         menu.add_separator()
         menu.add_command(label=self.tr('choose_cover'), command=self.choose_cover, state=state(one and free))
         menu.add_command(label=self.tr('auto_cover'), command=self.automatic_cover, state=state(free))
@@ -1670,7 +1671,7 @@ class Application:
         if len(rows) == 1:
             text = log_text(item.error or result.get('message') or str(item.path), self.language)
             if result.get('status') == 'duplicate' and result.get('duplicate_of'):
-                text = self.tr('same_rom', title=result['duplicate_of'])
+                text = self.same_rom_text(rows[0], result)
             elif result.get('status') == 'existing':
                 text = self.tr('existing')
             if item.cover:
@@ -2191,7 +2192,7 @@ class Application:
                                   'skipped': 'skipped', 'existing': 'existing', 'current': 'current'}[result['status']]
                     if result['status'] == 'success' and result.get('conversion_stage') == 'experimental':
                         status_key = 'created_experimental'
-                    text = (self.tr('same_rom', title=result['duplicate_of'])
+                    text = (self.same_rom_text(row, result)
                             if result['status'] == 'duplicate' and result.get('duplicate_of')
                             else self.tr(status_key))
                     self.row_status[row] = status_key
@@ -3314,6 +3315,18 @@ class Application:
                 'log': self.session_log_for(item.title),
                 'report': self.read_report_file(report) if report else None,
                 'roots': self.report_roots(item.path, str(games) if games else None)}
+
+    def same_rom_text(self, row, result):
+        """'Same ROM as …' naming the other file: two dumps of one ROM often share a display title."""
+        item = self.items.get(row)
+        name = result['duplicate_of']
+        if item is not None and item.title.casefold() == str(name).casefold():
+            for other, candidate in self.items.items():
+                if (other != row and candidate.sha256 == item.sha256 and candidate.system == item.system
+                        and self.row_status.get(other) != 'duplicate'):
+                    name = candidate.path.name
+                    break
+        return self.tr('same_rom', title=name)
 
     def report_row_problem(self):
         rows = self.table.selection()
