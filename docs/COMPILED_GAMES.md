@@ -40,9 +40,12 @@ the games whose play found new paths since their last conversion, upgrading them
 changed. Games whose ROM cannot be found are left for later. When
 Retro-Recomp closes with such games on Master System, Game Gear, Game Boy,
 NES, Mega Drive or Super Nintendo, a card offers the same recompilation
-before closing. Its **Send and close** button, like **Send to the shared
-Retro-Recomp base** in the Knowledge menu, stays disabled until the
-connection to the Retro-Recomp web server and database exists.
+before closing. Its **Send and close** button, like **Send my discoveries to
+the shared base** in the Knowledge menu, sends the new discoveries once
+signed in. With *Send my new discoveries after each batch* (Options › Common ›
+Retro-Recomp account), they also leave in the background after each batch
+and after each reconversion from the collection; see
+[the shared base](COMPILATION_LIBRARY.md) for what is fetched before a batch.
 
 ## Toolbar
 

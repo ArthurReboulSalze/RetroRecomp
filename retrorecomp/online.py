@@ -8,13 +8,23 @@ which is never exported. A game is marked as shared only once the server has
 accepted it, so a failed or offline upload is simply retried next time. The
 server queues uploads for the maintainer, who revalidates them and only adds
 discoveries to a future bundled snapshot after his own qualified conversions.
+
+Each accepted file is followed by its claims: the short path keys of the
+exact document sent (`knowledge_exchange.discovery_paths`), which give the
+first finder its points at once. Before a batch, a signed-in converter also
+asks the shared base for the paths other players found for the batch's ROMs
+(`sync_shared`); they join the imported banks and, like any imported hint,
+are checked again by every conversion.
 """
 from __future__ import annotations
 
+import gzip
 import http.client
+import io
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import urllib.error
 import urllib.request
@@ -31,6 +41,24 @@ UPLOAD_LIMIT = 8 * 1024 * 1024
 # are split by game, with room left for the file's own wrapping.
 PART_BYTES = 12 * 1024 * 1024
 ACCOUNT_NAME = 'account.json'
+# Shared-base fetches: at most FETCH_BATCH ROMs per call, answers gzipped by
+# the server and bounded once decompressed (records stay small numbers). One
+# answer carries at most FETCH_ROM_RECORDS stored records per ROM: a ROM that
+# comes back full is asked again from its new cursor, FETCH_ROUNDS times at most.
+FETCH_BATCH = 128
+FETCH_LIMIT = 96 * 1024 * 1024
+FETCH_ROM_RECORDS = 64
+FETCH_ROUNDS = 10
+# Claims: at most CLAIM_GAMES games and about CLAIM_BYTES of JSON per call
+# (the service stops at 8 MiB), gzipped above GZIP_BODY; claims that could
+# not be delivered wait in CLAIMS_NAME (at most CLAIMS_KEPT files).
+CLAIM_GAMES = 4096
+CLAIM_BYTES = 6 * 1024 * 1024
+GZIP_BODY = 1024 * 1024
+CLAIMS_NAME = 'account-claims.json'
+CLAIMS_KEPT = 64
+CURSORS_NAME = 'shared-cursors.json'
+_ROM_KEY = re.compile(r'(sms|gg|gb|nes|md|snes):[0-9a-f]{64}')
 
 
 class ServiceConnectionError(Exception):
@@ -141,14 +169,23 @@ def _owner_only(path: str) -> None:
 
 
 def _call(method: str, route: str, *, payload: dict | None = None, body: bytes | None = None,
-          token: str | None = None, timeout: int = 20) -> tuple[int, dict]:
+          token: str | None = None, timeout: int = 20, limit: int = ANSWER_LIMIT,
+          compressed: bool = False, pack: bool = False) -> tuple[int, dict]:
+    """One API request. `compressed` asks for a gzipped answer; `limit`
+    bounds the answer read and, once decompressed, the JSON parsed. With
+    `pack`, a JSON body above GZIP_BODY leaves gzipped."""
     base = service_url()
     if not base:
         raise ServiceError(0, 'unavailable')
     headers = {'User-Agent': f'RetroRecomp/{__version__}', 'Accept': 'application/json'}
+    if compressed:
+        headers['Accept-Encoding'] = 'gzip'
     if payload is not None:
-        body = json.dumps(payload).encode('utf-8')
+        body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
         headers['Content-Type'] = 'application/json'
+        if pack and len(body) > GZIP_BODY:
+            body = gzip.compress(body, mtime=0)
+            headers['Content-Encoding'] = 'gzip'
     elif body is not None:
         headers['Content-Type'] = 'application/gzip'
     if token:
@@ -162,12 +199,19 @@ def _call(method: str, route: str, *, payload: dict | None = None, body: bytes |
         raise ServiceConnectionError() from error
     try:
         with response:
-            raw = response.read(ANSWER_LIMIT + 1)
+            raw = response.read(limit + 1)
             status = response.status if hasattr(response, 'status') else response.code
+            encoding = str((response.headers or {}).get('Content-Encoding') or '').strip().lower()
     except (OSError, http.client.IncompleteRead) as error:
         raise ServiceConnectionError() from error
+    if encoding == 'gzip' and len(raw) <= limit:
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
+                raw = stream.read(limit + 1)
+        except (OSError, EOFError):
+            raw = b''
     try:
-        answer = json.loads(raw) if len(raw) <= ANSWER_LIMIT else None
+        answer = json.loads(raw) if len(raw) <= limit else None
     except ValueError:
         answer = None
     if not isinstance(answer, dict):
@@ -414,29 +458,41 @@ def _parts(collected: dict, limit: int | None = None) -> list:
 def send(collected: dict) -> dict:
     """Upload what `pending` kept, as `.rrknowledge` files under the server's
     bound; each accepted file marks its games as shared on the 'account'
-    channel, so an interrupted send resumes with the games still pending."""
+    channel, so an interrupted send resumes with the games still pending.
+    Claims that an earlier send could not deliver go first; `claims` in the
+    result sums the server's answers (None when it answered none) and
+    `claims_refused` names why the service refused some for good."""
     current = account()
     if not current:
         raise ServiceError(401, 'unauthorized')
+    answer, refused = _retry_claims()
+    answers = [answer]
+    def finish(result):
+        return {**result, 'claims': _claims_total(answers), 'claims_refused': sorted(set(refused))}
     if not collected['games']:
-        return {'games': 0, 'discoveries': 0}
+        return finish({'games': 0, 'discoveries': 0})
     parts = _parts(collected)
     if len(parts) == 1:
-        return _send_one(collected, current)
+        result = _send_one(collected, current)
+        answers.append(result.pop('claims'))
+        refused.extend(filter(None, [result.pop('claims_refused')]))
+        return finish(result)
     total = {'games': 0, 'discoveries': 0, 'bytes': 0, 'files': 0, 'duplicate': True}
     for keys in parts:
         result = _send_one(_restrict(collected, keys), current)
+        answers.append(result.get('claims'))
+        refused.extend(filter(None, [result.get('claims_refused')]))
         total['games'] += result['games']
         total['discoveries'] += result['discoveries']
         total['bytes'] += result['bytes']
         total['files'] += 1
         total['duplicate'] = total['duplicate'] and result['duplicate']
         total['id'] = result.get('id')
-    return total
+    return finish(total)
 
 
 def _send_one(collected: dict, current: dict) -> dict:
-    from .knowledge_exchange import mark_shared, write_knowledge
+    from .knowledge_exchange import discovery_paths, mark_shared, read_exchange, write_knowledge
     from .paths import data_directory
     folder = data_directory() / 'knowledge'
     folder.mkdir(parents=True, exist_ok=True)
@@ -445,6 +501,9 @@ def _send_one(collected: dict, current: dict) -> dict:
     try:
         write_knowledge(collected, Path(name), channel=None)
         body = Path(name).read_bytes()
+        # The claims name the paths of this exact file, read back as the
+        # maintainer's validation reads it.
+        paths = discovery_paths(read_exchange(Path(name)))
     finally:
         os.unlink(name)
     if len(body) > UPLOAD_LIMIT:
@@ -457,13 +516,365 @@ def _send_one(collected: dict, current: dict) -> dict:
         raise
     mark_shared('account', collected)
     # The scan level of each qualified game rides beside the file (which
-    # keeps its format); losing it only costs the scan bonus.
+    # keeps its format), in the claims; losing it only costs the scan bonus.
     levels = {f'{system}:{identity}': level for system, values in collected.get('levels', {}).items()
               for identity, level in values.items()}
-    if levels and isinstance(answer.get('id'), int) and code == 201:
-        try:
-            _call('POST', f"contributions/{answer['id']}/levels", payload={'levels': levels}, token=current['token'])
-        except (ServiceError, ServiceConnectionError):
-            pass
+    contribution, claimed, refused = answer.get('id'), None, None
+    games = claim_games(paths, levels)
+    # 201: a new file; 200: this account's earlier copy, whose claims are idempotent.
+    if isinstance(contribution, int) and code in (200, 201) and games:
+        claimed, refused = _deliver_claims(contribution, games, levels if code == 201 else {}, current)
     return {'games': collected['games'], 'discoveries': collected['discoveries'], 'bytes': len(body),
-            'id': answer.get('id'), 'duplicate': bool(answer.get('duplicate')) or code == 200}
+            'id': contribution, 'duplicate': bool(answer.get('duplicate')) or code == 200, 'claims': claimed,
+            'claims_refused': refused}
+
+
+# --- Claims: the paths each accepted file brings, for immediate points -----
+
+def claim_games(paths: dict, levels: dict) -> list:
+    """The claims body's games, from `discovery_paths` of the uploaded file.
+    A game without a qualified conversion (raw observations only) counts at
+    the standard level, as before scan levels were sent."""
+    return [{'system': system, 'identity': identity, 'known': bool(value['known']),
+             'level': levels.get(f'{system}:{identity}', 'standard'),
+             'hints': list(value['hints']), 'observations': list(value['observations'])}
+            for (system, identity), value in sorted(paths.items())
+            if value['hints'] or value['observations']]
+
+
+def _claim_parts(games: list):
+    """Games in groups of at most CLAIM_GAMES and about CLAIM_BYTES of JSON;
+    each game appears once, in one group."""
+    part, size = [], 0
+    for game in games:
+        cost = len(json.dumps(game, separators=(',', ':'))) + 1
+        if part and (len(part) >= CLAIM_GAMES or size + cost > CLAIM_BYTES):
+            yield part
+            part, size = [], 0
+        part.append(game)
+        size += cost
+    if part:
+        yield part
+
+
+def claims(contribution: int, games: list) -> dict:
+    """POST contributions/{id}/claims, in groups under the service's bounds
+    (gzipped when large); the sum of the answers ({'games', 'paths', 'new'}).
+    Raises like `_call`."""
+    current = account()
+    if not current:
+        raise ServiceError(401, 'unauthorized')
+    total = {'games': 0, 'paths': 0, 'new': 0}
+    for part in _claim_parts(games):
+        try:
+            answer = _call('POST', f'contributions/{int(contribution)}/claims', token=current['token'],
+                           timeout=60, payload={'games': part}, pack=True)[1]
+        except ServiceError as error:
+            if error.status == 401:
+                _save_account(None)
+            raise
+        for name in total:
+            value = answer.get(name)
+            total[name] += value if type(value) is int and value >= 0 else 0
+    return total
+
+
+def _retryable(error: ServiceError) -> bool:
+    """Claims refused for a reason that may pass (busy, rate-limited, signed
+    out); a malformed or forbidden claim is dropped."""
+    return error.status in (401, 408, 425, 429) or error.status >= 500 or error.reason == 'bad_answer'
+
+
+def _deliver_claims(contribution: int, games: list, levels: dict, current: dict) -> tuple:
+    """(answer or None, reason the service refused them or None)."""
+    try:
+        return claims(contribution, games), None
+    except ServiceError as error:
+        if error.status == 404:
+            # A server without claims: only the scan levels, as 1.5.0 sent them.
+            if levels:
+                try:
+                    _call('POST', f'contributions/{contribution}/levels', payload={'levels': levels},
+                          token=current['token'])
+                except (ServiceError, ServiceConnectionError):
+                    pass
+        elif _retryable(error):
+            _queue_claims(contribution, games, current)
+        else:
+            # Refused for good (the file was found invalid, or a malformed claim).
+            return None, error.reason
+    except ServiceConnectionError:
+        _queue_claims(contribution, games, current)
+    return None, None
+
+
+def _claims_path() -> Path:
+    return _account_path().with_name(CLAIMS_NAME)
+
+
+def _waiting_claims() -> list:
+    try:
+        data = json.loads(_claims_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    return [entry for entry in data if isinstance(entry, dict) and type(entry.get('id')) is int
+            and isinstance(entry.get('games'), list)] if isinstance(data, list) else []
+
+
+def _keep_claims(entries: list) -> None:
+    if entries:
+        _write_bytes(_claims_path(), json.dumps(entries[-CLAIMS_KEPT:], separators=(',', ':')).encode('utf-8'))
+    else:
+        _claims_path().unlink(missing_ok=True)
+
+
+def _queue_claims(contribution: int, games: list, current: dict) -> None:
+    owner = (current['service'], current.get('email'))
+    entries = [entry for entry in _waiting_claims()
+               if not ((entry.get('service'), entry.get('email')) == owner and entry['id'] == contribution)]
+    entries.append({'service': owner[0], 'email': owner[1], 'id': contribution, 'games': games})
+    try:
+        _keep_claims(entries)
+    except OSError:
+        pass
+
+
+def waiting_claims() -> int:
+    """Accepted files of this account whose claims still wait for delivery."""
+    current = account()
+    if not current:
+        return 0
+    owner = (current['service'], current.get('email'))
+    return sum((entry.get('service'), entry.get('email')) == owner for entry in _waiting_claims())
+
+
+def retry_claims() -> dict | None:
+    """Deliver the claims an earlier send could not; those still refused for
+    a passing reason wait again. The answers' sum, or None if none answered."""
+    return _retry_claims()[0]
+
+
+def _retry_claims() -> tuple:
+    """(answers' sum or None, reasons of the claims refused for good)."""
+    current = account()
+    entries = _waiting_claims()
+    if not current or not entries:
+        return None, []
+    owner = (current['service'], current.get('email'))
+    kept, answers, refused, offline = [], [], [], False
+    for entry in entries:
+        if offline or (entry.get('service'), entry.get('email')) != owner:
+            kept.append(entry)
+            continue
+        try:
+            answers.append(claims(entry['id'], entry['games']))
+        except ServiceError as error:
+            if _retryable(error):
+                kept.append(entry)
+            elif error.status != 404:
+                refused.append(error.reason)
+        except ServiceConnectionError:
+            kept.append(entry)
+            offline = True
+    try:
+        _keep_claims(kept)
+    except OSError:
+        pass
+    return _claims_total(answers), refused
+
+
+def _claims_total(answers) -> dict | None:
+    answered = [answer for answer in answers if answer]
+    if not answered:
+        return None
+    return {name: sum(answer.get(name, 0) for answer in answered) for name in ('games', 'paths', 'new')}
+
+
+# --- Shared-base sync: the paths other players found, before a batch -------
+
+def _cursor_value(value) -> int:
+    return value if type(value) is int and value >= 0 else 0
+
+
+def _rom_keys(values) -> list:
+    return sorted({key for key in values if isinstance(key, str) and _ROM_KEY.fullmatch(key)})
+
+
+def fetch_knowledge(rom_keys, cursors: dict | None = None) -> dict:
+    """POST knowledge/fetch for `rom_keys` ('system:sha256'), FETCH_BATCH ROMs
+    per call, each with the last cursor received for it (0 at first). Returns
+    {'roms': {key: {'cursor', 'level', 'records', 'observations'}}} for the
+    ROMs with something newer than their cursor."""
+    current = account()
+    if not current:
+        raise ServiceError(401, 'unauthorized')
+    keys = _rom_keys(rom_keys)
+    cursors = {key: _cursor_value((cursors or {}).get(key)) for key in keys}
+    served, asked = {}, keys
+    for _ in range(FETCH_ROUNDS):
+        full = []
+        for start in range(0, len(asked), FETCH_BATCH):
+            chunk = asked[start:start + FETCH_BATCH]
+            try:
+                answer = _call('POST', 'knowledge/fetch', token=current['token'], timeout=120, limit=FETCH_LIMIT,
+                               compressed=True, payload={'roms': {key: cursors[key] for key in chunk}})[1]
+            except ServiceError as error:
+                if error.status == 401:
+                    _save_account(None)
+                raise
+            roms = answer.get('roms')
+            if roms == []:
+                roms = {}   # an empty JSON object may come back as an empty list
+            if not isinstance(roms, dict):
+                raise ServiceError(200, 'bad_answer')
+            for key in set(chunk) & set(roms):
+                value = roms[key]
+                if not isinstance(value, dict):
+                    continue
+                served[key] = _served_together(served.get(key), value)
+                cursor, records = value.get('cursor'), value.get('records')
+                # A full answer for this ROM: newer records may wait behind it.
+                if (type(cursor) is int and cursor > cursors[key] and isinstance(records, list)
+                        and len(records) >= FETCH_ROM_RECORDS):
+                    cursors[key] = cursor
+                    full.append(key)
+        if not full:
+            break
+        asked = sorted(full)
+    return {'roms': served}
+
+
+def _served_together(earlier: dict | None, later: dict) -> dict:
+    """One ROM's answers over several rounds: records and rows in order, the
+    highest cursor, and the best level (each answer names its own best)."""
+    from .scan_levels import LEVELS
+    if earlier is None:
+        return dict(later)
+    rows = lambda value, name: value.get(name) if isinstance(value.get(name), list) else []
+    cursors = [value.get('cursor') for value in (earlier, later) if type(value.get('cursor')) is int]
+    levels = [value.get('level') for value in (earlier, later) if value.get('level') in LEVELS]
+    return {'cursor': max(cursors) if cursors else None,
+            'level': max(levels, key=LEVELS.index) if levels else None,
+            'records': rows(earlier, 'records') + rows(later, 'records'),
+            'observations': rows(earlier, 'observations') + rows(later, 'observations')}
+
+
+def _cursors_path() -> Path:
+    # Beside the imported banks: removing them also restarts the sync.
+    from .knowledge import imported_path
+    return imported_path().with_name(CURSORS_NAME)
+
+
+def _shared_state(current: dict) -> dict:
+    """{key: {'cursor', 'level', 'records'}} kept for this account."""
+    try:
+        data = json.loads(_cursors_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    if (not isinstance(data, dict) or data.get('service') != current['service']
+            or data.get('email') != current.get('email') or not isinstance(data.get('roms'), dict)):
+        return {}
+    return {key: dict(value) for key, value in data['roms'].items()
+            if isinstance(key, str) and _ROM_KEY.fullmatch(key) and isinstance(value, dict)}
+
+
+def _save_shared_state(current: dict, state: dict) -> None:
+    data = {'service': current['service'], 'email': current.get('email'), 'roms': dict(sorted(state.items()))}
+    _write_bytes(_cursors_path(), (json.dumps(data, indent=1, sort_keys=True) + '\n').encode('utf-8'))
+
+
+def sync_shared(rom_keys) -> dict:
+    """One fetch for these ROMs: what arrives joins the imported banks (as an
+    imported file would), then each ROM's cursor moves on and the best scan
+    level received with valid paths is kept. Counts for the log."""
+    from .knowledge_exchange import import_fetched
+    from .scan_levels import LEVELS
+    current = account()
+    if not current:
+        raise ServiceError(401, 'unauthorized')
+    keys = _rom_keys(rom_keys)
+    summary = {'asked': len(keys), 'roms': 0, 'records': 0, 'observations': 0, 'new': 0, 'enriched': 0}
+    if not keys:
+        return summary
+    state = _shared_state(current)
+    answer = fetch_knowledge(keys, {key: state.get(key, {}).get('cursor') for key in keys})
+    if not answer['roms']:
+        return summary
+    outcome = import_fetched(answer['roms'])
+    for key, value in answer['roms'].items():
+        entry = state.setdefault(key, {})
+        cursor = value.get('cursor')
+        if type(cursor) is int and cursor > _cursor_value(entry.get('cursor')):
+            entry['cursor'] = cursor
+        accepted = outcome['accepted'].get(key) or {}
+        if not (accepted.get('records') or accepted.get('observations')):
+            continue
+        entry['records'] = _cursor_value(entry.get('records')) + accepted.get('records', 0)
+        level = value.get('level')
+        if level in LEVELS and (entry.get('level') not in LEVELS
+                                or LEVELS.index(level) > LEVELS.index(entry['level'])):
+            entry['level'] = level
+        summary['roms'] += 1
+        summary['records'] += accepted.get('records', 0)
+        summary['observations'] += accepted.get('observations', 0)
+    _save_shared_state(current, state)
+    summary.update(new=outcome['new'], enriched=outcome['enriched'])
+    return summary
+
+
+def shared_paths(rom_keys) -> dict:
+    """What the shared base gave each of these ROMs so far, for the batch:
+    {key: {'level': best scan level or None, 'records': count}}."""
+    current = account()
+    if not current:
+        return {}
+    state = _shared_state(current)
+    found = {}
+    for key in rom_keys:
+        entry = state.get(key) or {}
+        if entry.get('records') or entry.get('level'):
+            found[key] = {'level': entry.get('level'), 'records': _cursor_value(entry.get('records'))}
+    return found
+
+
+def forget_shared(rom_keys) -> None:
+    """Shared paths set aside after they broke a conversion: their level no
+    longer allows a quick check (the cursor stays, so they do not return)."""
+    current = account()
+    if not current:
+        return
+    state = _shared_state(current)
+    changed = False
+    for key in rom_keys:
+        entry = state.get(key)
+        if entry and ('level' in entry or 'records' in entry):
+            entry.pop('level', None)
+            entry.pop('records', None)
+            changed = True
+    if changed:
+        _save_shared_state(current, state)
+
+
+def prepare_batch(rom_keys, enabled: bool = True) -> dict:
+    """Before a batch. Without the option, the service or an account: no
+    request and no shared paths. Otherwise one fetch (in batches) whose paths
+    join the imported banks; 'paths' then tells each conversion what the
+    shared base holds for its ROM. A failed fetch keeps the earlier paths."""
+    keys = _rom_keys(rom_keys)
+    if not enabled or not keys or not sending_available() or not account():
+        return {'paths': {}, 'summary': None, 'error': None}
+    summary = error = None
+    try:
+        summary = sync_shared(keys)
+    except (ServiceError, ServiceConnectionError, OSError, ValueError) as caught:
+        error = caught
+    return {'paths': shared_paths(keys), 'summary': summary, 'error': error}
+
+
+def send_after_batch(collect, enabled: bool = True) -> dict | None:
+    """After a batch. Without the option, the service or an account: nothing,
+    not even collecting. Otherwise the games whose discoveries changed are
+    sent with their claims; errors reach the caller, the games stay pending."""
+    if not enabled or not sending_available() or not account():
+        return None
+    return send(pending(collect()))

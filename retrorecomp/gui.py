@@ -308,6 +308,13 @@ class Application:
         self.feedback_status = {profile.id: tk.StringVar() for profile in PROFILES}
         self.icon_tags = tk.BooleanVar(value=bool(preferences.get('icon_tags', True)))
         self.online = tk.BooleanVar(value=bool(preferences.get('online_cover', True)))
+        # Signed in to the shared base: its paths before each batch, and this
+        # player's new discoveries sent after it (both on unless turned off).
+        self.use_shared_base = tk.BooleanVar(value=preferences.get('use_shared_base', True) is not False)
+        self.send_after_batch = tk.BooleanVar(value=preferences.get('send_after_batch', True) is not False)
+        # Collecting and sending discoveries never run twice at once.
+        self.knowledge_lock = threading.Lock()
+        self.auto_sending = False
 
         header = tk.Canvas(app, height=HEADER_HEIGHT, bg=COLORS['header'], highlightthickness=0,
                            borderwidth=0)
@@ -366,6 +373,9 @@ class Application:
         self.portrait_item = header.create_image(0, 12, anchor='ne', tags='portrait')
         self.player_name = header.create_text(0, 10, text='', anchor='ne', fill=COLORS['text'],
                                               font=(self.ui_font, 10, 'bold'), tags='player')
+        # The title chosen on the site, under the pseudonym.
+        self.player_title = header.create_text(0, 24, text='', anchor='ne', fill=COLORS['gold'],
+                                               font=(self.ui_font, 8), tags='player')
         self.player_score = header.create_text(0, 29, text='', anchor='ne', fill=COLORS['muted'], width=270,
                                                font=(self.ui_font, 8), justify='right', tags='player')
         self.player_actions = ttk.Frame(header)
@@ -634,12 +644,15 @@ class Application:
         account = divider - 16 - self.player_actions.winfo_reqwidth() - 12
         self.header.coords(self.portrait_item, account, (HEADER_HEIGHT - PORTRAIT_SIZE) // 2)
         text = account - PORTRAIT_SIZE - 12
-        name_box = self.header.bbox(self.player_name) or (0, 0, 0, 0)
-        score_box = self.header.bbox(self.player_score) or (0, 0, 0, 0)
-        block = (name_box[3] - name_box[1]) + 3 + (score_box[3] - score_box[1])
-        top = max(4, (HEADER_HEIGHT - block) // 2)
-        self.header.coords(self.player_name, text, top)
-        self.header.coords(self.player_score, text, top + (name_box[3] - name_box[1]) + 3)
+        # Name, title (when one is chosen) and score, centred as one block.
+        lines = [item for item in (self.player_name, self.player_title, self.player_score)
+                 if self.header.itemcget(item, 'text')]
+        heights = {item: (lambda box: box[3] - box[1])(self.header.bbox(item) or (0, 0, 0, 0)) for item in lines}
+        top = max(4, (HEADER_HEIGHT - sum(heights.values()) - 2 * max(0, len(lines) - 1)) // 2)
+        for item in (self.player_name, self.player_title, self.player_score):
+            self.header.coords(item, text, top)
+            if item in heights:
+                top += heights[item] + 2
 
 
     def draw_background(self, event):
@@ -658,7 +671,7 @@ class Application:
         padding = 10
         areas = []
         if canvas is self.header:
-            for label in (self.player_name, self.player_score):
+            for label in (self.player_name, self.player_title, self.player_score):
                 box = canvas.bbox(label)
                 if box:
                     areas.append((box[0]-padding, box[1]-padding,
@@ -1295,6 +1308,7 @@ class Application:
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
+            use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
             overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
             x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
@@ -1379,6 +1393,8 @@ class Application:
             options.pop('platform')
             options.pop('feedback_paths')
             options.pop('rom_paths')
+            use_shared = options.pop('use_shared_base', False)
+            options.pop('send_after_batch', None)
             if any(self.items[row].system == 'ng' and not self.items[row].error for row in chosen_rows):
                 from .neogeo import validate_bios
                 bios = selected_bios_path(options.get('ng_bios'))
@@ -1442,9 +1458,14 @@ class Application:
                             self.messages.put(('log',self.tr('queue_save_failed')))
                     if kind=='result':self.remember_export(value,inventory_preferences)
                     self.messages.put((kind,index,value))
-                record = convert_batch(items, output, cancel=self.cancel, **options,
+                # The shared base's paths for these ROMs join the imported
+                # banks first; each conversion checks them again.
+                shared = self.prepare_shared_paths([f'{item.system}:{item.sha256}' for item in items
+                                                    if item.system and item.sha256 and not item.error], use_shared)
+                record = convert_batch(items, output, cancel=self.cancel, **options, shared_paths=shared,
                     emit=lambda text: self.messages.put(('log', text)),
                     on_event=event)
+                self.forget_rejected_shared(shared, record['games'])
                 if journal is not None:
                     try:journal.finish(record)
                     except OSError:self.messages.put(('log',self.tr('queue_save_failed')))
@@ -1767,6 +1788,7 @@ class Application:
                         record = event[1]
                         self.set_status('summary', **record)
                         self.announce_finished(record)
+                        self.send_new_discoveries()
                 elif kind == 'update_check':
                     self._offer_update(event[1])
                 elif kind == 'update_ready':
@@ -1825,6 +1847,9 @@ class Application:
                     if self.close_when_idle:
                         self.close()
                         return
+                    self.send_new_discoveries()
+                elif kind == 'auto_sent':
+                    self.auto_sent(event[1], event[2])
         except queue.Empty:
             pass
         for row, result in self.results.items():
@@ -2141,13 +2166,28 @@ class Application:
         out, and the account page of the site."""
         self.account_status = tk.StringVar()
         ttk.Label(page, textvariable=self.account_status, wraplength=600).pack(anchor='w', pady=(0, 8))
-        row = ttk.Frame(page)
+        row = self.account_buttons = ttk.Frame(page)
         row.pack(anchor='w')
         self.account_sign_button = ttk.Button(row, command=self.account_sign_toggle)
         self.account_sign_button.pack(side='left')
         self.account_site_button = ttk.Button(row, text=self.tr('account_open_site'),
             command=lambda: webbrowser.open_new_tab(online.service_url() + '/account'))
         self.account_site_button.pack(side='left', padx=(8, 0))
+        # Signed in: the RR coins and the title, bought and chosen on the site.
+        self.account_rewards = ttk.Frame(page)
+        self.account_balance = tk.StringVar()
+        ttk.Label(self.account_rewards, textvariable=self.account_balance).pack(side='left')
+        titles = ttk.Button(self.account_rewards, text=self.tr('account_titles_site'),
+                            command=lambda: webbrowser.open_new_tab(online.service_url() + '/account'))
+        titles.pack(side='left', padx=(12, 0))
+        self.hint(titles, 'tip_account_titles')
+        # Signed in: the shared base before and after each batch.
+        self.account_sync = ttk.Frame(page)
+        for key, variable in (('use_shared_base', self.use_shared_base), ('send_after_batch', self.send_after_batch)):
+            control = ttk.Checkbutton(self.account_sync, text=self.tr(key), variable=variable)
+            control.pack(anchor='w', pady=(0, 6))
+            self.option_controls.append((control, 'normal'))
+            self.hint(control, 'tip_' + key)
         self.update_account_options()
 
     def update_account_options(self):
@@ -2164,6 +2204,18 @@ class Application:
             self.account_sign_button.configure(text=self.tr('account_sign_out' if current else 'account_sign_in'),
                                                state='normal' if SENDING_AVAILABLE else 'disabled')
             self.account_site_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
+            if current:
+                profile = (getattr(self, 'player', None) or {}).get('profile') or {}
+                coins = self.coin_balance(profile)
+                text = self.tr('account_balance', coins='–' if coins is None else coins)
+                if self.title_name(profile.get('title')):
+                    text += ' · ' + self.tr('account_title', title=self.title_name(profile.get('title')))
+                self.account_balance.set(text)
+                self.account_rewards.pack(anchor='w', pady=(0, 8), before=self.account_buttons)
+                self.account_sync.pack(anchor='w', pady=(0, 4), before=self.account_buttons)
+            else:
+                self.account_rewards.pack_forget()
+                self.account_sync.pack_forget()
         except tk.TclError:
             pass
 
@@ -2577,7 +2629,11 @@ class Application:
             self.compiled_view.progress.start(15)
             self.compiled_view.status.set(self.tr(status))
         def worker():
-            try:self.messages.put(('knowledge_done', callback(), None))
+            try:
+                # An automatic send after a batch finishes first.
+                with self.knowledge_lock:
+                    outcome = callback()
+                self.messages.put(('knowledge_done', outcome, None))
             except Exception as exc:self.messages.put(('knowledge_done', None, str(exc) or type(exc).__name__))
         threading.Thread(target=worker, daemon=True).start()
 
@@ -2594,25 +2650,31 @@ class Application:
             messagebox.showinfo(APP_NAME, self.tr('knowledge_export_empty'), parent=self.app)
             if self.closing_send:self.close()
             return
+        self.cancel.clear()
+        collect = self.discoveries_collector(self.cancel)
+        self.knowledge_task(lambda: (kind, collect()), 'knowledge_counting')
+
+    def discoveries_collector(self, cancel):
+        """A function collecting the shareable discoveries off Tk; the Tk
+        values it needs are read now, on the Tk thread."""
         from .knowledge_exchange import collect_knowledge
         # Qualified games whose source moved are found like for Reconvert.
         options = self.preferences()
         from .compiled_games import Game
-        known = [*games, *(Game('', i.system, i.sha256, i.title, source=str(i.path))
-                           for i in self.items.values() if i.system and i.sha256)]
+        known = [*self.compiled_inventory.snapshot(), *(Game('', i.system, i.sha256, i.title, source=str(i.path))
+                                                        for i in self.items.values() if i.system and i.sha256)]
         def locate(pending):
             from .rom_sources import RomSources
-            pairs = RomSources().resolve(pending, options, known=known, cancel=self.cancel)
+            pairs = RomSources().resolve(pending, options, known=known, cancel=cancel)
             return {(game.system, game.identity): source for game, source in pairs if source}
-        self.cancel.clear()
         def collect():
             # Discoveries saved since the last look count without a full scan.
             from .compiled_games import refresh_changed
             refresh_changed(self.compiled_inventory, options)
             # Cached results stay valid while the ROM folders stay the same.
             context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
-            return kind, collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
-        self.knowledge_task(collect, 'knowledge_counting')
+            return collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
+        return collect
 
     def send_knowledge(self, closing=False):
         """Send the discoveries the shared base has not received from this
@@ -2639,6 +2701,81 @@ class Application:
             return online.send(pending)
         except (online.ServiceError, online.ServiceConnectionError) as error:
             return {'error': self.online_message(error)}
+
+    def service_problem(self, error):
+        """A service or file error in one short, translated phrase."""
+        if isinstance(error, (online.ServiceError, online.ServiceConnectionError)):
+            return self.online_message(error)
+        return str(error) or type(error).__name__
+
+    # --- The shared base around each batch -----------------------------------
+
+    def prepare_shared_paths(self, keys, enabled):
+        """Worker side, before a batch: one fetch of the shared base's paths
+        for these ROMs ('system:sha256') into the imported banks, said in one
+        log line. {} without the option, the service or an account (no request);
+        a fetch that fails leaves the conversions as they would be offline."""
+        if not enabled or not SENDING_AVAILABLE:
+            return {}
+        try:
+            outcome = online.prepare_batch(keys, True)
+        except Exception as exc:   # the batch goes on whatever happens here
+            outcome = {'paths': {}, 'summary': None, 'error': exc}
+        summary, error = outcome['summary'], outcome['error']
+        if error is not None:
+            self.messages.put(('log', self.tr('shared_unavailable', error=self.service_problem(error))))
+        elif summary and summary['roms']:
+            self.messages.put(('log', self.tr('shared_received', games=summary['roms'], records=summary['records'],
+                                              observations=summary['observations'])))
+        elif summary and summary['asked']:
+            self.messages.put(('log', self.tr('shared_nothing')))
+        return outcome['paths']
+
+    def forget_rejected_shared(self, shared, results):
+        """Shared paths a batch set aside after they broke a conversion no
+        longer allow a quick check for that ROM."""
+        rejected = [f"{result.get('system')}:{result.get('sha256')}" for result in results
+                    if result.get('imported_hints_rejected')]
+        if shared and rejected:
+            try:
+                online.forget_shared([key for key in rejected if key in shared])
+            except OSError:
+                pass
+
+    def send_new_discoveries(self):
+        """After a batch, signed in with the option on: send the discoveries the
+        shared base has not received from this account, then their claims, in
+        a worker. Failures only reach the log; the games stay pending for the
+        next batch. Never during an update; the window stays usable."""
+        if (not SENDING_AVAILABLE or getattr(self, 'updating', False) or getattr(self, 'auto_sending', True)
+                or not self.send_after_batch.get() or not online.account()):
+            return
+        collect = self.discoveries_collector(threading.Event())
+        self.auto_sending = True
+        def worker():
+            try:
+                with self.knowledge_lock:
+                    summary = online.send_after_batch(collect)
+                self.messages.put(('auto_sent', summary, None))
+            except Exception as exc:
+                self.messages.put(('auto_sent', None, exc))
+        threading.Thread(target=worker, daemon=True, name='retro-recomp-send').start()
+
+    def auto_sent(self, summary, error):
+        self.auto_sending = False
+        if error is not None:
+            self.messages.put(('log', self.tr('auto_send_failed', error=self.service_problem(error))))
+            return
+        claims = (summary or {}).get('claims') or {}
+        if (summary or {}).get('games'):
+            text = self.tr('auto_send_done', games=summary['games'])
+            if claims.get('new'):
+                text += ' ' + self.tr('knowledge_send_new', count=claims['new'])
+            self.messages.put(('log', text))
+        if (summary or {}).get('claims_refused'):
+            self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
+        if (summary or {}).get('games') or claims:
+            self.refresh_player(force=True)   # new points (and coins) at once
 
     def sign_out(self):
         if self.busy or self.updating:return
@@ -2678,6 +2815,24 @@ class Application:
             self.messages.put(('player', data))
         threading.Thread(target=worker, daemon=True).start()
 
+    def title_name(self, title):
+        """A title from the site ({'id', 'name': {language: text}}) in the
+        interface language, else English, else any; '' without one."""
+        names = title.get('name') if isinstance(title, dict) else None
+        if not isinstance(names, dict):
+            return ''
+        for code in (self.language, 'en', *sorted(names)):
+            if isinstance(names.get(code), str) and names[code].strip():
+                return names[code].strip()[:48]
+        return ''
+
+    @staticmethod
+    def coin_balance(profile):
+        """The RR coins balance of `GET account`, or None before the site says."""
+        coins = profile.get('coins') if isinstance(profile, dict) else None
+        balance = coins.get('balance') if isinstance(coins, dict) else None
+        return balance if type(balance) is int else None
+
     def render_player(self, data=...):
         """Draw the account corner from the last answer: a portrait, the
         pseudonym (or the e-mail's user name), points and rank; or the
@@ -2694,6 +2849,7 @@ class Application:
             self.portrait = _portrait_photo(self.app)
             header.itemconfigure(self.portrait_item, image=self.portrait)
             header.itemconfigure(self.player_name, text=self.tr('account_not_signed'))
+            header.itemconfigure(self.player_title, text='')
             header.itemconfigure(self.player_score,
                                  text=self.tr('account_invite') if SENDING_AVAILABLE else self.tr('account_coming'))
             self.board_button.configure(state='normal' if SENDING_AVAILABLE else 'disabled')
@@ -2708,6 +2864,7 @@ class Application:
         self.portrait = _portrait_photo(self.app, player.get('avatar'), name[:1])
         header.itemconfigure(self.portrait_item, image=self.portrait)
         header.itemconfigure(self.player_name, text=name)
+        header.itemconfigure(self.player_title, text=self.title_name(profile.get('title')))
         you = (player.get('board') or {}).get('you') or {}
         if player.get('error'):
             score = player['error']
@@ -2717,6 +2874,9 @@ class Application:
             score = self.tr('account_points', points=you.get('total', 0), rank=you['rank'])
         else:
             score = self.tr('account_unranked', points=you.get('total', 0))
+        coins = self.coin_balance(profile)
+        if coins is not None and not player.get('error'):
+            score += ' · ' + self.tr('account_coins', coins=coins)
         if you.get('pending'):
             score += '\n' + self.tr('account_pending', count=you['pending'])
         header.itemconfigure(self.player_score, text=score)
@@ -3019,7 +3179,7 @@ class Application:
         tk.Label(titles, text=self.tr('leaderboard').upper(), bg=background, fg=COLORS['gold'],
                  font=(self.ui_font, 14, 'bold')).pack(anchor='w', pady=(6, 0))
         note = tk.Label(titles, text=self.tr('leaderboard_loading'), bg=background, fg=COLORS['muted'],
-                        font=(self.ui_font, 9), wraplength=430, justify='left')
+                        font=(self.ui_font, 9), wraplength=400, justify='left')
         note.pack(anchor='w')
         period = tk.StringVar(value='all')
         switches = tk.Frame(top, bg=background)
@@ -3043,9 +3203,11 @@ class Application:
             table.column(key, width=width, anchor=anchor, stretch=key == 'player')
         table.tag_configure('you', foreground=COLORS['gold'])
         table.pack(fill='both', expand=True)
+        # The footer is reserved first: a longer note above never clips it.
         you_line = tk.Label(body, text='', bg=background, fg=COLORS['text'], font=(self.ui_font, 9))
-        you_line.pack(anchor='w', pady=(8, 0))
-        ttk.Button(body, text=self.tr('close'), command=window.destroy).pack(anchor='e', pady=(10, 0))
+        close = ttk.Button(body, text=self.tr('close'), command=window.destroy)
+        close.pack(side='bottom', anchor='e', pady=(10, 0), before=table)
+        you_line.pack(side='bottom', anchor='w', pady=(8, 0), before=table)
 
         # Opening animation: the steps rise one after the other (third, second,
         # first), carrying each player's crown, name, points and gems up.
@@ -3114,6 +3276,9 @@ class Application:
                                    font=(self.ui_font, 10, 'bold'), width=step_width - 16)
                 podium.create_text(middle, top + 28, text=f"{entry.get('total', 0)} pts",
                                    fill=shades[place], font=(self.ui_font, 9, 'bold'))
+                if self.title_name(entry.get('title')):
+                    podium.create_text(middle, top + 43, text=self.title_name(entry.get('title')),
+                                       fill=COLORS['muted'], font=(self.ui_font, 8), width=step_width - 16)
                 # The three class gems with this player's counts, on the step.
                 gems = [(pictures.get(f'gem-{kind}'), counts.get(kind, 0)) for kind in ('gold', 'platinum', 'diamond')]
                 spot = middle - 66
@@ -3154,7 +3319,9 @@ class Application:
                             counts[name] = counts.get(name, 0) + int(value)
                 rows.append((entry, counts))
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
-                lines.append(((entry.get('rank', ''), name, entry.get('games', 0), counts.get('gold', 0),
+                # The title the player chose on the site, after the pseudonym.
+                shown = name + (' · ' + self.title_name(entry.get('title')) if self.title_name(entry.get('title')) else '')
+                lines.append(((entry.get('rank', ''), shown, entry.get('games', 0), counts.get('gold', 0),
                                counts.get('platinum', 0), counts.get('diamond', 0), entry.get('total', 0)),
                               ('you',) if mine and name == mine else ()))
             for values, tags in lines:
@@ -3490,6 +3657,13 @@ class Application:
                 text = summary['error']
             else:
                 text = self.tr('knowledge_send_done', games=summary['games'], kib=summary.get('bytes', 0) / 1024)
+                if (summary.get('claims') or {}).get('new'):
+                    text += ' ' + self.tr('knowledge_send_new', count=summary['claims']['new'])
+                if summary.get('claims'):
+                    self.refresh_player(force=True)
+                if summary.get('claims_refused'):
+                    # Quietly, in the log only: the file itself was received.
+                    self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
             self.messages.put(('log', text))
             if self.compiled_view is not None:self.compiled_view.status.set(text)
             if self.closing_send:
@@ -3626,8 +3800,9 @@ class Application:
 
     def begin_reconvert(self, chosen):
         options = self.preferences()
+        use_shared = options.pop('use_shared_base', False)
         for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
-                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite'):
+                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite','send_after_batch'):
             options.pop(key,None)
         # Always rebuild, but only the player shell when nothing else changed.
         options['force'] = True
@@ -3645,8 +3820,10 @@ class Application:
             from .freshness import digest
             from .compiled_games import game_from_report, refresh, read_json
             counts = {'success':0,'failed':0}
-            errors = []
+            errors, results = [], []
             cartridge_locks={(game.system,game.identity):threading.Lock() for game,_ in chosen}
+            # Like a batch from the queue: the shared base's paths first.
+            shared = self.prepare_shared_paths([f'{game.system}:{game.identity}' for game,_ in chosen], use_shared)
             def convert(pair):
                 game,source = pair
                 if self.cancel.is_set():return None
@@ -3673,7 +3850,8 @@ class Application:
                 folder.mkdir(parents=True,exist_ok=True)
                 result = _convert_in_budget(jobs,0,item,len(chosen),get_profile(item.system),target.parent,
                     folder,target,[],lambda text:self.messages.put(('log',text)),
-                    {**options,'gb_parallel_games':jobs,'ng_parallel_games':jobs})
+                    {**options,'gb_parallel_games':jobs,'ng_parallel_games':jobs,'shared_paths':shared})
+                results.append({**result,'system':item.system,'sha256':item.sha256})
                 if result['status'] in ('success','current'):
                     game = game_from_report(Path(result['report']),target.parent,source=str(source))
                     self.compiled_inventory.remember(refresh(game,{}))
@@ -3700,6 +3878,7 @@ class Application:
                 counts['failed'] += 1
                 errors.append(str(exc))
                 self.messages.put(('log',str(exc)))
+            self.forget_rejected_shared(shared, results)
             if errors:counts['detail']=' · '.join(errors[:2])
             self.messages.put(('collection_done',counts))
         threading.Thread(target=worker,daemon=True).start()

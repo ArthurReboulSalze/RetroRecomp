@@ -133,7 +133,18 @@ def smoke(window):
     assert application.header.itemcget(application.player_name, 'text') == 'Pat'
     assert application.header.itemcget(application.player_score, 'text') == (
         application.tr('account_points', points=42, rank=3) + '\n' + application.tr('account_pending', count=2))
+    # RR coins beside the points, the chosen title under the pseudonym.
+    application.render_player({'account': {'email': 'pat@example.test'}, 'board': {'you': {'rank': 3, 'total': 42}},
+                               'profile': {'pseudonym': 'Pat', 'coins': {'earned': 30, 'spent': 10, 'balance': 20},
+                                           'title': {'id': 'explorer', 'name': {'en': 'Explorer', 'fr': 'Explorateur'}}}})
+    assert application.header.itemcget(application.player_title, 'text') == 'Explorer'
+    assert application.header.itemcget(application.player_score, 'text') == (
+        application.tr('account_points', points=42, rank=3) + ' · ' + application.tr('account_coins', coins=20))
+    application.layout_header()
+    assert (application.header.coords(application.player_name)[1] < application.header.coords(application.player_title)[1]
+            < application.header.coords(application.player_score)[1])
     application.render_player(None)
+    assert application.header.itemcget(application.player_title, 'text') == ''
     assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
     initial_tags = application.icon_tags.get()
     assert application.preferences()['icon_tags'] == initial_tags
@@ -150,6 +161,25 @@ def smoke(window):
     assert notebook.tab(7, 'text') == application.tr('options_ng')
     assert all(notebook.tab(i, 'text') != application.tr('options_boxart') for i in range(len(notebook.tabs())))
     assert application.account_status.get() == application.tr('account_coming')
+    assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
+    # Signed in: the balance, the title, the site's titles and the two shared-base options.
+    signed = {'email': 'pat@example.test', 'service': 'https://example.test', 'token': 'rr1_' + 'a' * 43}
+    with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=signed):
+        application.player = {'profile': {'coins': {'balance': 20}, 'title': {'name': {'en': 'Explorer'}}}}
+        application.update_account_options()
+        assert application.account_sync.winfo_manager() == 'pack' == application.account_rewards.winfo_manager()
+        assert application.account_balance.get() == (application.tr('account_balance', coins=20) + ' · '
+                                                     + application.tr('account_title', title='Explorer'))
+        sync_boxes = application.account_sync.winfo_children()
+        assert [box.cget('text') for box in sync_boxes] == [application.tr('use_shared_base'),
+                                                            application.tr('send_after_batch')]
+        assert application.preferences()['use_shared_base'] and application.preferences()['send_after_batch']
+        sync_boxes[1].invoke()
+        assert application.preferences()['send_after_batch'] is False
+        sync_boxes[1].invoke()
+    application.player = {}
+    application.update_account_options()
+    assert not application.account_sync.winfo_manager()
     assert application.preferences()['ng_bios'] == application.ng_bios.get()
     assert set(application.feedback_paths) >= {'sms','gg','gb','nes','md','snes','ng'}
     before_feedback=application.feedback_paths['sms'].get()
@@ -346,6 +376,8 @@ def smoke(window):
         expected=[application.items[row].path for row in selected]
         def selected_batch(items, output, *, on_event, **kwargs):
             assert [item.path for item in items]==expected
+            # No service here: no shared paths, and the two options never reach the compilers.
+            assert kwargs['shared_paths']=={} and not {'use_shared_base','send_after_batch'}&set(kwargs)
             games=[]
             for index,item in enumerate(items):
                 on_event('start',index,item.title)
