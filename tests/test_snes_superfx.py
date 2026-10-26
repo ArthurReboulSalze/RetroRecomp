@@ -6,7 +6,7 @@ breaks a documented value is caught without a compiler."""
 import unittest
 from pathlib import Path
 
-from retrorecomp.snes_chips import superfx
+from retrorecomp.snes_chips import cart, cart_header, cart_header_sync, superfx, superfx_header
 from tools.snes_superfx_case import Case
 from tools.snes_superfx_library import (F_FMULT_R4, F_HIGH_NIBBLE, build_cases)
 from tools.snes_superfx_model import (ALT1, ALT2, ALT3, Gsu, ModelError, ROM_SIZE, STOP, branch, frm, ibt,
@@ -177,13 +177,39 @@ class EngineAdaptation(unittest.TestCase):
         adapted = superfx(text)
         self.assertNotIn('gsu_bus_wait', text)
         self.assertEqual(adapted.count('if (gsu_bus_wait(f)) return;'), 1)
-        run_one = adapted[adapted.index('static void run_one('):]
+        run_one = adapted[adapted.index('void run_one(SuperFx *f) {'):]
         self.assertLess(run_one.index('if (gsu_bus_wait(f)) return;'), run_one.index('run_pc_hook(f)'))
-        helper = adapted[adapted.index('static unsigned gsu_bus_needed'):adapted.index('static void run_one(')]
+        helper = adapted[adapted.index('static unsigned gsu_bus_needed'):adapted.index('void run_one(SuperFx *f) {')]
         self.assertIn('scmr_ron(f)', helper)
         self.assertIn('scmr_ran(f)', helper)
         # the wait only burns time: no instruction, no register change
         self.assertIn('f->clock_credit -= 6;', helper)
+
+    @unittest.skipUnless(SOURCE.is_file(), 'pinned engine checkout not present')
+    def test_catch_up_shortcuts_are_the_exact_ones(self):
+        """The shortcuts that make a sync call cheap: banked credit, the stopped GSU's remainder,
+        the inline clock charge, the instruction ring behind a macro. Anchors only; the
+        behaviour is checked natively (selftest invariance runs) and by identical game hashes."""
+        text = self.SOURCE.read_text(encoding='utf-8')
+        adapted = superfx(text)
+        self.assertIn('f->clock_credit-=(f->clock_credit/6)*6;', adapted)
+        self.assertIn('!(f->sfr&SFR_G) && !f->romcl && !f->ramcl', adapted)
+        self.assertIn('f->clock_credit/6<=2000000', adapted)
+        self.assertIn('static void step_clocks_slow(SuperFx *f, unsigned clocks) {\n  if (f->romcl) {', adapted)
+        self.assertIn('if (f->romcl | f->ramcl) { step_clocks_slow(f, clocks); return; }', adapted)
+        self.assertEqual(adapted.count('#ifdef RR_GSU_TRACE'), 1)
+        self.assertNotIn('trace->sequence=sequence;\n  trace->r15', adapted)
+        header = superfx_header(self.SOURCE.with_suffix('.h').read_text(encoding='utf-8'))
+        self.assertIn('static inline void superfx_sync_credit(SuperFx *fx, uint64_t master_clock) {', header)
+        self.assertIn('if (credit < 6)', header)
+        cart_h = (self.SOURCE.parent / 'cart.h').read_text(encoding='utf-8')
+        sync = cart_header_sync(cart_header(cart_h))
+        self.assertIn('cart_sync_coprocessors_device', sync)
+        self.assertIn('if (cart && cart->superfx) superfx_sync_credit(cart->superfx, master_clock);', sync)
+        self.assertIn('#include "superfx.h"', sync)
+        cart_c = cart((self.SOURCE.parent / 'cart.c').read_text(encoding='utf-8'))
+        self.assertEqual(cart_c.count('void cart_sync_coprocessors_device(Cart *cart, uint64_t master_clock) {'), 1)
+        self.assertNotIn('\nvoid cart_sync_coprocessors(Cart *cart', cart_c)
 
 
 if __name__ == '__main__':
