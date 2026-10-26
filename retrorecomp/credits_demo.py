@@ -466,7 +466,9 @@ class CreditsDemo:
             c.tag_bind(item,'<Leave>',lambda e,i=item,k=color:self._credit_hover(i,k,False))
             c.tag_bind(item,'<Button-1>',lambda e,address=url:webbrowser.open_new_tab(address))
         self.mute_button.configure(bg=self._glow(14),activebackground=self._glow(14))
-        c.create_window(w-10,5,window=self.mute_button,anchor='ne')
+        # The sound button sits on the wordmark's line, its right edge on the
+        # ChipLoom credit's below it.
+        c.create_window(w-15,33,window=self.mute_button,anchor='e')
         c.create_line(0,h-2,w,h-2,fill='#574925')
         self.beam = c.create_line(0,h-2,130,h-2,fill=GOLD,width=2)
 
