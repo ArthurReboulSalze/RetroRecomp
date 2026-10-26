@@ -169,6 +169,7 @@
     "credits_cps1_cpu": "Эталонные CPU 68000 (Musashi, Karl Stenerud) и Z80",
     "created_experimental": "Создано · экспериментально",
     "fallback16": "Основной CPU: {opcodes} инструкций интерпретатора · Звуковой CPU: {audio_opcodes} инструкций",
+    "fallback_device": "Чип картриджа {chip}: {instructions} интерпретированных инструкций чипа ({per_frame:g} за кадр)",
     "options_sega": "Master System / Game Gear",
     "options_master_system": "Master System",
     "options_game_gear": "Game Gear",

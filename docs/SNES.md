@@ -13,8 +13,10 @@ their own ROM, rather than selected from an allowlist.
 Eight exact enhanced cartridges compare **57,600 ordinary frame pairs** and
 **105,600 pairs in actual packed exports**. Four extended device routes add
 **36,000 pairs**; a separately confirmed two-controller race adds **9,000 pairs** and a further state check. Their 65816 and SPC700 work has zero observed fallback on
-those routes. CX4 instructions stay interpreted and included in the visible
-counter; no zero-total-fallback claim is made for CX4 games.
+those routes. CX4 instructions stay interpreted and are reported on their own
+device line (`cartridge_device`, apart from the 65816 percentage; see
+[SNES_SUPERFX.md](SNES_SUPERFX.md), "Fallback percentage"); no
+zero-total-fallback claim is made for CX4 games.
 
 DSP-1 command aliases, polar rotation, range-plus-one and memory-test/size
 operations now work through the firmware-free model. Unassigned command bytes
@@ -313,8 +315,8 @@ New exact-ROM observations still require successful ordinary and packed
 qualification before promotion to shared knowledge.
 
 CX4 uses its existing instruction core and synthesized mathematical constants.
-Its instruction work is included in the visible interpreter counter, with
-separate main-CPU and device diagnostics. A native 65816/SPC700 path must not
+Its instruction work is counted and reported as a separate device entry,
+never mixed into the main-CPU percentage. A native 65816/SPC700 path must not
 hide interpreted CX4 work. Unknown DSP-1 operations or a stuck CX4 bus stop
 conversion validation. Device snapshots include their protocol/matrix/cache
 state, fractional clocks and absolute clock anchors. Firmware files in the

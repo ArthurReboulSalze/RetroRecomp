@@ -10,6 +10,53 @@ SUPERFX_TYPES=(0x13,0x14,0x15,0x1a)
 REPORT_FIELDS=('cartridge_chip','coprocessor_mode','coprocessor_state_hash',
                'coprocessor_instructions','coprocessor_failed','coprocessor_commands')
 
+
+
+def device_entry(checks):
+    """The cartridge device's figures, apart from the CPUs' (None without one).
+
+    The 65816 and SPC700 percentages never include device instructions: a GSU
+    runs tens of millions of them per scenario and would swamp both. They stay
+    visible here as interpreted device instructions per scenario and per frame.
+    """
+    checks=[check for check in checks if isinstance(check,dict)]
+    chip=next((check['cartridge_chip'] for check in checks
+               if check.get('cartridge_chip') not in (None,'none')),None)
+    if chip is None:return None
+    rows=[]
+    for check in checks:
+        count=int(check.get('coprocessor_instructions') or 0)
+        frames=int(check.get('frames') or 0)
+        rows.append({'scenario':check.get('scenario'),'frames':frames,'interpreted_instructions':count,
+                     'interpreted_per_frame':round(count/max(1,frames),3),
+                     'commands':int(check.get('coprocessor_commands') or 0)})
+    return {'chip':chip,'mode':checks[-1].get('coprocessor_mode','not_run'),
+            'counter_unit':'device instructions','scenarios':rows,
+            'failed':any(check.get('coprocessor_failed') for check in checks)}
+
+
+def device_summary(report):
+    """Chip, mode and the largest interpreted device figures of a conversion report.
+
+    Reports written before the separate entry existed carry the same numbers in
+    their checks, so they read the same way. None when the cartridge has no device.
+    """
+    try:
+        entry=report.get('cartridge_device') or device_entry(report.get('final_checks') or ())
+        rows=entry['scenarios'] if entry else ()
+        return None if not entry else {'chip':entry['chip'],'mode':entry.get('mode'),
+            'instructions':max((row['interpreted_instructions'] for row in rows),default=0),
+            'per_frame':max((row['interpreted_per_frame'] for row in rows),default=0)}
+    except (AttributeError,KeyError,TypeError,ValueError):
+        return None
+
+
+def main_interpreted(check):
+    """65816 interpreted opcodes of one check, never the device's."""
+    value=check.get('main_interpreted_opcodes')
+    return check.get('interpreted_opcodes',0) if value is None else value
+
+
 # Command aliases follow the independent Snes9x DSP1SetByte decode. ROM-dump
 # commands deliberately remain unsupported: this model contains no firmware.
 DSP1_ALIASES = {0x30:0x10,0x24:4,0x2c:12,0x3c:0x1c,

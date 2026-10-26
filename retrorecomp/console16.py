@@ -14,6 +14,7 @@ from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
 from .library import atomic_json
+from .snes_chips import device_entry
 from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
 REPOSITORIES = {
@@ -928,8 +929,11 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'audio_native_percentage': [round(100 * check.get('audio_native_cycles', 0) /
             max(1, check.get('audio_native_cycles', 0) + check.get('audio_interpreted_cycles', 0)), 6)
             for check in checks],
+        # Main CPU only. A cartridge device (GSU, CX4, DSP-1) has its own entry below.
         'native_percentage': [round(100 * check['native_entries'] /
-            max(1, check['native_entries'] + check['interpreted_opcodes']), 6) for check in checks],
+            max(1, check['native_entries'] + check.get('main_interpreted_opcodes', check['interpreted_opcodes'])), 6)
+            for check in checks],
+        **({'cartridge_device': device} if system_id == 'snes' and (device := device_entry(checks)) else {}),
         'peripheral': {'device': gun.device, 'port': 2, 'host_input': 'mouse'} if gun else None,
         'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'slots': 1,
                         'compatibility': 'same ROM, video standard and runtime ABI'},

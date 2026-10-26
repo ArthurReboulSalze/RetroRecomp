@@ -938,8 +938,14 @@ int rr16_sdl_main(const char *title, int scale) {
         draw_gun(ren, &dst);
 
         int current_title_state = (rr16_interpreted() || rr16_audio_interpreted() ? 1 : 0);
+#if !(RR16_NG || RR16_CPS1 || RR16_MD)
+        /* A cartridge device (GSU, CX4, DSP-1) still running on its instruction
+         * core is signalled apart from the CPUs; it is never hidden. */
+        if (!current_title_state && rr16_device_interpreted()) current_title_state = 2;
+#endif
         if (current_title_state != title_state) {
             snprintf(caption, sizeof(caption), "%s | %s", title,
+                     current_title_state == 2 ? "Cartridge chip interpreted" :
                      current_title_state ? "Interpreter fallback" : "Native code");
             SDL_SetWindowTitle(win, caption);
             title_state = current_title_state;

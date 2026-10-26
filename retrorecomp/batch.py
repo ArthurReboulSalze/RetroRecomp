@@ -16,6 +16,7 @@ from .library import atomic_json
 from .build_cleanup import release_build
 from . import __version__
 from .publishing import publish_executable
+from .snes_chips import device_summary, main_interpreted
 from .systems import profile_for_path, get_profile, UnsupportedConsoleError, ConsoleMismatchError
 
 
@@ -508,7 +509,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         measured = [check.get("interpreter_percent") for check in report["final_checks"]]
         result.update(status="success", executable=str(target), report=str(report_path),
             conversion_stage=report.get('status'), upgraded=bool(inherited),
-            main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+            main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
+            device=device_summary(report),
             audio_cpu=report.get('audio_cpu'),
             audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
             pending_install=pending,

@@ -169,6 +169,7 @@
     "credits_cps1_cpu": "参考 CPU 68000 (Musashi, Karl Stenerud) 与 Z80",
     "created_experimental": "已生成 · 实验性",
     "fallback16": "主 CPU：{opcodes} 条备用解释器指令 · 声音 CPU：{audio_opcodes} 条备用解释器指令",
+    "fallback_device": "卡带芯片 {chip}：{instructions} 条解释执行的芯片指令（每帧 {per_frame:g} 条）",
     "options_sega": "Master System / Game Gear",
     "options_master_system": "Master System",
     "options_game_gear": "Game Gear",

@@ -169,6 +169,7 @@
     "credits_cps1_cpu": "Referenz-CPUs 68000 (Musashi, Karl Stenerud) und Z80",
     "created_experimental": "Erstellt · experimentell",
     "fallback16": "Haupt-CPU: {opcodes} Fallback-Befehle · Audio-CPU: {audio_opcodes} Fallback-Befehle",
+    "fallback_device": "Cartridge-Chip {chip}: {instructions} interpretierte Chip-Befehle ({per_frame:g} pro Bild)",
     "options_sega": "Master System / Game Gear",
     "options_master_system": "Master System",
     "options_game_gear": "Game Gear",

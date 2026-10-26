@@ -186,7 +186,10 @@ static uint64_t chip_interpreted(void) {
         dsp1_instructions_executed(g_snes->cart->dsp1)+
         (g_snes->cart->superfx ? g_snes->cart->superfx->instruction_count : 0);
 }
-uint64_t rr16_interpreted(void) { return interpreted+chip_interpreted(); }
+/* Main 65816 only. Cartridge-device instructions (GSU, CX4, DSP-1) are counted
+ * and reported on their own line so they can neither hide nor swamp these. */
+uint64_t rr16_interpreted(void) { return interpreted; }
+uint64_t rr16_device_interpreted(void) { return chip_interpreted(); }
 uint64_t rr16_native_entries(void) { return native_entries; }
 uint64_t rr16_audio_interpreted(void) { return rr_spc_interpreted_opcodes(); }
 const char *rr16_audio_cpu(void) {

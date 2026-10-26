@@ -107,8 +107,8 @@ normally during vertical blank.
 | `retrorecomp/snes_cart.py` | Game Pak RAM size and battery as above; that RAM is never a guarded 65816 code window |
 | `retrorecomp/snes_codegen.py` | the native 65816 lookup resolves Super FX ROM through its LoROM and linear views (the engine gives these boards no ROM pointer); the fetched-opcode check still rejects bytes replaced by the GSU bus |
 | `retrorecomp/supernintendo.py` | support stage `experimental` for Super FX (report status and the "created (experimental)" label) |
-| `retrorecomp/console16.py` | conversion log line naming the counted GSU interpreter |
-| `native/snes_backend.c` | GSU instructions join the visible interpreted counter; report fields `cartridge_chip=superfx`, `coprocessor_mode=interpreted`, GSU state hash |
+| `retrorecomp/console16.py` | conversion log line naming the counted GSU interpreter; main-CPU-only `native_percentage` and the separate `cartridge_device` report entry |
+| `native/snes_backend.c` | GSU instructions are counted apart from the 65816 (`rr16_device_interpreted()`); report fields `cartridge_chip=superfx`, `coprocessor_mode=interpreted`, GSU state hash |
 | `tests/test_snes_chips.py`, `tests/test_console16.py` | Super FX positive cases; refusal fixtures moved to other unsupported types |
 
 All of these are game-side inputs (`retrorecomp/compilation_inputs.py`): the
@@ -136,9 +136,9 @@ build folders removed after publication. Outputs under
 - The 65816 of Dirt Trax FX is still mostly interpreted after one quick pass:
   its code runs from WRAM while the GSU owns ROM, and guarded WRAM routines are
   learned over passes. This has to be measured at the Standard level.
-- The report's single `native_percentage` mixes 65816 and GSU counts
-  (Dirt Trax FX 0.6 %, Doom 14-27 %). That is honest but unreadable; see
-  "Fallback percentage" below.
+- The report's `native_percentage` then mixed 65816 and GSU counts
+  (Dirt Trax FX 0.6 %, Doom 14-27 %). Honest but unreadable: the figures are
+  now separate, see "Fallback percentage" below.
 - Quick states: saving at frame 1,500 and resuming for 300 frames gives the
   same frame, CPU, WRAM, VRAM, GSU-state, Game Pak RAM and APU RAM hashes as
   an uninterrupted 1,800-frame run, for both games. (The PCM hash is
@@ -275,17 +275,34 @@ the project rule that cartridges are analyzed from their own ROM.
 
 ## Fallback percentage
 
-Today, in a Super FX game, GSU instructions are 100 % interpreted and dwarf
-the 65816 count: one combined percentage would always say "almost all
-interpreted". Reports and the interface should show three separate figures:
+**Done (26 October 2026).** In a Super FX game, GSU instructions are 100 %
+interpreted and dwarf the 65816 count: one combined percentage would always
+say "almost all interpreted". The three figures are now separate, for the
+GSU and equally for the CX4 and DSP-1:
 
-- 65816: native share (expected near the ordinary SNES level after Standard
-  passes, to be measured);
-- SPC700: native share (as today);
-- GSU: interpreted instructions per frame, then, with option B, the native
-  share of GSU instructions, with Game Pak RAM code and CPU-written cache
-  lines counted as interpreted.
+- 65816: `native_percentage` is computed from main-CPU counts only
+  (`native_entries` against `main_interpreted_opcodes`); `interpreted_opcodes`
+  in each check is now the 65816 count alone;
+- SPC700: `audio_native_percentage` and the audio counters, as before;
+- cartridge device: a `cartridge_device` entry of the report with the chip
+  (`superfx`, `cx4`, `dsp1`), its mode (`interpreted`, or `command_model` for
+  the firmware-free DSP-1), `counter_unit: "device instructions"`, and per
+  scenario `interpreted_instructions`, `interpreted_per_frame` and
+  `commands`. The raw per-check fields (`coprocessor_instructions` and the
+  others) stay in `final_checks`, and the conversion log keeps its line
+  `SUPERFX: N counted interpreted device instructions.`
 
+Device interpretation is never hidden, only shown on its own line: the game
+details in the interface add "Cartridge chip SUPERFX: N interpreted device
+instructions (M per frame)" in the eight interface languages, the compiled-games
+view still flags the game as having fallback, the running game's window title
+reads "Cartridge chip interpreted" when only the device is interpreted, and
+problem reports carry `cartridge_device`. Reports written earlier fold the
+device into the combined counter; readers use `main_interpreted_opcodes` when
+present and derive the device entry from the checks, so they still work.
+
+With option B the device line would become a native share of GSU instructions,
+with Game Pak RAM code and CPU-written cache lines counted as interpreted.
 No zero-fallback claim is made for Super FX games, as for the CX4.
 
 ## Licences
@@ -308,7 +325,7 @@ reflect unknown integration bugs.
 |---|---|---|
 | 0 | Recognition, counted interpreter path, experimental label, spike on Doom and Dirt Trax FX (this branch) | done |
 | 1 | Standard-level conversions of all eight local cartridges (done 26 October, see above); still to do: packed exports, battery save round trips, long routes with inputs that reach gameplay, fix what breaks | 3-6 |
-| 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | 1-2 |
+| 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | done |
 | 3 | Timing investigation against MAME with the job log; frame-alignment tool | 3-6 |
 | 4 | Authored GSU checks in `native/snes_chip_checks.c` | 2-4 |
 | 5 | Qualification campaign and documentation as for DSP-1/CX4; decision to drop "experimental" | 3-5 |
