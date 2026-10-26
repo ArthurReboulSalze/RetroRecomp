@@ -343,7 +343,7 @@ class SharedBaseTests(unittest.TestCase):
     def test_batch_end_sends_are_spaced_and_a_waiting_one_leaves_with_the_window(self):
         from retrorecomp import gui
         owner = gui.Application.__new__(gui.Application)
-        owner.app, owner.busy, owner.auto_sending = Mock(), False, False
+        owner.app, owner.busy, owner.converting, owner.auto_sending = Mock(), False, False, False
         owner.app.after.return_value = 'later'
         sent = []
         def send():
@@ -362,10 +362,18 @@ class SharedBaseTests(unittest.TestCase):
         self.assertGreater(owner.app.after.call_args[0][0], (gui.SEND_EVERY - 5) * 1000)
         self.assertTrue(owner.discoveries_waiting)
         # Due while a batch runs: that batch sends; otherwise it leaves.
-        owner.busy = True
+        owner.busy = owner.converting = True
         owner.deferred_send_due()
         self.assertEqual(len(sent), 1)
-        owner.busy = False
+        self.assertIsNone(owner.deferred_send)
+        # Due during an import, an export or a ROM search: it waits again, not dropped.
+        owner.converting = False
+        owner.app.after.reset_mock()
+        owner.deferred_send_due()
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(owner.app.after.call_args[0], (gui.BUSY_SEND_RETRY * 1000, owner.deferred_send_due))
+        self.assertEqual(owner.deferred_send, 'later')
+        owner.busy, owner.deferred_send = False, None
         owner.send_discoveries_soon()
         owner.deferred_send_due()
         self.assertEqual(len(sent), 2)

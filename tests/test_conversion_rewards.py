@@ -116,7 +116,7 @@ class ConversionRewardTests(unittest.TestCase):
 
     def test_the_proposed_pseudonym_follows_the_server_rules(self):
         proposed = online.suggested_pseudonym()
-        self.assertRegex(proposed, r'^RetroPlayer_\d{4}$')
+        self.assertRegex(proposed, r'^RetroPlayer_\d{6}$', 'six digits, like the ones the server generates')
         self.assertTrue(online.valid_pseudonym(proposed))
         for bad in ('ab', '<script>', '_edge', 'x' * 33, 'end.'):
             self.assertFalse(online.valid_pseudonym(bad), bad)

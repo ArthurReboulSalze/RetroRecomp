@@ -408,7 +408,8 @@ FRAME_PREFIX = 'shop-frame-'
 FRAME_LIMIT = 1024 * 1024
 FRAME_TYPES = {'image/webp': '.webp', 'image/png': '.png'}
 SHOP_SLOTS = ('title', 'name_style', 'background', 'hover', 'header_theme', 'pin', 'frame')
-SHOP_BADGES = 3
+# One console badge shown beside the name (the site's RR_SHOP_BADGES).
+SHOP_BADGES = 1
 # The catalog changes only with the site's releases: kept half an hour.
 SHOP_REFRESH = 30 * 60
 _MEDIA_PATH = re.compile(r'/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*')
@@ -708,10 +709,11 @@ _PSEUDONYM = re.compile(r'[^\W_][\w .\-]{1,30}[^\W_]')
 
 
 def suggested_pseudonym() -> str:
-    """A pseudonym to propose: "RetroPlayer_" and four random digits (nothing
-    about the computer or its user)."""
+    """A pseudonym to propose: "RetroPlayer_" and six random digits, like the
+    ones the server generates (four collided too often); nothing about the
+    computer or its user. The sign-in sends it only once the player edited it."""
     import secrets
-    return f'RetroPlayer_{secrets.randbelow(10000):04d}'
+    return f'RetroPlayer_{secrets.randbelow(1_000_000):06d}'
 
 
 def valid_pseudonym(name: str) -> bool:

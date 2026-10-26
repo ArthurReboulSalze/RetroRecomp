@@ -415,7 +415,7 @@ BADGE_HEIGHT = 14
 
 def badges_width(canvas, badges, font):
     measure = _font(canvas, font)
-    labels = [_badge_label(badge) for badge in badges]
+    labels = [_badge_label(badge) for badge in badges[:online.SHOP_BADGES]]
     return sum(measure.measure(label) + 8 for label in labels) + 3 * max(0, len(labels) - 1)
 
 
@@ -425,18 +425,26 @@ def _badge_label(badge):
     return str(label or badge.get('id', ''))[:6].upper()
 
 
-def draw_badges(canvas, x, middle, badges, font, tags=()):
-    """Up to three console badges, small rounded labels in the console's
-    colour, from x at the height `middle`; their total width."""
+def draw_badges(canvas, x, middle, badges, font, tags=(), top=()):
+    """The console badge shown (online.SHOP_BADGES, one since 26 October
+    2026), a small rounded label in the console's colour, from x at the height
+    `middle`; their total width. A badge whose id is in `top` (online.top_badges:
+    the player is first on that console's all-time board) gets a gold rim and a
+    small "1", the same mark in the header, the ranking and the podium."""
     measure = _font(canvas, font)
     start = x
-    for badge in badges[:3]:
+    for badge in badges[:online.SHOP_BADGES]:
         label = _badge_label(badge)
         width = measure.measure(label) + 8
         colour = _colour((badge.get('data') or {}).get('color'), COLORS['button'])
         _rounded(canvas, x, middle - BADGE_HEIGHT / 2, x + width, middle + BADGE_HEIGHT / 2, 4,
                  fill=colour, outline=_tint(colour, '#ffffff', 0.25), tags=tags)
         canvas.create_text(x + width / 2, middle, text=label, fill='#ffffff', font=font, tags=tags)
+        if badge.get('id') in top:
+            _rounded(canvas, x - 1, middle - BADGE_HEIGHT / 2 - 1, x + width + 1, middle + BADGE_HEIGHT / 2 + 1, 5,
+                     fill='', outline=COLORS['gold'], width=1, tags=tags)
+            canvas.create_text(x + width + 1, middle - BADGE_HEIGHT / 2 - 1, text='1', fill=COLORS['gold_hover'],
+                               font=(font[0], 6, 'bold'), anchor='center', tags=tags)
         x += width + 3
     return max(0, x - 3 - start)
 
@@ -468,6 +476,15 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
           '.....XX.....', '....XXXX....', '...XXXXXX...', '...XXXXXX...')
 
 
+def typed_pseudonym(typed, proposed):
+    """The pseudonym the sign-in sends: the field's text once the player
+    changed the proposal, else None. Then the server generates one and marks it
+    as generated, so the header's invitation and the pseudonym dialog still
+    offer to choose one."""
+    name = ' '.join(str(typed).split())
+    return name if name and name != ' '.join(str(proposed).split()) else None
+
+
 # Sending discoveries needs the Retro-Recomp web service (online.py); until it
 # opens, the closing card offers to recompile and its Send button stays off.
 SENDING_AVAILABLE = online.sending_available()
@@ -495,6 +512,7 @@ def base_is_newer(info) -> bool:
     return (isinstance(info, dict) and not info.get('error')
             and bool(info.get('newer')) and info.get('latest') is not None)
 CLOSING_SEND = 10   # seconds a closing window waits for a send left waiting
+BUSY_SEND_RETRY = 30   # seconds a waiting send waits again behind an import, export or ROM search
 # The closing card: a cartridge sends its discoveries to the shared base.
 CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
              'X......X', 'XXXXXXXX', 'X.X.X.XX')
@@ -545,7 +563,10 @@ class Application:
         self.results: dict[str, dict] = {}
         self.busy = False
         self.close_when_idle = False
-        self.closing_checked = self.closing_after_recompile = self.skip_missing_sources = self.closing_send = False
+        self.closing_checked = self.closing_after_recompile = self.closing_send = False
+        # A batch of the queue or a reconversion of Compiled Games is running
+        # (`busy` also covers imports, exports, manual sends and ROM searches).
+        self.converting = False
         self.collection_refreshing, self.collection_refreshed_at = False, 0.0
         self.updating = False
         self.cancel = threading.Event()
@@ -656,6 +677,17 @@ class Application:
         self.deferred_send = None
         self.closing_send_deadline = None   # closing_send itself is the closing card's 'Send and close'
         self.discoveries_waiting = bool(preferences.get('discoveries_waiting'))
+        self.send_after_batch.trace_add('write', self.send_option_changed)
+        self.manual_sending = False   # Knowledge › Send (or the closing card's) is on its way
+        # The player's corner: one reading of the account at a time (refresh_player).
+        self.player_checked = None     # when the last reading started; None before the start-up one
+        self.player_refreshing = False
+        self.player_generation = 0     # readings started so far
+        self.player_refresh_queued = False   # a forced reading asked for while one was running
+        # After a send's claims: the first reading started from this generation on
+        # logs the converted games waiting for their reward (None: nothing to log).
+        self.report_queued = None
+        self.site_opened = -1.0        # when a page of the site was last opened from here
 
         header = tk.Canvas(app, height=HEADER_HEIGHT, bg=COLORS['header'], highlightthickness=0,
                            borderwidth=0)
@@ -776,7 +808,9 @@ class Application:
         self.queue_actions = ttk.Frame(toolbar)
         self.queue_actions.pack(side='left', padx=(12, 0))
         self.collection_actions = ttk.Frame(toolbar)
-        self.button(self.queue_actions, self.tr('add_roms'), self.choose_roms, primary=True).pack(side='left')
+        self.add_roms_button = self.button(self.queue_actions, self.tr('add_roms'), self.choose_roms, 'tip_add_roms',
+                                           primary=True)
+        self.add_roms_button.pack(side='left')
         # Pictures only, named by their hints, to leave room for New paths.
         self.icon_button(self.queue_actions, 'add_folder', 'tip_add_folder', self.choose_directory,
                          'add_rom_folder').pack(side='left', padx=(8, 0))
@@ -790,14 +824,14 @@ class Application:
         self.count_label = ttk.Label(toolbar, textvariable=self.count, style='Muted.TLabel')
         self.count_label.pack(side='right')
         # Rarely used: icons with their hover hints, so the bar fits every language.
-        self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits)
+        self.credits_button = self.button(toolbar, self.tr('credits'), self.show_credits, 'tip_credits')
         self.credits_button.configure(compound='image')
         self.credits_button.pack(side='right', padx=(0, 12))
         # Help: how Retro-Recomp works, left of the credits and information.
         self.help_button = ttk.Button(toolbar, text='?', style='Help.Toolbar.TButton', command=self.show_help)
         self.hint(self.help_button, 'tip_help')
         self.help_button.pack(side='right', padx=(0, 8))
-        self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
+        self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates, 'tip_check_updates')
         self.update_button.configure(compound='image')
         self.update_button.pack(side='right', padx=(0, 8))
         # What is new (if anything) comes first in its hint, with the usual tip below.
@@ -805,13 +839,11 @@ class Application:
             if hint.widget is self.update_button:
                 hint.text = self.update_tip
                 break
-        else:   # the other languages' button text is not found by button()
-            self.tooltips.append(Tooltip(self.update_button, self.update_tip))
-        self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
+        self.options_button = self.button(toolbar, self.tr('options'), self.show_options, 'tip_options')
         self.options_button.pack(side='right', padx=(0, 8))
         # Shared discoveries: visible beside the queue and the collection.
-        self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu)
-        self.hint(self.knowledge_button, 'tip_knowledge')   # its arrow keeps button() from finding the tip
+        self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu,
+                                            'tip_knowledge')
         self.knowledge_button.pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
@@ -851,8 +883,10 @@ class Application:
 
         selection = ttk.Frame(body)
         selection.grid(row=2, column=0, sticky='ew', padx=24, pady=(8, 12))
-        self.button(selection, self.tr('choose_cover'), self.choose_cover).pack(side='left')
-        self.button(selection, self.tr('auto_cover'), self.automatic_cover).pack(side='left', padx=8)
+        self.cover_button = self.button(selection, self.tr('choose_cover'), self.choose_cover, 'tip_choose_cover')
+        self.cover_button.pack(side='left')
+        self.auto_cover_button = self.button(selection, self.tr('auto_cover'), self.automatic_cover, 'tip_auto_cover')
+        self.auto_cover_button.pack(side='left', padx=8)
         self.play_button = ttk.Button(selection, text=self.tr('play'), command=self.play, state='disabled')
         self.decorate_button(self.play_button, 'play')
         self.play_button.pack(side='left')
@@ -1061,14 +1095,8 @@ class Application:
             width = badges_width(header, badges[:1], font)
             badge_left = name_box[0] - 6 - width
             middle = (name_box[1] + name_box[3]) / 2
-            draw_badges(header, badge_left, middle, badges[:1], font, tags=('player_extra', 'player_badge'))
-            if badges[0].get('id') in online.top_badges((self.player or {}).get('profile')):
-                _rounded(header, badge_left - 1, middle - BADGE_HEIGHT / 2 - 1, badge_left + width + 1,
-                         middle + BADGE_HEIGHT / 2 + 1, 5, fill='', outline=COLORS['gold'], width=1,
-                         tags=('player_extra', 'player_badge'))
-                header.create_text(badge_left + width + 1, middle - BADGE_HEIGHT / 2 - 1, text='1',
-                                   fill=COLORS['gold_hover'], font=(self.ui_font, 6, 'bold'), anchor='center',
-                                   tags=('player_extra', 'player_badge'))
+            draw_badges(header, badge_left, middle, badges[:1], font, tags=('player_extra', 'player_badge'),
+                        top=online.top_badges((self.player or {}).get('profile')))
         pin = looks.get('pin')
         if pin and name and box:
             # Beside the title; beside the name without one, left of the badge.
@@ -1358,7 +1386,9 @@ class Application:
         normal, disabled = self.button_images[key]
         button.configure(image=(normal, 'disabled', disabled), compound='left')
 
-    def button(self, parent, text, command, primary=False):
+    def button(self, parent, text, command, tip, primary=False):
+        """A text button with its picture and its hover hint `tip` (a key of
+        the strings: the hint follows the interface language)."""
         style = 'Primary.TButton' if primary else 'TButton'
         if str(parent).startswith(str(self.toolbar)):
             style = 'Toolbar.' + style
@@ -1370,9 +1400,7 @@ class Application:
         if symbol:
             self.decorate_button(button, symbol, primary)
         self.controls.append(button)
-        key = next((key for key, pair in STRINGS.items() if text in pair and 'tip_'+key in STRINGS), None)
-        if key: self.hint(button, 'tip_'+key)
-        elif command == self.choose_output: self.hint(button, 'tip_output')
+        self.hint(button, tip)
         return button
 
     def update_empty_state(self):
@@ -1891,7 +1919,7 @@ class Application:
         except (ValueError, tk.TclError, OSError) as exc:
             messagebox.showerror(APP_NAME, str(exc))
             return
-        self.busy = True
+        self.busy = self.converting = True
         self.cancel.clear()
         self.last_auto_send = time.monotonic()   # the first send of a long batch comes after SEND_EVERY
         self.active_rows = chosen_rows
@@ -2042,9 +2070,8 @@ class Application:
         if self.busy or self.updating:return
         games = self.games_with_new_paths() if games is None else games
         if not games:return
-        self.skip_missing_sources = True
         if not self.collection_visible:self.toggle_compiled_games()
-        self.reconvert_games(games)
+        self.reconvert_games(games, skip_missing=True)
 
     def stop(self):
         """Ask how to stop, then do it. "Stop now": no more games start and the
@@ -2504,7 +2531,7 @@ class Application:
                                         total=len(self.active_rows), active=len(self.running_jobs))
                     self.selection_changed()
                 elif kind in ('done', 'fatal'):
-                    self.busy = False
+                    self.busy = self.converting = False
                     from .core import reset_stop
                     reset_stop()
                     for index in self.running_jobs:
@@ -2513,6 +2540,7 @@ class Application:
                         self.table.set(row, 'status', self.tr('waiting'))
                     self.running_jobs.clear()
                     if self.close_when_idle:
+                        self.leave_discoveries_waiting()
                         self.close()
                         return
                     self.set_controls(True)
@@ -2582,17 +2610,15 @@ class Application:
                 elif kind == 'knowledge_done':
                     self.knowledge_done(event[1], event[2])
                 elif kind == 'player':
-                    self.render_player(event[1])
-                    self.log_queued(event[1])
+                    self.player_read(event[1], event[2])
                 elif kind == 'sources_ready':
-                    self.finish_source_lookup(event[1])
+                    self.finish_source_lookup(*event[1:])
                 elif kind == 'collection_quiet':
                     self.collection_refreshing = False
                     if event[1] and self.compiled_view is not None:self.compiled_view.render()
                     self.update_new_paths()
                 elif kind == 'collection_done':
-                    self.busy = False
-                    self.skip_missing_sources = False
+                    self.busy = self.converting = False
                     self.set_controls(True)
                     if self.compiled_view is not None:
                         self.compiled_view.progress.stop()
@@ -2601,6 +2627,7 @@ class Application:
                         if event[1].get('detail'):summary+=' · '+event[1]['detail']
                         self.compiled_view.status.set(summary)
                     if self.close_when_idle:
+                        self.leave_discoveries_waiting()
                         self.close()
                         return
                     self.send_discoveries_soon()
@@ -4026,8 +4053,42 @@ class Application:
 
     def deferred_send_due(self):
         self.deferred_send = None
-        if not self.busy:   # a running batch sends what it finds itself (every SEND_EVERY and at its end)
-            self.send_new_discoveries()
+        if self.converting:
+            return   # a running batch sends what it finds itself (every SEND_EVERY and at its end)
+        if self.busy:
+            # An import, an export, a send by hand or a ROM search: the send waits for it.
+            self.deferred_send = self.app.after(BUSY_SEND_RETRY * 1000, self.deferred_send_due)
+            return
+        self.send_new_discoveries()
+
+    def manual_send_done(self):
+        """Knowledge › Send (or the closing card's "Send and close") went
+        through: it was this window's send. The send waiting for SEND_EVERY is
+        dropped, the spacing starts again and nothing waits for the next start,
+        so closing never sends a second time."""
+        if self.deferred_send is not None:
+            try:
+                self.app.after_cancel(self.deferred_send)
+            except (tk.TclError, ValueError):
+                pass
+            self.deferred_send = None
+        self.last_sent_at = time.monotonic()
+        self.discoveries_waiting = False
+
+    def leave_discoveries_waiting(self):
+        """The window closes at the end of a batch, before the batch's own
+        send: with the option on and an account, the next start sends."""
+        if SENDING_AVAILABLE and self.send_after_batch.get() and online.account():
+            self.discoveries_waiting = True
+
+    def send_option_changed(self, *_):
+        """The send option turned off: nothing waits for the next start."""
+        try:
+            enabled = self.send_after_batch.get()
+        except tk.TclError:
+            return
+        if not enabled:
+            self.discoveries_waiting = False
 
     def auto_sent(self, summary, error):
         self.auto_sending = False
@@ -4048,20 +4109,31 @@ class Application:
         if (summary or {}).get('claims_refused'):
             self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
         if (summary or {}).get('games') or claims:
-            self.report_queued = True   # the reading that follows says how many games wait for their reward
-            self.refresh_player(force=True)   # new points (and coins) at once
+            self.read_after_send()
 
-    def log_queued(self, data):
-        """After a send, once the account was read: how many converted games
-        wait for their reward (beyond the service's games per day), credited on
-        the following days. Nothing from an older service or with none waiting."""
-        if not getattr(self, 'report_queued', False):
+    def read_after_send(self):
+        """A send's claims were taken: new points (and coins) at once, and the
+        first reading started from now on (not one already running, which
+        predates the claims) says how many games wait for their reward."""
+        self.report_queued = self.player_generation + 1
+        self.refresh_player(force=True)
+
+    def log_queued(self, data, generation):
+        """After a send, once the account was read by a reading started after
+        it: how many converted games wait for their reward (beyond the
+        service's games per day), credited on the following days. Nothing from
+        an older service or with none waiting."""
+        wanted = self.report_queued
+        if wanted is None or generation < wanted:
             return
-        self.report_queued = False
+        self.report_queued = None
         count, days = online.queued_conversions((data or {}).get('profile'))
         if count:
-            self.messages.put(('log', self.tr('conversions_queued', count=self.count_text(count),
-                                              days=self.count_text(max(1, days)))))
+            days = max(1, days)
+            text = self.tr('conversions_queued' if count > 1 else 'conversions_queued_one', count=self.count_text(count),
+                           wait=self.tr('conversions_wait_days' if days > 1 else 'conversions_wait_day',
+                                        days=self.count_text(days)))
+            self.messages.put(('log', text))
 
     def sign_out(self):
         if self.busy or self.updating:return
@@ -4116,18 +4188,19 @@ class Application:
         if SENDING_AVAILABLE and online.account() and not online.pseudonym_chosen(profile) and not (self.busy or self.updating):
             self.pseudonym_dialog()
 
-    def focus_player(self):
+    def focus_player(self, now=None):
         """The window is in front again: the player's corner is read again when
         its last reading is PLAYER_REFRESH old, or 15 s after a page of the site
         was opened from here (a purchase, an item equipped, a new portrait);
-        never more often, and never two readings at once."""
-        if not SENDING_AVAILABLE or getattr(self, 'player_refreshing', False) or not online.account():
+        never more often, and never two readings at once. `now`: the
+        time.monotonic() to use (the checks pass their own clock)."""
+        if not SENDING_AVAILABLE or self.player_refreshing or not online.account():
             return
-        now = time.monotonic()
-        last = getattr(self, 'player_checked', None)
+        now = time.monotonic() if now is None else now
+        last = self.player_checked
         if last is None:
             return   # the start-up reading has not run yet
-        wait = 15 if getattr(self, 'site_opened', -1.0) > last else online.PLAYER_REFRESH
+        wait = 15 if self.site_opened > last else online.PLAYER_REFRESH
         if now - last >= wait:
             self.refresh_player(force=True)
 
@@ -4150,27 +4223,47 @@ class Application:
 
     def refresh_player(self, force=False):
         """Show the player's corner from the local cache at once, then, off Tk,
-        refresh it from the site only when it is older than 30 minutes (or
-        after a sign-in). Without an account, nothing is fetched."""
+        refresh it from the site only when it is older than PLAYER_REFRESH (2
+        minutes), or at once with `force` (a sign-in, a send, back from the
+        site). Without an account, nothing is fetched. One reading at a time:
+        a forced one asked for while another runs starts once it ends (its
+        answer may predate a send); an ordinary one is then not needed."""
         if not SENDING_AVAILABLE or not online.account():
             self.render_player(None)
             return
         cached = online.cached_player()
         if cached:
             self.render_player(cached)
+        if self.player_refreshing:
+            self.player_refresh_queued = self.player_refresh_queued or force
+            return
         self.player_checked = time.monotonic()
         self.player_refreshing = True
+        self.player_generation += 1
+        generation = self.player_generation
         def worker():
             try:
                 data = online.player(force=force) or {'account': online.account()}
             except (online.ServiceError, online.ServiceConnectionError) as error:
-                if cached:
-                    return   # offline: the last known corner stays as it is
-                data = {'account': online.account(), 'error': self.online_message(error)}
-            finally:
-                self.player_refreshing = False
-            self.messages.put(('player', data))
+                # Offline: the last known corner stays as it is.
+                data = None if cached else {'account': online.account(), 'error': self.online_message(error)}
+            except Exception:
+                data = None
+            self.messages.put(('player', data, generation))
         threading.Thread(target=worker, daemon=True).start()
+
+    def player_read(self, data, generation):
+        """A reading of the account ended (on Tk): draw it (None keeps the
+        corner), log what waits after a send, then start a forced reading
+        asked for meanwhile."""
+        if generation == self.player_generation:
+            self.player_refreshing = False
+        if data is not None:
+            self.render_player(data)
+            self.log_queued(data, generation)
+        if not self.player_refreshing and self.player_refresh_queued:
+            self.player_refresh_queued = False
+            self.refresh_player(force=True)
 
     def title_name(self, title):
         """A title from the site ({'id', 'name': {language: text}}) in the
@@ -4556,8 +4649,9 @@ class Application:
 
     def draw_board_rows(self, canvas, rows, width, mine, catalog):
         """The ranking's lines on a canvas: rank, the pseudonym in its shop
-        style, up to three console badges, the pin and the title, then games,
-        class counts and points. The player's own line is highlighted."""
+        style, the console badge shown (a first place's one with its mark), the
+        pin and the title, then games, class counts and points. The player's
+        own line is highlighted."""
         canvas.delete('all')
         canvas._sparkle = []
         spans = self.board_columns(width)
@@ -4589,7 +4683,8 @@ class Application:
                                            anchor='w', fill=colour, tags=('board_name',))
             x = left + used + 6
             if badges:
-                x += draw_badges(canvas, x, middle, badges, badge_font, tags=('board_badge',)) + 4
+                x += draw_badges(canvas, x, middle, badges, badge_font, tags=('board_badge',),
+                                 top=online.top_badges(entry)) + 4
             if title or look['pin']:
                 x += 6
                 if look['pin']:
@@ -4608,9 +4703,9 @@ class Application:
     def show_leaderboard(self):
         """The shared base's ranking in a window: podium order, pseudonyms,
         games and points, all time or this month, with the player's own line.
-        What players equip in the site's shop shows as there: name styles, up
-        to three console badges, pins (titles as before); nothing without the
-        shop's catalog."""
+        What players equip in the site's shop shows as there: name styles, the
+        console badge shown (with its "1" for a first place), pins (titles as
+        before); nothing without the shop's catalog."""
         if not SENDING_AVAILABLE or self.raise_existing('board_window'):return
         background = COLORS['panel']
         window = tk.Toplevel(self.app)
@@ -4789,11 +4884,12 @@ class Application:
                     podium.create_text(centre, bottom - height + 33,
                                        text=compact_number(counts.get(kind, 0), self.language, 1_000),
                                        fill=COLORS['text'], font=gem_font)
-                # Up to three console badges under the gems, once the step is tall enough.
+                # The console badge shown under the gems (a first place's one with
+                # its mark), once the step is tall enough.
                 if look['badges'] and height > GEMS_ROOM + 20:
                     wide = badges_width(podium, look['badges'], badge_font)
                     draw_badges(podium, middle - wide / 2, bottom - height + 49, look['badges'], badge_font,
-                                tags=('podium_badge',))
+                                tags=('podium_badge',), top=online.top_badges(entry))
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
                 if pending:
@@ -4901,7 +4997,8 @@ class Application:
         # With the code: the pseudonym of a new account (or of one without any), proposed and editable.
         pseudonym_label = tk.Label(body, text=self.tr('signin_pseudonym'), bg=background, fg=COLORS['muted'],
                                    font=(self.ui_font, 9))
-        pseudonym = tk.StringVar(value=online.suggested_pseudonym())
+        proposed = online.suggested_pseudonym()
+        pseudonym = tk.StringVar(value=proposed)
         pseudonym_field = ttk.Entry(body, textvariable=pseudonym, width=26)
         self.hint(pseudonym_field, 'tip_signin_pseudonym')
         message = tk.StringVar()
@@ -4956,12 +5053,12 @@ class Application:
                 run(lambda:online.request_code(address, self.language), code_sent)
             else:
                 from .platforms import target_id
-                name = ' '.join(pseudonym.get().split())
+                name = typed_pseudonym(pseudonym.get(), proposed)
                 if name and not online.valid_pseudonym(name):
                     message.set(self.tr('online_pseudonym_invalid'))
                     return
                 run(lambda:online.sign_in(address, code.get().strip(), f'Retro-Recomp {__version__} ({target_id()})',
-                                          pseudonym=name or None),
+                                          pseudonym=name),
                     signed_in)
         go.configure(command=submit)
         window.bind('<Escape>', lambda event:window.destroy())
@@ -5232,7 +5329,7 @@ class Application:
     def knowledge_done(self, outcome, error):
         self.busy = False
         self.set_controls(True)
-        if getattr(self, 'manual_sending', False):
+        if self.manual_sending:
             self.manual_sending = False
             self.sending_finished()
         if self.compiled_view is not None:self.compiled_view.progress.stop()
@@ -5255,8 +5352,12 @@ class Application:
                 return
             detail = (self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
                       + '\n\n' + self.tr('knowledge_scope'))
-            # On the closing card the player already chose to send.
-            if self.closing_send or self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action')):
+            # On the closing card the player already chose to send. Conversions
+            # alone (no new path) are no achievement: a plain question then.
+            if (self.closing_send
+                    or (self.achievement(pending['discoveries'], detail, self.tr('knowledge_send_action'))
+                        if pending['discoveries'] else
+                        messagebox.askyesno(APP_NAME, detail, icon='question', parent=self.app))):
                 self.sending_started()
                 self.manual_sending = True
                 self.knowledge_task(lambda:('sent', self.upload_discoveries(pending)), 'knowledge_sending')
@@ -5268,14 +5369,14 @@ class Application:
             elif 'error' in summary:
                 text = summary['error']
             else:
+                self.manual_send_done()
                 text = self.tr('knowledge_send_done', games=summary['games'], kib=summary.get('bytes', 0) / 1024)
                 if (summary.get('claims') or {}).get('new'):
                     text += ' ' + self.tr('knowledge_send_new', count=summary['claims']['new'])
                 if (summary.get('claims') or {}).get('converted'):
                     text += ' ' + self.tr('knowledge_send_converted', count=summary['claims']['converted'])
                 if summary.get('claims'):
-                    self.report_queued = True
-                    self.refresh_player(force=True)
+                    self.read_after_send()
                 if summary.get('claims_refused'):
                     # Quietly, in the log only: the file itself was received.
                     self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
@@ -5372,13 +5473,17 @@ class Application:
 
     def go_deeper(self, games, level):
         """Compiled Games' "Go further": convert again with a discovery at the
-        Extended or Thorough level (a full discovery, not a quick check)."""
-        self.reconvert_level = level
-        self.reconvert_games(games)
+        Extended or Thorough level (a full discovery, not a quick check). The
+        level travels with this reconversion only (to begin_reconvert): one that
+        stops early never leaves it to the next ordinary reconversion."""
+        self.reconvert_games(games, level=level)
 
-    def reconvert_games(self, games):
+    def reconvert_games(self, games, level=None, skip_missing=False):
+        """Find the games' ROMs off Tk, then reconvert them (begin_reconvert).
+        `level`: "Go further"'s scan level; `skip_missing`: games whose ROM is
+        not found wait for later instead of asking for it (new paths)."""
         if self.busy or self.updating or not games:return
-        if not self.ensure_build_tools(lambda: self.reconvert_games(games)):return
+        if not self.ensure_build_tools(lambda: self.reconvert_games(games, level, skip_missing)):return
         from .platforms import target_id
         for game in games:
             if game.target and game.target != target_id():
@@ -5397,10 +5502,10 @@ class Application:
             from .rom_sources import RomSources
             try:pairs=RomSources().resolve(games,options,known=known,cancel=self.cancel)
             except Exception:pairs=[(game,None) for game in games]
-            self.messages.put(('sources_ready',pairs))
+            self.messages.put(('sources_ready',pairs,level,skip_missing))
         threading.Thread(target=worker,daemon=True).start()
 
-    def finish_source_lookup(self, pairs):
+    def finish_source_lookup(self, pairs, level=None, skip_missing=False):
         self.busy=False
         self.compiled_view.progress.stop()
         self.set_controls(True)
@@ -5412,13 +5517,13 @@ class Application:
         for game,source in pairs:
             if source is None:
                 # While closing, or for new paths, a missing ROM waits for later.
-                if self.closing_after_recompile or self.skip_missing_sources:continue
+                if self.closing_after_recompile or skip_missing:continue
                 name = filedialog.askopenfilename(parent=self.app,
                     title=self.tr('locate_source',title=game.title))
                 if not name:return
                 source = Path(name)
             chosen.append((game,source))
-        if chosen:self.begin_reconvert(chosen)
+        if chosen:self.begin_reconvert(chosen, level)
         elif self.close_when_idle:self.close()
 
     def offer_closing_card(self):
@@ -5442,7 +5547,7 @@ class Application:
         self.recompile_new_paths(games)
         return True
 
-    def begin_reconvert(self, chosen):
+    def begin_reconvert(self, chosen, level=None):
         options = self.preferences()
         use_shared = options.pop('use_shared_base', False)
         for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
@@ -5453,12 +5558,11 @@ class Application:
         options['force'] = True
         options['rediscover'] = False
         # "Go further": a discovery at the chosen level, whatever the console's setting.
-        level, self.reconvert_level = getattr(self, 'reconvert_level', None), None
         if level:
             options['scan_level'] = level
             options['rediscover'] = True
         jobs = self.jobs.get()
-        self.busy = True
+        self.busy = self.converting = True
         self.cancel.clear()
         self.set_controls(False)
         self.compiled_view.progress.start(15)
