@@ -1,4 +1,4 @@
-# RetroRecomp v1.5.3 — Super FX games, rewards for every conversion, a pseudonym from the start
+# RetroRecomp v1.5.4 — Super FX games, rewards for every conversion, a pseudonym from the start
 
 - **Super FX cartridges convert.** Star Fox, Star Fox 2, Stunt Race FX,
   Vortex, Yoshi's Island, Doom, Dirt Trax FX and Dirt Racer are qualified at
@@ -66,6 +66,19 @@
 - **On retro-recomp.com:** the site in the converter's eight languages, a
   leaderboard computed in the background every 15 minutes (pages never wait),
   player cards, the shop page, and the rewards above.
+
+---
+
+# RetroRecomp v1.5.3 — CPS-1 and X68000 convert again at the Standard level
+
+- **CPS-1 and X68000 games convert again at the Standard level.** In 1.5.2 the
+  check that looks for a game in the bundled knowledge, run before every
+  conversion at the default Standard level, stopped every CPS-1 and X68000
+  game before it started (`KeyError`). Quick, Extended and Thorough were not
+  affected. These two machines have no shared knowledge yet: the check now
+  simply finds nothing and the conversion goes on.
+- Nothing else changes: no game has to be converted again, and quick states
+  keep loading.
 
 ---
 

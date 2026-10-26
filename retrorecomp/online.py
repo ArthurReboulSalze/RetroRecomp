@@ -772,7 +772,7 @@ def pending(collected: dict) -> dict:
 # When shared-base parts were imported for the game at the time, the note also
 # remembers what became of them (`outcomes`: the base version, the entry, its
 # imported sources, and "used" or "rejected"); the claims carry it as `shared`.
-# A file without `outcomes` (written before 1.5.3) loads as before.
+# A file without `outcomes` (written before 1.5.4) loads as before.
 CONVERTED_NAME = 'account-converted.json'
 CONVERTED_KEPT = 4096
 CONVERTED_PER_SEND = 50
