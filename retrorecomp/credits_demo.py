@@ -570,10 +570,20 @@ class CreditsDemo:
         # Who designed it and the AI models that assisted: last, small, in gold;
         # it opens Arthur's GitHub.
         y += 6
-        item,used = text(self.tr('credits_own_ai'),y,8,GOLD)
+        # Only 'Designed and directed by Arthur Reboul Salze' is gold (it opens
+        # Arthur's GitHub); the AI models follow on the next line.
+        line = self.tr('credits_own_ai')
+        name = line.find('Arthur Reboul Salze')
+        ends = [line.find(mark, name) for mark in (',', '，', '。')] if name >= 0 else []
+        cut = min([end for end in ends if end >= 0], default=-1)
+        author, rest = (line[:cut], line[cut+1:].strip()) if cut >= 0 else (line, '')
+        item,used = text(author,y,8,GOLD)
         c.tag_bind(item,'<Enter>',lambda e,i=item:self._hover(True,i))
         c.tag_bind(item,'<Leave>',lambda e,i=item:self._hover(False,i))
         c.tag_bind(item,'<Button-1>',lambda _e:webbrowser.open_new_tab('https://github.com/ArthurReboulSalze'))
+        if rest:
+            y += used+2
+            _,used = text(rest[:1].upper()+rest[1:],y,8)
         y += used+14
         c.create_line(left,top,left,y,right,y,right,top,fill='#33302a',tags='credit')
         y += 25
