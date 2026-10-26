@@ -9,6 +9,16 @@ English; their glyph tables made every game larger and read poorly in the
 small menus. Game menus draw plain ASCII: accents are dropped (German umlauts
 become ae/oe/ue), so games carry no glyph table.
 
+So there are two counts, both intended: **eight languages in the converter's
+interface, five in the exported games.** The three other scripts would need
+glyph tables (and character conversion) in every exported executable, adding
+weight to each game for menus that read poorly at that size. Conversion reports
+still list the converter's eight in their `ui_languages` field next to `F7`:
+that field names the interface the report came from, not what F7 cycles in the
+game (the game's own list is `GAME_LANGUAGES`, the first five). Correcting the
+field would change game-side inputs (`batch.py`, `core.py`) of every console, so
+it waits for a release that changes them anyway.
+
 The choice is saved in each console folder's `datas/Retro-Recomp.ini`, under
 `[Interface] language`, using the stable IDs `en/fr/it/es/de` (`zh/ja/ru`
 remain converter-only IDs; a game reading one falls back to English).
