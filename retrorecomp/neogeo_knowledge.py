@@ -23,6 +23,8 @@ from .neogeo_build import GEOLITH_REV, LITHOGEN_REV
 from .library import atomic_json, entry_lock, library_root
 
 FIELDS={'rom_entries':(2,262144),'ram_refs':(4,4096),'z80_refs':(4,32768)}
+# Imported RAM rows a conversion takes at most (the generator's bound is 4,096 samples in all).
+IMPORTED_RAM_LIMIT=2048
 IDENTITY_FIELDS={'engine','loader','cart','bios','rom_bytes','p_bytes','bios_bytes','m1_bytes','sm1_bytes'}
 # Bounds of a record, also generated into the online service's validator
 # (tools/build_web_limits.py of the site): hexadecimal lengths, region sizes
@@ -244,7 +246,11 @@ def hints(project: Path) -> tuple[dict,list[dict],list[dict],dict]:
         record=imported_record('ng',identity)
         try:
             if record and _matching(identity,record,current):
-                record=expanded_record(identity,record);records.append(record)
+                record=expanded_record(identity,record)
+                # The generator keeps at most 4,096 RAM samples, this
+                # conversion's own included: imported rows only fill part of
+                # that room, in address order (phase 6 audit, Metal Slug X).
+                record['ram_refs']=record['ram_refs'][:IMPORTED_RAM_LIMIT];records.append(record)
                 counts['imported']=sum(len(record[name]) for name in FIELDS)
                 _IN_USE.identity=identity
         except (ValueError,TypeError,KeyError):pass

@@ -172,6 +172,14 @@ class GuidanceTests(unittest.TestCase):
             'ng': {key(CART, 'd' * 64): ng_record(bios='d' * 64, rom=((1, 10),))}}})
         self.assertEqual(hints_of(self.project)[3]['imported'], 0)
 
+    def test_imported_ram_rows_leave_room_for_the_conversions_own(self):
+        rows = [(pc, 1, 0, 2) for pc in range(0, 2 * 3000, 2)]
+        import_bank(ng_record(rom=(), ram=rows, z80=()))
+        _, ram, _, usage = hints_of(self.project)
+        self.assertEqual(len(ram), neogeo_knowledge.IMPORTED_RAM_LIMIT)
+        self.assertEqual([row['offset'] for row in ram], [pc for pc, *_ in rows[:neogeo_knowledge.IMPORTED_RAM_LIMIT]])
+        self.assertEqual(usage['imported'], neogeo_knowledge.IMPORTED_RAM_LIMIT)   # what guides this conversion
+
     def test_a_set_aside_cartridge_converts_without_them(self):
         import_bank(ng_record(rom=((1, 10),)))
         with knowledge.imported_set_aside('ng', IDENTITY):
