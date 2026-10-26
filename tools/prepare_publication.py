@@ -159,6 +159,7 @@ retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.p
 retrorecomp/nes_build.py tests/test_nes_build.py
 retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
+tests/test_qualified_bank.py
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
 retrorecomp/online.py tests/test_online.py tests/test_shared_sync.py
 tests/test_problem_reports.py tests/test_gui_player.py tests/test_shop_display.py tests/test_conversion_rewards.py tests/test_offered_hints.py tests/test_sega_functions_gate.py tests/test_shared_base.py tests/test_shared_ng.py
@@ -372,8 +373,13 @@ def write_module_hook(directory: Path) -> Path:
 # (retrorecomp/packing.py): the Windows one, or the Linux x86-64 one.
 PACKERS = frozenset(("assets/tools/upx.exe", "assets/tools/upx-amd64_linux"))
 PACKER = "assets/tools/upx.exe" if os.name == "nt" else "assets/tools/upx-amd64_linux"
+# Public in the repository but never packaged: the maintainer campaigns' source
+# for the shared base. The executable carries no compilation path; the base
+# travels as Retro-Recomp-base.zip beside it.
+UNBUNDLED_FILES = frozenset(("assets/compilation-knowledge.json.gz",))
 BUNDLED_FILES = frozenset(p for p in PUBLIC_FILES
-                          if (p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
+                          if p not in UNBUNDLED_FILES
+                          and (p.startswith(("native/", "assets/", "profiles/", "MEDIAS/trackers_chiploom/"))
                           or (p.startswith("licenses/") and p.endswith(".md"))
                           or p in {"LICENSE", "THIRD_PARTY_NOTICES.md"}
                           # X68000 generators: hashed into the SDK stamp, read as files by CMake.
@@ -514,7 +520,7 @@ def audit_executable(executable: Path, source: Path) -> dict:
             data = archive.extract(original)
             if data != (source / name).read_bytes():
                 raise ValueError(f"Executable payload differs from public source: {name}")
-            if name in ('assets/compilation-knowledge.json.gz', 'assets/cover-references.json'):
+            if name == 'assets/cover-references.json':
                 check_public_file(name, data)
             bundled[name] = digest(data)
         if name.lower().endswith((".sms", ".gg", ".gb", ".nes", ".fds", ".rom", ".bin",

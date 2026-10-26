@@ -389,10 +389,13 @@ explicit list of public files, audits it and prepares a standalone release EXE.
 It never pushes or uploads. See `--help` for source and release preparation.
 
 After qualifying new cartridge cases, refresh the ROM-free compressed hint
-snapshot before packaging. The snapshot is included in the converter and
-combines with the user's local observations; validation remains mandatory.
-See the [compilation library workflow](COMPILATION_LIBRARY.md), including how
-to disable local and bundled hints for a cold timing comparison.
+snapshot. It stays in the repository as the source of the maintainer
+campaigns, but the converter no longer embeds it: qualified hints come from the
+shared base, which a release ships as `Retro-Recomp-base.zip` beside the EXE and
+which the converter reads into its local qualified bank before a batch;
+validation remains mandatory. See the
+[compilation library workflow](COMPILATION_LIBRARY.md), including how to
+disable local and shared hints for a cold timing comparison.
 
 ```powershell
 python tools/prepare_publication.py --stage .build/publication/repository

@@ -225,21 +225,16 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
 
 
 def _bundled_record(rom: GameBoyRom) -> dict:
-    """The bundled snapshot's record for this exact ROM, without imported hints."""
-    from .knowledge import RESOURCE, disabled, load
-    if disabled():
-        return {}
-    try:
-        record = load(ASSETS / RESOURCE)['consoles'].get('gb', {}).get(rom.sha256, {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        return {}
+    """The qualified bank's record for this exact ROM, without imported hints."""
+    from .knowledge import qualified_record
+    record = qualified_record('gb', rom.sha256)
     return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
             and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
 
 
 def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
     """Entries a conversion starts from. Without `imported`, only this player's
-    library and gameplay rows and the bundled snapshot: hints from other
+    library and gameplay rows and the qualified bank: hints from other
     players guide a conversion but are remembered only once it observes them."""
     from .feedback import gb_entries, records
     if imported:

@@ -151,14 +151,9 @@ def _seed_sites(path: Path) -> set[str]:
 
 
 def _bundled_record(rom) -> dict:
-    """The bundled snapshot's record for this exact ROM, without imported hints."""
-    from .knowledge import RESOURCE, disabled, load
-    if disabled():
-        return {}
-    try:
-        record = load(ASSETS / RESOURCE)['consoles'].get('nes', {}).get(rom.sha256, {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        return {}
+    """The qualified bank's record for this exact ROM, without imported hints."""
+    from .knowledge import qualified_record
+    record = qualified_record('nes', rom.sha256)
     return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
             and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
 
@@ -188,7 +183,7 @@ def _row_sites(rom, rows) -> tuple[set[str], set[tuple[int, int]]]:
 def _offered_only(rom, previous: Path) -> tuple[set[str], set[tuple[int, int]]]:
     """Sites that only other players offer this ROM (imported bank, shared
     observations): neither this player's library or gameplay rows nor the
-    bundled snapshot. They guide the conversion; the library keeps them only
+    qualified bank. They guide the conversion; the library keeps them only
     once a conversion observes them."""
     from .feedback import Observation, records
     from .knowledge import imported_observations, imported_record

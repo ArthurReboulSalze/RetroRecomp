@@ -125,11 +125,14 @@ class CompilationInputTests(unittest.TestCase):
         sha, other='1'*64,'2'*64
         record={'engine':'a'*40,'rom_bytes':8192,'rom_entries':[[0,0x8000]]}
         payload={'schema':1,'consoles':{'nes':{sha:record,other:record}}}
-        path=self.root/'assets/compilation-knowledge.json.gz';path.parent.mkdir()
+        path=self.root/'knowledge/qualified.json.gz';path.parent.mkdir()
         def save():
             with gzip.open(path,'wt',encoding='utf-8') as stream:json.dump(payload,stream)
         save()
-        with patch.dict('os.environ', {'RETRO_RECOMP_BUNDLED_KNOWLEDGE':'1'}, clear=True):
+        from retrorecomp import knowledge
+        self.addCleanup(knowledge._qualified_bank.cache_clear)
+        with patch.dict('os.environ', {'RETRO_RECOMP_BUNDLED_KNOWLEDGE':'1'}, clear=True), \
+                patch('retrorecomp.knowledge.qualified_path', return_value=path):
             before=inputs.knowledge_stamp('nes',sha)
             payload['consoles']['nes'][other]={**record,'rom_entries':[[0,0x8001]]};save()
             self.assertEqual(before,inputs.knowledge_stamp('nes',sha))

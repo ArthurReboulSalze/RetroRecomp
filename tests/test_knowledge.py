@@ -20,14 +20,17 @@ class KnowledgeTests(unittest.TestCase):
         self.rom = SimpleNamespace(data=data, sha256=hashlib.sha256(data).hexdigest(),
                                    path=self.root/'authored.gb', system_id='gb')
         self.addCleanup(knowledge.load.cache_clear)
+        self.addCleanup(knowledge._qualified_bank.cache_clear)
+        self.qualified = self.root/'knowledge'/'qualified.json.gz'
 
     def install(self, system, fields, engine):
         payload = {'schema':1,'consoles':{system:{self.rom.sha256:{
             'engine':engine,'rom_bytes':len(self.rom.data),**fields}}}}
-        path = self.root/knowledge.RESOURCE;path.parent.mkdir(exist_ok=True)
+        path = self.qualified;path.parent.mkdir(exist_ok=True)
         path.write_bytes(gzip.compress(json.dumps(payload).encode(),mtime=0))
         self.addCleanup(patch.stopall)
-        patch('retrorecomp.knowledge.ASSETS',self.root).start()
+        patch('retrorecomp.knowledge.qualified_path',return_value=path).start()
+        knowledge._qualified_bank.cache_clear()
         return payload
 
     def test_read_only_hints_bound_to_console_engine_size_and_rom(self):
@@ -68,7 +71,7 @@ class KnowledgeTests(unittest.TestCase):
 
     def test_corrupt_snapshot_leaves_normal_discovery_available(self):
         self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
-        path = self.root / knowledge.RESOURCE
+        path = self.qualified
         # Valid gzip header, invalid compressed block.
         path.write_bytes(bytes.fromhex('1f8b080000000000000307') + bytes(16))
         self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
@@ -122,13 +125,13 @@ class KnowledgeTests(unittest.TestCase):
         self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
         with patch('retrorecomp.knowledge.MAX_BYTES', 32):
             with self.assertRaisesRegex(ValueError, 'size limit'):
-                knowledge.load(self.root / knowledge.RESOURCE)
+                knowledge.load(self.qualified)
             self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
 
     def test_oversized_refresh_preserves_existing_snapshot(self):
         from tools.build_compilation_knowledge import build
         self.install('gb', {'rom_entries': [[1, 0x4567]]}, gameboy.ENGINE_REV)
-        output = self.root / knowledge.RESOURCE
+        output = self.qualified
         before = output.read_bytes()
         with patch('tools.build_compilation_knowledge.MAX_BYTES', 32):
             with self.assertRaisesRegex(ValueError, 'size budget'):
