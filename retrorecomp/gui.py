@@ -4322,7 +4322,10 @@ class Application:
             if width < 300:
                 return
             elapsed = time.monotonic() - podium.started
-            step = 170
+            # Steps share the window's width (wider windows, wider steps), with
+            # their content kept inside each step's box (inner).
+            step = max(170, min(230, (width - 24) // 3))
+            inner = step - 16
             left = (width - 3 * step) // 2
             # Each place: its column, the top of its name, and its step's height.
             places = {2: (left, 38, 100), 1: (left + step, 16, 122), 3: (left + 2 * step, 56, 82)}
@@ -4357,18 +4360,18 @@ class Application:
                 name = entry.get('pseudonym') or self.tr('leaderboard_anonymous')
                 crown(middle, top - 4, place, shades[place])
                 if name_colours(look['name_style'], 1):
-                    draw_styled_text(podium, middle, top + 9, elide(_font(podium, name_font), name, step_width - 16),
+                    draw_styled_text(podium, middle, top + 9, elide(_font(podium, name_font), name, inner),
                                      name_font, look['name_style'], anchor='center', tags=('podium_name',))
                 else:
                     podium.create_text(middle, top + 9, text=name, fill=COLORS['text'],
-                                       font=name_font, width=step_width - 16)
+                                       font=name_font, width=inner)
                 podium.create_text(middle, top + 28, text=f"{self.count_text(entry.get('total', 0))} pts",
                                    fill=shades[place], font=(self.ui_font, 9, 'bold'))
                 # The title, its pin before it (alone without a title).
                 title, pin = self.title_name(entry.get('title')), look['pin']
                 if title or pin:
                     measure = _font(podium, title_font)
-                    room = step_width - 16 - (PIN_SIZE + 4 if pin else 0)
+                    room = inner - (PIN_SIZE + 4 if pin else 0)
                     shown = elide(measure, title, room) if title else ''
                     spot = middle - (measure.measure(shown) + (PIN_SIZE + (4 if shown else 0) if pin else 0)) / 2
                     if pin:
@@ -4377,22 +4380,23 @@ class Application:
                     if shown:
                         podium.create_text(spot, top + 43, text=shown, anchor='w', fill=COLORS['muted'],
                                            font=title_font)
-                # The three class gems with this player's counts, on the step.
-                # They share the step's width; big counts shorten (1.2K) when they would not fit.
-                values = [counts.get(kind, 0) for kind in ('gold', 'platinum', 'diamond')]
-                for threshold in (100_000, 1_000):
-                    texts = [compact_number(value, self.language, threshold) for value in values]
-                    widths = [28 + count_font.measure(text) for text in texts]
-                    if sum(widths) + 8 * 2 <= step_width - 16:
+                # The class gems this player holds (none at 0), centred on the
+                # step: counts shorten (52.4K, then 1.2K) until the row fits inside it.
+                kinds = [kind for kind in ('gold', 'platinum', 'diamond') if counts.get(kind, 0)]
+                gap = 10
+                for threshold in (10_000, 1_000):
+                    texts = [compact_number(counts[kind], self.language, threshold) for kind in kinds]
+                    widths = [24 + count_font.measure(text) for text in texts]
+                    if sum(widths) + gap * max(0, len(kinds) - 1) <= inner - 8:
                         break
-                spot = middle - (sum(widths) + 8 * 2) // 2
-                for kind, text, width in zip(('gold', 'platinum', 'diamond'), texts, widths):
+                spot = middle - (sum(widths) + gap * max(0, len(kinds) - 1)) / 2
+                for kind, text, width in zip(kinds, texts, widths):
                     picture = pictures.get(f'gem-{kind}')
                     if picture:
-                        podium.create_image(spot + 10, bottom - height + 22, image=picture)
-                    podium.create_text(spot + 22, bottom - height + 22, text=text, anchor='w',
+                        podium.create_image(round(spot) + 10, bottom - height + 22, image=picture)
+                    podium.create_text(round(spot) + 24, bottom - height + 22, text=text, anchor='w',
                                        fill=COLORS['text'], font=count_font)
-                    spot += width + 8
+                    spot += width + gap
                 # Up to three console badges under the gems, once the step is tall enough.
                 if look['badges'] and height > 60:
                     wide = badges_width(podium, look['badges'], badge_font)
@@ -4405,8 +4409,6 @@ class Application:
                 podium.frame = podium.after(16, lambda: window.winfo_exists() and draw_podium(podium.rows))
             else:
                 podium.frame = None
-
-        step_width = 170
 
         def show(answer, error, shop=None):
             if not window.winfo_exists():return
