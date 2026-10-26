@@ -241,7 +241,11 @@ divergence like `banked`. What a correctly converted game does is unchanged; the
 measured the same main-CPU and sound-CPU interpreter counts on ten games before and after, and
 executables within 1 KB. An upgrade rebuilds the executable with the current compiler and
 rechecks it on the quick routes, so upgraded exports get the fixes too; a `functions` Master
-System or Game Gear export that diverges now fails that recheck and is converted again. Neither
+System or Game Gear export that diverges now fails that recheck and is converted again. The Neo Geo joined the shared base afterwards (phase 6: `neogeo_knowledge.py`,
+`neogeo_conversion.py`); its game stamp changes too and its 1.5.2 entry is kept for the same
+reason: the new code reads hints other players offer, retries without them when a conversion
+that used some fails, and caps imported RAM rows; a cartridge converted without imported hints
+is generated as before. Neither
 the Mega Drive / Super Nintendo nor the CPS-1 quick-state keys change with these files (the
 console16 key covers `native/` and SNES modules, the CPS-1 key its own build and codegen modules).
 

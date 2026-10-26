@@ -374,7 +374,7 @@ class SharedBaseTests(unittest.TestCase):
         owner.auto_sending = False
         self.assertFalse(owner.send_before_closing())  # done: the window closes
         # Nothing waiting: closing is immediate.
-        owner.closing_send = None
+        owner.closing_send_deadline = None
         self.assertFalse(owner.send_before_closing())
 
 

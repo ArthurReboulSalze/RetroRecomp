@@ -625,7 +625,7 @@ class Application:
         # window closes leaves then, or at the next start).
         self.last_sent_at = None
         self.deferred_send = None
-        self.closing_send = None
+        self.closing_send_deadline = None   # closing_send itself is the closing card's 'Send and close'
         self.discoveries_waiting = bool(preferences.get('discoveries_waiting'))
 
         header = tk.Canvas(app, height=HEADER_HEIGHT, bg=COLORS['header'], highlightthickness=0,
@@ -5262,8 +5262,8 @@ class Application:
         """A send left waiting by the 15-minute spacing leaves with the window:
         it closes once the send ends, or after CLOSING_SEND seconds (then the
         next start sends it). True while the window waits for it."""
-        if getattr(self, 'closing_send', None) is not None:
-            if self.auto_sending and time.monotonic() < self.closing_send:
+        if getattr(self, 'closing_send_deadline', None) is not None:
+            if self.auto_sending and time.monotonic() < self.closing_send_deadline:
                 self.app.after(200, self.close)
                 return True
             return False
@@ -5274,7 +5274,7 @@ class Application:
         self.send_new_discoveries()
         if not self.auto_sending:
             return False
-        self.closing_send = time.monotonic() + CLOSING_SEND
+        self.closing_send_deadline = time.monotonic() + CLOSING_SEND
         self.app.after(200, self.close)
         return True
 
