@@ -20,7 +20,20 @@ import subprocess
 
 ATTENTION = {'new_hints', 'fallback', 'changed', 'unreadable'}
 # The consoles whose games the online service takes (conversion rewards).
-SHARED_CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes')
+SHARED_CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
+
+
+def base_key(game) -> str:
+    """How the shared base names this game: 'system:identity', except Neo Geo,
+    named by cartridge and BIOS together, which only its report holds."""
+    if game.system == 'ng' and game.report:
+        from .knowledge_exchange import report_game_key
+        identity = report_game_key(game.report)[0]
+        if identity:
+            return f'ng:{identity}'
+    return f'{game.system}:{game.identity}'
+
+
 # The states filter: its last entry lists the games nobody finished at the Thorough level yet.
 STATES = ('all_games', 'needs_attention', 'with_hints', 'missing_games', 'games_to_explore')
 EXPLORE = STATES.index('games_to_explore')
@@ -264,7 +277,7 @@ class CompiledGamesView(ttk.Frame):
         """A game of a console the service takes that nobody has finished at the
         Thorough level yet (this player included)."""
         return (game.system in SHARED_CONSOLES and game.level != 'thorough'
-                and f'{game.system}:{game.identity}' not in explored)
+                and base_key(game) not in explored)
 
     def states_changed(self):
         """The states filter; "Games to explore" asks the service once (cached half an hour)."""
