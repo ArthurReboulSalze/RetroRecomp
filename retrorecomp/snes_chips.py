@@ -254,8 +254,18 @@ def dsp1_model_header(source):
         '  int16_t target_sec_coefficient,target_sec_exponent;\n  bool projection_valid;')
 
 
+def superfx(source):
+    """Code-cache window as fullsnes documents it: GSU address A is at S-CPU address
+    3100h + (A AND 1FFh), so the S-CPU offset X holds cache slot (X - CBR) mod 512, the slot the
+    opcode fetch uses for A = CBR + slot. The pinned core adds CBR instead of subtracting it,
+    which agrees only while 2*CBR is a multiple of 512 (the documented example, CBR=C3A0, shows
+    the difference). Checked by tools/snes_superfx_selftest.py (cache_window_* cases)."""
+    source=replace(source,'return f->cache[(uint16_t)(a + f->cbr) & 511];','return f->cache[(uint16_t)(a - f->cbr) & 511];')
+    return replace(source,'a = (uint16_t)(a + f->cbr) & 511;','a = (uint16_t)(a - f->cbr) & 511;')
+
+
 def adapt_engine(staged):
     for filename,adapt in (('cart.h',cart_header),('cart.c',cart),('snes_other.c',loader),
-                            ('dsp1.c',dsp1),('cx4.c',cx4),('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header)):
+                            ('dsp1.c',dsp1),('cx4.c',cx4),('superfx.c',superfx),('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header)):
         path=staged/'runner/src/snes'/filename
         path.write_text(adapt(path.read_text(encoding='utf-8')),encoding='utf-8')
