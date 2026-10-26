@@ -24,9 +24,9 @@
 </p>
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_Queue_en.png" alt="RetroRecomp conversion queue with games from six consoles" width="860">
+  <img src="MEDIAS/RetroRecomp_Queue_en.png" alt="RetroRecomp conversion queue with games from six consoles, on Linux, with a sample account and its console badge in the header" width="860">
 </p>
-<p align="center"><sub><em>The conversion queue: drop games from several consoles and convert them together. Linux shares the same window.</em></sub></p>
+<p align="center"><sub><em>The conversion queue: drop games from several consoles and convert them together. Captured on Linux with a sample account; Windows shows the same window.</em></sub></p>
 
 RetroRecomp brings several recompilers together in one application. It turns
 your own game dumps into standalone Windows or Linux executables, with as much
@@ -101,28 +101,28 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 
 <table>
   <tr>
-    <td width="50%"><img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with box art and a game summary"></td>
+    <td width="50%"><img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection"></td>
     <td width="50%"><img src="MEDIAS/RetroRecomp_Options_de.png" alt="Options in German, with the Mega Drive scan level and folders"></td>
   </tr>
   <tr>
-    <td align="center"><sub><em>Compiled Games, in French: favorites, covers, summaries and New paths.</em></sub></td>
+    <td align="center"><sub><em>Compiled Games, in French: favorites, scan-level stars, covers, summaries and New paths.</em></sub></td>
     <td align="center"><sub><em>Options, in German: one tab per console, scan levels and folders.</em></sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="MEDIAS/RetroRecomp_Credits_ja.png" alt="Animated credits in Japanese over the converter, with live tracker music"></td>
+    <td width="50%"><img src="MEDIAS/RetroRecomp_Credits_ja.png" alt="Animated credits in Japanese over the converter, showing what Retro-Recomp itself brings, with live tracker music"></td>
     <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Closing_it.gif" alt="Animated card in Italian before closing, offering to recompile games with new paths" width="400"></td>
   </tr>
   <tr>
-    <td align="center"><sub><em>Credits, in Japanese: a demoscene backdrop with live ChipLoom music.</em></sub></td>
+    <td align="center"><sub><em>Credits, in Japanese: what Retro-Recomp brings, over a demoscene backdrop with live ChipLoom music.</em></sub></td>
     <td align="center"><sub><em>Before closing, in Italian: recompile the games with new paths.</em></sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Help_fr.png" alt="Help page in French: how RetroRecomp works in five steps and the keys every game shares" width="400"></td>
-    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Leaderboard_fr.png" alt="Leaderboard window in French with the trophy, a podium with three crowns and the class gems, sample data" width="420"></td>
+    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Help_fr.png" alt="Help page in French: how RetroRecomp works in five steps, the keys every game shares and a button to report a problem" width="400"></td>
+    <td width="50%" align="center"><img src="MEDIAS/RetroRecomp_Leaderboard_fr.png" alt="Leaderboard window in French with the trophy, a podium with three crowns, the class gems and the badges players equip from the shop, sample data" width="420"></td>
   </tr>
   <tr>
     <td align="center"><sub><em>Help, in French: how it works in five steps.</em></sub></td>
-    <td align="center"><sub><em>The leaderboard, in French (sample players): podium, crowns and class gems.</em></sub></td>
+    <td align="center"><sub><em>The leaderboard, in French (sample players): podium, crowns, class gems and shop badges.</em></sub></td>
   </tr>
 </table>
 
