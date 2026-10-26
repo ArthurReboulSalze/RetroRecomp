@@ -1391,7 +1391,7 @@ disables both the bundled and imported knowledge.
 
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
-NES, Mega Drive, Super Nintendo and, since 1.5.3, Neo Geo (see *The shared
+NES, Mega Drive, Super Nintendo and, since 1.5.4, Neo Geo (see *The shared
 base*): the experimental CPS-1 and X68000 are never sent and count for nothing
 on the leaderboard until they join the shared base in a later version (the
 converter says so when sending). The Knowledge menu and the closing card's *Send and close*

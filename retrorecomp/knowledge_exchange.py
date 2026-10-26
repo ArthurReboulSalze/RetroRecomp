@@ -43,10 +43,6 @@ def _entries(system: str, record: dict) -> set:
     if system == 'ng':
         from .neogeo_knowledge import entry_set
         return entry_set(record)
-    if system not in FIELDS:
-        # CPS-1 and the X68000 share nothing yet: nothing is known for them
-        # (the batch asks before every Standard conversion).
-        return set()
     from .snes_knowledge import SPC_FIELDS, references
     if system not in FIELDS:
         return set()   # CPS-1 and X68000 have no shared knowledge (1.5.2 raised KeyError before every Standard batch)
