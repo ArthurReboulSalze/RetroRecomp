@@ -2712,6 +2712,7 @@ class Application:
         for key, variable, hint in (('icon', self.use_cover, 'tip_icon'),
                                      ('icon_tags', self.icon_tags, 'tip_icon_tags'),
                                      ('online', self.online, 'tip_online'),
+                                     ('use_shared_base', self.use_shared_base, 'tip_use_shared_base'),
                                      ('startup_update_check', self.check_at_startup, 'tip_startup_update_check'),
                                      ('overwrite', self.overwrite, 'tip_overwrite'),
                                      ('force', self.force, 'tip_force')):
@@ -2944,9 +2945,10 @@ class Application:
                            command=self.open_account_items)
         items.pack(side='left', padx=(8, 0))
         self.hint(items, 'tip_account_items')
-        # Signed in: the shared base before and after each batch.
+        # Signed in: this player's discoveries sent after each batch. Using the
+        # published base needs no account: its option is in Options > Common.
         self.account_sync = ttk.Frame(page)
-        for key, variable in (('use_shared_base', self.use_shared_base), ('send_after_batch', self.send_after_batch)):
+        for key, variable in (('send_after_batch', self.send_after_batch),):
             control = ttk.Checkbutton(self.account_sync, text=self.tr(key), variable=variable)
             control.pack(anchor='w', pady=(0, 6))
             self.option_controls.append((control, 'normal'))

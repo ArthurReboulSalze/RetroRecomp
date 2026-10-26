@@ -306,12 +306,12 @@ def smoke(window):
         assert application.account_balance.get() == (application.tr('account_balance', coins=20) + ' · '
                                                      + application.tr('account_title', title='Explorer'))
         sync_boxes = application.account_sync.winfo_children()
-        assert [box.cget('text') for box in sync_boxes] == [application.tr('use_shared_base'),
-                                                            application.tr('send_after_batch')]
+        # Only sending belongs to the account; using the published base is a Common option.
+        assert [box.cget('text') for box in sync_boxes] == [application.tr('send_after_batch')]
         assert application.preferences()['use_shared_base'] and application.preferences()['send_after_batch']
-        sync_boxes[1].invoke()
+        sync_boxes[0].invoke()
         assert application.preferences()['send_after_batch'] is False
-        sync_boxes[1].invoke()
+        sync_boxes[0].invoke()
     application.player = {}
     application.update_account_options()
     assert not application.account_sync.winfo_manager()

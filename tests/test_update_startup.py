@@ -409,6 +409,29 @@ class RealWindowTests(unittest.TestCase):
         self.assertFalse(window.check_at_startup.get())
         window.close_options()
 
+    def test_use_shared_base_is_a_common_option_even_signed_out(self):
+        """The published base needs no account: its option is outside the account frame."""
+        for account in (None, {'email': 'pat@example.test'}):
+            with patch('retrorecomp.online.account', return_value=account):
+                root, window = self.open({'use_shared_base': False})
+                window.show_options()
+                window.update_account_options()
+                root.update_idletasks()
+            def boxes(parent, text):
+                return [w for w in self.walk(parent) if isinstance(w, ttk.Checkbutton) and w.cget('text') == text]
+            shared = boxes(window.options_panel, window.tr('use_shared_base'))
+            self.assertEqual(len(shared), 1, account)
+            self.assertFalse(any(w in self.walk(window.account_frame) for w in shared))
+            self.assertTrue(shared[0].winfo_ismapped() or shared[0].winfo_manager(), account)
+            self.assertFalse(window.use_shared_base.get())          # the saved choice, same key
+            self.assertIs(window.preferences()['use_shared_base'], False)
+            # The sending option stays with the account.
+            sending = boxes(window.account_frame, window.tr('send_after_batch'))
+            self.assertEqual(len(sending), 1)
+            self.assertEqual(bool(window.account_sync.winfo_manager()), account is not None)
+            self.assertEqual(boxes(window.account_frame, window.tr('use_shared_base')), [])
+            window.close_options()
+
     def test_the_dot_and_the_hint_follow_what_is_new(self):
         root, window = self.open({})
         plain = str(window.update_button.cget('image'))
