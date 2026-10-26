@@ -484,6 +484,67 @@ def import_fetched(roms: dict) -> dict:
     return {**outcome, 'accepted': accepted}
 
 
+# --- The shared base's game entries (online.sync_base) ------------------------
+#
+# An entry is one game as the service stores it, named by the SHA-256 of its
+# canonical text: {"format": 1, "system", "identity", "parts": [{"source",
+# "level", "record" | null, "observations"}]}. One part per accepted upload,
+# so a revocation or a local rejection can target a part, not the whole game.
+
+BASE_FORMATS = (1,)
+BASE_PARTS_LIMIT = 4096
+
+
+def canonical_bytes(value) -> bytes:
+    """The canonical text of a JSON value, which the service hashes and signs."""
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+
+
+def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
+    """The game entry `value` named `sha` for this ROM, with its well-formed
+    parts only (a malformed one is skipped, not the game, though `sources`
+    still names it); None when it is not the entry asked for: its canonical
+    text must hash to `sha`, be format 1 and name this ROM."""
+    from .scan_levels import LEVELS
+    if (not isinstance(value, dict) or set(value) != {'format', 'system', 'identity', 'parts'}
+            or type(value['format']) is not int or value['format'] not in BASE_FORMATS
+            or value['system'] != system or value['identity'] != identity
+            or not isinstance(value['parts'], list)):
+        return None
+    try:
+        if hashlib.sha256(canonical_bytes(value)).hexdigest() != sha:
+            return None
+    except (TypeError, ValueError, RecursionError, UnicodeError):
+        return None
+    parts, seen = [], set()
+    # Every source the entry names, whether its part is well-formed or not.
+    sources = sorted({part['source'] for part in value['parts'][:BASE_PARTS_LIMIT]
+                      if isinstance(part, dict) and type(part.get('source')) is int and part['source'] >= 0})
+    for part in value['parts'][:BASE_PARTS_LIMIT]:
+        if (not isinstance(part, dict) or type(part.get('source')) is not int or part['source'] < 0
+                or part['source'] in seen or part.get('level') not in (*LEVELS, None)
+                or not (part.get('record') is None or isinstance(part['record'], dict))
+                or not isinstance(part.get('observations'), list)):
+            continue
+        seen.add(part['source'])
+        parts.append({name: part[name] for name in ('source', 'level', 'record', 'observations')})
+    return {'format': value['format'], 'system': system, 'identity': identity, 'parts': parts, 'sources': sources}
+
+
+def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
+    """(its record is valid, how many of its rows are valid) for one part of a
+    base entry: what `import_fetched` will keep of it."""
+    record = part.get('record') is not None and _valid_record(system, identity, part['record']) is not None
+    rows = 0
+    for row in part.get('observations') or ():
+        try:
+            valid_observation_rows(system, [row])
+            rows += 1
+        except (ValueError, TypeError, KeyError):
+            pass
+    return record, rows
+
+
 def _import_document(document: dict) -> dict:
     """The additive merge behind `import_knowledge` and `import_fetched`."""
     target = imported_path()

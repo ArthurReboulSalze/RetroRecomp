@@ -3307,6 +3307,10 @@ class Application:
                  'invalid_report': 'online_report_invalid', 'unauthorized': 'online_signed_out',
                  'pseudonym_taken': 'online_pseudonym_taken', 'invalid_pseudonym': 'online_pseudonym_invalid'}
         reason = getattr(error, 'reason', '') or type(error).__name__
+        if reason == 'converter_outdated':
+            # The service names the oldest version it accepts uploads from.
+            minimum = online.minimum_converter(error, ask=False)
+            return self.tr('online_outdated_min', minimum=minimum) if minimum else self.tr('online_outdated')
         return self.tr(known[reason]) if reason in known else self.tr('online_refused', reason=reason)
 
     def upload_discoveries(self, pending):
@@ -3553,6 +3557,7 @@ class Application:
         except Exception as exc:   # the batch goes on whatever happens here
             outcome = {'paths': {}, 'summary': None, 'error': exc}
         summary, error = outcome['summary'], outcome['error']
+        self.log_published_base(outcome.get('base'), summary, error)
         if error is not None:
             self.messages.put(('log', self.tr('shared_unavailable', error=self.service_problem(error))))
         elif summary and summary['roms']:
@@ -3561,6 +3566,26 @@ class Application:
         elif summary and summary['asked']:
             self.messages.put(('log', self.tr('shared_nothing')))
         return outcome['paths']
+
+    def log_published_base(self, base, summary, error):
+        """The published base's outcome for this batch in log lines: its
+        number and the games received, nothing new (left to the signed-in
+        sync's own line when there is one), a format this version cannot read,
+        and the problem that stopped it, if any. Nothing when the service has
+        no base yet."""
+        if not base:
+            return
+        if base.get('note') == 'format':
+            self.messages.put(('log', self.tr('shared_base_format', format=base.get('format'))))
+        elif base.get('version') is not None and base.get('games'):
+            self.messages.put(('log', self.tr('shared_base_received', version=base['version'], games=base['games'])))
+        elif base.get('version') is not None and base.get('error') is None and summary is None and base.get('asked'):
+            self.messages.put(('log', self.tr('shared_base_nothing', version=base['version'])))
+        if base.get('error') is not None:
+            problem = self.service_problem(base['error'])
+            # Offline, the signed-in sync reports the same problem right after.
+            if error is None or problem != self.service_problem(error):
+                self.messages.put(('log', self.tr('shared_base_unavailable', error=problem)))
 
     def forget_rejected_shared(self, shared, results):
         """Shared paths a batch set aside after they broke a conversion no
