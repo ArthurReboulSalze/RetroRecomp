@@ -1397,9 +1397,44 @@ that stops while the window is hidden), the pin beside the title, the
 portrait frame (drawn larger behind the 44 px portrait, which stays on top)
 and the header theme (classic, neon, night, gold). The leaderboard shows
 name styles, up to three console badges, pins and titles. The public catalog
-(`GET shop`, `datas/shop-catalog.json`) is refreshed with the player at most
-every 30 minutes and frame pictures are downloaded once
+(`GET shop`, `datas/shop-catalog.json`) is refreshed at most every 30 minutes
+(`SHOP_REFRESH`) and frame pictures are downloaded once
 (`datas/shop-frame-*`); without a catalog nothing extra is drawn.
+
+After 1.5.2 (26 October 2026, interface modules only: `online`, `gui`,
+`compiled_games`, `compiled_games_view`, `knowledge_exchange`, `i18n`):
+
+- **The header follows the site within minutes.** The account (`GET
+  account` and the cached `GET board`) is read when the converter starts and
+  when its window comes back to the front, at most every 2 minutes
+  (`PLAYER_REFRESH`), and 15 seconds after a page of the site was opened from
+  the converter; never two readings at once. The badge shown (one) now sits
+  left of the pseudonym, a first place's badge (`top_badges`) with a gold rim
+  and a small "1". **Manage my items** (Options › Account, and a right-click
+  on the account corner) opens the account page's `#items`.
+- **A pseudonym at sign-in.** The code dialog proposes an editable pseudonym
+  (`RetroPlayer_` and four random digits, nothing about the computer); the
+  server uses it for an account that has none yet, else generates a stable
+  one (`pseudonym_chosen` false), which the header invites to replace (a
+  click on the name).
+- **Conversions reported.** Each successful conversion made while signed in
+  is noted (`datas/account-converted.json`); the next send carries the noted
+  games, a record without hints (engine and ROM size only) when they bring
+  nothing new, at most 50 per send, and claims them `converted` with the
+  deepest level the report's discovery completed (`report_level`: a quick
+  check from known or shared paths counts as Standard). The service pays RR
+  coins once the upload is checked: a game the snapshot already knew, a game
+  completed at the Extended or Thorough level, the first to complete a game
+  at the Thorough level; no points. Converters 1.5.2 and older send nothing
+  of the kind and get nothing more.
+- **Compiled Games** shows each game's level as stars (Standard, Extended,
+  Thorough, read from its report), offers **Go further: Extended / Thorough**
+  in the right-click menu (a discovery at that level) and a **Games to
+  explore** filter: the games of the shared consoles nobody finished at the
+  Thorough level yet (`GET explored`, cached 30 minutes).
+
+These are interface and account features: they say nothing about native
+coverage, CPU or hardware fidelity, gameplay or latency.
 
 ## Integrating shared uploads
 

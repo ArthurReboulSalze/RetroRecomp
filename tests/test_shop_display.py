@@ -140,13 +140,16 @@ class ShopService(unittest.TestCase):
         self.assertNotIn('broken', first['shop'], 'a malformed catalog entry is left out')
         self.assertEqual(first['frame'], self.server.frame)
         self.assertEqual((self.calls('/api/v1/shop'), self.calls(FRAME_URL)), (1, 1))
-        # Within 30 minutes: nothing goes to the network, everything comes from datas/.
+        # Within PLAYER_REFRESH: nothing goes to the network, everything comes from datas/.
         again = online.player(now=1000 + 60)
         self.assertEqual(again['frame'], self.server.frame)
         self.assertEqual(online.cached_player()['shop'].keys(), first['shop'].keys())
         self.assertEqual(len(self.server.calls), 4)
-        # Stale: the catalog is fetched again, the frame picture is not.
+        # The player stale, the catalog not yet: only the account and the board are read again.
         online.player(now=1000 + online.PLAYER_REFRESH + 1)
+        self.assertEqual((self.calls('/api/v1/shop'), self.calls(FRAME_URL)), (1, 1))
+        # The catalog stale too: fetched again, the frame picture is not.
+        online.player(now=1000 + online.SHOP_REFRESH + 1)
         self.assertEqual((self.calls('/api/v1/shop'), self.calls(FRAME_URL)), (2, 1))
         self.assertTrue(any(path.name.startswith(online.FRAME_PREFIX) for path in self.data.iterdir()))
         # Signing out forgets the player, not the public catalog.
@@ -155,9 +158,9 @@ class ShopService(unittest.TestCase):
 
     def test_the_catalog_alone_refreshes_at_most_every_thirty_minutes(self):
         self.assertIn('pin_gold', online.shop(now=50))
-        self.assertIn('pin_gold', online.shop(now=50 + online.PLAYER_REFRESH - 1))
+        self.assertIn('pin_gold', online.shop(now=50 + online.SHOP_REFRESH - 1))
         self.assertEqual(self.calls('/api/v1/shop'), 1)
-        online.shop(now=50 + online.PLAYER_REFRESH + 1)
+        online.shop(now=50 + online.SHOP_REFRESH + 1)
         self.assertEqual(self.calls('/api/v1/shop'), 2)
 
     def test_an_older_server_without_the_shop_draws_nothing_and_raises_nothing(self):
@@ -173,7 +176,7 @@ class ShopService(unittest.TestCase):
         self.assertEqual(online.cached_shop(), {})
         online.shop(now=10)
         with patch.object(online, '_call', side_effect=online.ServiceConnectionError()):
-            self.assertIn('frame_diamond', online.shop(now=10 + online.PLAYER_REFRESH + 5))
+            self.assertIn('frame_diamond', online.shop(now=10 + online.SHOP_REFRESH + 5))
             (self.data / online.SHOP_NAME).unlink()
             self.assertEqual(online.shop(force=True), {})
         with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': ''}):

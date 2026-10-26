@@ -217,6 +217,40 @@ def smoke(window):
     assert application.header.itemcget(application.player_name, 'fill') == ''
     application.paint_background(application.header)
     assert application.header.find_withtag('header_theme') and application.header.cget('bg') == '#1a0b33'
+    # The badge beside the name, a first place's one with its mark (top_badges, 26 October 2026),
+    # and the invitation to choose a pseudonym while the server generated it.
+    shop['badge_snes'] = {'id': 'badge_snes', 'slot': 'badge', 'data': {'console': 'snes', 'label': 'SNES', 'color': '#7a5cff'}}
+    application.render_player({'account': {'email': 'pat@example.test'}, 'board': {'you': {'rank': 1, 'total': 42}},
+                               'profile': {'pseudonym': 'RetroPlayer_123456', 'pseudonym_chosen': False,
+                                           'equipped': {'badges': ['badge_snes']}, 'top_badges': ['badge_snes']},
+                               'shop': shop})
+    application.layout_header()
+    badge = application.header.find_withtag('player_badge')
+    assert any(application.header.type(item) == 'text' and application.header.itemcget(item, 'text') == '1' for item in badge)
+    assert application.header.bbox('player_badge')[2] < application.header.bbox(application.player_name)[0]
+    assert application.header.itemcget(application.player_score, 'text').endswith(application.tr('account_pseudonym_hint'))
+    application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat',
+                               'equipped': {'badges': ['badge_snes']}}, 'shop': shop})
+    application.layout_header()
+    assert not any(application.header.itemcget(item, 'text') == '1' for item in application.header.find_withtag('player_badge')
+                   if application.header.type(item) == 'text'), 'a bought badge has no mark'
+    assert application.tr('account_pseudonym_hint') not in application.header.itemcget(application.player_score, 'text')
+    assert application.header.tag_bind('player', '<Button-3>') and application.header.tag_bind('portrait', '<Button-3>')
+    # Back to the window: no reading before the start-up one, then at most every PLAYER_REFRESH.
+    from retrorecomp import online
+    with patch.object(application, 'refresh_player') as reread, patch('retrorecomp.gui.SENDING_AVAILABLE', True),             patch('retrorecomp.online.account', return_value={'email': 'pat@example.test'}):
+        application.player_refreshing = False
+        application.player_checked = time.monotonic()
+        application.focus_player()
+        application.site_opened = time.monotonic() + 1
+        application.player_checked = time.monotonic() - 20
+        application.focus_player()
+        assert reread.call_count == 1, 'a page of the site opened from here: read again 15 s later'
+        application.site_opened = -1.0
+        application.player_checked = time.monotonic() - online.PLAYER_REFRESH - 1
+        application.focus_player()
+        assert reread.call_count == 2
+    application.player_checked = None
     # Without the catalog (offline, older server): the plain corner.
     application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat',
                                'equipped': {'name_style': 'name_gradient', 'frame': 'frame_gold'}}})
@@ -389,6 +423,17 @@ def smoke(window):
     assert len(application.compiled_view.log_text.get().splitlines()[1]) == 150
     application.compiled_view.clear_log()
     assert not application.compiled_view.log_label.winfo_manager()
+    # Compiled Games: each game's level in stars, and the games nobody finished at the Thorough level yet.
+    from retrorecomp.compiled_games_view import EXPLORE, stars
+    view = application.compiled_view
+    assert view.table['columns'][3] == 'level' and stars('extended') == '★★☆' and stars('') == ''
+    assert view.states['values'][EXPLORE] == application.tr('games_to_explore')
+    view.explored = {'games': {}, 'explorer': 60, 'depth': {'extended': 20, 'thorough': 40}}
+    view.states.current(EXPLORE)
+    view.render()
+    assert view.status.get().startswith(application.tr('explore_status', count=len(view.rows), coins=60)[:8])
+    view.states.current(0)
+    view.render()
     application.toggle_compiled_games()
     window.update_idletasks()
     assert toolbar_slaves()[0] is application.compiled_button

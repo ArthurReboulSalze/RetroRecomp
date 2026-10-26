@@ -175,6 +175,19 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.assertEqual({k: summary['omitted'][k] for k in ('already_known', 'missing_rom', 'unqualified')},
                          {'already_known': 1, 'missing_rom': 1, 'unqualified': 1})
         self.assertEqual(summary['games'], 0)
+        # Converted with nothing new: kept apart for an account upload (online.pending), never exported;
+        # its level is the deepest discovery the report completed.
+        qualified[('md', rom.sha256)] = {'scan_level': 'quick', 'upgrade': {'discovery': {'scan_level': 'extended'}}}
+        with patch('retrorecomp.knowledge_exchange.load', return_value=bundled), \
+                patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
+                patch('retrorecomp.knowledge_exchange.qualified_reports', return_value=qualified), \
+                patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE}), \
+                patch('retrorecomp.knowledge_exchange.build_record', return_value=md([0x200])):
+            found = knowledge_exchange.collect_knowledge(games, locate)
+        self.assertEqual(found['converted'], {'md': {rom.sha256: {
+            'engine': ENGINE, 'rom_bytes': 0x10000, 'level': 'extended', 'title': 'Fixture'}}})
+        self.assertEqual(found['payload']['consoles'], {})
+        qualified[('md', rom.sha256)] = {}
         summary = export(md([0x200, 0x300]))
         self.assertEqual(summary['consoles'], {'md': 1})
         document = knowledge_exchange.read_exchange(destination)

@@ -191,6 +191,12 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
                                            level=str(qualified[key].get('scan_level') or 'standard'))
                         else:
                             outcome['omitted']['already_known'] += 1
+                            # Converted with nothing new: enough for an account upload to
+                            # say so (online.pending; a record without hints), never exported.
+                            # Its level: the deepest discovery completed (a quick check counts as standard).
+                            from .compiled_games import report_level
+                            outcome['converted'] = {'engine': record['engine'], 'rom_bytes': record['rom_bytes'],
+                                                    'level': report_level(qualified[key])}
                 else:
                     outcome['omitted']['unqualified'] += 1
                 if raw:
@@ -204,7 +210,7 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
         write_packed(_cache_path(), {'schema': 1, 'converter': __version__, 'games': fresh})
     except (OSError, ValueError):
         pass
-    consoles, observations, titles, levels, discoveries = {}, {}, {}, {}, 0
+    consoles, observations, titles, levels, discoveries, converted = {}, {}, {}, {}, 0, {}
     omitted = _empty_outcome()['omitted']
     for (system, identity), (game, outcome) in outcomes.items():
         for name, value in outcome['omitted'].items():
@@ -220,13 +226,15 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
             discoveries += len(outcome['observations'])
         if outcome['record'] or outcome['observations']:
             titles.setdefault(system, {})[identity] = str(game.title)[:TITLE_LIMIT]
+        if outcome.get('converted'):
+            converted.setdefault(system, {})[identity] = {**outcome['converted'], 'title': str(game.title)[:TITLE_LIMIT]}
     sharing = {system: len(names) for system, names in sorted(titles.items())}
     return {'games': sum(sharing.values()), 'consoles': sharing,
             'discoveries': discoveries, 'omitted': omitted,
             'observations': observations, 'observation_count': sum(
                 len(rows) for games in observations.values() for rows in games.values()),
             'payload': validate_payload({'schema': 1, 'consoles': consoles}), 'titles': titles,
-            'levels': levels}
+            'levels': levels, 'converted': converted}
 
 
 def write_knowledge(collected: dict, destination: Path, channel: str | None = 'file') -> dict:
