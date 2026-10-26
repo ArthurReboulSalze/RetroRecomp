@@ -769,8 +769,16 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         long_routes = pseudo_random_routes(system_id, rom.sha256, count=budget['route_count'],
                                            frames=budget['route_frames'], six_buttons=six_buttons,
                                            chain=CHAIN_LONG_ROUTES)
-    long_frames = sum(route.frames for route in long_routes)
-    route_metadata = {route.name: route.metadata() for route in long_routes}
+    # An exact ROM with an authored gameplay route (snes_routes: the Super FX
+    # cartridges whose random route stays in the menus) replays it as one more
+    # scenario from the Extended level on, after the random routes.
+    authored_routes = ()
+    if advanced and not gun and system_id == 'snes':
+        from .snes_routes import authored_routes as exact_rom_routes
+        authored_routes = exact_rom_routes(rom.sha256)
+    play_routes = long_routes + authored_routes
+    long_frames = sum(route.frames for route in play_routes)
+    route_metadata = {route.name: route.metadata() for route in play_routes}
     # When chaining is enabled, every route after the first continues from the
     # state the previous route saved at its last frame. Each engine chains from
     # its own state file: the native export under `checks`, the reference under
@@ -793,6 +801,8 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
              (f' and a {menu_confirm_frames}-frame menu/dialogue replay' if menu_confirm_frames else '') +
              (f' and {len(long_routes)} reproducible pseudo-random play routes of '
               f'{long_routes[0].frames} frames' if long_routes else '') +
+             (f', plus the {authored_routes[0].frames}-frame authored gameplay route of this exact ROM'
+              if authored_routes else '') +
              (', each later route continuing from the saved end state of the previous one'
               if chained else '') +
              ' on every pass, '
@@ -840,9 +850,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             if menu_confirm_frames:
                 scenarios.append((menu_confirm_frames, dict(play=True, gun_menu=gun_menu,
                     scenario='menu-confirm', input_script=scripts['menu-confirm'])))
-        if long_routes:
+        if play_routes:
             from .random_routes import write_route
-            for route in long_routes:
+            for route in play_routes:
                 scripts[route.name] = write_route(route, checks_dir)
                 scenarios.append((route.frames, dict(play=True, gun_menu=gun_menu,
                     scenario=route.name, input_script=scripts[route.name],
@@ -862,6 +872,9 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
              'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles')} for check in checks]})
+        if system_id == 'snes':
+            # A stuck game is refused before the (long) reference replays.
+            supernintendo.validate_device_liveness(checks)
         if reference_before_learning:
             comparisons = compare(checks, checks_dir / 'reference', scripts)
         if system_id == 'snes':
@@ -905,13 +918,14 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                           'additional_frames': (demo_frames - frames + advanced_frames + early_start_frames
                                                 + menu_confirm_frames + long_frames),
                           'demo_frames': demo_frames,
-                          'scenario': 'advanced' if fixed_scripts else (long_routes[0].name if long_routes else None),
+                          'scenario': 'advanced' if fixed_scripts else (play_routes[0].name if play_routes else None),
                           'scenario_frames': ({**({'advanced': advanced_frames, 'early-start': early_start_frames}
                                                  if fixed_scripts else {}),
                                               **({'menu-confirm': menu_confirm_frames} if menu_confirm_frames else {}),
-                                              **{route.name: route.frames for route in long_routes}}
+                                              **{route.name: route.frames for route in play_routes}}
                                               if advanced else {}),
                           'long_routes': [route.metadata() for route in long_routes],
+                          'authored_routes': [route.metadata() for route in authored_routes],
                           'reference_before_learning': advanced},
         'native_validation': {'passed': True, 'visible_sequence_match': True,
                               'audio_pcm_match': True,

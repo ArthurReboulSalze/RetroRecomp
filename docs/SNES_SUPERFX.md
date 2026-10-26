@@ -528,6 +528,58 @@ With option B the device line would become a native share of GSU instructions,
 with Game Pak RAM code and CPU-written cache lines counted as interpreted.
 No zero-fallback claim is made for Super FX games, as for the CX4.
 
+## Qualification gates (26 October 2026)
+
+Three converter changes close gaps found by the extended qualification (D1, D5, D7):
+
+- **Activity gate** (`supernintendo.validate_device_liveness`, run after each pass and
+  before the reference replays). For a cartridge with a counted interpreted device (Super
+  FX, CX4) the probe report now carries three liveness frames: `last_picture_change_frame`
+  (`native/console16_main.c`), `last_device_frame` and `last_audible_frame`
+  (`native/snes_backend.c`). A scenario of 1,200 frames or more is refused when, for its
+  last `max(600, frames / 4)` frames, the picture did not change AND the device executed no
+  instruction AND no sample was audible; absent or malformed evidence is refused too. A
+  static screen that keeps its music, or a silent one where the device or the picture still
+  moves, passes; ordinary cartridges and DSP-1 are not checked. The Star Fox 2 Japanese
+  prototype (controller notice from frame ~60, GSU count frozen at 770,961) is now refused
+  at the Standard level: "stopped doing anything ... after frame 46 of 1,200".
+- **Packing record**. `conversion-report.json` has a `packing` entry (packer, version,
+  level, whether the published file carries the UPX header, size and SHA-256 before and
+  after, `compared_on: unpacked build executable`). The conversion still compares
+  native and reference on the unpacked build. `tools/snes_packed_check.py` is the developer
+  tool for the packed qualification of one published game: it replays the report's own
+  scenarios (demo, play, random and authored routes, regenerated from the ROM identity and
+  checked against the report) on the published executable, native against
+  `RR_SNES_FORCE_INTERP=1`, applies the activity gate, then runs the fresh-process state
+  check, and writes `packed-validation.json`. It is not part of a conversion (it replays
+  every scenario twice more).
+- **Authored gameplay routes** (`retrorecomp/snes_routes.py`). The random extended route
+  stays in the menus of some Super FX games, so a conversion at the Extended level and above
+  also replays one authored route (scenario `authored`) when the exact ROM SHA-256 is in
+  the table: Star Fox, Star Fox 2 (USA), Stunt Race FX, Yoshi's Island, Vortex and Dirt Racer
+  (6,000 to 12,000 frames). A route is host input only (`frame p1 p2` masks, repeated blocks
+  stored compactly; no ROM bytes); the report records it under
+  `advanced_scan.authored_routes` with its script hash. It shows that inputs reach the game
+  state named in `reaches`; it says nothing about correct gameplay. More games add one entry.
+
+Measured on 26 October 2026 (the engine of this branch; native runs only, six cartridges, 24
+extended-length runs: demo 12,000, play 1,200, random route 18,000 and the authored route): in
+every run the picture, the GSU and the sound were all still active in the last frames (the
+gate's quiet tail was 0 of a 600 to 4,500-frame allowance), and the prototype was refused. Stunt
+Race FX shows why all three must stop: its GSU is idle after frame 246 on the title screen,
+but the picture and the music go on, so it passes. The authored routes reach (pictures taken at
+the frames named in `reaches`): Corneria flight (Star Fox), map and wire-frame battles (Star Fox 2),
+a Speed Trax race (Stunt Race FX), level 1-1 (Yoshi's Island), the first mission (Vortex) and a
+race (Dirt Racer). A full Extended conversion of Stunt Race FX with the new scenario took
+2 passes and 1,832 s (empty private library, machine loaded): 0 interpreted 65816 and SPC700
+opcodes in the last pass on all four scenarios, native and reference matching, the report
+carrying `advanced_scan.authored_routes` and `packing` (14,068,736 bytes unpacked, 3,136,512
+packed, ratio 0.2229). `tools/snes_packed_check.py` on that published executable: UPX header
+present, SHA-256 equal to the recorded one, 37,200 native/reference frame pairs identical (the
+four scenarios match the conversion's own hashes), 0 interpreted 65816/SPC700 opcodes, state
+saved at 7,800 and resumed for 180 frames in a fresh process matching, 8 corrupt state files
+rejected, 1,002 s.
+
 ## Licences
 
 | Source | Licence | Use |

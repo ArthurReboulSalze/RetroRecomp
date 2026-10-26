@@ -17,12 +17,38 @@ import tempfile
 from .paths import ASSETS
 
 
+UPX_VERSION = "5.2.1"
+UPX_LEVEL = "-9"
 UPX_SHA256 = "d20ebe0b7b22b6be968c8c34be61f94ddea12cb11462e2cec27f548ef9574df8"
 # Official upx-5.2.1-amd64_linux.tar.xz (SHA-256 402162aa...1b91657), its upx file.
 UPX_LINUX = "assets/tools/upx-amd64_linux"
 UPX_LINUX_SHA256 = "287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1"
 # Large Mega Drive and Super Nintendo ELFs take longer than PEs to pack at -9.
 LINUX_TIMEOUT = 300
+
+
+def file_identity(path: Path) -> dict:
+    """Size and SHA-256 of one executable."""
+    data = Path(path).read_bytes()
+    return {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def packing_record(unpacked: dict, published: Path) -> dict:
+    """What a conversion report says about the published executable's packing.
+
+    The conversion compares native and reference runs on the *unpacked* build
+    executable; the published one is that file packed by UPX. This records both
+    identities and whether the published file really carries the UPX header, so
+    a packed validation (tools/snes_packed_check.py) can name the exact file it
+    checked. It never claims the packed file was itself replayed.
+    """
+    data = Path(published).read_bytes()
+    return {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL, 'packed': b'UPX!' in data,
+            'unpacked': unpacked,
+            'published': {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()},
+            'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
+            'compared_on': 'unpacked build executable',
+            'packed_validation': 'tools/snes_packed_check.py (developer qualification, not run during conversion)'}
 
 
 def compact_executable(path: Path) -> None:

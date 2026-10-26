@@ -474,10 +474,20 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                       source_rom=str(item.path.resolve()))
         atomic_json(report_path, report)
         # Finish the report before replacing a working executable.
+        from .packing import file_identity, packing_record
+        unpacked_identity = file_identity(temporary)
         try:
             pending = publish_executable(temporary, target, compact=True)
         finally:
             temporary.unlink(missing_ok=True)
+        # Record what was published (a pending installation waits as a staged copy).
+        try:
+            from .publishing import job_path
+            staged = Path(json.loads(job_path(target).read_text(encoding='utf-8'))['staged']) if pending else target
+            report['packing'] = packing_record(unpacked_identity, staged)
+        except (OSError, ValueError, KeyError):
+            report['packing'] = {'recorded': False}
+        atomic_json(report_path, report)
         if pending:
             emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
         else:

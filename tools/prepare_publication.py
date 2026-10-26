@@ -280,6 +280,7 @@ native/snes_superfx_checks.c tools/snes_superfx_selftest.py tools/snes_superfx_m
 tools/snes_superfx_case.py tools/snes_superfx_library.py tools/snes_superfx_programs.py
 tools/snes_superfx_mutations.py
 tests/test_snes_superfx.py
+retrorecomp/snes_routes.py tools/snes_packed_check.py tests/test_snes_gates.py
 retrorecomp/snes_cart.py native/snes_cart.h native/snes_battery.c native/snes_battery.h
 native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
 tools/snes_ram_selftest.py

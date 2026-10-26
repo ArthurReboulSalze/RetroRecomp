@@ -95,6 +95,9 @@ int main(int argc, char **argv) {
     unsigned replay_index = 0; uint16_t script_p1 = 0, script_p2 = 0;
     unsigned completed = 0;
     uint64_t sequence = 14695981039346656037ull;
+    /* Liveness evidence for the activity gate: the last frame (1-based, within
+     * this run) whose picture differed from the previous one. */
+    uint64_t previous_picture = 0; unsigned last_picture_change = 0;
     for (; completed < frames; ++completed) {
         unsigned logical_frame = completed + frame_offset;
         uint16_t input = 0;
@@ -142,7 +145,10 @@ int main(int argc, char **argv) {
             input = script_p1;
         }
         if (!rr16_frame(input, script_p2)) break;
-        sequence ^= fingerprint(); sequence *= 1099511628211ull;
+        uint64_t picture = fingerprint();
+        sequence ^= picture; sequence *= 1099511628211ull;
+        if (!completed || picture != previous_picture) last_picture_change = completed + 1;
+        previous_picture = picture;
         if (trace) {
             fprintf(trace, "%u,%016llx,%llu,%llu,%016llx", logical_frame + 1, fingerprint(),
                     rr16_native_entries(), rr16_interpreted(), rr16_audio_frame_fingerprint());
@@ -194,6 +200,7 @@ int main(int argc, char **argv) {
         FILE *f = fopen(report, "wb"); if (!f) return 3;
         summary[strlen(summary) - 1] = 0;
         fputs(summary, f); rr16_report_details(f);
+        fprintf(f, ",\"last_picture_change_frame\":%u", last_picture_change);
         if (reset_check) fprintf(f, ",\"reset_sequence_match\":%s,\"reset_audio_match\":%s,\"reset_first_audio\":\"%016llx\"",
             reset_sequence_matches ? "true" : "false", reset_audio_matches ? "true" : "false", reset_first_audio);
         fputs("}", f);
