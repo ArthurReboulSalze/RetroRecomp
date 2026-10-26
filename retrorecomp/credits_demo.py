@@ -458,9 +458,9 @@ class CreditsDemo:
         for bounds,color in wordmark_rectangles(90,21,3):
             c.create_rectangle(*bounds,fill=color,outline='')
         c.create_text(91,57,text=self.tr('brand_tagline'),anchor='w',fill=MUTED,font=(self.font,8))
-        # Arthur's credits, right-aligned on two lines and centred in the band.
-        for dy,label,color,url in ((-9,self.tr('credits_author')+' · Arthur Reboul Salze',MUTED,'https://github.com/ArthurReboulSalze'),
-                                   (9,self.tr('credits_chiploom'),GOLD,'https://github.com/ArthurReboulSalze/ChipLoom')):
+        # The music's credit, right-aligned and centred in the band (Arthur's
+        # own credit is at the end of the 'Made by Retro-Recomp' part).
+        for dy,label,color,url in ((0,self.tr('credits_chiploom'),GOLD,'https://github.com/ArthurReboulSalze/ChipLoom'),):
             item = c.create_text(w-18,(h-3)/2+dy,text=label,anchor='e',fill=color,font=(self.font,9,'underline'))
             c.tag_bind(item,'<Enter>',lambda e,i=item,k=color:self._credit_hover(i,k,True))
             c.tag_bind(item,'<Leave>',lambda e,i=item,k=color:self._credit_hover(i,k,False))
@@ -567,9 +567,13 @@ class CreditsDemo:
             body = (rest if colon else label).strip()
             _,used = text(body[:1].upper()+body[1:],y,10,WHITE)
             y += used+14
-        # Who designed it and the AI models that assisted: last and discreet.
+        # Who designed it and the AI models that assisted: last, small, in gold;
+        # it opens Arthur's GitHub.
         y += 6
-        _,used = text(self.tr('credits_own_ai'),y,8)
+        item,used = text(self.tr('credits_own_ai'),y,8,GOLD)
+        c.tag_bind(item,'<Enter>',lambda e,i=item:self._hover(True,i))
+        c.tag_bind(item,'<Leave>',lambda e,i=item:self._hover(False,i))
+        c.tag_bind(item,'<Button-1>',lambda _e:webbrowser.open_new_tab('https://github.com/ArthurReboulSalze'))
         y += used+14
         c.create_line(left,top,left,y,right,y,right,top,fill='#33302a',tags='credit')
         y += 25
