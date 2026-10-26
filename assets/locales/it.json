@@ -310,7 +310,7 @@
     "cover_note_arcadeitalia": "API pubblica, senza chiave. ArcadeItalia riguarda i set arcade MAME, non le console attuali. È indicato come riferimento e non viene interrogato per le loro copertine.",
     "cover_secrets_note": "Le credenziali usano lo spazio sicuro del sistema (account Windows o portachiavi Linux). Lascia vuoto per i download pubblici.",
     "options_md_note": "Cartucce Mega Drive standard PAL/NTSC, con SRAM, EEPROM supportate, salvataggi rapidi e Menacer. I nuovi giochi vengono analizzati automaticamente. Altro hardware può richiedere ulteriore supporto.",
-    "options_snes_note": "Supporta LoROM/HiROM PAL/NTSC fino a 4 MiB e schede DSP-1/CX4 qualificate. L'interpretazione CX4 resta segnalata. Altri chip e comandi DSP-1 per estrarre il firmware non sono supportati. Analisi automatica dei nuovi giochi. F5: Super Scope nei giochi supportati; F8/F9: salva/carica stato.",
+    "options_snes_note": "Supporta LoROM/HiROM PAL/NTSC fino a 4 MiB e schede DSP-1, CX4 e Super FX qualificate. L'interpretazione CX4 e Super FX resta segnalata. Altri chip e comandi DSP-1 per estrarre il firmware non sono supportati. Analisi automatica dei nuovi giochi. F5: Super Scope nei giochi supportati; F8/F9: salva/carica stato.",
     "options_nes_note": "La copertura ROM nativa estesa è automatica. PAL/NTSC si sceglie per gioco. Gli export NES includono stati rapidi F8/F9 e profili Zapper automatici.",
     "options_sega_note": "Condiviso dai profili Master System e Game Gear.",
     "options_gb_note": "Confronta più istruzioni CPU durante il gioco; la scoperta nativa non cambia.",

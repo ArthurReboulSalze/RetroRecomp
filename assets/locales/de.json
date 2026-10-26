@@ -310,7 +310,7 @@
     "cover_note_arcadeitalia": "Öffentliche API ohne Schlüssel. ArcadeItalia unterstützt MAME-Arcade-Sets, nicht die aktuellen Konsolenprofile. Nur als Hinweis aufgeführt; keine Abfrage für Konsolencover.",
     "cover_secrets_note": "Zugangsdaten liegen im sicheren Systemspeicher (Windows-Konto oder Linux-Schlüsselbund). Für öffentliche Downloads leer lassen.",
     "options_md_note": "Standardmodule für Mega Drive in PAL/NTSC, mit SRAM, unterstütztem EEPROM, Schnellständen und Menacer. Neue Spiele werden automatisch analysiert. Andere Modulhardware kann weitere Unterstützung erfordern.",
-    "options_snes_note": "Unterstützt LoROM/HiROM PAL/NTSC bis 4 MiB und geprüfte DSP-1/CX4-Platinen. CX4-Interpretation bleibt sichtbar. Andere Zusatzchips und DSP-1-Firmware-Dump-Befehle sind nicht unterstützt. Neue Spiele werden automatisch analysiert. F5: Super Scope bei passenden Spielen; F8/F9: Schnellstand speichern/laden.",
+    "options_snes_note": "Unterstützt LoROM/HiROM PAL/NTSC bis 4 MiB und geprüfte DSP-1-, CX4- und Super-FX-Platinen. CX4- und Super-FX-Interpretation bleibt sichtbar. Andere Zusatzchips und DSP-1-Firmware-Dump-Befehle sind nicht unterstützt. Neue Spiele werden automatisch analysiert. F5: Super Scope bei passenden Spielen; F8/F9: Schnellstand speichern/laden.",
     "options_nes_note": "Erweiterte native ROM-Abdeckung ist automatisch. PAL/NTSC lässt sich je Spiel wählen. NES-Exporte enthalten F8/F9-Schnellstände und automatische Zapper-Profile.",
     "options_sega_note": "Gemeinsam für Master System und Game Gear.",
     "options_gb_note": "Prüft mehr CPU-Befehle im Spiel; die native Erkennung bleibt gleich.",

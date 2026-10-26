@@ -310,7 +310,7 @@
     "cover_note_arcadeitalia": "公開 API でキーは不要です。ArcadeItalia は MAME のアーケード向けで、現在の家庭用機には対応しません。参考として表示し、カバー検索には使いません。",
     "cover_secrets_note": "認証情報はシステムの安全な保存先（Windows アカウントまたは Linux のキーリング）を使います。公開ダウンロードは空欄で利用できます。",
     "options_md_note": "標準 PAL/NTSC Mega Drive カートリッジ、SRAM、対応 EEPROM、クイックセーブ、Menacer に対応。新しいゲームは自動解析します。他のカートリッジ機器は追加対応が必要な場合があります。",
-    "options_snes_note": "最大 4 MiB の PAL/NTSC LoROM/HiROM と検証済み DSP-1/CX4 基板に対応。CX4 の解釈実行は表示します。他の拡張チップと DSP-1 のファームウェア抽出命令は未対応。新作は自動解析。F5 で対応ゲームの Super Scope 設定、F8/F9 でクイック保存・読込。",
+    "options_snes_note": "最大 4 MiB の PAL/NTSC LoROM/HiROM と検証済み DSP-1、CX4、Super FX 基板に対応。CX4 と Super FX の解釈実行は表示します。他の拡張チップと DSP-1 のファームウェア抽出命令は未対応。新作は自動解析。F5 で対応ゲームの Super Scope 設定、F8/F9 でクイック保存・読込。",
     "options_nes_note": "ROM のネイティブ化範囲は自動で拡張します。PAL/NTSC はゲームごとに選択可能。NES 出力は F8/F9 のクイックセーブと Zapper の自動設定に対応。",
     "options_sega_note": "Master System と Game Gear の共通設定です。",
     "options_gb_note": "プレイ中の CPU 命令をさらに照合します。ネイティブコードの検出範囲は変わりません。",

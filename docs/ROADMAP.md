@@ -168,7 +168,7 @@ varied-input qualification of more ordinary cartridges. DSP-1 board/command mode
 limits, with CX4 device interpretation counted explicitly. Clipped DSP-1 camera
 paths and the first HDMA scanline now have independent numeric/image checks;
 Pilotwings passes the tested routes and Mario Kart reaches a short race.
-Super FX, SA-1, S-DD1 and other circuits still require separate integration.
+Super FX (GSU-1/GSU-2) boards are integrated and qualified within [their documented limits](SNES_SUPERFX.md), the GSU running as a counted interpreted device; SA-1, S-DD1 and other circuits still require separate integration.
 Native CX4 and finer hardware phases remain future work; the common CPU/DMA/HDMA fixes are qualified within their documented limits.
 Recognizing headers or having upstream code is not product qualification.
 PAL now has 312 raster lines, the PPU region bit, full-field IRQ scheduling and
@@ -184,7 +184,7 @@ now uses guarded native operations; extend varied-input sound-driver checks
 alongside the main CPU coverage. Broader graphics, DMA and interrupt checks must
 accompany each expansion of the cartridge scope.
 
-The released standard profile and qualified DSP-1/CX4 boards are supported. Expanding the observed cartridge set
+The released standard profile and qualified DSP-1, CX4 and Super FX boards are supported. Expanding the observed cartridge set
 does not by itself remove its hardware and gameplay gaps; the regression catalogue
 is not an allowlist. The full Mega Drive and SNES campaigns remain paused until
 explicitly resumed; concentrate on the shared compiler and recorded failures.

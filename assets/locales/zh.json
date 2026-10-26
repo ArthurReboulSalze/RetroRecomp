@@ -310,7 +310,7 @@
     "cover_note_arcadeitalia": "公开 API，无需密钥。ArcadeItalia 支持 MAME 街机游戏，不支持当前的主机配置。此处仅供参考，不会用于搜索主机封面。",
     "cover_secrets_note": "凭据使用系统安全存储（Windows 账户或 Linux 桌面密钥环）。留空即可使用公开下载。",
     "options_md_note": "支持标准 PAL/NTSC Mega Drive 卡带、SRAM、已支持的 EEPROM、即时存档和 Menacer。新游戏自动分析。其他卡带硬件可能需要额外支持。",
-    "options_snes_note": "支持最高 4 MiB 的 PAL/NTSC LoROM/HiROM 和已验证的 DSP-1/CX4 卡带。CX4 解释执行仍会显示。其他增强芯片及 DSP-1 固件转储命令暂不支持。新游戏自动分析。F5 设置支持游戏的 Super Scope；F8/F9 保存和读取即时存档。",
+    "options_snes_note": "支持最高 4 MiB 的 PAL/NTSC LoROM/HiROM 和已验证的 DSP-1、CX4 和 Super FX 卡带。CX4 与 Super FX 解释执行仍会显示。其他增强芯片及 DSP-1 固件转储命令暂不支持。新游戏自动分析。F5 设置支持游戏的 Super Scope；F8/F9 保存和读取即时存档。",
     "options_nes_note": "自动扩展 ROM 原生代码覆盖。每个游戏可选择 PAL/NTSC。NES 导出包含 F8/F9 即时存档和自动 Zapper 配置。",
     "options_sega_note": "由 Master System 和 Game Gear 配置共用。",
     "options_gb_note": "检查更多游戏中的 CPU 指令；原生代码发现方式不变。",

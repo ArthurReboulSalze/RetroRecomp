@@ -2,7 +2,7 @@
 
 The released SNES standard profile is qualified for ordinary LoROM/HiROM
 up to 4 MiB, PAL/NTSC, quick states, cartridge saves and Super Scope.
-Qualified DSP-1/CX4 boards are supported; CX4 device interpretation remains counted. [SNES development](SNES.md) defines
+Qualified DSP-1, CX4 and Super FX boards are supported; CX4 and Super FX (GSU) device interpretation remains counted. [SNES development](SNES.md) defines
 the current evidence and limits; dated sections below retain earlier stages.
 
 ## Release 0.25.0 qualification, 11 October 2026
