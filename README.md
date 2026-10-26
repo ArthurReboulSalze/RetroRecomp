@@ -66,23 +66,28 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 
 - **Play to improve.** A game that meets interpreter fallback saves small hints
   when it closes; the next conversion uses them.
-- **Shared knowledge.** Verified hints for **1,305 exact game identities** ship
-  with the converter, the whole convertible Neo Geo library among them; your
-  own discoveries stay in your local library.
+- **Shared knowledge.** A base of verified paths for **1,609 exact game
+  identities**, the whole convertible Neo Geo library among them, sits beside
+  the converter (`Retro-Recomp-base.zip`) and stays current through small
+  differences, without waiting for a release. Your own discoveries stay in
+  your local library.
 - **Knowledge files.** Export your discoveries, qualified hints and raw
   observations alike, as one ROM-free file, or import someone else's. Only
   numbers travel: addresses and positions in the ROM, never ROM bytes. Imported
   hints are always rechecked, and set aside if they make a conversion fail.
 - **The shared base and its leaderboard.** Sign in at
-  [retro-recomp.com](https://retro-recomp.com) with an e-mailed code. Before
-  each batch, the converter fetches the paths other players found for your
-  exact ROMs (checked again by every conversion; when they come from a scan at
-  least as long as yours, a quick check replaces discovery), and after it,
-  sends your new discoveries in the background. Both are options. A new path
-  earns points at once for its first finder; confirmed paths rise to Platinum
-  or Diamond and bring RR coins, which buy a title shown under your pseudonym.
-  Your portrait, points, coins and title sit in the converter's header. Every
-  upload is rechecked before it can help a future version.
+  [retro-recomp.com](https://retro-recomp.com) with an e-mailed code, or use
+  the base without an account. Before a batch (at most once a day), or with
+  **Knowledge › Sync with the shared base**, the converter brings its base up
+  to date with the paths other players found for your exact ROMs; a path is
+  qualified once another player's conversion has reached and confirmed it,
+  and every conversion checks it again. Signed in, your new discoveries leave
+  after each batch, or with the same Sync. A new path earns points at once for
+  its first finder; confirmed paths rise to Platinum or Diamond, and
+  conversions, deeper scans and useful problem reports bring RR coins. They
+  buy titles, name styles, badges, pins, frames and more in the shop, where a
+  fitting room tries them on your own portrait first. Your portrait, points,
+  coins and title sit in the converter's header.
 
 **Play**
 

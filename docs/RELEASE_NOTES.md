@@ -94,7 +94,9 @@
   points.
 - **On retro-recomp.com:** the site in the converter's eight languages, a
   leaderboard computed in the background every 15 minutes (pages never wait),
-  player cards, the shop page, and the rewards above.
+  player cards, and the rewards above. The shop page shows its items as
+  compact cards coloured by price, and a fitting room tries them on your own
+  portrait before you buy (a preview: nothing is bought or equipped).
 
 ---
 
