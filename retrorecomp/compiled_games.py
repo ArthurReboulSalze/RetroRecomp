@@ -67,6 +67,9 @@ class Game:
     favorite: bool = False
     # Sizes and dates of the files this row depends on (see watch_signature).
     watch: str = ''
+    # The deepest scan level a discovery of this export completed (report_level):
+    # standard, extended or thorough; '' until its report is read.
+    level: str = ''
 
     @property
     def key(self):
@@ -98,7 +101,7 @@ class Inventory:
                             and game.status in STATUSES and type(game.hints) is int and game.hints >= 0
                             and type(game.favorite) is bool
                             and all(isinstance(getattr(game,key),str) for key in
-                                    ('title','report','version','target','source','digest'))):
+                                    ('title','report','version','target','source','digest','level'))):
                         if previous is not None:
                             for field in ('executable', 'report', 'source'):
                                 setattr(game, field, _rebase(getattr(game, field), previous, self.base))
@@ -289,7 +292,22 @@ def game_from_report(path, folder=None, *, source=''):
                 str(data.get('version', '')), str(data.get('target') or
                     ('windows-x86_64' if name.lower().endswith('.exe') else '')),
                 source or str(data.get('source_rom','')),
-                status='fallback' if fallback else 'no_hints', tested_fallback=fallback)
+                status='fallback' if fallback else 'no_hints', tested_fallback=fallback,
+                level=report_level(data))
+
+
+LEVEL_STARS = {'standard': 1, 'extended': 2, 'thorough': 3}
+
+
+def report_level(report) -> str:
+    """The deepest scan level a conversion report's discovery completed:
+    'extended' or 'thorough' when it ran (or an upgraded export inherited it),
+    else 'standard'. A quick check from known or shared paths counts as
+    standard: it only rechecked paths found before."""
+    report = report if isinstance(report, dict) else {}
+    levels = [report.get('scan_level'), ((report.get('upgrade') or {}).get('discovery') or {}).get('scan_level')]
+    deepest = max((LEVEL_STARS.get(level, 1) for level in levels if isinstance(level, str)), default=1)
+    return {1: 'standard', 2: 'extended', 3: 'thorough'}[deepest]
 
 
 def watch_signature(game):
@@ -322,7 +340,8 @@ def refresh_changed(inventory, preferences=None, games=None, *, cancel=None, bud
     for game in (inventory.snapshot() if games is None else games):
         if cancel is not None and cancel.is_set() or deadline is not None and time.monotonic() > deadline:
             break
-        if watch_signature(game) == game.watch:
+        # A row saved before scan levels were shown is read once more for its level.
+        if watch_signature(game) == game.watch and (game.level or not game.report):
             continue
         try:
             inventory.remember(refresh(Game(**asdict(game)), preferences))
@@ -363,6 +382,8 @@ def _refresh(game, preferences=None, *, verify_binary=False):
                 report = candidate
         except (OSError, ValueError, TypeError):
             pass
+    if report:
+        game.level = report_level(report)
     receipt = report.get('export_receipt', {})
     expected = receipt.get('sha256', '')
     different = (game.size, game.modified) != (stat.st_size, stat.st_mtime_ns)

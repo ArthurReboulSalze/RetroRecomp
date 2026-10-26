@@ -694,6 +694,11 @@ class Application:
                                      if SENDING_AVAILABLE else '', item='portrait'))
         self.player_name = header.create_text(0, 10, text='', anchor='ne', fill=COLORS['text'],
                                               font=(self.ui_font, 10, 'bold'), tags='player')
+        # Right-click on the corner: the site's account page, the items, the pseudonym.
+        for tag in ('portrait', 'player', 'player_extra'):
+            header.tag_bind(tag, '<Button-3>', self.account_menu, add='+')
+        # A generated pseudonym (none chosen yet): a click on the name asks for one.
+        header.tag_bind('player', '<Button-1>', lambda event: self.pseudonym_clicked(), add='+')
         # The title chosen on the site, under the pseudonym.
         self.player_title = header.create_text(0, 24, text='', anchor='ne', fill=COLORS['gold'],
                                                font=(self.ui_font, 8), tags='player')
@@ -891,6 +896,7 @@ class Application:
         if self.discoveries_waiting:   # left waiting when the window last closed
             app.after(6000, self.send_new_discoveries)
         app.bind('<FocusIn>', lambda event: self.quiet_refresh_collection(every=20), add='+')
+        app.bind('<FocusIn>', lambda event: self.focus_player(), add='+')
         self.file_drop = None
         app.after_idle(self.enable_drops)
         app.after_idle(self.fit_minimum_width)
@@ -1005,9 +1011,28 @@ class Application:
             x, y = header.coords(self.player_name)
             draw_styled_text(header, x, y, name, (self.ui_font, 10, 'bold'), style, anchor='ne',
                              tags=('player_extra',))
+        # The badge shown (one; a first place's badge with its mark), left of the name.
+        badges = looks.get('badges') or []
+        name_box = header.bbox('player_extra') if name and name_colours(style, 1) else header.bbox(self.player_name)
+        badge_left = None
+        if badges and name and name_box:
+            font = (self.ui_font, 7, 'bold')
+            width = badges_width(header, badges[:1], font)
+            badge_left = name_box[0] - 6 - width
+            middle = (name_box[1] + name_box[3]) / 2
+            draw_badges(header, badge_left, middle, badges[:1], font, tags=('player_extra', 'player_badge'))
+            if badges[0].get('id') in online.top_badges((self.player or {}).get('profile')):
+                _rounded(header, badge_left - 1, middle - BADGE_HEIGHT / 2 - 1, badge_left + width + 1,
+                         middle + BADGE_HEIGHT / 2 + 1, 5, fill='', outline=COLORS['gold'], width=1,
+                         tags=('player_extra', 'player_badge'))
+                header.create_text(badge_left + width + 1, middle - BADGE_HEIGHT / 2 - 1, text='1',
+                                   fill=COLORS['gold_hover'], font=(self.ui_font, 6, 'bold'), anchor='center',
+                                   tags=('player_extra', 'player_badge'))
         pin = looks.get('pin')
         if pin and name and box:
-            draw_pin(header, box[0] - 4 - PIN_SIZE, (box[1] + box[3]) // 2 - PIN_SIZE // 2, pin,
+            # Beside the title; beside the name without one, left of the badge.
+            right = badge_left if badge_left is not None and target == self.player_name else box[0]
+            draw_pin(header, right - 4 - PIN_SIZE, (box[1] + box[3]) // 2 - PIN_SIZE // 2, pin,
                      tags=('player_extra',))
 
 
@@ -2651,6 +2676,10 @@ class Application:
                           command=self.open_account_shop)
         shop.pack(side='left', padx=(12, 0))
         self.hint(shop, 'tip_account_shop')
+        items = ttk.Button(self.account_rewards, text=self.tr('account_items_site'),
+                           command=self.open_account_items)
+        items.pack(side='left', padx=(8, 0))
+        self.hint(items, 'tip_account_items')
         # Signed in: the shared base before and after each batch.
         self.account_sync = ttk.Frame(page)
         for key, variable in (('use_shared_base', self.use_shared_base), ('send_after_batch', self.send_after_batch)):
@@ -3264,7 +3293,8 @@ class Application:
         known = {'invalid_code': 'online_invalid_code', 'invalid_email': 'online_invalid_email',
                  'rate_limited': 'online_rate_limited', 'quota': 'online_rate_limited',
                  'terms_required': 'online_terms_needed', 'too_large': 'online_report_too_large',
-                 'invalid_report': 'online_report_invalid', 'unauthorized': 'online_signed_out'}
+                 'invalid_report': 'online_report_invalid', 'unauthorized': 'online_signed_out',
+                 'pseudonym_taken': 'online_pseudonym_taken', 'invalid_pseudonym': 'online_pseudonym_invalid'}
         reason = getattr(error, 'reason', '') or type(error).__name__
         return self.tr(known[reason]) if reason in known else self.tr('online_refused', reason=reason)
 
@@ -3613,6 +3643,8 @@ class Application:
             text = self.tr('auto_send_done', games=summary['games'])
             if claims.get('new'):
                 text += ' ' + self.tr('knowledge_send_new', count=claims['new'])
+            if claims.get('converted'):
+                text += ' ' + self.tr('knowledge_send_converted', count=claims['converted'])
             self.messages.put(('log', text))
         if (summary or {}).get('claims_refused'):
             self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
@@ -3632,15 +3664,60 @@ class Application:
     def count_text(self, value):
         return compact_number(value, self.language)
 
+    def open_site_page(self, page):
+        """A page of the site in the web browser; coming back to the window
+        then reads the account again soon (focus_player)."""
+        if SENDING_AVAILABLE:
+            self.site_opened = time.monotonic()
+            webbrowser.open_new_tab(online.service_url() + page)
+
     def open_account_site(self):
         """The player's account page on the site, in the web browser."""
-        if SENDING_AVAILABLE:
-            webbrowser.open_new_tab(online.service_url() + '/account')
+        self.open_site_page('/account')
 
     def open_account_shop(self):
         """The shop section of the account page (its anchor on the site)."""
-        if SENDING_AVAILABLE:
-            webbrowser.open_new_tab(online.service_url() + '/account#shop')
+        self.open_site_page('/account#shop')
+
+    def open_account_items(self):
+        """"Manage my items": the account page's My items (buy, equip, remove)."""
+        self.open_site_page('/account#items')
+
+    def account_menu(self, event):
+        """Right-click on the account corner: the site's pages and the pseudonym."""
+        if not SENDING_AVAILABLE or not online.account():
+            return
+        menu = tk.Menu(self.app, tearoff=False, bg=COLORS['button'], fg=COLORS['text'],
+                       activebackground=COLORS['selected'], activeforeground=COLORS['gold_hover'])
+        menu.add_command(label=self.tr('account_items_site'), command=self.open_account_items)
+        menu.add_command(label=self.tr('account_open_site'), command=self.open_account_site)
+        menu.add_command(label=self.tr('account_pseudonym_change'), command=self.pseudonym_dialog,
+                         state='disabled' if self.busy or self.updating else 'normal')
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def pseudonym_clicked(self):
+        """The name in the header: while the pseudonym is a generated one, choose one."""
+        profile = (self.player or {}).get('profile') or {}
+        if SENDING_AVAILABLE and online.account() and not online.pseudonym_chosen(profile) and not (self.busy or self.updating):
+            self.pseudonym_dialog()
+
+    def focus_player(self):
+        """The window is in front again: the player's corner is read again when
+        its last reading is PLAYER_REFRESH old, or 15 s after a page of the site
+        was opened from here (a purchase, an item equipped, a new portrait);
+        never more often, and never two readings at once."""
+        if not SENDING_AVAILABLE or getattr(self, 'player_refreshing', False) or not online.account():
+            return
+        now = time.monotonic()
+        last = getattr(self, 'player_checked', None)
+        if last is None:
+            return   # the start-up reading has not run yet
+        wait = 15 if getattr(self, 'site_opened', -1.0) > last else online.PLAYER_REFRESH
+        if now - last >= wait:
+            self.refresh_player(force=True)
 
     def portrait_clicked(self):
         """Signed in: the account page on the site; signed out: the sign-in."""
@@ -3669,6 +3746,8 @@ class Application:
         cached = online.cached_player()
         if cached:
             self.render_player(cached)
+        self.player_checked = time.monotonic()
+        self.player_refreshing = True
         def worker():
             try:
                 data = online.player(force=force) or {'account': online.account()}
@@ -3676,6 +3755,8 @@ class Application:
                 if cached:
                     return   # offline: the last known corner stays as it is
                 data = {'account': online.account(), 'error': self.online_message(error)}
+            finally:
+                self.player_refreshing = False
             self.messages.put(('player', data))
         threading.Thread(target=worker, daemon=True).start()
 
@@ -3747,6 +3828,8 @@ class Application:
             score += ' · ' + self.tr('account_coins', coins=self.count_text(coins))
         if you.get('pending'):
             score += '\n' + self.tr('account_pending', count=self.count_text(you['pending']))
+        if not online.pseudonym_chosen(profile) and not player.get('error'):
+            score += '\n' + self.tr('account_pseudonym_hint')
         header.itemconfigure(self.player_score, text=score)
         self.board_button.configure(state='normal')
         self.sign_in_button.configure(text=self.tr('account_sign_out'), state='normal')
@@ -4407,6 +4490,12 @@ class Application:
                               font=(self.ui_font, 9))
         code = tk.StringVar()
         code_field = ttk.Entry(body, textvariable=code, width=12)
+        # With the code: the pseudonym of a new account (or of one without any), proposed and editable.
+        pseudonym_label = tk.Label(body, text=self.tr('signin_pseudonym'), bg=background, fg=COLORS['muted'],
+                                   font=(self.ui_font, 9))
+        pseudonym = tk.StringVar(value=online.suggested_pseudonym())
+        pseudonym_field = ttk.Entry(body, textvariable=pseudonym, width=26)
+        self.hint(pseudonym_field, 'tip_signin_pseudonym')
         message = tk.StringVar()
         tk.Label(body, textvariable=message, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
                  wraplength=400, justify='left').grid(row=7, column=0, columnspan=2, sticky='w', pady=(10, 0))
@@ -4436,8 +4525,10 @@ class Application:
         def code_sent(_):
             state['stage'] = 'code'
             message.set(self.tr('signin_code_sent', email=email.get().strip()))
-            code_label.grid(row=5, column=0, columnspan=2, sticky='w', pady=(10, 0))
+            code_label.grid(row=5, column=0, sticky='w', pady=(10, 0))
             code_field.grid(row=6, column=0, sticky='w', pady=(2, 0))
+            pseudonym_label.grid(row=5, column=1, sticky='w', padx=(16, 0), pady=(10, 0))
+            pseudonym_field.grid(row=6, column=1, sticky='w', padx=(16, 0), pady=(2, 0))
             go.configure(text=self.tr('signin_submit'))
             code_field.focus_set()
         def signed_in(data):
@@ -4445,6 +4536,9 @@ class Application:
             self.messages.put(('log', self.tr('signin_done', email=data['email'])))
             window.destroy()
             self.refresh_player(force=True)
+            # No pseudonym given and none on the account: it was generated; ask once now.
+            if data.get('pseudonym_chosen') is False:
+                self.app.after_idle(self.pseudonym_dialog)
         def submit():
             address = email.get().strip()
             if state['stage'] == 'email' or not code.get().strip():
@@ -4454,7 +4548,12 @@ class Application:
                 run(lambda:online.request_code(address, self.language), code_sent)
             else:
                 from .platforms import target_id
-                run(lambda:online.sign_in(address, code.get().strip(), f'Retro-Recomp {__version__} ({target_id()})'),
+                name = ' '.join(pseudonym.get().split())
+                if name and not online.valid_pseudonym(name):
+                    message.set(self.tr('online_pseudonym_invalid'))
+                    return
+                run(lambda:online.sign_in(address, code.get().strip(), f'Retro-Recomp {__version__} ({target_id()})',
+                                          pseudonym=name or None),
                     signed_in)
         go.configure(command=submit)
         window.bind('<Escape>', lambda event:window.destroy())
@@ -4468,6 +4567,84 @@ class Application:
         email_field.focus_set()
         self.app.wait_window(window)
         return state['signed']
+
+    def pseudonym_dialog(self):
+        """Choose the public pseudonym (PATCH account): proposed with the
+        current one; while it is a generated one, keeping it also counts as a
+        choice. True once saved."""
+        current = online.account()
+        if not SENDING_AVAILABLE or not current:
+            return False
+        profile = (self.player or {}).get('profile') or {}
+        name_now = str(profile.get('pseudonym') or current.get('pseudonym') or '')
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.resizable(False, False)
+        window.transient(self.app)
+        body = tk.Frame(window, bg=background, padx=22, pady=18,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('pseudonym_title').upper(), bg=background, fg=COLORS['gold'],
+                 font=(self.ui_font, 9, 'bold')).pack(anchor='w')
+        generated = not online.pseudonym_chosen(profile)
+        tk.Label(body, text=self.tr('pseudonym_intro_generated' if generated else 'pseudonym_intro', name=name_now),
+                 bg=background, fg=COLORS['text'], font=(self.ui_font, 9), wraplength=400,
+                 justify='left').pack(anchor='w', pady=(8, 10))
+        name = tk.StringVar(value=name_now)
+        field = ttk.Entry(body, textvariable=name, width=36)
+        field.pack(anchor='w')
+        tk.Label(body, text=self.tr('pseudonym_rules'), bg=background, fg=COLORS['muted'], font=(self.ui_font, 8),
+                 wraplength=400, justify='left').pack(anchor='w', pady=(4, 0))
+        message = tk.StringVar()
+        tk.Label(body, textvariable=message, bg=background, fg=COLORS['muted'], font=(self.ui_font, 9),
+                 wraplength=400, justify='left').pack(anchor='w', pady=(8, 0))
+        buttons = tk.Frame(body, bg=background)
+        buttons.pack(anchor='e', pady=(12, 0))
+        ttk.Button(buttons, text=self.tr('knowledge_cancel'), command=window.destroy).pack(side='right')
+        go = ttk.Button(buttons, text=self.tr('pseudonym_save'), style='Primary.TButton')
+        go.pack(side='right', padx=(0, 8))
+        state = {'saved': False}
+        def save():
+            chosen = ' '.join(name.get().split())
+            if not online.valid_pseudonym(chosen):
+                message.set(self.tr('online_pseudonym_invalid'))
+                return
+            go.state(['disabled'])
+            answer = {}
+            def worker():
+                try:answer['value'] = online.set_pseudonym(chosen)
+                except Exception as error:answer['error'] = error
+            threading.Thread(target=worker, daemon=True).start()
+            def wait():
+                if not window.winfo_exists():return
+                if not answer:
+                    window.after(100, wait)
+                    return
+                go.state(['!disabled'])
+                if 'error' in answer:
+                    message.set(self.online_message(answer['error']))
+                    return
+                state['saved'] = True
+                self.messages.put(('log', self.tr('pseudonym_saved', name=chosen)))
+                window.destroy()
+                self.refresh_player(force=True)
+            wait()
+        go.configure(command=save)
+        window.bind('<Escape>', lambda event:window.destroy())
+        window.bind('<Return>', lambda event:go.invoke())
+        window.update_idletasks()
+        x = self.app.winfo_rootx() + (self.app.winfo_width() - window.winfo_reqwidth()) // 2
+        y = self.app.winfo_rooty() + (self.app.winfo_height() - window.winfo_reqheight()) // 3
+        window.geometry(f'+{max(0, x)}+{max(0, y)}')
+        window.deiconify()
+        window.grab_set()
+        field.focus_set()
+        field.select_range(0, 'end')
+        self.app.wait_window(window)
+        return state['saved']
 
     def import_knowledge(self):
         """Check the chosen file first; import only unknown discoveries."""
@@ -4683,6 +4860,8 @@ class Application:
                 text = self.tr('knowledge_send_done', games=summary['games'], kib=summary.get('bytes', 0) / 1024)
                 if (summary.get('claims') or {}).get('new'):
                     text += ' ' + self.tr('knowledge_send_new', count=summary['claims']['new'])
+                if (summary.get('claims') or {}).get('converted'):
+                    text += ' ' + self.tr('knowledge_send_converted', count=summary['claims']['converted'])
                 if summary.get('claims'):
                     self.refresh_player(force=True)
                 if summary.get('claims_refused'):
@@ -4754,7 +4933,25 @@ class Application:
             self.compiled_inventory.remember(refresh(game,preferences))
             self.compiled_inventory.save()
             self.messages.put(('collection_changed',))
+            self.note_conversion(result, game)
         except (OSError,ValueError,TypeError,KeyError):pass
+
+    def note_conversion(self, result, game):
+        """A game converted successfully while signed in: the next send tells
+        the service (the gift for a game the base already knew, the depth
+        coins; online.note_conversion). Skipped games are not conversions."""
+        if result.get('status') != 'success' or not SENDING_AVAILABLE:
+            return
+        try:
+            online.note_conversion(game.system, game.identity)
+        except Exception:
+            pass
+
+    def go_deeper(self, games, level):
+        """Compiled Games' "Go further": convert again with a discovery at the
+        Extended or Thorough level (a full discovery, not a quick check)."""
+        self.reconvert_level = level
+        self.reconvert_games(games)
 
     def reconvert_games(self, games):
         if self.busy or self.updating or not games:return
@@ -4831,6 +5028,11 @@ class Application:
         # Always rebuild, but only the player shell when nothing else changed.
         options['force'] = True
         options['rediscover'] = False
+        # "Go further": a discovery at the chosen level, whatever the console's setting.
+        level, self.reconvert_level = getattr(self, 'reconvert_level', None), None
+        if level:
+            options['scan_level'] = level
+            options['rediscover'] = True
         jobs = self.jobs.get()
         self.busy = True
         self.cancel.clear()
@@ -4879,6 +5081,7 @@ class Application:
                 if result['status'] in ('success','current'):
                     game = game_from_report(Path(result['report']),target.parent,source=str(source))
                     self.compiled_inventory.remember(refresh(game,{}))
+                    self.note_conversion(result, game)
                 return result
             def guarded(pair):
                 game,_=pair

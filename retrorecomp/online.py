@@ -27,6 +27,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+import threading
 import urllib.error
 import urllib.request
 
@@ -277,11 +278,14 @@ def board(period: str = 'all') -> dict:
 
 # The header's player corner is kept locally: opening the converter shows the
 # last portrait and score without a request. Profile and score are refreshed
-# at most every PLAYER_REFRESH seconds (or after a sign-in); the portrait is
-# downloaded again only when its public file name changes on the site.
+# when the converter starts or its window comes back to the front, at most
+# every PLAYER_REFRESH seconds (and at once after a sign-in or a send), so a
+# purchase, an equipped item or a portrait changed on the site shows within
+# minutes for two small requests (GET account and the cached GET board). The
+# portrait is downloaded again only when its public file name changes.
 PLAYER_NAME = 'account-player.json'
 AVATAR_NAME = 'account-avatar.webp'
-PLAYER_REFRESH = 30 * 60
+PLAYER_REFRESH = 2 * 60
 
 
 def _player_path() -> Path:
@@ -347,9 +351,9 @@ def player(force: bool = False, now: float | None = None) -> dict | None:
     record = {'service': current['service'], 'email': current.get('email'), 'fetched': now,
               'profile': details, 'board': {'you': you}, 'avatar_url': url if picture else None}
     _write_bytes(_player_path(), json.dumps(record, indent=1, sort_keys=True).encode('utf-8'))
-    # The shop's catalog follows the player (at most every PLAYER_REFRESH too);
-    # the equipped frame's image is downloaded once.
-    catalog = shop(force=force, now=now)
+    # The shop's catalog follows the player (at most every SHOP_REFRESH); the
+    # equipped frame's image is downloaded once.
+    catalog = shop(now=now)
     frame = frame_picture(looks(catalog, equipped(details))['frame'])
     return {'account': current, 'profile': details, 'board': {'you': you}, 'avatar': picture, 'fetched': now,
             'shop': catalog, 'frame': frame}
@@ -367,6 +371,8 @@ FRAME_LIMIT = 1024 * 1024
 FRAME_TYPES = {'image/webp': '.webp', 'image/png': '.png'}
 SHOP_SLOTS = ('title', 'name_style', 'background', 'hover', 'header_theme', 'pin', 'frame')
 SHOP_BADGES = 3
+# The catalog changes only with the site's releases: kept half an hour.
+SHOP_REFRESH = 30 * 60
 _MEDIA_PATH = re.compile(r'/[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*')
 
 
@@ -402,7 +408,7 @@ def cached_shop() -> dict:
 
 
 def shop(force: bool = False, now: float | None = None) -> dict:
-    """The shop's catalog {id: item}: the cached one within PLAYER_REFRESH,
+    """The shop's catalog {id: item}: the cached one within SHOP_REFRESH,
     else `GET shop` (public, no token). A server without the shop leaves an
     empty catalog until the next refresh; offline, the last one stays."""
     import time
@@ -412,7 +418,7 @@ def shop(force: bool = False, now: float | None = None) -> dict:
         fetched = float(record.get('fetched') or 0) if record else 0.0
     except (TypeError, ValueError):
         fetched = 0.0
-    if record and not force and 0 <= now - fetched < PLAYER_REFRESH:
+    if record and not force and 0 <= now - fetched < SHOP_REFRESH:
         return _catalog(record.get('items'))
     try:
         items = _call('GET', 'shop', timeout=10)[1].get('items')
@@ -432,6 +438,64 @@ def shop(force: bool = False, now: float | None = None) -> dict:
     return catalog
 
 
+# The games someone already completed at the Thorough level (GET explored, a
+# small public answer the server reads from its all-time board cache), for
+# Compiled Games' "Games to explore" filter: kept SHOP_REFRESH, then asked
+# again when the filter is used. The first player to complete a game at the
+# Thorough level earns the explorer coins (`explorer`).
+EXPLORED_NAME = 'shared-explored.json'
+EXPLORED_LIMIT = 4 * 1024 * 1024
+
+
+def _explored_view(record) -> dict:
+    record = record if isinstance(record, dict) else {}
+    games = record.get('games') if isinstance(record.get('games'), dict) else {}
+    depth = record.get('depth') if isinstance(record.get('depth'), dict) else {}
+    explorer = record.get('explorer')
+    return {'games': {key: (value.get('by') if isinstance(value, dict) and isinstance(value.get('by'), str) else None)
+                      for key, value in games.items() if isinstance(key, str) and _ROM_KEY.fullmatch(key)},
+            'explorer': explorer if type(explorer) is int else None,
+            'depth': {level: value for level, value in depth.items() if level in ('extended', 'thorough') and type(value) is int},
+            'fetched': record.get('fetched', 0)}
+
+
+def explored(force: bool = False, now: float | None = None) -> dict:
+    """{'games': {'sms:<identity>': first explorer's name or None}, 'explorer':
+    coins or None, 'depth': {'extended', 'thorough'}}: cached SHOP_REFRESH;
+    offline, the last answer; a server without it, nothing explored."""
+    import time
+    now = time.time() if now is None else now
+    path = _account_path().with_name(EXPLORED_NAME)
+    try:
+        record = json.loads(path.read_text(encoding='utf-8'))
+        record = record if isinstance(record, dict) and record.get('service') == service_url() else None
+    except (OSError, ValueError):
+        record = None
+    try:
+        fetched = float(record.get('fetched') or 0) if record else 0.0
+    except (TypeError, ValueError):
+        fetched = 0.0
+    if record and not force and 0 <= now - fetched < SHOP_REFRESH:
+        return _explored_view(record)
+    try:
+        answer = _call('GET', 'explored', timeout=10, limit=EXPLORED_LIMIT, compressed=True)[1]
+    except ServiceConnectionError:
+        return _explored_view(record)
+    except ServiceError as error:
+        if error.reason == 'unavailable':
+            return _explored_view(None)
+        answer = {}
+    view = _explored_view(answer)
+    # Stored in the server's shape, read back by _explored_view.
+    record = {'games': {key: {'by': name} for key, name in view['games'].items()}, 'explorer': view['explorer'],
+              'depth': view['depth'], 'service': service_url(), 'fetched': now}
+    try:
+        _write_bytes(path, json.dumps(record, sort_keys=True).encode('utf-8'))
+    except OSError:
+        pass
+    return _explored_view(record)
+
+
 def equipped(profile) -> dict:
     """The equipped ids of an account view or a board entry: one id (or None)
     per slot and up to SHOP_BADGES `badges`."""
@@ -441,6 +505,20 @@ def equipped(profile) -> dict:
     badges = source.get('badges')
     view['badges'] = [value for value in badges if isinstance(value, str)][:SHOP_BADGES] if isinstance(badges, list) else []
     return view
+
+
+def top_badges(profile) -> list:
+    """The badges of the consoles where the player is first on the all-time
+    board (`top_badges` since 26 October 2026; absent before): a first-place badge is
+    drawn with its mark."""
+    values = profile.get('top_badges') if isinstance(profile, dict) else None
+    return [value for value in values if isinstance(value, str)] if isinstance(values, list) else []
+
+
+def pseudonym_chosen(profile) -> bool:
+    """False while the account shows a pseudonym the server generated (the
+    player is asked to choose one); true for older servers that do not say."""
+    return not (isinstance(profile, dict) and profile.get('pseudonym_chosen') is False)
 
 
 def owned(profile) -> list:
@@ -556,16 +634,57 @@ def request_code(email: str, language: str = 'en') -> None:
     _call('POST', 'auth/code', payload={'email': email, 'language': language, 'accept_terms': True})
 
 
-def sign_in(email: str, code: str, label: str = '') -> dict:
-    """Trade the e-mailed code for this converter's token, remembered locally."""
-    answer = _call('POST', 'auth/token', payload={'email': email, 'code': code, 'label': label[:64]})[1]
+def sign_in(email: str, code: str, label: str = '', pseudonym: str | None = None) -> dict:
+    """Trade the e-mailed code for this converter's token, remembered locally.
+    With `pseudonym`, an account that has none yet (or only a generated one)
+    takes it; a taken one raises ServiceError 409 'pseudonym_taken', the code
+    still unspent. Without one, the server generates one (since 26 October 2026)."""
+    payload = {'email': email, 'code': code, 'label': label[:64]}
+    if pseudonym and pseudonym.strip():
+        payload['pseudonym'] = pseudonym.strip()[:PSEUDONYM_LIMIT]
+    answer = _call('POST', 'auth/token', payload=payload)[1]
     token, details = answer.get('token'), answer.get('account')
     if not isinstance(token, str) or not token.startswith('rr1_') or not isinstance(details, dict):
         raise ServiceError(200, 'bad_answer')
     data = {'service': service_url(), 'token': token, 'email': str(details.get('email') or email),
-            'pseudonym': details.get('pseudonym') if isinstance(details.get('pseudonym'), str) else None}
+            'pseudonym': details.get('pseudonym') if isinstance(details.get('pseudonym'), str) else None,
+            'pseudonym_chosen': pseudonym_chosen(details)}
     _save_account(data)
     return data
+
+
+PSEUDONYM_LIMIT = 32
+_PSEUDONYM = re.compile(r'[^\W_][\w .\-]{1,30}[^\W_]')
+
+
+def suggested_pseudonym() -> str:
+    """A pseudonym to propose: "RetroPlayer_" and four random digits (nothing
+    about the computer or its user)."""
+    import secrets
+    return f'RetroPlayer_{secrets.randbelow(10000):04d}'
+
+
+def valid_pseudonym(name: str) -> bool:
+    """The server's rule: 3 to 32 letters, digits, spaces, '.', '_' or '-',
+    starting and ending with a letter or a digit."""
+    return bool(_PSEUDONYM.fullmatch(' '.join(str(name).split())))
+
+
+def set_pseudonym(name: str) -> dict:
+    """PATCH account {pseudonym}: the account view; ServiceError 400
+    'invalid_pseudonym' or 409 'pseudonym_taken'."""
+    current = account()
+    if not current:
+        raise ServiceError(401, 'unauthorized')
+    try:
+        details = _call('PATCH', 'account', payload={'pseudonym': ' '.join(str(name).split())}, token=current['token'])[1]
+    except ServiceError as error:
+        if error.status == 401:
+            _save_account(None)
+        raise
+    if isinstance(details.get('pseudonym'), str):
+        _save_account({**current, 'pseudonym': details['pseudonym'], 'pseudonym_chosen': pseudonym_chosen(details)})
+    return details
 
 
 def sign_out() -> None:
@@ -581,9 +700,116 @@ def sign_out() -> None:
 
 def pending(collected: dict) -> dict:
     """`collected` restricted to the games whose discoveries changed since
-    they were last sent with an account."""
+    they were last sent with an account, plus the games this account
+    converted successfully that the service has not heard of yet
+    (`note_conversion`), even without anything new: they travel as records
+    without hints, at most CONVERTED_PER_SEND per send, and their claims say
+    `converted` (the gift for a game the base already knew, the depth coins)."""
     from .knowledge_exchange import pending_since_shared
-    return _restrict(collected, set(pending_since_shared('account', collected)))
+    keys = set(pending_since_shared('account', collected))
+    return _with_conversions(_restrict(collected, keys), collected)
+
+
+# --- Conversions: the games this account converted, for the conversion rewards
+#
+# Since 1.5.2 a game the bundled snapshot knows is rebuilt from its paths and
+# brings nothing new: without a note, the service never hears of it. Each
+# successful conversion made while signed in is noted here (`note_conversion`,
+# called by the interface once a game is converted); the next send carries the
+# noted games (a record without hints when nothing is new) and claims them as
+# `converted` with their scan level. The service pays once the upload is
+# checked, once per account and game (web/lib/rewards.php). A note leaves the
+# queue once a file holding the game was accepted.
+CONVERTED_NAME = 'account-converted.json'
+CONVERTED_KEPT = 4096
+CONVERTED_PER_SEND = 50
+_CONVERTED_LOCK = threading.Lock()
+
+
+def _converted_path() -> Path:
+    return _account_path().with_name(CONVERTED_NAME)
+
+
+def _converted_queue(current: dict | None = None) -> list:
+    """The noted games ('system:identity') of the signed-in account, oldest first."""
+    current = current or account()
+    if not current:
+        return []
+    try:
+        data = json.loads(_converted_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if (not isinstance(data, dict) or data.get('service') != current['service']
+            or data.get('email') != current.get('email') or not isinstance(data.get('games'), list)):
+        return []
+    return [key for key in data['games'] if isinstance(key, str) and _ROM_KEY.fullmatch(key)]
+
+
+def _save_converted(current: dict, games: list) -> None:
+    record = {'service': current['service'], 'email': current.get('email'), 'games': games[-CONVERTED_KEPT:]}
+    _write_bytes(_converted_path(), json.dumps(record, indent=1).encode('utf-8'))
+
+
+def note_conversion(system: str, identity: str) -> bool:
+    """Remember that this account converted this exact game successfully;
+    nothing without an account or for a console the service does not take.
+    Safe from several conversion threads at once. True when noted."""
+    key = f'{system}:{identity}'
+    current = account() if sending_available() else None
+    if not current or not _ROM_KEY.fullmatch(key):
+        return False
+    with _CONVERTED_LOCK:
+        games = [value for value in _converted_queue(current) if value != key]
+        try:
+            _save_converted(current, [*games, key])
+        except OSError:
+            return False
+    return True
+
+
+def noted_conversions() -> list:
+    """The games noted and not sent yet."""
+    return _converted_queue()
+
+
+def _forget_conversions(current: dict, keys) -> None:
+    keys = set(keys)
+    if not keys:
+        return
+    with _CONVERTED_LOCK:
+        try:
+            _save_converted(current, [key for key in _converted_queue(current) if key not in keys])
+        except OSError:
+            pass
+
+
+def _with_conversions(restricted: dict, collected: dict) -> dict:
+    """`restricted` plus the noted games: those already in it are flagged
+    converted; the others, when `collected['converted']` knows them (a
+    qualified conversion with nothing new), join as records without hints."""
+    noted = _converted_queue()
+    if not noted:
+        return restricted
+    present = {f'{system}:{identity}' for system, records in restricted['payload'].get('consoles', {}).items()
+               for identity in records}
+    known = {f'{system}:{identity}': value for system, games in (collected.get('converted') or {}).items()
+             for identity, value in games.items()}
+    flagged = [key for key in noted if key in present]
+    added = [key for key in noted if key not in present and key in known][:CONVERTED_PER_SEND]
+    if not flagged and not added:
+        return restricted
+    consoles = {system: dict(records) for system, records in restricted['payload'].get('consoles', {}).items()}
+    titles = {system: dict(names) for system, names in restricted.get('titles', {}).items()}
+    levels = {system: dict(values) for system, values in restricted.get('levels', {}).items()}
+    for key in added:
+        system, identity = key.split(':', 1)
+        value = known[key]
+        consoles.setdefault(system, {})[identity] = {'engine': value['engine'], 'rom_bytes': value['rom_bytes']}
+        titles.setdefault(system, {})[identity] = str(value.get('title') or identity[:12])
+        levels.setdefault(system, {})[identity] = value.get('level') or 'standard'
+    sharing = {system: len(names) for system, names in sorted(titles.items())}
+    return {**restricted, 'payload': {'schema': 1, 'consoles': consoles}, 'titles': titles, 'levels': levels,
+            'games': sum(sharing.values()), 'consoles': sharing, 'converted_keys': sorted({*flagged, *added})}
 
 
 def _restrict(collected: dict, keys: set) -> dict:
@@ -702,12 +928,15 @@ def _send_one(collected: dict, current: dict) -> dict:
             _save_account(None)   # revoked or deleted elsewhere: sign in again
         raise
     mark_shared('account', collected)
+    converted = set(collected.get('converted_keys') or ()) & {
+        f'{system}:{identity}' for system, records in collected['payload'].get('consoles', {}).items() for identity in records}
+    _forget_conversions(current, converted)
     # The scan level of each qualified game rides beside the file (which
     # keeps its format), in the claims; losing it only costs the scan bonus.
     levels = {f'{system}:{identity}': level for system, values in collected.get('levels', {}).items()
               for identity, level in values.items()}
     contribution, claimed, refused = answer.get('id'), None, None
-    games = claim_games(paths, levels)
+    games = claim_games(paths, levels, converted)
     # 201: a new file; 200: this account's earlier copy, whose claims are idempotent.
     if isinstance(contribution, int) and code in (200, 201) and games:
         claimed, refused = _deliver_claims(contribution, games, levels if code == 201 else {}, current)
@@ -718,15 +947,24 @@ def _send_one(collected: dict, current: dict) -> dict:
 
 # --- Claims: the paths each accepted file brings, for immediate points -----
 
-def claim_games(paths: dict, levels: dict) -> list:
+def claim_games(paths: dict, levels: dict, converted=()) -> list:
     """The claims body's games, from `discovery_paths` of the uploaded file.
     A game without a qualified conversion (raw observations only) counts at
-    the standard level, as before scan levels were sent."""
-    return [{'system': system, 'identity': identity, 'known': bool(value['known']),
-             'level': levels.get(f'{system}:{identity}', 'standard'),
-             'hints': list(value['hints']), 'observations': list(value['observations'])}
-            for (system, identity), value in sorted(paths.items())
-            if value['hints'] or value['observations']]
+    the standard level, as before scan levels were sent. The games of
+    `converted` ('system:identity') say so, with or without paths."""
+    converted = set(converted)
+    games = []
+    for (system, identity), value in sorted(paths.items()):
+        done = f'{system}:{identity}' in converted
+        if not (value['hints'] or value['observations'] or done):
+            continue
+        game = {'system': system, 'identity': identity, 'known': bool(value['known']),
+                'level': levels.get(f'{system}:{identity}', 'standard'),
+                'hints': list(value['hints']), 'observations': list(value['observations'])}
+        if done:
+            game['converted'] = True
+        games.append(game)
+    return games
 
 
 def _claim_parts(games: list):
@@ -751,7 +989,7 @@ def claims(contribution: int, games: list) -> dict:
     current = account()
     if not current:
         raise ServiceError(401, 'unauthorized')
-    total = {'games': 0, 'paths': 0, 'new': 0}
+    total = {'games': 0, 'paths': 0, 'new': 0, 'converted': 0}
     for part in _claim_parts(games):
         try:
             answer = _call('POST', f'contributions/{int(contribution)}/claims', token=current['token'],
@@ -763,6 +1001,8 @@ def claims(contribution: int, games: list) -> dict:
         for name in total:
             value = answer.get(name)
             total[name] += value if type(value) is int and value >= 0 else 0
+    if not total['converted']:
+        del total['converted']   # a server before 26 October 2026, or no game noted
     return total
 
 
@@ -874,7 +1114,8 @@ def _claims_total(answers) -> dict | None:
     answered = [answer for answer in answers if answer]
     if not answered:
         return None
-    return {name: sum(answer.get(name, 0) for answer in answered) for name in ('games', 'paths', 'new')}
+    names = ('games', 'paths', 'new', *(('converted',) if any(answer.get('converted') for answer in answered) else ()))
+    return {name: sum(answer.get(name, 0) for answer in answered) for name in names}
 
 
 # --- Shared-base sync: the paths other players found, before a batch -------

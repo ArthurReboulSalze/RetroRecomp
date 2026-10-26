@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from .branding import COLORS
-from .compiled_games import Game, default_roots, scan, refresh
+from .compiled_games import LEVEL_STARS, Game, default_roots, scan, refresh
 from .paths import APP_NAME
 from .platforms import open_local, target_id
 from .systems import available_profiles, get_profile
@@ -19,6 +19,17 @@ PROFILES = available_profiles()
 import subprocess
 
 ATTENTION = {'new_hints', 'fallback', 'changed', 'unreadable'}
+# The consoles whose games the online service takes (conversion rewards).
+SHARED_CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes')
+# The states filter: its last entry lists the games nobody finished at the Thorough level yet.
+STATES = ('all_games', 'needs_attention', 'with_hints', 'missing_games', 'games_to_explore')
+EXPLORE = STATES.index('games_to_explore')
+
+
+def stars(level):
+    """Three small stars, lit for Standard, Extended and Thorough ('' while unknown)."""
+    lit = LEVEL_STARS.get(level, 0)
+    return '★' * lit + '☆' * (3 - lit) if lit else ''
 
 
 class CompiledGamesView(ttk.Frame):
@@ -64,7 +75,7 @@ class CompiledGamesView(ttk.Frame):
         self.search_after = None
         self.search.trace_add('write',self.search_changed)
         self.consoles.bind('<<ComboboxSelected>>',lambda e:self.render())
-        self.states.bind('<<ComboboxSelected>>',lambda e:self.render())
+        self.states.bind('<<ComboboxSelected>>',lambda e:self.states_changed())
         panes = ttk.Panedwindow(self,orient='horizontal')
         panes.pack(fill='both',expand=True)
         frame = ttk.Frame(panes)
@@ -73,9 +84,11 @@ class CompiledGamesView(ttk.Frame):
         self.card = GameCardView(panes,owner)
         panes.add(self.card,weight=1)
         self.after_idle(lambda:panes.sashpos(0,max(460,self.winfo_width()-340)))
-        self.columns = ('favorite','title','system','version','hints','status')
+        self.columns = ('favorite','title','system','level','version','hints','status')
+        # The games someone already finished at the Thorough level (online.explored), once asked.
+        self.explored = None
         self.table = ttk.Treeview(frame,columns=self.columns,show='headings',selectmode='extended')
-        for key,width in zip(self.columns,(36,200,115,95,75,200)):
+        for key,width in zip(self.columns,(36,200,115,62,95,75,200)):
             self.table.column(key,width=width,minwidth=32 if key=='favorite' else 65,stretch=key in ('title','status'),anchor='center' if key=='favorite' else 'w')
             self.table.heading(key,command=lambda k=key:self.sort(k))
         bar = ttk.Scrollbar(frame,command=self.table.yview)
@@ -186,9 +199,9 @@ class CompiledGamesView(ttk.Frame):
         self.favorite_filter.configure(text=self.tr('favorites_only'))
         self.consoles.configure(values=[self.tr('all_consoles'),*[p.name for p in PROFILES]])
         self.consoles.current(0)
-        self.states.configure(values=[self.tr(k) for k in ('all_games','needs_attention','with_hints','missing_games')])
+        self.states.configure(values=[self.tr(k) for k in STATES])
         self.states.current(0)
-        for key,label in zip(self.columns,('favorite_star','game','console','build_version','saved_hints','conversion')):
+        for key,label in zip(self.columns,('favorite_star','game','console','scan_stars','build_version','saved_hints','conversion')):
             self.table.heading(key,text=self.tr(label))
 
     def sort(self,key):
@@ -216,27 +229,55 @@ class CompiledGamesView(ttk.Frame):
         system = self.consoles.current()-1
         state = self.states.current()
         text = self.search.get().casefold().strip()
+        explored = (self.explored or {}).get('games') or {}
         games = [g for g in all_games if (system<0 or g.system==PROFILES[system].id)
             and (not self.favorites.get() or g.favorite)
             and (state!=1 or g.status in ATTENTION) and (state!=2 or g.hints)
-            and (state!=3 or g.status=='missing') and (not text or text in
+            and (state!=3 or g.status=='missing')
+            and (state!=EXPLORE or self.to_explore(g, explored)) and (not text or text in
                 (g.title+' '+get_profile(g.system).name+' '+g.identity).casefold())]
         key = lambda g:((not g.favorite,g.title.casefold()) if self.sort_key=='favorite' else get_profile(g.system).name if self.sort_key=='system' else
-                       self.tr('game_'+g.status) if self.sort_key=='status' else getattr(g,self.sort_key))
+                       self.tr('game_'+g.status) if self.sort_key=='status' else LEVEL_STARS.get(g.level,0) if self.sort_key=='level'
+                       else getattr(g,self.sort_key))
         games.sort(key=key,reverse=self.reverse)
         def insert(start=0):
             if token != self.render_token or not self.winfo_exists():return
             for index,g in enumerate(games[start:start+60],start):
                 row = self.table.insert('','end',values=('★' if g.favorite else '☆',g.title,get_profile(g.system).name,
-                    g.version or '—',g.hints,self.tr('game_'+g.status)),tags=('odd',g.status) if index%2 else (g.status,))
+                    stars(g.level),g.version or '—',g.hints,self.tr('game_'+g.status)),tags=('odd',g.status) if index%2 else (g.status,))
                 self.rows[row] = g
                 if g.key in selected:self.table.selection_add(row)
             if start+60<len(games):self.after(1,lambda:insert(start+60))
         insert()
         self.status.set(self.tr('games_count',count=len(games)) if games else self.tr('compiled_empty'))
-        labels = ('favorite_star','game','console','build_version','saved_hints','conversion')
+        if state==EXPLORE:
+            # What the first one to finish a game at the Thorough level earns (the server's figure).
+            bonus = (self.explored or {}).get('explorer')
+            self.status.set(self.tr('explore_status',count=len(games),coins=bonus if bonus is not None else '—')
+                            if self.explored is not None else self.tr('explore_loading'))
+        labels = ('favorite_star','game','console','scan_stars','build_version','saved_hints','conversion')
         for key,label in zip(self.columns,labels):
             self.table.heading(key,text=self.tr(label)+('  ▼' if self.reverse else '  ▲') if key==self.sort_key else self.tr(label))
+
+    @staticmethod
+    def to_explore(game, explored):
+        """A game of a console the service takes that nobody has finished at the
+        Thorough level yet (this player included)."""
+        return (game.system in SHARED_CONSOLES and game.level != 'thorough'
+                and f'{game.system}:{game.identity}' not in explored)
+
+    def states_changed(self):
+        """The states filter; "Games to explore" asks the service once (cached half an hour)."""
+        if self.states.current()==EXPLORE and self.explored is None:
+            from . import online
+            def worker():
+                try:
+                    found = online.explored() if online.sending_available() else {'games': {}, 'explorer': None}
+                except Exception:
+                    found = {'games': {}, 'explorer': None}
+                self.events.put(('explored', found))
+            threading.Thread(target=worker,daemon=True).start()
+        self.render()
 
     def star_clicked(self,event):
         if self.running:return 'break'
@@ -279,6 +320,17 @@ class CompiledGamesView(ttk.Frame):
                          state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal')
         menu.add_command(label=self.tr('rescan'),command=self.rescan,
                          state='disabled' if self.running else 'normal')
+        # Go further: a discovery at the Extended or Thorough level, with the coins it may bring.
+        chosen = self.chosen()
+        idle = not (self.running or self.owner.busy or self.owner.updating)
+        depth = ((self.explored or {}).get('depth') or {})
+        for level,coins in (('extended',depth.get('extended',20)),('thorough',depth.get('thorough',40))):
+            deeper = [g for g in chosen if LEVEL_STARS.get(g.level,1) < LEVEL_STARS[level]]
+            if deeper:
+                shared = all(g.system in SHARED_CONSOLES for g in deeper)
+                menu.add_command(label=self.tr('go_further_'+level+('_coins' if shared else ''),coins=coins),
+                                 command=lambda games=deeper,level=level:self.owner.go_deeper(games,level),
+                                 state='normal' if idle else 'disabled')
         menu.add_command(label=self.tr('open_folder'),command=lambda:open_local(Path(self.chosen()[0].executable).parent))
         menu.add_separator()
         # A game that was created but is wrong: the report carries its conversion report.
@@ -344,6 +396,9 @@ class CompiledGamesView(ttk.Frame):
             while True:
                 kind,value = self.events.get_nowait()
                 if kind=='progress':self.status.set(self.tr('scanned_games',count=value))
+                elif kind=='explored':
+                    self.explored = value
+                    self.render()
                 else:
                     self.running = False
                     self.progress.stop()
