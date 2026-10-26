@@ -50,20 +50,31 @@ LEGACY_GAME_STAMPS = {
     # (Master System, Game Gear, Game Boy, NES, Neo Geo, CPS-1). The released Windows Retro-Recomp.exe 1.5.1 cannot
     # convert Mega Drive or Super Nintendo games (probe16 lost its subprocess import), so those consoles have no 1.5.1
     # receipt and no 1.5.1 entry; the X68000 still has none either.
+    # Release 1.5.2 (tag v1.5.2, Python 3.14.5), last value where present: same rule, one real receipt per console
+    # (Master System, Game Gear, Game Boy, NES, Mega Drive, Neo Geo, CPS-1). X68000: none (no receipt, SDK stamp).
+    # Super Nintendo: no entry at all any more, although its 1.5.2 receipt matched. After 1.5.2 the SNES engine changes
+    # what games do ($4016 strobe, GSU bus ownership, Super FX), which is not a build-only difference, so the 1.4.1
+    # entry was removed too (release procedure): SNES exports of 1.4.1, 1.5.1 and 1.5.2 are converted in full.
     'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
-             '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f'),
+             '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f',
+             '12651539b1dd0cbc5698953adf98947d801cba78816041560e1c6fcf10022835'),
     'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
-           '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c'),
+           '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c',
+           '0739d322ab085c14f31f6b7f0406e9faee63fae6f0415d62e0470c0eba53f5cf'),
     'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
-           '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3'),
-    'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',),
+           '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3',
+           '2cf791660628ebacd7a0f75e4b6c62f268032c769bc2c304925e6317cbe8a777'),
+    'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',
+           'c06987ee70ec4425daa373af5cb3822b06741dd881de222f3549507abd72cf96'),
     'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
-            'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980'),
+            'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980',
+            'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe'),
     'ng': ('bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
-           'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee'),
+           'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
+           '713b118e9738277d2d5a2e87d9b2aee1c23c2694e92d742e0c63a4e113d28c0d'),
     'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
-            '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e'),
-    'snes': ('f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',),
+            '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
+            '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92'),
 }
 
 
