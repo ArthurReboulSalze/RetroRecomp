@@ -136,8 +136,30 @@ def bus(source):
     return source
 
 
+def runtime(source):
+    """Deliver the manual-joypad strobe ($4016 write) to the controller ports.
+
+    The pinned engine's register write dispatch (WriteReg, used by both the
+    static 65816 steps and the interpreter bus) only forwards $4200-$421F to
+    snes_writeReg, so a store to $4016 never reached joypad_write_strobe. The
+    shift registers were never reloaded: a game that polls the pads by hand
+    (strobe 1 then 0, then 16+ serial reads of $4016/$4017) read from a stale
+    position that any earlier read of $4016 (a TRB/LSR read-modify-write, a
+    mouse probe) had advanced. Star Fox 2 (Japan prototype) does exactly that
+    before its boot-time controller check and mistook the shifted ID bits for
+    a Super Multitap/mouse. Per fullsnes ("SNES Controllers I/O Ports",
+    JOYSER0): bit 0 high keeps both ports reloading, the falling edge latches
+    the pad state and restarts the serial position at the first bit (B).
+    """
+    return replace(source,
+        '  } else if (reg >= 0x4200 && reg < 0x4220) {\n    if (reg == 0x420C) {',
+        '  } else if (reg == 0x4016) {\n'
+        '    if (g_snes) snes_writeReg(g_snes, reg, value);  /* JOYSER0 strobe -> controller ports */\n'
+        '  } else if (reg >= 0x4200 && reg < 0x4220) {\n    if (reg == 0x420C) {')
+
+
 def adapt_engine(staged):
-    for name,adapt in (('snes/interp_bridge.c',bridge),('common_cpu_infra.c',infrastructure),
+    for name,adapt in (('snes/interp_bridge.c',bridge),('common_cpu_infra.c',infrastructure),('common_rtl.c',runtime),
                        ('snes/dma.h',dma_header),('snes/dma.c',dma),('snes/snes.c',bus),('beam_frame_driver.c',frame_driver)):
         path=staged/'runner/src'/name
         path.write_text(adapt(path.read_text(encoding='utf-8')),encoding='utf-8')

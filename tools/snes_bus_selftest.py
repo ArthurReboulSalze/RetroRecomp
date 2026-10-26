@@ -86,7 +86,7 @@ def main():
     for pal in (False,True):
         for kind in ('color','object','overflow','openbus'):
             tag=('pal-' if pal else 'ntsc-')+kind;p=w/(tag+'.sfc');p.write_bytes(fixture(kind,pal))
-            exe=prepare16(p,'snes',emit=lambda _:None);project=exe.parents[2]
+            exe=prepare16(p,'snes',emit=lambda _:None);project=exe.parents[2 if exe.parent.name=='Release' else 1]
             (project/'console16_main.c').write_text((ROOT/'native/snes_bus_checks.c').read_text(),encoding='utf-8')
             run([toolchain()[0],'--build',project/'build','--config','Release','--parallel','4'],log=w/(tag+'-build.log'))
             row=json.loads(run([exe],cwd=w).strip().splitlines()[-1]);row.update(kind=kind,standard='pal' if pal else 'ntsc')

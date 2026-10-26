@@ -272,7 +272,7 @@ retrorecomp/megadrive_audio.py native/md_audio_loop.inc native/md_audio_bridge_c
 native/md_audio_resample.inc native/md_audio_mix.h native/md_audio_mix_checks.c
 tools/megadrive_audio_bridge_selftest.py
 native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
-native/snes_bus_checks.c tools/snes_bus_selftest.py
+native/snes_bus_checks.c tools/snes_bus_selftest.py tests/test_snes_bus.py
 retrorecomp/snes_chips.py retrorecomp/snes_gsu.py tools/snes_gsu_survey.py tests/test_snes_gsu.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
