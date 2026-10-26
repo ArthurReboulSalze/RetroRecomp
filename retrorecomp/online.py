@@ -766,9 +766,15 @@ def pending(collected: dict) -> dict:
 # `converted` with their scan level. The service pays once the upload is
 # checked, once per account and game (web/lib/rewards.php). A note leaves the
 # queue once a file holding the game was accepted.
+#
+# When shared-base parts were imported for the game at the time, the note also
+# remembers what became of them (`outcomes`: the base version, the entry, its
+# imported sources, and "used" or "rejected"); the claims carry it as `shared`.
+# A file without `outcomes` (written before 1.5.3) loads as before.
 CONVERTED_NAME = 'account-converted.json'
 CONVERTED_KEPT = 4096
 CONVERTED_PER_SEND = 50
+BASE_OUTCOMES = ('used', 'rejected')
 _CONVERTED_LOCK = threading.Lock()
 
 
@@ -776,38 +782,85 @@ def _converted_path() -> Path:
     return _account_path().with_name(CONVERTED_NAME)
 
 
-def _converted_queue(current: dict | None = None) -> list:
-    """The noted games ('system:identity') of the signed-in account, oldest first."""
+def _converted_state(current: dict | None = None) -> tuple:
+    """(the noted games, their outcomes {key: {'base', 'entry', 'sources',
+    'outcome'}}) of the signed-in account; a malformed outcome is dropped."""
     current = current or account()
     if not current:
-        return []
+        return [], {}
     try:
         data = json.loads(_converted_path().read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return []
+        return [], {}
     if (not isinstance(data, dict) or data.get('service') != current['service']
             or data.get('email') != current.get('email') or not isinstance(data.get('games'), list)):
-        return []
-    return [key for key in data['games'] if isinstance(key, str) and _ROM_KEY.fullmatch(key)]
+        return [], {}
+    games = [key for key in data['games'] if isinstance(key, str) and _ROM_KEY.fullmatch(key)]
+    outcomes = {}
+    stored = data.get('outcomes')
+    for key, value in (stored.items() if isinstance(stored, dict) else ()):
+        if not isinstance(value, dict):
+            continue
+        sources = value.get('sources')
+        if (key in games and _is_count(value.get('base')) and isinstance(value.get('entry'), str)
+                and _SHA256.fullmatch(value['entry']) and isinstance(sources, list)
+                and all(_is_count(source) for source in sources) and value.get('outcome') in BASE_OUTCOMES):
+            outcomes[key] = {'base': value['base'], 'entry': value['entry'], 'sources': sorted(set(sources)),
+                             'outcome': value['outcome']}
+    return games, outcomes
 
 
-def _save_converted(current: dict, games: list) -> None:
-    record = {'service': current['service'], 'email': current.get('email'), 'games': games[-CONVERTED_KEPT:]}
+def _converted_queue(current: dict | None = None) -> list:
+    """The noted games ('system:identity') of the signed-in account, oldest first."""
+    return _converted_state(current)[0]
+
+
+def _save_converted(current: dict, games: list, outcomes: dict | None = None) -> None:
+    games = games[-CONVERTED_KEPT:]
+    record = {'service': current['service'], 'email': current.get('email'), 'games': games}
+    kept = {key: value for key, value in sorted((outcomes or {}).items()) if key in games}
+    if kept:
+        record['outcomes'] = kept
     _write_bytes(_converted_path(), json.dumps(record, indent=1).encode('utf-8'))
 
 
-def note_conversion(system: str, identity: str) -> bool:
+def converted_outcomes(current: dict | None = None) -> dict:
+    """What the shared base became for each noted game: {key: {'base',
+    'entry', 'sources', 'outcome'}}, only for those with imported parts."""
+    return _converted_state(current)[1]
+
+
+def _base_outcome(key: str, rejected: bool) -> dict | None:
+    """The base parts imported for this game right now, as an outcome, or None
+    when the base gave it nothing (read before a rejection is forgotten)."""
+    record = _base_use().get(key)
+    if not record or not record['entry'] or not record['sources'] or record['version'] is None:
+        return None
+    return {'base': record['version'], 'entry': record['entry'], 'sources': list(record['sources']),
+            'outcome': 'rejected' if rejected else 'used'}
+
+
+def note_conversion(system: str, identity: str, rejected: bool = False) -> bool:
     """Remember that this account converted this exact game successfully;
     nothing without an account or for a console the service does not take.
-    Safe from several conversion threads at once. True when noted."""
+    When the shared base's parts were imported for the game, the outcome is
+    kept with the note: 'rejected' if the conversion had to set them aside
+    (`rejected`, the batch's imported_hints_rejected), else 'used'. A later
+    conversion of the game replaces it; one without base parts leaves an
+    outcome not sent yet as it is. Safe from several conversion threads at
+    once. True when noted."""
     key = f'{system}:{identity}'
     current = account() if sending_available() else None
     if not current or not _ROM_KEY.fullmatch(key):
         return False
     with _CONVERTED_LOCK:
-        games = [value for value in _converted_queue(current) if value != key]
+        games, outcomes = _converted_state(current)
+        games = [value for value in games if value != key]
+        found = _base_outcome(key, bool(rejected))
+        if found:
+            outcomes[key] = found
         try:
-            _save_converted(current, [*games, key])
+            _save_converted(current, [*games, key], outcomes)
         except OSError:
             return False
     return True
@@ -823,8 +876,9 @@ def _forget_conversions(current: dict, keys) -> None:
     if not keys:
         return
     with _CONVERTED_LOCK:
+        games, outcomes = _converted_state(current)
         try:
-            _save_converted(current, [key for key in _converted_queue(current) if key not in keys])
+            _save_converted(current, [key for key in games if key not in keys], outcomes)
         except OSError:
             pass
 
@@ -978,13 +1032,14 @@ def _send_one(collected: dict, current: dict) -> dict:
     mark_shared('account', collected)
     converted = set(collected.get('converted_keys') or ()) & {
         f'{system}:{identity}' for system, records in collected['payload'].get('consoles', {}).items() for identity in records}
+    outcomes = {key: value for key, value in converted_outcomes(current).items() if key in converted}
     _forget_conversions(current, converted)
     # The scan level of each qualified game rides beside the file (which
     # keeps its format), in the claims; losing it only costs the scan bonus.
     levels = {f'{system}:{identity}': level for system, values in collected.get('levels', {}).items()
               for identity, level in values.items()}
     contribution, claimed, refused = answer.get('id'), None, None
-    games = claim_games(paths, levels, converted)
+    games = claim_games(paths, levels, converted, outcomes)
     # 201: a new file; 200: this account's earlier copy, whose claims are idempotent.
     if isinstance(contribution, int) and code in (200, 201) and games:
         claimed, refused = _deliver_claims(contribution, games, levels if code == 201 else {}, current)
@@ -995,12 +1050,15 @@ def _send_one(collected: dict, current: dict) -> dict:
 
 # --- Claims: the paths each accepted file brings, for immediate points -----
 
-def claim_games(paths: dict, levels: dict, converted=()) -> list:
+def claim_games(paths: dict, levels: dict, converted=(), outcomes: dict | None = None) -> list:
     """The claims body's games, from `discovery_paths` of the uploaded file.
     A game without a qualified conversion (raw observations only) counts at
     the standard level, as before scan levels were sent. The games of
-    `converted` ('system:identity') say so, with or without paths."""
+    `converted` ('system:identity') say so, with or without paths; those with
+    an entry in `outcomes` (`converted_outcomes`) also carry `shared`, what
+    the base became for them (a server that ignores it keeps working)."""
     converted = set(converted)
+    outcomes = outcomes or {}
     games = []
     for (system, identity), value in sorted(paths.items()):
         done = f'{system}:{identity}' in converted
@@ -1011,6 +1069,10 @@ def claim_games(paths: dict, levels: dict, converted=()) -> list:
                 'hints': list(value['hints']), 'observations': list(value['observations'])}
         if done:
             game['converted'] = True
+            found = outcomes.get(f'{system}:{identity}')
+            if found:
+                game['shared'] = {'base': found['base'], 'entry': found['entry'],
+                                  'sources': list(found['sources']), 'outcome': found['outcome']}
         games.append(game)
     return games
 
@@ -1301,8 +1363,9 @@ def sync_shared(rom_keys) -> dict:
 # --- The published base: an index of games and one entry per game -----------
 #
 # `GET base` (public, no account) gives the manifest: version, the sha256 of
-# the index, the sources revoked since the build and the highest record id the
-# base holds. The index maps each game ('system:sha256') to its entry's hash
+# the index, the sources revoked since the build, the (source, game) pairs the
+# service quarantined (treated like revoked sources, for that game only) and the
+# highest record id the base holds. The index maps each game ('system:sha256') to its entry's hash
 # and its sources; the entry (`POST base/entries`) holds one part per upload.
 # Only the entries of the batch's ROMs are downloaded, each verified by the
 # hash that named it, and their parts join the imported banks exactly like
@@ -1338,6 +1401,20 @@ def _text(value) -> str | None:
     return value[:64] if isinstance(value, str) else None
 
 
+def _quarantined(value) -> list:
+    """[[source, 'system:identity'], ...] from a manifest's (or the state's)
+    `quarantined`: the pairs the service set aside after players' conversions
+    rejected them. Anything of another shape is ignored, never an error."""
+    if not isinstance(value, list):
+        return []
+    pairs = set()
+    for item in value:
+        if (isinstance(item, (list, tuple)) and len(item) == 2 and _is_count(item[0])
+                and isinstance(item[1], str) and _ROM_KEY.fullmatch(item[1])):
+            pairs.add((item[0], item[1]))
+    return [list(pair) for pair in sorted(pairs)]
+
+
 def _base_state() -> dict:
     """The manifest facts kept from the last look at this service's base;
     {} when there are none."""
@@ -1353,6 +1430,7 @@ def _base_state() -> dict:
     checked = data.get('checked')
     return {'service': data['service'], 'version': data['version'], 'index_sha256': data['index_sha256'],
             'revoked': sorted({value for value in revoked if _is_count(value)}) if isinstance(revoked, list) else [],
+            'quarantined': _quarantined(data.get('quarantined')),
             'cursor': data['cursor'] if _is_count(data.get('cursor')) else 0,
             'games': data['games'] if _is_count(data.get('games')) else 0,
             'built_utc': _text(data.get('built_utc')), 'published_utc': _text(data.get('published_utc')),
@@ -1406,6 +1484,7 @@ def _read_manifest(answer: dict) -> dict:
         raise ServiceError(200, 'bad_answer')
     return {'version': answer['version'], 'index_sha256': listing['sha256'], 'index_bytes': listing['bytes'],
             'revoked': sorted({value for value in revoked if _is_count(value)}),
+            'quarantined': _quarantined(answer.get('quarantined')),
             'cursor': answer['cursor'] if _is_count(answer.get('cursor')) else 0,
             'games': answer['games'] if _is_count(answer.get('games')) else 0,
             'built_utc': _text(answer.get('built_utc')), 'published_utc': _text(answer.get('published_utc'))}
@@ -1439,7 +1518,8 @@ def _refresh_base(state: dict, index: dict | None, now: float, summary: dict) ->
             raise ServiceError(200, 'bad_answer')
         _write_bytes(_base_file(BASE_INDEX_NAME), raw)
     state = {'service': service_url(), 'version': manifest['version'], 'index_sha256': manifest['index_sha256'],
-             'revoked': manifest['revoked'], 'cursor': manifest['cursor'], 'games': manifest['games'],
+             'revoked': manifest['revoked'], 'quarantined': manifest['quarantined'],
+             'cursor': manifest['cursor'], 'games': manifest['games'],
              'built_utc': manifest['built_utc'], 'published_utc': manifest['published_utc'], 'checked': now}
     _write_bytes(_base_file(BASE_STATE_NAME), (json.dumps(state, indent=1, sort_keys=True) + '\n').encode('utf-8'))
     return state, index
@@ -1552,6 +1632,13 @@ def _apply_base(keys, state: dict, index: dict, summary: dict) -> None:
     from .knowledge_exchange import base_entry, import_fetched, usable_part
     from .scan_levels import LEVELS
     revoked = set(state['revoked'])
+    # A quarantined (source, game) pair is withdrawn like a revoked source,
+    # for that game only: the source's other games stay.
+    quarantined = {}
+    for source, pair_key in state.get('quarantined') or ():
+        quarantined.setdefault(pair_key, set()).add(source)
+    def barred(key):
+        return revoked | quarantined.get(key, set())
     use = _base_use()
     before = json.dumps(use, sort_keys=True)
     reset, wanted = set(), {}
@@ -1561,12 +1648,14 @@ def _apply_base(keys, state: dict, index: dict, summary: dict) -> None:
         entry = listed['entry'] if listed else None
         imported = set(record['sources']) if record else set()
         rejected = bool(record and entry in record['rejected'])
-        sources = [source for source in listed['sources'] if source not in revoked] if listed and not rejected else []
+        out = barred(key)
+        sources = [source for source in listed['sources'] if source not in out] if listed and not rejected else []
         if imported - set(sources):
             # A part imported earlier is no longer wanted: the game's imported
             # hints go, and what remains of it is brought back part by part.
             why = ('the game left the base' if not listed else 'its entry was rejected here' if rejected
-                   else 'a source was revoked' if imported & revoked else 'its entry was replaced')
+                   else 'a source was revoked' if imported & revoked
+                   else 'a source was quarantined' if imported & out else 'its entry was replaced')
             system, _, identity = key.partition(':')
             knowledge.discard_imported(system, identity, 'shared base: ' + why)
             record.update(entry=None, sources=[], level=None, records=0)
@@ -1607,8 +1696,9 @@ def _apply_base(keys, state: dict, index: dict, summary: dict) -> None:
                         if found is None:
                             failed.add(key)   # missing or not what it claims: asked again next time
                             continue
-                        parts = [part for part in found['parts'] if part['source'] not in revoked]
-                        imports[key] = (sha, parts, [source for source in found['sources'] if source not in revoked])
+                        out = barred(key)
+                        parts = [part for part in found['parts'] if part['source'] not in out]
+                        imports[key] = (sha, parts, [source for source in found['sources'] if source not in out])
                 if imports:
                     import_fetched({key: {'records': [part['record'] for part in parts if part['record'] is not None],
                                           'observations': [row for part in parts for row in part['observations']]}

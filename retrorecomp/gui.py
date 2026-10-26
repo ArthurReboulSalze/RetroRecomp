@@ -4985,11 +4985,13 @@ class Application:
     def note_conversion(self, result, game):
         """A game converted successfully while signed in: the next send tells
         the service (the gift for a game the base already knew, the depth
-        coins; online.note_conversion). Skipped games are not conversions."""
+        coins; online.note_conversion). Skipped games are not conversions.
+        What the shared base became for the game travels with the note: the
+        conversion that set its paths aside says so (imported_hints_rejected)."""
         if result.get('status') != 'success' or not SENDING_AVAILABLE:
             return
         try:
-            online.note_conversion(game.system, game.identity)
+            online.note_conversion(game.system, game.identity, rejected=bool(result.get('imported_hints_rejected')))
         except Exception:
             pass
 

@@ -18,7 +18,7 @@ import unittest
 from unittest.mock import patch
 
 from retrorecomp import knowledge, knowledge_exchange, online
-from tests.test_online import FakeService, collected
+from tests.test_online import SHA, FakeService, collected
 from tests.test_shared_sync import calls_to, sms_record
 
 IDENTITY = 'ab' * 32
@@ -129,7 +129,7 @@ class PublishedBaseTests(unittest.TestCase):
         online.sign_in('p@example.test', '123456', 'Retro-Recomp test')
 
     def publish(self, version, games, *, revoked=(), cursor=0, format=1, entries=(), index_format=None,
-                index_version=None, sha=None, size=None):
+                index_version=None, sha=None, size=None, quarantined=None):
         """Serve base `version`: `games` is {key: (entry sha, [sources])}; the
         `entries` ((sha, value) pairs) join those the service holds."""
         index = {'format': index_format or format, 'version': index_version or version, 'built_utc': '2026-10-27T03:00:00+00:00',
@@ -143,6 +143,8 @@ class PublishedBaseTests(unittest.TestCase):
                             'games': len(games), 'index': {'sha256': sha or hashlib.sha256(raw).hexdigest(),
                                                            'bytes': size or len(raw)},
                             'revoked': list(revoked)}
+        if quarantined is not None:
+            base['manifest']['quarantined'] = quarantined
         return raw
 
     def later(self, steps=1):
@@ -444,6 +446,181 @@ class PublishedBaseTests(unittest.TestCase):
         self.assertEqual((prepared['summary'], prepared['error']), (None, None))
         self.assertEqual(prepared['base']['version'], 1)
         self.assertEqual(calls_to(self.server, '/knowledge/fetch'), [])
+
+    # --- Outcomes: what the base became for a converted game ---------------------------
+
+    def noted(self):
+        return json.loads((self.folder.parent / 'account-converted.json').read_text(encoding='utf-8'))
+
+    def test_the_outcome_of_the_base_is_noted_with_the_conversion_and_replaced_by_a_later_one(self):
+        built = entry(part(47, 'extended', (0x100,)), part(52, 'quick', (0x180,)))
+        self.publish(3, {KEY: (built[0], [47, 52])}, entries=[built])
+        online.sync_base([KEY])
+        self.assertFalse(online.note_conversion('sms', IDENTITY), 'no account: nothing is noted')
+        self.assertFalse((self.folder.parent / 'account-converted.json').exists())
+        self.assertEqual(online.converted_outcomes(), {})
+        self.sign_in()
+        self.assertTrue(online.note_conversion('sms', OTHER_KEY[4:]), 'a game the base gave nothing')
+        self.assertTrue(online.note_conversion('sms', IDENTITY))
+        used = {'base': 3, 'entry': built[0], 'sources': [47, 52], 'outcome': 'used'}
+        self.assertEqual(online.converted_outcomes(), {KEY: used})
+        self.assertEqual(online.noted_conversions(), [OTHER_KEY, KEY])
+        self.assertEqual(self.noted()['outcomes'], {KEY: used})
+        # The batch set the paths aside and succeeded without them.
+        self.assertTrue(online.note_conversion('sms', IDENTITY, rejected=True))
+        rejected = {**used, 'outcome': 'rejected'}
+        self.assertEqual(online.converted_outcomes(), {KEY: rejected})
+        self.assertEqual(online.noted_conversions(), [OTHER_KEY, KEY], 'the game is noted once')
+        knowledge.discard_imported('sms', IDENTITY, 'conversion broke')
+        online.forget_shared([KEY])
+        # A later conversion without any base part leaves what is not sent yet.
+        online.note_conversion('sms', IDENTITY)
+        self.assertEqual(online.converted_outcomes(), {KEY: rejected})
+        # The index names a newer entry; this conversion used it: it replaces the outcome.
+        newer = entry(part(47, 'extended', (0x100,)), part(52, 'quick', (0x180,)), part(60, 'thorough', (0x600,)))
+        self.publish(4, {KEY: (newer[0], [47, 52, 60])}, entries=[newer])
+        online.sync_base([KEY], now=self.later())
+        online.note_conversion('sms', IDENTITY)
+        self.assertEqual(online.converted_outcomes(),
+                         {KEY: {'base': 4, 'entry': newer[0], 'sources': [47, 52, 60], 'outcome': 'used'}})
+
+    def test_the_window_tells_the_note_when_the_conversion_set_the_base_paths_aside(self):
+        from retrorecomp import gui
+        owner = gui.Application.__new__(gui.Application)
+        game = type('Game', (), {'system': 'sms', 'identity': IDENTITY})()
+        with patch.object(online, 'note_conversion') as note:
+            owner.note_conversion({'status': 'success', 'imported_hints_rejected': True}, game)
+            owner.note_conversion({'status': 'success'}, game)
+            owner.note_conversion({'status': 'error', 'imported_hints_rejected': True}, game)
+        self.assertEqual([(call.args, call.kwargs) for call in note.call_args_list],
+                         [(('sms', IDENTITY), {'rejected': True}), (('sms', IDENTITY), {'rejected': False})])
+
+    def test_claims_carry_the_outcome_only_for_the_games_that_have_one(self):
+        built = entry(part(47, 'extended', (0x100,)), part(52, 'quick', (0x180,)))
+        self.publish(3, {KEY: (built[0], [47, 52])}, entries=[built])
+        self.sign_in()
+        online.sync_base([KEY])
+        known = {'engine': 'd' * 40, 'rom_bytes': 8192, 'level': 'extended', 'title': 'Known Game'}
+        other = OTHER_KEY[4:]
+        online.note_conversion('sms', IDENTITY, rejected=True)
+        online.note_conversion('sms', other)
+        found = {**collected(), 'converted': {'sms': {IDENTITY: known, other: known}}}
+        pending = online.pending(found)
+        self.assertEqual(sorted(pending['converted_keys']), sorted([KEY, OTHER_KEY]))
+        result = online.send(pending)
+        self.assertEqual(result['claims']['games'], 3)
+        games = {game['identity']: game for game in json.loads(calls_to(self.server, '/claims')[-1][3])['games']}
+        self.assertEqual(games[IDENTITY]['shared'], {'base': 3, 'entry': built[0], 'sources': [47, 52],
+                                                     'outcome': 'rejected'})
+        self.assertTrue(games[IDENTITY]['converted'])
+        self.assertNotIn('shared', games[other], 'converted, but the base gave it nothing')
+        self.assertNotIn('shared', games[SHA], 'raw observations only')
+        self.assertEqual(online.noted_conversions(), [])
+        self.assertEqual(online.converted_outcomes(), {})
+        self.assertNotIn('outcomes', self.noted())
+
+    def test_a_claim_that_could_not_be_delivered_keeps_its_outcome_for_the_retry(self):
+        built = entry(part(47, 'extended', (0x100,)))
+        self.publish(3, {KEY: (built[0], [47])}, entries=[built])
+        self.sign_in()
+        online.sync_base([KEY])
+        online.note_conversion('sms', IDENTITY)
+        self.server.claims = 'busy'
+        known = {'engine': 'd' * 40, 'rom_bytes': 8192, 'level': 'standard', 'title': 'Known Game'}
+        online.send(online.pending({**collected(), 'converted': {'sms': {IDENTITY: known}}}))
+        self.server.claims = 'ok'
+        self.server.calls.clear()
+        online.send(online.pending(collected()))
+        games = {game['identity']: game for game in json.loads(calls_to(self.server, '/claims')[0][3])['games']}
+        self.assertEqual(games[IDENTITY]['shared']['outcome'], 'used')
+
+    def test_note_files_written_before_the_outcomes_still_load(self):
+        self.sign_in()
+        current = online.account()
+        path = self.folder.parent / 'account-converted.json'
+        path.write_text(json.dumps({'service': current['service'], 'email': current.get('email'),
+                                    'games': [KEY, OTHER_KEY]}, indent=1), encoding='utf-8')
+        self.assertEqual(online.noted_conversions(), [KEY, OTHER_KEY])
+        self.assertEqual(online.converted_outcomes(), {})
+        # Malformed outcomes are dropped one by one; a good one stays.
+        good = {'base': 2, 'entry': 'ef' * 32, 'sources': [3, 1], 'outcome': 'used'}
+        path.write_text(json.dumps({'service': current['service'], 'email': current.get('email'),
+                                    'games': [KEY, OTHER_KEY],
+                                    'outcomes': {KEY: good, OTHER_KEY: {**good, 'outcome': 'maybe'},
+                                                 f'sms:{"12" * 32}': good, 'bogus': good}}), encoding='utf-8')
+        self.assertEqual(online.converted_outcomes(), {KEY: {**good, 'sources': [1, 3]}})
+        path.write_text(json.dumps({'service': current['service'], 'email': current.get('email'),
+                                    'games': [KEY], 'outcomes': 'nonsense'}), encoding='utf-8')
+        self.assertEqual((online.noted_conversions(), online.converted_outcomes()), ([KEY], {}))
+        self.assertTrue(online.note_conversion('sms', OTHER_KEY[4:]))
+        self.assertEqual(online.noted_conversions(), [KEY, OTHER_KEY])
+
+    # --- Quarantine: a (source, game) pair set aside by the service -----------------
+
+    def test_a_quarantined_pair_is_not_imported(self):
+        built = entry(part(47, 'extended', (0x100,), [[1, 0x300, 0, 2, 0x10]]), part(52, 'quick', (0x180,)))
+        elsewhere = entry(part(47, 'standard', (0x200,)), identity='cd' * 32)
+        games = {KEY: (built[0], [47, 52]), OTHER_KEY: (elsewhere[0], [47])}
+        # Quarantined before anything was imported: the part never comes in.
+        self.publish(1, games, entries=[built, elsewhere], quarantined=[[47, KEY]])
+        self.assertEqual(online.sync_base([KEY, OTHER_KEY])['games'], 2)
+        self.assertEqual(knowledge.imported_record('sms', IDENTITY)['rom_entries'], [[0x180, 0, 0, 0, 1]])
+        self.assertEqual(knowledge.imported_observations('sms', IDENTITY), [])
+        self.assertEqual(len(knowledge.imported_record('sms', 'cd' * 32)['rom_entries']), 1,
+                         'the same source stays for its other games')
+        self.assertEqual(self.state('base-use.json')[KEY]['sources'], [52])
+        self.assertEqual(self.state('base-state.json')['quarantined'], [[47, KEY]])
+
+    def test_quarantine_after_the_import_follows_the_revocation_path_and_can_be_lifted(self):
+        self.sign_in()
+        built = entry(part(47, 'extended', (0x100,), [[1, 0x300, 0, 2, 0x10]]), part(52, 'quick', (0x180,)))
+        self.publish(1, {KEY: (built[0], [47, 52])}, cursor=40, entries=[built])
+        self.server.store = {KEY: [{'id': 30, 'record': sms_record(0x100), 'level': 'thorough'}]}
+        online.prepare_batch([KEY])
+        self.assertEqual(self.state('shared-cursors.json')['roms'][KEY]['cursor'], 40)
+        self.assertEqual(len(knowledge.imported_record('sms', IDENTITY)['rom_entries']), 2)
+        # Only the valid pair counts; every other shape is ignored without a word.
+        odd = [[47, KEY], [True, KEY], [47], [47, 'nonsense'], ['47', KEY], [47, KEY, 1], 'x', None, {'a': 1},
+               [48, f'xbox:{IDENTITY}']]
+        self.publish(1, {KEY: (built[0], [47, 52])}, cursor=40, entries=[built], quarantined=odd)
+        self.server.hits.clear()
+        summary = online.sync_base([KEY], now=self.later())
+        self.assertEqual((summary['discarded'], summary['games'], summary['error']), (1, 1, None))
+        self.assertEqual(self.state('base-state.json')['quarantined'], [[47, KEY]])
+        self.assertEqual(knowledge.imported_record('sms', IDENTITY)['rom_entries'], [[0x180, 0, 0, 0, 1]])
+        self.assertEqual(knowledge.imported_observations('sms', IDENTITY), [])
+        use = self.state('base-use.json')[KEY]
+        self.assertEqual((use['sources'], use['entry']), ([52], built[0]))
+        reason = json.loads((self.folder / 'imported-rejected.json').read_text(encoding='utf-8'))[-1]['reason']
+        self.assertTrue(reason.startswith('shared base: '), reason)
+        cursors = self.state('shared-cursors.json')['roms'][KEY]
+        self.assertEqual(cursors['cursor'], 0, 'the account sync serves the game again, not skipped by the base cursor')
+        self.assertNotIn('level', cursors)
+        self.assertEqual(online.shared_paths([KEY]), {KEY: {'level': 'quick', 'records': 1}})
+        # Nothing more happens while the pair stays quarantined.
+        self.server.hits.clear()
+        self.assertEqual(online.sync_base([KEY], now=self.later(2))['discarded'], 0)
+        self.assertEqual(calls_after(self.server, 'POST'), [])
+        # The maintainer lifts it: the part comes back.
+        self.publish(1, {KEY: (built[0], [47, 52])}, cursor=40, entries=[built], quarantined=[])
+        summary = online.sync_base([KEY], now=self.later(3))
+        self.assertEqual((summary['discarded'], summary['games']), (0, 1))
+        self.assertEqual(len(knowledge.imported_record('sms', IDENTITY)['rom_entries']), 2)
+        self.assertEqual(self.state('base-use.json')[KEY]['sources'], [47, 52])
+
+    def test_a_manifest_without_quarantine_and_an_older_state_file_keep_working(self):
+        built = entry(part(47, 'extended', (0x100,)))
+        self.publish(1, {KEY: (built[0], [47])}, entries=[built])
+        online.sync_base([KEY])
+        self.assertEqual(self.state('base-state.json')['quarantined'], [])
+        state = self.state('base-state.json')
+        del state['quarantined']
+        (self.folder / 'base-state.json').write_text(json.dumps(state), encoding='utf-8')
+        summary = online.sync_base([KEY], now=time.time() + 60)
+        self.assertEqual((summary['version'], summary['discarded'], summary['error']), (1, 0, None))
+        self.publish(1, {KEY: (built[0], [47])}, entries=[built], quarantined='nonsense')
+        self.assertEqual(online.sync_base([KEY], now=self.later())['discarded'], 0)
+        self.assertEqual(self.state('base-state.json')['quarantined'], [])
 
     # --- 426 converter_outdated ---------------------------------------------------
 
