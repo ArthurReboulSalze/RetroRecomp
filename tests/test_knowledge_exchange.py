@@ -46,6 +46,12 @@ class KnowledgeExchangeTests(unittest.TestCase):
         path.write_bytes(gzip.compress(json.dumps(document).encode()))
         return path
 
+    def test_machines_without_shared_knowledge_have_no_entries(self):
+        # 1.5.2 raised KeyError here before every Standard CPS-1 or X68000 batch.
+        for system in ('cps1', 'x68'):
+            self.assertEqual(knowledge_exchange._entries(system, {}), set())
+            self.assertEqual(knowledge_exchange._entries(system, {'rom_entries': [[1]]}), set())
+
     def test_merge_keeps_order_and_unions_every_field_including_spc(self):
         merged = knowledge.merge_records('md', md([0x200, 0x300]), md([0x300, 0x400]))
         self.assertEqual(merged['rom_entries'], [[0x200], [0x300], [0x400]])

@@ -69,6 +69,19 @@
 
 ---
 
+# RetroRecomp v1.5.3 — CPS-1 and X68000 convert again at the Standard level
+
+- **CPS-1 and X68000 games convert again at the Standard level.** In 1.5.2 the
+  check that looks for a game in the bundled knowledge, run before every
+  conversion at the default Standard level, stopped every CPS-1 and X68000
+  game before it started (`KeyError`). Quick, Extended and Thorough were not
+  affected. These two machines have no shared knowledge yet: the check now
+  simply finds nothing and the conversion goes on.
+- Nothing else changes: no game has to be converted again, and quick states
+  keep loading.
+
+---
+
 # RetroRecomp v1.5.2 — Mega Drive and Super Nintendo fixed on Windows, a shop for your coins, problem reports
 
 - **Mega Drive and Super Nintendo convert again on Windows.** In 1.5.1 the
