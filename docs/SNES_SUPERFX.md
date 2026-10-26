@@ -472,6 +472,17 @@ the project rule that cartridges are analyzed from their own ROM.
    unknown (IRQ flag with the mask set, CACHE with an unchanged CBR, 2 bpp
    transparency, POR high-nibble, FMULT into R4, GETBH/GETBL source of the
    other byte, RAM load clocks and back-to-back STW, pixels pending at STOP).
+   A second defect, found in Dirt Racer (27 October 2026), is also fixed in
+   `retrorecomp/snes_chips.py`: the core ignored SCMR RON/RAN for the GSU's own
+   accesses. fullsnes: with the bit at 0 the S-CPU owns that Game Pak bus and
+   the GSU "enters WAIT status" when it accesses it, going on when the bit is 1
+   again. Dirt Racer clears RAN, writes its display list into Game Pak RAM from
+   the 65816 while its GSU command loop is still running, then sets RAN; a GSU
+   that kept running read the list ahead of the writer and took a text
+   character for a command, so the "Practice" panel never opened. The core
+   cannot suspend inside an instruction, so the wait is taken before the
+   instruction starts (`gsu_bus_wait`); `bus_ownership_checks` in
+   `native/snes_superfx_checks.c` covers the RAM hand-off and the ROM fetch.
 2. **Internal reference** (already active): the native run is compared with
    `RR_SNES_FORCE_INTERP=1`, including the GSU state hash. It proves the native
    65816 matches the 65816 interpreter with the same GSU, not GSU fidelity.

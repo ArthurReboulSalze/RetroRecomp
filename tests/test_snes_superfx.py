@@ -168,6 +168,23 @@ class EngineAdaptation(unittest.TestCase):
         self.assertEqual(adapted.count('(uint16_t)(a - f->cbr) & 511'), 2)
         self.assertNotIn('(uint16_t)(a + f->cbr) & 511', adapted)
 
+    @unittest.skipUnless(SOURCE.is_file(), 'pinned engine checkout not present')
+    def test_gsu_waits_for_buses_the_scpu_owns(self):
+        # fullsnes (SCMR RON/RAN): a GSU access to a bus owned by the S-CPU waits. Dirt Racer fills its
+        # display list from the 65816 with RAN=0 while the GSU loop runs; the check lives in
+        # native/snes_superfx_checks.c (bus_ownership_checks).
+        text = self.SOURCE.read_text(encoding='utf-8')
+        adapted = superfx(text)
+        self.assertNotIn('gsu_bus_wait', text)
+        self.assertEqual(adapted.count('if (gsu_bus_wait(f)) return;'), 1)
+        run_one = adapted[adapted.index('static void run_one('):]
+        self.assertLess(run_one.index('if (gsu_bus_wait(f)) return;'), run_one.index('run_pc_hook(f)'))
+        helper = adapted[adapted.index('static unsigned gsu_bus_needed'):adapted.index('static void run_one(')]
+        self.assertIn('scmr_ron(f)', helper)
+        self.assertIn('scmr_ran(f)', helper)
+        # the wait only burns time: no instruction, no register change
+        self.assertIn('f->clock_credit -= 6;', helper)
+
 
 if __name__ == '__main__':
     unittest.main()

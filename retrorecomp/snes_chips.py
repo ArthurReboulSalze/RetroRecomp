@@ -306,9 +306,57 @@ def superfx(source):
     3100h + (A AND 1FFh), so the S-CPU offset X holds cache slot (X - CBR) mod 512, the slot the
     opcode fetch uses for A = CBR + slot. The pinned core adds CBR instead of subtracting it,
     which agrees only while 2*CBR is a multiple of 512 (the documented example, CBR=C3A0, shows
-    the difference). Checked by tools/snes_superfx_selftest.py (cache_window_* cases)."""
+    the difference). Checked by tools/snes_superfx_selftest.py (cache_window_* cases).
+
+    Bus ownership (SCMR RON/RAN): the GSU waits instead of reading and writing a Game Pak bus the
+    S-CPU owns (SUPERFX_BUS_WAIT below; bus_ownership_checks in native/snes_superfx_checks.c)."""
     source=replace(source,'return f->cache[(uint16_t)(a + f->cbr) & 511];','return f->cache[(uint16_t)(a - f->cbr) & 511];')
-    return replace(source,'a = (uint16_t)(a + f->cbr) & 511;','a = (uint16_t)(a - f->cbr) & 511;')
+    source=replace(source,'a = (uint16_t)(a + f->cbr) & 511;','a = (uint16_t)(a - f->cbr) & 511;')
+    return replace(source,'static void run_one(SuperFx *f) {\n  if (!(f->sfr & SFR_G)) { step_clocks(f, 6); return; }\n',
+        SUPERFX_BUS_WAIT+'static void run_one(SuperFx *f) {\n  if (!(f->sfr & SFR_G)) { step_clocks(f, 6); return; }\n  if (gsu_bus_wait(f)) return;\n')
+
+
+# Game Pak bus ownership. fullsnes (SCMR, $303A): RON/RAN 0 = the S-CPU owns the ROM/RAM bus,
+# 1 = the GSU; a GSU access to a bus the S-CPU owns puts the GSU in WAIT until it is handed back
+# (ares, ISC, spins in its read/write paths the same way). The core runs each instruction
+# atomically and cannot suspend inside one, so the wait is taken before the instruction starts.
+# Dirt Racer depends on it: it writes display-list bytes into Game Pak RAM from the 65816 with
+# RAN=0 while the GSU command loop is still running (checked by native/snes_superfx_checks.c).
+SUPERFX_BUS_WAIT='''enum { GSU_BUS_ROM = 1, GSU_BUS_RAM = 2 };
+
+static unsigned gsu_fetch_bus(const SuperFx *f, uint16_t a) {
+  uint16_t off = (uint16_t)(a - f->cbr);
+  if (off < 512 && f->cache_valid[off >> 4]) return 0;
+  return f->pbr <= 0x5f ? GSU_BUS_ROM : GSU_BUS_RAM;
+}
+
+static unsigned gsu_bus_needed(const SuperFx *f, uint8_t op) {
+  unsigned need = 0, operands = 0;
+  if (f->romcl) need |= GSU_BUS_ROM;
+  if (f->ramcl) need |= GSU_BUS_RAM;
+  if (op >= 0x05 && op <= 0x0f) operands = 1;
+  else if ((op >= 0x30 && op <= 0x3b) || (op >= 0x40 && op <= 0x4c) || op == 0x90)
+    need |= GSU_BUS_RAM;
+  else if (op >= 0xa0 && op <= 0xaf) {
+    operands = 1;
+    if (f->sfr & (SFR_ALT1 | SFR_ALT2)) need |= GSU_BUS_RAM;
+  } else if (op >= 0xf0) {
+    operands = 2;
+    if (f->sfr & (SFR_ALT1 | SFR_ALT2)) need |= GSU_BUS_RAM;
+  }
+  for (unsigned n = 0; n <= operands; n++)
+    need |= gsu_fetch_bus(f, (uint16_t)(f->r[15].data + n));
+  return need;
+}
+
+static bool gsu_bus_wait(SuperFx *f) {
+  unsigned owned = (scmr_ron(f) ? GSU_BUS_ROM : 0) | (scmr_ran(f) ? GSU_BUS_RAM : 0);
+  if (!(gsu_bus_needed(f, f->pipeline) & ~owned)) return false;
+  f->clock_credit -= 6;
+  return true;
+}
+
+'''
 
 
 def adapt_engine(staged):

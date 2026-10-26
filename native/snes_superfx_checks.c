@@ -228,6 +228,7 @@ static void cpu_side_checks(void){
     rom_image[0x123]=0x02;rom_image[0x124]=0x05;rom_image[0x125]=0xFE;rom_image[0x126]=0x01;
     fx=superfx_create(rom_image,RR_GSU_ROM_SIZE,ram_image,RR_GSU_RAM_SIZE);
     r.fx=fx;r.ram=ram_image;r.clock=1002;superfx_sync(fx,r.clock);
+    superfx_cpu_write_io(fx,0x303a,0x18);                        /* GSU owns ROM and RAM, as a game sets it before GO */
     for(unsigned n=0;n<15;n++)write_reg(fx,n,(uint16_t)(0x1111*(n+1)^0x0A5A));
     for(unsigned n=0;n<15;n++){snprintf(label,sizeof label,"register file R%u reads back",n);
         expect_strict(&x,label,read_reg(fx,n),(uint16_t)(0x1111*(n+1)^0x0A5A));}
@@ -249,9 +250,67 @@ static void cpu_side_checks(void){
     total_cases++;superfx_destroy(fx);
 }
 
+/* Game Pak bus ownership (fullsnes, SCMR $303A: RON/RAN 0 = the S-CPU owns the ROM/RAM bus, 1 = the
+ * GSU; "the GSU enters WAIT status (if it accesses ROM or RAM)" and goes on when the bit is set
+ * again). Expected values follow from that rule alone:
+ *  1. mailbox: the GSU polls RAM[0010h] with LDB. With RAN=0 it must not read, so a byte the S-CPU
+ *     writes meanwhile is not seen and the job does not finish; with RAN=1 again it is read at once.
+ *     This is the Dirt Racer display-list hand-off (the S-CPU fills the list with RAN=0).
+ *  2. fetch: code outside the 512-byte cache window is read from ROM; with RON=0 it stops. */
+static unsigned long counter_of(SuperFx *f){return (unsigned long)f->instruction_count;}
+static void bus_ownership_checks(void){
+    static const RrGsuCase manual={.name="bus-ownership"};
+    Ctx x={&manual,0};Run r;SuperFx *fx;
+    /* 0000: IWT R10,#0010; 0003: ALT1 LDB (R10); WITH R0; MOVES R0; BEQ 0003; NOP; STOP; NOP */
+    static const uint8_t mailbox[]={0xfa,0x10,0x00,0x3d,0x4a,0x20,0xb0,0x09,0xfa,0x01,0x00,0x01};
+    /* 0400: INC R1; BRA 0400; NOP */
+    static const uint8_t fetch[]={0xd1,0x05,0xfd,0x01};
+    memset(rom_image,0,sizeof rom_image);memset(ram_image,0,sizeof ram_image);
+    memcpy(rom_image,mailbox,sizeof mailbox);memcpy(rom_image+0x400,fetch,sizeof fetch);
+    fx=superfx_create(rom_image,RR_GSU_ROM_SIZE,ram_image,RR_GSU_RAM_SIZE);
+    r.fx=fx;r.ram=ram_image;r.clock=1002;superfx_sync(fx,r.clock);
+    superfx_cpu_write_io(fx,0x3037,0);superfx_cpu_write_io(fx,0x3039,0);superfx_cpu_write_io(fx,0x3038,0);
+    superfx_cpu_write_io(fx,0x3034,0);
+    superfx_cpu_write_io(fx,0x303a,0x18);                        /* GSU owns ROM and RAM */
+    superfx_cpu_write_io(fx,0x301e,0x00);superfx_cpu_write_io(fx,0x301f,0x00);
+    r.clock+=3000;superfx_sync(fx,r.clock);
+    expect_strict(&x,"mailbox poll runs while the GSU owns RAM",superfx_is_running(fx),1);
+    unsigned long polled=counter_of(fx);
+    expect_strict(&x,"mailbox poll executes instructions",polled>100,1);
+    superfx_cpu_write_io(fx,0x303a,0x10);                        /* RAN=0: the S-CPU owns Game Pak RAM */
+    r.clock+=600;superfx_sync(fx,r.clock);                       /* the GSU reaches its next RAM access and waits */
+    unsigned long parked=counter_of(fx);
+    superfx_cpu_write_ram(fx,0x10,0x5a);                         /* the S-CPU writes the mailbox */
+    r.clock+=6000;superfx_sync(fx,r.clock);
+    expect_strict(&x,"GSU waits while the S-CPU owns RAM (no progress)",counter_of(fx),parked);
+    expect_strict(&x,"GSU still running (WAIT, not stopped)",superfx_is_running(fx),1);
+    expect_strict(&x,"mailbox byte is not read during the wait",read_reg(fx,0)==0x5a,0);
+    superfx_cpu_write_io(fx,0x303a,0x18);                        /* RAN=1: hand RAM back */
+    r.clock+=3000;superfx_sync(fx,r.clock);
+    expect_strict(&x,"GSU goes on when RAN is set again and reads the mailbox",read_reg(fx,0),0x5a);
+    expect_strict(&x,"job finishes after the hand-off",superfx_is_running(fx),0);
+
+    write_reg(fx,1,0);
+    superfx_cpu_write_io(fx,0x301e,0x00);superfx_cpu_write_io(fx,0x301f,0x04);   /* R15 = 0400, GO */
+    r.clock+=3000;superfx_sync(fx,r.clock);
+    unsigned fetched=read_reg(fx,1);
+    expect_strict(&x,"uncached ROM code runs while the GSU owns ROM",fetched>50,1);
+    superfx_cpu_write_io(fx,0x303a,0x08);                        /* RON=0: the S-CPU owns Game Pak ROM */
+    r.clock+=600;superfx_sync(fx,r.clock);
+    unsigned parked_r1=read_reg(fx,1);
+    r.clock+=6000;superfx_sync(fx,r.clock);
+    expect_strict(&x,"GSU waits for ROM while the S-CPU owns it",read_reg(fx,1),parked_r1);
+    expect_strict(&x,"ROM wait is not a stop",superfx_is_running(fx),1);
+    superfx_cpu_write_io(fx,0x303a,0x18);
+    r.clock+=3000;superfx_sync(fx,r.clock);
+    expect_strict(&x,"GSU goes on when RON is set again",read_reg(fx,1)>parked_r1+50u,1);
+    total_cases++;superfx_destroy(fx);
+}
+
 int main(void){
     if(!rr16_init(true))return 2;
     cpu_side_checks();
+    bus_ownership_checks();
     for(unsigned i=0;i<sizeof rr_gsu_cases/sizeof rr_gsu_cases[0];i++){
         const RrGsuCase *c=&rr_gsu_cases[i];
         run_case(c,i);
