@@ -21,6 +21,11 @@
   rebuilt with the current tools and rechecked; X68000 exports are converted
   again once. F8/F9 quick states saved by 1.5.2 Mega Drive and Super Nintendo
   games are refused; those of the other consoles keep loading.
+- **CPS-1 and X68000 convert again at the Standard level.** In 1.5.2 the
+  check that looks a game up in the bundled knowledge, run before every
+  Standard conversion, stopped every CPS-1 and X68000 game before it started
+  (`KeyError`). These two machines have no shared knowledge yet: the check
+  now simply finds nothing.
 - **Safer shared paths.** A path offered by other players still guides your
   conversion, but your library keeps it, and your uploads send it, only once
   your own conversion has reached it. A Game Boy path that pointed into
@@ -66,19 +71,6 @@
 - **On retro-recomp.com:** the site in the converter's eight languages, a
   leaderboard computed in the background every 15 minutes (pages never wait),
   player cards, the shop page, and the rewards above.
-
----
-
-# RetroRecomp v1.5.3 — CPS-1 and X68000 convert again at the Standard level
-
-- **CPS-1 and X68000 games convert again at the Standard level.** In 1.5.2 the
-  check that looks for a game in the bundled knowledge, run before every
-  conversion at the default Standard level, stopped every CPS-1 and X68000
-  game before it started (`KeyError`). Quick, Extended and Thorough were not
-  affected. These two machines have no shared knowledge yet: the check now
-  simply finds nothing and the conversion goes on.
-- Nothing else changes: no game has to be converted again, and quick states
-  keep loading.
 
 ---
 
