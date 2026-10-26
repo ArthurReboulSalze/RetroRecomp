@@ -515,6 +515,18 @@ def top_badges(profile) -> list:
     return [value for value in values if isinstance(value, str)] if isinstance(values, list) else []
 
 
+def queued_conversions(profile) -> tuple:
+    """(games, days): the converted games beyond the service's daily bound that
+    wait for their reward, and in how many days the last one is credited
+    (`conversions.queued` / `queued_days` of the account view since 26 October
+    2026; (0, 0) from an older service)."""
+    conversions = profile.get('conversions') if isinstance(profile, dict) else None
+    conversions = conversions if isinstance(conversions, dict) else {}
+    count, days = conversions.get('queued'), conversions.get('queued_days')
+    return (count if type(count) is int and count > 0 else 0,
+            days if type(days) is int and days > 0 else 0)
+
+
 def pseudonym_chosen(profile) -> bool:
     """False while the account shows a pseudonym the server generated (the
     player is asked to choose one); true for older servers that do not say."""

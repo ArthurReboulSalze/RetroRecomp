@@ -197,6 +197,12 @@ class ConversionRewardTests(unittest.TestCase):
         with patch.object(online, '_call', side_effect=online.ServiceConnectionError()):
             self.assertEqual(online.explored(force=True)['games'], first['games'], 'offline: the last answer')
 
+    def test_games_waiting_beyond_the_daily_bound_are_read_from_the_account(self):
+        self.assertEqual(online.queued_conversions({'conversions': {'queued': 120, 'queued_days': 3}}), (120, 3))
+        self.assertEqual(online.queued_conversions({'conversions': {'converted': 4}}), (0, 0), 'a service before the queue')
+        self.assertEqual(online.queued_conversions({'conversions': {'queued': '7', 'queued_days': -1}}), (0, 0))
+        self.assertEqual(online.queued_conversions(None), (0, 0))
+
     def test_report_levels_count_only_discoveries(self):
         self.assertEqual(report_level({'scan_level': 'thorough'}), 'thorough')
         self.assertEqual(report_level({'scan_level': 'quick', 'shared_paths': {'level': 'thorough', 'quick': True}}),

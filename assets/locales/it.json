@@ -574,7 +574,8 @@
     "go_further_extended": "Andare oltre: Esteso",
     "go_further_extended_coins": "Andare oltre: Esteso (+{coins} monete)",
     "go_further_thorough": "Andare oltre: Approfondito",
-    "go_further_thorough_coins": "Andare oltre: Approfondito (+{coins} monete)"
+    "go_further_thorough_coins": "Andare oltre: Approfondito (+{coins} monete)",
+    "conversions_queued": "{count} giochi convertiti attendono la loro ricompensa: oltre il limite giornaliero saranno accreditati nei giorni successivi (circa {days} giorni)."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",

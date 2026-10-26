@@ -1426,7 +1426,10 @@ After 1.5.2 (26 October 2026, interface modules only: `online`, `gui`,
   coins once the upload is checked: a game the snapshot already knew, a game
   completed at the Extended or Thorough level, the first to complete a game
   at the Thorough level; no points. Converters 1.5.2 and older send nothing
-  of the kind and get nothing more.
+  of the kind and get nothing more. At most 50 converted games are rewarded
+  per account and day; the others wait, in their order, for the following
+  days (`conversions.queued` and `queued_days` of the account view), and the
+  log says so after a send.
 - **Compiled Games** shows each game's level as stars (Standard, Extended,
   Thorough, read from its report), offers **Go further: Extended / Thorough**
   in the right-click menu (a discovery at that level) and a **Games to

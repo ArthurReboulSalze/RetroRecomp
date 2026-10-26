@@ -251,6 +251,12 @@ def smoke(window):
         application.focus_player()
         assert reread.call_count == 2
     application.player_checked = None
+    # After a send, the reading that follows logs the converted games waiting for their reward, once.
+    with patch.object(application.messages, 'put') as put:
+        application.report_queued = True
+        application.log_queued({'profile': {'conversions': {'queued': 120, 'queued_days': 3}}})
+        application.log_queued({'profile': {'conversions': {'queued': 120, 'queued_days': 3}}})
+        assert put.call_args_list == [((('log', application.tr('conversions_queued', count='120', days='3')),),)], put.call_args_list
     # Without the catalog (offline, older server): the plain corner.
     application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat',
                                'equipped': {'name_style': 'name_gradient', 'frame': 'frame_gold'}}})

@@ -594,6 +594,7 @@ STRINGS = {
     'go_further_extended_coins': ('Go further: Extended (+{coins} coins)', 'Aller plus loin : Étendu (+{coins} pièces)'),
     'go_further_thorough': ('Go further: Thorough', 'Aller plus loin : Approfondi'),
     'go_further_thorough_coins': ('Go further: Thorough (+{coins} coins)', 'Aller plus loin : Approfondi (+{coins} pièces)'),
+    'conversions_queued': ('{count} converted games wait for their reward: beyond the daily limit they are credited on the following days (about {days} days).', '{count} jeux convertis en attente de récompense : au-delà de la limite par jour, ils seront crédités les jours suivants (environ {days} jours).'),
 }
 
 

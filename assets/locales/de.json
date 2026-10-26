@@ -574,7 +574,8 @@
     "go_further_extended": "Weiter gehen: Erweitert",
     "go_further_extended_coins": "Weiter gehen: Erweitert (+{coins} Münzen)",
     "go_further_thorough": "Weiter gehen: Gründlich",
-    "go_further_thorough_coins": "Weiter gehen: Gründlich (+{coins} Münzen)"
+    "go_further_thorough_coins": "Weiter gehen: Gründlich (+{coins} Münzen)",
+    "conversions_queued": "{count} umgewandelte Spiele warten auf ihre Belohnung: Über dem Tageslimit werden sie an den folgenden Tagen gutgeschrieben (etwa {days} Tage)."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",

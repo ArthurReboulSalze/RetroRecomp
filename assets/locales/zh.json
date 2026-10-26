@@ -574,7 +574,8 @@
     "go_further_extended": "更进一步：扩展",
     "go_further_extended_coins": "更进一步：扩展（+{coins} 币）",
     "go_further_thorough": "更进一步：深入",
-    "go_further_thorough_coins": "更进一步：深入（+{coins} 币）"
+    "go_further_thorough_coins": "更进一步：深入（+{coins} 币）",
+    "conversions_queued": "{count} 个转换的游戏正在等待奖励：超出每日上限的部分将在之后几天发放（约 {days} 天）。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",
