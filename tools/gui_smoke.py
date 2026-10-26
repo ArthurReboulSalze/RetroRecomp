@@ -16,6 +16,9 @@ os.environ['RETRO_RECOMP_SERVICE'] = ''
 # them must not stop on the "install tools / prepare dependencies" questions.
 patch('retrorecomp.updater.missing_build_tools', return_value={}).start()
 patch('retrorecomp.core.dependencies_ready', return_value=True).start()
+# Nor does the start-up look for something new: no GitHub, no base manifest.
+patch('retrorecomp.updater.check_for_update', return_value=None).start()
+patch('retrorecomp.online.check_base', return_value=None, create=True).start()
 from retrorecomp.gui import launch, PROFILES
 from retrorecomp.library import library_root, list_games
 from retrorecomp.gameboy import list_memory
@@ -126,6 +129,16 @@ def smoke(window):
     assert application.header.itemcget(application.player_name, 'text') == application.tr('account_not_signed')
     assert str(application.sign_in_button.cget('state')) == 'disabled'
     assert application.help_button.winfo_manager() == 'pack'
+    # The update button shows a dot and names what is new in its hint; the
+    # option to look at start-up is on by default and saved.
+    assert application.check_at_startup.get() and application.preferences()['startup_update_check'] is True
+    plain_image = str(application.update_button.cget('image'))
+    application.apply_update_news(True, None, True, {'local': 1, 'latest': 2, 'newer': True, 'error': None})
+    assert str(application.update_button.cget('image')) != plain_image
+    assert application.update_tip().startswith(application.tr('update_news_base', version=2))
+    application.apply_update_news(True, None, True, {'local': 2, 'latest': 2, 'newer': False, 'error': None})
+    assert str(application.update_button.cget('image')) == plain_image
+    assert application.update_tip() == application.tr('tip_check_updates')
     toplevels = lambda: [w for w in window.winfo_children() if w.winfo_class() == 'Toplevel']
     before_help = len(toplevels())
     application.show_help()

@@ -118,9 +118,13 @@ Use **Check for updates** inside the installed application. When a newer
 version exists, the dialog shows what changed since your version (the
 published release notes of every skipped version, in English) before you
 choose to download it. The Windows installer shows the same notes before
-installing. The update downloads the
+installing. When the window opens, the converter also looks quietly (at most every
+6 hours, downloading nothing) for a new version and a new shared base, and shows a
+dot on the button; **Options › Common › Check for updates at startup** turns that
+off. The update downloads the
 matching native converter, checks size, SHA-256, architecture and version, then
-replaces only the application and restarts it. You do not need to download the
+replaces the application and the base copy of the same release
+(`Retro-Recomp-base.zip`, beside it) and restarts it. You do not need to download the
 installer again for a converter update. The install location and shortcuts remain
 unchanged. An installed current version offers no update to itself.
 

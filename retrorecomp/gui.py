@@ -473,6 +473,27 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 SENDING_AVAILABLE = online.sending_available()
 # During a long batch, new discoveries also leave every 15 minutes (one request then).
 SEND_EVERY = 15 * 60
+UPDATE_CHECK_EVERY = 6 * 3600   # seconds between two start-up looks for something new
+BADGE_COLOR = '#e5484d'
+
+
+def badged_icon(master, symbol, color, size=18):
+    """The picture of `symbol` with a small dot at its top right corner: the
+    update button's way of saying that something is new."""
+    image = make_icon(master, symbol, color, size)
+    centre_x, centre_y = size - 4, 3
+    for dy in range(-3, 4):
+        reach = round((9.5 - dy * dy) ** 0.5 - 0.5)
+        left, right = max(0, centre_x - reach), min(size - 1, centre_x + reach)
+        if 0 <= centre_y + dy < size and left <= right:
+            image.put(BADGE_COLOR, to=(left, centre_y + dy, right + 1, centre_y + dy + 1))
+    return image
+
+
+def base_is_newer(info) -> bool:
+    """A base check that found a published base beyond the local one."""
+    return (isinstance(info, dict) and not info.get('error')
+            and bool(info.get('newer')) and info.get('latest') is not None)
 CLOSING_SEND = 10   # seconds a closing window waits for a send left waiting
 # The closing card: a cartridge sends its discoveries to the shared base.
 CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
@@ -617,6 +638,14 @@ class Application:
         # player's new discoveries sent after it (both on unless turned off).
         self.use_shared_base = tk.BooleanVar(value=preferences.get('use_shared_base', True) is not False)
         self.send_after_batch = tk.BooleanVar(value=preferences.get('send_after_batch', True) is not False)
+        # Look for a new version of the software and of the base when the window
+        # opens (on unless turned off); `last_update_check` spaces the looks.
+        self.check_at_startup = tk.BooleanVar(value=preferences.get('startup_update_check', True) is not False)
+        saved_check = preferences.get('last_update_check')
+        self.last_update_check = (saved_check if isinstance(saved_check, (int, float))
+                                  and not isinstance(saved_check, bool) else None)
+        # What the looks found: the Update of the software, the check_base result.
+        self.update_news = {'software': None, 'base': None}
         # Collecting and sending discoveries never run twice at once.
         self.knowledge_lock = threading.Lock()
         self.auto_sending = False
@@ -771,6 +800,13 @@ class Application:
         self.update_button = self.button(toolbar, self.tr('check_updates'), self.check_updates)
         self.update_button.configure(compound='image')
         self.update_button.pack(side='right', padx=(0, 8))
+        # What is new (if anything) comes first in its hint, with the usual tip below.
+        for hint in self.tooltips:
+            if hint.widget is self.update_button:
+                hint.text = self.update_tip
+                break
+        else:   # the other languages' button text is not found by button()
+            self.tooltips.append(Tooltip(self.update_button, self.update_tip))
         self.options_button = self.button(toolbar, self.tr('options'), self.show_options)
         self.options_button.pack(side='right', padx=(0, 8))
         # Shared discoveries: visible beside the queue and the collection.
@@ -1748,6 +1784,7 @@ class Application:
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
+            startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
             discoveries_waiting=self.discoveries_waiting,
             overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
             x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
@@ -1835,6 +1872,8 @@ class Application:
             options.pop('rom_paths')
             use_shared = options.pop('use_shared_base', False)
             options.pop('send_after_batch', None)
+            options.pop('startup_update_check', None)
+            options.pop('last_update_check', None)
             if any(self.items[row].system == 'ng' and not self.items[row].error for row in chosen_rows):
                 from .neogeo import validate_bios
                 bios = selected_bios_path(options.get('ng_bios'))
@@ -2080,8 +2119,15 @@ class Application:
         self.start(selected=True)
 
     def check_updates(self):
-        """Only the button starts a network request; startup never checks."""
+        """The update button. With something known to be new it offers exactly
+        that (the software, the base, or both); otherwise it looks, software
+        and base, and says what it found. Only a click or the start-up look
+        (when the option is on) asks the network."""
         if self.busy or self.updating:
+            return
+        software, base = self.update_news.get('software'), self.update_news.get('base')
+        if software or base:
+            self.offer_news(software, base)
             return
         self.updating = True
         self.update_button.configure(state='disabled')
@@ -2089,16 +2135,208 @@ class Application:
         def worker():
             try:
                 from .updater import check_for_update
-                self.messages.put(('update_check', check_for_update()))
+                update = check_for_update()
             except Exception as exc:
                 self.messages.put(('update_error', exc))
+                return
+            self.messages.put(('update_check', update, self.look_at_base(force=True)))
         threading.Thread(target=worker, daemon=True).start()
+
+    def look_at_base(self, force=False):
+        """The base check (the site's manifest only), None when it cannot be
+        made: offline, no service, or a build without the base."""
+        check = getattr(online, 'check_base', None)
+        if check is None:
+            return None
+        try:
+            info = check(force=True) if force else check()
+        except Exception:
+            return None
+        return info if isinstance(info, dict) and not info.get('error') else None
+
+    def startup_update_due(self, now=None):
+        """The option is on and the last look is older than UPDATE_CHECK_EVERY."""
+        if not self.check_at_startup.get():
+            return False
+        now = time.time() if now is None else now
+        last = self.last_update_check
+        return not isinstance(last, (int, float)) or last > now or now - last >= UPDATE_CHECK_EVERY
+
+    def startup_update_check(self):
+        """When the window has opened: look for a new version of the software
+        and of the base in a worker, silently (nothing is said offline), and
+        send what was found back through the message queue. Nothing is
+        downloaded."""
+        if not self.startup_update_due():
+            return
+        def worker():
+            software = None
+            software_known = False
+            try:
+                from .updater import check_for_update
+                software, software_known = check_for_update(), True
+            except Exception:
+                pass
+            base = self.look_at_base()
+            self.messages.put(('update_news', software_known, software, base is not None, base))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def apply_update_news(self, software_known, software, base_known, base):
+        """Remember what a look found (a side that could not be reached keeps
+        what it showed), space the next look, and redraw the dot."""
+        if software_known:
+            self.update_news['software'] = software
+        if base_known:
+            self.update_news['base'] = base if base_is_newer(base) else None
+        if software_known or base_known:
+            self.last_update_check = time.time()
+        self.refresh_update_badge()
+
+    def update_news_lines(self):
+        lines = []
+        software, base = self.update_news.get('software'), self.update_news.get('base')
+        if software:
+            lines.append(self.tr('update_news_software', version=software.version))
+        if base:
+            lines.append(self.tr('update_news_base', version=base['latest']))
+        return lines
+
+    def update_tip(self):
+        lines = self.update_news_lines()
+        tip = self.tr('tip_check_updates')
+        return '\n'.join(lines) + '\n\n' + tip if lines else tip
+
+    def refresh_update_badge(self):
+        """A dot on the update button while the software or the base has something new."""
+        badge = bool(self.update_news.get('software') or self.update_news.get('base'))
+        try:
+            if badge:
+                if ('download', 'badge') not in self.button_images:
+                    self.button_images[('download', 'badge')] = (
+                        badged_icon(self.app, 'download', COLORS['text']),
+                        badged_icon(self.app, 'download', COLORS['disabled']))
+            normal, disabled = self.button_images[('download', 'badge' if badge else False)]
+            self.update_button.configure(image=(normal, 'disabled', disabled))
+        except (KeyError, tk.TclError):
+            pass
+
+    def manual_check_done(self, update, base):
+        """The result of a click on the button with nothing known: what was found
+        is remembered, then offered, or "up to date"."""
+        self.updating = False
+        self.update_button.configure(state='normal')
+        self.set_status('ready')
+        self.apply_update_news(True, update, base is not None, base)
+        software, news_base = self.update_news.get('software'), self.update_news.get('base')
+        if software or news_base:
+            self.offer_news(software, news_base)
+        else:
+            self._offer_update(None)
+
+    def offer_news(self, software, base):
+        """Offer what is new: the software alone goes straight to its own
+        question (with the release notes); with a new base, the three choices."""
+        if software and not base:
+            self._offer_update(software)
+            return
+        choice = self.update_choice_dialog(software, base)
+        if choice == 'base':
+            self.update_base_now()
+        elif choice == 'software' and software:
+            self._offer_update(software)
+        elif choice == 'both' and software:
+            self.update_base_now(then=software)
+
+    def update_choice_dialog(self, software, base):
+        """What is new and what to update: 'software', 'base', 'both', or None
+        (later, or the window closed). Only the choices that exist are shown."""
+        background = COLORS['panel']
+        window = tk.Toplevel(self.app)
+        window.withdraw()
+        window.title(APP_NAME)
+        window.configure(bg=background)
+        window.transient(self.app)
+        chosen = tk.StringVar(value='')
+        body = tk.Frame(window, bg=background, padx=18, pady=14,
+                        highlightthickness=1, highlightbackground=COLORS['gold'])
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text=self.tr('update_choice_question'), bg=background, fg=COLORS['text'],
+                 font=(self.ui_font, 10), wraplength=480, justify='left').pack(anchor='w')
+        tk.Label(body, text='\n'.join('\u2022 ' + line for line in self.update_news_lines()),
+                 bg=background, fg=COLORS['gold'], font=(self.ui_font, 10, 'bold'),
+                 justify='left').pack(anchor='w', pady=(10, 0))
+        buttons = tk.Frame(body, bg=background)
+        buttons.pack(fill='x', pady=(16, 0))
+        def pick(value):
+            chosen.set(value)
+            window.destroy()
+        ttk.Button(buttons, text=self.tr('update_choice_later'), command=window.destroy).pack(side='right')
+        primary = None
+        for value, key in (('both', 'update_choice_both'), ('base', 'update_choice_base'),
+                           ('software', 'update_choice_software')):
+            if (value == 'both' and not (software and base)) or (value == 'base' and not base) \
+                    or (value == 'software' and not software):
+                continue
+            button = ttk.Button(buttons, text=self.tr(key), command=lambda value=value: pick(value),
+                                style='Primary.TButton' if primary is None else 'TButton')
+            button.pack(side='right', padx=(0, 8))
+            primary = primary or button
+        window.bind('<Escape>', lambda event: window.destroy())
+        window.update_idletasks()
+        center_dialog(window, self.app, window.winfo_reqwidth(), window.winfo_reqheight())
+        window.deiconify()
+        window.grab_set()
+        if primary is not None:
+            primary.focus_set()
+        self.app.wait_window(window)
+        return chosen.get() or None
+
+    def update_base_now(self, then=None):
+        """Bring the base up to date in a worker (online.update_base). `then` is
+        the software Update to install straight after, when both were chosen."""
+        self.updating = True
+        self.update_button.configure(state='disabled')
+        self.start_button.configure(state='disabled')
+        self.set_status('updating_base')
+        def worker():
+            update = getattr(online, 'update_base', None)
+            try:
+                result = update() if update else {'error': self.tr('online_unreachable')}
+            except Exception as exc:
+                result = {'error': str(exc) or type(exc).__name__}
+            self.messages.put(('base_updated', result, then))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def base_update_done(self, result, then=None):
+        self.updating = False
+        self.update_button.configure(state='normal')
+        self.start_button.configure(state='normal')
+        self.set_status('ready')
+        error = result.get('error') if isinstance(result, dict) else self.tr('online_unreachable')
+        if error or not isinstance(result, dict):
+            messagebox.showerror(APP_NAME, self.tr('base_update_failed', error=error or ''))
+            return
+        self.update_news['base'] = None
+        self.refresh_update_badge()
+        if then is not None:
+            # Both were chosen: the software follows, with no second question.
+            if getattr(sys, 'frozen', False):
+                self.download_update(then)
+            else:
+                messagebox.showinfo(APP_NAME, self.tr('update_source', version=then.version, page=then.page))
+            return
+        version = result.get('version')
+        key = 'base_current' if result.get('previous') == version and not result.get('downloaded_bytes') \
+            else 'base_updated'
+        messagebox.showinfo(APP_NAME, self.tr(key, version=version))
 
     def _offer_update(self, update):
         self.updating = False
         self.update_button.configure(state='normal')
         self.set_status('ready')
         if update is None:
+            self.update_news['software'] = None
+            self.refresh_update_badge()
             messagebox.showinfo(APP_NAME, self.tr('update_current'))
             return
         if not getattr(sys, 'frozen', False):
@@ -2111,6 +2349,10 @@ class Application:
                     else messagebox.askyesno(APP_NAME, question))
         if not accepted:
             return
+        self.download_update(update)
+
+    def download_update(self, update):
+        """Download the software update (and the base copy of its release) in a worker."""
         self.updating = True
         self.update_button.configure(state='disabled')
         self.start_button.configure(state='disabled')
@@ -2280,7 +2522,14 @@ class Application:
                         self.announce_finished(record)
                         self.send_discoveries_soon()
                 elif kind == 'update_check':
-                    self._offer_update(event[1])
+                    if len(event) > 2:
+                        self.manual_check_done(event[1], event[2])
+                    else:
+                        self._offer_update(event[1])
+                elif kind == 'update_news':
+                    self.apply_update_news(*event[1:])
+                elif kind == 'base_updated':
+                    self.base_update_done(event[1], event[2])
                 elif kind == 'update_ready':
                     self._start_prepared_update(event[1], event[2])
                     return
@@ -2463,6 +2712,7 @@ class Application:
         for key, variable, hint in (('icon', self.use_cover, 'tip_icon'),
                                      ('icon_tags', self.icon_tags, 'tip_icon_tags'),
                                      ('online', self.online, 'tip_online'),
+                                     ('startup_update_check', self.check_at_startup, 'tip_startup_update_check'),
                                      ('overwrite', self.overwrite, 'tip_overwrite'),
                                      ('force', self.force, 'tip_force')):
             control = checkbox(shared, key, variable, hint)
@@ -5145,7 +5395,8 @@ class Application:
         options = self.preferences()
         use_shared = options.pop('use_shared_base', False)
         for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
-                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite','send_after_batch'):
+                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite','send_after_batch',
+                    'startup_update_check','last_update_check'):
             options.pop(key,None)
         # Always rebuild, but only the player shell when nothing else changed.
         options['force'] = True
@@ -5447,6 +5698,8 @@ def launch(update_error: str | None = None):
     if not application.restore_queue() and roms.is_dir():
         application.add_paths(discover_roms(roms))
     app._retro_application = application
+    # A few seconds after the window opens, never before: the look for something new.
+    app.after(4000, application.startup_update_check)
     if update_error:
         app.after(200, lambda: messagebox.showerror(APP_NAME,
             application.tr('update_failed', error=update_error)))
