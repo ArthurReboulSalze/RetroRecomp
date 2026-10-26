@@ -47,12 +47,12 @@ class ChipTests(unittest.TestCase):
             self.assertIn('g_snes->cart->romImageSize != 65536u',source)
             self.assertIn('fetched==operation->opcode',source)
             self.assertIn('cart_getRomPtr',source)
-    def test_superfx_boards_are_experimental_with_their_game_pak_ram(self):
+    def test_superfx_boards_are_supported_with_their_game_pak_ram(self):
         for kind,battery in ((0x13,False),(0x14,False),(0x15,True),(0x1a,True)):
             with self.subTest(kind=kind):
                 rom=self.rom(0x20,kind)
                 self.assertEqual(identify(rom.data),'superfx')
-                self.assertEqual(support_stage(rom),'experimental')
+                self.assertEqual(support_stage(rom),'supported')
                 memory=layout_bytes(rom.data,rom.mapping)
                 # Without a version-3 header ($33 maker) the loader's 64 KiB default applies.
                 self.assertEqual((memory['bytes'],memory['battery']),(0x10000,battery))

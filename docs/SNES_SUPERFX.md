@@ -1,7 +1,8 @@
 # Super FX (GSU) on the Super Nintendo: study and plan
 
-Status on 26 October 2026: **experimental, not released; the study branch is
-paused and unfinished.** Players of release
+Status on 26 October 2026: **supported on the study branch (not released yet)**, after
+the release qualification below; the GSU stays a counted interpreted device, like the
+CX4. Players of release
 1.5.2 reported Doom, Dirt Trax FX and Dirt Racer failing with
 `SNES enhancement chip Super FX is not integrated yet (map $20, type $14)`.
 This page records what Super FX boards are, what the pinned SNES engine
@@ -21,7 +22,9 @@ gathered, and a costed plan. Nothing here is a fidelity or latency claim.
 - The first slice (this branch) recognizes the four Super FX board types,
   sizes their Game Pak RAM like the engine, lets the native 65816 lookup see
   the board's ROM views, reports the GSU as a **counted interpreted device**
-  exactly like the CX4, and marks the conversion **experimental**.
+  exactly like the CX4. It first marked the conversion **experimental**; the
+  release qualification (nine cartridges at the Extended level, packed
+  executables, states, ordinary-game regression) lifted that label.
 - With it, **all eight local Super FX cartridges convert at the Standard
   level** (2-3 minutes each) with zero interpreted 65816 and SPC700 opcodes on
   their validated routes, matching internal native/reference comparisons,
@@ -113,7 +116,7 @@ normally during vertical blank.
 | `retrorecomp/snes_chips.py` | `identify()` returns `superfx` for map $20, type $13/$14/$15/$1A on a LoROM header; other `$1x` types stay refused |
 | `retrorecomp/snes_cart.py` | Game Pak RAM size and battery as above; that RAM is never a guarded 65816 code window |
 | `retrorecomp/snes_codegen.py` | the native 65816 lookup resolves Super FX ROM through its LoROM and linear views (the engine gives these boards no ROM pointer); the fetched-opcode check still rejects bytes replaced by the GSU bus |
-| `retrorecomp/supernintendo.py` | support stage `experimental` for Super FX (report status and the "created (experimental)" label) |
+| `retrorecomp/supernintendo.py` | support stage `experimental` for Super FX during the study (report status and the "created (experimental)" label); `supported` since the release qualification |
 | `retrorecomp/console16.py` | conversion log line naming the counted GSU interpreter; main-CPU-only `native_percentage` and the separate `cartridge_device` report entry |
 | `native/snes_backend.c` | GSU instructions are counted apart from the 65816 (`rr16_device_interpreted()`); report fields `cartridge_chip=superfx`, `coprocessor_mode=interpreted`, GSU state hash |
 | `tests/test_snes_chips.py`, `tests/test_console16.py` | Super FX positive cases; refusal fixtures moved to other unsupported types |
@@ -707,8 +710,15 @@ Extended level, empty private library per game, Windows, headless, three convers
   included; 34-47 % of the frame budget. Not a latency measurement.
 - Stderr scan of the 33 scenario runs: 31 clean; two show the 65816 executing a BRK while the
   accumulator is 8-bit (Stunt Race FX attract demo near `$09:ECBE`, the prototype at battle
-  launch near `$06:A7C1`). Native and reference agree and the game keeps running; the cause is
-  under investigation (see below).
+  launch near `$06:A7C1`). Both are the games' own behaviour: a branch reaches 16-bit
+  immediates with M=1 (Stunt Race FX `BNE $ECB9` from `$EC9A` when `$0DA5` bit 0 is set; the
+  prototype's `JSL $06A7BA` from `$06:9C8C` with P=$23), and MAME 0.289 executes the same BRK
+  at the same addresses with the same registers and stack, through a BRK vector that is a bare
+  RTI in both games. No CPU-model or timing defect. The engine's "off the rails" wording on
+  stderr is therefore misleading for them; a BRK is not a conversion failure.
+- Not explained, separate from the BRK: with no input from power-on, the Stunt Race FX attract
+  race starts about 1,320-1,440 frames later in the export than in MAME, consistent with the
+  measured cost differences under "Timing and synchronization".
 - Ordinary cartridges (20 games compared with 65c91e7, the 1.5.2 SNES code): 18 identical bit
   for bit (demo and play, 1,500 and 3,000 frames, states; F-Zero, Super Mario World, Zelda,
   Super Metroid, Donkey Kong Country, Chrono Trigger, Mega Man X2/X3, Super Mario Kart,
@@ -736,16 +746,19 @@ reflect unknown integration bugs.
 | Step | Work | Estimate |
 |---|---|---|
 | 0 | Recognition, counted interpreter path, experimental label, spike on Doom and Dirt Trax FX (this branch) | done |
-| 1 | Standard-level conversions of all eight local cartridges (done 26 October, see above); still to do: packed exports, battery save round trips, long routes with inputs that reach gameplay, fix what breaks | 3-6 |
+| 1 | Standard and Extended conversions, packed exports, states, authored routes, fixes (Dirt Racer bus ownership, `$4016` strobe); game-level battery proof still missing for Stunt Race FX and Yoshi's Island | done |
 | 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | done |
 | 3 | Timing investigation against MAME (done 26 October: offsets explained by MAME's simplifications; Doom 5- vs 9-frame pacing still open) | done |
 | 4 | Authored GSU checks in `native/snes_superfx_checks.c` (see Fidelity checks) | done |
-| 5 | Qualification campaign and documentation as for DSP-1/CX4; decision to drop "experimental" | 3-5 |
+| 5 | Qualification campaign and documentation as for DSP-1/CX4; "experimental" dropped (26 October, see "Release qualification") | done |
 | 6a | Option B groundwork: GSU decoder, static traversal, survey tool and the measurements above | done (26 October) |
 | 6b | Option B remainder: learning records, C emitter with cycle accounting and yielding, guards, per-job checker (staged as under "Option B: measured") | 25-35 (was 15-25 for all of step 6); not recommended for speed |
 
-Steps 1-5 (about 3 to 5 weeks) give released, measured Super FX support with
-an interpreted GSU. Step 6b is optional and can follow later.
+Steps 1-5 are done: measured Super FX support with an interpreted GSU, ready for a
+release. Step 6b is optional and can follow later. Known limits: game-level battery
+proof for Stunt Race FX and Yoshi's Island, Doom's 5- versus 9-frame render pacing
+against MAME, the Stunt Race FX two-player mode still meeting unlearned code, and no
+console measurement of GSU timing.
 
 A real implementation touches, beyond the slice: `retrorecomp/console16.py` and the report/interface code
 for separate figures, `retrorecomp/knowledge.py` and the bundled snapshot

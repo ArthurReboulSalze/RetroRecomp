@@ -2,9 +2,9 @@
 
 The **Super Nintendo standard-cartridge profile is supported**: ordinary
 LoROM/HiROM up to 4 MiB, PAL/NTSC, shared controls, Super Scope, cartridge saves
-and F8/F9. Qualified DSP-1 and CX4 boards are supported too. CX4 device
-instructions remain interpreted and counted; this is separate from native
-65816/SPC700 coverage. Other enhancement circuits, extended mapping and DSP-1
+and F8/F9. Qualified DSP-1, CX4 and Super FX (GSU) boards are supported too. CX4
+and GSU device instructions remain interpreted and counted; this is separate from
+native 65816/SPC700 coverage (Super FX: [SNES_SUPERFX.md](SNES_SUPERFX.md)). Other enhancement circuits, extended mapping and DSP-1
 firmware-dump commands remain unsupported. New cartridges are analyzed from
 their own ROM, rather than selected from an allowlist.
 
@@ -323,8 +323,8 @@ state, fractional clocks and absolute clock anchors. Firmware files in the
 working directory cannot silently replace the selected device model.
 
 SA-1, S-DD1, SPC7110 and other custom circuitry remain unsupported by this
-integration. Super FX boards are experimental on the study branch, with the
-GSU as a counted interpreted device; see [SNES_SUPERFX.md](SNES_SUPERFX.md). Credible SA-1 headers are now recognized and receive an
+integration. Super FX boards are supported, with the GSU as a counted
+interpreted device; see [SNES_SUPERFX.md](SNES_SUPERFX.md). Credible SA-1 headers are now recognized and receive an
 explicit circuit-support error, instead of being mistaken for invalid ROMs.
 Their presence in the imported engine is not product qualification.
 

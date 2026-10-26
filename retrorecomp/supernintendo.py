@@ -105,11 +105,11 @@ def validate_cartridge(rom):
 def support_stage(rom):
     """Only validated ordinary/DSP-1/CX4/Super FX board signatures pass this gate.
 
-    Super FX stays experimental until its qualification (docs/SNES_SUPERFX.md).
+    Super FX boards are qualified like DSP-1/CX4 (docs/SNES_SUPERFX.md, "Release
+    qualification"); their GSU stays a counted interpreted device.
     """
     validate_cartridge(rom)
-    from .snes_chips import identify
-    return 'experimental' if identify(rom.data)=='superfx' else 'supported'
+    return 'supported'
 
 
 def video_standard(rom, override=None):
