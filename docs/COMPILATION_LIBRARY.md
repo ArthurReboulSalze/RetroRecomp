@@ -1528,104 +1528,99 @@ After 1.5.2 (26 October 2026, interface modules only: `online`, `gui`,
 These are interface and account features: they say nothing about native
 coverage, CPU or hardware fidelity, gameplay or latency.
 
-## Integrating shared uploads
+## The shared base
 
-Since 1.5.2 one maintainer command brings the players' uploaded paths into
-the bundled snapshot, and it is run at every release. It lives with the site's
-tools (`tools/service_sync.py`, in the private site repository) because it
-talks to the service; everything it
-does on the converter side uses this repository's code and
-`tools/build_compilation_knowledge.py`.
+Since 1.5.3 what players discover is distributed through a **shared base**
+that lives apart from the executable, instead of being folded into the
+bundled snapshot at each release. There are two grades of knowledge, kept
+apart on purpose.
 
-**Release checklist**
+| Grade | Where it comes from | Where it lives | Tied to the engine | What it is for |
+| --- | --- | --- | --- | --- |
+| **Qualified snapshot** | the maintainer's own qualified conversions (campaigns) | inside the executable, `assets/compilation-knowledge.json.gz` | yes: the engine revision must match | unchanged: rebuilds a game from its paths with the quick check |
+| **Shared base** | the paths players sent | a separate, versioned base published by the service | no, like imported knowledge | guides discovery; set aside when a conversion fails with it |
 
-1. Before building a release: `python tools/service_sync.py --target production
-   integrate`. Commit the rebuilt `assets/compilation-knowledge.json.gz` with
-   the printed summary, and list the integrated games in the release notes.
-2. After the release is published and verified (never before):
-   `python tools/service_sync.py --target production integrate --after-release`.
-   It marks the settled uploads `integrated` and purges their files on the
-   server; their rows and discovery paths stay, so every point and RR coin
-   stays.
+The qualified snapshot **is no longer grown by players' uploads**. It changes
+only with the maintainer's campaigns, which keeps the executable's size under
+control, and nothing a player sent can enter it by itself. The shared base
+holds the players' paths without any qualification by the maintainer: it is
+used like imported knowledge, whatever the engine, and **every conversion that
+uses it checks it against the reference CPU and sets it aside when that
+fails** (the conversion runs again without it, and its paths leave the
+imported banks, as described above). A shared path is therefore never
+presented as qualified, and never as proof of CPU or hardware fidelity,
+gameplay or latency.
 
-Both steps are idempotent: running one again resumes or does nothing more.
+**What the converter downloads.** The base works **without an account**; it
+follows the option *Use the shared base*. Before a batch the converter reads
+the base's small manifest (at most every 30 minutes), then, when its version
+changed, a small index of the games it holds, verified by its SHA-256 and kept
+in `datas/knowledge/base-index.json.gz` with `base-state.json` (version,
+hash, revoked and quarantined entries, date of the last reading). It then
+downloads **only the entries of the games of the batch**, in groups, each
+verified by the hash that names it and by its shape. An entry holds one part
+per upload (the record and the ROM-free observation rows of that game), so
+that a revocation or a rejection targets one upload and not the whole game.
+The parts join `imported.json.gz` and `imported-observations.json.gz` exactly
+as fetched paths do, and `base-use.json` remembers, per game, the base
+version, the entry and the parts imported. Removing the `datas/knowledge`
+folder starts it over. A manifest in a format this version cannot read, a
+service without a base, an offline service or a failed download keep the base
+already received and never stop the batch; the log says which. Signed in, the
+per-account sync of 1.5.1 keeps working beside it and does not serve again
+what the base already holds. **Sending** discoveries, claims and rewards still
+need an account.
 
-**What `integrate` does**
+**Revocation.** The manifest lists the uploads that were withdrawn since the
+version was built (an invalid file, a banned account). On the next batch the
+converter treats such a part as unwanted: it is not imported, and if it was,
+the game's imported paths are discarded and rebuilt from the remaining parts
+(logged in `imported-rejected.json` with a reason starting "shared base:").
 
-1. Validates the uploads still `received` (`validate`: `read_exchange`, the
-   board's paths, the verdict).
-2. Gathers the `valid` uploads not yet integrated or purged.
-3. Keeps the games that bring hints the current snapshot lacks, or raw
-   observations; a game whose paths are all in the snapshot is reported as
-   *nothing new*.
-4. Finds their ROMs by SHA-256 (the converter's own reader, ZIPs included) in
-   the maintainer's ROM folders, one per console on the NAS (`--rom-dir` adds
-   folders). Files named like a wanted title are hashed first; hashes are
-   cached in `.build/integrate-rom-hashes.json`. ROMs are only read.
-5. Converts those games, up to eight at once, in a throwaway workspace,
-   `.build/integrate-<date>/`, used as the converter's Export folder: its own
-   `datas` (imported banks, library) and `Games`. The maintainer's Export, its
-   `datas` and its library are neither read nor written. The uploads are
-   imported into that workspace's imported bank and every game gets
-   `shared_paths` at level standard, so the batch takes the **quick check**
-   instead of discovery: the game is rebuilt from the shared paths, its native
-   code is compared with the reference CPU on the quick routes, and interpreter
-   use is measured and reported as usual. A game whose check fails is not
-   converted again without the paths (the batch's usual fallback for players):
-   it is reported as failed, with the reason, and stays out of the snapshot.
-   The conversions run with `RETRO_RECOMP_SERVICE` empty: they never talk to the
-   service themselves. Build folders are cleaned after each success as usual.
-6. Rebuilds the snapshot with `build_compilation_knowledge.build`: the current
-   snapshot as base, refreshed only for the games that passed, from the
-   workspace's own qualified reports and library. Nothing else changes.
-7. Prints and writes the summary: games integrated with the paths added,
-   failures with their reason, missing ROMs, games with nothing new, each
-   upload's state, the durations. It lands in `.build/integrate-<date>/summary.json`
-   (with `snapshot.json.gz`, the snapshot as built, `conversions.log` and the
-   workspace), and `.build/integrate-latest.json` points to it.
+**Only reached paths stay.** A shared path guides a conversion but is not
+trusted for what comes next. The player's own conversion keeps in the local
+library, and the next upload sends again, only the paths **that conversion
+itself observed**; an imported path the execution never reached enters neither
+the library nor an upload. Bogus or polluted paths therefore cannot travel
+from player to player, and they cannot make exports grow.
 
-A rerun resumes the open workspace (the latest one whose after-release step
-has not run; `--fresh` starts another): verified games are skipped unless a
-new upload brought them more paths, failed games and missing ROMs are tried
-again, and the snapshot is only rebuilt when something changed. An upload is
-*integrated* once each of its games is verified or already known, otherwise
-*partial*: `--after-release` keeps partial uploads `valid` (the next run
-retries their pending games) unless `--partial` settles them anyway.
-`--after-release` first checks, in the converter's latest release tag (or
-`--release`), that the released snapshot holds every path this run integrated,
-and refuses otherwise (`--force` skips that check). Already marked or purged
-uploads are left as they are.
+**Confirmation by execution.** When another player's conversion actually
+reaches a path that came from the base, that path enters the library and goes
+out in that player's upload. The service then counts the path as found by two
+accounts: the confirmation of earlier versions, now a confirmation by
+execution.
 
-**Why the quick check qualifies.** `build_compilation_knowledge.py` accepts any
-report whose native validation passed; it never required the Standard level.
-A quick check seeded by shared paths is such a report, and it records its
-origin: `scan_level: quick` and `shared_paths: {level, records, quick: true}`.
-The builder's summary now counts what qualified each refreshed record
-(`qualification`: `standard`, `extended`, `thorough`, `quick_shared_paths`,
-`quick_bundled_paths`, `quick_upgrade`). A Standard discovery seeded by the
-paths would also have qualified, at several times the cost, and would mix the
-maintainer's own new discoveries into what is meant to verify the players'
-paths. Shared observations still never bypass validation: a path enters the
-snapshot only through a conversion made here whose native validation passed.
+**Rejection reports and quarantine.** After a successful conversion made
+while signed in, the converter notes what became of the base's parts for that
+game (the base version, the entry, the uploads imported) and tells the service
+in the same claims that carry the conversion: `used` when the conversion went
+through with them, `rejected` when it failed with them and succeeded without
+(a rejected entry is also not imported again here until the index names another
+for that game). Without an account nothing is noted and nothing is sent; the
+local set-aside happens in any case. When enough accounts reject the same
+upload for the same game, the service **quarantines** that pair and lists it
+in the manifest. The converter treats a quarantined pair like a revoked
+source, for that game only: not imported, withdrawn if it already was, and
+brought back if the quarantine is lifted. Nothing else about the upload
+changes, its other games stay.
 
-These checks measure native code against the reference CPU on the quick routes
-and interpreter use. They do not validate CPU fidelity, hardware fidelity,
-complete gameplay or physical latency.
+**Measures stay separate.** Native code, CPU fidelity, hardware fidelity,
+gameplay validation and physical latency are never merged. A conversion that
+used shared paths records it in its report (`shared_paths`: level, records,
+`quick`), and a quick check measures native code against the reference CPU on
+the quick routes only. Interpreter use is always measured and reported, and
+the conversion keeps looking to reduce it. The base version used is kept
+locally in `base-use.json`, not in the report.
 
-**First run, for 1.5.2 (25 October 2026, Windows, eight at once).** Four
-valid uploads (#1 to #4), 33 games, every ROM found on the NAS, 33 verified
-by the quick check from the shared paths, none failed, none already known:
-Super Nintendo 27 (all new to the snapshot), NES 3 (two new), Mega Drive 2,
-Game Boy 1. 2,280,968 hints added (SNES SPC700 references counted one by
-one). Interpreter use reported by the checks: zero opcodes for 32 games, 576
-main-CPU opcodes for *Ball Bullet Gun - Survival Game Simulation*. Snapshot
-15,453,304 → 16,895,274 bytes (69.5 MB of JSON of the 128 MiB budget); SNES
-records 44 → 71, NES 36 → 38. Durations: validation 37 s, gathering 12 s, ROM
-search 83 s (hashes cached afterwards), conversions 547 s, snapshot 67 s, 766 s
-in all, plus a first trial on upload #1 (316 s). That trial found that Mega
-Drive and Super Nintendo checks failed on Windows with a `NameError`
-(`subprocess` no longer imported in `console16.probe16`, since 1.5.1); fixed
-for 1.5.2.
+**Before 1.5.3.** In 1.5.2 one maintainer command converted the players'
+uploaded games again and folded their paths into the bundled snapshot at
+each release; its first run added 33 games (Super Nintendo 27, NES 3, Mega
+Drive 2, Game Boy 1), 2,280,968 hints, all verified by the quick check, and
+the snapshot went from 15,453,304 to 16,895,274 bytes. That routine is
+retired: the snapshot of 1.5.2 stays as it was released, and the later
+uploads go to the shared base. The first run also found that Mega Drive and
+Super Nintendo checks failed on Windows with a `NameError` (`subprocess` no
+longer imported in `console16.probe16` since 1.5.1), fixed in 1.5.2.
 
 ## Release 0.24.0 snapshot
 
