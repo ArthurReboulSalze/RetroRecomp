@@ -1535,119 +1535,130 @@ coverage, CPU or hardware fidelity, gameplay or latency.
 
 ## The shared base
 
-Since 1.5.4 what players discover is distributed through a **shared base**
-that lives apart from the executable, instead of being folded into the
-bundled snapshot at each release. There are two grades of knowledge, kept
-apart on purpose.
+Since 1.5.4 the paths the converter knows live in **one base of paths kept
+outside the executable**. The executable embeds no path any more:
+`assets/compilation-knowledge.json.gz` stays in the repository only as the
+source of the maintainer's campaigns and is not packaged. Every path in the
+base is either **qualified** or **pending**, and the difference is kept
+visible everywhere.
 
-| Grade | Where it comes from | Where it lives | Tied to the engine | What it is for |
-| --- | --- | --- | --- | --- |
-| **Qualified snapshot** | the maintainer's own qualified conversions (campaigns) | inside the executable, `assets/compilation-knowledge.json.gz` | yes: the engine revision must match | unchanged: rebuilds a game from its paths with the quick check |
-| **Shared base** | the paths players sent | a separate, versioned base published by the service | no, like imported knowledge | guides discovery; set aside when a conversion fails with it |
+| State | What it means | What the converter does with it |
+| --- | --- | --- |
+| **Qualified** | A successful conversion of **another player**, who had received the path, reached it and validated it against the reference. The campaigns of the maintainer are qualified from the start. Qualification is **per engine revision** (for the Neo Geo, emulator core and loader together). | Paths qualified for this converter's engine go to a local qualified bank and rebuild the game from its paths with the quick check, like the former embedded snapshot. |
+| **Pending** | What a player discovered and nobody else's conversion has reached yet, and the qualified paths of another engine revision (they return to this state, with their level, when the engine changes, until a conversion on the new engine reaches them again). | Still used, as imported knowledge: they guide discovery and **every conversion checks them again** against the reference CPU and sets them aside when that fails (the conversion runs again without them). |
 
-The qualified snapshot **is no longer grown by players' uploads**. It changes
-only with the maintainer's campaigns, which keeps the executable's size under
-control, and nothing a player sent can enter it by itself. The shared base
-holds the players' paths without any qualification by the maintainer: it is
-used like imported knowledge, whatever the engine, and **every conversion that
-uses it checks it against the reference CPU and sets it aside when that
-fails** (the conversion runs again without it, and its paths leave the
-imported banks, as described above). A shared path is therefore never
-presented as qualified, and never as proof of CPU or hardware fidelity,
-gameplay or latency.
+A pending path is therefore never presented as qualified, and nothing here is
+a proof of CPU or hardware fidelity, of gameplay or of latency. A path stays
+in the base only if a conversion actually reached it: the player's own
+conversion keeps in the local library, and the next upload sends again, only
+the paths **that conversion itself observed**; an imported path the execution
+never reached enters neither the library nor an upload. Polluted paths cannot
+travel from player to player, and they cannot make exports grow.
 
-**What the converter downloads.** The base works **without an account**; it
-follows the option *Use the shared base*. Before a batch the converter reads
-the base's small manifest (at most every 30 minutes), then, when its version
-changed, a small index of the games it holds, verified by its SHA-256 and kept
-in `datas/knowledge/base-index.json.gz` with `base-state.json` (version,
-hash, revoked and quarantined entries, date of the last reading). It then
-downloads **only the entries of the games of the batch**, in groups, each
-verified by the hash that names it and by its shape. An entry holds one part
-per upload (the record and the ROM-free observation rows of that game), so
-that a revocation or a rejection targets one upload and not the whole game.
-The parts join `imported.json.gz` and `imported-observations.json.gz` exactly
-as fetched paths do, and `base-use.json` remembers, per game, the base
-version, the entry and the parts imported. Removing the `datas/knowledge`
-folder starts it over. A manifest in a format this version cannot read, a
-service without a base, an offline service or a failed download keep the base
-already received and never stop the batch; the log says which. Signed in, the
-per-account sync of 1.5.1 keeps working beside it and does not serve again
-what the base already holds. **Sending** discoveries, claims and rewards still
-need an account.
+**Where the base lives.** The installer lays a copy of the base of the release
+day beside the executable (`Retro-Recomp-base.zip`); it is only ever read, and
+the built-in update replaces it with the file attached to the same release.
+The converter keeps what is newer in `datas/knowledge/base/`: `state.json`
+(version, hash of the index, whether the index is the copy's or a download's),
+the newer `index.json` and, in `entries/`, only the entries the copy lacks. An
+entry is looked up in that folder first, then in the copy, and each is verified
+by the hash that names it and by its shape. An entry holds the qualified paths
+per engine revision and, per upload, the pending record and its ROM-free
+observation rows, so that a revocation or a rejection targets one upload and
+not the whole game. Entries no index names any more are deleted. Removing the
+`datas/knowledge` folder starts the local state over.
 
-**Revocation.** The manifest lists the uploads that were withdrawn since the
-version was built (an invalid file, a banned account). On the next batch the
-converter treats such a part as unwanted: it is not imported, and if it was,
-the game's imported paths are discarded and rebuilt from the remaining parts
-(logged in `imported-rejected.json` with a reason starting "shared base:").
+**When it is updated.** Never when the program opens, apart from an optional,
+read-only check (below). The base is brought up to date **before a batch, at
+most once a day**, or when asked with **Knowledge > Update the shared base**,
+and only with the option *Use the shared base*. The converter reads the
+service's small manifest; when the local version has a difference file, only
+that file is downloaded (a few entries); otherwise it downloads the latest
+complete base attached to a release, then the difference that leads on from
+it. Sizes and SHA-256 are verified, every entry is verified, an archive that is
+not what the manifest announces is refused, and the new base is applied as a
+whole or not at all. No account is needed. An offline service, a format this
+version cannot read or a failed download keep the base already here and never
+stop the batch; the log says which. With no local base and no connection the
+log, and a notice when the batch starts, say that every game is discovered in
+full and takes longer; with a local base and no connection they say the local
+base is used.
 
-**Only reached paths stay.** A shared path guides a conversion but is not
-trusted for what comes next. The player's own conversion keeps in the local
-library, and the next upload sends again, only the paths **that conversion
-itself observed**; an imported path the execution never reached enters neither
-the library nor an upload. Bogus or polluted paths therefore cannot travel
-from player to player, and they cannot make exports grow.
+**Startup check.** *Check for updates at startup* (Options, on by default)
+looks, at most every six hours and in the background, at whether a newer
+program or a newer base exists, and marks the update button. It only looks:
+nothing is downloaded until you choose.
 
-**Neo Geo.** A Neo Geo game is named in the base by its prepared cartridge
-and the BIOS archive its conversion uses together (`neogeo_knowledge.key`, the
-key of the local library), not by the ROM file's hash: a player with another
-BIOS or another cartridge layout receives nothing. A record holds only numbers
+**Before a batch.** For each ROM of the batch the converter reads its entry.
+The qualified paths of this converter's engine are merged, game by game and
+validated, into the qualified bank (`datas/knowledge/qualified.json.gz`); the
+other games' records stay. Everything else (pending parts and qualified paths
+of another engine, with their level) joins `imported.json.gz` and
+`imported-observations.json.gz`, exactly as paths fetched for a signed-in
+account do, and `base-use.json` remembers per game the base version, the
+entry, the engine revision and the parts applied. Without the option, only the
+qualified paths of the local base apply and nothing is downloaded or imported.
+Signed in, the per-account sync of 1.5.1 keeps working beside the base and does
+not serve again what the base already holds. **Sending** discoveries, claims
+and rewards still need an account.
+
+**Revocation and quarantine.** The service's manifest lists the uploads that
+were withdrawn since the base was built (an invalid file, a banned account).
+The converter treats such a part as unwanted: not imported, and if it was, the
+game's imported paths are discarded and rebuilt from the remaining parts
+(logged in `imported-rejected.json` with a reason starting "shared base:"). It
+also lists the (upload, game) pairs that enough accounts rejected: they are
+treated like a revoked upload, for that game only, and brought back if the
+quarantine is lifted. Withdrawals travel in the manifest, not in the base
+files: they apply from the next batch once the manifest has been read, by the
+daily update or by the startup check.
+
+**Rejection.** After a successful conversion made while signed in, the
+converter notes what became of the base's pending parts for that game (base
+version, entry, uploads applied) and tells the service in the claims that carry
+the conversion: `used` when the conversion went through with them, `rejected`
+when it failed with them and succeeded without (a rejected entry is also not
+imported again here until the base names another for that game). Without an
+account nothing is noted and nothing is sent; the local set-aside happens in
+any case. Qualified paths are not imported hints and stay.
+
+**Neo Geo.** A Neo Geo game is named in the base by its prepared cartridge and
+the BIOS archive its conversion uses together (`neogeo_knowledge.key`, the key
+of the local library), not by the ROM file's hash: a player with another BIOS
+or another cartridge layout receives nothing. A record holds only numbers
 (offsets into the cartridge program, the BIOS and the sound ROMs, RAM and Z80
 references, compact ROM roots), checked by the same function on the player's
 computer, in the maintainer's reader and on the service. Only what the
 player's own conversion reached in the fresh reference runs is sent; raw
-gameplay observations of Neo Geo stay private. The prepared cartridge of a
-ZIP set only exists once the preparation tool has assembled it, so a set never
-prepared on this computer is asked for during its first conversion, right after
-its cartridge is prepared; a `.neo` file, or a set prepared before, is asked
-for before the batch with the others. A Neo Geo conversion that fails with
-imported hints runs again without them inside its own conversion code, since
-the batch names a cartridge by its file's hash and the hints by cartridge and
-BIOS together. If that passes, the hints are discarded and its report says so
-(`knowledge.imported_hints_rejected`); the window then notes the base outcome
-`rejected` under the cartridge-and-BIOS identity. The fresh reference,
-packed-executable and state checks stay mandatory, and the report counts the
-imported hints apart (`knowledge.use.imported`). This says nothing about
-hardware fidelity, gameplay or latency.
-
-**Confirmation by execution.** When another player's conversion actually
-reaches a path that came from the base, that path enters the library and goes
-out in that player's upload. The service then counts the path as found by two
-accounts: the confirmation of earlier versions, now a confirmation by
-execution.
-
-**Rejection reports and quarantine.** After a successful conversion made
-while signed in, the converter notes what became of the base's parts for that
-game (the base version, the entry, the uploads imported) and tells the service
-in the same claims that carry the conversion: `used` when the conversion went
-through with them, `rejected` when it failed with them and succeeded without
-(a rejected entry is also not imported again here until the index names another
-for that game). Without an account nothing is noted and nothing is sent; the
-local set-aside happens in any case. When enough accounts reject the same
-upload for the same game, the service **quarantines** that pair and lists it
-in the manifest. The converter treats a quarantined pair like a revoked
-source, for that game only: not imported, withdrawn if it already was, and
-brought back if the quarantine is lifted. Nothing else about the upload
-changes, its other games stay.
+gameplay observations of Neo Geo stay private. The prepared cartridge of a ZIP
+set only exists once the preparation tool has assembled it, so a set never
+prepared on this computer is asked for during its first conversion, right
+after its cartridge is prepared; a `.neo` file, or a set prepared before, is
+asked for before the batch with the others. A Neo Geo conversion that fails
+with imported hints runs again without them inside its own conversion code; if
+that passes, the hints are discarded and its report says so
+(`knowledge.imported_hints_rejected`). The fresh reference, packed-executable
+and state checks stay mandatory, and the report counts the imported hints
+apart (`knowledge.use.imported`).
 
 **Measures stay separate.** Native code, CPU fidelity, hardware fidelity,
 gameplay validation and physical latency are never merged. A conversion that
 used shared paths records it in its report (`shared_paths`: level, records,
 `quick`), and a quick check measures native code against the reference CPU on
-the quick routes only. Interpreter use is always measured and reported, and
+the quick routes only. **Interpreter use is always measured and reported**, and
 the conversion keeps looking to reduce it. The base version used is kept
 locally in `base-use.json`, not in the report.
 
 **Before 1.5.4.** In 1.5.2 one maintainer command converted the players'
-uploaded games again and folded their paths into the bundled snapshot at
-each release; its first run added 33 games (Super Nintendo 27, NES 3, Mega
-Drive 2, Game Boy 1), 2,280,968 hints, all verified by the quick check, and
-the snapshot went from 15,453,304 to 16,895,274 bytes. That routine is
-retired: the snapshot of 1.5.2 stays as it was released, and the later
-uploads go to the shared base. The first run also found that Mega Drive and
-Super Nintendo checks failed on Windows with a `NameError` (`subprocess` no
-longer imported in `console16.probe16` since 1.5.1), fixed in 1.5.2.
+uploaded games again and folded their paths into the bundled snapshot at each
+release; its first run added 33 games (Super Nintendo 27, NES 3, Mega Drive 2,
+Game Boy 1), 2,280,968 hints, all verified by the quick check, and the
+snapshot went from 15,453,304 to 16,895,274 bytes. That routine is retired:
+the content of that snapshot, with the later campaigns, is the maintainer's
+qualified part of the base, and players' uploads reach the base without
+waiting for a release. The first run also found that Mega Drive and Super
+Nintendo checks failed on Windows with a `NameError` (`subprocess` no longer
+imported in `console16.probe16` since 1.5.1), fixed in 1.5.2.
 
 ## Release 0.24.0 snapshot
 

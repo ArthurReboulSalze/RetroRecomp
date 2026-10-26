@@ -583,8 +583,11 @@ class WindowTests(unittest.TestCase):
             self.assertIsNone(neogeo_knowledge.SHARED_SOURCE)
             self.owner.start_shared_source(True, [], {'gb', 'md'})
             self.assertIsNone(neogeo_knowledge.SHARED_SOURCE, 'no Neo Geo game, no source')
+            # Without the option the cartridge still asks, for the local base's qualified paths alone.
+            calls.clear()
             self.owner.start_shared_source(False, [], {'ng'})
-            self.assertIsNone(neogeo_knowledge.SHARED_SOURCE, 'the option is off')
+            neogeo_knowledge.SHARED_SOURCE(IDENTITY)
+            self.assertEqual(calls, [[GAME_KEY]])
 
     def test_the_note_and_the_rejection_read_the_neo_geo_report(self):
         folder = Path(tempfile.mkdtemp())

@@ -14,10 +14,12 @@ exact document sent (`knowledge_exchange.discovery_paths`), which give the
 first finder its points at once. Before a batch, a signed-in converter also
 asks the shared base for the paths other players found for the batch's ROMs
 (`sync_shared`); they join the imported banks and, like any imported hint,
-are checked again by every conversion. The published base (`sync_base`, no
-account needed) gives the same kind of paths from an index of games and one
-entry per game, fetched only for the batch's ROMs and verified by their hash;
-the maintainer can revoke an upload there, and the paths it gave are withdrawn.
+are checked again by every conversion. The local base of paths (`sync_base`,
+no account needed; the installer's copy plus updates by small differences,
+`update_base`) gives the qualified paths of this converter's engine and the
+paths still waiting for a game; its entries are verified by the hash that names
+them, and the maintainer can revoke an upload there: the paths it gave are
+withdrawn.
 """
 from __future__ import annotations
 
@@ -1364,31 +1366,47 @@ def sync_shared(rom_keys) -> dict:
     return summary
 
 
-# --- The published base: an index of games and one entry per game -----------
+# --- The shared base: one base of paths, outside the executable -------------
 #
-# `GET base` (public, no account) gives the manifest: version, the sha256 of
-# the index, the sources revoked since the build, the (source, game) pairs the
-# service quarantined (treated like revoked sources, for that game only) and the
-# highest record id the base holds. The index maps each game ('system:sha256') to its entry's hash
-# and its sources; the entry (`POST base/entries`) holds one part per upload.
-# Only the entries of the batch's ROMs are downloaded, each verified by the
-# hash that named it, and their parts join the imported banks exactly like
-# fetched paths (`import_fetched`). What was imported is remembered per game in
-# base-use.json, so a revoked source, a game left out of a later index or a
-# rejection here withdraws exactly what came from the base.
+# Since 1.5.4 the paths the converter knows live in one base kept beside the
+# program (`knowledge_exchange`: the installer's copy, plus what updates add in
+# datas/knowledge/base/). It is updated by small differences, only before a
+# batch (at most once a day) or on a button (`update_base`); opening the program
+# only looks at the service's manifest (`check_base`, a few hundred bytes).
+#
+# `GET base` (public, no account) is the manifest: the version, the sources
+# revoked since the build, the (source, game) pairs the service quarantined
+# (treated like revoked sources, for that game only), the highest record id the
+# base holds, the difference files that lead from an older version to the
+# current one (`deltas`, served as `GET base/files/<file>`) and the latest
+# complete base (`full`, a direct download address on GitHub, never the API).
+#
+# Before a batch, each of the batch's ROMs found in the base brings its entry
+# (read locally): the qualified element built with this converter's engine
+# goes to the qualified bank, which takes the place of the snapshot the program
+# no longer embeds; everything else (the paths still waiting, and the qualified
+# elements of another engine, with their level) joins the imported banks, like
+# fetched paths, and is checked again by every conversion. What was applied is
+# remembered per game in base-use.json, so a revoked source, a game left out of
+# a later base or a rejection here withdraws exactly what came from the base.
 
-BASE_FORMATS = (1,)
-BASE_REFRESH = 30 * 60
-BASE_INDEX_LIMIT = 32 * 1024 * 1024
-BASE_INDEX_JSON_LIMIT = 64 * 1024 * 1024
-BASE_ENTRIES_BATCH = 128
-BASE_ENTRIES_LIMIT = 32 * 1024 * 1024
+BASE_FORMATS = (2,)
+BASE_CHECK_EVERY = 6 * 60 * 60
+BASE_UPDATE_EVERY = 24 * 60 * 60
+BASE_DELTA_LIMIT = 64 * 1024 * 1024
+BASE_FULL_LIMIT = 512 * 1024 * 1024
 BASE_REJECTED_KEPT = 16
-BASE_INDEX_NAME = 'base-index.json.gz'
-BASE_STATE_NAME = 'base-state.json'
+BASE_IMPORT_BATCH = 256
+BASE_SITE_NAME = 'site.json'
 BASE_USE_NAME = 'base-use.json'
+BASE_DIRECT_HOSTS = ('github.com',)
+BASE_DIRECT_SUFFIXES = ('.githubusercontent.com',)
+BASE_DIRECT_PATH = re.compile(r'/ArthurReboulSalze/[A-Za-z0-9._-]+/releases/download/[A-Za-z0-9._+-]+/[A-Za-z0-9._+-]+\.zip')
 _SHA256 = re.compile(r'[0-9a-f]{64}')
+_DELTA_FILE = re.compile(r'retro-recomp-base-\d{1,9}-\d{1,9}\.zip')
 _NETWORK_ERRORS = (ServiceError, ServiceConnectionError, OSError, ValueError)
+# The reasons update_base and check_base give for a failure.
+BASE_ERRORS = ('offline', 'unavailable', 'no_base', 'no_path', 'format', 'verify', 'service', 'disk')
 
 
 def _is_count(value) -> bool:
@@ -1419,128 +1437,349 @@ def _quarantined(value) -> list:
     return [list(pair) for pair in sorted(pairs)]
 
 
-def _base_state() -> dict:
-    """The manifest facts kept from the last look at this service's base;
-    {} when there are none."""
+def _site_path() -> Path:
+    from .knowledge_exchange import base_directory
+    return base_directory() / BASE_SITE_NAME
+
+
+def _site() -> dict:
+    """What the service last said about its base (the manifest facts that do
+    not depend on which version is local): {'latest' (its version or None),
+    'revoked', 'quarantined', 'cursor', 'built_utc', 'published_utc',
+    'checked' (when the manifest was last read), 'updated' (when the base last
+    was brought up to date)}. Blank when nothing was read from this service."""
+    blank = {'latest': None, 'revoked': [], 'quarantined': [], 'cursor': 0, 'built_utc': None,
+             'published_utc': None, 'checked': 0.0, 'updated': 0.0}
     try:
-        data = json.loads(_base_file(BASE_STATE_NAME).read_text(encoding='utf-8'))
+        data = json.loads(_site_path().read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return {}
-    if (not isinstance(data, dict) or not service_url() or data.get('service') != service_url()
-            or not _is_count(data.get('version')) or not isinstance(data.get('index_sha256'), str)
-            or not _SHA256.fullmatch(data['index_sha256'])):
-        return {}
+        return blank
+    if not isinstance(data, dict) or not service_url() or data.get('service') != service_url():
+        return blank
+    number = lambda value: float(value) if type(value) in (int, float) else 0.0
     revoked = data.get('revoked')
-    checked = data.get('checked')
-    return {'service': data['service'], 'version': data['version'], 'index_sha256': data['index_sha256'],
+    return {'latest': data['latest'] if _is_count(data.get('latest')) else None,
             'revoked': sorted({value for value in revoked if _is_count(value)}) if isinstance(revoked, list) else [],
             'quarantined': _quarantined(data.get('quarantined')),
             'cursor': data['cursor'] if _is_count(data.get('cursor')) else 0,
-            'games': data['games'] if _is_count(data.get('games')) else 0,
             'built_utc': _text(data.get('built_utc')), 'published_utc': _text(data.get('published_utc')),
-            'checked': float(checked) if type(checked) in (int, float) else 0.0}
+            'checked': number(data.get('checked')), 'updated': number(data.get('updated'))}
 
 
-def _parse_index(raw: bytes, version: int) -> dict | None:
-    """{'version', 'built_utc', 'games': {key: {'entry', 'sources'}}} from the
-    gzipped index file, or None when it is not a format-1 index of `version`.
-    A malformed game is left out; the index itself is bounded once decompressed."""
-    try:
-        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
-            text = stream.read(BASE_INDEX_JSON_LIMIT + 1)
-        if len(text) > BASE_INDEX_JSON_LIMIT:
-            return None
-        data = json.loads(text)
-    except (OSError, EOFError, ValueError):
-        return None
-    if (not isinstance(data, dict) or type(data.get('format')) is not int or data['format'] not in BASE_FORMATS
-            or data.get('version') != version or not isinstance(data.get('games'), dict)):
-        return None
-    games = {}
-    for key, value in data['games'].items():
-        if (isinstance(key, str) and _ROM_KEY.fullmatch(key) and isinstance(value, dict)
-                and isinstance(value.get('entry'), str) and _SHA256.fullmatch(value['entry'])
-                and isinstance(value.get('sources'), list)):
-            games[key] = {'entry': value['entry'], 'sources': sorted({s for s in value['sources'] if _is_count(s)})}
-    return {'version': version, 'built_utc': _text(data.get('built_utc')), 'games': games}
+def _save_site(site: dict) -> None:
+    _write_bytes(_site_path(), (json.dumps({'service': service_url(), **site}, indent=1, sort_keys=True)
+                                + '\n').encode('utf-8'))
 
 
-def _stored_index(state: dict) -> dict | None:
-    """The index file kept beside the state, if it is still the one the state
-    names (same bytes, same hash)."""
-    try:
-        with open(_base_file(BASE_INDEX_NAME), 'rb') as file:
-            raw = file.read(BASE_INDEX_LIMIT + 1)
-    except OSError:
-        return None
-    if len(raw) > BASE_INDEX_LIMIT or hashlib.sha256(raw).hexdigest() != state['index_sha256']:
-        return None
-    return _parse_index(raw, state['version'])
+def _manifest_full(value) -> dict | None:
+    if (isinstance(value, dict) and _is_count(value.get('version')) and isinstance(value.get('url'), str)
+            and len(value['url']) <= 512 and isinstance(value.get('sha256'), str)
+            and _SHA256.fullmatch(value['sha256']) and _is_count(value.get('bytes'))
+            and 0 < value['bytes'] <= BASE_FULL_LIMIT):
+        return {'version': value['version'], 'url': value['url'], 'sha256': value['sha256'], 'bytes': value['bytes']}
+    return None
+
+
+def _manifest_deltas(value) -> dict:
+    deltas = {}
+    for start, item in (value.items() if isinstance(value, dict) else ()):
+        if (isinstance(start, str) and start.isascii() and start.isdigit() and len(start) <= 9
+                and isinstance(item, dict) and isinstance(item.get('file'), str)
+                and _DELTA_FILE.fullmatch(item['file']) and isinstance(item.get('sha256'), str)
+                and _SHA256.fullmatch(item['sha256']) and _is_count(item.get('bytes'))
+                and 0 < item['bytes'] <= BASE_DELTA_LIMIT):
+            deltas[str(int(start))] = {'file': item['file'], 'sha256': item['sha256'], 'bytes': item['bytes']}
+    return deltas
 
 
 def _read_manifest(answer: dict) -> dict:
-    """The manifest's fields, checked; ServiceError 'bad_answer' otherwise."""
-    listing, revoked = answer.get('index'), answer.get('revoked')
-    if (not _is_count(answer.get('version')) or not isinstance(listing, dict)
-            or not isinstance(listing.get('sha256'), str) or not _SHA256.fullmatch(listing['sha256'])
-            or not _is_count(listing.get('bytes')) or not 0 < listing['bytes'] <= BASE_INDEX_LIMIT
-            or not isinstance(revoked, list)):
+    """The manifest's fields, checked: ServiceError 'bad_answer' for a
+    malformed one, 'format' for a format this converter cannot read."""
+    if type(answer.get('format')) is not int or not _is_count(answer.get('version')):
         raise ServiceError(200, 'bad_answer')
-    return {'version': answer['version'], 'index_sha256': listing['sha256'], 'index_bytes': listing['bytes'],
-            'revoked': sorted({value for value in revoked if _is_count(value)}),
+    if answer['format'] not in BASE_FORMATS:
+        error = ServiceError(200, 'format')
+        error.detail = str(answer['format'])
+        raise error
+    revoked = answer.get('revoked')
+    return {'version': answer['version'],
+            'revoked': sorted({value for value in revoked if _is_count(value)}) if isinstance(revoked, list) else [],
             'quarantined': _quarantined(answer.get('quarantined')),
             'cursor': answer['cursor'] if _is_count(answer.get('cursor')) else 0,
             'games': answer['games'] if _is_count(answer.get('games')) else 0,
-            'built_utc': _text(answer.get('built_utc')), 'published_utc': _text(answer.get('published_utc'))}
+            'built_utc': _text(answer.get('built_utc')), 'published_utc': _text(answer.get('published_utc')),
+            'full': _manifest_full(answer.get('full')), 'deltas': _manifest_deltas(answer.get('deltas'))}
 
 
-def _refresh_base(state: dict, index: dict | None, now: float, summary: dict) -> tuple:
-    """GET base: the manifest, and the index when the version changed. Returns
-    the (state, index) to use: the new ones, or the stored ones when there is
-    no base yet or its format is unknown (`summary['note']` says which)."""
+def _get_manifest(now: float) -> dict:
+    """GET base, remembered in site.json. ServiceError 'no_base' when the
+    service has none yet."""
+    site = _site()
     try:
         answer = _call('GET', 'base', timeout=15)[1]
     except ServiceError as error:
         if error.status == 404:
-            summary['note'] = 'no_base'
-            return state, index
+            _save_site({**site, 'latest': None, 'checked': now})
+            raise ServiceError(404, 'no_base') from error
         raise
-    if type(answer.get('format')) is not int:
-        raise ServiceError(200, 'bad_answer')
-    if answer['format'] not in BASE_FORMATS:
-        summary.update(note='format', format=answer['format'])
-        return state, index
     manifest = _read_manifest(answer)
-    if index is None or state.get('version') != manifest['version'] \
-            or state.get('index_sha256') != manifest['index_sha256']:
-        raw = _call('GET', f"base/index/{manifest['version']}", timeout=120, limit=manifest['index_bytes'],
-                    download=True)[1]['bytes']
-        if len(raw) != manifest['index_bytes'] or hashlib.sha256(raw).hexdigest() != manifest['index_sha256']:
-            raise ServiceError(200, 'bad_answer')
-        index = _parse_index(raw, manifest['version'])
-        if index is None:
-            raise ServiceError(200, 'bad_answer')
-        _write_bytes(_base_file(BASE_INDEX_NAME), raw)
-    state = {'service': service_url(), 'version': manifest['version'], 'index_sha256': manifest['index_sha256'],
-             'revoked': manifest['revoked'], 'quarantined': manifest['quarantined'],
-             'cursor': manifest['cursor'], 'games': manifest['games'],
-             'built_utc': manifest['built_utc'], 'published_utc': manifest['published_utc'], 'checked': now}
-    _write_bytes(_base_file(BASE_STATE_NAME), (json.dumps(state, indent=1, sort_keys=True) + '\n').encode('utf-8'))
-    return state, index
+    _save_site({**site, 'latest': manifest['version'], 'revoked': manifest['revoked'],
+                'quarantined': manifest['quarantined'], 'cursor': manifest['cursor'],
+                'built_utc': manifest['built_utc'], 'published_utc': manifest['published_utc'], 'checked': now})
+    return manifest
+
+
+def _stamp_updated(now: float) -> None:
+    """The base is up to date as of `now`: the next batch will not ask again
+    before BASE_UPDATE_EVERY has passed."""
+    _save_site({**_site(), 'updated': now})
+
+
+def _error_code(error) -> str | None:
+    """The short reason (BASE_ERRORS) for an exception of the base's network or
+    file work, or None."""
+    if error is None:
+        return None
+    if isinstance(error, ServiceConnectionError):
+        return 'offline'
+    if isinstance(error, ServiceError):
+        return error.reason if error.reason in ('unavailable', 'no_base', 'no_path', 'format', 'verify') else 'service'
+    if isinstance(error, ValueError):
+        return 'verify'
+    return 'disk'
+
+
+def local_base_version() -> int | None:
+    """The version of the base in use (the downloaded one, or the installer's
+    copy), or None when there is none. Reads files only."""
+    from .knowledge_exchange import local_base
+    base = local_base()
+    return base['version'] if base else None
+
+
+def check_base(force: bool = False, now: float | None = None) -> dict:
+    """Is there a newer base? {'local' (the version in use or None), 'latest'
+    (the service's, as last read, or None), 'newer' (the service's is later
+    than the local one, or there is no local base but the service has one),
+    'error' (None, or 'offline', 'format' or 'service' when the manifest could
+    not be read)}. Only the manifest is read (`GET base`, a few hundred bytes),
+    at most every BASE_CHECK_EVERY seconds unless `force`; nothing else is
+    downloaded and nothing is raised. Without a service it answers from files."""
+    now = time.time() if now is None else now
+    result = {'local': local_base_version(), 'latest': None, 'newer': False, 'error': None}
+    site = _site()
+    result['latest'] = site['latest']
+    if service_url() and (force or not 0 <= now - site['checked'] < BASE_CHECK_EVERY):
+        try:
+            result['latest'] = _get_manifest(now)['version']
+        except ServiceConnectionError:
+            result['error'] = 'offline'
+        except ServiceError as error:
+            code = _error_code(error)
+            result['latest'] = None if code == 'no_base' else result['latest']
+            result['error'] = None if code == 'no_base' else code
+        except (OSError, ValueError):
+            result['error'] = 'service'
+    latest = result['latest']
+    result['newer'] = latest is not None and (result['local'] is None or latest > result['local'])
+    return result
+
+
+def _direct_ok(url: str, redirected: bool = False) -> bool:
+    """May this address be downloaded from? A release file on GitHub (and the
+    hosts GitHub redirects its downloads to), over https; a plain http address
+    only on this computer or the home network, when the service itself is
+    there too (tests)."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or '').lower()
+    except ValueError:
+        return False
+    if parts.username or parts.password:
+        return False
+    if parts.scheme == 'https':
+        if host in BASE_DIRECT_HOSTS:
+            return redirected or bool(BASE_DIRECT_PATH.fullmatch(parts.path))
+        return redirected and host.endswith(BASE_DIRECT_SUFFIXES)
+    if parts.scheme == 'http' and host and _local_host(host):
+        service = urlsplit(service_url())
+        return service.scheme == 'http' and _local_host(service.hostname or '')
+    return False
+
+
+class _DirectRedirect(urllib.request.HTTPRedirectHandler):
+    """A release download may be redirected, but only to GitHub's own hosts."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _direct_ok(newurl, redirected=True):
+            fp.close()
+            raise urllib.error.HTTPError(req.full_url, code, 'redirect refused', headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _download_direct(url: str, destination: Path, expected: int, progress=None) -> tuple[int, str]:
+    """Stream `url` into `destination`: at most `expected` bytes, hashed on the
+    way. (bytes received, SHA-256). Network failures are ServiceConnectionError,
+    a refusal ServiceError, a file problem OSError."""
+    if not _direct_ok(url):
+        raise ServiceError(0, 'unavailable')
+    opener = urllib.request.build_opener(_DirectRedirect)
+    request = urllib.request.Request(url, headers={'User-Agent': f'RetroRecomp/{__version__}'})
+    try:
+        response = opener.open(request, timeout=60)
+    except urllib.error.HTTPError as error:
+        error.close()
+        raise ServiceError(error.code, 'download') from error
+    except (OSError, http.client.HTTPException) as error:
+        raise ServiceConnectionError() from error
+    digest, done = hashlib.sha256(), 0
+    with response, open(destination, 'wb') as out:
+        while True:
+            try:
+                chunk = response.read(1 << 20)
+            except (OSError, http.client.HTTPException) as error:
+                raise ServiceConnectionError() from error
+            if not chunk:
+                break
+            done += len(chunk)
+            if done > expected:
+                raise ServiceError(200, 'verify')
+            digest.update(chunk)
+            out.write(chunk)
+            if progress:
+                progress('full', done, expected)
+    return done, digest.hexdigest()
+
+
+def _scratch_file() -> Path:
+    from .knowledge_exchange import base_directory
+    folder = base_directory()
+    folder.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix='download-', suffix='.part', dir=folder)
+    os.close(fd)
+    return Path(name)
+
+
+def _fetch_archive(kind: str, item: dict, progress, result: dict) -> Path:
+    """Download one base archive named by the manifest into a scratch file and
+    check its size and SHA-256; the caller removes the file."""
+    target = _scratch_file()
+    try:
+        if kind == 'delta':
+            raw = _call('GET', f"base/files/{item['file']}", timeout=120, limit=item['bytes'], download=True)[1]['bytes']
+            digest = hashlib.sha256(raw).hexdigest()
+            size = len(raw)
+            target.write_bytes(raw)
+            if progress:
+                progress('delta', size, item['bytes'])
+        else:
+            size, digest = _download_direct(item['url'], target, item['bytes'], progress)
+        result['downloaded_bytes'] += size
+        if size != item['bytes'] or digest != item['sha256']:
+            raise ServiceError(200, 'verify')
+        return target
+    except BaseException:
+        target.unlink(missing_ok=True)
+        raise
+
+
+def _apply_archive(path: Path, version: int, cursor: int) -> dict:
+    from .knowledge_exchange import apply_base_archive
+    try:
+        return apply_base_archive(path, version=version, service=service_url(), cursor=cursor)
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _update(result: dict, progress, now: float) -> None:
+    """The work of `update_base`; raises what went wrong."""
+    from .knowledge_exchange import settle_local_base
+    if not service_url():
+        raise ServiceError(0, 'unavailable')
+    base = settle_local_base(service_url())
+    previous = base['version'] if base else None
+    result.update(version=previous, previous=previous)
+    try:
+        manifest = _get_manifest(now)
+    except ServiceError as error:
+        if error.reason == 'format':
+            result['format'] = int(error.detail) if error.detail.isdigit() else None
+        raise
+    latest = manifest['version']
+    if previous is not None and previous >= latest:
+        _stamp_updated(now)
+        return
+    delta = manifest['deltas'].get(str(previous)) if previous is not None else None
+    full = manifest['full']
+    if delta is not None:
+        path = _fetch_archive('delta', delta, progress, result)
+        base = _apply_archive(path, latest, manifest['cursor'])
+        result.update(version=base['version'], source='delta')
+    elif full is not None and (previous is None or full['version'] > previous):
+        path = _fetch_archive('full', full, progress, result)
+        base = _apply_archive(path, full['version'], manifest['cursor'] if full['version'] == latest else 0)
+        result.update(version=base['version'], source='full')
+        follow = manifest['deltas'].get(str(full['version']))
+        if follow is not None and full['version'] < latest:
+            path = _fetch_archive('delta', follow, progress, result)
+            base = _apply_archive(path, latest, manifest['cursor'])
+            result['version'] = base['version']
+    else:
+        # No difference leads from this version and no complete base is newer.
+        raise ServiceError(200, 'no_path')
+    _stamp_updated(now)
+
+
+def _run_update(result: dict, progress, now: float):
+    """`_update` that returns its failure instead of raising it."""
+    try:
+        _update(result, progress, now)
+    except (ServiceError, ServiceConnectionError, OSError, ValueError) as caught:
+        return caught
+    return None
+
+
+def update_base(progress=None, now: float | None = None) -> dict:
+    """Bring the local base up to the service's latest version, now. Reads the
+    manifest; then, when it names a difference from the local version, only that
+    difference (`GET base/files/<file>`); otherwise, when its latest complete
+    base is newer than the local one, that base from its direct address, then
+    the difference that leads on from it. Sizes and SHA-256 are checked and the
+    result applied atomically (knowledge_exchange.apply_base_archive); the
+    earlier base stays whenever something fails. Never raises, never uses the
+    GitHub API. `progress(stage, done, total)` is called while a file arrives
+    (stage 'delta' or 'full'). Returns {'version' (the version in use now, or
+    None), 'previous' (before, or None), 'downloaded_bytes', 'source'
+    ('delta', 'full' or None when nothing was downloaded), 'error' (None, or
+    one of BASE_ERRORS)}."""
+    now = time.time() if now is None else now
+    result = {'version': None, 'previous': None, 'downloaded_bytes': 0, 'source': None, 'error': None}
+    result['error'] = _error_code(_run_update(result, progress, now))
+    result.pop('format', None)
+    return result
+
+
+def _update_due(now: float) -> bool:
+    updated = _site()['updated']
+    return not 0 <= now - updated < BASE_UPDATE_EVERY
 
 
 def _blank_use() -> dict:
     return {'entry': None, 'sources': [], 'level': None, 'records': 0, 'version': None, 'imported_utc': None,
-            'rejected': [], 'rejected_sources': []}
+            'rejected': [], 'rejected_sources': [], 'engine_id': None, 'qualified': None}
 
 
 def _base_use() -> dict:
     """What the base gave each game so far: {key: {'entry' (hash of the last
-    entry imported), 'sources' (its imported parts), 'level', 'records',
-    'version', 'imported_utc', 'rejected' (entry hashes set aside here),
-    'rejected_sources'}}. Without the imported banks nothing is imported any
-    more: the rejections alone stay."""
+    entry applied), 'sources' (its imported parts), 'level' and 'records' (of
+    what was imported), 'version', 'imported_utc', 'rejected' (entry hashes
+    set aside here), 'rejected_sources', 'engine_id' (the engine revision the
+    entry was split for) and 'qualified' ({'engine', 'level', 'by'} when its
+    qualified element went to the qualified bank, else None)}}. Without the
+    imported banks nothing is imported any more, and without the qualified
+    bank nothing is qualified: the rejections alone stay."""
     from .knowledge import imported_observations_path, imported_path
+    from .knowledge_exchange import QUALIFIED_BY, qualified_bank_path
     try:
         data = json.loads(_base_file(BASE_USE_NAME).read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -1549,12 +1788,17 @@ def _base_use() -> dict:
         return {}
     from .scan_levels import LEVELS
     banks = imported_path().is_file() or imported_observations_path().is_file()
+    qualified_bank = qualified_bank_path().is_file()
     use = {}
     for key, value in data.items():
         if not (isinstance(key, str) and _ROM_KEY.fullmatch(key) and isinstance(value, dict)):
             continue
         rejected, sources = value.get('rejected'), value.get('sources')
         rejected_sources = value.get('rejected_sources')
+        qualified = value.get('qualified')
+        if not (isinstance(qualified, dict) and isinstance(qualified.get('engine'), str)
+                and qualified.get('level') in LEVELS and qualified.get('by') in QUALIFIED_BY):
+            qualified = None
         record = {'entry': value['entry'] if isinstance(value.get('entry'), str) and _SHA256.fullmatch(value['entry']) else None,
                   'sources': sorted({s for s in sources if _is_count(s)}) if isinstance(sources, list) else [],
                   'level': value['level'] if value.get('level') in LEVELS else None,
@@ -1564,117 +1808,209 @@ def _base_use() -> dict:
                   'rejected': [s for s in rejected if isinstance(s, str) and _SHA256.fullmatch(s)][-BASE_REJECTED_KEPT:]
                   if isinstance(rejected, list) else [],
                   'rejected_sources': sorted({s for s in rejected_sources if _is_count(s)})
-                  if isinstance(rejected_sources, list) else []}
+                  if isinstance(rejected_sources, list) else [],
+                  'engine_id': value['engine_id'] if isinstance(value.get('engine_id'), str) else None,
+                  'qualified': {name: qualified[name] for name in ('engine', 'level', 'by')} if qualified else None}
         if not banks:
             record.update(entry=None, sources=[], level=None, records=0)
+        if not qualified_bank and record['qualified']:
+            record.update(entry=None, qualified=None)   # the bank was removed: fill it again
         use[key] = record
     return use
 
 
 def _save_base_use(use: dict) -> None:
     kept = {key: value for key, value in sorted(use.items())
-            if value['entry'] or value['sources'] or value['rejected']}
+            if value['entry'] or value['sources'] or value['rejected'] or value['qualified']}
     _write_bytes(_base_file(BASE_USE_NAME), (json.dumps(kept, indent=1, sort_keys=True) + '\n').encode('utf-8'))
 
 
-def _base_entries(shas) -> dict:
-    """POST base/entries: {sha: value} of the entries the service served out
-    of `shas` (the unknown ones are omitted by the service), still unverified.
-    Entries the service `deferred` (its answer was full) are asked again."""
-    asked, served = set(shas), {}
-    ask = sorted(asked)
-    for _ in range(FETCH_ROUNDS):
-        answer = _call('POST', 'base/entries', payload={'entries': ask}, timeout=120,
-                       limit=BASE_ENTRIES_LIMIT, compressed=True)[1]
-        entries = answer.get('entries')
-        if entries == []:
-            entries = {}   # an empty JSON object may come back as an empty list
-        if not isinstance(entries, dict):
-            raise ServiceError(200, 'bad_answer')
-        served.update((sha, value) for sha, value in entries.items() if sha in asked)
-        deferred = answer.get('deferred') if isinstance(answer.get('deferred'), list) else []
-        deferred = sorted({sha for sha in deferred if sha in asked and sha not in served})
-        if not deferred or len(deferred) >= len(ask):
-            break
-        ask = deferred
-    return served
-
-
-def sync_base(rom_keys, now: float | None = None) -> dict:
-    """The published base for these ROMs ('system:sha256'), needing no account:
-    the manifest (at most every BASE_REFRESH seconds), the index when its
-    version changed, then each game's entry as far as it differs from what was
-    imported. Counts for the log: {'version', 'built_utc', 'asked', 'games'
-    (received now), 'discarded' (withdrawn), 'note' (None, 'no_base' or
-    'format', then 'format' names it), 'error' (a service or file error that
-    stopped part of it, else None)}. The earlier base stays whenever
-    something fails; nothing here raises for the network or the files."""
+def sync_base(rom_keys, now: float | None = None, enabled: bool = True) -> dict:
+    """The base for these ROMs ('system:sha256'), needing no account. With
+    `enabled` (the shared-base option) and a service, the base is first brought
+    up to date when that was not done in the last BASE_UPDATE_EVERY seconds
+    (`update_base`); then each ROM found in the local base is applied: the
+    qualified paths of this converter's engine to the qualified bank, the rest
+    to the imported banks. Counts for the log: {'version' (in use, or None),
+    'built_utc', 'origin' ('installer' or 'download'), 'asked', 'games'
+    (applied now), 'qualified' (of them, put in the qualified bank), 'discarded'
+    (withdrawn), 'note' (None, 'no_base' or 'format', then 'format' names it),
+    'update' (the `update_base` result of this call, or None), 'offline' (no
+    connection was available for an update that was due, or there is no
+    service and no local base), 'error' (a service or file error that stopped
+    part of it, else None)}. The earlier base stays whenever something fails;
+    nothing here raises for the network or the files."""
+    from .knowledge_exchange import settle_local_base
     now = time.time() if now is None else now
     keys = _rom_keys(rom_keys)
-    summary = {'version': None, 'built_utc': None, 'asked': len(keys), 'games': 0, 'discarded': 0,
-               'note': None, 'format': None, 'error': None}
-    state = _base_state()
-    index = _stored_index(state) if state else None
+    summary = {'version': None, 'built_utc': None, 'origin': None, 'asked': len(keys), 'games': 0, 'qualified': 0,
+               'discarded': 0, 'note': None, 'format': None, 'update': None, 'offline': False, 'error': None}
     try:
-        if not (index is not None and 0 <= now - state['checked'] < BASE_REFRESH):
-            state, index = _refresh_base(state, index, now, summary)
-    except _NETWORK_ERRORS as caught:
-        summary['error'] = caught
-    if state and index is not None:
-        summary.update(version=state['version'], built_utc=state['built_utc'])
-        try:
-            _apply_base(keys, state, index, summary)
-        except _NETWORK_ERRORS as caught:
-            summary['error'] = summary['error'] or caught
+        if enabled and service_url() and _update_due(now):
+            update = {'version': None, 'previous': None, 'downloaded_bytes': 0, 'source': None, 'error': None}
+            caught = _run_update(update, None, now)
+            update['error'] = _error_code(caught)
+            summary['update'] = {name: update[name] for name in ('version', 'previous', 'downloaded_bytes', 'source', 'error')}
+            if isinstance(caught, ServiceConnectionError):
+                summary['offline'] = True
+                summary['error'] = caught
+            elif update['error'] == 'no_base':
+                summary['note'] = 'no_base'
+            elif update['error'] == 'format':
+                summary.update(note='format', format=update.get('format'))
+            elif caught is not None:
+                summary['error'] = caught
+        base = settle_local_base(service_url())
+    except OSError as caught:
+        summary['error'] = summary['error'] or caught
+        return summary
+    if enabled and not service_url() and base is None:
+        summary['offline'] = True
+    if base is None:
+        return summary
+    summary.update(version=base['version'], built_utc=base['built_utc'], origin=base['origin'])
+    try:
+        _apply_base(keys, base, summary, enabled)
+    except (OSError, ValueError) as caught:
+        summary['error'] = summary['error'] or caught
     return summary
 
 
-def _apply_base(keys, state: dict, index: dict, summary: dict) -> None:
-    """Bring the imported banks in line with the index for these ROMs."""
+def _apply_base(keys, base: dict, summary: dict, enabled: bool) -> None:
+    """Bring the qualified bank and the imported banks in line with the local
+    base for these ROMs. Needs no network: every entry is read from the store.
+    Without `enabled` only the qualified paths and the withdrawals apply."""
     from datetime import datetime, timezone
     from . import knowledge
-    from .knowledge_exchange import base_entry, import_fetched, usable_part
+    from . import knowledge_exchange as exchange
     from .scan_levels import LEVELS
-    revoked = set(state['revoked'])
+    site = _site()
+    revoked = set(site['revoked'])
     # A quarantined (source, game) pair is withdrawn like a revoked source,
     # for that game only: the source's other games stay.
     quarantined = {}
-    for source, pair_key in state.get('quarantined') or ():
+    for source, pair_key in site['quarantined']:
         quarantined.setdefault(pair_key, set()).add(source)
     def barred(key):
         return revoked | quarantined.get(key, set())
+    index = base['index']
+    engines = exchange.current_engines()
     use = _base_use()
     before = json.dumps(use, sort_keys=True)
-    reset, wanted = set(), {}
-    for key in keys:
-        listed = index['games'].get(key)
-        record = use.get(key)
-        entry = listed['entry'] if listed else None
-        imported = set(record['sources']) if record else set()
-        rejected = bool(record and entry in record['rejected'])
-        out = barred(key)
-        sources = [source for source in listed['sources'] if source not in out] if listed and not rejected else []
-        if imported - set(sources):
-            # A part imported earlier is no longer wanted: the game's imported
-            # hints go, and what remains of it is brought back part by part.
-            why = ('the game left the base' if not listed else 'its entry was rejected here' if rejected
-                   else 'a source was revoked' if imported & revoked
-                   else 'a source was quarantined' if imported & out else 'its entry was replaced')
+    bank = exchange.read_qualified_bank()
+    bank_changed = False
+    # Records built with another engine than this converter's no longer qualify:
+    # they come back as paths to check, with their level, when their game is next
+    # in a batch (the entry still names them).
+    for system, games in bank.items():
+        for identity in [name for name, record in games.items()
+                         if engines.get(system) and exchange.record_engine(system, record) != engines[system]]:
+            del games[identity]
+            bank_changed = True
+    reset, wanted, failed, touched = set(), {}, set(), set()
+    with exchange.BaseEntries() as entries:
+        for key in keys:
             system, _, identity = key.partition(':')
-            knowledge.discard_imported(system, identity, 'shared base: ' + why)
-            record.update(entry=None, sources=[], level=None, records=0)
-            imported = set()
-            reset.add(key)
-            summary['discarded'] += 1
-        if not listed and record and record['entry']:
-            record['entry'] = None
-        if not sources or (record and record['entry'] == entry and imported == set(sources)):
-            continue
-        wanted[key] = entry
+            listed = index['games'].get(key)
+            record = use.get(key)
+            entry = listed['entry'] if listed else None
+            engine = engines.get(system)
+            imported = set(record['sources']) if record else set()
+            rejected = bool(record and entry in record['rejected'])
+            out = barred(key)
+            sources = [source for source in listed['sources'] if source not in out] if listed and not rejected else []
+            if imported - set(sources):
+                # A part imported earlier is no longer wanted: the game's imported
+                # hints go, and what remains of it is brought back part by part.
+                why = ('the game left the base' if not listed else 'its entry was rejected here' if rejected
+                       else 'a source was revoked' if imported & revoked
+                       else 'a source was quarantined' if imported & out else 'its entry was replaced')
+                knowledge.discard_imported(system, identity, 'shared base: ' + why)
+                record.update(entry=None, sources=[], level=None, records=0)
+                imported = set()
+                reset.add(key)
+                summary['discarded'] += 1
+            games = bank.get(system, {})
+            if not listed:
+                if record:
+                    record.update(entry=None, qualified=None, engine_id=None)
+                if identity in games:
+                    del games[identity]
+                    bank_changed = True
+                continue
+            if (record and record['entry'] == entry and record['engine_id'] == engine
+                    and bool(record['qualified']) == (identity in games)
+                    and (not enabled or imported == set(sources))):
+                continue
+            text = entries.text(entry)
+            found = None
+            if text is not None:
+                try:
+                    found = exchange.base_entry(entry, json.loads(text), system, identity)
+                except (ValueError, RecursionError):
+                    found = None
+            if found is None:
+                failed.add(key)   # missing or not what it claims to be: tried again next time
+                continue
+            current, others = exchange.split_qualified(system, found['qualified'], engine)
+            kept = exchange.salvaged_record(system, identity, current['record']) if current else None
+            if kept is not None and (identity in games or len(games) < exchange.CONSOLE_LIMIT):
+                if games.get(identity) != kept:
+                    bank.setdefault(system, {})[identity] = kept
+                    bank_changed = True
+                    summary['qualified'] += 1
+                    touched.add(key)
+                qualified = {name: current[name] for name in ('engine', 'level', 'by')}
+            else:
+                if identity in games:
+                    del games[identity]
+                    bank_changed = True
+                qualified = None
+                if current is not None:
+                    others = [current, *others]   # the bank cannot hold it: a path to check, like the others
+            record = use.setdefault(key, _blank_use())
+            record.update(qualified=qualified, engine_id=engine)
+            if enabled and not rejected:
+                parts = [part for part in found['parts'] if part['source'] not in out]
+                if parts or others:
+                    wanted[key] = (entry, parts, [source for source in found['sources'] if source not in out], others)
+                    continue
+            record.update(entry=entry, version=base['version'])
+    try:
+        if bank_changed:
+            # Before the imports: a path the qualified bank holds is not imported twice.
+            exchange.write_qualified_bank(bank)
+        stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        pending = sorted(wanted)
+        for start in range(0, len(pending), BASE_IMPORT_BATCH):
+            chunk = pending[start:start + BASE_IMPORT_BATCH]
+            exchange.import_fetched({
+                key: {'records': [part['record'] for part in wanted[key][1] if part['record'] is not None]
+                                 + [item['record'] for item in wanted[key][3]],
+                      'observations': [row for part in wanted[key][1] for row in part['observations']]}
+                for key in chunk})
+            for key in chunk:
+                entry, parts, sources, others = wanted[key]
+                system, _, identity = key.partition(':')
+                good = [(part, *exchange.usable_part(system, identity, part)) for part in
+                        [*parts, *({'record': item['record'], 'observations': [], 'level': item['level']}
+                                   for item in others)]]
+                levels = [part['level'] for part, has_record, rows in good
+                          if (has_record or rows) and part['level'] in LEVELS]
+                record = use[key]
+                record.update(entry=entry, sources=sources,
+                              level=max(levels, key=LEVELS.index) if levels else None,
+                              records=sum(has_record for _, has_record, _ in good), version=base['version'],
+                              imported_utc=stamp)
+                if any(has_record or rows for _, has_record, rows in good):
+                    touched.add(key)
+    finally:
+        summary['games'] = len(touched)
+        if json.dumps(use, sort_keys=True) != before:
+            _save_base_use(use)
     current = account()
     shared = _shared_state(current) if current else {}
     if reset:
-        _save_base_use(use)
         # Signed in, the per-account sync serves the game again from the start.
         for key in reset & set(shared):
             shared[key].update(cursor=0)
@@ -1682,69 +2018,24 @@ def _apply_base(keys, state: dict, index: dict, summary: dict) -> None:
             shared[key].pop('records', None)
         if current:
             _save_shared_state(current, shared)
-    failed = set()
-    by_entry = {}
-    for key, entry in wanted.items():
-        by_entry.setdefault(entry, []).append(key)
-    pending = sorted(by_entry)
-    try:
-        for start in range(0, len(pending), BASE_ENTRIES_BATCH):
-            chunk = pending[start:start + BASE_ENTRIES_BATCH]
-            try:
-                served = _base_entries(chunk)
-                imports = {}
-                for sha in chunk:
-                    for key in by_entry[sha]:
-                        system, _, identity = key.partition(':')
-                        found = base_entry(sha, served.get(sha), system, identity)
-                        if found is None:
-                            failed.add(key)   # missing or not what it claims: asked again next time
-                            continue
-                        out = barred(key)
-                        parts = [part for part in found['parts'] if part['source'] not in out]
-                        imports[key] = (sha, parts, [source for source in found['sources'] if source not in out])
-                if imports:
-                    import_fetched({key: {'records': [part['record'] for part in parts if part['record'] is not None],
-                                          'observations': [row for part in parts for row in part['observations']]}
-                                    for key, (sha, parts, _) in imports.items()})
-            except _NETWORK_ERRORS as caught:
-                summary['error'] = summary['error'] or caught
-                for sha in pending[start:]:
-                    failed.update(by_entry[sha])
-                break
-            stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
-            for key, (sha, parts, sources) in imports.items():
-                system, _, identity = key.partition(':')
-                good = [(part, *usable_part(system, identity, part)) for part in parts]
-                levels = [part['level'] for part, has_record, rows in good
-                          if (has_record or rows) and part['level'] in LEVELS]
-                record = use.setdefault(key, _blank_use())
-                record.update(entry=sha, sources=sources,
-                              level=max(levels, key=LEVELS.index) if levels else None,
-                              records=sum(has_record for _, has_record, _ in good), version=state['version'],
-                              imported_utc=stamp)
-                summary['games'] += any(has_record or rows for _, has_record, rows in good)
-    finally:
-        if json.dumps(use, sort_keys=True) != before:
-            _save_base_use(use)
-    if current:
+    if current and base['cursor']:
         # The base holds everything up to its cursor for these games: the
         # per-account sync need not serve it again. Not for a game the base
         # could not give yet, nor one just reset.
         moved = False
         for key in keys:
-            if key not in reset and key not in failed and state['cursor'] > _cursor_value(shared.get(key, {}).get('cursor')):
-                shared.setdefault(key, {})['cursor'] = state['cursor']
+            if key not in reset and key not in failed and base['cursor'] > _cursor_value(shared.get(key, {}).get('cursor')):
+                shared.setdefault(key, {})['cursor'] = base['cursor']
                 moved = True
         if moved:
             _save_shared_state(current, shared)
 
 
 def shared_paths(rom_keys) -> dict:
-    """What the shared base (the published one, and with an account the
+    """What the shared base (the local base, and with an account the
     per-account sync) gave each of these ROMs so far, for the batch:
-    {key: {'level': best scan level among the paths imported, or None,
-    'records': count}}."""
+    {key: {'level': best scan level among the paths it gave (imported or
+    qualified), or None, 'records': count}}."""
     from .scan_levels import LEVELS
     current = account()
     state = _shared_state(current) if current else {}
@@ -1752,8 +2043,10 @@ def shared_paths(rom_keys) -> dict:
     found = {}
     for key in rom_keys:
         fetched, published = state.get(key) or {}, use.get(key) or {}
-        levels = [level for level in (fetched.get('level'), published.get('level')) if level in LEVELS]
-        records = _cursor_value(fetched.get('records')) + _cursor_value(published.get('records'))
+        qualified = published.get('qualified')
+        levels = [level for level in (fetched.get('level'), published.get('level'),
+                                      qualified and qualified['level']) if level in LEVELS]
+        records = _cursor_value(fetched.get('records')) + _cursor_value(published.get('records')) + bool(qualified)
         if records or levels:
             found[key] = {'level': max(levels, key=LEVELS.index) if levels else None, 'records': records}
     return found
@@ -1763,12 +2056,13 @@ def forget_shared(rom_keys) -> None:
     """Shared paths set aside after they broke a conversion: their level no
     longer allows a quick check (the cursor stays, so they do not return).
     The base entry they came from is rejected too: it is not imported again
-    until the index names another entry for that game."""
+    until the index names another entry for that game. The qualified paths
+    stay: they are not imported hints."""
     keys = list(rom_keys)
     use, kept = _base_use(), False
     for key in keys:
         record = use.get(key)
-        if not record or not (record['entry'] or record['sources']):
+        if not record or not (record['sources'] or record['records']):
             continue
         if record['entry'] and record['entry'] not in record['rejected']:
             record['rejected'] = (record['rejected'] + [record['entry']])[-BASE_REJECTED_KEPT:]
@@ -1793,23 +2087,27 @@ def forget_shared(rom_keys) -> None:
 
 
 def prepare_batch(rom_keys, enabled: bool = True, now: float | None = None) -> dict:
-    """Before a batch. Without the option or the service: no request and no
-    shared paths. Otherwise the published base for these ROMs (no account
-    needed: 'base' is its `sync_base` summary), then, signed in, one fetch (in
-    batches) of the paths found since; both join the imported banks, and
+    """Before a batch. The local base is applied for these ROMs (`sync_base`;
+    it needs no account and, without the option, no network and no paths other
+    than the qualified ones), after an update at most once a day when the option
+    is on; then, signed in with the option on, one fetch (in batches) of the
+    paths found since. All of it joins the qualified and imported banks, and
     'paths' tells each conversion what the shared base holds for its ROM. A
     failure keeps the earlier paths and never stops the batch: the base's is
-    in base['error'], the fetch's in 'error'."""
+    in base['error'], the fetch's in 'error'. 'base' is None when there is no
+    base and nothing was asked of it."""
     keys = _rom_keys(rom_keys)
-    if not enabled or not keys or not sending_available():
+    if not keys:
         return {'paths': {}, 'summary': None, 'error': None, 'base': None}
-    base = summary = error = None
+    summary = error = None
     try:
-        base = sync_base(keys, now)
+        base = sync_base(keys, now, enabled)
     except _NETWORK_ERRORS as caught:
-        base = {'version': None, 'built_utc': None, 'asked': len(keys), 'games': 0, 'discarded': 0,
-                'note': None, 'format': None, 'error': caught}
-    if account():
+        base = {'version': None, 'built_utc': None, 'origin': None, 'asked': len(keys), 'games': 0, 'qualified': 0,
+                'discarded': 0, 'note': None, 'format': None, 'update': None, 'offline': False, 'error': caught}
+    if not enabled and base['version'] is None:
+        base = None
+    if enabled and sending_available() and account():
         try:
             summary = sync_shared(keys)
         except _NETWORK_ERRORS as caught:
