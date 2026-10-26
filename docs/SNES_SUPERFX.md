@@ -30,7 +30,11 @@ gathered, and a costed plan. Nothing here is a fidelity or latency claim.
   frame-aligned**; timing is the first open question.
 - Native recompilation of GSU code is possible in principle (the code is in
   ROM) but is a separate multi-week project; the interpreter stays the
-  measured fallback and remains visible.
+  measured fallback and remains visible. A decoder, a static traversal and a
+  measurement of all eight cartridges now exist ("Option B: measured"): the
+  code is small and regular, but the GSU core is only 7-27 % of host frame
+  time, so option B would buy little speed and is not recommended on that
+  ground.
 
 ## Commercial Super FX cartridges
 
@@ -189,8 +193,10 @@ report has status `experimental`.
   compared with an independent reference here.
 - Host cost is unpinned, includes process start and is not a latency claim.
   Vortex (16 ms) is close to the 16.7 ms NTSC frame; Dirt Racer (PAL, 16 ms)
-  has a 20 ms frame. GSU cost is the main factor; it is the strongest argument
-  for option B.
+  has a 20 ms frame. A sampling profile of the same builds (see "Option B:
+  measured") puts the GSU core at 7-27 % of that time: the PPU and the bus
+  dominate, so GSU cost is not the main factor and is a weak argument for
+  option B.
 - Not yet run: battery save round trips, long routes, packed exports, the
   Japanese Star Fox 2 prototype.
 
@@ -223,10 +229,174 @@ Specific difficulties:
   directly ($3100-$32FF). Such code stays interpreted; cache-resident code is
   native only while its bytes still match ROM.
 
-Benefit: host speed (the interpreted GSU fits in a frame on this PC, but
-Vortex already takes about 16 ms of a 16.7 ms NTSC frame) and a growing native
-share. Cost: a second recompiler with its own
-guards, learning records and checks. Do it only after A is qualified.
+Benefit: a growing native share of the GSU and, at most, the host time the GSU
+core uses today (7-27 % of the main thread, measured below; the interpreted
+GSU already fits in a frame on this PC). Cost: a second recompiler with its
+own guards, learning records and checks. Do it only after A is qualified, and
+see the recommendation under "Option B: measured".
+
+#### Option B: measured (26 October 2026)
+
+Groundwork now in the repository: `retrorecomp/snes_gsu.py` (a prefix-aware
+decoder and a static traversal from entry points; 27 unit tests on
+hand-assembled byte sequences) and `tools/snes_gsu_survey.py` (coverage, mix
+and timing report from execution dumps). Neither is used by the conversion
+path. Instruction semantics come from public documentation (nocash fullsnes);
+the points it leaves open (ALT3 forms, the value R15 reads as, the delay slot
+pipeline, STOP) were taken from the behaviour of the pinned engine's core and
+checked against what it executed. Nothing GPL was read.
+
+Method: the eight local cartridges converted at the Standard level with the
+build folder kept; a *local copy* of the engine in each build folder was
+patched to dump every executed GSU instruction (address, prefix state, where
+the byte came from, count), every taken non-sequential transition and every
+job start, then run headless for 6,000 frames with the demo route and 6,000
+with `--play`. In total 7.5 billion GSU instructions. The routes are attract
+mode and the automatic Start presses: gameplay of later stages is not reached
+(Star Fox stays at its title, Dirt Racer at its language menu), so entry points
+and indirect targets will grow with longer routes. The dump format is not
+produced by the product.
+
+| Game | GSU instructions | Entry points (job starts) | Static from entries | With observed indirect targets | Static code | Game Pak RAM or CPU-cache code |
+|---|---|---|---|---|---|---|
+| Star Fox | 548 M | 10 (36,516) | 51.9 % | 100.0 % | 11,925 instr. | 0 |
+| Stunt Race FX | 668 M | 24 (18,371) | 39.0 % | 100.0 % | 39,134 instr. | 0 |
+| Vortex | 774 M | 17 (29,183) | 51.1 % | 100.0 % | 14,297 instr. | 0 |
+| Dirt Trax FX | 910 M | 1 (2) | 0.0 % | 100.0 % | 26,981 instr. | 0 |
+| Dirt Racer | 2,506 M | 6 (11) | 5.9 % | 100.0 % | 18,617 instr. | 0 |
+| Yoshi's Island | 350 M | 33 (106,714) | 91.6 % | 100.0 % | 14,537 instr. | 0 |
+| Doom | 1,348 M | 9 (11,774) | 71.1 % | 100.0 % | 13,378 instr. | 0 |
+| Star Fox 2 | 432 M | 18 (27,052) | 53.3 % | 100.0 % | 18,820 instr. | 0 |
+
+"Static from entries" is the share of executed instructions that a traversal
+from the job entry points alone reaches; the last column but one adds the
+targets observed at indirect jumps (so it is a closure over the dumps, not an
+independent result). Independent checks: the decoder's ROM view reproduced
+every executed ROM opcode (0 mismatches), and the traversal's model of
+branches, JMP/LOOP/IWT R15 and delay slots (given the observed indirect targets)
+predicted every one of 963 million executed non-sequential transitions (0
+unexplained).
+
+| Game | Indirect sites reached | Resolved by constants | Executed, unresolved | Observed targets 1 / 2-3 / 4+ | Most targets at one site | Taken transfers through unresolved |
+|---|---|---|---|---|---|---|
+| Star Fox | 464 | 417 (+5) | 36 | 21 / 12 / 3 | 8 | 0.60 % |
+| Stunt Race FX | 1,011 | 861 (+11) | 119 | 74 / 42 / 3 | 16 | 1.01 % |
+| Vortex | 489 | 411 (+7) | 63 | 27 / 27 / 9 | 16 | 0.52 % |
+| Dirt Trax FX | 872 | 764 (+41) | 100 | 55 / 27 / 18 | 18 | 3.14 % |
+| Dirt Racer | 2,060 | 1,999 (+13) | 61 | 21 / 12 / 28 | 184 | 1.70 % |
+| Yoshi's Island | 305 | 283 (+2) | 14 | 8 / 3 / 3 | 6 | 1.65 % |
+| Doom | 278 | 241 (+8) | 27 | 14 / 7 / 6 | 5 | 2.34 % |
+| Star Fox 2 | 726 | 615 (+8) | 80 | 44 / 31 / 5 | 16 | 1.19 % |
+
+(+n) are sites whose constant-propagated target set was incomplete, mostly
+returns through R11 whose callers are not all visible statically.
+
+| Game | PLOT | MULT class | GETB class | Loads and stores | Prefix opcodes | Need an engine helper | Top 20 PCs | PCs with more than one prefix state |
+|---|---|---|---|---|---|---|---|---|
+| Star Fox | 3.8 % | 1.8 % | 1.1 % | 13.3 % | 18.7 % | 21.6 % | 38.6 % | 3 of 8,149 |
+| Stunt Race FX | 6.9 % | 1.5 % | 2.7 % | 9.4 % | 20.5 % | 23.9 % | 27.3 % | 8 of 23,047 |
+| Vortex | 5.5 % | 1.1 % | 2.3 % | 8.6 % | 15.9 % | 20.4 % | 44.8 % | 3 of 11,558 |
+| Dirt Trax FX | 8.9 % | 2.2 % | 3.6 % | 5.5 % | 23.2 % | 25.8 % | 23.4 % | 139 of 22,035 |
+| Dirt Racer | 2.6 % | 0.4 % | 1.0 % | 15.2 % | 21.8 % | 20.3 % | 63.0 % | 79 of 18,232 |
+| Yoshi's Island | 0.9 % | 0.4 % | 2.0 % | 10.9 % | 25.2 % | 16.7 % | 18.4 % | 15 of 5,573 |
+| Doom | 5.8 % | 1.1 % | 3.0 % | 6.1 % | 33.2 % | 20.8 % | 13.2 % | 115 of 9,373 |
+| Star Fox 2 | 3.9 % | 1.6 % | 2.4 % | 12.8 % | 20.0 % | 23.6 % | 32.8 % | 5 of 15,086 |
+
+| Game | Master clocks per instruction | Fetched from the cache | Instructions per line fill | Executed under the PC's usual CBR | Sync calls under 8 instructions | GSU core share of host time (demo / play) |
+|---|---|---|---|---|---|---|
+| Star Fox | 3.07 | 87.6 % | 307 | 100.0 % | 93.9 % | 12 % / 12 % |
+| Stunt Race FX | 2.91 | 83.3 % | 191 | 99.8 % | 94.5 % | 12 % / 14 % |
+| Vortex | 1.8 | 92.7 % | 420 | 100.0 % | 88.8 % | 12 % / 7 % |
+| Dirt Trax FX | 3.4 | 91.9 % | 672 | 99.9 % | 91.4 % | 21 % / 15 % |
+| Dirt Racer | 1.78 | 93.4 % | 2982 | 99.2 % | 90.7 % | 25 % / 27 % |
+| Yoshi's Island | 0.88 | 99.3 % | 324 | 100.0 % | 80.7 % | 9 % / 10 % |
+| Doom | 2.2 | 99.8 % | 596 | 100.0 % | 92.7 % | 21 % / 19 % |
+| Star Fox 2 | 2.48 | 90.6 % | 214 | 100.0 % | 93.0 % | 13 % / 9 % |
+
+What the numbers say:
+
+- **Entry points are few but not all in the job log.** 1 to 33 distinct
+  PBR:R15 starts per game. Dirt Trax FX logs 2 starts but executes 4,215 STOPs:
+  the 65816 resumes the GSU by setting SFR.G, which writes no R15 and so never
+  reaches the engine's job log. Resume points are two bytes after a `STOP ; NOP`
+  and can be found statically. A scan of each ROM for absolute stores to
+  $301E finds only 1 to 8 per game and the entry address comes from tables, so
+  the entries cannot be read off the 65816 code.
+- **Static traversal alone is not enough, observation closes it.** From the
+  entries alone it reaches 0 to 92 % of what ran; adding the observed targets of
+  the 14 to 119 indirect sites per game that constant propagation cannot resolve
+  (about half have a single target, up to 184 at a computed dispatch in Dirt
+  Racer) reaches everything that ran. Those sites carry 0.5 to 3.1 % of taken
+  transfers.
+- **Delay slots need the pipeline model.** A multi-byte instruction in a delay
+  slot takes its operand bytes from the path actually followed (`BEQ x ; IWT
+  R15,#a` is a two-way dispatch), and a relative branch can sit in the slot of
+  a computed jump (a jump table of BRAs in Dirt Racer). Both occur; without
+  them the traversal missed up to 30 % of the executed code.
+- **No Game Pak RAM code and no CPU-written cache lines** in 12,000 frames of
+  any of the eight games, so the guard for them is a safety net, not a feature.
+- **Prefix state is almost a function of the address**: 98.8 % to 99.97 % of
+  PCs have a single prefix state (at most five), so keying code by (PC, state)
+  grows it by under 2 % (1.0003 to 1.019 nodes per address).
+- **Instruction mix**: 74 to 83 % of executed instructions are register
+  arithmetic, prefixes, moves and branches that need no engine service; 17 to
+  26 % need a buffer, pixel-cache, multiplier or cache helper. The top 20
+  addresses are 13 to 63 % of all instructions (tight LOOP/PLOT and fill loops).
+- **Cache**: 83 to 99.8 % of instructions come from the 512-byte cache, one
+  line fill per 190 to 2,980 instructions, and 99.2 to 100 % of executions run
+  under the most common CBR of their PC (0 to 10 % of PCs are met under several
+  CBR values, Dirt Racer most).
+- **The 65816 looks at the GSU all the time**: 81 to 94.5 % of the sync calls
+  made while the GSU runs advance it by fewer than 8 instructions, 99.3 to 100 %
+  by fewer than 32. Compiled code must be able to stop at any instruction and
+  resume in the middle of a block.
+- **The GSU core is 7 to 27 % of main-thread time** (a 2 kHz sampler on the
+  same builds, 3,000 frames per route, attributed through the linker map; the
+  sampler and eight parallel runs inflate absolute times). The PPU is 19 to 45 %
+  and the bus and bridge code 33 to 53 %. Even an infinitely fast GSU would
+  speed a whole frame up by 1.08 to 1.37 times; a four times faster one by 1.06
+  to 1.25 times.
+
+Revised estimate and recommendation. An exact native GSU is 25 to 35 working
+days (it was 15 to 25): entry and target learning with a schema and bundled
+snapshot (3-4), the instruction emitter with exact flags for about 110
+instruction forms (6-8), cycle accounting with yielding at every instruction,
+cache-line state and the ROM and RAM buffers (7-9, the engine's helpers are
+file-static, so the game side must carry its own copies of about 300 lines),
+a per-job checker and authored checks (4-6), and qualification on eight games
+(5-8). Given that even an infinitely fast GSU saves only 7 to 27 % of frame
+time, **do not build the emitter for speed**. Steps 1-5 first. If a native GSU share is wanted for the
+fallback figures, build it in stages that each stand alone: (1) learn entries,
+resume points and indirect targets as data (the dumps above are the
+specification) and report them; (2) run the interpreter from a predecoded
+(PC, state) table built by `snes_gsu.py`, which keeps every observable
+identical and can be checked job by job; (3) only then emit C.
+
+Design if the emitter is built:
+
+- **Learning and storage.** Entries from the job log (public
+  `superfx_job_log`), resume points found statically, indirect targets learned
+  with a PC hook on the delay slot of each unresolved site (R15 holds the
+  target there; the hook API is public). Records per ROM hash, as for the 65816
+  variants, in the knowledge store and the bundled snapshot: 30 to 260
+  (site, target) pairs per game for the unresolved sites, 1,520 in Dirt Racer.
+  A pass regenerates code after learning, as today.
+- **Guards.** Unknown entry or indirect target: leave the compiled code for the
+  interpreter and record it. Compile only ROM views; Game Pak RAM and CPU-written
+  cache lines (never seen) stay interpreted. Block preconditions: CBR equal to
+  the learned value and all its lines valid, no pending ROM or RAM buffer, credit
+  for the next instruction (an instruction starts only with at least 6 clocks of
+  credit, as in the core). Anything else single-steps in the interpreter.
+- **Shared helpers for exact cycles** (the 17 to 26 % above): GETB/GETC and any
+  write to R14 (ROM buffer, 5 or 6 clocks, data read when the countdown ends),
+  ROMB, LDW/LDB/LMS/LM/STW/STB/SBK/SMS/SM and RAMB (RAM buffer and its address
+  and data latches), PLOT and RPIX (two pixel caches, flushed through the clock),
+  MULT/UMULT/FMULT/LMULT (CFGR and CLSR timing), CACHE and LJMP (CBR and line
+  flush), STOP (IRQ, job log). Everything else is pure register and flag work
+  whose cost is a constant 1 or 2 master clocks per cached fetch.
+- **Checks.** Per job: compiled against interpreter (registers, Game Pak RAM
+  hash, stop clock). Per sync window in debug builds. `snes_gsu_survey.py`'s
+  transition check stays as a regression test of the decoder.
 
 ### C. Title-level replacement (rejected)
 
@@ -335,7 +505,7 @@ No zero-fallback claim is made for Super FX games, as for the CX4.
 |---|---|---|
 | snesrecomp (pinned engine, `superfx.c`) | PolyForm Noncommercial 1.0.0, with retained MIT/ISC notices | already the SNES engine of every export ([notices](../licenses/snesrecomp.md)) |
 | ares (origin of the GSU semantics) | ISC | permissive; may be consulted for semantics |
-| fullsnes (nocash) | documentation | consulted for maps and registers; expected values for authored checks |
+| fullsnes (nocash) | documentation | consulted for maps and registers; expected values for authored checks; instruction semantics of `snes_gsu.py` |
 | MAME 0.289 | GPL-2.0+ as a whole, per-file BSD-3 or GPL | run as a separate black-box binary only; no code copied |
 | bsnes/higan, Mesen2 | GPL-3.0 | not consulted, no code copied |
 | Snes9x | non-commercial licence | not used for Super FX |
@@ -353,13 +523,14 @@ reflect unknown integration bugs.
 | 3 | Timing investigation against MAME with the job log; frame-alignment tool | 3-6 |
 | 4 | Authored GSU checks in `native/snes_superfx_checks.c` (done, see Fidelity checks) | 2-4 |
 | 5 | Qualification campaign and documentation as for DSP-1/CX4; decision to drop "experimental" | 3-5 |
-| 6 | Option B: GSU decoder, discovery from job starts and static traversal, C emitter with cycle accounting, guards, learning records, per-job checker | 15-25 |
+| 6a | Option B groundwork: GSU decoder, static traversal, survey tool and the measurements above | done (26 October) |
+| 6b | Option B remainder: learning records, C emitter with cycle accounting and yielding, guards, per-job checker (staged as under "Option B: measured") | 25-35 (was 15-25 for all of step 6); not recommended for speed |
 
 Steps 1-5 (about 3 to 5 weeks) give released, measured Super FX support with
-an interpreted GSU. Step 6 is optional and can follow later.
+an interpreted GSU. Step 6b is optional and can follow later.
 
 A real implementation touches, beyond the slice: `retrorecomp/console16.py` and the report/interface code
 for separate figures, `retrorecomp/knowledge.py` and the bundled snapshot
-schema if GSU entry points are learned, and new `retrorecomp/snes_gsu.py` /
-`native/snes_gsu_*.inc` for option B. All are game-side and change the SNES
-fingerprint again.
+schema if GSU entry points are learned, and, for the rest of option B,
+`native/snes_gsu_*.inc` beside the existing `retrorecomp/snes_gsu.py`. All are
+game-side and change the SNES fingerprint again.
