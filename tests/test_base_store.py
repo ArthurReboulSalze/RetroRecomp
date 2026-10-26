@@ -52,6 +52,26 @@ class StoreTests(BaseHarness):
         # The copy is left as it was.
         self.assertEqual(self.installer.read_bytes(), base_archive(4, {KEY: (built[0], [5])}, {built[0]: built[1]}))
 
+    def test_stored_and_deflated_archives_read_alike(self):
+        built = entry(part(5, 'standard', (0x100,)))
+        games = {KEY: (built[0], [5])}
+        for compression in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+            with self.subTest(compression):
+                knowledge_exchange._installer_head.cache_clear()
+                self.installer.parent.mkdir(parents=True, exist_ok=True)
+                self.installer.write_bytes(base_archive(4, games, {built[0]: built[1]}, compression=compression))
+                self.assertEqual(knowledge_exchange.local_base()['version'], 4)
+                with knowledge_exchange.BaseEntries() as entries:
+                    self.assertEqual(entries.text(built[0]), knowledge_exchange.canonical_bytes(built[1]))
+        # A downloaded difference or complete base may be stored as well.
+        self.publish(6, games, entries=[built])
+        blob = base_archive(6, games, {built[0]: built[1]}, compression=zipfile.ZIP_STORED)
+        self.server.base['downloads']['retro-recomp-base-6.zip'] = blob
+        self.server.base['manifest']['full'].update(sha256=hashlib.sha256(blob).hexdigest(), bytes=len(blob))
+        self.installer.unlink()
+        knowledge_exchange._installer_head.cache_clear()
+        self.assertEqual(online.update_base()['version'], 6)
+
     def test_an_entry_is_looked_up_in_the_local_folder_before_the_copy(self):
         built = entry(part(5, 'standard', (0x100,)))
         self.install(4, {KEY: (built[0], [5])}, [built])

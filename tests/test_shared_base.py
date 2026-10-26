@@ -100,7 +100,8 @@ def entry(*parts, identity=IDENTITY, system='sms', qualified=()):
     return hashlib.sha256(knowledge_exchange.canonical_bytes(value)).hexdigest(), value
 
 
-def base_archive(version, games, entries, wanted=None, built='2026-10-27T03:00:00+00:00'):
+def base_archive(version, games, entries, wanted=None, built='2026-10-27T03:00:00+00:00',
+                 compression=zipfile.ZIP_DEFLATED):
     """The bytes of a base archive: manifest.json, index.json (the complete
     index of `version`: `games` is {key: (entry sha, [sources])}) and the entries
     of `wanted` (default: all those the index names) found in `entries`."""
@@ -110,7 +111,7 @@ def base_archive(version, games, entries, wanted=None, built='2026-10-27T03:00:0
     manifest = {'format': 2, 'version': version, 'built_utc': built, 'games': len(games),
                 'index_sha256': hashlib.sha256(raw).hexdigest()}
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(buffer, 'w', compression) as archive:
         archive.writestr('manifest.json', json.dumps(manifest))
         archive.writestr('index.json', raw)
         for sha in sorted({value[0] for value in games.values()} if wanted is None else wanted):
