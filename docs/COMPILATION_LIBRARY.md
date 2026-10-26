@@ -1490,7 +1490,8 @@ equipped name style (gold, gold to amber, sparkling gold with a slow shimmer
 that stops while the window is hidden), the pin beside the title, the
 portrait frame (drawn larger behind the 44 px portrait, which stays on top)
 and the header theme (classic, neon, night, gold). The leaderboard shows
-name styles, up to three console badges, pins and titles. The public catalog
+name styles, the console badge shown (one, the site's `RR_SHOP_BADGES`;
+`online.SHOP_BADGES`), pins and titles. The public catalog
 (`GET shop`, `datas/shop-catalog.json`) is refreshed at most every 30 minutes
 (`SHOP_REFRESH`) and frame pictures are downloaded once
 (`datas/shop-frame-*`); without a catalog nothing extra is drawn.
@@ -1502,15 +1503,18 @@ After 1.5.2 (26 October 2026, interface modules only: `online`, `gui`,
   account` and the cached `GET board`) is read when the converter starts and
   when its window comes back to the front, at most every 2 minutes
   (`PLAYER_REFRESH`), and 15 seconds after a page of the site was opened from
-  the converter; never two readings at once. The badge shown (one) now sits
-  left of the pseudonym, a first place's badge (`top_badges`) with a gold rim
-  and a small "1". **Manage my items** (Options › Account, and a right-click
-  on the account corner) opens the account page's `#items`.
+  the converter; never two readings at once (a forced reading asked for
+  meanwhile starts once the running one ends, and only a reading started
+  after a send logs the games waiting for their reward). The badge shown
+  (one) now sits left of the pseudonym, a first place's badge (`top_badges`)
+  with a gold rim and a small "1", the same mark on the leaderboard's lines
+  and podium. **Manage my items** (Options › Account, and a right-click on
+  the account corner) opens the account page's `#items`.
 - **A pseudonym at sign-in.** The code dialog proposes an editable pseudonym
-  (`RetroPlayer_` and four random digits, nothing about the computer); the
-  server uses it for an account that has none yet, else generates a stable
-  one (`pseudonym_chosen` false), which the header invites to replace (a
-  click on the name).
+  (`RetroPlayer_` and six random digits like the server's, nothing about the
+  computer), sent only once the player edited it; otherwise the server
+  generates a stable one (`pseudonym_chosen` false), which the header invites
+  to replace (a click on the name, or the right-click menu).
 - **Conversions reported.** Each successful conversion made while signed in
   is noted (`datas/account-converted.json`); the next send carries the noted
   games, a record without hints (engine and ROM size only) when they bring
@@ -1528,7 +1532,18 @@ After 1.5.2 (26 October 2026, interface modules only: `online`, `gui`,
   Thorough, read from its report), offers **Go further: Extended / Thorough**
   in the right-click menu (a discovery at that level) and a **Games to
   explore** filter: the games of the shared consoles nobody finished at the
-  Thorough level yet (`GET explored`, cached 30 minutes).
+  Thorough level yet (`GET explored`, cached 30 minutes and asked again while
+  the filter stays shown). Thorough from a Standard game shows Extended plus
+  Thorough coins, since the service adds up the levels passed; 20 and 40
+  (`EXTENDED_COINS`, `THOROUGH_COINS`) stand in for the server's figures
+  until the filter has read them.
+- **Sends.** Automatic sends are at most 15 minutes apart (`SEND_EVERY`); a
+  send waiting for that spacing leaves when the window closes or at the next
+  start, and waits again behind an import, an export or a ROM search instead
+  of being dropped. A send made by hand (Knowledge › Send, or the closing
+  card's Send and close) takes the place of the waiting one, so closing
+  never sends twice. A window closed at the end of a batch leaves its send
+  for the next start.
 
 These are interface and account features: they say nothing about native
 coverage, CPU or hardware fidelity, gameplay or latency.

@@ -201,13 +201,17 @@ class ShopService(unittest.TestCase):
         view = online.equipped({'equipped': {'name_style': 'pin_gold', 'pin': 'pin_gold', 'frame': 'unknown',
                                              'badges': ['badge_sms', 'name_gold', 'badge_md', 'badge_x68',
                                                         'badge_ng'], 'header_theme': 5}})
-        self.assertEqual(len(view['badges']), 3, 'three badges at most')
+        self.assertEqual(online.SHOP_BADGES, 1, "the site's RR_SHOP_BADGES")
+        self.assertEqual(view['badges'], ['badge_sms'], 'one badge shown')
         looks = online.looks(catalog, view)
         self.assertIsNone(looks['name_style'])
         self.assertEqual(looks['pin']['id'], 'pin_gold')
         self.assertIsNone(looks['frame'])
         self.assertIsNone(looks['header_theme'])
-        self.assertEqual([badge['id'] for badge in looks['badges']], ['badge_sms', 'badge_md'])
+        self.assertEqual([badge['id'] for badge in looks['badges']], ['badge_sms'])
+        # An id of another slot is never drawn as a badge.
+        self.assertEqual([badge['id'] for badge in online.looks(catalog, {'badges': ['name_gold', 'badge_md']})['badges']],
+                         ['badge_md'])
         self.assertEqual(online.looks({}, view)['badges'], [])
         self.assertEqual(online.equipped(None)['badges'], [])
 
@@ -339,7 +343,7 @@ class Drawing(unittest.TestCase):
         app.draw_board_rows(self.canvas, [(entry, {'gold': 2}), (other, {})], 760, 'Basile', self.catalog)
         texts = [self.canvas.itemcget(item, 'text') for item in self.canvas.find_withtag('board_badge')
                  if self.canvas.type(item) == 'text']
-        self.assertEqual(texts, ['SMS', 'MD', 'X68K'])
+        self.assertEqual(texts, ['SMS'], 'the badge shown, without a first-place mark')
         self.assertTrue(self.canvas.find_withtag('board_pin'))
         self.assertEqual([self.canvas.itemcget(item, 'text') for item in self.canvas.find_withtag('board_title')],
                          ['Explorateur'])
@@ -351,6 +355,24 @@ class Drawing(unittest.TestCase):
         self.assertFalse(self.canvas.find_withtag('board_pin'))
         self.assertEqual(len(self.canvas.find_withtag('board_name')), 1)
         self.assertTrue(self.canvas.find_withtag('board_title'))
+
+    def test_a_first_place_badge_has_its_mark_on_the_board_as_in_the_header(self):
+        entry = {'rank': 1, 'pseudonym': 'Aurore', 'total': 4200, 'equipped': {'badges': ['badge_sms']},
+                 'top_badges': ['badge_sms']}
+        other = {'rank': 2, 'pseudonym': 'Basile', 'total': 90, 'equipped': {'badges': ['badge_md']},
+                 'top_badges': ['badge_sms']}   # first on another console than the one shown
+        app = self.board_application()
+        for row, expected in ((entry, ['SMS', '1']), (other, ['MD'])):
+            app.draw_board_rows(self.canvas, [(row, {})], 760, None, self.catalog)
+            texts = [self.canvas.itemcget(item, 'text') for item in self.canvas.find_withtag('board_badge')
+                     if self.canvas.type(item) == 'text']
+            self.assertEqual(texts, expected)
+        # The podium draws its badge with the same function and mark.
+        self.canvas.delete('all')
+        gui.draw_badges(self.canvas, 10, 20, online.looks(self.catalog, online.equipped(entry))['badges'],
+                        ('TkDefaultFont', 7, 'bold'), tags=('podium_badge',), top=online.top_badges(entry))
+        self.assertIn('1', [self.canvas.itemcget(item, 'text') for item in self.canvas.find_withtag('podium_badge')
+                            if self.canvas.type(item) == 'text'])
 
     def test_the_pin_glyph_has_the_tiers_colour(self):
         gui.draw_pin(self.canvas, 0, 0, self.catalog['pin_gold'], tags=('pin',))

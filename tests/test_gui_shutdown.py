@@ -29,6 +29,8 @@ class ShutdownTests(unittest.TestCase):
         # The closing card has its own tests (tools/gui_smoke.py).
         application.closing_checked = application.closing_after_recompile = False
         application.offer_closing_card = Mock(return_value=False)
+        # Closing at the end of a batch leaves its send for the next start (here: the option off).
+        application.send_after_batch = Mock(get=Mock(return_value=False))
         return application
 
     def test_recompile_chosen_on_the_closing_card_is_not_interrupted(self):

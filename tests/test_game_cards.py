@@ -196,10 +196,10 @@ class CardTests(TestCase):
         with patch('retrorecomp.gui.filedialog.askopenfilename',side_effect=AssertionError('Should find exact source')):
             with patch('retrorecomp.rom_sources.data_directory',return_value=self.root/'converter'):
                 owner.reconvert_games([self.game])
-                kind,pairs=owner.messages.get(timeout=10)
-            self.assertEqual(kind,'sources_ready')
+                kind,pairs,level,skip_missing=owner.messages.get(timeout=10)
+            self.assertEqual((kind,level,skip_missing),('sources_ready',None,False))
             owner.finish_source_lookup(pairs)
-            owner.begin_reconvert.assert_called_once_with([(self.game,source)])
+            owner.begin_reconvert.assert_called_once_with([(self.game,source)],None)
 
     def test_bulk_metadata_is_explicit_and_skips_already_saved_cards(self):
         from retrorecomp.game_card_view import GameCardView

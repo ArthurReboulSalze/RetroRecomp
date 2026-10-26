@@ -24,6 +24,20 @@ SHARED_CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes')
 # The states filter: its last entry lists the games nobody finished at the Thorough level yet.
 STATES = ('all_games', 'needs_attention', 'with_hints', 'missing_games', 'games_to_explore')
 EXPLORE = STATES.index('games_to_explore')
+# The depth coins "Go further" shows until "Games to explore" has read the
+# server's figures (online.explored()['depth']), which then replace them.
+EXTENDED_COINS = 20
+THOROUGH_COINS = 40
+
+
+def depth_coins(game, level, depth):
+    """What finishing `game` at `level` brings: the server adds up the levels
+    it passes, so Thorough from a Standard game also pays Extended."""
+    extended = depth.get('extended', EXTENDED_COINS)
+    if level == 'extended':
+        return extended
+    thorough = depth.get('thorough', THOROUGH_COINS)
+    return thorough if LEVEL_STARS.get(game.level, 1) >= LEVEL_STARS['extended'] else extended + thorough
 
 
 def stars(level):
@@ -85,8 +99,9 @@ class CompiledGamesView(ttk.Frame):
         panes.add(self.card,weight=1)
         self.after_idle(lambda:panes.sashpos(0,max(460,self.winfo_width()-340)))
         self.columns = ('favorite','title','system','level','version','hints','status')
-        # The games someone already finished at the Thorough level (online.explored), once asked.
-        self.explored = None
+        # The games someone already finished at the Thorough level (online.explored), once
+        # asked, and when (time.monotonic()); asked again after online.SHOP_REFRESH.
+        self.explored, self.explored_at, self.explored_asking = None, 0.0, False
         self.table = ttk.Treeview(frame,columns=self.columns,show='headings',selectmode='extended')
         for key,width in zip(self.columns,(36,200,115,62,95,75,200)):
             self.table.column(key,width=width,minwidth=32 if key=='favorite' else 65,stretch=key in ('title','status'),anchor='center' if key=='favorite' else 'w')
@@ -251,6 +266,7 @@ class CompiledGamesView(ttk.Frame):
         insert()
         self.status.set(self.tr('games_count',count=len(games)) if games else self.tr('compiled_empty'))
         if state==EXPLORE:
+            self.ask_explored()
             # What the first one to finish a game at the Thorough level earns (the server's figure).
             bonus = (self.explored or {}).get('explorer')
             self.status.set(self.tr('explore_status',count=len(games),coins=bonus if bonus is not None else '—')
@@ -267,17 +283,26 @@ class CompiledGamesView(ttk.Frame):
                 and f'{game.system}:{game.identity}' not in explored)
 
     def states_changed(self):
-        """The states filter; "Games to explore" asks the service once (cached half an hour)."""
-        if self.states.current()==EXPLORE and self.explored is None:
-            from . import online
-            def worker():
-                try:
-                    found = online.explored() if online.sending_available() else {'games': {}, 'explorer': None}
-                except Exception:
-                    found = {'games': {}, 'explorer': None}
-                self.events.put(('explored', found))
-            threading.Thread(target=worker,daemon=True).start()
+        """The states filter; "Games to explore" asks the service (ask_explored)."""
         self.render()
+
+    def ask_explored(self, now=None):
+        """While "Games to explore" is shown: the explored games, asked again
+        once the last answer is online.SHOP_REFRESH (half an hour, the cache of
+        online.explored) old; one question at a time. The last answer stays
+        shown meanwhile."""
+        from . import online
+        now = time.monotonic() if now is None else now
+        if self.explored_asking or (self.explored is not None and now - self.explored_at < online.SHOP_REFRESH):
+            return
+        self.explored_asking = True
+        def worker():
+            try:
+                found = online.explored() if online.sending_available() else {'games': {}, 'explorer': None}
+            except Exception:
+                found = {'games': {}, 'explorer': None}
+            self.events.put(('explored', found))
+        threading.Thread(target=worker,daemon=True).start()
 
     def star_clicked(self,event):
         if self.running:return 'break'
@@ -324,10 +349,12 @@ class CompiledGamesView(ttk.Frame):
         chosen = self.chosen()
         idle = not (self.running or self.owner.busy or self.owner.updating)
         depth = ((self.explored or {}).get('depth') or {})
-        for level,coins in (('extended',depth.get('extended',20)),('thorough',depth.get('thorough',40))):
+        for level in ('extended','thorough'):
             deeper = [g for g in chosen if LEVEL_STARS.get(g.level,1) < LEVEL_STARS[level]]
             if deeper:
                 shared = all(g.system in SHARED_CONSOLES for g in deeper)
+                # Per game; several games at different levels: what each one earns at least.
+                coins = min(depth_coins(g,level,depth) for g in deeper)
                 menu.add_command(label=self.tr('go_further_'+level+('_coins' if shared else ''),coins=coins),
                                  command=lambda games=deeper,level=level:self.owner.go_deeper(games,level),
                                  state='normal' if idle else 'disabled')
@@ -397,7 +424,7 @@ class CompiledGamesView(ttk.Frame):
                 kind,value = self.events.get_nowait()
                 if kind=='progress':self.status.set(self.tr('scanned_games',count=value))
                 elif kind=='explored':
-                    self.explored = value
+                    self.explored, self.explored_at, self.explored_asking = value, time.monotonic(), False
                     self.render()
                 else:
                     self.running = False

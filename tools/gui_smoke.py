@@ -239,24 +239,37 @@ def smoke(window):
     # Back to the window: no reading before the start-up one, then at most every PLAYER_REFRESH.
     from retrorecomp import online
     with patch.object(application, 'refresh_player') as reread, patch('retrorecomp.gui.SENDING_AVAILABLE', True),             patch('retrorecomp.online.account', return_value={'email': 'pat@example.test'}):
+        # A clock of its own (seconds): the last reading started at 1000.
         application.player_refreshing = False
-        application.player_checked = time.monotonic()
-        application.focus_player()
-        application.site_opened = time.monotonic() + 1
-        application.player_checked = time.monotonic() - 20
-        application.focus_player()
+        application.player_checked = 1000.0
+        application.focus_player(now=1000.0)
+        application.focus_player(now=1014.0)
+        assert reread.call_count == 0
+        application.site_opened = 1005.0   # a page of the site opened after that reading
+        application.focus_player(now=1014.0)
+        assert reread.call_count == 0, 'not before 15 s'
+        application.focus_player(now=1015.0)
         assert reread.call_count == 1, 'a page of the site opened from here: read again 15 s later'
         application.site_opened = -1.0
-        application.player_checked = time.monotonic() - online.PLAYER_REFRESH - 1
-        application.focus_player()
+        application.focus_player(now=1000.0 + online.PLAYER_REFRESH - 1)
+        assert reread.call_count == 1
+        application.focus_player(now=1000.0 + online.PLAYER_REFRESH)
         assert reread.call_count == 2
     application.player_checked = None
-    # After a send, the reading that follows logs the converted games waiting for their reward, once.
+    # After a send, the first reading started after it logs the converted games waiting for their reward, once.
+    queued = {'profile': {'conversions': {'queued': 120, 'queued_days': 3}}}
     with patch.object(application.messages, 'put') as put:
-        application.report_queued = True
-        application.log_queued({'profile': {'conversions': {'queued': 120, 'queued_days': 3}}})
-        application.log_queued({'profile': {'conversions': {'queued': 120, 'queued_days': 3}}})
-        assert put.call_args_list == [((('log', application.tr('conversions_queued', count='120', days='3')),),)], put.call_args_list
+        application.report_queued = application.player_generation + 1
+        application.log_queued(queued, application.player_generation)   # started before the send
+        application.log_queued(queued, application.player_generation + 1)
+        application.log_queued(queued, application.player_generation + 1)
+        wait = application.tr('conversions_wait_days', days='3')
+        assert put.call_args_list == [((('log', application.tr('conversions_queued', count='120', wait=wait)),),)], put.call_args_list
+        application.report_queued = application.player_generation + 1
+        application.log_queued({'profile': {'conversions': {'queued': 1, 'queued_days': 1}}}, application.player_generation + 1)
+        assert put.call_args.args[0][1] == application.tr('conversions_queued_one',
+                                                          wait=application.tr('conversions_wait_day')), put.call_args
+    application.report_queued = None
     # Without the catalog (offline, older server): the plain corner.
     application.render_player({'account': {'email': 'pat@example.test'}, 'profile': {'pseudonym': 'Pat',
                                'equipped': {'name_style': 'name_gradient', 'frame': 'frame_gold'}}})
@@ -435,6 +448,7 @@ def smoke(window):
     assert view.table['columns'][3] == 'level' and stars('extended') == '★★☆' and stars('') == ''
     assert view.states['values'][EXPLORE] == application.tr('games_to_explore')
     view.explored = {'games': {}, 'explorer': 60, 'depth': {'extended': 20, 'thorough': 40}}
+    view.explored_at = time.monotonic()   # just read: not asked again
     view.states.current(EXPLORE)
     view.render()
     assert view.status.get().startswith(application.tr('explore_status', count=len(view.rows), coins=60)[:8])
@@ -500,7 +514,6 @@ def smoke(window):
     window.after(400, lambda: next(w for w in window.winfo_children() if isinstance(w, tk.Toplevel)).destroy())
     assert application.sign_in_dialog() is False
     application.closing_checked = application.closing_after_recompile = application.close_when_idle = False
-    application.skip_missing_sources = False
     if application.collection_visible:
         application.toggle_compiled_games()
     application.update_new_paths()
@@ -575,6 +588,13 @@ def smoke(window):
                 application.tr('options_disk_space')} <= frames, frames
         assert application.compiled_button.cget('text') == application.tr('compiled_games')
         assert application.knowledge_button.cget('text') == application.tr('knowledge') + ' ▾'
+        # Every text button keeps its hover hint in every language (keys given, not looked up by text).
+        hints = {id(hint.widget): hint.text() for hint in application.tooltips}
+        for widget, key in ((application.add_roms_button, 'tip_add_roms'), (application.credits_button, 'tip_credits'),
+                            (application.update_button, 'tip_check_updates'), (application.options_button, 'tip_options'),
+                            (application.cover_button, 'tip_choose_cover'), (application.auto_cover_button, 'tip_auto_cover'),
+                            (application.knowledge_button, 'tip_knowledge')):
+            assert hints.get(id(widget)) and hints[id(widget)] == application.tr(key), (language, key)
         window.update_idletasks()
         assert (application.frames.get(), application.passes.get()) == initial_tuning
     application.close_options()
