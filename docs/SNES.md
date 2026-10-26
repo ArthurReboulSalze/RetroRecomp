@@ -614,3 +614,30 @@ Hidden SDL software-renderer checks also retain the expected video cadence:
 480 PAL frames take 9.598656 seconds against 9.598660 expected, and 480 NTSC
 frames take 7.986816 against 7.986846. Dummy devices and the video-clock-only
 mode are used; this checks pacing rather than physical audio or input latency.
+
+## Manual joypad strobe (Star Fox 2 Japan prototype)
+
+The pinned engine's register write dispatch forwarded only `$4200-$421F` to
+the machine model, so a guest store to `$4016` never reached the controller
+ports. Games that read the pads through the automatic `$4218-$421F` words were
+unaffected, which hid the omission. A game that polls by hand strobes `$4016`
+(1 then 0) and clocks 16 serial bits from `$4016`/`$4017`; with the strobe lost,
+the shift position stayed wherever earlier reads had left it. The Japanese
+Star Fox 2 prototype (header map `$20`, type `$1A`) begins its boot-time
+controller check with a `TRB $4016` (a read), so every bit arrived one position
+late and the final four bits of the packet, which identify the device, no
+longer looked like a standard pad. It stopped on its "controller only" notice
+at frame 60 for ever, with the GSU idle and no sound, while MAME starts it.
+
+`snes_bus.runtime` now routes the `$4016` store to the existing strobe model.
+Hardware rule, from fullsnes ("SNES Controllers I/O Ports", JOYSER0): while
+bit 0 is high both ports continuously reload, the falling edge latches the pad
+state and restarts the serial position at the first bit (B); `$4017` stores do
+nothing; a standard pad answers 1 on Data1 after its 16 bits and never drives
+Data2. Only the documentation was consulted, no GPL emulator code.
+`native/snes_bus_checks.c` checks this on the real engine through bus stores
+(a stale position, a strobe in the middle of a packet, 17th-bit and Data2
+values) and `tests/test_snes_bus.py` guards the adapted source. The same
+delivery now also feeds the Super Scope packet latch (`rr16_scope_write_strobe`),
+which was written for it. Game fingerprints of every Super Nintendo conversion
+change with the adapted engine source, as for any engine adaptation.

@@ -98,8 +98,36 @@ static void cartridge_bus_holes(void) {
     g_ram[0]=0x67;uint8_t lo=cpu_read8(&g_cpu,0,0xffff);
     CHECK(cpu_read16(&g_cpu,0,0xffff)==((unsigned)0x67<<8|lo));
 }
+static void manual_joypad(void) {
+    // A guest strobes $4016 with real bus stores and then clocks both ports
+    // serially (fullsnes, JOYSER0/JOYSER1). The store must reach the ports'
+    // latch even when an earlier read of $4016 (TRB, a mouse probe) has
+    // advanced the shift position: Star Fox 2 (Japan prototype) reads $4016
+    // first and mistook a one-bit-shifted packet for a non-pad device.
+    setup(20);
+    g_snes->input1_currentState=0x0005;g_snes->input2_currentState=0x0800;
+    for(unsigned stale=0;stale<3;stale++) {
+        for(unsigned n=0;n<stale;n++)cpu_read8(&g_cpu,0,0x4016);
+        cpu_write8(&g_cpu,0,0x4016,1);cpu_write8(&g_cpu,0,0x4016,0);
+        for(unsigned bit=0;bit<16;bit++) {
+            CHECK((cpu_read8(&g_cpu,0,0x4016)&1u)==((0x0005u>>bit)&1u));
+            CHECK((cpu_read8(&g_cpu,0,0x4017)&1u)==((0x0800u>>bit)&1u));
+        }
+        // Past the sixteenth bit a standard pad reports one on Data1.
+        CHECK((cpu_read8(&g_cpu,0,0x4016)&1u)==1u);CHECK((cpu_read8(&g_cpu,0,0x4017)&1u)==1u);
+        CHECK((cpu_read8(&g_cpu,0,0x4016)&2u)==0u);CHECK((cpu_read8(&g_cpu,0,0x4017)&2u)==0u);
+    }
+    // A pulse in the middle of a packet starts it again at the first button.
+    cpu_write8(&g_cpu,0,0x4016,1);cpu_write8(&g_cpu,0,0x4016,0);
+    for(unsigned n=0;n<5;n++)cpu_read8(&g_cpu,0,0x4016);
+    cpu_write8(&g_cpu,0,0x4016,1);cpu_write8(&g_cpu,0,0x4016,0);
+    CHECK((cpu_read8(&g_cpu,0,0x4016)&1u)==1u);CHECK((cpu_read8(&g_cpu,0,0x4016)&1u)==0u);
+    // The strobe is a write-only output: the ports ignore $4017 stores.
+    cpu_write8(&g_cpu,0,0x4017,1);cpu_write8(&g_cpu,0,0x4017,0);
+    CHECK((cpu_read8(&g_cpu,0,0x4016)&1u)==1u);
+}
 int main(void) {
-    CHECK(rr16_init(true));phases();interrupt_entry();cpu_register_latches();cartridge_bus_holes();rr16_reset();
+    CHECK(rr16_init(true));phases();interrupt_entry();cpu_register_latches();cartridge_bus_holes();manual_joypad();rr16_reset();
     for(unsigned n=0;n<4;n++)CHECK(rr16_frame(0,0));
     printf("{\"checks\":%u,\"passed\":true,\"main_fallback\":%llu,\"guest\":\"",checks,
         (unsigned long long)rr16_interpreted());
