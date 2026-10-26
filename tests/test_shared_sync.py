@@ -297,12 +297,14 @@ class SharedBaseTests(unittest.TestCase):
         self.server.store = {key: [{'id': 1, 'record': sms_record(0x100), 'level': 'thorough'}]}
         collect = Mock(return_value=collected())
         self.server.calls.clear()
-        self.assertEqual(online.prepare_batch([key], enabled=False), {'paths': {}, 'summary': None, 'error': None})
+        self.assertEqual(online.prepare_batch([key], enabled=False), {'paths': {}, 'summary': None, 'error': None, 'base': None})
         self.assertIsNone(online.send_after_batch(collect, enabled=False))
         with patch.dict(os.environ, {'RETRO_RECOMP_SERVICE': ''}):
             self.assertEqual(online.prepare_batch([key])['paths'], {})
             self.assertIsNone(online.send_after_batch(collect))
         self.assertEqual(self.server.calls, [])
+        # Signed out, the published base still answers (it needs no account), but
+        # nothing is posted and no fetch is made; this service has no base.
         online.sign_out()
         self.server.calls.clear()
         self.assertEqual(online.prepare_batch([key])['paths'], {})
