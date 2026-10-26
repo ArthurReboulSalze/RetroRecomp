@@ -19,6 +19,24 @@ patch('retrorecomp.core.dependencies_ready', return_value=True).start()
 # Nor does the start-up look for something new: no GitHub, no base manifest.
 patch('retrorecomp.updater.check_for_update', return_value=None).start()
 patch('retrorecomp.online.check_base', return_value=None, create=True).start()
+# No message box ever reaches the screen (the check runs unattended, with no
+# one to press OK): one the steps below do not answer themselves is answered
+# here (OK, No, Cancel) and listed with the result.
+from tkinter import messagebox as _messagebox
+UNANSWERED = []
+
+
+def _answer(name, value):
+    def dialog(title=None, message=None, **options):
+        UNANSWERED.append(f'{name}: {message}')
+        return value
+    return dialog
+
+
+for _name, _value in (('showinfo', 'ok'), ('showwarning', 'ok'), ('showerror', 'ok'), ('askyesno', False),
+                      ('askokcancel', False), ('askyesnocancel', None), ('askquestion', 'no'),
+                      ('askretrycancel', False)):
+    patch.object(_messagebox, _name, _answer(_name, _value)).start()
 from retrorecomp.gui import launch, PROFILES
 from retrorecomp.library import library_root, list_games
 from retrorecomp.gameboy import list_memory
@@ -613,6 +631,8 @@ def smoke(window):
     application.close_options()
     panel.destroy()
     print("PASS: eight languages, platform label, extended default, hover hints, batch queue, banner, duplicates, library; size", window.geometry())
+    for line in UNANSWERED:
+        print('  dialog answered by the check, never shown:', line)
     window.destroy()
     fixtures.cleanup()
 

@@ -13,8 +13,9 @@
   contains any path. The base sits beside it as `Retro-Recomp-base.zip`, laid
   down by the installer and the built-in update, and is kept current by small
   differences downloaded before a conversion (at most once a day) or on demand
-  (**Knowledge › Update the shared base**). It works without an account;
-  sending your discoveries still needs one. Without a base and without a
+  (**Knowledge › Sync with the shared base**, which also sends your
+  discoveries once signed in). It works without an account; sending your
+  discoveries still needs one. Without a base and without a
   connection, the converter discovers everything itself, as before, and says so.
 - **Qualified and pending paths.** A path is qualified once a successful
   conversion by another player received it, reached it and matched the

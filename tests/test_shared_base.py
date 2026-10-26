@@ -807,9 +807,52 @@ class PublishedBaseTests(BaseHarness):
                 self.assertEqual(owner.base_update_line({**done, 'source': None, 'error': failure}),
                                  tr('base_update_failed', code, error=tr(phrase, code)), (code, failure))
             self.assertIn('service', owner.base_update_line({**done, 'source': None, 'error': 'service'}))
-            self.assertNotEqual(tr('menu_update_base', code), '')
-            if code != 'en':
-                self.assertNotEqual(tr('menu_update_base', code), tr('menu_update_base', 'en'))
+            for key in ('knowledge_sync', 'knowledge_sync_signin'):
+                self.assertNotEqual(tr(key, code), '')
+                if code != 'en':
+                    self.assertNotEqual(tr(key, code), tr(key, 'en'), (code, key))
+
+    def test_sync_updates_the_base_then_sends_once_signed_in(self):
+        # One Knowledge entry both ways: the base update chains the send of this
+        # account's discoveries; signed out (or offline) it stops after the base.
+        from retrorecomp import gui
+        from retrorecomp.i18n import tr
+        owner = gui.Application.__new__(gui.Application)
+        owner.language, owner.compiled_view, owner.closing_send = 'en', None, False
+        owner.busy, owner.manual_sending, owner.messages = True, False, __import__('queue').Queue()
+        owner.set_controls = lambda enabled: None
+        reports, collected_kinds = [], []
+        owner.knowledge_report = reports.append
+        owner.collect_discoveries = collected_kinds.append
+        done = {'version': 9, 'previous': 7, 'downloaded_bytes': 2048, 'source': 'delta', 'error': None}
+        line = owner.base_update_line(done)
+        owner.syncing, owner.sync_line = True, ''
+        with patch.object(online, 'account', return_value=None):
+            owner.knowledge_done(('base_updated', done), None)
+        self.assertEqual(reports, [line + '\n\n' + tr('knowledge_sync_signin', 'en')])
+        self.assertEqual(collected_kinds, [])
+        reports.clear()
+        owner.syncing = True
+        offline = {**done, 'source': None, 'error': 'offline'}
+        with patch.object(online, 'account', return_value={'token': 't'}):
+            owner.knowledge_done(('base_updated', offline), None)
+        self.assertEqual(reports, [owner.base_update_line(offline)])
+        self.assertEqual(collected_kinds, [], 'offline, the send is not tried')
+        reports.clear()
+        owner.syncing = True
+        with patch.object(online, 'account', return_value={'token': 't'}):
+            owner.knowledge_done(('base_updated', done), None)
+        self.assertEqual((reports, collected_kinds, owner.sync_line, owner.syncing),
+                         ([], ['send_collect'], line, False))
+        # Nothing new to send: one notice with both results, then the line is spent.
+        with patch.object(online, 'pending', return_value={'games': 0}):
+            owner.knowledge_done(('send_collect', {}), None)
+        self.assertEqual(reports, [line + '\n\n' + tr('knowledge_send_none', 'en')])
+        self.assertEqual(owner.sync_line, '')
+        # The plain base update (the startup choice) does not send.
+        reports.clear()
+        owner.knowledge_done(('base_updated', done), None)
+        self.assertEqual((reports, collected_kinds), ([line], ['send_collect']))
 
 
 if __name__ == '__main__':

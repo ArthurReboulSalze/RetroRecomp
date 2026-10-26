@@ -1591,7 +1591,7 @@ not the whole game. Entries no index names any more are deleted. Removing the
 
 **When it is updated.** Never when the program opens, apart from an optional,
 read-only check (below). The base is brought up to date **before a batch, at
-most once a day**, or when asked with **Knowledge > Update the shared base**,
+most once a day**, or when asked with **Knowledge > Sync with the shared base**,
 and only with the option *Use the shared base*. The converter reads the
 service's small manifest; when the local version has a difference file, only
 that file is downloaded (a few entries); otherwise it downloads the latest

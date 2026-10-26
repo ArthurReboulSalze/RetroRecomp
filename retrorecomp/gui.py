@@ -678,7 +678,9 @@ class Application:
         self.closing_send_deadline = None   # closing_send itself is the closing card's 'Send and close'
         self.discoveries_waiting = bool(preferences.get('discoveries_waiting'))
         self.send_after_batch.trace_add('write', self.send_option_changed)
-        self.manual_sending = False   # Knowledge › Send (or the closing card's) is on its way
+        self.manual_sending = False   # Knowledge › Sync (or the closing card's) send is on its way
+        self.syncing = False          # Knowledge › Sync: the base update chains the send
+        self.sync_line = ''           # its base result, shown with the send's
         # The player's corner: one reading of the account at a time (refresh_player).
         self.player_checked = None     # when the last reading started; None before the start-up one
         self.player_refreshing = False
@@ -3507,8 +3509,8 @@ class Application:
             # Sending arrives with the web service.
             menu.add_command(label=self.tr('knowledge_export_web'), state='disabled')
         else:
-            menu.add_command(label=self.tr('knowledge_send'), command=self.send_knowledge)
-            menu.add_command(label=self.tr('menu_update_base'), command=self.update_shared_base)
+            # One entry both ways: the local base first, then this account's discoveries.
+            menu.add_command(label=self.tr('knowledge_sync'), command=self.sync_shared_base)
             # Signing out lives in the header (and Options); signing in stays
             # here too, next to the send that needs it.
             if not online.account():
@@ -3948,11 +3950,14 @@ class Application:
 
     # --- The shared base on demand ---------------------------------------------
 
-    def update_shared_base(self):
-        """Knowledge menu: bring the local base up to the service's latest
-        version now, off Tk; the result is one short line (knowledge_done)."""
+    def sync_shared_base(self):
+        """Knowledge › Sync: bring the local base up to the service's latest
+        version (off Tk), then, once signed in, send this account's new
+        discoveries (knowledge_done chains the send). Signed out, only the
+        base is updated; the result says how to send too."""
         if self.busy or self.updating:
             return
+        self.syncing, self.sync_line = True, ''
         self.knowledge_task(lambda: ('base_updated', online.update_base()), 'base_update_working')
 
     def base_update_line(self, result):
@@ -5338,19 +5343,34 @@ class Application:
             self.messages.put(('log', text))
             if self.compiled_view is not None:self.compiled_view.status.set(text)
             messagebox.showerror(APP_NAME, text, parent=self.app)
+            self.syncing, self.sync_line = False, ''
             if self.closing_send:self.close()
             return
         kind, summary = outcome
         if kind == 'base_updated':
-            self.knowledge_report(self.base_update_line(summary))
+            line, syncing = self.base_update_line(summary), getattr(self, 'syncing', False)
+            self.syncing = False
+            if not syncing or summary.get('error') == 'offline':
+                self.knowledge_report(line)   # offline, the send would fail the same way
+            elif not online.account():
+                self.knowledge_report(line + '\n\n' + self.tr('knowledge_sync_signin'))
+            else:
+                self.messages.put(('log', line))
+                self.sync_line = line
+                self.closing_send = False
+                self.collect_discoveries('send_collect')
             return
+        # A sync shows its base line once, with the send's question or result.
+        sync_line, self.sync_line = getattr(self, 'sync_line', ''), ''
+        base_line = sync_line + '\n\n' if sync_line else ''
         if kind == 'send_collect':
             pending = online.pending(summary)
             if not pending['games']:
                 if self.closing_send:self.close()
-                else:self.knowledge_report(self.tr('knowledge_send_none'))
+                else:self.knowledge_report(base_line + self.tr('knowledge_send_none'))
                 return
-            detail = (self.tr('knowledge_send_found', games=pending['games'], consoles=len(pending['consoles']))
+            detail = (base_line + self.tr('knowledge_send_found', games=pending['games'],
+                                          consoles=len(pending['consoles']))
                       + '\n\n' + self.tr('knowledge_scope'))
             # On the closing card the player already chose to send. Conversions
             # alone (no new path) are no achievement: a plain question then.
