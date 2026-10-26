@@ -322,7 +322,7 @@
     "tip_remove": "Ausgewählte Zeilen aus dem Stapel entfernen. Dateien bleiben erhalten.",
     "tip_clear": "Warteschlange leeren. ROMs, Spiele und Daten bleiben erhalten.",
     "tip_check_updates": "GitHub nur beim Klick prüfen. Eine neue Windows-Version kann nach deiner Wahl geladen und installiert werden. Spiele und Daten bleiben erhalten.",
-    "tip_credits": "Verwendete Projekte je Konsole mit Repository-Links und Lizenzhinweisen anzeigen.",
+    "tip_credits": "Mitwirkende: die verwendeten Projekte je Konsole, mit Repository-Links und Lizenzhinweisen.",
     "tip_choose_cover": "Bild für das Symbol des ausgewählten Spiels wählen. Das Seitenverhältnis bleibt erhalten.",
     "tip_auto_cover": "Echte Online-Cover suchen und geprüfte Downloads wiederverwenden. Passende lokale Bilder bleiben als Ersatz und offline verfügbar.",
     "tip_play": "Ausgewähltes Spiel starten, auch per Doppelklick. F2: Steuerung; H: Hilfe.",

@@ -322,7 +322,7 @@
     "tip_remove": "Quita las filas seleccionadas del lote sin borrar archivos.",
     "tip_clear": "Vacía la cola conservando ROM, ejecutables y datos.",
     "tip_check_updates": "Consulta GitHub solo al pulsar. Si existe una nueva versión Windows, puedes descargarla e instalarla. Conserva juegos y datos.",
-    "tip_credits": "Muestra los proyectos usados para cada consola, sus repositorios y licencias.",
+    "tip_credits": "Créditos: los proyectos usados para cada consola, con sus repositorios y licencias.",
     "tip_choose_cover": "Elige una imagen para el icono del juego seleccionado, manteniendo sus proporciones.",
     "tip_auto_cover": "Busca portadas reales en línea si está activado y reutiliza descargas validadas. Las imágenes locales siguen disponibles como alternativa o sin conexión.",
     "tip_play": "Inicia el juego convertido seleccionado, también con doble clic. F2 configura controles; H abre la ayuda.",
