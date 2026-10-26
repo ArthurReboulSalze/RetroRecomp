@@ -667,6 +667,56 @@ four scenarios match the conversion's own hashes), 0 interpreted 65816/SPC700 op
 saved at 7,800 and resumed for 180 frames in a fresh process matching, 8 corrupt state files
 rejected, 1,002 s.
 
+## Release qualification (26 October 2026)
+
+Engine of this branch at 2d4f855 (GSU bus ownership, `$4016` strobe, activity gate, packing
+record, authored routes, ThinLTO and profile-guided Windows build, faster line renderer).
+Extended level, empty private library per game, Windows, headless, three conversions at a time.
+
+| Game | Std | Passes | Scenarios (frames) | Final 65816 / SPC700 interpreted | GSU instr./frame | Reference | Packed check | Gameplay ms/frame (budget) |
+|---|---|---|---|---|---|---|---|---|
+| Star Fox | NTSC | 2 | demo 12,000, play 1,200, route 18,000, authored 9,000 | 0 / 0 | 37-49 k | match | 40,200 pairs, state | 6.27 (16.64) |
+| Star Fox 2 | NTSC | 2 | 12,000 / 1,200 / 18,000 / 12,000 | 0 / 0 | 12-63 k | match | 43,200 pairs, state | 5.85 (16.64) |
+| Stunt Race FX | NTSC | 2 | 12,000 / 1,200 / 18,000 / 6,000 | 0 / 0 | 17-61 k | match | 37,200 pairs, state | 6.45 (16.64) |
+| Yoshi's Island | NTSC | 2 | 12,000 / 1,200 / 18,000 / 9,000 | 0 / 0 | 26-42 k | match | 40,200 pairs, state | 5.94 (16.64) |
+| Vortex | NTSC | 2 | 12,000 / 1,200 / 18,000 / 8,000 | 0 / 0 | 19-91 k | match | 39,200 pairs, state | 7.02 (16.64) |
+| Dirt Racer | PAL | 2 | 12,000 / 1,200 / 18,000 / 7,000 | 0 / 0 | 135-188 k | match | 38,200 pairs, state | 9.35 (20.00) |
+| Doom | NTSC | 2 | 12,000 / 1,200 / 18,000 | 0 / 0 | 30-138 k | match | 31,200 pairs, state | 6.95 (16.64) |
+| Dirt Trax FX | NTSC | 2 | 12,000 / 1,200 / 18,000 | 0 / 0 | 26-118 k | match | 31,200 pairs, state | 6.95 (16.64) |
+| Star Fox 2 (Japan prototype, translated) | NTSC | 2 | 12,000 / 1,200 / 18,000 | 0 / 0 | 21-55 k | match | 31,200 pairs, state | 5.62 (16.64) |
+
+- Totals: **331,800 native/reference frame pairs** in the conversions and the same scenarios
+  replayed on the nine published packed executables with identical hashes; 9 fresh-process
+  states (saved at 7,800, 180 resumed frames each), 72 corrupt state files rejected; two
+  two-controller routes (Stunt Race FX Battle Trax, Dirt Trax FX 2 players, split screen, each
+  pad drives its own vehicle) give 18,000 more pairs without difference. The Stunt Race FX
+  two-player route still meets unlearned 65816 and SPC700 code (2.37 M and 6.83 M counted
+  interpreted opcodes over 9,000 frames); conversions do not play that mode yet.
+- `tools/snes_superfx_selftest.py`: 3,706 cases, 407,058 checks, 0 mismatches, documented
+  findings unchanged.
+- Pictures (30 contact sheets from the packed executables): no missing or garbled polygon,
+  garbage tile, wrong palette or frozen picture found. Dirt Racer's Practice and League menus
+  and the prototype's boot work.
+- Battery: the file mechanism (write only on change, header, ROM identity, hash) is proven for
+  all battery boards, with 11 damaged or foreign files rejected untouched. At game level only
+  Star Fox 2 is proven (a score entered after a game over appears in TOP 5 SCORES after a
+  fresh-process reload, "No data exists" without the file). Stunt Race FX (records need all
+  four courses of a class) and Yoshi's Island (writes only after a cleared level) were not
+  driven far enough by scripted input.
+- Host cost: gameplay windows of 3,000 frames on one pinned core, best of 3, process start
+  included; 34-47 % of the frame budget. Not a latency measurement.
+- Stderr scan of the 33 scenario runs: 31 clean; two show the 65816 executing a BRK while the
+  accumulator is 8-bit (Stunt Race FX attract demo near `$09:ECBE`, the prototype at battle
+  launch near `$06:A7C1`). Native and reference agree and the game keeps running; the cause is
+  under investigation (see below).
+- Ordinary cartridges (20 games compared with 65c91e7, the 1.5.2 SNES code): 18 identical bit
+  for bit (demo and play, 1,500 and 3,000 frames, states; F-Zero, Super Mario World, Zelda,
+  Super Metroid, Donkey Kong Country, Chrono Trigger, Mega Man X2/X3, Super Mario Kart,
+  Pilotwings, Super Scope 6 and others); Madden NFL 95 and Bill Walsh College Football differ
+  because they read the pads by hand, and their `$4016/$4017` access sequence now matches MAME
+  over 1,500 frames (62,504 and 392,496 events): a fix. Every SNES game is 43-52 % cheaper per
+  frame; conversions take 3-35 % longer (profile training run).
+
 ## Licences
 
 | Source | Licence | Use |
