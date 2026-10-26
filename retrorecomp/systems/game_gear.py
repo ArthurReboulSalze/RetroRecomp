@@ -22,8 +22,8 @@ class GameGearProfile(SystemProfile):
         return "ntsc"
 
     def convert(self, path: Path, **options) -> Path:
-        from ..core import convert
-        return convert(path, **options)
+        from .master_system import convert_checked
+        return convert_checked(self, path, **options)
 
 
 GAME_GEAR = GameGearProfile()
