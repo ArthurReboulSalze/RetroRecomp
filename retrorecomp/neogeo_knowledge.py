@@ -24,6 +24,13 @@ from .library import atomic_json, entry_lock, library_root
 
 FIELDS={'rom_entries':(2,262144),'ram_refs':(4,4096),'z80_refs':(4,32768)}
 IDENTITY_FIELDS={'engine','loader','cart','bios','rom_bytes','p_bytes','bios_bytes','m1_bytes','sm1_bytes'}
+# Bounds of a record, also generated into the online service's validator
+# (tools/build_web_limits.py of the site): hexadecimal lengths, region sizes
+# (inclusive) and the number of `rom_deltas` blocks.
+HEX_LENGTHS={'engine':40,'loader':40,'cart':64,'bios':64}
+SIZE_BOUNDS={'rom_bytes':(4096,512<<20),'p_bytes':(512,16<<20),'bios_bytes':(0x20000,0x20000),
+             'm1_bytes':(0x10000,512<<10),'sm1_bytes':(0x20000,0x20000)}
+DELTA_BLOCKS=2
 
 
 def key(cart: str,bios: str) -> str:
@@ -34,14 +41,12 @@ def validate_record(identity: str,record: dict) -> dict:
     required=IDENTITY_FIELDS|FIELDS.keys()
     if not isinstance(record,dict) or not required<=set(record)<=required|{'rom_deltas'}:
         raise ValueError('Invalid Neo Geo compilation fields.')
-    for name in ('engine','loader','cart','bios'):
-        length=40 if name in ('engine','loader') else 64
+    for name,length in HEX_LENGTHS.items():
         if not isinstance(record[name],str) or not re.fullmatch('[0-9a-f]{'+str(length)+'}',record[name]):
             raise ValueError('Invalid Neo Geo compilation identity.')
     if identity!=key(record['cart'],record['bios']):
         raise ValueError('Neo Geo hints do not match their cart/BIOS key.')
-    for name,minimum,maximum in (('rom_bytes',4096,512<<20),('p_bytes',512,16<<20),
-            ('bios_bytes',0x20000,0x20000),('m1_bytes',0x10000,512<<10),('sm1_bytes',0x20000,0x20000)):
+    for name,(minimum,maximum) in SIZE_BOUNDS.items():
         value=record[name]
         if type(value) is not int or not minimum<=value<=maximum:
             raise ValueError('Invalid Neo Geo compilation region size.')
@@ -64,7 +69,7 @@ def validate_record(identity: str,record: dict) -> dict:
                 valid=region in (3,4) and 0xf800<=pc<=0xffff and 1<=mask<=15 and bool(mask&1) and offset+4<=bound
             if not valid:raise ValueError('Neo Geo compilation reference outside its region.')
     deltas=record.get('rom_deltas',[])
-    if not isinstance(deltas,list) or len(deltas)>2:
+    if not isinstance(deltas,list) or len(deltas)>DELTA_BLOCKS:
         raise ValueError('Invalid Neo Geo ROM delta blocks.')
     count=len(record['rom_entries']);seen=set()
     for block in deltas:
