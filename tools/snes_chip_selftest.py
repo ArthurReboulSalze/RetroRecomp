@@ -11,10 +11,12 @@ def main():
     for pal in (False,True):
         standard='pal' if pal else 'ntsc';path=work/(standard+'.sfc');data=cartridge(bytes.fromhex('40'),pal)
         data[0x7fc0:0x7fd5]=b'RR CHIP CHECKS'.ljust(21,b' ');path.write_bytes(data)
-        exe=prepare16(path,'snes',emit=lambda _:None);project=exe.parents[2]
+        exe=prepare16(path,'snes',emit=lambda _:None)
+        # Visual Studio builds keep one folder per configuration, Ninja (portable tools) does not
+        build=next(p for p in exe.parents if (p/'CMakeCache.txt').is_file());project=build.parent
         (project/'console16_main.c').write_text((ROOT/'native/snes_chip_checks.c').read_text(),encoding='utf-8')
         (project/'snes_dsp1_vectors.h').write_text((ROOT/'native/snes_dsp1_vectors.h').read_text(),encoding='utf-8')
-        cmake,_=toolchain();run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=work/(standard+'-build.log'))
+        cmake,_=toolchain();run([cmake,'--build',build,'--config','Release','--parallel','4'],log=work/(standard+'-build.log'))
         cases.append(json.loads(run([exe],cwd=work).strip().splitlines()[-1])|{'standard':standard})
     result={'cases':cases,'checks':sum(c['checks'] for c in cases),'passed':all(c['passed'] for c in cases)}
     (work/'results.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))

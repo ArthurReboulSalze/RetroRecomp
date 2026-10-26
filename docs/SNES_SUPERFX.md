@@ -254,12 +254,36 @@ the project rule that cartridges are analyzed from their own ROM.
 
 ## Fidelity checks
 
-1. **Authored GSU programs** in `native/snes_chip_checks.c` (PAL and NTSC):
-   ALU and flags, the three multipliers with CFGR timing, delay slots and
-   prefixes, ROM buffer (GETB/GETC after R14 writes), RAM buffer, PLOT/RPIX in
-   2/4/8 bpp and OBJ layouts, CACHE/CBR, STOP/IRQ, and resumption from a
-   saved state mid-job. Expected values derived from documentation
-   (fullsnes), never from GPL code; cycle totals checked per program.
+1. **Authored GSU programs** (done, 26 October 2026): `native/snes_superfx_checks.c`
+   drives the engine's GSU core as the S-CPU does (`$3000-$303F`, a synthetic
+   Game Pak ROM, start by writing the high byte of R15, the shared master
+   clock advanced with `superfx_sync`) in the NTSC and PAL builds, run by
+   `tools/snes_superfx_selftest.py`. The expected values come from
+   `tools/snes_superfx_model.py`, an independent model written from the
+   fullsnes GSU chapter, not from `superfx.c` and not from GPL code; the few
+   rules fullsnes leaves open (FMULT/LMULT carry) follow the ISC-licensed ares
+   and are counted separately. Per build: 3,706 cases and 181,282 assertions
+   over the ALU and flags, the multipliers, every prefix order and the B flag,
+   immediate loads, all branches with their delay slot, JMP/LJMP/LOOP/LINK,
+   the ROM buffer, RAM access and RAMB, PLOT/RPIX/COLOR/CMODE in 2/4/8 bpp and
+   the 128/160/192/OBJ layouts, CACHE/CBR and the S-CPU window on the code
+   cache, code from the cold cache, from a cache preloaded by the S-CPU, from
+   ROM and from Game Pak RAM, STOP/IRQ/restart, aborting a job through SFR and
+   800 seeded random programs; 1,121 save/load runs resume a job mid-flight in
+   a second core and step both in lock step. Timing: exact totals only where
+   fullsnes states the price (129 programs at CLSR 0 and 1: one clock per
+   cached opcode byte, 3 or 5 per ROM read, multiplier extras by CFGR bit 5)
+   plus 52 range checks (GETB, stores, PLOT, RPIX); 69 totals with the cold
+   cache fill are **self-consistency only**, fullsnes gives no figure for them.
+   `tools/snes_superfx_mutations.py` plants defects one at a time in the staged
+   copy of `superfx.c`: 65 of 66 are noticed (the survivor, a PBR write that no longer empties the
+   cache, is not stated by fullsnes). The suite found one defect
+   (the S-CPU view of the code cache whenever CBR is not a multiple of 100h,
+   fixed in `retrorecomp/snes_chips.py`) and records eight differences between
+   fullsnes and the core that are not changed because the hardware answer is
+   unknown (IRQ flag with the mask set, CACHE with an unchanged CBR, 2 bpp
+   transparency, POR high-nibble, FMULT into R4, GETBH/GETBL source of the
+   other byte, RAM load clocks and back-to-back STW, pixels pending at STOP).
 2. **Internal reference** (already active): the native run is compared with
    `RR_SNES_FORCE_INTERP=1`, including the GSU state hash. It proves the native
    65816 matches the 65816 interpreter with the same GSU, not GSU fidelity.
@@ -327,15 +351,14 @@ reflect unknown integration bugs.
 | 1 | Standard-level conversions of all eight local cartridges (done 26 October, see above); still to do: packed exports, battery save round trips, long routes with inputs that reach gameplay, fix what breaks | 3-6 |
 | 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | done |
 | 3 | Timing investigation against MAME with the job log; frame-alignment tool | 3-6 |
-| 4 | Authored GSU checks in `native/snes_chip_checks.c` | 2-4 |
+| 4 | Authored GSU checks in `native/snes_superfx_checks.c` (done, see Fidelity checks) | 2-4 |
 | 5 | Qualification campaign and documentation as for DSP-1/CX4; decision to drop "experimental" | 3-5 |
 | 6 | Option B: GSU decoder, discovery from job starts and static traversal, C emitter with cycle accounting, guards, learning records, per-job checker | 15-25 |
 
 Steps 1-5 (about 3 to 5 weeks) give released, measured Super FX support with
 an interpreted GSU. Step 6 is optional and can follow later.
 
-A real implementation touches, beyond the slice: `native/snes_chip_checks.c`
-(authored checks), `retrorecomp/console16.py` and the report/interface code
+A real implementation touches, beyond the slice: `retrorecomp/console16.py` and the report/interface code
 for separate figures, `retrorecomp/knowledge.py` and the bundled snapshot
 schema if GSU entry points are learned, and new `retrorecomp/snes_gsu.py` /
 `native/snes_gsu_*.inc` for option B. All are game-side and change the SNES
