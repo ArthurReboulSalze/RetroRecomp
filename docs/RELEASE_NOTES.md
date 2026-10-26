@@ -4,7 +4,8 @@
   Vortex, Yoshi's Island, Doom, Dirt Trax FX and Dirt Racer are qualified at
   the Extended level: native 65816 and SPC700 code on the final routes, the
   GSU chip itself running as a counted interpreted device, shown on its own
-  line like the CX4. Known limits: battery saves are proven in play for Star
+  line like the CX4. Their paths ship with the converter, so these nine
+  cartridges are rebuilt from them with the quick check. Known limits: battery saves are proven in play for Star
   Fox 2 only, Doom's frame pacing differs from MAME's, and Stunt Race FX's
   two-player mode still meets some interpreted code. Nothing was checked on a
   real console.
