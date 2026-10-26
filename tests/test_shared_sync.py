@@ -325,5 +325,47 @@ class SharedBaseTests(unittest.TestCase):
             self.assertIn('busy', owner.messages.get_nowait()[1])
 
 
+    def test_batch_end_sends_are_spaced_and_a_waiting_one_leaves_with_the_window(self):
+        from retrorecomp import gui
+        owner = gui.Application.__new__(gui.Application)
+        owner.app, owner.busy, owner.auto_sending = Mock(), False, False
+        owner.app.after.return_value = 'later'
+        sent = []
+        def send():
+            sent.append(True)
+            owner.auto_sending = True
+            owner.last_sent_at = gui.time.monotonic()
+        owner.send_new_discoveries = send
+        # The first batch end sends at once; one ending soon after waits for SEND_EVERY.
+        owner.send_discoveries_soon()
+        self.assertEqual(len(sent), 1)
+        owner.auto_sending = False
+        owner.send_discoveries_soon()
+        owner.send_discoveries_soon()
+        self.assertEqual(len(sent), 1)
+        owner.app.after.assert_called_once()
+        self.assertGreater(owner.app.after.call_args[0][0], (gui.SEND_EVERY - 5) * 1000)
+        self.assertTrue(owner.discoveries_waiting)
+        # Due while a batch runs: that batch sends; otherwise it leaves.
+        owner.busy = True
+        owner.deferred_send_due()
+        self.assertEqual(len(sent), 1)
+        owner.busy = False
+        owner.send_discoveries_soon()
+        owner.deferred_send_due()
+        self.assertEqual(len(sent), 2)
+        # Closing with a send still waiting: it leaves, and the window waits for it.
+        owner.auto_sending, owner.deferred_send = False, 'later'
+        self.assertTrue(owner.send_before_closing())
+        owner.app.after_cancel.assert_called_with('later')
+        self.assertEqual(len(sent), 3)
+        self.assertTrue(owner.send_before_closing())   # still sending
+        owner.auto_sending = False
+        self.assertFalse(owner.send_before_closing())  # done: the window closes
+        # Nothing waiting: closing is immediate.
+        owner.closing_send = None
+        self.assertFalse(owner.send_before_closing())
+
+
 if __name__ == '__main__':
     unittest.main()

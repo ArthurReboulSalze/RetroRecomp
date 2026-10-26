@@ -472,6 +472,7 @@ TROPHY = ('..XXXXXXXX..', 'XXXoXXXXXXXX', 'X.XoXXXXXX.X', 'X.XoXXXXXX.X',
 SENDING_AVAILABLE = online.sending_available()
 # During a long batch, new discoveries also leave every 15 minutes (one request then).
 SEND_EVERY = 15 * 60
+CLOSING_SEND = 10   # seconds a closing window waits for a send left waiting
 # The closing card: a cartridge sends its discoveries to the shared base.
 CARTRIDGE = ('XXXXXXX.', 'X.....XX', 'X.ooo..X', 'X.ooo..X', 'X.ooo..X',
              'X......X', 'XXXXXXXX', 'X.X.X.XX')
@@ -618,6 +619,13 @@ class Application:
         # Collecting and sending discoveries never run twice at once.
         self.knowledge_lock = threading.Lock()
         self.auto_sending = False
+        # Sends are SEND_EVERY apart, between batches too: a batch that ends
+        # sooner leaves its send waiting (and a send still waiting when the
+        # window closes leaves then, or at the next start).
+        self.last_sent_at = None
+        self.deferred_send = None
+        self.closing_send = None
+        self.discoveries_waiting = bool(preferences.get('discoveries_waiting'))
 
         header = tk.Canvas(app, height=HEADER_HEIGHT, bg=COLORS['header'], highlightthickness=0,
                            borderwidth=0)
@@ -880,6 +888,8 @@ class Application:
         # Games played or converted elsewhere: rows re-read only if changed.
         app.after(1500, self.quiet_refresh_collection)
         app.after(2500, self.refresh_player)
+        if self.discoveries_waiting:   # left waiting when the window last closed
+            app.after(6000, self.send_new_discoveries)
         app.bind('<FocusIn>', lambda event: self.quiet_refresh_collection(every=20), add='+')
         self.file_drop = None
         app.after_idle(self.enable_drops)
@@ -1703,6 +1713,7 @@ class Application:
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
+            discoveries_waiting=self.discoveries_waiting,
             overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
             x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
@@ -2229,7 +2240,7 @@ class Application:
                         record = event[1]
                         self.set_status('summary', **record)
                         self.announce_finished(record)
-                        self.send_new_discoveries()
+                        self.send_discoveries_soon()
                 elif kind == 'update_check':
                     self._offer_update(event[1])
                 elif kind == 'update_ready':
@@ -2302,7 +2313,7 @@ class Application:
                     if self.close_when_idle:
                         self.close()
                         return
-                    self.send_new_discoveries()
+                    self.send_discoveries_soon()
                 elif kind == 'auto_sent':
                     self.auto_sent(event[1], event[2])
                 elif kind == 'report_sent':
@@ -3561,7 +3572,7 @@ class Application:
             return
         collect = self.discoveries_collector(threading.Event())
         self.auto_sending = True
-        self.last_auto_send = time.monotonic()
+        self.last_auto_send = self.last_sent_at = time.monotonic()
         self.sending_started()
         def worker():
             try:
@@ -3572,9 +3583,28 @@ class Application:
                 self.messages.put(('auto_sent', None, exc))
         threading.Thread(target=worker, daemon=True, name='retro-recomp-send').start()
 
+    def send_discoveries_soon(self):
+        """After a batch: send now, or, when the last send is under SEND_EVERY
+        old, once that much time has passed. Many short batches in a row then
+        make one send every SEND_EVERY, not one each."""
+        last = getattr(self, 'last_sent_at', None)
+        wait = 0 if last is None else SEND_EVERY - (time.monotonic() - last)
+        if wait <= 0:
+            self.send_new_discoveries()
+        elif getattr(self, 'deferred_send', None) is None:
+            self.discoveries_waiting = True
+            self.deferred_send = self.app.after(int(wait * 1000) + 1000, self.deferred_send_due)
+
+    def deferred_send_due(self):
+        self.deferred_send = None
+        if not self.busy:   # a running batch sends what it finds itself (every SEND_EVERY and at its end)
+            self.send_new_discoveries()
+
     def auto_sent(self, summary, error):
         self.auto_sending = False
         self.sending_finished()
+        if error is None:
+            self.discoveries_waiting = False
         if error is not None:
             self.messages.put(('log', self.tr('auto_send_failed', error=self.service_problem(error))))
             return
@@ -4890,12 +4920,34 @@ class Application:
             return
         if not self.closing_checked and self.offer_closing_card():
             return
+        if self.send_before_closing():
+            return
         try:
             save_preferences(self.preferences())
         except (OSError, tk.TclError, ValueError):
             pass
         if self.recovered_batch is not None:self.recovered_batch.close()
         self.app.destroy()
+
+    def send_before_closing(self):
+        """A send left waiting by the 15-minute spacing leaves with the window:
+        it closes once the send ends, or after CLOSING_SEND seconds (then the
+        next start sends it). True while the window waits for it."""
+        if getattr(self, 'closing_send', None) is not None:
+            if self.auto_sending and time.monotonic() < self.closing_send:
+                self.app.after(200, self.close)
+                return True
+            return False
+        if getattr(self, 'deferred_send', None) is None:
+            return False
+        self.app.after_cancel(self.deferred_send)
+        self.deferred_send = None
+        self.send_new_discoveries()
+        if not self.auto_sending:
+            return False
+        self.closing_send = time.monotonic() + CLOSING_SEND
+        self.app.after(200, self.close)
+        return True
 
 
 def instance_token():
