@@ -712,6 +712,7 @@ class Application:
             self.trophy_icon = ''
         self.board_button = ttk.Button(self.player_actions, text=self.tr('leaderboard'), style='Header.TButton',
                                        image=self.trophy_icon, compound='left', command=self.show_leaderboard)
+        self.hint(self.board_button, 'tip_leaderboard')
         self.sign_in_button = ttk.Button(self.player_actions, text=self.tr('account_sign_in'),
                                          style='Header.TButton', command=self.sign_in_from_header)
         self.hint(self.sign_in_button, 'tip_account')
@@ -740,6 +741,7 @@ class Application:
         self.compiled_button = ttk.Button(toolbar, text=self.tr('compiled_games'),
             command=self.toggle_compiled_games, style='Compiled.Toolbar.TButton')
         self.decorate_button(self.compiled_button, 'gamepad', primary=True)
+        self.hint(self.compiled_button, 'tip_compiled_games')
         self.compiled_button.pack(side='left')
         self.update_compiled_button()
         self.queue_actions = ttk.Frame(toolbar)
@@ -773,6 +775,7 @@ class Application:
         self.options_button.pack(side='right', padx=(0, 8))
         # Shared discoveries: visible beside the queue and the collection.
         self.knowledge_button = self.button(toolbar, self.tr('knowledge') + ' \u25be', self.knowledge_menu)
+        self.hint(self.knowledge_button, 'tip_knowledge')   # its arrow keeps button() from finding the tip
         self.knowledge_button.pack(side='right', padx=(0, 8))
 
         table_frame = ttk.Frame(body)
@@ -841,6 +844,7 @@ class Application:
         self.selected_button = ttk.Button(actions, text=self.tr('start_selected'),
                                           command=lambda: self.start(selected=True), state='disabled')
         self.selected_button.pack(side='left', padx=(8, 0))
+        self.hint(self.selected_button, 'tip_start_selected')
         self.stop_button = ttk.Button(actions, text=self.tr('stop'), command=self.stop, state='disabled')
         self.decorate_button(self.stop_button, 'stop')
         self.stop_button.pack(side='left', padx=8)

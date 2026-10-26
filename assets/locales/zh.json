@@ -581,7 +581,10 @@
     "go_further_extended_coins": "更进一步：扩展（+{coins} 币）",
     "go_further_thorough": "更进一步：深入",
     "go_further_thorough_coins": "更进一步：深入（+{coins} 币）",
-    "conversions_queued": "{count} 个转换的游戏正在等待奖励：超出每日上限的部分将在之后几天发放（约 {days} 天）。"
+    "conversions_queued": "{count} 个转换的游戏正在等待奖励：超出每日上限的部分将在之后几天发放（约 {days} 天）。",
+    "tip_leaderboard": "排行榜：找到最多原生路径的玩家（总榜或本月），以及他们的宝石、称号和徽章。",
+    "tip_compiled_games": "已编译游戏：你转换好的游戏，带封面、详情和等级星标；可以游玩、重新转换或更进一步。",
+    "tip_start_selected": "转换选中项：只转换列表中选中的游戏。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z；右Shift：模式",

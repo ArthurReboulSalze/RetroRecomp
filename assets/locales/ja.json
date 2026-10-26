@@ -581,7 +581,10 @@
     "go_further_extended_coins": "さらに深く：拡張（+{coins} コイン）",
     "go_further_thorough": "さらに深く：完全",
     "go_further_thorough_coins": "さらに深く：完全（+{coins} コイン）",
-    "conversions_queued": "変換したゲーム {count} 本が報酬待ちです。1日の上限を超えた分は翌日以降に付与されます（あと約 {days} 日）。"
+    "conversions_queued": "変換したゲーム {count} 本が報酬待ちです。1日の上限を超えた分は翌日以降に付与されます（あと約 {days} 日）。",
+    "tip_leaderboard": "ランキング：ネイティブ経路を最も多く見つけたプレイヤー（累計または今月）と、その宝石・称号・バッジ。",
+    "tip_compiled_games": "コンパイル済みゲーム：変換したゲームとパッケージ画像、詳細、レベルの星。プレイ、再変換、さらに深く解析できます。",
+    "tip_start_selected": "選択したゲームを変換：一覧で選んだゲームだけを変換します。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",

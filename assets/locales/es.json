@@ -581,7 +581,10 @@
     "go_further_extended_coins": "Ir más lejos: Extendido (+{coins} monedas)",
     "go_further_thorough": "Ir más lejos: Exhaustivo",
     "go_further_thorough_coins": "Ir más lejos: Exhaustivo (+{coins} monedas)",
-    "conversions_queued": "{count} juegos convertidos esperan su recompensa: por encima del límite diario se abonarán en los días siguientes (unos {days} días)."
+    "conversions_queued": "{count} juegos convertidos esperan su recompensa: por encima del límite diario se abonarán en los días siguientes (unos {days} días).",
+    "tip_leaderboard": "Clasificación: los jugadores que más caminos nativos han encontrado, desde el inicio o este mes, con sus gemas, títulos e insignias.",
+    "tip_compiled_games": "Juegos recompilados: tus juegos convertidos con su carátula, detalles y estrellas de nivel; juega, vuelve a convertir o ve más allá.",
+    "tip_start_selected": "Convertir selección: solo los juegos seleccionados en la lista."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Mayús der.: Mode",

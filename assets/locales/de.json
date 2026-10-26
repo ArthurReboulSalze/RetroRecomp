@@ -581,7 +581,10 @@
     "go_further_extended_coins": "Weiter gehen: Erweitert (+{coins} Münzen)",
     "go_further_thorough": "Weiter gehen: Gründlich",
     "go_further_thorough_coins": "Weiter gehen: Gründlich (+{coins} Münzen)",
-    "conversions_queued": "{count} umgewandelte Spiele warten auf ihre Belohnung: Über dem Tageslimit werden sie an den folgenden Tagen gutgeschrieben (etwa {days} Tage)."
+    "conversions_queued": "{count} umgewandelte Spiele warten auf ihre Belohnung: Über dem Tageslimit werden sie an den folgenden Tagen gutgeschrieben (etwa {days} Tage).",
+    "tip_leaderboard": "Rangliste: die Spieler mit den meisten gefundenen nativen Pfaden, insgesamt oder in diesem Monat, mit Edelsteinen, Titeln und Abzeichen.",
+    "tip_compiled_games": "Kompilierte Spiele: deine konvertierten Spiele mit Cover, Details und Stufensternen; spielen, neu konvertieren oder weitergehen.",
+    "tip_start_selected": "Auswahl konvertieren: nur die in der Liste ausgewählten Spiele."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Umschalt rechts: Mode",

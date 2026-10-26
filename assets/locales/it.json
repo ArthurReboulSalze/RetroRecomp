@@ -581,7 +581,10 @@
     "go_further_extended_coins": "Andare oltre: Esteso (+{coins} monete)",
     "go_further_thorough": "Andare oltre: Approfondito",
     "go_further_thorough_coins": "Andare oltre: Approfondito (+{coins} monete)",
-    "conversions_queued": "{count} giochi convertiti attendono la loro ricompensa: oltre il limite giornaliero saranno accreditati nei giorni successivi (circa {days} giorni)."
+    "conversions_queued": "{count} giochi convertiti attendono la loro ricompensa: oltre il limite giornaliero saranno accreditati nei giorni successivi (circa {days} giorni).",
+    "tip_leaderboard": "Classifica: i giocatori che hanno trovato più percorsi nativi, da sempre o questo mese, con gemme, titoli e badge.",
+    "tip_compiled_games": "Giochi ricompilati: i tuoi giochi convertiti con copertina, dettagli e stelle di livello; gioca, riconverti o vai oltre.",
+    "tip_start_selected": "Converti selezionati: solo i giochi selezionati nell’elenco."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; Maiusc destra: Mode",
