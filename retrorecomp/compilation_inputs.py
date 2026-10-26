@@ -309,35 +309,23 @@ def role_stamps(system):
 
 
 def knowledge_stamp(system, identity):
-    """A new cartridge hint must invalidate the relevant export, even at 1.x."""
-    from .knowledge import RESOURCE
-    from .paths import ASSETS
+    """A changed qualified or imported hint must invalidate the relevant export, even at 1.x."""
     if (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')
             or os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE') == '0'):
         return 'disabled'
-    path = ASSETS / RESOURCE
-    if not path.is_file():
-        return 'absent'
-    # load() is bounded and validates the numeric schema. Its cache is keyed
-    # by a stat-qualified helper so development replacements are noticed.
-    stat = path.stat()
-    bank = _knowledge_bank(path, stat.st_size, stat.st_mtime_ns).get(system, {})
+    # The qualified bank is the local file written from the shared base; a
+    # missing or invalid one knows nothing. Its reader is bounded, validates
+    # the numeric schema and notices a replaced file by size and mtime.
+    from .knowledge import imported_observations, imported_record, qualified_bank
+    bank = qualified_bank().get(system, {})
     # Neo Geo keys include selected BIOS/prepared regions; the request already
     # fingerprints the BIOS. Its small bank is conservatively scoped to NG.
     record = bank if system == 'ng' else bank.get(identity, {})
     # Imported hints count too; without them the stamp is unchanged.
-    from .knowledge import imported_observations, imported_record
     imported = {} if system == 'ng' else imported_record(system, identity)
     observations = [] if system == 'ng' else imported_observations(system, identity)
     if imported or observations:
-        record = {'bundled': record, 'imported': imported}
+        record = {'qualified': record, 'imported': imported}
         if observations:
             record['observations'] = observations
     return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-
-
-@lru_cache(maxsize=4)
-def _knowledge_bank(path, size, modified):
-    from .knowledge import load
-    load.cache_clear()
-    return load(path)['consoles']

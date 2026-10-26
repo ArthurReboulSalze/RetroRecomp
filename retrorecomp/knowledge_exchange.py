@@ -54,10 +54,8 @@ def _entries(system: str, record: dict) -> set:
 
 
 def _bundled(system: str, identity: str) -> dict:
-    try:
-        return load(ASSETS / RESOURCE)['consoles'].get(system, {}).get(identity, {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError):
-        return {}
+    from .knowledge import qualified_record
+    return qualified_record(system, identity)
 
 
 def unknown_hints(system: str, record: dict, *known: dict) -> int:

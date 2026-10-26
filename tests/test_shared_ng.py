@@ -40,12 +40,12 @@ def ng_record(rom=((1, 0), (1, 2), (2, 0)), ram=((0xfc00, 1, 2, 4),), z80=((0xff
 
 
 def bundled_only(records=None):
-    """What the bundled snapshot holds for Neo Geo (nothing by default)."""
+    """What the qualified bank holds for Neo Geo (nothing by default)."""
     return {'consoles': {'ng': records or {}}}
 
 
 class Library:
-    """A Neo Geo library in a temporary folder, without the real snapshot."""
+    """A Neo Geo library in a temporary folder, without a real qualified bank."""
 
     def start(self, test, bundled=None):
         temp = tempfile.TemporaryDirectory()
@@ -61,8 +61,7 @@ class Library:
                      patch('retrorecomp.neogeo_knowledge.library_root', return_value=test.library),
                      patch('retrorecomp.knowledge.imported_path', return_value=test.bank),
                      patch('retrorecomp.knowledge_exchange.imported_path', return_value=test.bank),
-                     patch('retrorecomp.knowledge.load', return_value=replaced),
-                     patch('retrorecomp.knowledge_exchange.load', return_value=replaced)):
+                     patch('retrorecomp.knowledge.qualified_bank', return_value=replaced['consoles'])):
             item.start()
             test.addCleanup(item.stop)
         test.addCleanup(knowledge._imported_bank.cache_clear)
@@ -345,7 +344,7 @@ class ExchangeTests(unittest.TestCase):
     def test_a_conversion_with_nothing_new_is_noted_with_a_record_without_hints(self):
         Library().keep(self, ng_record())
         known = compact_record(IDENTITY, ng_record())
-        with patch('retrorecomp.knowledge_exchange.load', return_value=bundled_only({IDENTITY: known})):
+        with patch('retrorecomp.knowledge.qualified_bank', return_value=bundled_only({IDENTITY: known})['consoles']):
             found = knowledge_exchange.collect_knowledge([self.game()])
             self.assertEqual((found['games'], found['omitted']['already_known']), (0, 1))
             stub = found['converted']['ng'][IDENTITY]
@@ -422,8 +421,7 @@ class BaseTests(unittest.TestCase):
         replaced = bundled_only()
         for item in (patch.dict(os.environ, environment, clear=True),
                      patch('retrorecomp.neogeo_knowledge.library_root', return_value=self.root / 'library' / 'ng'),
-                     patch('retrorecomp.knowledge.load', return_value=replaced),
-                     patch('retrorecomp.knowledge_exchange.load', return_value=replaced)):
+                     patch('retrorecomp.knowledge.qualified_bank', return_value=replaced['consoles'])):
             item.start()
             self.addCleanup(item.stop)
 
