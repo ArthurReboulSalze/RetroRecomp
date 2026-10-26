@@ -1287,24 +1287,30 @@ those findings help us improve the shared source code. Conversion itself does
 not automatically rewrite the compiler, and a finite catalogue does not make
 scripted tests exhaustive.
 
-## Included in the converter
+## The base of paths beside the converter (since 1.5.4)
 
-`assets/compilation-knowledge.json.gz` is a compact, versioned snapshot embedded
-in **Retro-Recomp.exe**. The converter reads it without creating a local folder.
+Since 1.5.4, **Retro-Recomp.exe contains no paths**. The base of paths is a
+separate file, `Retro-Recomp-base.zip`, laid beside the executable by the
+installer and the built-in update, and kept up to date in `datas/knowledge/`
+(see *The shared base*). Before 1.5.4, `assets/compilation-knowledge.json.gz`
+was a snapshot embedded in the executable; it stays in this repository as the
+source of the maintainer's campaigns, which enter the base as qualified paths.
 New discoveries remain in the converter's local `datas/library`; both sources
 are combined when preparing a game. Generated game executables already contain
-their compiled code and do not need this library or learning logs to play.
+their compiled code and do not need this base, this library or learning logs
+to play. Without any base and without a connection, the converter discovers
+everything itself, as before, and says so.
 
 Each record is bound to the console, full ROM SHA256, byte size and compiler
 engine revision. A different cartridge revision or engine cannot reuse it.
 Missing, invalid or incompatible records leave normal discovery and validation
-enabled. Local observations remain available alongside the bundled snapshot.
+enabled. Local observations remain available alongside the base.
 This also applies to Mega Drive and Super Nintendo: neither the known-game
-catalogue nor this snapshot is a conversion allowlist. Eligible unknown
+catalogue nor this base is a conversion allowlist. Eligible unknown
 cartridges are analyzed directly, then validated before their discoveries
-can enter the shared snapshot.
+can enter the base.
 
-The snapshot contains numeric instruction addresses, bank identifiers, hashes
+The base contains numeric instruction addresses, bank identifiers, hashes
 and offsets into the user's own ROM. It contains no ROM bytes, copied audio
 drivers, artwork, executable code, credentials, titles or machine paths.
 
