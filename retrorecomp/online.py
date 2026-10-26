@@ -1495,16 +1495,25 @@ def _save_base_use(use: dict) -> None:
 
 def _base_entries(shas) -> dict:
     """POST base/entries: {sha: value} of the entries the service served out
-    of `shas` (the unknown ones are omitted by the service), still unverified."""
-    asked = set(shas)
-    answer = _call('POST', 'base/entries', payload={'entries': sorted(asked)}, timeout=120,
-                   limit=BASE_ENTRIES_LIMIT, compressed=True)[1]
-    entries = answer.get('entries')
-    if entries == []:
-        entries = {}   # an empty JSON object may come back as an empty list
-    if not isinstance(entries, dict):
-        raise ServiceError(200, 'bad_answer')
-    return {sha: value for sha, value in entries.items() if sha in asked}
+    of `shas` (the unknown ones are omitted by the service), still unverified.
+    Entries the service `deferred` (its answer was full) are asked again."""
+    asked, served = set(shas), {}
+    ask = sorted(asked)
+    for _ in range(FETCH_ROUNDS):
+        answer = _call('POST', 'base/entries', payload={'entries': ask}, timeout=120,
+                       limit=BASE_ENTRIES_LIMIT, compressed=True)[1]
+        entries = answer.get('entries')
+        if entries == []:
+            entries = {}   # an empty JSON object may come back as an empty list
+        if not isinstance(entries, dict):
+            raise ServiceError(200, 'bad_answer')
+        served.update((sha, value) for sha, value in entries.items() if sha in asked)
+        deferred = answer.get('deferred') if isinstance(answer.get('deferred'), list) else []
+        deferred = sorted({sha for sha in deferred if sha in asked and sha not in served})
+        if not deferred or len(deferred) >= len(ask):
+            break
+        ask = deferred
+    return served
 
 
 def sync_base(rom_keys, now: float | None = None) -> dict:

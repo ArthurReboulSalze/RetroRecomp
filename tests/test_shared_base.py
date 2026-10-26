@@ -63,7 +63,14 @@ class BaseService(FakeService):
             self.server.hits.append(('POST', self.path, asked))
             entries = self.server.base['entries']
             served = {sha: entries[sha] for sha in asked if sha in entries}
-            self.answer(200, {'entries': served or []}, compress='gzip' in (self.headers.get('Accept-Encoding') or ''))
+            deferred = []
+            # A full answer: the service keeps the rest for the next call.
+            room = self.server.base.get('room')
+            if room is not None and len(served) > room:
+                deferred = sorted(served)[room:]
+                served = {sha: served[sha] for sha in sorted(served)[:room]}
+            self.answer(200, {'entries': served or [], **({'deferred': deferred} if deferred else {})},
+                        compress='gzip' in (self.headers.get('Accept-Encoding') or ''))
         elif self.path.endswith('/contributions') and self.server.mode == 'outdated':
             self.body()
             minimum = getattr(self.server, 'minimum', None)
@@ -264,6 +271,19 @@ class PublishedBaseTests(unittest.TestCase):
         summary = online.sync_base(list(games))
         self.assertEqual(summary['games'], 130)
         self.assertEqual([len(hit[2]) for hit in calls_after(self.server, 'POST')], [128, 2])
+
+    def test_entries_the_service_deferred_are_asked_for_again(self):
+        games, entries = {}, []
+        for number in range(5):
+            identity = '%064x' % number
+            built = entry(part(number + 1, 'standard', (0x100,)), identity=identity)
+            games[f'sms:{identity}'] = (built[0], [number + 1])
+            entries.append(built)
+        self.publish(1, games, entries=entries)
+        self.server.base['room'] = 2
+        summary = online.sync_base(list(games))
+        self.assertEqual(summary['games'], 5)
+        self.assertEqual([len(hit[2]) for hit in calls_after(self.server, 'POST')], [5, 3, 1])
 
     # --- Revocation, removal, rejection ----------------------------------------
 
