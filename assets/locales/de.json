@@ -526,7 +526,7 @@
     "shared_unavailable": "Gemeinsame Basis: {error} Die Konvertierungen laufen mit den vorhandenen Pfaden weiter.",
     "auto_send_done": "Gemeinsame Basis: Die neuen Entdeckungen von {games} Spielen wurden automatisch gesendet.",
     "auto_send_failed": "Gemeinsame Basis: automatisches Senden verschoben. {error} Es wird nach dem nächsten Durchgang erneut versucht.",
-    "knowledge_send_new": "Du hast {count} dieser Pfade als Erster gefunden: Ihre Punkte zählen sofort.",
+    "knowledge_send_new": "Du hast {count} dieser Pfade als Erster gefunden: Ihre Punkte zählen sofort und erscheinen innerhalb von 15 Minuten in der Rangliste.",
     "claims_refused": "Gemeinsame Basis: Die Pfade einer gesendeten Datei wurden nicht gezählt ({reason}); die Datei selbst ist angekommen.",
     "stop_title": "Wie soll gestoppt werden?",
     "stop_now": "Sofort stoppen",

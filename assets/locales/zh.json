@@ -526,7 +526,7 @@
     "shared_unavailable": "共享库：{error} 转换将使用本地已有的路径继续。",
     "auto_send_done": "共享库：已自动发送 {games} 款游戏的新发现。",
     "auto_send_failed": "共享库：自动发送已延后。{error} 将在下一批之后重试。",
-    "knowledge_send_new": "其中 {count} 条路径由你第一个找到：积分立即计入。",
+    "knowledge_send_new": "其中 {count} 条路径由你第一个找到：积分立即计入，15 分钟内显示在排行榜上。",
     "claims_refused": "共享库：已发送文件中的路径未被计入（{reason}）；文件本身已收到。",
     "stop_title": "要如何停止？",
     "stop_now": "立即停止",

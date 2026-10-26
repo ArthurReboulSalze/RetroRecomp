@@ -526,7 +526,7 @@
     "shared_unavailable": "Base comune: {error} Le conversioni proseguono con i percorsi già presenti.",
     "auto_send_done": "Base comune: le nuove scoperte di {games} giochi sono state inviate automaticamente.",
     "auto_send_failed": "Base comune: invio automatico rinviato. {error} Verrà ritentato dopo il prossimo lotto.",
-    "knowledge_send_new": "Sei il primo a trovare {count} di questi percorsi: i loro punti contano subito.",
+    "knowledge_send_new": "Sei il primo a trovare {count} di questi percorsi: i loro punti contano subito e compaiono in classifica entro 15 minuti.",
     "claims_refused": "Base comune: i percorsi di un file inviato non sono stati conteggiati ({reason}); il file è stato comunque ricevuto.",
     "stop_title": "Come vuoi fermare?",
     "stop_now": "Ferma subito",

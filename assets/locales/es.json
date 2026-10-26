@@ -526,7 +526,7 @@
     "shared_unavailable": "Base común: {error} Las conversiones siguen con los caminos ya presentes.",
     "auto_send_done": "Base común: los nuevos descubrimientos de {games} juegos se enviaron automáticamente.",
     "auto_send_failed": "Base común: envío automático aplazado. {error} Se reintentará tras el próximo lote.",
-    "knowledge_send_new": "Eres el primero en encontrar {count} de estos caminos: sus puntos cuentan al instante.",
+    "knowledge_send_new": "Eres el primero en encontrar {count} de estos caminos: sus puntos cuentan al instante y aparecen en la clasificación en menos de 15 minutos.",
     "claims_refused": "Base común: los caminos de un archivo enviado no se contaron ({reason}); el archivo sí se recibió.",
     "stop_title": "¿Cómo quieres detenerlo?",
     "stop_now": "Detener ahora",
