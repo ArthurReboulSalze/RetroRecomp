@@ -262,16 +262,9 @@ def knowledge_engine(rom) -> str:
 
 
 def bundled_record(rom) -> dict:
-    """The bundled snapshot's record for this exact ROM, without imported hints."""
-    import zlib
-    from .knowledge import RESOURCE, disabled, load
-    from .paths import ASSETS
-    if disabled():
-        return {}
-    try:
-        record = load(ASSETS / RESOURCE)['consoles'].get('snes', {}).get(rom.sha256, {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        return {}
+    """The qualified bank's record for this exact ROM, without imported hints."""
+    from .knowledge import qualified_record
+    record = qualified_record('snes', rom.sha256)
     return (record if record.get('engine') == knowledge_engine(rom) and record.get('rom_bytes') == len(rom.data)
             and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
 

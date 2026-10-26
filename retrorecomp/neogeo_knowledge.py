@@ -3,7 +3,7 @@
 Hints add roots and reconstruct guards from the user's verified inputs. Fresh
 reference, packed and state validation are mandatory even when hints exist.
 
-Three banks guide a conversion: the bundled snapshot, this player's own
+Three banks guide a conversion: the qualified bank, this player's own
 library (only the routes a fresh reference run reached, see `remember`) and the
 imported bank that other players' shared files and the shared base fill. The
 imported hints are counted apart and never enter the library: they are not
@@ -218,10 +218,9 @@ def hints(project: Path) -> tuple[dict,list[dict],list[dict],dict]:
     forget_imported_use()
     if not (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR') or
             os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE')=='0'):
-        from .knowledge import load,RESOURCE
-        from .paths import ASSETS
+        from .knowledge import qualified_record
         try:
-            record=load(ASSETS/RESOURCE)['consoles'].get('ng',{}).get(identity,{})
+            record=qualified_record('ng',identity)
             if _matching(identity,record,current):
                 record=expanded_record(identity,record);records.append(record)
                 counts['shared']=sum(len(record[name]) for name in FIELDS)

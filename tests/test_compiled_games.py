@@ -358,3 +358,23 @@ class IncrementalRefreshTests(TestCase):
                 self.assertEqual(refresh_changed(inventory), 1)
                 self.assertEqual(refresh_changed(inventory), 0)
                 self.assertEqual(reader.call_count, 2)
+
+
+class GamesToExploreTests(TestCase):
+    def test_neo_geo_is_shared_and_named_by_cartridge_and_bios(self):
+        from retrorecomp.compiled_games_view import CompiledGamesView, base_key
+        from retrorecomp.neogeo_knowledge import key
+        with tempfile.TemporaryDirectory() as folder:
+            report = Path(folder) / 'conversion-report.json'
+            report.write_text(json.dumps({'prepared_cartridge': {'sha256': 'a' * 64}, 'bios': {'sha256': 'b' * 64}}),
+                              encoding='utf-8')
+            game = Game('game.exe', 'ng', 'c' * 64, 'Neo Geo game', report=str(report))
+            game.level = 'standard'
+            base = f"ng:{key('a' * 64, 'b' * 64)}"
+            self.assertEqual(base_key(game), base)
+            self.assertTrue(CompiledGamesView.to_explore(game, {}))
+            self.assertFalse(CompiledGamesView.to_explore(game, {base: {'by': None}}))
+            # Without a readable report, the file's hash stands in.
+            self.assertEqual(base_key(Game('game.exe', 'ng', 'c' * 64, 'Neo Geo game')), 'ng:' + 'c' * 64)
+        sms = Game('game.exe', 'sms', 'd' * 64, 'Master System game')
+        self.assertEqual(base_key(sms), 'sms:' + 'd' * 64)

@@ -1,9 +1,11 @@
-"""Read-only compilation hints shipped with the converter, never ROM bytes.
+"""Read-only compilation hints, never ROM bytes.
 
-References into the user's exact ROM reconstruct guarded RAM patterns. Local
-learning stays additive; a custom library directory opts out of bundled hints.
-Hints imported from another user's export are kept in their own bank, merged
-with the bundled one at use, and verified by every conversion like the rest.
+References into the user's exact ROM reconstruct guarded RAM patterns. The
+executable carries none: the qualified bank (`qualified_path()`) is written
+locally from the shared base before a batch. Local learning stays additive; a
+custom library directory opts out of every shared hint. Hints imported from
+another user's export are kept in their own bank, merged with the qualified
+one at use, and verified by every conversion like the rest.
 """
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -19,6 +21,8 @@ import threading
 import zlib
 from .paths import ASSETS
 
+# The maintainer campaigns' source file (tools/build_compilation_knowledge.py).
+# It stays in the repository but is neither bundled nor read by the converter.
 RESOURCE = 'assets/compilation-knowledge.json.gz'
 # A bounded decompressed budget, shared by the builder and package audit.
 # Growing multi-console observations exceeded the 32 MiB, then the 64 MiB
@@ -137,6 +141,34 @@ def imported_path() -> Path:
 @lru_cache(maxsize=2)
 def _imported_bank(path: str, size: int, modified: int) -> dict:
     return read(Path(path))['consoles']
+
+
+def qualified_path() -> Path:
+    from .paths import data_directory
+    return data_directory() / 'knowledge' / 'qualified.json.gz'
+
+
+@lru_cache(maxsize=2)
+def _qualified_bank(path: str, size: int, modified: int) -> dict:
+    return read(Path(path))['consoles']
+
+
+def qualified_bank() -> dict:
+    """The qualified bank's consoles ({} when absent, invalid or disabled);
+    a changed file is read again."""
+    if disabled():
+        return {}
+    path = qualified_path()
+    try:
+        stat = path.stat()
+        return _qualified_bank(str(path), stat.st_size, stat.st_mtime_ns)
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+
+
+def qualified_record(system: str, identity: str) -> dict:
+    """The qualified bank's record for one exact identity, or {}."""
+    return qualified_bank().get(system, {}).get(identity, {})
 
 
 # Cartridges converting again without their imported hints (see batch).
@@ -329,11 +361,8 @@ def record_for(system: str, rom, engine: str) -> dict:
         return {}
     if disabled():
         return {}
-    try:
-        bundled = load(ASSETS / RESOURCE)['consoles'].get(system, {}).get(rom.sha256, {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        bundled = {}
-    # The bundled snapshot is qualified for its own compiler. Imported hints
+    bundled = qualified_record(system, rom.sha256)
+    # The qualified bank is qualified for its own compiler. Imported hints
     # count whatever compiler found them: they only guide discovery, and
     # every conversion still checks native code against the reference CPU.
     usable = [record for record in (bundled, imported_record(system, rom.sha256))

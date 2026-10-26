@@ -110,12 +110,12 @@ class KnowledgeExchangeTests(unittest.TestCase):
         data = bytes(range(256)) * 256
         rom = SimpleNamespace(sha256=hashlib.sha256(data).hexdigest(), data=data)
         bundled = {'schema': 1, 'consoles': {'md': {rom.sha256: md([0x200])}}}
-        with patch('retrorecomp.knowledge.load', return_value=bundled):
+        with patch('retrorecomp.knowledge.qualified_bank', return_value=bundled['consoles']):
             self.assertEqual(knowledge.record_for('md', rom, ENGINE)['rom_entries'], [[0x200]])
             knowledge_exchange.import_knowledge(self.write('share.rrknowledge', self.document(
                 {'md': {rom.sha256: md([0x300])}})))
             self.assertEqual(knowledge.record_for('md', rom, ENGINE)['rom_entries'], [[0x200], [0x300]])
-            # The bundled snapshot is bound to its compiler; imported hints are not.
+            # The qualified bank is bound to its compiler; imported hints are not.
             self.assertEqual(knowledge.record_for('md', rom, OTHER)['rom_entries'], [[0x300]])
 
     def test_failed_conversion_retries_without_imported_hints_and_sets_them_aside(self):
@@ -169,7 +169,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
             return {('md', rom.sha256): source}
 
         def export(record):
-            with patch('retrorecomp.knowledge_exchange.load', return_value=bundled), \
+            with patch('retrorecomp.knowledge.qualified_bank', return_value=bundled['consoles']), \
                     patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
                     patch('retrorecomp.knowledge_exchange.qualified_reports', return_value=qualified), \
                     patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE}), \
@@ -184,7 +184,7 @@ class KnowledgeExchangeTests(unittest.TestCase):
         # Converted with nothing new: kept apart for an account upload (online.pending), never exported;
         # its level is the deepest discovery the report completed.
         qualified[('md', rom.sha256)] = {'scan_level': 'quick', 'upgrade': {'discovery': {'scan_level': 'extended'}}}
-        with patch('retrorecomp.knowledge_exchange.load', return_value=bundled), \
+        with patch('retrorecomp.knowledge.qualified_bank', return_value=bundled['consoles']), \
                 patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
                 patch('retrorecomp.knowledge_exchange.qualified_reports', return_value=qualified), \
                 patch('retrorecomp.knowledge_exchange.engines', return_value={'md': ENGINE}), \
@@ -243,7 +243,7 @@ class RawObservationTests(unittest.TestCase):
     def export(self, name='mine.rrknowledge'):
         profile = SimpleNamespace(read_rom=lambda path: self.rom)
         with patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile), \
-                patch('retrorecomp.knowledge_exchange.load', return_value={'schema': 1, 'consoles': {}}):
+                patch('retrorecomp.knowledge.qualified_bank', return_value={}):
             return knowledge_exchange.export_knowledge([self.game()], self.root / name)
 
     def test_only_rom_positions_are_shared(self):

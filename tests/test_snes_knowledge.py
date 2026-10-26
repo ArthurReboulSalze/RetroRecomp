@@ -70,18 +70,18 @@ class SpcKnowledgeTests(unittest.TestCase):
                 'spc_refs':[[pc,pc%13] for pc in range(65536) if not 0xf0<=pc<=0xff]}
         payload={'schema':1,'consoles':{'snes':{rom.sha256:record}}}
         with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary);path=root/knowledge.RESOURCE;path.parent.mkdir()
+            root=Path(temporary);path=root/'knowledge'/'qualified.json.gz';path.parent.mkdir()
             def save():
                 path.write_bytes(gzip.compress(json.dumps(payload).encode(),mtime=0))
-                knowledge.load.cache_clear()
-            with patch('retrorecomp.knowledge.ASSETS',root), \
+                knowledge._qualified_bank.cache_clear()
+            with patch('retrorecomp.knowledge.qualified_path',return_value=path), \
                     patch('retrorecomp.snes_spc.memory_file',return_value=root/'absent'), \
                     patch('retrorecomp.feedback.records',return_value=[]), \
                     patch.dict('os.environ',{},clear=True):
                 save();before=snes_spc.read_masks(rom)
                 self.assertTrue(snes_knowledge.compact(record));save()
                 self.assertEqual(before,snes_spc.read_masks(rom))
-            knowledge.load.cache_clear()
+            knowledge._qualified_bank.cache_clear()
 
 
 if __name__ == '__main__':unittest.main()
