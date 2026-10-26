@@ -95,7 +95,7 @@ class SharedBaseTests(unittest.TestCase):
         keys = [f'sms:{number:064x}' for number in range(300)]
         self.server.store = {keys[0]: [{'id': 5, 'record': sms_record(0x100), 'level': 'standard'}],
                              keys[200]: [{'id': 9, 'rows': [[1, 0x200, 0, 3, 0x40]], 'level': 'quick'}]}
-        summary = online.sync_shared(keys + ['ng:' + 'a' * 64, 'bogus'])
+        summary = online.sync_shared(keys + ['x68:' + 'a' * 64, 'bogus'])
         fetches = calls_to(self.server, '/knowledge/fetch')
         self.assertEqual([len(json.loads(call[3])['roms']) for call in fetches], [128, 128, 44])
         self.assertEqual(sorted(key for call in fetches for key in json.loads(call[3])['roms']), keys,

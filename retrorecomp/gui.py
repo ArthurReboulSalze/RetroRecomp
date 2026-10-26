@@ -1901,8 +1901,10 @@ class Application:
                     self.messages.put((kind,index,value))
                 # The shared base's paths for these ROMs join the imported
                 # banks first; each conversion checks them again.
-                shared = self.prepare_shared_paths([f'{item.system}:{item.sha256}' for item in items
-                                                    if item.system and item.sha256 and not item.error], use_shared)
+                keys = self.shared_rom_keys([(item.system, item.sha256, item.path) for item in items
+                                             if item.system and item.sha256 and not item.error], options)
+                shared = self.prepare_shared_paths(keys, use_shared)
+                self.start_shared_source(use_shared, keys, {item.system for item in items})
                 record = convert_batch(items, output, cancel=self.cancel, **options, shared_paths=shared,
                     emit=lambda text: self.messages.put(('log', text)),
                     on_event=event)
@@ -1921,6 +1923,7 @@ class Application:
             except Exception as exc:
                 self.messages.put(('fatal', str(exc)))
             finally:
+                self.stop_shared_source()
                 if journal is not None:journal.close()
         threading.Thread(target=worker, daemon=True).start()
 
@@ -3545,11 +3548,12 @@ class Application:
 
     # --- The shared base around each batch -----------------------------------
 
-    def prepare_shared_paths(self, keys, enabled):
+    def prepare_shared_paths(self, keys, enabled, quiet=False):
         """Worker side, before a batch: one fetch of the shared base's paths
-        for these ROMs ('system:sha256') into the imported banks, said in one
+        for these ROMs ('system:identity') into the imported banks, said in one
         log line. {} without the option, the service or an account (no request);
-        a fetch that fails leaves the conversions as they would be offline."""
+        a fetch that fails leaves the conversions as they would be offline.
+        `quiet` leaves out the lines that say nothing came."""
         if not enabled or not SENDING_AVAILABLE:
             return {}
         try:
@@ -3557,17 +3561,68 @@ class Application:
         except Exception as exc:   # the batch goes on whatever happens here
             outcome = {'paths': {}, 'summary': None, 'error': exc}
         summary, error = outcome['summary'], outcome['error']
-        self.log_published_base(outcome.get('base'), summary, error)
+        self.log_published_base(outcome.get('base'), summary, error, quiet)
         if error is not None:
             self.messages.put(('log', self.tr('shared_unavailable', error=self.service_problem(error))))
         elif summary and summary['roms']:
             self.messages.put(('log', self.tr('shared_received', games=summary['roms'], records=summary['records'],
                                               observations=summary['observations'])))
-        elif summary and summary['asked']:
+        elif summary and summary['asked'] and not quiet:
             self.messages.put(('log', self.tr('shared_nothing')))
         return outcome['paths']
 
-    def log_published_base(self, base, summary, error):
+    def shared_rom_keys(self, entries, options):
+        """The shared base's names ('system:identity') for the ROMs of a batch,
+        from (system, sha256, path) triples. A cartridge console is named by
+        its ROM's hash. A Neo Geo game by its prepared cartridge and the BIOS
+        its conversion will use (neogeo_knowledge.key); one whose cartridge is
+        not prepared yet is not asked for here: its conversion asks once it is
+        (start_shared_source)."""
+        keys, bios_sha, checked = [], None, False
+        for system, sha256, path in entries:
+            if system != 'ng':
+                keys.append(f'{system}:{sha256}')
+                continue
+            if not checked:
+                checked = True
+                try:
+                    from .neogeo import validate_bios
+                    firmware = selected_bios_path((options or {}).get('ng_bios'))
+                    bios_sha = validate_bios(firmware)['sha256'] if firmware else None
+                except (ValueError, OSError):
+                    bios_sha = None
+            try:
+                from .neogeo_knowledge import shared_identity
+                identity = shared_identity(Path(path), sha256, bios_sha)
+            except (OSError, ValueError, TypeError):
+                identity = None
+            if identity:
+                keys.append(f'ng:{identity}')
+        return keys
+
+    def start_shared_source(self, enabled, keys, systems):
+        """For the length of a batch with Neo Geo games: a conversion that has
+        just prepared its cartridge asks the shared base for it, once, unless
+        `keys` (the batch's first request) already covered it."""
+        if not enabled or not SENDING_AVAILABLE or 'ng' not in systems:
+            return
+        from . import neogeo_knowledge
+        asked, lock = set(keys), threading.Lock()
+        def source(identity):
+            key = f'ng:{identity}'
+            with lock:   # one request at a time: they all write the same files
+                if key in asked:
+                    return
+                asked.add(key)
+                self.prepare_shared_paths([key], True, quiet=True)
+        neogeo_knowledge.SHARED_SOURCE = source
+
+    def stop_shared_source(self):
+        module = sys.modules.get(__package__ + '.neogeo_knowledge')
+        if module is not None:
+            module.SHARED_SOURCE = None
+
+    def log_published_base(self, base, summary, error, quiet=False):
         """The published base's outcome for this batch in log lines: its
         number and the games received, nothing new (left to the signed-in
         sync's own line when there is one), a format this version cannot read,
@@ -3579,7 +3634,8 @@ class Application:
             self.messages.put(('log', self.tr('shared_base_format', format=base.get('format'))))
         elif base.get('version') is not None and base.get('games'):
             self.messages.put(('log', self.tr('shared_base_received', version=base['version'], games=base['games'])))
-        elif base.get('version') is not None and base.get('error') is None and summary is None and base.get('asked'):
+        elif (base.get('version') is not None and base.get('error') is None and summary is None and base.get('asked')
+                and not quiet):
             self.messages.put(('log', self.tr('shared_base_nothing', version=base['version'])))
         if base.get('error') is not None:
             problem = self.service_problem(base['error'])
@@ -3592,9 +3648,18 @@ class Application:
         longer allow a quick check for that ROM."""
         rejected = [f"{result.get('system')}:{result.get('sha256')}" for result in results
                     if result.get('imported_hints_rejected')]
-        if shared and rejected:
+        keys = [key for key in rejected if key in shared]
+        for result in results:
+            if result.get('system') == 'ng' and result.get('report'):
+                # Neo Geo says it in its own report, under the cartridge and BIOS identity (a
+                # game asked for once its cartridge was prepared is not in `shared`).
+                from .knowledge_exchange import report_game_key
+                identity, flagged = report_game_key(result['report'])
+                if identity and flagged:
+                    keys.append(f'ng:{identity}')
+        if keys:
             try:
-                online.forget_shared([key for key in rejected if key in shared])
+                online.forget_shared(keys)
             except OSError:
                 pass
 
@@ -4990,8 +5055,17 @@ class Application:
         conversion that set its paths aside says so (imported_hints_rejected)."""
         if result.get('status') != 'success' or not SENDING_AVAILABLE:
             return
+        identity, rejected = game.identity, bool(result.get('imported_hints_rejected'))
         try:
-            online.note_conversion(game.system, game.identity, rejected=bool(result.get('imported_hints_rejected')))
+            if game.system == 'ng':
+                # The base knows a Neo Geo game by cartridge and BIOS together, and its
+                # conversion says itself when it set imported hints aside.
+                from .knowledge_exchange import report_game_key
+                identity, flagged = report_game_key(result.get('report'))
+                if identity is None:
+                    return
+                rejected = rejected or flagged
+            online.note_conversion(game.system, identity, rejected=rejected)
         except Exception:
             pass
 
@@ -5097,7 +5171,9 @@ class Application:
             errors, results = [], []
             cartridge_locks={(game.system,game.identity):threading.Lock() for game,_ in chosen}
             # Like a batch from the queue: the shared base's paths first.
-            shared = self.prepare_shared_paths([f'{game.system}:{game.identity}' for game,_ in chosen], use_shared)
+            keys = self.shared_rom_keys([(game.system, game.identity, source) for game, source in chosen], options)
+            shared = self.prepare_shared_paths(keys, use_shared)
+            self.start_shared_source(use_shared, keys, {game.system for game, _ in chosen})
             def convert(pair):
                 game,source = pair
                 if self.cancel.is_set():return None
@@ -5153,6 +5229,8 @@ class Application:
                 counts['failed'] += 1
                 errors.append(str(exc))
                 self.messages.put(('log',str(exc)))
+            finally:
+                self.stop_shared_source()
             self.forget_rejected_shared(shared, results)
             if errors:counts['detail']=' · '.join(errors[:2])
             self.messages.put(('collection_done',counts))

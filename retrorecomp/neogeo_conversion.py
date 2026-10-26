@@ -12,7 +12,7 @@ import subprocess
 import time
 
 from . import __version__
-from .core import executable_name, ConversionError, run_process
+from .core import executable_name, ConversionError, StopRequested, run_process
 from .library import atomic_json
 from .neogeo import read_set, validate_bios
 from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV, aes_available, aes_compatible, probe_failure
@@ -54,11 +54,42 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
     return checked
 
 
-def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
-            use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
-            language='en', passes=3, frames=3600, backend='banked', standard_override=None,
-            publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1,
-            scan_level=None, emit=print) -> Path:
+def convert(path: Path, **options) -> Path:
+    """Convert one cartridge. Hints that other players shared (imported bank,
+    shared base) may be wrong: a conversion that fails after using some is
+    run again without them, and when that succeeds they are discarded and the
+    report says so (`knowledge.imported_hints_rejected`). The batch's own
+    retry cannot do this for Neo Geo: it names a cartridge by its file hash,
+    the imported hints by the cartridge and BIOS together."""
+    from . import neogeo_knowledge
+    emit=options.get('emit',print)
+    neogeo_knowledge.forget_imported_use()
+    try:
+        return _convert(path,**options)
+    except StopRequested:
+        raise
+    except Exception as error:
+        identity=neogeo_knowledge.imported_in_use()
+        if not identity:raise
+        reason=str(error).strip().splitlines()[0][:300] if str(error).strip() else type(error).__name__
+    from .knowledge import discard_imported, imported_set_aside
+    emit('Neo Geo: failed with imported discoveries; converting again without them.')
+    neogeo_knowledge.forget_imported_use()
+    with imported_set_aside('ng',identity):
+        executable=_convert(path,**options,_rejected={'identity':identity,'reason':reason})
+    try:
+        discard_imported('ng',identity,reason)
+        emit('Neo Geo: imported discoveries for this cartridge and BIOS set aside; they caused the failure.')
+    except OSError:
+        emit('Neo Geo: imported discoveries for this cartridge and BIOS could not be set aside.')
+    return executable
+
+
+def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
+             use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
+             language='en', passes=3, frames=3600, backend='banked', standard_override=None,
+             publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1,
+             scan_level=None, emit=print, _rejected=None) -> Path:
     started=time.perf_counter()
     workers=max(1,min(4,8//max(1,ng_parallel_games)))
     from .scan_levels import LEVELS, neogeo_budget
@@ -102,6 +133,12 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
     manifest=json.loads((project/'input.json').read_text(encoding='utf-8'))
     if manifest['bios']['sha256']!=bios_info['sha256'] or manifest['source']['sha256']!=game.sha256:
         raise ConversionError('Neo Geo cartridge or BIOS changed during conversion; add the files again.')
+    from .neogeo_knowledge import remember_prepared
+    remember_prepared(game.sha256,manifest['prepared']['sha256'])
+    used=json.loads((project/'knowledge-use.json').read_text(encoding='utf-8'))
+    if used.get('imported'):
+        emit(f'Neo Geo: {used["imported"]} numeric hints from other players guided this conversion; '
+             'every route is still checked against the fresh reference.')
     console_capable=aes_compatible(project/'cartridge.neo')
     console_available='aes' in bios_info and console_capable
     if not console_capable:emit('Neo Geo: Arcade Only; AES is not a supported machine for this cartridge.')
@@ -175,7 +212,8 @@ def convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cov
             'compatibility':'exact cartridge regions, selected BIOS, MVS Europe and runtime ABI','validation':states},
         'ordinary_saves':{'supported':True,'scope':'game-scoped MVS NVRAM and writable memory card',
             'path':'datas/saves/NeoGeo-<exact-cart-and-BIOS-key>.rrsave','validation':ordinary},
-        'knowledge':{**memory,'use':json.loads((project/'knowledge-use.json').read_text(encoding='utf-8'))},
+        'knowledge':{**memory,'use':used,
+                     **({'imported_hints_rejected':_rejected} if _rejected else {})},
         'artwork':json.loads((project/'artwork.json').read_text(encoding='utf-8')),
         'windows_metadata':game_metadata(title,False,standard='mvs',system_id='ng'),
         'executable':executable_name(title),'build_executable':str(executable),'toolchain':toolchain_description(),

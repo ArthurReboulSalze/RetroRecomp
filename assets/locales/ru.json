@@ -505,7 +505,7 @@
     "online_rate_limited": "Слишком много попыток: подождите немного и повторите.",
     "online_terms_needed": "Примите политику конфиденциальности, чтобы получить код.",
     "knowledge_sending": "Отправка находок в общую базу…",
-    "knowledge_scope": "Общие консоли: Master System, Game Gear, Game Boy, NES, Mega Drive и Super Nintendo. Neo Geo и экспериментальные CPS-1 и X68000 не передаются и не учитываются в таблице лидеров, пока не войдут в общую базу в одной из будущих версий.",
+    "knowledge_scope": "Общие консоли: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo и Neo Geo. Экспериментальные CPS-1 и X68000 не передаются и не учитываются в таблице лидеров, пока не войдут в общую базу в одной из будущих версий.",
     "knowledge_send_found": "В {games} играх на {consoles} консолях есть находки, которые общая база ещё не получила от вас.",
     "knowledge_send_action": "Отправить",
     "knowledge_send_none": "Нечего отправлять: в общей базе уже есть все находки ваших проверенных конвертаций и игр.",

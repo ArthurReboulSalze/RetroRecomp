@@ -21,8 +21,13 @@ from . import __version__
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
                         imported_path, load, merge_records, read, read_observations, valid_observation_rows,
                         validate_payload, write_observations, write_packed)
-from .knowledge_build import SYSTEMS, build_record, compact_snes, engines, qualified_reports
+from .knowledge_build import SYSTEMS as CARTRIDGE_SYSTEMS, build_record, compact_snes, engines, qualified_reports
 from .systems import profile_for_path
+
+# Consoles whose discoveries travel. Neo Geo's are numeric offsets into the
+# player's cartridge and BIOS, named by key(cartridge, BIOS) and checked by
+# neogeo_knowledge.validate_record; it shares no raw gameplay observations.
+SYSTEMS = (*CARTRIDGE_SYSTEMS, 'ng')
 
 FORMAT = 'retro-recomp-knowledge'
 # Version 2 adds ROM-free raw observations; version 1 files still import.
@@ -35,6 +40,9 @@ CONSOLE_LIMIT = 4096
 
 
 def _entries(system: str, record: dict) -> set:
+    if system == 'ng':
+        from .neogeo_knowledge import entry_set
+        return entry_set(record)
     from .snes_knowledge import SPC_FIELDS, references
     if system not in FIELDS:
         return set()   # CPS-1 and X68000 have no shared knowledge (1.5.2 raised KeyError before every Standard batch)
@@ -80,6 +88,18 @@ def _observation_bank() -> dict:
         return read_observations(target) if target.is_file() else {}
     except (OSError, ValueError, EOFError):
         return {}
+
+
+def _merge(system: str, identity: str, first: dict, second: dict):
+    """Union of two records of one game; None when a Neo Geo union would
+    exceed its bounds (the caller keeps what it had)."""
+    if system != 'ng':
+        return merge_records(system, first, second)
+    from .neogeo_knowledge import merged_record
+    try:
+        return merged_record(identity, first, second)
+    except (ValueError, TypeError, KeyError):
+        return None
 
 
 def _observation_key(row) -> tuple:
@@ -137,6 +157,49 @@ def _empty_outcome() -> dict:
             'record': None, 'found': 0, 'observations': []}
 
 
+def _current_engines() -> dict:
+    """The compiler revision each console's records are built with. Neo Geo's
+    is the emulator core and the loader together."""
+    from .neogeo_build import GEOLITH_REV, LITHOGEN_REV
+    return {**engines(), 'ng': f'{GEOLITH_REV}:{LITHOGEN_REV}'}
+
+
+def _collect_neo_geo(game, report: dict | None, outcome: dict) -> None:
+    """A Neo Geo game's contribution, counted in `outcome`. Its record is
+    already numbers (offsets into the cartridge and the BIOS) in the player's
+    library, written only from routes a fresh reference run reached, so no ROM
+    is read here. It is shared only when the library's record is the one the
+    qualified report was built with: same cartridge, BIOS and compiler."""
+    from .neogeo_build import GEOLITH_REV, LITHOGEN_REV
+    from .neogeo_knowledge import IDENTITY_FIELDS, compact_record, key, library_record
+    omitted = outcome['omitted']
+    try:
+        cart, bios = report['prepared_cartridge']['sha256'], report['bios']['sha256']
+        compiler = report['compiler']
+        identity = key(cart, bios)
+    except (KeyError, TypeError):
+        omitted['unqualified'] += 1
+        return
+    record = library_record(identity)
+    if (record is None or compiler.get('revision') != GEOLITH_REV or compiler.get('loader_revision') != LITHOGEN_REV
+            or (record['engine'], record['loader'], record['cart'], record['bios']) != (GEOLITH_REV, LITHOGEN_REV, cart, bios)):
+        omitted['unqualified'] += 1
+        return
+    shared = compact_record(identity, record)
+    outcome['identity'] = identity
+    found = unknown_hints('ng', shared, _bundled('ng', identity))
+    if found:
+        outcome.update(record=shared, found=found, level=str(report.get('scan_level') or 'standard'))
+    else:
+        omitted['already_known'] += 1
+        from .compiled_games import report_level
+        # The record without hints that stands for a conversion with nothing new.
+        outcome['converted'] = {'engine': shared['engine'], 'rom_bytes': shared['rom_bytes'],
+                                'level': report_level(report),
+                                'record': {**{name: shared[name] for name in IDENTITY_FIELDS},
+                                           'rom_entries': [], 'ram_refs': [], 'z80_refs': []}}
+
+
 def collect_knowledge(games, locate=None, context: str = '') -> dict:
     """The discoveries of `games` (compiled-games entries), counted, unwritten.
 
@@ -148,7 +211,7 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
     game's result is cached under its file signature, so a later export only
     revisits the games that changed.
     """
-    current = engines()
+    current = _current_engines()
     cache, fresh, outcomes, misses, seen = _load_cache(), {}, {}, [], set()
     for game in games:
         key = (game.system, game.identity)
@@ -163,14 +226,16 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
         else:
             misses.append((game, signature))
     qualified = qualified_reports([game.report for game, _ in misses if game.report])
-    wanted = [game for game, _ in misses
-              if (game.system, game.identity) in qualified or getattr(game, 'status', '') == 'new_hints']
+    wanted = [game for game, _ in misses if game.system != 'ng'
+              and ((game.system, game.identity) in qualified or getattr(game, 'status', '') == 'new_hints')]
     sources = locate(wanted) if locate and wanted else {}
     for game, signature in misses:
         key = (game.system, game.identity)
         outcome = _empty_outcome()
         raw = getattr(game, 'status', '') == 'new_hints'
-        if key not in qualified and not raw:
+        if game.system == 'ng':
+            _collect_neo_geo(game, qualified.get(key), outcome)
+        elif key not in qualified and not raw:
             outcome['omitted']['unqualified'] += 1
         else:
             path = sources.get(key) or (Path(game.source) if game.source else None)
@@ -215,6 +280,7 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
     consoles, observations, titles, levels, discoveries, converted = {}, {}, {}, {}, 0, {}
     omitted = _empty_outcome()['omitted']
     for (system, identity), (game, outcome) in outcomes.items():
+        identity = outcome.get('identity', identity)   # Neo Geo: key(cartridge, BIOS), not the file's hash
         for name, value in outcome['omitted'].items():
             omitted[name] = omitted.get(name, 0) + value
         if outcome['record']:
@@ -327,6 +393,8 @@ def read_exchange(path: Path) -> dict:
         for identity, rows in games.items():
             if not isinstance(identity, str) or len(identity) != 64 or set(identity) - set('0123456789abcdef'):
                 raise ValueError('Invalid shared observations.')
+            if system == 'ng' and rows:
+                raise ValueError('Neo Geo shares no raw observations.')
             games[identity] = valid_observation_rows(system, rows)
     titles = document.get('titles', {})
     if not isinstance(titles, dict) or any(
@@ -425,6 +493,9 @@ def _valid_record(system: str, identity: str, record) -> dict | None:
 def _salvaged_record(system: str, identity: str, record) -> dict | None:
     """A received record without its rows that fail the checks: one malformed
     or incoherent row is left out alone, never the record's other paths."""
+    if system == 'ng':
+        from .neogeo_knowledge import salvaged_record
+        return salvaged_record(identity, record)
     clean = _valid_record(system, identity, record)
     if clean is not None or not isinstance(record, dict):
         return clean
@@ -460,13 +531,13 @@ def import_fetched(roms: dict) -> dict:
             if candidate is None:
                 continue
             count += 1
-            merged = merge_records(system, record, candidate) if record else candidate
+            merged = _merge(system, identity, record, candidate) if record else candidate
             if system == 'snes' and merged is not candidate:
                 compact_snes(merged)
             # Merging never pushes a record past the bank's own limits.
             record = merged if merged is candidate else _valid_record(system, identity, merged) or record
         rows, seen = [], set()
-        for row in value.get('observations') if isinstance(value.get('observations'), list) else ():
+        for row in value.get('observations') if isinstance(value.get('observations'), list) and system != 'ng' else ():
             try:
                 clean = valid_observation_rows(system, [row])[0]
             except (ValueError, TypeError, KeyError):
@@ -538,7 +609,7 @@ def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
     base entry: what `import_fetched` will keep of it."""
     record = part.get('record') is not None and _valid_record(system, identity, part['record']) is not None
     rows = 0
-    for row in part.get('observations') or ():
+    for row in (part.get('observations') or ()) if system != 'ng' else ():
         try:
             valid_observation_rows(system, [row])
             rows += 1
@@ -563,7 +634,7 @@ def _import_document(document: dict) -> dict:
                 outcome.setdefault((system, identity), 'unchanged')
                 continue
             if known:
-                merged = merge_records(system, known, record)
+                merged = _merge(system, identity, known, record)
                 if system == 'snes':
                     compact_snes(merged)
                 record = _valid_record(system, identity, merged)
@@ -602,3 +673,18 @@ def _import_document(document: dict) -> dict:
         consoles[system] = consoles.get(system, 0) + 1
     return {'games': len(outcome), 'consoles': dict(sorted(consoles.items())),
             'converter': document.get('converter', ''), **counts}
+
+
+def report_game_key(report) -> tuple[str | None, bool]:
+    """(the identity the shared base knows a Neo Geo conversion by, whether it
+    set imported hints aside) from the conversion's report. The batch names a
+    Neo Geo cartridge by its file's hash, the base by cartridge and BIOS
+    together, which only the report holds."""
+    from .neogeo_knowledge import key
+    try:
+        data = json.loads(Path(report).read_text(encoding='utf-8'))
+        identity = key(data['prepared_cartridge']['sha256'], data['bios']['sha256'])
+        rejected = bool((data.get('knowledge') or {}).get('imported_hints_rejected'))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None, False
+    return identity, rejected

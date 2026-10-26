@@ -65,7 +65,9 @@ GZIP_BODY = 1024 * 1024
 CLAIMS_NAME = 'account-claims.json'
 CLAIMS_KEPT = 64
 CURSORS_NAME = 'shared-cursors.json'
-_ROM_KEY = re.compile(r'(sms|gg|gb|nes|md|snes):[0-9a-f]{64}')
+# A game is named 'system:identity'. A cartridge console's identity is its ROM's
+# hash; a Neo Geo game's is key(prepared cartridge, BIOS) (neogeo_knowledge.key).
+_ROM_KEY = re.compile(r'(sms|gg|gb|nes|md|snes|ng):[0-9a-f]{64}')
 
 
 class ServiceConnectionError(Exception):
@@ -904,7 +906,9 @@ def _with_conversions(restricted: dict, collected: dict) -> dict:
     for key in added:
         system, identity = key.split(':', 1)
         value = known[key]
-        consoles.setdefault(system, {})[identity] = {'engine': value['engine'], 'rom_bytes': value['rom_bytes']}
+        # Neo Geo's identity fields all belong to its record (value['record']).
+        consoles.setdefault(system, {})[identity] = value.get('record') or {'engine': value['engine'],
+                                                                           'rom_bytes': value['rom_bytes']}
         titles.setdefault(system, {})[identity] = str(value.get('title') or identity[:12])
         levels.setdefault(system, {})[identity] = value.get('level') or 'standard'
     sharing = {system: len(names) for system, names in sorted(titles.items())}
