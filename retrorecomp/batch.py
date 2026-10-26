@@ -16,6 +16,7 @@ from .library import atomic_json
 from .build_cleanup import release_build
 from . import __version__
 from .publishing import publish_executable
+from .snes_chips import device_summary, main_interpreted
 from .systems import profile_for_path, get_profile, UnsupportedConsoleError, ConsoleMismatchError
 
 
@@ -473,10 +474,20 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                       source_rom=str(item.path.resolve()))
         atomic_json(report_path, report)
         # Finish the report before replacing a working executable.
+        from .packing import file_identity, packing_record
+        unpacked_identity = file_identity(temporary)
         try:
             pending = publish_executable(temporary, target, compact=True)
         finally:
             temporary.unlink(missing_ok=True)
+        # Record what was published (a pending installation waits as a staged copy).
+        try:
+            from .publishing import job_path
+            staged = Path(json.loads(job_path(target).read_text(encoding='utf-8'))['staged']) if pending else target
+            report['packing'] = packing_record(unpacked_identity, staged)
+        except (OSError, ValueError, KeyError):
+            report['packing'] = {'recorded': False}
+        atomic_json(report_path, report)
         if pending:
             emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
         else:
@@ -508,7 +519,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         measured = [check.get("interpreter_percent") for check in report["final_checks"]]
         result.update(status="success", executable=str(target), report=str(report_path),
             conversion_stage=report.get('status'), upgraded=bool(inherited),
-            main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+            main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
+            device=device_summary(report),
             audio_cpu=report.get('audio_cpu'),
             audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
             pending_install=pending,

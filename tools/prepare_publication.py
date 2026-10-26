@@ -272,16 +272,21 @@ retrorecomp/megadrive_audio.py native/md_audio_loop.inc native/md_audio_bridge_c
 native/md_audio_resample.inc native/md_audio_mix.h native/md_audio_mix_checks.c
 tools/megadrive_audio_bridge_selftest.py
 native/snes_ppu_bus_checks.c tools/snes_ppu_bus_selftest.py
-native/snes_bus_checks.c tools/snes_bus_selftest.py
-retrorecomp/snes_chips.py
+native/snes_bus_checks.c tools/snes_bus_selftest.py tests/test_snes_bus.py
+retrorecomp/snes_chips.py retrorecomp/snes_gsu.py tools/snes_gsu_survey.py tests/test_snes_gsu.py
 native/snes_dma_checks.c tools/snes_dma_selftest.py tests/test_snes_chips.py
 native/snes_chip_checks.c tools/snes_chip_selftest.py
+native/snes_superfx_checks.c tools/snes_superfx_selftest.py tools/snes_superfx_model.py
+tools/snes_superfx_case.py tools/snes_superfx_library.py tools/snes_superfx_programs.py
+tools/snes_superfx_mutations.py
+tests/test_snes_superfx.py
+retrorecomp/snes_routes.py tools/snes_packed_check.py tests/test_snes_gates.py
 retrorecomp/snes_cart.py native/snes_cart.h native/snes_battery.c native/snes_battery.h
 native/snes_cart_checks.c tools/snes_cart_selftest.py tests/test_snes_cart.py
 tools/snes_ram_selftest.py
 native/snes_video_checks.c tools/snes_video_selftest.py tools/snes_object_selftest.py
 tests/test_snes_video.py
-docs/SNES.md
+docs/SNES.md docs/SNES_SUPERFX.md
 native/snes_timing_checks.c tools/snes_timing_selftest.py tests/test_snes_timing.py
 retrorecomp/snes_spc.py native/snes_spc_native.h native/snes_spc_runtime.c
 native/snes_spc_checks.c tools/snes_spc_selftest.py tests/test_snes_spc.py

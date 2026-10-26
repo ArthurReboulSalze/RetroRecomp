@@ -1342,7 +1342,7 @@ REPORT_KINDS = ('conversion', 'manual')
 REPORT_FIELDS = (
     'tool', 'version', 'created_utc', 'status', 'system', 'backend', 'engine_revision', 'sdl_revision',
     'compiler', 'compiler_signature', 'video_model', 'audio_cpu', 'input_players', 'embedded_rom', 'static_sdl',
-    'native_coverage', 'native_validation', 'native_percentage', 'hardware_accuracy_validated',
+    'native_coverage', 'native_validation', 'native_percentage', 'cartridge_device', 'hardware_accuracy_validated',
     'full_game_validated', 'latency_ms', 'physical_latency_measured', 'game_states', 'runtime_learning',
     'conversion_wall_seconds', 'executable_bytes', 'upgrade', 'shared_paths', 'bundled_paths',
     'final_checks', 'strict_checks', 'history', 'learning')

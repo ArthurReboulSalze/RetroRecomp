@@ -9,6 +9,7 @@ from zipfile import ZipFile
 from retrorecomp.cartridge16 import read_megadrive_rom, read_snes_rom
 from retrorecomp.console16 import conversion_rom, reference_differences, convert16, MD_AUDIO_FIELDS, MD_SRAM_FIELDS, SNES_AUDIO_FIELDS, _md_scan_script, _md_early_start_script, _md_menu_confirm_script
 from retrorecomp.core import ConversionError, module_fingerprint
+from retrorecomp.snes_chips import device_summary, main_interpreted
 from retrorecomp.systems import profile_for_path, discover_roms
 from retrorecomp.batch import identify, system_output
 from retrorecomp.metadata import game_metadata
@@ -164,10 +165,10 @@ class Console16Tests(unittest.TestCase):
                     self.assertEqual((rom.title, rom.mapping, rom.standard), ('SFC ｶﾀｶﾅ', mapping, standard))
                     self.assertEqual(rom.data, payload)
                     self.assertEqual(path.read_bytes(), payload)
-                    payload[offset+22] = 0x13
+                    payload[offset+22] = 0x34
                     with patch('retrorecomp.console16.dependencies16') as dependencies:
                         with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
-                            conversion_rom(self.source('Japanese SuperFX.sfc', payload), 'snes')
+                            conversion_rom(self.source('Japanese SA-1.sfc', payload), 'snes')
                         dependencies.assert_not_called()
 
     def test_snes_header_titles_reject_non_jis_bytes_and_still_reject_bad_checksums(self):
@@ -273,11 +274,11 @@ class Console16Tests(unittest.TestCase):
         self.assertIn('retired_instruction_count', reference_differences('snes', native, reference))
 
     def test_unsupported_16bit_hardware_rejected_before_dependencies(self):
-        payload = bytearray(snes()); payload[0x7fd6] = 0x13
+        payload = bytearray(snes()); payload[0x7fd6] = 0x34
         with patch('retrorecomp.console16.dependencies16') as dependencies:
             from retrorecomp.console16 import prepare16
             with self.assertRaisesRegex(ConversionError, 'enhancement chip'):
-                prepare16(self.source('SuperFX.sfc', payload), 'snes')
+                prepare16(self.source('SA-1.sfc', payload), 'snes')
             large = md() + bytes(0x400000)
             with self.assertRaisesRegex(ConversionError, 'bank mapper'):
                 prepare16(self.source('Banked.md', large), 'md')
@@ -531,6 +532,61 @@ class Console16Tests(unittest.TestCase):
                     self.assertEqual(report['audio_native_percentage'], [100.0, 100.0])
                     self.assertTrue(report['native_validation']['audio_pcm_match'])
                     self.assertTrue(report['native_validation']['reference_before_learning'])
+
+    def test_snes_cartridge_device_has_its_own_figures_and_never_skews_the_cpu_percentage(self):
+        executable = self.root / 'device-project/build/Release/game.exe'
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b'authored executable')
+        source = self.source('Device.sfc', snes())
+        log = []
+
+        def probe(executable, directory, frames, *, play=False, reference=False, **options):
+            from retrorecomp.snes_cart import REPORT_FIELDS
+            fields = SNES_AUDIO_FIELDS + REPORT_FIELDS + ('frame_hash', 'sequence_hash', 'cpu_hash', 'ram_hash',
+                'vram_hash', 'cram_hash', 'cpu_pc', 'oam_hash', 'high_oam_hash', 'apu_ram_hash',
+                'cpu_cycles', 'master_cycles', 'apu_cycles')
+            data = dict.fromkeys(fields, 1)
+            device = 60_000_000 if play else 30_000_000
+            data.update(scenario='play' if play else 'demo', frames=frames,
+                native_entries=900, interpreted_opcodes=100, main_interpreted_opcodes=100,
+                audio_native_opcodes=200, audio_interpreted_opcodes=0,
+                audio_native_cycles=800, audio_interpreted_cycles=0, audio_cpu='native',
+                cartridge_chip='superfx', coprocessor_mode='interpreted',
+                coprocessor_instructions=device, coprocessor_failed=0, coprocessor_commands=0)
+            return data
+
+        with patch('retrorecomp.console16.prepare16', return_value=executable), \
+                patch('retrorecomp.console16.probe16', side_effect=probe), \
+                patch('retrorecomp.supernintendo.learn_ram_variants', return_value=0), \
+                patch('retrorecomp.snes_spc.learn', return_value=0), \
+                patch('retrorecomp.console16.reference_differences', return_value=[]):
+            convert16(source, system_id='snes', output=self.root / 'reports', frames=30, passes=1,
+                      emit=log.append)
+        report = json.loads((self.root / 'reports/conversion-report.json').read_text())
+        # Main CPU only: 900 native of 1,000, whatever the device ran.
+        self.assertEqual(report['native_percentage'], [90.0, 90.0])
+        device = report['cartridge_device']
+        self.assertEqual((device['chip'], device['mode'], device['counter_unit']),
+                         ('superfx', 'interpreted', 'device instructions'))
+        self.assertEqual([row['scenario'] for row in device['scenarios']], ['demo', 'play'])
+        self.assertEqual([row['interpreted_instructions'] for row in device['scenarios']],
+                         [30_000_000, 60_000_000])
+        self.assertEqual([row['interpreted_per_frame'] for row in device['scenarios']],
+                         [round(row['interpreted_instructions'] / row['frames'], 3) for row in device['scenarios']])
+        self.assertFalse(device['failed'])
+        # The device stays visible in the conversion log, apart from the CPU line.
+        self.assertIn('SUPERFX: 60000000 counted interpreted device instructions.', log)
+        self.assertTrue(any('100 interpreted main CPU opcodes' in line for line in log))
+        summary = device_summary(report)
+        self.assertEqual((summary['chip'], summary['instructions']), ('superfx', 60_000_000))
+        # An older report carries the figures in its checks only, with the
+        # device folded into the combined counter: it still reads the same way.
+        legacy = {'final_checks': [dict(check, interpreted_opcodes=100 + check['coprocessor_instructions'])
+                                   for check in report['final_checks']]}
+        self.assertEqual(device_summary(legacy)['instructions'], 60_000_000)
+        self.assertEqual([main_interpreted(check) for check in legacy['final_checks']], [100, 100])
+        self.assertIsNone(device_summary({'final_checks': [{'interpreted_opcodes': 5}]}))
+        self.assertIsNone(device_summary({}))
 
     def test_failed_advanced_reference_never_teaches_the_library(self):
         self.scan_conversion(advanced=True, fail_reference=True)

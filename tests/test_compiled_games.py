@@ -54,6 +54,15 @@ class CompiledGamesTests(TestCase):
         self.assertEqual([asdict(g) for g in restored.snapshot()],[asdict(game)])
         self.assertEqual(restored.roots,self.inventory.roots)
 
+    def test_cartridge_device_instructions_stay_visible_as_fallback(self):
+        # Main CPU clean, device interpreted: the row is still flagged, never silently clean.
+        for device, expected in ((40_000_000, True), (0, False)):
+            self.data['final_checks'] = [{'interpreter_percent': 0, 'interpreted_opcodes': 0,
+                'main_interpreted_opcodes': 0, 'cartridge_chip': 'superfx',
+                'coprocessor_instructions': device}]
+            self.report.write_text(json.dumps(self.data),encoding='utf8')
+            self.assertEqual(game_from_report(self.report).tested_fallback, expected)
+
     def test_complete_scan_never_runs_executables_and_prunes_deleted_entries(self):
         with patch('subprocess.Popen',side_effect=AssertionError('Never run a scanned binary')):
             count = scan(self.inventory,[self.root/'Games'],{})

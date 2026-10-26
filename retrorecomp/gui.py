@@ -16,6 +16,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__, online
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
+from .snes_chips import device_summary, main_interpreted
 from .library import list_games, library_root
 from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths, data_directory
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
@@ -1456,7 +1457,8 @@ class Application:
                 pending = is_pending(target)
                 prepared['result'] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
                     conversion_stage=report.get('status'),
-                    main_interpreted_opcodes=max((c.get('interpreted_opcodes', 0) for c in report['final_checks']), default=0),
+                    main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
+                    device=device_summary(report),
                     audio_cpu=report.get('audio_cpu'),
                     audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
                     pending_install=pending,
@@ -1716,6 +1718,10 @@ class Application:
                 if item.system in ('md', 'snes', 'ng', 'cps1'):
                     text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0),
                         audio_opcodes=result.get('audio_interpreted_opcodes', 0))
+                    device = result.get('device')
+                    if device and (device.get('instructions') or device.get('mode') == 'interpreted'):
+                        text += ' · ' + self.tr('fallback_device', chip=str(device['chip']).upper(),
+                            instructions=device['instructions'], per_frame=device['per_frame'])
                 elif result.get('interpreter_percent') is None or comparison is None:
                     text = self.tr('fallback_cycles', cycles=result.get('interpreter_cycles', 0))
                 else:

@@ -47,6 +47,7 @@ void rr16_host_discontinuity(void);
 #define RR16_SECTION L"SNES"
 #define RR16_CONSOLE "Super Nintendo"
 #define RR16_FRAME_SECONDS RR_SN_FRAME_SECONDS
+uint64_t rr16_device_interpreted(void);
 #endif
 bool rr16_init(bool headless);
 void rr16_reset(void);

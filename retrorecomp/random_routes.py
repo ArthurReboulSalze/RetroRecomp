@@ -318,5 +318,7 @@ def write_route(route: Route, directory: Path) -> Path:
     """Write the route's script beside the other probe scripts (ASCII, LF)."""
     suffix = '.input' if route.console == 'nes' else '.inputs' if route.console in ('ng', 'cps1') else '-inputs.txt'
     path = Path(directory) / f'{route.name}{suffix}'
-    path.write_text(script_text(route), encoding='ascii', newline='\n')
+    # An authored route (snes_routes.AuthoredRoute) carries its own script text.
+    path.write_text(route.script() if hasattr(route, 'script') else script_text(route),
+                    encoding='ascii', newline='\n')
     return path

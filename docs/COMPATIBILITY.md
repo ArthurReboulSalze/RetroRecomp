@@ -26,8 +26,8 @@ The qualified bank now covers 42 exact Neo Geo cartridge/BIOS identities;
 new samples do not imply full playthroughs or a new hardware-fidelity measurement.
 The **Super Nintendo standard profile is no longer experimental**: ordinary
 LoROM/HiROM up to 4 MiB, PAL/NTSC, quick states, battery saves and Super Scope.
-DSP-1/CX4 boards are also qualified within [their circuit scope](SNES.md).
-CX4 instruction interpretation stays visible. Other enhancement circuits,
+DSP-1, CX4 and Super FX boards are also qualified within [their circuit scope](SNES.md)
+([Super FX](SNES_SUPERFX.md)). CX4 and GSU instruction interpretation stays visible. Other enhancement circuits,
 extended maps and DSP-1 firmware-dump commands remain unsupported.
 
 The bundled ROM-free bank includes **1,069 exact revisions**, including

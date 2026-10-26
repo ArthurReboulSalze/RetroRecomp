@@ -2,9 +2,9 @@
 
 The **Super Nintendo standard-cartridge profile is supported**: ordinary
 LoROM/HiROM up to 4 MiB, PAL/NTSC, shared controls, Super Scope, cartridge saves
-and F8/F9. Qualified DSP-1 and CX4 boards are supported too. CX4 device
-instructions remain interpreted and counted; this is separate from native
-65816/SPC700 coverage. Other enhancement circuits, extended mapping and DSP-1
+and F8/F9. Qualified DSP-1, CX4 and Super FX (GSU) boards are supported too. CX4
+and GSU device instructions remain interpreted and counted; this is separate from
+native 65816/SPC700 coverage (Super FX: [SNES_SUPERFX.md](SNES_SUPERFX.md)). Other enhancement circuits, extended mapping and DSP-1
 firmware-dump commands remain unsupported. New cartridges are analyzed from
 their own ROM, rather than selected from an allowlist.
 
@@ -13,8 +13,10 @@ their own ROM, rather than selected from an allowlist.
 Eight exact enhanced cartridges compare **57,600 ordinary frame pairs** and
 **105,600 pairs in actual packed exports**. Four extended device routes add
 **36,000 pairs**; a separately confirmed two-controller race adds **9,000 pairs** and a further state check. Their 65816 and SPC700 work has zero observed fallback on
-those routes. CX4 instructions stay interpreted and included in the visible
-counter; no zero-total-fallback claim is made for CX4 games.
+those routes. CX4 instructions stay interpreted and are reported on their own
+device line (`cartridge_device`, apart from the 65816 percentage; see
+[SNES_SUPERFX.md](SNES_SUPERFX.md), "Fallback percentage"); no
+zero-total-fallback claim is made for CX4 games.
 
 DSP-1 command aliases, polar rotation, range-plus-one and memory-test/size
 operations now work through the firmware-free model. Unassigned command bytes
@@ -313,15 +315,16 @@ New exact-ROM observations still require successful ordinary and packed
 qualification before promotion to shared knowledge.
 
 CX4 uses its existing instruction core and synthesized mathematical constants.
-Its instruction work is included in the visible interpreter counter, with
-separate main-CPU and device diagnostics. A native 65816/SPC700 path must not
+Its instruction work is counted and reported as a separate device entry,
+never mixed into the main-CPU percentage. A native 65816/SPC700 path must not
 hide interpreted CX4 work. Unknown DSP-1 operations or a stuck CX4 bus stop
 conversion validation. Device snapshots include their protocol/matrix/cache
 state, fractional clocks and absolute clock anchors. Firmware files in the
 working directory cannot silently replace the selected device model.
 
-Super FX, SA-1, S-DD1, SPC7110 and other custom circuitry remain unsupported by
-this integration. Credible SA-1 headers are now recognized and receive an
+SA-1, S-DD1, SPC7110 and other custom circuitry remain unsupported by this
+integration. Super FX boards are supported, with the GSU as a counted
+interpreted device; see [SNES_SUPERFX.md](SNES_SUPERFX.md). Credible SA-1 headers are now recognized and receive an
 explicit circuit-support error, instead of being mistaken for invalid ROMs.
 Their presence in the imported engine is not product qualification.
 
@@ -611,3 +614,30 @@ Hidden SDL software-renderer checks also retain the expected video cadence:
 480 PAL frames take 9.598656 seconds against 9.598660 expected, and 480 NTSC
 frames take 7.986816 against 7.986846. Dummy devices and the video-clock-only
 mode are used; this checks pacing rather than physical audio or input latency.
+
+## Manual joypad strobe (Star Fox 2 Japan prototype)
+
+The pinned engine's register write dispatch forwarded only `$4200-$421F` to
+the machine model, so a guest store to `$4016` never reached the controller
+ports. Games that read the pads through the automatic `$4218-$421F` words were
+unaffected, which hid the omission. A game that polls by hand strobes `$4016`
+(1 then 0) and clocks 16 serial bits from `$4016`/`$4017`; with the strobe lost,
+the shift position stayed wherever earlier reads had left it. The Japanese
+Star Fox 2 prototype (header map `$20`, type `$1A`) begins its boot-time
+controller check with a `TRB $4016` (a read), so every bit arrived one position
+late and the final four bits of the packet, which identify the device, no
+longer looked like a standard pad. It stopped on its "controller only" notice
+at frame 60 for ever, with the GSU idle and no sound, while MAME starts it.
+
+`snes_bus.runtime` now routes the `$4016` store to the existing strobe model.
+Hardware rule, from fullsnes ("SNES Controllers I/O Ports", JOYSER0): while
+bit 0 is high both ports continuously reload, the falling edge latches the pad
+state and restarts the serial position at the first bit (B); `$4017` stores do
+nothing; a standard pad answers 1 on Data1 after its 16 bits and never drives
+Data2. Only the documentation was consulted, no GPL emulator code.
+`native/snes_bus_checks.c` checks this on the real engine through bus stores
+(a stale position, a strobe in the middle of a packet, 17th-bit and Data2
+values) and `tests/test_snes_bus.py` guards the adapted source. The same
+delivery now also feeds the Super Scope packet latch (`rr16_scope_write_strobe`),
+which was written for it. Game fingerprints of every Super Nintendo conversion
+change with the adapted engine source, as for any engine adaptation.

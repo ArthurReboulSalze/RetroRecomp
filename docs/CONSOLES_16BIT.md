@@ -86,8 +86,8 @@ scope; see [bank mapping](MEGADRIVE_MAPPERS.md). Other declared hardware
 Unsupported EEPROM wiring still permits conversion with an explicit save
 limitation; quick states remain available. The generic SNES path accepts ordinary LoROM/HiROM up to
 4 MiB, including FastROM and RAM/battery variants; extended mappings and
-other enhancement chips remain unsupported. DSP-1/CX4 have experimental
-integration with explicit limits; see [SNES development](SNES.md). PAL/NTSC
+other enhancement chips remain unsupported. DSP-1, CX4 and Super FX have
+qualified integration with explicit limits; see [SNES development](SNES.md). PAL/NTSC
 comes from the cartridge header. A multi-region Mega Drive ROM can be tested
 in either declared standard, without requiring a pre-existing PAL record.
 
@@ -113,7 +113,7 @@ release or a catalogue-compatibility guarantee.
 | Profile | Available today | Work still needed |
 | --- | --- | --- |
 | Mega Drive | Automatic analysis of standard and declared Sega banked cartridges, native 68000 and sound Z80 paths, PAL/NTSC, shared controls, SRAM/supported EEPROM, quick states and Menacer | Other cartridge circuits, independent fine timing and exception checks, broader gameplay coverage |
-| Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states, battery SRAM and Super Scope; hires/interlace/overscan and guarded SRAM code | Enhancement chips/extended mappings, finer independent PPU/timing qualification, additional cartridge circuits and broader gameplay coverage |
+| Super Nintendo | Automatic analysis of ordinary LoROM/HiROM cartridges, native 65816 and sound SPC700 paths, PAL/NTSC, shared controls, quick states, battery SRAM and Super Scope; hires/interlace/overscan and guarded SRAM code; DSP-1, CX4 and Super FX boards | Other enhancement chips (SA-1, S-DD1, SPC7110, DSP-2/3/4)/extended mappings, finer independent PPU/timing qualification, additional cartridge circuits and broader gameplay coverage |
 
 Mega Drive development now has a four-word VDP write queue with captured
 addresses, byte-wise VRAM retirement, occupancy status and CPU backpressure.

@@ -103,7 +103,11 @@ def validate_cartridge(rom):
 
 
 def support_stage(rom):
-    """Only validated ordinary/DSP-1/CX4 board signatures pass this gate."""
+    """Only validated ordinary/DSP-1/CX4/Super FX board signatures pass this gate.
+
+    Super FX boards are qualified like DSP-1/CX4 (docs/SNES_SUPERFX.md, "Release
+    qualification"); their GSU stays a counted interpreted device.
+    """
     validate_cartridge(rom)
     return 'supported'
 
@@ -139,6 +143,41 @@ def validate_activity(profile, checks):
         if check.get('frames', 0) >= 3600 and (not check.get('visible_frames') or not check.get('pcm_nonzero')):
             raise ConversionError('SNES validation found no active picture or audible samples in a long test. '
                 'The cartridge remains unqualified; previous export preserved.')
+
+
+LIVENESS_MIN_FRAMES = 1200
+LIVENESS_FIELDS = ('last_picture_change_frame', 'last_device_frame', 'last_audible_frame')
+
+
+def validate_device_liveness(checks):
+    """Refuse a device cartridge whose picture, device and sound all stopped.
+
+    Only cartridges with a counted interpreted device (Super FX, CX4) are
+    checked: the Star Fox 2 Japanese prototype sat on a controller notice from
+    frame ~60 (picture frozen, GSU counter frozen at 770,961, silent) and still
+    passed, because the activity test only asked for a non-zero device count.
+    A scenario fails when, for its last max(600, frames/4) frames, the picture
+    did not change AND the device executed nothing AND no sample was audible.
+    A static screen that keeps its music, or a silent one whose device or
+    picture still moves, is never refused. Ordinary cartridges are not checked.
+    """
+    from .core import ConversionError
+    for check in checks:
+        if check.get('cartridge_chip') in (None, 'none') or check.get('coprocessor_mode') != 'interpreted':
+            continue
+        frames = check.get('frames', 0)
+        if frames < LIVENESS_MIN_FRAMES:
+            continue
+        if any(not isinstance(check.get(field), int) or isinstance(check.get(field), bool) for field in LIVENESS_FIELDS):
+            raise ConversionError('SNES validation is missing the picture, device and sound activity evidence; '
+                                  'previous export preserved.')
+        alive = max(check[field] for field in LIVENESS_FIELDS)
+        if frames - alive >= max(600, frames // 4):
+            raise ConversionError(
+                f"The {check['cartridge_chip'].upper()} cartridge stopped doing anything in the "
+                f"{check.get('scenario', 'test')} run: no picture change, no device instruction and no sound "
+                f"after frame {alive} of {frames}. The game is stuck (for instance on a notice), so the "
+                'cartridge remains unqualified; previous export preserved.')
 
 
 def write_profile(project: Path, rom, title: str) -> None:

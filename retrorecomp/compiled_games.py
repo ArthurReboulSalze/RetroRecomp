@@ -284,8 +284,11 @@ def game_from_report(path, folder=None, *, source=''):
     # An upgraded export also carries the checks of the discovery it inherits.
     checks = [*data.get('final_checks', []),
               *data.get('upgrade', {}).get('discovery', {}).get('final_checks', [])]
+    # Main CPU, sound CPU and a cartridge device are separate figures, but
+    # interpreted device instructions still count as fallback here: never hidden.
     fallback = any(any(float(check.get(key) or 0) > 0 for key in
-        ('interpreter_percent', 'interpreter_cycles', 'interpreted_opcodes', 'audio_interpreted_opcodes'))
+        ('interpreter_percent', 'interpreter_cycles', 'main_interpreted_opcodes', 'interpreted_opcodes',
+         'audio_interpreted_opcodes', 'coprocessor_instructions'))
         for check in checks if isinstance(check, dict))
     title = data.get('title') or (Path(name).stem if name.lower().endswith('.exe') else name)
     return Game(str(target.resolve()), system, identity, str(title), str(Path(path).resolve()),
