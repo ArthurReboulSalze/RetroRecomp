@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -33,7 +34,11 @@ def release_notes_text(version: str, notes: Path | None) -> bytes:
     return (text.replace('\r\n', '\n').replace('\n', '\r\n') + '\r\n').encode('utf-8')
 
 
-def payload_files(executable: Path, version: str, target: str, notes: Path | None = None) -> dict[str, bytes]:
+BASE_NAME = 'Retro-Recomp-base.zip'   # the base of paths beside the converter (updater.BASE_ASSET)
+
+
+def payload_files(executable: Path, version: str, target: str, notes: Path | None = None,
+                  base: Path | None = None) -> dict[str, bytes]:
     if not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Expected a three-part release version')
     raw = executable.read_bytes()
@@ -43,13 +48,21 @@ def payload_files(executable: Path, version: str, target: str, notes: Path | Non
         raise ValueError('Expected a Linux x86-64 converter')
     # Verify the actual version; do not relabel a converter with an installer flag.
     subprocess.run([str(executable.resolve()), '_verify-update', version], check=True, timeout=45)
+    extra = {}
+    if base is not None:
+        # The full base of paths of this release, laid read only beside the converter.
+        data = base.read_bytes()
+        if data[:4] != b'PK\x03\x04' or not zipfile.is_zipfile(base):
+            raise ValueError('Expected the base archive (Retro-Recomp-base.zip)')
+        extra[BASE_NAME] = data
     common = {
         'LICENSE.txt': (ROOT / 'LICENSE').read_bytes(),
         'THIRD_PARTY_NOTICES.md': (ROOT / 'THIRD_PARTY_NOTICES.md').read_bytes(),
         'INSTALL.txt': (f'Retro-Recomp {version}\n\n'
             'Open Retro-Recomp from your applications menu.\n'
             'Use Check for updates inside the app to install newer versions.\n'
-            'Updates replace only the converter; your games and private data are kept.\n\n'
+            'Updates replace only the converter and its base of paths (Retro-Recomp-base.zip);\n'
+            'your games and private data are kept.\n\n'
             'Your settings, collection, covers and learning data are in datas beside\n'
             'the converter. Generated games default to Games in the same folder.\n'
             'Uninstall keeps these folders, and asks whether to also remove the build\n'
@@ -62,6 +75,7 @@ def payload_files(executable: Path, version: str, target: str, notes: Path | Non
             'Installation, migration and build-tool guide:\n'
             'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INSTALLING.md\n').encode('utf-8'),
     }
+    common |= extra
     if target == 'windows':
         return common | {'Retro-Recomp.exe': raw, 'Retro-Recomp.ico': (ROOT / 'assets/Retro-Recomp.ico').read_bytes(),
                          'RELEASE_NOTES.txt': release_notes_text(version, notes)}
@@ -76,7 +90,7 @@ def linux_archive(files: dict[str, bytes]) -> bytes:
         for name, raw in sorted(files.items()):
             info = tarfile.TarInfo(name)
             info.size = len(raw)
-            info.mode = 0o755 if name in ('Retro-Recomp', 'uninstall.sh') else 0o644
+            info.mode = 0o755 if name in ('Retro-Recomp', 'uninstall.sh') else 0o444 if name == BASE_NAME else 0o644
             info.mtime = 0
             tar.addfile(info, io.BytesIO(raw))
     return gzip.compress(archive.getvalue(), compresslevel=6, mtime=0)
@@ -98,6 +112,8 @@ def deb_tree(files: dict[str, bytes], version: str, root: Path) -> None:
         path.chmod(mode)
     for name in ('Retro-Recomp', 'Retro-Recomp.png', 'LICENSE.txt', 'THIRD_PARTY_NOTICES.md', 'INSTALL.txt'):
         put(f'opt/retro-recomp/{name}', files[name], 0o755 if name == 'Retro-Recomp' else 0o644)
+    if BASE_NAME in files:
+        put(f'opt/retro-recomp/{BASE_NAME}', files[BASE_NAME], 0o444)
     put('opt/retro-recomp/VERSION', (version + '\n').encode('ascii'))
     launcher = (ROOT / 'tools/installers/deb_launcher.sh').read_bytes().replace(b'\r\n', b'\n')
     put('usr/bin/retro-recomp', launcher, 0o755)
@@ -125,8 +141,9 @@ def deb_tree(files: dict[str, bytes], version: str, root: Path) -> None:
 
 
 def build(executable: Path, version: str, target: str, output: Path, *,
-          iscc: Path | None = None, application_id: str | None = None, notes: Path | None = None) -> Path:
-    files = payload_files(executable, version, 'linux' if target == 'deb' else target, notes)
+          iscc: Path | None = None, application_id: str | None = None, notes: Path | None = None,
+          base: Path | None = None) -> Path:
+    files = payload_files(executable, version, 'linux' if target == 'deb' else target, notes, base)
     output.mkdir(parents=True, exist_ok=True)
     if target == 'deb':
         with tempfile.TemporaryDirectory(prefix='RetroRecomp-deb-') as temp:
@@ -147,6 +164,8 @@ def build(executable: Path, version: str, target: str, output: Path, *,
             raise ValueError('Pass --iscc pointing to the Inno Setup 6.7.3 compiler')
         with tempfile.TemporaryDirectory(prefix='RetroRecomp-setup-') as temp:
             payload = Path(temp)
+            if BASE_NAME not in files:
+                raise ValueError('Pass --base: the Windows installer lays the base beside the converter')
             for name, raw in files.items():
                 (payload / name).write_bytes(raw)
             command = [str(iscc.resolve()), '/Qp', f'/DAppVersion={version}',
@@ -173,9 +192,11 @@ def main() -> None:
     parser.add_argument('--iscc', type=Path)
     parser.add_argument('--application-id', help='Use a separate registration identity for isolated installer tests')
     parser.add_argument('--notes', type=Path, help='Markdown release notes shown by the Windows installer')
+    parser.add_argument('--base', type=Path, required=True,
+                        help='The full base of paths of this release, laid beside the converter as ' + BASE_NAME)
     args = parser.parse_args()
     print(build(args.executable, args.version, args.target, args.output,
-                iscc=args.iscc, application_id=args.application_id, notes=args.notes))
+                iscc=args.iscc, application_id=args.application_id, notes=args.notes, base=args.base))
 
 
 if __name__ == '__main__':

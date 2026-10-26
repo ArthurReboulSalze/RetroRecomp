@@ -55,6 +55,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#PayloadDir}\Retro-Recomp.exe"; DestDir: "{app}"; Flags: restartreplace
+; The base of paths of this release, read only like the copy the built-in update lays.
+Source: "{#PayloadDir}\Retro-Recomp-base.zip"; DestDir: "{app}"; Attribs: readonly; Flags: overwritereadonly uninsremovereadonly
 Source: "{#PayloadDir}\LICENSE.txt"; DestDir: "{app}"
 Source: "{#PayloadDir}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"
 Source: "{#PayloadDir}\INSTALL.txt"; DestDir: "{app}"

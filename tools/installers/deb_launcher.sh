@@ -26,11 +26,15 @@ if [ "$refresh" = 1 ]; then
         exit 1
     fi
     mkdir -p "$prefix"
-    for file in Retro-Recomp Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt; do
+    for file in Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt; do
+        # Packages built before the base existed have no Retro-Recomp-base.zip.
+        [ -e "$system/$file" ] || continue
+        rm -f "$prefix/.$file.new"
         cp -f "$system/$file" "$prefix/.$file.new"
         mv -f "$prefix/.$file.new" "$prefix/$file"
     done
     chmod 755 "$prefix/Retro-Recomp"
+    [ ! -e "$prefix/Retro-Recomp-base.zip" ] || chmod 444 "$prefix/Retro-Recomp-base.zip"
     printf '%s\n' 'Retro-Recomp per-user installation v1' "$version" '' > "$marker"
     printf '%s\n' "$version" > "$stamp"
 fi

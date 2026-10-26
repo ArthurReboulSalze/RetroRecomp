@@ -56,10 +56,10 @@ if [[ $desktop == /*/io.github.ArthurReboulSalze.RetroRecomp.desktop && -f $desk
     rm -f -- "$desktop"
     if command -v update-desktop-database >/dev/null; then update-desktop-database "${desktop%/*}" >/dev/null 2>&1 || true; fi
 fi
-for file in Retro-Recomp Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install uninstall.sh; do
+for file in Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install uninstall.sh; do
     [[ ! -d $prefix/$file ]] || { echo "Managed file became a directory: $file" >&2; exit 1; }
 done
-for file in Retro-Recomp Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt uninstall.sh; do
+for file in Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt uninstall.sh; do
     rm -f -- "$prefix/$file"
 done
 removed_tools=0

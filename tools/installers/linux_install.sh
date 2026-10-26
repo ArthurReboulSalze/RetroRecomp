@@ -63,7 +63,7 @@ mkdir -p -- "$prefix"
 stage=$(mktemp -d "$prefix/.RetroRecomp-install-XXXXXXXX")
 cleanup() {
     # Only these package files can ever be staged. Never recursively delete data.
-    for file in payload.tar.gz Retro-Recomp Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install launcher.desktop; do
+    for file in payload.tar.gz Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install launcher.desktop; do
         rm -f -- "$stage/$file"
     done
     rmdir -- "$stage" 2>/dev/null || true
@@ -74,12 +74,13 @@ line=$(awk '/^__ARCHIVE_BELOW__$/ { print NR + 1; exit }' "$0")
 tail -n +"$line" -- "$0" > "$stage/payload.tar.gz"
 actual=$(sha256sum "$stage/payload.tar.gz"); actual=${actual%% *}
 [[ $actual == "$PAYLOAD_SHA256" ]] || die 'Package checksum mismatch; download the installer again.'
-expected=$(printf '%s\n' INSTALL.txt LICENSE.txt Retro-Recomp Retro-Recomp.png THIRD_PARTY_NOTICES.md uninstall.sh | sort)
+expected=$(printf '%s\n' INSTALL.txt LICENSE.txt Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png THIRD_PARTY_NOTICES.md uninstall.sh | sort)
 [[ $(tar -tzf "$stage/payload.tar.gz" | sort) == "$expected" ]] || die 'Unexpected installer contents.'
 tar -xzf "$stage/payload.tar.gz" --no-same-owner --no-same-permissions -C "$stage"
 chmod 755 "$stage/Retro-Recomp" "$stage/uninstall.sh"
+chmod 444 "$stage/Retro-Recomp-base.zip"
 PYINSTALLER_RESET_ENVIRONMENT=1 timeout 45 "$stage/Retro-Recomp" _verify-update "$VERSION" || die 'The converter could not run on this system. Installation stopped.'
-for file in Retro-Recomp Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install; do
+for file in Retro-Recomp Retro-Recomp-base.zip Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install; do
     [[ ! -L $prefix/$file && ( ! -e $prefix/$file || -f $prefix/$file ) ]] || die "Cannot replace managed file: $file"
 done
 printf '%s\n' "$MARKER" "$VERSION" "$desktop" > "$stage/.retro-recomp-install"
@@ -89,7 +90,7 @@ printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Version=1.0' 'Name=Retro-Rec
     'StartupNotify=true' 'StartupWMClass=Retro-Recomp' "X-RetroRecomp-InstallRoot=$(value "$prefix")" > "$stage/launcher.desktop"
 mkdir -p -- "${desktop%/*}"
 # Commit only after the entire payload and native version have been checked.
-for file in Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install Retro-Recomp; do
+for file in Retro-Recomp-base.zip Retro-Recomp.png uninstall.sh LICENSE.txt THIRD_PARTY_NOTICES.md INSTALL.txt .retro-recomp-install Retro-Recomp; do
     mv -fT -- "$stage/$file" "$prefix/$file"
 done
 install -m 644 -- "$stage/launcher.desktop" "$desktop"

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 import unittest
 from unittest.mock import patch
 
@@ -31,17 +32,40 @@ class InstallerPayloadTests(unittest.TestCase):
             self.assertEqual(payload['Retro-Recomp.exe'], executable.read_bytes())
             self.assertEqual(probe.call_args.args[0][1:], ['_verify-update', '1.1.5'])
 
+    def test_the_base_of_paths_travels_beside_the_converter(self):
+        from tools.package_installers import BASE_NAME
+        from retrorecomp.updater import BASE_ASSET
+        self.assertEqual(BASE_NAME, BASE_ASSET)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            executable = root / 'Retro-Recomp.exe'
+            executable.write_bytes(b'MZauthored test converter')
+            base = root / 'base.zip'
+            with zipfile.ZipFile(base, 'w') as archive:
+                archive.writestr('manifest.json', '{}')
+            with patch('tools.package_installers.subprocess.run'):
+                payload = payload_files(executable, '1.5.4', 'windows', base=base)
+                self.assertEqual(payload[BASE_NAME], base.read_bytes())
+                base.write_bytes(b'not an archive')
+                with self.assertRaises(ValueError):
+                    payload_files(executable, '1.5.4', 'windows', base=base)
+        script = (ROOT / 'tools/installers/windows.iss').read_text(encoding='utf-8-sig')
+        self.assertIn('Retro-Recomp-base.zip"; DestDir: "{app}"; Attribs: readonly; '
+                      'Flags: overwritereadonly uninsremovereadonly', script)
+
     def test_debian_tree_runs_a_private_copy_per_user(self):
         from tools.package_installers import APP_ID, deb_tree
         files = {'Retro-Recomp': b'\x7fELF binary', 'Retro-Recomp.png': b'icon', 'LICENSE.txt': b'MIT',
-                 'THIRD_PARTY_NOTICES.md': b'notices', 'INSTALL.txt': b'guide', 'uninstall.sh': b'unused'}
+                 'THIRD_PARTY_NOTICES.md': b'notices', 'INSTALL.txt': b'guide', 'uninstall.sh': b'unused',
+                 'Retro-Recomp-base.zip': b'PK\x03\x04base'}
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'pkg'
             deb_tree(files, '1.4.1', root)
             listed = sorted(p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file())
             self.assertEqual(listed, sorted([
                 'DEBIAN/control', 'opt/retro-recomp/INSTALL.txt', 'opt/retro-recomp/LICENSE.txt',
-                'opt/retro-recomp/Retro-Recomp', 'opt/retro-recomp/Retro-Recomp.png',
+                'opt/retro-recomp/Retro-Recomp', 'opt/retro-recomp/Retro-Recomp-base.zip',
+                'opt/retro-recomp/Retro-Recomp.png',
                 'opt/retro-recomp/THIRD_PARTY_NOTICES.md', 'opt/retro-recomp/VERSION', 'usr/bin/retro-recomp',
                 f'usr/share/applications/{APP_ID}.desktop', 'usr/share/doc/retro-recomp/copyright',
                 f'usr/share/icons/hicolor/256x256/apps/{APP_ID}.png']))
@@ -57,6 +81,9 @@ class InstallerPayloadTests(unittest.TestCase):
             self.assertNotIn(b'\r\n', launcher)
             self.assertIn(b'.local/opt/Retro-Recomp', launcher)
             self.assertIn(b'PYINSTALLER_SUPPRESS_SPLASH_SCREEN', launcher)
+            self.assertIn(b'Retro-Recomp-base.zip', launcher)
+            if os.name != 'nt':
+                self.assertEqual((root / 'opt/retro-recomp/Retro-Recomp-base.zip').stat().st_mode & 0o777, 0o444)
             self.assertEqual((root / 'opt/retro-recomp/VERSION').read_text(), '1.4.1\n')
 
     def test_reproducible_linux_payload_contains_only_plain_files(self):
@@ -293,7 +320,8 @@ class LinuxInstallLifecycleTests(unittest.TestCase):
         files = {'Retro-Recomp': b'#!/bin/sh\n[ "$1" = _verify-update ] && [ "$2" = 1.1.5 ]\n',
                  'uninstall.sh': (ROOT/'tools/installers/linux_uninstall.sh').read_bytes(),
                  'Retro-Recomp.png': b'authored icon', 'LICENSE.txt': b'license',
-                 'THIRD_PARTY_NOTICES.md': b'notice', 'INSTALL.txt': b'guide'}
+                 'THIRD_PARTY_NOTICES.md': b'notice', 'INSTALL.txt': b'guide',
+                 'Retro-Recomp-base.zip': b'PK\x03\x04authored base'}
         archive = linux_archive(files)
         header = (ROOT/'tools/installers/linux_install.sh').read_text().replace('@VERSION@','1.1.5').replace(
             '@PAYLOAD_SHA256@',hashlib.sha256(archive).hexdigest())
@@ -314,6 +342,9 @@ class LinuxInstallLifecycleTests(unittest.TestCase):
             path.parent.mkdir(parents=True,exist_ok=True)
             path.write_bytes(raw)
         self.install()
+        base = self.prefix/'Retro-Recomp-base.zip'
+        self.assertEqual(base.read_bytes(), b'PK\x03\x04authored base')
+        self.assertEqual(base.stat().st_mode & 0o777, 0o444)   # read only, replaced by a reinstall above
         self.assertTrue(self.launcher.is_file())
         text=self.launcher.read_text()
         self.assertIn('%%',text)
@@ -321,6 +352,7 @@ class LinuxInstallLifecycleTests(unittest.TestCase):
         subprocess.run(['bash',str(self.prefix/'uninstall.sh')],env=self.env,check=True,capture_output=True)
         self.assertFalse(self.launcher.exists())
         self.assertFalse((self.prefix/'Retro-Recomp').exists())
+        self.assertFalse((self.prefix/'Retro-Recomp-base.zip').exists())
         for name,raw in saved.items():
             self.assertEqual((self.prefix/name).read_bytes(),raw)
         self.install()
