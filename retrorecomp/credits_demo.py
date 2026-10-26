@@ -558,12 +558,13 @@ class CreditsDemo:
         c.create_line(left,top,left+44,top,fill=GOLD,width=2,tags='credit')
         _,used = text(self.tr('credits_own_title'),y+16,15,WHITE,True)
         y += used+30
-        _,used = text(self.tr('credits_own_ai'),y,10,GOLD)
-        y += used+14
         for key in ('credits_own_all','credits_own_snes','credits_own_68k'):
-            _,used = text(self.tr(key),y,9)
-            y += used+10
-        y += 8
+            _,used = text(self.tr(key),y,10,WHITE)
+            y += used+12
+        # Who designed it and the AI models that assisted: last and discreet.
+        y += 6
+        _,used = text(self.tr('credits_own_ai'),y,8)
+        y += used+14
         c.create_line(left,top,left,y,right,y,right,top,fill='#33302a',tags='credit')
         y += 25
         _,used = text(self.tr('credits_thanks'),y,17,WHITE,True)
