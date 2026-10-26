@@ -2314,7 +2314,7 @@ class Application:
         self.set_status('ready')
         error = result.get('error') if isinstance(result, dict) else self.tr('online_unreachable')
         if error or not isinstance(result, dict):
-            messagebox.showerror(APP_NAME, self.tr('base_update_failed', error=error or ''))
+            messagebox.showerror(APP_NAME, self.tr('base_update_error', error=error or ''))
             return
         self.update_news['base'] = None
         self.refresh_update_badge()
@@ -2327,7 +2327,7 @@ class Application:
             return
         version = result.get('version')
         key = 'base_current' if result.get('previous') == version and not result.get('downloaded_bytes') \
-            else 'base_updated'
+            else 'base_update_finished'
         messagebox.showinfo(APP_NAME, self.tr(key, version=version))
 
     def _offer_update(self, update):
