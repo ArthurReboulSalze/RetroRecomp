@@ -505,7 +505,7 @@
     "online_rate_limited": "Zu viele Versuche: Warte etwas und versuche es dann erneut.",
     "online_terms_needed": "Akzeptiere die Datenschutzerklärung, um einen Code zu erhalten.",
     "knowledge_sending": "Entdeckungen werden an die gemeinsame Basis gesendet…",
-    "knowledge_scope": "Geteilte Konsolen: Master System, Game Gear, Game Boy, NES, Mega Drive und Super Nintendo. Neo Geo und die experimentellen CPS-1 und X68000 werden nicht geteilt und zählen nicht für die Rangliste, bis sie in einer künftigen Version der gemeinsamen Basis beitreten.",
+    "knowledge_scope": "Geteilte Konsolen: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo und Neo Geo. Die experimentellen CPS-1 und X68000 werden nicht geteilt und zählen nicht für die Rangliste, bis sie in einer künftigen Version der gemeinsamen Basis beitreten.",
     "knowledge_send_found": "{games} Spiele auf {consoles} Konsolen haben Entdeckungen, die die gemeinsame Basis noch nicht von dir erhalten hat.",
     "knowledge_send_action": "Senden",
     "knowledge_send_none": "Nichts Neues zu senden: Die gemeinsame Basis hat bereits alle Entdeckungen deiner qualifizierten Konvertierungen und Spiele.",

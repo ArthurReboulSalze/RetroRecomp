@@ -1391,9 +1391,10 @@ disables both the bundled and imported knowledge.
 
 **Sending to the shared base** (https://retro-recomp.com, open since 1.4.0)
 uses the same file. Like exports, it covers Master System, Game Gear, Game Boy,
-NES, Mega Drive and Super Nintendo only: Neo Geo and the experimental CPS-1
-and X68000 are never sent and count for nothing on the leaderboard until they
-join the shared base in a later version (the converter says so when sending). The Knowledge menu and the closing card's *Send and close*
+NES, Mega Drive, Super Nintendo and, since 1.5.3, Neo Geo (see *The shared
+base*): the experimental CPS-1 and X68000 are never sent and count for nothing
+on the leaderboard until they join the shared base in a later version (the
+converter says so when sending). The Knowledge menu and the closing card's *Send and close*
 collect the discoveries as above, keep the games not yet sent with this
 account (channel `account` of `shared.json`) and upload them after an e-mailed
 sign-in code. They are marked as sent only once the server accepted them. A
@@ -1583,6 +1584,28 @@ library, and the next upload sends again, only the paths **that conversion
 itself observed**; an imported path the execution never reached enters neither
 the library nor an upload. Bogus or polluted paths therefore cannot travel
 from player to player, and they cannot make exports grow.
+
+**Neo Geo.** A Neo Geo game is named in the base by its prepared cartridge
+and the BIOS archive its conversion uses together (`neogeo_knowledge.key`, the
+key of the local library), not by the ROM file's hash: a player with another
+BIOS or another cartridge layout receives nothing. A record holds only numbers
+(offsets into the cartridge program, the BIOS and the sound ROMs, RAM and Z80
+references, compact ROM roots), checked by the same function on the player's
+computer, in the maintainer's reader and on the service. Only what the
+player's own conversion reached in the fresh reference runs is sent; raw
+gameplay observations of Neo Geo stay private. The prepared cartridge of a
+ZIP set only exists once the preparation tool has assembled it, so a set never
+prepared on this computer is asked for during its first conversion, right after
+its cartridge is prepared; a `.neo` file, or a set prepared before, is asked
+for before the batch with the others. A Neo Geo conversion that fails with
+imported hints runs again without them inside its own conversion code, since
+the batch names a cartridge by its file's hash and the hints by cartridge and
+BIOS together. If that passes, the hints are discarded and its report says so
+(`knowledge.imported_hints_rejected`); the window then notes the base outcome
+`rejected` under the cartridge-and-BIOS identity. The fresh reference,
+packed-executable and state checks stay mandatory, and the report counts the
+imported hints apart (`knowledge.use.imported`). This says nothing about
+hardware fidelity, gameplay or latency.
 
 **Confirmation by execution.** When another player's conversion actually
 reaches a path that came from the base, that path enters the library and goes
