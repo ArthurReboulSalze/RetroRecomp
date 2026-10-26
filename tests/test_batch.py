@@ -213,7 +213,7 @@ class BatchTests(unittest.TestCase):
                 patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile):
             record = convert_batch([item], self.games_root, emit=lambda text: None)
         self.assertEqual((record['succeeded'], seen), (1, ['quick']))
-        # Unknown to the bundled knowledge, or a deeper level asked: a real discovery.
+        # Not qualified in the base, or a deeper level asked: a real discovery.
         seen.clear()
         other = self.item('unknown', 2)
         with patch('retrorecomp.knowledge_exchange._bundled', return_value={}), \

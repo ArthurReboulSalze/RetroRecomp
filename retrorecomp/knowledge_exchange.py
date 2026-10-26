@@ -1,9 +1,9 @@
 """Share compilation discoveries as one ROM-free file.
 
 An export holds, for each exact ROM identity, the numeric hints that the
-user's own successful conversions added to the bundled knowledge, and the raw
+user's own successful conversions added to the base's qualified paths, and the raw
 gameplay observations not yet turned into hints by a conversion, as positions
-in the ROM: no ROM byte, path, image or code. An import validates the file like the bundled
+in the ROM: no ROM byte, path, image or code. An import validates the file like the qualified
 bank and adds it to a separate imported bank; every later conversion still
 checks native code against the reference CPU, so a wrong hint costs at most
 a fallback, never a different game. Paths fetched from the shared base before
@@ -425,9 +425,9 @@ def _path_key(value) -> str:
 
 def discovery_paths(document: dict) -> dict:
     """The discoveries of a validated shared file, as short stable keys per
-    game, for the online leaderboard: hints the bundled snapshot lacks and
+    game, for the online leaderboard: hints the base's qualified paths lack and
     raw observations (by kind, address, auxiliary and length). `known` tells
-    whether the bundled snapshot already had this ROM. At most PATH_LIMIT
+    whether the qualified paths already had this ROM. At most PATH_LIMIT
     keys of each kind per game (the smallest ones), so a game converted for
     the first time cannot flood the board."""
     games = {}

@@ -423,7 +423,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                      if shared_used['quick'] else
                      f'{item.title}: shared paths{f", level {level}" if level else ""}: '
                      f'{plan.level} discovery starting from them.')
-        # A game the bundled snapshot already knows: its paths come from a qualified
+        # A game whose paths are qualified in the base: they come from a qualified
         # Standard conversion, so a Standard scan would find nothing more. Rebuild
         # from them with the quick check rather than rediscover (Extended and
         # Thorough still search further).
@@ -432,7 +432,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             from .knowledge_exchange import _bundled, _entries
             if _entries(system.id, _bundled(system.id, item.sha256)):
                 known_used = {'level': 'standard', 'quick': True}
-                emit(f'{item.title}: already known to the bundled knowledge: quick check instead of discovery.')
+                emit(f'{item.title}: paths qualified in the base: quick check instead of discovery.')
         if inherited or (shared_used and shared_used['quick']) or known_used:
             quick = plan_for(system.id, None, passes=settings['passes'], frames=settings['frames'], level='quick')
             run_settings = {**settings, 'passes': quick.passes, 'frames': quick.frames, 'scan_level': 'quick'}
@@ -452,7 +452,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             reason = str(exc).strip().splitlines()[0][:200] if str(exc).strip() else type(exc).__name__
             emit(f'{item.title}: the rebuilt export of Retro-Recomp {legacy} did not pass its checks ({reason}); '
                  'converting the game in full instead.' if legacy else
-                 f'{item.title}: the quick check from the bundled knowledge did not pass ({reason}); '
+                 f'{item.title}: the quick check from the base's qualified paths did not pass ({reason}); '
                  'discovering the game in full instead.')
             inherited, known_used, run_settings = None, None, settings
             executable = convert_with(run_settings)

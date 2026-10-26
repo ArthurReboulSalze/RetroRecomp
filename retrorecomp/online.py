@@ -6,8 +6,8 @@ ROM byte, path, image or code). The account is an e-mail address proven by a
 one-time code; the converter keeps a revocable token in `datas/account.json`,
 which is never exported. A game is marked as shared only once the server has
 accepted it, so a failed or offline upload is simply retried next time. The
-server queues uploads for the maintainer, who revalidates them and only adds
-discoveries to a future bundled snapshot after his own qualified conversions.
+server holds uploads as pending paths; they become qualified in the shared base
+once another player's successful conversion received, reached and validated them.
 
 Each accepted file is followed by its claims: the short path keys of the
 exact document sent (`knowledge_exchange.discovery_paths`), which give the
@@ -762,7 +762,7 @@ def pending(collected: dict) -> dict:
 
 # --- Conversions: the games this account converted, for the conversion rewards
 #
-# Since 1.5.2 a game the bundled snapshot knows is rebuilt from its paths and
+# Since 1.5.2 a game with qualified paths is rebuilt from its paths and
 # brings nothing new: without a note, the service never hears of it. Each
 # successful conversion made while signed in is noted here (`note_conversion`,
 # called by the interface once a game is converted); the next send carries the
