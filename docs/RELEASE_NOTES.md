@@ -1,3 +1,64 @@
+# RetroRecomp v1.5.3 — Super FX games, rewards for every conversion, a pseudonym from the start
+
+- **Super FX cartridges convert.** Star Fox, Star Fox 2, Stunt Race FX,
+  Vortex, Yoshi's Island, Doom, Dirt Trax FX and Dirt Racer are qualified at
+  the Extended level: native 65816 and SPC700 code on the final routes, the
+  GSU chip itself running as a counted interpreted device, shown on its own
+  line like the CX4. Known limits: battery saves are proven in play for Star
+  Fox 2 only, Doom's frame pacing differs from MAME's, and Stunt Race FX's
+  two-player mode still meets some interpreted code. Nothing was checked on a
+  real console.
+- **Faster and fixed Super Nintendo games.** Frames take 44 to 58 % less
+  time to compute. The controller strobe is delivered to the ports (Star Fox 2
+  prototype, Madden NFL 95, Bill Walsh College Football). SNES conversions take
+  3 to 35 % longer (profile-guided build).
+- **SNES exports are converted again.** The SNES engine changes what games do
+  (controller strobe, Super FX bus), so SNES games converted by 1.4.1, 1.5.1 or
+  1.5.2 are converted again in full (a game the bundled knowledge holds starts
+  from its paths with the quick check). Games converted by 1.5.2 on the Master
+  System, Game Gear, Game Boy, NES, Mega Drive, Neo Geo and CPS-1 are only
+  rebuilt with the current tools and rechecked; X68000 exports are converted
+  again once. F8/F9 quick states saved by 1.5.2 Mega Drive and Super Nintendo
+  games are refused; those of the other consoles keep loading.
+- **Rewards for converting.** The first conversion of a game the shared base
+  already knows earns 10 RR coins (once per game, when your upload is
+  checked); finishing it at the Extended level earns 20 more, Thorough 40 more,
+  and the first player to finish a game at Thorough earns 60. Beyond 50 games a
+  day, rewards arrive on the following days. Free titles mark collections
+  (Collector at 10 games, Archivist 50, Curator 100, Living Museum 500) and
+  depth (Caver at 10 Thorough games, Abyssal 50, Deep Cartographer 200).
+  **Compiled games** shows one to three stars per game, **Go further** in its
+  right-click menu, and a **Games to explore** filter.
+- **Rewards for reports.** A problem report the maintainer marks useful earns
+  150 RR coins, one that leads to a fix 400, and the first fixed report the
+  free title Bug Hunter.
+- **A pseudonym from the start.** Signing in from the converter (or the site)
+  asks for a pseudonym, with an editable suggestion; accounts without one get
+  a generated name until they choose.
+- **Your corner follows the site.** What you buy or equip on retro-recomp.com
+  shows in the converter within minutes (when its window comes back to the
+  front), with your console badge (the n°1 player of a console wears its badge
+  by default). **Manage my items** opens your account page.
+- **Discoveries leave every 15 minutes**, also between short batches; a send
+  still waiting leaves when the window closes or at the next start.
+- **A tidier leaderboard and credits.** The podium shows the three gems in
+  fixed columns; the credits window is smaller and gains a **Made by
+  Retro-Recomp** part. A duplicate ROM now names the file that was converted.
+- **The players' discoveries are in the converter.** The bundled knowledge
+  now holds 275 more games sent by players, each rechecked here first (native
+  code compared with the reference CPU on the quick routes): 236 Super
+  Nintendo, 20 NES, 16 Mega Drive and 3 Game Boy games, 19.8 million paths.
+  The fallback interpreter ran no sound-CPU opcode in any of them, and no
+  main-CPU opcode except about a thousand in Exertainment Mountain Bike Rally,
+  Al Unser Jr.'s Road to the Top and Bebe's Kids. Games whose exact ROM could
+  not be checked yet wait for a later release; their players keep their
+  points.
+- **On retro-recomp.com:** the site in the converter's eight languages, a
+  leaderboard computed in the background every 15 minutes (pages never wait),
+  player cards, the shop page, and the rewards above.
+
+---
+
 # RetroRecomp v1.5.2 — Mega Drive and Super Nintendo fixed on Windows, a shop for your coins, problem reports
 
 - **Mega Drive and Super Nintendo convert again on Windows.** In 1.5.1 the
