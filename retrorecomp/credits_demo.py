@@ -559,8 +559,14 @@ class CreditsDemo:
         _,used = text(self.tr('credits_own_title'),y+16,15,WHITE,True)
         y += used+30
         for key in ('credits_own_all','credits_own_snes','credits_own_68k'):
-            _,used = text(self.tr(key),y,10,WHITE)
-            y += used+12
+            # The consoles (before the colon) in gold on their own line, what was done below.
+            label,colon,rest = self.tr(key).replace('：',':').partition(':')
+            if colon:
+                _,used = text(label.strip(),y,11,GOLD)
+                y += used+3
+            body = (rest if colon else label).strip()
+            _,used = text(body[:1].upper()+body[1:],y,10,WHITE)
+            y += used+14
         # Who designed it and the AI models that assisted: last and discreet.
         y += 6
         _,used = text(self.tr('credits_own_ai'),y,8)
