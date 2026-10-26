@@ -173,6 +173,15 @@ class SharedBaseTests(unittest.TestCase):
         self.assertFalse(list(self.data.glob('knowledge/upload-*')))
         # A later manual import still merges with what the shared base gave.
         self.assertEqual(knowledge_exchange.import_fetched({key: {'records': [sms_record(0x200)]}})['unchanged'], 1)
+        # One malformed row is left out alone; the record's other paths stay.
+        mixed = sms_record(0x300)
+        mixed['rom_entries'] += [[0xc000, 0, 0, 0, 1], [0x400, 0, 0, 'x', 1]]
+        mixed['pattern_refs'] = [[8192]]
+        accepted = knowledge_exchange.import_fetched({key: {'records': [mixed]}})['accepted'][key]
+        self.assertEqual(accepted['records'], 1)
+        self.assertEqual(knowledge.imported_record('sms', identity)['rom_entries'],
+                         [[0x100, 0, 0, 0, 1], [0x200, 0, 0, 0, 1], [0x300, 0, 0, 0, 1]])
+        self.assertNotIn('pattern_refs', knowledge.imported_record('sms', identity))
 
     def test_quick_check_only_when_the_shared_level_covers_the_asked_level(self):
         item = self.cartridge()

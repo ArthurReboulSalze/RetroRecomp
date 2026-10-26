@@ -420,11 +420,31 @@ def _valid_record(system: str, identity: str, record) -> dict | None:
         return None
 
 
+def _salvaged_record(system: str, identity: str, record) -> dict | None:
+    """A received record without its rows that fail the checks: one malformed
+    or incoherent row is left out alone, never the record's other paths."""
+    clean = _valid_record(system, identity, record)
+    if clean is not None or not isinstance(record, dict):
+        return clean
+    base = {name: record[name] for name in ('engine', 'rom_bytes') if name in record}
+    if _valid_record(system, identity, base) is None:
+        return None
+    salvaged = dict(base)
+    for name, (_, limit) in FIELDS[system].items():
+        rows = record.get(name)
+        if isinstance(rows, list):
+            kept = [row for row in rows if _valid_record(system, identity, {**base, name: [row]}) is not None]
+            if kept:
+                salvaged[name] = kept[:limit]
+    return _valid_record(system, identity, salvaged)
+
+
 def import_fetched(roms: dict) -> dict:
     """Add what the shared base served before a batch (`online.fetch_knowledge`:
     {'system:sha256': {'records': [...], 'observations': [...]}}) to the
     imported banks, exactly like an imported file. Each record and row is
-    checked like a shared file's; an invalid one is skipped, not the ROM.
+    checked like a shared file's; an invalid row is skipped, not its record,
+    and an invalid record not the ROM.
     `accepted` counts, per ROM, the valid records and distinct rows received."""
     consoles, observations, accepted = {}, {}, {}
     for key, value in roms.items():
@@ -434,7 +454,7 @@ def import_fetched(roms: dict) -> dict:
             continue
         record, count = None, 0
         for raw in value.get('records') if isinstance(value.get('records'), list) else ():
-            candidate = _valid_record(system, identity, raw)
+            candidate = _salvaged_record(system, identity, raw)
             if candidate is None:
                 continue
             count += 1
