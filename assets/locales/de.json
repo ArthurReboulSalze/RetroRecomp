@@ -342,7 +342,7 @@
     "tip_overwrite": "Standardmäßig aktiv. Exporte derselben ROM neu erzeugen und ersetzen. Für große Stapel deaktivieren, um fertige Spiele zu behalten. Identische ROM-Daten unter anderem Namen werden gemeldet, nicht als anderes Spiel benannt.",
     "tip_stop": "Stoppt den Durchlauf: Du wählst, ob laufende Konvertierungen sofort abgebrochen werden oder die laufenden Spiele fertig werden. In beiden Fällen startet kein weiteres Spiel; frühere Exporte bleiben erhalten.",
     "tip_open_folder": "Spieleordner im Dateimanager öffnen.",
-    "tip_language": "Sprache sofort wechseln und für Konverter und Spieleordner speichern. Im Spiel schaltet F7 durch alle acht Sprachen.",
+    "tip_language": "Sprache sofort wechseln und für Konverter und Spieleordner speichern. Im Spiel schaltet F7 durch die fünf Spielsprachen (Englisch, Französisch, Italienisch, Spanisch, Deutsch).",
     "tip_platform": "Die Plattform entspricht dem System dieses Konverters.",
     "tip_table": "Wähle ein Spiel, um sein Ergebnis zu sehen. Strg/Umschalt wählt mehrere Zeilen; Doppelklick startet ein fertiges Spiel. Rechtsklick für Aktionen: konvertieren, Cover, Ordner, aus der Liste entfernen (Entf).",
     "tip_video_timing": "Auto behält das ROM-Profil oder schätzt anhand des Dateinamens. Eine Regionsangabe beweist kein Timing. PAL/NTSC überschreibt es beim nächsten Erzeugen und wird gespeichert. Andere Konsolen erhalten eigene Optionen.",

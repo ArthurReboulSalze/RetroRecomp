@@ -342,7 +342,7 @@
     "tip_overwrite": "Activo por defecto. Regenera ejecutables de la misma ROM. Desactiva para conservar juegos ya terminados y convertir solo los ausentes. Las ROM idénticas con otro nombre se indican, sin confundirlas con juegos distintos.",
     "tip_stop": "Detiene el lote: eliges entre interrumpir de inmediato las conversiones en curso o esperar a que terminen los juegos en curso. En ambos casos no arranca ningún juego más; las exportaciones anteriores se conservan.",
     "tip_open_folder": "Abre la carpeta de juegos en el gestor de archivos del sistema.",
-    "tip_language": "Cambia el idioma al instante y lo guarda para el conversor y esta carpeta. En juegos, F7 recorre los ocho idiomas.",
+    "tip_language": "Cambia el idioma al instante y lo guarda para el conversor y esta carpeta. En juegos, F7 recorre los cinco idiomas de juego (inglés, francés, italiano, español, alemán).",
     "tip_platform": "La plataforma coincide con el sistema donde se ejecuta el conversor.",
     "tip_table": "Selecciona un juego para ver su resultado. Ctrl/Mayús selecciona varias filas; doble clic en un juego listo para iniciarlo. Clic derecho para las acciones: convertir, carátula, carpetas, quitar de la lista (Supr).",
     "tip_video_timing": "Auto conserva el perfil de la ROM o deduce la región por el nombre. La etiqueta regional no demuestra el timing. PAL/NTSC fuerza el perfil al regenerar y se guarda. Otras consolas tendrán sus opciones.",
