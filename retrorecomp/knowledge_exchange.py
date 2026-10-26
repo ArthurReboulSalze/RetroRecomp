@@ -36,6 +36,8 @@ CONSOLE_LIMIT = 4096
 
 def _entries(system: str, record: dict) -> set:
     from .snes_knowledge import SPC_FIELDS, references
+    if system not in FIELDS:
+        return set()   # CPS-1 and X68000 have no shared knowledge (1.5.2 raised KeyError before every Standard batch)
     entries = {(name, tuple(entry)) for name in FIELDS[system] if name not in SPC_FIELDS
                for entry in record.get(name, [])}
     if system == 'snes':
