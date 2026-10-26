@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from retrorecomp.gameboy_build import compact_dispatch, preserve_unchanged_sources, share_native_bodies, safe_body_entries
-from retrorecomp.gameboy_boundary import repair_bank_boundaries
+from retrorecomp.gameboy_boundary import repair_bank_boundaries, repair_empty_bodies
 from unittest.mock import patch
 
 
@@ -95,6 +95,34 @@ class GameBoyBuildTests(unittest.TestCase):
         self.assertEqual((native, fallback), (0, 1))
         self.assertNotIn('wrong_constant', output)
         self.assertIn('gbrt_execute_dispatch_fallback', output)
+
+    def test_empty_bodies_become_rst_38_or_the_interpreter(self):
+        rom = bytearray(0x10000)
+        rom[0x8000 + 0x0fe8] = 0xFF     # bank 2, 0x4fe8: padding
+        rom[0x8000 + 0x0123] = 0xD3     # bank 2, 0x4123: undefined opcode
+        rom[0x0150] = 0xFF               # bank 0, 0x0150
+        empty = ('/* Shared body at {where} */\nstatic void body_{name}(GBContext* ctx) {{\n'
+                 '    gbrt_note_generated_direct_transition(ctx);\n{switch}loc_{name}:\n'
+                 '    /* warning: fallthrough to unanalyzed code at 0x4fe6 in bank 2 */\n    return;\n}}\n\n')
+        source = (empty.format(where='02:4fe8', name='02_4fe8', switch='') +
+                  empty.format(where='02:4123', name='02_4123', switch='') +
+                  empty.format(where='0150', name='0150', switch='') +
+                  empty.format(where='02:4fe9', name='02_4fe9', switch=
+                      '    switch (ctx->pc) {\n        case 0x4fe9: goto loc_02_4fe9;\n'
+                      '        case 0x4fea: goto pc_4fea;\n        default: break;\n    }\n\n') +
+                  '/* Shared body at 0200 */\nstatic void body_0200(GBContext* ctx) {\n'
+                  '    gbrt_note_generated_direct_transition(ctx);\nloc_0200:\n'
+                  '    /* 0200 */     ctx->a = 1;\n    return;\n}\n')
+        output, rst, interpreted = repair_empty_bodies(source, rom)
+        self.assertEqual((rst, interpreted), (2, 2))
+        self.assertIn('ctx->pc = 0x4fe8;\n    gbrt_timed_rst(ctx, 0x38, 0x4fe9);', output)
+        self.assertIn('ctx->pc = 0x0150;\n    gbrt_timed_rst(ctx, 0x38, 0x151);', output)
+        self.assertIn('ctx->pc = 0x4123;\n    gbrt_execute_dispatch_fallback(', output)
+        # Several entries: the caller's pc is kept, and no goto is left dangling.
+        self.assertNotIn('goto pc_4fea', output)
+        self.assertIn('ctx->a = 1;', output)
+        self.assertEqual(output.count('\n}\n'), 5)
+        self.assertEqual(repair_empty_bodies(output, rom), (output, 0, 0))
 
 
 if __name__ == '__main__':

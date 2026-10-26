@@ -93,12 +93,57 @@ def repair_bank_boundaries(source: str, rom: bytes) -> tuple[str, int, int]:
     return _LABEL.sub(instruction, source), native, fallback
 
 
+_BODY = re.compile(r'(/\* Shared body at (?:([0-9a-f]{2}):)?([0-9a-f]{4}) \*/\n'
+                   r'(?:static )?void \w+\(GBContext\* ctx\) \{\n)(.*?)(?=^\}\n)', re.M | re.S)
+_NOT_AN_INSTRUCTION = re.compile(
+    r'(?:gbrt_note_generated_direct_transition\(ctx\);|switch \(ctx->pc\) \{|case 0x[0-9a-f]+: goto \w+;'
+    r'|default: break;|\}|\w+:|/\*.*?\*/|return;)')
+
+
+def repair_empty_bodies(source: str, rom: bytes) -> tuple[str, int, int]:
+    """Bodies in which the analyzer translated no instruction at all.
+
+    It stops at 0xFF padding in a switchable bank and at undefined opcodes,
+    yet still lists the entry in the dispatch table. Such a body returned
+    without moving pc, so a game reaching it spun forever. 0xFF is RST 38, as
+    the emitter writes it elsewhere; anything else runs in the interpreter,
+    the reference CPU (undefined opcodes execute as it defines them).
+    """
+    rst = interpreted = 0
+
+    def body(match):
+        nonlocal rst, interpreted
+        header, bank, address, text = match[1], int(match[2] or '0', 16), int(match[3], 16), match[4]
+        if any(line.strip() and not _NOT_AN_INSTRUCTION.fullmatch(line.strip()) for line in text.splitlines()):
+            return match.group()
+        single = 'switch (ctx->pc)' not in text
+        offset = (bank if address >= 0x4000 else 0) * 0x4000 + (address & 0x3FFF)
+        if single and address < 0x8000 and offset < len(rom) and rom[offset] == 0xFF:
+            rst += 1
+            code = (f'    ctx->pc = 0x{address:04x};\n'
+                    f'    gbrt_timed_rst(ctx, 0x38, 0x{(address + 1) & 0xffff:x});\n'
+                    '    if (gbrt_generated_safepoint(ctx)) return;\n')
+        else:
+            interpreted += 1
+            code = ((f'    ctx->pc = 0x{address:04x};\n' if single else '') +
+                    '    gbrt_execute_dispatch_fallback(ctx, gb_resolve_rom_bank(ctx, ctx->pc), '
+                    'ctx->pc, GB_DISPATCH_FALLBACK_ADDRESS_NOT_COMPILED, 0);\n')
+        return (header + '    gbrt_note_generated_direct_transition(ctx);\n'
+                '    /* Retro-Recomp: no instruction was translated here. */\n' + code + '    return;\n')
+
+    return _BODY.sub(body, source), rst, interpreted
+
+
 def adapt_bank_boundaries(project: Path) -> dict:
     rom = (project / 'rom.gb').read_bytes()
-    native = fallback = 0
+    native = fallback = rst = interpreted = 0
     for path in project.glob('game_funcs_*.c'):
         source, n, f = repair_bank_boundaries(path.read_text(encoding='utf-8'), rom)
+        source, r, i = repair_empty_bodies(source, rom)
         path.write_text(source, encoding='utf-8')
         native += n
         fallback += f
-    return dict(native_sites=native, guarded_fallback_sites=fallback)
+        rst += r
+        interpreted += i
+    return dict(native_sites=native, guarded_fallback_sites=fallback,
+                empty_bodies_rst38=rst, empty_bodies_interpreted=interpreted)
