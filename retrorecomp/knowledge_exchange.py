@@ -12,10 +12,16 @@ a batch (`import_fetched`) join the same banks under the same checks.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
 import gzip
 import hashlib
 import json
+import os
 from pathlib import Path
+import re
+import tempfile
+import zipfile
+import zlib
 
 from . import __version__
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
@@ -512,6 +518,11 @@ def _salvaged_record(system: str, identity: str, record) -> dict | None:
     return _valid_record(system, identity, salvaged)
 
 
+def salvaged_record(system: str, identity: str, record) -> dict | None:
+    """`record` as the banks would keep it (its malformed rows left out), or None."""
+    return _salvaged_record(system, identity, record)
+
+
 def import_fetched(roms: dict) -> dict:
     """Add what the shared base served before a batch (`online.fetch_knowledge`:
     {'system:sha256': {'records': [...], 'observations': [...]}}) to the
@@ -559,13 +570,19 @@ def import_fetched(roms: dict) -> dict:
 
 # --- The shared base's game entries (online.sync_base) ------------------------
 #
-# An entry is one game as the service stores it, named by the SHA-256 of its
-# canonical text: {"format": 1, "system", "identity", "parts": [{"source",
-# "level", "record" | null, "observations"}]}. One part per accepted upload,
+# An entry is one game as the base holds it, named by the SHA-256 of its
+# canonical text: {"format": 2, "system", "identity", "qualified": [{"engine",
+# "level", "by", "record"}], "parts": [{"source", "level", "record" | null,
+# "observations"}]}. `qualified` holds the paths a successful conversion of
+# another player (or a campaign of the maintainer) reached and validated, one
+# element per engine revision; `parts` the paths still waiting, one per upload,
 # so a revocation or a local rejection can target a part, not the whole game.
+# Format 1 (parts only) is still read.
 
-BASE_FORMATS = (1,)
+BASE_FORMATS = (1, 2)
 BASE_PARTS_LIMIT = 4096
+QUALIFIED_BY = ('maintainer', 'players')
+ENGINE_LIMIT = 128
 
 
 def canonical_bytes(value) -> bytes:
@@ -573,16 +590,40 @@ def canonical_bytes(value) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
 
 
+def record_engine(system: str, record) -> str:
+    """The engine revision a record was built with, as the base names it: the
+    compiler revision of a cartridge console, the emulator core and the loader
+    together for the Neo Geo."""
+    if not isinstance(record, dict):
+        return ''
+    if system == 'ng':
+        return f"{record.get('engine')}:{record.get('loader')}"
+    value = record.get('engine')
+    return value if isinstance(value, str) else ''
+
+
+def current_engines() -> dict:
+    """This converter's engine revision for each console the base serves, in
+    the form `record_engine` gives (empty when it cannot be told)."""
+    try:
+        return _current_engines()
+    except (ImportError, OSError, KeyError, ValueError):
+        return {}
+
+
 def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
     """The game entry `value` named `sha` for this ROM, with its well-formed
-    parts only (a malformed one is skipped, not the game, though `sources`
-    still names it); None when it is not the entry asked for: its canonical
-    text must hash to `sha`, be format 1 and name this ROM."""
+    parts and qualified elements only (a malformed one is skipped, not the
+    game, though `sources` still names every part); None when it is not the
+    entry asked for: its canonical text must hash to `sha`, be format 1 or 2
+    and name this ROM."""
     from .scan_levels import LEVELS
-    if (not isinstance(value, dict) or set(value) != {'format', 'system', 'identity', 'parts'}
-            or type(value['format']) is not int or value['format'] not in BASE_FORMATS
+    if not isinstance(value, dict) or type(value.get('format')) is not int or value['format'] not in BASE_FORMATS:
+        return None
+    if (set(value) != {'format', 'system', 'identity', 'parts', *(('qualified',) if value['format'] >= 2 else ())}
             or value['system'] != system or value['identity'] != identity
-            or not isinstance(value['parts'], list)):
+            or not isinstance(value['parts'], list)
+            or not isinstance(value.get('qualified', []), list)):
         return None
     try:
         if hashlib.sha256(canonical_bytes(value)).hexdigest() != sha:
@@ -601,7 +642,31 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
             continue
         seen.add(part['source'])
         parts.append({name: part[name] for name in ('source', 'level', 'record', 'observations')})
-    return {'format': value['format'], 'system': system, 'identity': identity, 'parts': parts, 'sources': sources}
+    qualified, engines = [], set()
+    for item in value.get('qualified', [])[:BASE_PARTS_LIMIT]:
+        if (not isinstance(item, dict) or not isinstance(item.get('engine'), str)
+                or not 0 < len(item['engine']) <= ENGINE_LIMIT or item['engine'] in engines
+                or item.get('level') not in LEVELS or item.get('by') not in QUALIFIED_BY
+                or not isinstance(item.get('record'), dict)):
+            continue
+        engines.add(item['engine'])
+        qualified.append({name: item[name] for name in ('engine', 'level', 'by', 'record')})
+    return {'format': value['format'], 'system': system, 'identity': identity, 'parts': parts, 'sources': sources,
+            'qualified': qualified}
+
+
+def split_qualified(system: str, items, engine: str | None) -> tuple:
+    """(the element of `items` for this converter's engine revision or None,
+    the other elements). An element counts for the engine only when its record
+    was really built with it."""
+    current, others = None, []
+    for item in items:
+        if (current is None and engine and item['engine'] == engine
+                and record_engine(system, item['record']) == engine):
+            current = item
+        else:
+            others.append(item)
+    return current, others
 
 
 def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
@@ -616,6 +681,403 @@ def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
         except (ValueError, TypeError, KeyError):
             pass
     return record, rows
+
+
+# --- The local base: datas/knowledge/base/ and the installer's copy -------------
+#
+# One base of paths, kept outside the executable. The installer lays a copy
+# beside the program (`Retro-Recomp-base.zip`: manifest.json, index.json and
+# entries/<sha>.json); it is only ever read, never unpacked wholesale. Updates
+# (online.update_base) keep the newer index in `base/index.json` and, in
+# `base/entries/<sha>.json`, only the entries the installer's copy lacks. An
+# entry is looked up in the local folder first, then in the copy, and the
+# entries no index names any more are removed. `base/state.json` says which
+# version is in use and where its index lives (`origin`: "installer" points at
+# the copy, without a copy of it; "download" at base/index.json).
+
+INSTALLER_BASE = 'Retro-Recomp-base.zip'
+BASE_INDEX_FORMAT = 2
+BASE_INDEX_JSON_LIMIT = 64 * 1024 * 1024
+BASE_ENTRY_LIMIT = 16 * 1024 * 1024
+BASE_MANIFEST_LIMIT = 64 * 1024
+BASE_ZIP_MEMBERS = 250000
+BASE_UNPACKED_LIMIT = 1024 * 1024 * 1024
+BASE_ORIGINS = ('installer', 'download')
+_GAME_KEY = re.compile(r'(?:sms|gg|gb|nes|md|snes|ng):[0-9a-f]{64}')
+_SHA256 = re.compile(r'[0-9a-f]{64}')
+_ENTRY_NAME = re.compile(r'entries/([0-9a-f]{64})\.json')
+
+
+class BaseArchiveError(ValueError):
+    """A base archive that is not what it claims to be (`reason`: 'format',
+    'checksum' or 'incomplete')."""
+
+    def __init__(self, reason: str, message: str = ''):
+        super().__init__(message or reason)
+        self.reason = reason
+
+
+def installer_base_path() -> Path:
+    """The installer's copy of the base: beside the executable, or, from the
+    source tree, at the repository root."""
+    import sys
+    from .paths import ROOT
+    folder = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT
+    return folder / INSTALLER_BASE
+
+
+def base_directory() -> Path:
+    return imported_path().with_name('base')
+
+
+def qualified_bank_path() -> Path:
+    """The bank of qualified paths for this converter's engines, filled from
+    the base before a batch (knowledge.qualified_path() names the same file)."""
+    return imported_path().with_name('qualified.json.gz')
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as file:
+            file.write(data)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _count(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _short(value) -> str | None:
+    return value[:64] if isinstance(value, str) else None
+
+
+def parse_base_index(raw: bytes, version: int | None = None) -> dict | None:
+    """{'version', 'built_utc', 'games': {key: {'entry', 'sources'}}} from an
+    index file's bytes, or None when it is not a format-2 index (of `version`,
+    when given). A malformed game is left out; the file is bounded."""
+    if len(raw) > BASE_INDEX_JSON_LIMIT:
+        return None
+    try:
+        data = json.loads(raw)
+    except (ValueError, RecursionError):
+        return None
+    if (not isinstance(data, dict) or type(data.get('format')) is not int or data['format'] != BASE_INDEX_FORMAT
+            or not _count(data.get('version')) or (version is not None and data['version'] != version)
+            or not isinstance(data.get('games'), dict)):
+        return None
+    games = {}
+    for key, value in data['games'].items():
+        if (isinstance(key, str) and _GAME_KEY.fullmatch(key) and isinstance(value, dict)
+                and isinstance(value.get('entry'), str) and _SHA256.fullmatch(value['entry'])
+                and isinstance(value.get('sources'), list)):
+            games[key] = {'entry': value['entry'], 'sources': sorted({s for s in value['sources'] if _count(s)})}
+    return {'version': data['version'], 'built_utc': _short(data.get('built_utc')), 'games': games}
+
+
+def _member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
+    """One archive member, read within `limit` bytes (None when absent)."""
+    try:
+        info = archive.getinfo(name)
+    except KeyError:
+        return None
+    if info.file_size > limit:
+        raise BaseArchiveError('format', f'{name} is too large')
+    with archive.open(info) as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise BaseArchiveError('format', f'{name} is too large')
+    return raw
+
+
+def read_archive_head(archive: zipfile.ZipFile, version: int | None = None) -> dict:
+    """The verified manifest and index of a base archive: {'version',
+    'built_utc', 'games', 'index_sha256', 'index', 'raw_index'}. Raises
+    BaseArchiveError when the archive is not a format-2 base (of `version`,
+    when given) or its index is not the one its manifest names."""
+    infos = archive.infolist()
+    if len(infos) > BASE_ZIP_MEMBERS or sum(info.file_size for info in infos) > BASE_UNPACKED_LIMIT:
+        raise BaseArchiveError('format', 'the archive is too large')
+    try:
+        manifest = json.loads(_member(archive, 'manifest.json', BASE_MANIFEST_LIMIT) or b'')
+    except ValueError as error:
+        raise BaseArchiveError('format', 'no manifest') from error
+    if (not isinstance(manifest, dict) or type(manifest.get('format')) is not int
+            or manifest['format'] != BASE_INDEX_FORMAT or not _count(manifest.get('version'))
+            or (version is not None and manifest['version'] != version)
+            or not isinstance(manifest.get('index_sha256'), str) or not _SHA256.fullmatch(manifest['index_sha256'])):
+        raise BaseArchiveError('format', 'unknown manifest')
+    raw = _member(archive, 'index.json', BASE_INDEX_JSON_LIMIT)
+    if raw is None or hashlib.sha256(raw).hexdigest() != manifest['index_sha256']:
+        raise BaseArchiveError('checksum', 'the index is not the one the manifest names')
+    index = parse_base_index(raw, manifest['version'])
+    if index is None:
+        raise BaseArchiveError('format', 'unknown index')
+    return {'version': manifest['version'], 'built_utc': _short(manifest.get('built_utc')) or index['built_utc'],
+            'games': len(index['games']), 'index_sha256': manifest['index_sha256'], 'index': index,
+            'raw_index': raw}
+
+
+@lru_cache(maxsize=2)
+def _installer_head(path: str, size: int, modified: int):
+    try:
+        with zipfile.ZipFile(path) as archive:
+            head = read_archive_head(archive)
+            names = frozenset(match.group(1) for match in map(_ENTRY_NAME.fullmatch, archive.namelist()) if match)
+    except (OSError, zipfile.BadZipFile, BaseArchiveError, NotImplementedError, RuntimeError):
+        return None
+    head.pop('raw_index')
+    return {**head, 'entries': names}
+
+
+def installer_base() -> dict | None:
+    """The installer's copy as {'version', 'built_utc', 'games',
+    'index_sha256', 'index', 'entries' (the entry hashes it holds)}, or None
+    when it is absent or not a base. Read again when the file changes."""
+    path = installer_base_path()
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return _installer_head(str(path), stat.st_size, stat.st_mtime_ns)
+
+
+def _state_path() -> Path:
+    return base_directory() / 'state.json'
+
+
+def read_base_state() -> dict | None:
+    """base/state.json as {'version', 'index_sha256', 'origin', 'service',
+    'cursor'}, or None when it is absent or malformed."""
+    try:
+        data = json.loads(_state_path().read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if (not isinstance(data, dict) or not _count(data.get('version')) or data.get('origin') not in BASE_ORIGINS
+            or not isinstance(data.get('index_sha256'), str) or not _SHA256.fullmatch(data['index_sha256'])):
+        return None
+    return {'version': data['version'], 'index_sha256': data['index_sha256'], 'origin': data['origin'],
+            'service': data['service'] if isinstance(data.get('service'), str) else '',
+            'cursor': data['cursor'] if _count(data.get('cursor')) else 0}
+
+
+def write_base_state(base: dict, service: str = '') -> None:
+    state = {'version': base['version'], 'index_sha256': base['index_sha256'], 'origin': base['origin'],
+             'service': service, 'cursor': base.get('cursor', 0)}
+    _atomic_write(_state_path(), (json.dumps(state, indent=1, sort_keys=True) + '\n').encode('utf-8'))
+
+
+def _downloaded_base(state: dict | None) -> dict | None:
+    if not state or state['origin'] != 'download':
+        return None
+    try:
+        with open(base_directory() / 'index.json', 'rb') as file:
+            raw = file.read(BASE_INDEX_JSON_LIMIT + 1)
+    except OSError:
+        return None
+    if hashlib.sha256(raw).hexdigest() != state['index_sha256']:
+        return None
+    index = parse_base_index(raw, state['version'])
+    if index is None:
+        return None
+    return {'version': state['version'], 'built_utc': index['built_utc'], 'games': len(index['games']),
+            'index_sha256': state['index_sha256'], 'index': index, 'origin': 'download', 'cursor': state['cursor']}
+
+
+def local_base() -> dict | None:
+    """The base in use: {'version', 'built_utc', 'games', 'index_sha256',
+    'index', 'origin', 'cursor'} or None. The downloaded one, unless the
+    installer's copy is newer (a program update brought a later base) or the
+    download is damaged; without either, the copy. `cursor` is the highest record id the base is known to hold
+    (0 when not known). Reads only."""
+    state = read_base_state()
+    local = _downloaded_base(state)
+    installer = installer_base()
+    if installer and (local is None or installer['version'] > local['version']):
+        cursor = state['cursor'] if state and state['origin'] == 'installer' \
+            and state['index_sha256'] == installer['index_sha256'] else 0
+        return {'version': installer['version'], 'built_utc': installer['built_utc'], 'games': installer['games'],
+                'index_sha256': installer['index_sha256'], 'index': installer['index'], 'origin': 'installer',
+                'cursor': cursor}
+    return local
+
+
+def settle_local_base(service: str = '') -> dict | None:
+    """`local_base`, with the store made to say so: the first run on the
+    installer's copy points state.json at it (nothing is copied), a newer copy
+    replaces the download, and the entries no index names any more are removed."""
+    base = local_base()
+    if base is None:
+        return None
+    state = read_base_state()
+    if (state is None or state['version'] != base['version'] or state['origin'] != base['origin']
+            or state['index_sha256'] != base['index_sha256']):
+        if base['origin'] == 'installer':
+            try:
+                (base_directory() / 'index.json').unlink(missing_ok=True)
+            except OSError:
+                pass
+        write_base_state(base, service)
+        prune_entries(base['index'])
+    return base
+
+
+class BaseEntries:
+    """Entry texts of the local base: the local folder first, then the
+    installer's copy (opened read-only for as long as this object is used)."""
+
+    def __init__(self):
+        self.folder = base_directory() / 'entries'
+        self.archive = None
+        self.held = frozenset()
+
+    def __enter__(self):
+        head = installer_base()
+        if head:
+            try:
+                self.archive = zipfile.ZipFile(installer_base_path())
+                self.held = head['entries']
+            except (OSError, zipfile.BadZipFile):
+                self.archive = None
+        return self
+
+    def __exit__(self, *exc):
+        if self.archive is not None:
+            self.archive.close()
+            self.archive = None
+
+    def text(self, sha: str) -> bytes | None:
+        """The bytes of entry `sha` (their hash is the caller's to check), or
+        None when neither the folder nor the copy has it."""
+        if not _SHA256.fullmatch(sha):
+            return None
+        try:
+            with open(self.folder / f'{sha}.json', 'rb') as file:
+                raw = file.read(BASE_ENTRY_LIMIT + 1)
+            if len(raw) <= BASE_ENTRY_LIMIT:
+                return raw
+        except OSError:
+            pass
+        if self.archive is not None and sha in self.held:
+            try:
+                return _member(self.archive, f'entries/{sha}.json', BASE_ENTRY_LIMIT)
+            except (OSError, zipfile.BadZipFile, BaseArchiveError, RuntimeError, NotImplementedError):
+                return None
+        return None
+
+
+def prune_entries(index: dict) -> int:
+    """Remove the local entries no game of `index` names. The count removed."""
+    wanted = {game['entry'] for game in index['games'].values()}
+    removed = 0
+    try:
+        names = list((base_directory() / 'entries').iterdir())
+    except OSError:
+        return 0
+    for path in names:
+        match = re.fullmatch(r'([0-9a-f]{64})\.json', path.name)
+        if match and match.group(1) not in wanted:
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
+def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: int = 0) -> dict:
+    """Verify the base archive at `path` (a full base, or a difference whose
+    index is the complete index of `version`) and make it the local base:
+    every entry it carries is checked against the hash that names it, the
+    index against its manifest, and every entry the index names must be held
+    by the archive, the local folder or the installer's copy. Nothing changes
+    until all of it holds; the state file is written last. Raises
+    BaseArchiveError (nothing applied) or OSError (the store may keep entries
+    that nothing names, removed by the next pruning). Returns `local_base`."""
+    folder = base_directory() / 'entries'
+    written = []
+    try:
+        with zipfile.ZipFile(path) as archive:
+            head = read_archive_head(archive, version)
+            index = head['index']
+            wanted = {game['entry'] for game in index['games'].values()}
+            installer = (installer_base() or {}).get('entries', frozenset())
+            carried = set()
+            for info in archive.infolist():
+                match = _ENTRY_NAME.fullmatch(info.filename)
+                if not match or match.group(1) not in wanted or info.is_dir():
+                    continue
+                sha = match.group(1)
+                carried.add(sha)
+                if sha in installer or (folder / f'{sha}.json').is_file():
+                    continue   # content-addressed: what is held under this name is this entry
+                raw = _member(archive, info.filename, BASE_ENTRY_LIMIT)
+                if raw is None or hashlib.sha256(raw).hexdigest() != sha:
+                    raise BaseArchiveError('checksum', f'entry {sha[:12]} is not the one its name says')
+                folder.mkdir(parents=True, exist_ok=True)
+                fd, temporary = tempfile.mkstemp(prefix=sha + '.', suffix='.tmp', dir=folder)
+                written.append((temporary, folder / f'{sha}.json'))
+                with os.fdopen(fd, 'wb') as file:
+                    file.write(raw)
+                    file.flush()
+                    os.fsync(file.fileno())
+            for sha in wanted - carried - set(installer):
+                if not (folder / f'{sha}.json').is_file():
+                    raise BaseArchiveError('incomplete', f'entry {sha[:12]} is nowhere')
+        for temporary, target in written:
+            os.replace(temporary, target)
+        written = []
+        target = base_directory() / 'index.json'
+        try:
+            earlier = target.read_bytes()
+        except OSError:
+            earlier = None
+        _atomic_write(target, head['raw_index'])
+        base = {'version': head['version'], 'built_utc': head['built_utc'], 'games': head['games'],
+                'index_sha256': head['index_sha256'], 'index': index, 'origin': 'download', 'cursor': cursor}
+        try:
+            write_base_state(base, service)
+        except BaseException:
+            # The state is the commit point: until it is written, the earlier index stays.
+            try:
+                if earlier is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    _atomic_write(target, earlier)
+            except OSError:
+                pass
+            raise
+        prune_entries(index)
+        return base
+    except zipfile.BadZipFile as error:
+        raise BaseArchiveError('format', 'not a zip file') from error
+    finally:
+        for temporary, _ in written:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+
+
+def read_qualified_bank() -> dict:
+    """{system: {identity: record}} of the qualified bank ({} when absent or
+    unreadable)."""
+    path = qualified_bank_path()
+    try:
+        return read(path)['consoles'] if path.is_file() else {}
+    except (OSError, ValueError, EOFError, zlib.error):
+        return {}
+
+
+def write_qualified_bank(consoles: dict) -> None:
+    write_packed(qualified_bank_path(), validate_payload(
+        {'schema': 1, 'consoles': {system: games for system, games in sorted(consoles.items()) if games}}))
 
 
 def _import_document(document: dict) -> dict:

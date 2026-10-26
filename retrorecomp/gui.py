@@ -2206,6 +2206,8 @@ class Application:
                     self.log.see('end')
                     self.log.configure(state='disabled')
                     if self.compiled_view is not None:self.compiled_view.show_log(event[1])
+                elif kind == 'notice':
+                    messagebox.showinfo(APP_NAME, event[1], parent=self.app)
                 elif kind == 'drop':
                     self.drop_paths(event[1])
                 elif kind == 'drop_blocked':
@@ -3227,6 +3229,7 @@ class Application:
             menu.add_command(label=self.tr('knowledge_export_web'), state='disabled')
         else:
             menu.add_command(label=self.tr('knowledge_send'), command=self.send_knowledge)
+            menu.add_command(label=self.tr('menu_update_base'), command=self.update_shared_base)
             # Signing out lives in the header (and Options); signing in stays
             # here too, next to the send that needs it.
             if not online.account():
@@ -3308,7 +3311,9 @@ class Application:
                  'rate_limited': 'online_rate_limited', 'quota': 'online_rate_limited',
                  'terms_required': 'online_terms_needed', 'too_large': 'online_report_too_large',
                  'invalid_report': 'online_report_invalid', 'unauthorized': 'online_signed_out',
-                 'pseudonym_taken': 'online_pseudonym_taken', 'invalid_pseudonym': 'online_pseudonym_invalid'}
+                 'pseudonym_taken': 'online_pseudonym_taken', 'invalid_pseudonym': 'online_pseudonym_invalid',
+                 'verify': 'base_error_verify', 'no_path': 'base_error_nopath', 'no_base': 'base_error_nobase',
+                 'unavailable': 'base_error_unavailable', 'format': 'base_error_format'}
         reason = getattr(error, 'reason', '') or type(error).__name__
         if reason == 'converter_outdated':
             # The service names the oldest version it accepts uploads from.
@@ -3549,17 +3554,17 @@ class Application:
     # --- The shared base around each batch -----------------------------------
 
     def prepare_shared_paths(self, keys, enabled, quiet=False):
-        """Worker side, before a batch: one fetch of the shared base's paths
-        for these ROMs ('system:identity') into the imported banks, said in one
-        log line. {} without the option, the service or an account (no request);
-        a fetch that fails leaves the conversions as they would be offline.
+        """Worker side, before a batch: the shared base for these ROMs
+        ('system:identity'). The local base applies whatever the option says
+        (its qualified paths replace what the executable used to embed); with
+        the option on it is first brought up to date, at most once a day, and
+        a signed-in player also fetches the paths found since. Said in a few
+        log lines. A failure leaves the conversions as they would be offline.
         `quiet` leaves out the lines that say nothing came."""
-        if not enabled or not SENDING_AVAILABLE:
-            return {}
         try:
-            outcome = online.prepare_batch(keys, True)
+            outcome = online.prepare_batch(keys, bool(enabled))
         except Exception as exc:   # the batch goes on whatever happens here
-            outcome = {'paths': {}, 'summary': None, 'error': exc}
+            outcome = {'paths': {}, 'summary': None, 'error': exc, 'base': None}
         summary, error = outcome['summary'], outcome['error']
         self.log_published_base(outcome.get('base'), summary, error, quiet)
         if error is not None:
@@ -3604,7 +3609,7 @@ class Application:
         """For the length of a batch with Neo Geo games: a conversion that has
         just prepared its cartridge asks the shared base for it, once, unless
         `keys` (the batch's first request) already covered it."""
-        if not enabled or not SENDING_AVAILABLE or 'ng' not in systems:
+        if 'ng' not in systems:
             return
         from . import neogeo_knowledge
         asked, lock = set(keys), threading.Lock()
@@ -3614,7 +3619,7 @@ class Application:
                 if key in asked:
                     return
                 asked.add(key)
-                self.prepare_shared_paths([key], True, quiet=True)
+                self.prepare_shared_paths([key], enabled, quiet=True)
         neogeo_knowledge.SHARED_SOURCE = source
 
     def stop_shared_source(self):
@@ -3623,13 +3628,27 @@ class Application:
             module.SHARED_SOURCE = None
 
     def log_published_base(self, base, summary, error, quiet=False):
-        """The published base's outcome for this batch in log lines: its
-        number and the games received, nothing new (left to the signed-in
-        sync's own line when there is one), a format this version cannot read,
-        and the problem that stopped it, if any. Nothing when the service has
-        no base yet."""
+        """The shared base's outcome for this batch in log lines: an update
+        that came in, no base and no connection (also as a notice, once per
+        session: every game is discovered in full), the local base used because
+        there was no connection, its number and the games received, nothing
+        new (left to the signed-in sync's own line when there is one), a format
+        this version cannot read, and the problem that stopped it, if any.
+        Nothing when there is no base and nothing was asked of it."""
         if not base:
             return
+        update = base.get('update') or {}
+        if update.get('source'):
+            self.messages.put(('log', self.tr('base_updated', version=update['version'],
+                                              size=self.byte_size(update.get('downloaded_bytes', 0)))))
+        if base.get('offline') and not quiet:
+            if base.get('version') is None:
+                self.messages.put(('log', self.tr('base_none')))
+                if not getattr(self, 'base_notice_given', False):
+                    self.base_notice_given = True
+                    self.messages.put(('notice', self.tr('base_none')))
+            else:
+                self.messages.put(('log', self.tr('base_local_offline', version=base['version'])))
         if base.get('note') == 'format':
             self.messages.put(('log', self.tr('shared_base_format', format=base.get('format'))))
         elif base.get('version') is not None and base.get('games'):
@@ -3637,11 +3656,38 @@ class Application:
         elif (base.get('version') is not None and base.get('error') is None and summary is None and base.get('asked')
                 and not quiet):
             self.messages.put(('log', self.tr('shared_base_nothing', version=base['version'])))
-        if base.get('error') is not None:
+        if base.get('error') is not None and not (base.get('offline') or base.get('note') == 'format'):
             problem = self.service_problem(base['error'])
             # Offline, the signed-in sync reports the same problem right after.
             if error is None or problem != self.service_problem(error):
                 self.messages.put(('log', self.tr('shared_base_unavailable', error=problem)))
+
+    @staticmethod
+    def byte_size(count):
+        """A download size in words: '312 KiB', '4.7 MiB'."""
+        return f'{count / 1048576:.1f} MiB' if count >= 1048576 else f'{max(1, round(count / 1024))} KiB'
+
+    # --- The shared base on demand ---------------------------------------------
+
+    def update_shared_base(self):
+        """Knowledge menu: bring the local base up to the service's latest
+        version now, off Tk; the result is one short line (knowledge_done)."""
+        if self.busy or self.updating:
+            return
+        self.knowledge_task(lambda: ('base_updated', online.update_base()), 'base_update_working')
+
+    def base_update_line(self, result):
+        """The short result line of `update_base`."""
+        if result.get('error'):
+            reason = {'offline': 'online_unreachable', 'unavailable': 'base_error_unavailable',
+                      'no_base': 'base_error_nobase', 'no_path': 'base_error_nopath', 'format': 'base_error_format',
+                      'verify': 'base_error_verify', 'disk': 'base_error_disk'}.get(result['error'], 'online_refused')
+            problem = self.tr(reason, reason=result['error']) if reason == 'online_refused' else self.tr(reason)
+            return self.tr('base_update_failed', error=problem)
+        if result.get('source'):
+            return self.tr('base_updated', version=result['version'],
+                           size=self.byte_size(result.get('downloaded_bytes', 0)))
+        return self.tr('base_up_to_date', version=result['version'])
 
     def forget_rejected_shared(self, shared, results):
         """Shared paths a batch set aside after they broke a conversion no
@@ -4946,6 +4992,9 @@ class Application:
             if self.closing_send:self.close()
             return
         kind, summary = outcome
+        if kind == 'base_updated':
+            self.knowledge_report(self.base_update_line(summary))
+            return
         if kind == 'send_collect':
             pending = online.pending(summary)
             if not pending['games']:

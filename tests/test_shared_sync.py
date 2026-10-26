@@ -320,7 +320,11 @@ class SharedBaseTests(unittest.TestCase):
         owner.send_after_batch = Mock(get=Mock(return_value=False))
         with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.prepare_batch') as prepare, patch('retrorecomp.online.send_after_batch') as send:
+            # Without the option the local base still applies (its qualified paths), but nothing is fetched.
+            prepare.return_value = {'paths': {}, 'summary': None, 'error': None, 'base': None}
             self.assertEqual(owner.prepare_shared_paths(['sms:' + 'ef' * 32], False), {})
+            prepare.assert_called_once_with(['sms:' + 'ef' * 32], False)
+            prepare.reset_mock()
             owner.send_new_discoveries()
             prepare.assert_not_called()
             send.assert_not_called()
@@ -331,7 +335,7 @@ class SharedBaseTests(unittest.TestCase):
             self.assertIn(owner.tr('online_unreachable'), text)
             self.assertTrue(owner.messages.empty())
             # A fetch that fails leaves the batch as it would be offline.
-            prepare.return_value = {'paths': {}, 'summary': None, 'error': online.ServiceError(503, 'busy')}
+            prepare.return_value = {'paths': {}, 'summary': None, 'error': online.ServiceError(503, 'busy'), 'base': None}
             self.assertEqual(owner.prepare_shared_paths(['sms:' + 'ef' * 32], True), {})
             self.assertIn('busy', owner.messages.get_nowait()[1])
 
