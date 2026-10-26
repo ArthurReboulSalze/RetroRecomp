@@ -458,10 +458,10 @@ class CreditsDemo:
         for bounds,color in wordmark_rectangles(90,21,3):
             c.create_rectangle(*bounds,fill=color,outline='')
         c.create_text(91,57,text=self.tr('brand_tagline'),anchor='w',fill=MUTED,font=(self.font,8))
-        # The music's credit, right-aligned and centred in the band (Arthur's
-        # own credit is at the end of the 'Made by Retro-Recomp' part).
-        for dy,label,color,url in ((0,self.tr('credits_chiploom'),GOLD,'https://github.com/ArthurReboulSalze/ChipLoom'),):
-            item = c.create_text(w-18,(h-3)/2+dy,text=label,anchor='e',fill=color,font=(self.font,9,'underline'))
+        # The music's credit, right-aligned, small and discreet on the tagline's
+        # line (Arthur's own credit ends the 'Made by Retro-Recomp' part).
+        for label,color,url in ((self.tr('credits_chiploom'),GOLD,'https://github.com/ArthurReboulSalze/ChipLoom'),):
+            item = c.create_text(w-18,57,text=label,anchor='e',fill=color,font=(self.font,8,'underline'))
             c.tag_bind(item,'<Enter>',lambda e,i=item,k=color:self._credit_hover(i,k,True))
             c.tag_bind(item,'<Leave>',lambda e,i=item,k=color:self._credit_hover(i,k,False))
             c.tag_bind(item,'<Button-1>',lambda e,address=url:webbrowser.open_new_tab(address))
