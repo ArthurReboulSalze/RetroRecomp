@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ import urllib.error
 import urllib.request
 import uuid
 import select
+import zipfile
 
 from . import __version__
 from .platforms import target_id
@@ -27,6 +29,11 @@ API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=100"
 RELEASE_BASE = f"https://github.com/{REPOSITORY}/releases"
 VERSION_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
+# The base copy of the same release (the installer's Retro-Recomp-base.zip):
+# the release tooling attaches it under exactly this name, and the update
+# places it beside the converter under the same name.
+BASE_ASSET = 'Retro-Recomp-base.zip'
+MAX_BASE_BYTES = 512 * 1024 * 1024
 UPDATE_PREFIX = ".RetroRecomp-update-"
 
 
@@ -67,6 +74,10 @@ class Update:
     # Plain-text release notes of every version newer than the installed one,
     # newest first, so a skipped version's changes are shown too.
     notes: str = ''
+    # The base copy attached to the same release; empty when the release has none.
+    base_url: str = ''
+    base_digest: str = ''
+    base_size: int = 0
 
 
 NOTES_LIMIT = 12000
@@ -118,6 +129,18 @@ def release_asset(target: str) -> str:
     return names[target]
 
 
+def _asset_fields(asset: dict, name: str, limit: int):
+    """(digest, size) of an uploaded asset called `name`, checked the same way
+    for the converter and for its base copy; None for anything else."""
+    digest = asset.get("digest", "")
+    size = asset.get("size", 0)
+    if (asset.get("name") == name and asset.get("state") == "uploaded"
+            and isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
+            and isinstance(size, int) and not isinstance(size, bool) and 0 < size <= limit):
+        return digest[7:].lower(), size
+    return None
+
+
 def _target_platform(executable: Path) -> str:
     if executable.name.casefold() == 'retro-recomp.exe':
         return 'windows-x86_64'
@@ -148,23 +171,24 @@ def select_update(releases: list[dict], current: str = __version__, *, target: s
         if text:
             notes.append((number, f"{tag[1:]}\n\n{text}" if not text.startswith(tag[1:]) else text))
         # Pre-releases are intentional in this project; GitHub's /latest omits them.
-        for asset in release.get("assets", []):
-            name = asset.get("name")
-            digest = asset.get("digest", "")
-            size = asset.get("size", 0)
-            if (name == wanted and asset.get("state") == "uploaded"
-                    and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
-                    and isinstance(size, int) and 0 < size <= MAX_ARCHIVE_BYTES):
-                candidates.append((number, tag, name, digest[7:].lower(), size))
+        assets = release.get("assets", [])
+        base = next((fields for asset in assets
+                     if (fields := _asset_fields(asset, BASE_ASSET, MAX_BASE_BYTES))), None)
+        for asset in assets:
+            fields = _asset_fields(asset, wanted, MAX_ARCHIVE_BYTES)
+            if fields:
+                candidates.append((number, tag, wanted, fields[0], fields[1], base))
     if not candidates:
         return None
-    number, tag, name, digest, size = max(candidates, key=lambda item: item[0])
+    number, tag, name, digest, size, base = max(candidates, key=lambda item: item[0])
     # Only versions up to the offered one; newest first, bounded as a whole.
     text = "\n\n".join(entry for n, entry in sorted(notes, reverse=True) if n <= number)
     if len(text) > NOTES_LIMIT:
         text = text[:NOTES_LIMIT].rsplit("\n", 1)[0].rstrip() + "\n…"
     return Update(tag[1:], f"{RELEASE_BASE}/download/{tag}/{name}",
-                  f"{RELEASE_BASE}/tag/{tag}", digest, size, target, text)
+                  f"{RELEASE_BASE}/tag/{tag}", digest, size, target, text,
+                  f"{RELEASE_BASE}/download/{tag}/{BASE_ASSET}" if base else "",
+                  base[0] if base else "", base[1] if base else 0)
 
 
 def check_for_update() -> Update | None:
@@ -189,14 +213,39 @@ def _safe_job_dir(job_dir: Path, target: Path) -> Path:
     return root
 
 
+def _make_writable(function, path, error) -> None:
+    """rmtree helper: the base copy is read only, so unlock it and try again."""
+    os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+    function(path)
+
+
 def _remove_job_dir(job_dir: Path, target: Path) -> None:
     root = _safe_job_dir(job_dir, target)
-    shutil.rmtree(root)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(root, onexc=_make_writable)
+    else:
+        shutil.rmtree(root, onerror=_make_writable)
 
 
 def discard_update(job_dir: Path, executable: Path) -> None:
     """Remove a prepared update if its detached helper could not be started."""
     _remove_job_dir(job_dir, executable)
+
+
+def _download_verified(url: str, destination: Path, size: int, digest: str, limit: int, mismatch: str) -> None:
+    """Fetch `url` into `destination`; the size and SHA-256 must be the ones GitHub published."""
+    request = urllib.request.Request(url, headers={"User-Agent": f"RetroRecomp/{__version__}"})
+    hasher = hashlib.sha256()
+    received = 0
+    with _open_release_url(request, timeout=60) as response, destination.open("wb") as output:
+        while chunk := _read_release_bytes(response, 1024 * 1024):
+            received += len(chunk)
+            if received > limit:
+                raise ValueError("Release download is too large")
+            output.write(chunk)
+            hasher.update(chunk)
+    if received != size or hasher.hexdigest() != digest:
+        raise ValueError(mismatch)
 
 
 def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
@@ -207,18 +256,8 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
     job_dir = Path(tempfile.mkdtemp(prefix=UPDATE_PREFIX, dir=executable.parent)).resolve()
     archive_path = job_dir / "download"
     try:
-        request = urllib.request.Request(update.url, headers={"User-Agent": f"RetroRecomp/{__version__}"})
-        digest = hashlib.sha256()
-        size = 0
-        with _open_release_url(request, timeout=60) as response, archive_path.open("wb") as output:
-            while chunk := _read_release_bytes(response, 1024 * 1024):
-                size += len(chunk)
-                if size > MAX_ARCHIVE_BYTES:
-                    raise ValueError("Release download is too large")
-                output.write(chunk)
-                digest.update(chunk)
-        if size != update.size or digest.hexdigest() != update.digest:
-            raise ValueError("Downloaded release checksum does not match GitHub")
+        _download_verified(update.url, archive_path, update.size, update.digest, MAX_ARCHIVE_BYTES,
+                           "Downloaded release checksum does not match GitHub")
         staged = job_dir / 'files' / executable.name
         staged.parent.mkdir(parents=True)
         archive_path.replace(staged)
@@ -233,6 +272,17 @@ def prepare_update(update: Update, executable: Path) -> tuple[Path, str]:
         if update.target == 'linux-x86_64':
             staged.chmod((executable.stat().st_mode & 0o777) | 0o100)
         files = {executable.name: update.digest}
+        if update.base_url:
+            # The base copy of the same release, checked like the converter and
+            # installed beside it, replacing the previous copy.
+            base = job_dir / 'files' / BASE_ASSET
+            _download_verified(update.base_url, base, update.base_size, update.base_digest, MAX_BASE_BYTES,
+                               "Downloaded base checksum does not match GitHub")
+            with base.open("rb") as candidate:
+                if candidate.read(4) != b"PK" + bytes((3, 4)) or not zipfile.is_zipfile(base):
+                    raise ValueError("Release does not contain a base archive")
+            base.chmod(stat.S_IREAD)       # like the installer's copy: read only
+            files[BASE_ASSET] = update.base_digest
         if getattr(sys, "frozen", False):
             environment = os.environ.copy()
             environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
@@ -309,7 +359,7 @@ def _install_files(job_dir: Path, target: Path, files: dict[str, str]) -> None:
     staged = job_dir / "files"
     backup = job_dir / "backup"
     _target_platform(target)
-    if set(files) != {target.name}:
+    if target.name not in files or not set(files) <= {target.name, BASE_ASSET}:
         raise ValueError("Invalid update manifest")
     changed = []
     try:

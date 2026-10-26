@@ -336,6 +336,7 @@ tests/test_toolchain.py tests/test_legacy_compat.py tools/toolchain_compare.py t
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py
+tests/test_updater_base.py tests/test_update_startup.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py
 tools/banked_vector_selftest.py tools/banked_verify.py tools/cpu_selftest.py
 tools/data_selftest.py tools/fetch_z80_vectors.py tools/gui_smoke.py
