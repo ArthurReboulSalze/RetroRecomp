@@ -38,6 +38,10 @@ static bool field_visible;
 static uint64_t pcm_samples, pcm_nonzero, pcm_hash = 14695981039346656037ull;
 static unsigned pcm_peak;
 static uint64_t frame_audio_hash;
+/* Liveness evidence for the activity gate, counted in frames of this process:
+ * the last frame the cartridge device executed instructions and the last frame
+ * with an audible (non-zero) sample. Reporting only, never part of the state. */
+static uint64_t run_frames, last_device_frame, last_audible_frame, device_seen;
 static struct { uint32_t pc; uint8_t bytes[4]; } ram_variants[RR_SN_RAM_VARIANT_LIMIT];
 static uint16_t ram_observation_slots[RR_SN_RAM_VARIANT_LIMIT*2];
 static uint64_t ram_observation_overflows;
@@ -136,6 +140,7 @@ void rr16_reset(void) {
     ram_observation_overflows=0;memset(ram_observation_slots,0,sizeof ram_observation_slots);
     overscan_seen = interlace_seen = hires_seen = false;
     visible_frames = 0;
+    run_frames = last_device_frame = last_audible_frame = device_seen = 0;
     memset(pixels,0,sizeof pixels); memset(raster,0,sizeof raster);
     visible_width=256; raster_height=224; row_density=1; captured_rows=0;
     retained_hires[0]=retained_hires[1]=false;
@@ -151,8 +156,12 @@ static void observe_video_mode(const Ppu *ppu, unsigned line, void *context) {
     hires_seen |= PPU_pseudoHires(ppu) || PPU_mode(ppu) == 5 || PPU_mode(ppu) == 6;
     field_hires |= PPU_pseudoHires(ppu) || PPU_mode(ppu) == 5 || PPU_mode(ppu) == 6;
 }
+static uint64_t chip_interpreted(void);
 bool rr16_frame(uint16_t p1, uint16_t p2) {
     RtlRunFrame(p1 | ((uint32_t)p2 << 12));
+    ++run_frames;
+    uint64_t device = chip_interpreted();
+    if (device != device_seen) { device_seen = device; last_device_frame = run_frames; }
     unsigned next_density=g_ppu->frameInterlace ? 2 : 1;
     unsigned next_height=g_ppu->frameOverscan ? 239 : 224;
     if (next_density!=row_density || next_height!=raster_height) {
@@ -277,6 +286,8 @@ void rr16_report_details(FILE *file) {
         "\"dsp_state_hash\":\"%016llx\",\"pcm_samples\":%llu,\"pcm_nonzero\":%llu,"
         "\"pcm_peak\":%u,\"pcm_hash\":\"%016llx\"", spc->pc, bytes_hash(spc_registers, sizeof spc_registers),
         apu_hash.hash, dsp.hash, pcm_samples, pcm_nonzero, pcm_peak, pcm_hash);
+    fprintf(file, ",\"last_device_frame\":%llu,\"last_audible_frame\":%llu",
+        (unsigned long long)last_device_frame, (unsigned long long)last_audible_frame);
     /* Explicit architectural fields: never hash pointers or host padding. */
     uint16_t registers[] = {g_cpu.A, g_cpu.X, g_cpu.Y, g_cpu.S, g_cpu.D,
         g_cpu.DB, g_cpu.PB, g_cpu.P, g_cpu.m_flag, g_cpu.x_flag, g_cpu.emulation,
@@ -313,6 +324,7 @@ size_t rr16_audio(int16_t *pcm, size_t capacity) {
         for (size_t i = 0; i < frames * 2; ++i) {
             unsigned amplitude = pcm[i] < 0 ? -(int)pcm[i] : pcm[i];
             pcm_nonzero += amplitude != 0;
+            if (amplitude) last_audible_frame = run_frames;
             if (amplitude > pcm_peak) pcm_peak = amplitude;
             pcm_hash ^= (uint16_t)pcm[i]; pcm_hash *= 1099511628211ull;
             frame_audio_hash ^= (uint16_t)pcm[i]; frame_audio_hash *= 1099511628211ull;
