@@ -21,6 +21,15 @@
   rebuilt with the current tools and rechecked; X68000 exports are converted
   again once. F8/F9 quick states saved by 1.5.2 Mega Drive and Super Nintendo
   games are refused; those of the other consoles keep loading.
+- **Safer shared paths.** A path offered by other players still guides your
+  conversion, but your library keeps it, and your uploads send it, only once
+  your own conversion has reached it. A Game Boy path that pointed into
+  padding could become an empty native block that froze the game: such a
+  block now runs `RST 38` on `0xFF` or goes through the interpreter. A Mega
+  Drive path listed twice no longer makes the build fail, and one bad shared
+  row is set aside alone. With the plain (not Extended) Master System and Game
+  Gear backend, a divergence from the reference now fails the conversion
+  instead of passing unnoticed.
 - **Rewards for converting.** The first conversion of a game the shared base
   already knows earns 10 RR coins (once per game, when your upload is
   checked); finishing it at the Extended level earns 20 more, Thorough 40 more,

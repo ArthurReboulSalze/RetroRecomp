@@ -227,6 +227,24 @@ is built changed", which is not true any more. So a player's Super Nintendo expo
 native validation passed, zero interpreted instructions); a ROM the bundled knowledge holds starts
 from its paths with the quick check at the Standard level.
 
+**Validation fixes merged after these entries (26 October 2026, branch `shared-paths-reached-only`)**: they change game-side inputs again for
+the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo and CPS-1
+(`systems/master_system.py`, `systems/game_gear.py`, `gameboy.py`, `gameboy_boundary.py`,
+`nes.py`, `megadrive.py`, `megadrive_z80.py`, `megadrive_codegen.py`, `supernintendo.py`,
+`snes_spc.py`). The 1.5.2 entries are kept, by reading those changes rather than by new release
+conversions (the maintainer asked not to run hours of conversions for this): they change which
+hints offered by other players a conversion remembers and sends (only those it observes), and
+error paths a correctly generated 1.5.2 game never took — a native body with no instruction
+(Game Boy: now `RST 38` on `0xFF`, otherwise the interpreter), duplicated Mega Drive RAM variants
+(no longer a build failure), and the Sega `functions` backend, which now fails on a reference
+divergence like `banked`. What a correctly converted game does is unchanged; the phase 1 audit
+measured the same main-CPU and sound-CPU interpreter counts on ten games before and after, and
+executables within 1 KB. An upgrade rebuilds the executable with the current compiler and
+rechecks it on the quick routes, so upgraded exports get the fixes too; a `functions` Master
+System or Game Gear export that diverges now fails that recheck and is converted again. Neither
+the Mega Drive / Super Nintendo nor the CPS-1 quick-state keys change with these files (the
+console16 key covers `native/` and SNES modules, the CPS-1 key its own build and codegen modules).
+
 Quick-state keys between `v1.5.2` and this tree (same synthetic inputs as
 `tests/test_legacy_compat.py`, Windows):
 
