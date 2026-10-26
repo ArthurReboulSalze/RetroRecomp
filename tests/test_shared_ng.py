@@ -608,5 +608,14 @@ class WindowTests(unittest.TestCase):
             forget.assert_called_once_with(['gb:' + 'f' * 64])
 
 
+class ConsolesOutsideTheBaseTests(unittest.TestCase):
+    def test_cps1_and_the_x68000_know_nothing_and_never_fail(self):
+        # The batch asks before every Standard conversion (1.5.2 failed here with a KeyError).
+        for system in ('cps1', 'x68'):
+            self.assertEqual(knowledge_exchange._entries(system, {}), set())
+            self.assertEqual(knowledge_exchange._entries(system, knowledge_exchange._bundled(system, 'a' * 64)), set())
+            self.assertEqual(knowledge_exchange.unknown_hints(system, {'rom_bytes': 1}, {}), 0)
+
+
 if __name__ == '__main__':
     unittest.main()
