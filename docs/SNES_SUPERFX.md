@@ -27,7 +27,9 @@ gathered, and a costed plan. Nothing here is a fidelity or latency claim.
   their validated routes, matching internal native/reference comparisons,
   exact quick-state round trips and visible 3D or sprite-scaling scenes. Doom
   and Dirt Trax FX against MAME show the same scenes but are **not
-  frame-aligned**; timing is the first open question.
+  frame-aligned**: the measured causes are simplifications on MAME's side
+  (no DRAM refresh, free DMA, a flat GSU cost), so MAME is used as an
+  event-order reference, not a frame-alignment oracle.
 - Native recompilation of GSU code is possible in principle (the code is in
   ROM) but is a separate multi-week project; the interpreter stays the
   measured fallback and remains visible. A decoder, a static traversal and a
@@ -152,7 +154,9 @@ build folders removed after publication. Outputs under
   first room at 1,500, but at 3,000 MAME is on a black transition while the
   export still shows the room. Dirt Trax FX shows the same title, menu and race
   demo, but fades are offset and the race positions differ at 3,000. Content
-  agrees; **timing does not**, and neither side is ground truth yet. MAME
+  agrees; **timing does not**, and neither side is ground truth. The black MAME
+  frame at 3,000 is one of the blank frames of MAME's 9-frame Doom render
+  cycle, not a demo-timing fact (see "Timing and synchronization"). MAME
   needs the 64-byte SPC700 IPL; the comparison wrote it locally from the pinned
   engine's `apu.c` into the spike folder (CRC `44bb3a40`), nothing distributed.
 ### Standard level, all eight cartridges (26 October 2026)
@@ -410,12 +414,26 @@ the project rule that cartridges are analyzed from their own ROM.
   21.48 MHz with CLSR). The GSU is caught up lazily at each cartridge access
   and at frame boundaries; the 65816 typically polls SFR.G or waits for the
   GSU IRQ, then DMAs the bitmap to VRAM in vertical blank.
-- What to check first, given the MAME offset: start-up delay before the first
-  frame, GSU cost per instruction (cache, ROM buffer, multiplier, CLSR),
-  65816 wait loops on SFR (whether parked polling advances time exactly),
-  and DMA timing from Game Pak RAM through Retro-Recomp's per-byte DMA model.
-  The engine's job log (start/stop master clocks per GSU job) separates a
-  slow GSU from a late 65816.
+- MAME offset, measured on 26 October 2026 with instrumented build copies and
+  MAME Lua taps (Doom, Dirt Trax FX), aligned by events rather than frame
+  numbers. Four differences, MAME being the simpler model each time:
+  1. DRAM refresh: the export charges 40 master clocks per scanline, MAME
+     none (Doom: 8.7 of an 11.07-frame boot drift).
+  2. DMA: the export stalls the CPU 8 clocks per byte, MAME charges nothing
+     (Doom 2.15 frames, Dirt Trax FX 1.5 frames).
+  3. GSU cost: the export follows the ares-derived costs (cache fills,
+     ROM/RAM buffer waits, multiplier, PLOT/STW); MAME charges a flat 1
+     (Doom, GSU-2) or 2 (Dirt Trax FX, GSU-1, CLSR ignored) clocks per
+     instruction. Doom render jobs are 1.5-2.8 times longer in the export.
+  4. Doom pacing: a new rendered frame every 5 video frames in the export,
+     every 9 in MAME (3 of them blank or partial); not explained by 1-3 and
+     still open.
+  With refresh off, free DMA and a flat GSU in a build copy, Doom's first GSU
+  job moves from 11.07 frames to 0.34 frame behind MAME, and Dirt Trax FX's
+  first fade from 97 to 4 frames. The 65816 side agrees within 9 clocks over
+  an 87.9 M-clock loader gap; the same GSU jobs run the same instruction
+  counts in both. The shipped timing is left unchanged: it follows documented
+  hardware behaviour, and no console measurement is available here.
 - Frame pacing: the PPU only sees what the 65816 copied. A GSU job that ends
   a few lines late shows as a dropped or repeated game frame, not as tearing.
 - PAL (Dirt Racer): the GSU counts master clocks, so it follows the PAL
@@ -460,9 +478,9 @@ the project rule that cartridges are analyzed from their own ROM.
 3. **Per-job comparison** once option B exists: compiled GSU against the
    interpreter for each job (registers, RAM hash, stop clock).
 4. **Independent frames**: MAME as a black-box reference, with the same input
-   scripts, compared on game states (title, menu, first level) rather than
-   exact frame numbers until the timing offset is understood; then frame
-   alignment as a target. A frame tool like the CPS-1 one (`.build/cps1-*`)
+   scripts, compared on game states and event order (title, menu, first
+   level). Exact frame alignment is not a target: MAME's simplified refresh,
+   DMA and GSU costs explain the offsets. A frame tool like the CPS-1 one (`.build/cps1-*`)
    can be reused.
 5. **Gameplay routes** with states and battery saves (Yoshi's Island, Stunt
    Race FX, Star Fox 2), ordinary and packed exports, as for DSP-1/CX4.
@@ -520,8 +538,8 @@ reflect unknown integration bugs.
 | 0 | Recognition, counted interpreter path, experimental label, spike on Doom and Dirt Trax FX (this branch) | done |
 | 1 | Standard-level conversions of all eight local cartridges (done 26 October, see above); still to do: packed exports, battery save round trips, long routes with inputs that reach gameplay, fix what breaks | 3-6 |
 | 2 | Separate 65816 / SPC700 / GSU figures in report, log and interface | done |
-| 3 | Timing investigation against MAME with the job log; frame-alignment tool | 3-6 |
-| 4 | Authored GSU checks in `native/snes_superfx_checks.c` (done, see Fidelity checks) | 2-4 |
+| 3 | Timing investigation against MAME (done 26 October: offsets explained by MAME's simplifications; Doom 5- vs 9-frame pacing still open) | done |
+| 4 | Authored GSU checks in `native/snes_superfx_checks.c` (see Fidelity checks) | done |
 | 5 | Qualification campaign and documentation as for DSP-1/CX4; decision to drop "experimental" | 3-5 |
 | 6a | Option B groundwork: GSU decoder, static traversal, survey tool and the measurements above | done (26 October) |
 | 6b | Option B remainder: learning records, C emitter with cycle accounting and yielding, guards, per-job checker (staged as under "Option B: measured") | 25-35 (was 15-25 for all of step 6); not recommended for speed |
