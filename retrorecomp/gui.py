@@ -1351,7 +1351,7 @@ class Application:
         if item.system == 'cps1':
             return 'Arcade 59.64 Hz'
         if item.system == 'ng':
-            return 'MVS Â· Europe'
+            return 'MVS · Europe'
         if item.standard_override:
             return self.tr('video_selected', standard=item.standard_override.upper())
         if result and result.get('video_standard'):
@@ -1716,7 +1716,7 @@ class Application:
             elif result.get('status') == 'existing':
                 text = self.tr('existing')
             if item.cover:
-                text += f" Â· {self.tr('cover')}: {item.cover.name}"
+                text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
                 if item.system in ('md', 'snes', 'ng', 'cps1'):
@@ -1731,7 +1731,7 @@ class Application:
                 else:
                     text = self.tr('fallback', percent=result['interpreter_percent'],
                                    comparison=self.tr('vdp_equal' if comparison else 'vdp_different'))
-            text += ' Â· ' + self.video_display(item, result)
+            text += ' · ' + self.video_display(item, result)
             self.detail.set(text)
         else:
             self.detail.set(self.tr('shared'))
