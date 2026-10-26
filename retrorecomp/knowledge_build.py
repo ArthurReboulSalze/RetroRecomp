@@ -40,6 +40,49 @@ def journals_qualified(memory, report: dict) -> bool:
     return observations_qualified((memory.journal, memory.code_journal), report)
 
 
+def _sega_rows(rom, rows) -> tuple[set, set[bytes]]:
+    """feedback.sega_candidates for the given rows only."""
+    from .feedback import checksum
+    seeds, patterns = set(), set()
+    for row in rows:
+        pc, packed = row.address, row.auxiliary
+        if row.kind != 1 or pc > 0xffff or packed > 0xffffff or len(row.data) != 4:
+            continue
+        banks = [(packed >> (8*n)) & 255 for n in range(3)]
+        if pc + 255 < 0xc000:
+            data = bytes(rom.data[(addr if addr < 0x400 else
+                banks[addr >> 14] * 0x4000 + (addr & 0x3fff)) % len(rom.data)]
+                for addr in range(pc, pc+256))
+            if data[:4] == row.data:
+                seeds.add((pc, *banks, checksum(data)))
+                patterns.add(row.data)
+        if pc >= 0xc000:
+            patterns.add(row.data)
+    return seeds, patterns
+
+
+def _sega_offered(rom, system: str, memory) -> tuple[set, set[bytes]]:
+    """Seeds and RAM windows that only other players offer this ROM (imported
+    bank, shared observations). A conversion uses them, but an export shares
+    them again only once this player's own journals hold them."""
+    from .feedback import Observation, records
+    from .knowledge import imported_observations, imported_record
+    from .knowledge_exchange import _bundled
+    from .library import read_code_patterns, read_observations
+    imported = imported_record(system, rom.sha256)
+    rows = [Observation(kind, address, auxiliary, bytes(rom.data[offset:offset + length]))
+            for kind, address, auxiliary, length, offset in imported_observations(system, rom.sha256)]
+    seeds, patterns = _sega_rows(rom, rows)
+    seeds |= {tuple(entry) for entry in imported.get('rom_entries', [])}
+    patterns |= {rom.data[offset:offset+4] for (offset,) in imported.get('pattern_refs', [])}
+    own_seeds, own_patterns = _sega_rows(rom, records(system, rom.sha256, 1))
+    bundled = _bundled(system, rom.sha256)
+    own_seeds |= read_observations(memory.journal) | {tuple(e) for e in bundled.get('rom_entries', [])}
+    own_patterns |= read_code_patterns(memory.code_journal) | {
+        rom.data[offset:offset+4] for (offset,) in bundled.get('pattern_refs', [])}
+    return seeds - own_seeds, patterns - own_patterns
+
+
 def compact_spc_refs(refs):
     by_offset = {}
     for pc, offset in refs:
@@ -94,11 +137,12 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
                 and all(c.get('passed') for c in generations[-1].get('checks', []))
                 and journals_qualified(memory, report)):
             omitted['unqualified'] += 1; return None
-        record['rom_entries'] = [list(e) for e in sorted(memory.seeds())]
+        offered_seeds, offered_patterns = _sega_offered(rom, system, memory)
+        record['rom_entries'] = [list(e) for e in sorted(memory.seeds() - offered_seeds)]
         # The conversion used both bundled and local byte-checked windows.
         # Keep that qualified union; reading only the private journal would
         # silently drop shared windows that needed no new fallback.
-        offsets = [rom.data.find(raw) for raw in memory.code_patterns()]
+        offsets = [rom.data.find(raw) for raw in memory.code_patterns() - offered_patterns]
         omitted['ram_without_rom_source'] += sum(offset < 0 for offset in offsets)
         record['pattern_refs'] = [[offset] for offset in sorted(set(offsets)) if offset >= 0]
         return record
@@ -130,11 +174,13 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
         record['ram_opcode_refs'] = [[pc, offsets[op]] for pc, op in sorted(sites) if op in offsets]
         omitted['ram_without_rom_source'] += sum(op not in offsets for _, op in sites)
     else:
+        # Other players' hints are shared again only once this player's own
+        # conversions observed them (they are then in the local library).
         if system == 'md':
-            record['rom_entries'] = [[addr] for addr in sorted(megadrive.read_entries(rom))]
-            variants = megadrive.read_ram_variants(rom)
+            record['rom_entries'] = [[addr] for addr in sorted(megadrive.read_entries(rom, imported=False))]
+            variants = megadrive.read_ram_variants(rom, imported=False)
         else:
-            variants = supernintendo.read_ram_variants(rom)
+            variants = supernintendo.read_ram_variants(rom, imported=False)
         refs = []
         for variant in variants:
             raw = bytes.fromhex(variant['bytes']); offset = rom.data.find(raw)
@@ -143,10 +189,10 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
         record['ram_refs'] = refs
         if system == 'snes':
             offsets = {op: rom.data.find(bytes([op])) for op in range(256)}
-            sites=supernintendo.read_ram_opcodes(rom)
+            sites=supernintendo.read_ram_opcodes(rom, imported=False)
             record['ram_opcode_refs']=[[pc,offsets[op]] for pc,op in sites if offsets[op]>=0]
             omitted['ram_without_rom_source']+=sum(offsets[op]<0 for _,op in sites)
-            masks = snes_spc.read_masks(rom)
+            masks = snes_spc.read_masks(rom, imported=False)
             refs = []
             for pc in range(65536):
                 bits = int.from_bytes(masks[pc*32:(pc+1)*32], 'little')
@@ -158,7 +204,7 @@ def build_record(rom, system: str, report: dict | None, engine: str, omitted: di
             # Z80 operands are live. Match only structural opcode bytes
             # against the user's ROM; do not ship a driver image.
             cache, refs = {}, []
-            for pc, mask, text in megadrive_z80.normalize(megadrive_z80.read_variants(rom)):
+            for pc, mask, text in megadrive_z80.normalize(megadrive_z80.read_variants(rom, imported=False)):
                 raw = bytes.fromhex(text); key = (mask, raw)
                 if key not in cache:
                     offset = rom.data.find(raw[:1])

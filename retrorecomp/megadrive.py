@@ -185,12 +185,32 @@ def memory_file(rom) -> Path:
     return library_root('md') / rom.sha256 / 'native-entries.json'
 
 
-def read_entries(rom) -> set[int]:
+def bundled_record(rom) -> dict:
+    """The bundled snapshot's record for this exact ROM, without imported hints."""
+    import zlib
+    from .console16 import REPOSITORIES
+    from .knowledge import RESOURCE, disabled, load
+    from .paths import ASSETS
+    if disabled():
+        return {}
+    try:
+        record = load(ASSETS / RESOURCE)['consoles'].get('md', {}).get(rom.sha256, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+    return (record if record.get('engine') == REPOSITORIES['md'][1] and record.get('rom_bytes') == len(rom.data)
+            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+
+
+def read_entries(rom, *, imported: bool = True) -> set[int]:
+    """Without `imported`: this player's library and gameplay rows and the bundled
+    snapshot only. Other players' hints guide a conversion but are remembered
+    (and shared again) only once a conversion observes them."""
     from .feedback import records
     from .console16 import REPOSITORIES
-    shared = {address for (address,) in record_for('md', rom, REPOSITORIES['md'][1]).get('rom_entries', [])
+    record = record_for('md', rom, REPOSITORIES['md'][1]) if imported else bundled_record(rom)
+    shared = {address for (address,) in record.get('rom_entries', [])
               if _entry_signature(rom, address) is not None}
-    shared |= {r.address for r in records('md', rom.sha256, 5, rom)
+    shared |= {r.address for r in records('md', rom.sha256, 5, rom if imported else None)
                if _entry_signature(rom, r.address) == r.data.hex()}
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
@@ -213,11 +233,13 @@ def valid_ram_variant(item):
             and re.fullmatch('[0-9a-fA-F]+', raw) is not None)
 
 
-def read_ram_variants(rom) -> list[dict]:
+def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
     from .console16 import REPOSITORIES
-    shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1])
+    shared = (shared_ram_variants('md', rom, REPOSITORIES['md'][1]) if imported else
+              [{'address': address, 'bytes': rom.data[offset:offset+length].hex()}
+               for address, offset, length in bundled_record(rom).get('ram_refs', [])])
     from .feedback import variants
-    shared += variants('md', rom.sha256, 6, rom)
+    shared += variants('md', rom.sha256, 6, rom if imported else None)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 2 or record.get('rom_sha256') != rom.sha256:
@@ -238,16 +260,20 @@ def learn_entries(rom, checks) -> int:
         return 0
     path = memory_file(rom)
     with entry_lock(path.parent):
-        previous = read_entries(rom)
+        # Imported hints enter the library only when this conversion observed
+        # them; what counts as new (another pass) still includes them.
+        known = read_entries(rom)
+        known_ram = {(item['address'], item['bytes']) for item in read_ram_variants(rom)}
+        previous = read_entries(rom, imported=False)
         merged = previous | additions
-        old_ram = {(item['address'], item['bytes']) for item in read_ram_variants(rom)}
+        old_ram = {(item['address'], item['bytes']) for item in read_ram_variants(rom, imported=False)}
         merged_ram = set(sorted(old_ram | variants)[:2048])
         if merged != previous or merged_ram != old_ram:
             atomic_json(path, {'schema': 2, 'rom_sha256': rom.sha256, 'title': profile_for(rom)['title'],
                 'entries': [{'address': address, 'bytes': _entry_signature(rom, address)}
                             for address in sorted(merged)],
                 'ram_variants': [{'address': address, 'bytes': raw} for address, raw in sorted(merged_ram)]})
-    return len(merged - previous) + len(merged_ram - old_ram)
+    return len(merged - previous - known) + len(merged_ram - old_ram - known_ram)
 
 
 def write_profile(project: Path, engine: Path, rom, entries: set[int]) -> str:
