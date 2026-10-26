@@ -224,10 +224,38 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
             pass  # A reader can still hold it on Windows; next write retries.
 
 
-def _known_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
-    from .feedback import gb_entries
-    shared = record_for('gb', rom, ENGINE_REV).get('rom_entries', [])
-    return gb_entries(rom) | read_entries(_verified_trace(rom), len(rom.data)) | {
+def _bundled_record(rom: GameBoyRom) -> dict:
+    """The bundled snapshot's record for this exact ROM, without imported hints."""
+    from .knowledge import RESOURCE, disabled, load
+    if disabled():
+        return {}
+    try:
+        record = load(ASSETS / RESOURCE)['consoles'].get('gb', {}).get(rom.sha256, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+    return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
+            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+
+
+def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
+    """Entries a conversion starts from. Without `imported`, only this player's
+    library and gameplay rows and the bundled snapshot: hints from other
+    players guide a conversion but are remembered only once it observes them."""
+    from .feedback import gb_entries, records
+    if imported:
+        own = gb_entries(rom)
+        shared = record_for('gb', rom, ENGINE_REV).get('rom_entries', [])
+    else:
+        own = set()
+        for row in records('gb', rom.sha256, 2):
+            pc, bank = row.address, row.auxiliary
+            offset = bank*0x4000 + (pc & 0x3fff)
+            span = min(len(row.data), 0x4000 - (pc & 0x3fff))
+            if (pc < 0x8000 and bank < len(rom.data)//0x4000 and
+                    row.data and rom.data[offset:offset+span] == row.data[:span]):
+                own.add((bank, pc))
+        shared = _bundled_record(rom).get('rom_entries', [])
+    return own | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}
 
@@ -368,6 +396,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     final_checks: list[dict] = []
     executable = build_executable(project / 'build', 'game')
     trace_out = project / "observed.trace"
+    # Entries the probes themselves reached: imported hints join the library
+    # only from here, never because they were offered.
+    reached: set[tuple[int, int]] = set()
     for number in range(1, passes + 1):
         compilation_entries = observed_entries | static_entries
         write_entries(trace_input, compilation_entries)
@@ -406,7 +437,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             check['pass'] = number
             final_checks.append(check)
             checks.append(check)
-            observed_entries.update(read_entries(scenario_trace, len(rom.data)))
+            found = read_entries(scenario_trace, len(rom.data))
+            reached |= found
+            observed_entries.update(found)
             emit(f"Game Boy {scenario.name}: {check['interpreter_cycles']} fallback cycles, "
                  f"{check['fallback_sites']} sites in {frames} tested frames.")
         write_entries(trace_out, observed_entries)
@@ -444,7 +477,9 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     stage_seconds['cpu_validation'] += time.perf_counter() - stage_started
     for check in cpu_checks:
         emit(f"Game Boy CPU {check['scenario']}: matching for {check['frames']} frames.")
-    _remember_trace(rom, trace_out)
+    remembered = project / 'remembered.trace'
+    write_entries(remembered, _known_entries(rom, imported=False) | reached)
+    _remember_trace(rom, remembered)
     generated = json.loads((project / "game_metadata.json").read_text(encoding="utf-8"))
     report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": "gb", "name": "Game Boy"},
         "scan_level": level, "long_routes": [route.metadata() for route in long_routes],

@@ -150,10 +150,63 @@ def _seed_sites(path: Path) -> set[str]:
         return set()
 
 
-def _remember_seed(seed: Path, previous: Path) -> None:
+def _bundled_record(rom) -> dict:
+    """The bundled snapshot's record for this exact ROM, without imported hints."""
+    from .knowledge import RESOURCE, disabled, load
+    if disabled():
+        return {}
+    try:
+        record = load(ASSETS / RESOURCE)['consoles'].get('nes', {}).get(rom.sha256, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+    return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
+            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+
+
+def _record_sites(rom, record: dict) -> tuple[set[str], set[tuple[int, int]]]:
+    return ({f'4k:{bank:X}:{address:04X}' for bank, address in record.get('rom_entries', [])
+             if bank < len(rom.data) // 4096 and 0x8000 <= address <= 0xffff},
+            shared_sites(rom, record))
+
+
+def _row_sites(rom, rows) -> tuple[set[str], set[tuple[int, int]]]:
+    """feedback.nes_sites for the given rows only."""
+    entries, guards = set(), set()
+    prg_start = 16 + (512 if rom.data[6] & 4 else 0)
+    prg_bytes = _nes_size(rom.data[4], rom.data[9] & 15, 16384) if rom.nes2 else rom.data[4]*16384
+    for row in rows:
+        pc, bank = row.address, row.auxiliary
+        if row.kind == 3 and 0x8000 <= pc <= 0xffff and len(row.data) == 1:
+            offset = bank*4096 + (pc & 4095)
+            if offset < prg_bytes and prg_start + offset < len(rom.data) and rom.data[prg_start+offset:prg_start+offset+1] == row.data:
+                entries.add(f'4k:{bank:X}:{pc:04X}')
+        if row.kind == 4 and (pc < 0x2000 or 0x6000 <= pc <= 0xffff) and len(row.data) == 1:
+            guards.add((pc, row.data[0]))
+    return entries, guards
+
+
+def _offered_only(rom, previous: Path) -> tuple[set[str], set[tuple[int, int]]]:
+    """Sites that only other players offer this ROM (imported bank, shared
+    observations): neither this player's library or gameplay rows nor the
+    bundled snapshot. They guide the conversion; the library keeps them only
+    once a conversion observes them."""
+    from .feedback import Observation, records
+    from .knowledge import imported_observations, imported_record
+    rows = [Observation(kind, address, auxiliary, bytes(rom.data[offset:offset + length]))
+            for kind, address, auxiliary, length, offset in imported_observations('nes', rom.sha256)]
+    rom_sites, ram = _record_sites(rom, imported_record('nes', rom.sha256))
+    observed = _row_sites(rom, rows)
+    own = _row_sites(rom, records('nes', rom.sha256))
+    bundled = _record_sites(rom, _bundled_record(rom))
+    return ((rom_sites | observed[0]) - own[0] - bundled[0] - _seed_sites(previous),
+            (ram | observed[1]) - own[1] - bundled[1] - ram_sites(previous))
+
+
+def _remember_seed(seed: Path, previous: Path, offered=(frozenset(), frozenset())) -> None:
     # Other conversions may have learned additional paths since this one began.
     # Merge under the same per-ROM lock, then replace only the complete trace.
-    incoming_rom, incoming_ram = _seed_sites(seed), ram_sites(seed)
+    # Hints only offered by other players stay out unless this player had them already.
+    incoming_rom, incoming_ram = _seed_sites(seed) - offered[0], ram_sites(seed) - offered[1]
     with entry_lock(previous.parent):
         rom_entries = _seed_sites(previous) | incoming_rom
         ram_entries = ram_sites(previous) | incoming_ram
@@ -446,7 +499,13 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     # A stopped/failed build may have already observed safe entry/opcode pairs.
     # They remain local candidates in this exact-ROM/region build directory;
     # normal full RAM differentials still gate their export and promotion.
-    ram_entries = ram_sites(previous) | ram_sites(seed) | shared_sites(rom, shared_record)
+    # Offered-only sites a stopped/failed build wrote into its seed are not its
+    # observations: a retry without the imported hints must not inherit them.
+    sidecar = seed.with_name('cycle-seeds.offered')
+    stale_ram = ram_sites(sidecar)
+    offered = _offered_only(rom, previous)
+    atomic_text(sidecar, trace_text(*offered))
+    ram_entries = ram_sites(previous) | (ram_sites(seed) - stale_ram) | shared_sites(rom, shared_record)
     entries |= feedback_rom
     ram_entries |= feedback_ram
     seed.write_text(trace_text(entries, ram_entries), encoding='ascii')
@@ -545,7 +604,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")
-    _remember_seed(seed, previous)
+    _remember_seed(seed, previous, offered)
     created_utc = datetime.now(timezone.utc).isoformat()
     report = {'tool': 'Retro-Recomp', 'version': __version__,
         'created_utc': created_utc,

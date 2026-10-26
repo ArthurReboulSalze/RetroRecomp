@@ -26,14 +26,19 @@ def memory_file(rom):
     return library_root('snes') / rom.sha256 / 'spc-native.json'
 
 
-def read_masks(rom):
+def read_masks(rom, *, imported=True):
+    """Without `imported`: no hints from other players (see supernintendo.read_ram_variants)."""
     from .supernintendo import knowledge_engine
     shared = bytearray(MASK_BYTES)
     from .feedback import records
     for row in records('snes', rom.sha256, 9):
         if len(row.data) == 1 and valid_variant({'address': row.address, 'opcode': row.data[0]}):
             shared[row.address*32 + row.data[0]//8] |= 1 << (row.data[0]&7)
-    record = record_for('snes', rom, knowledge_engine(rom))
+    if imported:
+        record = record_for('snes', rom, knowledge_engine(rom))
+    else:
+        from .supernintendo import bundled_record
+        record = bundled_record(rom)
     from .snes_knowledge import references
     for pc, offset in references(record):
         opcode = rom.data[offset]
@@ -68,7 +73,10 @@ def learn(rom, checks):
         return 0
     path = memory_file(rom)
     with entry_lock(path.parent):
-        previous = read_masks(rom)
+        # Imported hints enter the library only when this conversion observed
+        # them; what counts as new (another pass) still includes them.
+        known = read_masks(rom)
+        previous = read_masks(rom, imported=False)
         masks = bytearray(previous)
         for image in images:
             for pc, opcode in enumerate(image):
@@ -77,8 +85,9 @@ def learn(rom, checks):
         for item in variants:
             opcode = item['opcode']
             masks[item['address'] * 32 + opcode // 8] |= 1 << (opcode & 7)
-        added = sum((new ^ old).bit_count() for new, old in zip(masks, previous))
-        if added:
+        changed = masks != previous
+        added = sum((new & ~old).bit_count() for new, old in zip(masks, known))
+        if changed:
             atomic_json(path, {'schema': 1, 'rom_sha256': rom.sha256,
                 'opcode_masks': base64.b64encode(zlib.compress(masks, 9)).decode('ascii')})
         return added

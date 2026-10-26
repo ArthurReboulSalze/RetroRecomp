@@ -261,10 +261,30 @@ def knowledge_engine(rom) -> str:
     return REPOSITORIES['snes'][1]
 
 
-def read_ram_variants(rom) -> list[dict]:
-    shared = shared_ram_variants('snes', rom, knowledge_engine(rom))
+def bundled_record(rom) -> dict:
+    """The bundled snapshot's record for this exact ROM, without imported hints."""
+    import zlib
+    from .knowledge import RESOURCE, disabled, load
+    from .paths import ASSETS
+    if disabled():
+        return {}
+    try:
+        record = load(ASSETS / RESOURCE)['consoles'].get('snes', {}).get(rom.sha256, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+    return (record if record.get('engine') == knowledge_engine(rom) and record.get('rom_bytes') == len(rom.data)
+            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+
+
+def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:
+    """Without `imported`: this player's library and gameplay rows and the bundled
+    snapshot only. Other players' hints guide a conversion but are remembered
+    (and shared again) only once a conversion observes them."""
+    shared = (shared_ram_variants('snes', rom, knowledge_engine(rom)) if imported else
+              [{'address': address, 'bytes': rom.data[offset:offset+length].hex()}
+               for address, offset, length in bundled_record(rom).get('ram_refs', [])])
     from .feedback import variants
-    shared += variants('snes', rom.sha256, 8, rom)
+    shared += variants('snes', rom.sha256, 8, rom if imported else None)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:
@@ -276,10 +296,11 @@ def read_ram_variants(rom) -> list[dict]:
             sorted({(item['address'], item['bytes'].lower()) for item in items})[:RAM_VARIANT_LIMIT]]
 
 
-def read_ram_opcodes(rom) -> list[tuple[int,int]]:
+def read_ram_opcodes(rom, *, imported: bool = True) -> list[tuple[int,int]]:
     """Observed PC/opcode guards; operands remain live, never shared dumps."""
-    sites={(item['address'],int(item['bytes'][:2],16)) for item in read_ram_variants(rom)}
-    for pc,offset in record_for('snes',rom,knowledge_engine(rom)).get('ram_opcode_refs',[]):
+    sites={(item['address'],int(item['bytes'][:2],16)) for item in read_ram_variants(rom, imported=imported)}
+    record = record_for('snes',rom,knowledge_engine(rom)) if imported else bundled_record(rom)
+    for pc,offset in record.get('ram_opcode_refs',[]):
         if valid_ram_address(pc,rom) and 0<=offset<len(rom.data):sites.add((pc,rom.data[offset]))
     return sorted(sites)[:RAM_VARIANT_LIMIT]
 
@@ -291,9 +312,12 @@ def learn_ram_variants(rom, checks) -> int:
         return 0
     path = memory_file(rom)
     with entry_lock(path.parent):
-        previous = {(item['address'], item['bytes'].lower()) for item in read_ram_variants(rom)}
+        # Imported hints enter the library only when this conversion observed
+        # them; what counts as new (another pass) still includes them.
+        known = {(item['address'], item['bytes'].lower()) for item in read_ram_variants(rom)}
+        previous = {(item['address'], item['bytes'].lower()) for item in read_ram_variants(rom, imported=False)}
         merged = set(sorted(previous | additions)[:RAM_VARIANT_LIMIT])
         if previous != merged:
             atomic_json(path, {'schema': 1, 'rom_sha256': rom.sha256, 'ram_variants':
                 [{'address': address, 'bytes': raw} for address, raw in sorted(merged)]})
-    return len(merged - previous)
+    return len(merged - previous - known)

@@ -64,11 +64,17 @@ def memory_file(rom):
     return library_root('md') / rom.sha256 / 'z80-native-entries.json'
 
 
-def read_variants(rom):
+def read_variants(rom, *, imported=True):
+    """Without `imported`: no hints from other players (see megadrive.read_entries)."""
     from .console16 import REPOSITORIES
-    shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1], field='z80_refs')
+    if imported:
+        shared = shared_ram_variants('md', rom, REPOSITORIES['md'][1], field='z80_refs')
+    else:
+        from .megadrive import bundled_record
+        shared = [{'address': address, 'bytes': rom.data[offset:offset+length].hex()}
+                  for address, offset, length in bundled_record(rom).get('z80_refs', [])]
     from .feedback import variants
-    shared += variants('md', rom.sha256, 7, rom)
+    shared += variants('md', rom.sha256, 7, rom if imported else None)
     try:
         record = json.loads(memory_file(rom).read_text(encoding='utf-8'))
         if record.get('schema') != 1 or record.get('rom_sha256') != rom.sha256:
@@ -105,12 +111,15 @@ def learn_variants(rom, checks):
         return 0
     path = memory_file(rom)
     with entry_lock(path.parent):
-        previous = normalize(read_variants(rom))
+        # Imported hints enter the library only when this conversion observed
+        # them; what counts as new (another pass) still includes them.
+        known = set(normalize(read_variants(rom)))
+        previous = normalize(read_variants(rom, imported=False))
         merged = normalize([{'address': pc, 'bytes': raw} for pc, _, raw in previous] + found)
         if merged != previous:
             atomic_json(path, {'schema': 1, 'rom_sha256': rom.sha256,
                 'variants': [{'address': pc, 'bytes': raw} for pc, _, raw in merged]})
-        return len(set(merged) - set(previous))
+        return len(set(merged) - set(previous) - known)
 
 
 def _clean(source):

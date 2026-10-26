@@ -250,6 +250,13 @@ def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_va
     decoded = decode(engine, project, project / 'cartridge.bin', addresses, ram_variants,
                      follow_flow=follow_flow)
     instructions = [ins for ins in decoded if names[ins['mnemonic']] in bodies]
+    # RAM variants of one address that differ only after their first
+    # instruction decode to the same step (same address and instruction
+    # words): emit it once, or the C build sees one function twice.
+    unique = {}
+    for ins in instructions:
+        unique.setdefault(operation_name(ins), ins)
+    instructions = list(unique.values())
     if not instructions:
         raise ConversionError('No supported 68000 operations found for native translation.')
     generated = project / 'steps'
