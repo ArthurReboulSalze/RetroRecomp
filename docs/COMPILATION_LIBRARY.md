@@ -1530,7 +1530,7 @@ coverage, CPU or hardware fidelity, gameplay or latency.
 
 ## The shared base
 
-Since 1.5.3 what players discover is distributed through a **shared base**
+Since 1.5.4 what players discover is distributed through a **shared base**
 that lives apart from the executable, instead of being folded into the
 bundled snapshot at each release. There are two grades of knowledge, kept
 apart on purpose.
@@ -1612,7 +1612,7 @@ the quick routes only. Interpreter use is always measured and reported, and
 the conversion keeps looking to reduce it. The base version used is kept
 locally in `base-use.json`, not in the report.
 
-**Before 1.5.3.** In 1.5.2 one maintainer command converted the players'
+**Before 1.5.4.** In 1.5.2 one maintainer command converted the players'
 uploaded games again and folded their paths into the bundled snapshot at
 each release; its first run added 33 games (Super Nintendo 27, NES 3, Mega
 Drive 2, Game Boy 1), 2,280,968 hints, all verified by the quick check, and

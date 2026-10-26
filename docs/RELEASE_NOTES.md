@@ -1,4 +1,4 @@
-# RetroRecomp v1.5.3 — Super FX games, rewards for every conversion, a pseudonym from the start
+# RetroRecomp v1.5.4 — Super FX games, rewards for every conversion, a pseudonym from the start
 
 - **Super FX cartridges convert.** Star Fox, Star Fox 2, Stunt Race FX,
   Vortex, Yoshi's Island, Doom, Dirt Trax FX and Dirt Racer are qualified at
