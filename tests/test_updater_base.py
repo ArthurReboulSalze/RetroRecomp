@@ -117,7 +117,8 @@ class BaseAssetTests(unittest.TestCase):
         self.assertEqual(files, {'Retro-Recomp.exe': hashlib.sha256(self.executable_data).hexdigest(),
                                  BASE_ASSET: hashlib.sha256(self.base_data).hexdigest()})
         self.assertEqual(self.exe.read_bytes(), b'MZold converter')
-        self.assertEqual(sorted(path.name for path in self.root.iterdir() if path != job_dir), ['Retro-Recomp.exe'])
+        # By name: on Windows the temporary folder may be spelt short (RUNNER~1) on one side only.
+        self.assertEqual(sorted(path.name for path in self.root.iterdir() if path.name != job_dir.name), ['Retro-Recomp.exe'])
 
     def test_a_release_without_the_asset_stages_the_executable_alone(self):
         (job_dir, _), downloads = self.prepare(self.update(with_base=False))
