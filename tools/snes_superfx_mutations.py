@@ -80,6 +80,10 @@ MUTATIONS = [
     ('save state drops pixel cache', 'sli->func(sli, &fx->r, 696);', 'sli->func(sli, &fx->r, 696); fx->pixel[0].bitpend = 0;'),
     ('save state rom buffer', 'sli->func(sli, &fx->r, 696);', 'sli->func(sli, &fx->r, 696); fx->romcl = 0;'),
     ('save state ram buffer', 'sli->func(sli, &fx->r, 696);', 'sli->func(sli, &fx->r, 696); fx->ramcl = 0;'),
+    # The catch-up shortcuts (retrorecomp/snes_chips.py): sliced and whole syncs must agree exactly.
+    ('idle shortcut remainder', '    f->clock_credit-=(f->clock_credit/6)*6;\n    return;', '    f->clock_credit-=(f->clock_credit/6)*6-1;\n    return;'),
+    ('idle shortcut ignores buffers', '!(f->sfr&SFR_G) && !f->romcl && !f->ramcl &&', '!(f->sfr&SFR_G) &&'),
+    ('inline clock charge ignores buffers', 'if (f->romcl | f->ramcl) { step_clocks_slow(f, clocks); return; }', 'if (0) { step_clocks_slow(f, clocks); return; }'),
 ]
 
 # Mutations the documentation cannot judge: fullsnes is silent, so a survivor here is expected.

@@ -95,7 +95,8 @@ normally during vertical blank.
   in master clocks (`clsr ? 1 : 2` per GSU cycle, 5/6 for uncached fetches).
 - Synchronization: `superfx_sync()` consumes master-clock credit in 6-clock
   quanta. `cart_sync_coprocessors()` catches the GSU up on every 65816 access
-  to the cartridge and at the beam frame driver's boundaries; the GSU IRQ is
+  to the cartridge and at the beam frame driver's boundaries (inline for the two
+  common cases, see [Host cost](#host-cost-26-october-2026)); the GSU IRQ is
   part of the driver's pending-IRQ test.
 - Save states: `superfx_saveload()` streams 696 bytes of architectural state
   (registers, caches, buffers, master clock and credit, IRQ); Game Pak RAM is
@@ -421,6 +422,92 @@ the project rule that cartridges are analyzed from their own ROM.
 - PAL (Dirt Racer): the GSU counts master clocks, so it follows the PAL
   master clock the build uses; no PAL Super FX cartridge has been converted
   yet.
+
+## Host cost (26 October 2026)
+
+The exports were close to the frame budget (Vortex 16.2 ms of 16.64, Dirt Racer
+over its 20 ms on a busy core). Same guest behaviour, less host work:
+
+| Game (gameplay state, 3,000 frames) | Before | Source adaptations only | With the Windows profile build | Change |
+|---|---|---|---|---|
+| Vortex (USA), mission, authored input | 15.42 ms | 10.49 ms | **6.49 ms** | -58 % |
+| Doom (USA), first level, `--play` | 11.73 ms | 10.44 ms | **6.20 ms** | -47 % |
+| F-Zero (USA), race, `--play` (not Super FX, control) | 9.09 ms | 8.87 ms | **5.10 ms** | -44 % |
+
+Windows 11, Ryzen 9 3900X, llvm-mingw, process pinned to one core (core 10), the
+three builds run in turn three times, best of three (the spread is under 2 % except
+Doom's, 6.2 to 6.7), process start and a 1.3 MB state load included. Gameplay is
+a saved state: Vortex at frame 3,300 of an authored route (Start presses, then movement and
+fire from the first mission), Doom and F-Zero at frame 1,500 of the `--play` route. This is host time, not a latency or fidelity
+figure. Quiet machine; on a busy one every figure grows alike.
+
+What changed, in the order of the gain:
+
+1. **Windows build: ThinLTO and a clang profile** (`retrorecomp/console16_optimization.py`,
+   Super Nintendo only; `RETRO_RECOMP_PGO=0` switches it off). The Linux build has been
+   profile-guided for a while; Windows compiled the engine at `-O3` without cross-file
+   inlining. The game is now built with clang's instrumentation, run for 1,800
+   frames of the `--play` route (a 600-frame boot has not yet reached Doom's first level: half
+   the gain), and rebuilt with ThinLTO and that profile for the engine's own sources, not
+   the generated cartridge code. A failed training run builds without the profile. The
+   conversion takes as long as before (F-Zero 95 to 108 s, Doom 154 to 168 s, Vortex 197 to 177 s, three
+   at a time) because the validation runs on the faster executable.
+2. **The 65816 side's GSU catch-up** (`retrorecomp/snes_chips.py`, `superfx()`,
+   `superfx_header()`, `cart_header_sync()`). The catch-up is called after every bus phase
+   (read, write, idle cycle, DMA byte: 96,000 times a frame in Vortex).
+   In Vortex 49 % of the calls could not start an instruction (under six clocks of credit)
+   and 41 % found the GSU stopped (Doom: 77 % and 16 %). Both are now inline and cost the
+   same two stores or one division; the full function runs for the rest. `step_clocks` keeps its
+   buffer-countdown handling out of line. The instruction ring (the engine's debug server
+   reads it; Retro-Recomp games never start that server) is behind `RR_GSU_TRACE`.
+3. **The line renderer** (`native/snes_ppu_cache.inc`): offset-per-tile (modes 2 and 4: Vortex)
+   reads its two BG3 words once per 8-dot column and line instead of twice per dot;
+   an ordinary background (no mosaic, hires, mode 7 or widescreen margin) is decoded once per line in
+   runs of 8 dots, not once per dot and priority; window tests become a per-line mask; sprite and
+   background priorities with no opaque dot in the line leave the first-hit walk.
+
+Why the catch-up is exactly the same (and why more laziness was not worth it):
+
+- **Banked credit.** `superfx_sync` starts an instruction only while the credit is at least 6.
+  A call that leaves it under 6 makes exactly two stores (credit, clock). Same two stores, inline.
+- **Stopped GSU.** With SFR.G clear and no ROM-buffer or RAM-store countdown in flight, every
+  iteration of the loop calls `step_clocks(6)`, which only subtracts 6. k iterations leave
+  `credit - 6k`, k = floor(credit / 6): the remainder of one division. The 2,000,000 iteration
+  guard is kept (above 12,000,000 clocks of credit the loop runs as before).
+- **Slicing invariance.** Whether the clock is sliced in 19,998-clock steps or in steps of 1 to 97
+  clocks must not change anything: the authored checks now run every one of the 3,706 cases twice (large steps,
+  random small steps) and compare the 696-byte architectural state, Game Pak RAM, master clock,
+  credit and instruction count. 3,706 runs, 0 differences, NTSC and PAL.
+- **Why a deferred (lazy) catch-up adds nothing.** It would have to flush before every
+  access that can observe the GSU: `$3000-$32FF`, ROM and RAM views (their value depends on
+  SFR.G and RON/RAN, which change when the GSU stops), the IRQ test (the frame driver and the bridge read
+  `irq_pending` before every opcode when the I flag is clear), saves and reports. Vortex and
+  Doom run the GSU with the IRQ unmasked in 100 % of the sync calls made while it runs (the counters:
+  83 M of 144 M calls in Vortex, 118 M of 141 M in Doom, none with CFGR bit 7 set), so
+  every opcode would flush; and the instructions executed are the same instructions. What was
+  left to save was the call itself, which is what the inline paths remove.
+
+Checks (before and after must match exactly):
+
+- Frame, CPU, WRAM, VRAM, CGRAM, OAM, APU, DSP, PCM, SRAM, cycle and master-cycle hashes and
+  `coprocessor_state_hash` / `coprocessor_instructions` of Vortex and Doom, demo and `--play`, 1,500 and
+  3,000 frames, plus Vortex's authored 5,000-frame mission route: identical (every field of the
+  report), and the per-frame frame and audio hashes of all of them. F-Zero the same.
+- The Standard conversion's internal native/reference comparison matches for all three.
+- Seven other Super Nintendo games converted with the old and the new pipeline (Super Mario World,
+  Yoshi's Island, Star Fox, Chrono Trigger, Super Metroid, Axelay, Secret of Mana): the
+  demo and `--play` routes of both executables are identical in every report field and per-frame hash.
+- `tools/snes_superfx_selftest.py`: 3,706 cases, 407,036 assertions over NTSC and PAL, 0 mismatches
+  (and 3 new mutations of the shortcuts, 10 older ones: all noticed).
+- `tools/snes_ppu_cache_selftest.py`: 16.8 M pixel, 7.9 M resolved, 7.9 M line and 3.0 M
+  widescreen-margin comparisons with the pinned per-dot walk, including sparse scenes, equal.
+
+Where the time goes now (Vortex gameplay, sampler on the profile build): the 65816 interpreter
+loop 22 %, the line renderer 19 %, the per-bus-phase charge of the beam, DMA and
+HDMA 17 %, the bus read path 10 %, the GSU core 17 % (instruction 9 %, catch-up loop 8 %). The GSU is
+no longer the margin problem: the next steps are the poll loops on SFR (the 65816 spends its
+spare time reading `$3030`; an exact fast-forward needs the next event to be known) and
+batching the bus-phase charge.
 
 ## Fidelity checks
 

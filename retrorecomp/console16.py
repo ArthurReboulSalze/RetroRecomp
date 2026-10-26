@@ -455,7 +455,7 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     if (project/'game_identity.bin').is_file():resource_map[104]=project/'game_identity.bin'
     embed_resources(project,resource_map)
     from .console16_optimization import build_game
-    build_game(project, cmake, generator, sdl, emit)
+    build_game(project, cmake, generator, sdl, emit, system_id)
     return build_executable(project / 'build','game')
 
 

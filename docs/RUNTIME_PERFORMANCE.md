@@ -1,5 +1,44 @@
 # Runtime performance without changing the output
 
+## Local follow-up — 26 October 2026
+
+Super Nintendo on Windows: three changes, one of them for every game. Per-frame host cost on a
+Ryzen 9 3900X, one pinned core, executables built by the previous and by the new converter
+(`--play` from boot, 2,400 frames, best of three, runs interleaved):
+
+| Game | Before | After |
+|---|---|---|
+| Super Mario World | 10.46 ms | 5.72 ms |
+| Super Mario World 2: Yoshi's Island (Super FX) | 10.37 ms | 5.73 ms |
+| Star Fox (Super FX) | 10.69 ms | 5.90 ms |
+| Chrono Trigger | 8.62 ms | 3.88 ms |
+| Super Metroid | 10.72 ms | 5.66 ms |
+| Axelay | 9.10 ms | 4.32 ms |
+| Secret of Mana | 11.75 ms | 6.26 ms |
+
+Gameplay states of the Super FX games that were close to their frame budget:
+Vortex 15.42 to 6.49 ms (budget 16.64), Doom 11.73 to 6.20 ms, details and checks in
+[SNES_SUPERFX.md](SNES_SUPERFX.md#host-cost-26-october-2026).
+
+- **ThinLTO and a clang profile** for the Super Nintendo hardware code on the portable llvm-mingw
+  tools: the converter builds the game with instrumentation, runs 1,800 frames of the `--play` route,
+  then rebuilds with the profile (the Linux build was already profile-guided). Where the training run fails
+  the game is built without it; `RETRO_RECOMP_PGO=0` forces that. It is 45 % of the gain in Vortex,
+  77 % in Doom and 94 % in F-Zero; the conversion takes as long as before because its validation runs on
+  the faster executable.
+- **The line renderer** decodes a background once per line in 8-dot runs, reads the offset-per-tile
+  words once per column, tests windows once per line and drops layer priorities that have nothing to
+  show; **the Super FX catch-up** is inline when it cannot start an instruction or the GSU is stopped.
+  Each was checked against the previous code: 35 M random-scene comparisons of the dot walk (including
+  widescreen margins) and 3,706 sliced-clock runs of the GSU cases; the identical outputs follow.
+
+Checks: for Vortex, Doom and F-Zero every field of the report (frame, CPU, WRAM, VRAM, CGRAM, OAM, APU,
+PCM, SRAM and cycle counters, GSU state) and the per-frame frame and audio hashes are identical to the
+previous converter's over demo and `--play` runs of 1,500 and 3,000 frames (and a 5,000-frame authored
+mission for Vortex); the same holds for demo and `--play` runs of the seven games in the table.
+The converter's internal native/reference comparison matches. These are host costs on the measured routes,
+not gameplay qualification, hardware fidelity or latency.
+
 ## Local follow-up — 22 October 2026
 
 The NES PPU can now run late without changing what the CPU observes. On NTSC

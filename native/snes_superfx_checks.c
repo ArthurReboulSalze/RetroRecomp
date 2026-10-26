@@ -217,6 +217,44 @@ static void resume_case(const RrGsuCase *c,uint32_t after){
     superfx_destroy(fa);superfx_destroy(fb);
 }
 
+/* The catch-up call must not depend on how the master clock is sliced: the 65816 side makes it
+ * after almost every bus cycle (a few clocks apart), the checks above make it every 19,998
+ * clocks. Run the same job on two cores, one synced in large steps and one in pseudo-random
+ * steps of 1 to 97 clocks (many under six, so the credit is banked and the stopped core takes the
+ * idle shortcut), reach the same final clock, then require byte-identical architectural state
+ * (the 696-byte state stream), Game Pak RAM and job-log times. */
+static unsigned long invariance_runs;
+static uint32_t invariance_seed=0x2545f491u;
+static unsigned invariance_random(unsigned limit){
+    invariance_seed^=invariance_seed<<13;invariance_seed^=invariance_seed>>17;invariance_seed^=invariance_seed<<5;
+    return invariance_seed%limit;
+}
+static void invariance_case(const RrGsuCase *c){
+    Run a,b;SuperFx *fa,*fb;Ctx x={c,0};
+    new_machine(c,&a,&fa,ram_image);configure(c,&a);
+    new_machine(c,&b,&fb,ram_second);configure(c,&b);
+    a.clock+=66;superfx_sync(fa,a.clock);b.clock+=66;superfx_sync(fb,b.clock);
+    start_job(c,&c->jobs[0],&a);start_job(c,&c->jobs[0],&b);
+    for(unsigned step=0;step<400;step++){a.clock+=19998;superfx_sync(fa,a.clock);if(!superfx_is_running(fa))break;}
+    a.clock+=198;superfx_sync(fa,a.clock);
+    a.clock+=7*6+3;superfx_sync(fa,a.clock);                       /* idle tail, not a multiple of six */
+    while(b.clock<a.clock){
+        uint64_t step=1+invariance_random(97);
+        if(b.clock+step>a.clock)step=a.clock-b.clock;
+        b.clock+=step;superfx_sync(fb,b.clock);
+    }
+    Stream sa={{transfer,NULL},0,false,{0}},sb={{transfer,NULL},0,false,{0}};
+    superfx_saveload(fa,&sa.stream);superfx_saveload(fb,&sb.stream);
+    expect_strict(&x,"sliced sync: state stream length",sb.pos,sa.pos);
+    expect_strict(&x,"sliced sync: state stream",memcmp(sa.bytes,sb.bytes,sa.pos)==0,1);
+    expect_strict(&x,"sliced sync: Game Pak RAM",memcmp(ram_image,ram_second,sizeof ram_image)==0,1);
+    expect_strict(&x,"sliced sync: master clock",fb->master_clock,fa->master_clock);
+    expect_strict(&x,"sliced sync: credit",(uint32_t)fb->clock_credit,(uint32_t)fa->clock_credit);
+    expect_strict(&x,"sliced sync: instructions",(uint32_t)fb->instruction_count,(uint32_t)fa->instruction_count);
+    invariance_runs++;
+    superfx_destroy(fa);superfx_destroy(fb);
+}
+
 /* Hand-driven checks of the S-CPU side: register file, SFR flag bits, and aborting a running
  * job by writing GO=0 (fullsnes: the write can abort the program, sets CBR=0000h and empties
  * the cache). */
@@ -256,10 +294,11 @@ int main(void){
         const RrGsuCase *c=&rr_gsu_cases[i];
         run_case(c,i);
         for(unsigned k=0;k<c->nresume;k++)resume_case(c,c->resume[k]);
+        invariance_case(c);
     }
     rr16_shutdown();
-    printf("{\"cases\":%lu,\"resume_runs\":%lu,\"checks\":%lu,\"mismatches\":%lu,\"ares_checks\":%lu,\"timed_checks\":%lu,\"self_timed_checks\":%lu,\"range_checks\":%lu,\"findings\":{",
-           total_cases,resume_runs,total_checks,total_bad,ares_checks,timed_checks,self_timed_checks,range_checks);
+    printf("{\"cases\":%lu,\"resume_runs\":%lu,\"invariance_runs\":%lu,\"checks\":%lu,\"mismatches\":%lu,\"ares_checks\":%lu,\"timed_checks\":%lu,\"self_timed_checks\":%lu,\"range_checks\":%lu,\"findings\":{",
+           total_cases,resume_runs,invariance_runs,total_checks,total_bad,ares_checks,timed_checks,self_timed_checks,range_checks);
     bool first=true;
     for(unsigned id=1;id<16;id++)if(finding_cases[id]){
         printf("%s\"%u\":{\"cases\":%lu,\"cases_differing\":%lu,\"differing_assertions\":%lu,\"assertions\":%lu}",

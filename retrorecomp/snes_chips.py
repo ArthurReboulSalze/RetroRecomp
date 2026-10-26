@@ -116,7 +116,46 @@ def loader(source):
 '''+source[end:]
 
 
+def superfx_header(source):
+    """Inline shortcut for the catch-up call the 65816 side makes after nearly every opcode.
+
+    superfx_sync() starts an instruction only while six clocks of credit exist, so a call that
+    leaves the credit under six just banks the clocks: the same two stores the full function
+    makes before its loop. 80 to 94 percent of the calls made while the GSU runs are of that
+    kind (docs/SNES_SUPERFX.md). A stopped GSU with no ROM or RAM access in flight spends the
+    credit six clocks at a time and nothing else (see superfx() below): the same remainder in one
+    step. SFR.G is bit 5; a presentation replay or a widescreen replay (never enabled by
+    Retro-Recomp) takes the full function."""
+    return replace(source,'void superfx_sync(SuperFx *fx, uint64_t master_clock);','''void superfx_sync(SuperFx *fx, uint64_t master_clock);
+static inline void superfx_sync_credit(SuperFx *fx, uint64_t master_clock) {
+  if (master_clock >= fx->master_clock) {
+    int64_t credit = fx->clock_credit + (int64_t)(master_clock - fx->master_clock);
+    if (credit < 6) { fx->clock_credit = credit; fx->master_clock = master_clock; return; }
+    if (!(fx->sfr & 0x20) && !fx->romcl && !fx->ramcl && !fx->presentation && !fx->ws_replay_pending &&
+        credit < 12000000) {
+      fx->clock_credit = credit - (credit / 6) * 6; fx->master_clock = master_clock; return;
+    }
+  }
+  superfx_sync(fx, master_clock);
+}''')
+
+
+def cart_header_sync(source):
+    """cart_sync_coprocessors() becomes an inline that takes the Super FX shortcut; every other
+    device keeps the original function (renamed). A cartridge carries one device, so the Super FX
+    case needs none of the other checks."""
+    source=replace(source,'#include "snes.h"\n','#include "snes.h"\n#include "superfx.h"\n')
+    return replace(source,'void cart_sync_coprocessors(Cart *cart, uint64_t master_clock);',
+        '''void cart_sync_coprocessors_device(Cart *cart, uint64_t master_clock);
+static inline void cart_sync_coprocessors(Cart *cart, uint64_t master_clock) {
+  if (cart && cart->superfx) superfx_sync_credit(cart->superfx, master_clock);
+  else cart_sync_coprocessors_device(cart, master_clock);
+}''')
+
+
 def cart(source):
+    source=replace(source,'void cart_sync_coprocessors(Cart *cart, uint64_t master_clock) {\n  if (cart && cart->superfx) superfx_sync(cart->superfx, master_clock);',
+        'void cart_sync_coprocessors_device(Cart *cart, uint64_t master_clock) {\n  if (cart && cart->superfx) superfx_sync(cart->superfx, master_clock);')
     source=replace(source,'cart_dsp1_register(adr)','cart_dsp1_register(cart,adr)',count=2)
     return replace(source,'    case CART_DSP1: {\n      if (cart_is_dsp1_window',
         '    case CART_DSP1: {\n      if(rr_snes_cart_ram_offset(cart,bank,adr)>=0)return NULL;\n      if (cart_is_dsp1_window')
@@ -308,11 +347,59 @@ def superfx(source):
     which agrees only while 2*CBR is a multiple of 512 (the documented example, CBR=C3A0, shows
     the difference). Checked by tools/snes_superfx_selftest.py (cache_window_* cases)."""
     source=replace(source,'return f->cache[(uint16_t)(a + f->cbr) & 511];','return f->cache[(uint16_t)(a - f->cbr) & 511];')
-    return replace(source,'a = (uint16_t)(a + f->cbr) & 511;','a = (uint16_t)(a - f->cbr) & 511;')
+    source=replace(source,'a = (uint16_t)(a + f->cbr) & 511;','a = (uint16_t)(a - f->cbr) & 511;')
+    # Almost every clock charge happens with no ROM or RAM access in flight: keep that case
+    # inline (same arithmetic) and the countdown handling out of line (same function).
+    source=replace(source,'static void step_clocks(SuperFx *f, unsigned clocks);\n','''static void step_clocks_slow(SuperFx *f, unsigned clocks);
+static inline void step_clocks(SuperFx *f, unsigned clocks) {
+  if (f->romcl | f->ramcl) { step_clocks_slow(f, clocks); return; }
+  f->clock_credit -= clocks;
+}
+''')
+    source=replace(source,'static void step_clocks(SuperFx *f, unsigned clocks) {\n  if (f->romcl) {','static void step_clocks_slow(SuperFx *f, unsigned clocks) {\n  if (f->romcl) {')
+    # The instruction ring is read only by the engine's debug server, which Retro-Recomp games
+    # never start; it cost five stores per instruction. Define RR_GSU_TRACE to keep it.
+    source=replace(source,'''  uint64_t sequence=++f->instruction_count;
+  SuperFxTraceEntry *trace=&f->trace[sequence&255];
+  trace->sequence=sequence;
+  trace->r15=rv(f,15);
+  trace->sfr=f->sfr;
+  trace->pbr=f->pbr;
+  trace->opcode=op;
+''','''  ++f->instruction_count;
+#ifdef RR_GSU_TRACE
+  {
+    uint64_t sequence=f->instruction_count;
+    SuperFxTraceEntry *trace=&f->trace[sequence&255];
+    trace->sequence=sequence;
+    trace->r15=rv(f,15);
+    trace->sfr=f->sfr;
+    trace->pbr=f->pbr;
+    trace->opcode=op;
+  }
+#endif
+''')
+    source=replace(source,'static void run_one(SuperFx *f) {','''#if defined(_MSC_VER) && !defined(__clang__)
+#define RR_GSU_ALWAYS_INLINE __forceinline
+#else
+#define RR_GSU_ALWAYS_INLINE inline __attribute__((always_inline))
+#endif
+static RR_GSU_ALWAYS_INLINE void run_one(SuperFx *f) {''')
+    # A stopped GSU with no ROM or RAM access in flight does nothing in a catch-up iteration
+    # but spend six clocks (run_one: step_clocks(f, 6)), so k iterations leave the credit
+    # reduced by 6k with k = floor(credit / 6). Same result in one step, same iteration cap.
+    return replace(source,'''  unsigned guard=0; while(f->clock_credit>=6 && guard++<2000000) {''','''  if(f->clock_credit>=6 && !(f->sfr&SFR_G) && !f->romcl && !f->ramcl &&
+     !(f->presentation && f->presentation->pending) && !f->ws_replay_pending &&
+     f->clock_credit/6<=2000000) {
+    f->clock_credit-=(f->clock_credit/6)*6;
+    return;
+  }
+  unsigned guard=0; while(f->clock_credit>=6 && guard++<2000000) {''')
 
 
 def adapt_engine(staged):
-    for filename,adapt in (('cart.h',cart_header),('cart.c',cart),('snes_other.c',loader),
-                            ('dsp1.c',dsp1),('cx4.c',cx4),('superfx.c',superfx),('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header)):
+    for filename,adapt in (('cart.h',lambda source:cart_header_sync(cart_header(source))),('cart.c',cart),('snes_other.c',loader),
+                            ('dsp1.c',dsp1),('cx4.c',cx4),('superfx.h',superfx_header),('superfx.c',superfx),
+                            ('dsp1_hle.c',dsp1_model),('dsp1_hle.h',dsp1_model_header)):
         path=staged/'runner/src/snes'/filename
         path.write_text(adapt(path.read_text(encoding='utf-8')),encoding='utf-8')
