@@ -2319,6 +2319,7 @@ class Application:
                     self.knowledge_done(event[1], event[2])
                 elif kind == 'player':
                     self.render_player(event[1])
+                    self.log_queued(event[1])
                 elif kind == 'sources_ready':
                     self.finish_source_lookup(event[1])
                 elif kind == 'collection_quiet':
@@ -3649,7 +3650,20 @@ class Application:
         if (summary or {}).get('claims_refused'):
             self.messages.put(('log', self.tr('claims_refused', reason=', '.join(summary['claims_refused']))))
         if (summary or {}).get('games') or claims:
+            self.report_queued = True   # the reading that follows says how many games wait for their reward
             self.refresh_player(force=True)   # new points (and coins) at once
+
+    def log_queued(self, data):
+        """After a send, once the account was read: how many converted games
+        wait for their reward (beyond the service's games per day), credited on
+        the following days. Nothing from an older service or with none waiting."""
+        if not getattr(self, 'report_queued', False):
+            return
+        self.report_queued = False
+        count, days = online.queued_conversions((data or {}).get('profile'))
+        if count:
+            self.messages.put(('log', self.tr('conversions_queued', count=self.count_text(count),
+                                              days=self.count_text(max(1, days)))))
 
     def sign_out(self):
         if self.busy or self.updating:return
@@ -4863,6 +4877,7 @@ class Application:
                 if (summary.get('claims') or {}).get('converted'):
                     text += ' ' + self.tr('knowledge_send_converted', count=summary['claims']['converted'])
                 if summary.get('claims'):
+                    self.report_queued = True
                     self.refresh_player(force=True)
                 if summary.get('claims_refused'):
                     # Quietly, in the log only: the file itself was received.

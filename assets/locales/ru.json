@@ -574,7 +574,8 @@
     "go_further_extended": "Глубже: Расширенный",
     "go_further_extended_coins": "Глубже: Расширенный (+{coins} монет)",
     "go_further_thorough": "Глубже: Тщательный",
-    "go_further_thorough_coins": "Глубже: Тщательный (+{coins} монет)"
+    "go_further_thorough_coins": "Глубже: Тщательный (+{coins} монет)",
+    "conversions_queued": "{count} сконвертированных игр ждут награды: сверх дневного лимита они будут начислены в следующие дни (примерно {days} дн.)."
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D: X/Y/Z; правый Shift: режим",

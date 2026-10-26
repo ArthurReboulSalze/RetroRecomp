@@ -574,7 +574,8 @@
     "go_further_extended": "さらに深く：拡張",
     "go_further_extended_coins": "さらに深く：拡張（+{coins} コイン）",
     "go_further_thorough": "さらに深く：完全",
-    "go_further_thorough_coins": "さらに深く：完全（+{coins} コイン）"
+    "go_further_thorough_coins": "さらに深く：完全（+{coins} コイン）",
+    "conversions_queued": "変換したゲーム {count} 本が報酬待ちです。1日の上限を超えた分は翌日以降に付与されます（あと約 {days} 日）。"
   },
   "runtime": {
     "A/S/D: X/Y/Z; Right Shift: Mode": "A/S/D：X/Y/Z、右 Shift：Mode",
