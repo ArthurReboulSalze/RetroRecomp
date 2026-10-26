@@ -4294,6 +4294,7 @@ class Application:
         # first), carrying each player's crown, name, points and gems up.
         podium.started = time.monotonic()
         RISE, DELAYS = 0.6, {3: 0.0, 2: 0.18, 1: 0.36}
+        GEMS_ROOM = 58   # the top of a step: gems, their counts and the badge
 
         def crown(middle, base, place, colour):
             """Gold: five points and a jewel; silver: three points; bronze: a
@@ -4322,10 +4323,8 @@ class Application:
             if width < 300:
                 return
             elapsed = time.monotonic() - podium.started
-            # Steps share the window's width (wider windows, wider steps), with
-            # their content kept inside each step's box (inner).
-            step = max(170, min(230, (width - 24) // 3))
-            inner = step - 16
+            step = 170
+            inner = step - 16   # content stays inside each step's box
             left = (width - 3 * step) // 2
             # Each place: its column, the top of its name, and its step's height.
             places = {2: (left, 38, 100), 1: (left + step, 16, 122), 3: (left + 2 * step, 56, 82)}
@@ -4337,6 +4336,7 @@ class Application:
             podium.create_line(left, bottom - 1, left + 3 * step, bottom - 1, fill=COLORS['border'])
             moving = False
             name_font, title_font, badge_font = (self.ui_font, 10, 'bold'), (self.ui_font, 8), (self.ui_font, 7, 'bold')
+            gem_font = (self.ui_font, 8, 'bold')
             for place in (3, 2, 1):
                 x, top, full = places[place]
                 progress = min(1.0, max(0.0, (elapsed - DELAYS[place]) / RISE))
@@ -4349,8 +4349,9 @@ class Application:
                                         fill=COLORS['button'], outline=shades[place])
                 podium.create_rectangle(x + 8, bottom - height, x + step - 8, bottom - height + 3,
                                         fill=shades[place], outline='')
-                if height > 44:
-                    podium.create_text(middle, bottom - (height - 40) // 2 - 2, text=str(place),
+                # The place's number, under the gems and the badge (GEMS_ROOM).
+                if height > GEMS_ROOM + 20:
+                    podium.create_text(middle, bottom - (height - GEMS_ROOM) // 2, text=str(place),
                                        fill=shades[place], font=(self.ui_font, 16, 'bold'))
                 if place > len(rows) or progress < 0.2:
                     continue
@@ -4380,27 +4381,20 @@ class Application:
                     if shown:
                         podium.create_text(spot, top + 43, text=shown, anchor='w', fill=COLORS['muted'],
                                            font=title_font)
-                # The class gems this player holds (none at 0), centred on the
-                # step: counts shorten (52.4K, then 1.2K) until the row fits inside it.
-                kinds = [kind for kind in ('gold', 'platinum', 'diamond') if counts.get(kind, 0)]
-                gap = 10
-                for threshold in (10_000, 1_000):
-                    texts = [compact_number(counts[kind], self.language, threshold) for kind in kinds]
-                    widths = [24 + count_font.measure(text) for text in texts]
-                    if sum(widths) + gap * max(0, len(kinds) - 1) <= inner - 8:
-                        break
-                spot = middle - (sum(widths) + gap * max(0, len(kinds) - 1)) / 2
-                for kind, text, width in zip(kinds, texts, widths):
+                # The three class gems in fixed columns, each count under its gem
+                # (0 included), so the layout never moves; counts from 1,000 shorten (1.2K).
+                for column, kind in zip((-1, 0, 1), ('gold', 'platinum', 'diamond')):
+                    centre = middle + column * (inner // 3)
                     picture = pictures.get(f'gem-{kind}')
                     if picture:
-                        podium.create_image(round(spot) + 10, bottom - height + 22, image=picture)
-                    podium.create_text(round(spot) + 24, bottom - height + 22, text=text, anchor='w',
-                                       fill=COLORS['text'], font=count_font)
-                    spot += width + gap
+                        podium.create_image(centre, bottom - height + 15, image=picture)
+                    podium.create_text(centre, bottom - height + 33,
+                                       text=compact_number(counts.get(kind, 0), self.language, 1_000),
+                                       fill=COLORS['text'], font=gem_font)
                 # Up to three console badges under the gems, once the step is tall enough.
-                if look['badges'] and height > 60:
+                if look['badges'] and height > GEMS_ROOM + 20:
                     wide = badges_width(podium, look['badges'], badge_font)
-                    draw_badges(podium, middle - wide / 2, bottom - height + 42, look['badges'], badge_font,
+                    draw_badges(podium, middle - wide / 2, bottom - height + 49, look['badges'], badge_font,
                                 tags=('podium_badge',))
             if moving or elapsed < DELAYS[1] + RISE + 0.05:
                 pending = getattr(podium, 'frame', None)
