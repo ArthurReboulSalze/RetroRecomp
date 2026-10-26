@@ -1,9 +1,10 @@
-"""Exports of releases 1.4.1 and 1.5.1 stay upgradable, and 1.4.1 quick states stay readable.
+"""Exports of releases 1.4.1, 1.5.1 and 1.5.2 stay upgradable, and 1.4.1 quick states stay readable.
 
 The 1.4.1 values below were computed from the v1.4.1 tag and found, byte for
 byte, in executables and receipts written by the released Retro-Recomp.exe.
-The 1.5.1 game stamps were computed from the v1.5.1 tag and each one reproduced
-the game part of a receipt written by the released Windows Retro-Recomp.exe 1.5.1.
+The 1.5.1 and 1.5.2 game stamps were computed from their tags and each one reproduced
+the game part of a receipt written by the released Windows Retro-Recomp.exe of that release.
+The Super Nintendo has no entry any more: its engine changed what games do after 1.5.2.
 """
 import json
 import os
@@ -21,6 +22,8 @@ NEO_GEO_ABI_141 = 'b3305fddf7b7c0b961d6abb04f401e0a7ca8d55974dd13c8b05f2fda60df7
 CPS1_ABI_141 = 'd92d265ba352da2602ee7a74492a02f6397477a131b79afab1ef42fa66f1d557'
 
 # Game stamps of the releases whose exports are upgraded rather than reconverted.
+# Super Nintendo: its 1.4.1 stamp was verified, but was removed after 1.5.2 with the SNES engine
+# changes ($4016 strobe, GSU bus ownership, Super FX); its exports are converted in full.
 GAME_STAMPS_141 = {
     'cps1': '65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
     'gb': '9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
@@ -29,7 +32,10 @@ GAME_STAMPS_141 = {
     'nes': 'e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
     'ng': 'bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
     'sms': '3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
-    'snes': 'f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',
+}
+SNES_GAME_STAMPS_REMOVED = {
+    '1.4.1': 'f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',
+    '1.5.2': '93b18890ebfbd84afc8ecadcafcef9ae56c3f1142c146981fd12a2805baed1c9',
 }
 # Mega Drive and Super Nintendo: the released Windows 1.5.1 converter could not convert
 # them, so no receipt exists. X68000: no verified receipt (SDK stamp), as for 1.4.1.
@@ -41,7 +47,17 @@ GAME_STAMPS_151 = {
     'ng': 'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
     'sms': '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
 }
-RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151))
+# Super Nintendo: receipt reproduced, but no entry (engine changed after 1.5.2). X68000: no receipt.
+GAME_STAMPS_152 = {
+    'cps1': '12651539b1dd0cbc5698953adf98947d801cba78816041560e1c6fcf10022835',
+    'gb': '0739d322ab085c14f31f6b7f0406e9faee63fae6f0415d62e0470c0eba53f5cf',
+    'gg': '2cf791660628ebacd7a0f75e4b6c62f268032c769bc2c304925e6317cbe8a777',
+    'md': 'c06987ee70ec4425daa373af5cb3822b06741dd881de222f3549507abd72cf96',
+    'nes': 'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe',
+    'ng': '713b118e9738277d2d5a2e87d9b2aee1c23c2694e92d742e0c63a4e113d28c0d',
+    'sms': '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92',
+}
+RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151), ('1.5.2', GAME_STAMPS_152))
 
 
 class LegacyStampTests(unittest.TestCase):
@@ -54,11 +70,19 @@ class LegacyStampTests(unittest.TestCase):
                 self.assertNotEqual(stamp, inputs.role_stamps(system)['game'],
                                     'a stale list must not shadow the current game part')
         # Only consoles whose game part was reproduced from a real receipt are listed, release by release.
-        self.assertEqual(sorted(inputs.LEGACY_GAME_STAMPS), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms', 'snes'])
+        self.assertEqual(sorted(inputs.LEGACY_GAME_STAMPS), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms'])
         for system, stamps in inputs.LEGACY_GAME_STAMPS.items():
             self.assertEqual(stamps, tuple(table[system] for _, table in RELEASES if system in table), system)
         self.assertEqual(sorted(GAME_STAMPS_151), ['cps1', 'gb', 'gg', 'nes', 'ng', 'sms'])
+        self.assertEqual(sorted(GAME_STAMPS_152), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms'])
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
+
+    def test_super_nintendo_exports_of_earlier_releases_are_converted_in_full(self):
+        # The SNES engine changes what games do after 1.5.2 ($4016 strobe, GSU bus ownership,
+        # Super FX): not a build-only difference, so no SNES stamp may stay listed.
+        self.assertEqual(inputs.legacy_game_stamps('snes'), ())
+        listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
+        self.assertFalse(listed & set(SNES_GAME_STAMPS_REMOVED.values()))
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
 
     def test_toolchain_choice_is_a_build_input_and_changes_no_game_or_host_stamp(self):

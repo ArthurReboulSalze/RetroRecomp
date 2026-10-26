@@ -69,14 +69,16 @@ folders, clang-only branches of the CMake files, the compiler in the report, not
 the statically linked runtime, and the removal of the unused Super Mario World path.
 Without further care every 1.4.1 export would be converted in full. Instead
 `compilation_inputs.LEGACY_GAME_STAMPS` lists, per console, the game stamp of
-release 1.4.1, followed by the one of release 1.5.1 where a real receipt confirmed it
-([below](#release-151-entries-25-october-2026-windows)). A receipt whose game part equals the
+release 1.4.1, followed by the ones of releases 1.5.1 and 1.5.2 where a real receipt confirmed
+them ([1.5.1](#release-151-entries-25-october-2026-windows),
+[1.5.2](#release-152-entries-26-october-2026-windows)). The Super Nintendo has no entry any
+more since its engine changed after 1.5.2 (see the 1.5.2 part). A receipt whose game part equals the
 hash computed with one of these stamps is accepted by `freshness.upgradable()` as the same
 game part:
 
 - it is **never current**: it is always rebuilt with the current tools and rechecked on
   the quick routes, with the report's `upgrade.from_release` set to the release that wrote
-  it (`1.4.1` or `1.5.1`);
+  it (`1.4.1`, `1.5.1` or `1.5.2`);
 - if the rebuild or its checks fail, `batch._convert_one` says so
   ("did not pass its checks … converting the game in full instead") and converts the game
   in full; the earlier executable stays in place until something has passed;
@@ -168,6 +170,75 @@ Consoles without a 1.5.1 entry, whose 1.5.1 exports are converted in full once:
 Quick-state keys are unchanged since 1.5.1: the Neo Geo, CPS-1, Mega Drive and Super Nintendo
 `RR16_STATE_ABI` values computed from the tag and from this branch are identical, and the other
 consoles' keys depend on native files only.
+
+#### Release 1.5.2 entries (26 October 2026, Windows)
+
+Between the `v1.5.2` tag and the Super FX work the game-side inputs that changed are, per
+console (input fingerprints of the tag and of this tree compared one by one):
+
+- every console: `retrorecomp/batch.py` (report fields: packing record, device summary, main-CPU
+  count read through `snes_chips.main_interpreted`, the same number outside the SNES) and
+  `retrorecomp/random_routes.py` (an authored route may carry its own script; only SNES routes do);
+- Mega Drive, Neo Geo, CPS-1 and Super Nintendo also: `retrorecomp/console16.py` and
+  `console16_optimization.py` (SNES-only branches: authored routes, Super FX message, liveness
+  gate, the Windows clang profile build), `native/console16_main.c` (one more report field,
+  `last_picture_change_frame`) and `native/retro_console16.h` (a declaration in the SNES section);
+  `console16_host_ui.c` changed too, as a host input, behind `#if !(RR16_NG || RR16_CPS1 || RR16_MD)`;
+- Super Nintendo also: the engine itself (`native/snes_backend.c`, `snes_ppu_cache.inc`,
+  `snes_bus.py`, `snes_cart.py`, `snes_chips.py`, `snes_codegen.py`, `supernintendo.py`, new
+  `snes_gsu.py`, `snes_routes.py`, checks).
+
+Outside the Super Nintendo these change no generated game: build-only in the sense of the rule
+below. The stamps were found as for 1.5.1:
+
+1. computed from the `v1.5.2` tag (commit `b59575c`) with Python 3.14.5,
+   `role_stamps(system)['game']`, for the nine consoles;
+2. one game per console converted by the released Windows `Retro-Recomp.exe` 1.5.2, downloaded
+   with `gh release download v1.5.2` (SHA-256
+   `923f5c8ec5aefb8fa9781ccb55c4684b2e8adc437b3ca1a7bb9bd4ac4b828735`, as in `SHA256SUMS.txt`),
+   from the command line, in its own workspace, quick scan level, `--no-online-cover`,
+   `RETRO_RECOMP_SERVICE` empty, no window; then this branch's own `batch` path, asked about each
+   export with the console's 1.5.2 stamp as the only legacy entry, reproduced the receipt's game
+   part exactly for eight consoles: Master System (Fantasy Zone), Game Gear (Bubble Bobble), Game
+   Boy (Tetris), NES (1942), Mega Drive (Columns), Super Nintendo (F-Zero), Neo Geo (Magician Lord)
+   and CPS-1 (1941 - Counter Attack). Seven get a 1.5.2 entry (all but the Super Nintendo, below);
+3. this branch then upgraded those seven exports for real, in the same `Games` folder: 7/7
+   `upgraded`, report `upgrade.from_release` = `1.5.2`, `check_level` `quick`, native validation
+   passed, zero interpreted main-CPU and sound-CPU instructions. Each upgraded executable ran
+   offscreen (SDL `offscreen` video, `dummy` sound, no window) for 12 s without exiting; Mega
+   Drive, Neo Geo and CPS-1 also completed 600 headless frames with zero interpreted instructions.
+
+**X68000**: no entry. The released converter could not prepare its private game data under the
+deep test workspace (Windows path length, as for 1.5.1); in a short folder it converted
+Active Shoot (Satou Kouji) (zero interpreted instructions), but the receipt's game part is not
+reproduced, neither with the tag's game stamp alone nor with the tag's `sdk_stamp('game')` as
+well: the SDK stamp of the frozen converter still cannot be rebuilt from the tag. Its 1.5.2
+exports are converted in full once.
+
+**Super Nintendo**: no entry, and its 1.4.1 entry is removed. Its 1.5.2 receipt matched and, with
+the stamp listed experimentally (never committed), the upgrade does rebuild F-Zero with the new
+engine and passes the quick checks (same native entries as a full conversion, zero interpreted
+65816/SPC700 instructions). But the rule below is about what a game does, and the SNES engine
+changes it after 1.5.2: the `$4016` strobe (Madden NFL 95 and Bill Walsh College Football read the
+pads differently, now as MAME does), GSU bus ownership and Super FX support
+([SNES_SUPERFX.md](SNES_SUPERFX.md)). An upgraded report would also say that "only how the game
+is built changed", which is not true any more. So a player's Super Nintendo exports of 1.4.1,
+1.5.1 and 1.5.2 are converted in full by the next batch (seen with F-Zero: `upgraded` false,
+native validation passed, zero interpreted instructions); a ROM the bundled knowledge holds starts
+from its paths with the quick check at the Standard level.
+
+Quick-state keys between `v1.5.2` and this tree (same synthetic inputs as
+`tests/test_legacy_compat.py`, Windows):
+
+- **Mega Drive and Super Nintendo change**: their `RR16_STATE_ABI` covers every file below
+  `native/`, and the console16 and SNES files changed. Checked with real executables: a state
+  saved at frame 300 by the 1.5.2 Columns and F-Zero exports is refused by the new exports (exit 7),
+  while each export loads its own states. No compatibility key is added: the Mega Drive state
+  layout itself did not change, but adding its 1.5.2 key needs the same cross-check as the 1.4.1
+  keys; the Super Nintendo engine did change.
+- Neo Geo and CPS-1: unchanged (their keys cover their own native and Python files only); the
+  1.5.2 Magician Lord and 1941 states load in the upgraded exports.
+- NES, Master System, Game Gear, Game Boy, X68000: unchanged (no input of their keys changed).
 
 **Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
 complete them, whenever the release really changes what a game does (translation,
