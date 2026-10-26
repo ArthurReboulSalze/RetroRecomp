@@ -452,7 +452,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             reason = str(exc).strip().splitlines()[0][:200] if str(exc).strip() else type(exc).__name__
             emit(f'{item.title}: the rebuilt export of Retro-Recomp {legacy} did not pass its checks ({reason}); '
                  'converting the game in full instead.' if legacy else
-                 f'{item.title}: the quick check from the base's qualified paths did not pass ({reason}); '
+                 f'{item.title}: the quick check from the qualified paths in the base did not pass ({reason}); '
                  'discovering the game in full instead.')
             inherited, known_used, run_settings = None, None, settings
             executable = convert_with(run_settings)
