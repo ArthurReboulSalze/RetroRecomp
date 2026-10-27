@@ -186,7 +186,17 @@ PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, 
                                        CPS1)
 # Availability in the converter does not imply the profile has left development.
 from ..x68000 import developer_available  # noqa: E402
-EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = (X68000,) if developer_available() else ()
+
+
+def convertible_profiles() -> tuple[SystemProfile, ...]:
+    """The profiles this installation can convert: X68000 only with its files."""
+    return PROFILES + ((X68000,) if developer_available() else ())
+
+
+# Read from the profiles' own status attribute, so this registry cannot drift
+# from the statuses the documents and interface lint against.
+EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = tuple(
+    profile for profile in convertible_profiles() if profile.status == 'experimental')
 
 
 # Every console the converter knows, whether or not this installation can
@@ -198,7 +208,7 @@ ALL_PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, N
 
 
 def available_profiles():
-    return PROFILES + EXPERIMENTAL_PROFILES
+    return convertible_profiles()
 
 
 def find_profile(system_id: str) -> SystemProfile | None:
@@ -255,7 +265,8 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
     data = None
     if suffix in X68000.extensions:
         if not developer_available():
-            raise UnsupportedConsoleError('The X68000 development SDK is unavailable in this installation.')
+            raise UnsupportedConsoleError(
+                'The experimental Sharp X68000 profile is unavailable in this installation.')
         if selected_system and selected_system != 'x68':
             raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', 'x68')
         return X68000
