@@ -638,6 +638,7 @@ INPUTS = {
         'retrorecomp.cps1_catalogue',
         'retrorecomp.cps1_codegen',
         'retrorecomp.cps1_conversion',
+        'retrorecomp.cps1_knowledge',
         'retrorecomp.systems.cps1',
     ),
     ('sms', 'gg'): (

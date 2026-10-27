@@ -210,8 +210,13 @@ class GameStampTests(unittest.TestCase):
                      patch('retrorecomp.knowledge.imported_path', return_value=self.imported)):
             item.start()
             self.addCleanup(item.stop)
-        self.caches = (knowledge._qualified_bank, knowledge._imported_bank,
-                       knowledge._qualified_games, knowledge._imported_games)
+        self.side = self.root / 'datas' / 'knowledge' / 'qualified-v3.json.gz'
+        for item in (patch('retrorecomp.knowledge.qualified_v3_path', return_value=self.side),
+                     patch('retrorecomp.knowledge.imported_v3_path',
+                           return_value=self.root / 'datas' / 'knowledge' / 'imported-v3.json.gz')):
+            item.start()
+            self.addCleanup(item.stop)
+        self.caches = (knowledge._qualified_bank, knowledge._imported_bank, knowledge._side_games)
         for cache in self.caches:
             cache.cache_clear()
             self.addCleanup(cache.cache_clear)
@@ -256,27 +261,31 @@ class GameStampTests(unittest.TestCase):
         self.assertNotEqual(inputs.knowledge_stamp('ng', one), stamp, 'imported Neo Geo hints count')
         self.assertEqual(inputs.knowledge_stamp('ng', two), inputs.knowledge_stamp('ng', two))
 
-    def test_cps1_and_x68000_hash_their_schema_3_record_once_they_have_one(self):
-        from tests.test_paths_schema import cps1_document, x68_document
-        from retrorecomp import path_profiles
-        for system, document in (('cps1', cps1_document()), ('x68', x68_document())):
-            identity = document['game'].split(':', 1)[1]
-            other = '9' * 64
-            self.assertEqual(inputs.knowledge_stamp(system, identity), self.empty(), system)
-            self.write(self.path, {'schema': 3, 'games': {document['game']: document}})
-            stamp = inputs.knowledge_stamp(system, identity)
-            self.assertNotEqual(stamp, self.empty(), system)
-            self.assertEqual(inputs.knowledge_stamp(system, other), self.empty(), 'another game')
-            self.assertEqual(stamp, hashlib.sha256(json.dumps(document, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
-            # Any change of its paths moves it.
-            changed = json.loads(json.dumps(document))
-            changed['identity']['layout'] = {'ram_mib': 4} if system == 'x68' else {'catalogue': 'd' * 40}
-            self.assertEqual(path_profiles.validate_games({'schema': 3, 'games': {document['game']: changed}})['schema'], 3)
-            self.write(self.path, {'schema': 3, 'games': {document['game']: changed}})
-            self.assertNotEqual(inputs.knowledge_stamp(system, identity), stamp, system)
-            self.path.unlink()
-            for cache in self.caches:
-                cache.cache_clear()
+    def test_cps1_hashes_its_schema_3_record_from_the_side_bank_and_the_x68000_has_none(self):
+        # CPS-1 has no schema 1 form: its record lives in the schema 3 side bank (`qualified-v3.json.gz`), never in
+        # the schema 1 file. The X68000 shares nothing: its stamp stays the constant.
+        from tests.test_cps1_knowledge import a_record, IDENTITY
+        document = a_record()
+        identity, other = IDENTITY, '9' * 64
+        self.assertEqual(inputs.knowledge_stamp('cps1', identity), self.empty())
+        self.write(self.side, {'schema': 3, 'games': {document['game']: document}})
+        stamp = inputs.knowledge_stamp('cps1', identity)
+        self.assertNotEqual(stamp, self.empty())
+        self.assertEqual(inputs.knowledge_stamp('cps1', other), self.empty(), 'another game')
+        self.assertEqual(stamp, hashlib.sha256(json.dumps(document, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+        # Any change of its paths moves it.
+        from retrorecomp import cps1_knowledge
+        changed = cps1_knowledge.rebuild(document, cps1_knowledge.entry_set(document) | {('m68k_ram', (0xff0100, 0x10, 2))})
+        self.write(self.side, {'schema': 3, 'games': {changed['game']: changed}})
+        self.assertNotEqual(inputs.knowledge_stamp('cps1', identity), stamp)
+        # A schema 3 file at the schema 1 path is not where a CPS-1 record is looked for.
+        self.side.unlink()
+        self.write(self.path, {'schema': 3, 'games': {document['game']: document}})
+        self.assertEqual(inputs.knowledge_stamp('cps1', identity), self.empty())
+        self.assertEqual(inputs.knowledge_stamp('x68', identity), self.empty())
+        self.path.unlink()
+        for cache in self.caches:
+            cache.cache_clear()
 
     def test_the_game_key_comes_from_the_profile(self):
         from types import SimpleNamespace

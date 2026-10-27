@@ -39,9 +39,29 @@ SCHEMA = 3
 U32 = 0xffffffff
 SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68')
 GAME_KEY = re.compile('(?:' + '|'.join(SYSTEMS) + '):[0-9a-f]{64}')
-# Consoles whose discoveries travel today (exchange files, service, shared base). Adding CPS-1
-# or the X68000 to the sharing is this one line: the key patterns of the interface follow it.
-SHARED_SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
+# Consoles whose discoveries travel. The first group is stable. EXPERIMENTAL_SHARED lists the machines
+# that are still being developed (CPS-1: its recompiler will change again): their paths travel like the
+# others', but only as schema 3 records (they have no schema 1 form) and only in line 3 of the base.
+#
+# THE SWITCH: empty EXPERIMENTAL_SHARED to withdraw them all at once. The converter then neither collects,
+# sends, imports nor reads their paths, `read_exchange` refuses a file that carries them like any unknown
+# console, the web limits generated from this module (tools/build_web_limits.py) stop the service accepting
+# them, and the site's builder (BASE_SYSTEMS is read from here) no longer puts them in line 3. Local banks and
+# line 3 for the other consoles are untouched: what was stored for them stays on disk, unread, and comes
+# back when the name does. See docs/COMPILATION_LIBRARY.md ("CPS-1 joins the base").
+STABLE_SHARED = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
+EXPERIMENTAL_SHARED = ('cps1',)
+SHARED_SYSTEMS = STABLE_SHARED + EXPERIMENTAL_SHARED
+# Machines that were shared and are not any more because their name left EXPERIMENTAL_SHARED. A file or an upload
+# that names them is read without them (their games are left out one by one), not refused whole: the players who
+# still send them must not lose the sharing of their other games the day the machine is withdrawn.
+WITHDRAWABLE = ('cps1',)
+WITHDRAWN = tuple(system for system in WITHDRAWABLE if system not in SHARED_SYSTEMS)
+
+
+class UnknownFormat(ValueError):
+    """A record of a machine's own format that this converter does not read (CPS-1's record can change while
+    the machine is developed): skipped, never a reason to refuse the rest of a file, a bank or a base entry."""
 
 
 def game_key(systems=SHARED_SYSTEMS):
@@ -361,13 +381,14 @@ SOURCE_BOUNDS = {
     **{system: {'rom': ROM_BOUNDS} for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes')},
     'ng': {'cart': (4096, 512 << 20), 'p': (512, 16 << 20), 'bios': (0x20000, 0x20000),
            'm1': (0x10000, 512 << 10), 'sm1': (0x20000, 0x20000)},
-    'cps1': {'maincpu': (1, 32 << 20), 'audiocpu': (1, 1 << 20)},
+    # CPS-1: the assembled 68000 program (even, at most 4 MiB) and Z80 sound program images the offsets point into.
+    'cps1': {'maincpu': (0x1000, 0x400000), 'audiocpu': (0x8000, 0x100000)},
     'x68': {'ipl': (1, 1 << 20), 'disk': (1, 1 << 30)},
 }
-REQUIRED_SOURCES = {'ng': ('cart', 'p', 'bios', 'm1', 'sm1'),
+REQUIRED_SOURCES = {'ng': ('cart', 'p', 'bios', 'm1', 'sm1'), 'cps1': ('maincpu', 'audiocpu'),
                     **{system: ('rom',) for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes')}}
 # Systems whose sources must carry a SHA-256 (the identity of their key).
-HASHED_SOURCES = {'ng': ('cart', 'bios')}
+HASHED_SOURCES = {'ng': ('cart', 'bios'), 'cps1': ('maincpu', 'audiocpu')}
 # Neo Geo regions as schema 1 numbers them, and the section they belong to.
 NG_REGIONS = {'p': 1, 'bios': 2, 'm1': 3, 'sm1': 4}
 NG_CPU_SOURCES = {'m68k': ('p', 'bios'), 'z80': ('m1', 'sm1')}
@@ -385,6 +406,9 @@ LEGACY_FIELDS = {
              'spc_bitmaps': (3, 262144), 'spc_deltas': (2, 262144)},
     'ng': {'rom_entries': (2, 262144), 'ram_refs': (4, 4096), 'z80_refs': (4, 32768)},
 }
+# Shared machines that have no schema 1 form: their records travel and are stored as schema 3 documents only
+# (exchange files of version 3, line 3 of the base, the `-v3` side banks of datas/knowledge).
+SCHEMA3_ONLY = tuple(system for system in SHARED_SYSTEMS if system not in LEGACY_FIELDS)
 # Row length of each schema 1 field (None: grouped rows, `spc_deltas`).
 LEGACY_WIDTHS = {system: {name: None if name == 'spc_deltas' else width for name, (width, _) in fields.items()}
                  for system, fields in LEGACY_FIELDS.items()}
@@ -498,6 +522,8 @@ def _validate_sources(system, sources) -> dict:
     if system == 'ng':
         p, m1, cart = (sources[n]['bytes'] for n in ('p', 'm1', 'cart'))
         _need(not p & 1 and not m1 & (m1 - 1) and p + m1 <= cart, 'Inconsistent Neo Geo compilation region sizes.')
+    if system == 'cps1':
+        _need(not sources['maincpu']['bytes'] & 1, 'Inconsistent CPS-1 compilation region sizes.')
     return sources
 
 
@@ -507,7 +533,10 @@ def _validate_layout(system, layout) -> None:
     if system == 'ng':
         _need(set(layout) == {'loader'} and pin(layout['loader']), 'Invalid Neo Geo layout.')
     elif system == 'cps1':
-        _need(set(layout) <= {'catalogue'} and all(pin(v) for v in layout.values()), 'Invalid CPS-1 layout.')
+        # `catalogue` (the MAME revision the offsets depend on) and `format` (the version of the CPS-1 record,
+        # which can change while the machine is developed: a reader skips what it does not know).
+        _need(set(layout) <= {'catalogue', 'format'} and all(pin(v) for k, v in layout.items() if k == 'catalogue')
+              and (type(layout.get('format', 1)) is int and 1 <= layout.get('format', 1) <= 255), 'Invalid CPS-1 layout.')
     elif system == 'x68':
         drives = layout.get('initial_drives', [])
         _need(set(layout) <= {'ram_mib', 'initial_drives'} and type(layout.get('ram_mib', 0)) is int

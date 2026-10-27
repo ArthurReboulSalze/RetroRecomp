@@ -119,22 +119,89 @@ def qualified_record(system: str, identity: str) -> dict:
     return qualified_bank().get(system, {}).get(identity, {})
 
 
-@lru_cache(maxsize=2)
-def _qualified_games(path: str, size: int, modified: int) -> dict:
-    return read_games(Path(path))
+# --- Machines whose paths have no schema 1 form (CPS-1): the side banks -------------------------------------
+#
+# They are stored as schema 3 documents in two files beside the schema 1 banks, `qualified-v3.json.gz` (the paths
+# the base qualified for this converter's engine) and `imported-v3.json.gz` (other players' paths), each
+# {"schema": 3, "games": {"cps1:<identity>": record}}. The schema 1 banks (`qualified.json.gz`, `imported.json.gz`)
+# are never touched by them: no other console's bank changes by a byte whether CPS-1 shares or not, and a schema 1
+# writer can neither drop a side-bank game nor be asked to write one. A game is checked one by one on reading: a
+# record that fails (a format this converter does not know, damaged) is set aside, never the rest of the bank.
+SIDE_GAMES = 4096
+
+
+def schema3_module(system: str):
+    """The module that checks, merges and compares the records of a schema 3-only machine, else None (also
+    while the machine is withdrawn from the sharing: `path_profiles.EXPERIMENTAL_SHARED`)."""
+    if system == 'cps1' and system in path_profiles.SHARED_SYSTEMS:
+        from . import cps1_knowledge
+        return cps1_knowledge
+    return None
+
+
+def qualified_v3_path() -> Path:
+    from .paths import data_directory
+    return data_directory() / 'knowledge' / 'qualified-v3.json.gz'
+
+
+def imported_v3_path() -> Path:
+    from .paths import data_directory
+    return data_directory() / 'knowledge' / 'imported-v3.json.gz'
+
+
+def read_side_bank(path: Path) -> dict:
+    """{game key: record} of a side bank: every record valid for its machine, the others left out. ValueError
+    when the file itself is not a schema 3 bank."""
+    document = _document(path)
+    if (not isinstance(document, dict) or set(document) != {'schema', 'games'}
+            or document['schema'] != path_profiles.SCHEMA or not isinstance(document['games'], dict)):
+        raise ValueError('Invalid schema 3 side bank.')
+    games = {}
+    for key, record in document['games'].items():
+        system, _, identity = key.partition(':') if isinstance(key, str) else ('', '', '')
+        module = schema3_module(system)
+        if module is None or not path_profiles.HEX64.fullmatch(identity) or len(games) >= SIDE_GAMES:
+            continue
+        try:
+            games[key] = module.validate_record(record, identity)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            continue
+    return games
+
+
+def write_side_bank(path: Path, games: dict) -> None:
+    """Atomic, bounded and validated; an empty bank removes the file."""
+    clean = {}
+    for key in sorted(games):
+        system, _, identity = key.partition(':')
+        module = schema3_module(system)
+        if module is None:
+            raise ValueError('This machine does not share schema 3 paths.')
+        clean[key] = module.validate_record(games[key], identity)
+    if not clean:
+        path.unlink(missing_ok=True)
+        return
+    write_packed(path, {'schema': path_profiles.SCHEMA, 'games': clean})
+
+
+@lru_cache(maxsize=4)
+def _side_games(path: str, size: int, modified: int) -> dict:
+    return read_side_bank(Path(path))
+
+
+def _side_game(path: Path, system: str, identity: str) -> dict:
+    if schema3_module(system) is None:
+        return {}
+    try:
+        stat = path.stat()
+        return _side_games(str(path), stat.st_size, stat.st_mtime_ns).get(f'{system}:{identity}', {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
 
 
 def qualified_game(system: str, identity: str) -> dict:
-    """The qualified bank's schema 3 record of a game that schema 1 cannot hold (CPS-1, the
-    X68000), or {}: only a schema 3 bank has any."""
-    if disabled():
-        return {}
-    path = qualified_path()
-    try:
-        stat = path.stat()
-        return _qualified_games(str(path), stat.st_size, stat.st_mtime_ns).get(f'{system}:{identity}', {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        return {}
+    """The qualified side bank's schema 3 record of a machine that schema 1 cannot hold (CPS-1), or {}."""
+    return {} if disabled() else _side_game(qualified_v3_path(), system, identity)
 
 
 def bundled_record(system: str, rom, engine: str) -> dict:
@@ -253,6 +320,8 @@ def discard_imported(system: str, identity: str, reason: str) -> bool:
     """Remove one cartridge's imported hints and observations after they broke
     a conversion that succeeded without them; the rejection is logged."""
     path = imported_path()
+    if schema3_module(system) is not None:
+        return _discard_side(system, identity, reason)
     record = observations = None
     try:
         consoles = read(path)['consoles'] if path.is_file() else {}
@@ -286,6 +355,30 @@ def discard_imported(system: str, identity: str, reason: str) -> bool:
     return True
 
 
+def _discard_side(system: str, identity: str, reason: str) -> bool:
+    side = imported_v3_path()
+    try:
+        games = read_side_bank(side) if side.is_file() else {}
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return False
+    record = games.pop(f'{system}:{identity}', None)
+    if record is None:
+        return False
+    write_side_bank(side, games)
+    _side_games.cache_clear()
+    log = side.with_name('imported-rejected.json')
+    try:
+        entries = json.loads(log.read_text(encoding='utf-8'))
+        entries = entries if isinstance(entries, list) else []
+    except (OSError, ValueError):
+        entries = []
+    entries.append({'system': system, 'rom_sha256': identity, 'engine': schema3_module(system).record_engine(record),
+                    'observations': 0, 'reason': str(reason)[:300],
+                    'rejected_utc': datetime.now(timezone.utc).isoformat(timespec='seconds')})
+    log.write_text(json.dumps(entries[-500:], indent=2) + '\n', encoding='utf-8')
+    return True
+
+
 def imported_record(system: str, identity: str) -> dict:
     """The imported bank's record; a changed file is read again."""
     if (system, identity) in _SET_ASIDE:
@@ -298,21 +391,11 @@ def imported_record(system: str, identity: str) -> dict:
         return {}
 
 
-@lru_cache(maxsize=2)
-def _imported_games(path: str, size: int, modified: int) -> dict:
-    return read_games(Path(path))
-
-
 def imported_game(system: str, identity: str) -> dict:
-    """`qualified_game` for the imported bank (and set aside like `imported_record`)."""
-    if (system, identity) in _SET_ASIDE:
+    """`qualified_game` for the imported side bank (and set aside like `imported_record`)."""
+    if (system, identity) in _SET_ASIDE or disabled():
         return {}
-    path = imported_path()
-    try:
-        stat = path.stat()
-        return _imported_games(str(path), stat.st_size, stat.st_mtime_ns).get(f'{system}:{identity}', {})
-    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
-        return {}
+    return _side_game(imported_v3_path(), system, identity)
 
 
 def disabled() -> bool:

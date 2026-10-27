@@ -105,8 +105,12 @@ Paths are keyed by **CPU**, not by console: a game record owns one section per
 CPU (Z80, 68000, 6502, SM83, 65816, SPC700...) and per cartridge device, plus
 named sources (ROM, BIOS, IPL, disks). One validator applies per-CPU bounds;
 the same limits are generated for the website's checks. Machines that share a
-CPU share its path kinds. *Target: schema 3; today each console has its own
-fields (`retrorecomp/knowledge.py`), and CPS-1 and X68000 have none.*
+CPU share its path kinds. *Schema 3 is `retrorecomp/path_profiles.py`; the seven
+older consoles still keep schema 1 banks, CPS-1 (experimental, shared since
+1.6.0) exists only as schema 3 documents with its own versioned record and
+engine identity, and the X68000 has no paths yet. A machine still in
+development is listed in `path_profiles.EXPERIMENTAL_SHARED`: emptying that list
+withdraws it from the sharing in one move (see COMPILATION_LIBRARY.md).*
 
 ### Reports
 

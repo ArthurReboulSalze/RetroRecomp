@@ -412,10 +412,11 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                  'upgrading the executable without rediscovery (quick check).')
         shared_used = None
         if shared and not inherited:
-            from .knowledge import imported_observations, imported_record
+            from .knowledge import imported_game, imported_observations, imported_record
             from .scan_levels import LEVELS
             # Only while the imported banks hold them (not set aside after a failure).
-            if imported_record(system.id, item.sha256) or imported_observations(system.id, item.sha256):
+            if (imported_record(system.id, item.sha256) or imported_observations(system.id, item.sha256)
+                    or imported_game(system.id, item.sha256)):
                 level = shared.get('level') if shared.get('level') in LEVELS else None
                 shared_used = {'level': level, 'records': int(shared.get('records') or 0),
                                'quick': bool(level and not rediscover
@@ -543,7 +544,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
 def _convert_in_budget(parallel_games, *args):
     # Context-local caps cannot leak between simultaneous workers.
     from .platforms import compilation_budget
-    from .knowledge import discard_imported, imported_observations, imported_record, imported_set_aside
+    from .knowledge import discard_imported, imported_game, imported_observations, imported_record, imported_set_aside
     item, emit = args[1], args[8]
     with compilation_budget(parallel_games):
         result = _convert_one(*args)
@@ -552,7 +553,8 @@ def _convert_in_budget(parallel_games, *args):
         # without them. If it then succeeds, they caused the failure and leave
         # the imported banks.
         if result['status'] != 'error' or not item.system or not (
-                imported_record(item.system, item.sha256) or imported_observations(item.system, item.sha256)):
+                imported_record(item.system, item.sha256) or imported_observations(item.system, item.sha256)
+                or imported_game(item.system, item.sha256)):
             return result
         emit(f'{item.title}: failed with imported discoveries; converting again without them.')
         with imported_set_aside(item.system, item.sha256):

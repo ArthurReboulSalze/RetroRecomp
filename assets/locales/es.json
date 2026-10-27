@@ -533,7 +533,7 @@
     "online_rate_limited": "Demasiados intentos: espera un poco y vuelve a intentarlo.",
     "online_terms_needed": "Acepta la política de privacidad para recibir un código.",
     "knowledge_sending": "Enviando descubrimientos a la base común…",
-    "knowledge_scope": "Consolas compartidas: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo y Neo Geo. Las máquinas experimentales CPS-1 y X68000 no se comparten ni cuentan en la clasificación hasta que se unan a la base común en una versión futura.",
+    "knowledge_scope": "Consolas compartidas: Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo. La máquina experimental CPS-1 también se comparte; sus rutas solo valen para la revisión del motor que las validó. La máquina experimental X68000 no se comparte ni cuenta en la clasificación hasta que se una a la base común en una versión futura.",
     "knowledge_send_found": "{games} juegos en {consoles} consolas tienen descubrimientos o conversiones que la base común aún no ha recibido de ti.",
     "knowledge_send_action": "Enviar",
     "knowledge_send_none": "Nada nuevo que enviar: la base común ya tiene todos los descubrimientos de tus conversiones cualificadas y tus partidas.",

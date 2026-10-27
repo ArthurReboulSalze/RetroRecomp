@@ -113,13 +113,12 @@ class ExchangeFileTests(unittest.TestCase):
         moved = copy.deepcopy(base)
         moved['knowledge']['games']['sms:' + SHA] = moved['knowledge']['games'].pop(md_key)
         refused(moved, 'a record filed under another game')
-        cps = copy.deepcopy(base)
-        cps['knowledge']['games']['cps1:' + SHA] = {
-            'schema': 3, 'game': 'cps1:' + SHA, 'devices': {},
-            'identity': {'system': 'cps1', 'sources': {'maincpu': {'bytes': 4096}}, 'layout': {}},
-            'cpus': {'m68k': {'map': 'cps1', 'core': ENGINE, 'paths': {}}}}
-        pp.validate_game(cps['knowledge']['games']['cps1:' + SHA])   # a valid schema 3 record...
-        refused(cps, 'a machine that shares nothing yet')           # ...that no file shares yet
+        from tests.test_paths_schema import x68_document
+        machine = copy.deepcopy(base)
+        document = x68_document()
+        machine['knowledge']['games'][document['game']] = document
+        pp.validate_game(document)                                    # a valid schema 3 record...
+        refused(machine, 'a machine that shares nothing yet')          # ...that no file shares yet
         extra = copy.deepcopy(base)
         extra['knowledge']['games'][md_key]['devices'] = {'gsu': {'core': ENGINE, 'paths': {}}}
         refused(extra, 'a device on a Mega Drive game')

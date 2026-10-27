@@ -1080,14 +1080,21 @@ def upload_version(now: float | None = None) -> int:
 
 
 def _send_one(collected: dict, current: dict) -> dict:
-    from .knowledge_exchange import discovery_paths, mark_shared, read_exchange, write_knowledge
+    from .knowledge_exchange import (discovery_paths, mark_shared, read_exchange, without_schema3_only,
+                                     write_knowledge)
     from .paths import data_directory
     folder = data_directory() / 'knowledge'
     folder.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix='upload-', suffix='.rrknowledge', dir=folder)
     os.close(fd)
     try:
-        write_knowledge(collected, Path(name), channel=None, version=upload_version())
+        written = write_knowledge(collected, Path(name), channel=None, version=upload_version())
+        # A service that reads version 3 only is the one CPS-1 can be sent to: otherwise those games stay pending.
+        if written['version'] != 3:
+            collected = without_schema3_only(collected)
+        if not collected['games']:
+            return {'games': 0, 'discoveries': 0, 'bytes': 0, 'id': None, 'duplicate': False, 'claims': None,
+                    'claims_refused': None}
         body = Path(name).read_bytes()
         # The claims name the paths of this exact file, read back as the
         # maintainer's validation reads it.
@@ -1309,8 +1316,11 @@ def _cursor_value(value) -> int:
     return value if type(value) is int and value >= 0 else 0
 
 
-def _rom_keys(values) -> list:
-    return sorted({key for key in values if isinstance(key, str) and _ROM_KEY.fullmatch(key)})
+def _rom_keys(values, live: bool = False) -> list:
+    """The valid game keys of `values`. `live` is for the per-account route (`POST knowledge/fetch`), which serves
+    schema 1 records only: the machines that have none (CPS-1) are read from the base alone."""
+    return sorted({key for key in values if isinstance(key, str) and _ROM_KEY.fullmatch(key)
+                   and not (live and key.split(':', 1)[0] in path_profiles.SCHEMA3_ONLY)})
 
 
 def fetch_knowledge(rom_keys, cursors: dict | None = None) -> dict:
@@ -1321,7 +1331,7 @@ def fetch_knowledge(rom_keys, cursors: dict | None = None) -> dict:
     current = account()
     if not current:
         raise ServiceError(401, 'unauthorized')
-    keys = _rom_keys(rom_keys)
+    keys = _rom_keys(rom_keys, live=True)
     cursors = {key: _cursor_value((cursors or {}).get(key)) for key in keys}
     served, asked = {}, keys
     for _ in range(FETCH_ROUNDS):
@@ -1405,7 +1415,7 @@ def sync_shared(rom_keys) -> dict:
     current = account()
     if not current:
         raise ServiceError(401, 'unauthorized')
-    keys = _rom_keys(rom_keys)
+    keys = _rom_keys(rom_keys, live=True)
     summary = {'asked': len(keys), 'roms': 0, 'records': 0, 'observations': 0, 'new': 0, 'enriched': 0}
     if not keys:
         return summary

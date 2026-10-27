@@ -327,23 +327,25 @@ remain separate claims. No ROM, BIOS, art or raw private library is included.
 Evidence: `.build/neogeo-final-20261024` (`register.json`, `qualification.json`,
 `knowledge.json`, `package-audit.json`).
 
-## Capcom CPS-1 — local observations (24 October 2026, not in the snapshot)
+## Capcom CPS-1 — local observations (24 October 2026) and shared paths (27 October 2026)
 
 CPS-1 conversions keep their learned work-RAM 68000 and Z80 RAM code per exact
 romset identity in the converter library (`library/cps1/<identity>/
-observations.json`, with `compilation.json`), merged with opt-in gameplay
-feedback (kinds 14–16) at the next conversion. These observations only add
-guarded native code: every conversion still compares each route with its fresh
-interpreted reference.
+observations.json`, with `compilation.json`). These observations are raw words,
+so they stay in the library: they are the player's private build hints. Since
+27 October 2026 the opt-in gameplay feedback (kinds 15 and 16) guides a
+conversion too but is no longer written into that file, and only the native
+runs of a conversion add to it. What CPS-1 *shares* is made apart, as numbers
+(see "CPS-1 joins the base" below). These observations only add guarded native
+code: every conversion still compares each route with its fresh interpreted
+reference.
 
 The first wide qualification (26 parent sets of the NAS, standard scan level,
 eight concurrent conversions) needed no learned RAM code at all: zero 68000
 and zero Z80 RAM variants for every set, and zero fallback for 25 of them.
 Street Fighter II': Champion Edition interprets 0.06% of its 68000
-instructions, run from graphics RAM, which native code does not cover yet.
-With nothing to share, CPS-1 records are still not part of
-`assets/compilation-knowledge.json.gz`; graphics-RAM variants copied from the
-ROM would be the first candidates. Per-set results:
+instructions, run from graphics RAM, which native code does not cover yet (and
+which therefore cannot be expressed as a path). Per-set results:
 [CPS-1 guide](CPS1.md#qualified-sets-24-october-2026-windows).
 
 ## X68000: one game key, observations in the library (standardization 6a, 27 October 2026; part of the 1.6.0 stamp break)
@@ -1575,6 +1577,137 @@ Removing the banks changes the sources of the Game Boy, NES, Mega Drive and Supe
 does see the hints. In the stamps only the game part moves (`role_stamps`: game of the nine consoles changed, host and
 build unchanged), and the knowledge stamp of the twelve cartridge games is unchanged; the Neo Geo one changes by
 design. Windows only: the Linux comparison is a step of the release procedure, as for the other stamp breaks.
+
+## CPS-1 joins the base (step 5 of the standardisation, 27 October 2026; part of 1.6.0)
+
+Arthur set CPS-1 aside on 26 October (its paths were raw RAM words) and gave the go-ahead on 27 October. CPS-1 is **still an
+experimental machine in development** and its engine will change again, so its sharing is built to be withdrawn and to
+move: a path is qualified only for the engine revision that validated it, the record has a version of its own, one line
+switches the whole sharing off, and the "experimental" label stays in every report and in the interface without gating
+anything. The guards of phase 6 hold as for Neo Geo: numbers only, an identity that covers every input, a conversion that
+starts again without the shared paths when it fails with them, and an audit of what a bogus entry can do.
+
+**What a CPS-1 path is.** The 68000 program ROM and the Z80 sound ROM are translated whole, so a CPS-1 game has paths
+only for the instructions it runs from RAM (work RAM at `0xFF0000`, sound RAM at `0xD000`): code the game copied there
+or built there. The fresh reference runs of a conversion (every instruction interpreted, before anything was learned)
+see all of it. The rule that turns their words into numbers, as Neo Geo does (`neogeo_codegen.generate`,
+`neogeo_knowledge.numeric_record`):
+
+- **68000**: the generator's own decoder gives the length of the *first instruction* of the observed window (the
+  other words of the window are other data); those bytes alone are searched at an **even offset** of the assembled
+  program image (`maincpu`). Row `[address, offset, length]` (`insn`, `0xFF0000` plus the RAM offset, length 2 to 16).
+- **Z80**: the instruction's structural bytes (`megadrive_z80.opcode_key`: opcodes and prefixes, never operands) are
+  searched at **any offset** of the sound image (`audiocpu`). Row `[address, offset, 4, mask]` (`insn_masked`, address
+  `0xD000` to `0xD7FF`, mask 1 to 15 with bit 0 set).
+- **What stays private, counted and never shared**: any observation whose bytes are not in those images (built or
+  unpacked at run time), one the decoder cannot translate, one that is malformed. Code run from **graphics RAM** (Street
+  Fighter II': Champion Edition) is not even observed: the board reports work-RAM and sound-RAM variants only, so there is
+  nothing to tie and the report keeps counting those instructions as interpreted. The conversion report's `knowledge`
+  block says, per CPU, how many were observed, tied and kept private (and why).
+- **Promotion only from fresh reference runs** (`cps1_knowledge.promote`, called by `cps1_conversion` after every check
+  passed): never from feedback rows, never from the paths the conversion was offered. The library's `compilation.json`
+  holds the record (`record`, `record_source`, `record_counts`); an older record of the same images and engine is merged in.
+- **Feedback kind 14** (a ROM instruction the native code did not cover) is recorded by the game and read by nobody, on
+  purpose: the program ROM is swept whole, so an interpreted ROM position is one the decoder rejects, and no path can
+  change that. It is diagnostic only: never read, never shared, never promoted (a shared file cannot carry it). Kinds 15 and
+  16 are the player's private build hints and are not persisted.
+
+**The record** is a schema 3 document of `path_profiles` (`cps1:<identity>`; the identity is the whole romset's hash of
+`cps1.py`, so a player with other files receives nothing): sources `maincpu` and `audiocpu` with their sizes **and SHA-256**
+(the images the offsets point into), `layout = {catalogue: <MAME revision>, format: 1}`, a `m68k/cps1` section and a
+`z80/cps1-sound` section with one `ram_code` block each. It holds no ROM byte, no RAM word and no code; a receiver
+rebuilds the rows from its own images (`cps1_knowledge.expanded_rows`, refused when the images' hashes differ) and the
+generator guards every instruction with its live bytes at run time, exactly as for its own observations.
+
+**Why it is safe to be wrong.** The validator accepts numbers inside the images' bounds. A bogus entry (the audit of
+phase 1, redone for CPS-1: see below) can only be: a RAM address whose live bytes never equal the instruction (dead code,
+the guard `guarded_step` / `rr_cps1_ram_native_lookup` fails), or one whose live bytes do equal it, where the translated
+instruction is exactly what the interpreter would run, compared on every route with the fresh reference before anything
+is published.
+
+**Storage: side banks, not the schema 1 banks.** CPS-1 has no schema 1 form, and the schema 1 writers (`discard_imported`,
+`write_qualified_bank`, the import) refuse to rewrite a schema 3 bank that holds such a game. The two options were: write
+schema 3 banks whenever a game without a schema 1 form is present, which would change the bytes of every console's bank
+the day CPS-1 appears in the base and make a file written by 1.6.0 unreadable for an older converter sharing the folder; or
+store those games apart. The second is the safest and is what is done: `datas/knowledge/qualified-v3.json.gz` (paths the
+base qualified for this converter's engine) and `imported-v3.json.gz` (other players' paths), each
+`{"schema": 3, "games": {"cps1:<identity>": record}}`. `qualified.json.gz` and `imported.json.gz` are never touched by
+CPS-1 (tested: byte for byte the same with and without a CPS-1 game), every game of a side bank is checked on its own when
+read (a record of a format this converter does not know, or a damaged one, is set aside alone), and removing the sharing
+leaves the files on disk, unread. `knowledge.qualified_game` / `imported_game` read them; the knowledge stamp of a CPS-1 game
+hashes its schema 3 record from them.
+
+**Engine identity (`cores`).** A record carries the cores of its two sections, 40-digit digests (`cps1_knowledge.engine_parts`)
+of: the pins of the Mega Drive recompiler (the 68000 semantics and decoder) and of Geolith (Musashi and the Z80 core); the
+text of `native/cps1_native.c`, `cps1_native.h`, `cps1_z80_native.h`, `cps1_machine.c` and `cps1_machine.h` (the guards and the
+code view), line ends normalised; and `GENERATOR_REVISION`, for the Python that generates the code (a packaged executable
+has no Python text to hash, and a bytecode hash would differ between Python versions and split the players).
+`tests/test_cps1_knowledge.py` pins the text of `GENERATOR_SOURCES` (`tests/cps1_generator_pins.json`): editing one without
+raising the revision fails the test. The base's `cores` for a record is `<68000 core>:<Z80 core>`. A path is qualified only
+for the `cores` that validated it: a changed engine makes the qualified paths leave the qualified side bank and come back as
+paths to check, with their level, until a conversion of the new engine reaches them (tested with a base whose engine moves).
+
+**A record that can change.** `layout.format` is the version of the CPS-1 record (1 today; `cps1_knowledge.FORMATS` lists
+those this converter reads). A record of another format is **left out alone** (`UnknownFormat`): out of a file
+(`read_exchange` lists it in `unreadable_games` and drops its title), out of a base entry, out of a side bank, never the
+rest. A new format keeps a reader for the old one; the cores change with the engine anyway.
+
+**The switch.** `path_profiles.EXPERIMENTAL_SHARED = ('cps1',)` (inside `SHARED_SYSTEMS`). Emptied: the converter neither
+collects, sends, fetches, imports nor reads CPS-1 paths (the side banks stay on disk, untouched, and come back with the name);
+a file that names it is read without it (`WITHDRAWN`: its games are left out one by one, the other games of the file stay);
+the web limits and the builder (`BASE_SYSTEMS`) read the same list, so the service stops accepting CPS-1 uploads and line 3
+stops listing its games, with no change to line 2, the other consoles or the banks. The label "experimental" is not read by
+any sharing code (tested) and stays in the report (`status`, `knowledge.machine_status`) and the interface.
+
+**Exchange and base.** CPS-1 has no schema 1 form, so it travels only in `.rrknowledge` **version 3** files and in **line 3** of
+the base (line 2 and 1.5.x converters never see it). In the converter a CPS-1 "record" is the schema 3 document wherever a
+record travels (`knowledge_exchange.split_payload`, `validate_mixed_payload`, `schema3_only`); a collection that holds a CPS-1
+game is written as version 3 by default, a version 2 file leaves it out and does not mark it shared, an account upload sends it
+only to a service that lists version 3 (`online.upload_version`), and the per-account route `POST knowledge/fetch` is never asked
+for it (the base is its only way in). Raw gameplay observations are never shared for CPS-1. A conversion that fails with
+the imported paths starts again without them and the paths leave the imported side bank (the batch's retry covers
+`imported_game`; `discard_imported` removes the game from `imported-v3.json.gz` and logs it in `imported-rejected.json`).
+The qualification rule of `AGENTS.md` is the base's own (`player_qualified`): a path is qualified for a `cores` when a
+conversion of another player reached it, validated against the fresh reference (their record is made only from their own
+fresh reference runs, so an upload holding the path proves it), for CPS-1 from converter 1.6.0 on; discoveries wait until then.
+
+**Evidence (27 October 2026, Windows, Python 3.14.5).** Measures kept apart, none of them about hardware fidelity or play.
+
+- *Generated sources unchanged.* The three shortest sets of the NAS (Pnickies `pnickj`, Pokonyan! Balloon, Quiz & Dragons;
+  none has any RAM code) converted at the Standard level from an archive of the commit before (`5dc1793`) and of this one,
+  unpacked in the very same folder, same options, output under `.build`: **318 generated files identical, one different per
+  set** (`retro16_state_config.h`, whose `RR16_STATE_ABI` hashes the code of `cps1_build` and `cps1_codegen`, changed on
+  purpose). The route results (CPU, RAM, image and sound hashes, native and interpreted counters, traces) are identical
+  and every set stays "native code only" and **experimental**. The same holds for any set with no shared path: nothing
+  but the (empty) record in the report differs.
+- *Audit "a bogus entry stays dead code or a failing guard", redone for CPS-1.* An attacker's record: 2,000 random 68000
+  rows and 2,000 random Z80 rows, valid for the validator (real image sizes and hashes, aligned offsets inside the real
+  images), in the imported side bank of Pnickies. The conversion passed with 3,587 guarded variants generated (1,771 for
+  the 68000, 1,816 for the Z80; the others did not decode or had no body), the executable grew by 4.3% (2,446,336 to
+  2,552,832 bytes), the route hashes and traces equal those of the clean conversion, 0 interpreted opcodes on both CPUs,
+  and the promoted record stayed empty (the bogus paths are not what a fresh reference run executed, so they never
+  re-enter the shared record). The guards are the live-byte comparisons of `guarded_step` and
+  `rr_cps1_ram_native_lookup` / `rr_cps1_z80_ram_lookup`: a variant whose bytes the game never puts at that address never runs.
+- *End to end on the Hermès test service* (`std/cps1-base` of the private site deployed there; production untouched; the
+  converter header is patched to 1.6.0 in the script, the number the worktree does not carry yet). No available CPS-1 set runs
+  RAM code, so the "discovery" is built with `promote()` from windows of **real instruction bytes of the real Pnickies
+  program and sound images** (the instructions a game would copy to RAM), decoded by the generator's own decoder; the
+  sharing, the service and the base are the real ones. Account A uploads 4 + 2 paths (file version 3, 655 bytes, accepted,
+  claims "6 paths, 6 new"; the file holds no instruction bytes). Builder run 1 (version 7): CPS-1 appears in line 3 only (6 games
+  in line 2, 7 in line 3), one part, **0 qualified**: the discovery waits. Player C (an installer's copy of line 3, version 7)
+  imports it: 6 paths in the imported side bank, 0 qualified, the schema 1 banks hold no CPS-1. Account B (another account,
+  its own fresh reference) uploads 5 + 3 paths (663 bytes; "8 paths, 2 new"). Builder run 2 (version 8): **one qualified
+  element by players** for the two accounts' common 6 paths, tied to the `cores` of this converter. C updates by the 1.8 KB
+  line 3 difference: 6 qualified paths, 8 to check. A real conversion of Pnickies with those paths takes the quick check
+  ("paths qualified in the base"), generates 5 + 3 guarded variants, passes against the fresh reference with 0 interpreted
+  opcodes. Twelve uploads that carry ROM bytes or malformed numbers are refused (422 `invalid_knowledge`; not gzip 400): an
+  extra "words" field, bytes in the sources, a source without its hash, an odd or out-of-window RAM address, an offset past
+  the image, a column claiming a billion rows, a raw observation row, schema 3 in a version 2 file, schema 1 in a version 3
+  file, a record under another key; a record of format 2 is skipped alone ("empty" file); the good one is accepted (201).
+- Local tests: `tests/test_cps1_knowledge.py` (36 tests: translation with attachable and unattachable fixtures of both CPUs,
+  the SF2CE case, round trip from the player's own images, the record and its format, the engine moving with each of its
+  inputs, the side banks and their bytes, exchange files of both versions, the base with a moving engine, the switch, the
+  experimental label, kind 14) and the updated schema tests.
 
 ## Sharing discoveries between converters
 

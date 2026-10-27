@@ -25,8 +25,9 @@ import zlib
 
 from . import __version__, path_profiles
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
-                        imported_path, load, merge_records, read, read_observations, refuse_to_drop_games, valid_observation_rows,
-                        validate_payload, write_observations, write_packed)
+                        imported_path, imported_v3_path, load, merge_records, qualified_v3_path, read, read_observations,
+                        read_side_bank, refuse_to_drop_games, schema3_module, valid_observation_rows,
+                        validate_payload, write_observations, write_packed, write_side_bank)
 from .knowledge_build import SYSTEMS as CARTRIDGE_SYSTEMS, build_record, compact_snes, engines, qualified_reports
 from .systems import profile_for_path
 
@@ -54,7 +55,49 @@ CACHE_NAME = 'discoveries-cache.json.gz'
 CONSOLE_LIMIT = 4096
 
 
+def schema3_only() -> tuple:
+    """The shared machines whose records are schema 3 documents only (CPS-1): in the exchange and the base a
+    "record" of theirs is that document, and they travel only in version 3 files and line 3 of the base."""
+    return tuple(system for system in SYSTEMS if system in path_profiles.SCHEMA3_ONLY)
+
+
+def validate_mixed_payload(payload) -> dict:
+    """`validate_payload` for a payload that may also hold the records of a schema 3-only machine, as
+    {"schema": 1, "consoles": {...,"cps1": {identity: schema 3 record}}}: the others are checked as always, those
+    by their machine's module. ValueError otherwise."""
+    if not isinstance(payload, dict) or set(payload) != {'schema', 'consoles'} or not isinstance(payload['consoles'], dict):
+        raise ValueError('Invalid compilation knowledge schema.')
+    only = {system for system in payload['consoles'] if system in path_profiles.SCHEMA3_ONLY}
+    validate_payload({'schema': payload['schema'],
+                      'consoles': {s: g for s, g in payload['consoles'].items() if s not in only}})
+    for system in only:
+        module = schema3_module(system)
+        games = payload['consoles'][system]
+        if module is None or not isinstance(games, dict) or len(games) > CONSOLE_LIMIT:
+            raise ValueError('Unsupported console in knowledge file.')
+        for identity, record in games.items():
+            module.validate_record(record, identity)
+    return payload
+
+
+def split_payload(payload: dict) -> tuple[dict, dict]:
+    """(the schema 1 payload, {system: {identity: record}} of the schema 3-only machines)."""
+    only = {system: games for system, games in payload['consoles'].items() if system in path_profiles.SCHEMA3_ONLY}
+    legacy = {system: games for system, games in payload['consoles'].items() if system not in only}
+    return {**payload, 'consoles': legacy}, only
+
+
+def _same_rom(system: str, first: dict, second: dict) -> bool:
+    module = schema3_module(system)
+    if module is not None:
+        return bool(first) and bool(second) and module.same_images(first, second)
+    return first.get('rom_bytes') == second.get('rom_bytes')
+
+
 def _entries(system: str, record: dict) -> set:
+    module = schema3_module(system)
+    if module is not None:
+        return module.entry_set(record)
     if system == 'ng':
         from .neogeo_knowledge import entry_set
         return entry_set(record)
@@ -69,15 +112,15 @@ def _entries(system: str, record: dict) -> set:
 
 
 def _bundled(system: str, identity: str) -> dict:
-    from .knowledge import qualified_record
-    return qualified_record(system, identity)
+    from .knowledge import qualified_game, qualified_record
+    return (qualified_game if schema3_module(system) is not None else qualified_record)(system, identity)
 
 
 def unknown_hints(system: str, record: dict, *known: dict) -> int:
     """How many hints of `record` none of `known` holds for the same ROM."""
     entries = _entries(system, record)
     for other in known:
-        if other and other.get('rom_bytes') == record.get('rom_bytes'):
+        if other and _same_rom(system, other, record):
             entries -= _entries(system, other)
     return len(entries)
 
@@ -88,11 +131,20 @@ def adds_to(system: str, record: dict, known: dict) -> bool:
 
 
 def _imported_bank() -> dict:
+    """{system: {identity: record}} of the imported banks: the schema 1 bank and the schema 3 side bank."""
     target = imported_path()
     try:
-        return read(target)['consoles'] if target.is_file() else {}
+        bank = read(target)['consoles'] if target.is_file() else {}
     except (OSError, ValueError, EOFError):
-        return {}
+        bank = {}
+    try:
+        side = read_side_bank(imported_v3_path()) if imported_v3_path().is_file() else {}
+    except (OSError, ValueError, EOFError, zlib.error):
+        side = {}
+    for key, record in side.items():
+        system, _, identity = key.partition(':')
+        bank.setdefault(system, {})[identity] = record
+    return bank
 
 
 def _observation_bank() -> dict:
@@ -106,6 +158,12 @@ def _observation_bank() -> dict:
 def _merge(system: str, identity: str, first: dict, second: dict):
     """Union of two records of one game; None when a Neo Geo union would
     exceed its bounds (the caller keeps what it had)."""
+    module = schema3_module(system)
+    if module is not None:
+        try:
+            return module.merged(identity, first, second)
+        except (ValueError, TypeError, KeyError):
+            return None
     if system != 'ng':
         return merge_records(system, first, second)
     from .neogeo_knowledge import merged_record
@@ -192,7 +250,13 @@ def _current_engines() -> dict:
     """The compiler revision each console's records are built with. Neo Geo's
     is the emulator core and the loader together."""
     from .neogeo_build import GEOLITH_REV, LITHOGEN_REV
-    return {**engines(), 'ng': f'{GEOLITH_REV}:{LITHOGEN_REV}'}
+    found = {**engines(), 'ng': f'{GEOLITH_REV}:{LITHOGEN_REV}'}
+    for system in schema3_only():
+        module = schema3_module(system)
+        if module is not None:
+            # CPS-1: the revision of the engine that consumes its paths (`cps1_knowledge.engine`).
+            found[system] = module.engine()
+    return found
 
 
 def _collect_neo_geo(game, report: dict | None, outcome: dict) -> None:
@@ -231,6 +295,34 @@ def _collect_neo_geo(game, report: dict | None, outcome: dict) -> None:
                                            'rom_entries': [], 'ram_refs': [], 'z80_refs': []}}
 
 
+def _collect_cps1(game, report: dict | None, outcome: dict) -> None:
+    """A CPS-1 game's contribution, counted in `outcome`. Its record is already numbers (offsets into the
+    program and sound images of the player's own romset), made by `cps1_conversion` from the fresh reference runs
+    of a conversion that passed, so no ROM is read here. It is shared only when the library's record is the one
+    the qualified report was built with: same romset, same images, same engine revision. The machine is
+    experimental; that label changes nothing here."""
+    from . import cps1_knowledge
+    omitted = outcome['omitted']
+    if not report:
+        omitted['unqualified'] += 1
+        return
+    record = cps1_knowledge.library_record(game.identity)
+    made = (report.get('knowledge') or {}) if isinstance(report.get('knowledge'), dict) else {}
+    if (record is None or cps1_knowledge.record_engine(record) != cps1_knowledge.engine()
+            or made.get('record_sha256') != cps1_knowledge.record_digest(record)):
+        omitted['unqualified'] += 1
+        return
+    found = unknown_hints('cps1', record, _bundled('cps1', game.identity))
+    if found:
+        outcome.update(record=record, found=found, level=str(report.get('scan_level') or 'standard'))
+    else:
+        omitted['already_known'] += 1
+        from .compiled_games import report_level
+        # The record without paths that stands for a conversion with nothing new.
+        outcome['converted'] = {'engine': cps1_knowledge.record_engine(record), 'level': report_level(report),
+                                'record': cps1_knowledge.rebuild(record, set())}
+
+
 def collect_knowledge(games, locate=None, context: str = '', progress=None) -> dict:
     """The discoveries of `games` (compiled-games entries), counted, unwritten.
 
@@ -259,7 +351,7 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
         else:
             misses.append((game, signature))
     qualified = qualified_reports([game.report for game, _ in misses if game.report])
-    wanted = [game for game, _ in misses if game.system != 'ng'
+    wanted = [game for game, _ in misses if game.system != 'ng' and schema3_module(game.system) is None
               and ((game.system, game.identity) in qualified or getattr(game, 'status', '') == 'new_hints')]
     if progress and wanted and locate:
         progress('roms', 0, len(wanted))
@@ -272,6 +364,8 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
         raw = getattr(game, 'status', '') == 'new_hints'
         if game.system == 'ng':
             _collect_neo_geo(game, qualified.get(key), outcome)
+        elif schema3_module(game.system) is not None:
+            _collect_cps1(game, qualified.get(key), outcome)
         elif key not in qualified and not raw:
             outcome['omitted']['unqualified'] += 1
         else:
@@ -338,36 +432,88 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
             'discoveries': discoveries, 'omitted': omitted,
             'observations': observations, 'observation_count': sum(
                 len(rows) for games in observations.values() for rows in games.values()),
-            'payload': validate_payload({'schema': 1, 'consoles': consoles}), 'titles': titles,
+            'payload': validate_mixed_payload({'schema': 1, 'consoles': consoles}), 'titles': titles,
             'levels': levels, 'converted': converted}
 
 
 def paths_to_v3(payload: dict) -> dict:
     """A schema 1 payload ({"schema": 1, "consoles"}) as the CPU-keyed schema 3
     one ({"schema": 3, "games"}), checked by `path_profiles.validate_games`.
-    ValueError when a record has no valid schema 3 form."""
-    return path_profiles.validate_games(path_profiles.bank_to_v3(validate_payload(payload)))
+    ValueError when a record has no valid schema 3 form. The records of a schema 3-only machine (CPS-1) are
+    schema 3 documents already and go in as they are."""
+    legacy, only = split_payload(validate_mixed_payload(payload))
+    document = path_profiles.bank_to_v3(legacy)
+    for games in only.values():
+        document['games'].update({record['game']: record for record in games.values()})
+    return path_profiles.validate_games(document)
 
 
-def paths_from_v3(knowledge) -> dict:
+def paths_from_v3(knowledge, unreadable: list | None = None) -> dict:
     """The down-projection: a schema 3 payload as the schema 1 payload that every
     reader of the games' paths (banks, `merge_records`, the builder) works on.
     Both validators must accept it: schema 3's own, then schema 1's (Neo Geo's
     included), so nothing reaches the rest of the converter that an older
-    converter would have refused. ValueError otherwise."""
+    converter would have refused. ValueError otherwise. A game of a schema 3-only
+    machine whose record is of a format this converter does not know is left out
+    alone (its key goes to `unreadable`): CPS-1's record format may move while the
+    machine is developed, and a file from a newer converter stays readable."""
     document = path_profiles.validate_games(knowledge)
-    return validate_payload(path_profiles.bank_to_legacy(document, validate=False))
+    # A machine taken out of the sharing (path_profiles.WITHDRAWN): its games are left out, one by one.
+    gone = [key for key in document['games'] if key.split(':', 1)[0] in path_profiles.WITHDRAWN]
+    if gone:
+        if unreadable is None:
+            raise ValueError('Unsupported console in knowledge file.')
+        unreadable.extend(gone)
+        document = {**document, 'games': {k: g for k, g in document['games'].items() if k not in gone}}
+    only = {key: game for key, game in document['games'].items() if key.split(':', 1)[0] in path_profiles.SCHEMA3_ONLY}
+    legacy = {'schema': document['schema'], 'games': {k: g for k, g in document['games'].items() if k not in only}}
+    payload = validate_payload(path_profiles.bank_to_legacy(legacy, validate=False))
+    for key, game in only.items():
+        system, _, identity = key.partition(':')
+        module = schema3_module(system)
+        if module is None:
+            raise ValueError('Unsupported console in knowledge file.')
+        try:
+            payload['consoles'].setdefault(system, {})[identity] = module.validate_record(game, identity)
+        except path_profiles.UnknownFormat:
+            if unreadable is None:
+                raise
+            unreadable.append(key)
+    return payload
+
+
+def without_schema3_only(collected: dict) -> dict:
+    """`collected` without the games of the schema 3-only machines (what a version 2 file can carry)."""
+    legacy, only = split_payload(collected['payload'])
+    if not only:
+        return collected
+    drop = {(system, identity) for system, games in only.items() for identity in games}
+    keep = lambda values: {system: {i: v for i, v in games.items() if (system, i) not in drop}
+                           for system, games in values.items()}
+    titles = {s: g for s, g in keep(collected['titles']).items() if g}
+    sharing = {system: len(names) for system, names in sorted(titles.items())}
+    return {**collected, 'payload': legacy, 'titles': titles, 'games': sum(sharing.values()), 'consoles': sharing,
+            'discoveries': collected['discoveries'] - sum(len(_entries(s, r)) for s, g in only.items() for r in g.values()),
+            'observations': {s: g for s, g in keep(collected.get('observations', {})).items() if g},
+            'levels': {s: g for s, g in keep(collected.get('levels', {})).items() if g},
+            'converted': {s: g for s, g in keep(collected.get('converted', {})).items() if g},
+            'schema3_only_left_out': sum(len(games) for games in only.values())}
 
 
 def write_knowledge(collected: dict, destination: Path, channel: str | None = 'file',
-                    version: int = VERSION, fallback: bool = True) -> dict:
+                    version: int | None = None, fallback: bool = True) -> dict:
     """Write what `collect_knowledge` found to one shared file. With no
     `channel`, nothing is marked as shared: an upload marks it once accepted.
     `version` 3 writes the paths in schema 3; when a record has no valid schema
     3 form the file is written as version 2 (`fallback`) or ValueError is
-    raised. The answer's `version` is the one written."""
-    if version not in (2, 3):
+    raised. `None` is version 2, except that a collection holding a game only
+    version 3 can carry (CPS-1) is written as 3. A version 2 file leaves such
+    games out, and they are not marked as shared. The answer's `version` is the
+    one written."""
+    if version not in (None, 2, 3):
         raise ValueError('Knowledge files are written as version 2 or 3.')
+    if version is None:
+        version = 3 if split_payload(collected['payload'])[1] else VERSION
     knowledge = collected['payload']
     if version == 3:
         try:
@@ -376,6 +522,9 @@ def write_knowledge(collected: dict, destination: Path, channel: str | None = 'f
             if not fallback:
                 raise
             version = 2
+    if version == 2:
+        collected = without_schema3_only(collected)
+        knowledge = collected['payload']
     document = {'format': FORMAT, 'version': version, 'converter': __version__,
                 'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 'titles': collected['titles'], 'knowledge': knowledge,
@@ -384,10 +533,11 @@ def write_knowledge(collected: dict, destination: Path, channel: str | None = 'f
     if channel:
         mark_shared(channel, collected)
     return {**{key: collected[key] for key in ('games', 'consoles', 'discoveries', 'omitted')},
-            'observation_count': collected.get('observation_count', 0), 'bytes': len(packed), 'version': version}
+            'observation_count': collected.get('observation_count', 0), 'bytes': len(packed), 'version': version,
+            'schema3_only_left_out': collected.get('schema3_only_left_out', 0)}
 
 
-def export_knowledge(games, destination: Path, locate=None, context: str = '', version: int = VERSION) -> dict:
+def export_knowledge(games, destination: Path, locate=None, context: str = '', version: int | None = None) -> dict:
     """Collect then write the discoveries of `games` to one file."""
     return write_knowledge(collect_knowledge(games, locate, context), destination, version=version)
 
@@ -467,8 +617,9 @@ def read_exchange(path: Path) -> dict:
                                      'knowledge', 'observations'}
             or (document.get('version') == 1 and 'observations' in document)):
         raise ValueError('Not a Retro-Recomp knowledge file.')
+    unreadable = []
     if document['version'] == 3:
-        payload = document['knowledge'] = paths_from_v3(document.get('knowledge'))
+        payload = document['knowledge'] = paths_from_v3(document.get('knowledge'), unreadable)
     else:
         payload = validate_payload(document.get('knowledge'))
     if not set(payload['consoles']) <= set(SYSTEMS):
@@ -484,8 +635,14 @@ def read_exchange(path: Path) -> dict:
                 raise ValueError('Invalid shared observations.')
             if system == 'ng' and rows:
                 raise ValueError('Neo Geo shares no raw observations.')
+            if system in path_profiles.SCHEMA3_ONLY and rows:
+                raise ValueError('This machine shares no raw observations.')
             games[identity] = valid_observation_rows(system, rows)
     titles = document.get('titles', {})
+    if unreadable and isinstance(titles, dict):
+        titles = document['titles'] = {system: ({i: t for i, t in names.items() if f'{system}:{i}' not in unreadable}
+                                                if isinstance(names, dict) else names) for system, names in titles.items()}
+    document['unreadable_games'] = sorted(unreadable)
     if not isinstance(titles, dict) or any(
             not isinstance(names, dict) or any(
                 (identity not in payload['consoles'].get(system, {})
@@ -519,7 +676,7 @@ def discovery_paths(document: dict) -> dict:
     for system, records in document['knowledge']['consoles'].items():
         for identity, record in records.items():
             bundled = _bundled(system, identity)
-            known = _entries(system, bundled) if bundled.get('rom_bytes') == record.get('rom_bytes') else set()
+            known = _entries(system, bundled) if bundled and _same_rom(system, bundled, record) else set()
             keys = sorted({_path_key([name, list(entry)]) for name, entry in _entries(system, record) - known})
             games[(system, identity)] = {'known': bool(bundled), 'hints': keys[:PATH_LIMIT], 'observations': []}
     for system, rows_by_game in document['observations'].items():
@@ -573,6 +730,12 @@ def import_knowledge(path: Path) -> dict:
 
 def _valid_record(system: str, identity: str, record) -> dict | None:
     """One cartridge record checked like a shared file's, or None."""
+    module = schema3_module(system)
+    if module is not None:
+        try:
+            return module.validate_record(record, identity)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return None
     try:
         return validate_payload({'schema': 1, 'consoles': {system: {identity: record}}})['consoles'][system][identity]
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -582,6 +745,8 @@ def _valid_record(system: str, identity: str, record) -> dict | None:
 def _salvaged_record(system: str, identity: str, record) -> dict | None:
     """A received record without its rows that fail the checks: one malformed
     or incoherent row is left out alone, never the record's other paths."""
+    if schema3_module(system) is not None:
+        return _valid_record(system, identity, record)
     if system == 'ng':
         from .neogeo_knowledge import salvaged_record
         return salvaged_record(identity, record)
@@ -631,7 +796,8 @@ def import_fetched(roms: dict) -> dict:
             # Merging never pushes a record past the bank's own limits.
             record = merged if merged is candidate else _valid_record(system, identity, merged) or record
         rows, seen = [], set()
-        for row in value.get('observations') if isinstance(value.get('observations'), list) and system != 'ng' else ():
+        for row in (value.get('observations') if isinstance(value.get('observations'), list)
+                    and system != 'ng' and system not in path_profiles.SCHEMA3_ONLY else ()):
             try:
                 clean = valid_observation_rows(system, [row])[0]
             except (ValueError, TypeError, KeyError):
@@ -688,6 +854,9 @@ def record_engine(system: str, record) -> str:
     together for the Neo Geo."""
     if not isinstance(record, dict):
         return ''
+    module = schema3_module(system)
+    if module is not None:
+        return module.record_engine(record)
     if system == 'ng':
         return f"{record.get('engine')}:{record.get('loader')}"
     value = record.get('engine')
@@ -706,7 +875,11 @@ def current_engines() -> dict:
 def record_to_v3(system: str, identity: str, record):
     """A schema 1 record as a checked schema 3 game record, or None when it has
     no valid schema 3 form (schema 3 is stricter than schema 1 where the local
-    code that uses a hint is: `path_profiles.STRICTER_THAN_V2`)."""
+    code that uses a hint is: `path_profiles.STRICTER_THAN_V2`). The record of a schema 3-only machine is the
+    document already."""
+    module = schema3_module(system)
+    if module is not None:
+        return _valid_record(system, identity, record)
     try:
         return path_profiles.validate_game(path_profiles.to_v3(system, identity, record))
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -715,7 +888,11 @@ def record_to_v3(system: str, identity: str, record):
 
 def record_from_v3(system: str, identity: str, document):
     """A schema 3 game record of this game as a schema 1 record, or None when
-    it is not a valid one or belongs to another game."""
+    it is not a valid one or belongs to another game. A schema 3-only machine's record is the document
+    itself, checked (None for a format this converter does not know)."""
+    module = schema3_module(system)
+    if module is not None:
+        return _valid_record(system, identity, document)
     try:
         kind, key, record = path_profiles.to_legacy(document)
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -754,15 +931,16 @@ def entry_to_v2(entry: dict, report: dict | None = None) -> dict:
     cores) is left out like `entry_to_v3` does, and counted in `report`."""
     system, identity = entry['system'], entry['identity']
     qualified, parts = [], []
+    only = system in path_profiles.SCHEMA3_ONLY   # no schema 1 form: nothing of it reaches line 2
     for item in entry.get('qualified', []):
-        record = record_from_v3(system, identity, item['record'])
+        record = None if only else record_from_v3(system, identity, item['record'])
         if record is None:
             if report is not None:
                 report['qualified'] = report.get('qualified', 0) + 1
             continue
         qualified.append({'engine': item['cores'], 'level': item['level'], 'by': item['by'], 'record': record})
     for part in entry['parts']:
-        record = None if part['record'] is None else record_from_v3(system, identity, part['record'])
+        record = None if part['record'] is None or only else record_from_v3(system, identity, part['record'])
         if record is None and part['record'] is not None and report is not None:
             report['parts'] = report.get('parts', 0) + 1
         parts.append({'source': part['source'], 'level': part['level'], 'record': record,
@@ -784,6 +962,8 @@ def project_base(entries: dict, games: dict, target: int, report: dict | None = 
     projected, index = {}, {}
     convert = entry_to_v3 if target == 3 else entry_to_v2
     for key, game in games.items():
+        if target == 2 and key.split(':', 1)[0] in path_profiles.SCHEMA3_ONLY:
+            continue   # CPS-1 lives in line 3 only: the other line does not list it
         value = json.loads(entries[game['entry']])
         text = canonical_bytes(convert(value, report)).decode('ascii')
         sha = hashlib.sha256(text.encode('ascii')).hexdigest()
@@ -831,8 +1011,8 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
             if record is None:
                 continue
         seen.add(part['source'])
-        parts.append({'source': part['source'], 'level': part['level'], 'record': record,
-                      'observations': part['observations']})
+        rows = [] if system in path_profiles.SCHEMA3_ONLY else part['observations']
+        parts.append({'source': part['source'], 'level': part['level'], 'record': record, 'observations': rows})
     qualified, engines = [], set()
     name = 'cores' if third else 'engine'
     for item in value.get('qualified', [])[:BASE_PARTS_LIMIT]:
@@ -869,7 +1049,7 @@ def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
     base entry: what `import_fetched` will keep of it."""
     record = part.get('record') is not None and _valid_record(system, identity, part['record']) is not None
     rows = 0
-    for row in (part.get('observations') or ()) if system != 'ng' else ():
+    for row in (part.get('observations') or ()) if system != 'ng' and system not in path_profiles.SCHEMA3_ONLY else ():
         try:
             valid_observation_rows(system, [row])
             rows += 1
@@ -1272,18 +1452,33 @@ def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: i
 
 def read_qualified_bank() -> dict:
     """{system: {identity: record}} of the qualified bank ({} when absent or
-    unreadable)."""
+    unreadable), CPS-1's schema 3 side bank included."""
     path = qualified_bank_path()
     try:
-        return read(path)['consoles'] if path.is_file() else {}
+        bank = read(path)['consoles'] if path.is_file() else {}
     except (OSError, ValueError, EOFError, zlib.error):
-        return {}
+        bank = {}
+    try:
+        side = read_side_bank(qualified_v3_path()) if qualified_v3_path().is_file() else {}
+    except (OSError, ValueError, EOFError, zlib.error):
+        side = {}
+    for key, record in side.items():
+        system, _, identity = key.partition(':')
+        bank.setdefault(system, {})[identity] = record
+    return bank
 
 
 def write_qualified_bank(consoles: dict) -> None:
+    """The schema 1 bank and, apart, the schema 3 side bank. The schema 1 file is rewritten from its own consoles
+    only, so it is byte for byte what it was before CPS-1 shared (and a side bank never reaches a schema 1
+    writer)."""
+    legacy, only = split_payload({'schema': 1, 'consoles': consoles})
     refuse_to_drop_games(qualified_bank_path())
     write_packed(qualified_bank_path(), validate_payload(
-        {'schema': 1, 'consoles': {system: games for system, games in sorted(consoles.items()) if games}}))
+        {'schema': 1, 'consoles': {system: games for system, games in sorted(legacy['consoles'].items()) if games}}))
+    side = {record['game']: record for games in only.values() for record in games.values()}
+    if side or qualified_v3_path().is_file():
+        write_side_bank(qualified_v3_path(), side)
 
 
 def _import_document(document: dict) -> dict:
@@ -1324,7 +1519,11 @@ def _import_document(document: dict) -> dict:
             if outcome.get((system, identity)) not in ('new', 'enriched'):
                 outcome[(system, identity)] = 'enriched' if existed else 'new'
     refuse_to_drop_games(target)
-    write_packed(target, validate_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}}))
+    legacy, only = split_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}})
+    write_packed(target, validate_payload(legacy))
+    side = {record['game']: record for games in only.values() for record in games.values()}
+    if side or imported_v3_path().is_file():
+        write_side_bank(imported_v3_path(), side)
     write_observations(observed)
     titles_path = target.with_name('imported-titles.json')
     try:
