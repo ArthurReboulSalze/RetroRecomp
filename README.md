@@ -24,9 +24,9 @@
 </p>
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_Queue_en.png" alt="RetroRecomp conversion queue with games from six consoles, on Linux, with a sample account and its console badge in the header" width="860">
+  <img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection" width="860">
 </p>
-<p align="center"><sub><em>The conversion queue: drop games from several consoles and convert them together. Captured on Linux with a sample account; Windows shows the same window.</em></sub></p>
+<p align="center"><sub><em>Compiled Games, in French: favorites, scan-level stars, covers, summaries and New paths.</em></sub></p>
 
 RetroRecomp brings several recompilers together in one application. It turns
 your own game dumps into standalone Windows or Linux executables, with as much
@@ -106,11 +106,11 @@ native code as possible: no emulator to configure, no dedicated FPGA hardware.
 
 <table>
   <tr>
-    <td width="50%"><img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection"></td>
+    <td width="50%"><img src="MEDIAS/RetroRecomp_Queue_en.png" alt="RetroRecomp conversion queue with games from six consoles, on Linux, with a sample account and its console badge in the header"></td>
     <td width="50%"><img src="MEDIAS/RetroRecomp_Options_de.png" alt="Options in German, with the Mega Drive scan level and folders"></td>
   </tr>
   <tr>
-    <td align="center"><sub><em>Compiled Games, in French: favorites, scan-level stars, covers, summaries and New paths.</em></sub></td>
+    <td align="center"><sub><em>The conversion queue: drop games from several consoles and convert them together. Captured on Linux with a sample account; Windows shows the same window.</em></sub></td>
     <td align="center"><sub><em>Options, in German: one tab per console, scan levels and folders.</em></sub></td>
   </tr>
   <tr>
