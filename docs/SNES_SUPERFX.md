@@ -705,7 +705,10 @@ Extended level, empty private library per game, Windows, headless, three convers
   Star Fox 2 is proven (a score entered after a game over appears in TOP 5 SCORES after a
   fresh-process reload, "No data exists" without the file). Stunt Race FX (records need all
   four courses of a class) and Yoshi's Island (writes only after a cleared level) were not
-  driven far enough by scripted input.
+  driven far enough by scripted input. A dedicated attempt on 27 October 2026 (trigger search
+  and parallel input candidates) was stopped by the maintainer before a proof: scripted input is
+  set aside for these two games, and their game-level saves (like the code they still meet later
+  in play) are left to human play, which saves its own fallback hints for the next conversion.
 - Host cost: gameplay windows of 3,000 frames on one pinned core, best of 3, process start
   included; 34-47 % of the frame budget. Not a latency measurement.
 - Stderr scan of the 33 scenario runs: 31 clean; two show the 65816 executing a BRK while the
