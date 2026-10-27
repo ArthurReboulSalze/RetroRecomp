@@ -246,8 +246,8 @@ python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 exports to `Export`; build files and dependencies stay in `.build` and `.deps`.
 The packaged converter creates `Games` beside its executable. Automatic
 identification routes supported ROMs into `Master System`, `Game Gear`,
-`Game Boy`, `Nintendo NES`, `Mega Drive`, `Super Nintendo` or `Neo Geo` subfolders;
-unknown formats are reported and skipped. `--output`
+`Game Boy`, `Nintendo NES`, `Mega Drive`, `Super Nintendo`, `Neo Geo`, `CPS-1`
+or `Sharp X68000` subfolders; unknown formats are reported and skipped. `--output`
 selects another Games root, and `--system sms|gg|gb|nes|md|snes` resolves ambiguous
 `.bin`/`.rom` dumps when their console is known to the user. The GUI offers
 the same Automatic/manual console selector and an opt-in custom export folder.

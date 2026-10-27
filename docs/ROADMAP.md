@@ -1,6 +1,7 @@
 # RetroRecomp roadmap
 
-The current public packages have seven supported console profiles on Windows and a native Linux
+The current public packages have seven supported console profiles on Windows
+plus the experimental Capcom CPS-1 and Sharp X68000, and a native Linux
 x86-64 package. Support remains bounded to documented cartridge hardware;
 Linux is qualified on Debian 13/glibc 2.41, with broader distributions still pending.
 
@@ -17,6 +18,12 @@ in public downloads as an experimental profile since 1.1.9. Native RAM code,
 common menus, quick states and multi-disk sequences are in place; gameplay
 coverage, hardware edge cases and low-power Linux performance are still being
 improved before it leaves the experimental stage. See [X68000 status](X68000.md).
+
+Capcom CPS-1 has been included in public downloads as an experimental profile
+since 1.2.7: MAME/FBNeo ZIP romsets of the standard boards (no QSound), DIP
+switches, up to four players and quick states. Broader gameplay coverage is
+still being built before it leaves the experimental stage. See
+[the CPS-1 profile](CPS1.md).
 
 ## Stable runtimes and a growing library — 1.2.0
 
@@ -38,7 +45,7 @@ groundwork for each has been reviewed. Existing 68000 and Z80 components will
 be reused where appropriate, and each machine will receive its own experimental
 phase, validation and compatibility scope. Planned order:
 
-- Capcom CPS-1 / CPS-2 arcade boards
+- Capcom CPS-2 arcade boards
 - PC Engine / TurboGrafx-16
 - Game Boy Advance
 - Atari ST

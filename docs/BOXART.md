@@ -39,7 +39,8 @@ receive a changed icon. This local converter update does not restart the paused
 game campaign.
 
 RetroRecomp uses the same icon pipeline for Master System, Game Gear, Game Boy,
-NES, Mega Drive, Super Nintendo and Neo Geo. Select **Options → Box art** to configure online sources.
+NES, Mega Drive, Super Nintendo, Neo Geo, Capcom CPS-1 and Sharp X68000.
+Select **Options → Box art** to configure online sources.
 Front covers are the default; real three-quarter boxes are an optional preference.
 Icons are embedded during conversion;
 existing game executables need regeneration to receive a different icon.
@@ -76,7 +77,7 @@ skipped rather than selecting the first search result.
 Trailing articles keep their regional tags during exact matching:
 `The Game (USA)` can select `Game, The (USA)` without confusing other editions.
 
-The same title matcher is shared by all seven consoles, local/downloaded artwork,
+The same title matcher is shared by all nine consoles, local/downloaded artwork,
 Libretro and the configured cover APIs. Exact names remain first. Additional
 matches tolerate accents, punctuation, article placement, optional Disney
 branding, `Bros.`/`Brothers`, `vs`/`versus`, Roman sequel numerals and a missing
