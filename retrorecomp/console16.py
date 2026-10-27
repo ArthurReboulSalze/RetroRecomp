@@ -14,6 +14,7 @@ from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
 from .library import atomic_json
+from .report_schema import write_report
 from .snes_chips import device_entry
 from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
@@ -906,7 +907,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     emit('Internal CPU/memory/visible-frame/audio PCM reference comparison: matches.')
     report = {'tool': 'Retro-Recomp', 'version': __version__, 'status': stage,
         'created_utc': datetime.now(timezone.utc).isoformat(),
-        'system': {'id': system_id, 'name': name}, 'rom': rom.metadata(),
+        'system': {'id': system_id, 'name': name}, 'scan_level': level, 'rom': rom.metadata(),
         'cartridge_profile': {'source': cartridge_profile.get('source', 'cartridge'),
                               'id': cartridge_profile.get('id'),
                               'catalogue_required': False,
@@ -957,5 +958,5 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(),
         'build_directory': str(executable.parents[2 if os.name == 'nt' and executable.parent.name == 'Release' else 1]),
         'conversion_wall_seconds': round(time.perf_counter() - started, 3)}
-    atomic_json(output / 'conversion-report.json', report)
+    write_report(output / 'conversion-report.json', report)
     return executable

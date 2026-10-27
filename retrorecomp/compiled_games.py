@@ -319,11 +319,14 @@ def report_level(report) -> str:
     else 'standard'. A quick check from known or shared paths counts as
     standard: it only rechecked paths found before."""
     report = report if isinstance(report, dict) else {}
-    # Mega Drive, Super Nintendo and NES reports keep their level under
-    # advanced_scan; 1.5.2-1.5.5 read only the top level and took them for
-    # Standard (stars and the depth coins of their conversions).
-    advanced = report.get('advanced_scan')
-    levels = [report.get('scan_level'), advanced.get('level') if isinstance(advanced, dict) else None,
+    # Mega Drive, Super Nintendo and NES reports kept their level under
+    # advanced_scan only; 1.5.2-1.5.5 read only the top level and took them for
+    # Standard (stars and the depth coins of their conversions). Every writer
+    # now also writes scan_level and the schema-2 scan section, but exports
+    # made before keep the old places, so all of them are read.
+    advanced, scan = report.get('advanced_scan'), report.get('scan')
+    levels = [report.get('scan_level'), scan.get('level') if isinstance(scan, dict) else None,
+              advanced.get('level') if isinstance(advanced, dict) else None,
               ((report.get('upgrade') or {}).get('discovery') or {}).get('scan_level')]
     deepest = max((LEVEL_STARS.get(level, 1) for level in levels if isinstance(level, str)), default=1)
     return {1: 'standard', 2: 'extended', 3: 'thorough'}[deepest]

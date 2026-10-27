@@ -1,12 +1,19 @@
-"""Conversion report schema 2, and the one reader of every report shape.
+"""Conversion report schema 2: the one builder every writer goes through, and the one reader of every shape.
 
-Seven converters write ``conversion-report.json`` in seven different shapes
-(Master System and Game Gear, Game Boy, NES, Mega Drive and Super Nintendo,
-Neo Geo, CPS-1, X68000). This module is the only place that knows them all.
-``read_report`` turns any of them into the schema-2 document described below;
-``fallback_summary`` is the one-line interpreter summary the batch result and
-the window both compute from a report. Nothing here writes a report: the
-writers switch to schema 2 later, and until then the reader is the bridge.
+Seven converters write ``conversion-report.json`` (Master System and Game Gear,
+Game Boy, NES, Mega Drive and Super Nintendo, Neo Geo, CPS-1, X68000). They
+used to write seven different shapes; this module is the only place that knows
+them all. ``read_report`` turns any of them into the schema-2 document
+described below; ``fallback_summary`` is the one-line interpreter summary the
+batch result and the window both compute from a report.
+
+The writers write schema 2 **beside** their own keys for one version
+(``with_schema_v2``, ``write_report``): every old key is kept with the value it
+had, so the readers written for the old shapes and the website read a new
+report as before, and the schema-2 sections are added to the same document.
+``batch.py`` adds its fields after the conversion and writes again through the
+same builder, which derives the sections anew. A later version drops the old
+keys; ``read_report`` already returns only the schema-2 keys of a document.
 
 Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
 
@@ -14,9 +21,9 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   invented, never zero. Zero means a writer measured zero.
 * A count is never converted from one unit to another. Interpreted counts are
   held in one unit, **instructions**, per CPU and per scenario; when a writer
-  only counted cycles (Master System, Game Gear, Game Boy, NES) the cycles are
-  kept beside them under ``cycles`` and the instruction count stays ``None``
-  unless the writer measured it too (Game Boy does).
+  only counted cycles (Master System, Game Gear, NES) the cycles are kept
+  beside them under ``cycles`` and the instruction count stays ``None`` unless
+  the writer measured it too (Game Boy does).
 * The five measures (native code, CPU fidelity, hardware fidelity, gameplay,
   latency) are five sibling objects under ``validation``. None is derived from
   another, each carries a ``claim`` string, and no claim is stronger than the
@@ -26,7 +33,9 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
-Schema 2 (every key is always present; see ``REQUIRED_KEYS``)::
+Schema 2 (every key is always present in what ``read_report`` returns; see
+``REQUIRED_KEYS``; on disk the keys listed in ``OPTIONAL_ON_DISK`` may be
+missing, because the old readers take a null for a value)::
 
     schema        {'name': 'retro-recomp-report', 'version': 2}
     read_from     {'schema_version': 1 | 2, 'writer': 'core' | 'gameboy' | ...}
@@ -96,6 +105,9 @@ _SHAPES = {
     'cps1': _Shape('cps1_conversion', 'native_analysis', 'm68000', 'z80', 'instructions'),
     'x68': _Shape('x68000_conversion', 'exploration_checks', 'm68000', None, 'instructions'),
 }
+# A report no writer produced (a hand-made or very old one) that a caller still wants to summarise: its rows are
+# read by the keys they carry, whatever the console. Only the lenient reading uses it.
+_GENERIC = _Shape('unknown', '', 'unknown', 'unknown', 'instructions')
 _AUDIO_KEYS = ('audio_native_opcodes', 'audio_interpreted_opcodes', 'audio_native_cycles', 'audio_interpreted_cycles')
 _AUDIO_MODES = ('native', 'hybrid', 'interpreted')
 
@@ -156,6 +168,9 @@ def _main_scenario(writer, row):
         interpreted = _count(_first(row.get('main_interpreted_opcodes'), row.get('interpreted_opcodes')))
         if row.get('retired_interpreted_opcodes') is not None:
             extra['retired_interpreted'] = _count(row.get('retired_interpreted_opcodes'))
+        if row.get('interpreter_cycles') is not None:
+            # No writer of an instruction shape stores it; a row from outside the writers might.
+            cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
     return {'name': name, 'frames': frames, 'native': native, 'interpreted': interpreted,
             'interpreted_percent': _count(row.get('interpreter_percent')), 'cycles': cycles, **extra}
 
@@ -460,16 +475,34 @@ def _build(data):
 
 # ---------------------------------------------------------------- entry points
 
+# Keys only schema 2 introduces. Writers still write the old keys beside them (dual-write, one version): a
+# document carrying both is read through the schema-2 sections, and the old keys stay for the readers that
+# were written for the old shapes and for the website.
+V2_ONLY_KEYS = ('schema', 'read_from', 'scan', 'cpus', 'devices', 'validation', 'honesty', 'packed', 'states',
+                'saves', 'runtime', 'build', 'legacy')
+# Schema-2 keys whose names the old shapes already use. A writer leaves out what it does not know, and old readers
+# take a missing key for "absent" but a null for a value (`report.get('upgrade', {})`, `report.get('target', t)`),
+# so a document on disk never carries these as null; read_report still returns them, as None.
+OPTIONAL_ON_DISK = ('version', 'created_utc', 'target', 'upgrade', 'export_receipt')
+# `knowledge` is also an old key (Neo Geo writes its memory record there). On disk the two meet in one object:
+# the writer's own keys stay, the schema-2 keys are added beside them.
+KNOWLEDGE_KEYS = ('record', 'learning', 'library_identity', 'shared_paths', 'bundled_paths')
+
+
 def _validate_v2(data):
     version = _dict(data.get('schema')).get('version')
     if version != SCHEMA_VERSION:
         raise ReportShapeError(f'Report schema {version!r} is not known to this version '
                                f'(it reads 1, the seven older shapes, and {SCHEMA_VERSION}).')
-    missing = [key for key in REQUIRED_KEYS if key not in data]
+    missing = [key for key in REQUIRED_KEYS if key not in data and key not in OPTIONAL_ON_DISK]
     missing += ['validation.' + measure for measure in MEASURES if measure not in _dict(data.get('validation'))]
     if missing:
         raise ReportShapeError('Schema 2 report is incomplete: missing ' + ', '.join(missing) + '.')
-    return _copy(data)
+    # Only the schema-2 keys: the old keys of a dual-written document are not part of the document read.
+    report = {key: _copy(data.get(key)) for key in REQUIRED_KEYS}
+    if isinstance(report['knowledge'], dict):
+        report['knowledge'] = {key: report['knowledge'].get(key) for key in KNOWLEDGE_KEYS}
+    return report
 
 
 def _load(data_or_path):
@@ -481,13 +514,62 @@ def _load(data_or_path):
     return data_or_path
 
 
-def read_report(data_or_path) -> dict:
+def _from_legacy(data, *, lenient=False, schema_version=1):
+    """The schema-2 document of a report in the writers' own keys (no schema-2 key in it)."""
+    system = _dict(data.get('system'))
+    if lenient:
+        shape = _SHAPES.get(system.get('id'), _GENERIC)
+    else:
+        if data.get('tool') != 'Retro-Recomp':
+            raise ReportShapeError('Not a Retro-Recomp conversion report.')
+        shape = _SHAPES.get(system.get('id'))
+        if shape is None:
+            raise ReportShapeError(f'Unknown console in a report: {system.get("id")!r}.')
+    rows = data.get('final_checks')
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ReportShapeError(f'The {system.get("id")} report has no usable final_checks list.')
+    if not lenient and shape.marker not in data:
+        raise ReportShapeError(f'The {system["id"]} report does not have the shape of the {shape.writer} writer '
+                               f'(no {shape.marker!r}).')
+    cpus, device = _cpus(shape, data, rows), _device(data, rows)
+    devices = [device] if device else []
+    validation = _validation(shape, data, rows, cpus, devices)
+    return {
+        'schema': {'name': SCHEMA_NAME, 'version': SCHEMA_VERSION},
+        'read_from': {'schema_version': schema_version, 'writer': shape.writer},
+        'tool': data.get('tool'), 'version': data.get('version'), 'created_utc': data.get('created_utc'),
+        'target': data.get('target'),
+        'system': {'id': system.get('id'), 'name': system.get('name'), 'status': data.get('status')},
+        'rom': {**_copy(_dict(data.get('rom'))), **({'source_identity': data['source_identity']}
+                                                    if 'source_identity' in data else {})},
+        'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
+        'honesty': _honesty(data, validation), 'packed': _packed(shape, data, rows), 'states': _states(data),
+        'saves': _saves(data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(data),
+        'upgrade': _copy(data.get('upgrade')), 'export_receipt': _copy(data.get('export_receipt')),
+        # Written by the old shapes, not yet given a schema-2 home. reference_vdp_trace_match is kept here
+        # because the X68000 writer hard-coded it to True (it writes null now): it is not a measurement and
+        # is never mapped to a picture claim above.
+        'legacy': {'reference_vdp_trace_match': data.get('reference_vdp_trace_match'),
+                   'native_coverage': _copy(data.get('native_coverage'))},
+    }
+
+
+def read_report(data_or_path, *, lenient=False) -> dict:
     """Any conversion report of any writer, as a schema-2 document.
 
     Takes the parsed dict or the path of a ``conversion-report.json``. Never
     modifies its input. Raises ``ReportShapeError`` for a document no writer
     produces, so a caller can tell an unreadable report from a game without
-    fallback. A schema-2 document is validated and returned as a copy.
+    fallback. A schema-2 document (also one that still carries the old keys, as
+    the writers write them for one version) is validated and returned as a copy
+    of its schema-2 keys.
+
+    ``lenient`` is for the callers that only summarise the fallback of a report
+    and always did so with ``.get`` on whatever the file held (an export of a
+    release before the shapes settled, a report written by hand): the console and
+    the shape marker are not required, only a ``final_checks`` list. Its rows are
+    read by the keys they carry. The document is as complete as any other, but
+    nothing in it is a claim: a console unknown to the reader has no CPU names.
     """
     data = _load(data_or_path)
     if not isinstance(data, dict):
@@ -496,77 +578,136 @@ def read_report(data_or_path) -> dict:
         if _dict(data.get('schema')).get('name') != SCHEMA_NAME:
             raise ReportShapeError('Unknown report schema: ' + repr(data['schema']) + '.')
         return _validate_v2(data)
-    if data.get('tool') != 'Retro-Recomp':
-        raise ReportShapeError('Not a Retro-Recomp conversion report.')
-    system = _dict(data.get('system'))
-    shape = _SHAPES.get(system.get('id'))
-    if shape is None:
-        raise ReportShapeError(f'Unknown console in a report: {system.get("id")!r}.')
-    rows = data.get('final_checks')
-    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
-        raise ReportShapeError(f'The {system["id"]} report has no usable final_checks list.')
-    if shape.marker not in data:
-        raise ReportShapeError(f'The {system["id"]} report does not have the shape of the {shape.writer} writer '
-                               f'(no {shape.marker!r}).')
-    cpus, device = _cpus(shape, data, rows), _device(data, rows)
-    devices = [device] if device else []
-    validation = _validation(shape, data, rows, cpus, devices)
-    report = {
-        'schema': {'name': SCHEMA_NAME, 'version': SCHEMA_VERSION},
-        'read_from': {'schema_version': 1, 'writer': shape.writer},
-        'tool': data['tool'], 'version': data.get('version'), 'created_utc': data.get('created_utc'),
-        'target': data.get('target'),
-        'system': {'id': system['id'], 'name': system.get('name'), 'status': data.get('status')},
-        'rom': {**_copy(_dict(data.get('rom'))), **({'source_identity': data['source_identity']}
-                                                    if 'source_identity' in data else {})},
-        'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
-        'honesty': _honesty(data, validation), 'packed': _packed(shape, data, rows), 'states': _states(data),
-        'saves': _saves(data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(data),
-        'upgrade': _copy(data.get('upgrade')), 'export_receipt': _copy(data.get('export_receipt')),
-        # Written by the old shapes, not yet given a schema-2 home. reference_vdp_trace_match is kept here
-        # because the X68000 writer hard-codes it to True: it is not a measurement and is never mapped
-        # to a picture claim above.
-        'legacy': {'reference_vdp_trace_match': data.get('reference_vdp_trace_match'),
-                   'native_coverage': _copy(data.get('native_coverage'))},
-    }
-    return report
+    return _from_legacy(data, lenient=lenient)
 
+
+# ---------------------------------------------------------------- writing
+
+def legacy_view(document) -> dict:
+    """The writer's own keys of a report: what ``with_schema_v2`` was given.
+
+    Drops the schema-2 sections and the schema-2 parts of the three keys the shapes share
+    (``system.status``, ``rom.source_identity``, the schema-2 keys of ``knowledge``). A report that
+    is not dual-written comes back as a copy.
+    """
+    legacy = {key: _copy(value) for key, value in document.items() if key not in V2_ONLY_KEYS}
+    if isinstance(legacy.get('system'), dict):
+        legacy['system'].pop('status', None)
+    if isinstance(legacy.get('rom'), dict) and 'source_identity' in legacy:
+        legacy['rom'].pop('source_identity', None)
+    knowledge = legacy.get('knowledge')
+    if isinstance(knowledge, dict) and any(key in knowledge for key in KNOWLEDGE_KEYS):
+        knowledge = {key: value for key, value in knowledge.items() if key not in KNOWLEDGE_KEYS}
+        if knowledge:
+            legacy['knowledge'] = knowledge
+        else:
+            del legacy['knowledge']
+    return legacy
+
+
+def with_schema_v2(report) -> dict:
+    """The report with every schema-2 section added to the writer's own keys (dual-write).
+
+    The one builder every writer goes through. Each old key stays where it was with the value it had, so
+    the readers written for the old shapes and the website read the document as before; the schema-2
+    sections are derived from those keys by the same code that reads an old report, so a report read from
+    the old shape and the same report written now give the same document. ``schema`` comes first. It can be
+    applied again to its own result (``batch.py`` adds its fields after the conversion and writes again):
+    the sections are derived anew from the old keys. Raises ``ReportShapeError`` for a report whose
+    ``system.id`` is not a console of the reader, or that lacks the marker of its writer's shape.
+    """
+    legacy = legacy_view(report)
+    parts = _from_legacy(legacy)
+    document = {'schema': parts['schema'],
+                'read_from': {'schema_version': SCHEMA_VERSION, 'writer': parts['read_from']['writer'],
+                              'legacy_keys': True}}
+    for key, value in legacy.items():
+        if key == 'system':
+            value = parts['system']
+        elif key == 'rom':
+            value = parts['rom']
+        elif key == 'knowledge':
+            if not isinstance(value, dict):
+                raise ReportShapeError('The report\'s "knowledge" is not an object.')
+            value = {**value, **parts['knowledge']}
+        document[key] = value
+    for key in REQUIRED_KEYS:
+        if key not in document and key not in OPTIONAL_ON_DISK:
+            document[key] = parts[key]
+    return document
+
+
+def write_report(path, report) -> dict:
+    """Write a conversion report in schema 2 beside the writer's own keys; returns the document written.
+
+    ``created_utc`` and ``target`` are filled in when the writer did not carry them (Game Boy had no
+    time; only some writers had the target, and a report with none was taken for the current
+    target's). The file is replaced atomically. Raises ``ReportShapeError`` before anything is written
+    if the report has no known shape.
+    """
+    from datetime import datetime, timezone
+    from .library import atomic_json
+    from .platforms import target_id
+    additions = {}
+    if report.get('created_utc') is None:
+        additions['created_utc'] = datetime.now(timezone.utc).isoformat()
+    if report.get('target') is None:
+        additions['target'] = target_id()
+    data = {key: value for key, value in report.items() if key not in additions}
+    if additions:
+        # Keep the identity keys together at the top, as the writers that carry them do.
+        anchor = 'version' if 'version' in data else 'tool'
+        ordered = {}
+        for key, value in data.items():
+            ordered[key] = value
+            if key == anchor:
+                ordered.update(additions)
+        data = ordered
+    document = with_schema_v2(data)
+    atomic_json(Path(path), document)
+    return document
+
+
+# ---------------------------------------------------------------- the fallback summary
 
 def _is_schema2(report):
     return (isinstance(report, dict) and report.get('schema') == {'name': SCHEMA_NAME, 'version': SCHEMA_VERSION}
-            and all(key in report for key in REQUIRED_KEYS))
+            and all(key in report for key in REQUIRED_KEYS if key not in OPTIONAL_ON_DISK))
 
 
 def _cpu(report, role):
     return next((cpu for cpu in report['cpus'] if cpu.get('role') == role), None)
 
 
-def fallback_summary(report) -> dict:
+def fallback_summary(report, *, lenient=False) -> dict:
     """The interpreter fallback of a report, in the figures the batch result and the window show.
 
-    Accepts a schema-2 document (or anything ``read_report`` accepts). Every figure
-    is a maximum over the scenarios, never a sum, and each CPU and device is kept
-    apart. These are the exact values ``batch.py`` and ``gui.py`` compute today from
-    the old shapes (``conversion_stage``, ``main_interpreted_opcodes``, ``device``,
-    ``audio_cpu``, ``audio_interpreted_opcodes``, ``interpreter_percent``,
-    ``interpreter_cycles``, ``reference_vdp_trace_match``, ``video_standard``), so
-    that a caller can switch without changing what is displayed. Two conventions of
-    those callers are kept on purpose and are not measurements: a count the writer
-    does not carry reads 0, and ``main_interpreted_opcodes`` is 0 for the shapes
-    that count the main CPU in cycles (Master System, Game Gear, Game Boy, NES). The
-    schema-2 sections hold the real ``None``. ``video_standard`` is None when the
-    report has no video model; the callers supply their own default.
+    Accepts a schema-2 document, with or without the old keys beside it (or anything ``read_report``
+    accepts, ``lenient`` as there). Every figure is a maximum over the scenarios, never a sum, and each CPU
+    and device is kept apart. These are the figures ``batch.py`` and ``gui.py`` computed from the old shapes
+    before they read reports through this module (``conversion_stage``, ``main_interpreted_opcodes``,
+    ``device``, ``audio_cpu``, ``audio_interpreted_opcodes``, ``interpreter_percent``,
+    ``interpreter_cycles``, ``reference_vdp_trace_match``, ``video_standard``), so that a caller switched
+    without changing what is displayed, with two differences made on purpose:
+
+    * ``main_interpreted_opcodes`` is the instruction count of the main CPU whenever the writer measured one
+      (Game Boy: 900 instructions read 0 before). A writer that counted cycles only (Master System, Game
+      Gear, NES) still reads 0 there: a count the writer does not carry reads 0 in the summary and None in
+      the report, and cycles are never turned into instructions.
+    * ``reference_vdp_trace_match`` is what the report stores. The X68000 writer stores null now (it stored
+      a constant True, which compared nothing).
+
+    ``video_standard`` is None when the report has no video model; the callers supply their own default.
     """
     if not _is_schema2(report):
-        report = read_report(report)
+        report = read_report(report, lenient=lenient)
     main, audio = _cpu(report, 'main'), _cpu(report, 'audio')
     scenarios = main['scenarios'] if main else []
     percents = [s['interpreted_percent'] for s in scenarios if s['interpreted_percent'] is not None]
     device = report['devices'][0] if report['devices'] else None
     return {
         'conversion_stage': report['system'].get('status'),
-        'main_interpreted_opcodes': max((s['interpreted'] or 0 for s in scenarios), default=0)
-        if main and main['original_unit'] == 'instructions' else 0,
+        'main_interpreted_opcodes': max((s['interpreted'] or 0 for s in scenarios), default=0),
         'device': None if not device else {
             'chip': device['id'], 'mode': device['mode'],
             'instructions': max((s['interpreted'] or 0 for s in device['scenarios']), default=0),

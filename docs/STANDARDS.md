@@ -114,7 +114,11 @@ One `conversion-report.json` schema, versioned, with a section per CPU and per
 device (native counts, interpreted counts in one unit, per scenario), separate
 sections for each kind of measurement, the scan level, routes, states and
 saves. Readers (interface, freshness, uploads) read it through one module.
-*Target: seven writers produce seven shapes today.*
+*Today: the seven writers write schema 2 beside their own keys through one
+builder (`report_schema.write_report`), the batch result, the window and the
+collection's scan level read it through `report_schema`, and the old keys stay
+for one version (see [ARCHITECTURE.md](ARCHITECTURE.md)). Freshness, the
+knowledge builder, the library and the website still read the old keys.*
 
 ### Host kit (exported games)
 

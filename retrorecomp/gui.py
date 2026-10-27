@@ -16,7 +16,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__, online
 from .batch import BatchItem, identify, convert_batch, system_output
 from .publishing import is_pending
-from .snes_chips import device_summary, main_interpreted
+from .report_schema import fallback_summary
 from .library import list_games, library_root
 from .paths import ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, save_game_language, games_root, preferred_games_root, selected_bios_path, feedback_search_paths, data_directory
 from .i18n import STRINGS, tr, extended_default, game_boy_validation_default, log_text
@@ -1540,19 +1540,11 @@ class Application:
                 raise ValueError('Invalid executable filename in report')
             target = folder / filename
             if target.is_file() and report.get('rom', {}).get('sha256') == item.sha256:
-                measured = [c.get('interpreter_percent') for c in report['final_checks']]
                 pending = is_pending(target)
+                summary = fallback_summary(report, lenient=True)
+                summary['video_standard'] = summary['video_standard'] or item.video_hint
                 prepared['result'] = dict(status='success', executable=str(target.resolve()), report=str(report_path),
-                    conversion_stage=report.get('status'),
-                    main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
-                    device=device_summary(report),
-                    audio_cpu=report.get('audio_cpu'),
-                    audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
-                    pending_install=pending,
-                    interpreter_percent=max((p for p in measured if p is not None), default=None),
-                    interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0),
-                    reference_vdp_trace_match=report.get('reference_vdp_trace_match'),
-                    video_standard=report.get('video_model', {}).get('standard', item.video_hint))
+                    pending_install=pending, **summary)
                 prepared['status'] = ('pending_install' if pending else
                                       'created_experimental' if report.get('status') == 'experimental' else 'created')
         except (OSError, ValueError, KeyError, TypeError, AttributeError):

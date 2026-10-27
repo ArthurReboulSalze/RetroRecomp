@@ -2277,10 +2277,14 @@ REPORT_FIELDS = (
     'native_coverage', 'native_validation', 'native_percentage', 'cartridge_device', 'hardware_accuracy_validated',
     'full_game_validated', 'latency_ms', 'physical_latency_measured', 'game_states', 'runtime_learning',
     'conversion_wall_seconds', 'executable_bytes', 'upgrade', 'shared_paths', 'bundled_paths',
-    'final_checks', 'strict_checks', 'history', 'learning')
+    'final_checks', 'strict_checks', 'history', 'learning',
+    # Schema 2 (retrorecomp/report_schema.py): the same measurements, one section per CPU and device.
+    'schema', 'target', 'scan_level', 'scan', 'cpus', 'devices', 'validation', 'honesty')
 REPORT_ROM_FIELDS = ('name', 'bytes', 'crc32', 'sha256', 'system_id')
 # Dropped first when the selection is too large.
-REPORT_BULKY = ('history', 'strict_checks', 'learning', 'final_checks', 'native_validation', 'native_coverage')
+# The schema-2 sections come last: they hold what final_checks and native_validation hold, per CPU.
+REPORT_BULKY = ('history', 'strict_checks', 'learning', 'final_checks', 'native_validation', 'native_coverage',
+                'scan', 'cpus', 'validation')
 
 _EMAIL = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+')
 _DRIVE_PATH = re.compile(r'(?<![\w])[A-Za-z]:[\\/]+[^\s"\'<>|*?:]*')

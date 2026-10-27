@@ -103,7 +103,7 @@ def nes_report(*, cycles=0):
              'non_dispatch_cycles': 5, 'internal_differential': True, 'audio_pcm_match': True,
              'audio_samples': 48000, 'audio_pcm_sha256': 'c' * 64} for name in ('boot', 'play_right')]
     return {'tool': 'Retro-Recomp', 'version': '1.5.5', 'created_utc': '2026-10-27T10:00:00+00:00',
-            'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'},
+            'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'}, 'scan_level': 'extended',
             'rom': {'name': 'g.nes', 'sha256': SHA, 'mapper': 0}, 'backend': 'nesrecomp-cycle-accurate',
             'compiler': {'revision': 'r', 'license': 'PolyForm Noncommercial 1.0.0'},
             'native_coverage': {'imported_entries': 3, 'tested_scenarios': ['boot', 'play_right']},
@@ -143,7 +143,7 @@ def console16_report(system_id='md', *, main=0, audio=0, device=None, stored_dev
         rows.append(row)
     report = {'tool': 'Retro-Recomp', 'version': '1.5.5', 'status': 'supported',
               'created_utc': '2026-10-27T10:00:00+00:00', 'system': {'id': system_id, 'name': system_id.upper()},
-              'rom': {'name': 'g.bin', 'sha256': SHA, 'system_id': system_id},
+              'scan_level': 'thorough', 'rom': {'name': 'g.bin', 'sha256': SHA, 'system_id': system_id},
               'cartridge_profile': {'source': 'cartridge', 'id': None, 'catalogue_required': False, 'limitations': []},
               'compiler': {'repository': 'x/y', 'revision': 'r', 'license': 'PolyForm Noncommercial 1.0.0'},
               'final_checks': rows, 'passes': [], 'reference_vdp_trace_match': None,
@@ -234,7 +234,7 @@ def cps1_report(*, main=0, audio=0):
 
 
 def x68_report(*, interpreted=0):
-    """x68000_conversion.py: opcodes only, no audio CPU, a hard-coded reference_vdp_trace_match."""
+    """x68000_conversion.py: opcodes only, no audio CPU, no VDP comparison (null since 1.6.0; True before)."""
     def row(count, extra):
         return {'frames': count, 'native_entries': 5_000_000, 'interpreted_opcodes': interpreted,
                 'interpreter_percent': 100 * interpreted / (5_000_000 + interpreted), 'reference_match': True, **extra}
@@ -251,10 +251,11 @@ def x68_report(*, interpreted=0):
                                   'generation': 2},
             'native_coverage': 'observed exact RAM encodings with live word guards',
             'final_checks': [check, *exploration], 'exploration_checks': exploration, 'scan_level': 'standard',
-            'reference_vdp_trace_match': True, 'runtime_feedback': {'fingerprint': 'f' * 8},
+            'reference_vdp_trace_match': None, 'runtime_feedback': {'fingerprint': 'f' * 8},
             'game_states': {'supported': True, 'save_key': 'F8', 'load_key': 'F9', 'fresh_process_verified': True},
             'video_model': {'standard': 'native', 'frameskip': False, 'fps': 55.46},
-            'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None}
+            'hardware_accuracy_validated': False, 'full_game_validated': False, 'latency_ms': None,
+            'conversion_wall_seconds': 1800.25}
 
 
 def published(report, *, upgrade=None):
@@ -293,7 +294,9 @@ FIXTURES = {
 
 
 def legacy_summary(report, hint='HINT'):
-    """The expressions of batch.py (convert_one) and gui.py (_prepare_path), identical in both, on an old shape."""
+    """The expressions batch.py (convert_one) and gui.py (_prepare_path) had before they read reports through
+    report_schema.fallback_summary, identical in both, on an old shape. This replica is the reference the
+    summary is held to."""
     measured = [c.get('interpreter_percent') for c in report['final_checks']]
     return dict(conversion_stage=report.get('status'),
                 main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
@@ -307,13 +310,23 @@ def legacy_summary(report, hint='HINT'):
                 reference_vdp_trace_match=report.get('reference_vdp_trace_match'))
 
 
+def decided(expected, report):
+    """The one difference made on purpose (stage C2): the main CPU's instruction count when the writer measured
+    one. Game Boy counts instructions beside cycles; its rows keep the key interpreter_instructions, which the
+    old expression never read, so the summary read 0 where the report had 900."""
+    if report['system']['id'] == 'gb':
+        expected = dict(expected, main_interpreted_opcodes=max(
+            (c.get('interpreter_instructions') or 0 for c in report['final_checks']), default=0))
+    return expected
+
+
 class SummaryParity(unittest.TestCase):
     def test_summary_equals_the_current_batch_and_window_logic_on_every_shape(self):
         for label, build in FIXTURES.items():
             for name, make in (('as written', build), ('as published', lambda: published(build()))):
                 with self.subTest(fixture=label, form=name):
                     report = make()
-                    expected = legacy_summary(report)
+                    expected = decided(legacy_summary(report), report)
                     got = fallback_summary(read_report(report))
                     if got['video_standard'] is None:
                         got['video_standard'] = 'HINT'
@@ -328,37 +341,42 @@ class SummaryParity(unittest.TestCase):
             self.assertEqual(fallback_summary(read_report(report)), fallback_summary(path))
             self.assertEqual(read_report(report), read_report(path))
 
-    def test_the_replicated_expressions_are_still_in_the_callers(self):
+    def test_the_callers_read_reports_through_the_summary_and_no_longer_replicate_it(self):
         folder = Path(retrorecomp.__file__).parent
         expressions = (
-            "conversion_stage=report.get('status')",
-            "main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0)",
+            "main_interpreted(c) for c in report['final_checks']",
             "device=device_summary(report)",
-            "audio_cpu=report.get('audio_cpu')",
-            "audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0)",
-            "interpreter_percent=max((p for p in measured if p is not None), default=None)",
-            "interpreter_cycles=max((c.get('interpreter_cycles', 0) for c in report['final_checks']), default=0)",
+            "c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']",
+            "p for p in measured if p is not None",
+            "c.get('interpreter_cycles', 0) for c in report['final_checks']",
             "reference_vdp_trace_match=report.get('reference_vdp_trace_match')")
         for module in ('batch.py', 'gui.py'):
             source = (folder / module).read_text(encoding='utf-8').replace('"', "'")
-            for expression in expressions:
-                with self.subTest(module=module, expression=expression):
-                    self.assertIn(expression, source)
+            with self.subTest(module=module):
+                self.assertIn('fallback_summary(report, lenient=True)', source)
+                for expression in expressions:
+                    self.assertNotIn(expression, source)
 
-    def test_legacy_conventions_are_kept_in_the_summary_and_not_in_the_report(self):
-        # Game Boy measured 900 interpreted instructions. batch.py reads the key it never wrote and shows 0;
-        # the summary keeps that so a caller can switch unchanged, the report keeps the measurement.
+    def test_what_changed_on_purpose_and_what_is_kept(self):
+        # Game Boy measured 900 interpreted instructions. The old expression read a key its rows never had
+        # and showed 0; the summary now carries the measurement (the window still shows Game Boy in cycles).
         report = read_report(gb_report(cycles=5000, instructions=900))
         self.assertEqual(report['cpus'][0]['scenarios'][0]['interpreted'], 900)
-        self.assertEqual(fallback_summary(report)['main_interpreted_opcodes'], 0)
+        self.assertEqual(fallback_summary(report)['main_interpreted_opcodes'], 900)
         self.assertEqual(fallback_summary(report)['interpreter_cycles'], 5000)
-        # A count a writer does not carry reads 0 in the summary and None in the report.
+        # A count a writer does not carry still reads 0 in the summary and None in the report: cycles are
+        # never turned into instructions.
         sms = read_report(sms_report(cycles=10))
         self.assertIsNone(sms['cpus'][0]['scenarios'][0]['interpreted'])
         self.assertEqual(fallback_summary(sms)['main_interpreted_opcodes'], 0)
-        # The X68000 writer hard-codes reference_vdp_trace_match to True. The summary echoes it (as today),
-        # the report never turns it into a picture claim.
-        x68 = read_report(x68_report())
+        nes = read_report(nes_report(cycles=10))
+        self.assertEqual(fallback_summary(nes)['main_interpreted_opcodes'], 0)
+        # The X68000 writer stores null now. An export of an earlier release stored a constant True: the
+        # summary echoes what is stored, the report never turns it into a picture claim.
+        self.assertIsNone(fallback_summary(x68_report())['reference_vdp_trace_match'])
+        before = x68_report()
+        before['reference_vdp_trace_match'] = True
+        x68 = read_report(before)
         self.assertIs(fallback_summary(x68)['reference_vdp_trace_match'], True)
         self.assertIsNone(x68['validation']['cpu_fidelity']['evidence'])
         self.assertIs(x68['legacy']['reference_vdp_trace_match'], True)
@@ -562,7 +580,7 @@ class SchemaShape(unittest.TestCase):
         self.assertEqual(x68['rom']['source_identity'], 'b' * 64)
         self.assertEqual(x68['build']['directory'], 'C:/q')
         self.assertEqual(x68['target'], 'windows-x86_64')
-        self.assertIsNone(x68['build']['wall_seconds'])
+        self.assertEqual(x68['build']['wall_seconds'], 1800.25)
         self.assertEqual(x68['validation']['native_code']['coverage_note'], 'observed exact RAM encodings with live word guards')
         self.assertIsNone(x68['validation']['native_code']['coverage'])
         self.assertIsNone(read_report(cps1_report())['validation']['native_code']['coverage'])

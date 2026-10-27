@@ -85,9 +85,9 @@ and Game Gear, Game Boy, NES, Mega Drive and Super Nintendo, Neo Geo, CPS-1 and
 X68000. They count the interpreter in cycles (Master System, Game Gear, Game
 Boy, NES) or in opcodes, under several key names, and the one-line fallback
 summary is computed twice, in `batch.py` and in `gui.py`.
-`retrorecomp/report_schema.py` defines schema 2 and the one reader of every
-shape. It is an interface module: it never runs during a conversion and does
-not change what a game is.
+`retrorecomp/report_schema.py` defines schema 2, the one builder the writers go
+through and the one reader of every shape. It is an interface module: no stamp
+hashes it, because the report does not change what a game is or does.
 
 - **Shape.** One section per CPU (main, audio) and per cartridge device, with
   interpreted counts per scenario in one unit, instructions. A writer that only
@@ -99,17 +99,38 @@ not change what a game is.
   that is never stronger than the flag the writer stored. Scan level, routes,
   states, saves, the packed-executable check and the honesty flags have their
   own sections.
-- **Reading.** `read_report(data_or_path)` turns any existing shape into
-  schema 2 without guessing: a field a shape does not carry is `None`, never
-  zero. A shape or schema number it does not know raises `ReportShapeError`.
-  `fallback_summary(report)` returns the fallback figures that `batch.py` and
-  `gui.py` compute from the old shapes, with the same values.
-
-Today only the reader exists. The writers still produce their own shapes, and
-`batch.py`, `gui.py` and the other consumers still read them directly; moving
-the writers to schema 2 (with the old keys kept for one release) and switching
-the callers to the reader come in later steps, each with proof that nothing
-observable changes ([Standards](STANDARDS.md), rules 6 to 8).
+- **Writing (dual-write, one version).** Each of the seven writers ends with
+  `write_report(path, report)`. It keeps every key the writer always wrote, with
+  the same value, and adds `schema` (first), `read_from` and the sections above
+  to the same document, derived from those keys by the code that reads an old
+  report. It fills `created_utc` and `target` when the writer had none (Game Boy
+  had no time; five writers had no target), and replaces the file atomically.
+  `batch.py` adds its fields after the conversion (ROM hash, executable,
+  packing, upgrade, shared paths, receipt) and writes again through
+  `with_schema_v2`, which derives the sections anew, so they carry what was
+  added. Every report has `scan_level` at the top (Mega Drive, Super Nintendo
+  and NES kept it under `advanced_scan` only). Keys the old shapes share with
+  schema 2 are never written as null (`upgrade`, `export_receipt`, `target`,
+  `created_utc`: old readers take a null for a value), and `knowledge`, which
+  Neo Geo already used, holds that writer's keys and the schema-2 keys
+  together. A later version drops the old keys.
+- **Reading.** `read_report(data_or_path)` turns any existing shape, or a
+  schema-2 document, into the schema-2 keys without guessing: a field a shape
+  does not carry is `None`, never zero. A shape or schema number it does not
+  know raises `ReportShapeError`. `fallback_summary(report)` returns the
+  fallback figures of the batch result and the window; both read them from here.
+  Their `lenient=True` reads a report as the callers always did, whatever the
+  file holds beyond a `final_checks` list (an export of an older release, a
+  report written by hand). `compiled_games.report_level` also reads
+  `scan.level`; `freshness`, `knowledge_build`, `library` and the website read
+  the old keys, which are still there.
+- **Two readings changed on purpose.** The summary's `main_interpreted_opcodes`
+  carries the instruction count of the main CPU when the writer measured one
+  (Game Boy: 900 where it read 0; the window still shows Game Boy in cycles),
+  and a count the writer does not carry still reads 0. The X68000 report writes
+  `reference_vdp_trace_match: null`: the key was a constant `true` that compared
+  nothing, and the window has not read it for X68000 since the profile chose the
+  opcode display.
 
 ## Input freshness and presentation
 

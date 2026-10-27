@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 from .library import GameMemory, entry_lock, library_root, read_observations, write_manifest, write_code_patterns
+from .report_schema import write_report
 from .artwork import ArtworkError, prepare_icon
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
 from . import __version__
@@ -1298,7 +1299,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
                      "recipe_reused": not profile and bool(memory.recipe(ENGINE_REV)),
                      "scope": "Byte-verified ROM entries; banked RAM encodings are precompiled with exact live-byte guards"}}
     memory.remember(title, config, report, signature)
-    (destination / "conversion-report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_report(destination / "conversion-report.json", report)
     if artwork["embedded"]:
         exported_art = destination / "artwork"
         exported_art.mkdir(parents=True, exist_ok=True)
