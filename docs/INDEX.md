@@ -29,6 +29,7 @@ private evidence under `.build/` that is not published.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — converter pipeline, native backends, the five measures kept separate.
 - [STANDARDS.md](STANDARDS.md) — the rules every change follows, the target shape (profiles, CPU-keyed paths, reports, host kit) and the "supported" checklist.
+- [AGENTS_GUIDE.md](AGENTS_GUIDE.md) — entry page for coding agents and assistants: repository map, checks without ROM, the pitfalls (roles and stamps, public file list, no ROM, the five measures).
 - [HOST_KIT.md](HOST_KIT.md) — the common host kit contract for exported games: machine-core interface, one behaviour per host divergence, preferences migration and the migration order.
 - [QUALIFICATION.md](QUALIFICATION.md) — per-console qualification record: the G1-G16 gates, the status matrix and the owner-acceptance log.
 - [NEW_MACHINE.md](NEW_MACHINE.md) — the template for adding a machine (experimental, then supported), measured on an Atari ST dry run, with what is still scattered.
