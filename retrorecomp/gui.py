@@ -556,6 +556,15 @@ def _toolbar_styles(style):
               relief=[('selected', 'sunken'), ('pressed', 'sunken')])
 
 
+# Preferences that only the interface reads: never passed to a conversion. The
+# Neo Geo converter refuses unknown keywords, so a key missing here fails every
+# Neo Geo conversion (1.5.4 shipped `discoveries_waiting` that way); the test
+# test_gui_state.InterfacePreferences checks the list against `preferences()`.
+INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_revision', 'custom_output',
+                         'system_mode', 'platform', 'feedback_paths', 'rom_paths', 'send_after_batch',
+                         'startup_update_check', 'last_update_check', 'discoveries_waiting')
+
+
 class Application:
     def __init__(self, app: tk.Tk):
         self.app = app
@@ -1893,17 +1902,9 @@ class Application:
             if not self.output.get().strip():
                 raise ValueError(self.tr('need_output'))
             output = Path(options.pop('output')).expanduser().resolve()
-            options.pop('coverage_default_revision')
-            options.pop('gb_validation_default_revision')
-            options.pop('custom_output')
-            options.pop('system_mode')
-            options.pop('platform')
-            options.pop('feedback_paths')
-            options.pop('rom_paths')
+            for key in INTERFACE_PREFERENCES:
+                options.pop(key, None)
             use_shared = options.pop('use_shared_base', False)
-            options.pop('send_after_batch', None)
-            options.pop('startup_update_check', None)
-            options.pop('last_update_check', None)
             if any(self.items[row].system == 'ng' and not self.items[row].error for row in chosen_rows):
                 from .neogeo import validate_bios
                 bios = selected_bios_path(options.get('ng_bios'))

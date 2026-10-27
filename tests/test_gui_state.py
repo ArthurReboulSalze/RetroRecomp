@@ -394,3 +394,34 @@ class ExploredGames(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class InterfacePreferences(unittest.TestCase):
+    """Every saved preference either reaches the converters or is dropped first.
+
+    The Neo Geo converter takes explicit keywords only: 1.5.4 passed the new
+    `discoveries_waiting` preference to it and every Neo Geo conversion failed
+    with "unexpected keyword argument"."""
+
+    def preference_keys(self):
+        source = Path(gui.__file__).read_text(encoding='utf-8')
+        method = next(node for node in ast.walk(ast.parse(source))
+                      if isinstance(node, ast.FunctionDef) and node.name == 'preferences')
+        call = next(node for node in ast.walk(method) if isinstance(node, ast.Call)
+                    and getattr(node.func, 'id', '') == 'dict')
+        return {keyword.arg for keyword in call.keywords}
+
+    def test_the_neo_geo_converter_accepts_every_preference_that_reaches_it(self):
+        import inspect
+        from retrorecomp.neogeo_conversion import _convert
+        accepted = set(inspect.signature(_convert).parameters)
+        # Read by the interface before the batch, or consumed and dropped by
+        # batch.convert_batch / _convert_one for a Neo Geo item.
+        before_batch = set(gui.INTERFACE_PREFERENCES) | {'output', 'use_shared_base'}
+        in_batch = {'jobs', 'overwrite', 'force', 'console_scan', 'gb_deep_validation',
+                    'x68_ipl', 'x68_cgrom', 'x68_ram'}
+        reaching = self.preference_keys() - before_batch - in_batch
+        self.assertEqual(reaching - accepted, set())
+
+    def test_interface_preferences_are_real_preference_keys(self):
+        self.assertLessEqual(set(gui.INTERFACE_PREFERENCES), self.preference_keys())
