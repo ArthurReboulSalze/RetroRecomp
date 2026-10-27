@@ -469,7 +469,7 @@
     "tip_knowledge": "分享你的转换发现的路径：将多个游戏和平台导出为一个不含 ROM 的文件，或把别人的文件添加到你的知识库。导入的提示在转换时总会被重新检查。",
     "knowledge_missing_hint": "提示：在选项中为每个平台设置 ROM 文件夹，即可找到更多游戏。",
     "options_cps1": "Capcom CPS-1",
-    "options_cps1_note": "实验性 Capcom CPS-1 配置：MAME 或 FBNeo 的 ZIP 游戏包，按 ROM 的 CRC 识别（clone 需要把 parent ZIP 放在同一文件夹）。支持玩家 1 和 2、最多 6 个按钮，Shift/Back 投币。直立画面的游戏会自动调整显示方向。共用菜单、滤镜及 F8/F9。不下载也不提供 ROM。",
+    "options_cps1_note": "实验性 Capcom CPS-1 配置：MAME 或 FBNeo 的 ZIP 游戏包，按 ROM 的 CRC 识别（clone 需要把 parent ZIP 放在同一文件夹）。依基板支持最多 4 名玩家、最多 6 个按钮，Shift/Back 投币。直立画面的游戏会自动调整显示方向。共用菜单、滤镜及 F8/F9。不下载也不提供 ROM。",
     "knowledge_achievement": "成就解锁",
     "knowledge_discovery": "项发现",
     "knowledge_discoveries": "项发现",

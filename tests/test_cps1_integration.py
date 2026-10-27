@@ -151,5 +151,36 @@ class PackTests(unittest.TestCase):
         self.assertRegex(main, re.escape('size_t offset = 12 + (size_t)entries * 20;'))
 
 
+class ReleaseCheckTests(unittest.TestCase):
+    REPORT = {'system': {'id': 'cps1', 'name': 'Capcom CPS-1'}, 'scan_level': 'standard',
+              'native_validation': {'passed': True, 'packed_reference_match': True},
+              'final_checks': [{'name': 'attract', 'reference_match': True, 'interpreted_opcodes': 0,
+                                'audio_interpreted_opcodes': 0},
+                               {'name': 'play', 'reference_match': True, 'interpreted_opcodes': 0,
+                                'audio_interpreted_opcodes': 0}],
+              'game_states': {'validation': {'fresh_process_match': True, 'truncated_state_rejected': True}}}
+
+    def test_a_complete_standard_report_passes_and_each_gap_is_named(self):
+        from tools.cps1_release_check import report_problems
+        self.assertEqual(report_problems(self.REPORT, 'standard', 0), [])
+        self.assertEqual(report_problems(self.REPORT, 'extended', 0), ["scan level is 'standard', not 'extended'"])
+        report = {**self.REPORT, 'final_checks': [{**self.REPORT['final_checks'][1], 'interpreted_opcodes': 75546}],
+                  'game_states': {'validation': {'fresh_process_match': False, 'truncated_state_rejected': True}}}
+        self.assertEqual(report_problems(report, 'standard', 0),
+                         ['play: 75,546 interpreted 68000/Z80 opcodes (limit 0)',
+                          'F8/F9 did not continue identically in a fresh process'])
+        self.assertEqual(report_problems(report, 'standard', 80000),
+                         ['F8/F9 did not continue identically in a fresh process'])
+
+    def test_a_batch_that_stops_its_games_fails(self):
+        from tools.cps1_release_check import batch_problems
+        ok = {'succeeded': 1, 'failed': 0, 'games': [{'rom': '1941.zip', 'status': 'success', 'system': 'cps1'}]}
+        self.assertEqual(batch_problems(ok, 1), [])
+        stopped = {'succeeded': 0, 'failed': 1,
+                   'games': [{'rom': '1941.zip', 'status': 'failed', 'error': "KeyError: 'cps1'"}]}
+        self.assertEqual(batch_problems(stopped, 1),
+                         ['batch: 0 of 1 succeeded, 1 failed', "1941.zip: failed KeyError: 'cps1'"])
+
+
 if __name__ == '__main__':
     unittest.main()

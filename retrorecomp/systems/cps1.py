@@ -9,8 +9,8 @@ class Cps1Profile(SystemProfile):
     extensions = ('.zip',)
     export_folder = 'CPS-1'
     video_modes = ('arcade',)
-    # Board model and native code are compared with the internal reference
-    # only; the board itself has been compared with MAME on two games.
+    # Each conversion compares native code with the interpreted reference;
+    # the board model was compared with MAME on development sets only.
     experimental = True
 
     def read_rom(self, path: Path):

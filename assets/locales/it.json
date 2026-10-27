@@ -469,7 +469,7 @@
     "tip_knowledge": "Condividi i percorsi scoperti dalle tue conversioni: esporta un unico file senza ROM per più giochi e console, oppure aggiungi il file di qualcun altro alle tue conoscenze. I suggerimenti importati vengono sempre ricontrollati durante la conversione.",
     "knowledge_missing_hint": "Suggerimento: imposta la Cartella ROM di ogni console nelle Opzioni per trovare più giochi.",
     "options_cps1": "Capcom CPS-1",
-    "options_cps1_note": "Profilo Capcom CPS-1 sperimentale: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Giocatori 1 e 2, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita.",
+    "options_cps1_note": "Profilo Capcom CPS-1 sperimentale: romset ZIP MAME o FBNeo, riconosciuti dai CRC delle ROM (un clone separato richiede lo ZIP padre accanto). Fino a quattro giocatori secondo la scheda, fino a sei pulsanti, credito su Maiusc/Back. I giochi verticali sono ruotati. Menu, filtri e F8/F9 comuni. Nessuna ROM scaricata o fornita.",
     "knowledge_achievement": "Obiettivo sbloccato",
     "knowledge_discovery": "scoperta",
     "knowledge_discoveries": "scoperte",
