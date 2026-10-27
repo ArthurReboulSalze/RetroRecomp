@@ -82,12 +82,21 @@ def machine_memory(source, manifest):
 
 
 def _copy_file(source, target):
+    # Durable like atomic_json: the bytes reach the disk before the name does, so a power cut never leaves a
+    # complete-looking but empty copy, and Windows readers or scanners holding the target are waited for.
     target.parent.mkdir(parents=True,exist_ok=True)
     descriptor,name=tempfile.mkstemp(prefix=target.name+'.',suffix='.tmp',dir=target.parent)
-    os.close(descriptor)
     try:
-        shutil.copyfile(source,name)
-        os.replace(name,target)
+        with os.fdopen(descriptor,'wb') as out, open(source,'rb') as data:
+            shutil.copyfileobj(data,out,1024*1024)
+            out.flush();os.fsync(out.fileno())
+        deadline=time.monotonic()+2
+        while True:
+            try:
+                os.replace(name,target);break
+            except PermissionError as error:
+                if getattr(error,'winerror',None) not in (5,32,33) or time.monotonic()>=deadline:raise
+                time.sleep(0.05)
     finally:
         if os.path.exists(name):os.unlink(name)
 
@@ -101,15 +110,17 @@ def adopt_legacy_memory(source, manifest, *, emit=print):
     if (all((target/name).is_file() for name in OBSERVATION_FILES)
             or not all((legacy/name).is_file() for name in OBSERVATION_FILES)):
         return target
+    copied=False
     try:
         with entry_lock(target,timeout=120):
             if not all((target/name).is_file() for name in OBSERVATION_FILES):
                 for name in OBSERVATION_FILES:_copy_file(legacy/name,target/name)
                 if digest(target/OBSERVATION_FILES[0])!=digest(legacy/OBSERVATION_FILES[0]):
                     raise OSError('copy of the X68000 observations differs')
+                copied=True
     except (OSError,TimeoutError):
         return legacy
-    emit('X68000: earlier observations of this machine copied into the library.')
+    if copied:emit('X68000: earlier observations of this machine copied into the library.')
     return target
 
 
@@ -120,6 +131,7 @@ def adopt_legacy_summary(source, manifest):
     if manifest.sha256==source.game_key or not legacy.is_file():return summary
     try:
         old=json.loads(legacy.read_text(encoding='utf-8'))
+        if not isinstance(old,dict):return summary
         with entry_lock(entry,timeout=120):
             if summary.is_file():
                 record=json.loads(summary.read_text(encoding='utf-8'))
@@ -131,7 +143,7 @@ def adopt_legacy_summary(source, manifest):
             legacy.unlink()
             try:legacy.parent.rmdir()
             except OSError:pass
-    except (OSError,ValueError,TimeoutError,AttributeError):pass
+    except (OSError,ValueError,TimeoutError,AttributeError,TypeError):pass
     return summary
 
 
@@ -442,9 +454,13 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         # independent comparison above or the standalone replay below.
         memory=adopt_legacy_memory(source,manifest,emit=emit)
         # The pair of the maintainer's development stages is only ever read, from its old folder.
-        for folder,names in ((ROOT/LEGACY_MEMORY/manifest.sha256,('observations.json','qualification.json')),
+        legacy_memory=ROOT/LEGACY_MEMORY/manifest.sha256
+        for folder,names in ((legacy_memory,('observations.json','qualification.json')),
                              (memory,OBSERVATION_FILES)):
             previous=reusable_observations(folder,manifest,names)
+            if not previous and folder==memory!=legacy_memory:
+                # A library copy that is not usable (cut short) never hides the pre-1.6.0 pair it came from.
+                previous=reusable_observations(legacy_memory,manifest,OBSERVATION_FILES)
             if previous:
                 observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in native.observations([previous])]
         for row in records('x68',source.game_key,13):
@@ -565,11 +581,19 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             atomic_json(memory/OBSERVATION_FILES[1],{'schema':1,'private_only':True,'source_identity':manifest.sha256,
                         'game':source.game_key,'check':check,'sdk':stamp,'observations_sha256':digest(observation)})
         summary.parent.mkdir(parents=True,exist_ok=True)
-        atomic_json(summary,{
-            'schema':1,'title':title,'system':'x68','game':source.game_key,'source_identity':manifest.sha256,
-            'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
-            'private_development_only':True,'fresh_reference_passed':True,
-            # Only observed reads are remembered, never the reviewed list's choice.
-            'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
+        # Two machines of one game share this summary: written under the game's lock, keeping a mouse use that
+        # the other machine remembered meanwhile.
+        with entry_lock(summary.parent,timeout=1800):
+            try:
+                current=json.loads(summary.read_text(encoding='utf-8'))
+                remembered=remembered or (isinstance(current,dict) and current.get('mouse_controls') is True)
+            except (OSError,ValueError):
+                pass
+            atomic_json(summary,{
+                'schema':1,'title':title,'system':'x68','game':source.game_key,'source_identity':manifest.sha256,
+                'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
+                'private_development_only':True,'fresh_reference_passed':True,
+                # Only observed reads are remembered, never the reviewed list's choice.
+                'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})
         emit('X68000: validated standalone player ready (experimental profile).')
         return candidate

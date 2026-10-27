@@ -196,6 +196,35 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(conversion.reusable_observations(old, m), old/'converter-observations.json')
         self.assertTrue((old/'converter-qualification.json').is_file())
 
+    def test_a_legacy_summary_that_is_not_an_object_never_stops_the_conversion(self):
+        library, converter = self.memory_places()
+        source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
+        legacy = library/m.sha256/'compilation.json'
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text('[1, 2]')
+        self.assertEqual(conversion.adopt_legacy_summary(source, m), library/source.game_key/'compilation.json')
+        self.assertTrue(legacy.is_file())     # not understood, so left as it is
+
+    def test_the_copy_reaches_the_disk_before_its_name_and_waits_for_a_busy_target(self):
+        library, converter = self.memory_places()
+        source = self.root/'source.json'; source.write_bytes(b'{"observations": 3}\n')
+        target = self.root/'copy'/'converter-observations.json'
+        busy = PermissionError(13, 'busy'); busy.winerror = 32
+        real = os.replace
+        calls = []
+        def replace(a, b):
+            calls.append(b)
+            if len(calls) == 1:
+                raise busy
+            return real(a, b)
+        with patch('retrorecomp.x68000_conversion.os.fsync') as fsync, \
+                patch('retrorecomp.x68000_conversion.os.replace', side_effect=replace):
+            conversion._copy_file(source, target)
+        fsync.assert_called_once()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(target.read_bytes(), source.read_bytes())
+        self.assertEqual([path.name for path in target.parent.iterdir()], [target.name])
+
     def test_a_receipt_of_another_machine_or_another_file_is_not_reused_but_the_sdk_is_not_compared(self):
         library, converter = self.memory_places()
         source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
