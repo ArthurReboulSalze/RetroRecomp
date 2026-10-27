@@ -125,12 +125,14 @@ def _recover_path(path):
                 or not isinstance(checkpoint['done'],dict)):
             stream.close();return None
         from .batch import BatchItem
+        from .systems import system_ids
         fields=set(BatchItem.__dataclass_fields__)
+        consoles=('',)+system_ids()
         for row in definition['items']:
             if (not isinstance(row,dict) or set(row)!=fields or not isinstance(row['path'],str)
                     or not Path(row['path']).is_absolute()
                     or not isinstance(row['title'],str) or not isinstance(row['system'],str)
-                    or row['system'] not in ('sms','gg','gb','nes','md','snes','ng','')
+                    or row['system'] not in consoles
                     or not isinstance(row['sha256'],str)
                     or row['sha256'] and not re.fullmatch('[0-9a-f]{64}',row['sha256'])
                     or row['cover'] is not None and not isinstance(row['cover'],str)):

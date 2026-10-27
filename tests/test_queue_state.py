@@ -37,6 +37,15 @@ class QueueRecoveryTests(unittest.TestCase):
         journal=self.create();journal.finish({'pending':0});self.assertIsNone(recover(self.folder))
         journal=self.create();journal.discard();self.assertIsNone(recover(self.folder))
 
+    def test_x68_and_cps1_rows_recover_and_unknown_consoles_stay_refused(self):
+        items=[BatchItem(self.root/'Absent.dim','X68000 game',system='x68',sha256=str(7)*64),
+               BatchItem(self.root/'Absent.zip','CPS-1 game',system='cps1',sha256=str(8)*64)]
+        journal=BatchJournal.create(self.folder,items,self.root/'Games');journal.close()
+        restored=recover(self.folder);self.assertEqual(restored.pending_items(),items);restored.close()
+        definition=json.loads(journal.path.read_text());definition['items'][0]['system']='gamecube'
+        journal.path.write_text(json.dumps(definition))
+        self.assertIsNone(recover(self.folder))
+
     def test_completed_or_active_newer_batch_does_not_hide_older_unfinished_rows(self):
         old=self.create();old.result(0,{'status':'success'});old.close()
         newer=self.create()
