@@ -6,6 +6,11 @@ A and B are the Visual Studio and the portable-toolchain builds of one game.
 The per-frame trace of A and of B on the same exact input route must be
 identical; a state written by A resumes in B with the continuation of an
 uninterrupted run, and the other way round.
+
+Without --input-script a Neo Geo game plays the converter's own `play` route (a coin at
+frame 2400, start at 2460, then moves: the five-column script of the Neo Geo reader), so
+the default --warmup of 2600 is after the game started; a CPS-1 game (--cps1) plays the
+shared menu-and-gameplay route of tools/state_checks.py (three columns).
 """
 import argparse
 import json
@@ -17,6 +22,13 @@ import csv
 import subprocess
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/, also when imported as tools.<name>
 from state_checks import controls_text, route_controls
+
+
+def default_neo_geo_route() -> str:
+    """The Neo Geo reader takes `frame p1 p2 coin start` (hexadecimal); the converter's own play route."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from retrorecomp.neogeo_validation import ROUTES
+    return ROUTES['play'][1]
 
 
 def probe(exe, output, name, frames, script, *extra, rtc=True):
@@ -47,8 +59,8 @@ def main() -> int:
         folders = {name: Path(temp) / name for name in exes}
         script = Path(temp) / 'play.inputs'
         script.write_text(args.input_script.read_text(encoding='ascii') if args.input_script
-                          else controls_text(route_controls(args.warmup + args.replay)),
-                          encoding='ascii')
+                          else controls_text(route_controls(args.warmup + args.replay)) if args.cps1
+                          else default_neo_geo_route(), encoding='ascii')
         traces = {}
         for name, exe in exes.items():
             folders[name].mkdir()
