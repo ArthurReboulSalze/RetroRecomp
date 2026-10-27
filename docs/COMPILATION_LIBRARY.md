@@ -1475,7 +1475,27 @@ standardisation that moves the game stamps on purpose (1.6.0); what a conversion
   and build stamps, and `LEGACY_GAME_STAMPS` and `RR16_STATE_COMPAT_ABI` (release procedure) do not. The knowledge
   stamp of a game with an unchanged record is unchanged.
 
-@@PROOF@@
+**Evidence (27 October 2026, Windows, Python 3.14.5).** Two real short conversions per console (quick scan, one
+pass, 600 frames; the ROMs were read in place on the NAS, nothing copied) of the commit before (`bd26c65`, an archive
+of it) and of this one, from the very same folder (the generated files contain absolute paths), with the same planted
+banks: the campaign record of each game in the qualified bank and a second, smaller record in the imported bank, plus
+ROM-free observations for Master System, Game Gear, Game Boy and NES. Games with a record: Master System
+Alex Kidd in Miracle World (101 entries) and Action Fighter; Game Gear Factory Panic and OutRun (synthetic imported
+entries: the campaign has none); Game Boy Alleyway (1,023 entries) and A-mazing Tater (570); NES 3-D WorldRunner (7 RAM
+opcode references) and Airwolf (27); Mega Drive Alex Kidd in the Enchanted Castle (26 RAM references, 8,880 Z80
+references) and Art Alive (8,193 Z80 references); Super Nintendo A.S.P. Air Strike Patrol (44 RAM opcode references,
+256 SPC700 delta lists) and Alien 3 (4,446 SPC700 ranges); Neo Geo Joy Joy Kid (2,316 BIOS roots) and Flip Shot (1,735
+BIOS roots, 529 RAM references). CPS-1 (Nemo) and two X68000 disks (Arkanoid Revenge of Doh, Alien Syndrome) have no
+paths: they only show that nothing else moved. Every generated file of the project folder was compared, minus
+the run logs, the timing fields of the check results and the hashes of built executables (two runs of the same code
+differ there; they were run twice to show it). Result: **all 3,192 + 419 + 520 source files are byte-identical** for
+the nine consoles. The exceptions, all fingerprints of the code and not sources: the Mega Drive's
+`generation-identity.json` names the code digest of `megadrive.py` (`adapter`, edited here), the X68000's folder name
+and `sdk` field are its code stamp, and its `rr_px68k_reference.dll` differs between two builds of the same code.
+Removing the banks changes the sources of the Game Boy, NES, Mega Drive and Super Nintendo games, so the comparison
+does see the hints. In the stamps only the game part moves (`role_stamps`: game of the nine consoles changed, host and
+build unchanged), and the knowledge stamp of the twelve cartridge games is unchanged; the Neo Geo one changes by
+design. Windows only: the Linux comparison is a step of the release procedure, as for the other stamp breaks.
 
 ## Sharing discoveries between converters
 
