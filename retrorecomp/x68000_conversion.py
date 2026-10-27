@@ -26,14 +26,17 @@ from .x68000 import (developer_available, machine, automatic_disk_changes, mouse
 digest = file_sha256
 
 
-def compact_observations(record):
+def compact_observations(record, ipl=None):
     """Merge exact encodings without duplicating the previous qualification.
 
     A fresh replay is still mandatory. Large generated blitters can contribute
     over 160,000 variants; appending the same learned list on regeneration used
     to exceed the observation-file bound despite adding no new instruction.
+
+    With the player's `ipl`, the variants that equal its bytes become span entries (schema 2): the file then
+    keeps where IPL code starts and none of its words. Without it, spans already in the record are kept as they are.
     """
-    if record.get('schema')!=1 or record.get('truncated') is not False:
+    if record.get('schema') not in (1,2) or record.get('truncated') is not False:
         raise ConversionError('Incomplete X68000 observations cannot be qualified.')
     merged={}
     for row in record['variants']:
@@ -42,21 +45,33 @@ def compact_observations(record):
         if len(merged)>1048576:raise ConversionError('X68000 instruction observation bound exceeded.')
     result=dict(record)
     result['variants']=[{'pc':pc,'words':words,'hits':hits} for (pc,words),hits in sorted(merged.items())]
+    if ipl is not None or record.get('spans'):
+        from tools.x68000_native import fold_ipl
+        try:result['variants'],spans=fold_ipl(result['variants'],ipl,record.get('spans',()))
+        except ValueError as error:raise ConversionError(str(error)) from None
+        result.pop('spans',None)
+        if spans:result['spans']=spans;result['schema']=2
     return result
 
 
-def extend_observations(record, extra):
+def observation_size(record):
+    """Variants plus span entries: what a generation can still gain."""
+    return len(record['variants'])+sum(len(span['entries']) for span in record.get('spans',()))
+
+
+def extend_observations(record, extra, ipl=None):
     """Only new exact encodings justify another native generation.
 
     A saturated fallback capture must not lose its truncation flag when merged
     into a complete reference capture. Counts alone never add CPU coverage.
     """
-    current=compact_observations(record)
-    incoming=compact_observations(extra)
+    current=compact_observations(record,ipl)
+    incoming=compact_observations(extra,ipl)
     if incoming.get('source_identity') not in (None,current.get('source_identity')):
         raise ConversionError('X68000 additional observations have a different source identity.')
-    merged=compact_observations({**current,'variants':current['variants']+incoming['variants']})
-    return merged,len(merged['variants'])>len(current['variants'])
+    merged=compact_observations({**current,'variants':current['variants']+incoming['variants'],
+                                 'spans':[*current.get('spans',()),*incoming.get('spans',())]},ipl)
+    return merged,observation_size(merged)>observation_size(current)
 
 
 # Private conversion memory. Its key is the game (X68000Input.game_key, the hash of the ordered disk set), the
@@ -348,6 +363,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     if unused.get('standard_override') not in (None,'native','auto'):
         raise ConversionError('X68000 timing follows its CRTC; PAL/NTSC overrides do not apply.')
     source,manifest=machine(path,x68_ipl,x68_cgrom,x68_ram)
+    # The player's own IPL: observed IPL code is kept as span entries over these bytes, never as words.
+    ipl=manifest.firmware.ipl.path.read_bytes()
     title=title or source.title
     if any(ord(c)<32 for c in title) or len(title)>160:raise ConversionError('Invalid X68000 game title.')
     # Workspace paths (.deps, .build) follow ROOT; bundled sources stay in ASSETS.
@@ -444,7 +461,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         for route,folder,inputs,_ in extra_routes:
             more=json.loads((folder/'observations.json').read_text())
             mouse_calls+=mouse_reads(more)[1]
-            observations,_=extend_observations(observations,more)
+            observations,_=extend_observations(observations,more,ipl)
         mouse_game=listed if listed is not None else mouse_calls>=MOUSE_GAME_READS or remembered
         emit('X68000: mouse controls '+('on' if mouse_game else 'off')+
              (' (reviewed list)' if listed is not None else '')+
@@ -462,14 +479,14 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 # A library copy that is not usable (cut short) never hides the pre-1.6.0 pair it came from.
                 previous=reusable_observations(legacy_memory,manifest,OBSERVATION_FILES)
             if previous:
-                observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in native.observations([previous])]
+                observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in native.observations([previous],ipl)]
         for row in records('x68',source.game_key,13):
             end=row.address+len(row.data)
             if (not row.address&1 and 2<=len(row.data)<=16 and len(row.data)%2==0
                     and (0<=row.address<end<=0xc00000 or 0xe00000<=row.address<end<=0xe80000 or
                          0xea0000<=row.address<end<=0xea2000 or 0xfc0000<=row.address<end<=0x1000000)):
                 observations['variants'].append({'pc':row.address,'words':row.data.hex(),'hits':1})
-        observations=compact_observations(observations)
+        observations=compact_observations(observations,ipl)
         observation=work/'discovered.json';atomic_json(observation,observations)
         project=work/'native';payload_dir=work/'payload';payload_dir.mkdir(parents=True,exist_ok=True)
         from .artwork import prepare_icon
@@ -479,7 +496,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         metadata=payload(payload_dir,source,manifest,title,artwork,mouse_game)
         candidate=None;actual=None;generation=None
         for attempt in range(max(1,min(int(passes),10))):
-            generation=native.generate(project,native.observations([observation]),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
+            generation=native.generate(project,native.observations([observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
             candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
             # Run copied alone, with only its own embedded immutable inputs.
             run_dir=checks/f'native-{attempt+1}';run_dir.mkdir(parents=True,exist_ok=True)
@@ -510,9 +527,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             if not fallback:break
             emit(f'X68000: {fallback} fallback instructions observed; extending guarded code coverage.')
             more=json.loads((run_dir/'observations.json').read_text())
-            observations,progress=extend_observations(observations,more)
+            observations,progress=extend_observations(observations,more,ipl)
             for route,folder,result in additional:
-                observations,changed=extend_observations(observations,json.loads((folder/'observations.json').read_text()))
+                observations,changed=extend_observations(observations,json.loads((folder/'observations.json').read_text()),ipl)
                 progress=progress or changed
             if not progress:
                 emit('X68000: no new guarded encodings; remaining interpreter use stays reported.')
@@ -591,7 +608,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 pass
             atomic_json(summary,{
                 'schema':1,'title':title,'system':'x68','game':source.game_key,'source_identity':manifest.sha256,
-                'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
+                'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation],ipl)),
                 'private_development_only':True,'fresh_reference_passed':True,
                 # Only observed reads are remembered, never the reviewed list's choice.
                 'mouse_controls':mouse_calls>=MOUSE_GAME_READS or remembered})

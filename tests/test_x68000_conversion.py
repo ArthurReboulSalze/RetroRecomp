@@ -65,6 +65,27 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(len(record['variants']),3)
         with self.assertRaises(ConversionError):compact_observations({**record,'truncated':True})
 
+    def test_ipl_observations_become_span_entries_and_progress_counts_them(self):
+        ipl=bytes(range(256))*512
+        word=ipl[0x100:0x102].hex()
+        record={'schema':1,'truncated':False,'source_identity':'a'*64,'variants':[
+            {'pc':0xff0100,'words':word,'hits':5},{'pc':0x1000,'words':'303c1234','hits':1}]}
+        folded=compact_observations(record,ipl)
+        self.assertEqual(folded['schema'],2)
+        self.assertEqual([v['pc'] for v in folded['variants']],[0x1000])
+        self.assertEqual(folded['spans'][0]['entries'],[[0x10100,1]])
+        self.assertEqual(folded['spans'][0]['address'],0xfe0000)
+        self.assertEqual(compact_observations(folded),folded)           # spans pass through without an IPL
+        self.assertEqual(compact_observations(folded,ipl),folded)       # and folding again changes nothing
+        again,progress=extend_observations(folded,record,ipl)
+        self.assertFalse(progress)
+        new={'schema':1,'truncated':False,'variants':[{'pc':0xff0102,'words':ipl[0x102:0x104].hex(),'hits':1}]}
+        again,progress=extend_observations(folded,new,ipl)
+        self.assertTrue(progress)
+        self.assertEqual(len(again['spans'][0]['entries']),2)
+        self.assertEqual(len(record['variants']),2)
+        with self.assertRaises(ConversionError):extend_observations(folded,new,b'x'*len(ipl))   # another IPL
+
     def test_automatic_disk_requests_cover_every_multi_disk_set(self):
         from dataclasses import replace
         source=read_input(self.root/'one.xdf')

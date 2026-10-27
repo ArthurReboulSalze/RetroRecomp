@@ -39,15 +39,95 @@ def private_path(path:Path)->Path:
     return path
 
 
-def observations(paths)->list[tuple[int,str]]:
+# ---- IPL spans (standardization 6b) ----------------------------------------------------------------------------
+# The IPL window (0xFC0000-0xFFFFFD) holds the player's own 128 KiB IPL, mapped twice. Every code variant observed
+# there equals the IPL bytes at its address (checked on every local identity), so an observation file keeps only
+# where instructions start: a span (address, offset in the IPL, length) with its entries [position in the span,
+# length in words]. The words are read from the player's IPL when the file is read; none is stored. The fold is
+# exact and reversible (expanding the entries gives back the same variants, minus their hit counts), and a file
+# without spans (schema 1) reads as before. Other windows (RAM, text VRAM, the SCSI stub built into the machine)
+# stay variants.
+IPL_BYTES=128*1024
+IPL_SPANS=((0xfc0000,0,IPL_BYTES),(0xfe0000,0,IPL_BYTES))
+IPL_CODE_END=0xfffffe  # the last word of the window is not fetchable as code (rr_x68k_code_word)
+
+
+def ipl_view(data:bytes)->bytes|None:
+    """The 128 KiB the machine maps at 0xFC0000, or None when it does not map this file as it is.
+
+    native/x68000_machine/machine.c replaces an IPL that carries the SCSI boot marker (0x00FC0000 at file offsets
+    0x10600-0x10C00) with a small stub of its own, so the file's bytes are not what executes there."""
+    if len(data)!=IPL_BYTES:return None
+    if any(data[n:n+4]==b'\x00\xfc\x00\x00' for n in range(0x10600,0x10c00,2)):return None
+    return bytes(data)
+
+
+def span_variants(spans,ipl:bytes|None)->list[tuple[int,str]]:
+    """Expand span entries into (pc, words hex) with the IPL they were observed with."""
+    result=[]
+    for span in spans:
+        if not isinstance(span,dict) or span.get('source')!='ipl':raise ValueError('Unknown observation span.')
+        address,offset,length=span.get('address'),span.get('offset'),span.get('length')
+        if (address,offset,length) not in IPL_SPANS:raise ValueError('Unsupported observation span.')
+        view=ipl_view(ipl) if ipl is not None else None
+        if view is None:raise ValueError('Observation spans need the IPL they were observed with.')
+        if span.get('sha256')!=hashlib.sha256(ipl).hexdigest():
+            raise ValueError('Observation spans belong to another IPL.')
+        entries=span.get('entries')
+        if not isinstance(entries,list):raise ValueError('Invalid observation span entries.')
+        for entry in entries:
+            if (not isinstance(entry,list) or len(entry)!=2 or any(type(n) is not int for n in entry)
+                    or entry[0]&1 or not 0<=entry[0]<length or not 1<=entry[1]<=8):
+                raise ValueError('Invalid observation span entry.')
+            position,count=entry
+            if address+position+count*2>IPL_CODE_END:raise ValueError('Span entry crosses the code window.')
+            result.append((address+position,bytes(view[(offset+position+n)%IPL_BYTES] for n in range(count*2)).hex()))
+    return result
+
+
+def fold_ipl(variants,ipl:bytes|None,spans=())->tuple[list[dict],list[dict]]:
+    """Move the variants that equal the player's IPL into span entries, merged with `spans`.
+
+    Returns (remaining variants, spans). A variant that differs from the IPL stays a variant, and so does every
+    variant when this IPL is not mapped as it is (SCSI-marked file) or no IPL is given: nothing is guessed."""
+    view=ipl_view(ipl) if ipl is not None else None
+    digests={span.get('sha256') for span in spans}
+    if ipl is not None:digests.add(hashlib.sha256(ipl).hexdigest())
+    if len(digests)>1:raise ValueError('Observation spans belong to another IPL.')
+    entries={}
+    for span in spans:
+        if not isinstance(span,dict) or (span.get('address'),span.get('offset'),span.get('length')) not in IPL_SPANS:
+            raise ValueError('Unsupported observation span.')
+        entries.setdefault(span['address'],set()).update((position,count) for position,count in span['entries'])
+    rest=[]
+    for row in variants:
+        pc=row['pc'];raw=bytes.fromhex(row['words'])
+        span=next((s for s in IPL_SPANS if view is not None and s[0]<=pc<s[0]+s[2]),None)
+        if (span is None or pc&1 or len(raw)%2 or len(raw)>16 or pc+len(raw)>IPL_CODE_END or
+                raw!=bytes(view[(span[1]+pc-span[0]+n)%IPL_BYTES] for n in range(len(raw)))):
+            rest.append(row);continue
+        entries.setdefault(span[0],set()).add((pc-span[0],len(raw)//2))
+    digest=next(iter(digests),None)
+    return rest,[{'source':'ipl','sha256':digest,'address':a,'offset':o,'length':n,
+                  'entries':[list(e) for e in sorted(entries[a])]} for a,o,n in IPL_SPANS if entries.get(a)]
+
+
+def span_count(record)->int:
+    return sum(len(span['entries']) for span in record.get('spans',()))
+
+
+def observations(paths,ipl:bytes|None=None)->list[tuple[int,str]]:
+    """Every (pc, words) a file set names: its variants, and its spans expanded with `ipl`."""
     result=set()
     for path in paths:
         if path.stat().st_size>128*1024*1024:raise ValueError('CPU observation file exceeds its bound.')
         record=json.loads(path.read_text(encoding='utf-8'))
-        if record.get('schema')!=1 or record.get('truncated') is not False:
+        if (record.get('schema') not in (1,2) or record.get('truncated') is not False
+                or (record['schema']==1 and 'spans' in record)):
             raise ValueError('CPU observations are incomplete or unknown.')
-        for item in record.get('variants',[]):
-            pc,words=item.get('pc'),item.get('words')
+        samples=[(item.get('pc'),item.get('words')) for item in record.get('variants',[])]
+        samples+=span_variants(record.get('spans',[]),ipl)
+        for pc,words in samples:
             if type(pc) is not int or pc&1 or not (0<=pc<0xc00000 or 0xe00000<=pc<0xe80000 or 0xea0000<=pc<0xea2000 or 0xfc0000<=pc<0xfffffe):
                 raise ValueError('Unsupported observed code aperture.')
             if not isinstance(words,str) or not re.fullmatch('[0-9a-f]{4,32}',words) or len(words)%4:
