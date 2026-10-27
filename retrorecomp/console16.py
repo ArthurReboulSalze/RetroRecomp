@@ -15,7 +15,7 @@ from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__
 from .library import atomic_json
 from .snes_chips import device_entry
-from . import megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
+from . import hostkit, megadrive, supernintendo, guns16, megadrive_sram, megadrive_memory, megadrive_cart, snes_cart
 
 REPOSITORIES = {
     'md': ('mstan/segagenesisrecomp', '00c60bc855a7998f92e5614585d52bca8fffcaf2', 'segagenesisrecomp'),
@@ -89,8 +89,9 @@ def dependencies16(system_id: str, emit):
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
-    for name in ('retro_console16.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'console16_main.c', 'console16_host_ui.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
+    for name in ('retro_console16.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'console16_main.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
         shutil.copy2(ASSETS / 'native' / name, project / name)
+    hostkit.stage(project, system_id)
     native = project / 'native'
     native.mkdir(exist_ok=True)
     prefix = engine.as_posix()
@@ -253,7 +254,7 @@ find_package(SDL2 REQUIRED)
                           '"generated/*_part*.c" "generated/*_dispatch.c" "generated/*_layout.c"')
         step_sources = 'md_step_dispatch.c native/rb_state.c' if step_aot else ''
         common += f'''file(GLOB GENERATED CONFIGURE_DEPENDS {generated_glob})
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c md_backend.c md_battery.c
+add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c md_backend.c md_battery.c
   native/glue.c native/m68k_interp.c native/audio.c native/genesis_bus.c native/genesis_vdp.c
   native/genesis_machine.c native/z80_reference.c md_z80_runtime.c md_z80_generated.c
   native/sim_step.c native/ym2612_ymfm.cpp native/sn76489.c
@@ -352,7 +353,7 @@ set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
 include("{prefix}/runner/runner.cmake")
 list(FILTER SNESRECOMP_RUNNER_SOURCES EXCLUDE REGEX "/snes_savestate_menu\\.c$")
 file(GLOB GENERATED CONFIGURE_DEPENDS "generated/*.c")
-add_executable(game WIN32 console16_main.c console16_host_ui.c retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
+add_executable(game WIN32 console16_main.c {' '.join(hostkit.sources(system_id))} retro_menu.c gun16.c snes_backend.c snes_spc_runtime.c snes_battery.c
   ${{RESOURCE_SOURCES}} ${{GENERATED}} ${{SNESRECOMP_RUNNER_SOURCES}})
 target_include_directories(game PRIVATE . generated ${{SNESRECOMP_RUNNER_INCLUDE_DIRS}} "{prefix}/runner/src/desktop")
 target_link_libraries(game PRIVATE ${{SNESRECOMP_RUNNER_LIBRARIES}})

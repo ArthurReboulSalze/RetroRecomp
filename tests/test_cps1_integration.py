@@ -87,18 +87,20 @@ class ControlTests(unittest.TestCase):
         self.assertEqual([ports[name]['default'] for name in ('DSWA', 'DSWB', 'DSWC')], [0xff, 0xff, 0xfa])
 
     def test_extra_players_reach_the_host_and_scripts(self):
-        ui = (ROOT / 'native/console16_host_ui.c').read_text(encoding='utf-8')
-        self.assertIn('#define rr16_players() RR_CPS1_PLAYERS', ui)
-        self.assertIn('(RrPages){2 * rr16_players()', ui)
-        self.assertIn('rr_cps1_set_extra_pads(', ui)
+        adapter = (ROOT / 'native/hostkit/adapters/rrhk_cps1.c').read_text(encoding='utf-8')
+        pages = (ROOT / 'native/hostkit/shell/rrhk_options.c').read_text(encoding='utf-8')
+        self.assertIn('static int players(void) { return RR_CPS1_PLAYERS; }', adapter)
+        self.assertIn('(RrPages){2 * m->players()', pages)
+        self.assertIn('rr_cps1_set_extra_pads(', adapter)
         main = (ROOT / 'native/cps1_main.c').read_text(encoding='utf-8')
         self.assertIn('fields != 3 && fields != 5', main)
 
     def test_host_menu_and_pad_bits_agree(self):
-        ui = (ROOT / 'native/console16_host_ui.c').read_text(encoding='utf-8')
-        block = ui[ui.index('#elif RR16_CPS1'):ui.index('#elif RR16_MD')]
-        self.assertIn('enum { A, B, C, X, Y, Z, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };', block)
-        self.assertIn('{1,2,4,8,16,32,64,128,256,512,1024,2048}', block)
+        import re
+        ui = (ROOT / 'native/hostkit/adapters/rrhk_cps1.c').read_text(encoding='utf-8')
+        self.assertIn('enum { A, B, C, X, Y, Z, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };', ui)
+        self.assertEqual([int(bit) for bit in re.findall(r'\{"[^"]+", L"[^"]+", (\d+),', ui)],
+                         [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
         host = (ROOT / 'native/cps1_host.h').read_text(encoding='utf-8')
         self.assertIn('RR_CPS1_START, RR_CPS1_COIN, RR_CPS1_UP, RR_CPS1_DOWN, RR_CPS1_LEFT, RR_CPS1_RIGHT', host)
 

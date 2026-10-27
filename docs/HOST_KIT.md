@@ -57,12 +57,16 @@ material and move unchanged (`hosts.md:340`).
 
 ### 2.1 Machine contract (sketch)
 
-Adapted from the survey sketch (`hosts.md:226-296`); not compiled yet. The
-`RrhkStateId` and `RrhkBattery` fields follow the comments at `hosts.md:278-281`;
-SDL types stay behind the shell boundary in the real header.
+Adapted from the survey sketch (`hosts.md:226-296`). Phase 1 compiles the part
+of it that the four 16-bit machines need, with the machine functions still the
+`rr16_*` link-time symbols: see [hostkit.h](../native/hostkit/hostkit.h) for the
+table the adapters fill (actions, geometry, frame function, state and audio
+accessors, and the hooks that stand where the `#if` branches were). The
+`RrhkStateId` and `RrhkBattery` fields follow the comments at `hosts.md:278-281`
+and arrive with phase 6; the sketch below is the target.
 
 ```c
-/* native/hostkit/hostkit.h -- sketch, not yet compiled. */
+/* native/hostkit/hostkit.h -- target shape; phase 1 implements the 16-bit subset. */
 typedef enum { RRHK_DIR, RRHK_FACE, RRHK_SYSTEM } RrhkGroup; /* FACE = autofire-eligible */
 
 typedef struct {
@@ -374,6 +378,18 @@ and `retrorecomp/hostkit.py` is host role. Exports that link them are
 (`native/hostkit/core/*`) stay game role because headless runs use them, and
 are paid for once in the planned phase 6 campaign (`hosts.md:391`).
 
+Status after phase 1: the stamp inputs are explicit lists, so every kit file is
+listed in `retrorecomp/stamp_inputs.py` (host role, owned by Mega Drive, SNES,
+Neo Geo and CPS-1; each adapter by its own console) and `retrorecomp/hostkit.py`
+is a host module. The kit files live in `native/hostkit/{shell,adapters}/` with
+unique `rrhk_` names (several engines own files called `audio.c` or `menu.c`
+and a project builds one object per name). The staging code that copies host
+files into a project belongs to the game-role modules `console16.py`,
+`cps1_build.py` and `neogeo_build.py`; calling `hostkit.stage()` changed those
+three modules once, which moves the game stamp of the four consoles once, and
+every later kit edit is host-only (`tests/test_compilation_inputs.py`). The
+text below is the original reasoning, kept for the record.
+
 Until that release, **no kit file goes into `native/`**: an unclassified new
 file defaults to game role for all nine systems, and everything under
 `native/` is hashed, so an unscoped `native/hostkit/` directory would change
@@ -436,6 +452,12 @@ an MVS and an AES Neo Geo, a two-player and a four-player CPS-1 game, a Zapper
 game, an X68000 keyboard game, a mouse game and a two-disk game, a Light Phaser
 game, a palette game); outputs under `.build/`, nothing placed in Export
 (`hosts.md:507-511,468-469`).
+
+Phase 1 measurements (Windows, MSVC build, offscreen SDL): `tools/hostkit_ab.py`
+builds the old and the new host of the same game against a virtual clock, a
+modelled audio device, scripted keys, pads and mouse, and compares the picture
+read back at every frame, every push to the audio device, the window log, the
+preferences file and the state files. It is the tool of every later phase.
 
 Discipline: a host refactor claims only "unchanged" — never native-code
 coverage, CPU fidelity, hardware fidelity, gameplay validation or physical

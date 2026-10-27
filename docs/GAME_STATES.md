@@ -47,6 +47,13 @@ states are bound to the exact build signature, as before. The local regression r
 the decoded CPU in fresh processes. Invalid source-latch/wire combinations are
 rejected before changing guest state.
 
+Since the player shell moved into the host kit (`native/hostkit`, see
+[HOST_KIT.md](HOST_KIT.md)), a Mega Drive or Super Nintendo signature no longer
+hashes the shell files of the kit: it covers the listed files directly below `native/`, and the
+kit lives one level down. That one change of the list gives the first kit
+release a new signature, so quick states written by earlier exports do not
+load into a rebuilt export; later edits of the shell leave the signature alone.
+
 The Mega Drive backend's ABI-10 also stores its two-word 68000 prefetch queue
 in twelve pointer-free CPU-section bytes. F9 preserves already fetched words
 even when RAM has changed. Existing supported signatures and ABI-9 migrate

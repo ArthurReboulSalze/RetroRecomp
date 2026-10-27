@@ -115,7 +115,9 @@ HOST_MODULES = frozenset((
     'branding', 'player_gamepad',
     # Player shells written as patches: Game Boy platform window, menus,
     # sound output and input; Mega Drive sound delivery.
-    'gameboy_host', 'gameboy_timing', 'megadrive_audio'))
+    'gameboy_host', 'gameboy_timing', 'megadrive_audio',
+    # The host kit's file list and its copy into a game project.
+    'hostkit'))
 HOST_NATIVE = frozenset((
     # Paths below native/. Shared menu core, identical on every machine.
     'retro_menu.c', 'retro_menu.h', 'game_options.h', 'game_options_checks.c',
@@ -135,7 +137,15 @@ HOST_NATIVE = frozenset((
     # the 16-bit consoles (Mega Drive, SNES, Neo Geo, CPS-1) and X68000.
     'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
     'gb_menu.inc', 'gb_input_refresh.inc',
-    'nes_host_ui.c', 'console16_host_ui.c', 'neogeo_ui_test.c',
+    'nes_host_ui.c', 'neogeo_ui_test.c',
+    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo and CPS-1
+    # and the adapter of each. Every file below native/hostkit is host-side.
+    'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
+    'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
+    'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
+    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_timing.c', 'hostkit/shell/rrhk_video.c',
+    'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
+    'hostkit/adapters/rrhk_cps1.c',
     'x68000_reference/player_ui.inc'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -367,6 +377,7 @@ INPUTS = {
     ),
     ('md',): (
         'native/md_audio_bridge_checks.c',
+        'native/hostkit/adapters/rrhk_md.c',
         'native/md_audio_loop.inc',
         'native/md_audio_mix.h',
         'native/md_audio_mix_checks.c',
@@ -432,6 +443,7 @@ INPUTS = {
     ),
     ('snes',): (
         'native/snes_backend.c',
+        'native/hostkit/adapters/rrhk_snes.c',
         'native/snes_battery.c',
         'native/snes_battery.h',
         'native/snes_bus.h',
@@ -474,6 +486,7 @@ INPUTS = {
     ),
     ('ng',): (
         'assets/neogeo-catalogue.json',
+        'native/hostkit/adapters/rrhk_ng.c',
         'native/neogeo_board_checks.c',
         'native/neogeo_code_view.inc',
         'native/neogeo_controls_checks.c',
@@ -603,6 +616,7 @@ INPUTS = {
     ),
     ('cps1',): (
         'assets/cps1-catalogue.json',
+        'native/hostkit/adapters/rrhk_cps1.c',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
         'native/cps1_host.c',
@@ -658,7 +672,6 @@ INPUTS = {
         'retrorecomp.neogeo_codegen',
     ),
     ('md', 'snes', 'ng', 'cps1'): (
-        'native/console16_host_ui.c',
         'native/console16_main.c',
         'native/console16_state.c',
         'native/console16_state.h',
@@ -666,11 +679,23 @@ INPUTS = {
         'native/gun16.c',
         'native/gun16.h',
         'native/gun16_checks.c',
+        'native/hostkit/hostkit.h',
+        'native/hostkit/hostkit_internal.h',
+        'native/hostkit/shell/rrhk_audio.c',
+        'native/hostkit/shell/rrhk_events.c',
+        'native/hostkit/shell/rrhk_input.c',
+        'native/hostkit/shell/rrhk_main.c',
+        'native/hostkit/shell/rrhk_menu.c',
+        'native/hostkit/shell/rrhk_options.c',
+        'native/hostkit/shell/rrhk_pointer.c',
+        'native/hostkit/shell/rrhk_timing.c',
+        'native/hostkit/shell/rrhk_video.c',
         'native/retro_console16.h',
         'retrorecomp.console16',
         'retrorecomp.console16_optimization',
         'retrorecomp.console16_state',
         'retrorecomp.gun16_runtime',
+        'retrorecomp.hostkit',
         'retrorecomp.systems.console16',
     ),
     ('md', 'ng', 'x68', 'cps1'): (

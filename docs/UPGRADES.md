@@ -77,7 +77,7 @@ Each machine family has one shell for its window, menus and input:
 | Master System, Game Gear | `host.c`, `ui.c/.h`, `controls.c/.h` | `launcher.c` and the Z80 runtime |
 | Game Boy | `gb_menu.inc`, `gb_input_refresh.inc`, `gameboy_host.py`, `gameboy_timing.py` | `game_main.c`, `gameboy_runtime.py` |
 | NES | `nes_host_ui.c` | the runner adapted by `nes_runtime.py` |
-| Mega Drive, SNES, Neo Geo, CPS-1 | `console16_host_ui.c` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters |
+| Mega Drive, SNES, Neo Geo, CPS-1 | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters |
 | Sharp X68000 | `x68000_reference/player_ui.inc` | `x68000_reference/reference_host.c` and the SDK |
 
 Files that are used both by the shell and by headless checks stay game-side:

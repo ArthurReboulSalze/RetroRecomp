@@ -1,11 +1,13 @@
-/* ROM-free keyboard/MVS wiring checks through the production shared host. */
+/* ROM-free keyboard/MVS wiring checks through the production host kit: its input
+ * module and the Neo Geo adapter, in one translation unit with a mock keyboard. */
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <assert.h>
 static Uint8 mock_keys[SDL_NUM_SCANCODES];
 static const Uint8 *mock_keyboard(int *size) {if(size)*size=SDL_NUM_SCANCODES;return mock_keys;}
 #define SDL_GetKeyboardState mock_keyboard
-#include "console16_host_ui.c"
+#include "hostkit/shell/rrhk_input.c"
+#include "hostkit/adapters/rrhk_ng.c"
 #include "neogeo_input.h"
 static uint32_t test_pixels[320*224];
 bool rr16_init(bool h) {(void)h;return true;}
@@ -43,29 +45,37 @@ void rr_ng_request_mode_restart(void) {}
 void rr_ng_set_enhanced(bool enabled) {test_enhanced=enabled;}
 uint32_t rr_ng_frame_index(void) {return 0;}
 void rr_ng_test_json(FILE *file,const char *text) {fprintf(file,"\"%s\"",text?text:"");}
+/* The adapter names these services of the shell; this check never runs the loop or the menus. */
+int rrhk_main(const RrhkMachine *machine,const char *title,int scale) {(void)machine;(void)title;(void)scale;return 0;}
+void rrhk_option_row(RrhkOptionRows *rows,int key,const char *format,const char *value) {(void)rows;(void)key;(void)format;(void)value;}
+void rrhk_notice(const char *text,Uint64 milliseconds) {(void)text;(void)milliseconds;}
+void rrhk_menu_line(const RrhkMenuCtx *ctx,int y,const char *text) {(void)ctx;(void)y;(void)text;}
+void rrhk_help_sound_line(const RrhkMenuCtx *ctx,int y) {(void)ctx;(void)y;}
+const RrhkPage rrhk_pointer_page={0};
+
 int main(void) {
-    SDL_SetMainReady();assert(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER));load_bindings();
+    SDL_SetMainReady();assert(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER));rrhk_bind(rrhk_adapter());rrhk_load_bindings();
     const uint16_t expected[10]={16,32,64,128,256,512,1,2,4,8};unsigned checked=0;
-    assert(!strcmp(rr_keyboard_name(keys[0][A]),"W"));
-    assert(!strcmp(rr_keyboard_name(keys[0][B]),"X"));
+    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][A]),"W"));
+    assert(!strcmp(rr_keyboard_name(rrhk.keys[0][B]),"X"));
     for(int p=0;p<2;++p)for(int a=0;a<10;++a) {
-        memset(mock_keys,0,sizeof mock_keys);mock_keys[keys[p][a]]=1;
-        assert(controller_input(p,0)==expected[a]);assert(controller_input(!p,0)==0);++checked;
+        memset(mock_keys,0,sizeof mock_keys);mock_keys[rrhk.keys[p][a]]=1;
+        assert(rrhk_pad_word(p,0)==expected[a]);assert(rrhk_pad_word(!p,0)==0);++checked;
     }
     /* Enter is Start; either Shift inserts the coin unless the other Shift
      * has a binding of its own, for any player. */
     memset(mock_keys,0,sizeof mock_keys);
-    assert(keys[0][START]==SDL_SCANCODE_RETURN && keys[0][COIN]==SDL_SCANCODE_LSHIFT);++checked;
-    mock_keys[SDL_SCANCODE_RSHIFT]=1;assert(controller_input(0,0)==512);++checked;
-    SDL_Scancode d=keys[0][D];keys[0][D]=SDL_SCANCODE_RSHIFT;assert(controller_input(0,0)==128);keys[0][D]=d;++checked;
-    SDL_Scancode kp0=keys[1][COIN];keys[1][COIN]=SDL_SCANCODE_RSHIFT;assert(controller_input(0,0)==0 && controller_input(1,0)==512);keys[1][COIN]=kp0;++checked;
-    keys[0][COIN]=SDL_SCANCODE_RSHIFT;mock_keys[SDL_SCANCODE_RSHIFT]=0;mock_keys[SDL_SCANCODE_LSHIFT]=1;assert(controller_input(0,0)==512);++checked;
+    assert(rrhk.keys[0][START]==SDL_SCANCODE_RETURN && rrhk.keys[0][COIN]==SDL_SCANCODE_LSHIFT);++checked;
+    mock_keys[SDL_SCANCODE_RSHIFT]=1;assert(rrhk_pad_word(0,0)==512);++checked;
+    SDL_Scancode d=rrhk.keys[0][D];rrhk.keys[0][D]=SDL_SCANCODE_RSHIFT;assert(rrhk_pad_word(0,0)==128);rrhk.keys[0][D]=d;++checked;
+    SDL_Scancode kp0=rrhk.keys[1][COIN];rrhk.keys[1][COIN]=SDL_SCANCODE_RSHIFT;assert(rrhk_pad_word(0,0)==0 && rrhk_pad_word(1,0)==512);rrhk.keys[1][COIN]=kp0;++checked;
+    rrhk.keys[0][COIN]=SDL_SCANCODE_RSHIFT;mock_keys[SDL_SCANCODE_RSHIFT]=0;mock_keys[SDL_SCANCODE_LSHIFT]=1;assert(rrhk_pad_word(0,0)==512);++checked;
     mock_keys[SDL_SCANCODE_LSHIFT]=0;mock_keys[SDL_SCANCODE_RSHIFT]=1;
-    keys[0][COIN]=SDL_SCANCODE_J;assert(controller_input(0,0)==0);++checked;
+    rrhk.keys[0][COIN]=SDL_SCANCODE_J;assert(rrhk_pad_word(0,0)==0);++checked;
     for(int p=0;p<2;++p) {
-        memset(mock_keys,0,sizeof mock_keys);mock_keys[keys[p][UP]]=mock_keys[keys[p][DOWN]]=1;
-        mock_keys[keys[p][LEFT]]=mock_keys[keys[p][RIGHT]]=mock_keys[keys[p][A]]=1;
-        assert(controller_input(p,0)==16);++checked;
+        memset(mock_keys,0,sizeof mock_keys);mock_keys[rrhk.keys[p][UP]]=mock_keys[rrhk.keys[p][DOWN]]=1;
+        mock_keys[rrhk.keys[p][LEFT]]=mock_keys[rrhk.keys[p][RIGHT]]=mock_keys[rrhk.keys[p][A]]=1;
+        assert(rrhk_pad_word(p,0)==16);++checked;
     }
     assert(rr_ng_start_bits(256,0)==1);assert(rr_ng_start_bits(0,256)==4);
     assert(rr_ng_start_bits(256,256)==5);assert(rr_ng_coin_bits(512,0)==1);

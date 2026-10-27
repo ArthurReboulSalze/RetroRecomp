@@ -251,7 +251,13 @@ retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
-native/retro_console16.h native/console16_main.c native/console16_host_ui.c native/scanlines.h
+native/retro_console16.h native/console16_main.c native/scanlines.h
+native/hostkit/hostkit.h native/hostkit/hostkit_internal.h retrorecomp/hostkit.py
+native/hostkit/shell/rrhk_audio.c native/hostkit/shell/rrhk_events.c native/hostkit/shell/rrhk_input.c
+native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit/shell/rrhk_options.c
+native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_timing.c native/hostkit/shell/rrhk_video.c
+native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
+native/hostkit/adapters/rrhk_cps1.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
