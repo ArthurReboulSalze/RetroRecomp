@@ -141,6 +141,9 @@ its own measure category.
 | Honesty | hardware fidelity, full-game coverage and latency are never claimed without proof |
 | Shared knowledge | hints are numeric, rechecked, and the conversion retries without them on failure |
 
+Per-console qualification record (gates G1-G16, status matrix, owner-acceptance
+log): [QUALIFICATION.md](QUALIFICATION.md).
+
 ## Adding a machine
 
 1. Profile v2 with status `experimental`.
