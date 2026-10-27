@@ -10,13 +10,14 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 import time
 from . import __version__
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, run_process, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
-from .library import atomic_json, entry_lock, file_sha256
+from .library import atomic_json, entry_lock, file_sha256, library_root
 from .report_schema import write_report
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
@@ -56,6 +57,97 @@ def extend_observations(record, extra):
         raise ConversionError('X68000 additional observations have a different source identity.')
     merged=compact_observations({**current,'variants':current['variants']+incoming['variants']})
     return merged,len(merged['variants'])>len(current['variants'])
+
+
+# Private conversion memory. Its key is the game (X68000Input.game_key, the hash of the ordered disk set), the
+# same key as the report's rom.sha256, the export's marker, the collection and the runtime feedback:
+#   <library>/x68/<game>/compilation.json                          summary (Memory view, remembered mouse use)
+#   <library>/x68/<game>/<machine16>/converter-observations.json   observed guest code of one machine
+#   <library>/x68/<game>/<machine16>/converter-qualification.json  its receipt
+# <machine16> is the start of X68000Manifest.sha256: disks + the player's IPL + font ROM + RAM size, the identity
+# of the executable (states, saved data) and of the observations (they hold IPL words). Before 1.6.0 the pair
+# lived outside the library, in <converter folder>/datas/x68000-development/<machine hash>/, and the summary
+# under <library>/x68/<machine hash>/. Those places are read when the new ones are empty and copied (never
+# moved, never erased) to the new ones, so an older converter still finds what it wrote.
+LEGACY_MEMORY='datas/x68000-development'
+OBSERVATION_FILES=('converter-observations.json','converter-qualification.json')
+
+
+def game_entry(source):
+    return library_root('x68')/source.game_key
+
+
+def machine_memory(source, manifest):
+    return game_entry(source)/manifest.sha256[:16]
+
+
+def _copy_file(source, target):
+    target.parent.mkdir(parents=True,exist_ok=True)
+    descriptor,name=tempfile.mkstemp(prefix=target.name+'.',suffix='.tmp',dir=target.parent)
+    os.close(descriptor)
+    try:
+        shutil.copyfile(source,name)
+        os.replace(name,target)
+    finally:
+        if os.path.exists(name):os.unlink(name)
+
+
+def adopt_legacy_memory(source, manifest, *, emit=print):
+    """The library folder holding this machine's observations and receipt.
+
+    A pair that only exists in the pre-1.6.0 folder is copied there first (receipt last, content checked);
+    if the copy is impossible the old folder is read instead. The old files stay where they are."""
+    target=machine_memory(source,manifest);legacy=ROOT/LEGACY_MEMORY/manifest.sha256
+    if (all((target/name).is_file() for name in OBSERVATION_FILES)
+            or not all((legacy/name).is_file() for name in OBSERVATION_FILES)):
+        return target
+    try:
+        with entry_lock(target,timeout=120):
+            if not all((target/name).is_file() for name in OBSERVATION_FILES):
+                for name in OBSERVATION_FILES:_copy_file(legacy/name,target/name)
+                if digest(target/OBSERVATION_FILES[0])!=digest(legacy/OBSERVATION_FILES[0]):
+                    raise OSError('copy of the X68000 observations differs')
+    except (OSError,TimeoutError):
+        return legacy
+    emit('X68000: earlier observations of this machine copied into the library.')
+    return target
+
+
+def adopt_legacy_summary(source, manifest):
+    """The game's summary file; one written under the machine hash is merged into it, then retired."""
+    entry=game_entry(source);summary=entry/'compilation.json'
+    legacy=library_root('x68')/manifest.sha256/'compilation.json'
+    if manifest.sha256==source.game_key or not legacy.is_file():return summary
+    try:
+        old=json.loads(legacy.read_text(encoding='utf-8'))
+        with entry_lock(entry,timeout=120):
+            if summary.is_file():
+                record=json.loads(summary.read_text(encoding='utf-8'))
+                if old.get('mouse_controls') is True:record['mouse_controls']=True
+            else:record={**old,'game':source.game_key}
+            atomic_json(summary,record)
+            # The record is written; only now does the copy under the machine hash go (the Memory view would
+            # list the same game twice). Any other file in that folder is left alone.
+            legacy.unlink()
+            try:legacy.parent.rmdir()
+            except OSError:pass
+    except (OSError,ValueError,TimeoutError,AttributeError):pass
+    return summary
+
+
+def reusable_observations(folder, manifest, names=OBSERVATION_FILES):
+    """The observation file of `folder` when its receipt names this machine and this very file, else None.
+
+    The receipt's `sdk` stamp is stored and deliberately not compared: observations are facts about the guest
+    program (addresses and instruction words), never trusted without the fresh comparison every conversion
+    runs, and a stamp check would discard them at each engine change for no gain in soundness."""
+    previous=folder/names[0];proof=folder/names[1]
+    if not previous.is_file() or not proof.is_file():return None
+    try:receipt=json.loads(proof.read_text())
+    except (OSError,ValueError):return None
+    if (isinstance(receipt,dict) and receipt.get('source_identity')==manifest.sha256
+            and receipt.get('observations_sha256')==digest(previous)):return previous
+    return None
 
 
 HISSORII_REPOSITORY='https://github.com/hissorii/px68k.git'
@@ -116,8 +208,10 @@ def payload(project, source, manifest, title, artwork, mouse_game=False):
        'static const volatile unsigned char rr_x68k_export_marker[]={'+','.join(str(c) for c in b'[Retro-Recomp]\0'+source.sha256.encode()+b'\0')+'};']
     declarations+=['#define RR_X68K_AUTO_DISK '+str(int(automatic_disk_changes(source))),'#endif']
     (project/'x68000_payload.h').write_text('\n'.join(declarations)+'\n',encoding='utf-8')
+    # The player's feedback file is the game's (the disk set), not the machine's: players with another IPL or
+    # font ROM then record for, and later share, the same game. Saves and states keep the machine identity above.
     (project/'runtime_feedback_config.h').write_text(
-        '#define RR_FEEDBACK_SYSTEM "x68"\n#define RR_FEEDBACK_IDENTITY "'+manifest.sha256+'"\n',encoding='ascii')
+        '#define RR_FEEDBACK_SYSTEM "x68"\n#define RR_FEEDBACK_IDENTITY "'+source.game_key+'"\n',encoding='ascii')
     if not (project/'game.ico').is_file():shutil.copy2(ASSETS/'assets/Retro-Recomp.ico',project/'game.ico')
     metadata=write_game_metadata(project,title,executable_name(title),light_phaser=False,icon=True,standard='native',system_id='x68')
     (project/'game_metadata.rc').write_bytes((project/'game_resources.rc').read_bytes())
@@ -258,7 +352,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=True)
     emit('X68000: verifying exact disks, IPL, font ROM and machine settings.')
     from .feedback import ingest, records
-    feedback=ingest('x68',manifest.sha256,output,emit=emit)
+    # Feedback belongs to the game. Exports of 1.5 and earlier recorded it under the machine hash: still read.
+    feedback=ingest('x68',source.game_key,output,emit=emit,aliases=(manifest.sha256,))
     sdk=native.SDK=sdk_tree(base)
     machine_settings=machine_sources(base,emit)
     with entry_lock(base/'discovery-lock',timeout=1800):
@@ -295,8 +390,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
-        from .library import library_root
-        summary=library_root('x68')/manifest.sha256/'compilation.json'
+        summary=adopt_legacy_summary(source,manifest)
         try:remembered=json.loads(summary.read_text()).get('mouse_controls') is True
         except (OSError,ValueError,AttributeError):remembered=False
         # A reviewed exact set follows the mouse list. Other sets are found by
@@ -346,15 +440,14 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         extra_routes=[(route,folder,inputs) for route,folder,inputs,_ in extra_routes]
         # Exact-input observations improve discovery, never waive the fresh
         # independent comparison above or the standalone replay below.
-        memory=ROOT/'datas/x68000-development'/manifest.sha256
-        for record_name,proof_name in (('observations.json','qualification.json'),
-                                       ('converter-observations.json','converter-qualification.json')):
-            previous=memory/record_name;proof=memory/proof_name
-            if not previous.is_file() or not proof.is_file():continue
-            receipt=json.loads(proof.read_text())
-            if receipt.get('source_identity')==manifest.sha256 and receipt.get('observations_sha256')==digest(previous):
+        memory=adopt_legacy_memory(source,manifest,emit=emit)
+        # The pair of the maintainer's development stages is only ever read, from its old folder.
+        for folder,names in ((ROOT/LEGACY_MEMORY/manifest.sha256,('observations.json','qualification.json')),
+                             (memory,OBSERVATION_FILES)):
+            previous=reusable_observations(folder,manifest,names)
+            if previous:
                 observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in native.observations([previous])]
-        for row in records('x68',manifest.sha256,13):
+        for row in records('x68',source.game_key,13):
             end=row.address+len(row.data)
             if (not row.address&1 and 2<=len(row.data)<=16 and len(row.data)%2==0
                     and (0<=row.address<end<=0xc00000 or 0xe00000<=row.address<end<=0xe80000 or
@@ -465,13 +558,15 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
           'conversion_wall_seconds':round(time.perf_counter()-started,3)}
         write_report(output/'conversion-report.json',report)
-        memory.mkdir(parents=True,exist_ok=True)
-        shutil.copy2(observation,memory/'converter-observations.json')
-        atomic_json(memory/'converter-qualification.json',{'schema':1,'private_only':True,'source_identity':manifest.sha256,
-                    'check':check,'sdk':stamp,'observations_sha256':digest(observation)})
+        # Written in the library, whatever folder the earlier ones were read from (that one is left as it is).
+        memory=machine_memory(source,manifest)
+        with entry_lock(memory,timeout=1800):
+            _copy_file(observation,memory/OBSERVATION_FILES[0])
+            atomic_json(memory/OBSERVATION_FILES[1],{'schema':1,'private_only':True,'source_identity':manifest.sha256,
+                        'game':source.game_key,'check':check,'sdk':stamp,'observations_sha256':digest(observation)})
         summary.parent.mkdir(parents=True,exist_ok=True)
         atomic_json(summary,{
-            'schema':1,'title':title,'system':'x68','source_identity':manifest.sha256,
+            'schema':1,'title':title,'system':'x68','game':source.game_key,'source_identity':manifest.sha256,
             'rom_sha256':source.sha256,'guarded_variants':len(native.observations([observation])),
             'private_development_only':True,'fresh_reference_passed':True,
             # Only observed reads are remembered, never the reviewed list's choice.
