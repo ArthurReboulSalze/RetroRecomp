@@ -64,8 +64,10 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 #     fails the test. Raise GENERATOR_REVISION whenever the generator, the guards or the semantics change in a
 #     way a RAM path could notice. A new revision makes every qualified path "waiting" again for it.
 GENERATOR_REVISION = 1
+# native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
+# multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',
-                 'native/cps1_machine.c', 'native/cps1_machine.h')
+                 'native/cps1_machine.c', 'native/cps1_machine.h', 'native/md_prefetch.inc')
 GENERATOR_SOURCES = ('retrorecomp/cps1_codegen.py', 'retrorecomp/cps1_build.py', 'retrorecomp/m68000.py',
                      'retrorecomp/neogeo_codegen.py', 'retrorecomp/neogeo_z80.py', 'retrorecomp/megadrive_z80.py')
 

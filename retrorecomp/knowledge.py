@@ -126,7 +126,9 @@ def qualified_record(system: str, identity: str) -> dict:
 # {"schema": 3, "games": {"cps1:<identity>": record}}. The schema 1 banks (`qualified.json.gz`, `imported.json.gz`)
 # are never touched by them: no other console's bank changes by a byte whether CPS-1 shares or not, and a schema 1
 # writer can neither drop a side-bank game nor be asked to write one. A game is checked one by one on reading: a
-# record that fails (a format this converter does not know, damaged) is set aside, never the rest of the bank.
+# record that fails (a format this converter does not know, damaged) is set aside, never the rest of the bank,
+# and what is set aside stays in the file: a rewrite (`write_side_bank`) keeps, as stored, every game it did not
+# read, and removes the file only when no game at all is left.
 SIDE_GAMES = 4096
 
 
@@ -149,28 +151,61 @@ def imported_v3_path() -> Path:
     return data_directory() / 'knowledge' / 'imported-v3.json.gz'
 
 
-def read_side_bank(path: Path) -> dict:
-    """{game key: record} of a side bank: every record valid for its machine, the others left out. ValueError
-    when the file itself is not a schema 3 bank."""
-    document = _document(path)
+def _side_split(document) -> tuple[dict, dict]:
+    """({game key: validated record}, {game key: record as stored}) of a side bank's raw document: the first
+    group is every record this converter can use, the second everything else (a machine the switch withdrew or
+    that has no module, a format this converter does not know, a damaged record, a game beyond SIDE_GAMES).
+    ValueError when the document is not a schema 3 side bank."""
     if (not isinstance(document, dict) or set(document) != {'schema', 'games'}
             or document['schema'] != path_profiles.SCHEMA or not isinstance(document['games'], dict)):
         raise ValueError('Invalid schema 3 side bank.')
-    games = {}
+    games, unread = {}, {}
     for key, record in document['games'].items():
         system, _, identity = key.partition(':') if isinstance(key, str) else ('', '', '')
         module = schema3_module(system)
         if module is None or not path_profiles.HEX64.fullmatch(identity) or len(games) >= SIDE_GAMES:
+            unread[key] = record
             continue
         try:
             games[key] = module.validate_record(record, identity)
         except (ValueError, TypeError, KeyError, AttributeError):
-            continue
-    return games
+            unread[key] = record
+    return games, unread
+
+
+def read_side_bank(path: Path) -> dict:
+    """{game key: record} of a side bank: every record valid for its machine, the others left out (they stay in
+    the file: see `write_side_bank`). ValueError when the file itself is not a schema 3 bank."""
+    return _side_split(_document(path))[0]
+
+
+def _side_stored(path: Path):
+    """The raw document of a side bank, None when there is no file or it cannot be decoded (nothing to keep, as
+    the schema 1 banks are treated), ValueError when it decodes to something that is not a schema 3 side bank
+    (another schema, written by another converter: never written over)."""
+    if not path.is_file():
+        return None
+    try:
+        document = _document(path)
+    except (OSError, EOFError, zlib.error, ValueError):
+        return None
+    _side_split(document)
+    return document
+
+
+def refuse_to_overwrite_side_bank(path: Path) -> None:
+    """ValueError when `path` is a document `write_side_bank` would not write over. The writers call it before
+    the first file they write, so that a refusal leaves everything as it was."""
+    _side_stored(path)
 
 
 def write_side_bank(path: Path, games: dict) -> None:
-    """Atomic, bounded and validated; an empty bank removes the file."""
+    """Atomic, bounded and validated. `games` is what the caller read and now wants stored: the file keeps, as
+    stored and untouched, every game it holds that this converter does not read (a machine withdrawn by the
+    switch or without a module, a format it does not know, a damaged record, a game beyond SIDE_GAMES), so a
+    rewrite from a partial reading loses nothing: it comes back when the name, the format or the room does. A
+    game of `games` replaces the stored one of the same key. The file is removed only when no game at all is
+    left, and not written when nothing changes."""
     clean = {}
     for key in sorted(games):
         system, _, identity = key.partition(':')
@@ -178,10 +213,15 @@ def write_side_bank(path: Path, games: dict) -> None:
         if module is None:
             raise ValueError('This machine does not share schema 3 paths.')
         clean[key] = module.validate_record(games[key], identity)
-    if not clean:
+    document = _side_stored(path)
+    unread = _side_split(document)[1] if document is not None else {}
+    merged = {**{key: record for key, record in unread.items() if key not in clean}, **clean}
+    if not merged:
         path.unlink(missing_ok=True)
         return
-    write_packed(path, {'schema': path_profiles.SCHEMA, 'games': clean})
+    if document is not None and merged == document['games']:
+        return
+    write_packed(path, {'schema': path_profiles.SCHEMA, 'games': dict(sorted(merged.items()))})
 
 
 @lru_cache(maxsize=4)

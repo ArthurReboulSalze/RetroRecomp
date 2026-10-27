@@ -1637,10 +1637,25 @@ read (a record of a format this converter does not know, or a damaged one, is se
 leaves the files on disk, unread. `knowledge.qualified_game` / `imported_game` read them; the knowledge stamp of a CPS-1 game
 hashes its schema 3 record from them.
 
+**A rewrite keeps what it did not read.** The writers of a side bank work from a partial reading (`read_side_bank` sets
+aside what it cannot use), so `knowledge.write_side_bank` never writes that reading back as the whole file: it keeps, **as
+stored** (the game's JSON unchanged), every game it holds that this converter does not read, namely a machine the switch
+withdrew or that has no module yet (X68000), a format it does not know (a newer converter's record), a damaged record and a
+game beyond the room (`SIDE_GAMES`, 4,096 readable games). The games the caller passes replace the stored ones of the same
+key and the file is removed only when no game at all is left; a write that changes nothing does not touch the file. This
+holds the promise above for every writer: `write_qualified_bank` (updates from the base), the import (`.rrknowledge` file or
+fetched records) and `discard_imported`, whatever console the update is about. Emptying `EXPERIMENTAL_SHARED` and updating a
+Mega Drive bank leaves `qualified-v3.json.gz` and `imported-v3.json.gz` byte for byte as they were, and the games are read
+again the day the name returns. A file that decodes to something other than a schema 3 side bank (another schema, written by
+another converter) is never written over: the writers call `refuse_to_overwrite_side_bank` before their first file and stop
+with a `ValueError`, nothing written; a file that cannot be decoded at all holds nothing to keep and is replaced, as the
+schema 1 banks are. Tested in `tests/test_cps1_knowledge.py` (`SideBankKeepsWhatItDoesNotReadTests`: every kind of
+unreadable game, each writer, the switch off and on again, the room, the foreign file).
+
 **Engine identity (`cores`).** A record carries the cores of its two sections, 40-digit digests (`cps1_knowledge.engine_parts`)
 of: the pins of the Mega Drive recompiler (the 68000 semantics and decoder) and of Geolith (Musashi and the Z80 core); the
-text of `native/cps1_native.c`, `cps1_native.h`, `cps1_z80_native.h`, `cps1_machine.c` and `cps1_machine.h` (the guards and the
-code view), line ends normalised; and `GENERATOR_REVISION`, for the Python that generates the code (a packaged executable
+text of `native/cps1_native.c`, `cps1_native.h`, `cps1_z80_native.h`, `cps1_machine.c`, `cps1_machine.h` (the guards and the
+code view) and `md_prefetch.inc` (the source of the generated `cps1_arithmetic.c`), line ends normalised; and `GENERATOR_REVISION`, for the Python that generates the code (a packaged executable
 has no Python text to hash, and a bytecode hash would differ between Python versions and split the players).
 `tests/test_cps1_knowledge.py` pins the text of `GENERATOR_SOURCES` (`tests/cps1_generator_pins.json`): editing one without
 raising the revision fails the test. The base's `cores` for a record is `<68000 core>:<Z80 core>`. A path is qualified only
@@ -1661,10 +1676,14 @@ any sharing code (tested) and stays in the report (`status`, `knowledge.machine_
 
 **Exchange and base.** CPS-1 has no schema 1 form, so it travels only in `.rrknowledge` **version 3** files and in **line 3** of
 the base (line 2 and 1.5.x converters never see it). In the converter a CPS-1 "record" is the schema 3 document wherever a
-record travels (`knowledge_exchange.split_payload`, `validate_mixed_payload`, `schema3_only`); a collection that holds a CPS-1
-game is written as version 3 by default, a version 2 file leaves it out and does not mark it shared, an account upload sends it
-only to a service that lists version 3 (`online.upload_version`), and the per-account route `POST knowledge/fetch` is never asked
-for it (the base is its only way in). Raw gameplay observations are never shared for CPS-1. A conversion that fails with
+record travels (`knowledge_exchange.split_payload`, `validate_mixed_payload`, `schema3_only`); **a file exported from the
+interface stays version 2** (`write_knowledge` with no version), because a version 3 file makes a 1.5.x converter refuse the
+whole file, the other consoles included: the CPS-1 games are left out of it, are not marked shared, and the end of the export
+says how many there are and that they travel through the online account (`knowledge_export_cps1`, eight languages;
+`schema3_only_left_out` in the answer, the discoveries counted for them taken off exactly as counted, never below zero).
+Version 3 is written only when asked for (`version=3`). An account upload sends version 3 only to a service that lists it
+(`online.upload_version`, unchanged), and the per-account route `POST knowledge/fetch` is never asked for CPS-1 (the base is
+its only way in). Raw gameplay observations are never shared for CPS-1. A conversion that fails with
 the imported paths starts again without them and the paths leave the imported side bank (the batch's retry covers
 `imported_game`; `discard_imported` removes the game from `imported-v3.json.gz` and logs it in `imported-rejected.json`).
 The qualification rule of `AGENTS.md` is the base's own (`player_qualified`): a path is qualified for a `cores` when a

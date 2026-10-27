@@ -23,10 +23,11 @@ from retrorecomp.updater import (BASE_ASSET, Update, _install_files, apply_updat
 
 def base_zip(label=b'new'):
     payload = io.BytesIO()
+    # A fixed date: the archive of a given label is the same bytes whatever the second it is built in.
     with zipfile.ZipFile(payload, 'w') as archive:
-        archive.writestr('manifest.json', json.dumps({'format': 2, 'version': 414}))
-        archive.writestr('index.json', b'{}')
-        archive.writestr('entries/' + label.decode() + '.json', b'{}')
+        for name, data in (('manifest.json', json.dumps({'format': 2, 'version': 414})), ('index.json', b'{}'),
+                           ('entries/' + label.decode() + '.json', b'{}')):
+            archive.writestr(zipfile.ZipInfo(name, (2026, 10, 27, 12, 0, 0)), data)
     return payload.getvalue()
 
 

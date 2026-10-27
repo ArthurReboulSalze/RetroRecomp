@@ -5528,6 +5528,8 @@ class Application:
                            missing=omitted['missing_rom'], unqualified=omitted['unqualified'])
             if omitted['missing_rom']:
                 text += ' ' + self.tr('knowledge_missing_hint')
+            if summary.get('schema3_only_left_out'):
+                text += ' ' + self.tr('knowledge_export_cps1', count=summary['schema3_only_left_out'])
         else:
             text = self.tr('knowledge_import_done', games=summary['new'] + summary['enriched'],
                            new=summary['new'], enriched=summary['enriched'], unchanged=summary['unchanged'])

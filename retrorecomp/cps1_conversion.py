@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import time
 
-from . import __version__
+from . import __version__, path_profiles
 from .core import ConversionError, executable_name, run_process
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
@@ -125,6 +125,20 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
         raise ConversionError('CPS-1 accepted a truncated quick state.')
     return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
+
+
+def knowledge_block(record: dict, promotion: dict, hints_used: dict) -> dict:
+    """The report's `knowledge` section. `shared` says whether CPS-1 is in the sharing at all
+    (`path_profiles.EXPERIMENTAL_SHARED`), not that this conversion shared anything."""
+    from . import cps1_knowledge
+    from .systems.cps1 import CPS1
+    return {
+        'machine_status': CPS1.status, 'shared': 'cps1' in path_profiles.SHARED_SYSTEMS,
+        'record_format': cps1_knowledge.FORMAT,
+        'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
+        'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'z80_ram', 'truncated')},
+        'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
+        'raw_ram_words_stored': False, 'fresh_validation_required': True}
 
 
 def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, online_cover=True,
@@ -316,12 +330,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
         'packed_candidate_sha256': file_sha256(packed), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
-        'knowledge': {
-            'machine_status': CPS1.status, 'shared': True, 'record_format': cps1_knowledge.FORMAT,
-            'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
-            'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'z80_ram', 'truncated')},
-            'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
-            'raw_ram_words_stored': False, 'fresh_validation_required': True},
+        'knowledge': knowledge_block(record, promotion, hints_used),
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
                         'validation routes drive players 1 and 2',

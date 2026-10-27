@@ -473,6 +473,7 @@
     "knowledge_failed": "Diese Wissensdatei konnte nicht verwendet werden: {error}",
     "tip_knowledge": "Teile die Pfade, die deine Konvertierungen entdeckt haben: exportiere eine einzige Datei ohne ROM für mehrere Spiele und Konsolen oder füge die Datei eines anderen deinem Wissen hinzu. Importierte Hinweise werden bei der Konvertierung immer erneut geprüft.",
     "knowledge_missing_hint": "Tipp: Lege in den Optionen für jede Konsole den ROM-Ordner fest, damit mehr Spiele gefunden werden.",
+    "knowledge_export_cps1": "Nicht in dieser Datei: {count} CPS-1-Spiel(e). Die Datei bleibt im Format, das jede Version liest; die CPS-1-Pfade werden über dein Online-Konto geteilt, das sie im neuen Format sendet, sobald der Dienst es liest.",
     "options_cps1": "Capcom CPS-1",
     "options_cps1_note": "Experimentelles Capcom-CPS-1-Profil: ZIP-Romsets von MAME oder FBNeo, erkannt an den CRCs ihrer ROMs (ein getrennter Klon braucht das Eltern-ZIP daneben). Bis zu vier Spieler je nach Platine, bis zu sechs Tasten, Münze auf Umschalt/Back. Vertikale Spiele werden gedreht angezeigt. Gemeinsame Menüs, Filter und F8/F9. Es werden keine ROMs geladen oder mitgeliefert.",
     "knowledge_achievement": "Erfolg freigeschaltet",

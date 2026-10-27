@@ -26,7 +26,7 @@ import zlib
 from . import __version__, path_profiles
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
                         imported_path, imported_v3_path, load, merge_records, qualified_v3_path, read, read_observations,
-                        read_side_bank, refuse_to_drop_games, schema3_module, valid_observation_rows,
+                        read_side_bank, refuse_to_drop_games, refuse_to_overwrite_side_bank, schema3_module, valid_observation_rows,
                         validate_payload, write_observations, write_packed, write_side_bank)
 from .knowledge_build import SYSTEMS as CARTRIDGE_SYSTEMS, build_record, compact_snes, engines, qualified_reports
 from .systems import profile_for_path
@@ -409,6 +409,7 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
     except (OSError, ValueError):
         pass
     consoles, observations, titles, levels, discoveries, converted = {}, {}, {}, {}, 0, {}
+    counted = {}   # the discoveries counted for the games only a version 3 file carries (CPS-1)
     omitted = _empty_outcome()['omitted']
     for (system, identity), (game, outcome) in outcomes.items():
         identity = outcome.get('identity', identity)   # Neo Geo: key(cartridge, BIOS), not the file's hash
@@ -417,6 +418,8 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
         if outcome['record']:
             consoles.setdefault(system, {})[identity] = outcome['record']
             discoveries += outcome['found']
+            if schema3_module(system) is not None:
+                counted.setdefault(system, {})[identity] = outcome['found']
             # The scan level of the qualified conversion; the online board
             # rewards longer scans. Never written into the shared file.
             levels.setdefault(system, {})[identity] = outcome.get('level', 'standard')
@@ -433,7 +436,7 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
             'observations': observations, 'observation_count': sum(
                 len(rows) for games in observations.values() for rows in games.values()),
             'payload': validate_mixed_payload({'schema': 1, 'consoles': consoles}), 'titles': titles,
-            'levels': levels, 'converted': converted}
+            'levels': levels, 'converted': converted, 'schema3_only_found': counted}
 
 
 def paths_to_v3(payload: dict) -> dict:
@@ -493,7 +496,9 @@ def without_schema3_only(collected: dict) -> dict:
     titles = {s: g for s, g in keep(collected['titles']).items() if g}
     sharing = {system: len(names) for system, names in sorted(titles.items())}
     return {**collected, 'payload': legacy, 'titles': titles, 'games': sum(sharing.values()), 'consoles': sharing,
-            'discoveries': collected['discoveries'] - sum(len(_entries(s, r)) for s, g in only.items() for r in g.values()),
+            'discoveries': max(0, collected['discoveries'] - sum(
+                collected.get('schema3_only_found', {}).get(system, {}).get(identity, 0) for system, identity in drop)),
+            'schema3_only_found': {},
             'observations': {s: g for s, g in keep(collected.get('observations', {})).items() if g},
             'levels': {s: g for s, g in keep(collected.get('levels', {})).items() if g},
             'converted': {s: g for s, g in keep(collected.get('converted', {})).items() if g},
@@ -506,14 +511,15 @@ def write_knowledge(collected: dict, destination: Path, channel: str | None = 'f
     `channel`, nothing is marked as shared: an upload marks it once accepted.
     `version` 3 writes the paths in schema 3; when a record has no valid schema
     3 form the file is written as version 2 (`fallback`) or ValueError is
-    raised. `None` is version 2, except that a collection holding a game only
-    version 3 can carry (CPS-1) is written as 3. A version 2 file leaves such
-    games out, and they are not marked as shared. The answer's `version` is the
-    one written."""
+    raised. `None` is version 2, which every converter reads: a game only
+    version 3 can carry (CPS-1) is left out of it (the answer's
+    `schema3_only_left_out` counts them), is not marked as shared, and travels
+    by the online account, which sends version 3 when the service reads it. The
+    answer's `version` is the one written."""
     if version not in (None, 2, 3):
         raise ValueError('Knowledge files are written as version 2 or 3.')
     if version is None:
-        version = 3 if split_payload(collected['payload'])[1] else VERSION
+        version = VERSION
     knowledge = collected['payload']
     if version == 3:
         try:
@@ -1471,9 +1477,10 @@ def read_qualified_bank() -> dict:
 def write_qualified_bank(consoles: dict) -> None:
     """The schema 1 bank and, apart, the schema 3 side bank. The schema 1 file is rewritten from its own consoles
     only, so it is byte for byte what it was before CPS-1 shared (and a side bank never reaches a schema 1
-    writer)."""
+    writer). The side bank keeps, as stored, the games this converter does not read (`write_side_bank`)."""
     legacy, only = split_payload({'schema': 1, 'consoles': consoles})
     refuse_to_drop_games(qualified_bank_path())
+    refuse_to_overwrite_side_bank(qualified_v3_path())
     write_packed(qualified_bank_path(), validate_payload(
         {'schema': 1, 'consoles': {system: games for system, games in sorted(legacy['consoles'].items()) if games}}))
     side = {record['game']: record for games in only.values() for record in games.values()}
@@ -1519,6 +1526,7 @@ def _import_document(document: dict) -> dict:
             if outcome.get((system, identity)) not in ('new', 'enriched'):
                 outcome[(system, identity)] = 'enriched' if existed else 'new'
     refuse_to_drop_games(target)
+    refuse_to_overwrite_side_bank(imported_v3_path())
     legacy, only = split_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}})
     write_packed(target, validate_payload(legacy))
     side = {record['game']: record for games in only.values() for record in games.values()}

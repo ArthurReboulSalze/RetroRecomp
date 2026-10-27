@@ -230,6 +230,20 @@ class EngineTests(unittest.TestCase):
         self.assertNotEqual(moved[0], base[0])
         self.assertEqual(moved[1], base[1])
 
+    def test_the_file_the_arithmetic_is_generated_from_moves_the_cores(self):
+        # cps1_codegen._semantics cuts cps1_arithmetic.c out of native/md_prefetch.inc.
+        self.assertIn('native/md_prefetch.inc', cps1_knowledge.NATIVE_INPUTS)
+        import inspect
+        from retrorecomp import cps1_codegen
+        self.assertIn('md_prefetch.inc', inspect.getsource(cps1_codegen._semantics))
+        base = cps1_knowledge.engine_parts()
+        real = cps1_knowledge.text_digest
+        cps1_knowledge.engine_parts.cache_clear()
+        with patch.object(cps1_knowledge, 'text_digest',
+                          lambda name, root=None: 'e' * 64 if name == 'native/md_prefetch.inc' else real(name, root)):
+            moved = cps1_knowledge.engine_parts()
+        self.assertNotEqual(moved[0], base[0], 'the 68000 core moves with the arithmetic source')
+
     def test_text_is_hashed_without_line_ends_and_the_files_exist(self):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / 'a.c').write_bytes(b'one\r\ntwo\r\n')
@@ -362,6 +376,180 @@ class SideBankTests(unittest.TestCase):
         self.assertEqual(knowledge.imported_game('cps1', IDENTITY), a_record(), 'it comes back with the name')
 
 
+class SideBankKeepsWhatItDoesNotReadTests(unittest.TestCase):
+    """A rewrite from a partial reading never loses a game: what this converter does not read stays in the file, as
+    stored (a machine the switch withdrew or that has no module, a format it does not know, a damaged record, a game
+    beyond the room), and the file goes only when no game at all is left."""
+
+    OTHER = '5' * 64
+
+    def setUp(self):
+        Library().start(self)
+        self.path = knowledge.imported_v3_path()
+
+    def other_record(self, identity, **changes):
+        record = a_record()
+        record['game'] = 'cps1:' + identity
+        for name, value in changes.items():
+            if name == 'format':
+                record['identity']['layout']['format'] = value
+            elif name == 'core':
+                record['cpus']['z80']['core'] = value
+        return record
+
+    def stored(self, path=None):
+        with gzip.open(path or self.path, 'rb') as stream:
+            return json.loads(stream.read())['games']
+
+    def put(self, games, path=None):
+        knowledge.write_packed(path or self.path, {'schema': 3, 'games': games})
+        knowledge._side_games.cache_clear()
+
+    def unread_games(self):
+        """Games of a side bank this converter cannot read, each of a different kind."""
+        return {'cps1:' + '3' * 64: self.other_record('3' * 64, format=2),          # a newer format
+                'cps1:' + '4' * 64: self.other_record('4' * 64, core='not a core'),  # damaged
+                'x68:' + '6' * 64: {'game': 'x68:' + '6' * 64, 'anything': [1, 2, 3]}}  # a machine without module
+
+    def assert_kept(self, stored, unread):
+        for key, record in unread.items():
+            self.assertIn(key, stored)
+            self.assertEqual(json.dumps(stored[key], sort_keys=True, separators=(',', ':')),
+                             json.dumps(record, sort_keys=True, separators=(',', ':')), key)
+
+    def test_a_write_keeps_the_games_it_cannot_read_as_stored(self):
+        unread = self.unread_games()
+        self.put({KEY: a_record(), **unread})
+        richer = a_record(extra={('m68k_ram', (0xff0100, 0x10, 2))})
+        knowledge.write_side_bank(self.path, {KEY: richer})
+        stored = self.stored()
+        self.assertEqual(stored[KEY], richer)
+        self.assert_kept(stored, unread)
+        self.assertEqual(set(knowledge.read_side_bank(self.path)), {KEY})
+        # Taking the readable game out leaves the others, never an empty file.
+        knowledge.write_side_bank(self.path, {})
+        self.assertEqual(set(self.stored()), set(unread))
+        # And nothing readable or unread: only then the file goes.
+        self.put({KEY: a_record()})
+        knowledge.write_side_bank(self.path, {})
+        self.assertFalse(self.path.exists())
+
+    def test_a_write_that_changes_nothing_does_not_touch_the_file(self):
+        self.put({KEY: a_record(), **self.unread_games()})
+        before = self.path.read_bytes()
+        knowledge.write_side_bank(self.path, knowledge.read_side_bank(self.path))
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_a_game_beyond_the_room_is_kept_and_a_foreign_document_is_never_written_over(self):
+        beyond = self.other_record(self.OTHER)
+        self.put({KEY: a_record(), beyond['game']: beyond})
+        with patch.object(knowledge, 'SIDE_GAMES', 1):
+            self.assertEqual(set(knowledge.read_side_bank(self.path)), {KEY})
+            knowledge.write_side_bank(self.path, {KEY: a_record(extra={('m68k_ram', (0xff0100, 0x10, 2))})})
+        self.assert_kept(self.stored(), {beyond['game']: beyond})
+        foreign = gzip.compress(b'{"schema": 1, "consoles": {}}')
+        self.path.write_bytes(foreign)
+        for write in (lambda: knowledge.write_side_bank(self.path, {KEY: a_record()}),
+                      lambda: knowledge.refuse_to_overwrite_side_bank(self.path)):
+            with self.assertRaises(ValueError):
+                write()
+        self.assertEqual(self.path.read_bytes(), foreign)
+        # A file that cannot even be decoded holds nothing to keep.
+        self.path.write_bytes(b'not a gzip file')
+        knowledge.write_side_bank(self.path, {KEY: a_record()})
+        self.assertEqual(set(self.stored()), {KEY})
+
+    def test_the_qualified_bank_update_keeps_them_and_a_foreign_file_stops_it_before_any_write(self):
+        unread = self.unread_games()
+        qualified = knowledge.qualified_v3_path()
+        self.put({KEY: a_record(), **unread}, qualified)
+        from tests.test_paths_schema import FIXTURES
+        system, identity, record = FIXTURES['md']
+        legacy = self.folder / 'qualified.json.gz'
+        with patch('retrorecomp.knowledge_exchange.qualified_bank_path', return_value=legacy):
+            # The bank as a reader sees it: the readable games only.
+            consoles = kx.read_qualified_bank()
+            consoles.setdefault(system, {})[identity] = record
+            kx.write_qualified_bank(consoles)
+            self.assert_kept(self.stored(qualified), unread)
+            self.assertEqual(self.stored(qualified)[KEY], a_record())
+            # The last readable game goes: the unread ones stay.
+            del consoles['cps1']
+            kx.write_qualified_bank(consoles)
+            self.assertEqual(set(self.stored(qualified)), set(unread))
+            # A foreign document: nothing is written, the schema 1 bank included.
+            qualified.write_bytes(gzip.compress(b'{"schema": 1, "consoles": {}}'))
+            legacy.unlink()
+            with self.assertRaises(ValueError):
+                kx.write_qualified_bank(consoles)
+            self.assertFalse(legacy.exists())
+
+    def md_file(self):
+        shared = self.root / 'md.rrknowledge'
+        kx.write_knowledge(paths_exchange.collected('md'), shared, channel=None)
+        return shared
+
+    def test_an_import_keeps_them_and_adds_the_new_game_beside_them(self):
+        unread = self.unread_games()
+        self.put({KEY: a_record(), **unread})
+        shared = self.md_file()
+        self.assertEqual(kx.import_knowledge(shared)['new'], 1)
+        stored = self.stored()
+        self.assert_kept(stored, unread)
+        self.assertEqual(stored[KEY], a_record())
+        # A CPS-1 file next to them: the new game joins, the unread ones stay.
+        newer = self.other_record('7' * 64)
+        found = {'games': 1, 'consoles': {'cps1': 1}, 'discoveries': 2, 'omitted': {}, 'observations': {},
+                 'observation_count': 0, 'payload': {'schema': 1, 'consoles': {'cps1': {'7' * 64: newer}}},
+                 'titles': {'cps1': {'7' * 64: 'Seven'}}, 'levels': {}, 'converted': {}}
+        cps = self.root / 'cps.rrknowledge'
+        kx.write_knowledge(found, cps, channel=None, version=3)
+        self.assertEqual(kx.import_knowledge(cps)['new'], 1)
+        stored = self.stored()
+        self.assert_kept(stored, unread)
+        self.assertEqual(set(stored) - set(unread), {KEY, 'cps1:' + '7' * 64})
+
+    def test_with_the_switch_off_nothing_of_cps1_is_lost_and_it_all_comes_back(self):
+        self.put({KEY: a_record(), **self.unread_games()})
+        qualified = knowledge.qualified_v3_path()
+        self.put({KEY: a_record()}, qualified)
+        before = qualified.read_bytes()
+        shared = self.md_file()
+        from tests.test_paths_schema import FIXTURES
+        system, identity, record = FIXTURES['md']
+        legacy = self.folder / 'qualified.json.gz'
+        stable = pp.STABLE_SHARED
+        with patch.object(pp, 'SHARED_SYSTEMS', stable), patch.object(pp, 'SCHEMA3_ONLY', ()), \
+                patch.object(kx, 'SYSTEMS', stable), \
+                patch('retrorecomp.knowledge_exchange.qualified_bank_path', return_value=legacy):
+            # Any import of another console's file ...
+            self.assertEqual(kx.import_knowledge(shared)['new'], 1)
+            # ... any update of another console's qualified bank ...
+            kx.write_qualified_bank({system: {identity: record}})
+            # ... and the discard of another console's game.
+            self.assertFalse(knowledge.discard_imported('cps1', IDENTITY, 'x'))
+        self.assertEqual(qualified.read_bytes(), before, 'the qualified side bank was not touched')
+        self.assertEqual(set(self.stored()), {KEY, *self.unread_games()}, 'the imported side bank lost nothing')
+        self.assertEqual(self.stored()[KEY], a_record())
+        knowledge._side_games.cache_clear()
+        self.assertEqual(knowledge.imported_game('cps1', IDENTITY), a_record(), 'it comes back with the name')
+        self.assertEqual(knowledge.qualified_game('cps1', IDENTITY), a_record())
+
+    def test_discarding_a_readable_game_leaves_the_unreadable_ones(self):
+        unread = self.unread_games()
+        self.put({KEY: a_record(), **unread})
+        self.assertTrue(knowledge.discard_imported('cps1', IDENTITY, 'the conversion failed with them'))
+        self.assertTrue(self.path.exists(), 'the file stays while it holds a game')
+        self.assertEqual(set(self.stored()), set(unread))
+        self.assert_kept(self.stored(), unread)
+        knowledge._side_games.cache_clear()
+        self.assertEqual(knowledge.imported_game('cps1', IDENTITY), {})
+        # The last game of all: the file goes.
+        self.put({KEY: a_record()})
+        self.assertTrue(knowledge.discard_imported('cps1', IDENTITY, 'again'))
+        self.assertFalse(self.path.exists())
+
+
 def library_report(**changes):
     record = a_record()
     value = {'tool': 'Retro-Recomp', 'created_utc': '2026-10-27T10:00:00+00:00', 'system': {'id': 'cps1'},
@@ -398,8 +586,8 @@ class ExchangeTests(unittest.TestCase):
         self.assertNotIn('words', json.dumps(found['payload']))
         # Version 3 carries it; read back as the maintainer reads it.
         shared = self.root / 'share.rrknowledge'
-        result = kx.write_knowledge(found, shared, channel='file')
-        self.assertEqual(result['version'], 3, 'a collection holding CPS-1 is version 3 by default')
+        result = kx.write_knowledge(found, shared, channel='file', version=3)
+        self.assertEqual(result['version'], 3)
         document = kx.read_exchange(shared)
         self.assertEqual(document['version'], 3)
         self.assertEqual(document['knowledge']['consoles']['cps1'][IDENTITY], a_record())
@@ -422,6 +610,43 @@ class ExchangeTests(unittest.TestCase):
         shared.write_bytes(gzip.compress(json.dumps(document).encode()))
         with self.assertRaises(ValueError):
             kx.read_exchange(shared)
+
+    def test_a_file_export_is_version_2_by_default_and_counts_the_cps1_games_it_leaves_out(self):
+        from tests.test_paths_schema import FIXTURES
+        Library().keep(self, a_record())
+        found = self.collect()
+        md_system, md_identity, md_record = FIXTURES['md']
+        found['payload']['consoles'][md_system] = {md_identity: md_record}
+        found['titles'][md_system] = {md_identity: 'A Mega Drive game'}
+        found.update(games=2, consoles={'cps1': 1, md_system: 1}, discoveries=found['discoveries'] + 3)
+        shared = self.root / 'file.rrknowledge'
+        result = kx.write_knowledge(found, shared, channel='file')
+        self.assertEqual((result['version'], result['games'], result['consoles']), (2, 1, {md_system: 1}))
+        self.assertEqual(result['schema3_only_left_out'], 1)
+        self.assertEqual(result['discoveries'], 3, 'the CPS-1 discoveries are not counted in a file without them')
+        document = kx.read_exchange(shared)
+        self.assertEqual((document['version'], set(document['knowledge']['consoles'])), (2, {md_system}))
+        self.assertEqual(kx.pending_since_shared('file', found), [KEY], 'the CPS-1 game is still to be shared')
+        # Nobody gets a file of a version they cannot read just because a CPS-1 game is in the collection.
+        asked = kx.write_knowledge(found, self.root / 'three.rrknowledge', channel=None, version=3)
+        self.assertEqual((asked['version'], asked['schema3_only_left_out']), (3, 0))
+
+    def test_what_a_version_2_file_leaves_out_is_what_was_counted_for_it(self):
+        # The library holds more paths than the shared base lacks: only the unknown ones were counted.
+        richer = a_record(extra={('m68k_ram', (0xff0100, 0x10, 2)), ('m68k_ram', (0xff0200, 0x10, 2))})
+        Library().keep(self, richer)
+        knowledge.write_side_bank(knowledge.qualified_v3_path(), {KEY: a_record()})
+        found = self.collect(self.game(knowledge={'record_sha256': cps1_knowledge.record_digest(richer),
+                                                  'machine_status': 'experimental'}))
+        counted = found['discoveries']
+        self.assertEqual(counted, 2)
+        self.assertGreater(len(cps1_knowledge.entry_set(richer)), counted)
+        self.assertEqual(found['schema3_only_found'], {'cps1': {IDENTITY: counted}})
+        left = kx.without_schema3_only(found)
+        self.assertEqual((left['discoveries'], left['games']), (0, 0))
+        # A collection built by hand, without the counts, never goes below zero.
+        by_hand = {key: value for key, value in found.items() if key != 'schema3_only_found'}
+        self.assertEqual(kx.without_schema3_only(by_hand)['discoveries'], 2)
 
     def v3_file(self, games, titles=None):
         from tests.test_paths_schema import FIXTURES
@@ -494,7 +719,7 @@ class ExchangeTests(unittest.TestCase):
         found = {'games': 1, 'consoles': {'cps1': 1}, 'discoveries': 2, 'omitted': {}, 'observations': {},
                  'observation_count': 0, 'payload': {'schema': 1, 'consoles': {'cps1': {IDENTITY: record}}},
                  'titles': {'cps1': {IDENTITY: 'Test Game'}}, 'levels': {}, 'converted': {}}
-        kx.write_knowledge(found, shared, channel=None)
+        kx.write_knowledge(found, shared, channel=None, version=3)
         preview = kx.preview_import(shared)
         self.assertEqual((preview['games'], preview['discoveries'], preview['consoles']), (1, 2, {'cps1': 1}))
         outcome = kx.import_knowledge(shared)
@@ -505,7 +730,7 @@ class ExchangeTests(unittest.TestCase):
         # More paths for the same romset join the same record.
         richer = a_record(extra={('m68k_ram', (0xff0100, 0x10, 2))})
         found['payload']['consoles']['cps1'][IDENTITY] = richer
-        kx.write_knowledge(found, shared, channel=None)
+        kx.write_knowledge(found, shared, channel=None, version=3)
         self.assertEqual(kx.import_knowledge(shared)['enriched'], 1)
         self.assertEqual(knowledge.imported_game('cps1', IDENTITY), richer)
         # A bank that is already known adds nothing.
@@ -633,6 +858,20 @@ class StampTests(unittest.TestCase):
         self.assertNotEqual(qualified, empty)
         knowledge.write_side_bank(knowledge.imported_v3_path(), {KEY: a_record(extra={('m68k_ram', (0xff0100, 0x10, 2))})})
         self.assertNotEqual(knowledge_stamp('cps1', IDENTITY), qualified)
+
+
+class ReportTests(unittest.TestCase):
+    def test_the_report_says_whether_cps1_is_in_the_sharing_not_always_yes(self):
+        from retrorecomp import cps1_conversion
+        record = a_record()
+        promotion = {'paths': {'m68k_ram': 1, 'z80_ram': 1}, 'm68k_ram': {}, 'z80_ram': {}, 'truncated': False}
+        shared = cps1_conversion.knowledge_block(record, promotion, {})
+        self.assertIs(shared['shared'], True)
+        self.assertEqual(shared['cores'], cps1_knowledge.engine())
+        self.assertEqual(shared['record_sha256'], cps1_knowledge.record_digest(record))
+        stable = pp.STABLE_SHARED
+        with patch.object(pp, 'SHARED_SYSTEMS', stable):
+            self.assertIs(cps1_conversion.knowledge_block(record, promotion, {})['shared'], False)
 
 
 class LabelTests(unittest.TestCase):

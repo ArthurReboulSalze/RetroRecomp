@@ -231,6 +231,37 @@ class SendsByHand(unittest.TestCase):
         app.knowledge_task.assert_called_once()
 
 
+class FileExportMessage(unittest.TestCase):
+    """The end of a file export says how many CPS-1 games the version 2 file leaves out, in every language."""
+
+    SUMMARY = {'games': 3, 'consoles': {'md': 3}, 'bytes': 2048, 'version': 2,
+               'omitted': {'already_known': 0, 'missing_rom': 0, 'unqualified': 0}}
+
+    def shown(self, language, **changes):
+        app = application(language=language)
+        with patch('retrorecomp.gui.messagebox.showinfo') as shown:
+            app.knowledge_done(('export', {**self.SUMMARY, **changes}), None)
+        return shown.call_args.args[1]
+
+    def test_the_count_and_the_online_account_are_named_in_each_language(self):
+        self.assertEqual(len(LANGUAGES), 8)
+        english = tr('knowledge_export_cps1', 'en', count=7)
+        for code in LANGUAGES:
+            with self.subTest(code):
+                plain = self.shown(code, schema3_only_left_out=0)
+                told = self.shown(code, schema3_only_left_out=7)
+                self.assertTrue(told.startswith(plain))
+                note = told[len(plain):].strip()
+                self.assertIn('7', note)
+                self.assertIn('CPS-1', note)
+                self.assertNotIn('{', note)
+                self.assertEqual(note == english, code == 'en', 'translated')
+
+    def test_nothing_is_added_when_no_cps1_game_is_left_out(self):
+        for text in (self.shown('en'), self.shown('en', schema3_only_left_out=0)):
+            self.assertNotIn('CPS-1', text)
+
+
 class SendsAndTheWindow(unittest.TestCase):
     """Points 6 and 7, and the option turned off."""
 
