@@ -101,7 +101,7 @@ retrorecomp/freshness.py retrorecomp/compilation_inputs.py tests/test_compilatio
 retrorecomp/snes_knowledge.py tests/test_snes_knowledge.py
 tests/test_build_budget.py
 tests/test_compiler_durability.py
-retrorecomp/queue_state.py tests/test_queue_state.py
+retrorecomp/queue_state.py tests/test_queue_state.py tests/test_console_jobs.py
 tools/queue_recovery_selftest.py
 tests/test_freshness.py
 tests/test_gui_shutdown.py

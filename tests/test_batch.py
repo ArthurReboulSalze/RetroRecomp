@@ -299,6 +299,75 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(starts, [0, 1])
         self.assertEqual((record['succeeded'], record['pending'], record['cancelled']), (2, 1, True))
 
+    def test_a_console_with_its_own_number_runs_as_a_group_of_the_real_batch_with_one_summary(self):
+        from retrorecomp.queue_state import convert_in_groups
+        from threading import Lock
+        import time
+        sms = [self.item(str(index), index) for index in range(1, 4)]
+        gear = []
+        for value in (1, 2):
+            path = self.root / f'Gear {value}.gg'
+            path.write_bytes(bytes([value]) * 32768)
+            gear.append(identify(path))
+        queue = [sms[0], gear[0], sms[1], gear[1], sms[2]]
+        lock, active, peak, together = Lock(), {'sms': 0, 'gg': 0}, {'sms': 0, 'gg': 0}, []
+        events = []
+
+        def compile(console):
+            def run(path, **options):
+                with lock:
+                    active[console] += 1
+                    peak[console] = max(peak[console], active[console])
+                    together.append(active['sms'] and active['gg'])
+                time.sleep(0.15)
+                with lock:
+                    active[console] -= 1
+                return self.compiler(path, **options)
+            return run
+
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile('sms')), \
+                patch('retrorecomp.systems.game_gear.GameGearProfile.convert', side_effect=compile('gg')):
+            record = convert_in_groups(queue, self.games_root, jobs=3, per_console={'gg': 1},
+                                       on_event=lambda *event: events.append(event), emit=lambda text: None)
+        self.assertEqual((record['succeeded'], record['requested'], record['jobs']), (5, 5, 3))
+        self.assertEqual([game['sha256'] for game in record['games']], [item.sha256 for item in queue])
+        # Master System keeps the shared 3; Game Gear, set to 1, never overlaps itself. 3 + 1 > 3,
+        # so the two groups do not run together.
+        self.assertEqual(peak, {'sms': 3, 'gg': 1})
+        self.assertFalse(any(together))
+        self.assertEqual(sorted(index for kind, index, _ in events if kind == 'result'), [0, 1, 2, 3, 4])
+        saved = json.loads((self.games_root / 'datas/Retro-Recomp-batch.json').read_text(encoding='utf-8'))
+        self.assertEqual((saved['succeeded'], len(saved['games'])), (5, 5))
+
+    def test_groups_that_fit_under_the_shared_value_run_together(self):
+        from retrorecomp.queue_state import convert_in_groups
+        from threading import Lock
+        import time
+        sms = [self.item(str(index), index) for index in range(1, 3)]
+        path = self.root / 'Gear 1.gg'
+        path.write_bytes(bytes([1]) * 32768)
+        gear = identify(path)
+        lock, active, together = Lock(), {'sms': 0, 'gg': 0}, []
+
+        def compile(console):
+            def run(path, **options):
+                with lock:
+                    active[console] += 1
+                    together.append(bool(active['sms'] and active['gg']))
+                time.sleep(0.2)
+                with lock:
+                    active[console] -= 1
+                return self.compiler(path, **options)
+            return run
+
+        with patch('retrorecomp.systems.master_system.MasterSystemProfile.convert', side_effect=compile('sms')), \
+                patch('retrorecomp.systems.game_gear.GameGearProfile.convert', side_effect=compile('gg')):
+            record = convert_in_groups([sms[0], gear, sms[1]], self.games_root, jobs=3, per_console={'gg': 1},
+                                       emit=lambda text: None)
+        self.assertEqual(record['succeeded'], 3)
+        # 2 Master System workers + 1 Game Gear worker fit in 3.
+        self.assertTrue(any(together))
+
     def test_identical_bytes_under_a_sequel_name_reports_the_actual_source(self):
         first_path = self.root / 'Strider.sms'
         sequel_path = self.root / 'Strider II.sms'

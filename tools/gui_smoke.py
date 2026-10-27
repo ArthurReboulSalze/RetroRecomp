@@ -442,6 +442,19 @@ def smoke(window):
     assert application.preferences()['console_scan']['md']['level'] != initial_md_scan
     application.scan_level['md'].set(initial_md_scan)
     assert application.preferences()['console_scan'].get('md', {}).get('level', 'standard') == initial_md_scan
+    # Games converted at once per console: empty follows the shared value; a bad entry is refused.
+    initial_ng_jobs = application.scan_jobs['ng'].get()
+    application.scan_jobs['ng'].set('2')
+    assert application.preferences()['console_jobs']['ng'] == 2
+    application.scan_jobs['ng'].set('9')
+    try:
+        application.preferences()
+        raise AssertionError('9 concurrent games must be refused')
+    except ValueError:
+        pass
+    application.scan_jobs['ng'].set('')
+    assert 'ng' not in application.preferences()['console_jobs']
+    application.scan_jobs['ng'].set(initial_ng_jobs)
     application.icon_tags_control.invoke()
     assert application.preferences()['icon_tags'] != initial_tags
     application.icon_tags_control.invoke()

@@ -295,7 +295,7 @@ class CompiledGamesTests(TestCase):
         owner.language='en'
         owner.jobs=Mock();owner.jobs.get.return_value=2
         owner.cancel=Event();owner.messages=Queue()
-        owner.set_controls=Mock();owner.preferences=Mock(return_value={})
+        owner.set_controls=Mock();owner.preferences=Mock(return_value={'console_jobs':{'sms':1},'discoveries_waiting':True,'rom_paths':{}})
         owner.compiled_inventory=self.inventory
         owner.compiled_view=Mock()
         from retrorecomp.platforms import target_id
@@ -313,6 +313,9 @@ class CompiledGamesTests(TestCase):
             self.assertEqual(args[5],args[7].parent)
             self.assertIn(args[7],(self.exe,Path(second.executable)))
             self.assertTrue(args[-1]['force'])
+            # Interface-only preferences never reach a converter; Master System is set to 1 of the 2 shared jobs.
+            self.assertFalse({'console_jobs','discoveries_waiting','rom_paths','jobs'}&set(args[-1]))
+            self.assertEqual((args[0],args[-1]['gb_parallel_games'],args[-1]['ng_parallel_games']),(1,1,1))
             folder=args[6]
             folder.mkdir(parents=True,exist_ok=True)
             path=folder/'conversion-report.json'
