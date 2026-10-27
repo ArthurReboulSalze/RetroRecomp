@@ -40,8 +40,8 @@ The two qualified ABI-11 predecessors are also recognized explicitly after
 wire-state validation and the delayed H/V acknowledge correction. These changes
 add no serialized fields. The 1.4.1 signature is recognized as well
 (`RR16_STATE_COMPAT_ABI_23`): 1.5.0 changes the default keys of the player
-shell (`console16_host_ui.c`, `retro_keyboard.h`), which the signature hashes
-but which never reaches a serialized byte. SNES has no such list: its quick
+shell (then `console16_host_ui.c`, and `retro_keyboard.h`), which the signature
+hashed but which never reaches a serialized byte. SNES has no such list: its quick
 states are bound to the exact build signature, as before. The local regression restores 57 previous states from
 22 exact signatures, including cartridge states, and replays 600 frames against
 the decoded CPU in fresh processes. Invalid source-latch/wire combinations are

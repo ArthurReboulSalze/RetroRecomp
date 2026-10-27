@@ -70,7 +70,8 @@ def owners(name):
         return frozenset(('nes',))
     if name.startswith('m68000'):
         return frozenset(('md', 'ng', 'x68', 'cps1'))
-    # The shared 16-bit host (and the host kit that carries it) is linked into Neo Geo and CPS-1 games too.
+    # The shared 16-bit host is linked into Neo Geo and CPS-1 games too; 'hostkit' matches retrorecomp/hostkit.py
+    # only (the kit's own C files are scoped by the explicit manifest in stamp_inputs.py).
     if name.startswith(('console16', 'retro_console16', 'gun16', 'hostkit')):
         return frozenset(('md', 'snes', 'ng', 'cps1'))
     if name.startswith('guns16'):

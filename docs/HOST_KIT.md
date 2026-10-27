@@ -416,8 +416,16 @@ Order (`hosts.md:426-461`), with the stamp effect of each phase
 | 6 | all | Core flag day (state container with legacy magics, battery container, CLI/script/report, one OS layer), one planned requalification campaign; new machines can adopt shell and core from the first day after phase 1 |
 
 Phases 2-5 touch disjoint files and can run in parallel after phase 1;
-**no edit of a game-role file happens during phases 1-5** — adapters call the
-existing game-role functions unchanged (`hosts.md:412-414`).
+**no edit of a game-role file happens during phases 2-5** — adapters call the
+existing game-role functions unchanged (`hosts.md:412-414`). Phase 1 is the one
+exception: the staging call (`hostkit.stage()`) enters the game-role modules
+`console16.py`, `cps1_build.py` and `neogeo_build.py` once, so the game stamp of
+md, snes, ng and cps1 moves once, inside the 1.6.0 stamp break (the generated
+code is unchanged, so the 1.5.6 stamps can be declared upgradable). Not covered
+by the phase 1 A/B battery, so to be added in a later phase: menus driven by a
+pad, pad capture from another pad, hot unplug, mouse clicks on option rows, F9
+with no state or a failed save, audio open failures, quit by Escape, a fourth
+CPS-1 player, a SNES cartridge-chip game, and the options page on Linux.
 
 Verification, per phase and per family — old executable A (current release)
 against new executable B (kit build), same game, same inputs
