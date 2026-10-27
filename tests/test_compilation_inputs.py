@@ -32,7 +32,7 @@ class CompilationInputTests(unittest.TestCase):
         return path
 
     def stamps(self):
-        return {s:inputs.engine_stamp(s) for s in ('sms','gg','gb','nes','md','snes','ng','cps1')}
+        return {s:inputs.engine_stamp(s) for s in ('sms','gg','gb','nes','md','snes','ng','x68','cps1')}
 
     def test_interface_and_unrelated_backend_changes_keep_exports(self):
         before = self.stamps()
@@ -42,7 +42,7 @@ class CompilationInputTests(unittest.TestCase):
         self.revisions['retrorecomp.megadrive_bus'] = 'new-bus'
         after = self.stamps()
         self.assertNotEqual(before['md'], after['md'])
-        for system in ('sms','gg','gb','nes','snes','ng'):
+        for system in ('sms','gg','gb','nes','snes','ng','x68'):
             self.assertEqual(before[system], after[system])
 
     def test_native_shared_unknown_and_scoped_dependencies(self):
