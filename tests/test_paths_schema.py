@@ -706,15 +706,18 @@ class ValidatorTests(unittest.TestCase):
 
 
 class NotWiredYetTests(unittest.TestCase):
-    """Stage B1 changes nothing that exists. Drop this class when a later stage wires the module in."""
+    """The schema travels (stage B2: the exchange file, the shared base and the
+    upload) but no conversion code reads it. Drop this class when a later stage
+    makes `knowledge.py` import the module."""
 
-    def test_no_release_module_imports_the_schema_yet(self):
+    def test_no_game_module_imports_the_schema_yet(self):
         users = []
         for path in sorted((ROOT / 'retrorecomp').rglob('*.py')):
             if path.name != 'path_profiles.py' and 'path_profiles' in path.read_text(encoding='utf-8'):
                 users.append(path.relative_to(ROOT).as_posix())
-        # compilation_inputs only names it as an interface module.
-        self.assertEqual(users, ['retrorecomp/compilation_inputs.py'])
+        # compilation_inputs only names it as an interface module; the exchange and the
+        # service client are interface modules too (docs/COMPILATION_LIBRARY.md).
+        self.assertEqual(users, ['retrorecomp/compilation_inputs.py', 'retrorecomp/knowledge_exchange.py'])
         text = (ROOT / 'retrorecomp' / 'compilation_inputs.py').read_text(encoding='utf-8')
         self.assertNotRegex(text, r'import\s+.*path_profiles|from\s+\.path_profiles')
 
