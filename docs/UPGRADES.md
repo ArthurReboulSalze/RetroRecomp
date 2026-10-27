@@ -99,7 +99,7 @@ very same folder (the generated files hold absolute paths), with the same option
   `upgrade.from_release` = `1.5.6`, `check_level` quick, and their final checks (scenario hashes, native and interpreted
   counters, frames) equal those of the 1.5.6 report. The two Mega Drive games keep the interpreter fallback they already had
   in 1.5.6 (Art Alive 11.4 million opcodes in the demo, Alex Kidd in the Enchanted Castle 26 and 96), which the campaign verdict
-  (limit 0) marks FAIL; the upgrade neither adds nor removes any. Quick states: [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156).
+  (limit 0) marks FAIL; the upgrade neither adds nor removes any. The upgrade report keeps the scan level of the export's own discovery, read from `scan_level`, `scan.level` or `advanced_scan.level` (the Mega Drive, Super Nintendo and NES reports of 1.5.x only have the last), so an Extended or Thorough export of 1.5.6 stays one after an upgrade. Quick states: the Mega Drive, Neo Geo (both added in this work) and CPS-1 exports upgraded from 1.5.6 load the quick states written by the 1.5.6 export on Windows, the Super Nintendo ones do not ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-156)).
 
 Measurements stay separate: this is native code, CPU fidelity against the fresh reference on the quick routes and the identity
 of the generated game; it says nothing about hardware fidelity, gameplay or latency. A Linux 1.5.6 export is not covered (the
