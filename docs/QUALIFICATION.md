@@ -81,3 +81,63 @@ owner fills it in.
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 |  |  |  |  |  |
+
+## Running the verification campaign
+
+`tools/campaign.py` is a developer tool: it prepares and runs the pre-release
+check on a sample of each console, with the verdicts of
+`tools/release_check.py`. It is not in the converter or in any release
+archive, reads the ROM folders without writing to them, and keeps every
+output under `.build/campaign-<version>/`. Run it on the Windows build PC with
+the converter about to be published (`Retro-Recomp.exe`, or `RetroRecomp.py`
+from a checkout); it does not replace the owner's play tests (G14).
+
+1. **Select.** `python tools/campaign.py select --roms-root <folder with one
+   ROM folder per console> --version 1.6.0` (or set `RETRO_RECOMP_ROMS`; no
+   private path is written in the tool). Per console, `--count` games (10 by
+   default): half drawn at random with `--seed` (the same folder, seed and
+   risk file always give the same games), half from the risk cases of
+   `tools/campaign-risk-cases.json` (titles and the reason each one is hard,
+   from this repository's documents; edit the file to change them). Each file
+   is read by the converter's own detector before it is kept. The result,
+   `selection.json`, holds paths and SHA-256 only. `--hermes N` marks N games
+   per console for the Linux sample.
+2. **Run.** `python tools/campaign.py run <converter> --version 1.6.0 --jobs 4
+   --level standard`. Up to 8 conversions run at once inside one batch per
+   chunk of games (`--chunk`, default twice `--jobs`); one verdict file and one
+   log per game go to `journal/<console>/`. An interrupted run resumes by
+   skipping games that have a verdict (`--retry-failed` and `--redo` run them
+   again; `--consoles`, `--subset hermes`, `--limit` and `--smallest N` narrow
+   the run). Neo Geo takes `--ng-bios`, X68000 `--x68-ipl` and `--x68-cgrom`.
+   The new observations stay in the converter workspace of the campaign
+   (`out/app` for the frozen converter). On the Linux machine, run `select`
+   again there with its own ROM root and the same seed, then `run --subset
+   hermes` with the Linux converter.
+3. **Report.** `python tools/campaign.py report --version 1.6.0` writes
+   `summary.md` and `summary.json`: per console and game, the verdict, the
+   scan level, the conversion time, the interpreter fallback per CPU and per
+   cartridge device (read through `retrorecomp/report_schema.py`; "not
+   measured" stays "not measured"), and the five measures separately with the
+   claim each report makes: native code, CPU fidelity, hardware fidelity,
+   gameplay validation, physical latency. A pass means the gates of
+   `release_check.py` held (conversion, native/reference agreement, fallback
+   limit, and for Neo Geo, CPS-1 and X68000 the packed replay and the
+   fresh-process states); it says nothing about hardware fidelity, full games
+   or latency. A case marked `expect: refusal` passes only when the converter
+   refuses the cartridge, and is counted apart as "refused".
+4. **Upgrade.** `python tools/campaign.py upgrade <converter> <export folder>
+   [...] --from-version 1.5.6` copies existing exports into the campaign
+   (the originals are untouched, and each old executable is kept under
+   `upgrade/before/`), runs the converter's own batch path without `--force`,
+   and records per game whether it was an already-current export, a quick
+   upgrade (only the player shell changed) or a full reconversion, with the
+   release_check verdict of the new report.
+5. **States.** `python tools/campaign.py states pairs` resumes, for Mega Drive
+   and Super Nintendo, a state written headless by each old export in its
+   upgraded export, through `tools/state16_cross.py --one-way`; the outcome is
+   resumed identically, resumed but different, diverged or refused.
+   `states files --states-dir <folder>` loads slots saved by hand in the old
+   player into the new exports (and, when the old export is known, compares
+   both continuations). A refusal is a clean outcome unless a release note
+   promises migration. What this proves is only what it ran: a state of real
+   play from an older build is checked only when its file is given.

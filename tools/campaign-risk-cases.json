@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "note": "Proposed risk cases for the verification campaign, one list per console, in priority order. Titles are matched against the file names of the ROM folder (region and revision tags ignored, USA/World/Europe preferred); arcade sets are matched by set name. A case missing from the folder is listed as unmatched and skipped. Reasons come from the repository documents named in 'source'; a case is a place where the converter is known to be harder to satisfy or to refuse, not a promise that it passes. 'expect': 'refusal' marks a case where the documented outcome is a clean refusal of the cartridge.",
+  "consoles": {
+    "sms": [
+      {"title": "Operation Wolf", "category": "light-phaser", "reason": "Light Phaser gun title with its pad kept on player 2; peripheral badge and gun scenarios", "source": "docs/LIGHT_PHASER.md"},
+      {"title": "Micro Machines", "category": "codemasters-mapper", "reason": "Codemasters mapper, listed as not validated or supported on the Sega profiles; shows how the converter handles an unsupported mapper", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Phantasy Star", "category": "cartridge-save", "reason": "RPG, probably with a cartridge save; cartridge saves are not validated on the Sega profiles", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Alex Kidd in Miracle World", "category": "regression-baseline", "reason": "Part of the documented local regression set (strict native checks without fallback); the control case", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Missile Defense 3-D", "category": "light-phaser", "reason": "Gun input; the stereoscopic glasses output is not implemented", "source": "docs/LIGHT_PHASER.md"},
+      {"title": "Galaxy Force", "category": "regression-baseline", "reason": "Documented regression title: two 3,600-frame scenarios with strict native checks and no fallback", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Sports Pad Football", "category": "peripheral", "reason": "Sports Pad controller title; only the control pad and the Light Phaser are documented inputs", "source": "docs/LIGHT_PHASER.md"},
+      {"title": "Hang-On & Safari Hunt", "category": "light-phaser", "reason": "Compilation where the gun game and the pad game share one cartridge", "source": "docs/LIGHT_PHASER.md"},
+      {"title": "Bomber Raid", "category": "regression-baseline", "reason": "Documented regression title that stays untagged because it plays with the pad", "source": "docs/LIGHT_PHASER.md"}
+    ],
+    "gg": [
+      {"title": "Gunstar Heroes", "category": "qualified-16bit-port", "reason": "One of the twelve cartridges of the 18 October qualification; a 16-bit game ported to the handheld", "source": "docs/GAME_GEAR.md"},
+      {"title": "Phantasy Star Gaiden", "category": "cartridge-save", "reason": "RPG (translated dump); long game states and a probable cartridge save, which the Sega profiles do not validate", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Wonder Boy - The Dragon's Trap", "category": "qualified-adventure", "reason": "One of the twelve cartridges of the 18 October qualification", "source": "docs/GAME_GEAR.md"},
+      {"title": "Shining Force II", "category": "cartridge-save", "reason": "RPG, probably with a cartridge save; cartridge saves are not validated on the Sega profiles", "source": "docs/COMPATIBILITY.md", "prefix": true},
+      {"title": "Sonic The Hedgehog 2", "category": "qualified-baseline", "reason": "One of the twelve cartridges of the 18 October qualification", "source": "docs/GAME_GEAR.md"},
+      {"title": "GG Aleste", "category": "qualified-shooter", "reason": "One of the twelve cartridges of the 18 October qualification (shooter)", "source": "docs/GAME_GEAR.md"},
+      {"title": "Streets of Rage II", "category": "qualified-brawler", "reason": "One of the twelve cartridges of the 18 October qualification", "source": "docs/GAME_GEAR.md"},
+      {"title": "Defenders of Oasis", "category": "cartridge-save", "reason": "RPG, probably with a cartridge save, not covered by the 18 October qualification", "source": "docs/COMPATIBILITY.md"}
+    ],
+    "gb": [
+      {"title": "Tetris", "category": "no-banking", "reason": "No bank switching; the smallest control case", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Donkey Kong Land", "category": "ram-fallback", "reason": "Reported RAM fallback remained on the longer probes; the converter should keep reducing it", "source": "docs/GAME_BOY.md"},
+      {"title": "Pokemon - Red Version", "category": "mbc3-battery", "reason": "MBC3 with battery RAM; Pokemon Yellow, from the same family, exposed a stack overflow and a long cold build in earlier campaigns", "source": "docs/GAME_BOY.md"},
+      {"title": "Paperboy 2", "category": "known-timeout", "reason": "One of three cartridges that still hit the 600-second probe timeout (not added to shared knowledge); a known hard case", "source": "docs/GAME_BOY.md"},
+      {"title": "Lazlos' Leap", "category": "mbc2-battery", "reason": "MBC2 with battery RAM; battery RAM stayed unchanged by an isolated launch", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Castlevania Legends", "category": "ram-fallback", "reason": "Visible RAM fallback remains after the RAM-helper work (3.6 million cycles in the last report)", "source": "docs/GAME_BOY.md"},
+      {"title": "Wario Land II", "category": "ram-fallback", "reason": "Retained reported RAM fallback and took about 24 minutes to convert in the earlier batch", "source": "docs/GAME_BOY.md"},
+      {"title": "Super Mario Land", "category": "mbc1", "reason": "MBC1 cartridge; once showed one fallback at bank 0 that a ROM-specific trace removed", "source": "docs/COMPATIBILITY.md"},
+      {"title": "Captain America and the Avengers", "category": "native-selector", "reason": "Exposed the native compiler selector failure; zero fallback afterwards", "source": "docs/GAME_BOY.md"},
+      {"title": "Spiritual Warfare", "category": "known-timeout", "reason": "Unlicensed cartridge that still hits the 600-second probe timeout", "source": "docs/GAME_BOY.md"}
+    ],
+    "nes": [
+      {"title": "Castlevania III - Dracula's Curse", "category": "mmc5", "reason": "Mapper 5 (MMC5) with mapped RAM; 0 percent fallback in the 9 October qualification", "source": "docs/NES.md"},
+      {"title": "Mr. Gimmick", "category": "fme7-pal", "reason": "Mapper 69 (FME-7) on a PAL cartridge", "source": "docs/NES.md"},
+      {"title": "Legend of Zelda, The", "category": "mmc1-ram-fallback", "reason": "MMC1; the largest fallback of its qualification (2.91 percent) sits in the cartridge address range below $8000", "source": "docs/NES.md"},
+      {"title": "Gumshoe", "category": "zapper", "reason": "Mapper 66 and Zapper input (mouse aim)", "source": "docs/NES.md"},
+      {"title": "Wizards & Warriors", "category": "axrom-ram-execution", "reason": "Mapper 7 (AxROM); RAM execution keeps a small fallback", "source": "docs/NES.md"},
+      {"title": "Micro Machines", "category": "camerica", "reason": "Mapper 71 (Camerica, unlicensed); RAM execution keeps a small fallback", "source": "docs/NES.md"},
+      {"title": "Esper Dream 2", "category": "vrc6", "reason": "Mapper 26 (VRC6) with extra mapper audio (translated dump)", "source": "docs/NES.md", "prefix": true},
+      {"title": "Dragon Ball Z III", "category": "bandai-16", "reason": "Mapper 16 (Bandai), translated dump, part of the 9 October cartridge audit", "source": "docs/COMPATIBILITY.md", "prefix": true},
+      {"title": "Holy Diver", "category": "mapper-78", "reason": "Mapper 78, one of the families added to the authored instruction checks", "source": "docs/NES.md"},
+      {"title": "Crystal Mines", "category": "color-dreams", "reason": "Mapper 11 (Color Dreams, unlicensed)", "source": "docs/NES.md"},
+      {"title": "Batman - Return of the Joker", "category": "fme7-menu", "reason": "Mapper 69; its menu path first used 242,079 interpreted cycles", "source": "docs/NES.md"}
+    ],
+    "md": [
+      {"title": "Super Street Fighter II", "category": "ssf-mapper", "reason": "5 MiB cartridge with the Sega 512 KiB bank-mapping circuit (MK-12056), the declared banked-ROM case", "source": "docs/MEGADRIVE_MAPPERS.md"},
+      {"title": "NBA Jam - Tournament Edition", "category": "eeprom", "reason": "Acclaim serial EEPROM board (24C02 family) with persistence and F8/F9 busy-write states", "source": "docs/MEGADRIVE_EEPROM.md"},
+      {"title": "Ecco the Dolphin", "category": "ram-68000-code", "reason": "68000 code runs from RAM through an interrupt stub using TRAP #0; the case that exposed the TRAP translation", "source": "docs/CONSOLES_16BIT.md"},
+      {"title": "T2 - The Arcade Game", "category": "menacer", "reason": "Menacer lightgun title, separate native analysis and a one-player menu route", "source": "docs/GUNS_16BIT.md"},
+      {"title": "Gunstar Heroes", "category": "z80-sound-driver", "reason": "Heavy Z80 sound driver and a Japan region lock; zero Z80 fallback is part of its documented result", "source": "docs/CONSOLES_16BIT.md"},
+      {"title": "Mega Man - The Wily Wars", "category": "eeprom", "reason": "Sega serial EEPROM board; formats its battery on the first boot", "source": "docs/MEGADRIVE_EEPROM.md"},
+      {"title": "Thunder Force IV", "category": "cpu-exception", "reason": "Uses STOP in 68000 code, which halted the earlier runtime at boot", "source": "docs/CONSOLES_16BIT.md"},
+      {"title": "Streets of Rage 2", "category": "z80-sound-driver", "reason": "Sound-menu replay of 29 selections with the Z80 driver staying native", "source": "docs/CONSOLES_16BIT.md"},
+      {"title": "Sonic The Hedgehog 2", "category": "video-interlace", "reason": "Interlaced split-screen attract sequence; qualified with Z80 timing checks", "source": "docs/MEGADRIVE_Z80_TIMING.md"},
+      {"title": "Lethal Enforcers", "category": "justifier", "reason": "Justifier lightgun title; no Justifier cartridge has been gameplay-validated", "source": "docs/GUNS_16BIT.md"},
+      {"title": "Pier Solar and the Great Architects", "category": "unknown-mapper", "reason": "Large unlicensed cartridge; unknown ROMs over 4 MiB do not inherit the Sega mapper and get a hardware limitation message", "source": "docs/MEGADRIVE_MAPPERS.md", "expect": "refusal"}
+    ],
+    "snes": [
+      {"title": "Star Fox", "category": "superfx", "reason": "Super Fox GSU (MARIO chip) with an old header, 64 KiB RAM by default; GSU instructions are counted apart from the 65816", "source": "docs/SNES_SUPERFX.md"},
+      {"title": "Pilotwings", "category": "dsp1", "reason": "DSP-1 board; exposed the missing raster and projection commands", "source": "docs/SNES.md"},
+      {"title": "Mega Man X2", "category": "cx4", "reason": "CX4 board; CX4 instructions stay interpreted and are reported on their own device line", "source": "docs/SNES.md"},
+      {"title": "Super Mario RPG - Legend of the Seven Stars", "category": "sa-1", "reason": "SA-1 board: recognised and refused with an explicit circuit-support error", "source": "docs/SNES.md", "expect": "refusal"},
+      {"title": "Super Mario World 2 - Yoshi's Island", "category": "superfx", "reason": "GSU-2 with 2 MiB ROM and battery RAM", "source": "docs/SNES_SUPERFX.md"},
+      {"title": "Doom", "category": "superfx", "reason": "GSU-2 running about 152,000 instructions per frame in steady play, the heaviest device load", "source": "docs/SNES_SUPERFX.md"},
+      {"title": "Star Fox 2", "category": "superfx-joypad", "reason": "GSU-2; the Japanese prototype starts with a manual joypad strobe", "source": "docs/SNES.md", "prefix": true, "prefer": "Japan"},
+      {"title": "Dirt Racer", "category": "superfx-pal", "reason": "GSU-1 on a PAL cartridge with the largest GSU instruction count of the family", "source": "docs/SNES_SUPERFX.md"},
+      {"title": "Street Fighter Alpha 2", "category": "s-dd1", "reason": "S-DD1 decompression chip, which this integration does not support", "source": "docs/SNES.md", "expect": "refusal"},
+      {"title": "Super Mario Kart", "category": "dsp1", "reason": "DSP-1 board, requalified with Pilotwings after the bus work", "source": "docs/SNES.md"},
+      {"title": "Metal Combat - Falcon's Revenge", "category": "super-scope", "reason": "Super Scope title in the gun catalogue; catalogue recognition is not gameplay validation", "source": "docs/GUNS_16BIT.md"},
+      {"title": "Super Castlevania IV", "category": "regression-baseline", "reason": "Qualified NTSC LoROM case used in the state and bus work", "source": "docs/CONSOLES_16BIT.md"}
+    ],
+    "ng": [
+      {"title": "The King of Fighters '98", "set": "kof98", "category": "kof98-mapper", "reason": "KOF '98 mapping family with its own code view and state extension", "source": "docs/NEOGEO.md"},
+      {"title": "The King of Fighters 2003", "set": "kof2003", "category": "pvc", "reason": "PVC protection RAM (520,517-byte states); its first replay failed in the campaign that exposed the PVC state", "source": "docs/NEOGEO.md"},
+      {"title": "The King of Fighters '99", "set": "kof99", "category": "sma", "reason": "SMA protected board; the random generator must never be consumed by code guards", "source": "docs/NEOGEO.md"},
+      {"title": "Metal Slug 3", "set": "mslug3", "category": "state-abi-reference", "reason": "Its crab-scene state is the reference for the Neo Geo state-ABI migration", "source": "docs/GAME_STATES.md"},
+      {"title": "Metal Slug 5", "set": "mslug5", "category": "pvc", "reason": "PVC board in the 14 October protection work", "source": "docs/NEOGEO.md"},
+      {"title": "Garou: Mark of the Wolves", "set": "garou", "category": "sma", "reason": "SMA protected board of the 14 October protection work", "source": "docs/NEOGEO.md"},
+      {"title": "Metal Slug X", "set": "mslugx", "category": "mslugx-mapper", "reason": "MSLUGX mapping family and grenade-route observations", "source": "docs/NEOGEO.md"},
+      {"title": "Twinkle Star Sprites", "set": "twinspri", "category": "enhanced-mode", "reason": "Enhanced-mode route; reached 42 uncompiled cartridge entries before the correction", "source": "docs/NEOGEO.md"},
+      {"title": "Turf Masters", "set": "turfmast", "category": "long-route", "reason": "One of the six 54,000-frame qualification routes", "source": "docs/NEOGEO.md"},
+      {"title": "Fatal Fury 2", "set": "fatfury2", "category": "pro-ct0", "reason": "PRO-CT0 board family, listed in the cartridge-protection table", "source": "docs/NEOGEO.md"}
+    ],
+    "cps1": [
+      {"title": "Street Fighter II': Champion Edition", "set": "sf2ce", "category": "ram-code", "reason": "Runs part of its code from graphics RAM, which native code does not cover: 75,546 interpreted instructions (0.06 percent)", "source": "docs/CPS1.md"},
+      {"title": "Mercs", "set": "mercs", "category": "vertical-3-players", "reason": "Vertical screen and three players", "source": "docs/CPS1.md"},
+      {"title": "Pnickies", "set": "pnickj", "category": "mapper-unverified", "reason": "Graphics mapper unverified by MAME", "source": "docs/CPS1.md"},
+      {"title": "Captain Commando", "set": "captcomm", "category": "four-players", "reason": "Four players; attract mode compared pixel for pixel with MAME", "source": "docs/CPS1.md"},
+      {"title": "Final Fight", "set": "ffight", "category": "cross-os-witness", "reason": "Gave the same route hashes on Windows and Debian 13; the Windows/Hermes witness", "source": "docs/CPS1.md"},
+      {"title": "Strider", "set": "strider", "category": "mame-compared", "reason": "Compared with MAME 0.289 pixel for pixel on attract and credited play", "source": "docs/CPS1.md"},
+      {"title": "Willow", "set": "willow", "category": "regression-baseline", "reason": "Qualified set with default DIP switches, the control case", "source": "docs/CPS1.md"},
+      {"title": "Varth: Operation Thunderstorm", "set": "varth", "category": "vertical", "reason": "Vertical screen, rotated and shown at 3:4", "source": "docs/CPS1.md"},
+      {"title": "Pokonyan! Balloon", "set": "pokonyan", "category": "mapper-unverified", "reason": "Graphics mapper unverified by MAME", "source": "docs/CPS1.md"},
+      {"title": "Warriors of Fate", "set": "wof", "category": "qsound", "reason": "QSound board (Kabuki-encrypted Z80 and QSound DSP): outside the supported scope, the converter names the reason", "source": "docs/CPS1.md", "expect": "refusal"}
+    ],
+    "x68": [
+      {"title": "Metal Sight (System Sacom)", "category": "disk-changes", "reason": "Five-disk set whose disk changes follow the game's own requests", "source": "docs/X68000.md"},
+      {"title": "Metal Unit II Power Unit", "category": "disk-changes", "reason": "Three-disk set; found its third disk only after one refusal", "source": "docs/X68000.md"},
+      {"title": "Lemmings (Imagineer)", "category": "mouse", "reason": "Mouse game that drives the SCC mouse channel itself", "source": "docs/X68000.md"},
+      {"title": "Super Hang-On", "category": "disk-eject", "reason": "Two-disk set that ejects its disks after loading; must run exactly as without the policy", "source": "docs/X68000.md", "prefix": true},
+      {"title": "Choujin (Fix)", "category": "disk-eject", "reason": "System and Data disks; ejects them after loading", "source": "docs/X68000.md", "prefix": true},
+      {"title": "Populous", "category": "mouse", "reason": "Mouse game read through SCC channel B", "source": "docs/X68000.md", "prefix": true},
+      {"title": "Cameltry (Denpa)", "category": "mouse", "reason": "Mouse game read through SCC channel B", "source": "docs/X68000.md"},
+      {"title": "Dungeon Master (FTL)", "category": "multi-disk", "reason": "System and User disks, labelled apart by the disk tag", "source": "docs/X68000.md"},
+      {"title": "R-Type (Irem)", "category": "single-disk", "reason": "Single-disk control case", "source": "docs/X68000.md"}
+    ]
+  }
+}

@@ -6,6 +6,7 @@ same ``batch`` command line as a player, and checks the receipts:
     python tools/release_check.py CONVERTER ROM.zip [ROM.zip ...]
         [--console ID] [--work DIR] [--level standard] [--max-fallback 0]
         [--max-device N] [--require-packed] [--require-states]
+        [--jobs N] [--app DIR] [--batch-args "..."]
 
 CONVERTER is the frozen ``Retro-Recomp.exe`` (copied into DIR/app, which then
 holds its own workspace: the first run fetches the pinned sources and tools,
@@ -28,6 +29,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -60,8 +62,38 @@ def batch_problems(record: dict, requested: int, expected_system: str | None = N
     return problems
 
 
+def read_core_shape(report: dict) -> dict | None:
+    """Master System and Game Gear reports: Z80 cycles per scenario, a native/reference verdict per scenario."""
+    validation = report.get('native_validation')
+    checks = report.get('final_checks')
+    if 'strict_checks' not in report or not isinstance(validation, dict) or not isinstance(checks, list):
+        return None
+    proven = validation.get('scenarios')
+    if not isinstance(proven, list):
+        return None
+    scenarios = []
+    for check in checks:
+        if not isinstance(check, dict) or 'scenario' not in check or 'interpreter_cycles' not in check:
+            return None
+        scenarios.append({'name': check['scenario'], 'main_interpreted': int(check['interpreter_cycles']),
+                          'audio_interpreted': None})
+    by_scenario = {row.get('scenario'): row for row in proven if isinstance(row, dict)}
+    agreement_problems = []
+    for scenario in scenarios:
+        row = by_scenario.get(scenario['name'])
+        if row is None:
+            agreement_problems.append(f"{scenario['name']}: no native/reference comparison in the report")
+        elif row.get('passed') is not True or row.get('missing_or_invalid_evidence'):
+            agreement_problems.append(f"{scenario['name']}: native and reference differ")
+    if validation.get('passed') is not True:
+        agreement_problems.append('native validation did not pass')
+    return {'shape': 'core', 'unit': 'CPU cycles', 'level': report.get('scan_level'),
+            'scenarios': scenarios, 'agreement': not agreement_problems,
+            'agreement_problems': agreement_problems, 'packed': None, 'states': {}, 'device': None}
+
+
 def read_console16_shape(report: dict) -> dict | None:
-    """Master System, Game Gear, Mega Drive and Super Nintendo reports."""
+    """Mega Drive and Super Nintendo reports."""
     validation = report.get('native_validation')
     checks = report.get('final_checks')
     if not isinstance(validation, dict) or not isinstance(checks, list):
@@ -224,7 +256,12 @@ def read_x68000_shape(report: dict) -> dict | None:
             'agreement_problems': agreement_problems, 'packed': None, 'states': states, 'device': None}
 
 
-READERS = {'sms': read_console16_shape, 'gg': read_console16_shape, 'md': read_console16_shape,
+def read_sega8_shape(report: dict) -> dict | None:
+    """Master System and Game Gear: the core writer's shape, else the shared 16-bit one."""
+    return read_core_shape(report) or read_console16_shape(report)
+
+
+READERS = {'sms': read_sega8_shape, 'gg': read_sega8_shape, 'md': read_console16_shape,
            'snes': read_console16_shape, 'cps1': read_arcade_shape, 'ng': read_arcade_shape,
            'nes': read_nes_shape, 'gb': read_gameboy_shape, 'x68': read_x68000_shape}
 
@@ -340,14 +377,22 @@ def main(argv=None) -> int:
     parser.add_argument('--max-device', type=int, default=None)
     parser.add_argument('--require-packed', action='store_true')
     parser.add_argument('--require-states', action='store_true')
+    parser.add_argument('--jobs', type=int, default=1, choices=range(1, 9), metavar='1-8',
+                        help='Conversions at once inside the one batch (default 1)')
+    parser.add_argument('--app', type=Path, default=None,
+                        help='Where the frozen converter is copied and keeps its workspace (default WORK/app); '
+                             'campaigns share one to fetch the pinned tools once')
+    parser.add_argument('--batch-args', default='',
+                        help='Extra command-line words for the converter batch command, one quoted string '
+                             '(for example the Neo Geo BIOS or the X68000 IPL)')
     args = parser.parse_args(argv)
 
     work = args.work.resolve()
     games = work / 'Games'
-    command = command_for(args.converter.resolve(), work / 'app')
+    command = command_for(args.converter.resolve(), (args.app or work / 'app').resolve())
     command += ['batch', *map(str, args.roms), '--system', args.console or 'auto',
-                '--scan-level', args.level, '--jobs', '1', '--force', '--no-online-cover',
-                '--output', str(games)]
+                '--scan-level', args.level, '--jobs', str(args.jobs), '--force', '--no-online-cover',
+                '--output', str(games), *shlex.split(args.batch_args)]
     work.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
     with (work / 'batch.log').open('w', encoding='utf-8') as log:
@@ -373,8 +418,8 @@ def main(argv=None) -> int:
                                    args.require_packed, args.require_states)
             problems += [f"{game.get('title')}: {problem}" for problem in checked['problems']]
             gates = {name: gate['status'] for name, gate in checked['gates'].items()}
-            games_checked.append({'title': game.get('title'), 'console': console,
-                                  'report': str(report_path), 'shape': checked['shape'],
+            games_checked.append({'title': game.get('title'), 'console': console, 'rom': game.get('rom'),
+                                  'sha256': game.get('sha256'), 'report': str(report_path), 'shape': checked['shape'],
                                   'level': args.level, 'gates': gates, 'counts': checked['counts'],
                                   'problems': checked['problems']})
             summary = 'PASS' if not checked['problems'] else 'FAIL'
