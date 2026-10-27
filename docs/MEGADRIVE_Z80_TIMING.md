@@ -199,6 +199,6 @@ accepted; unknown signatures still fail. User states and ROMs are read-only
 inputs to qualification. Global collection campaigns remain paused.
 
 Native coverage, CPU correctness, hardware timing, gameplay progression, and
-physical audiovisual latency remain distinct evidence axes. Mega Drive keeps
-its experimental label while the remaining gates for
-[the standard profile](CONSOLES_16BIT.md) are unresolved.
+physical audiovisual latency remain distinct evidence axes. Mega Drive is
+supported within its standard cartridge scope; the remaining gates for
+[the standard profile](CONSOLES_16BIT.md) are recorded there.

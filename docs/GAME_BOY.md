@@ -67,12 +67,12 @@ the cartridge, and left-stick click for the pause menu. Existing shared Game
 Boy settings with recognizable old defaults migrate in memory without
 rewriting the INI until a setting is saved. Custom mappings remain available.
 
-Shift+F1 resets; F3 cycles sharp pixels, bilinear smoothing, Scale2x and scanlines;
+Shift+F1 resets; F3 cycles sharp pixels, Scale2x, scanlines and xBR smooth;
 F4 cycles window, integer pixel-perfect fullscreen and aspect-fit fullscreen.
 F5 immediately switches between pseudo black-and-white monochrome (the
 default) and classic green, without a menu or a pause. The choice is persistent;
 holding F5 does not repeatedly toggle it. F6 toggles fast autofire for held
-gamepad A/B, F7 switches English/French, and F8/F9 save/load one quick state.
+gamepad A/B, F7 switches the menu language, and F8/F9 save/load one quick state.
 Game Boy has no second player or Light Phaser options. Game Boy Color-only
 cartridges are still rejected, so the palette choice applies to DMG games.
 

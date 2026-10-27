@@ -7,7 +7,7 @@ native/reference CPUs agreed. Live VSRAM remains available to guest reads and
 the next row; two-cell column scrolling keeps its own path. There is no crop,
 cartridge patch or new serialized field. An actual-game software-reference
 comparison and 790,288 authored row-pattern assertions per PAL/NTSC backend
-cover this correction; see [the final campaign](MEGADRIVE_STABILIZATION.md).
+cover this correction.
 
 The host now captures all 448/480 output rows produced by interlace mode 2,
 alongside the existing 224/240 progressive modes and 256/320 widths. The display
