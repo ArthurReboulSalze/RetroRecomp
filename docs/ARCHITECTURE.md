@@ -78,6 +78,39 @@ RAM variants can use the corrected reference interpreter. Fallback cycles,
 in-memory dispatch observations and the window title make that use visible. Fullscreen
 does not overlay interpreter diagnostics on gameplay.
 
+## Report schema 2
+
+Seven converters write `conversion-report.json` in seven shapes: Master System
+and Game Gear, Game Boy, NES, Mega Drive and Super Nintendo, Neo Geo, CPS-1 and
+X68000. They count the interpreter in cycles (Master System, Game Gear, Game
+Boy, NES) or in opcodes, under several key names, and the one-line fallback
+summary is computed twice, in `batch.py` and in `gui.py`.
+`retrorecomp/report_schema.py` defines schema 2 and the one reader of every
+shape. It is an interface module: it never runs during a conversion and does
+not change what a game is.
+
+- **Shape.** One section per CPU (main, audio) and per cartridge device, with
+  interpreted counts per scenario in one unit, instructions. A writer that only
+  counted cycles keeps them beside the counts under `cycles`, and the
+  instruction count stays `None`. Counters of different CPUs or devices are
+  never added together.
+- **Five measures.** `validation` holds native code, CPU fidelity, hardware
+  fidelity, gameplay and latency as five separate objects, each with a `claim`
+  that is never stronger than the flag the writer stored. Scan level, routes,
+  states, saves, the packed-executable check and the honesty flags have their
+  own sections.
+- **Reading.** `read_report(data_or_path)` turns any existing shape into
+  schema 2 without guessing: a field a shape does not carry is `None`, never
+  zero. A shape or schema number it does not know raises `ReportShapeError`.
+  `fallback_summary(report)` returns the fallback figures that `batch.py` and
+  `gui.py` compute from the old shapes, with the same values.
+
+Today only the reader exists. The writers still produce their own shapes, and
+`batch.py`, `gui.py` and the other consumers still read them directly; moving
+the writers to schema 2 (with the old keys kept for one release) and switching
+the callers to the reader come in later steps, each with proof that nothing
+observable changes ([Standards](STANDARDS.md), rules 6 to 8).
+
 ## Input freshness and presentation
 
 All seven console adapters stage the same `native/xbr_filter.h` and
