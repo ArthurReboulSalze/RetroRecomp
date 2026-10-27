@@ -23,7 +23,7 @@ import tempfile
 import zipfile
 import zlib
 
-from . import __version__
+from . import __version__, path_profiles
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
                         imported_path, load, merge_records, read, read_observations, valid_observation_rows,
                         validate_payload, write_observations, write_packed)
@@ -37,7 +37,16 @@ SYSTEMS = (*CARTRIDGE_SYSTEMS, 'ng')
 
 FORMAT = 'retro-recomp-knowledge'
 # Version 2 adds ROM-free raw observations; version 1 files still import.
+# Version 3 (1.6.0) carries the CPU-keyed paths of `path_profiles` (schema 3) in
+# place of the console-keyed records of schema 1; the observations, titles and
+# header are the same. Every version up to LATEST_VERSION is read; VERSION is
+# what a file is written as unless the receiver is known to read the later one
+# (an account upload asks the service, `online.upload_version`), because a
+# converter or a service older than 1.6.0 refuses version 3 as "not a knowledge
+# file". `read_exchange` always hands the paths back as schema 1 records.
 VERSION = 2
+LATEST_VERSION = 3
+READ_VERSIONS = (1, 2, 3)
 SUFFIX = '.rrknowledge'
 TITLE_LIMIT = 160
 CACHE_NAME = 'discoveries-cache.json.gz'
@@ -333,23 +342,54 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
             'levels': levels, 'converted': converted}
 
 
-def write_knowledge(collected: dict, destination: Path, channel: str | None = 'file') -> dict:
+def paths_to_v3(payload: dict) -> dict:
+    """A schema 1 payload ({"schema": 1, "consoles"}) as the CPU-keyed schema 3
+    one ({"schema": 3, "games"}), checked by `path_profiles.validate_games`.
+    ValueError when a record has no valid schema 3 form."""
+    return path_profiles.validate_games(path_profiles.bank_to_v3(validate_payload(payload)))
+
+
+def paths_from_v3(knowledge) -> dict:
+    """The down-projection: a schema 3 payload as the schema 1 payload that every
+    reader of the games' paths (banks, `merge_records`, the builder) works on.
+    Both validators must accept it: schema 3's own, then schema 1's (Neo Geo's
+    included), so nothing reaches the rest of the converter that an older
+    converter would have refused. ValueError otherwise."""
+    document = path_profiles.validate_games(knowledge)
+    return validate_payload(path_profiles.bank_to_legacy(document, validate=False))
+
+
+def write_knowledge(collected: dict, destination: Path, channel: str | None = 'file',
+                    version: int = VERSION, fallback: bool = True) -> dict:
     """Write what `collect_knowledge` found to one shared file. With no
-    `channel`, nothing is marked as shared: an upload marks it once accepted."""
-    document = {'format': FORMAT, 'version': VERSION, 'converter': __version__,
+    `channel`, nothing is marked as shared: an upload marks it once accepted.
+    `version` 3 writes the paths in schema 3; when a record has no valid schema
+    3 form the file is written as version 2 (`fallback`) or ValueError is
+    raised. The answer's `version` is the one written."""
+    if version not in (2, 3):
+        raise ValueError('Knowledge files are written as version 2 or 3.')
+    knowledge = collected['payload']
+    if version == 3:
+        try:
+            knowledge = paths_to_v3(knowledge)
+        except ValueError:
+            if not fallback:
+                raise
+            version = 2
+    document = {'format': FORMAT, 'version': version, 'converter': __version__,
                 'created_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-                'titles': collected['titles'], 'knowledge': collected['payload'],
+                'titles': collected['titles'], 'knowledge': knowledge,
                 'observations': collected.get('observations', {})}
     packed = write_packed(Path(destination), document)
     if channel:
         mark_shared(channel, collected)
     return {**{key: collected[key] for key in ('games', 'consoles', 'discoveries', 'omitted')},
-            'observation_count': collected.get('observation_count', 0), 'bytes': len(packed)}
+            'observation_count': collected.get('observation_count', 0), 'bytes': len(packed), 'version': version}
 
 
-def export_knowledge(games, destination: Path, locate=None, context: str = '') -> dict:
+def export_knowledge(games, destination: Path, locate=None, context: str = '', version: int = VERSION) -> dict:
     """Collect then write the discoveries of `games` to one file."""
-    return write_knowledge(collect_knowledge(games, locate, context), destination)
+    return write_knowledge(collect_knowledge(games, locate, context), destination, version=version)
 
 
 def _shared_path() -> Path:
@@ -413,19 +453,24 @@ def mark_shared(channel: str, collected: dict) -> None:
 
 def read_exchange(path: Path) -> dict:
     """Validate a shared file: header, titles, the numeric knowledge and the
-    ROM-free observations (version 2)."""
+    ROM-free observations (version 2). A version 3 file holds its paths in
+    schema 3; `document['knowledge']` is then their schema 1 projection, like
+    any other version's, and `document['version']` still says 3."""
     with gzip.open(path, 'rb') as stream:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise ValueError('Knowledge file exceeds its size limit.')
     document = json.loads(raw)
     if (not isinstance(document, dict) or document.get('format') != FORMAT
-            or document.get('version') not in (1, 2)
+            or type(document.get('version')) is not int or document['version'] not in READ_VERSIONS
             or not set(document) <= {'format', 'version', 'converter', 'created_utc', 'titles',
                                      'knowledge', 'observations'}
             or (document.get('version') == 1 and 'observations' in document)):
         raise ValueError('Not a Retro-Recomp knowledge file.')
-    payload = validate_payload(document.get('knowledge'))
+    if document['version'] == 3:
+        payload = document['knowledge'] = paths_from_v3(document.get('knowledge'))
+    else:
+        payload = validate_payload(document.get('knowledge'))
     if not set(payload['consoles']) <= set(SYSTEMS):
         raise ValueError('Unsupported console in knowledge file.')
     observations = document.setdefault('observations', {})
@@ -616,8 +661,17 @@ def import_fetched(roms: dict) -> dict:
 # element per engine revision; `parts` the paths still waiting, one per upload,
 # so a revocation or a local rejection can target a part, not the whole game.
 # Format 1 (parts only) is still read.
+#
+# Format 3 (1.6.0, the second line of the base) has the same shape with the
+# CPU-keyed records of `path_profiles` (schema 3) in `record`, and `cores` in
+# place of `engine`: the engine identity of the whole record, the very string
+# format 2 calls `engine` (a Neo Geo record: `<core>:<loader>`); the word is the
+# one the per-CPU qualification of a later stage will keep, when a record's
+# sections can be qualified apart. `base_entry` hands a format 3 entry back in
+# the shape of format 2 (`engine`, schema 1 records), so that nothing after it
+# (the qualified bank, the imported banks, the claims) knows two formats.
 
-BASE_FORMATS = (1, 2)
+BASE_FORMATS = (1, 2, 3)
 BASE_PARTS_LIMIT = 4096
 QUALIFIED_BY = ('maintainer', 'players')
 ENGINE_LIMIT = 128
@@ -649,12 +703,104 @@ def current_engines() -> dict:
         return {}
 
 
+def record_to_v3(system: str, identity: str, record):
+    """A schema 1 record as a checked schema 3 game record, or None when it has
+    no valid schema 3 form (schema 3 is stricter than schema 1 where the local
+    code that uses a hint is: `path_profiles.STRICTER_THAN_V2`)."""
+    try:
+        return path_profiles.validate_game(path_profiles.to_v3(system, identity, record))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return None
+
+
+def record_from_v3(system: str, identity: str, document):
+    """A schema 3 game record of this game as a schema 1 record, or None when
+    it is not a valid one or belongs to another game."""
+    try:
+        kind, key, record = path_profiles.to_legacy(document)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return None
+    return record if (kind, key) == (system, identity) else None
+
+
+def entry_to_v3(entry: dict, report: dict | None = None) -> dict:
+    """The format 3 entry of a format 1 or 2 entry (a dict, not its text): the
+    same games' paths, the same parts and sources, each record in schema 3. A
+    record without a valid schema 3 form is left out (a qualified element) or
+    kept as a part without its record (its observations stay), and counted in
+    `report` ("qualified", "parts")."""
+    system, identity = entry['system'], entry['identity']
+    qualified, parts = [], []
+    for item in entry.get('qualified', []):
+        record = record_to_v3(system, identity, item['record'])
+        if record is None:
+            if report is not None:
+                report['qualified'] = report.get('qualified', 0) + 1
+            continue
+        qualified.append({'cores': item['engine'], 'level': item['level'], 'by': item['by'], 'record': record})
+    for part in entry['parts']:
+        record = None if part['record'] is None else record_to_v3(system, identity, part['record'])
+        if record is None and part['record'] is not None and report is not None:
+            report['parts'] = report.get('parts', 0) + 1
+        parts.append({'source': part['source'], 'level': part['level'], 'record': record,
+                      'observations': part['observations']})
+    return {'format': 3, 'system': system, 'identity': identity,
+            'qualified': sorted(qualified, key=lambda item: item['cores']), 'parts': parts}
+
+
+def entry_to_v2(entry: dict, report: dict | None = None) -> dict:
+    """The down-projection: the format 2 entry of a format 3 entry (a dict). What
+    schema 1 cannot hold (a record of a machine it never had, or of several
+    cores) is left out like `entry_to_v3` does, and counted in `report`."""
+    system, identity = entry['system'], entry['identity']
+    qualified, parts = [], []
+    for item in entry.get('qualified', []):
+        record = record_from_v3(system, identity, item['record'])
+        if record is None:
+            if report is not None:
+                report['qualified'] = report.get('qualified', 0) + 1
+            continue
+        qualified.append({'engine': item['cores'], 'level': item['level'], 'by': item['by'], 'record': record})
+    for part in entry['parts']:
+        record = None if part['record'] is None else record_from_v3(system, identity, part['record'])
+        if record is None and part['record'] is not None and report is not None:
+            report['parts'] = report.get('parts', 0) + 1
+        parts.append({'source': part['source'], 'level': part['level'], 'record': record,
+                      'observations': part['observations']})
+    return {'format': 2, 'system': system, 'identity': identity,
+            'qualified': sorted(qualified, key=lambda item: item['engine']), 'parts': parts}
+
+
+def project_base(entries: dict, games: dict, target: int, report: dict | None = None) -> tuple[dict, dict]:
+    """A base in the other format, from the same games: `entries` is {sha:
+    canonical text}, `games` the index's {"system:identity": {"entry", "sources"}}.
+    Answers ({sha: canonical text} of the projected entries, the projected
+    games), every game keeping its sources; two games that project to the same
+    text share one entry. `target` is 2 (down) or 3 (up); a format 1 entry goes
+    to either. A whole game is never dropped: only a record that has no form in
+    the other schema (counted in `report`)."""
+    if target not in (2, 3):
+        raise ValueError('A base is projected to format 2 or 3.')
+    projected, index = {}, {}
+    convert = entry_to_v3 if target == 3 else entry_to_v2
+    for key, game in games.items():
+        value = json.loads(entries[game['entry']])
+        text = canonical_bytes(convert(value, report)).decode('ascii')
+        sha = hashlib.sha256(text.encode('ascii')).hexdigest()
+        projected[sha] = text
+        index[key] = {'entry': sha, 'sources': list(game['sources'])}
+    return projected, index
+
+
 def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
     """The game entry `value` named `sha` for this ROM, with its well-formed
     parts and qualified elements only (a malformed one is skipped, not the
     game, though `sources` still names every part); None when it is not the
-    entry asked for: its canonical text must hash to `sha`, be format 1 or 2
-    and name this ROM."""
+    entry asked for: its canonical text must hash to `sha`, be format 1, 2 or 3
+    and name this ROM. A format 3 entry is returned in the shape of format 2
+    (`engine`, schema 1 records; `format` still says 3): an element whose
+    schema 3 record is not valid, or has no schema 1 form, is skipped like a
+    malformed one."""
     from .scan_levels import LEVELS
     if not isinstance(value, dict) or type(value.get('format')) is not int or value['format'] not in BASE_FORMATS:
         return None
@@ -668,6 +814,7 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
             return None
     except (TypeError, ValueError, RecursionError, UnicodeError):
         return None
+    third = value['format'] == 3
     parts, seen = [], set()
     # Every source the entry names, whether its part is well-formed or not.
     sources = sorted({part['source'] for part in value['parts'][:BASE_PARTS_LIMIT]
@@ -678,17 +825,27 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
                 or not (part.get('record') is None or isinstance(part['record'], dict))
                 or not isinstance(part.get('observations'), list)):
             continue
+        record = part['record']
+        if third and record is not None:
+            record = record_from_v3(system, identity, record)
+            if record is None:
+                continue
         seen.add(part['source'])
-        parts.append({name: part[name] for name in ('source', 'level', 'record', 'observations')})
+        parts.append({'source': part['source'], 'level': part['level'], 'record': record,
+                      'observations': part['observations']})
     qualified, engines = [], set()
+    name = 'cores' if third else 'engine'
     for item in value.get('qualified', [])[:BASE_PARTS_LIMIT]:
-        if (not isinstance(item, dict) or not isinstance(item.get('engine'), str)
-                or not 0 < len(item['engine']) <= ENGINE_LIMIT or item['engine'] in engines
+        if (not isinstance(item, dict) or not isinstance(item.get(name), str)
+                or not 0 < len(item[name]) <= ENGINE_LIMIT or item[name] in engines
                 or item.get('level') not in LEVELS or item.get('by') not in QUALIFIED_BY
                 or not isinstance(item.get('record'), dict)):
             continue
-        engines.add(item['engine'])
-        qualified.append({name: item[name] for name in ('engine', 'level', 'by', 'record')})
+        record = record_from_v3(system, identity, item['record']) if third else item['record']
+        if record is None:
+            continue
+        engines.add(item[name])
+        qualified.append({'engine': item[name], 'level': item['level'], 'by': item['by'], 'record': record})
     return {'format': value['format'], 'system': system, 'identity': identity, 'parts': parts, 'sources': sources,
             'qualified': qualified}
 
@@ -734,7 +891,9 @@ def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
 # the copy, without a copy of it; "download" at base/index.json).
 
 INSTALLER_BASE = 'Retro-Recomp-base.zip'
-BASE_INDEX_FORMAT = 2
+# Index formats: 2 is the original line of the base, 3 the CPU-keyed one (1.6.0). A base archive,
+# its manifest and its index always agree on one of them.
+BASE_INDEX_FORMATS = (2, 3)
 BASE_INDEX_JSON_LIMIT = 64 * 1024 * 1024
 BASE_ENTRY_LIMIT = 16 * 1024 * 1024
 BASE_MANIFEST_LIMIT = 64 * 1024
@@ -796,17 +955,19 @@ def _short(value) -> str | None:
     return value[:64] if isinstance(value, str) else None
 
 
-def parse_base_index(raw: bytes, version: int | None = None) -> dict | None:
-    """{'version', 'built_utc', 'games': {key: {'entry', 'sources'}}} from an
-    index file's bytes, or None when it is not a format-2 index (of `version`,
-    when given). A malformed game is left out; the file is bounded."""
+def parse_base_index(raw: bytes, version: int | None = None, format: int | None = None) -> dict | None:
+    """{'format', 'version', 'built_utc', 'games': {key: {'entry', 'sources'}}}
+    from an index file's bytes, or None when it is not a format 2 or 3 index (of
+    `version` and `format`, when given). A malformed game is left out; the file
+    is bounded."""
     if len(raw) > BASE_INDEX_JSON_LIMIT:
         return None
     try:
         data = json.loads(raw)
     except (ValueError, RecursionError):
         return None
-    if (not isinstance(data, dict) or type(data.get('format')) is not int or data['format'] != BASE_INDEX_FORMAT
+    if (not isinstance(data, dict) or type(data.get('format')) is not int or data['format'] not in BASE_INDEX_FORMATS
+            or (format is not None and data['format'] != format)
             or not _count(data.get('version')) or (version is not None and data['version'] != version)
             or not isinstance(data.get('games'), dict)):
         return None
@@ -816,7 +977,8 @@ def parse_base_index(raw: bytes, version: int | None = None) -> dict | None:
                 and isinstance(value.get('entry'), str) and _SHA256.fullmatch(value['entry'])
                 and isinstance(value.get('sources'), list)):
             games[key] = {'entry': value['entry'], 'sources': sorted({s for s in value['sources'] if _count(s)})}
-    return {'version': data['version'], 'built_utc': _short(data.get('built_utc')), 'games': games}
+    return {'format': data['format'], 'version': data['version'], 'built_utc': _short(data.get('built_utc')),
+            'games': games}
 
 
 def _member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
@@ -834,11 +996,12 @@ def _member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
     return raw
 
 
-def read_archive_head(archive: zipfile.ZipFile, version: int | None = None) -> dict:
-    """The verified manifest and index of a base archive: {'version',
-    'built_utc', 'games', 'index_sha256', 'index', 'raw_index'}. Raises
-    BaseArchiveError when the archive is not a format-2 base (of `version`,
-    when given) or its index is not the one its manifest names."""
+def read_archive_head(archive: zipfile.ZipFile, version: int | None = None, format: int | None = None) -> dict:
+    """The verified manifest and index of a base archive: {'format',
+    'version', 'built_utc', 'games', 'index_sha256', 'index', 'raw_index'}.
+    Raises BaseArchiveError when the archive is not a format 2 or 3 base (of
+    `version` and `format`, when given), or its index is not the one its
+    manifest names, in the format its manifest names."""
     infos = archive.infolist()
     if len(infos) > BASE_ZIP_MEMBERS or sum(info.file_size for info in infos) > BASE_UNPACKED_LIMIT:
         raise BaseArchiveError('format', 'the archive is too large')
@@ -847,17 +1010,17 @@ def read_archive_head(archive: zipfile.ZipFile, version: int | None = None) -> d
     except ValueError as error:
         raise BaseArchiveError('format', 'no manifest') from error
     if (not isinstance(manifest, dict) or type(manifest.get('format')) is not int
-            or manifest['format'] != BASE_INDEX_FORMAT or not _count(manifest.get('version'))
-            or (version is not None and manifest['version'] != version)
+            or manifest['format'] not in BASE_INDEX_FORMATS or (format is not None and manifest['format'] != format)
+            or not _count(manifest.get('version')) or (version is not None and manifest['version'] != version)
             or not isinstance(manifest.get('index_sha256'), str) or not _SHA256.fullmatch(manifest['index_sha256'])):
         raise BaseArchiveError('format', 'unknown manifest')
     raw = _member(archive, 'index.json', BASE_INDEX_JSON_LIMIT)
     if raw is None or hashlib.sha256(raw).hexdigest() != manifest['index_sha256']:
         raise BaseArchiveError('checksum', 'the index is not the one the manifest names')
-    index = parse_base_index(raw, manifest['version'])
+    index = parse_base_index(raw, manifest['version'], manifest['format'])
     if index is None:
         raise BaseArchiveError('format', 'unknown index')
-    return {'version': manifest['version'], 'built_utc': _short(manifest.get('built_utc')) or index['built_utc'],
+    return {'format': manifest['format'], 'version': manifest['version'], 'built_utc': _short(manifest.get('built_utc')) or index['built_utc'],
             'games': len(index['games']), 'index_sha256': manifest['index_sha256'], 'index': index,
             'raw_index': raw}
 
@@ -924,7 +1087,8 @@ def _downloaded_base(state: dict | None) -> dict | None:
     index = parse_base_index(raw, state['version'])
     if index is None:
         return None
-    return {'version': state['version'], 'built_utc': index['built_utc'], 'games': len(index['games']),
+    return {'format': index['format'], 'version': state['version'], 'built_utc': index['built_utc'],
+            'games': len(index['games']),
             'index_sha256': state['index_sha256'], 'index': index, 'origin': 'download', 'cursor': state['cursor']}
 
 
@@ -940,9 +1104,9 @@ def local_base() -> dict | None:
     if installer and (local is None or installer['version'] > local['version']):
         cursor = state['cursor'] if state and state['origin'] == 'installer' \
             and state['index_sha256'] == installer['index_sha256'] else 0
-        return {'version': installer['version'], 'built_utc': installer['built_utc'], 'games': installer['games'],
-                'index_sha256': installer['index_sha256'], 'index': installer['index'], 'origin': 'installer',
-                'cursor': cursor}
+        return {'format': installer['format'], 'version': installer['version'], 'built_utc': installer['built_utc'],
+                'games': installer['games'], 'index_sha256': installer['index_sha256'], 'index': installer['index'],
+                'origin': 'installer', 'cursor': cursor}
     return local
 
 
@@ -1029,9 +1193,11 @@ def prune_entries(index: dict) -> int:
     return removed
 
 
-def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: int = 0) -> dict:
+def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: int = 0,
+                       format: int | None = None) -> dict:
     """Verify the base archive at `path` (a full base, or a difference whose
-    index is the complete index of `version`) and make it the local base:
+    index is the complete index of `version`, in `format` when given: a line of
+    the base is never mixed with the other) and make it the local base:
     every entry it carries is checked against the hash that names it, the
     index against its manifest, and every entry the index names must be held
     by the archive, the local folder or the installer's copy. Nothing changes
@@ -1042,7 +1208,7 @@ def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: i
     written = []
     try:
         with zipfile.ZipFile(path) as archive:
-            head = read_archive_head(archive, version)
+            head = read_archive_head(archive, version, format)
             index = head['index']
             wanted = {game['entry'] for game in index['games'].values()}
             installer = (installer_base() or {}).get('entries', frozenset())
@@ -1077,8 +1243,9 @@ def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: i
         except OSError:
             earlier = None
         _atomic_write(target, head['raw_index'])
-        base = {'version': head['version'], 'built_utc': head['built_utc'], 'games': head['games'],
-                'index_sha256': head['index_sha256'], 'index': index, 'origin': 'download', 'cursor': cursor}
+        base = {'format': head['format'], 'version': head['version'], 'built_utc': head['built_utc'],
+                'games': head['games'], 'index_sha256': head['index_sha256'], 'index': index, 'origin': 'download',
+                'cursor': cursor}
         try:
             write_base_state(base, service)
         except BaseException:
