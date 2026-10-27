@@ -168,6 +168,7 @@ retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
 tests/test_qualified_bank.py
 retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_knowledge_exchange.py
+retrorecomp/path_profiles.py tests/test_paths_schema.py
 retrorecomp/online.py tests/test_online.py tests/test_shared_sync.py
 tests/test_problem_reports.py tests/test_gui_player.py tests/test_gui_state.py tests/test_shop_display.py tests/test_conversion_rewards.py tests/test_offered_hints.py tests/test_sega_functions_gate.py tests/test_shared_base.py tests/test_base_store.py tests/test_shared_ng.py
 retrorecomp/gameboy_host.py

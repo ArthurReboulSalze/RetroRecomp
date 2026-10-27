@@ -1344,6 +1344,49 @@ compressed 29,087,239 to **29,093,134 bytes** (+5,895), raw 120,403,159 to 120,4
 other record of every console is identical. Producing the separate base that the installer lays
 beside the converter from this file is not part of this change.
 
+## Schema 3 of the paths: CPU-keyed (27 October 2026, defined, not used yet)
+
+Stage B1 of the standardisation ([STANDARDS.md](STANDARDS.md), "Paths") adds `retrorecomp/path_profiles.py`.
+It is the schema 3 of the compilation paths: a game record owns one section per CPU (`m68k`, `z80`,
+`mos6502`, `sm83`, `w65c816`, `spc700`) with its memory map, plus cartridge-device sections, and every
+pointer names the source it points into (`rom`, or Neo Geo's `p`, `bios`, `m1`, `sm1`). The module holds:
+
+- the per-CPU profiles (`PROFILES`: alignments, address windows, lengths, caps, the SPC700 budget), which
+  are plain data a web validator can be generated from (`profile_table()`);
+- the integer codecs (`list`, `const`, `delta` with a step, `sdelta`, `ranges`, `bitmap32`) behind
+  column-wise tables: lossless, order and repeats included, and bounded before anything is expanded;
+- `validate_game`, one validator driven by those profiles, for the seven consoles of the snapshot and, as
+  provisional shapes without data, CPS-1, X68000 and the GSU / CX4 / DSP-1 devices;
+- `to_v3` and `to_legacy`, adapters to and from the schema 1 records of every console, Neo Geo's own record
+  included. `to_legacy(to_v3(record)) == record` exactly.
+
+**Nothing uses it.** No conversion, bank, exchange file or base reads or writes schema 3; the local banks, the
+shared base and the snapshot stay schema 1. The module is listed in `INTERFACE_MODULES`
+(`compilation_inputs.py`) so that it is not a game-side input of its own. That edit still changes the game
+stamps of all nine consoles, because `compilation_inputs.py` is itself hashed as a game-side module (its code
+digest is the only input that differs between this commit and the one before; the host and build stamps are
+unchanged). This stage is therefore not stamp-neutral and joins the single stamp break planned for 1.6.0: it
+must not be released on its own.
+
+Where schema 1's shared validator is looser than the local code that uses the hints, schema 3 follows the local
+code (`STRICTER_THAN_V2`): Mega Drive RAM references (bus address `0xE00000..0xFFFFFE`, even length 2 to 16),
+Mega Drive Z80 references (pc outside `0x4000..0x7FFF`, length exactly 4), Super Nintendo RAM references (length
+exactly 4, 24-bit address). The snapshot has no row on the wrong side of any of them.
+
+Measured on the maintainer snapshot (1,609 records, all of them round-trip and validate): 120,327,522 bytes of
+compact JSON become 84,116,672 (-30 %), and 28,959,865 bytes of gzip become 17,808,782 (-39 %). Mega Drive goes
+from 10.6 to 2.0 MB gzipped, Game Boy from 2.0 to 0.8 MB; Super Nintendo shrinks by only 6 % raw and 9 % gzipped because
+its 56 MB of `spc_deltas` are carried as they are (a per-list codec was tried: -35 % raw, +4 % gzipped); Neo
+Geo is 4 % larger gzipped. Small records pay about 260 bytes of structure each. The numbers are printed by
+`tests/test_paths_schema.py`, not asserted.
+
+`tests/test_paths_schema.py` checks the round trip on fixtures of every shape and on a deterministic sample of
+the snapshot, the accept/reject parity with `knowledge.validate_payload` and
+`neogeo_knowledge.validate_record` on a mutation corpus (every column of every field swept with boundary and
+wrong-type values), and the codecs. `RETRO_RECOMP_PATHS_FULL=1` runs the whole snapshot (about a minute and a
+half and 1.2 GB of memory) and the 262,144-row SPC700 caps. Still to do: the exchange and the base in schema 3 with a dual line,
+then `knowledge.py` delegating to this module, which is the stage that ends this paragraph's "not used".
+
 ## Sharing discoveries between converters
 
 The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.
