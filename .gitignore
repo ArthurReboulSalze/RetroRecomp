@@ -60,6 +60,7 @@ AGENTS.md
 .codex/
 docs/*
 !docs/ARCHITECTURE.md
+!docs/STANDARDS.md
 !docs/COMPILATION_LIBRARY.md
 !docs/RUNTIME_FEEDBACK.md
 !docs/COMPILED_GAMES.md

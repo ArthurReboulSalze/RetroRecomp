@@ -28,6 +28,7 @@ private evidence under `.build/` that is not published.
 ## Converter and shared runtime
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — converter pipeline, native backends, the five measures kept separate.
+- [STANDARDS.md](STANDARDS.md) — the rules every change follows, the target shape (profiles, CPU-keyed paths, reports, host kit) and the "supported" checklist.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) — shared compilation knowledge: per-console and per-ROM observations, embedded snapshot.
 - [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md) — gameplay fallback feedback written by the exported games.
 - [UPGRADES.md](UPGRADES.md) — upgrading exports without rediscovery; host versus game inputs.
