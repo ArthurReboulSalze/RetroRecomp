@@ -1,3 +1,26 @@
+# RetroRecomp v1.5.5 — Neo Geo converts again, conversions per console, one ROM folder for missing ROMs
+
+- **Neo Geo converts again from the window.** In 1.5.4 every Neo Geo conversion
+  started from the queue or from Compiled games stopped at once with
+  `_convert() got an unexpected keyword argument 'discoveries_waiting'`: a
+  setting of the interface (discoveries waiting to be sent) was passed to the
+  converter, and the Neo Geo converter refuses unknown settings. Interface
+  settings are now dropped before every conversion, from one list a test checks.
+  Games converted by 1.5.4 stay current: nothing that generates a game changed.
+- **Games converted at once, per console.** Each console's tab in Options has
+  its own number of concurrent conversions beside its scan level, passes and
+  frames; empty follows the shared value, which stays the default and the
+  overall limit. A mixed queue still runs as one batch, with one Stop, one
+  summary and one end notice.
+- **One ROM folder instead of one ROM at a time.** When Reconvert cannot find a
+  game's original ROM, Retro-Recomp asks once for the folder holding that
+  console's ROMs and searches it (subfolders and ZIPs included, exact ROM
+  identity) for every missing ROM of that console in the selection. The folder
+  is kept in Options. For ROMs still missing it asks once more: another folder,
+  skip those games, or stop.
+
+---
+
 # RetroRecomp v1.5.4 — Super FX games, one base of paths beside the converter, rewards for every conversion
 
 - **Super FX cartridges convert.** Star Fox, Star Fox 2, Stunt Race FX,
