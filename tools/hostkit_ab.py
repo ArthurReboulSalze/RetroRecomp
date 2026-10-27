@@ -259,14 +259,21 @@ def battery(family: str, players: int = 2, gun: bool = False, pages: int = 5, le
         for _ in range(3):
             s.tap('Down', 2).tap('Return', 3)       # an option row runs its function key or changes the filter
         s.tap('Left', 3)
-    s.tap('F2', 4)
-    s.tap('Escape', 3)
-    # 10. Pointer: aim, fire, secondary, aux, leave the window.
+    s.tap('F2', 4)      # closes the page the sweep ended on; another Escape would quit the game
+    # 10. Pointer: aim, fire, secondary, aux, leave the window; then the pointer page of F2.
     if gun:
-        for x, y, mask in ((300, 200, 0), (300, 200, 1), (450, 250, 2), (450, 250, 4), (600, 300, 1), (10, 10, 0), (2000, 2000, 1)):
-            s.say(f'mouse {x} {y} {mask}', 4)
-        s.say('mouse 300 200 0', 3).tap('F2', 3).tap('Right', 3).tap('Right', 3).tap('Right', 3)
-        s.tap('F4', 4).say('mouse 400 300 1', 4).say('mouse 400 300 0', 3)
+        shots = ((300, 200, 0), (300, 200, 1), (450, 250, 2), (450, 250, 4), (600, 300, 1), (10, 10, 0), (2000, 2000, 1))
+        for n, (x, y, mask) in enumerate(shots):
+            s.say(f'mouse {x} {y} {mask}', 4).say(f'capture pointer-{n}.bmp', 3)
+        s.say('mouse 300 200 0', 3).tap('F2', 3)
+        for _ in range(2 * players):
+            s.tap('Right', 3)
+        s.say('capture pointer-page.bmp', 2)
+        for _ in range(4):
+            s.tap('Down', 2).tap('Return', 3)       # shape, size, colour, turbo
+        s.say('capture pointer-page-2.bmp', 2).tap('F2', 4)
+        s.say('mouse 400 300 1', 4).say('capture pointer-new.bmp', 3).say('mouse 400 300 0', 3)
+        s.tap('F4', 4).say('mouse 400 300 1', 4).say('capture pointer-display.bmp', 3).say('mouse 400 300 0', 3).tap('F4', 4).tap('F4', 4)
     # 10b. Neo Geo: enhanced mode on and off; the AES/MVS switch restarts the game, so it comes last.
     if family == 'ng':
         s.tap('F5', 6).say('capture enhanced.bmp', 2).tap('F5', 6).tap('F11', 6).say('capture aes.bmp', 2)
