@@ -146,6 +146,10 @@ class SystemProfile(ABC):
     option_keys: tuple[OptionKey, ...] = ()
     # The option (one of option_keys) that carries the batch's worker count.
     parallel_games_option: str | None = None
+    # The game's key in the paths banks is only known once a conversion has run (Neo Geo: a ZIP set
+    # has no prepared cartridge before). The batch then computes the request parts again before it
+    # writes the receipt, so that the receipt carries what the conversion used.
+    knowledge_identity_after_conversion: bool = False
 
     @property
     def experimental(self) -> bool:
@@ -159,6 +163,12 @@ class SystemProfile(ABC):
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """Add the console's own identity (firmware, machine) to the request
         settings that are about to be hashed. Most consoles have none."""
+
+    def knowledge_identity(self, item, settings: dict) -> str:
+        """The key of this game in the paths banks: the ROM's hash, unless the console names its
+        games otherwise (Neo Geo: its prepared cartridge and BIOS). `settings` is what
+        `request_identity` filled in."""
+        return item.sha256
 
     @abstractmethod
     def read_rom(self, path: Path):

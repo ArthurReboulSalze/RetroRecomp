@@ -4,7 +4,7 @@ The 1.4.1 values below were computed from the v1.4.1 tag and found, byte for
 byte, in executables and receipts written by the released Retro-Recomp.exe.
 The 1.5.1 and 1.5.2 game stamps were computed from their tags and each one reproduced
 the game part of a receipt written by the released Windows Retro-Recomp.exe of that release.
-The Super Nintendo has no entry any more: its engine changed what games do after 1.5.2.
+The Super Nintendo has no entry any more: its engine changed what games do after 1.5.2. Neither has the Neo Geo (see below).
 """
 import json
 import os
@@ -30,12 +30,19 @@ GAME_STAMPS_141 = {
     'gg': 'c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
     'md': 'd6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',
     'nes': 'e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
-    'ng': 'bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
     'sms': '3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
 }
 SNES_GAME_STAMPS_REMOVED = {
     '1.4.1': 'f377ace9362bb95a4f8bc1f02aca08dc6adb5b2d87daa34d11b46b0d987338e1',
     '1.5.2': '93b18890ebfbd84afc8ecadcafcef9ae56c3f1142c146981fd12a2805baed1c9',
+}
+# Neo Geo: real stamps of three releases, removed from the list for 1.6.0. The knowledge part of a Neo
+# Geo request hashed the whole Neo Geo bank until then and hashes the game's own record now, so a receipt
+# of those releases can never match a stamp reproduced today: Neo Geo exports are converted in full.
+NEO_GEO_GAME_STAMPS_REMOVED = {
+    '1.4.1': 'bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
+    '1.5.1': 'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
+    '1.5.2': '713b118e9738277d2d5a2e87d9b2aee1c23c2694e92d742e0c63a4e113d28c0d',
 }
 # Mega Drive and Super Nintendo: the released Windows 1.5.1 converter could not convert
 # them, so no receipt exists. X68000: no verified receipt (SDK stamp), as for 1.4.1.
@@ -44,7 +51,6 @@ GAME_STAMPS_151 = {
     'gb': '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c',
     'gg': '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3',
     'nes': 'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980',
-    'ng': 'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
     'sms': '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
 }
 # Super Nintendo: receipt reproduced, but no entry (engine changed after 1.5.2). X68000: no receipt.
@@ -54,7 +60,6 @@ GAME_STAMPS_152 = {
     'gg': '2cf791660628ebacd7a0f75e4b6c62f268032c769bc2c304925e6317cbe8a777',
     'md': 'c06987ee70ec4425daa373af5cb3822b06741dd881de222f3549507abd72cf96',
     'nes': 'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe',
-    'ng': '713b118e9738277d2d5a2e87d9b2aee1c23c2694e92d742e0c63a4e113d28c0d',
     'sms': '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92',
 }
 RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151), ('1.5.2', GAME_STAMPS_152))
@@ -70,11 +75,11 @@ class LegacyStampTests(unittest.TestCase):
                 self.assertNotEqual(stamp, inputs.role_stamps(system)['game'],
                                     'a stale list must not shadow the current game part')
         # Only consoles whose game part was reproduced from a real receipt are listed, release by release.
-        self.assertEqual(sorted(inputs.LEGACY_GAME_STAMPS), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms'])
+        self.assertEqual(sorted(inputs.LEGACY_GAME_STAMPS), ['cps1', 'gb', 'gg', 'md', 'nes', 'sms'])
         for system, stamps in inputs.LEGACY_GAME_STAMPS.items():
             self.assertEqual(stamps, tuple(table[system] for _, table in RELEASES if system in table), system)
-        self.assertEqual(sorted(GAME_STAMPS_151), ['cps1', 'gb', 'gg', 'nes', 'ng', 'sms'])
-        self.assertEqual(sorted(GAME_STAMPS_152), ['cps1', 'gb', 'gg', 'md', 'nes', 'ng', 'sms'])
+        self.assertEqual(sorted(GAME_STAMPS_151), ['cps1', 'gb', 'gg', 'nes', 'sms'])
+        self.assertEqual(sorted(GAME_STAMPS_152), ['cps1', 'gb', 'gg', 'md', 'nes', 'sms'])
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
 
     def test_super_nintendo_exports_of_earlier_releases_are_converted_in_full(self):
@@ -84,6 +89,13 @@ class LegacyStampTests(unittest.TestCase):
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
         self.assertFalse(listed & set(SNES_GAME_STAMPS_REMOVED.values()))
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
+
+    def test_neo_geo_exports_of_earlier_releases_are_converted_in_full(self):
+        # The knowledge part of a Neo Geo receipt changed meaning in 1.6.0 (the whole bank, then the
+        # game's own record): an entry could never match, so none may be listed.
+        self.assertEqual(inputs.legacy_game_stamps('ng'), ())
+        listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
+        self.assertFalse(listed & set(NEO_GEO_GAME_STAMPS_REMOVED.values()))
 
     def test_toolchain_choice_is_a_build_input_and_changes_no_game_or_host_stamp(self):
         self.assertEqual(inputs.role('retrorecomp.toolchain'), 'build')

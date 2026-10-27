@@ -1,7 +1,8 @@
 """Schema 3 of the compilation paths (CPU-keyed): lossless adapters, parity, codecs.
 
-`retrorecomp.path_profiles` is not used by any release code yet. These tests
-pin what it must keep true before a later stage wires it in:
+`retrorecomp.path_profiles` is the module `knowledge` delegates to since 1.6.0 (stage B3);
+the exchange, the shared base and the service client use its schema 3 half. These tests pin
+what it must keep true:
 
   a. `to_legacy(to_v3(r)) == r` for every record shape, on fixtures and on the
      maintainer snapshot (a deterministic sample by default; every record when
@@ -705,27 +706,108 @@ class ValidatorTests(unittest.TestCase):
                                                     'md.z80_refs.length', 'snes.ram_refs.length', 'snes.ram_refs.address'})
 
 
-class NotWiredYetTests(unittest.TestCase):
-    """The schema travels (stage B2: the exchange file, the shared base and the
-    upload) but no conversion code reads it. Drop this class when a later stage
-    makes `knowledge.py` import the module."""
+class GameModuleTests(unittest.TestCase):
+    """Since 1.6.0 (stage B3) the module is a game module: `knowledge` delegates to it, so it is
+    in every console's game stamp (the one deliberate break of the stamps)."""
 
-    def test_no_game_module_imports_the_schema_yet(self):
-        users = []
-        for path in sorted((ROOT / 'retrorecomp').rglob('*.py')):
-            if path.name != 'path_profiles.py' and 'path_profiles' in path.read_text(encoding='utf-8'):
-                users.append(path.relative_to(ROOT).as_posix())
-        # stamp_inputs (the data of the stamps) only names it as an interface module; the
-        # exchange and the service client are interface modules too (docs/COMPILATION_LIBRARY.md).
-        self.assertEqual(users, ['retrorecomp/knowledge_exchange.py', 'retrorecomp/stamp_inputs.py'])
+    def test_the_converter_reads_the_one_table_of_fields(self):
+        self.assertIs(knowledge.FIELDS, pp.LEGACY_FIELDS)
+        self.assertIs(neogeo_knowledge.FIELDS, pp.LEGACY_FIELDS['ng'])
+        self.assertIs(knowledge.FIELDS['ng'], neogeo_knowledge.FIELDS)
+        self.assertEqual(neogeo_knowledge.key(CART, BIOS), pp.ng_key(CART, BIOS))
+        for text in ('retrorecomp/knowledge.py', 'retrorecomp/neogeo_knowledge.py'):
+            self.assertIn('path_profiles', (ROOT / text).read_text(encoding='utf-8'), text)
+
+    def test_the_stamp_definition_does_not_import_it(self):
         text = (ROOT / 'retrorecomp' / 'stamp_inputs.py').read_text(encoding='utf-8')
         self.assertNotRegex(text, r'import\s+.*path_profiles|from\s+\.path_profiles')
 
-    def test_it_is_an_interface_module_that_no_game_stamp_hashes(self):
-        self.assertIn('path_profiles', compilation_inputs.INTERFACE_MODULES)
+    def test_it_is_a_game_module_every_console_stamp_hashes(self):
+        self.assertNotIn('path_profiles', compilation_inputs.INTERFACE_MODULES)
         for system in sorted(compilation_inputs.SYSTEMS):
             names = {name for name, _ in compilation_inputs._module_inputs(system)}
-            self.assertNotIn('retrorecomp.path_profiles', names, system)
+            self.assertIn('retrorecomp.path_profiles', names, system)
+            self.assertEqual(compilation_inputs.role('retrorecomp.path_profiles'), 'game')
+
+    def test_the_sharing_lists_and_key_patterns_follow_one_list(self):
+        from retrorecomp import knowledge_build, knowledge_exchange, online
+        self.assertEqual(knowledge_exchange.SYSTEMS, pp.SHARED_SYSTEMS)
+        self.assertEqual(knowledge_exchange.SYSTEMS, (*knowledge_build.SYSTEMS, 'ng'))
+        digest = '0123456789abcdef' * 4
+        for pattern in (online._ROM_KEY, knowledge_exchange._GAME_KEY):
+            for system in pp.SHARED_SYSTEMS:
+                self.assertTrue(pattern.fullmatch(f'{system}:{digest}'), system)
+            for system in ('cps1', 'x68', 'psx'):
+                self.assertFalse(pattern.fullmatch(f'{system}:{digest}'), system)
+            self.assertFalse(pattern.fullmatch('md:' + digest[:-1]))
+        # Adding a console to the sharing is one name in the list.
+        wider = pp.game_key((*pp.SHARED_SYSTEMS, 'cps1', 'x68'))
+        self.assertTrue(wider.fullmatch(f'cps1:{digest}') and wider.fullmatch(f'x68:{digest}'))
+        self.assertEqual(set(pp.SYSTEMS), set(pp.SHARED_SYSTEMS) | {'cps1', 'x68'})
+
+
+class LocalBankReaderTests(unittest.TestCase):
+    """The readers of a local bank accept schema 1 and schema 3 and give the same schema 1 view."""
+
+    def banks(self):
+        payload = {'schema': 1, 'consoles': {}}
+        for index, (system, identity, record) in enumerate(FIXTURES.values()):
+            if system == 'ng':
+                payload['consoles'].setdefault('ng', {}).setdefault(identity, record)
+            else:
+                payload['consoles'].setdefault(system, {})[f'{index:064x}'] = record
+        return payload, pp.bank_to_v3(payload)
+
+    def test_both_schemas_give_the_same_records(self):
+        payload, bank = self.banks()
+        self.assertEqual(pp.read_bank(copy.deepcopy(payload)), payload)
+        self.assertEqual(pp.read_bank(copy.deepcopy(bank)), payload)
+        self.assertEqual(pp.bank_games(copy.deepcopy(bank)), {})
+        self.assertEqual(pp.bank_games(payload), {})
+
+    def test_a_file_of_either_schema_is_read_and_cps1_games_are_kept_apart(self):
+        import tempfile
+        payload, bank = self.banks()
+        cps1 = cps1_document()
+        bank['games'][cps1['game']] = cps1
+        with tempfile.TemporaryDirectory() as folder:
+            first, second = Path(folder, 'one.json.gz'), Path(folder, 'three.json.gz')
+            knowledge.write_packed(first, payload)
+            knowledge.write_packed(second, bank)
+            self.assertEqual(knowledge.read(first), payload)
+            self.assertEqual(knowledge.read(second), payload)
+            self.assertEqual(knowledge.read_games(first), {})
+            self.assertEqual(knowledge.read_games(second), {cps1['game']: cps1})
+            with self.assertRaises(ValueError):
+                knowledge.write_packed(first, {'schema': 3, 'games': {'md:' + '0' * 64: {}}})
+                knowledge.read(first)
+
+    def test_a_game_whose_projection_fails_the_schema_1_rules_is_set_aside(self):
+        # The exchange reader validates the projection (paths_from_v3); the local reader does too.
+        from unittest.mock import patch
+        payload, bank = self.banks()
+        real = pp.validate_legacy_record
+        def refuse_md(system, identity, record):
+            if system == 'md':
+                raise ValueError('Invalid compilation knowledge entries.')
+            return real(system, identity, record)
+        with patch.object(pp, 'validate_legacy_record', side_effect=refuse_md):
+            read = pp.read_bank(copy.deepcopy(bank))
+        self.assertNotIn('md', read['consoles'])
+        self.assertEqual({k: v for k, v in read['consoles'].items()},
+                         {k: v for k, v in payload['consoles'].items() if k != 'md'})
+        self.assertIn('md', pp.read_bank(copy.deepcopy(bank))['consoles'])
+
+    def test_schema_1_rules_are_unchanged_by_the_move(self):
+        # The schema 1 validator is path_profiles' now; knowledge.validate_payload is its name.
+        _, bank = self.banks()
+        with self.assertRaises(ValueError):
+            knowledge.validate_payload(bank)
+        with self.assertRaises(ValueError):
+            pp.validate_legacy_payload({'schema': 1, 'consoles': {'cps1': {}}})
+        for name in ('md', 'snes', 'ng'):
+            system, identity, record = FIXTURES[name]
+            self.assertEqual(pp.validate_legacy_record(system, identity, record), record)
 
 
 if __name__ == '__main__':

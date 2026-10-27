@@ -151,14 +151,6 @@ def _seed_sites(path: Path) -> set[str]:
         return set()
 
 
-def _bundled_record(rom) -> dict:
-    """The qualified bank's record for this exact ROM, without imported hints."""
-    from .knowledge import qualified_record
-    record = qualified_record('nes', rom.sha256)
-    return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
-            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
-
-
 def _record_sites(rom, record: dict) -> tuple[set[str], set[tuple[int, int]]]:
     return ({f'4k:{bank:X}:{address:04X}' for bank, address in record.get('rom_entries', [])
              if bank < len(rom.data) // 4096 and 0x8000 <= address <= 0xffff},
@@ -187,13 +179,13 @@ def _offered_only(rom, previous: Path) -> tuple[set[str], set[tuple[int, int]]]:
     qualified bank. They guide the conversion; the library keeps them only
     once a conversion observes them."""
     from .feedback import Observation, records
-    from .knowledge import imported_observations, imported_record
+    from .knowledge import bundled_record, imported_observations, imported_record
     rows = [Observation(kind, address, auxiliary, bytes(rom.data[offset:offset + length]))
             for kind, address, auxiliary, length, offset in imported_observations('nes', rom.sha256)]
     rom_sites, ram = _record_sites(rom, imported_record('nes', rom.sha256))
     observed = _row_sites(rom, rows)
     own = _row_sites(rom, records('nes', rom.sha256))
-    bundled = _record_sites(rom, _bundled_record(rom))
+    bundled = _record_sites(rom, bundled_record('nes', rom, ENGINE_REV))
     return ((rom_sites | observed[0]) - own[0] - bundled[0] - _seed_sites(previous),
             (ram | observed[1]) - own[1] - bundled[1] - ram_sites(previous))
 

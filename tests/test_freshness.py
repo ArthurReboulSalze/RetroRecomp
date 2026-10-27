@@ -74,6 +74,60 @@ class FreshnessTests(unittest.TestCase):
             with patch('retrorecomp.compilation_inputs.role_stamps',return_value={'game':'new-sm83-compiler','host':'h'}):
                 self.assertEqual(self.run_batch()['status'],'success')
 
+    def keyed_conversion(self,*,settles_after_conversion):
+        """A console whose game key in the paths banks is only known once a conversion ran (the Neo Geo
+        ZIP set: its prepared cartridge), with a record in the bank for that key."""
+        state={'prepared':False,'conversions':0};self.state=state
+        def convert(path,**options):
+            state['prepared']=True;state['conversions']+=1      # the conversion prepares the cartridge and uses the record of its key
+            return self.compiler(path,**options)
+        identity=lambda profile,item,settings:'prepared-key' if state['prepared'] else item.sha256
+        record=lambda system,key:{'engine':'a'*40,'rom_bytes':8192,'rom_entries':[[1]]} if key=='prepared-key' else {}
+        calls=[]
+        from retrorecomp import freshness
+        real=freshness.request_parts
+        def parts(*arguments):
+            calls.append(real(*arguments));return calls[-1]
+        patches=[patch('retrorecomp.systems.master_system.MasterSystemProfile.convert',side_effect=convert),
+                 patch('retrorecomp.systems.master_system.MasterSystemProfile.knowledge_identity',identity),
+                 patch('retrorecomp.systems.master_system.MasterSystemProfile.knowledge_identity_after_conversion',
+                       settles_after_conversion,create=True),
+                 patch('retrorecomp.knowledge.qualified_record',side_effect=record),
+                 patch('retrorecomp.freshness.request_parts',side_effect=parts)]
+        for item in patches:
+            item.start();self.addCleanup(item.stop)
+        return calls
+
+    def test_a_set_prepared_by_its_first_conversion_keeps_its_signature_at_the_next_batch(self):
+        calls=self.keyed_conversion(settles_after_conversion=True)
+        first=self.run_batch();self.assertEqual(first['status'],'success')
+        self.assertEqual(len(calls),2,'computed before the conversion, then again for the receipt')
+        self.assertNotEqual(calls[0]['request'],calls[1]['request'],'the key was unknown before the conversion')
+        receipt=json.loads(Path(first['report']).read_text())['export_receipt']
+        self.assertEqual((receipt['request'],receipt['game'],receipt['host']),
+                         (calls[1]['request'],calls[1]['game'],calls[1]['host']))
+        self.assertEqual(self.run_batch()['status'],'current')
+        self.assertEqual(self.state['conversions'],1)
+
+    def test_without_the_declaration_the_signature_would_move_once_the_set_is_prepared(self):
+        # What the declaration prevents: a pointless second full conversion, once per set.
+        self.keyed_conversion(settles_after_conversion=False)
+        self.assertEqual(self.run_batch()['status'],'success')
+        self.assertEqual(self.run_batch()['status'],'success')
+
+    def test_a_cartridge_console_writes_the_signature_computed_before_the_conversion(self):
+        from retrorecomp.systems import ALL_PROFILES
+        self.assertEqual({profile.id for profile in ALL_PROFILES if profile.knowledge_identity_after_conversion},{'ng'})
+        calls=[];from retrorecomp import freshness;real=freshness.request_parts
+        def parts(*arguments):
+            calls.append(real(*arguments));return calls[-1]
+        with patch('retrorecomp.freshness.request_parts',side_effect=parts):
+            first=self.run_batch()
+        self.assertEqual(len(calls),1)
+        receipt=json.loads(Path(first['report']).read_text())['export_receipt']
+        self.assertEqual((receipt['request'],receipt['game'],receipt['host']),
+                         (calls[0]['request'],calls[0]['game'],calls[0]['host']))
+
     def test_host_only_change_upgrades_without_rediscovery(self):
         stamps={'game':'same-game','host':'menus-v1'}
         with patch('retrorecomp.compilation_inputs.role_stamps',side_effect=lambda system:dict(stamps)):

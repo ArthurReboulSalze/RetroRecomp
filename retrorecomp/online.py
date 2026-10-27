@@ -38,7 +38,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import __version__
+from . import __version__, path_profiles
 
 # RETRO_RECOMP_SERVICE=<base URL> points a test converter at another server
 # (an empty value turns the service off).
@@ -69,7 +69,7 @@ CLAIMS_KEPT = 64
 CURSORS_NAME = 'shared-cursors.json'
 # A game is named 'system:identity'. A cartridge console's identity is its ROM's
 # hash; a Neo Geo game's is key(prepared cartridge, BIOS) (neogeo_knowledge.key).
-_ROM_KEY = re.compile(r'(sms|gg|gb|nes|md|snes|ng):[0-9a-f]{64}')
+_ROM_KEY = path_profiles.game_key()
 
 
 class ServiceConnectionError(Exception):

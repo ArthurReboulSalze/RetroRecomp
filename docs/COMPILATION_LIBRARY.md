@@ -72,7 +72,8 @@ Without further care every 1.4.1 export would be converted in full. Instead
 release 1.4.1, followed by the ones of releases 1.5.1 and 1.5.2 where a real receipt confirmed
 them ([1.5.1](#release-151-entries-25-october-2026-windows),
 [1.5.2](#release-152-entries-26-october-2026-windows)). The Super Nintendo has no entry any
-more since its engine changed after 1.5.2 (see the 1.5.2 part). A receipt whose game part equals the
+more since its engine changed after 1.5.2 (see the 1.5.2 part), and neither has the **Neo Geo** since 1.6.0 (see
+[Stage B3](#stage-b3-the-conversions-follow-the-module-27-october-2026)). A receipt whose game part equals the
 hash computed with one of these stamps is accepted by `freshness.upgradable()` as the same
 game part:
 
@@ -1389,7 +1390,7 @@ compressed 29,087,239 to **29,093,134 bytes** (+5,895), raw 120,403,159 to 120,4
 other record of every console is identical. Producing the separate base that the installer lays
 beside the converter from this file is not part of this change.
 
-## Schema 3 of the paths: CPU-keyed (27 October 2026; travels in the exchange and the base, not read by conversions yet)
+## Schema 3 of the paths: CPU-keyed (27 October 2026; travels in the exchange and the base, read by the conversions' code since 1.6.0)
 
 Stage B1 of the standardisation ([STANDARDS.md](STANDARDS.md), "Paths") adds `retrorecomp/path_profiles.py`.
 It is the schema 3 of the compilation paths: a game record owns one section per CPU (`m68k`, `z80`,
@@ -1405,15 +1406,11 @@ pointer names the source it points into (`rom`, or Neo Geo's `p`, `bios`, `m1`, 
 - `to_v3` and `to_legacy`, adapters to and from the schema 1 records of every console, Neo Geo's own record
   included. `to_legacy(to_v3(record)) == record` exactly.
 
-**What uses it.** Since stage B2 (below) the exchange file, the shared base and the upload carry schema 3. No
-conversion, bank or snapshot reads or writes it: the local banks (`qualified.json.gz`, `imported.json.gz`,
-`imported-observations.json.gz`) and the maintainer's snapshot stay schema 1, and every reader of the paths still
-works on schema 1 records. The module is listed in `INTERFACE_MODULES`
-(`compilation_inputs.py`) so that it is not a game-side input of its own. That edit still changes the game
-stamps of all nine consoles, because `compilation_inputs.py` is itself hashed as a game-side module (its code
-digest is the only input that differs between this commit and the one before; the host and build stamps are
-unchanged). This stage is therefore not stamp-neutral and joins the single stamp break planned for 1.6.0: it
-must not be released on its own.
+**What uses it.** Since stage B2 (below) the exchange file, the shared base and the upload carry schema 3. Since
+stage B3 (further below) `knowledge.py` delegates to the module, so the module is a **game module** in every
+console's game stamp (it left `INTERFACE_MODULES`), and the readers of the local banks accept both schemas. The
+local banks (`qualified.json.gz`, `imported.json.gz`, `imported-observations.json.gz`) and the maintainer's snapshot
+are still **written** in schema 1; every consumer of the paths still works on schema 1 records.
 
 Where schema 1's shared validator is looser than the local code that uses the hints, schema 3 follows the local
 code (`STRICTER_THAN_V2`): Mega Drive RAM references (bus address `0xE00000..0xFFFFFE`, even length 2 to 16),
@@ -1431,8 +1428,7 @@ Geo is 4 % larger gzipped. Small records pay about 260 bytes of structure each. 
 the snapshot, the accept/reject parity with `knowledge.validate_payload` and
 `neogeo_knowledge.validate_record` on a mutation corpus (every column of every field swept with boundary and
 wrong-type values), and the codecs. `RETRO_RECOMP_PATHS_FULL=1` runs the whole snapshot (about a minute and a
-half and 1.2 GB of memory) and the 262,144-row SPC700 caps. Still to do: `knowledge.py` delegating to this module,
-which is the stage that ends this paragraph's "not read by conversions".
+half and 1.2 GB of memory) and the 262,144-row SPC700 caps.
 
 ### Schema 3 travels (stage B2, 27 October 2026)
 
@@ -1488,6 +1484,84 @@ projections both ways (a skipped element never drops the game), the archives and
 refusal across lines, and the update against a fake service: no base starts on line 3, a base stays on its line, the
 switch only when a line leads nowhere, a service without line 3 is never asked for it, a broken `GET base3` leaves
 line 2, and the version an upload is written in follows `knowledge_versions`.
+
+### Stage B3: the conversions follow the module (27 October 2026)
+
+`knowledge.py` stops keeping paths logic of its own and delegates to `path_profiles.py`. This is the one stage of the
+standardisation that moves the game stamps on purpose (1.6.0); what a conversion generates does not move.
+
+- **One table, one validator.** The schema 1 fields (`LEGACY_FIELDS`, row width and row cap) are kept once in
+  `path_profiles`; `knowledge.FIELDS` and `neogeo_knowledge.FIELDS` are that very dictionary (the Neo Geo copy is gone),
+  and the schema 1 rules of `knowledge.validate_payload` moved there unchanged (`validate_legacy_payload`): the old
+  and the new validator give the same verdict on 24,727 cases (the whole mutation corpus of the tests and the sample of the
+  snapshot). They are not replaced by `validate_game`, which is stricter in six places (`STRICTER_THAN_V2`): a bank
+  that was readable must stay readable. `neogeo_knowledge.key` is `path_profiles.ng_key`.
+- **Local banks, both schemas.** `knowledge.read` (the reader of `qualified.json.gz`, `imported.json.gz` and the
+  maintainer's file) dispatches on `schema`: 1 as before, 3 through `validate_games` and the adapters, handing back the same
+  schema 1 view. The games of a schema 3 bank that have no schema 1 form (CPS-1, X68000) are `knowledge.read_games` /
+  `qualified_game` / `imported_game`. Banks are still **written** in schema 1 (`write_packed`, `write_qualified_bank`,
+  `discard_imported`). The strong reason to change that, not applied here: CPS-1 and X68000 records cannot be written
+  in schema 1, so the day those machines share paths the writers must write schema 3 whenever a game has no schema 1 form,
+  and a schema 3 bank must never be rewritten by a schema 1 writer (it would drop those games).
+- **`knowledge_stamp`** hashes the game's own record in its schema 1 form (the legacy projection, so a record whose content
+  did not change keeps its stamp whatever schema its file is in). Neo Geo hashed the whole Neo Geo bank and took no
+  imported hints; it now hashes the record of its key (`SystemProfile.knowledge_identity`: key(prepared cartridge, BIOS),
+  the ROM's hash for every other machine), imported record included. CPS-1 and X68000 hashed a constant and hash their
+  schema 3 record as soon as a bank holds one (a constant, `{}`, when there is none, as before).
+- **One of each.** `knowledge.bundled_record(system, rom, engine)` replaces the copies in `gameboy.py` and `nes.py` (the
+  Mega Drive and Super Nintendo modules keep a one-line wrapper that names their engine). The key patterns of the
+  interface (`online._ROM_KEY`, `knowledge_exchange._GAME_KEY`) are `path_profiles.game_key()` over `SHARED_SYSTEMS`:
+  sharing CPS-1 or the X68000 is one name in that list. The feedback kinds already come from the profiles
+  (`feedback.KINDS`), one registry. **Left for later**: the three copies of the decoders from observed rows to paths
+  (`feedback.sega_candidates` / `knowledge_build._sega_rows`, `feedback.gb_entries` / the loop in `gameboy._known_entries`,
+  `feedback.nes_sites` / `nes._row_sites`): `feedback.py` is being changed by the X68000 identity step (6a), so they are
+  merged once that is in.
+- **Stamps.** `path_profiles` left `INTERFACE_MODULES` and is listed for every console in `stamp_inputs.INPUTS`; it is
+  therefore a game input of all nine consoles, like `knowledge.py`. Every console's **game** stamp moves once; the host
+  and build stamps, and `LEGACY_GAME_STAMPS` and `RR16_STATE_COMPAT_ABI` (release procedure) do not. The knowledge
+  stamp of a game with an unchanged record is unchanged.
+- **Neo Geo leaves `LEGACY_GAME_STAMPS`.** A Neo Geo receipt written before 1.6.0 carries a knowledge part that is the
+  hash of the whole Neo Geo bank of its time; 1.6.0 hashes the record of the game's key. The two can never be equal, so
+  the 1.4.1, 1.5.1 and 1.5.2 entries could never be recognised (`legacy_games` hashes the game part, knowledge part
+  included). They are removed, with a comment in `stamp_inputs.py`, and no Neo Geo entry may be added for 1.5.6 or any
+  release before 1.6.0. Nothing is lost: the Neo Geo exports of earlier releases are converted in full by 1.6.0, which
+  is the safe outcome. The three real stamps stay in `tests/test_legacy_compat.py` as removed values, like the Super
+  Nintendo ones.
+- **The Neo Geo receipt carries the key the conversion found.** The key of a ZIP set (cartridge prepared, BIOS) is only
+  known once a first conversion prepared its cartridge. The batch decides freshness and upgrades with the parts computed
+  before the conversion, and, for a profile that declares `knowledge_identity_after_conversion` (the Neo Geo only),
+  computes them again before it writes `export_receipt`, so the receipt holds the record the conversion used and the
+  next batch finds the same signature (without it, a set with a record in the shared base was converted twice). The
+  other consoles' identity does not depend on the conversion: their receipt is written from the parts of before, as
+  before.
+- **Writers of schema 1.** `discard_imported`, `write_qualified_bank` and the import of shared files read a bank through
+  the schema 1 view and write it back in schema 1. They now refuse (`ValueError`) to rewrite a schema 3 file that holds
+  a game with no schema 1 form (CPS-1, X68000, several cores), which they would drop; nothing is written then. A schema 3
+  bank whose games all have a schema 1 form is rewritten without loss. Not reachable today (no bank is written in
+  schema 3). The local reader also checks every schema 1 projection with `validate_legacy_record`, like the exchange
+  reader, and sets a game aside that fails it.
+
+**Evidence (27 October 2026, Windows, Python 3.14.5).** Two real short conversions per console (quick scan, one
+pass, 600 frames; the ROMs were read in place on the NAS, nothing copied) of the commit before (`bd26c65`, an archive
+of it) and of this one, from the very same folder (the generated files contain absolute paths), with the same planted
+banks: the campaign record of each game in the qualified bank and a second, smaller record in the imported bank, plus
+ROM-free observations for Master System, Game Gear, Game Boy and NES. Games with a record: Master System
+Alex Kidd in Miracle World (101 entries) and Action Fighter; Game Gear Factory Panic and OutRun (synthetic imported
+entries: the campaign has none); Game Boy Alleyway (1,023 entries) and A-mazing Tater (570); NES 3-D WorldRunner (7 RAM
+opcode references) and Airwolf (27); Mega Drive Alex Kidd in the Enchanted Castle (26 RAM references, 8,880 Z80
+references) and Art Alive (8,193 Z80 references); Super Nintendo A.S.P. Air Strike Patrol (44 RAM opcode references,
+256 SPC700 delta lists) and Alien 3 (4,446 SPC700 ranges); Neo Geo Joy Joy Kid (2,316 BIOS roots) and Flip Shot (1,735
+BIOS roots, 529 RAM references). CPS-1 (Nemo) and two X68000 disks (Arkanoid Revenge of Doh, Alien Syndrome) have no
+paths: they only show that nothing else moved. Every generated file of the project folder was compared, minus
+the run logs, the timing fields of the check results and the hashes of built executables (two runs of the same code
+differ there; they were run twice to show it). Result: **all 3,192 + 419 + 520 source files are byte-identical** for
+the nine consoles. The exceptions, all fingerprints of the code and not sources: the Mega Drive's
+`generation-identity.json` names the code digest of `megadrive.py` (`adapter`, edited here), the X68000's folder name
+and `sdk` field are its code stamp, and its `rr_px68k_reference.dll` differs between two builds of the same code.
+Removing the banks changes the sources of the Game Boy, NES, Mega Drive and Super Nintendo games, so the comparison
+does see the hints. In the stamps only the game part moves (`role_stamps`: game of the nine consoles changed, host and
+build unchanged), and the knowledge stamp of the twelve cartridge games is unchanged; the Neo Geo one changes by
+design. Windows only: the Linux comparison is a step of the release procedure, as for the other stamp breaks.
 
 ## Sharing discoveries between converters
 
