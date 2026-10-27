@@ -73,8 +73,9 @@ def merge(observations: dict, fallback: dict) -> bool:
 
 
 def learned(identity: str, memory: Path) -> dict:
-    """Earlier qualified observations of this exact set and opt-in gameplay feedback."""
-    from .feedback import records
+    """The private observations of earlier conversions of this exact set: work-RAM and sound-RAM code that
+    this player's native runs met and could not cover. Raw words, so they never leave the library; the shared
+    paths are numbers made apart (`cps1_knowledge`, from the fresh reference runs)."""
     observations = {'m68k_ram': [], 'z80_ram': []}
     previous = memory / 'observations.json'
     if previous.is_file():
@@ -82,12 +83,28 @@ def learned(identity: str, memory: Path) -> dict:
             merge(observations, json.loads(previous.read_text(encoding='utf-8')))
         except (OSError, ValueError, KeyError, TypeError):
             pass
-    rows = {'m68k_ram': [{'offset': r.address, 'words': r.data.hex()} for r in records('cps1', identity, 15)
+    return observations
+
+
+def feedback_rows(identity: str) -> dict:
+    """The player's opt-in gameplay feedback (kinds 15 and 16) as build hints. They have no provenance: they are
+    used by this conversion, which checks the native code against the fresh reference, but never written into
+    the library's observations and never shared. Kind 14 (a ROM instruction left interpreted) is not read: the
+    program ROM is swept whole, so there is nothing a path could add (see `cps1_knowledge`)."""
+    from .feedback import records
+    return {'m68k_ram': [{'offset': r.address, 'words': r.data.hex()} for r in records('cps1', identity, 15)
                          if not r.address & 1 and r.address < 0x10000 and len(r.data) % 2 == 0],
             'z80_ram': [{'address': r.address, 'bytes': r.data.hex()} for r in records('cps1', identity, 16)
                         if 0xd000 <= r.address < 0xd800 and len(r.data) == 4]}
-    merge(observations, rows)
-    return observations
+
+
+def fresh_observations(reference: dict) -> dict:
+    """The work-RAM and sound-RAM code the fresh reference runs of this conversion executed (every instruction
+    interpreted, before anything was learned): the one source of what is promoted to a shared path."""
+    rows = {'m68k_ram': [], 'z80_ram': []}
+    for result in reference.values():
+        merge(rows, result.get('fallback') or {})
+    return rows
 
 
 def check_states(executable: Path, folder: Path, name: str, frames: int, script: Path, expected: Path) -> dict:
@@ -144,6 +161,20 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
     feedback = ingest('cps1', game_set.sha256, output, emit=emit)
     memory = library_root('cps1') / game_set.sha256
     observations = learned(game_set.sha256, memory)
+    from . import cps1_knowledge, knowledge
+    from .systems.cps1 import CPS1
+    hints_used = {}
+
+    def shared_hints(board):
+        """Rows rebuilt from the shared and library records for the player's own images (build input only)."""
+        images = cps1_knowledge.images_from_board(board, game)
+        rows, info = cps1_knowledge.shared_rows(
+            game_set.sha256, images, qualified=knowledge.qualified_game('cps1', game_set.sha256),
+            imported=knowledge.imported_game('cps1', game_set.sha256),
+            library=cps1_knowledge.library_record(game_set.sha256))
+        merge(rows, feedback_rows(game_set.sha256))
+        hints_used.update(info)
+        return rows
     six = any(name in ('button4', 'button5', 'button6') for port in game['inputs'].values()
               for _, name, _ in port.get('inputs', ()))
     plan = routes(game_set.sha256, frames=max(600, min(int(frames or 3600), 10000)), level=level, six_buttons=six)
@@ -168,7 +199,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             phase = time.perf_counter()
             emit(f'CPS-1: translating the 68000 program and Z80 sound code (pass {attempt + 1}).')
             prepared = prepare_game(project, game_set, game, title=title, observations=observations,
-                                    presentation=presentation)
+                                    presentation=presentation, hints=shared_hints)
             executable = build_game(project)
             timings[f'translate_and_build_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
             phase = time.perf_counter()
@@ -224,12 +255,24 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         play = next(row for row in plan if row[0] == 'play')
         states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'])
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
+        # The shared path record: numbers about this romset's own images, made only from the fresh reference
+        # runs of this conversion (every check above passed), never from feedback rows or from the hints
+        # it was offered. What cannot be tied to a ROM stays private (counted below).
+        from .cps1_codegen import ram_instruction_lengths
+        images = cps1_knowledge.images_from_board(project / 'board', game)
+        fresh = fresh_observations(reference)
+        record, promotion = cps1_knowledge.promote(
+            game_set.sha256, images, fresh, lambda windows: ram_instruction_lengths(project, windows),
+            previous=cps1_knowledge.library_record(game_set.sha256))
         memory.mkdir(parents=True, exist_ok=True)
         atomic_json(memory / 'observations.json', observations)
         atomic_json(memory / 'compilation.json', {
             'schema': 1, 'system': 'cps1', 'title': title, 'set': game_set.set_name, 'source_identity': game_set.sha256,
             'guarded_ram_variants': len(observations['m68k_ram']), 'guarded_z80_ram_variants': len(observations['z80_ram']),
-            'fresh_reference_passed': True, 'version': __version__})
+            'fresh_reference_passed': True, 'version': __version__,
+            # The schema 3 record the base shares (numbers only), and where it came from.
+            'record': record, 'record_format': cps1_knowledge.FORMAT, 'cores': cps1_knowledge.engine(),
+            'record_source': 'fresh reference runs', 'record_counts': promotion})
     checks_rows = []
     for name, count, text in plan:
         native = final[name]
@@ -273,6 +316,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
         'packed_candidate_sha256': file_sha256(packed), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
+        'knowledge': {
+            'machine_status': CPS1.status, 'shared': True, 'record_format': cps1_knowledge.FORMAT,
+            'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
+            'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'z80_ram', 'truncated')},
+            'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
+            'raw_ram_words_stored': False, 'fresh_validation_required': True},
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '
                         'validation routes drive players 1 and 2',

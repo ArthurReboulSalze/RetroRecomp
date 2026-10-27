@@ -567,7 +567,7 @@ class CodecTests(unittest.TestCase):
 def cps1_document():
     rom = {'bytes': 1 << 20, 'sha256': '3' * 64}
     return {'schema': 3, 'game': 'cps1:' + '2' * 64,
-            'identity': {'system': 'cps1', 'sources': {'maincpu': rom, 'audiocpu': {'bytes': 65536}},
+            'identity': {'system': 'cps1', 'sources': {'maincpu': rom, 'audiocpu': {'bytes': 65536, 'sha256': '6' * 64}},
                          'layout': {'catalogue': 'c' * 40}},
             'cpus': {'m68k': {'map': 'cps1', 'core': ENGINE, 'paths': {'ram_code': [
                         {'shape': 'insn', 'src': 'maincpu', 'table': pp.encode_table([[0xff0010, 4096, 8]], 3)}]}},
@@ -732,18 +732,19 @@ class GameModuleTests(unittest.TestCase):
     def test_the_sharing_lists_and_key_patterns_follow_one_list(self):
         from retrorecomp import knowledge_build, knowledge_exchange, online
         self.assertEqual(knowledge_exchange.SYSTEMS, pp.SHARED_SYSTEMS)
-        self.assertEqual(knowledge_exchange.SYSTEMS, (*knowledge_build.SYSTEMS, 'ng'))
+        self.assertEqual(knowledge_exchange.SYSTEMS, (*knowledge_build.SYSTEMS, 'ng', *pp.EXPERIMENTAL_SHARED))
+        self.assertEqual(pp.SCHEMA3_ONLY, ('cps1',))
         digest = '0123456789abcdef' * 4
         for pattern in (online._ROM_KEY, knowledge_exchange._GAME_KEY):
             for system in pp.SHARED_SYSTEMS:
                 self.assertTrue(pattern.fullmatch(f'{system}:{digest}'), system)
-            for system in ('cps1', 'x68', 'psx'):
+            for system in ('x68', 'psx'):
                 self.assertFalse(pattern.fullmatch(f'{system}:{digest}'), system)
             self.assertFalse(pattern.fullmatch('md:' + digest[:-1]))
         # Adding a console to the sharing is one name in the list.
-        wider = pp.game_key((*pp.SHARED_SYSTEMS, 'cps1', 'x68'))
+        wider = pp.game_key((*pp.SHARED_SYSTEMS, 'x68'))
         self.assertTrue(wider.fullmatch(f'cps1:{digest}') and wider.fullmatch(f'x68:{digest}'))
-        self.assertEqual(set(pp.SYSTEMS), set(pp.SHARED_SYSTEMS) | {'cps1', 'x68'})
+        self.assertEqual(set(pp.SYSTEMS), set(pp.SHARED_SYSTEMS) | {'x68'})
 
 
 class LocalBankReaderTests(unittest.TestCase):

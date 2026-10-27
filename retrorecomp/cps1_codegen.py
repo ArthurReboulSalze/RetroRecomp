@@ -94,7 +94,8 @@ def _semantics(project: Path):
     return engine, source
 
 
-def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
+def _translator(project: Path):
+    """(engine, source, mnemonic names, operation bodies, decoder tool) of the 68000 translation."""
     engine, source = _semantics(project)
     names = mnemonic_names(engine)
     bodies = operation_bodies(source)
@@ -104,7 +105,39 @@ def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
                           f'            return {PREFIX}_instruction_exception(next_pc, 8, ins->addr, 34);\n'
                           f'        {PREFIX}_arithmetic_cycles = CYC_RESET + CYC_INSTRUCTION[ins->words[0]];\n'
                           '        return M68KI_OK;')
-    decoder = decoder_tool(engine)
+    return engine, source, names, bodies, decoder_tool(engine)
+
+
+def _decode_ram_instruction(project: Path, work: Path, decoder, names: dict, bodies: dict, offset: int, data: bytes):
+    """The first instruction of `data` as the generator decodes it at work-RAM `offset`, or None when it
+    cannot be translated (the one decision `generate_m68k` and `ram_instruction_lengths` share)."""
+    base = 0xff0000 + offset
+    (work / 'ram.bin').write_bytes(data)
+    (work / 'ram-pcs.txt').write_text(f'{base:06x}\n', encoding='ascii')
+    run([decoder, work / 'ram.bin', f'{base:x}', work / 'ram-pcs.txt', work / 'ram.json'], log=project / 'decode.log')
+    ins = next((i for i in json.loads((work / 'ram.json').read_text(encoding='utf-8')) if i['addr'] == base), None)
+    if not ins or names[ins['mnemonic']] not in bodies:
+        return None
+    return ins
+
+
+def ram_instruction_lengths(project: Path, variants) -> dict:
+    """{(offset, data): byte length of its first instruction, or None} for observed work-RAM windows, decoded
+    exactly as `generate_m68k` decodes them. Used to tie an observation to the ROM bytes of that instruction
+    alone (the rest of a window is other data). The project holds the generated helpers already."""
+    _, _, names, bodies, decoder = _translator(project)
+    work = project / 'decode'
+    work.mkdir(exist_ok=True)
+    lengths = {}
+    for offset, data in variants:
+        ins = _decode_ram_instruction(project, work, decoder, names, bodies, offset, data)
+        length = ins['word_count'] * 2 if ins else None
+        lengths[(offset, data)] = length if length and length <= len(data) else None
+    return lengths
+
+
+def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
+    engine, source, names, bodies, decoder = _translator(project)
     work = project / 'decode'
     work.mkdir(exist_ok=True)
     image = work / 'program.bin'
@@ -121,12 +154,8 @@ def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
     translated_rom = len(instructions)
     ram_keys = set()
     for offset, data in ram_variants(ram_records):
-        base = 0xff0000 + offset
-        (work / 'ram.bin').write_bytes(data)
-        (work / 'ram-pcs.txt').write_text(f'{base:06x}\n', encoding='ascii')
-        run([decoder, work / 'ram.bin', f'{base:x}', work / 'ram-pcs.txt', work / 'ram.json'], log=project / 'decode.log')
-        ins = next((i for i in json.loads((work / 'ram.json').read_text(encoding='utf-8')) if i['addr'] == base), None)
-        if not ins or names[ins['mnemonic']] not in bodies:
+        ins = _decode_ram_instruction(project, work, decoder, names, bodies, offset, data)
+        if ins is None:
             continue
         key = (offset, tuple(ins['words'][:ins['word_count']]))
         if key not in ram_keys:
