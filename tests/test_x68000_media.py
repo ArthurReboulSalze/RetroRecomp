@@ -18,7 +18,7 @@ class X68000MediaTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()   # the long form: Windows may spell a temporary folder short (RUNNER~1)
         self.ipl = self.write('iplrom.dat', b'I' * IPL_BYTES)
         self.cgrom = self.write('cgrom.dat', b'C' * CGROM_BYTES)
 

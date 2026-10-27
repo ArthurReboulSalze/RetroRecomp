@@ -18,7 +18,7 @@ class X68000ReferenceStagingTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()   # the long form: Windows may spell a temporary folder short (RUNNER~1)
         self.sources = self.root / 'sources'
         self.sources.mkdir()
         self.disks = [self.write(self.sources / 'disk.xdf', b'A' * XDF_BYTES)]
