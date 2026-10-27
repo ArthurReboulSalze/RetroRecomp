@@ -9,7 +9,6 @@ imported bank that other players' shared files and the shared base fill. The
 imported hints are counted apart and never enter the library: they are not
 exported again unless this player's own conversion reaches them.
 """
-import hashlib
 import json
 from pathlib import Path
 import os
@@ -21,8 +20,10 @@ from zipfile import ZipFile
 from .neogeo import parse_neo, validate_bios
 from .neogeo_build import GEOLITH_REV, LITHOGEN_REV
 from .library import atomic_json, entry_lock, library_root
+from . import path_profiles
 
-FIELDS={'rom_entries':(2,262144),'ram_refs':(4,4096),'z80_refs':(4,32768)}
+# The table of schema 1 fields (row width, most rows) is kept once, in path_profiles.
+FIELDS=path_profiles.LEGACY_FIELDS['ng']
 # Imported RAM rows a conversion takes at most (the generator's bound is 4,096 samples in all).
 IMPORTED_RAM_LIMIT=2048
 IDENTITY_FIELDS={'engine','loader','cart','bios','rom_bytes','p_bytes','bios_bytes','m1_bytes','sm1_bytes'}
@@ -36,7 +37,7 @@ DELTA_BLOCKS=2
 
 
 def key(cart: str,bios: str) -> str:
-    return hashlib.sha256(json.dumps({'cart':cart,'bios':bios,'system':'mvs','region':'eu'},sort_keys=True).encode()).hexdigest()
+    return path_profiles.ng_key(cart,bios)
 
 
 def validate_record(identity: str,record: dict) -> dict:

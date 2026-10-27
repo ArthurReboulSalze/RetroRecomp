@@ -21,7 +21,7 @@ from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, library_root
-from .knowledge import record_for
+from .knowledge import bundled_record, record_for
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
@@ -224,14 +224,6 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
             pass  # A reader can still hold it on Windows; next write retries.
 
 
-def _bundled_record(rom: GameBoyRom) -> dict:
-    """The qualified bank's record for this exact ROM, without imported hints."""
-    from .knowledge import qualified_record
-    record = qualified_record('gb', rom.sha256)
-    return (record if record.get('engine') == ENGINE_REV and record.get('rom_bytes') == len(rom.data)
-            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
-
-
 def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
     """Entries a conversion starts from. Without `imported`, only this player's
     library and gameplay rows and the qualified bank: hints from other
@@ -249,7 +241,7 @@ def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, 
             if (pc < 0x8000 and bank < len(rom.data)//0x4000 and
                     row.data and rom.data[offset:offset+span] == row.data[:span]):
                 own.add((bank, pc))
-        shared = _bundled_record(rom).get('rom_entries', [])
+        shared = bundled_record('gb', rom, ENGINE_REV).get('rom_entries', [])
     return own | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}

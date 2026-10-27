@@ -263,10 +263,8 @@ def knowledge_engine(rom) -> str:
 
 def bundled_record(rom) -> dict:
     """The qualified bank's record for this exact ROM, without imported hints."""
-    from .knowledge import qualified_record
-    record = qualified_record('snes', rom.sha256)
-    return (record if record.get('engine') == knowledge_engine(rom) and record.get('rom_bytes') == len(rom.data)
-            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+    from .knowledge import bundled_record as bundled
+    return bundled('snes', rom, knowledge_engine(rom))
 
 
 def read_ram_variants(rom, *, imported: bool = True) -> list[dict]:

@@ -52,11 +52,22 @@ class QualifiedBankTests(unittest.TestCase):
         return {'gb': gameboy.ENGINE_REV, 'nes': nes.ENGINE_REV, 'md': REPOSITORIES['md'][1],
                 'snes': supernintendo.knowledge_engine(self.rom)}
 
+    def readers(self):
+        """Every console reads its bundled record through knowledge.bundled_record; md and snes only
+        bind their engine in a one-line wrapper."""
+        engines = self.engines()
+        return {'gb': lambda rom: knowledge.bundled_record('gb', rom, engines['gb']),
+                'nes': lambda rom: knowledge.bundled_record('nes', rom, engines['nes']),
+                'md': megadrive.bundled_record, 'snes': supernintendo.bundled_record}
+
+    def test_there_is_one_bundled_record_reader(self):
+        for module in (gameboy, nes):
+            self.assertFalse(hasattr(module, '_bundled_record'), module.__name__)
+
     def test_each_reader_uses_the_qualified_bank(self):
         engines = self.engines()
         pack(self.path, {system: {self.rom.sha256: self.record(engine)} for system, engine in engines.items()})
-        readers = {'gb': gameboy._bundled_record, 'nes': nes._bundled_record,
-                   'md': megadrive.bundled_record, 'snes': supernintendo.bundled_record}
+        readers = self.readers()
         for system, reader in readers.items():
             with self.subTest(system):
                 self.assertEqual(reader(self.rom)['engine'], engines[system])
@@ -71,8 +82,7 @@ class QualifiedBankTests(unittest.TestCase):
              {system: {self.rom.sha256: self.record(engine)} for system, engine in engines.items()})
         with patch('retrorecomp.knowledge.ASSETS', assets), patch('retrorecomp.paths.ASSETS', assets), \
                 patch('retrorecomp.gameboy.ASSETS', assets), patch('retrorecomp.nes.ASSETS', assets):
-            for system, reader in {'gb': gameboy._bundled_record, 'nes': nes._bundled_record,
-                                   'md': megadrive.bundled_record, 'snes': supernintendo.bundled_record}.items():
+            for system, reader in self.readers().items():
                 with self.subTest(system):
                     self.assertEqual(reader(self.rom), {})
                     self.assertEqual(knowledge.record_for(system, self.rom, engines[system]), {})
@@ -87,8 +97,7 @@ class QualifiedBankTests(unittest.TestCase):
     def test_the_engine_filter_is_unchanged(self):
         engines = self.engines()
         pack(self.path, {system: {self.rom.sha256: self.record('9' * 40)} for system in engines})
-        readers = {'gb': gameboy._bundled_record, 'nes': nes._bundled_record,
-                   'md': megadrive.bundled_record, 'snes': supernintendo.bundled_record}
+        readers = self.readers()
         for system, reader in readers.items():
             with self.subTest(system):
                 self.assertEqual(reader(self.rom), {})
@@ -97,7 +106,7 @@ class QualifiedBankTests(unittest.TestCase):
                 self.assertEqual(knowledge.qualified_record(system, self.rom.sha256)['engine'], '9' * 40)
         wrong = SimpleNamespace(data=b'x' * len(self.rom.data), sha256=self.rom.sha256)
         pack(self.path, {'gb': {self.rom.sha256: self.record(gameboy.ENGINE_REV)}})
-        self.assertEqual(gameboy._bundled_record(wrong), {})
+        self.assertEqual(knowledge.bundled_record('gb', wrong, gameboy.ENGINE_REV), {})
         self.assertEqual(knowledge.record_for('gb', wrong, gameboy.ENGINE_REV), {})
 
     def test_qualified_hints_merge_with_imported_ones_whatever_their_compiler(self):
@@ -115,7 +124,7 @@ class QualifiedBankTests(unittest.TestCase):
             with self.subTest(variable), patch.dict(os.environ, {variable: '0'}):
                 self.assertEqual(knowledge.qualified_bank(), {})
                 self.assertEqual(knowledge.qualified_record('gb', self.rom.sha256), {})
-                self.assertEqual(gameboy._bundled_record(self.rom), {})
+                self.assertEqual(knowledge.bundled_record('gb', self.rom, gameboy.ENGINE_REV), {})
                 self.assertEqual(knowledge.record_for('gb', self.rom, gameboy.ENGINE_REV), {})
                 self.assertEqual(inputs.knowledge_stamp('gb', self.rom.sha256), 'disabled')
 
@@ -183,6 +192,105 @@ class QualifiedBankTests(unittest.TestCase):
         before = inputs.knowledge_stamp('gb', self.rom.sha256)
         with patch('retrorecomp.paths.ASSETS', assets), patch('retrorecomp.knowledge.ASSETS', assets):
             self.assertEqual(inputs.knowledge_stamp('gb', self.rom.sha256), before)
+
+
+class GameStampTests(unittest.TestCase):
+    """`knowledge_stamp` hashes the game's own record (stage B3 of the paths): in the schema 1 form,
+    whatever schema the bank file is in; for Neo Geo and the machines without a schema 1 form, theirs."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.path = self.root / 'datas' / 'knowledge' / 'qualified.json.gz'
+        self.imported = self.root / 'datas' / 'knowledge' / 'imported.json.gz'
+        environment = {name: value for name, value in os.environ.items() if name not in DISABLING}
+        for item in (patch.dict(os.environ, environment, clear=True),
+                     patch('retrorecomp.knowledge.qualified_path', return_value=self.path),
+                     patch('retrorecomp.knowledge.imported_path', return_value=self.imported)):
+            item.start()
+            self.addCleanup(item.stop)
+        self.caches = (knowledge._qualified_bank, knowledge._imported_bank,
+                       knowledge._qualified_games, knowledge._imported_games)
+        for cache in self.caches:
+            cache.cache_clear()
+            self.addCleanup(cache.cache_clear)
+
+    def write(self, path, document):
+        knowledge.write_packed(path, document)
+        for cache in self.caches:
+            cache.cache_clear()
+
+    def empty(self):
+        return hashlib.sha256(b'{}').hexdigest()
+
+    def test_a_record_has_the_same_stamp_in_a_schema_1_and_a_schema_3_bank(self):
+        from tests.test_paths_schema import FIXTURES
+        from retrorecomp import path_profiles
+        for name in ('sms', 'gb', 'nes', 'md', 'snes'):
+            system, _, record = FIXTURES[name]
+            sha = hashlib.sha256(name.encode()).hexdigest()
+            payload = {'schema': 1, 'consoles': {system: {sha: record}}}
+            self.write(self.path, payload)
+            first = inputs.knowledge_stamp(system, sha)
+            self.assertNotEqual(first, self.empty(), name)
+            self.write(self.path, path_profiles.bank_to_v3(payload))
+            self.assertEqual(knowledge.qualified_record(system, sha), record, name)
+            self.assertEqual(inputs.knowledge_stamp(system, sha), first, name)
+            # The stamp is the hash of the record itself, as it was before the schemas.
+            self.assertEqual(first, hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+
+    def test_neo_geo_hashes_the_games_record_not_the_whole_bank(self):
+        from tests.test_paths_schema import ng_record
+        from retrorecomp import neogeo_knowledge
+        first, second = ng_record(), ng_record(cart='c' * 64)
+        one, two = (neogeo_knowledge.key(r['cart'], r['bios']) for r in (first, second))
+        self.write(self.path, {'schema': 1, 'consoles': {'ng': {one: first}}})
+        stamp = inputs.knowledge_stamp('ng', one)
+        self.assertNotEqual(stamp, self.empty())
+        self.assertEqual(inputs.knowledge_stamp('ng', two), self.empty(), 'a game without a record')
+        self.write(self.path, {'schema': 1, 'consoles': {'ng': {one: first, two: second}}})
+        self.assertEqual(inputs.knowledge_stamp('ng', one), stamp, 'another game of the bank leaves it alone')
+        self.assertNotEqual(inputs.knowledge_stamp('ng', two), stamp)
+        self.write(self.imported, {'schema': 1, 'consoles': {'ng': {one: ng_record(rom_entries=[[1, 0]])}}})
+        self.assertNotEqual(inputs.knowledge_stamp('ng', one), stamp, 'imported Neo Geo hints count')
+        self.assertEqual(inputs.knowledge_stamp('ng', two), inputs.knowledge_stamp('ng', two))
+
+    def test_cps1_and_x68000_hash_their_schema_3_record_once_they_have_one(self):
+        from tests.test_paths_schema import cps1_document, x68_document
+        from retrorecomp import path_profiles
+        for system, document in (('cps1', cps1_document()), ('x68', x68_document())):
+            identity = document['game'].split(':', 1)[1]
+            other = '9' * 64
+            self.assertEqual(inputs.knowledge_stamp(system, identity), self.empty(), system)
+            self.write(self.path, {'schema': 3, 'games': {document['game']: document}})
+            stamp = inputs.knowledge_stamp(system, identity)
+            self.assertNotEqual(stamp, self.empty(), system)
+            self.assertEqual(inputs.knowledge_stamp(system, other), self.empty(), 'another game')
+            self.assertEqual(stamp, hashlib.sha256(json.dumps(document, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+            # Any change of its paths moves it.
+            changed = json.loads(json.dumps(document))
+            changed['identity']['layout'] = {'ram_mib': 4} if system == 'x68' else {'catalogue': 'd' * 40}
+            self.assertEqual(path_profiles.validate_games({'schema': 3, 'games': {document['game']: changed}})['schema'], 3)
+            self.write(self.path, {'schema': 3, 'games': {document['game']: changed}})
+            self.assertNotEqual(inputs.knowledge_stamp(system, identity), stamp, system)
+            self.path.unlink()
+            for cache in self.caches:
+                cache.cache_clear()
+
+    def test_the_game_key_comes_from_the_profile(self):
+        from types import SimpleNamespace
+        from retrorecomp.systems import get_profile
+        item = SimpleNamespace(path=Path('game.neo'), sha256='1' * 64)
+        for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'cps1', 'x68'):
+            self.assertEqual(get_profile(system).knowledge_identity(item, {}), item.sha256, system)
+        ng = get_profile('ng')
+        self.assertEqual(ng.knowledge_identity(item, {'bios': {'sha256': '2' * 64}}),
+                         __import__('retrorecomp.neogeo_knowledge', fromlist=['key']).key('1' * 64, '2' * 64))
+        # No verified firmware, or a set not prepared yet: no key, so no record.
+        self.assertEqual(ng.knowledge_identity(item, {'bios': 'stand-in'}), item.sha256)
+        with patch('retrorecomp.neogeo_knowledge.shared_identity', return_value=None):
+            self.assertEqual(ng.knowledge_identity(item, {'bios': {'sha256': '2' * 64}}), item.sha256)
 
 
 class QualifiedPathTests(unittest.TestCase):

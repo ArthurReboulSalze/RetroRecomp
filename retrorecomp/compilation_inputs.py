@@ -227,21 +227,26 @@ def role_stamps(system):
 
 
 def knowledge_stamp(system, identity):
-    """A changed qualified or imported hint must invalidate the relevant export, even at 1.x."""
+    """A changed qualified or imported hint of this game must invalidate its export, even at 1.x.
+
+    `identity` is the game's key in the banks: the ROM's SHA-256, or for the Neo Geo
+    key(prepared cartridge, BIOS) (`SystemProfile.knowledge_identity`). What is hashed is the
+    game's own record in the schema 1 form (its legacy projection, so a record whose content did
+    not change keeps its stamp whatever schema the bank file is in); CPS-1 and the X68000, which
+    have no schema 1 form, hash their schema 3 record. A game with no record hashes `{}`."""
     if (os.environ.get('RETRO_RECOMP_LIBRARY_DIR') or os.environ.get('SMSRECOMP_LIBRARY_DIR')
             or os.environ.get('RETRO_RECOMP_BUNDLED_KNOWLEDGE') == '0'):
         return 'disabled'
     # The qualified bank is the local file written from the shared base; a
     # missing or invalid one knows nothing. Its reader is bounded, validates
     # the numeric schema and notices a replaced file by size and mtime.
-    from .knowledge import imported_observations, imported_record, qualified_bank
-    bank = qualified_bank().get(system, {})
-    # Neo Geo keys include selected BIOS/prepared regions; the request already
-    # fingerprints the BIOS. Its small bank is conservatively scoped to NG.
-    record = bank if system == 'ng' else bank.get(identity, {})
+    from . import knowledge
+    from .path_profiles import LEGACY_FIELDS
+    legacy = system in LEGACY_FIELDS
+    record = (knowledge.qualified_record if legacy else knowledge.qualified_game)(system, identity)
     # Imported hints count too; without them the stamp is unchanged.
-    imported = {} if system == 'ng' else imported_record(system, identity)
-    observations = [] if system == 'ng' else imported_observations(system, identity)
+    imported = (knowledge.imported_record if legacy else knowledge.imported_game)(system, identity)
+    observations = knowledge.imported_observations(system, identity)
     if imported or observations:
         record = {'qualified': record, 'imported': imported}
         if observations:

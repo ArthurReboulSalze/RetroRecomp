@@ -90,6 +90,16 @@ JOYP refresh hook moved from `gameboy_timing.py` to
 `gameboy_runtime.adapt_input_refresh_hook`. The generated Game Boy project is
 byte-identical before and after that split.
 
+The modules that read the paths (`knowledge.py`, `path_profiles.py`, `feedback.py`,
+`neogeo_knowledge.py`, `snes_knowledge.py`) are game-side, `knowledge.py`,
+`path_profiles.py` and `feedback.py` for every console: they decide which code a
+game starts from. Since 1.6.0 `knowledge.py` delegates to `path_profiles.py`, so
+that module is in every console's game stamp (it was an interface module while
+only the exchange and the shared base used it). The modules that only share
+discoveries (`knowledge_exchange.py`, `knowledge_build.py`, `online.py`) stay
+interface modules. The paths' own stamp (`knowledge_stamp`) hashes the game's
+record, not the bank: see [the paths and the stamps](COMPILATION_LIBRARY.md#stage-b3-the-conversions-follow-the-module-27-october-2026).
+
 ## Reproducible stamps
 
 A stamp hashes a list, never what is on disk (docs/STANDARDS.md rule 5). The

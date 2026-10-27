@@ -19,6 +19,7 @@ import re
 import tempfile
 import threading
 import zlib
+from . import path_profiles
 from .paths import ASSETS
 
 # The maintainer campaigns' source file (tools/build_compilation_knowledge.py).
@@ -29,103 +30,35 @@ RESOURCE = 'assets/compilation-knowledge.json.gz'
 # cap (Mega Drive collection campaign); the distributed resource remains
 # gzip-compressed and strictly numeric.
 MAX_BYTES = 128 * 1024 * 1024
-FIELDS = {
-    'sms': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
-    'gg': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
-    'gb': {'rom_entries': (2, 65536)},
-    'nes': {'rom_entries': (2, 65536), 'ram_opcode_refs': (2, 65536)},
-    'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
-    'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
-             'spc_refs': (2, 262144), 'spc_ranges': (3, 262144),
-             'spc_bitmaps': (3, 262144), 'spc_deltas': (2, 262144)},
-    # Neo Geo additionally accepts bounded rom_deltas via its dedicated validator.
-    'ng': {'rom_entries': (2,262144), 'ram_refs': (4,4096), 'z80_refs': (4,32768)},
-}
+# The table of schema 1 fields lives once, in path_profiles (`LEGACY_FIELDS`): this is that
+# dictionary. Neo Geo additionally accepts bounded rom_deltas via its dedicated validator.
+FIELDS = path_profiles.LEGACY_FIELDS
 
 
 def validate_payload(value: dict) -> dict:
-    """Strict numeric allowlist excludes paths, credentials, images and code."""
-    if (not isinstance(value, dict) or set(value) != {'schema', 'consoles'}
-            or type(value['schema']) is not int or value['schema'] != 1
-            or not isinstance(value['consoles'], dict)
-            or not set(value['consoles']) <= FIELDS.keys()):
-        raise ValueError('Invalid compilation knowledge schema.')
-    for system, games in value['consoles'].items():
-        if not isinstance(games, dict) or len(games) > 4096:
-            raise ValueError('Invalid compilation knowledge catalogue.')
-        for sha, record in games.items():
-            if system=='ng':
-                from .neogeo_knowledge import validate_record
-                validate_record(sha,record)
-                continue
-            if (not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{64}', sha)
-                    or not isinstance(record, dict)
-                    or not {'engine', 'rom_bytes'} <= record.keys()
-                    or not set(record) <= {'engine', 'rom_bytes', *FIELDS[system]}
-                    or not isinstance(record['engine'], str)
-                    or not re.fullmatch('[0-9a-f]{40}', record['engine'])
-                    or type(record['rom_bytes']) is not int
-                    or not 8192 <= record['rom_bytes'] <= 128 * 1024 * 1024 + 528):
-                raise ValueError('Invalid compilation knowledge identity.')
-            for name, (width, limit) in FIELDS[system].items():
-                entries = record.get(name, [])
-                if name == 'spc_deltas':
-                    from .snes_knowledge import validate_deltas
-                    validate_deltas(entries, record['rom_bytes'])
-                    continue
-                if (not isinstance(entries, list) or len(entries) > limit
-                        or any(not isinstance(e, list) or len(e) != width
-                               or any(type(n) is not int or not 0 <= n <= 0xffffffff for n in e)
-                               for e in entries)):
-                    raise ValueError('Invalid compilation knowledge entries.')
-                for entry in entries:
-                    if name == 'rom_entries':
-                        valid = True
-                        if system in ('sms', 'gg'):
-                            valid = entry[0] < 0xbf01 and all(b <= 255 for b in entry[1:4])
-                        elif system == 'gb':
-                            valid = entry[0] < record['rom_bytes'] // 0x4000 and entry[1] < 0x8000
-                        elif system == 'nes':
-                            valid = entry[0] < record['rom_bytes'] // 4096 and 0x8000 <= entry[1] <= 0xffff
-                        elif system == 'md':
-                            valid = 0x200 <= entry[0] <= record['rom_bytes'] - 8 and not entry[0] & 1
-                        if not valid:
-                            raise ValueError('Invalid ROM compilation entry.')
-                    if name == 'pattern_refs' and entry[0] + 4 > record['rom_bytes']:
-                        raise ValueError('Compilation pattern outside ROM.')
-                    if name == 'ram_opcode_refs' and (not (entry[0] < 0x2000 or 0x6000 <= entry[0] <= 0xFFFF)
-                                                      or entry[1] >= record['rom_bytes']) and system=='nes':
-                        raise ValueError('Invalid NES RAM opcode reference.')
-                    if name=='ram_opcode_refs' and system=='snes' and (entry[0]>0xffffff or entry[1]>=record['rom_bytes']):
-                        raise ValueError('Invalid SNES RAM opcode reference.')
-                    if name == 'spc_refs' and (entry[0] > 65535 or 0xf0 <= entry[0] <= 0xff
-                                               or entry[1] >= record['rom_bytes']):
-                        raise ValueError('Invalid SPC700 compilation reference.')
-                    if name == 'spc_ranges' and (not 0 <= entry[0] <= entry[1] <= 65535
-                            or entry[0] <= 0xff and entry[1] >= 0xf0
-                            or entry[2] >= record['rom_bytes']):
-                        raise ValueError('Invalid SPC700 compilation range.')
-                    if name == 'spc_bitmaps' and (entry[0] > 65504 or entry[0] & 31
-                            or not entry[1] or entry[2] >= record['rom_bytes']
-                            or entry[0] == 0xe0 and entry[1] & 0xffff0000):
-                        raise ValueError('Invalid SPC700 compilation bitmap.')
-                    if name in ('ram_refs', 'z80_refs'):
-                        if not 1 <= entry[2] <= 16 or entry[1] + entry[2] > record['rom_bytes']:
-                            raise ValueError('Compilation reference outside ROM.')
-            if system == 'snes' and (len(record.get('spc_refs', [])) +
-                    sum(last-first+1 for first,last,_ in record.get('spc_ranges', [])) +
-                    sum(bits.bit_count() for _,bits,_ in record.get('spc_bitmaps', [])) +
-                    sum(len(deltas) for _,deltas in record.get('spc_deltas', [])) > 262144):
-                raise ValueError('SPC700 compilation range budget exceeded.')
-    return value
+    """Strict numeric allowlist excludes paths, credentials, images and code. The rules of
+    schema 1 live in `path_profiles.validate_legacy_payload`."""
+    return path_profiles.validate_legacy_payload(value)
 
 
-def read(path: Path) -> dict:
+def _document(path: Path):
     with gzip.open(path, 'rb') as stream:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise ValueError('Compilation knowledge exceeds its size limit.')
-    return validate_payload(json.loads(raw))
+    return json.loads(raw)
+
+
+def read(path: Path) -> dict:
+    """A local bank, validated, as the schema 1 bank {"schema": 1, "consoles": ...} whatever its
+    own schema: 1 (what is written today) or 3 (CPU-keyed, `path_profiles`), by its `schema`."""
+    return path_profiles.read_bank(_document(path))
+
+
+def read_games(path: Path) -> dict:
+    """{game key: schema 3 record} of a schema 3 bank's games that have no schema 1 form
+    (CPS-1, X68000): {} for a schema 1 bank, which cannot hold them."""
+    return path_profiles.bank_games(_document(path))
 
 
 @lru_cache(maxsize=4)
@@ -169,6 +102,32 @@ def qualified_bank() -> dict:
 def qualified_record(system: str, identity: str) -> dict:
     """The qualified bank's record for one exact identity, or {}."""
     return qualified_bank().get(system, {}).get(identity, {})
+
+
+@lru_cache(maxsize=2)
+def _qualified_games(path: str, size: int, modified: int) -> dict:
+    return read_games(Path(path))
+
+
+def qualified_game(system: str, identity: str) -> dict:
+    """The qualified bank's schema 3 record of a game that schema 1 cannot hold (CPS-1, the
+    X68000), or {}: only a schema 3 bank has any."""
+    if disabled():
+        return {}
+    path = qualified_path()
+    try:
+        stat = path.stat()
+        return _qualified_games(str(path), stat.st_size, stat.st_mtime_ns).get(f'{system}:{identity}', {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+
+
+def bundled_record(system: str, rom, engine: str) -> dict:
+    """The qualified bank's record for this exact ROM, built by this compiler revision and
+    without the imported hints ({} otherwise). The one reader every console uses."""
+    record = qualified_record(system, rom.sha256)
+    return (record if record.get('engine') == engine and record.get('rom_bytes') == len(rom.data)
+            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
 
 
 # Cartridges converting again without their imported hints (see batch).
@@ -319,6 +278,23 @@ def imported_record(system: str, identity: str) -> dict:
     try:
         stat = path.stat()
         return _imported_bank(str(path), stat.st_size, stat.st_mtime_ns).get(system, {}).get(identity, {})
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return {}
+
+
+@lru_cache(maxsize=2)
+def _imported_games(path: str, size: int, modified: int) -> dict:
+    return read_games(Path(path))
+
+
+def imported_game(system: str, identity: str) -> dict:
+    """`qualified_game` for the imported bank (and set aside like `imported_record`)."""
+    if (system, identity) in _SET_ASIDE:
+        return {}
+    path = imported_path()
+    try:
+        stat = path.stat()
+        return _imported_games(str(path), stat.st_size, stat.st_mtime_ns).get(f'{system}:{identity}', {})
     except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
         return {}
 

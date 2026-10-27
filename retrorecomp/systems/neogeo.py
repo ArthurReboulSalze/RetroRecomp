@@ -43,5 +43,12 @@ class NeoGeoProfile(SystemProfile):
         from ..paths import selected_bios_path
         settings['bios'] = validate_bios(selected_bios_path(options.get('ng_bios') or options.get('bios')))
 
+    def knowledge_identity(self, item, settings: dict) -> str:
+        # key(prepared cartridge, BIOS): a ZIP set not prepared yet has none, and so no record.
+        from ..neogeo_knowledge import shared_identity
+        bios = settings.get('bios')
+        sha = bios.get('sha256') if isinstance(bios, dict) else None
+        return (shared_identity(item.path, item.sha256, sha) if sha else None) or item.sha256
+
 
 NEOGEO = NeoGeoProfile()
