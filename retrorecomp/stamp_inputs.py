@@ -77,6 +77,13 @@ LEGACY_GAME_STAMPS = {
     # recognised (the 1.4.1, 1.5.1 and 1.5.2 ones were removed for that reason). Neo Geo exports of earlier
     # releases are converted in full by 1.6.0, which is safe. The release procedure must not add a Neo Geo
     # entry for 1.5.6 or any release before 1.6.0.
+    # Release 1.5.6 (tag v1.5.6, Python 3.14.5), last value where present, declared on 27 October 2026 for the
+    # Master System, Game Gear, Game Boy, NES, Mega Drive and CPS-1 (none for the Super Nintendo, the Neo Geo and the
+    # X68000, for the reasons above). Each stamp reproduced the game part of real receipts written by the 1.5.6
+    # converter (two games per console, quick level), and the sources generated for those games by 1.5.6 and by the
+    # 1.6.0 tree, from the same folder, are identical except the host shell, the version text and the state keys
+    # (docs/UPGRADES.md, "Exports of 1.5.6 in 1.6.0"). The 1.6.0 stamp break itself is the Stage B3 change, the host
+    # kit and the CPS-1 build modules, none of which changes a generated game.
     'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
              '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f',
              '12651539b1dd0cbc5698953adf98947d801cba78816041560e1c6fcf10022835',
