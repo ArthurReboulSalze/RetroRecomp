@@ -2,7 +2,7 @@
 
 No cartridge, window or sound: the fixture substitutes SDL's keyboard state,
 exactly as tools/autofire_selftest.py does, around each console's own
-declarations and reader (controls.c, nes_host_ui.c, console16_host_ui.c).
+declarations and reader (controls.c, nes_host_ui.c) or, for the 16-bit consoles, the host kit input module with the action table of the adapter.
 Game Boy's reader is checked against the generated runtime by
 gb_latency_checks.cpp; the Master System pad has no Start button (Enter pauses
 in host.c, checked by host_checks.c).

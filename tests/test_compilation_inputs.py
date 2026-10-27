@@ -88,11 +88,53 @@ class CompilationInputTests(unittest.TestCase):
         self.assertNotEqual(before['cps1'], after['cps1']); self.assertNotEqual(before['ng'], after['ng'])
         self.assertEqual(before['md'], after['md'])
         before = after
-        self.write('native/console16_host_ui.c', 'new shared menus')
+        self.write('native/hostkit/shell/rrhk_menu.c', 'new shared menus')
         after = self.stamps()
         for system in ('md', 'snes', 'ng', 'cps1'):
             self.assertNotEqual(before[system], after[system])
         self.assertEqual(before['nes'], after['nes'])
+
+    def test_host_kit_edits_are_host_side_and_scoped_by_adapter(self):
+        """Rebuilt, never rediscovered: the kit's files feed the host stamp and nothing else."""
+        def role_stamps():
+            return {s: inputs.role_stamps(s) for s in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')}
+        shared = ('md', 'snes', 'ng', 'cps1')
+        kit = [name for name in inputs.manifest_names() if name.startswith('native/hostkit/')]
+        self.assertTrue(kit)
+        for name in kit:
+            self.assertEqual(inputs.role(name), 'host', name)
+        shell = [name for name in kit if '/adapters/' not in name]
+        adapters = {system: name for system in shared for name in kit if name.endswith(f'rrhk_{system}.c')}
+        self.assertEqual(set(adapters), set(shared))
+        for name in shell:
+            before = role_stamps()
+            self.write(name, 'a new line of the shell')
+            after = role_stamps()
+            for system in shared:
+                self.assertNotEqual(before[system]['host'], after[system]['host'], name)
+                self.assertEqual(before[system]['game'], after[system]['game'], name)
+                self.assertEqual(before[system]['build'], after[system]['build'], name)
+            for system in set(before) - set(shared):
+                self.assertEqual(before[system], after[system], name)
+        for system, name in adapters.items():
+            before = role_stamps()
+            self.write(name, 'a new line of the adapter')
+            after = role_stamps()
+            for other in before:
+                if other == system:
+                    self.assertNotEqual(before[other]['host'], after[other]['host'])
+                    self.assertEqual(before[other]['game'], after[other]['game'])
+                    self.assertEqual(before[other]['build'], after[other]['build'])
+                else:
+                    self.assertEqual(before[other], after[other], (name, other))
+        # The staging module is part of the kit.
+        before = role_stamps()
+        self.revisions['retrorecomp.hostkit'] = 'new file list'
+        after = role_stamps()
+        for system in shared:
+            self.assertNotEqual(before[system]['host'], after[system]['host'])
+            self.assertEqual(before[system]['game'], after[system]['game'])
+        self.assertEqual({s: before[s] for s in before if s not in shared}, {s: after[s] for s in after if s not in shared})
 
     def test_relative_names_and_notices_are_part_of_the_signature(self):
         def listed(name):
@@ -162,7 +204,8 @@ class InputRoleTests(unittest.TestCase):
                   'native/host.c', 'native/controls.c', 'native/ui.c',          # Master System / Game Gear
                   'native/gb_menu.inc', 'retrorecomp.gameboy_host',                 # Game Boy
                   'native/nes_host_ui.c',                                         # NES
-                  'native/console16_host_ui.c',                                   # Mega Drive, SNES, Neo Geo, CPS-1
+                  'native/hostkit/shell/rrhk_main.c', 'native/hostkit/adapters/rrhk_md.c',   # Mega Drive, SNES, Neo Geo, CPS-1
+                  'retrorecomp.hostkit',
                   'native/x68000_reference/player_ui.inc',                        # X68000
                   'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'retrorecomp.metadata')
         for name in shells:

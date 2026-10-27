@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .paths import ROOT, ASSETS
+from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 YMFM_REPOSITORY = 'https://github.com/aaronsgiles/ymfm.git'
@@ -221,7 +222,7 @@ def build_native(board: Path, game: dict, observations: dict | None = None,
 
 # ------------------------------------------------------------------ game build
 
-HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_host_ui.c', 'console16_state.c',
+HOST_FILES = ('cps1_host.c', 'cps1_host.h', 'cps1_main.c', 'console16_state.c',
               'console16_state.h', 'console16_video.h', 'platform_io.c', 'platform_io.h',
               'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h',
               'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
@@ -327,6 +328,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     analysis = prepare_native(project, board, game, observations)
     for name in HOST_FILES:
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
+    hostkit.stage(project, 'cps1')
     geolith, ymfm = sources()
     notices = [(ASSETS / name).read_text(encoding='utf-8') for name in NOTICE_FILES if (ASSETS / name).is_file()]
     recomp = ROOT / '.deps/segagenesisrecomp/external/m68k-recomp-core/LICENSE'
@@ -379,7 +381,7 @@ endif()
 target_compile_definitions(cps1_native PUBLIC CPS1_FEEDBACK=1)
 set(GEO "{geolith.as_posix()}")
 find_package(SDL2 CONFIG REQUIRED)
-add_executable(game cps1_main.c cps1_host.c console16_host_ui.c console16_state.c retro_menu.c
+add_executable(game cps1_main.c cps1_host.c {' '.join(hostkit.sources('cps1'))} console16_state.c retro_menu.c
   "${{GEO}}/deps/miniz/miniz.c")
 target_include_directories(game PRIVATE "${{GEO}}/deps/miniz")
 if(WIN32)

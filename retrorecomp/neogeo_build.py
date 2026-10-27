@@ -13,6 +13,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 from .core import serialized_setup
 
 from .paths import ROOT, ASSETS
+from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
@@ -360,11 +361,12 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_state.c', 'neogeo_state_validate.c', 'neogeo_ui_test.c', 'neogeo_ym_state.inc', 'neogeo_lspc_state.inc',
                  'neogeo_persistence.c', 'neogeo_persistence.h',
                  'neogeo_path_io.h', 'neogeo_sprite_decode.h',
-                 'console16_host_ui.c', 'console16_state.c', 'console16_state.h',
+                 'console16_state.c', 'console16_state.h',
                  'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
                  'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',
                  'xbr_filter.h', 'scale2x.h', 'gun16.h'):
         write_changed(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))
+    hostkit.stage(project, 'ng')
     # miniz expects UTF-8 on Windows, whereas narrow CRT argv used the active
     # ANSI code page. The helper takes wide argv; all loader output IO also
     # converts UTF-8 explicitly. Keep the pinned loader checkout untouched.
@@ -508,7 +510,7 @@ target_compile_definitions(ng_hardware PUBLIC RR_NG_NATIVE=1)
         cmake += f'''
 find_package(SDL2 CONFIG REQUIRED)
 add_executable(game neogeo_main.c neogeo_host.c neogeo_state.c neogeo_state_validate.c
-  neogeo_ui_test.c neogeo_persistence.c console16_host_ui.c console16_state.c retro_menu.c)
+  neogeo_ui_test.c neogeo_persistence.c {' '.join(hostkit.sources('ng'))} console16_state.c retro_menu.c)
 if(WIN32)
   target_sources(game PRIVATE content.rc)
   target_link_libraries(game PRIVATE shell32 user32 gdi32)

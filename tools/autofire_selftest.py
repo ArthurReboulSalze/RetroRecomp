@@ -93,16 +93,73 @@ int main(void) {
 '''
 
 
+SIXTEEN_BIT_SETUP='''
+#include "hostkit/hostkit.h"
+@TABLE@
+static int players(void) {return @PLAYERS@;}
+static RrhkMachine machine;
+const char *rr_translate(int language,const char *english,const char *french) {(void)language;(void)french;return english;}
+int rr_language_from_wide(const wchar_t *code) {(void)code;return 0;}
+void rr_language_set(int language) {(void)language;}
+#include "platform_io.c"
+#include "hostkit/shell/rrhk_input.c"
+#define keys rrhk.keys
+#define buttons rrhk.buttons
+#define pads rrhk.pads
+#define autofire rrhk.autofire
+#define PLAYERS 2
+#define FIRST_FIRE A
+#define FIRST_MASK bits[A]
+#define FIRE_MASK fire_mask()
+static uint16_t bits[ACTIONS];
+static uint16_t fire_mask(void) {uint16_t n=0;for(int a=0;a<ACTIONS;++a)if(actions[a].group==RRHK_FACE)n|=bits[a];return n;}
+static void setup(void) {
+    machine=(RrhkMachine){.ini_section=L"Fixture",.table_players=@PLAYERS@,.players=players,.actions=actions,.action_count=ACTIONS};
+    for(int a=0;a<ACTIONS;++a) {
+        bits[a]=actions[a].bit;
+        if(!strcmp(actions[a].name,"Up"))machine.up=a;
+        if(!strcmp(actions[a].name,"Down"))machine.down=a;
+        if(!strcmp(actions[a].name,"Left"))machine.left=a;
+        if(!strcmp(actions[a].name,"Right"))machine.right=a;
+        if(!strcmp(actions[a].name,"Start"))machine.start=a;
+    }
+    rrhk_bind(&machine);
+}
+static void clear_fire(void) {rrhk_autofire_reset();}
+static int binding(int p,int a) {return buttons[p][a];}
+static void remap(int p,int a,int b) {buttons[p][a]=(SDL_GameControllerButton)b;}
+static void keyboard(int p,int a,int down) {held_keys[keys[p][a]]=(Uint8)down;}
+static uint16_t sample(int p,uint64_t frame) {return rrhk_pad_word(p,frame);}
+'''
+
+
+def sixteen_bit(system, test):
+    """The host kit's own input module and the machine's own action table, against a mock keyboard.
+
+    The table is cut from the adapter's source (the Mega Drive one in its six-button form) and the kit's
+    rrhk_input.c is compiled as it is; the names keep the vocabulary of the other fixtures."""
+    text=(ASSETS/'native/hostkit/adapters'/f'rrhk_{system}.c').read_text()
+    first={'md':'#define DIRECTIONS','cps1':'#define PADS'}.get(system,'enum {')
+    start=text.index(first)
+    if system=='md':
+        end=text.index('#endif',text.index('actions[',start))+len('#endif')
+        table='#define RR_MD_SIX_BUTTONS 1\n'+text[start:end]
+    else:
+        table=text[start:text.index('};',text.index('actions[',start))+2]
+    setup=SIXTEEN_BIT_SETUP.replace('@TABLE@',table).replace('@PLAYERS@','4' if system=='cps1' else '2')
+    return PREAMBLE+setup+test
+
+
 def source(system, test=TEST):
     """The fixture's C source: the console's real declarations and reader, then `test`."""
-    if system in ('ng','cps1','md','snes','nes'):
-        path='nes_host_ui.c' if system=='nes' else 'console16_host_ui.c'
-        text=(ASSETS/'native'/path).read_text()
-        first=text.index('enum { A, B, SELECT') if system=='nes' else text.index('#if RR16_NG\nenum')
-        declarations=text[first:text.index('static wchar_t ini_file',first)]
+    if system in ('md','snes','ng','cps1'):
+        return sixteen_bit(system, test)
+    if system=='nes':
+        text=(ASSETS/'native/nes_host_ui.c').read_text()
+        declarations=text[text.index('enum { A, B, SELECT'):text.index('static wchar_t ini_file')]
         reader=function(text,'controller_input')
-        definitions=(f'#define RR16_NG {int(system=="ng")}\n#define RR16_CPS1 {int(system=="cps1")}\n#define RR16_MD {int(system=="md")}\n'
-                     f'#define RR16_PLAYERS {4 if system=="cps1" else 2}\n#define rr16_players() RR16_PLAYERS\n#define RR_MD_SIX_BUTTONS 1\n')
+        definitions=('#define RR16_NG 0\n#define RR16_CPS1 0\n#define RR16_MD 0\n'
+                     '#define RR16_PLAYERS 2\n#define rr16_players() RR16_PLAYERS\n#define RR_MD_SIX_BUTTONS 1\n')
         setup='''
 static int autofire;
 #define PLAYERS 2
