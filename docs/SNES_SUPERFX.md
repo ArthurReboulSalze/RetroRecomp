@@ -752,10 +752,14 @@ reflect unknown integration bugs.
 | 4 | Authored GSU checks in `native/snes_superfx_checks.c` (see Fidelity checks) | done |
 | 5 | Qualification campaign and documentation as for DSP-1/CX4; "experimental" dropped (26 October, see "Release qualification") | done |
 | 6a | Option B groundwork: GSU decoder, static traversal, survey tool and the measurements above | done (26 October) |
-| 6b | Option B remainder: learning records, C emitter with cycle accounting and yielding, guards, per-job checker (staged as under "Option B: measured") | 25-35 (was 15-25 for all of step 6); not recommended for speed |
+| 6b | Option B remainder: learning records, C emitter with cycle accounting and yielding, guards, per-job checker (staged as under "Option B: measured") | 25-35 (was 15-25 for all of step 6); not recommended for speed. **Set aside on 27 October 2026**: the GSU stays a counted interpreted device for now |
 
-Steps 1-5 are done: measured Super FX support with an interpreted GSU, ready for a
-release. Step 6b is optional and can follow later. Known limits: game-level battery
+Steps 1-5 are done: measured Super FX support with an interpreted GSU, shipped in
+1.5.4. Step 6b is set aside (27 October 2026); when it is taken up, the staged
+plan is: the Stunt Race FX two-player route learned first (1-3 days), then GSU
+entry and target learning (3-4), the emitter (6-8), exact cycles with yielding and
+guards (7-9) and qualification (5-8), with the engine's file-static helpers
+rewritten from fullsnes and ares rather than copied. Known limits: game-level battery
 proof for Stunt Race FX and Yoshi's Island, Doom's 5- versus 9-frame render pacing
 against MAME, the Stunt Race FX two-player mode still meeting unlearned code, and no
 console measurement of GSU timing.
