@@ -17,6 +17,8 @@ from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
+# State key written by release 1.5.6 (found in a real 1.5.6 export, reproduced from its tag); same field-by-field layout.
+STATE_ABI_156 = 'fa66982c49f9d86ebf38e555714601d7466bf43331de44eaf4093e6d759bea41'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
 
 
@@ -589,7 +591,9 @@ def state_config(content: Path,bios: Path,title: str) -> str:
         ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(legacy)+\
         '\n#define RR16_STATE_COMPAT_ABI_2 "96977f427a996ff545097be31eca9e0aae85293d87d3a752864c6ea65f126f21"'
         # Release 1.4.1 (Visual Studio). Same field-by-field layout in the portable build.
-        '\n#define RR16_STATE_COMPAT_ABI_3 "b3305fddf7b7c0b961d6abb04f401e0a7ca8d55974dd13c8b05f2fda60df7e5e"' if os.name=='nt' else '')+\
+        '\n#define RR16_STATE_COMPAT_ABI_3 "b3305fddf7b7c0b961d6abb04f401e0a7ca8d55974dd13c8b05f2fda60df7e5e"'
+        # Release 1.5.6: the key hashed the modules and native files of that release; the state files did not change.
+        '\n#define RR16_STATE_COMPAT_ABI_24 '+json.dumps(STATE_ABI_156) if os.name=='nt' else '')+\
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 

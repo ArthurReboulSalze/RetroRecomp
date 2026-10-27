@@ -119,13 +119,25 @@ def upgradable(item, target, report_path, parts, emit):
         return None
 
 
+def report_scan_level(report):
+    """The scan level a report was converted at, wherever its writer put it: the top-level `scan_level`
+    (Master System, Game Gear, Game Boy, CPS-1, X68000, and every writer since 1.5.6), the schema-2 `scan.level`, or
+    `advanced_scan.level` (Mega Drive, Super Nintendo and NES reports of 1.5.x had only that). 'standard' when none."""
+    scan, advanced = report.get('scan'), report.get('advanced_scan')
+    for level in (report.get('scan_level'), scan.get('level') if isinstance(scan, dict) else None,
+                  advanced.get('level') if isinstance(advanced, dict) else None):
+        if isinstance(level, str) and level:
+            return level
+    return 'standard'
+
+
 def upgrade_record(previous):
     """What an upgraded export inherits: the original discovery, kept across
     successive upgrades, with its own checks (and any fallback they met)."""
     legacy = previous.get('legacy_release')
     origin = previous.get('upgrade', {}).get('discovery') or {
         'version': previous.get('version'), 'created_utc': previous.get('created_utc'),
-        'scan_level': previous.get('scan_level', 'standard'),
+        'scan_level': report_scan_level(previous),
         'final_checks': previous.get('final_checks', [])}
     reason = ('Only player-shell inputs changed and no new paths were found; '
               'the code was rebuilt from the paths already learned and checked on quick routes.')
