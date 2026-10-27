@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=3416f16e6a63" alt="RetroRecomp: the RR cartridge" width="240"><br>
+  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=6c27780690cc" alt="RetroRecomp: the RR cartridge" width="240"><br>
   RetroRecomp
 </h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
