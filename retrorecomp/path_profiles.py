@@ -237,7 +237,6 @@ class Profile:
     entry_tail: int = 1             # bytes an entry needs after its offset
     unit: int = 0                   # bank unit of mapped entries
     pc_window: tuple = (0, 0)       # mapped entries: inclusive pc range
-    upper_base: int = 0             # first pc of banks >= 1 when derived (Game Boy)
     pc_below: int = 0               # `sega5`: pc < this
     windows: tuple = ()             # RAM address or pc windows, [low, high)
     contained: bool = False         # a RAM instruction ends inside its window
@@ -247,7 +246,8 @@ class Profile:
     offset_align: int = 1           # source offset of a RAM instruction
     address_align: int = 1          # RAM address (after `address_base`)
     span_max: int = 0               # longest `span`
-    guard: str = 'full'             # full | derived | mask | first
+    guard: str = 'full'             # how the guard is read: full | derived | mask | first (documentation for
+                                    # the converter that will use it; no validator reads it)
     budget: int = 0                 # decoded positions per game (SPC700)
 
 
@@ -290,7 +290,7 @@ PROFILES = {
                               windows=((0xd000, 0xd800),), length=(4, 4), guard='mask'),
     ('sm83', 'gb'): _p(cpu='sm83', map='gb', systems=('gb',), roles=('rom',),
                        caps={'gb_offsets': 65536, 'gb_rows': 65536},
-                       unit=0x4000, pc_window=(0, 0x7fff), upper_base=0x4000),
+                       unit=0x4000, pc_window=(0, 0x7fff)),
     ('mos6502', 'nes'): _p(cpu='mos6502', map='nes', systems=('nes',), roles=('rom',),
                            caps={'nes_rows': 65536, 'opcode_ptr': 65536},
                            unit=0x1000, pc_window=(0x8000, 0xffff),

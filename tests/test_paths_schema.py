@@ -5,7 +5,7 @@ pin what it must keep true before a later stage wires it in:
 
   a. `to_legacy(to_v3(r)) == r` for every record shape, on fixtures and on the
      maintainer snapshot (a deterministic sample by default; every record when
-     RETRO_RECOMP_PATHS_FULL=1, about two minutes and 1.5 GB of memory);
+     RETRO_RECOMP_PATHS_FULL=1, about a minute and a half and 1.2 GB of memory);
   b. `validate_game` accepts and rejects what `knowledge.validate_payload` and
      `neogeo_knowledge.validate_record` do, on a mutation corpus, except for
      the documented places where schema 1's shared validator is looser than the
@@ -186,7 +186,7 @@ class RoundTripTests(unittest.TestCase):
                 pp.validate_game(document)
                 self.assertEqual(pp.to_legacy(document, validate=False), (system, identity, record))
 
-    @unittest.skipUnless(FULL, 'Set RETRO_RECOMP_PATHS_FULL=1 for the whole snapshot (about two minutes).')
+    @unittest.skipUnless(FULL, 'Set RETRO_RECOMP_PATHS_FULL=1 for the whole snapshot (about a minute and a half).')
     def test_the_whole_snapshot_round_trips(self):
         data = json.loads(gzip.open(SNAPSHOT, 'rb').read())
         count = 0
