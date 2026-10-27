@@ -18,6 +18,14 @@
   identity) for every missing ROM of that console in the selection. The folder
   is kept in Options. For ROMs still missing it asks once more: another folder,
   skip those games, or stop.
+- **Counting your discoveries: shown, and only once.** While Retro-Recomp
+  counts what your games add before a send or an export, the gold spinner at
+  the bottom left turns and says how far it is (the ROMs it looks for, then the
+  games counted). Each game's count was kept only for one converter version, so
+  the first send after an update recounted every game (a minute or two for a
+  large collection); it now stays valid until the engines change. Updating to
+  1.5.5 recounts once. **Options › Common › Disk space** can empty that cache
+  if a count ever looks wrong: nothing is lost.
 
 ---
 
