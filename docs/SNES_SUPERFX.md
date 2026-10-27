@@ -645,12 +645,17 @@ Three converter changes close gaps found by the extended qualification (D1, D5, 
   every scenario twice more).
 - **Authored gameplay routes** (`retrorecomp/snes_routes.py`). The random extended route
   stays in the menus of some Super FX games, so a conversion at the Extended level and above
-  also replays one authored route (scenario `authored`) when the exact ROM SHA-256 is in
-  the table: Star Fox, Star Fox 2 (USA), Stunt Race FX, Yoshi's Island, Vortex and Dirt Racer
-  (6,000 to 12,000 frames). A route is host input only (`frame p1 p2` masks, repeated blocks
-  stored compactly; no ROM bytes); the report records it under
-  `advanced_scan.authored_routes` with its script hash. It shows that inputs reach the game
-  state named in `reaches`; it says nothing about correct gameplay. More games add one entry.
+  also replays the authored routes of the exact ROM (SHA-256) when the table holds it, each
+  as its own scenario: `authored` for Star Fox, Star Fox 2 (USA), Stunt Race FX, Yoshi's
+  Island, Vortex and Dirt Racer (6,000 to 12,000 frames), and, since 27 October 2026, a
+  second `authored-2p` for Stunt Race FX (two controllers, Battle Trax, 12,000 frames; see
+  "Stunt Race FX two-player route"). A table value is one route or a tuple of routes with
+  unique scenario names (a file-safe name, never a probe name such as `demo` or `long-N`).
+  A route is host input only (`frame p1 p2` masks, repeated blocks stored compactly; no ROM
+  bytes); the report records each under `advanced_scan.authored_routes` with its scenario
+  name and script hash, and `tools/snes_packed_check.py` regenerates each by that name. It
+  shows that inputs reach the game state named in `reaches`; it says nothing about correct
+  gameplay. More games, or more modes of one game, add one entry.
 
 Measured on 26 October 2026 (the engine of this branch; native runs only, six cartridges, 24
 extended-length runs: demo 12,000, play 1,200, random route 18,000 and the authored route): in
@@ -692,9 +697,10 @@ Extended level, empty private library per game, Windows, headless, three convers
   replayed on the nine published packed executables with identical hashes; 9 fresh-process
   states (saved at 7,800, 180 resumed frames each), 72 corrupt state files rejected; two
   two-controller routes (Stunt Race FX Battle Trax, Dirt Trax FX 2 players, split screen, each
-  pad drives its own vehicle) give 18,000 more pairs without difference. The Stunt Race FX
-  two-player route still meets unlearned 65816 and SPC700 code (2.37 M and 6.83 M counted
-  interpreted opcodes over 9,000 frames); conversions do not play that mode yet.
+  pad drives its own vehicle) give 18,000 more pairs without difference. On 26 October the
+  Stunt Race FX two-player route still met unlearned 65816 and SPC700 code (2.37 M and 6.83 M
+  counted interpreted opcodes over 9,000 frames) and conversions did not play that mode; since
+  27 October they do ("Stunt Race FX two-player route" below).
 - `tools/snes_superfx_selftest.py`: 3,706 cases, 407,058 checks, 0 mismatches, documented
   findings unchanged.
 - Pictures (30 contact sheets from the packed executables): no missing or garbled polygon,
@@ -727,6 +733,60 @@ Extended level, empty private library per game, Windows, headless, three convers
   over 1,500 frames (62,504 and 392,496 events): a fix. Every SNES game is 43-52 % cheaper per
   frame; conversions take 3-35 % longer (profile training run).
 
+## Stunt Race FX two-player route (27 October 2026)
+
+The scenario `authored-2p` (`retrorecomp/snes_routes.py`, exact ROM SHA-256 `c04d80b8...b30a`,
+12,000 frames, 450 script lines, `script_sha256` `a4b152f3dfd4...`) plays the two-controller
+mode, so a conversion at the Extended level learns the code it runs. Host inputs only, written
+by hand and checked with headless frame pictures of the exported game (`--frames N --play
+--input-script ... --frame-image`, and `--save-state` / `--load-state` to step through the
+menus without replaying from power-on):
+
+| Frames | What the pictures show |
+|---|---|
+| 240-840 | Start taps through the title (the taps at 240 and 360 come before "PUSH START" shows, the one at 600 starts the game) to GAME SELECTION |
+| 840-1020 | Down twice, Start: BATTLE TRAX, then CAR SELECTION "PLAYER 1" (pad 1 Start) |
+| 1020-1230 | pad 1 Start; CAR SELECTION "PLAYER 2" (the first unlearned 65816 code of the route), pad 2 Start |
+| 1350-1500 | the four BATTLE TRAX courses, Start on the cursor (Cotton Farm), Start on PLAY |
+| 1800-7080 | split-screen race: pad 1 on top, pad 2 below, a countdown to about frame 2,400; both pads hold B and steer on opposite phases (240-frame block: Left/Right a few tens of frames each, one A tap for the boost); damage, ranks and the crash screen appear; pad 1 is wrecked near 6,600 and "WIN" shows on pad 2's half |
+| 7080-8130 | TRY AGAIN / CHANGE COURSE / CHANGE CAR; Down and Start pick CHANGE COURSE, the course screen comes back; Right (Toxic Desert), Start, Start on PLAY |
+| 8130-12000 | second split-screen race on Toxic Desert (steering phases swapped between the pads), still running at the last frame |
+
+Measured with the empty-library Extended conversion of this branch (Windows, 2 passes, a
+single job on a machine shared with other work; `.build/srfx-2p-20261027/`): the conversion
+took 2,933 s (batch 49 min 6 s), against 1,832 s for the four earlier scenarios on 26 October.
+
+| Scenario (frames) | Pass 1, 65816 / SPC700 interpreted | Pass 2 (final), 65816 / SPC700 |
+|---|---|---|
+| demo (12,000) | 66.6 M / 50.3 M | 0 / 0 |
+| play (3,600) | 21.0 M / 15.1 M | 0 / 0 |
+| long-1 (18,000) | 95.2 M / 76.6 M | 0 / 0 |
+| authored (6,000) | 38.9 M / 25.3 M | 0 / 0 |
+| authored-2p (12,000) | 91.7 M / 51.0 M | 0 / 0 |
+
+In every scenario of the final pass the native and the reference run agree (`reference_differences`:
+frame and sequence hashes, 65816 and SPC700 state, RAM, VRAM, CRAM, OAM, cycle counts, audio PCM;
+0 differences, `native_validation.passed`), picture, GSU and sound are still active at the last
+frame, and the GSU counts 865,370,058 interpreted instructions over
+the two-player route (72,114 per frame, 47,949-72,114 over the five scenarios). For comparison,
+the executable of the nine-cartridge snapshot (learned from the four old scenarios only), run on
+this route, interprets 3.74 M 65816 and 11.59 M SPC700 opcodes over its first 11,990 frames: the
+second pass learned them. Two passes were enough; no extra discovery pass and no route change
+was needed. Packed executable: 14,017,024 bytes unpacked, 3,101,184 packed (ratio 0.2212).
+`tools/snes_packed_check.py` on that published executable (SHA-256 equal to the recorded one, UPX
+header present) regenerated both authored routes from the report by scenario name and replayed
+the five scenarios native against reference: 51,600 frame pairs identical, frame and sequence
+hashes and GSU instruction counts equal to the conversion's own, liveness passed, state saved at
+7,800 and resumed for 180 frames in a fresh process matching, 8 corrupt state files rejected,
+1,571 s.
+
+The route proves that host inputs reach a two-controller Battle Trax race in the export and that
+the code it runs is native on both CPUs; it does not prove that the race plays correctly, and
+the other Battle Trax courses, Stunt Trax and Test Run are not entered. The maintainer snapshot
+carries the new paths ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md)). The route is a game-side
+input of the SNES fingerprint (`retrorecomp/snes_routes.py` belongs to `owners()` of `snes` and
+is neither a host nor a build module): the SNES game stamp changes, the other consoles' do not.
+
 ## Licences
 
 | Source | Licence | Use |
@@ -756,13 +816,18 @@ reflect unknown integration bugs.
 
 Steps 1-5 are done: measured Super FX support with an interpreted GSU, shipped in
 1.5.4. Step 6b is set aside (27 October 2026); when it is taken up, the staged
-plan is: the Stunt Race FX two-player route learned first (1-3 days), then GSU
-entry and target learning (3-4), the emitter (6-8), exact cycles with yielding and
-guards (7-9) and qualification (5-8), with the engine's file-static helpers
-rewritten from fullsnes and ares rather than copied. Known limits: game-level battery
+plan is: GSU entry and target learning (3-4 days), the emitter (6-8), exact cycles with
+yielding and guards (7-9) and qualification (5-8), with the engine's file-static helpers
+rewritten from fullsnes and ares rather than copied. The first stage of the earlier
+plan, the Stunt Race FX two-player route learned (1-3 days), was done on 27 October 2026
+in less than one: the conversion now plays it and ends on 0 interpreted 65816 and SPC700
+opcodes ("Stunt Race FX two-player route"). Known limits: game-level battery
 proof for Stunt Race FX and Yoshi's Island, Doom's 5- versus 9-frame render pacing
-against MAME, the Stunt Race FX two-player mode still meeting unlearned code, and no
-console measurement of GSU timing.
+against MAME, the Dirt Trax FX two-controller route (replayed in the qualification only, not
+an authored conversion scenario) and the Stunt Race FX modes no authored route enters (Stunt
+Trax, Test Run, the other Battle Trax courses), so the converted game can still meet code
+there, which the fallback interpreter then runs and counts; and no console measurement of
+GSU timing.
 
 A real implementation touches, beyond the slice: `retrorecomp/console16.py` and the report/interface code
 for separate figures, `retrorecomp/knowledge.py` and the bundled snapshot
