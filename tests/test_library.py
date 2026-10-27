@@ -42,6 +42,20 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(self.memory.seeds(), {self.good})
         self.assertEqual(self.memory.import_entries({self.good})["added"], 0)
 
+    def test_file_sha256_matches_hashlib_and_legacy_digest_names(self):
+        from retrorecomp.library import file_sha256
+        from retrorecomp.freshness import digest as freshness_digest
+        from retrorecomp.nes_build import digest as nes_digest
+        from retrorecomp.x68000_conversion import digest as x68000_digest
+        data = bytes(range(256)) * 3 + b"retro-recomp"
+        path = self.root / "blob.bin"
+        path.write_bytes(data)
+        expected = hashlib.sha256(data).hexdigest()
+        self.assertEqual(file_sha256(path), expected)
+        self.assertEqual(file_sha256(str(path)), expected)
+        for legacy in (freshness_digest, nes_digest, x68000_digest):
+            self.assertEqual(legacy(path), expected)
+
     @unittest.skipUnless(os.name == 'nt', 'Windows sharing lock')
     def test_atomic_checkpoint_waits_for_a_brief_reader_lock(self):
         from tests.test_publishing import locked_file

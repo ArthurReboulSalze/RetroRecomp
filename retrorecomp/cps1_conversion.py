@@ -21,17 +21,12 @@ import time
 
 from . import __version__
 from .core import ConversionError, executable_name, run_process
-from .library import atomic_json, entry_lock
+from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .paths import ROOT
 from .toolchain import describe as toolchain_description
 
 STATE_SETTLE = 600   # frames continued after a quick state is loaded
-
-
-def _digest(path: Path) -> str:
-    with Path(path).open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list[tuple[str, int, str]]:
@@ -245,7 +240,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'interpreter_percent': round(100 * native['interpreted_68000'] / max(1, main), 6),
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'],
-            'nonzero_samples': native['nonzero_samples'], 'trace_sha256': _digest(native['trace']),
+            'nonzero_samples': native['nonzero_samples'], 'trace_sha256': file_sha256(native['trace']),
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
     from .systems.cps1 import CPS1
@@ -276,7 +271,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         'ordinary_saves': {'supported': False, 'reason': 'standard CPS-1 boards keep no non-volatile memory'},
         'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'],
         'executable': executable_name(title), 'build_executable': str(executable), 'toolchain': toolchain_description(), 'build_directory': str(project),
-        'packed_candidate_sha256': _digest(packed), 'scan_level': level, 'validation_workers': workers,
+        'packed_candidate_sha256': file_sha256(packed), 'scan_level': level, 'validation_workers': workers,
         'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
         'qualification_scope': {
             'controls': f'players 1 to {player_count(game)}: joystick, up to six buttons, Start, coin; '

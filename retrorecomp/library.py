@@ -128,6 +128,12 @@ def entry_lock(directory: Path, *, timeout: float = 10):
             release()
 
 
+def file_sha256(path: Path | str) -> str:
+    """The exact SHA256 hex digest of a file's bytes."""
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
 def atomic_json(path: Path, value: dict) -> None:
     def write(file):
         json.dump(value, file, indent=2, ensure_ascii=False)
