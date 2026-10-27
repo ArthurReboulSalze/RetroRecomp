@@ -1,4 +1,4 @@
-"""Exports of releases 1.4.1, 1.5.1 and 1.5.2 stay upgradable, and 1.4.1 quick states stay readable.
+"""Exports of releases 1.4.1, 1.5.1, 1.5.2 and 1.5.6 stay upgradable, and 1.4.1 (and Mega Drive 1.5.6) quick states stay readable.
 
 The 1.4.1 values below were computed from the v1.4.1 tag and found, byte for
 byte, in executables and receipts written by the released Retro-Recomp.exe.
@@ -62,7 +62,22 @@ GAME_STAMPS_152 = {
     'nes': 'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe',
     'sms': '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92',
 }
-RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151), ('1.5.2', GAME_STAMPS_152))
+# Release 1.5.6 (27 October 2026), the last release before the 1.6.0 stamp break. Computed from the v1.5.6 tag with
+# Python 3.14.5; each one reproduced the game part of real receipts written by that converter (two games per console,
+# quick scan level), and the generated sources of those games were compared with 1.6.0's (docs/UPGRADES.md).
+# Super Nintendo (behaviour changed), Neo Geo (its receipt hashed the whole bank) and X68000 (SDK stamp): no entry.
+GAME_STAMPS_156 = {
+    'cps1': '187c9db92db22e872d352e6c5895640c414849ba6e50b07db0b06c4e703738fb',
+    'gb': 'c8a90b01e99b68da0f9796d109d7f161e9c848d2f8100651731c6dfe3f56f806',
+    'gg': '08950dbb0d3cce0475b17c309d17f72c0b65ed02e9e99cf1b9a4138afe50747b',
+    'md': 'd9bd59e01303a56a92e619aef54f67203fa7d0b3a7cb3211addc0562d6f9aa18',
+    'nes': 'c98420ac1dfde068026e7fb72da97844714b6a31e6536cca93ff012add168715',
+    'sms': '3897d8b37cffe8a438fd12cb7b522c9fac5222c5b94c9eb045457ef557e2fa7b',
+}
+SNES_GAME_STAMP_156_NOT_LISTED = '6cd67725aa322209739b0d7d736cd0de1e63ee95c9f322c0928e671cc4101d3b'
+RELEASES = (('1.4.1', GAME_STAMPS_141), ('1.5.1', GAME_STAMPS_151), ('1.5.2', GAME_STAMPS_152),
+            ('1.5.6', GAME_STAMPS_156))
+MD_STATE_ABI_156 = '9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa12ca2a8520'
 
 
 class LegacyStampTests(unittest.TestCase):
@@ -80,6 +95,7 @@ class LegacyStampTests(unittest.TestCase):
             self.assertEqual(stamps, tuple(table[system] for _, table in RELEASES if system in table), system)
         self.assertEqual(sorted(GAME_STAMPS_151), ['cps1', 'gb', 'gg', 'nes', 'sms'])
         self.assertEqual(sorted(GAME_STAMPS_152), ['cps1', 'gb', 'gg', 'md', 'nes', 'sms'])
+        self.assertEqual(sorted(GAME_STAMPS_156), ['cps1', 'gb', 'gg', 'md', 'nes', 'sms'])
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
 
     def test_super_nintendo_exports_of_earlier_releases_are_converted_in_full(self):
@@ -88,6 +104,7 @@ class LegacyStampTests(unittest.TestCase):
         self.assertEqual(inputs.legacy_game_stamps('snes'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
         self.assertFalse(listed & set(SNES_GAME_STAMPS_REMOVED.values()))
+        self.assertNotIn(SNES_GAME_STAMP_156_NOT_LISTED, listed)
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
 
     def test_neo_geo_exports_of_earlier_releases_are_converted_in_full(self):
@@ -96,6 +113,8 @@ class LegacyStampTests(unittest.TestCase):
         self.assertEqual(inputs.legacy_game_stamps('ng'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
         self.assertFalse(listed & set(NEO_GEO_GAME_STAMPS_REMOVED.values()))
+        # Nor for 1.5.6: its receipt still hashed the whole bank (the release before the break).
+        self.assertEqual(len(inputs.legacy_game_stamps('ng')), 0)
 
     def test_toolchain_choice_is_a_build_input_and_changes_no_game_or_host_stamp(self):
         self.assertEqual(inputs.role('retrorecomp.toolchain'), 'build')
@@ -217,6 +236,21 @@ class StateCompatibilityTests(unittest.TestCase):
         self.assertEqual(MD_STATE_ABI_141, '58e2c720c4d5988484fb970ca2a0d0b9b722a5023d5806cd58da56d67ea96164')
         self.assertNotIn(f'RR16_STATE_ABI "{MD_STATE_ABI_141}"', text)
 
+    def test_mega_drive_states_of_release_156_are_accepted(self):
+        from retrorecomp.console16_state import MD_STATE_ABI_156
+        text = self.sixteen_bit_config('md')
+        self.assertEqual(MD_STATE_ABI_156, globals()['MD_STATE_ABI_156'])
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI_24 "{MD_STATE_ABI_156}"', text)
+        # the 1.4.1 key stays accepted beside it
+        self.assertIn('#define RR16_STATE_COMPAT_ABI_23 ', text)
+        self.assertNotIn(f'RR16_STATE_ABI "{MD_STATE_ABI_156}"', text)
+
+    def test_super_nintendo_states_of_release_156_are_refused(self):
+        # Exact signature: no compatibility key for 1.5.6 (its engine changed what games do).
+        text = self.sixteen_bit_config('snes')
+        self.assertNotIn('RR16_STATE_COMPAT_ABI_24', text)
+        self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 1)
+
     def test_super_nintendo_states_of_release_141_are_accepted(self):
         from retrorecomp.console16_state import SNES_STATE_ABI_141
         text = self.sixteen_bit_config('snes')
@@ -225,7 +259,7 @@ class StateCompatibilityTests(unittest.TestCase):
 
     def test_the_shared_16_bit_state_loader_knows_the_compatibility_macros_used(self):
         loader = (ASSETS / 'native/console16_state.c').read_text(encoding='utf-8')
-        for macro in ('RR16_STATE_COMPAT_ABI', 'RR16_STATE_COMPAT_ABI_3', 'RR16_STATE_COMPAT_ABI_23'):
+        for macro in ('RR16_STATE_COMPAT_ABI', 'RR16_STATE_COMPAT_ABI_3', 'RR16_STATE_COMPAT_ABI_23', 'RR16_STATE_COMPAT_ABI_24'):
             self.assertRegex(loader, rf'#ifdef {macro}\b')
 
 

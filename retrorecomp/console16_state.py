@@ -98,8 +98,8 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 # State keys written by release 1.4.1 (found in its executables, and reproduced from its tag).
 MD_STATE_ABI_141 = '58e2c720c4d5988484fb970ca2a0d0b9b722a5023d5806cd58da56d67ea96164'
 SNES_STATE_ABI_141 = '396976503cf0a7478e85bd818d8ec5a1ccf5dab95d306550b1fd5c73ebbd0d1b'
-# Release 1.5.6 (Mega Drive): the key of the last release before 1.6.0 moved the player shell into the host kit and
-# left it out of the key. The serialized capture did not change (docs/GAME_STATES.md, tests/test_legacy_compat.py).
+# State key written by release 1.5.6 (Mega Drive; found in a real 1.5.6 export and reproduced from its tag). The host kit
+# of 1.6.0 left the shell files out of the key; the serialized capture did not change (docs/GAME_STATES.md).
 MD_STATE_ABI_156 = '9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa12ca2a8520'
 
 
@@ -166,6 +166,9 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
         # Release 1.4.1 (Visual Studio): the key also covers the CMake file and the repository list,
         # which changed to build with the portable tools; the serialized layout did not.
         text += f'#define RR16_STATE_COMPAT_ABI_23 {json.dumps(MD_STATE_ABI_141)}\n'
+        # Release 1.5.6: its key hashed the shell files directly below native/ and the repository list; the host kit
+        # took the shell out of the key. The capture layout is unchanged (docs/GAME_STATES.md).
+        text += f'#define RR16_STATE_COMPAT_ABI_24 {json.dumps(MD_STATE_ABI_156)}\n'
     if os.name == 'nt' and system_id == 'snes':
         text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(SNES_STATE_ABI_141)}\n'
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')
