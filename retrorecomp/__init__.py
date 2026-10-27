@@ -1,2 +1,2 @@
 """Retro-Recomp local cartridge-to-native build tool."""
-__version__ = "1.5.6"
+__version__ = "1.6.0"
