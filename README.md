@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=2d587a5c09b8" alt="RetroRecomp: the RR cartridge" width="200">
+  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=3416f16e6a63" alt="RetroRecomp: the RR cartridge" width="240">
 </p>
 
 <h1 align="center">RetroRecomp</h1>
