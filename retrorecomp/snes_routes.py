@@ -1,8 +1,11 @@
 """Authored gameplay routes for exact Super FX cartridges (host inputs only).
 
 The random extended route never leaves the menus of some Super FX games, so a
-conversion at the Extended level and above also replays one authored route when
-this table holds the exact ROM (SHA-256). A route is a list of controller
+conversion at the Extended level and above also replays the authored routes of
+the exact ROM (SHA-256) when this table holds it: one route named ``authored``
+for most games, more than one where a game has a mode the first route does not
+play (Stunt Race FX adds ``authored-2p``, its two-controller Battle Trax; each
+route is its own scenario, with its own script hash). A route is a list of controller
 states for the headless host (``--input-script``, ``frame p1 p2`` decimal SNES
 masks, see ``random_routes.SNES_BITS``): no guest memory or code is patched and
 no ROM byte is stored here. The same script drives the native export and its
@@ -20,8 +23,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import re
 
 LINE_LIMIT = 4096  # the 16-bit replay holds this many lines (random_routes.CONSOLE16_LINE_LIMIT)
+# A scenario name is also a file name (``<name>-inputs.txt``) and a report key: it must be
+# unique among the scenarios of a conversion (the probe names and the random routes' ``long-N``).
+SCENARIO_NAME = re.compile('[a-z][a-z0-9]*(-[a-z0-9]+)*')
+LONG_ROUTE_NAME = re.compile('long-[0-9]+')
+RESERVED_SCENARIOS = frozenset({'demo', 'play', 'advanced', 'early-start', 'menu-confirm'})
 
 ROUTES = {
     '82e39dfbb3e4fe5c28044e80878392070c618b298dd5a267e5ea53c8f72cc548': {
@@ -72,12 +81,35 @@ ROUTES = {
                (1680, 80, 0), (1710, 81, 0), (1714, 80, 0), (1740, 80, 0), (1770, 81, 0), (1774, 80, 0),
                (1800, 80, 0), (1830, 81, 0), (1834, 80, 0), (1860, 80, 0), (1890, 81, 0), (1894, 80, 0))),
              ('rep', 11760, 60, 4, ((0, 16, 0), (30, 17, 0), (34, 16, 0))))},
-    'c04d80b84514202ff319384ca20641eb0189e975eed5612915bd9c224b2ab30a': {
-        'title': 'Stunt Race FX (USA)', 'frames': 6000,
-        'reaches': (
-            'Ten Start taps through the menus to Speed Trax; B held to accelerate from about frame '
-            '3,000.'),
-        'events': ((0, 0, 0), ('rep', 240, 240, 10, ((0, 8, 0), (4, 0, 0))), (3000, 1, 0))},
+    'c04d80b84514202ff319384ca20641eb0189e975eed5612915bd9c224b2ab30a': (
+        {'name': 'authored', 'title': 'Stunt Race FX (USA)', 'frames': 6000,
+         'reaches': (
+             'Ten Start taps through the menus to Speed Trax; B held to accelerate from about frame '
+             '3,000.'),
+         'events': ((0, 0, 0), ('rep', 240, 240, 10, ((0, 8, 0), (4, 0, 0))), (3000, 1, 0))},
+        # Two controllers: Game Selection > Battle Trax, car selection by pad 1 then pad 2,
+        # Cotton Farm (split screen), both pads accelerate (B) and steer on opposite phases with
+        # an A tap for the boost. Pad 1 is wrecked near frame 6,600 ("WIN" on pad 2's half), the
+        # TRY AGAIN / CHANGE COURSE / CHANGE CAR menu follows; CHANGE COURSE, Toxic Desert, a second
+        # split-screen race with the steering phases swapped until the end of the route.
+        {'name': 'authored-2p', 'title': 'Stunt Race FX (USA), two players', 'frames': 12000,
+         'reaches': (
+             'Start taps to Game Selection; Down twice and Start pick Battle Trax; pad 1 then pad 2 pick '
+             'a car; Cotton Farm split-screen race from about frame 1,800 (both pads drive, pad 1 wrecked '
+             'near 6,600); CHANGE COURSE, Right and Start pick Toxic Desert for a second split-screen '
+             'race from about frame 8,100.'),
+         'events': ((0, 0, 0), (240, 8, 0), (244, 0, 0), (360, 8, 0), (364, 0, 0), (600, 8, 0), (604, 0, 0),
+                    (840, 32, 0), (844, 0, 0), (860, 32, 0), (864, 0, 0), (900, 8, 0), (904, 0, 0),
+                    (1020, 8, 0), (1024, 0, 0), (1110, 0, 8), (1114, 0, 0), (1350, 8, 0), (1354, 0, 0),
+                    (1500, 8, 0), (1504, 0, 0),
+                    ('rep', 1800, 240, 22,
+                     ((0, 1, 1), (20, 1, 129), (50, 1, 1), (60, 65, 1), (90, 1, 1), (110, 1, 65), (140, 1, 1),
+                      (150, 129, 1), (180, 1, 1), (200, 1, 257), (210, 1, 1))),
+                    (7080, 0, 0), (7320, 32, 0), (7324, 0, 0), (7350, 8, 0), (7354, 0, 0),
+                    (7600, 128, 0), (7604, 0, 0), (7650, 8, 0), (7654, 0, 0), (7890, 8, 0), (7894, 0, 0),
+                    ('rep', 8130, 240, 16,
+                     ((0, 1, 1), (20, 129, 1), (50, 1, 1), (60, 1, 65), (90, 1, 1), (110, 65, 1), (140, 1, 1),
+                      (150, 1, 129), (180, 1, 1), (200, 257, 1), (210, 1, 1))))}),
     'bd763c1a56365c244be92e6cffefd318780a2a19eda7d5baf1c6d5bd6c1b3e06': {
         'title': "Super Mario World 2 - Yoshi's Island (USA)", 'frames': 9000,
         'reaches': (
@@ -204,12 +236,30 @@ class AuthoredRoute:
                 'continues_from': None, 'generator': 'snes_routes.authored_routes'}
 
 
-def authored_routes(sha256: str) -> tuple:
-    """The authored route of this exact ROM, or an empty tuple."""
-    entry = ROUTES.get(sha256)
-    if entry is None:
+def route_entries(sha256: str) -> tuple:
+    """The route entries of an exact ROM: a table value is one entry (route
+    ``authored``) or a tuple of entries, each naming its own scenario."""
+    value = ROUTES.get(sha256)
+    if value is None:
         return ()
-    events = expand(entry['events'])
-    if events[-1][0] >= entry['frames']:
-        raise ValueError('An authored route must end before its last frame.')
-    return (AuthoredRoute(sha256, entry['title'], entry['frames'], events, entry['reaches']),)
+    return (value,) if isinstance(value, dict) else tuple(value)
+
+
+def authored_routes(sha256: str) -> tuple:
+    """The authored routes of this exact ROM, in table order (each its own
+    scenario, names unique), or an empty tuple."""
+    routes, names = [], set()
+    entries = route_entries(sha256)
+    for entry in entries:
+        name = entry.get('name', 'authored' if len(entries) == 1 else None)
+        if (not isinstance(name, str) or SCENARIO_NAME.fullmatch(name) is None
+                or name in RESERVED_SCENARIOS or LONG_ROUTE_NAME.fullmatch(name)):
+            raise ValueError(f'Invalid authored route scenario name: {name!r}.')
+        if name in names:
+            raise ValueError(f'Duplicate authored route scenario name: {name}.')
+        names.add(name)
+        events = expand(entry['events'])
+        if events[-1][0] >= entry['frames']:
+            raise ValueError('An authored route must end before its last frame.')
+        routes.append(AuthoredRoute(sha256, entry['title'], entry['frames'], events, entry['reaches'], name))
+    return tuple(routes)

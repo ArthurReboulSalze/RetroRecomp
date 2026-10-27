@@ -8,6 +8,9 @@ from pathlib import Path
 from retrorecomp import packing, snes_routes, supernintendo
 from retrorecomp.core import ConversionError
 from retrorecomp.random_routes import SNES_BITS, write_route
+import unittest.mock
+
+STUNT_RACE_FX = 'c04d80b84514202ff319384ca20641eb0189e975eed5612915bd9c224b2ab30a'
 
 
 def device_check(frames=1200, picture=1200, device=1200, audible=1200, chip='superfx', mode='interpreted', **extra):
@@ -92,31 +95,39 @@ class AuthoredRoutes(unittest.TestCase):
     def test_the_table_is_exact_rom_data_and_valid(self):
         self.assertEqual(len(snes_routes.ROUTES), 6)
         titles = set()
-        for sha, entry in snes_routes.ROUTES.items():
+        for sha in snes_routes.ROUTES:
             self.assertRegex(sha, '^[0-9a-f]{64}$')
-            (route,) = snes_routes.authored_routes(sha)
-            titles.add(route.title)
-            self.assertEqual((route.name, route.console, route.continues_from), ('authored', 'snes', None))
-            self.assertLess(route.events[-1][0], route.frames)
-            self.assertLessEqual(route.frames, 18000)
-            self.assertEqual(route.events[0][:2], (0, 0))
-            self.assertTrue(entry['reaches'])
-            # Only the SNES pad bits are used, and the first frame releases everything.
-            allowed = 0
-            for bit in SNES_BITS.values():
-                allowed |= bit
-            self.assertTrue(all(p1 & ~allowed == 0 and p2 & ~allowed == 0 for _, p1, p2 in route.events))
+            routes = snes_routes.authored_routes(sha)
+            self.assertEqual(len(routes), len(snes_routes.route_entries(sha)))
+            self.assertEqual(routes[0].name, 'authored')
+            self.assertEqual(len({route.name for route in routes}), len(routes))
+            for route, route_entry in zip(routes, snes_routes.route_entries(sha)):
+                titles.add(route.title.split(', two players')[0])
+                self.assertEqual((route.console, route.continues_from), ('snes', None))
+                self.assertLess(route.events[-1][0], route.frames)
+                self.assertLessEqual(route.frames, 18000)
+                self.assertEqual(route.events[0][:2], (0, 0))
+                self.assertTrue(route_entry['reaches'])
+                # Only the SNES pad bits are used, and the first frame releases everything.
+                allowed = 0
+                for bit in SNES_BITS.values():
+                    allowed |= bit
+                self.assertTrue(all(p1 & ~allowed == 0 and p2 & ~allowed == 0 for _, p1, p2 in route.events))
         self.assertEqual(titles, {'Star Fox (USA)', 'Star Fox 2 (USA)', 'Stunt Race FX (USA)',
                                   "Super Mario World 2 - Yoshi's Island (USA)", 'Vortex (USA)', 'Dirt Racer (Europe)'})
+        # Only Stunt Race FX has a second route (its two-controller mode); the others have one.
+        self.assertEqual({sha: [route.name for route in snes_routes.authored_routes(sha)]
+                          for sha in snes_routes.ROUTES if len(snes_routes.route_entries(sha)) > 1},
+                         {STUNT_RACE_FX: ['authored', 'authored-2p']})
 
     def test_the_prototype_and_unknown_roms_have_no_route(self):
         self.assertEqual(snes_routes.authored_routes('be4d3bd755ac6e5ac6061fa1c528f5ff5b1a1b539a44aadf4ee03168e1ff11f9'), ())
         self.assertEqual(snes_routes.authored_routes('0' * 64), ())
 
     def test_the_script_is_the_replay_format_and_hashes_stably(self):
-        sha = 'c04d80b84514202ff319384ca20641eb0189e975eed5612915bd9c224b2ab30a'  # Stunt Race FX (USA)
-        (route,) = snes_routes.authored_routes(sha)
+        route = snes_routes.authored_routes(STUNT_RACE_FX)[0]
         lines = route.script().splitlines()
+        self.assertEqual(route.name, 'authored')
         self.assertEqual(lines[0], '0 0 0')
         self.assertEqual(lines[-1], '3000 1 0')          # B held to the end: mask 1
         self.assertEqual(len(lines), 22)
@@ -133,22 +144,79 @@ class AuthoredRoutes(unittest.TestCase):
     def test_a_replay_script_is_accepted_by_the_host_format_rules(self):
         # console16_main.c: strictly increasing frames, each below the scenario length.
         for sha in snes_routes.ROUTES:
-            (route,) = snes_routes.authored_routes(sha)
-            frames = [event[0] for event in route.events]
-            self.assertEqual(frames, sorted(set(frames)))
-            self.assertLess(frames[-1], route.frames)
+            for route in snes_routes.authored_routes(sha):
+                frames = [event[0] for event in route.events]
+                self.assertEqual(frames, sorted(set(frames)))
+                self.assertLess(frames[-1], route.frames)
+
+    def test_stunt_race_fx_has_a_two_controller_route(self):
+        first, second = snes_routes.authored_routes(STUNT_RACE_FX)
+        self.assertEqual((first.name, second.name), ('authored', 'authored-2p'))
+        self.assertEqual((first.frames, second.frames), (6000, 12000))
+        self.assertNotEqual(first.script_sha256(), second.script_sha256())
+        # The first route is the one of the published reports: 22 lines, pad 2 never used.
+        self.assertEqual(len(first.events), 22)
+        self.assertTrue(all(p2 == 0 for _, _, p2 in first.events))
+        # Both pads act in the second route: pad 1 alone starts the menus, pad 2 picks its car,
+        # then both drive (B held, steering on each pad).
+        self.assertIn((1110, 0, 8), second.events)
+        driving = [event for event in second.events if 2400 <= event[0] < 7000]
+        self.assertTrue(any(p1 & 0x40 for _, p1, _ in driving) and any(p2 & 0x40 for _, _, p2 in driving))
+        self.assertTrue(any(p1 & 0x80 for _, p1, _ in driving) and any(p2 & 0x80 for _, _, p2 in driving))
+        self.assertTrue(all(p1 & 1 and p2 & 1 for _, p1, p2 in driving))
+        self.assertLess(len(second.events), snes_routes.LINE_LIMIT)
+        metadata = second.metadata()
+        self.assertEqual((metadata['scenario'], metadata['kind'], metadata['frames']), ('authored-2p', 'authored', 12000))
+        json.dumps(metadata)
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(write_route(second, folder).name, 'authored-2p-inputs.txt')
+
+    def test_several_routes_need_unique_valid_scenario_names(self):
+        def entry(**extra):
+            return {'title': 'Fixture', 'frames': 100, 'reaches': 'nothing', 'events': ((0, 0, 0), (5, 8, 0)), **extra}
+        sha = '2' * 64
+        table = {
+            'unnamed': (entry(name='authored'), entry()),
+            'duplicate': (entry(name='authored'), entry(name='authored')),
+            'probe name': (entry(name='authored'), entry(name='demo')),
+            'random route name': (entry(name='authored'), entry(name='long-2')),
+            'file name': (entry(name='authored'), entry(name='../x')),
+            'capital': (entry(name='authored'), entry(name='Second')),
+        }
+        for label, routes in table.items():
+            with self.subTest(label), unittest.mock.patch.dict(snes_routes.ROUTES, {sha: routes}):
+                with self.assertRaises(ValueError):
+                    snes_routes.authored_routes(sha)
+        with unittest.mock.patch.dict(snes_routes.ROUTES, {sha: (entry(name='authored'), entry(name='authored-2p'))}):
+            self.assertEqual([route.name for route in snes_routes.authored_routes(sha)], ['authored', 'authored-2p'])
+        # A single entry is still one route named `authored`, whatever its shape.
+        with unittest.mock.patch.dict(snes_routes.ROUTES, {sha: entry()}):
+            self.assertEqual([route.name for route in snes_routes.authored_routes(sha)], ['authored'])
+        with unittest.mock.patch.dict(snes_routes.ROUTES, {sha: (entry(),)}):
+            self.assertEqual([route.name for route in snes_routes.authored_routes(sha)], ['authored'])
 
 
 class PackedCheckTool(unittest.TestCase):
     def test_routes_are_regenerated_from_the_report_and_must_match_it(self):
         from tools import snes_packed_check
-        sha = 'c04d80b84514202ff319384ca20641eb0189e975eed5612915bd9c224b2ab30a'
-        (route,) = snes_routes.authored_routes(sha)
+        sha = STUNT_RACE_FX
+        route, second = snes_routes.authored_routes(sha)
         report = {'rom': {'sha256': sha}, 'advanced_scan': {'long_routes': [], 'authored_routes': [route.metadata()]}}
         with tempfile.TemporaryDirectory() as folder:
             scripts = snes_packed_check.route_scripts(report, Path(folder))
+            self.assertEqual(set(scripts), {'authored'})
             self.assertEqual(Path(scripts['authored']).read_text(), route.script())
             report['advanced_scan']['authored_routes'][0]['script_sha256'] = '0' * 64
+            with self.assertRaises(SystemExit):
+                snes_packed_check.route_scripts(report, Path(folder))
+            # Both routes of the exact ROM are regenerated, each from its own scenario name.
+            report['advanced_scan']['authored_routes'] = [route.metadata(), second.metadata()]
+            scripts = snes_packed_check.route_scripts(report, Path(folder))
+            self.assertEqual(set(scripts), {'authored', 'authored-2p'})
+            self.assertEqual(Path(scripts['authored-2p']).read_text(), second.script())
+            self.assertEqual(Path(scripts['authored']).read_text(), route.script())
+            # A report naming a route this converter does not have is refused.
+            report['advanced_scan']['authored_routes'][1]['scenario'] = 'authored-3p'
             with self.assertRaises(SystemExit):
                 snes_packed_check.route_scripts(report, Path(folder))
 
