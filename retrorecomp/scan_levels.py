@@ -19,14 +19,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .systems import ALL_PROFILES, system_ids
+
 LEVELS = ('quick', 'standard', 'extended', 'thorough')
-CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
+# The consoles and their scenario lengths come from the profiles.
+CONSOLES = system_ids()
 DEFAULT_PASSES = 3
-DEFAULT_FRAMES = {'sms': 3600, 'gg': 3600, 'gb': 3600, 'nes': 3600, 'md': 3600, 'snes': 1200,
-                  'ng': 3600, 'x68': 4000, 'cps1': 3600}
+DEFAULT_FRAMES = {profile.id: profile.default_frames for profile in ALL_PROFILES}
 # A quick scan caps the scenario length and runs a single pass.
-QUICK_FRAMES = {'sms': 1800, 'gg': 1800, 'gb': 1800, 'nes': 1800, 'md': 1200, 'snes': 1200,
-                'ng': 3600, 'x68': 4000, 'cps1': 2400}
+QUICK_FRAMES = {profile.id: profile.quick_frames for profile in ALL_PROFILES}
 LONG_ROUTE_FRAMES = 18000
 # Pseudo-random routes added on top of the standard scenarios.
 LONG_ROUTES = {'quick': 0, 'standard': 0, 'extended': 1, 'thorough': 2}

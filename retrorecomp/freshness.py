@@ -11,6 +11,7 @@ from pathlib import Path
 from functools import lru_cache
 from . import __version__
 from .feedback import ingest
+from .systems import get_profile, unsigned_option_keys
 
 
 def digest(path):
@@ -35,20 +36,13 @@ def _hash(settings):
 def request_parts(item, options):
     """The whole request signature, plus its game and host parts."""
     from .platforms import target_id
-    settings = {key: value for key, value in options.items()
-                if key not in ('gb_parallel_games', 'ng_parallel_games', 'ng_bios', 'bios')}
+    # Options that only size the work or name firmware (the profiles'
+    # option_keys with signature=False), plus the generic firmware key.
+    unsigned = unsigned_option_keys() | {'bios'}
+    settings = {key: value for key, value in options.items() if key not in unsigned}
     settings['target'] = target_id()
-    if item.system == 'x68':
-        from .x68000 import machine
-        from .x68000_conversion import sdk_stamp
-        _, manifest = machine(item.path, options.get('x68_ipl'), options.get('x68_cgrom'), options.get('x68_ram', 2))
-        settings['machine_identity'] = manifest.sha256
-        settings['x68_sdk'] = sdk_stamp('game')
-        settings.pop('x68_ipl', None); settings.pop('x68_cgrom', None)
-    if item.system == 'ng':
-        from .neogeo import validate_bios
-        from .paths import selected_bios_path
-        settings['bios'] = validate_bios(selected_bios_path(options.get('ng_bios') or options.get('bios')))
+    # The console's own identity (X68000 machine, Neo Geo BIOS), if it has one.
+    get_profile(item.system).request_identity(item, options, settings)
     if options.get('use_cover', True):
         from .cover_settings import load_settings
         from .cover_references import find as cover_reference

@@ -13,7 +13,10 @@ from pathlib import Path
 from types import CodeType
 from functools import lru_cache
 
-SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1'))
+from .systems import system_ids
+
+# Every console the converter knows: the profiles' list.
+SYSTEMS = frozenset(system_ids())
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',

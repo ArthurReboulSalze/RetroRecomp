@@ -106,7 +106,10 @@ def open_local(path: Path) -> None:
 
 
 def require_backend(system: str) -> None:
-    if os.name != 'nt' and system not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'):
+    if os.name == 'nt':
+        return
+    from .systems import ALL_PROFILES
+    if system not in {profile.id for profile in ALL_PROFILES if profile.linux == 'witnessed'}:
         from .core import ConversionError
         raise ConversionError(f'{system}: Linux integration is still pending for this console profile.')
 

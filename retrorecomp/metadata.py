@@ -1,11 +1,12 @@
 """Standard Windows executable information; no Shell extension or sidecar."""
 from pathlib import Path
 from . import __version__
+from .systems import get_profile, system_ids
 
 
 def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
                   system_id: str = 'sms', *, zapper: bool = False, gun_device: str | None = None) -> dict[str, str]:
-    if system_id not in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1'):
+    if system_id not in system_ids():
         raise ValueError('Unsupported console')
     if system_id != 'sms' and light_phaser:
         raise ValueError('This console has no Light Phaser')
@@ -20,15 +21,13 @@ def game_metadata(title: str, light_phaser: bool, standard: str | None = None,
         if system_id != 'nes':
             raise ValueError('Zapper requires NES')
         controls = 'Mouse (NES Zapper); keyboard/gamepad controls'
-    modes = {'sms': ('pal', 'ntsc'), 'gg': ('ntsc',), 'gb': ('dmg',), 'nes': ('ntsc', 'pal'),
-             'md': ('ntsc', 'pal'), 'snes': ('ntsc', 'pal'), 'ng': ('mvs',), 'x68': ('native',),
-             'cps1': ('arcade',)}
-    if standard is not None and standard not in modes[system_id]:
+    profile = get_profile(system_id)
+    if standard is not None and standard not in profile.video_modes:
         raise ValueError('Unsupported console video standard')
-    console_name = {'sms': 'Master System', 'gg': 'Game Gear', 'gb': 'Game Boy',
-                    'nes': 'Nintendo NES', 'md': 'Mega Drive', 'snes': 'Super Nintendo', 'ng': 'Neo Geo', 'x68': 'Sharp X68000',
-                    'cps1': 'Capcom CPS-1'}[system_id]
-    console = console_name + (f' {standard.upper()}' if standard and system_id in ('sms', 'nes', 'md', 'snes') else '')
+    console_name = profile.name
+    # Only the consoles with both a PAL and an NTSC mode carry the standard in their name.
+    both_standards = 'ntsc' in profile.video_modes and 'pal' in profile.video_modes
+    console = console_name + (f' {standard.upper()}' if standard and both_standards else '')
     values = {'CompanyName': 'RetroRecomp', 'ProductName': title,
         'FileDescription': f'{title} | {console} | {controls}',
         'FileVersion': __version__, 'ProductVersion': f'RetroRecomp {__version__}',

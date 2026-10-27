@@ -24,7 +24,8 @@ def main() -> int:
         from retrorecomp.compilation_inputs import engine_stamp,input_fingerprints
         from retrorecomp.library import atomic_json
         describe=input_fingerprints if sys.argv[1]=='_compilation-inputs' else engine_stamp
-        atomic_json(Path(sys.argv[2]),{s:describe(s) for s in ('sms','gg','gb','nes','md','snes','ng')})
+        from retrorecomp.systems import system_ids
+        atomic_json(Path(sys.argv[2]),{s:describe(s) for s in system_ids()})
         return 0
     if sys.argv[1:] == ['_install-launcher'] and sys.platform == 'linux':
         from retrorecomp.linux_desktop import publish_converter_launcher

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import SystemProfile
+from . import Capabilities, Cpu, OptionKey, SystemProfile
 
 
 class NesProfile(SystemProfile):
@@ -12,6 +12,11 @@ class NesProfile(SystemProfile):
     extensions = (".nes",)
     export_folder = "Nintendo NES"
     video_modes = ("ntsc", "pal")
+    cpus = (Cpu("6502", "main", "cycles"),)
+    quick_state_family = "nes"
+    capabilities = Capabilities(guns=("zapper",), battery=True)
+    feedback_kinds = frozenset({3, 4})
+    option_keys = (OptionKey("nes_advanced_scan"),)
 
     def read_rom(self, path: Path):
         from ..nes import read_nes_rom

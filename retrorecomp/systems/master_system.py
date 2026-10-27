@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from . import SystemProfile
+from . import Capabilities, Cpu, SystemProfile
 
 
 class MasterSystemProfile(SystemProfile):
@@ -14,6 +14,11 @@ class MasterSystemProfile(SystemProfile):
     extensions = (".sms",)
     export_folder = "Master System"
     video_modes = ("ntsc", "pal")
+    cpus = (Cpu("z80", "main", "cycles"),)
+    quick_state_family = "gamestate"
+    capabilities = Capabilities(guns=("light_phaser",))
+    feedback_kinds = frozenset({1})
+    converter_publishes = True
 
     def read_rom(self, path: Path):
         from ..core import read_rom

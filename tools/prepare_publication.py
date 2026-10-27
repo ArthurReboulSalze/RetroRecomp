@@ -104,7 +104,7 @@ assets/board-trophy.png assets/board-gem-gold.png assets/board-gem-platinum.png 
 assets/RetroRecomp-UI-JP.otf assets/RetroRecomp-UI-SC.otf assets/font-coverage.json licenses/Noto.md
 native/paths_posix.inc native/learning_posix.c native/font6x10.h native/font10x20.h
 native/platform_posix_checks.c tools/linux_sms_selftest.py
-retrorecomp/freshness.py retrorecomp/compilation_inputs.py tests/test_compilation_inputs.py tools/std_baseline.py tests/test_std_baseline.py
+retrorecomp/freshness.py retrorecomp/compilation_inputs.py tests/test_compilation_inputs.py tools/std_baseline.py tests/test_std_baseline.py tests/test_system_profiles.py
 retrorecomp/snes_knowledge.py tests/test_snes_knowledge.py
 tests/test_build_budget.py
 tests/test_compiler_durability.py

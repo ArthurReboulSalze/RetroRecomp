@@ -1,6 +1,6 @@
 """Capcom CPS-1 conversion profile: MAME/FBNeo romsets identified by CRC."""
 from pathlib import Path
-from . import SystemProfile
+from . import Capabilities, Cpu, SystemProfile
 
 
 class Cps1Profile(SystemProfile):
@@ -11,7 +11,18 @@ class Cps1Profile(SystemProfile):
     video_modes = ('arcade',)
     # Each conversion compares native code with the interpreted reference;
     # the board model was compared with MAME on development sets only.
-    experimental = True
+    status = 'experimental'
+    cpus = (Cpu('m68000', 'main', 'instructions'), Cpu('z80', 'sound', 'instructions'))
+    media_kinds = ('romset',)
+    quick_state_family = 'rr16'
+    # The standard boards keep no non-volatile memory.
+    capabilities = Capabilities()
+    feedback_kinds = frozenset({14, 15, 16})
+    fallback_display = 'opcodes'
+    default_frames = 3600
+    quick_frames = 2400
+    title_from_romset = True
+    linux = 'pending'
 
     def read_rom(self, path: Path):
         from ..cps1 import read_set

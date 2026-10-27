@@ -17,7 +17,8 @@ from .build_cleanup import release_build
 from . import __version__
 from .publishing import publish_executable
 from .snes_chips import device_summary, main_interpreted
-from .systems import profile_for_path, get_profile, UnsupportedConsoleError, ConsoleMismatchError
+from .systems import (ALL_PROFILES, profile_for_path, get_profile, drop_foreign_options,
+                      UnsupportedConsoleError, ConsoleMismatchError)
 
 
 @dataclass
@@ -46,7 +47,7 @@ def identify(path: Path, selected_system: str | None = None) -> BatchItem:
     try:
         system = profile_for_path(path, selected_system)
         rom = system.read_rom(path)
-        if system.id in ('ng', 'cps1'):
+        if system.title_from_romset:
             title = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", rom.title.split(' / ',1)[0]).strip() or path.stem
         byte_size = rom.size if hasattr(rom, 'size') else len(rom.data)
         return BatchItem(path, title, system.id, rom.sha256, byte_size,
@@ -350,16 +351,10 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         # What the shared base gave this ROM before the batch (online.prepare_batch):
         # it may choose the quick plan below and is never part of the request.
         shared = (settings.pop('shared_paths', None) or {}).get(f'{system.id}:{item.sha256}')
-        if system.id != 'x68':
-            for key in ('x68_ipl', 'x68_cgrom', 'x68_ram'): settings.pop(key, None)
-        if system.id != 'ng':
-            settings.pop('ng_bios', None)
-            settings.pop('ng_qualification_routes', None)
-            settings.pop('ng_parallel_games', None)
-        if system.id not in ('md', 'snes'):
-            settings.pop('md_advanced_scan', None)
-        if system.id != 'nes':
-            settings.pop('nes_advanced_scan', None)
+        # Console-specific options reach their own console's converter only:
+        # x68_*, ng_* and gb_* keys, md_advanced_scan (md, snes) and
+        # nes_advanced_scan are the profiles' option_keys.
+        drop_foreign_options(system.id, settings)
         # Scan level, pass limit and frame budget resolve per console: a
         # command-line level, else the console's saved entry, else the former
         # switches. The former switch keys keep their meaning (and the request
@@ -371,18 +366,14 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                         md_advanced_scan=bool(settings.get('md_advanced_scan')),
                         nes_advanced_scan=bool(settings.get('nes_advanced_scan')))
         settings['passes'], settings['frames'] = plan.passes, plan.frames
-        if system.id in ('md', 'snes'):
-            settings['md_advanced_scan'] = plan.level in ('extended', 'thorough')
-        if system.id == 'nes':
-            settings['nes_advanced_scan'] = plan.level in ('extended', 'thorough')
+        for key in ('md_advanced_scan', 'nes_advanced_scan'):
+            if key in system.option_key_names:
+                settings[key] = plan.level in ('extended', 'thorough')
         if plan.level != 'standard':
             settings['scan_level'] = plan.level
-        if system.id != 'gb':
-            settings.pop('gb_deep_validation', None)
-            settings.pop('gb_parallel_games', None)
         if item.standard_override is not None:
             settings['standard_override'] = item.standard_override
-        if system.id in ('sms', 'gg'):
+        if system.converter_publishes:
             settings['publish_result'] = False
         from .freshness import request_parts, current, digest, feedback, upgradable, upgrade_record
         parts = request_parts(item, settings)
@@ -570,7 +561,8 @@ def convert_batch(items: list[BatchItem], output: Path, *, cancel: Event | None 
                   **options) -> dict:
     if not isinstance(jobs, int) or not 1 <= jobs <= 8:
         raise ValueError('Concurrent conversions must be between 1 and 8.')
-    options = {**options, 'gb_parallel_games': jobs, 'ng_parallel_games': jobs}
+    options = {**options, **{profile.parallel_games_option: jobs for profile in ALL_PROFILES
+                             if profile.parallel_games_option}}
     started = time.perf_counter()
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
