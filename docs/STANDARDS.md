@@ -57,6 +57,13 @@ today is described in [ARCHITECTURE.md](ARCHITECTURE.md).
     again and dropped when a conversion fails with them.
 12. **Files stay readable.** Beyond about 1,500 lines a module is split by
     responsibility.
+13. **Credits stay current, and short.** The credits window's "Made by
+    Retro-Recomp" part names what the project built itself. A release that
+    brings a major piece of our own work (a machine, a chip, a recompiler or
+    a shared system) adds or updates its line there, in the eight interface
+    languages; small features and fixes never do. The part stays about the
+    size of the other credit sections: lines are merged or shortened rather
+    than added. The release check list includes it.
 
 ## Target shape
 
