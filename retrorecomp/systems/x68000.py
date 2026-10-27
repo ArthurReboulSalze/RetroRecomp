@@ -18,8 +18,9 @@ class X68000Profile(SystemProfile):
     feedback_kinds = frozenset({13})
     default_frames = 4000
     quick_frames = 4000
-    # The result summary has no opcode line for this console yet (fallback_display
-    # stays 'cycles'): the GUI prints the cycle form, as it always did.
+    # Checks count interpreted 68000 opcodes and the result summary carries
+    # them, so the summary line reads like the other opcode consoles.
+    fallback_display = 'opcodes'
     option_keys = (OptionKey('x68_ipl'), OptionKey('x68_cgrom'), OptionKey('x68_ram'))
 
     def read_rom(self, path: Path):

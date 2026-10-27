@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from retrorecomp import gui, online
+from retrorecomp.batch import BatchItem
 from retrorecomp.compiled_games import Game
 from retrorecomp.compiled_games_view import EXTENDED_COINS, THOROUGH_COINS, CompiledGamesView, depth_coins
 from retrorecomp.gui import Application, typed_pseudonym
@@ -68,6 +69,30 @@ def logs(app):
         if event[0] == 'log':
             found.append(event[1])
     return found
+
+
+class X68000Summary(unittest.TestCase):
+    """The X68000 summary counts interpreted 68000 opcodes, like the other
+    opcode consoles, instead of falling back to the cycle sentence."""
+
+    def result_summary(self, result):
+        app = application()
+        app.table = Mock()
+        app.table.selection.return_value = ('row',)
+        app.items = {'row': BatchItem(Path('X:/Absent.dim'), 'X68000 game', system='x68')}
+        app.results = {'row': result}
+        app.selected_button = app.play_button = Mock()
+        app.video_field = Mock()
+        app.video_name = Mock()
+        app.detail = Mock()
+        app.selection_changed()
+        return app.detail.set.call_args.args[0]
+
+    def test_an_x68_result_shows_the_opcode_sentence(self):
+        text = self.result_summary({'status': 'success', 'main_interpreted_opcodes': 1234,
+                                    'audio_interpreted_opcodes': 0})
+        self.assertIn('Main CPU: 1234 fallback instructions', text)
+        self.assertNotIn('interpreter cycles', text)
 
 
 class ReconversionSettings(unittest.TestCase):
