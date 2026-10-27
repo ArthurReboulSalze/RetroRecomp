@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
 from retrorecomp.core import run,toolchain
+from state_checks import final_json
 
 HARNESS=r'''
 #include <windows.h>
@@ -155,7 +156,7 @@ target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
     with tempfile.TemporaryDirectory(prefix='rr-md-saves-') as temp:
         storage=Path(temp); cold=storage/'cold.rrstate';warm=storage/'warm.rrstate';battery=storage/'datas/saves/authored.rrsram'
         for mode in ('create','restore','verify'):
-            results.append(json.loads(run([exe,mode,cold,warm,battery]).strip().splitlines()[-1]))
+            results.append(final_json(run([exe,mode,cold,warm,battery])))
         assert sorted(p.relative_to(storage).as_posix() for p in storage.rglob('*') if p.is_file())==[
             'cold.rrstate','datas/saves/authored.rrsram','warm.rrstate']
     result={'project':str(project),'checks':sum(x['checks'] for x in results),'passed':True,

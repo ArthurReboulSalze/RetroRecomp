@@ -3,18 +3,10 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from retrorecomp.platforms import build_executable, cmake_target_args
-from retrorecomp.core import run,toolchain
+from selftest_build import compile_and_run
 
 def main():
     project=ROOT/'.build/xbr-selftest';project.mkdir(parents=True,exist_ok=True)
-    (project/'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.21)
-project(XbrChecks C)
-add_executable(checks "{ROOT.as_posix()}/native/xbr_checks.c")
-''')
-    cmake,generator=toolchain();log=project/'build.log'
-    run([cmake,'-S',project,'-B',project/'build','-G',generator,*cmake_target_args()],log=log)
-    run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=log)
-    result=run([build_executable(project / 'build', 'checks')],timeout=60)
+    result=compile_and_run(project,ROOT/'native/xbr_checks.c',log=True,timeout=60)
     (project/'checks.log').write_text(result);print(result)
 if __name__=='__main__': main()

@@ -257,6 +257,7 @@ native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
 native/console16_state.c native/console16_state.h native/md_portable_state.inc
 retrorecomp/console16_state.py tools/console16_state_selftest.py
+tools/state_checks.py tests/test_state_checks.py
 native/md_backend.c native/md_decode_dump.c native/md_native_steps.h native/md_exception_decode.h native/md_step_dispatch.c
 native/md_battery.c native/md_battery.h retrorecomp/megadrive_sram.py retrorecomp/megadrive_memory.py
 native/md_cart.h native/md_cart.inc native/md_eeprom.h native/md_eeprom_checks.c
@@ -344,6 +345,7 @@ tests/test_artwork.py tests/test_batch.py tests/test_i18n.py
 tests/test_library.py tests/test_publishing.py tests/test_updater.py tests/test_rom.py
 tests/test_toolchain.py tests/test_legacy_compat.py tools/toolchain_compare.py tools/nes_state_cross.py
 tools/state16_cross.py tools/neogeo_state_cross.py tools/x68000_cross.py
+tools/selftest_build.py tests/test_selftest_build.py
 tests/test_validation.py tests/test_publication.py
 tests/test_peripherals.py
 tests/test_updater_base.py tests/test_update_startup.py

@@ -19,25 +19,17 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from console16_state_selftest import GUEST_FIELDS, run
+from state_checks import controls_text, route_controls
 
 
 def route(exe: Path, output: Path, total: int, script: Path | None) -> Path:
     identified, _ = run(exe, output, 'identify', 1)
     md = 'console_version' in identified
-    start, right, fire = (128, 8, 16) if md else (8, 128, 1)
-    events = {0: 0}
-    for frame in (180, 300, 480, 550, 660, 720):
-        if frame < total:
-            events[frame] = start
-        if frame + 2 < total:
-            events[frame + 2] = 0
-    for frame in range(800, total, 30):
-        events[frame] = right | (fire if frame % 90 == 0 else 0)
     path = output / 'input.txt'
     if script:
         path.write_text(script.read_text(encoding='ascii'), encoding='ascii')
     else:
-        path.write_text(''.join(f'{f} {p} 0\n' for f, p in sorted(events.items())), encoding='ascii')
+        path.write_text(controls_text(route_controls(total, md=md)), encoding='ascii')
     return path
 
 

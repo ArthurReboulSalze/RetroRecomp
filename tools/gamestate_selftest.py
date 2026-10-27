@@ -4,11 +4,12 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
+
+from state_checks import run_captured
 
 from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs, recompiler_build
 
@@ -48,9 +49,7 @@ def main():
     run([cmake, '--build', build, '--config', 'Release', '--target', 'smsrecomp_state_checks', '--parallel', build_jobs()], log=log)
     outputs = []
     for mode in (1, 2):
-        result = subprocess.run([str(build_executable(build, 'smsrecomp_state_checks')), str(mode)], cwd=directory,
-            capture_output=True, text=True, timeout=120,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        result = run_captured([build_executable(build, 'smsrecomp_state_checks'), mode], cwd=directory)
         outputs.append(result.stdout + result.stderr)
         (directory / 'checks.log').write_text('\n'.join(outputs), encoding='utf-8')
         print(result.stdout)
