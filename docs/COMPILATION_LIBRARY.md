@@ -359,7 +359,7 @@ only names the **machine**:
 | --- | --- | --- |
 | report `rom.sha256`, export marker, queue, collection, freshness | game (unchanged) | already so |
 | summary `compilation.json`, shown by the Memory view | game: `library/x68/<game>/` | one row per game, the title found from the collection |
-| converter observations and receipt | game, then machine: `library/x68/<game>/<machine16>/converter-observations.json` and `converter-qualification.json` | they hold IPL words, so one set per machine, like the NES keeps one per engine revision; the receipt still names the full manifest hash |
+| converter observations and receipt | game, then machine: `library/x68/<game>/<machine16>/converter-observations.json` and `converter-qualification.json` | they hold the player's IPL (as words before 1.6.0, as entries over his IPL since 6b), so one set per machine, like the NES keeps one per engine revision; the receipt still names the full manifest hash |
 | runtime feedback (`datas/fallbacks/x68-<key>.rrfb`, private bank `_runtime-feedback/<key>.rrfb`) | game | players with another IPL or font ROM record for the same game, and the future shared record can pool them |
 | saves, quick states, `datas/games/x68-<key>`, `RR_X68K_SOURCE_IDENTITY`, report `source_identity` | machine (unchanged) | the IPL, font ROM and RAM change the machine state; players' saved data keeps its folder |
 
@@ -381,6 +381,19 @@ hash are merged into the game's feedback; the old files stay. The development pa
 the maintainer's stages (`observations.json` + `qualification.json`) is only read in
 place. Exports made before 1.6.0 are converted again in full (X68000 has no legacy game
 stamp); their feedback file is still found.
+
+**The IPL as a span (standardization 6b).** Every instruction variant observed in the IPL window
+(0xFC0000-0xFFFFFD) equals the bytes of the player's own IPL at that address: measured on all 31 local
+observation files (30 identities), 196,968 of 196,968 IPL variants (15.2 % of 1,300,231). An observation file of
+schema 2 therefore keeps, for that window, a *span* `{source: ipl, sha256, address, offset, length}` (the IPL is
+mapped twice, so `[0xFC0000, 0, 131072]` and `[0xFE0000, 0, 131072]`) with its `entries`: `[position in the span,
+length in words]`, the only thing a span cannot say. The words are read from the player's IPL when the file is read
+(the span names that IPL's hash and is refused with another), so the file holds no firmware byte. RAM, text VRAM and
+the SCSI stub (`0xEA0000`, 12 variants in all, built into the machine and not taken from the player's IPL) stay
+ordinary variants, and so does any variant that differs from the IPL, or all of them when the file is a SCSI-marked
+IPL that the machine replaces. The fold is exact and reversible (the same `(address, words)` set comes back, without
+the informational hit counts), schema 1 files read as before and are written as schema 2 on the next conversion, and
+a file with spans needs its IPL: nothing about it is shared, and the X68000 stays out of the shared base.
 
 The receipt's `sdk` stamp is stored and **not compared**. The observations are facts
 about the guest program (addresses, instruction words), never trusted without the fresh
