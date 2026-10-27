@@ -3,7 +3,7 @@
 Prepares and runs the pre-release check on a sample of each console's library,
 with the verdicts of tools/release_check.py:
 
-    python tools/campaign.py select  [--roms-root DIR] [--count 10] [--seed 160]
+    python tools/campaign.py select  [--roms-root DIR] [--count 10 | --random 2] [--seed 160]
     python tools/campaign.py run     CONVERTER [--jobs 4] [--level standard]
     python tools/campaign.py report
     python tools/campaign.py upgrade CONVERTER EXPORT_DIR [EXPORT_DIR ...]
@@ -250,14 +250,16 @@ def game_entry(console: str, candidate: Candidate, kind: str, info: dict, hasher
 
 def select_console(console: str, folder: Path, *, count: int, seed: int, risk_entries: list[dict],
                    verify=None, hasher=file_sha256, risk_share: float = 0.5, hermes: int = 0,
-                   arcade: dict | None = None, disk_tag=None) -> dict:
+                   arcade: dict | None = None, disk_tag=None, random_games: int | None = None) -> dict:
     """Half the sample from the risk cases found in the folder, the rest drawn at random from the sorted
-    list with Random('seed/console'): the same folder, seed and cases always give the same games."""
+    list with Random('seed/console'): the same folder, seed and cases always give the same games.
+    With `random_games`, every risk case found is taken and exactly that many games are drawn at random
+    beside them (`count` is then ignored)."""
     candidates = list_candidates(console, folder, arcade=arcade or (arcade_catalogue(console)
                                  if console in ('ng', 'cps1') else None), disk_tag=disk_tag)
     verify = verify or (lambda candidate: (True, {}))
     chosen, keys, rejected, unmatched = [], set(), [], []
-    quota = int(count * risk_share)
+    quota = len(risk_entries) if random_games is not None else int(count * risk_share)
     matched = []
     for entry in risk_entries:
         candidate = match_risk(entry, candidates)
@@ -279,6 +281,8 @@ def select_console(console: str, folder: Path, *, count: int, seed: int, risk_en
             continue
         keys.add(candidate.key)
         chosen.append(game_entry(console, candidate, 'risk', info, hasher, entry))
+    if random_games is not None:
+        count = len(chosen) + random_games
     pool = [c for c in candidates if c.eligible and c.key not in keys]
     random.Random(f'{seed}/{console}').shuffle(pool)
     for candidate in pool:
@@ -311,7 +315,8 @@ def command_select(args) -> int:
     folders = {**DEFAULT_FOLDERS, **dict(item.split('=', 1) for item in args.folder)}
     cases = read_json(args.risk_cases)['consoles']
     selection = {'schema': SCHEMA, 'version': args.version or default_version(), 'created_utc': now_utc(),
-                 'seed': args.seed, 'count': args.count, 'risk_share': args.risk_share, 'hermes': args.hermes,
+                 'seed': args.seed, 'count': args.count, 'risk_share': args.risk_share, 'random': args.random,
+                 'hermes': args.hermes,
                  'roms_root': str(base), 'risk_cases': str(args.risk_cases),
                  'risk_cases_sha256': file_sha256(args.risk_cases), 'consoles': {}}
     status = 0
@@ -323,7 +328,8 @@ def command_select(args) -> int:
             continue
         verify = (lambda candidate: (True, {})) if args.no_verify else identify_verifier(console)
         result = select_console(console, folder, count=args.count, seed=args.seed, risk_entries=cases.get(console, []),
-                                verify=verify, risk_share=args.risk_share, hermes=args.hermes)
+                                verify=verify, risk_share=args.risk_share, hermes=args.hermes,
+                                random_games=args.random)
         selection['consoles'][console] = result
         risk = sum(game['kind'] == 'risk' for game in result['games'])
         print(f"{console}: {len(result['games'])} game(s) ({risk} risk, {len(result['games']) - risk} random) "
@@ -988,6 +994,8 @@ def build_parser() -> argparse.ArgumentParser:
     select.add_argument('--count', type=int, default=10, help='Games per console (8 to 12 suggested)')
     select.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Seed of the random half (same seed, same games)')
     select.add_argument('--risk-share', type=float, default=0.5, help='Part of the sample taken from the risk cases')
+    select.add_argument('--random', type=int, default=None,
+                        help='Every risk case found plus exactly this many random games per console (ignores --count)')
     select.add_argument('--risk-cases', type=Path, default=RISK_CASES)
     select.add_argument('--hermes', type=int, default=2, help='Games per console marked for the Linux sample')
     select.add_argument('--no-verify', action='store_true', help='Do not ask the converter to read each chosen file')

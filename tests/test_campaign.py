@@ -82,6 +82,15 @@ class SelectionTests(unittest.TestCase):
         titles = [game['title'] for game in result['games']]
         self.assertEqual(len(titles), len(set(titles)))
 
+    def test_random_takes_every_risk_case_found_and_exactly_that_many_random_games(self):
+        names = NAMES + ['Zebra (USA).nes', 'Yak (Japan).nes']
+        entries = [{'title': 'Zebra', 'category': 'a', 'reason': 'r1'}, {'title': 'Yak', 'category': 'b', 'reason': 'r2'},
+                   {'title': 'Game C', 'category': 'c', 'reason': 'r3'}, {'title': 'Missing', 'category': 'd', 'reason': 'r4'}]
+        result = pick(self.base_with(names), risk_entries=entries, count=1, random_games=2)
+        kinds = [game['kind'] for game in result['games']]
+        self.assertEqual(kinds.count('risk'), 3)
+        self.assertEqual(kinds.count('random'), 2)
+
     def base_with(self, names):
         folder = self.base / f'f{len(list(self.base.iterdir()))}'
         folder.mkdir()
@@ -452,7 +461,8 @@ class RiskCaseFileTests(unittest.TestCase):
     def test_every_console_has_cases_with_a_reason_and_a_document_that_exists(self):
         self.assertEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
         for console, entries in self.cases['consoles'].items():
-            self.assertGreaterEqual(len(entries), 6, console)
+            # Arthur, 27 Oct 2026: about half of the first lists, five at most, plus two random games (7 a console).
+            self.assertTrue(4 <= len(entries) <= 5, console)
             for entry in entries:
                 for key in ('title', 'category', 'reason', 'source'):
                     self.assertTrue(entry.get(key), (console, entry))
@@ -464,7 +474,7 @@ class RiskCaseFileTests(unittest.TestCase):
         for console, entries in self.cases['consoles'].items():
             titles = [entry['title'] for entry in entries]
             self.assertEqual(len(titles), len(set(titles)), console)
-            self.assertGreaterEqual(len({entry['category'] for entry in entries}), 5, console)
+            self.assertGreaterEqual(len({entry['category'] for entry in entries}), 3, console)
 
     def test_arcade_cases_name_sets_the_converter_catalogue_knows(self):
         for console in ('ng', 'cps1'):

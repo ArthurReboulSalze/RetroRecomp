@@ -98,7 +98,10 @@ from a checkout); it does not replace the owner's play tests (G14).
    default): half drawn at random with `--seed` (the same folder, seed and
    risk file always give the same games), half from the risk cases of
    `tools/campaign-risk-cases.json` (titles and the reason each one is hard,
-   from this repository's documents; edit the file to change them). Each file
+   from this repository's documents; edit the file to change them). With
+   `--random N`, every risk case found is taken plus exactly N random games;
+   the 1.6.0 campaign uses `--random 2` with four or five risk cases a
+   console, seven games at most (Arthur, 27 October 2026). Each file
    is read by the converter's own detector before it is kept. The result,
    `selection.json`, holds paths and SHA-256 only. `--hermes N` marks N games
    per console for the Linux sample.
