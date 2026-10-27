@@ -122,7 +122,7 @@ tools/build_site.py tests/test_site.py
 site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
-docs/ARCHITECTURE.md docs/STANDARDS.md docs/QUALIFICATION.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
+docs/ARCHITECTURE.md docs/STANDARDS.md docs/HOST_KIT.md docs/QUALIFICATION.md docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
 docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tools/status_lint.py tests/test_doc_links.py tests/test_status_lint.py
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
