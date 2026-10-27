@@ -295,11 +295,16 @@ def import_saved_feedback(system: str, preferences: dict, *, emit=lambda message
             'fresh_validation_required': True}
 
 
-def ingest(system: str, identity: str, output: Path | None, *, emit=lambda message: None) -> dict:
+def ingest(system: str, identity: str, output: Path | None, *, emit=lambda message: None,
+           aliases: tuple[str, ...] = ()) -> dict:
     """Import beside the selected exports and retain locally across regenerations.
 
     Never scan the ROM's source folder/share. Only known local export locations
     and the converter's private bank are considered. Reads create nothing.
+
+    `aliases` are earlier identities of the same game (X68000 exports of 1.5 and
+    earlier recorded under their machine's hash): what they hold, in the exports
+    and in the private bank, is merged into `identity`; their files stay as they are.
     """
     from .paths import load_preferences, feedback_search_paths
     preferences = load_preferences()
@@ -321,16 +326,22 @@ def ingest(system: str, identity: str, output: Path | None, *, emit=lambda messa
             dropped = max(dropped, len(found)-LIMIT)
             for row in sorted(found, key=lambda row: (-found[row], row))[LIMIT:]:
                 del found[row]
-    for directory in set(locations):
-        path = directory / 'datas/fallbacks' / f'{system}-{identity}.rrfb'
-        rows, overflow = _read(path, system, identity)
-        accept(path, rows)
-        dropped = max(dropped, overflow)
     extra = feedback_search_paths(preferences).get(system)
-    if extra is not None:
-        for path, _key in _feedback_files(extra, system, identity, emit=emit):
-            rows, overflow = _read(path, system, identity)
+    for key in dict.fromkeys((identity, *aliases)):
+        for directory in set(locations):
+            path = directory / 'datas/fallbacks' / f'{system}-{key}.rrfb'
+            rows, overflow = _read(path, system, key)
             accept(path, rows)
+            dropped = max(dropped, overflow)
+        if extra is not None:
+            for path, _key in _feedback_files(extra, system, key, emit=emit):
+                rows, overflow = _read(path, system, key)
+                accept(path, rows)
+                dropped = max(dropped, overflow)
+        if key != identity:
+            private = private_file(system, key)
+            rows, overflow = _read(private, system, key)
+            accept(private, rows)
             dropped = max(dropped, overflow)
     rows, overflow, _changed = _retain(system, identity,
         sorted(found, key=lambda row: (-found[row], row)), dropped)

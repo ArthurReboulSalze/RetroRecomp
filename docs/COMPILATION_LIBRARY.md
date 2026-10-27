@@ -345,6 +345,49 @@ With nothing to share, CPS-1 records are still not part of
 ROM would be the first candidates. Per-set results:
 [CPS-1 guide](CPS1.md#qualified-sets-24-october-2026-windows).
 
+## X68000: one game key, observations in the library (standardization 6a, 27 October 2026; part of the 1.6.0 stamp break)
+
+The X68000 had two identities. The report, the export's marker, the queue and the
+collection used the hash of the ordered disk set (`X68000Input.sha256`, now also
+`game_key`); the library, the observations and the runtime feedback used the hash of
+the manifest (disks + the player's IPL + font ROM + RAM size + initial drives). Since
+1.6.0 **the game is the disk set** everywhere a game is named, and the manifest hash
+only names the **machine**:
+
+| What | Key | Why |
+| --- | --- | --- |
+| report `rom.sha256`, export marker, queue, collection, freshness | game (unchanged) | already so |
+| summary `compilation.json`, shown by the Memory view | game: `library/x68/<game>/` | one row per game, the title found from the collection |
+| converter observations and receipt | game, then machine: `library/x68/<game>/<machine16>/converter-observations.json` and `converter-qualification.json` | they hold IPL words, so one set per machine, like the NES keeps one per engine revision; the receipt still names the full manifest hash |
+| runtime feedback (`datas/fallbacks/x68-<key>.rrfb`, private bank `_runtime-feedback/<key>.rrfb`) | game | players with another IPL or font ROM record for the same game, and the future shared record can pool them |
+| saves, quick states, `datas/games/x68-<key>`, `RR_X68K_SOURCE_IDENTITY`, report `source_identity` | machine (unchanged) | the IPL, font ROM and RAM change the machine state; players' saved data keeps its folder |
+
+Why the disk set and not the manifest as the game: the manifest contains the IPL and
+the font ROM of whoever converts. Two players with the same disks and different IPLs
+would never share a record. The paths themselves are guarded by the live instruction
+words and re-verified against a fresh reference run, so a path learned with another IPL
+is harmless (its IPL-window words simply do not match); the IPL stays a named source of
+the future record (`ipl`, with the disks), not a part of its key. The font ROM never
+decides a code path.
+
+Migration (nothing is deleted): when the library has no observation pair for the
+machine and the earlier place (`<converter folder>/datas/x68000-development/<machine
+hash>/`) has one, the pair is copied (receipt last, content compared) and the old files
+stay; if the copy is impossible, the old folder is read. A summary found under the
+machine hash is merged into the game's (the remembered mouse use is kept) and the
+emptied folder is removed. Feedback files and the private bank entry of the machine
+hash are merged into the game's feedback; the old files stay. The development pair of
+the maintainer's stages (`observations.json` + `qualification.json`) is only read in
+place. Exports made before 1.6.0 are converted again in full (X68000 has no legacy game
+stamp); their feedback file is still found.
+
+The receipt's `sdk` stamp is stored and **not compared**. The observations are facts
+about the guest program (addresses, instruction words), never trusted without the fresh
+native/reference comparison of each conversion, so a stamp check would discard them at
+every engine change without making any conversion safer. `sdk_stamp` itself hashes the
+explicit X68000 input list of `retrorecomp/stamp_inputs.py` (no directory is read), so
+it is the same from a tag archive as from a working tree.
+
 ## X68000 stage 9 — private multi-disk and mouse exploration
 
 Six new exact sets (Naious, View Point, Air Combat II, Choujin, Power Unit and
@@ -446,7 +489,8 @@ Only exact-identity, hash-qualified earlier observations seed discovery;
 runtime feedback stays an unqualified candidate until a fresh comparison.
 The small Game memory index contains counts/metadata, never instruction words.
 Converter observations and their checksum receipts remain private under
-`datas/x68000-development/<exact identity>/`. See the local
+`datas/x68000-development/<exact identity>/` (since 1.6.0 in the library, under the game:
+see "X68000: one game key" above). See the local
 `docs/history/x68000/SHARP_X68000_CONVERTER.md` and `.build/x68000-stage6/final-proof.json`.
 This does not add an eighth production profile or change the public bank.
 The stage-6 final evidence is 100 X68000 and 83 integration tests per OS,
@@ -495,7 +539,8 @@ authored CPU/guard checks and 63 Python tests pass on each OS. This is same-mach
 CPU agreement, not independent hardware fidelity or full-game qualification.
 
 Useful observations and receipts are retained privately under
-`datas/x68000-development/<exact-media-identity>/`, outside disposable builds.
+`datas/x68000-development/<exact-media-identity>/` (since 1.6.0 under the game in the
+library), outside disposable builds.
 They include private live words and must **not** be copied into a public snapshot.
 The X68000 adapter is not yet a public converter profile and its composite
 machine-runtime distribution terms remain unresolved. The existing 1,164-entry

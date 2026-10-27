@@ -35,6 +35,16 @@ class X68000Input:
     size: int
     title: str
 
+    @property
+    def game_key(self):
+        """The one identity of a game: the hash of its ordered disk set.
+
+        It is the report's rom.sha256, the export's marker, the collection's and the queue's key, and (since
+        1.6.0) the key of the library entry and of the runtime feedback. It does not depend on the player's
+        IPL, font ROM or RAM size: those name the machine (X68000Manifest.sha256), which keeps its states, its
+        saved data and its own observations beneath the game."""
+        return self.sha256
+
     def metadata(self):
         return {'name': self.path.name, 'path': str(self.path), 'sha256': self.sha256, 'size': self.size,
                 'disks': [str(p) for p in self.disks], 'system': 'x68'}
