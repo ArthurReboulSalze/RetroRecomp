@@ -63,6 +63,7 @@ docs/*
 !docs/STANDARDS.md
 !docs/HOST_KIT.md
 !docs/QUALIFICATION.md
+!docs/NEW_MACHINE.md
 !docs/COMPILATION_LIBRARY.md
 !docs/RUNTIME_FEEDBACK.md
 !docs/COMPILED_GAMES.md

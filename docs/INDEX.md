@@ -31,6 +31,7 @@ private evidence under `.build/` that is not published.
 - [STANDARDS.md](STANDARDS.md) — the rules every change follows, the target shape (profiles, CPU-keyed paths, reports, host kit) and the "supported" checklist.
 - [HOST_KIT.md](HOST_KIT.md) — the common host kit contract for exported games: machine-core interface, one behaviour per host divergence, preferences migration and the migration order.
 - [QUALIFICATION.md](QUALIFICATION.md) — per-console qualification record: the G1-G16 gates, the status matrix and the owner-acceptance log.
+- [NEW_MACHINE.md](NEW_MACHINE.md) — the template for adding a machine (experimental, then supported), measured on an Atari ST dry run, with what is still scattered.
 - [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) — shared compilation knowledge: per-console and per-ROM observations, embedded snapshot.
 - [RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md) — gameplay fallback feedback written by the exported games.
 - [UPGRADES.md](UPGRADES.md) — upgrading exports without rediscovery; host versus game inputs.
