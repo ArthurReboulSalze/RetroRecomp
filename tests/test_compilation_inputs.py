@@ -17,6 +17,10 @@ class CompilationInputTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory(); self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         self.revisions = {}
+        # Every listed file exists, so a stamp can be computed; each test then changes what it needs.
+        for name in inputs.manifest_names():
+            if not name.startswith('retrorecomp.'):
+                self.write(name, ('initial contents of ' + name + ' ') * 4)
         for target, value in (
                 ('retrorecomp.paths.ASSETS', self.root),
                 ('retrorecomp.compilation_inputs._code_digest', self.code_digest)):
@@ -52,12 +56,17 @@ class CompilationInputTests(unittest.TestCase):
         self.assertNotEqual(before['md'],after['md'])
         self.assertEqual(before['snes'],after['snes'])
         self.assertEqual(before['sms'],after['sms'])
+        # A file on disk that the manifest does not list is ignored; listing it makes it a shared input.
         self.write('native/new_unclassified_helper.h','new shared helper')
-        self.assertTrue(all(after[s] != self.stamps()[s] for s in after))
+        self.assertEqual(after, self.stamps())
+        listed = {**inputs.INPUTS, inputs.ALL: (*inputs.INPUTS[inputs.ALL], 'native/new_unclassified_helper.h')}
+        with patch.object(inputs, 'INPUTS', listed):
+            self.assertTrue(all(after[s] != self.stamps()[s] for s in after))
         before = self.stamps()
         self.write('native/m68000_state_helpers.h','new CPU helper')
         after = self.stamps()
         self.assertNotEqual(before['md'],after['md']);self.assertNotEqual(before['ng'],after['ng'])
+        self.assertNotEqual(before['x68'],after['x68']);self.assertNotEqual(before['cps1'],after['cps1'])
         self.assertEqual(before['snes'],after['snes'])
 
     def test_cps1_files_do_not_age_existing_exports(self):
@@ -86,9 +95,13 @@ class CompilationInputTests(unittest.TestCase):
         self.assertEqual(before['nes'], after['nes'])
 
     def test_relative_names_and_notices_are_part_of_the_signature(self):
-        path=self.write('native/md_one.h','same contents'); before=inputs.engine_stamp('md')
-        path.rename(path.with_name('md_two.h'))
-        self.assertNotEqual(before, inputs.engine_stamp('md'))
+        def listed(name):
+            self.write(name, 'same contents')
+            return {**inputs.INPUTS, ('md',): (name,)}
+        with patch.object(inputs, 'INPUTS', listed('native/md_one.h')):
+            before = inputs.engine_stamp('md')
+        with patch.object(inputs, 'INPUTS', listed('native/md_two.h')):
+            self.assertNotEqual(before, inputs.engine_stamp('md'))
         before=self.stamps();self.write('licenses/SDL2.md','new embedded notice')
         self.assertTrue(all(before[s] != self.stamps()[s] for s in before))
 

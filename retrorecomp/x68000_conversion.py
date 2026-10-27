@@ -59,30 +59,25 @@ def extend_observations(record, extra):
 
 
 HISSORII_REPOSITORY='https://github.com/hissorii/px68k.git'
-# Generators hashed into the SDK stamp; bundled as data beside their modules.
+# Generators the SDK stamp covers; bundled as data beside their modules. The stamp reads them through the
+# manifest (retrorecomp/stamp_inputs.py lists them as 'tools/<name>' for the X68000), with the shared 68000
+# sources and code generators the SDK copies into every X68000 CPU.
 SDK_TOOLS=('x68000_native.py','x68000_reference.py','x68000_reference_check.py','x68000_base74.py',
            'x68000_state_hardware.py')
 
 
 def sdk_stamp(part=None):
     """The SDK build identity; part='game' leaves out the player shell
-    (player_ui.inc and host inputs), for upgrades without rediscovery."""
-    files = [*sorted((ASSETS/'native/x68000_reference').glob('*')), *sorted((ASSETS/'native/x68000_native').glob('*')),
-             *(ASSETS/'tools'/name for name in SDK_TOOLS),
-             *sorted(p for p in (ASSETS/'native/x68000_machine').rglob('*') if p.is_file()),
-             ASSETS/'retrorecomp/m68000_semantics.py',ASSETS/'retrorecomp/neogeo_codegen.py',
-             ASSETS/'retrorecomp/megadrive_codegen.py',
-             # Shared 68000 sources the generator copies into every X68000 CPU.
-             ASSETS/'native/neogeo_native.h',ASSETS/'native/neogeo_native.c',ASSETS/'native/md_prefetch.inc']
-    from .compilation_inputs import engine_stamp, role, role_stamps
-    value=hashlib.sha256()
-    for path in files:
-        name=path.relative_to(ASSETS).as_posix()
-        if part=='game' and role(name)=='host':continue
-        if path.is_file():value.update(str(path.relative_to(ASSETS)).encode()+b'\0'+path.read_bytes())
-    value.update((role_stamps('x68')['game'] if part=='game' else engine_stamp('x68')).encode())
+    (player_ui.inc and host inputs), for upgrades without rediscovery.
+
+    Every file of the SDK comes from the listed X68000 inputs (one explicit manifest, text with normalised
+    line ends): nothing is globbed from native/x68000_* and a missing file is an error. The machine base
+    (RR_X68000_MACHINE_BASE, checked to be hissorii or current) is the only other input."""
+    from .compilation_inputs import engine_stamp, role_stamps
     from tools.x68000_native import MACHINE_BASE
-    value.update(b'machine-base\0'+MACHINE_BASE.encode())
+    value=hashlib.sha256(b'x68000-sdk-v2\0')
+    value.update((role_stamps('x68')['game'] if part=='game' else engine_stamp('x68')).encode())
+    value.update(b'\0machine-base\0'+MACHINE_BASE.encode())
     return value.hexdigest()
 
 

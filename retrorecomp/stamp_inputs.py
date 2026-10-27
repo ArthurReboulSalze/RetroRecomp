@@ -1,0 +1,683 @@
+"""The inputs of the stamps, as data (docs/STANDARDS.md rules 4 and 5).
+
+This module holds tables and no logic. `compilation_inputs` reads it to compute
+the stamps (game, host and build) of each console's exported games.
+
+* `INPUTS` is the explicit, reviewed manifest: every converter module and every
+  file that may enter a stamp, grouped by the consoles that own it. Nothing is
+  discovered on disk. A file or module that is not listed here is ignored by
+  the stamps, and a listed one that is missing is an error. A new file is
+  therefore added here, with its owners, when it is created;
+  `tests/test_stamp_inputs.py` fails when a tracked file is neither listed nor
+  declared out of the stamps, and when a listed file is not bundled in the
+  executable.
+* `INTERFACE_MODULES` are modules no stamp ever hashes. This module and
+  `compilation_inputs` are among them: they define how a stamp is computed and
+  what it covers, and that is already visible in the stamps, which hash the
+  names and contents of the inputs actually listed. Hashing them as game code
+  moved every console's stamp whenever a console's file list, the interface
+  list or `LEGACY_GAME_STAMPS` was edited. A change of the algorithm itself
+  must bump the label in `compilation_inputs` (`STAMP_LABEL`); a test pins the
+  output of the algorithm on a fixed synthetic input.
+* The role tables (`HOST_*`, `BUILD_MODULES`) say which stamp a listed input
+  feeds. See docs/UPGRADES.md.
+* `LEGACY_GAME_STAMPS` lists the game stamps of earlier releases whose exports
+  stay upgradable. Editing it never changes a stamp.
+"""
+
+# Owner of an input that every console uses (including a console added later).
+ALL = '*'
+
+
+INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
+                               'dropfiles', 'updater', 'linux_desktop', 'queue_state',
+                               'credits_demo', 'credits_music', 'dialogs',
+                               'compiled_games', 'compiled_games_view', 'memory_view',
+                               'report_schema',
+                               'game_details','game_metadata','game_card_view','rom_sources',
+                               # Sharing discoveries never runs during a conversion.
+                               'knowledge_build','knowledge_exchange','online',
+                               # Schema 3 of the paths (docs/COMPILATION_LIBRARY.md): defined and
+                               # tested, used by no conversion code yet. Remove it from this list
+                               # in the stage that makes knowledge.py import it.
+                               'path_profiles',
+                               # Removes build folders once a game is published;
+                               # it never changes what a game is or does.
+                               'build_cleanup',
+                               # The definition of the stamps: see the docstring above.
+                               'compilation_inputs', 'stamp_inputs'))
+
+# Build (how a game is compiled) versus game: see docs/COMPILATION_LIBRARY.md.
+# A build input chooses and drives the C toolchain (portable llvm-mingw or Visual
+# Studio), or packs the finished executable (packing: UPX, which restores the
+# same program in memory before it starts). It never decides which guest code a
+# game runs. A change limited to build inputs rebuilds an export from the paths
+# already learned, like a host change, because the executable is recompiled and
+# rechecked on the quick routes.
+BUILD_MODULES = frozenset(('toolchain', 'packing'))
+
+# Game stamps of earlier releases whose exports stay upgradable: the code that
+# differed from today's was only how the game is built, and the exports were
+# rebuilt and compared frame by frame with the new build before being listed
+# (docs/COMPILATION_LIBRARY.md). A receipt with one of these stamps is never
+# current: it is always rebuilt and rechecked, or converted in full.
+# Release procedure: remove the entries, or complete them, whenever a release
+# really changes what a game does.
+LEGACY_GAME_STAMPS = {
+    # Release 1.4.1 (tag v1.4.1, Python 3.14.5). Each stamp reproduced the game part of a real receipt written by
+    # the released Retro-Recomp.exe (see docs/COMPILATION_LIBRARY.md). A console without a verified receipt has no entry:
+    # the X68000 request also carries an SDK stamp that could not be reproduced from the tag, so it is converted in full.
+    # Release 1.5.1 (tag v1.5.1, Python 3.14.5), second value where present: same rule, one real receipt per console
+    # (Master System, Game Gear, Game Boy, NES, Neo Geo, CPS-1). The released Windows Retro-Recomp.exe 1.5.1 cannot
+    # convert Mega Drive or Super Nintendo games (probe16 lost its subprocess import), so those consoles have no 1.5.1
+    # receipt and no 1.5.1 entry; the X68000 still has none either.
+    # Release 1.5.2 (tag v1.5.2, Python 3.14.5), last value where present: same rule, one real receipt per console
+    # (Master System, Game Gear, Game Boy, NES, Mega Drive, Neo Geo, CPS-1). X68000: none (no receipt, SDK stamp).
+    # Super Nintendo: no entry at all any more, although its 1.5.2 receipt matched. After 1.5.2 the SNES engine changes
+    # what games do ($4016 strobe, GSU bus ownership, Super FX), which is not a build-only difference, so the 1.4.1
+    # entry was removed too (release procedure): SNES exports of 1.4.1, 1.5.1 and 1.5.2 are converted in full.
+    'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
+             '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f',
+             '12651539b1dd0cbc5698953adf98947d801cba78816041560e1c6fcf10022835'),
+    'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
+           '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c',
+           '0739d322ab085c14f31f6b7f0406e9faee63fae6f0415d62e0470c0eba53f5cf'),
+    'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
+           '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3',
+           '2cf791660628ebacd7a0f75e4b6c62f268032c769bc2c304925e6317cbe8a777'),
+    'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',
+           'c06987ee70ec4425daa373af5cb3822b06741dd881de222f3549507abd72cf96'),
+    'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
+            'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980',
+            'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe'),
+    'ng': ('bea37da46eb8ce4bafc56cad3c28795b82649d99dad387d214737f254e55229a',
+           'df1bd712ede02b4aa0c1ecf84b8ae30d1ee884a76c754b0f670dba33689f88ee',
+           '713b118e9738277d2d5a2e87d9b2aee1c23c2694e92d742e0c63a4e113d28c0d'),
+    'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
+            '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
+            '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92'),
+}
+
+# Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
+# the window, menus, options, bindings, on-screen text, fonts, filters, icons
+# and notices, play sound out, and save preferences. The headless runs that
+# discover and validate a game's code never use them; those go through each
+# console's entry (launcher, main, runner), which stays on the game side. A
+# change limited to host inputs upgrades an export without rediscovery.
+# Everything not listed is game-side, so an unclassified input fails closed.
+HOST_MODULES = frozenset((
+    # Embedded artwork, box icons and Windows executable information.
+    'artwork', 'cover_keyring', 'cover_references', 'cover_settings', 'cover_sources',
+    'cover_titles', 'metadata', 'languages',
+    # Placing the finished EXE beside the others.
+    'publishing', 'windows',
+    # Converter-only shells.
+    'branding', 'player_gamepad',
+    # Player shells written as patches: Game Boy platform window, menus,
+    # sound output and input; Mega Drive sound delivery.
+    'gameboy_host', 'gameboy_timing', 'megadrive_audio'))
+HOST_NATIVE = frozenset((
+    # Paths below native/. Shared menu core, identical on every machine.
+    'retro_menu.c', 'retro_menu.h', 'game_options.h', 'game_options_checks.c',
+    'autofire.h', 'retro_keyboard.h',
+    # On-screen text and fonts.
+    'runtime_catalog.inc', 'runtime_i18n.h', 'language_checks.c', 'font6x10.h', 'font10x20.h',
+    # Presentation filters, display settings and the window icon.
+    'scale2x.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'xbr_checks.c',
+    'display_settings.h', 'display_settings_checks.c', 'icon.c', 'icon.h', 'icon_checks.c',
+    # Sound output after each machine's emulated mixer.
+    'audio_filter.h', 'audio_cushion.h', 'audio_output.inc', 'audio_checks.c',
+    'gb_audio_output.inc', 'nes_audio_output.inc', 'nes_audio_checks.c',
+    'md_audio_loop.inc', 'md_audio_resample.inc',
+    # Converter-only controller bridge (never linked into games).
+    'player_gamepad.c',
+    # Each machine family's shell: Master System / Game Gear, Game Boy, NES,
+    # the 16-bit consoles (Mega Drive, SNES, Neo Geo, CPS-1) and X68000.
+    'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
+    'gb_menu.inc', 'gb_input_refresh.inc',
+    'nes_host_ui.c', 'console16_host_ui.c', 'neogeo_ui_test.c',
+    'x68000_reference/player_ui.inc'))
+HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
+HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
+                 'assets/tag-shooting.png')
+
+
+# How a listed file is hashed. Text is hashed with its line ends normalised
+# (CRLF becomes LF), so a Windows working tree, `git archive` and Linux agree;
+# `.gitattributes` also pins LF for these types. Binary files are hashed as is.
+# A listed file whose type is in neither set is an error: classify it here.
+TEXT_SUFFIXES = frozenset(('.c', '.cmake', '.cpp', '.def', '.h', '.hpp', '.inc', '.json', '.md', '.py', '.rc', '.toml', '.txt'))
+BINARY_SUFFIXES = frozenset(('.gz', '.ico', '.otf', '.png', '.xz'))
+# Text files whose exact bytes are pinned by a checksum (-text in .gitattributes).
+RAW_FILES = frozenset(('assets/neogeo-catalogue.json', 'assets/cps1-catalogue.json'))
+
+# Tracked files below native/, assets/, profiles/ and licenses/ that are deliberately not
+# inputs of any stamp (exact paths, or prefixes ending in '/' or '-'): interface pictures
+# and fonts, the converter-only leaderboard pictures, the locales and the credits, the
+# knowledge snapshot and the cover and font tables, the UPX tools and their source archive.
+# tests/test_stamp_inputs.py fails for a tracked file in those folders that is neither
+# listed in INPUTS nor declared here.
+NOT_INPUTS = (
+    'assets/Retro-Recomp-banner.png', 'assets/Retro-Recomp-consoles.png',
+    'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
+    'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
+    'assets/credits/', 'assets/locales/', 'assets/tools/',
+    'licenses/upx-5.2.1-src.tar.xz')
+
+# The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
+# with the consoles that own each.
+
+INPUTS = {
+    ALL: (
+        'THIRD_PARTY_NOTICES.md',
+        'assets/Retro-Recomp-icon-128.png',
+        'assets/Retro-Recomp-icon-16.png',
+        'assets/Retro-Recomp-icon-20.png',
+        'assets/Retro-Recomp-icon-24.png',
+        'assets/Retro-Recomp-icon-256.png',
+        'assets/Retro-Recomp-icon-32.png',
+        'assets/Retro-Recomp-icon-40.png',
+        'assets/Retro-Recomp-icon-48.png',
+        'assets/Retro-Recomp-icon-64.png',
+        'assets/Retro-Recomp.ico',
+        'assets/tag-shooting.png',
+        'licenses/Linux-desktop.md',
+        'licenses/Noto.md',
+        'licenses/OpenSSL.md',
+        'licenses/Pillow.md',
+        'licenses/PyInstaller-hooks.md',
+        'licenses/PyInstaller.md',
+        'licenses/Python.md',
+        'licenses/SDL2.md',
+        'licenses/SingleStepTests-m68000.md',
+        'licenses/SingleStepTests-z80.md',
+        'licenses/Tcl-Tk.md',
+        'licenses/UPX.md',
+        'licenses/dear-imgui.md',
+        'licenses/emu2413.md',
+        'licenses/fmgen.md',
+        'licenses/gb-recompiled.md',
+        'licenses/geolith.md',
+        'licenses/lithogen.md',
+        'licenses/llvm-mingw.md',
+        'licenses/musashi.md',
+        'licenses/nesrecomp.md',
+        'licenses/segagenesisrecomp.md',
+        'licenses/snesrecomp.md',
+        'licenses/superzazu-z80.md',
+        'licenses/x68000-machine.md',
+        'licenses/xbr.md',
+        'licenses/z80-recomp-core.md',
+        'licenses/zlib-ng.md',
+        'licenses/zlib.md',
+        'native/CMakeLists.txt',
+        'native/audio_checks.c',
+        'native/audio_cushion.h',
+        'native/audio_filter.h',
+        'native/audio_output.inc',
+        'native/autofire.h',
+        'native/banked_cpu_checks.c',
+        'native/banked_dispatch.c',
+        'native/banked_emitter.inc',
+        'native/banked_runtime.inc',
+        'native/banked_vectors.c',
+        'native/controls.c',
+        'native/controls.h',
+        'native/display_settings.h',
+        'native/display_settings_checks.c',
+        'native/embedded_resources.h',
+        'native/font10x20.h',
+        'native/font6x10.h',
+        'native/frame_stop_checks.c',
+        'native/game_options.h',
+        'native/game_options_checks.c',
+        'native/gamestate.h',
+        'native/gamestate.inc',
+        'native/gamestate_checks.c',
+        'native/host.c',
+        'native/host_checks.c',
+        'native/host_control.h',
+        'native/icon.c',
+        'native/icon.h',
+        'native/icon_checks.c',
+        'native/input_checks.c',
+        'native/language_checks.c',
+        'native/launcher.c',
+        'native/lazy_data_checks.c',
+        'native/learning.c',
+        'native/learning.h',
+        'native/learning_posix.c',
+        'native/lightphaser.c',
+        'native/lightphaser.h',
+        'native/lightphaser_checks.c',
+        'native/manifest.inc',
+        'native/paths.c',
+        'native/paths.h',
+        'native/paths_posix.inc',
+        'native/pixel_optimization_checks.c',
+        'native/planar_rows.h',
+        'native/platform_io.c',
+        'native/platform_io.h',
+        'native/platform_posix_checks.c',
+        'native/player_gamepad.c',
+        'native/presentation_checks.c',
+        'native/psg_runs.inc',
+        'native/psg_state.inc',
+        'native/retro_keyboard.h',
+        'native/retro_menu.c',
+        'native/retro_menu.h',
+        'native/runtime_catalog.inc',
+        'native/runtime_feedback.c',
+        'native/runtime_feedback.h',
+        'native/runtime_feedback_checks.c',
+        'native/runtime_feedback_sdl.h',
+        'native/runtime_i18n.h',
+        'native/scale2x.h',
+        'native/scanline_sdl.h',
+        'native/scanlines.h',
+        'native/sms_sprite_probe.c',
+        'native/state_io.h',
+        'native/stereo_fir.h',
+        'native/ui.c',
+        'native/ui.h',
+        'native/video_checks.c',
+        'native/video_frame.h',
+        'native/video_mode4.inc',
+        'native/video_probe.c',
+        'native/xbr_checks.c',
+        'native/xbr_filter.h',
+        'native/xbr_sdl.h',
+        'retrorecomp.artwork',
+        'retrorecomp.batch',
+        'retrorecomp.branding',
+        'retrorecomp.cartridge16',
+        'retrorecomp.core',
+        'retrorecomp.cover_keyring',
+        'retrorecomp.cover_references',
+        'retrorecomp.cover_settings',
+        'retrorecomp.cover_sources',
+        'retrorecomp.cover_titles',
+        'retrorecomp.feedback',
+        'retrorecomp.freshness',
+        'retrorecomp.knowledge',
+        'retrorecomp.languages',
+        'retrorecomp.library',
+        'retrorecomp.metadata',
+        'retrorecomp.packing',
+        'retrorecomp.paths',
+        'retrorecomp.peripherals',
+        'retrorecomp.platforms',
+        'retrorecomp.player_gamepad',
+        'retrorecomp.publishing',
+        'retrorecomp.random_routes',
+        'retrorecomp.resources',
+        'retrorecomp.scan_levels',
+        'retrorecomp.systems',
+        'retrorecomp.toolchain',
+        'retrorecomp.windows',
+    ),
+    ('gb',): (
+        'native/gb_audio_checks.c',
+        'native/gb_audio_output.inc',
+        'native/gb_boundary_checks.c',
+        'native/gb_input_refresh.inc',
+        'native/gb_latency_checks.cpp',
+        'native/gb_menu.inc',
+        'native/gb_ram_checks.c',
+        'native/gb_ram_helpers.h',
+        'retrorecomp.gameboy',
+        'retrorecomp.gameboy_boundary',
+        'retrorecomp.gameboy_build',
+        'retrorecomp.gameboy_coverage',
+        'retrorecomp.gameboy_hardware',
+        'retrorecomp.gameboy_host',
+        'retrorecomp.gameboy_runtime',
+        'retrorecomp.gameboy_timing',
+        'retrorecomp.systems.game_boy',
+    ),
+    ('nes',): (
+        'native/nes_audio_checks.c',
+        'native/nes_audio_output.inc',
+        'native/nes_dense_checks.c',
+        'native/nes_dense_codegen.inc',
+        'native/nes_guarded_checks.c',
+        'native/nes_host_ui.c',
+        'native/nes_live_codegen.inc',
+        'native/nes_machine_checks.c',
+        'native/nes_machine_state.inc',
+        'native/nes_mapper_state.inc',
+        'native/nes_ppu_checks.c',
+        'native/nes_ppu_fast.inc',
+        'native/nes_ppu_lazy.inc',
+        'native/nes_ram.inc',
+        'native/nes_sprite_extra.inc',
+        'native/nes_sprite_shift.h',
+        'native/nes_state.c',
+        'native/nes_windows_checks.c',
+        'native/retro_nes.h',
+        'retrorecomp.nes',
+        'retrorecomp.nes_build',
+        'retrorecomp.nes_catalog',
+        'retrorecomp.nes_codegen',
+        'retrorecomp.nes_machine',
+        'retrorecomp.nes_optimization',
+        'retrorecomp.nes_ram',
+        'retrorecomp.nes_runtime',
+        'retrorecomp.systems.nes',
+    ),
+    ('md',): (
+        'native/md_audio_bridge_checks.c',
+        'native/md_audio_loop.inc',
+        'native/md_audio_mix.h',
+        'native/md_audio_mix_checks.c',
+        'native/md_audio_resample.inc',
+        'native/md_backend.c',
+        'native/md_battery.c',
+        'native/md_battery.h',
+        'native/md_boundary_checks.c',
+        'native/md_bus_checks.c',
+        'native/md_bus_scheduler.h',
+        'native/md_cart.h',
+        'native/md_cart.inc',
+        'native/md_cart_checks.c',
+        'native/md_cycle_checks.c',
+        'native/md_decode_dump.c',
+        'native/md_dma_checks.c',
+        'native/md_eeprom.h',
+        'native/md_eeprom_checks.c',
+        'native/md_exception_checks.c',
+        'native/md_exception_decode.h',
+        'native/md_fifo_checks.c',
+        'native/md_mapper_checks.c',
+        'native/md_native_checks.c',
+        'native/md_native_steps.h',
+        'native/md_portable_state.inc',
+        'native/md_prefetch.h',
+        'native/md_prefetch_checks.c',
+        'native/md_prefetch_plan_checks.c',
+        'native/md_raster_checks.c',
+        'native/md_read_checks.c',
+        'native/md_sram_checks.c',
+        'native/md_step_dispatch.c',
+        'native/md_timing.h',
+        'native/md_timing_checks.c',
+        'native/md_vdp_batch_checks.c',
+        'native/md_vdp_dma.h',
+        'native/md_vdp_dma.inc',
+        'native/md_vdp_fifo.h',
+        'native/md_vdp_fifo.inc',
+        'native/md_vdp_pixels.inc',
+        'native/md_vdp_read.h',
+        'native/md_vdp_read.inc',
+        'native/md_video_checks.c',
+        'native/md_ym_timers.h',
+        'native/md_z80_bus.inc',
+        'native/md_z80_checks.c',
+        'native/md_z80_native.h',
+        'native/md_z80_resume_checks.c',
+        'native/md_z80_runtime.c',
+        'retrorecomp.megadrive',
+        'retrorecomp.megadrive_audio',
+        'retrorecomp.megadrive_bus',
+        'retrorecomp.megadrive_cart',
+        'retrorecomp.megadrive_dma',
+        'retrorecomp.megadrive_fifo',
+        'retrorecomp.megadrive_hardware',
+        'retrorecomp.megadrive_memory',
+        'retrorecomp.megadrive_read',
+        'retrorecomp.megadrive_runtime',
+        'retrorecomp.megadrive_sram',
+        'retrorecomp.megadrive_video',
+        'retrorecomp.megadrive_z80_timing',
+    ),
+    ('snes',): (
+        'native/snes_backend.c',
+        'native/snes_battery.c',
+        'native/snes_battery.h',
+        'native/snes_bus.h',
+        'native/snes_bus.inc',
+        'native/snes_bus_checks.c',
+        'native/snes_cart.h',
+        'native/snes_cart_checks.c',
+        'native/snes_chip_checks.c',
+        'native/snes_dma.h',
+        'native/snes_dma_checks.c',
+        'native/snes_dsp1_projection.inc',
+        'native/snes_dsp1_vectors.h',
+        'native/snes_hdma.inc',
+        'native/snes_native_checks.c',
+        'native/snes_native_steps.h',
+        'native/snes_ppu_bus.inc',
+        'native/snes_ppu_bus_checks.c',
+        'native/snes_ppu_cache.inc',
+        'native/snes_ppu_cache_checks.c',
+        'native/snes_spc_checks.c',
+        'native/snes_spc_native.h',
+        'native/snes_spc_runtime.c',
+        'native/snes_superfx_checks.c',
+        'native/snes_timing.h',
+        'native/snes_timing_checks.c',
+        'native/snes_video_checks.c',
+        'retrorecomp.snes_bus',
+        'retrorecomp.snes_cart',
+        'retrorecomp.snes_chips',
+        'retrorecomp.snes_codegen',
+        'retrorecomp.snes_dma',
+        'retrorecomp.snes_gsu',
+        'retrorecomp.snes_knowledge',
+        'retrorecomp.snes_ppu_bus',
+        'retrorecomp.snes_routes',
+        'retrorecomp.snes_spc',
+        'retrorecomp.snes_timing',
+        'retrorecomp.snes_video',
+        'retrorecomp.supernintendo',
+    ),
+    ('ng',): (
+        'assets/neogeo-catalogue.json',
+        'native/neogeo_board_checks.c',
+        'native/neogeo_code_view.inc',
+        'native/neogeo_controls_checks.c',
+        'native/neogeo_decode.c',
+        'native/neogeo_host.c',
+        'native/neogeo_host.h',
+        'native/neogeo_input.h',
+        'native/neogeo_lithogen.c',
+        'native/neogeo_lspc_checks.c',
+        'native/neogeo_lspc_state.inc',
+        'native/neogeo_m68000_checks.c',
+        'native/neogeo_main.c',
+        'native/neogeo_path_io.h',
+        'native/neogeo_persistence.c',
+        'native/neogeo_persistence.h',
+        'native/neogeo_persistence_checks.c',
+        'native/neogeo_reference.c',
+        'native/neogeo_reference.h',
+        'native/neogeo_sound_checks.c',
+        'native/neogeo_sprite_decode.h',
+        'native/neogeo_state.c',
+        'native/neogeo_state_validate.c',
+        'native/neogeo_timer_checks.c',
+        'native/neogeo_ui_test.c',
+        'native/neogeo_ym_checks.c',
+        'native/neogeo_ym_state.inc',
+        'native/neogeo_z80_checks.c',
+        'native/neogeo_z80_native.h',
+        'retrorecomp.neogeo',
+        'retrorecomp.neogeo_catalogue',
+        'retrorecomp.neogeo_conversion',
+        'retrorecomp.neogeo_knowledge',
+        'retrorecomp.neogeo_persistence_checks',
+        'retrorecomp.neogeo_state_checks',
+        'retrorecomp.neogeo_validation',
+        'retrorecomp.systems.neogeo',
+    ),
+    ('x68',): (
+        'native/x68000_machine/PROVENANCE.md',
+        'native/x68000_machine/base74/alias/libretro/dswin.h',
+        'native/x68000_machine/base74/alias/libretro/joystick.h',
+        'native/x68000_machine/base74/alias/libretro/keyboard.h',
+        'native/x68000_machine/base74/alias/libretro/mouse.h',
+        'native/x68000_machine/base74/alias/m68000/musashi/m68k.h',
+        'native/x68000_machine/base74/alias/x68k/x68kmemory.h',
+        'native/x68000_machine/base74/alias/x68kmemory.h',
+        'native/x68000_machine/base74/audio_mix.c',
+        'native/x68000_machine/base74/bridge.c',
+        'native/x68000_machine/base74/config.c',
+        'native/x68000_machine/base74/cpu_bus.c',
+        'native/x68000_machine/base74/fileio.c',
+        'native/x68000_machine/base74/host_draw.c',
+        'native/x68000_machine/base74/m68000/m68000.h',
+        'native/x68000_machine/base74/mercury_absent.c',
+        'native/x68000_machine/base74/musashi/m68kconf.h',
+        'native/x68000_machine/base74/x11/common.h',
+        'native/x68000_machine/base74/x11/dosio.h',
+        'native/x68000_machine/base74/x11/dswin.h',
+        'native/x68000_machine/base74/x11/fileio.h',
+        'native/x68000_machine/base74/x11/joystick.h',
+        'native/x68000_machine/base74/x11/juliet.h',
+        'native/x68000_machine/base74/x11/keyboard.h',
+        'native/x68000_machine/base74/x11/mmsystem.h',
+        'native/x68000_machine/base74/x11/mouse.h',
+        'native/x68000_machine/base74/x11/prop.h',
+        'native/x68000_machine/base74/x11/status.h',
+        'native/x68000_machine/base74/x11/timer.h',
+        'native/x68000_machine/base74/x11/windows.h',
+        'native/x68000_machine/base74/x11/windraw.h',
+        'native/x68000_machine/base74/x11/winui.h',
+        'native/x68000_machine/base74/x11/winx68k.h',
+        'native/x68000_machine/glue.h',
+        'native/x68000_machine/input.c',
+        'native/x68000_machine/libretro_api.c',
+        'native/x68000_machine/machine.c',
+        'native/x68000_machine/provenance.json',
+        'native/x68000_machine/state/legacy_stub.c',
+        'native/x68000_machine/state/rr_state.c',
+        'native/x68000_machine/state/rr_state.h',
+        'native/x68000_machine/state/snapshot.c',
+        'native/x68000_native/CMakeLists.txt',
+        'native/x68000_native/decode.c',
+        'native/x68000_native/guard_checks.c',
+        'native/x68000_native/observe.c',
+        'native/x68000_native/observe.h',
+        'native/x68000_reference/CMakeLists.txt',
+        'native/x68000_reference/audio_checks.c',
+        'native/x68000_reference/audio_checks.h',
+        'native/x68000_reference/check_compat.h',
+        'native/x68000_reference/disk_checks.c',
+        'native/x68000_reference/disk_checks.h',
+        'native/x68000_reference/hardware_clock.c',
+        'native/x68000_reference/hardware_clock.h',
+        'native/x68000_reference/loading.h',
+        'native/x68000_reference/media_probe.c',
+        'native/x68000_reference/media_session.c',
+        'native/x68000_reference/media_session.h',
+        'native/x68000_reference/mouse_games.json',
+        'native/x68000_reference/payload.c',
+        'native/x68000_reference/payload.h',
+        'native/x68000_reference/player_ui.inc',
+        'native/x68000_reference/probe.c',
+        'native/x68000_reference/probe.h',
+        'native/x68000_reference/reference_host.c',
+        'native/x68000_reference/rtc_clock_shim.h',
+        'native/x68000_reference/session_bridge.c',
+        'native/x68000_reference/session_checks.c',
+        'native/x68000_reference/session_checks.h',
+        'native/x68000_reference/state_store.c',
+        'native/x68000_reference/state_store.h',
+        'native/x68000_reference/state_store_test.c',
+        'native/x68000_reference/timing_checks.c',
+        'native/x68000_reference/timing_checks.h',
+        'native/x68000_reference/video_checks.c',
+        'native/x68000_reference/video_checks.h',
+        'retrorecomp.systems.x68000',
+        'retrorecomp.x68000',
+        'retrorecomp.x68000_conversion',
+        'retrorecomp.x68000_media',
+        'retrorecomp.x68000_program',
+        'retrorecomp.x68000_scan',
+        'tools/x68000_base74.py',
+        'tools/x68000_native.py',
+        'tools/x68000_reference.py',
+        'tools/x68000_reference_check.py',
+        'tools/x68000_state_hardware.py',
+    ),
+    ('cps1',): (
+        'assets/cps1-catalogue.json',
+        'licenses/cps1-machine.md',
+        'licenses/cps1-ymfm.md',
+        'native/cps1_host.c',
+        'native/cps1_host.h',
+        'native/cps1_m68kconf.h',
+        'native/cps1_machine.c',
+        'native/cps1_machine.h',
+        'native/cps1_main.c',
+        'native/cps1_native.c',
+        'native/cps1_native.h',
+        'native/cps1_oki.c',
+        'native/cps1_oki.h',
+        'native/cps1_opm.cpp',
+        'native/cps1_opm.h',
+        'native/cps1_probe.c',
+        'native/cps1_z80_native.h',
+        'retrorecomp.cps1',
+        'retrorecomp.cps1_board',
+        'retrorecomp.cps1_build',
+        'retrorecomp.cps1_catalogue',
+        'retrorecomp.cps1_codegen',
+        'retrorecomp.cps1_conversion',
+        'retrorecomp.systems.cps1',
+    ),
+    ('sms', 'gg'): (
+        'profiles/example.sms.toml',
+        'retrorecomp.cpu',
+        'retrorecomp.systems.game_gear',
+        'retrorecomp.systems.master_system',
+        'retrorecomp.validation',
+    ),
+    ('md', 'snes'): (
+        'retrorecomp.guns16',
+    ),
+    ('md', 'x68'): (
+        'native/md_prefetch.inc',
+    ),
+    ('md', 'cps1'): (
+        'retrorecomp.megadrive_z80',
+    ),
+    ('ng', 'x68'): (
+        'native/neogeo_native.c',
+        'native/neogeo_native.h',
+    ),
+    ('ng', 'cps1'): (
+        'retrorecomp.neogeo_build',
+        'retrorecomp.neogeo_z80',
+    ),
+    ('md', 'x68', 'cps1'): (
+        'retrorecomp.megadrive_codegen',
+    ),
+    ('ng', 'x68', 'cps1'): (
+        'retrorecomp.neogeo_codegen',
+    ),
+    ('md', 'snes', 'ng', 'cps1'): (
+        'native/console16_host_ui.c',
+        'native/console16_main.c',
+        'native/console16_state.c',
+        'native/console16_state.h',
+        'native/console16_video.h',
+        'native/gun16.c',
+        'native/gun16.h',
+        'native/gun16_checks.c',
+        'native/retro_console16.h',
+        'retrorecomp.console16',
+        'retrorecomp.console16_optimization',
+        'retrorecomp.console16_state',
+        'retrorecomp.gun16_runtime',
+        'retrorecomp.systems.console16',
+    ),
+    ('md', 'ng', 'x68', 'cps1'): (
+        'native/m68000_backend.c',
+        'native/m68000_backend.h',
+        'native/m68000_backend_checks.c',
+        'native/m68000_state_helpers.h',
+        'retrorecomp.m68000',
+    ),
+}

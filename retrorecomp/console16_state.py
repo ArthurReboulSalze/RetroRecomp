@@ -3,7 +3,6 @@ from pathlib import Path
 import hashlib
 import json
 import os
-from .paths import ASSETS
 from .gun16_runtime import replace
 PORTABLE_STATE_ABI = 2  # Compact cartridge SRAM and its byte-lane geometry.
 MD_PORTABLE_STATE_ABI = 11  # Cartridge serial phase, staged write and guest time.
@@ -104,9 +103,10 @@ SNES_STATE_ABI_141 = '396976503cf0a7478e85bd818d8ec5a1ccf5dab95d306550b1fd5c73eb
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
     from .core import slug
     digest = hashlib.sha256()
-    for p in sorted((ASSETS / 'native').glob('*')):
-        if p.is_file():
-            digest.update(p.name.encode()); digest.update(p.read_bytes())
+    # The listed native files this console owns (retrorecomp/stamp_inputs.py), not whatever sits in native/.
+    from .compilation_inputs import input_bytes, state_native_files
+    for p in state_native_files(system_id):
+        digest.update(p.name.encode()); digest.update(input_bytes(p, 'native/' + p.name))
     digest.update(str(MD_PORTABLE_STATE_ABI if system_id == 'md' else PORTABLE_STATE_ABI).encode())
     if system_id=='snes':
         from .core import module_fingerprint

@@ -906,16 +906,19 @@ def import_previous(rom: Rom, destination: Path, memory: GameMemory) -> int:
 
 
 def compiler_signature(game: Path) -> str:
+    from .compilation_inputs import input_bytes, state_native_files
     digest = hashlib.sha256()
+    # Master System and Game Gear own the same native files: the listed ones (retrorecomp/stamp_inputs.py),
+    # not whatever sits in native/.
     for source in [game / "runtime_glue.c", game / "runtime_main.c", game / "runtime_video.c", game / "runtime_audio.c", game / "sms_clocks.h", game / "game.toml",
                    game / "embedded_rom.c", game / "embedded_rom.h",
                    game / "runtime_reference.c", game / "runtime_reference.h", game / "sms_runtime.h", game / "z80_ops.h",
                    *sorted((game / "generated").glob("*.c")), ROOT / ".deps/recompiler-src/src/rom_parser.c",
                    ROOT / ".deps/recompiler-src/src/code_generator.c", ROOT / ".deps/recompiler-src/src/main_sms.c",
                    game / "game_resources.rc", game / "game.ico",
-                   *sorted((ASSETS / "native").glob("*"))]:
+                   *state_native_files("sms")]:
         if source.is_file():
-            digest.update(source.name.encode()); digest.update(source.read_bytes())
+            digest.update(source.name.encode()); digest.update(input_bytes(source, source.name))
     digest.update(ENGINE_REV.encode()); digest.update(SDL_REV.encode())
     return digest.hexdigest()
 
