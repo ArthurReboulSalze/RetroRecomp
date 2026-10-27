@@ -346,9 +346,10 @@ none of these cartridges is enabled or exported by this PAL stage.
 ## Shared game interface
 
 Both profiles use RetroRecomp's SDL presentation and menu renderer: F1 help,
-Shift+F1 restart, P pause, F2 keyboard/gamepad mapping, F3 nearest/linear/Scale2x/
-scanlines, F4 window/integer fullscreen/aspect-preserving fullscreen,
-F6 autofire and F7 English/French. Two controller ports are wired; the
+Shift+F1 restart, F2 keyboard/gamepad mapping, F3 sharp/Scale2x/scanlines/xBR
+smooth, F4 window/integer fullscreen/aspect-preserving fullscreen,
+F6 autofire and F7 for the menu language. Enter, the cartridge Start, pauses
+the game itself. Two controller ports are wired; the
 selected game determines whether two-player gameplay exists. Controller
 left-stick click pauses; player one's right-stick click restarts.
 Gun games use the mouse on port 2, a small red cross, and F5 gun settings.

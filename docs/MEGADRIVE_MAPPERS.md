@@ -52,4 +52,4 @@ Current evidence is in `.build/md-cartridge-hardware-20261011/`.
 The Sega circuit does not establish support for unrelated licensed/unlicensed
 mappers, 32X, SVP or other expansion devices. Electrical bus turnaround and
 refresh, VPA/E-clock acknowledgement, VDP collision timing and broader real
-progression remain separate qualification gates before promoting Mega Drive.
+progression remain separate qualification gates.

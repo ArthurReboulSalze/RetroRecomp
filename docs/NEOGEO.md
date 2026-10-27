@@ -852,7 +852,7 @@ displayed labels follow the active Windows keyboard layout. P is free: Enter
 (Start) pauses the game itself; F1 or player 1's right-stick click resets. F3 cycles sharp,
 Scale2x, proportional scanlines and xBR last. F4 cycles window, integer
 fullscreen and fitted fullscreen with the image ratio preserved. F6 toggles
-face-button gamepad autofire; F7 switches EN/FR; Escape closes a menu or quits.
+face-button gamepad autofire; F7 switches the menu language; Escape closes a menu or quits.
 The window's `Native code`/`Interpreter fallback` caption stays English.
 
 Settings are read lazily from `datas/Retro-Recomp.ini` beside the executable.

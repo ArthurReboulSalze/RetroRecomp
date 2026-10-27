@@ -1,6 +1,6 @@
 # Super FX (GSU) on the Super Nintendo: study and plan
 
-Status on 26 October 2026: **supported on the study branch (not released yet)**, after
+Status: **supported since release 1.5.4**, after
 the release qualification below; the GSU stays a counted interpreted device, like the
 CX4. Players of release
 1.5.2 reported Doom, Dirt Trax FX and Dirt Racer failing with
