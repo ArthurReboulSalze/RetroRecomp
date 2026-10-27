@@ -17,6 +17,7 @@ from .core import ConversionError, toolchain, run, run_process, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 from .library import atomic_json, entry_lock
+from .report_schema import write_report
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
 
@@ -234,6 +235,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             use_cover=True,online_cover=True,passes=3,frames=4000,scan_level=None,emit=print,
             qualification_events=None,**unused):
     if not developer_available():raise ConversionError('The X68000 converter files are missing from this installation.')
+    started=time.perf_counter()
     from .scan_levels import LEVELS, x68000_budget
     level=scan_level or 'standard'
     if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
@@ -456,12 +458,14 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                             'mouse_code_loaded':mouse_code,'remembered':remembered},
           'automatic_disk_changes_observed':actual.get('automatic_disk_changes',0),
           'media_events':actual.get('media_events',[]),
-          'reference_vdp_trace_match':True,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
+          # Null, like the shapes that run no VDP comparison: the key was a constant True that compared nothing.
+          'reference_vdp_trace_match':None,'runtime_feedback':feedback,'artwork':artwork,'windows_metadata':metadata,
           'game_states':{'supported':True,'save_key':'F8','load_key':'F9','fresh_process_verified':True},
           'video_model':{'standard':'native','frameskip':False,'fps':actual['fps']},
           'runtime_data':{'directory':'datas','shared_config':'datas/Retro-Recomp.ini','game_directory':'datas/games/x68-'+manifest.sha256},
-          'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None}
-        atomic_json(output/'conversion-report.json',report)
+          'hardware_accuracy_validated':False,'full_game_validated':False,'latency_ms':None,
+          'conversion_wall_seconds':round(time.perf_counter()-started,3)}
+        write_report(output/'conversion-report.json',report)
         memory.mkdir(parents=True,exist_ok=True)
         shutil.copy2(observation,memory/'converter-observations.json')
         atomic_json(memory/'converter-qualification.json',{'schema':1,'private_only':True,'source_identity':manifest.sha256,

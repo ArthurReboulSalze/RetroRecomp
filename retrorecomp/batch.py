@@ -16,9 +16,19 @@ from .library import atomic_json
 from .build_cleanup import release_build
 from . import __version__
 from .publishing import publish_executable
-from .snes_chips import device_summary, main_interpreted
+from .report_schema import fallback_summary, with_schema_v2
 from .systems import (ALL_PROFILES, profile_for_path, get_profile, drop_foreign_options,
                       UnsupportedConsoleError, ConsoleMismatchError)
+
+
+def _write_report(path: Path, report: dict) -> dict:
+    """Write the report again after the fields the batch adds (the converter wrote it in schema 2 beside its own
+    keys): the schema-2 sections are derived anew from the keys, so they carry what was added. A report that
+    no converter wrote in schema 2 (a stand-in, or a machine whose writer is not on it yet) is written as it is."""
+    if 'schema' in report:
+        report = with_schema_v2(report)
+    atomic_json(path, report)
+    return report
 
 
 @dataclass
@@ -463,7 +473,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         report.setdefault('rom', {})['sha256'] = item.sha256
         report.update(executable=target.name, published_directory=str(game_output),
                       source_rom=str(item.path.resolve()))
-        atomic_json(report_path, report)
+        report = _write_report(report_path, report)
         # Finish the report before replacing a working executable.
         from .packing import file_identity, packing_record
         unpacked_identity = file_identity(temporary)
@@ -478,7 +488,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             report['packing'] = packing_record(unpacked_identity, staged)
         except (OSError, ValueError, KeyError):
             report['packing'] = {'recorded': False}
-        atomic_json(report_path, report)
+        report = _write_report(report_path, report)
         if pending:
             emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {target}")
         else:
@@ -499,7 +509,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                 published_hash = digest(target)
             report['export_receipt'] = {'schema': 3, 'request': signature, 'game': parts['game'],
                                        'host': parts['host'], 'sha256': published_hash}
-            atomic_json(report_path, report)
+            report = _write_report(report_path, report)
         try:
             if executable != target and executable != Path(report.get('build_executable', '')):
                 executable.unlink()
@@ -507,18 +517,10 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             pass
         # Published: nothing reads the game's build project again.
         release_build(item, report, emit)
-        measured = [check.get("interpreter_percent") for check in report["final_checks"]]
+        summary = fallback_summary(report, lenient=True)
+        summary['video_standard'] = summary['video_standard'] or item.video_hint
         result.update(status="success", executable=str(target), report=str(report_path),
-            conversion_stage=report.get('status'), upgraded=bool(inherited),
-            main_interpreted_opcodes=max((main_interpreted(c) for c in report['final_checks']), default=0),
-            device=device_summary(report),
-            audio_cpu=report.get('audio_cpu'),
-            audio_interpreted_opcodes=max((c.get('audio_interpreted_opcodes', 0) for c in report['final_checks']), default=0),
-            pending_install=pending,
-            video_standard=report.get('video_model', {}).get('standard', item.video_hint),
-            interpreter_percent=max((p for p in measured if p is not None), default=None),
-            interpreter_cycles=max((c.get("interpreter_cycles", 0) for c in report["final_checks"]), default=0),
-            reference_vdp_trace_match=report.get("reference_vdp_trace_match"))
+            upgraded=bool(inherited), pending_install=pending, **summary)
         if shared_used:
             result['shared_paths'] = shared_used
     except StopRequested:

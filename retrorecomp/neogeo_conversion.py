@@ -14,6 +14,7 @@ import time
 from . import __version__
 from .core import executable_name, ConversionError, StopRequested, run_process
 from .library import atomic_json
+from .report_schema import write_report
 from .neogeo import read_set, validate_bios
 from .neogeo_build import convert_reference, GEOLITH_REV, LITHOGEN_REV, aes_available, aes_compatible, probe_failure
 from .neogeo_validation import extended_routes, compare, route_arguments
@@ -238,5 +239,5 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
         output=games_directory(system_id='ng')/'datas/reports'/game.sha256
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
-    atomic_json(output/'conversion-report.json',report)
+    write_report(output/'conversion-report.json',report)
     return executable

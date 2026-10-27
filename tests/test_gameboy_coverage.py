@@ -191,6 +191,14 @@ class CoverageTests(unittest.TestCase):
                     self.assertEqual(len(report['final_checks']), 3)
                     self.assertTrue(all(check['interpreter_cycles'] == 0 for check in report['final_checks']))
                     self.assertTrue(all(value >= 0 for value in report['stage_seconds'].values()))
+                    # Written in schema 2 beside the old keys, with the time and target Game Boy lacked.
+                    from retrorecomp.report_schema import read_report
+                    document = read_report(report)
+                    self.assertEqual(report['schema']['version'], 2)
+                    self.assertIn('created_utc', report)
+                    self.assertIn('target', report)
+                    self.assertEqual(document['scan']['level'], report['scan_level'])
+                    self.assertEqual(document['cpus'][0]['arch'], 'sm83')
 
 
 if __name__ == '__main__':

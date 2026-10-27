@@ -391,7 +391,19 @@ class Console16Tests(unittest.TestCase):
             convert16(source, system_id='md', output=self.root / 'reports',
                       frames=30, passes=3, md_advanced_scan=advanced, scan_level=scan_level, emit=lambda text: None)
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
+        self.assert_written_in_schema_2(report)
         return events, report
+
+    def assert_written_in_schema_2(self, report):
+        """The converter writes schema 2 beside its own keys, with the scan level at the top (stage C2)."""
+        from retrorecomp.report_schema import fallback_summary, legacy_view, read_report
+        self.assertEqual(report['schema'], {'name': 'retro-recomp-report', 'version': 2})
+        self.assertEqual(report['scan_level'], report['advanced_scan']['level'])
+        document = read_report(report)
+        self.assertEqual(document['scan']['level'], report['scan_level'])
+        self.assertEqual(document['system']['status'], report['status'])
+        self.assertEqual(read_report(legacy_view(report))['cpus'], document['cpus'])
+        self.assertEqual(fallback_summary(report)['audio_cpu'], report['audio_cpu'])
 
     def test_advanced_md_scan_validates_new_paths_before_learning_and_regeneration(self):
         events, report = self.scan_conversion(advanced=True)
@@ -563,6 +575,8 @@ class Console16Tests(unittest.TestCase):
             convert16(source, system_id='snes', output=self.root / 'reports', frames=30, passes=1,
                       emit=log.append)
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
+        self.assert_written_in_schema_2(report)
+        self.assertEqual(report['devices'][0]['id'], 'superfx')
         # Main CPU only: 900 native of 1,000, whatever the device ran.
         self.assertEqual(report['native_percentage'], [90.0, 90.0])
         device = report['cartridge_device']

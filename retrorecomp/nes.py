@@ -23,7 +23,8 @@ from . import __version__
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .toolchain import describe as toolchain_description
-from .library import atomic_json, atomic_text, entry_lock, library_root
+from .library import atomic_text, entry_lock, library_root
+from .report_schema import write_report
 from .nes_build import object_stamps, prepare_native, preserve_inputs, write_changed
 from .knowledge import record_for
 from .metadata import write_game_metadata
@@ -604,7 +605,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     report = {'tool': 'Retro-Recomp', 'version': __version__,
         'created_utc': created_utc,
         'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'},
-        'rom': rom.metadata(), 'backend': 'nesrecomp-cycle-accurate',
+        'scan_level': level, 'rom': rom.metadata(), 'backend': 'nesrecomp-cycle-accurate',
         'compiler': {'url': ENGINE_URL, 'revision': ENGINE_REV,
                      'license': 'PolyForm Noncommercial 1.0.0',
                      'adapter': 'bank-independent ROM bodies, guarded RAM entries and fetch-time unstable-mapper dispatch'},
@@ -638,6 +639,6 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         'build_executable': str(executable), 'executable': executable.name, 'toolchain': toolchain_description(),
         'build_directory': str(project),
         'conversion_wall_seconds': round(time.perf_counter() - started, 6)}
-    atomic_json(destination / 'conversion-report.json', report)
+    write_report(destination / 'conversion-report.json', report)
     emit('NES export validated on tested paths; gameplay and hardware fidelity remain unverified.')
     return executable

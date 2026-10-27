@@ -22,6 +22,7 @@ import time
 from . import __version__
 from .core import ConversionError, executable_name, run_process
 from .library import atomic_json, entry_lock
+from .report_schema import write_report
 from .paths import ROOT
 from .toolchain import describe as toolchain_description
 
@@ -282,7 +283,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                         'validation routes drive players 1 and 2',
             'dip_switches': 'catalogue defaults during validation; adjustable in play (F2)',
             'universal_zero_fallback_claim': False}}
-    atomic_json(output / 'conversion-report.json', report)
+    write_report(output / 'conversion-report.json', report)
     emit(f'CPS-1: {title} ready ({"native code only" if native_coverage else "interpreter fallback reported"}).')
     # Publishing compacts this same build again (UPX is deterministic).
     return executable

@@ -21,6 +21,7 @@ from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, library_root
+from .report_schema import write_report
 from .knowledge import record_for
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
@@ -512,7 +513,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         "build_directory": str(project),
         "stage_seconds": {key: round(value, 6) for key, value in stage_seconds.items()},
         "conversion_wall_seconds": round(time.perf_counter() - started, 6)}
-    atomic_json(destination / "conversion-report.json", report)
+    write_report(destination / "conversion-report.json", report)
     emit("Game Boy CPU comparisons passed. Hardware and full gameplay remain unverified.")
     emit(f"Game Boy conversion: {report['conversion_wall_seconds']:.1f}s total; "
          f"translation {stage_seconds['translation']:.1f}s, build {stage_seconds['build']:.1f}s, "
