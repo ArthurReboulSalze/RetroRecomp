@@ -1,8 +1,7 @@
-<p align="center">
-  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=3416f16e6a63" alt="RetroRecomp: the RR cartridge" width="240">
-</p>
-
-<h1 align="center">RetroRecomp</h1>
+<h1 align="center">
+  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=3416f16e6a63" alt="RetroRecomp: the RR cartridge" width="240"><br>
+  RetroRecomp
+</h1>
 <p align="center"><strong>Retro consoles and classic computers. One growing project.</strong></p>
 <p align="center">Master System · Game Gear · Game Boy · NES · Mega Drive · Super Nintendo · Neo Geo · Capcom CPS-1 · Sharp X68000</p>
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
