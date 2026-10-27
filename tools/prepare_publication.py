@@ -250,7 +250,7 @@ native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
-retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py
+retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
 retrorecomp/systems/cps1.py tests/test_cps1_integration.py docs/CPS1.md
 tools/cps1_release_check.py tools/release_check.py tests/test_release_check.py
 tools/campaign.py tools/campaign-risk-cases.json tests/test_campaign.py

@@ -96,8 +96,39 @@ DIP switches; validation routes drive players 1 and 2.
 
 Street Fighter II': Champion Edition runs part of its code from graphics
 RAM, which native code does not cover yet: those instructions are
-interpreted, counted and reported. No set needed learned RAM code, so CPS-1
-adds nothing to the shared knowledge snapshot yet. Final Fight gives the
+interpreted, counted and reported. No set needed learned RAM code, so there
+was nothing to share when this table was made; the channel exists since the
+shared paths below.
+
+## Shared paths (27 October 2026, experimental)
+
+CPS-1 takes part in the shared base of paths, as an experimental machine whose
+engine will still change. The 68000 program and the Z80 sound ROM are
+translated whole, so a CPS-1 path is an instruction the game ran from RAM
+(work RAM or sound RAM). After a conversion that passed every check, those the
+fresh interpreted reference runs executed are turned into **numbers about your
+own ROM**: where their bytes sit in your assembled program or sound image. No
+ROM byte, RAM word or code is stored or sent. What cannot be tied to your ROM
+(code the game builds or unpacks, code run from graphics RAM) stays private and
+is counted in the conversion report (`knowledge`).
+
+- A player with the same complete romset rebuilds the instructions from their
+  own ROMs; every conversion still compares each route with its fresh
+  reference, and a conversion that fails with shared paths starts again without
+  them.
+- A path counts as qualified only for the engine revision that validated it
+  (`knowledge.cores`): a new revision of the CPS-1 recompiler makes them wait
+  again until a conversion of the new engine reaches them. The record has its
+  own format number, and an unknown one is ignored alone.
+- CPS-1 paths travel in version 3 exchange files and in line 3 of the shared base
+  only. The shared paths are stored apart (`datas/knowledge/qualified-v3.json.gz`
+  and `imported-v3.json.gz`); the other consoles' banks are untouched.
+- The report still says **experimental**; sharing does not change that, nor
+  does it claim anything about hardware fidelity or play.
+- Feedback kind 14 (a program-ROM instruction left interpreted) is recorded and
+  read by nobody: the ROM is swept whole. It is diagnostic only and never shared.
+- The sharing can be withdrawn in one line (`path_profiles.EXPERIMENTAL_SHARED`).
+  Details: [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#cps-1-joins-the-base-step-5-of-the-standardisation-27-october-2026-part-of-160). Final Fight gives the
 same route hashes on Windows and on Debian 13.
 
 Earlier native/reference agreement (step 3) also covered sf2, ghouls,
