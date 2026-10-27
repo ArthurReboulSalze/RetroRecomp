@@ -126,6 +126,8 @@ uses (input scripts, captures, reports) and the window title that shows
 fallback. The contract grows from the existing 16-bit one
 (`native/retro_console16.h`). *Target: five host code bases today.*
 
+The full contract is [HOST_KIT.md](HOST_KIT.md): the machine interface, the one behaviour chosen for each of the 21 host divergences, the preferences migration and the migration order.
+
 ## "Supported" checklist
 
 A machine is `supported` when its conversions meet these gates on a panel of

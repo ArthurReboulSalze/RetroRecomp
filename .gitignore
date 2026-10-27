@@ -61,6 +61,7 @@ AGENTS.md
 docs/*
 !docs/ARCHITECTURE.md
 !docs/STANDARDS.md
+!docs/HOST_KIT.md
 !docs/QUALIFICATION.md
 !docs/COMPILATION_LIBRARY.md
 !docs/RUNTIME_FEEDBACK.md
