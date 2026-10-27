@@ -146,6 +146,10 @@ class SystemProfile(ABC):
     option_keys: tuple[OptionKey, ...] = ()
     # The option (one of option_keys) that carries the batch's worker count.
     parallel_games_option: str | None = None
+    # The game's key in the paths banks is only known once a conversion has run (Neo Geo: a ZIP set
+    # has no prepared cartridge before). The batch then computes the request parts again before it
+    # writes the receipt, so that the receipt carries what the conversion used.
+    knowledge_identity_after_conversion: bool = False
 
     @property
     def experimental(self) -> bool:

@@ -97,7 +97,9 @@ game starts from. Since 1.6.0 `knowledge.py` delegates to `path_profiles.py`, so
 that module is in every console's game stamp (it was an interface module while
 only the exchange and the shared base used it). The modules that only share
 discoveries (`knowledge_exchange.py`, `knowledge_build.py`, `online.py`) stay
-interface modules. The paths' own stamp (`knowledge_stamp`) hashes the game's
+interface modules. The Neo Geo has no `LEGACY_GAME_STAMPS` entry since 1.6.0: its knowledge part used to hash the
+whole Neo Geo bank, so its exports of earlier releases are converted in full once (do not add an entry for 1.5.6).
+A Neo Geo receipt is written with the game's key as the conversion found it. The paths' own stamp (`knowledge_stamp`) hashes the game's
 record, not the bank: see [the paths and the stamps](COMPILATION_LIBRARY.md#stage-b3-the-conversions-follow-the-module-27-october-2026).
 
 ## Reproducible stamps

@@ -55,6 +55,21 @@ def read(path: Path) -> dict:
     return path_profiles.read_bank(_document(path))
 
 
+def refuse_to_drop_games(path: Path) -> None:
+    """ValueError when `path` is a schema 3 bank holding a game that has no schema 1 form (CPS-1,
+    X68000, several cores). The writers of this module and of `knowledge_exchange` read a bank
+    through the schema 1 view and write {"schema": 1, ...}: they would drop those games, so they
+    call this first and write nothing when it refuses. A file that is absent or unreadable is
+    treated as empty by the readers and may be written over, as before."""
+    try:
+        dropped = read_games(path) if path.is_file() else {}
+    except (OSError, ValueError, TypeError, KeyError, EOFError, zlib.error):
+        return
+    if dropped:
+        raise ValueError(f'{path.name} is a schema 3 bank holding {len(dropped)} game(s) without a schema 1 form '
+                         '(' + ', '.join(sorted(dropped)[:3]) + '); a schema 1 writer would drop them.')
+
+
 def read_games(path: Path) -> dict:
     """{game key: schema 3 record} of a schema 3 bank's games that have no schema 1 form
     (CPS-1, X68000): {} for a schema 1 bank, which cannot hold them."""
@@ -252,6 +267,7 @@ def discard_imported(system: str, identity: str, reason: str) -> bool:
     if record is None and observations is None:
         return False
     if record is not None:
+        refuse_to_drop_games(path)
         write_packed(path, validate_payload({'schema': 1, 'consoles': {k: v for k, v in consoles.items() if v}}))
     if observations is not None:
         write_observations(banks)

@@ -507,6 +507,13 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                 published_hash = json.loads(job_path(target).read_text(encoding='utf-8'))['sha256']
             else:
                 published_hash = digest(target)
+            if system.knowledge_identity_after_conversion:
+                # The conversion has just found the game's key in the banks (Neo Geo: the prepared
+                # cartridge of a ZIP set). The receipt carries the request as the next batch will
+                # compute it, with the record this conversion used. Fresh and upgrade decisions
+                # above still used the parts computed before the conversion.
+                parts = request_parts(item, settings)
+                signature = parts['request']
             report['export_receipt'] = {'schema': 3, 'request': signature, 'game': parts['game'],
                                        'host': parts['host'], 'sha256': published_hash}
             report = _write_report(report_path, report)

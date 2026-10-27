@@ -204,6 +204,54 @@ class KnowledgeExchangeTests(unittest.TestCase):
         self.assertNotIn(str(self.root).replace('\\', '/'), text.replace('\\\\', '/'))
 
 
+class SchemaOneWritersTests(unittest.TestCase):
+    """The writers read the schema 1 view and write schema 1: they never drop a game it cannot hold."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.imported = self.root / 'datas/knowledge/imported.json.gz'
+        self.qualified = self.imported.with_name('qualified.json.gz')
+        for item in (patch('retrorecomp.knowledge.imported_path', return_value=self.imported),
+                     patch('retrorecomp.knowledge_exchange.imported_path', return_value=self.imported)):
+            item.start()
+            self.addCleanup(item.stop)
+        self.addCleanup(knowledge._imported_bank.cache_clear)
+
+    def bank(self, path, with_cps1):
+        from tests.test_paths_schema import FIXTURES, cps1_document
+        from retrorecomp import path_profiles
+        system, identity, record = FIXTURES['md']
+        document = path_profiles.bank_to_v3({'schema': 1, 'consoles': {system: {identity: record}}})
+        if with_cps1:
+            cps1 = cps1_document()
+            document['games'][cps1['game']] = cps1
+        knowledge.write_packed(path, document)
+        return path.read_bytes(), (system, identity, record)
+
+    def test_every_writer_refuses_a_schema_3_bank_holding_a_game_without_a_schema_1_form(self):
+        before, (system, identity, record) = self.bank(self.imported, with_cps1=True)
+        with self.assertRaisesRegex(ValueError, 'schema 3 bank'):
+            knowledge.discard_imported(system, identity, 'failed')
+        with self.assertRaisesRegex(ValueError, 'schema 3 bank'):
+            knowledge_exchange._import_document({'knowledge': {'schema': 1, 'consoles': {}}, 'observations': {}})
+        self.assertEqual(self.imported.read_bytes(), before)
+        self.assertFalse((self.imported.parent / 'imported-rejected.json').exists())
+        qualified, _ = self.bank(self.qualified, with_cps1=True)
+        with self.assertRaisesRegex(ValueError, 'schema 3 bank'):
+            knowledge_exchange.write_qualified_bank({system: {identity: record}})
+        self.assertEqual(self.qualified.read_bytes(), qualified)
+
+    def test_a_schema_3_bank_whose_games_all_have_a_schema_1_form_is_still_rewritten(self):
+        _, (system, identity, record) = self.bank(self.qualified, with_cps1=False)
+        knowledge_exchange.write_qualified_bank({system: {identity: record}})
+        self.assertEqual(knowledge.read(self.qualified), {'schema': 1, 'consoles': {system: {identity: record}}})
+        self.bank(self.imported, with_cps1=False)
+        self.assertTrue(knowledge.discard_imported(system, identity, 'failed'))
+        self.assertEqual(knowledge.read(self.imported), {'schema': 1, 'consoles': {}})
+
+
 class RawObservationTests(unittest.TestCase):
     """Raw gameplay observations travel as ROM positions, never ROM bytes."""
 

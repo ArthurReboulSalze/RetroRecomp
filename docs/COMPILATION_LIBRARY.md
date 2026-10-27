@@ -72,7 +72,8 @@ Without further care every 1.4.1 export would be converted in full. Instead
 release 1.4.1, followed by the ones of releases 1.5.1 and 1.5.2 where a real receipt confirmed
 them ([1.5.1](#release-151-entries-25-october-2026-windows),
 [1.5.2](#release-152-entries-26-october-2026-windows)). The Super Nintendo has no entry any
-more since its engine changed after 1.5.2 (see the 1.5.2 part). A receipt whose game part equals the
+more since its engine changed after 1.5.2 (see the 1.5.2 part), and neither has the **Neo Geo** since 1.6.0 (see
+[Stage B3](#stage-b3-the-conversions-follow-the-module-27-october-2026)). A receipt whose game part equals the
 hash computed with one of these stamps is accepted by `freshness.upgradable()` as the same
 game part:
 
@@ -1519,6 +1520,26 @@ standardisation that moves the game stamps on purpose (1.6.0); what a conversion
   therefore a game input of all nine consoles, like `knowledge.py`. Every console's **game** stamp moves once; the host
   and build stamps, and `LEGACY_GAME_STAMPS` and `RR16_STATE_COMPAT_ABI` (release procedure) do not. The knowledge
   stamp of a game with an unchanged record is unchanged.
+- **Neo Geo leaves `LEGACY_GAME_STAMPS`.** A Neo Geo receipt written before 1.6.0 carries a knowledge part that is the
+  hash of the whole Neo Geo bank of its time; 1.6.0 hashes the record of the game's key. The two can never be equal, so
+  the 1.4.1, 1.5.1 and 1.5.2 entries could never be recognised (`legacy_games` hashes the game part, knowledge part
+  included). They are removed, with a comment in `stamp_inputs.py`, and no Neo Geo entry may be added for 1.5.6 or any
+  release before 1.6.0. Nothing is lost: the Neo Geo exports of earlier releases are converted in full by 1.6.0, which
+  is the safe outcome. The three real stamps stay in `tests/test_legacy_compat.py` as removed values, like the Super
+  Nintendo ones.
+- **The Neo Geo receipt carries the key the conversion found.** The key of a ZIP set (cartridge prepared, BIOS) is only
+  known once a first conversion prepared its cartridge. The batch decides freshness and upgrades with the parts computed
+  before the conversion, and, for a profile that declares `knowledge_identity_after_conversion` (the Neo Geo only),
+  computes them again before it writes `export_receipt`, so the receipt holds the record the conversion used and the
+  next batch finds the same signature (without it, a set with a record in the shared base was converted twice). The
+  other consoles' identity does not depend on the conversion: their receipt is written from the parts of before, as
+  before.
+- **Writers of schema 1.** `discard_imported`, `write_qualified_bank` and the import of shared files read a bank through
+  the schema 1 view and write it back in schema 1. They now refuse (`ValueError`) to rewrite a schema 3 file that holds
+  a game with no schema 1 form (CPS-1, X68000, several cores), which they would drop; nothing is written then. A schema 3
+  bank whose games all have a schema 1 form is rewritten without loss. Not reachable today (no bank is written in
+  schema 3). The local reader also checks every schema 1 projection with `validate_legacy_record`, like the exchange
+  reader, and sets a game aside that fails it.
 
 **Evidence (27 October 2026, Windows, Python 3.14.5).** Two real short conversions per console (quick scan, one
 pass, 600 frames; the ROMs were read in place on the NAS, nothing copied) of the commit before (`bd26c65`, an archive

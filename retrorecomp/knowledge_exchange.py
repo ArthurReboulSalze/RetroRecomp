@@ -25,7 +25,7 @@ import zlib
 
 from . import __version__, path_profiles
 from .knowledge import (ASSETS, FIELDS, MAX_BYTES, OBSERVATION_LIMIT, RESOURCE, imported_observations_path,
-                        imported_path, load, merge_records, read, read_observations, valid_observation_rows,
+                        imported_path, load, merge_records, read, read_observations, refuse_to_drop_games, valid_observation_rows,
                         validate_payload, write_observations, write_packed)
 from .knowledge_build import SYSTEMS as CARTRIDGE_SYSTEMS, build_record, compact_snes, engines, qualified_reports
 from .systems import profile_for_path
@@ -1281,6 +1281,7 @@ def read_qualified_bank() -> dict:
 
 
 def write_qualified_bank(consoles: dict) -> None:
+    refuse_to_drop_games(qualified_bank_path())
     write_packed(qualified_bank_path(), validate_payload(
         {'schema': 1, 'consoles': {system: games for system, games in sorted(consoles.items()) if games}}))
 
@@ -1322,6 +1323,7 @@ def _import_document(document: dict) -> dict:
             observed[system][identity] = valid_observation_rows(system, (current + added)[:OBSERVATION_LIMIT])
             if outcome.get((system, identity)) not in ('new', 'enriched'):
                 outcome[(system, identity)] = 'enriched' if existed else 'new'
+    refuse_to_drop_games(target)
     write_packed(target, validate_payload({'schema': 1, 'consoles': {k: v for k, v in bank.items() if v}}))
     write_observations(observed)
     titles_path = target.with_name('imported-titles.json')

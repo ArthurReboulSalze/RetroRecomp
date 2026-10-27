@@ -18,6 +18,8 @@ class NeoGeoProfile(SystemProfile):
     capabilities = Capabilities(battery=True)
     feedback_kinds = frozenset({10, 11, 12})
     fallback_display = 'opcodes'
+    # A ZIP set has no key in the banks until a conversion prepared its cartridge.
+    knowledge_identity_after_conversion = True
     default_frames = 3600
     quick_frames = 3600
     title_from_romset = True

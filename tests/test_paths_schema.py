@@ -782,6 +782,22 @@ class LocalBankReaderTests(unittest.TestCase):
                 knowledge.write_packed(first, {'schema': 3, 'games': {'md:' + '0' * 64: {}}})
                 knowledge.read(first)
 
+    def test_a_game_whose_projection_fails_the_schema_1_rules_is_set_aside(self):
+        # The exchange reader validates the projection (paths_from_v3); the local reader does too.
+        from unittest.mock import patch
+        payload, bank = self.banks()
+        real = pp.validate_legacy_record
+        def refuse_md(system, identity, record):
+            if system == 'md':
+                raise ValueError('Invalid compilation knowledge entries.')
+            return real(system, identity, record)
+        with patch.object(pp, 'validate_legacy_record', side_effect=refuse_md):
+            read = pp.read_bank(copy.deepcopy(bank))
+        self.assertNotIn('md', read['consoles'])
+        self.assertEqual({k: v for k, v in read['consoles'].items()},
+                         {k: v for k, v in payload['consoles'].items() if k != 'md'})
+        self.assertIn('md', pp.read_bank(copy.deepcopy(bank))['consoles'])
+
     def test_schema_1_rules_are_unchanged_by_the_move(self):
         # The schema 1 validator is path_profiles' now; knowledge.validate_payload is its name.
         _, bank = self.banks()

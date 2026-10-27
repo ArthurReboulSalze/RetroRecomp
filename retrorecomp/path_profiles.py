@@ -1053,6 +1053,9 @@ def read_bank(document) -> dict:
     for game in document['games'].values():
         try:
             system, identity, record = to_legacy(game, validate=False)
+            # The same rules as a schema 1 bank (the exchange reader does the same): a game whose
+            # projection fails them is set aside, not handed to a conversion.
+            validate_legacy_record(system, identity, record)
         except ValueError:
             continue
         consoles.setdefault(system, {})[identity] = record
