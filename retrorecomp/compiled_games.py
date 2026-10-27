@@ -46,6 +46,12 @@ def linked(path):
         return True
 
 
+# Consoles whose reports keep the scan level under advanced_scan, and the
+# revision of how the collection reads levels (1.5.6).
+ADVANCED_SCAN_SYSTEMS = ('md', 'snes', 'nes')
+LEVELS_REVISION = 2
+
+
 @dataclass
 class Game:
     executable: str
@@ -89,6 +95,9 @@ class Inventory:
             data = read_json(self.path)
             if data.get('schema') != 1 or not isinstance(data.get('games'), list):
                 return
+            # Saved before 1.5.6: Mega Drive, Super Nintendo and NES levels were
+            # read as Standard; those rows read their report once more.
+            reread_levels = data.get('levels') != LEVELS_REVISION
             previous = data.get('base')
             previous = Path(previous) if isinstance(previous, str) and Path(previous).is_absolute() else None
             self.legacy_paths = previous is None or data.get('legacy_paths') is True
@@ -105,6 +114,8 @@ class Inventory:
                         if previous is not None:
                             for field in ('executable', 'report', 'source'):
                                 setattr(game, field, _rebase(getattr(game, field), previous, self.base))
+                        if reread_levels and game.system in ADVANCED_SCAN_SYSTEMS and game.level == 'standard':
+                            game.level = ''
                         old = self.games.get(game.key)
                         if old and (old.system, old.identity) == (game.system, game.identity):
                             game.favorite |= old.favorite
@@ -121,7 +132,7 @@ class Inventory:
     def save(self):
         with self.lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_json(self.path, {'schema': 1, 'base': str(self.base), 'legacy_paths': self.legacy_paths, 'roots': self.roots,
+            atomic_json(self.path, {'schema': 1, 'levels': LEVELS_REVISION, 'base': str(self.base), 'legacy_paths': self.legacy_paths, 'roots': self.roots,
                 'games': [asdict(game) for game in self.games.values()]})
 
     def snapshot(self):
@@ -308,7 +319,12 @@ def report_level(report) -> str:
     else 'standard'. A quick check from known or shared paths counts as
     standard: it only rechecked paths found before."""
     report = report if isinstance(report, dict) else {}
-    levels = [report.get('scan_level'), ((report.get('upgrade') or {}).get('discovery') or {}).get('scan_level')]
+    # Mega Drive, Super Nintendo and NES reports keep their level under
+    # advanced_scan; 1.5.2-1.5.5 read only the top level and took them for
+    # Standard (stars and the depth coins of their conversions).
+    advanced = report.get('advanced_scan')
+    levels = [report.get('scan_level'), advanced.get('level') if isinstance(advanced, dict) else None,
+              ((report.get('upgrade') or {}).get('discovery') or {}).get('scan_level')]
     deepest = max((LEVEL_STARS.get(level, 1) for level in levels if isinstance(level, str)), default=1)
     return {1: 'standard', 2: 'extended', 3: 'thorough'}[deepest]
 

@@ -1,3 +1,21 @@
+# RetroRecomp v1.5.6 — Extended and Thorough conversions counted on Mega Drive, Super Nintendo and NES
+
+- **Your deeper conversions count again.** Mega Drive, Super Nintendo and NES
+  reports keep their scan level in a place 1.5.2 to 1.5.5 did not read: their
+  games converted at the Extended or Thorough level showed one star in
+  **Compiled games** and were declared as Standard to retro-recomp.com, so the
+  depth coins (20 for Extended, 40 more for Thorough) were not paid. The level
+  is now read where these reports keep it; the collection reads those games'
+  reports once more and shows their stars.
+- **The coins that were missed are sent back.** Signed in, the next send of
+  your discoveries declares once more the Mega Drive, Super Nintendo and NES
+  games you completed deeper; the site keeps each game's deepest level and pays
+  only what was missing. An export upgraded without rediscovery may still show
+  Standard until its next conversion. Games converted by 1.5.4 or 1.5.5 stay
+  current: nothing that generates a game changed.
+
+---
+
 # RetroRecomp v1.5.5 — Neo Geo converts again, conversions per console, one ROM folder for missing ROMs
 
 - **Neo Geo converts again from the window.** In 1.5.4 every Neo Geo conversion
