@@ -108,3 +108,45 @@ MAME 0.289 pixel for pixel on every compared frame: one frame in 30 over
 9,000 frames, 300 per set. That comparison is a development check, not part
 of each conversion, and it measures agreement with MAME, not with the
 original boards.
+
+## Credited play and sound compared with MAME (27 October 2026)
+
+A development check, not part of each conversion; it measures agreement with
+MAME 0.289, not with the original boards. Each set runs the conversion's own
+credited play route (coin, Start, then pseudo-random movement and buttons) for
+3,600 frames in the reference board model and in MAME. MAME receives the same
+raw port values through read taps on the 68000's input addresses, so both
+sides read each value in the same frame; one frame in ten is compared pixel
+for pixel.
+
+- **21 of 24 sets** that MAME can run from the NAS match on all 360 compared
+  frames: 1941, Three Wonders, Carrier Air Wing, Captain Commando (four-player
+  inputs at their CPS-B addresses), Dynasty Wars, Final Fight, Ghouls'n Ghosts,
+  Knights of the Round, Mega Man, Magic Sword, Nemo, Pnickies, Pokonyan,
+  Quiz & Dragons, Quiz Tonosama no Yabou 2, Street Fighter II, Street Fighter
+  II' Champion Edition, Strider, U.N. Squadron, Varth and Willow.
+- **Three sets slip by one frame** during play: The King of Dragons from frame
+  839, Mega Twins from frame 919 and Street Fighter II' Hyper Fighting from
+  frame 1504. The pictures are the same one frame apart (a fade or a
+  title step early or late), and their attract modes match MAME on all 300
+  compared frames of 9,000. The King of Dragons and Mega Twins each match on
+  all 360 frames when MAME's input change is moved to another point of the
+  frame (a different point for each game), Hyper Fighting at none. A 68000 trace of The King of Dragons with the same
+  inputs finds no instruction whose duration differs over 2,354,506
+  instructions; the two cores part when MAME takes the VBLANK interrupt one
+  instruction earlier than the reference. This is the interrupt-sampling
+  limit described above (MAME samples interrupts at the end of a bus access),
+  which can move a game's main loop by a frame relative to its input reads.
+- **Not compared**: Adventure Quiz Capcom World 2 and Mercs (MAME needs PAL
+  dumps, `q522b.1a` and `c628`, that the NAS romsets lack).
+
+Sound, same routes, MAME `-wavwrite` at 55,930 Hz (Final Fight, Street Fighter
+II, Ghouls'n Ghosts; one-second windows): levels agree within 0.12 dB
+(median), and averaged spectra within 0.998 to 0.99998 (cosine similarity).
+Below 4 kHz every third-octave band agrees within about 1 dB. The larger
+differences, up to about 18 dB in single windows, lie between 5 and 10 kHz,
+where the OKI's 7,576 Hz samples leave their images: the board model
+interpolates the OKI linearly at the YM2151 rate, whereas MAME resamples it
+with its own filter. MAME's output also drifts by about 7 ppm (the YM2151 runs
+at 55,930.4 Hz), so waveform correlation is lower than the spectra suggest
+(median 0.87 to 0.995). Physical audio and latency are not measured.

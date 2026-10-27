@@ -474,7 +474,7 @@
     "tip_knowledge": "変換で見つかった経路を共有します。ROM を含まない 1 つのファイルに複数のゲームと機種をエクスポートしたり、他の人のファイルを知識に追加したりできます。インポートしたヒントは変換時に必ず再確認されます。",
     "knowledge_missing_hint": "ヒント: オプションで各機種の ROM フォルダーを設定すると、より多くのゲームが見つかります。",
     "options_cps1": "Capcom CPS-1",
-    "options_cps1_note": "実験的な Capcom CPS-1 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。プレイヤー1・2、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。",
+    "options_cps1_note": "実験的な Capcom CPS-1 プロファイル：MAME または FBNeo の ZIP ロムセットを ROM の CRC で識別します（clone は parent の ZIP を同じフォルダーに置いてください）。基板に応じて最大4人、最大6ボタン、クレジットは Shift/Back。縦画面のゲームは縦向きで表示します。メニュー、フィルター、F8/F9 は共通です。ROM は配布・取得しません。",
     "knowledge_achievement": "実績解除",
     "knowledge_discovery": "件の発見",
     "knowledge_discoveries": "件の発見",
