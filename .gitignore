@@ -57,10 +57,13 @@ __pycache__/
 *.key
 *credentials*
 AGENTS.md
+AGENTS.override.md
+CLAUDE.local.md
 .codex/
 docs/*
 !docs/ARCHITECTURE.md
 !docs/STANDARDS.md
+!docs/AGENTS_GUIDE.md
 !docs/HOST_KIT.md
 !docs/QUALIFICATION.md
 !docs/NEW_MACHINE.md
