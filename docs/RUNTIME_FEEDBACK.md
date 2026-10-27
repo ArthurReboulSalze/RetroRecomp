@@ -114,6 +114,7 @@ alone never promotes raw candidates into the qualified shared knowledge snapshot
 | Super Nintendo | Guarded 65816 RAM instructions and SPC700 PC/opcode variants |
 | Neo Geo | Cartridge/BIOS physical roots, guarded 68000 RAM instructions and Z80 variants |
 | Capcom CPS-1 | Guarded work-RAM 68000 instructions (kind 15) and sound-RAM Z80 variants (kind 16) as private build hints of this conversion only; they are not written into the library. Kind 14 (a program-ROM instruction left interpreted) is recorded and read by nobody: the ROM is swept whole, so no path can change it. Diagnostic only, never shared |
+| Sharp X68000 | Interpreted instruction words (kind 13) reused as memory-word observation variants of the next discovery |
 
 The file is a **candidate source**, not proof of correct execution. Input sizes,
 checksums, identities, memory bounds and ROM signatures are checked. The current
@@ -135,7 +136,7 @@ not a qualification and must never bypass the reference gates.
 - `tools/gameplay_feedback_selftest.py`: authored ROMs; a first EXE falls back,
   the standalone EXE writes on exit, and a second generation with a fresh
   converter bank uses only that feedback and passes its reference comparisons.
-- `tests/test_feedback.py`: all seven console namespaces, identity/corruption
+- `tests/test_feedback.py`: all nine console namespaces, identity/corruption
   rejection, each compiler's candidate reader, bulk import without ROMs,
   source deletion/path changes and newest-first bounded merging.
 

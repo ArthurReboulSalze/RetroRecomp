@@ -266,7 +266,7 @@ Quick-state keys between `v1.5.2` and this tree (same synthetic inputs as
 
 #### Release 1.5.6 entries (27 October 2026, Windows)
 
-The last release before the 1.6.0 stamp break. Its game stamps are the fourth value of the Master System, Game Gear, Game Boy,
+The last release before the 1.6.0 stamp break. Its game stamps are the last value of the Master System, Game Gear, Game Boy,
 NES, Mega Drive and CPS-1 entries, found as for 1.5.1 and 1.5.2 with one difference: the 12 receipts (two games per console,
 quick level) were written by the converter of the `v1.5.6` tag run from its archive with Python 3.14.5 (`RetroRecomp.py
 batch`), not by the packaged `Retro-Recomp.exe`, which showed a start-up picture on the desktop when it was tried and was

@@ -34,6 +34,9 @@ of the standard boards. Automatic mode checks CPS-1 program ROM CRCs before the
 Neo Geo and single-cartridge readers; a split clone reads its parent ZIP beside
 it. Exports go to `Games/CPS-1` with the shared 16-bit host. See
 [CPS-1](CPS1.md).
+The experimental **Sharp X68000** profile (`x68`) converts `.dim`/`.xdf` disks
+and `.m3u` disk sets with the player's own IPL and font ROM, and exports to
+`Games/Sharp X68000`; see [X68000](X68000.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
@@ -88,9 +91,9 @@ proposal. An explicit choice is applied to that ROM only. A supplied
 standard = "pal"
 ```
 
-The CLI accepts `--video-standard auto|pal|ntsc|dmg` for one conversion or a whole
+The CLI accepts `--video-standard auto|pal|ntsc|dmg|mvs` for one conversion or a whole
 batch. An explicit CLI choice overrides a saved or supplied profile. The
-`dmg` choice applies only to Game Boy; Game Gear accepts only NTSC, and the
+`dmg` choice applies only to Game Boy and `mvs` only to Neo Geo; Game Gear accepts only NTSC, and the
 PAL/NTSC choices apply to Master System, NES and eligible 16-bit cartridges.
 Mega Drive and SNES use the cartridge header and exact-ROM overrides; an incompatible
 override is rejected before compilation. Multi-region Mega Drive cartridges
