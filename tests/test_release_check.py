@@ -108,6 +108,19 @@ class ArcadeTests(unittest.TestCase):
         self.assertEqual(checked['gates']['packed']['status'], 'fail')
         self.assertIn('the packed executable was not compared with the reference', checked['problems'])
 
+    def test_neo_geo_state_routes_and_refused_count_are_the_state_evidence(self):
+        # The real Neo Geo report: one row per route and a count of refused damaged states.
+        report = arcade_report()
+        report['system'] = {'id': 'ng', 'name': 'Neo Geo'}
+        report['game_states'] = {'validation': {
+            'routes': [{'warmup': 30, 'fresh_process_match': True}, {'warmup': 4500, 'fresh_process_match': True}],
+            'invalid_states_rejected': 26}}
+        checked = check_report(report, 'ng', 'standard', 0, require_states=True)
+        self.assertEqual(checked['gates']['states']['status'], 'pass')
+        report['game_states']['validation']['routes'][1]['fresh_process_match'] = False
+        checked = check_report(report, 'ng', 'standard', 0, require_states=True)
+        self.assertIn('F8/F9 did not continue identically in a fresh process', checked['problems'])
+
     def test_a_neo_geo_report_reads_through_the_same_shape(self):
         report = arcade_report()
         report['system'] = {'id': 'ng', 'name': 'Neo Geo'}

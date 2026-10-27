@@ -163,6 +163,14 @@ def read_arcade_shape(report: dict) -> dict | None:
     if isinstance(state, dict):
         states = {'fresh_process': state.get('fresh_process_match'),
                   'damaged_refused': state.get('truncated_state_rejected')}
+        # Neo Geo writes one row per route and a count of the damaged states it refused.
+        routes = state.get('routes')
+        if states['fresh_process'] is None and isinstance(routes, list) and routes:
+            matches = [route.get('fresh_process_match') if isinstance(route, dict) else None for route in routes]
+            states['fresh_process'] = all(match is True for match in matches)
+        rejected = state.get('invalid_states_rejected')
+        if states['damaged_refused'] is None and isinstance(rejected, int):
+            states['damaged_refused'] = rejected > 0
     return {'shape': 'arcade', 'unit': '68000/Z80 opcodes', 'level': report.get('scan_level'),
             'scenarios': scenarios, 'agreement': not agreement_problems,
             'agreement_problems': agreement_problems,
