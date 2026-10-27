@@ -242,6 +242,7 @@ tools/neogeo_persistence_selftest.py
 tools/neogeo_state_selftest.py tools/neogeo_host_selftest.py tools/neogeo_controls_selftest.py
 tools/neogeo_m68000_selftest.py tools/neogeo_z80_selftest.py tests/test_neogeo_native.py
 retrorecomp/cps1.py retrorecomp/cps1_catalogue.py assets/cps1-catalogue.json
+retrorecomp/zip_sets.py tests/test_zip_sets.py
 tools/build_cps1_catalogue.py licenses/cps1-machine.md tests/test_cps1.py
 retrorecomp/cps1_board.py retrorecomp/cps1_build.py tests/test_cps1_board.py licenses/cps1-ymfm.md
 native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h

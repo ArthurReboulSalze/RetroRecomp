@@ -650,6 +650,7 @@ INPUTS = {
     ('ng', 'cps1'): (
         'retrorecomp.neogeo_build',
         'retrorecomp.neogeo_z80',
+        'retrorecomp.zip_sets',
     ),
     ('md', 'x68', 'cps1'): (
         'retrorecomp.megadrive_codegen',
