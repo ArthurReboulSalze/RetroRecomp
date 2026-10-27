@@ -1788,11 +1788,12 @@ def _apply_archive(path: Path, version: int, cursor: int, line: int = 2) -> dict
 
 
 def _line_order(local_line: int | None, lines: list) -> list:
-    """The lines to try, in order: a base in line 3 stays there, a base in line
-    2 stays there unless its line gives no way to the latest version; no base
-    yet starts with line 3 when the service has it."""
+    """The lines to try, in order: a base stays in its line unless that line gives
+    no way to the latest version (a line the service no longer publishes, or
+    one with neither a difference from this version nor a newer complete base);
+    no base yet starts with line 3 when the service has it."""
     if local_line == 3:
-        return [3] if 3 in lines else []
+        return [*([3] if 3 in lines else []), 2]
     if local_line == 2:
         return [2, *([3] if 3 in lines else [])]
     return [*([3] if 3 in lines else []), 2]

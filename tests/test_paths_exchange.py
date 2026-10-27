@@ -515,6 +515,28 @@ class BaseLineTests(LineHarness):
         names = {path.stem for path in (self.store / 'entries').iterdir()}
         self.assertEqual(names, {grown3[0]})
 
+    def test_a_base_in_line_3_goes_back_to_line_2_when_the_service_stops_publishing_line_3(self):
+        first2, first3 = self.two_lines(3)
+        self.install3(3, {KEY: (first3[0], [47, 52])}, [first3])
+        grown2 = entry(part(47, 'extended', (0x100,)), part(52, 'quick', (0x180,)), part(60, 'thorough', (0x200,)))
+        # Version 4 is published in line 2 only (the maintainer turned line 3 off), with a complete base but no difference from 3.
+        self.publish(4, {KEY: (grown2[0], [47, 52, 60])}, entries=[grown2])
+        self.server.base['manifest']['deltas'] = {}
+        self.assertNotIn('lines', self.server.base['manifest'])
+        summary = online.sync_base([KEY])
+        self.assertEqual(self.gets(), ['base', 'dl/retro-recomp-base-4.zip'])
+        self.assertEqual((summary['version'], summary['update']['source'], summary['update']['error']), (4, 'full', None))
+        self.assertEqual((kx.local_base()['format'], len(self.rows())), (2, 3))
+        # With no way out at all, the base in use stays and the failure is reported, not raised.
+        self.install3(3, {KEY: (first3[0], [47, 52])}, [first3])
+        for path in (self.store).glob('*'):
+            if path.is_file():
+                path.unlink()
+        self.server.base['manifest']['full'] = None
+        kx._installer_head.cache_clear()
+        summary = online.sync_base([KEY], now=self.later())
+        self.assertEqual((summary['update']['error'], summary['version']), ('no_path', 3))
+
     def test_a_service_without_line_3_is_never_asked_for_it(self):
         old = entry(part(47, 'extended', (0x100,)))
         self.publish(5, {KEY: (old[0], [47])}, entries=[old])

@@ -1344,7 +1344,7 @@ compressed 29,087,239 to **29,093,134 bytes** (+5,895), raw 120,403,159 to 120,4
 other record of every console is identical. Producing the separate base that the installer lays
 beside the converter from this file is not part of this change.
 
-## Schema 3 of the paths: CPU-keyed (27 October 2026, defined, not used yet)
+## Schema 3 of the paths: CPU-keyed (27 October 2026; travels in the exchange and the base, not read by conversions yet)
 
 Stage B1 of the standardisation ([STANDARDS.md](STANDARDS.md), "Paths") adds `retrorecomp/path_profiles.py`.
 It is the schema 3 of the compilation paths: a game record owns one section per CPU (`m68k`, `z80`,
@@ -1360,8 +1360,10 @@ pointer names the source it points into (`rom`, or Neo Geo's `p`, `bios`, `m1`, 
 - `to_v3` and `to_legacy`, adapters to and from the schema 1 records of every console, Neo Geo's own record
   included. `to_legacy(to_v3(record)) == record` exactly.
 
-**Nothing uses it.** No conversion, bank, exchange file or base reads or writes schema 3; the local banks, the
-shared base and the snapshot stay schema 1. The module is listed in `INTERFACE_MODULES`
+**What uses it.** Since stage B2 (below) the exchange file, the shared base and the upload carry schema 3. No
+conversion, bank or snapshot reads or writes it: the local banks (`qualified.json.gz`, `imported.json.gz`,
+`imported-observations.json.gz`) and the maintainer's snapshot stay schema 1, and every reader of the paths still
+works on schema 1 records. The module is listed in `INTERFACE_MODULES`
 (`compilation_inputs.py`) so that it is not a game-side input of its own. That edit still changes the game
 stamps of all nine consoles, because `compilation_inputs.py` is itself hashed as a game-side module (its code
 digest is the only input that differs between this commit and the one before; the host and build stamps are
@@ -1384,8 +1386,63 @@ Geo is 4 % larger gzipped. Small records pay about 260 bytes of structure each. 
 the snapshot, the accept/reject parity with `knowledge.validate_payload` and
 `neogeo_knowledge.validate_record` on a mutation corpus (every column of every field swept with boundary and
 wrong-type values), and the codecs. `RETRO_RECOMP_PATHS_FULL=1` runs the whole snapshot (about a minute and a
-half and 1.2 GB of memory) and the 262,144-row SPC700 caps. Still to do: the exchange and the base in schema 3 with a dual line,
-then `knowledge.py` delegating to this module, which is the stage that ends this paragraph's "not used".
+half and 1.2 GB of memory) and the 262,144-row SPC700 caps. Still to do: `knowledge.py` delegating to this module,
+which is the stage that ends this paragraph's "not read by conversions".
+
+### Schema 3 travels (stage B2, 27 October 2026)
+
+Three things carry schema 3, all of them in interface modules (`knowledge_exchange.py`, `online.py`; no game-side
+module is touched, so no game stamp changes):
+
+- **`.rrknowledge` version 3.** The header, the titles and the observations are those of version 2; `knowledge` is
+  `{"schema": 3, "games": {"system:identity": <schema 3 record>}}`, validated by `path_profiles.validate_games`.
+  `read_exchange` reads versions 1, 2 and 3 and always hands the paths back as schema 1 (its down-projection
+  `paths_from_v3`, checked by the schema 3 validator first and by `validate_payload`, Neo Geo's included, second), so
+  `import`, the discovery counts, the claims and the builder see the same records whatever the version. A file
+  written by `write_knowledge` is **version 2 unless asked otherwise**: a converter or a service older than 1.6.0
+  refuses version 3 as "not a knowledge file". `version=3` writes schema 3, and writes version 2 instead when a
+  record has no valid schema 3 form (schema 3 is stricter in a few places, `STRICTER_THAN_V2`; `fallback=False`
+  raises). An account upload asks the service first: `GET status` lists `knowledge_versions` and only a service that
+  lists 3 is sent version 3 (`online.upload_version`, asked at most once an hour, any failure means 2). A file
+  exported by hand stays version 2, which every receiver reads.
+- **Shared base, format 3.** The base is published in **two lines** at one version number, from the same sources:
+  line 2 (format 2, `GET base`, unchanged, what 1.5.x converters read) and line 3 (format 3, `GET base3`). A format 3
+  entry has the shape of a format 2 entry (`qualified`, `parts`) with schema 3 records and `cores` in place of
+  `engine`: the engine identity of the whole record, the very string format 2 calls `engine` (a Neo Geo record:
+  `<core>:<loader>`); the word is the one a later per-CPU qualification will keep. A format 3 index and archive
+  (`manifest.json`, `index.json`, `entries/<sha>.json`, the entries named by the SHA-256 of their canonical text, as
+  before) say `"format": 3` in both, and a mismatch is refused. The converter reads **both**: `base_entry` returns a
+  format 3 entry in the shape of format 2 (`engine`, schema 1 records; an element whose schema 3 record is invalid or
+  has no schema 1 form is skipped like a malformed one, never the game), so the qualified bank is still written in
+  schema 1 and `base-use.json`, the claims and the rejections do not know two formats.
+- **The down-projection.** `knowledge_exchange.entry_to_v2` and `entry_to_v3` convert one entry, `project_base` a
+  whole base (entries and index, every game keeping its sources). The builder makes line 3 from line 2's hint sets
+  and refuses to publish unless line 3 projects back to line 2's very text, entry by entry; what has no form in the
+  other schema is left out of that line only and counted.
+
+**Which line a converter follows.** `GET base` is still the entry point; when line 3 is published at that very version
+its manifest says `"lines": [2, 3]` (without it the manifest is what it always was, so an older service is never
+asked for a route it lacks). A converter **stays on the line its local base is in** (the installer's copy included)
+and goes to the other only when its own line gives no way to the latest version (no difference from its version and no
+newer complete base); with no base yet it starts with line 3 when the service has it, and falls back to line 2 when
+`GET base3` is a 404, not a manifest, or in a format it does not know. Differences are fetched from the route of
+their line (`base3/files/retro-recomp-base3-<A>-<N>.zip`), a complete base of line 3 from its registered address
+(`retro-recomp-base3-<N>.zip`), and an archive of the other line is refused whole. Revocations, the quarantine and
+the cursor are the same in both lines (one table of sources on the service) and are read from `GET base`.
+
+Measured on the 72 uploads in the maintainer's cache plus the 1,609 campaign records (1,723 games, 26 October
+2026, Hermes test service): the entries come to 128.8 MB of JSON in line 3 against 173.6 MB in line 2, the complete
+base is 27.7 MB (line 3) against 42.2 MB (line 2), the index is the same size, and no record lacked a schema 3 form.
+The change of the file is paid once: a converter on line 3 downloads differences of the new format, which for
+the same games are smaller too.
+
+`tests/test_paths_exchange.py` checks version 3 files (written, read, refused: a schema 1 payload in a version 3
+file and the reverse, a record outside its source, a game under another key, a machine that shares nothing yet, a
+device, two cores), the fallback to version 2, the import of both versions into the same banks, the entry
+projections both ways (a skipped element never drops the game), the archives and indexes of both formats and their
+refusal across lines, and the update against a fake service: no base starts on line 3, a base stays on its line, the
+switch only when a line leads nowhere, a service without line 3 is never asked for it, a broken `GET base3` leaves
+line 2, and the version an upload is written in follows `knowledge_versions`.
 
 ## Sharing discoveries between converters
 
@@ -1421,7 +1478,8 @@ The file is gzip JSON: a `retro-recomp-knowledge` header (format version,
 converter version, UTC date), a short title per game, a payload with the same
 schema, fields and limits as `assets/compilation-knowledge.json.gz`, and
 (format version 2) the ROM-free observations, at most 4,096 per game. Version
-1 files still import.
+1 files still import, and so do version 3 files (1.6.0), whose payload is the CPU-keyed schema 3 (see *Schema 3 of
+the paths*): a file is written as version 2 unless the receiver is known to read 3.
 The title is there for people only. The file holds no ROM byte, path,
 artwork, code or account data. The export uses the shared builder
 `retrorecomp/knowledge_build.py`, which also builds the bundled snapshot.
@@ -1664,6 +1722,13 @@ stop the batch; the log says which. With no local base and no connection the
 log, and a notice when the batch starts, say that every game is discovered in
 full and takes longer; with a local base and no connection they say the local
 base is used.
+
+**Two lines (1.6.0).** The service publishes each version in two formats from the same sources: line 2, the
+original, for converters up to 1.5.x, and line 3, the CPU-keyed schema 3 (*Schema 3 of the paths*). A 1.6.0 converter
+reads both and stays on the line of its local base (the installer's copy may be of either format). Whatever the
+line, the paths reach the banks as the same schema 1 records, and the qualified bank keeps its shape. Line 2 stays
+until the maintainer retires it (a decision taken from the converter versions that still upload, not a technical
+gate).
 
 **Startup check.** *Check for updates at startup* (Options, on by default)
 looks, at most every six hours and in the background, at whether a newer
