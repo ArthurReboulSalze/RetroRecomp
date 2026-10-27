@@ -264,11 +264,14 @@ static const char *rr_combo_hint(int index) {
  * computers, the function-key choice. Each host builds its rows. */
 #define RR_ROW_AUDIO (-1)
 #define RR_ROW_FKEYS (-2)
-typedef struct { char text[10][80]; const char *rows[10]; int keys[10], count; } RrOptionRows;
+/* The rows hold their own text and no pointer, so a host can build them in a
+ * function and return the struct by value (a pointer to text[i] would point
+ * into the callee's frame once copied, which GCC does not hide as MSVC does). */
+typedef struct { char text[10][80]; int keys[10], count; } RrOptionRows;
 static void rr_option_row(RrOptionRows *d, int key, const char *format, const char *value) {
     if (d->count >= 10) return;
     snprintf(d->text[d->count], sizeof d->text[0], rr_tr(format), value);
-    d->rows[d->count] = d->text[d->count]; d->keys[d->count] = key; ++d->count;
+    d->keys[d->count] = key; ++d->count;
 }
 /* Rows every console shares, after its function-key rows. */
 static void rr_option_shared_rows(RrOptionRows *d) {
@@ -341,7 +344,7 @@ static void rr_option_page_draw(SDL_Renderer *r, const RrOptionRows *d, int page
     for (int i = 0; i < d->count; ++i) {
         int line = RR_MENU_FIRST_LINE + i * RR_MENU_LINE;
         if (i == rr_options.row) rr_menu_box(r, x, y, unit, 12, line, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
-        rr_menu_text(r, x, y, unit, 16, line, d->rows[i], RR_MENU_GOLD);
+        rr_menu_text(r, x, y, unit, 16, line, d->text[i], RR_MENU_GOLD);
     }
     bool computer = d->count && d->keys[rr_options.row] == RR_ROW_FKEYS;
     if (rr_options.status[0]) rr_menu_text(r, x, y, unit, 14, RR_MENU_HINT_LINE, rr_options.status, RR_MENU_GOLD);

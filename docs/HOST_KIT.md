@@ -425,7 +425,7 @@ code is unchanged, so the 1.5.6 stamps can be declared upgradable). Not covered
 by the phase 1 A/B battery, so to be added in a later phase: menus driven by a
 pad, pad capture from another pad, hot unplug, mouse clicks on option rows, F9
 with no state or a failed save, audio open failures, quit by Escape, a fourth
-CPS-1 player, a SNES cartridge-chip game, and the options page on Linux.
+CPS-1 player and a SNES cartridge-chip game.
 
 Verification, per phase and per family — old executable A (current release)
 against new executable B (kit build), same game, same inputs
@@ -466,6 +466,8 @@ builds the old and the new host of the same game against a virtual clock, a
 modelled audio device, scripted keys, pads and mouse, and compares the picture
 read back at every frame, every push to the audio device, the window log, the
 preferences file and the state files. It is the tool of every later phase.
+
+The options page of F2 was unreadable on Linux (GCC) in every export that builds `game_options.h` (a returned `RrOptionRows` kept pointers into the callee's frame, which MSVC hides); the struct now holds its text only, and the page is proven readable on Linux and byte-identical to the Windows capture of the same game (CPS-1, 27 October 2026); `--no-options-page` only serves to compare against builds made before the fix.
 
 Discipline: a host refactor claims only "unchanged" — never native-code
 coverage, CPU fidelity, hardware fidelity, gameplay validation or physical
