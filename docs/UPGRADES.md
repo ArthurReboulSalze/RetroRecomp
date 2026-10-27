@@ -54,7 +54,7 @@ pseudo-random routes, and it is not a fidelity or latency measurement.
 
 1.6.0 moves every console's game stamp on purpose (standardisation: the paths module of stage B3, the host kit, the
 CPS-1 build modules, reproducible stamps). What a conversion generates did not move, so the exports of the last release
-before it stay upgradable where that was shown (`LEGACY_GAME_STAMPS`, fourth value, 27 October 2026):
+before it stay upgradable where that was shown (`LEGACY_GAME_STAMPS`, last value, 27 October 2026):
 
 | Console | 1.5.6 export in 1.6.0 | Why |
 | --- | --- | --- |
