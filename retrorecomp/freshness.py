@@ -8,7 +8,6 @@ matches, with no new hints, is upgraded without rediscovery.
 import hashlib
 import json
 from pathlib import Path
-from functools import lru_cache
 from . import __version__
 from .feedback import ingest
 from .systems import get_profile, unsigned_option_keys
@@ -17,11 +16,6 @@ from .systems import get_profile, unsigned_option_keys
 def digest(path):
     with Path(path).open('rb') as file:
         return hashlib.file_digest(file, 'sha256').hexdigest()
-
-
-@lru_cache(maxsize=2048)
-def _input_hash(path, size, modified):
-    return digest(path)
 
 
 # Request settings that only shape the player shell or the published file.

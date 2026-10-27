@@ -34,9 +34,16 @@ today is described in [ARCHITECTURE.md](ARCHITECTURE.md).
    role and its owners when it is created, and the change notes say which
    exports it affects. See [UPGRADES.md](UPGRADES.md).
 5. **Stamps hash explicit lists, never what is on disk.** A fingerprint, ABI key
-   or SDK stamp names its files; text inputs are hashed with normalised line
-   ends. A stamp computed from a release tag must equal the stamp of the
-   released executable. *Target: several stamps still glob directories.*
+   or SDK stamp names its files: the manifest in `retrorecomp/stamp_inputs.py`
+   lists every module and file with the consoles that own it; a file that is
+   not listed is ignored, a listed one that is missing is an error. Text inputs
+   are hashed with normalised line ends and pinned to LF in `.gitattributes`.
+   The definition of the stamps (`compilation_inputs`, `stamp_inputs`) is never
+   an input itself, so editing a console's file list or the interface list moves
+   no stamp. A stamp computed from a release tag must equal the stamp of the
+   released executable (`RetroRecomp.py _compilation-stamps`, nine consoles);
+   module fingerprints are bytecode, so the Python version must match too.
+   `tests/test_stamp_inputs.py` pins all of this.
 6. **Formats are versioned.** Paths, shared-base archives, quick states,
    battery files, reports and route scripts carry a schema version. Readers
    accept the previous version or refuse it cleanly, never misread it.

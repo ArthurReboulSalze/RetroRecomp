@@ -713,9 +713,9 @@ class NotWiredYetTests(unittest.TestCase):
         for path in sorted((ROOT / 'retrorecomp').rglob('*.py')):
             if path.name != 'path_profiles.py' and 'path_profiles' in path.read_text(encoding='utf-8'):
                 users.append(path.relative_to(ROOT).as_posix())
-        # compilation_inputs only names it as an interface module.
-        self.assertEqual(users, ['retrorecomp/compilation_inputs.py'])
-        text = (ROOT / 'retrorecomp' / 'compilation_inputs.py').read_text(encoding='utf-8')
+        # stamp_inputs (the data of the stamps) only names it as an interface module.
+        self.assertEqual(users, ['retrorecomp/stamp_inputs.py'])
+        text = (ROOT / 'retrorecomp' / 'stamp_inputs.py').read_text(encoding='utf-8')
         self.assertNotRegex(text, r'import\s+.*path_profiles|from\s+\.path_profiles')
 
     def test_it_is_an_interface_module_that_no_game_stamp_hashes(self):

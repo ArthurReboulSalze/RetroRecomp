@@ -90,8 +90,36 @@ JOYP refresh hook moved from `gameboy_timing.py` to
 `gameboy_runtime.adapt_input_refresh_hook`. The generated Game Boy project is
 byte-identical before and after that split.
 
+## Reproducible stamps
+
+A stamp hashes a list, never what is on disk (docs/STANDARDS.md rule 5). The
+list is `INPUTS` in `retrorecomp/stamp_inputs.py`: every converter module and
+every file that can enter a stamp, grouped by the consoles that own it, plus
+`NOT_INPUTS` for the tracked files that are deliberately out (interface
+pictures, locales, credits, the knowledge snapshot, the UPX tools). A file on
+disk that is not listed changes no stamp; a listed file that is missing is an
+error; `tests/test_stamp_inputs.py` fails when a tracked file is neither
+listed nor declared out, or when a listed file is not bundled in the
+executable. Text is hashed with CRLF turned into LF (and `.gitattributes`
+pins LF for these types), so a Windows working tree, an archive of a tag and
+Linux give the same stamps; the two catalogues that are checksummed byte for
+byte are hashed as they are. The save-state key of the Mega Drive and Super
+Nintendo and the Master System / Game Gear compiler signature read the same
+list (the native files their console owns), not the folder.
+
+`compilation_inputs.py` (the algorithm) and `stamp_inputs.py` (the data) are
+interface modules: no stamp hashes them, so registering an interface module,
+adding a file to one console's list or editing `LEGACY_GAME_STAMPS` moves no
+game stamp. A change of the algorithm itself bumps `STAMP_LABEL`, which a test
+pins on a synthetic input.
+
 ## Adding or changing a file
 
+- Every new file under `native/`, `assets/`, `profiles/` or `licenses/`, and
+  every new converter module, is added to `INPUTS` with its owners (or to
+  `NOT_INPUTS` / `INTERFACE_MODULES` when no game depends on it). The
+  completeness test names what is missing. Its role (host, build or game) comes
+  from the tables below.
 - A new menu, text, filter or shell file: add it to `HOST_NATIVE` or
   `HOST_MODULES`, and to the tables above, only if no headless discovery or
   validation run uses it.

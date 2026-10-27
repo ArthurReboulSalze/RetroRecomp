@@ -9,6 +9,17 @@
 *.ps1 text eol=crlf
 *.sh text eol=lf
 *.iss text eol=lf
+# Text inputs of the stamps (retrorecomp/stamp_inputs.py) are LF in every checkout, so a
+# Windows working tree, an archive of a tag and Linux hash the same bytes. The stamps also
+# normalise line ends when they hash text; this keeps CMake and the code reading these files equal.
+CMakeLists.txt text eol=lf
+*.cmake text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.rc text eol=lf
+*.def text eol=lf
 *.png binary
 *.ico binary
 # The catalogue checksum covers exact pinned bytes, including line endings.
