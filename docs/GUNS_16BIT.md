@@ -48,7 +48,7 @@ Opening a host menu or losing focus releases the gun buttons.
 | Middle mouse button | C | Scope Pause |
 | Enter / mapped controller Start | Start | Scope Pause |
 
-Scope Turbo is a separate option in F5, on by default. It represents the
+Scope Turbo is the last row of the same F2 gun page, on by default. It represents the
 gun's physical turbo switch; F6 still controls gamepad autofire. Non-turbo
 Scope Fire and Pause are edge-triggered; Cursor stays active while held.
 Follow each game's original calibration and controller-selection screens.

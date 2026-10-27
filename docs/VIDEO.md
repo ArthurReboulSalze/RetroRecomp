@@ -2,7 +2,7 @@
 
 ## Shared F3 filters
 
-All six console hosts cycle through **Sharp pixels**, **Scale2x**, **Scanlines**,
+All nine console hosts cycle through **Sharp pixels**, **Scale2x**, **Scanlines**,
 then **xBR smooth**. Stored IDs remain unchanged so existing settings keep their
 chosen effect. Mode 1 retains its stored setting ID and replaces
 the earlier Scale2x + AA attempt with a CPU adaptation of Hyllian's xBR-lv2.

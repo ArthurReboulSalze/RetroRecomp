@@ -72,6 +72,9 @@ private evidence under `.build/` that is not published.
 ### Neo Geo
 
 - [NEOGEO.md](NEOGEO.md) — Neo Geo development and qualification.
+
+### Capcom CPS-1
+
 - [CPS1.md](CPS1.md) — Capcom CPS-1 profile: conversion, controls, first qualified sets.
 
 ### Sharp X68000

@@ -149,7 +149,8 @@ use remains visible. Interpreter disabling is deferred; no such
 shortcut is added. See [fallback recovery and moved games](RUNTIME_FEEDBACK.md).
 
 The xBR implementation is shared by Master System, Game Gear, Game Boy, NES,
-Mega Drive, Super Nintendo and the local Neo Geo profile. New exports cache
+Mega Drive, Super Nintendo, the local Neo Geo profile, CPS-1 and the X68000.
+New exports cache
 unchanged image regions while producing the same filtered pixels. It remains
 last in the F3 cycle and requires no new setting. Existing EXEs need regeneration
 to receive this improvement; updating the converter alone does not alter them.

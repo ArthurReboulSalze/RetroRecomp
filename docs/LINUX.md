@@ -7,7 +7,7 @@ same console implementations and verified compilation knowledge as Windows.
 On Debian and Ubuntu, double-click the `.deb` package of the release (see
 [installation](INSTALLING.md)). Elsewhere, use the per-user `.run` installer to
 add Retro-Recomp to your applications menu:
-`bash Retro-Recomp-1.1.6-linux-x86_64-install.run`. It installs without sudo in
+`bash Retro-Recomp-<version>-linux-x86_64-install.run`. It installs without sudo in
 `~/.local/opt/Retro-Recomp`, keeps the in-app updater writable and preserves your
 games and settings on uninstall; `uninstall.sh` also offers to remove the build
 tools and compiler caches (`--purge-tools` in scripts), and Options > Common >
