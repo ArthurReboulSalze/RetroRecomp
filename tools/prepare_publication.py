@@ -120,7 +120,7 @@ docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tests/test_doc_links.py
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
-MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_consoles.png
+MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_cartridge_rr.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI_1.1.3.png
 MEDIAS/RetroRecomp_Master_System_Collection.png
 MEDIAS/RetroRecomp_Compiled_Games.png MEDIAS/RetroRecomp_Credits.png

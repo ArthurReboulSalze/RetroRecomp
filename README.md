@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_logo_outlined.png?v=8fb265de351a" alt="RetroRecomp logo" width="182">
+  <img src="MEDIAS/RetroRecomp_cartridge_rr.png?v=2d587a5c09b8" alt="RetroRecomp: the RR cartridge" width="200">
 </p>
 
 <h1 align="center">RetroRecomp</h1>
@@ -144,7 +144,7 @@ meets interpreter fallback, it keeps small hints in memory and saves them
 **when you close it**, never during play. Regenerating then covers those paths.
 
 <p align="center">
-  <img src="MEDIAS/RetroRecomp_learning_cycle.png" alt="If fallback occurs: save hints, enrich Retro-Recomp's local memory, and regenerate the executable" width="640">
+  <img src="MEDIAS/RetroRecomp_learning_cycle.png?v=38297518336f" alt="The learning cycle: play, save fallback hints, Retro-Recomp learns from them, regenerate the game. Play. Learn. Recompile." width="640">
 </p>
 
 Recording is on by default; **F12** switches it off or on, and each game's file
