@@ -15,6 +15,11 @@ keeps the frame hashes, the audio and window log, the preferences file and the s
 A host refactor is "unchanged" when the old and the new build of the SAME game give the same
 runs. Both sides must be built the same way, from the same project, with the same
 retro16_state_config.h (--state-config), so that quick states cross over.
+
+Neo Geo: the clock of the board follows the wall clock, so two runs of one build already differ in saves,
+states and audio. Fix it on both sides with --patch neogeo_reference.c "int rr_ng_test_clock_enabled;"
+"int rr_ng_test_clock_enabled=1;" and --patch neogeo_reference.c "int64_t rr_ng_test_clock;"
+"int64_t rr_ng_test_clock=1760000000;".
 """
 import argparse
 import filecmp
@@ -300,7 +305,7 @@ def main() -> int:
     p = sub.add_parser('script', help='write the standard battery of the shell for one machine')
     p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1')); p.add_argument('out', type=Path)
     p.add_argument('--players', type=int, default=2); p.add_argument('--gun', action='store_true')
-    p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (see the Linux note in the report)')
+    p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (for hosts built before the Linux fix of game_options.h)')
     p.add_argument('--soak', type=int, default=2400, help='iterations of play between the sweeps and the menus')
     p.add_argument('--pages', type=int, default=0, help='F2 pages (default: 2 per player, the machine page, the options)')
     args = parser.parse_args()

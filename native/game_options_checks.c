@@ -63,6 +63,12 @@ static RrOptionRows fixture_rows(void) {
     rr_option_row(&d,SDL_SCANCODE_F3,"F3 Filter: %s",rr_option_filter_name(0));
     rr_option_shared_rows(&d);return d;
 }
+/* The rows are plain data: a copy made before the original is wiped still reads. */
+static void rows_survive_copy(void) {
+    RrOptionRows a=fixture_rows(),b;
+    memcpy(&b,&a,sizeof a);memset(&a,0xA5,sizeof a);
+    assert(b.count==2 && !strcmp(b.text[0],"F3 Filter: Sharp pixels") && !strncmp(b.text[1],"Audio filter: ",14));
+}
 /* A key on the options page, as a host passes it after rr_options_event. */
 static int page_key(const RrOptionRows *d, int code) {
     SDL_Event e;memset(&e,0,sizeof e);e.type=SDL_KEYDOWN;e.key.keysym.scancode=(SDL_Scancode)code;
@@ -196,8 +202,8 @@ static void pages(void) {
     rr_option_row(&d,SDL_SCANCODE_F3,"F3 Filter: %s",rr_option_filter_name(3));
     rr_option_row(&d,SDL_SCANCODE_F12,"%s","F12 Record fallback hints: ON");
     rr_option_shared_rows(&d);
-    assert(d.count==3 && !strcmp(d.rows[0],"F3 Filter: Scanlines") && d.keys[2]==RR_ROW_AUDIO &&
-           !strncmp(d.rows[2],"Audio filter: ",14));
+    assert(d.count==3 && !strcmp(d.text[0],"F3 Filter: Scanlines") && d.keys[2]==RR_ROW_AUDIO &&
+           !strncmp(d.text[2],"Audio filter: ",14));
     rr_options.row=0;memset(&e,0,sizeof e);e.type=SDL_KEYDOWN;
     e.key.keysym.scancode=SDL_SCANCODE_DOWN;assert(rr_option_page_event(&e,&d)==-1 && rr_options.row==1);
     e.key.keysym.scancode=SDL_SCANCODE_RETURN;assert(rr_option_page_event(&e,&d)==SDL_SCANCODE_F12);
@@ -212,12 +218,12 @@ static void computer_keys(void) {
     RrOptionRows d=fixture_rows();
     assert(d.count==2 && rr_options_host_fkey(SDL_SCANCODE_F3,KMOD_NONE,false));
     rr_options_keyboard("X68000",10);d=fixture_rows();
-    assert(d.count==3 && d.keys[2]==RR_ROW_FKEYS && !strcmp(d.rows[2],"F1-F10 keys: Retro-Recomp") && !rr_options.fkeys_machine);
+    assert(d.count==3 && d.keys[2]==RR_ROW_FKEYS && !strcmp(d.text[2],"F1-F10 keys: Retro-Recomp") && !rr_options.fkeys_machine);
     for(int k=SDL_SCANCODE_F1;k<=SDL_SCANCODE_F12;++k)assert(rr_options_host_fkey(k,KMOD_NONE,false));
     assert(!rr_options_host_fkey(SDL_SCANCODE_A,KMOD_LCTRL,false));
     open_options();rr_options.row=2;assert(page_key(&d,SDL_SCANCODE_RETURN)==-1);
     assert(rr_options.fkeys_machine && menu==RR_OPTIONS_MENU);
-    d=fixture_rows();assert(!strcmp(d.rows[2],"F1-F10 keys: X68000"));
+    d=fixture_rows();assert(!strcmp(d.text[2],"F1-F10 keys: X68000"));
     for(int k=SDL_SCANCODE_F1;k<=SDL_SCANCODE_F10;++k) {
         assert(!rr_options_host_fkey(k,KMOD_NONE,false) && rr_options_host_fkey(k,KMOD_LCTRL,false));
         assert(rr_options_host_fkey(k,KMOD_NONE,true) && !rr_options_host_fkey(k,(SDL_Keymod)(KMOD_LCTRL|KMOD_LALT),false));
@@ -247,7 +253,7 @@ int main(void) {
     SDL_SetMainReady();assert(SDL_Init(0)==0);
     pads(); /* Tk has no SDL video window: exercise exactly that lifetime. */
     assert(SDL_InitSubSystem(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER)==0);
-    sound();chords();pages();computer_keys();
+    sound();chords();pages();rows_survive_copy();computer_keys();
     SDL_Window *win=SDL_CreateWindow("Options fixture",0,0,768,576,SDL_WINDOW_HIDDEN);assert(win);
     SDL_Renderer *ren=SDL_CreateRenderer(win,-1,SDL_RENDERER_SOFTWARE);assert(ren);assert(rr_menu_init(ren));
     SDL_Surface *image=SDL_CreateRGBSurfaceWithFormat(0,768,576,32,SDL_PIXELFORMAT_ARGB8888);assert(image);
