@@ -171,6 +171,7 @@ retrorecomp/knowledge_build.py retrorecomp/knowledge_exchange.py tests/test_know
 retrorecomp/online.py tests/test_online.py tests/test_shared_sync.py
 tests/test_problem_reports.py tests/test_gui_player.py tests/test_gui_state.py tests/test_shop_display.py tests/test_conversion_rewards.py tests/test_offered_hints.py tests/test_sega_functions_gate.py tests/test_shared_base.py tests/test_base_store.py tests/test_shared_ng.py
 retrorecomp/gameboy_host.py
+retrorecomp/report_schema.py tests/test_report_schema.py
 retrorecomp/tooltips.py retrorecomp/validation.py retrorecomp/windows.py
 retrorecomp/dropfiles.py tests/test_dropfiles.py
 native/snes_dsp1_projection.inc
