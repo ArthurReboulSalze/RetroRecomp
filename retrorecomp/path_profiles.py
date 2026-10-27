@@ -1,8 +1,11 @@
 """CPU-keyed path schema, version 3: profiles, integer codecs, validator, adapters.
 
-STATUS: defined and tested, NOT USED YET. No other module imports this one.
-Release code still reads and writes schema 1 (`knowledge.FIELDS`, and Neo Geo's
-own record in `neogeo_knowledge`); a later stage switches them over.
+STATUS: a game module since 1.6.0. `knowledge` delegates to it: the table of
+schema 1 fields (`LEGACY_FIELDS`, which `knowledge.FIELDS` and
+`neogeo_knowledge.FIELDS` are), the schema 1 validator (`validate_legacy_payload`,
+unchanged rules) and the reader of a local bank in either schema (`read_bank`).
+The exchange file, the shared base and the service client use the schema 3 half
+(`to_v3`, `validate_game`...). Local banks are still written in schema 1.
 
 A path is a number about a ROM (an offset, a position, a mask), never ROM bytes.
 Schema 3 keys a game record by CPU instead of by console:
@@ -36,6 +39,16 @@ SCHEMA = 3
 U32 = 0xffffffff
 SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68')
 GAME_KEY = re.compile('(?:' + '|'.join(SYSTEMS) + '):[0-9a-f]{64}')
+# Consoles whose discoveries travel today (exchange files, service, shared base). Adding CPS-1
+# or the X68000 to the sharing is this one line: the key patterns of the interface follow it.
+SHARED_SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
+
+
+def game_key(systems=SHARED_SYSTEMS):
+    """The pattern of a game's key, 'system:64 hex', for the given consoles."""
+    return re.compile('(?:' + '|'.join(re.escape(system) for system in systems) + '):[0-9a-f]{64}')
+
+
 HEX40 = re.compile('[0-9a-f]{40}')
 HEX64 = re.compile('[0-9a-f]{64}')
 SOURCE_NAME = re.compile('[a-z][a-z0-9]{0,15}')
@@ -358,16 +371,23 @@ HASHED_SOURCES = {'ng': ('cart', 'bios')}
 # Neo Geo regions as schema 1 numbers them, and the section they belong to.
 NG_REGIONS = {'p': 1, 'bios': 2, 'm1': 3, 'sm1': 4}
 NG_CPU_SOURCES = {'m68k': ('p', 'bios'), 'z80': ('m1', 'sm1')}
-# Schema 1 widths (row length of each field), checked against `knowledge.FIELDS`
-# and `neogeo_knowledge.FIELDS` by tests/test_paths_schema.py.
-LEGACY_WIDTHS = {
-    'sms': {'rom_entries': 5, 'pattern_refs': 1}, 'gg': {'rom_entries': 5, 'pattern_refs': 1},
-    'gb': {'rom_entries': 2}, 'nes': {'rom_entries': 2, 'ram_opcode_refs': 2},
-    'md': {'rom_entries': 1, 'ram_refs': 3, 'z80_refs': 3},
-    'snes': {'ram_refs': 3, 'ram_opcode_refs': 2, 'spc_refs': 2, 'spc_ranges': 3,
-             'spc_bitmaps': 3, 'spc_deltas': None},
-    'ng': {'rom_entries': 2, 'ram_refs': 4, 'z80_refs': 4},
+# Schema 1, the one table of its fields: (row width, most rows). `knowledge.FIELDS` and
+# `neogeo_knowledge.FIELDS` are these very dictionaries, so the converter, the exchange and the
+# web checks read one list. Neo Geo also accepts bounded `rom_deltas` blocks (its own validator).
+LEGACY_FIELDS = {
+    'sms': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
+    'gg': {'rom_entries': (5, 65536), 'pattern_refs': (1, 4096)},
+    'gb': {'rom_entries': (2, 65536)},
+    'nes': {'rom_entries': (2, 65536), 'ram_opcode_refs': (2, 65536)},
+    'md': {'rom_entries': (1, 65536), 'ram_refs': (3, 2048), 'z80_refs': (3, 32768)},
+    'snes': {'ram_refs': (3, 16384), 'ram_opcode_refs': (2, 16384),
+             'spc_refs': (2, 262144), 'spc_ranges': (3, 262144),
+             'spc_bitmaps': (3, 262144), 'spc_deltas': (2, 262144)},
+    'ng': {'rom_entries': (2, 262144), 'ram_refs': (4, 4096), 'z80_refs': (4, 32768)},
 }
+# Row length of each schema 1 field (None: grouped rows, `spc_deltas`).
+LEGACY_WIDTHS = {system: {name: None if name == 'spc_deltas' else width for name, (width, _) in fields.items()}
+                 for system, fields in LEGACY_FIELDS.items()}
 NG_IDENTITY_FIELDS = ('engine', 'loader', 'cart', 'bios', 'rom_bytes', 'p_bytes', 'bios_bytes',
                       'm1_bytes', 'sm1_bytes')
 
@@ -390,7 +410,7 @@ def profile_table() -> dict:
 
 
 def ng_key(cart: str, bios: str) -> str:
-    """`neogeo_knowledge.key`, pinned equal by a test until that module uses this one."""
+    """The key of a Neo Geo game: its prepared cartridge and its BIOS (`neogeo_knowledge.key`)."""
     return hashlib.sha256(json.dumps({'cart': cart, 'bios': bios, 'system': 'mvs', 'region': 'eu'},
                                      sort_keys=True).encode()).hexdigest()
 
@@ -920,3 +940,129 @@ def bank_to_legacy(document: dict, *, validate: bool = True) -> dict:
         system, identity, record = to_legacy(game, validate=validate)
         consoles.setdefault(system, {})[identity] = record
     return {'schema': 1, 'consoles': consoles}
+
+
+# --- Schema 1: the validator of a local bank and the reader of either schema -------------
+
+def validate_legacy_payload(value: dict) -> dict:
+    """Strict numeric allowlist of a schema 1 bank, {"schema": 1, "consoles": ...}: excludes
+    paths, credentials, images and code. These are the rules of `knowledge.validate_payload`
+    exactly (they are looser than `validate_game` in the six places `STRICTER_THAN_V2` lists, on
+    purpose: a bank that was readable stays readable)."""
+    if (not isinstance(value, dict) or set(value) != {'schema', 'consoles'}
+            or type(value['schema']) is not int or value['schema'] != 1
+            or not isinstance(value['consoles'], dict)
+            or not set(value['consoles']) <= LEGACY_FIELDS.keys()):
+        raise ValueError('Invalid compilation knowledge schema.')
+    for system, games in value['consoles'].items():
+        if not isinstance(games, dict) or len(games) > GAMES_PER_SYSTEM:
+            raise ValueError('Invalid compilation knowledge catalogue.')
+        for identity, record in games.items():
+            validate_legacy_record(system, identity, record)
+    return value
+
+
+def validate_legacy_record(system: str, identity: str, record) -> dict:
+    """One schema 1 record of a game, or ValueError (Neo Geo's by its own validator)."""
+    if system == 'ng':
+        from .neogeo_knowledge import validate_record
+        return validate_record(identity, record)
+    fields = LEGACY_FIELDS[system]
+    if (not isinstance(identity, str) or not HEX64.fullmatch(identity)
+            or not isinstance(record, dict)
+            or not {'engine', 'rom_bytes'} <= record.keys()
+            or not set(record) <= {'engine', 'rom_bytes', *fields}
+            or not isinstance(record['engine'], str)
+            or not HEX40.fullmatch(record['engine'])
+            or type(record['rom_bytes']) is not int
+            or not ROM_BOUNDS[0] <= record['rom_bytes'] <= ROM_BOUNDS[1]):
+        raise ValueError('Invalid compilation knowledge identity.')
+    for name, (width, limit) in fields.items():
+        entries = record.get(name, [])
+        if name == 'spc_deltas':
+            from .snes_knowledge import validate_deltas
+            validate_deltas(entries, record['rom_bytes'])
+            continue
+        if (not isinstance(entries, list) or len(entries) > limit
+                or any(not isinstance(e, list) or len(e) != width
+                       or any(type(n) is not int or not 0 <= n <= U32 for n in e)
+                       for e in entries)):
+            raise ValueError('Invalid compilation knowledge entries.')
+        for entry in entries:
+            _check_legacy_row(system, name, entry, record['rom_bytes'])
+    if system == 'snes' and (len(record.get('spc_refs', [])) +
+                             sum(last - first + 1 for first, last, _ in record.get('spc_ranges', [])) +
+                             sum(bits.bit_count() for _, bits, _ in record.get('spc_bitmaps', [])) +
+                             sum(len(deltas) for _, deltas in record.get('spc_deltas', [])) > 262144):
+        raise ValueError('SPC700 compilation range budget exceeded.')
+    return record
+
+
+def _check_legacy_row(system, name, entry, size) -> None:
+    if name == 'rom_entries':
+        valid = True
+        if system in ('sms', 'gg'):
+            valid = entry[0] < 0xbf01 and all(b <= 255 for b in entry[1:4])
+        elif system == 'gb':
+            valid = entry[0] < size // 0x4000 and entry[1] < 0x8000
+        elif system == 'nes':
+            valid = entry[0] < size // 4096 and 0x8000 <= entry[1] <= 0xffff
+        elif system == 'md':
+            valid = 0x200 <= entry[0] <= size - 8 and not entry[0] & 1
+        if not valid:
+            raise ValueError('Invalid ROM compilation entry.')
+    if name == 'pattern_refs' and entry[0] + 4 > size:
+        raise ValueError('Compilation pattern outside ROM.')
+    if name == 'ram_opcode_refs' and system == 'nes' and (
+            not (entry[0] < 0x2000 or 0x6000 <= entry[0] <= 0xFFFF) or entry[1] >= size):
+        raise ValueError('Invalid NES RAM opcode reference.')
+    if name == 'ram_opcode_refs' and system == 'snes' and (entry[0] > 0xffffff or entry[1] >= size):
+        raise ValueError('Invalid SNES RAM opcode reference.')
+    if name == 'spc_refs' and (entry[0] > 65535 or 0xf0 <= entry[0] <= 0xff or entry[1] >= size):
+        raise ValueError('Invalid SPC700 compilation reference.')
+    if name == 'spc_ranges' and (not 0 <= entry[0] <= entry[1] <= 65535
+                                 or entry[0] <= 0xff and entry[1] >= 0xf0 or entry[2] >= size):
+        raise ValueError('Invalid SPC700 compilation range.')
+    if name == 'spc_bitmaps' and (entry[0] > 65504 or entry[0] & 31 or not entry[1] or entry[2] >= size
+                                  or entry[0] == 0xe0 and entry[1] & 0xffff0000):
+        raise ValueError('Invalid SPC700 compilation bitmap.')
+    if name in ('ram_refs', 'z80_refs') and (not 1 <= entry[2] <= 16 or entry[1] + entry[2] > size):
+        raise ValueError('Compilation reference outside ROM.')
+
+
+def _has_legacy_form(game) -> bool:
+    try:
+        to_legacy(game, validate=False)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_v3_bank(document) -> bool:
+    return isinstance(document, dict) and type(document.get('schema')) is int and document['schema'] == SCHEMA
+
+
+def read_bank(document) -> dict:
+    """A local bank of either schema as the schema 1 bank the readers use: {"schema": 1,
+    "consoles": ...}, validated. A schema 3 bank gives the games that have a schema 1 form; the
+    others (CPS-1, X68000, a game of several cores) are `bank_games`."""
+    if not _is_v3_bank(document):
+        return validate_legacy_payload(document)
+    validate_games(document)
+    consoles = {}
+    for game in document['games'].values():
+        try:
+            system, identity, record = to_legacy(game, validate=False)
+        except ValueError:
+            continue
+        consoles.setdefault(system, {})[identity] = record
+    return {'schema': 1, 'consoles': consoles}
+
+
+def bank_games(document) -> dict:
+    """{game key: schema 3 record} of the games of a schema 3 bank that have no schema 1 form
+    (a schema 1 bank holds none)."""
+    if not _is_v3_bank(document):
+        return {}
+    validate_games(document)
+    return {key: game for key, game in document['games'].items() if not _has_legacy_form(game)}

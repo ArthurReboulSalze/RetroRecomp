@@ -188,10 +188,8 @@ def memory_file(rom) -> Path:
 def bundled_record(rom) -> dict:
     """The qualified bank's record for this exact ROM, without imported hints."""
     from .console16 import REPOSITORIES
-    from .knowledge import qualified_record
-    record = qualified_record('md', rom.sha256)
-    return (record if record.get('engine') == REPOSITORIES['md'][1] and record.get('rom_bytes') == len(rom.data)
-            and hashlib.sha256(rom.data).hexdigest() == rom.sha256 else {})
+    from .knowledge import bundled_record as bundled
+    return bundled('md', rom, REPOSITORIES['md'][1])
 
 
 def read_entries(rom, *, imported: bool = True) -> set[int]:

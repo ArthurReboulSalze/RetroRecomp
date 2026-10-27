@@ -33,7 +33,7 @@ from .systems import profile_for_path
 # Consoles whose discoveries travel. Neo Geo's are numeric offsets into the
 # player's cartridge and BIOS, named by key(cartridge, BIOS) and checked by
 # neogeo_knowledge.validate_record; it shares no raw gameplay observations.
-SYSTEMS = (*CARTRIDGE_SYSTEMS, 'ng')
+SYSTEMS = path_profiles.SHARED_SYSTEMS   # the cartridge consoles of `knowledge_build` and Neo Geo
 
 FORMAT = 'retro-recomp-knowledge'
 # Version 2 adds ROM-free raw observations; version 1 files still import.
@@ -900,7 +900,7 @@ BASE_MANIFEST_LIMIT = 64 * 1024
 BASE_ZIP_MEMBERS = 250000
 BASE_UNPACKED_LIMIT = 1024 * 1024 * 1024
 BASE_ORIGINS = ('installer', 'download')
-_GAME_KEY = re.compile(r'(?:sms|gg|gb|nes|md|snes|ng):[0-9a-f]{64}')
+_GAME_KEY = path_profiles.game_key(SYSTEMS)
 _SHA256 = re.compile(r'[0-9a-f]{64}')
 _ENTRY_NAME = re.compile(r'entries/([0-9a-f]{64})\.json')
 

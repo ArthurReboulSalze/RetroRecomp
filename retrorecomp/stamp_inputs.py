@@ -37,10 +37,6 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'game_details','game_metadata','game_card_view','rom_sources',
                                # Sharing discoveries never runs during a conversion.
                                'knowledge_build','knowledge_exchange','online',
-                               # Schema 3 of the paths (docs/COMPILATION_LIBRARY.md): defined and
-                               # tested, used by no conversion code yet. Remove it from this list
-                               # in the stage that makes knowledge.py import it.
-                               'path_profiles',
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
@@ -304,6 +300,7 @@ INPUTS = {
         'retrorecomp.library',
         'retrorecomp.metadata',
         'retrorecomp.packing',
+        'retrorecomp.path_profiles',
         'retrorecomp.paths',
         'retrorecomp.peripherals',
         'retrorecomp.platforms',

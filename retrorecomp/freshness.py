@@ -34,7 +34,8 @@ def request_parts(item, options):
     settings = {key: value for key, value in options.items() if key not in unsigned}
     settings['target'] = target_id()
     # The console's own identity (X68000 machine, Neo Geo BIOS), if it has one.
-    get_profile(item.system).request_identity(item, options, settings)
+    profile = get_profile(item.system)
+    profile.request_identity(item, options, settings)
     if options.get('use_cover', True):
         from .cover_settings import load_settings
         from .cover_references import find as cover_reference
@@ -44,7 +45,7 @@ def request_parts(item, options):
         settings['cover_reference'] = reference['revision'] if reference else None
     from .compilation_inputs import knowledge_stamp, legacy_game_stamps, role_stamps
     stamps = role_stamps(item.system)
-    settings['knowledge'] = knowledge_stamp(item.system, item.sha256)
+    settings['knowledge'] = knowledge_stamp(item.system, profile.knowledge_identity(item, settings))
     settings.update(engine=stamps['game'], host_inputs=stamps['host'], build_inputs=stamps.get('build', ''),
                     title=item.title, system=item.system, rom=item.sha256,
                     cover=digest(item.cover) if item.cover else None)

@@ -160,6 +160,12 @@ class SystemProfile(ABC):
         """Add the console's own identity (firmware, machine) to the request
         settings that are about to be hashed. Most consoles have none."""
 
+    def knowledge_identity(self, item, settings: dict) -> str:
+        """The key of this game in the paths banks: the ROM's hash, unless the console names its
+        games otherwise (Neo Geo: its prepared cartridge and BIOS). `settings` is what
+        `request_identity` filled in."""
+        return item.sha256
+
     @abstractmethod
     def read_rom(self, path: Path):
         """Validate and identify one cartridge without changing it."""
