@@ -132,15 +132,31 @@ def _local_keys(system: str, identity: str) -> set:
     return {(row.kind, row.address, row.auxiliary, len(row.data)) for row in records(system, identity)}
 
 
+CACHE_SCHEMA = 2
+
+
 def _cache_path() -> Path:
     return imported_path().with_name(CACHE_NAME)
+
+
+def clear_discoveries_cache() -> bool:
+    """Forget every cached count (Options › Disk space); True when there was one.
+    Nothing else is touched: the next count reads every game again."""
+    try:
+        _cache_path().unlink()
+        return True
+    except FileNotFoundError:
+        return False
 
 
 def _load_cache() -> dict:
     try:
         raw = gzip.decompress(_cache_path().read_bytes())
         data = json.loads(raw) if len(raw) <= MAX_BYTES else {}
-        return data.get('games', {}) if data.get('schema') == 1 and data.get('converter') == __version__ else {}
+        # Schema 2 (1.5.5): no longer tied to the converter's version number, so
+        # an update that changes no engine keeps every counted game. Raise
+        # CACHE_SCHEMA when the way a contribution is counted changes.
+        return data.get('games', {}) if data.get('schema') == CACHE_SCHEMA else {}
     except (OSError, ValueError, EOFError, AttributeError):
         return {}
 
@@ -152,7 +168,7 @@ def _signature(game, engine: str, context: str) -> str:
     watch = getattr(game, 'watch', '')
     if not watch:
         return ''
-    return '|'.join((watch, engine, __version__, context, getattr(game, 'status', '')))
+    return '|'.join((watch, engine, context, getattr(game, 'status', '')))
 
 
 def _empty_outcome() -> dict:
@@ -204,7 +220,7 @@ def _collect_neo_geo(game, report: dict | None, outcome: dict) -> None:
                                            'rom_entries': [], 'ram_refs': [], 'z80_refs': []}}
 
 
-def collect_knowledge(games, locate=None, context: str = '') -> dict:
+def collect_knowledge(games, locate=None, context: str = '', progress=None) -> dict:
     """The discoveries of `games` (compiled-games entries), counted, unwritten.
 
     Qualified hints come from successful conversions; raw observations are
@@ -213,7 +229,9 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
     those games need their ROM; `locate(games)` may return
     {(system, identity): path} from the converter's own ROM lookup. Each
     game's result is cached under its file signature, so a later export only
-    revisits the games that changed.
+    revisits the games that changed. `progress(stage, done, total)`, when
+    given, follows the slow part: 'roms' while the ROMs are looked for, then
+    'games' for each game counted again (the cached ones cost nothing).
     """
     current = _current_engines()
     cache, fresh, outcomes, misses, seen = _load_cache(), {}, {}, [], set()
@@ -232,8 +250,12 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
     qualified = qualified_reports([game.report for game, _ in misses if game.report])
     wanted = [game for game, _ in misses if game.system != 'ng'
               and ((game.system, game.identity) in qualified or getattr(game, 'status', '') == 'new_hints')]
+    if progress and wanted and locate:
+        progress('roms', 0, len(wanted))
     sources = locate(wanted) if locate and wanted else {}
-    for game, signature in misses:
+    for done, (game, signature) in enumerate(misses):
+        if progress:
+            progress('games', done, len(misses))
         key = (game.system, game.identity)
         outcome = _empty_outcome()
         raw = getattr(game, 'status', '') == 'new_hints'
@@ -278,7 +300,7 @@ def collect_knowledge(games, locate=None, context: str = '') -> dict:
         if signature:
             fresh[f'{game.system}:{game.identity}'] = {'signature': signature, 'outcome': outcome}
     try:
-        write_packed(_cache_path(), {'schema': 1, 'converter': __version__, 'games': fresh})
+        write_packed(_cache_path(), {'schema': CACHE_SCHEMA, 'games': fresh})
     except (OSError, ValueError):
         pass
     consoles, observations, titles, levels, discoveries, converted = {}, {}, {}, {}, 0, {}

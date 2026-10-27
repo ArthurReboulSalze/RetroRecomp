@@ -2512,6 +2512,10 @@ class Application:
                     self.log.see('end')
                     self.log.configure(state='disabled')
                     if self.compiled_view is not None:self.compiled_view.show_log(event[1])
+                elif kind == 'footer_progress':
+                    # Only while the spinner turns (counting or sending).
+                    if getattr(self, 'sending_count', 0) > 0:
+                        self.footer_label.configure(text=event[1])
                 elif kind == 'notice':
                     messagebox.showinfo(APP_NAME, event[1], parent=self.app)
                 elif kind == 'drop':
@@ -3089,6 +3093,37 @@ class Application:
             self.render_disk_space()
         else:
             self.measure_tool_space()
+        # The count of each game's discoveries is cached; emptying it loses
+        # nothing (the next count reads every game again).
+        cache = ttk.Frame(page)
+        cache.pack(anchor='w', fill='x', pady=(14, 0))
+        ttk.Label(cache, text=self.tr('discoveries_cache_note'), style='Muted.TLabel',
+                  wraplength=600, justify='left').pack(anchor='w', pady=(0, 8))
+        cache_line = ttk.Frame(cache)
+        cache_line.pack(anchor='w', fill='x')
+        button = ttk.Button(cache_line, text=self.tr('discoveries_cache_clear'),
+                            command=self.clear_discoveries_cache)
+        button.pack(side='left')
+        self.hint(button, 'tip_discoveries_cache')
+        self.cache_status = tk.StringVar()
+        ttk.Label(cache_line, textvariable=self.cache_status, style='Muted.TLabel',
+                  wraplength=460, justify='left').pack(side='left', padx=(12, 0))
+
+    def clear_discoveries_cache(self):
+        """Options › Common › Disk space: forget the cached count of each game's
+        discoveries, after a confirmation; never while a count or send runs."""
+        if self.busy or getattr(self, 'sending_count', 0):
+            self.cache_status.set(self.tr('discoveries_cache_busy'))
+            return
+        if not messagebox.askyesno(APP_NAME, self.tr('discoveries_cache_confirm'), parent=self.app):
+            return
+        from .knowledge_exchange import clear_discoveries_cache
+        try:
+            removed = clear_discoveries_cache()
+        except OSError as error:
+            self.cache_status.set(self.tr('discoveries_cache_error', error=error))
+            return
+        self.cache_status.set(self.tr('discoveries_cache_done' if removed else 'discoveries_cache_empty'))
 
     def measure_tool_space(self):
         """Measure datas/tools, .deps and .build off Tk; the section only
@@ -3588,6 +3623,9 @@ class Application:
             return
         self.cancel.clear()
         collect = self.discoveries_collector(self.cancel)
+        # The gold spinner turns while counting; its line follows the progress.
+        self.counting = True
+        self.sending_started('knowledge_counting')
         self.knowledge_task(lambda: (kind, collect()), 'knowledge_counting')
 
     def discoveries_collector(self, cancel):
@@ -3603,13 +3641,21 @@ class Application:
             from .rom_sources import RomSources
             pairs = RomSources().resolve(pending, options, known=known, cancel=cancel)
             return {(game.system, game.identity): source for game, source in pairs if source}
+        last = [0.0]
+        def progress(stage, done, total):
+            now = time.monotonic()
+            if stage == 'games' and done and now - last[0] < 0.2:
+                return
+            last[0] = now
+            key = 'counting_roms' if stage == 'roms' else 'counting_games'
+            self.messages.put(('footer_progress', self.tr(key, done=done, total=total)))
         def collect():
             # Discoveries saved since the last look count without a full scan.
             from .compiled_games import refresh_changed
             refresh_changed(self.compiled_inventory, options)
             # Cached results stay valid while the ROM folders stay the same.
             context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
-            return collect_knowledge(self.compiled_inventory.snapshot(), locate, context)
+            return collect_knowledge(self.compiled_inventory.snapshot(), locate, context, progress)
         return collect
 
     def send_knowledge(self, closing=False):
@@ -5371,6 +5417,9 @@ class Application:
     def knowledge_done(self, outcome, error):
         self.busy = False
         self.set_controls(True)
+        if getattr(self, 'counting', False):
+            self.counting = False
+            self.sending_finished()
         if self.manual_sending:
             self.manual_sending = False
             self.sending_finished()

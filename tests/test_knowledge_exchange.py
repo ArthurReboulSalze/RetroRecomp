@@ -290,6 +290,20 @@ class RawObservationTests(unittest.TestCase):
             knowledge_exchange.collect_knowledge([self.game(watch='files-v2')])
             self.assertEqual(reader.call_count, 2)
         key = f'md:{self.rom.sha256}'
+        # A new converter version that changes no engine keeps the cache (1.5.5);
+        # emptying it (Options › Disk space) makes the next count read the game again.
+        with patch('retrorecomp.knowledge_exchange.profile_for_path', return_value=profile) as reader, \
+                patch('retrorecomp.knowledge_exchange.__version__', '9.9.9'):
+            steps = []
+            knowledge_exchange.collect_knowledge([self.game(watch='files-v2')],
+                                                 progress=lambda *step: steps.append(step))
+            self.assertEqual((reader.call_count, steps), (0, []))
+            self.assertTrue(knowledge_exchange.clear_discoveries_cache())
+            self.assertFalse(knowledge_exchange.clear_discoveries_cache())
+            knowledge_exchange.collect_knowledge([self.game(watch='files-v2')],
+                                                 progress=lambda *step: steps.append(step))
+            self.assertEqual(reader.call_count, 1)
+            self.assertEqual(steps, [('games', 0, 1)])
         self.assertEqual(knowledge_exchange.pending_since_shared('account', first), [key])
         knowledge_exchange.mark_shared('account', first)
         self.assertEqual(knowledge_exchange.pending_since_shared('account', first), [])
