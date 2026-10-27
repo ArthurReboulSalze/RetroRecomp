@@ -221,8 +221,9 @@ def registry_problems(profile: SystemProfile) -> list[str]:
             add('supported: the conversion must be witnessed on Linux (linux = "witnessed")')
         if system not in path_profiles.SHARED_SYSTEMS:
             add('supported: shared knowledge (gate G16) needs the console in path_profiles.SHARED_SYSTEMS')
-        if len(cases.get(system, [])) < 6:
-            add('supported: tools/campaign-risk-cases.json needs at least six risk cases')
+        # Arthur, 27 Oct 2026: four or five risk cases a console, plus two random games.
+        if len(cases.get(system, [])) < 4:
+            add('supported: tools/campaign-risk-cases.json needs at least four risk cases')
         column = matrix.get(system, {})
         if any(cell == 'N' for cell in column.values()):
             add('supported: docs/QUALIFICATION.md records a failed gate (N)')
@@ -334,7 +335,7 @@ class DetectionOfGapsTests(unittest.TestCase):
         with patch(__name__ + '.system_ids', return_value=(*system_ids(), 'zx')):
             problems = ' | '.join(registry_problems(fake))
         for expected in ('supported: the conversion must be witnessed on Linux', 'supported: shared knowledge',
-                         'supported: tools/campaign-risk-cases.json needs at least six'):
+                         'supported: tools/campaign-risk-cases.json needs at least four'):
             self.assertIn(expected, problems)
 
     def test_a_status_outside_the_two_known_ones_is_reported(self):

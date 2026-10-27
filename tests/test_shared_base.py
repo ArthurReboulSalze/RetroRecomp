@@ -112,11 +112,16 @@ def base_archive(version, games, entries, wanted=None, built='2026-10-27T03:00:0
                 'index_sha256': hashlib.sha256(raw).hexdigest()}
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', compression) as archive:
-        archive.writestr('manifest.json', json.dumps(manifest))
-        archive.writestr('index.json', raw)
+        def put(name, data):
+            # A fixed date: two calls a second apart must give the same bytes.
+            info = zipfile.ZipInfo(name, date_time=(2026, 10, 27, 3, 0, 0))
+            info.compress_type = compression
+            archive.writestr(info, data)
+        put('manifest.json', json.dumps(manifest))
+        put('index.json', raw)
         for sha in sorted({value[0] for value in games.values()} if wanted is None else wanted):
             if sha in entries:
-                archive.writestr(f'entries/{sha}.json', knowledge_exchange.canonical_bytes(entries[sha]))
+                put(f'entries/{sha}.json', knowledge_exchange.canonical_bytes(entries[sha]))
     return buffer.getvalue()
 
 

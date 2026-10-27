@@ -198,7 +198,7 @@ status and CPU declarations; `ROM_CANDIDATE_EXTENSIONS`; the derived lists (`sca
 module listed, stamps computable, kit adapter for `rr16`); the firmware options in the command line, preferences and window; the tab and scan
 note in `i18n` and in the six locale files; the tab in `gui.py`; `status_lint`, README, COMPATIBILITY, the QUALIFICATION column,
 `PUBLIC_FILES`; `release_check`, `campaign`, risk cases, `std_baseline`. Registries a machine may decline (random routes, artwork,
-memory view) are listed in `DECLINED` with the reason, in the same change. Only for `supported`: Linux witness, shared knowledge, six risk
+memory view) are listed in `DECLINED` with the reason, in the same change. Only for `supported`: Linux witness, shared knowledge, four risk
 cases, no failed gate. Synthetic profiles prove each gap is found.
 
 ## What stays scattered
