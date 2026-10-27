@@ -32,6 +32,14 @@ class BundledPackerTests(unittest.TestCase):
         self.assertEqual(BUNDLED_FILES & PACKERS, {PACKER})
         self.assertEqual(PACKER, 'assets/tools/upx.exe' if os.name == 'nt' else packing.UPX_LINUX)
 
+    def test_only_the_x68000_generators_are_bundled_among_x68000_tools(self):
+        from retrorecomp.x68000_conversion import SDK_TOOLS
+        from tools.prepare_publication import BUNDLED_FILES, PUBLIC_FILES, X68000_SDK_TOOLS
+        self.assertEqual(X68000_SDK_TOOLS, SDK_TOOLS)
+        bundled = {name for name in BUNDLED_FILES if name.startswith('tools/x68000_')}
+        self.assertEqual(bundled, {'tools/' + name for name in SDK_TOOLS})
+        self.assertIn('tools/x68000_fixtures.py', PUBLIC_FILES)
+
 
 class LinuxPackingTests(unittest.TestCase):
     def setUp(self):
