@@ -183,6 +183,17 @@ within existing hardware support; it does not add X1-017 IRQ circuitry.
 On the Sega profiles, keyboard/gamepad pause suspends execution and audio in the host. It is not
 a newly implemented Master System Pause/NMI interrupt.
 
+Two more profiles are registered as experimental and stay outside the seven
+supported consoles above. **Capcom CPS-1** is an experimental profile for MAME
+or FBNeo ZIP romsets of the standard boards, within [its documented
+scope](CPS1.md): each conversion compares the guarded native code with a fresh
+interpreted reference run, and the report keeps board fidelity against real
+hardware, complete gameplay and physical latency outside what is claimed. The
+**Sharp X68000** prototype is experimental; it converts DIM/XDF disks and
+ordered M3U sets with your own IPL and font ROM ([status](X68000.md)), and
+each export is compared with a fresh reference run on bounded routes, which
+does not establish hardware fidelity, complete gameplay or physical latency.
+
 ## Local game regression set
 
 Alex Kidd in Miracle World, Bomber Raid, Bubble Bobble, Buggy Run and Galaxy
