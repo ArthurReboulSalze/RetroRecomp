@@ -6,6 +6,7 @@ from pathlib import Path
 import argparse,json,sys,tempfile
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 from retrorecomp.core import run
+from state_checks import final_json
 from tools.megadrive_bus_selftest import executable
 
 MAIN=r'''
@@ -71,13 +72,13 @@ static unsigned checks;
     with tempfile.TemporaryDirectory(prefix='rr-ee-state-') as temp:
         root=Path(temp);state=root/'busy.rrstate';battery=root/'datas/saves/authored.rrsram'
         for mode in ('create','restore'):
-            results.append(json.loads(run([exe,mode,state,battery]).strip().splitlines()[-1]))
+            results.append(final_json(run([exe,mode,state,battery])))
         kind_header=(project/'retro_md_game.h').read_text()
         if '#define RR_MD_EEPROM_KIND 1\n' in kind_header:
             game_battery=root/'game/datas/saves/original.rrsram'
             original=[]
             for mode in ('gamewrite','gameread'):
-                original.append(json.loads(run([exe,mode,state,game_battery]).strip().splitlines()[-1]))
+                original.append(final_json(run([exe,mode,state,game_battery])))
             assert original[0]['original_game_writes']>0 and original[1]['original_game_writes']==0
             results+=original
     result=dict(passed=True,checks=sum(r['checks'] for r in results),busy_state_fresh_process=True,

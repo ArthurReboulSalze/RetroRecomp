@@ -13,10 +13,9 @@ from pathlib import Path
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import csv
 import subprocess
-from retrorecomp.neogeo_validation import ROUTES
+from state_checks import controls_text, route_controls
 
 
 def probe(exe, output, name, frames, script, *extra, rtc=True):
@@ -46,7 +45,8 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix='neogeo-cross-') as temp:
         folders = {name: Path(temp) / name for name in exes}
         script = Path(temp) / 'play.inputs'
-        script.write_text(args.input_script.read_text(encoding='ascii') if args.input_script else ROUTES['play'][1],
+        script.write_text(args.input_script.read_text(encoding='ascii') if args.input_script
+                          else controls_text(route_controls(args.warmup + args.replay)),
                           encoding='ascii')
         traces = {}
         for name, exe in exes.items():
