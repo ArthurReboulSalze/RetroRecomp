@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from retrorecomp.core import ROOT, ASSETS, dependencies, read_rom, default_config, prepare_runtime, run, prepare_native_source
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/, also when imported as tools.<name>
 from state_checks import run_captured
 
 from retrorecomp.platforms import cmake_target_args, build_executable, build_jobs, recompiler_build

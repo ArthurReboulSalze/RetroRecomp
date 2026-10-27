@@ -1,9 +1,11 @@
 """Fresh-process replay and invalid-file checks for F8/F9 disk snapshots."""
 import argparse
 import json
+import sys
 from pathlib import Path
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/, also when imported as tools.<name>
 from state_checks import (GUEST_FIELDS, controls_before, controls_text, first_trace_mismatch,
                           guest_differences, parse_two_player_script, route_controls,
                           run_report_trace as run)

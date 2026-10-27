@@ -15,6 +15,7 @@ import tempfile
 
 import csv
 import subprocess
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/, also when imported as tools.<name>
 from state_checks import controls_text, route_controls
 
 
