@@ -69,9 +69,10 @@ folders, clang-only branches of the CMake files, the compiler in the report, not
 the statically linked runtime, and the removal of the unused Super Mario World path.
 Without further care every 1.4.1 export would be converted in full. Instead
 `compilation_inputs.LEGACY_GAME_STAMPS` lists, per console, the game stamp of
-release 1.4.1, followed by the ones of releases 1.5.1 and 1.5.2 where a real receipt confirmed
+release 1.4.1, followed by the ones of releases 1.5.1, 1.5.2 and 1.5.6 where a real receipt confirmed
 them ([1.5.1](#release-151-entries-25-october-2026-windows),
-[1.5.2](#release-152-entries-26-october-2026-windows)). The Super Nintendo has no entry any
+[1.5.2](#release-152-entries-26-october-2026-windows),
+[1.5.6](#release-156-entries-27-october-2026-windows)). The Super Nintendo has no entry any
 more since its engine changed after 1.5.2 (see the 1.5.2 part), and neither has the **Neo Geo** since 1.6.0 (see
 [Stage B3](#stage-b3-the-conversions-follow-the-module-27-october-2026)). A receipt whose game part equals the
 hash computed with one of these stamps is accepted by `freshness.upgradable()` as the same
@@ -262,6 +263,19 @@ Quick-state keys between `v1.5.2` and this tree (same synthetic inputs as
 - Neo Geo and CPS-1: unchanged (their keys cover their own native and Python files only); the
   1.5.2 Magician Lord and 1941 states load in the upgraded exports.
 - NES, Master System, Game Gear, Game Boy, X68000: unchanged (no input of their keys changed).
+
+#### Release 1.5.6 entries (27 October 2026, Windows)
+
+The last release before the 1.6.0 stamp break. Its game stamps are the fourth value of the Master System, Game Gear, Game Boy,
+NES, Mega Drive and CPS-1 entries, found as for 1.5.1 and 1.5.2 with one difference: the 12 receipts (two games per console,
+quick level) were written by the converter of the `v1.5.6` tag run from its archive with Python 3.14.5 (`RetroRecomp.py
+batch`), not by the packaged `Retro-Recomp.exe`, which showed a start-up picture on the desktop when it was tried and was
+not run again. The packaged executable's `_compilation-stamps` equals the tag's `engine_stamp` for the seven consoles it lists
+(CPS-1 is not among them). All 12 receipts matched the listed stamps, the generated sources of the same 12 games are
+identical to 1.6.0's apart from the version text, the host shell and the state keys, and 1.5.6 exports of those consoles
+were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES.md](UPGRADES.md#exports-of-156-in-160);
+the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156). No entry for the Super Nintendo, the Neo
+Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
 
 **Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
 complete them, whenever the release really changes what a game does (translation,

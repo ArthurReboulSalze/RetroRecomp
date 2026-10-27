@@ -50,6 +50,61 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.5.6 in 1.6.0
+
+1.6.0 moves every console's game stamp on purpose (standardisation: the paths module of stage B3, the host kit, the
+CPS-1 build modules, reproducible stamps). What a conversion generates did not move, so the exports of the last release
+before it stay upgradable where that was shown (`LEGACY_GAME_STAMPS`, fourth value, 27 October 2026):
+
+| Console | 1.5.6 export in 1.6.0 | Why |
+| --- | --- | --- |
+| Master System, Game Gear, Game Boy, NES, Mega Drive, CPS-1 | **upgraded**: rebuilt from its paths with the new host, rechecked on the quick routes, `upgrade.from_release` = `1.5.6` | the 1.5.6 game stamp reproduced the game part of real receipts, and the generated game sources are identical (below) |
+| Super Nintendo | converted in full once | the engine changed what games do after 1.5.2 (`$4016` strobe, Super FX); its states are bound to the exact signature |
+| Neo Geo | converted in full once | a 1.5.6 receipt hashes the whole Neo Geo bank in its knowledge part; 1.6.0 hashes the game's own record, so no entry can ever match (do not add one) |
+| Sharp X68000 | converted in full once | its request carries an SDK stamp the mechanism does not cover; the pre-1.6.0 observation and library pairs are migrated by step 6a |
+
+**Evidence** (27 October 2026, Windows, Python 3.14.5, quick scan level, two games per console, read in place from the ROM
+share, nothing copied; outputs under `.build/legacy-156-20261027/`). Master System: Alex Kidd in Miracle World and Action
+Fighter. Game Gear: Factory Panic and OutRun. Game Boy: Alleyway and A-mazing Tater. NES: 3-D WorldRunner and Airwolf. Mega
+Drive: Alex Kidd in the Enchanted Castle and Art Alive. CPS-1: Nemo and Pnickies. Each game was converted by the converter of
+the `v1.5.6` tag (`git archive`, run as `RetroRecomp.py batch`, not the packaged executable) and by the 1.6.0 tree, from the
+very same folder (the generated files hold absolute paths), with the same options (`--scan-level quick --jobs 8
+--keep-build`, nothing online).
+
+- *The stamps are the real ones.* The 12 receipts written by 1.5.6 (schema 3) each carry a game part equal to
+  `hash(request with engine = the stamp computed from the tag)`: asked about each export, the 1.6.0 code answers
+  `match_legacy` for 12 of 12 (a dry run of `freshness.upgradable`, nothing converted), and `match_current` for none. The
+  packaged 1.5.6 `Retro-Recomp.exe` prints the same engine stamps as the tag for the seven consoles its `_compilation-stamps`
+  command lists (CPS-1 and X68000 are not in that list, so the CPS-1 stamp rests on the receipts written by the tag's code).
+  No real 1.5.6 export existed in `Export/`; the receipts above are the evidence.
+- *The generated game is identical.* Every file of the 12 project folders was compared, minus object files, run logs and the
+  wall-clock seconds of the check results: all generated C sources, tables, trace files and check hashes (frames, audio, CPU,
+  RAM, native and interpreted counters) are byte-identical. What differs, per kind:
+  - the version text: `RR_RECOMP_VERSION` in the CMake files, `game_resources.rc` (and `RR_CPS1_VERSION` in `cps1_game.h`);
+  - the shell, which is host: `console16_host_ui.c` is replaced by `hostkit/shell/rrhk_*.c` and one adapter in the Mega Drive
+    and CPS-1 projects (their `CMakeLists.txt` list the new files), `game_options.h` (option rows hold their own text) and its
+    checks (`game_options_checks.c`, `neogeo_controls_checks.c`), also copied into the NES project;
+  - the state keys: `retro16_state_config.h` (Mega Drive and CPS-1 `RR16_STATE_ABI`), and `console16_state.c` gains one
+    `#ifdef RR16_STATE_COMPAT_ABI_24`, which no other console defines; the NES `cycle/raw/generation.json` records the hash of
+    the recompiler binary rebuilt in each run and of a log whose only difference is a random temporary folder name; the Mega
+    Drive `generation-identity.json` records the code digest of `megadrive.py` (`adapter`);
+  - the states written by the CPS-1 checks (`quick.rrstate`, `invalid.rrstate`): same size, and only the 64 bytes of the
+    header that hold the key differ.
+  Nothing in the Game Boy, Master System, Game Gear projects differs but the version text. None of these is game code, so the
+  rebuild of an upgrade (new host, same game) is what a reconversion would produce. Last-minute edits after this run (the
+  Mega Drive and Neo Geo state keys, comments, tests) touch no generated game file; the Mega Drive state header gains its
+  `RR16_STATE_COMPAT_ABI_24` line.
+- *The upgrade runs for real* (`tools/campaign.py upgrade`, copies of the 1.5.6 exports, no `--force`): Master System Alex Kidd,
+  Mega Drive Art Alive, Mega Drive Alex Kidd in the Enchanted Castle and CPS-1 Nemo were each reported `quick upgrade`,
+  `upgrade.from_release` = `1.5.6`, `check_level` quick, and their final checks (scenario hashes, native and interpreted
+  counters, frames) equal those of the 1.5.6 report. The two Mega Drive games keep the interpreter fallback they already had
+  in 1.5.6 (Art Alive 11.4 million opcodes in the demo, Alex Kidd in the Enchanted Castle 26 and 96), which the campaign verdict
+  (limit 0) marks FAIL; the upgrade neither adds nor removes any. Quick states: [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156).
+
+Measurements stay separate: this is native code, CPU fidelity against the fresh reference on the quick routes and the identity
+of the generated game; it says nothing about hardware fidelity, gameplay or latency. A Linux 1.5.6 export is not covered (the
+stamps are bytecode digests of Python 3.14.5, the Linux converter is built with another Python).
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).

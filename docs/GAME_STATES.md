@@ -253,3 +253,25 @@ replay on native/reference paths without modifying their source files.
 Current packed fresh-process states and the 448-row attract case are checked
 separately; accepting an old architectural state does not recreate every
 old microphase. See [phase evidence](MEGADRIVE_PREFETCH.md).
+
+## States written by release 1.5.6
+
+1.6.0 changes the quick-state key of the Mega Drive, Super Nintendo, Neo Geo and CPS-1 (the shell files of the host kit are
+no longer part of the key, the build modules of CPS-1 changed). What each key hashes is not what is serialized, so what
+loads is decided one console at a time, and always by a real state written by a real 1.5.6 export (27 October 2026,
+Windows, `.build/legacy-156-20261027/`, run headless, nothing on screen). A state that is not accepted is refused
+cleanly by the loader (exit code of the headless run, notice in the player), never loaded wrongly.
+
+| Console | State of a 1.5.6 export in a 1.6.0 export | Proof |
+| --- | --- | --- |
+| Mega Drive | **loads**, through `RR16_STATE_COMPAT_ABI_24` (`console16_state.MD_STATE_ABI_156`, found in the real exports' `retro16_state_config.h`) | `tools/state16_cross.py --one-way` on Alex Kidd in the Enchanted Castle: states written by the 1.5.6 export at frames 600 and 900 resume in the upgraded export with the same trace for 900 and 1,200 frames and the same final guest state; state size 206,953 bytes both ways. The 1.6.0 export built before the key was added refuses the same state (exit 7), so the key is what makes it load |
+| Neo Geo | **loads**, through `RR16_STATE_COMPAT_ABI_24` (`neogeo_build.STATE_ABI_156`) | `tools/neogeo_state_cross.py --one-way` on Puzzled (Joy Joy Kid): a state written at frame 2,600 by the 1.5.6 export resumes in the 1.6.0 export, same trace for 2,900 frames, 512,325 bytes. The serialized state files (`neogeo_state.c`, the LSPC and YM state includes) are byte-identical since the tag |
+| Super Nintendo | **refused** | policy: SNES quick states are bound to the exact build signature (the engine changed after 1.5.2); the key moves in 1.6.0 and no compatibility key is added. Not run on a real SNES export |
+| CPS-1 | **refused** in 1.6.0; a key is proposed | the serialized bytes did not change: a 1.5.6 Nemo state and the 1.6.0 one have the same size (691,390 bytes) and differ only in the 64 bytes of the key in the header. One line in `cps1_build.state_config` (`#define RR16_STATE_COMPAT_ABI_24 "a04dc60c…"`, the loader already knows the macro) makes a 1.5.6 state resume in the upgraded export with the same trace for 900 frames (`tools/neogeo_state_cross.py --cps1 --one-way`, on a scratch copy); without it the export refuses it (exit 4). It is not applied because `cps1_build.py` is one of the pinned generator sources of the CPS-1 paths: editing it means raising `cps1_knowledge.GENERATOR_REVISION`, which puts every qualified CPS-1 path back to "waiting" for a change that no path can notice. Decide with the CPS-1 engine work |
+| Master System, Game Gear, Game Boy, NES | not run | the generated sources of 1.5.6 and 1.6.0 are identical (docs/UPGRADES.md); their keys depend on those files. The quick states of the Master System and Game Gear cannot be saved headless, so they were not exercised |
+| X68000 | refused | the key carries the compiler's identity by design; X68000 exports are converted in full |
+
+Mega Drive: at frame 1,200 of the cross-check route the 1.5.6 exports themselves refuse to write a state (the writer exits 8,
+for Alex Kidd in the Enchanted Castle as for Art Alive, whose export also runs mostly in the interpreter); the result above is
+therefore taken at frames 600 and 900, where they write one. This proves serialization and resume on these routes, not
+gameplay or hardware fidelity.
