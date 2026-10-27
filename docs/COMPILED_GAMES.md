@@ -81,6 +81,20 @@ are revalidated with their parent-set context. The search runs in a worker and
 does not write beside ROMs. `datas/rom-index.json` caches unchanged candidates;
 conversion independently checks the selected source before using it.
 
+When Reconvert still finds no source for some games, it no longer asks for each
+ROM file in turn. It asks once per console for the **folder** that holds that
+console's ROMs, then searches it (subfolders and ZIPs included, up to twelve
+levels) for every missing ROM of that console in the selection at once, by the
+same exact identity as above. The folder opens on the one saved in Options when
+it exists, and a folder that found at least one ROM is saved there as the
+console's ROM folder, so the next lookup needs no question. ROMs still missing
+after the search get one more question for that console: **Yes** picks another
+folder (searched the same way), **No** skips those games, **Cancel** stops the
+reconversion. After that second search, ROMs still missing are skipped and
+listed in the log; the other games are reconverted. Cancelling the first folder
+dialog stops the reconversion, and **New paths** and the close-time recompile
+still skip a missing ROM without asking. Nothing is written beside the ROMs.
+
 New conversion reports also retain `source_rom` and the published directory.
 The collection retains manually relocated sources after successful validation.
 An unavailable old source still needs the original cartridge, not merely a game

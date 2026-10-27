@@ -137,7 +137,9 @@ and compiler caches can be removed with it, when you ask). Back them up if neede
 An existing portable installation is not imported automatically. You can keep
 using it, or close both copies and copy its `datas` and `Games` into the new
 installation before first use. Leave your ROMs where they are. Set per-console
-ROM/export folders in Options; rescan games or repair paths after moving them.
+ROM/export folders in Options (Reconvert also asks for a console's ROM folder
+when it cannot find the original ROMs, and remembers it); rescan games or repair
+paths after moving them.
 Do not share compiler caches between Windows and Linux.
 
 ## Build installers

@@ -277,6 +277,19 @@ Batch conversion runs three games at once by default for any mix of supported
 consoles. Set **Concurrent games** in the GUI or use `batch --jobs 1..8` to
 control CPU and memory use. `--jobs 1` runs sequentially. Stopping waits for
 already active games and leaves the rest of the queue untouched.
+Each console tab of **Options** also has its own **Concurrent games** field
+(for example 8 for Master System, 2 for Neo Geo, 1 for X68000). Empty follows
+the shared value, which stays the default and the overall limit: a console never
+runs more games at once than the shared value. The window applies it by cutting
+the queue: consoles set below the shared value each run as their own group, all
+the other rows stay together with the shared value (with nothing set, the queue
+is one group, as before). Groups run side by side while their workers fit in the
+shared value (a group waits for room, the first that fits starts), each through
+the usual batch, with the queue's order inside a group, one cancel, one
+progress bar and one end summary and announcement. The console's number also
+sets how many compiler tasks each of its games gets, so a heavy console set to 1
+or 2 compiles with a larger share. Reconvert from the collection follows the
+same per-console numbers. The command line keeps a single `--jobs`.
 **Overwrite existing games** is enabled by default; disable it to keep already
 exported games when running a large batch. Distinct ROM bytes with the same
 base title receive region/revision labels from filenames when available, or

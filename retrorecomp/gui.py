@@ -562,7 +562,9 @@ def _toolbar_styles(style):
 # test_gui_state.InterfacePreferences checks the list against `preferences()`.
 INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_revision', 'custom_output',
                          'system_mode', 'platform', 'feedback_paths', 'rom_paths', 'send_after_batch',
-                         'startup_update_check', 'last_update_check', 'discoveries_waiting')
+                         'startup_update_check', 'last_update_check', 'discoveries_waiting',
+                         # Games converted at once per console: the window cuts the queue by it.
+                         'console_jobs')
 
 
 class Application:
@@ -579,6 +581,7 @@ class Application:
         self.collection_refreshing, self.collection_refreshed_at = False, 0.0
         self.updating = False
         self.cancel = threading.Event()
+        self.stop_now = threading.Event()   # "Stop now" was chosen (not "wait for the running games")
         self.messages = queue.Queue()
         self.controls = []
         self.active_rows = []
@@ -645,6 +648,11 @@ class Application:
         default_jobs = 3 if os.name == 'nt' else 1
         saved_jobs = preferences.get('jobs', default_jobs)
         self.jobs = tk.IntVar(value=saved_jobs if isinstance(saved_jobs, int) and 1 <= saved_jobs <= 8 else default_jobs)
+        # Games converted at once per console; empty follows the shared value above.
+        from .queue_state import normalize_console_jobs
+        saved_console_jobs = normalize_console_jobs(preferences.get('console_jobs'))
+        self.scan_jobs = {console: tk.StringVar(value=str(saved_console_jobs.get(console) or ''))
+                          for console in SCAN_CONSOLES}
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
         self.force = tk.BooleanVar(value=False)
@@ -1820,6 +1828,7 @@ class Application:
             gb_deep_validation=self.gb_deep_validation.get(),
             console_scan=self.console_scan_preferences(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
+            console_jobs=self.console_jobs_preferences(),
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
@@ -1852,6 +1861,22 @@ class Application:
                 settings[console] = entry
         return settings
 
+    def console_jobs_preferences(self):
+        """Games converted at once per console; an empty field follows the shared value."""
+        settings = {}
+        for console, variable in self.scan_jobs.items():
+            text = variable.get().strip()
+            if not text:
+                continue
+            try:
+                value = int(text)
+            except ValueError:
+                raise ValueError(self.tr('invalid_limits')) from None
+            if not 1 <= value <= 8:
+                raise ValueError(self.tr('invalid_limits'))
+            settings[console] = value
+        return settings
+
     def build_scan_options(self, page, console):
         """Scan level, pass limit and frame budget for one console, with a short
         note on what is recommended and why."""
@@ -1877,7 +1902,8 @@ class Application:
         self.hint(level_box, 'tip_scan_level')
         for column, (key, variables, limit, shared) in enumerate((
                 ('scan_passes', self.scan_passes, 10, self.passes.get()),
-                ('scan_frames', self.scan_frames, 10000, self.frames.get())), start=1):
+                ('scan_frames', self.scan_frames, 10000, self.frames.get()),
+                ('scan_jobs', self.scan_jobs, 8, self.jobs.get())), start=1):
             ttk.Label(row, text=self.tr(key, default=shared)).grid(row=0, column=column, sticky='w', padx=(0, 22))
             control = ttk.Spinbox(row, textvariable=variables[console], from_=1, to=limit, width=8)
             control.grid(row=1, column=column, sticky='w', padx=(0, 22), pady=(5, 0))
@@ -1902,6 +1928,8 @@ class Application:
             if not self.output.get().strip():
                 raise ValueError(self.tr('need_output'))
             output = Path(options.pop('output')).expanduser().resolve()
+            # Games converted at once per console: the queue is cut by it (convert_in_groups).
+            per_console, shared_jobs = options.get('console_jobs') or {}, options.pop('jobs')
             for key in INTERFACE_PREFERENCES:
                 options.pop(key, None)
             use_shared = options.pop('use_shared_base', False)
@@ -1924,6 +1952,7 @@ class Application:
             return
         self.busy = self.converting = True
         self.cancel.clear()
+        self.stop_now.clear()
         self.last_auto_send = time.monotonic()   # the first send of a long batch comes after SEND_EVERY
         self.active_rows = chosen_rows
         self.running_jobs.clear()
@@ -1975,7 +2004,10 @@ class Application:
                                              if item.system and item.sha256 and not item.error], options)
                 shared = self.prepare_shared_paths(keys, use_shared)
                 self.start_shared_source(use_shared, keys, {item.system for item in items})
-                record = convert_batch(items, output, cancel=self.cancel, **options, shared_paths=shared,
+                from .queue_state import convert_in_groups
+                record = convert_in_groups(items, output, jobs=shared_jobs, per_console=per_console,
+                    cancel=self.cancel, stop_now=self.stop_now, convert=convert_batch,
+                    **options, shared_paths=shared,
                     emit=lambda text: self.messages.put(('log', text)),
                     on_event=event)
                 self.forget_rejected_shared(shared, record['games'])
@@ -2087,6 +2119,8 @@ class Application:
         choice = self.stop_dialog()
         if choice not in ('now', 'wait') or not self.busy:
             return False
+        if choice == 'now' and getattr(self, 'stop_now', None) is not None:
+            self.stop_now.set()
         self.cancel.set()
         if choice == 'now':
             from .core import stop_processes
@@ -2616,6 +2650,8 @@ class Application:
                     self.player_read(event[1], event[2])
                 elif kind == 'sources_ready':
                     self.finish_source_lookup(*event[1:])
+                elif kind == 'rom_folder_searched':
+                    self.finish_folder_search(*event[1:])
                 elif kind == 'collection_quiet':
                     self.collection_refreshing = False
                     if event[1] and self.compiled_view is not None:self.compiled_view.render()
@@ -5534,18 +5570,86 @@ class Application:
             self.close()
             return
         if self.cancel.is_set():return
-        chosen=[]
+        # While closing, or for new paths, a missing ROM waits for later.
+        if any(source is None for _,source in pairs) and (self.closing_after_recompile or skip_missing):
+            pairs=[(game,source) for game,source in pairs if source is not None]
+        self.locate_missing({'pairs':list(pairs),'level':level,'asked':{}})
+
+    def locate_missing(self, state):
+        """ROMs still missing: ask for the folder holding each console's ROMs, search
+        it for all of that console's missing games at once, and ask again (another
+        folder, or skip them) at most once per console. Cancelling any prompt stops
+        the reconversion, as the former ROM picker did; skipped games are logged."""
+        pairs,asked=state['pairs'],state['asked']
+        missing={}
         for game,source in pairs:
-            if source is None:
-                # While closing, or for new paths, a missing ROM waits for later.
-                if self.closing_after_recompile or skip_missing:continue
-                name = filedialog.askopenfilename(parent=self.app,
-                    title=self.tr('locate_source',title=game.title))
-                if not name:return
-                source = Path(name)
-            chosen.append((game,source))
-        if chosen:self.begin_reconvert(chosen, level)
+            if source is None:missing.setdefault(game.system,[]).append(game)
+        for system,games in missing.items():
+            times=asked.get(system,0)
+            if times>=2:continue
+            name=get_profile(system).name
+            if times==1:
+                titles='\n'.join(game.title for game in games[:6])+('\n…' if len(games)>6 else '')
+                answer=messagebox.askyesnocancel(APP_NAME,
+                    self.tr('rom_folder_missing',console=name,count=len(games),titles=titles),parent=self.app)
+                if answer is None:return
+                if not answer:
+                    asked[system]=2
+                    return self.locate_missing(state)
+            options={'initialdir':self.saved_rom_folder(system)} if self.saved_rom_folder(system) else {}
+            folder=filedialog.askdirectory(parent=self.app,mustexist=True,
+                title=self.tr('locate_rom_folder',console=name,count=len(games)),**options)
+            if not folder:return
+            asked[system]=times+1
+            return self.search_rom_folder(state,system,games,Path(folder))
+        chosen=[(game,source) for game,source in pairs if source is not None]
+        for game,source in pairs:
+            if source is None:self.messages.put(('log',self.tr('rom_skipped',title=game.title)))
+        if chosen:self.begin_reconvert(chosen,state['level'])
         elif self.close_when_idle:self.close()
+
+    def saved_rom_folder(self, system):
+        """The ROM folder saved in Options for a console, when it exists."""
+        variable=getattr(self,'rom_paths',{}).get(system)
+        text=variable.get().strip() if variable is not None else ''
+        return text if text and Path(text).expanduser().is_dir() else ''
+
+    def search_rom_folder(self, state, system, games, folder):
+        """Search a folder, off Tk, for every missing ROM of one console (the
+        exact identity, subfolders and ZIPs included; nothing is written)."""
+        self.busy=True
+        self.set_controls(False)
+        self.compiled_view.progress.start(15)
+        self.compiled_view.status.set(self.tr('rom_searching'))
+        def worker():
+            from .rom_sources import RomSources
+            try:found=RomSources().resolve(games,{'rom_paths':{system:str(folder)}},cancel=self.cancel)
+            except Exception:found=[(game,None) for game in games]
+            self.messages.put(('rom_folder_searched',state,system,folder,found))
+        threading.Thread(target=worker,daemon=True).start()
+
+    def finish_folder_search(self, state, system, folder, found):
+        self.busy=False
+        self.compiled_view.progress.stop()
+        self.set_controls(True)
+        if self.close_when_idle and (not self.closing_after_recompile or self.cancel.is_set()):
+            self.close()
+            return
+        if self.cancel.is_set():return
+        sources={id(game):source for game,source in found if source is not None}
+        state['pairs']=[(game,sources.get(id(game),source)) for game,source in state['pairs']]
+        if sources:
+            # Kept in Options for the next time, and for the other searches of that console.
+            variable=getattr(self,'rom_paths',{}).get(system)
+            if variable is not None:
+                variable.set(str(folder))
+                try:save_preferences(self.preferences())
+                except (OSError,ValueError,tk.TclError):pass
+        text=self.tr('rom_folder_found',console=get_profile(system).name,found=len(sources),
+                     total=len(found),folder=str(folder))
+        self.messages.put(('log',text))
+        self.compiled_view.status.set(text)
+        self.locate_missing(state)
 
     def offer_closing_card(self):
         """Before closing: games whose new paths are not recompiled yet, on the
@@ -5571,9 +5675,9 @@ class Application:
     def begin_reconvert(self, chosen, level=None):
         options = self.preferences()
         use_shared = options.pop('use_shared_base', False)
-        for key in ('coverage_default_revision','gb_validation_default_revision','output','custom_output',
-                    'system_mode','platform','feedback_paths','rom_paths','jobs','overwrite','send_after_batch',
-                    'startup_update_check','last_update_check'):
+        # Games converted at once per console (run_limited below), as in the queue.
+        per_console=options.get('console_jobs') or {}
+        for key in (*INTERFACE_PREFERENCES,'output','jobs','overwrite'):
             options.pop(key,None)
         # Always rebuild, but only the player shell when nothing else changed.
         options['force'] = True
@@ -5590,7 +5694,7 @@ class Application:
         self.compiled_view.clear_log()
         self.compiled_view.status.set(self.tr('reconverting_games'))
         def worker():
-            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from .queue_state import console_jobs, run_limited
             from .batch import _convert_in_budget, _embedded_export_identity, reported_owner
             from .freshness import digest
             from .compiled_games import game_from_report, refresh, read_json
@@ -5625,9 +5729,10 @@ class Application:
                 if standard in get_profile(item.system).video_modes:item.standard_override = standard
                 folder = target.parent/'datas/reports'/item.key
                 folder.mkdir(parents=True,exist_ok=True)
-                result = _convert_in_budget(jobs,0,item,len(chosen),get_profile(item.system),target.parent,
+                games_at_once=console_jobs(jobs,per_console,game.system)
+                result = _convert_in_budget(games_at_once,0,item,len(chosen),get_profile(item.system),target.parent,
                     folder,target,[],lambda text:self.messages.put(('log',text)),
-                    {**options,'gb_parallel_games':jobs,'ng_parallel_games':jobs,'shared_paths':shared})
+                    {**options,'gb_parallel_games':games_at_once,'ng_parallel_games':games_at_once,'shared_paths':shared})
                 results.append({**result,'system':item.system,'sha256':item.sha256})
                 if result['status'] in ('success','current'):
                     game = game_from_report(Path(result['report']),target.parent,source=str(source))
@@ -5639,18 +5744,18 @@ class Application:
                 # Copies in different folders still share compiler work files.
                 # Serialize an exact cartridge while unrelated games use the pool.
                 with cartridge_locks[(game.system,game.identity)]:return convert(pair)
+            def finished(pair,future):
+                try:
+                    result = future.result()
+                    if result is None:return
+                    counts['success' if result['status'] in ('success','current') else 'failed'] += 1
+                    if result['status']=='error':errors.append(result.get('message',''))
+                except Exception as exc:
+                    counts['failed'] += 1
+                    errors.append(str(exc))
+                    self.messages.put(('log',str(exc)))
             try:
-                with ThreadPoolExecutor(max_workers=jobs) as pool:
-                    for future in as_completed([pool.submit(guarded,pair) for pair in chosen]):
-                        try:
-                            result = future.result()
-                            if result is None:continue
-                            counts['success' if result['status'] in ('success','current') else 'failed'] += 1
-                            if result['status']=='error':errors.append(result.get('message',''))
-                        except Exception as exc:
-                            counts['failed'] += 1
-                            errors.append(str(exc))
-                            self.messages.put(('log',str(exc)))
+                run_limited(chosen,lambda pair:pair[0].system,jobs,per_console,guarded,finished)
                 self.compiled_inventory.save()
             except Exception as exc:
                 counts['failed'] += 1

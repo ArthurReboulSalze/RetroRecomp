@@ -95,7 +95,7 @@ class ReconversionSettings(unittest.TestCase):
     def test_a_closed_rom_picker_or_a_cancel_drops_the_level(self):
         game = self.game()
         app = application(begin_reconvert=Mock(), compiled_view=Mock())
-        with patch('retrorecomp.gui.filedialog.askopenfilename', return_value=''):
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=''):
             app.finish_source_lookup([(game, None)], 'thorough')
         app.cancel.set()
         app.finish_source_lookup([(game, Path('X:/ROMs/Mario.gb'))], 'extended')
@@ -122,7 +122,7 @@ class ReconversionSettings(unittest.TestCase):
         self.assertEqual(event[2:], (None, True))
         # New paths: a missing ROM waits for later, no file dialog; the next lookup asks again.
         app.busy, app.begin_reconvert = False, Mock()
-        with patch('retrorecomp.gui.filedialog.askopenfilename', return_value='') as asked:
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
             app.finish_source_lookup(*event[1:])
             asked.assert_not_called()
             app.finish_source_lookup([(game, None)])
@@ -425,3 +425,207 @@ class InterfacePreferences(unittest.TestCase):
 
     def test_interface_preferences_are_real_preference_keys(self):
         self.assertLessEqual(set(gui.INTERFACE_PREFERENCES), self.preference_keys())
+
+    def test_console_jobs_are_saved_checked_and_dropped_before_any_conversion(self):
+        self.assertIn('console_jobs', gui.INTERFACE_PREFERENCES)
+        self.assertIn('console_jobs', self.preference_keys())
+        app = application(scan_jobs={'sms': Mock(get=Mock(return_value=' 8 ')), 'ng': Mock(get=Mock(return_value='2')),
+                                     'x68': Mock(get=Mock(return_value='')), 'gb': Mock(get=Mock(return_value='1'))})
+        self.assertEqual(app.console_jobs_preferences(), {'sms': 8, 'ng': 2, 'gb': 1})
+        for bad in ('0', '9', 'two', '-1', '2.5'):
+            app.scan_jobs['ng'] = Mock(get=Mock(return_value=bad))
+            with self.assertRaises(ValueError):
+                app.console_jobs_preferences()
+
+
+class MissingRomFolder(unittest.TestCase):
+    """A ROM that Reconvert cannot find is looked for in a folder, for every
+    missing game of its console at once; the folder is remembered."""
+
+    def setUp(self):
+        import hashlib
+        import tempfile
+        from retrorecomp.platforms import target_id
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+        self.games, self.payloads = [], {}
+        for number in (1, 2, 3):
+            payload = bytes([number]) * 16384
+            self.payloads[number] = payload
+            game = Game(str(self.root / f'Game {number}.exe'), 'sms', hashlib.sha256(payload).hexdigest(),
+                        f'Game {number}')
+            game.target = target_id()
+            self.games.append(game)
+        self.library = self.root / 'library' / 'deep'
+        self.library.mkdir(parents=True)
+        # Names that say nothing about the game; the identity decides.
+        (self.library / 'a.sms').write_bytes(self.payloads[1])
+        (self.library / 'zzz.sms').write_bytes(self.payloads[2])
+        self.elsewhere = self.root / 'other'
+        self.elsewhere.mkdir()
+        (self.elsewhere / 'third.sms').write_bytes(self.payloads[3])
+        self.saved = Mock(get=Mock(return_value=''))
+        self.app = application(begin_reconvert=Mock(), compiled_view=Mock(), rom_paths={'sms': self.saved},
+                               preferences=Mock(return_value={}))
+        self.threads = Threads()
+        saving = patch('retrorecomp.gui.save_preferences')
+        self.save = saving.start()
+        self.addCleanup(saving.stop)
+        for patcher in (patch('retrorecomp.gui.threading.Thread', self.threads),
+                        patch('retrorecomp.rom_sources.data_directory', return_value=self.root / 'datas')):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def settle(self):
+        """Run the pending search, then deliver its result to the window."""
+        self.threads.started.pop()()
+        while True:
+            event = self.app.messages.get(timeout=10)
+            if event[0] == 'rom_folder_searched':
+                break
+        self.app.finish_folder_search(*event[1:])
+
+    def test_one_folder_finds_every_missing_rom_of_the_console_and_is_remembered(self):
+        missing = [(game, None) for game in self.games[:2]]
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked:
+            self.app.finish_source_lookup(missing)
+            self.settle()
+        asked.assert_called_once()
+        self.assertIn('Master System', asked.call_args.kwargs['title'])
+        self.assertIn('2 to find', asked.call_args.kwargs['title'])
+        chosen, level = self.app.begin_reconvert.call_args.args
+        self.assertEqual([(game.title, source.name) for game, source in chosen],
+                         [('Game 1', 'a.sms'), ('Game 2', 'zzz.sms')])
+        self.assertIsNone(level)
+        self.saved.set.assert_called_once_with(str(self.root / 'library'))
+        self.save.assert_called_once()
+        # The ROMs themselves are untouched.
+        self.assertEqual((self.library / 'a.sms').read_bytes(), self.payloads[1])
+
+    def test_a_rom_already_found_is_not_asked_for_and_only_the_missing_ones_count(self):
+        pairs = [(self.games[0], self.library / 'a.sms'), (self.games[1], None), (self.games[2], None)]
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked, \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False) as question:
+            self.app.finish_source_lookup(pairs)
+            self.assertIn('2 to find', asked.call_args.kwargs['title'])
+            self.settle()
+            # Game 3 is not in that folder, which the question says.
+            self.assertIn('1 Master System ROM(s)', question.call_args.args[1])
+        chosen, _ = self.app.begin_reconvert.call_args.args
+        self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2'])
+
+    def test_leftovers_get_one_more_question_and_a_second_folder_then_are_skipped(self):
+        pairs = [(game, None) for game in self.games]
+        dialogs = []
+        with patch('retrorecomp.gui.filedialog.askdirectory',
+                   side_effect=lambda **kw: dialogs.append(kw['title']) or str(self.library.parent)) as asked, \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=True) as question:
+            self.app.finish_source_lookup(pairs)
+            self.settle()                       # finds games 1 and 2; game 3 is missing
+            question.assert_called_once()
+            self.assertIn('Game 3', question.call_args.args[1])
+            self.assertEqual(asked.call_count, 2)
+            self.assertIn('1 to find', dialogs[1])
+            self.settle()                       # the same folder again: game 3 still missing
+            # No third question, no third folder: the game is skipped.
+            question.assert_called_once()
+            self.assertEqual(asked.call_count, 2)
+        chosen, _ = self.app.begin_reconvert.call_args.args
+        self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2'])
+        self.assertIn(tr('rom_skipped', 'en', title='Game 3'), logs(self.app))
+
+    def test_a_second_folder_can_complete_the_set(self):
+        pairs = [(game, None) for game in self.games]
+        folders = iter([str(self.library.parent), str(self.elsewhere)])
+        with patch('retrorecomp.gui.filedialog.askdirectory', side_effect=lambda **kw: next(folders)), \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=True):
+            self.app.finish_source_lookup(pairs)
+            self.settle()
+            self.settle()
+        chosen, _ = self.app.begin_reconvert.call_args.args
+        self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2', 'Game 3'])
+        # The folder that found the last ROM is the one kept.
+        self.assertEqual(self.saved.set.call_args_list[-1].args, (str(self.elsewhere),))
+
+    def test_declining_the_second_folder_skips_the_leftovers_and_reconverts_the_rest(self):
+        pairs = [(game, None) for game in self.games]
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)) as asked, \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False):
+            self.app.finish_source_lookup(pairs)
+            self.settle()
+        asked.assert_called_once()
+        chosen, _ = self.app.begin_reconvert.call_args.args
+        self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2'])
+
+    def test_cancelling_the_question_or_a_folder_stops_the_reconversion(self):
+        pairs = [(game, None) for game in self.games]
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+            self.app.finish_source_lookup(pairs)
+        asked.assert_called_once()
+        self.assertEqual(self.threads.started, [])
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)), \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=None):
+            self.app.finish_source_lookup(pairs)
+            self.settle()
+        self.app.begin_reconvert.assert_not_called()
+
+    def test_a_folder_that_holds_none_is_not_remembered(self):
+        empty = self.root / 'empty'
+        empty.mkdir()
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(empty)), \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False):
+            self.app.finish_source_lookup([(self.games[0], None)])
+            self.settle()
+        self.saved.set.assert_not_called()
+        self.app.begin_reconvert.assert_not_called()
+
+    def test_each_console_is_asked_for_once_with_its_own_missing_games(self):
+        gb = Game(str(self.root / 'Gb.exe'), 'gb', 'ef' * 32, 'Gb game')
+        pairs = [(self.games[0], None), (gb, None), (self.games[1], None)]
+        searched = []
+
+        def resolve(self_, games, preferences, **options):
+            searched.append(sorted(game.title for game in games))
+            return [(game, Path('X:/found/' + game.title) if game.system == 'sms' else None) for game in games]
+        asked = []
+        with patch('retrorecomp.gui.filedialog.askdirectory',
+                   side_effect=lambda **kw: asked.append(kw['title']) or str(self.root / 'roms')), \
+                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False), \
+                patch('retrorecomp.rom_sources.RomSources.resolve', resolve):
+            self.app.rom_paths['gb'] = Mock(get=Mock(return_value=''))
+            self.app.finish_source_lookup(pairs)
+            self.settle()
+            self.settle()
+        self.assertEqual(len(asked), 2)
+        self.assertIn('Master System', asked[0])
+        self.assertIn('Game Boy', asked[1])
+        self.assertEqual(searched, [['Game 1', 'Game 2'], ['Gb game']])
+        chosen, _ = self.app.begin_reconvert.call_args.args
+        self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2'])
+
+    def test_new_paths_and_closing_still_skip_a_missing_rom_without_asking(self):
+        with patch('retrorecomp.gui.filedialog.askdirectory') as asked:
+            self.app.finish_source_lookup([(self.games[0], None)], skip_missing=True)
+            self.app.closing_after_recompile = True
+            self.app.finish_source_lookup([(self.games[0], None)])
+        asked.assert_not_called()
+        self.app.begin_reconvert.assert_not_called()
+
+    def test_stop_while_searching_leaves_the_reconversion_alone(self):
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)):
+            self.app.finish_source_lookup([(self.games[0], None)])
+            self.app.cancel.set()
+            self.settle()
+        self.app.begin_reconvert.assert_not_called()
+        self.saved.set.assert_not_called()
+
+    def test_the_saved_folder_opens_the_dialog_when_it_exists(self):
+        self.saved.get.return_value = str(self.library)
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+            self.app.finish_source_lookup([(self.games[0], None)])
+        self.assertEqual(asked.call_args.kwargs['initialdir'], str(self.library))
+        self.saved.get.return_value = str(self.root / 'gone')
+        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+            self.app.finish_source_lookup([(self.games[0], None)])
+        self.assertNotIn('initialdir', asked.call_args.kwargs)
