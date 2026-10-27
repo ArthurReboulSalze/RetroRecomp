@@ -132,7 +132,9 @@ def _local_keys(system: str, identity: str) -> set:
     return {(row.kind, row.address, row.auxiliary, len(row.data)) for row in records(system, identity)}
 
 
-CACHE_SCHEMA = 2
+# 3 (1.5.6): counts made before held Standard for the Mega Drive, Super
+# Nintendo and NES games converted deeper.
+CACHE_SCHEMA = 3
 
 
 def _cache_path() -> Path:
@@ -280,8 +282,8 @@ def collect_knowledge(games, locate=None, context: str = '', progress=None) -> d
                             compact_snes(record)
                         found = unknown_hints(game.system, record, _bundled(game.system, game.identity))
                         if found:
-                            outcome.update(record=record, found=found,
-                                           level=str(qualified[key].get('scan_level') or 'standard'))
+                            from .compiled_games import report_level
+                            outcome.update(record=record, found=found, level=report_level(qualified[key]))
                         else:
                             outcome['omitted']['already_known'] += 1
                             # Converted with nothing new: enough for an account upload to
@@ -377,6 +379,22 @@ def pending_since_shared(channel: str, collected: dict) -> list:
         shared = {}
     return sorted(key for key, parts in _contributions(collected).items()
                   if any(shared.get(key, {}).get(kind) != value for kind, value in parts.items()))
+
+
+def forget_shared(channel: str, keys) -> None:
+    """Forget that the games `keys` ('system:identity') were shared on
+    `channel`: their next send or export carries them again."""
+    path = _shared_path()
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    entries = data.get(channel) if isinstance(data, dict) else None
+    if not isinstance(entries, dict) or not any(key in entries for key in keys):
+        return
+    for key in keys:
+        entries.pop(key, None)
+    path.write_text(json.dumps(data, indent=1, sort_keys=True) + '\n', encoding='utf-8')
 
 
 def mark_shared(channel: str, collected: dict) -> None:

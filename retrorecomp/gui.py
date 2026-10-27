@@ -3653,6 +3653,11 @@ class Application:
             # Discoveries saved since the last look count without a full scan.
             from .compiled_games import refresh_changed
             refresh_changed(self.compiled_inventory, options)
+            # Once per account (1.5.6): the deeper levels 1.5.2-1.5.5 sent as Standard.
+            try:
+                online.resend_deeper_levels(self.compiled_inventory.snapshot())
+            except (OSError, ValueError, TypeError):
+                pass
             # Cached results stay valid while the ROM folders stay the same.
             context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
             return collect_knowledge(self.compiled_inventory.snapshot(), locate, context, progress)
