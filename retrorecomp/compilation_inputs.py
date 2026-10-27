@@ -52,8 +52,9 @@ def owners(name):
         return frozenset(('x68',))
     if name.startswith(('gameboy', 'game_boy', 'gb_', 'retro_gb')):
         return frozenset(('gb',))
-    # CPS-1 code generation reuses these Neo Geo and Mega Drive modules.
-    if name.split('.')[0] in ('neogeo_codegen', 'neogeo_z80', 'neogeo_build'):
+    # CPS-1 code generation reuses these Neo Geo and Mega Drive modules; both
+    # arcade consoles read their set ZIPs through the shared zip_sets reader.
+    if name.split('.')[0] in ('neogeo_codegen', 'neogeo_z80', 'neogeo_build', 'zip_sets'):
         return frozenset(('ng', 'cps1'))
     if name.split('.')[0] in ('megadrive_codegen', 'megadrive_z80'):
         return frozenset(('md', 'cps1'))

@@ -10,7 +10,9 @@ import json
 from pathlib import Path
 import re
 import struct
-from zipfile import ZipFile, BadZipFile
+from zipfile import ZipFile
+
+from . import zip_sets
 
 MAX_SET_BYTES = 512 * 1024 * 1024
 # A merged ZIP can contain several complete revisions. Hash them by streaming;
@@ -52,18 +54,14 @@ class NeoGeoSet:
 def archive_members(path: Path, *, hash_contents: bool = False, cartridge_paths: bool = False) -> tuple[dict, ...]:
     """Bounds before decompression; CRC validation when original bytes are read."""
     records = []
-    try:
-        if path.stat().st_size > MAX_SET_BYTES:
-            raise ValueError('Neo Geo archive exceeds the size limit.')
+    with zip_sets.zip_errors('Neo Geo'):
+        zip_sets.check_size(path, MAX_SET_BYTES, label='Neo Geo')
         with ZipFile(path) as archive:
-            entries = [entry for entry in archive.infolist() if not entry.is_dir()]
-            if not entries or len(entries) > 1024:
-                raise ValueError('Invalid Neo Geo archive member count.')
-            if sum(entry.file_size for entry in entries) > MAX_ARCHIVE_EXPANDED_BYTES:
-                raise ValueError('Neo Geo archive exceeds the expanded size limit.')
+            entries = zip_sets.bounded_entries(archive, label='Neo Geo', max_members=1024,
+                                               max_expanded=MAX_ARCHIVE_EXPANDED_BYTES)
             seen = set()
             for entry in entries:
-                name = entry.filename.replace('\\', '/').rsplit('/', 1)[-1].casefold()
+                name = zip_sets.flat_name(entry.filename)
                 unique = entry.filename.replace('\\', '/').casefold() if cartridge_paths else name
                 if not name or unique in seen or entry.flag_bits & 1:
                     raise ValueError('Ambiguous or encrypted Neo Geo archive member.')
@@ -74,20 +72,10 @@ def archive_members(path: Path, *, hash_contents: bool = False, cartridge_paths:
                 if cartridge_paths:
                     record['archive_path'] = entry.filename
                 if hash_contents:
-                    digest = hashlib.sha256()
-                    count = 0
-                    with archive.open(entry) as source:
-                        while chunk := source.read(1024 * 1024):
-                            count += len(chunk)
-                            if count > entry.file_size:
-                                raise ValueError('Neo Geo member size changed while reading.')
-                            digest.update(chunk)
-                    if count != entry.file_size:
-                        raise ValueError('Truncated Neo Geo archive member.')
-                    record['sha256'] = digest.hexdigest()
+                    digests = zip_sets.read_member_digests(archive, entry, entry.file_size,
+                                                           ('sha256',), label='Neo Geo')
+                    record['sha256'] = digests['sha256']
                 records.append(record)
-    except (BadZipFile, RuntimeError, OSError) as exc:
-        raise ValueError(f'Cannot read Neo Geo ZIP: {exc}') from exc
     return tuple(sorted(records, key=lambda item: item['name']))
 
 

@@ -10,9 +10,9 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from zipfile import ZipFile, BadZipFile
+from zipfile import ZipFile
 
-from . import cps1_catalogue
+from . import cps1_catalogue, zip_sets
 
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 # A merged ZIP holds every revision of a game; read members by streaming.
@@ -64,24 +64,17 @@ class Cps1Set:
 def archive_members(path: Path) -> tuple[dict, ...]:
     """Bounds are checked before any decompression."""
     records = []
-    try:
-        if path.stat().st_size > MAX_ARCHIVE_BYTES:
-            raise ValueError('CPS-1 archive exceeds the size limit.')
+    with zip_sets.zip_errors('CPS-1'):
+        zip_sets.check_size(path, MAX_ARCHIVE_BYTES, label='CPS-1')
         with ZipFile(path) as archive:
-            entries = [entry for entry in archive.infolist() if not entry.is_dir()]
-            if not entries or len(entries) > MAX_MEMBERS:
-                raise ValueError('Invalid CPS-1 archive member count.')
-            if sum(entry.file_size for entry in entries) > MAX_EXPANDED_BYTES:
-                raise ValueError('CPS-1 archive exceeds the expanded size limit.')
-            for entry in entries:
+            for entry in zip_sets.bounded_entries(archive, label='CPS-1',
+                                                  max_members=MAX_MEMBERS, max_expanded=MAX_EXPANDED_BYTES):
                 if entry.flag_bits & 1:
                     raise ValueError('Encrypted CPS-1 archive member.')
                 if entry.file_size > MAX_MEMBER_BYTES:
                     raise ValueError('CPS-1 archive member exceeds the size limit.')
-                records.append({'name': entry.filename.replace('\\', '/').rsplit('/', 1)[-1].casefold(),
+                records.append({'name': zip_sets.flat_name(entry.filename),
                                 'archive_path': entry.filename, 'bytes': entry.file_size, 'crc32': entry.CRC})
-    except (BadZipFile, RuntimeError, OSError) as exc:
-        raise ValueError(f'Cannot read CPS-1 ZIP: {exc}') from exc
     return tuple(sorted(records, key=lambda item: item['archive_path']))
 
 
@@ -157,16 +150,8 @@ def _identify(path: Path, games: list[dict], set_name: str | None) -> tuple[dict
 
 
 def _read_member(archive: ZipFile, record: dict) -> dict:
-    sha1, sha256, count = hashlib.sha1(), hashlib.sha256(), 0
-    with archive.open(record['archive_path']) as source:
-        while chunk := source.read(1024 * 1024):
-            count += len(chunk)
-            if count > record['bytes']:
-                raise ValueError('CPS-1 member size changed while reading.')
-            sha1.update(chunk); sha256.update(chunk)
-    if count != record['bytes']:
-        raise ValueError('Truncated CPS-1 archive member.')
-    return {'sha1': sha1.hexdigest(), 'sha256': sha256.hexdigest()}
+    return zip_sets.read_member_digests(archive, record['archive_path'], record['bytes'],
+                                        ('sha1', 'sha256'), label='CPS-1')
 
 
 def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | None = None) -> Cps1Set:
@@ -180,21 +165,18 @@ def read_set(path: Path, games: list[dict] | None = None, *, set_name: str | Non
         records = archive_members(source)
         wanted = [item for item in cps1_catalogue.files(game)
                   if item['name'] not in {member['name'] for member in members}]
-        try:
-            with ZipFile(source) as archive:
-                for item in wanted:
-                    record = next((r for r in records if (r['crc32'], r['bytes']) == (item['crc32'], item['bytes'])), None)
-                    if record is None:
-                        continue
-                    digests = _read_member(archive, record)
-                    if digests['sha1'] != item['sha1']:
-                        raise ValueError(f'CPS-1 member {record["archive_path"]} has the CRC of {item["name"]} '
-                                         'but different contents.')
-                    members.append({'name': item['name'], 'region': item['region'], 'bytes': item['bytes'],
-                                    'crc32': item['crc32'], 'sha256': digests['sha256'],
-                                    'archive': str(source), 'archive_path': record['archive_path']})
-        except (BadZipFile, RuntimeError, OSError) as exc:
-            raise ValueError(f'Cannot read CPS-1 ZIP: {exc}') from exc
+        with zip_sets.zip_errors('CPS-1'), ZipFile(source) as archive:
+            for item in wanted:
+                record = next((r for r in records if (r['crc32'], r['bytes']) == (item['crc32'], item['bytes'])), None)
+                if record is None:
+                    continue
+                digests = _read_member(archive, record)
+                if digests['sha1'] != item['sha1']:
+                    raise ValueError(f'CPS-1 member {record["archive_path"]} has the CRC of {item["name"]} '
+                                     'but different contents.')
+                members.append({'name': item['name'], 'region': item['region'], 'bytes': item['bytes'],
+                                'crc32': item['crc32'], 'sha256': digests['sha256'],
+                                'archive': str(source), 'archive_path': record['archive_path']})
     if len(members) != len(cps1_catalogue.files(game)):
         raise ValueError('CPS-1 set ' + game['set'] + ' changed while it was being read.')
     members.sort(key=lambda item: item['name'])
