@@ -21,8 +21,12 @@ today is described in [ARCHITECTURE.md](ARCHITECTURE.md).
 3. **One place says what a machine is.** Its `SystemProfile` (in
    `retrorecomp/systems/`) carries its identity, status, CPUs, devices, export
    folder, scan settings and capabilities. Code reads the profile instead of
-   testing `if system == ...`. *Target: about 25 registries and branches still
-   hold this today.*
+   testing `if system == ...`. *The profile carries this data (v2) and the
+   lists of consoles, the batch's option filtering and the request identity
+   read it. Registries that still hold a console list of their own (knowledge
+   exchange, artwork, build layout, routes, command line, interface option
+   tabs) are being moved onto it; `tests/test_system_profiles.py` fails when a
+   list disagrees with the profiles.*
 4. **Every file has a declared role.** `retrorecomp/compilation_inputs.py`
    classifies inputs as **host** (the player shell: an export is rebuilt, never
    rediscovered), **build** (toolchain) or **game** (discovery and generated
@@ -75,6 +79,18 @@ cartridge devices, media kinds, export folder, scan settings, quick-state
 family, capabilities (guns, mouse, keyboard, battery, disks) and the hooks the
 pipeline calls (identify, convert, report, freshness). Adding a machine means
 adding a profile and its modules, not editing lists across the pipeline.
+
+In code (`retrorecomp/systems/__init__.py`) the data attributes are `status`,
+`scope_note`, `cpus` (`Cpu`: architecture, role, counter unit),
+`cartridge_devices`, `media_kinds`, `firmware`, `quick_state_family`,
+`capabilities` (`Capabilities`: guns, mouse, keyboard, battery, disks),
+`linux`, `feedback_kinds`, `default_frames`, `quick_frames`,
+`fallback_display`, `title_from_romset`, `converter_publishes` and
+`option_keys` (`OptionKey`: the console-specific converter options and whether
+each one enters the request signature). Defaults sit on the base class; the
+`request_identity` hook adds a console's firmware or machine to the request.
+`ALL_PROFILES` and `system_ids()` list the nine consoles whether or not this
+installation can convert them.
 
 ### Paths (discovery)
 

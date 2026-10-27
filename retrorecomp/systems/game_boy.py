@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import SystemProfile
+from . import Capabilities, Cpu, OptionKey, SystemProfile
 
 
 class GameBoyProfile(SystemProfile):
@@ -12,6 +12,12 @@ class GameBoyProfile(SystemProfile):
     extensions = (".gb",)
     export_folder = "Game Boy"
     video_modes = ("dmg",)
+    cpus = (Cpu("sm83", "main", "cycles"),)
+    quick_state_family = "gb"
+    capabilities = Capabilities(battery=True)
+    feedback_kinds = frozenset({2})
+    option_keys = (OptionKey("gb_deep_validation"), OptionKey("gb_parallel_games", signature=False))
+    parallel_games_option = "gb_parallel_games"
 
     def read_rom(self, path: Path):
         from ..gameboy import read_game_boy_rom

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import SystemProfile
+from . import Cpu, SystemProfile
 
 
 class GameGearProfile(SystemProfile):
@@ -13,6 +13,10 @@ class GameGearProfile(SystemProfile):
     export_folder = "Game Gear"
     # The original handheld uses the 262-line, ~3.58 MHz timing path.
     video_modes = ("ntsc",)
+    cpus = (Cpu("z80", "main", "cycles"),)
+    quick_state_family = "gamestate"
+    feedback_kinds = frozenset({1})
+    converter_publishes = True
 
     def read_rom(self, path: Path):
         from ..core import read_game_gear_rom

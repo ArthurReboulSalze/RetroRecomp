@@ -13,15 +13,16 @@ import struct
 import tempfile
 
 from .paths import ASSETS
+from .systems import ALL_PROFILES, system_ids
 
 LIMIT = 4096
 HEADER = struct.Struct('<8sIII8s64sI')
 RECORD = struct.Struct('<BBHII16sI')
 MAX_BYTES = HEADER.size + LIMIT * RECORD.size
-SYSTEMS = {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1'}
-KINDS = {'sms': {1}, 'gg': {1}, 'gb': {2}, 'nes': {3, 4},
-         'md': {5, 6, 7}, 'snes': {8, 9}, 'ng': {10, 11, 12}, 'x68': {13},
-         'cps1': {14, 15, 16}}
+# Both come from the profiles (feedback_kinds): sms 1, gg 1, gb 2, nes 3-4,
+# md 5-7, snes 8-9, ng 10-12, x68 13, cps1 14-16.
+SYSTEMS = set(system_ids())
+KINDS = {profile.id: set(profile.feedback_kinds) for profile in ALL_PROFILES}
 
 
 @dataclass(frozen=True, order=True)

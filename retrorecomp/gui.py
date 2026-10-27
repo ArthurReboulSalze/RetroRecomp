@@ -29,7 +29,7 @@ from .artwork import ICON_SIZES
 from .cover_settings import FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings
 from .cover_keyring import KeyringError
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
-from .systems import available_profiles, discover_roms, get_profile
+from .systems import available_profiles, discover_roms, find_profile, get_profile
 PROFILES = available_profiles()
 from .updater import UpdateConnectionError, UpdateServiceError
 from .branding import COLORS, apply_theme, make_icon, ICON_PATHS
@@ -1802,7 +1802,7 @@ class Application:
                 text += f" · {self.tr('cover')}: {item.cover.name}"
             if result.get('status') == 'success':
                 comparison = result.get('reference_vdp_trace_match')
-                if item.system in ('md', 'snes', 'ng', 'cps1'):
+                if getattr(find_profile(item.system), 'fallback_display', 'cycles') == 'opcodes':
                     text = self.tr('fallback16', opcodes=result.get('main_interpreted_opcodes', 0),
                         audio_opcodes=result.get('audio_interpreted_opcodes', 0))
                     device = result.get('device')

@@ -6,6 +6,7 @@ No timing rule or cartridge format is shared implicitly between systems.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 
@@ -71,12 +72,93 @@ def archive_rom(path: Path) -> tuple[str, bytes]:
         raise ValueError(f'Cannot read cartridge ZIP: {exc}') from exc
 
 
+@dataclass(frozen=True)
+class Cpu:
+    """One processor of a machine: its architecture, its role and the unit its
+    interpreter-fallback counters use. Units are never added across CPUs."""
+    arch: str
+    role: str  # 'main' or 'sound'
+    unit: str  # 'cycles' or 'instructions'
+
+
+@dataclass(frozen=True)
+class OptionKey:
+    """A converter option only one family of consoles accepts.
+
+    ``signature`` is False for options that tune how a conversion runs (worker
+    counts) and must never change the export's request signature."""
+    name: str
+    signature: bool = True
+
+
+@dataclass(frozen=True)
+class Capabilities:
+    """What a machine offers the player shell beyond a plain pad."""
+    guns: tuple[str, ...] = ()
+    mouse: bool = False
+    keyboard: bool = False
+    battery: bool = False
+    disks: bool = False
+
+
+STATUSES = ('experimental', 'supported')
+
+
 class SystemProfile(ABC):
+    """One console, described by data first (every attribute below has a
+    default) and by a few hooks where the behaviour differs.
+
+    Registries and branches elsewhere in the converter read these attributes
+    instead of listing console ids (docs/STANDARDS.md, rule 3)."""
     id: str
     name: str
     extensions: tuple[str, ...]
     export_folder: str
     video_modes: tuple[str, ...]
+    # 'experimental' or 'supported' (see the checklist in docs/STANDARDS.md).
+    status: str = 'supported'
+    scope_note: str = ''
+    cpus: tuple[Cpu, ...] = ()
+    # Cartridge circuits integrated and counted apart from the CPUs.
+    cartridge_devices: tuple[str, ...] = ()
+    # 'cartridge' (one image), 'romset' (several files in a ZIP), 'disk'.
+    media_kinds: tuple[str, ...] = ('cartridge',)
+    # Firmware the user supplies separately from the game.
+    firmware: tuple[str, ...] = ()
+    # Family of the quick-state ABI: consoles of one family share the format.
+    quick_state_family: str = ''
+    capabilities: Capabilities = Capabilities()
+    # 'witnessed' (converted and played on Linux) or 'pending'.
+    linux: str = 'witnessed'
+    # Runtime-feedback record kinds (feedback.py) this console may write.
+    feedback_kinds: frozenset = frozenset()
+    default_frames: int = 3600
+    quick_frames: int = 1800
+    # How the result summary counts the fallback: 'cycles' or 'opcodes'.
+    fallback_display: str = 'cycles'
+    # The title comes from the romset description, not the file name.
+    title_from_romset: bool = False
+    # The converter publishes the executable itself unless the batch, which
+    # publishes it, says otherwise (``publish_result=False``).
+    converter_publishes: bool = False
+    # Console-specific converter options. The batch lets each one through to
+    # this console's converter only; every other console never sees it.
+    option_keys: tuple[OptionKey, ...] = ()
+    # The option (one of option_keys) that carries the batch's worker count.
+    parallel_games_option: str | None = None
+
+    @property
+    def experimental(self) -> bool:
+        """Read-only compatibility with the former ad-hoc attribute."""
+        return self.status != 'supported'
+
+    @property
+    def option_key_names(self) -> frozenset:
+        return frozenset(key.name for key in self.option_keys)
+
+    def request_identity(self, item, options: dict, settings: dict) -> None:
+        """Add the console's own identity (firmware, machine) to the request
+        settings that are about to be hashed. Most consoles have none."""
 
     @abstractmethod
     def read_rom(self, path: Path):
@@ -107,18 +189,54 @@ from ..x68000 import developer_available  # noqa: E402
 EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = (X68000,) if developer_available() else ()
 
 
+# Every console the converter knows, whether or not this installation can
+# convert it: the registry the lists of console ids elsewhere are read from.
+# The order is the one of the documents and settings (X68000 before CPS-1);
+# PROFILES keeps the order detection tries them in.
+ALL_PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO,
+                                           NEOGEO, X68000, CPS1)
+
+
 def available_profiles():
     return PROFILES + EXPERIMENTAL_PROFILES
+
+
+def find_profile(system_id: str) -> SystemProfile | None:
+    """The profile of one console id, or None for an id nobody registered."""
+    return next((profile for profile in ALL_PROFILES if profile.id == system_id), None)
+
+
+def system_ids() -> tuple[str, ...]:
+    """The ids of every console, in registration order."""
+    return tuple(profile.id for profile in ALL_PROFILES)
 
 
 def get_profile(system_id: str) -> SystemProfile:
     # Metadata, cache and saved-feedback paths remain readable for an existing
     # X68000 export even when this installation cannot compile that prototype.
     # Conversion availability is checked by profile_for_path and convert.
-    for profile in PROFILES + (X68000,):
+    for profile in ALL_PROFILES:
         if profile.id == system_id:
             return profile
     raise ValueError(f"Unsupported console profile: {system_id}")
+
+
+def console_option_keys() -> frozenset:
+    """Every console-specific option name, whichever console accepts it."""
+    return frozenset(name for profile in ALL_PROFILES for name in profile.option_key_names)
+
+
+def unsigned_option_keys() -> frozenset:
+    """Options that never enter a request signature (they only size the work)."""
+    return frozenset(key.name for profile in ALL_PROFILES for key in profile.option_keys
+                     if not key.signature)
+
+
+def drop_foreign_options(system_id: str, settings: dict) -> None:
+    """Remove, in place, the console-specific options another console owns."""
+    own = get_profile(system_id).option_key_names
+    for name in console_option_keys() - own:
+        settings.pop(name, None)
 
 
 def _sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
@@ -132,7 +250,7 @@ def _sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
     return None
 
 
-def profile_for_path(path: Path, selected_system: str | None = None, *, allow_experimental=False) -> SystemProfile:
+def profile_for_path(path: Path, selected_system: str | None = None) -> SystemProfile:
     suffix = path.suffix.casefold()
     data = None
     if suffix in X68000.extensions:

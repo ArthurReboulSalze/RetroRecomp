@@ -61,13 +61,13 @@ class NeoGeoInputsTests(unittest.TestCase):
     def test_multi_file_detection_precedes_single_cartridge_zip(self):
         self.assertTrue(looks_like_neogeo_zip(self.path))
         self.assertIs(profile_for_path(self.path),NEOGEO)
-        self.assertIs(profile_for_path(self.path,allow_experimental=True),NEOGEO)
+        self.assertIs(profile_for_path(self.path),NEOGEO)
         self.assertIs(profile_for_path(self.path,'ng'),NEOGEO)
         self.assertIn(NEOGEO,PROFILES)
 
     def test_regular_console_archives_still_use_original_reader(self):
         self.write_zip({'game.gb':b'\0'*32768})
-        self.assertEqual(profile_for_path(self.path,allow_experimental=True).id,'gb')
+        self.assertEqual(profile_for_path(self.path).id,'gb')
 
     def test_eprom_program_member_is_detected_automatically(self):
         self.write_zip({'cart.ep1':b'authored program','cart.m1':b'sound','cart.c1':b'sprites'})
@@ -141,7 +141,7 @@ class NeoGeoInputsTests(unittest.TestCase):
     def test_neo_is_available_in_automatic_converter_detection(self):
         target=self.neo()
         self.assertIs(profile_for_path(target),NEOGEO)
-        self.assertIs(profile_for_path(target,allow_experimental=True),NEOGEO)
+        self.assertIs(profile_for_path(target),NEOGEO)
 
     def test_bios_needs_all_selected_members_and_correct_revision(self):
         records=[{'name':name,'bytes':size,'crc32':crc,'sha256':'a'*64}
