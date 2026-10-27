@@ -63,7 +63,10 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 #     GENERATOR_SOURCES are pinned by tests/test_cps1_knowledge.py: editing one without raising the revision
 #     fails the test. Raise GENERATOR_REVISION whenever the generator, the guards or the semantics change in a
 #     way a RAM path could notice. A new revision makes every qualified path "waiting" again for it.
-GENERATOR_REVISION = 1
+# 2: cps1_build.state_config also writes the compatibility key of the 1.5.6 quick states (27 October 2026). Nothing a RAM
+# path could notice moved; the revision is raised because the pin covers the whole file, and no CPS-1 path was qualified
+# yet, so no qualification is lost.
+GENERATOR_REVISION = 2
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

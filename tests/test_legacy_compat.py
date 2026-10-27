@@ -223,14 +223,16 @@ class StateCompatibilityTests(unittest.TestCase):
         self.assertIn(f'#define RR16_STATE_COMPAT_ABI_3 "{NEO_GEO_ABI_141}"', text)
         self.assertNotIn(f'RR16_STATE_ABI "{NEO_GEO_ABI_156}"', text)
 
-    def test_cps1_states_of_release_156_are_refused_cleanly(self):
-        # The serialized bytes did not change (proved: same payload, same size, only the 64-byte key of the
-        # header differs), but the key can only be added by editing cps1_build.py, a pinned generator source of
-        # the CPS-1 paths (cps1_knowledge.GENERATOR_REVISION): proposed in docs/GAME_STATES.md, not applied.
+    def test_cps1_states_of_release_156_are_accepted(self):
+        # Same serialized bytes as 1.6.0 (a 1.5.6 Nemo state and the 1.6.0 one differ only in the 64-byte key of
+        # the header); a state written by the real 1.5.6 export resumed identically in an export built with this
+        # key (tools/neogeo_state_cross.py --cps1 --one-way) and was refused (exit 4) by one built without it.
         from retrorecomp import cps1_build
         text = cps1_build.state_config(SimpleNamespace(sha256='c' * 64), 'Test')
-        self.assertNotIn(CPS1_ABI_156, text)
-        self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 1)
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI_24 "{CPS1_ABI_156}"', text)
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{CPS1_ABI_141}"', text)
+        current = re.search(r'#define RR16_STATE_ABI "([0-9a-f]{64})"', text).group(1)
+        self.assertNotIn(current, (CPS1_ABI_141, CPS1_ABI_156))
 
     def test_cps1_states_of_release_141_are_accepted(self):
         from retrorecomp import cps1_build
