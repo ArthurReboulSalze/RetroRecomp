@@ -63,10 +63,13 @@ def route_scripts(report: dict, work: Path) -> dict:
             if route.metadata()['seed'] != entry['seed']:
                 raise SystemExit(f'Route seed of {route.name} differs from the conversion; refusing to compare other inputs.')
             scripts[route.name] = write_route(route, work)
+    current = {item.name: item for item in snes_routes.authored_routes(sha)}
     for entry in scan.get('authored_routes') or []:
-        route = next((item for item in snes_routes.authored_routes(sha)), None)
+        # An exact ROM may have several authored routes; each is matched by its scenario name.
+        route = current.get(entry.get('scenario'))
         if route is None or route.script_sha256() != entry['script_sha256']:
-            raise SystemExit('The authored route of this converter differs from the one in the report.')
+            raise SystemExit(f"The authored route {entry.get('scenario')!r} of this converter differs "
+                             'from the one in the report.')
         scripts[route.name] = write_route(route, work)
     return scripts
 

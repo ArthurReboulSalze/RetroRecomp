@@ -1327,6 +1327,23 @@ same user-provided ROM. Other dynamic patterns stay local. Existing live-memory
 guards still apply, and an unknown case can use the reported interpreter fallback.
 The snapshot never bypasses the native/reference validation gate.
 
+### Maintainer snapshot: Stunt Race FX two-player paths (27 October 2026)
+
+The maintainer snapshot `assets/compilation-knowledge.json.gz` holds the Super FX games' paths
+since the nine cartridges of 26 October (built from their Extended conversions; not a game-side
+fingerprint input, `compilation_inputs._resource_paths` skips it). Stunt Race FX's record was
+refreshed after its authored two-controller route `authored-2p` ([SNES_SUPERFX.md](SNES_SUPERFX.md))
+was learned: one Extended conversion on Windows with an empty private library
+(`RETRO_RECOMP_LIBRARY_DIR`), then `build_compilation_knowledge.build()` for that one ROM with the
+previous snapshot as `--base` (the same tool and the same qualification rule as for the nine
+cartridges; a maintainer campaign is qualified at once). Only this record changed: RAM-variant
+references 4,209 to 5,139 (none lost; the 930 new ones are the code of the two-player mode),
+SPC700 delta lists rewritten (256 lists, 109 of them longer), SNES entries 536,490 to 538,350,
+compressed 29,087,239 to **29,093,134 bytes** (+5,895), raw 120,403,159 to 120,437,012 bytes
+(budget 128 MiB), SHA-256 `07d0e81bb3e14e042a8bcd4112d6fd0027afa8080997cc491ba25440e760e9e2`; every
+other record of every console is identical. Producing the separate base that the installer lays
+beside the converter from this file is not part of this change.
+
 ## Sharing discoveries between converters
 
 The toolbar's **Knowledge** menu exports and imports `.rrknowledge` files.
