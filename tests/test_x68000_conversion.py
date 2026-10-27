@@ -217,6 +217,18 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(conversion.reusable_observations(old, m), old/'converter-observations.json')
         self.assertTrue((old/'converter-qualification.json').is_file())
 
+    def test_unreadable_observations_stop_with_a_conversion_error_and_stay_unchanged(self):
+        from retrorecomp.core import ConversionError
+        path = self.root/'converter-observations.json'
+        path.write_text('{"schema": 99}')
+        class Native:
+            @staticmethod
+            def observations(paths, ipl):
+                raise ValueError('CPU observations are incomplete or unknown.')
+        with self.assertRaisesRegex(ConversionError, 'kept unchanged'):
+            conversion._read_observations(Native, [path], b'')
+        self.assertEqual(path.read_text(), '{"schema": 99}')
+
     def test_a_legacy_summary_that_is_not_an_object_never_stops_the_conversion(self):
         library, converter = self.memory_places()
         source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)

@@ -88,6 +88,16 @@ LEGACY_MEMORY='datas/x68000-development'
 OBSERVATION_FILES=('converter-observations.json','converter-qualification.json')
 
 
+def _read_observations(native, paths, ipl):
+    """The (pc, words) of observation files, or a ConversionError that says why they cannot be read. The files
+    are left as they are: a newer converter's format or the spans of another IPL are refused, never rewritten."""
+    try:
+        return native.observations(paths,ipl)
+    except ValueError as error:
+        raise ConversionError('X68000 observations cannot be read with this IPL or by this converter (a newer '
+                              f'format, or spans of another IPL); they are kept unchanged: {error}') from error
+
+
 def game_entry(source):
     return library_root('x68')/source.game_key
 
@@ -479,7 +489,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 # A library copy that is not usable (cut short) never hides the pre-1.6.0 pair it came from.
                 previous=reusable_observations(legacy_memory,manifest,OBSERVATION_FILES)
             if previous:
-                observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in native.observations([previous],ipl)]
+                observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in _read_observations(native,[previous],ipl)]
         for row in records('x68',source.game_key,13):
             end=row.address+len(row.data)
             if (not row.address&1 and 2<=len(row.data)<=16 and len(row.data)%2==0
@@ -496,7 +506,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         metadata=payload(payload_dir,source,manifest,title,artwork,mouse_game)
         candidate=None;actual=None;generation=None
         for attempt in range(max(1,min(int(passes),10))):
-            generation=native.generate(project,native.observations([observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
+            generation=native.generate(project,_read_observations(native,[observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
             candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
             # Run copied alone, with only its own embedded immutable inputs.
             run_dir=checks/f'native-{attempt+1}';run_dir.mkdir(parents=True,exist_ok=True)

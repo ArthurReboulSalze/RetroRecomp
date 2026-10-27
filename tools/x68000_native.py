@@ -650,7 +650,7 @@ def main():
     if not 1<=args.jobs<=8:parser.error('Use one to eight build jobs.')
     if args.prepare and not (args.disk and args.ipl and args.cgrom):parser.error('--prepare requires --disk, --ipl and --cgrom.')
     work=private_path(args.work);px=ensure_sources(args.source)
-    generation=generate(work,observations(args.observations),px,source_receipts(args.observations))
+    generation=generate(work,observations(args.observations,args.ipl.read_bytes() if args.ipl else None),px,source_receipts(args.observations))
     print(json.dumps(generation),flush=True)
     executable=build(work,px,args.sdl,args.jobs);print(executable,flush=True)
     if args.prepare:print(prepare_native(args.prepare,args.disk,args.ipl,args.cgrom,executable,generation),flush=True)
