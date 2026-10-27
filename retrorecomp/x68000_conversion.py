@@ -16,14 +16,13 @@ from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, run_process, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
-from .library import atomic_json, entry_lock
+from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .x68000 import (developer_available, machine, automatic_disk_changes, mouse_reads, listed_mouse,
                      MOUSE_GAME_READS)
 
 
-def digest(path):
-    with Path(path).open('rb') as f: return hashlib.file_digest(f, 'sha256').hexdigest()
+digest = file_sha256
 
 
 def compact_observations(record):

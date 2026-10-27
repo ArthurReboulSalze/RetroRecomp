@@ -5,7 +5,6 @@ RAM guards do not affect ROM body emission; they are applied to the selected
 umbrella before materialising it at its stable compilation path.
 """
 from contextlib import contextmanager
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,16 +12,14 @@ import re
 import tempfile
 
 from .core import ConversionError, run
-from .library import atomic_json
+from .library import atomic_json, file_sha256
 from .nes_ram import trace_text, write_guards
 
 SCHEMA = 1
 SOURCE_NAME = re.compile(r'game_cyc(?:_[A-Za-z0-9_]+)?\.c\Z')
 
 
-def digest(path: Path) -> str:
-    with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+digest = file_sha256
 
 
 def write_changed(path: Path, data: bytes) -> bool:

@@ -20,7 +20,7 @@ from .gameboy_build import preserve_unchanged_sources, share_native_bodies, comp
 from .gameboy_boundary import adapt_bank_boundaries
 from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_validation_scenarios,
                                probe_scenarios, read_entries, write_entries, entries_text)
-from .library import atomic_json, atomic_text, entry_lock, library_root
+from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
 from .report_schema import write_report
 from .knowledge import record_for
 from .metadata import write_game_metadata
@@ -184,16 +184,11 @@ def _trace_from_record(folder: Path, record: dict, identity: str) -> Path | None
         path = folder / name
         try:
             if (path.stat().st_size <= TRACE_LIMIT and
-                    _trace_digest(path) == record.get('trace_sha256')):
+                    file_sha256(path) == record.get('trace_sha256')):
                 return path
         except OSError:
             pass
     return None
-
-
-def _trace_digest(path: Path) -> str:
-    with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
@@ -217,7 +212,7 @@ def _remember_trace(rom: GameBoyRom, trace: Path) -> None:
         atomic_json(folder / "trace.json", {"rom_sha256": rom.sha256,
             "title": rom.path.stem,
             "engine_revision": ENGINE_REV,
-            "trace_sha256": _trace_digest(target),
+            "trace_sha256": file_sha256(target),
             "entry_count": len(entries), "kind": "headless_observed_entries"})
         try:
             backup.unlink(missing_ok=True)

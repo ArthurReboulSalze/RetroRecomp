@@ -7,15 +7,13 @@ matches, with no new hints, is upgraded without rediscovery.
 """
 import hashlib
 import json
-from pathlib import Path
 from . import __version__
 from .feedback import ingest
+from .library import file_sha256
 from .systems import get_profile, unsigned_option_keys
 
 
-def digest(path):
-    with Path(path).open('rb') as file:
-        return hashlib.file_digest(file, 'sha256').hexdigest()
+digest = file_sha256
 
 
 # Request settings that only shape the player shell or the published file.
