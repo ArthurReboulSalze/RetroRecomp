@@ -258,8 +258,9 @@ release writes that release's key as `RR16_STATE_COMPAT_ABI` (`console16_state.w
 Super Nintendo, `neogeo_build.state_config`, `cps1_build.state_config`; `native/console16_state.c` accepts the keys a
 build defines, next to its own) after checking, with a real state of a real export, that the serialized bytes are the
 same. It drops the keys of older releases. The tree of 1.6.0 listed none: its states resumed in 1.6.0 exports only. The
-tree of 1.6.1 lists the 1.6.0 key of the Mega Drive, the Neo Geo and CPS-1 (Windows), as
-[below](#states-written-by-release-160). A state that is not accepted is refused cleanly by the loader, never loaded
+tree of 1.6.1 listed the 1.6.0 key of the Mega Drive, the Neo Geo and CPS-1 (Windows), as
+[below](#states-written-by-release-160). The tree of 1.6.2 lists the 1.6.1 key of those three and of the Super Nintendo
+(Windows) and drops the 1.6.0 ones, as [below](#states-written-by-release-161). A state that is not accepted is refused cleanly by the loader, never loaded
 wrongly; a player coming from an older release starts the game again from its own saves.
 
 ## States written by release 1.5.6 (history)
@@ -294,6 +295,9 @@ run on Linux.
 
 ## States written by release 1.6.0
 
+*History: since 1.6.2 these keys are no longer listed by any build (see the rule above), so a state written by a 1.6.0
+export loads in 1.6.1 exports and not in 1.6.2 ones.*
+
 1.6.1 changes the quick-state key of three consoles. Mega Drive: `native/md_z80_bus.inc` (the deferred sound-CPU payment,
 see [UPGRADES.md](UPGRADES.md#mega-drive-exports-of-160-in-161)) and `native/md_boundary_checks.c` are listed native files of
 the console, and the key hashes them. Neo Geo and CPS-1: their keys hash the fingerprints of `neogeo_build` and
@@ -317,6 +321,37 @@ the listed native files, the console's module fingerprints and its repository re
 Drive, `fa66982c...` Neo Geo, `a04dc60c...` CPS-1): the computation is the one real exports follow. `Export/` holds no
 generated `retro16_state_config.h` of a 1.6.0 export (the build folders are removed when a game is published), and its
 quick states were written by earlier releases, so no real 1.6.0 key was read back.
+
+## States written by release 1.6.1
+
+1.6.2 changes the quick-state key of all four consoles that list one, for two reasons. Mega Drive and Super Nintendo:
+`native/runtime_catalog.inc`, the eight-language runtime catalogue (five strings of the pad slot policy join it, see
+[UPGRADES.md](UPGRADES.md#exports-of-161-in-162-host-kit-f2-capture-and-autofire-notice)), is a listed native file of
+both consoles and the key hashes it. Neo Geo and CPS-1: their keys hash the fingerprints of `neogeo_build` and
+`cps1_build`, which are edited by this very rollover (the 1.6.0 constants and lines are removed and replaced by the
+1.6.1 ones); the catalogue is not among their hashed files. `cps1_build.py` is a pinned CPS-1 generator source, so
+`cps1_knowledge.GENERATOR_REVISION` goes to 5 and `tests/cps1_generator_pins.json` follows, as for the 1.6.1 line (nothing
+a RAM path could notice moved, same cost as then). The serialized states did not change: the layout versions
+(`PORTABLE_STATE_ABI` 2, `MD_PORTABLE_STATE_ABI` 11) and every state source file are those of the `v1.6.1` tag. The
+tree of 1.6.2 therefore adds the 1.6.1 key of each console as a compatibility key, so the states of the previous
+release keep loading (the rule: the previous release only), and drops the 1.6.0 keys: a state written by a 1.6.0 export
+is refused cleanly. The Super Nintendo gets its first compatibility line, because its key, unchanged since 1.6.0, moves
+now; the key of 1.6.1 is the same as the one of 1.6.0.
+
+| Console | Key written by 1.6.1 (Windows) | Where it is listed |
+| --- | --- | --- |
+| Mega Drive | `fb6d191a2b8c3975e4a69560fb204ad1e79c8726bb55f448e15e2d201550c959` | `console16_state.MD_STATE_ABI_161`, written by `write_config` as `RR16_STATE_COMPAT_ABI` |
+| Super Nintendo | `366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1` (also the 1.6.0 key) | `console16_state.SNES_STATE_ABI_161`, written by `write_config` |
+| Neo Geo | `5c25722def19e560b4cbce7c7424d3c2f3317a2a91f6d3d3f184f16a46fdc474` | `neogeo_build.STATE_ABI_161`, in `state_config` |
+| CPS-1 | `f745f993a28521fa17dbe84332964b677a3ab35f5bbb77b7f7c1fcb95cd902ee` | `cps1_build.LEGACY_STATE_ABI_161`, in `state_config` |
+| Master System, Game Gear, Game Boy, NES | no key of this kind | nothing to list |
+| X68000 | refused (the key carries the compiler's identity by design) | none |
+
+The compatibility lines are written on Windows only (`os.name == 'nt'`): the key of a Linux build also hashes its target,
+and no Linux 1.6.1 key was recorded. **Where the keys come from**: as for 1.6.0, each key was computed from the `v1.6.1`
+tag by calling the console's own `write_config` or `state_config` on a fixed synthetic project (Python 3.14.5);
+`tests/test_legacy_compat.py` pins them. No state of a real 1.6.1 export was resumed in a 1.6.2 export for this
+rollover: it proves which keys are accepted, not a cross-run of the serialized bytes (not run).
 
 **What was checked about the layout.** The serialized bytes are fixed by the state files and by the layout versions, none of
 which moved between the tag and 1.6.1: `PORTABLE_STATE_ABI` is 2 and `MD_PORTABLE_STATE_ABI` is 11 in both trees, and below

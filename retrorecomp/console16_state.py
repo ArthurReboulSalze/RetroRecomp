@@ -95,10 +95,12 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 '''
 
 
-# State key written by release 1.6.0 (Mega Drive, Windows), computed from the v1.6.0 tag by the same code that
-# reproduces the documented 1.5.6 key from its tag (docs/GAME_STATES.md, "States written by release 1.6.0"). 1.6.1
-# changes two native files of the console, which the key hashes; the serialized layout did not change.
-MD_STATE_ABI_160 = '2832912487d66aa2f846a6c48ca7248976adec158ee407b8fcb3a509f514d6c8'
+# State keys written by release 1.6.1 (Mega Drive and Super Nintendo, Windows), computed from the v1.6.1 tag by the same
+# code that reproduces the documented 1.5.6 key from its tag (docs/GAME_STATES.md, "States written by release 1.6.1").
+# 1.6.2 adds strings to the runtime catalogue, a native file both consoles own, which their keys hash; the serialized
+# layout did not change.
+MD_STATE_ABI_161 = 'fb6d191a2b8c3975e4a69560fb204ad1e79c8726bb55f448e15e2d201550c959'
+SNES_STATE_ABI_161 = '366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1'
 
 
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
@@ -128,8 +130,9 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
     # Quick states of the PREVIOUS release only resume in this build: the key that release wrote is added here as
     # `#define RR16_STATE_COMPAT_ABI "<key>"` (native/console16_state.c accepts the keys a build defines, next to
     # RR16_STATE_ABI, and nothing else). The release that follows a release adds that release's key and drops the
-    # older ones (docs/GAME_STATES.md). Mega Drive, Windows only: the key of a Linux build also hashes its target, and
-    # no Linux 1.6.0 key was recorded. The Super Nintendo key did not move between 1.6.0 and 1.6.1 (no line needed).
-    if os.name == 'nt' and system_id == 'md':
-        text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(MD_STATE_ABI_160)}\n'
+    # older ones (docs/GAME_STATES.md). Mega Drive and Super Nintendo, Windows only: the key of a Linux build also hashes
+    # its target, and no Linux 1.6.1 key was recorded.
+    if os.name == 'nt':
+        key = MD_STATE_ABI_161 if system_id == 'md' else SNES_STATE_ABI_161
+        text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(key)}\n'
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')

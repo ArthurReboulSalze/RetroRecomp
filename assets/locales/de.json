@@ -875,6 +875,11 @@
     "Button 3": "Taste 3",
     "Button 4": "Taste 4",
     "Button 5": "Taste 5",
-    "Button 6": "Taste 6"
+    "Button 6": "Taste 6",
+    "Automatic": "Automatisch",
+    "None": "Keiner",
+    "%s (disconnected)": "%s (getrennt)",
+    "No gamepad for player %d": "Kein Controller für Spieler %d",
+    "Enter: change gamepad | Delete: Automatic": "Enter: Controller wechseln | Entf: Automatisch"
   }
 }

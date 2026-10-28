@@ -875,6 +875,11 @@
     "Button 3": "Botón 3",
     "Button 4": "Botón 4",
     "Button 5": "Botón 5",
-    "Button 6": "Botón 6"
+    "Button 6": "Botón 6",
+    "Automatic": "Automático",
+    "None": "Ninguno",
+    "%s (disconnected)": "%s (desconectado)",
+    "No gamepad for player %d": "Ningún mando para el jugador %d",
+    "Enter: change gamepad | Delete: Automatic": "Enter: cambiar mando | Supr: Automático"
   }
 }

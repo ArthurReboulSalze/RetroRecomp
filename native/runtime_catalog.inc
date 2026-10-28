@@ -2,6 +2,7 @@
 static const char *const rr_language_codes[5] = {"en","fr","it","es","de"};
 static const char *const rr_language_names[5] = {"English","Francais","Italiano","Espanol","Deutsch"};
 static const char *const rr_translations[][5] = {
+    {"%s (disconnected)","%s (deconnectee)","%s (scollegato)","%s (desconectado)","%s (getrennt)"},
     {"A/S/D: X/Y/Z; Right Shift: Mode","A/S/D : X/Y/Z; Maj droite : Mode","A/S/D: X/Y/Z; Maiusc destra: Mode","A/S/D: X/Y/Z; Mayus der.: Mode","A/S/D: X/Y/Z; Umschalt rechts: Mode"},
     {"Arrows + W/X/A/S; Q/E shoulders","Fleches + W/X/A/S; Q/E gachettes","Frecce + W/X/A/S; Q/E dorsali","Flechas + W/X/A/S; Q/E gatillos","Pfeile + W/X/A/S; Q/E Schulter"},
     {"Arrows + W/X/C/V: A/B/C/D","Fleches + W/X/C/V : A/B/C/D","Frecce + W/X/C/V: A/B/C/D","Flechas + W/X/C/V: A/B/C/D","Pfeile + W/X/C/V: A/B/C/D"},
@@ -13,6 +14,7 @@ static const char *const rr_translations[][5] = {
     {"Autofire OFF","Tir auto inactif","Fuoco automatico OFF","Disparo automatico NO","Dauerfeuer AUS"},
     {"Autofire ON","Tir auto actif","Fuoco automatico ON","Disparo automatico SI","Dauerfeuer AN"},
     {"Autofire ON - hold buttons 1/2","Tir auto actif - maintenir 1/2","Fuoco auto ON: tieni 1/2","Autodisparo SI: manten 1/2","Dauerfeuer AN: 1/2 halten"},
+    {"Automatic","Automatique","Automatico","Automatico","Automatisch"},
     {"Binding saved","Commande memorisee","Assegnazione salvata","Asignacion guardada","Belegung gespeichert"},
     {"Button 1","Bouton 1","Pulsante 1","Boton 1","Taste 1"},
     {"Button 2","Bouton 2","Pulsante 2","Boton 2","Taste 2"},
@@ -58,6 +60,7 @@ static const char *const rr_translations[][5] = {
     {"Enter/A: bind | D: defaults","Entree/A : changer | D : defauts","Invio/A: assegna | D: predefiniti","Intro/A: asignar | D: restaurar","Eingabe/A: belegen | D: Standard"},
     {"Enter: Start; Shift/Back: Select","Entree : Start; Maj/Back : Select","Invio: Start; Maiusc/Back: Select","Intro: Start; Mayus/Back: Select","Eingabe: Start; Umschalt/Back: Select"},
     {"Enter: Start; Shift/Back: coin","Entree : Start; Maj/Back : credit","Invio: Start; Maiusc/Back: credito","Intro: Start; Mayus/Back: moneda","Eingabe: Start; Umschalt/Back: Muenze"},
+    {"Enter: change gamepad | Delete: Automatic","Entree : changer de manette | Suppr : Automatique","Invio: cambia pad | Canc: Automatico","Enter: cambiar mando | Supr: Automatico","Enter: Controller wechseln | Entf: Automatisch"},
     {"Enter: remap | Esc: close","Entree : attribuer | Esc : fermer","Invio: assegna | Esc: chiudi","Intro: asignar | Esc: cerrar","Eingabe: belegen | Esc: schliessen"},
     {"Enter: remap | Left/Right: page","Entree : attribuer | Gauche/Droite : page","Invio: assegna | Sinistra/Destra: pagina","Enter: asignar | Izq./Der.: pagina","Enter: belegen | Links/Rechts: Seite"},
     {"Enter: resume","Entree : reprendre","Invio: riprendi","Enter: reanudar","Enter: fortsetzen"},
@@ -161,7 +164,9 @@ static const char *const rr_translations[][5] = {
     {"Native code","Code natif","Codice nativo","Codigo nativo","Nativer Code"},
     {"No compatible quick state to load","Aucune sauvegarde compatible","Nessuno stato rapido compatibile","No hay estado rapido compatible","Kein kompatibler Schnellstand"},
     {"No gamepad connected","Aucune manette connectee","Nessun pad collegato","No hay mando conectado","Kein Controller verbunden"},
+    {"No gamepad for player %d","Aucune manette pour le joueur %d","Nessun pad per il giocatore %d","Ningun mando para el jugador %d","Kein Controller fuer Spieler %d"},
     {"No saved game state yet","Aucun etat sauvegarde","Nessuno stato salvato","Aun no hay estado guardado","Noch kein Spielstand vorhanden"},
+    {"None","Aucune","Nessuno","Ninguno","Keiner"},
     {"Num Enter","Num Entree","Invio tast. num.","Intro numerico","Num Eingabe"},
     {"O / Guide: options | Esc: close","O / Guide : options | Echap : fermer","O / Guide: opzioni | Esc: chiudi","O / Guide: opciones | Esc: cerrar","O / Guide: Optionen | Esc: schliessen"},
     {"O: options | F1 / Esc: close","O : options | F1 / Echap : fermer","O: opzioni | F1 / Esc: chiudi","O: opciones | F1 / Esc: cerrar","O: Optionen | F1 / Esc: schliessen"},

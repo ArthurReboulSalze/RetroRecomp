@@ -99,6 +99,7 @@ SIXTEEN_BIT_SETUP='''
 static int players(void) {return @PLAYERS@;}
 static RrhkMachine machine;
 const char *rr_translate(int language,const char *english,const char *french) {(void)language;(void)french;return english;}
+const char *rr_tr(const char *english) {return english;}
 int rr_language_from_wide(const wchar_t *code) {(void)code;return 0;}
 void rr_language_set(int language) {(void)language;}
 #include "platform_io.c"

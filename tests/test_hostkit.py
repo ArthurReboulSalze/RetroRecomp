@@ -95,6 +95,22 @@ class ContentTests(unittest.TestCase):
         for family in ('md', 'snes', 'ng', 'cps1'):
             self.assertNotIn('RRHK_AUDIO_RING', (KIT / f'adapters/rrhk_{family}.c').read_text(encoding='utf-8'))
 
+    def test_the_pad_slot_policy_strings_are_in_the_catalogue_in_every_language(self):
+        """Decision D11: the Gamepad row and the capture notice speak every interface language."""
+        import json
+        keys = ('Gamepad', 'Automatic', 'None', '%s (disconnected)', 'No gamepad for player %d',
+                'Enter: change gamepad | Delete: Automatic')
+        for code in ('fr', 'it', 'es', 'de', 'ja', 'ru', 'zh'):
+            runtime = json.loads((ROOT / f'assets/locales/{code}.json').read_text(encoding='utf-8'))['runtime']
+            for key in keys:
+                self.assertIn(key, runtime, (code, key))
+        catalogue = (ROOT / 'native/runtime_catalog.inc').read_text(encoding='ascii')
+        for key in keys:
+            self.assertIn('{"' + key + '",', catalogue)
+        shell = (KIT / 'shell/rrhk_input.c').read_text(encoding='utf-8')
+        for name in ('"auto"', '"none"', 'L"device"', 'L"name"'):
+            self.assertIn(name, shell)
+
 
 if __name__ == '__main__':
     unittest.main()

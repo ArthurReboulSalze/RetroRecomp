@@ -875,6 +875,11 @@
     "Button 3": "按钮3",
     "Button 4": "按钮4",
     "Button 5": "按钮5",
-    "Button 6": "按钮6"
+    "Button 6": "按钮6",
+    "Automatic": "自动",
+    "None": "无",
+    "%s (disconnected)": "%s (未连接)",
+    "No gamepad for player %d": "玩家%d没有手柄",
+    "Enter: change gamepad | Delete: Automatic": "Enter：更换手柄 | Delete：自动"
   }
 }

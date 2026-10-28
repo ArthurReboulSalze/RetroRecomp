@@ -72,7 +72,10 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # 4: cps1_build.state_config writes the compatibility key of the 1.6.0 quick states (28 October 2026, release 1.6.1:
 # backward compatibility is owed to the previous release only). Same reason, same cost: nothing a RAM path could
 # notice moved.
-GENERATOR_REVISION = 4
+# 5: cps1_build.state_config writes the compatibility key of the 1.6.1 quick states and drops the 1.6.0 one (28 October
+# 2026, 1.6.2 state-key rollover: backward compatibility is owed to the previous release only). Same reason, same cost:
+# nothing a RAM path could notice moved.
+GENERATOR_REVISION = 5
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

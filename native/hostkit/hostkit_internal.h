@@ -55,6 +55,10 @@ void rrhk_settings_path(void);
 void rrhk_store_binding(void);
 void rrhk_open_pads(void);
 void rrhk_close_pads(void);
+/* The Gamepad row of each player's gamepad page (divergence 10): which pad the player uses. */
+void rrhk_pad_next(int player);          /* Enter: Automatic, each connected pad, None */
+void rrhk_pad_automatic(int player);     /* Delete: back to Automatic */
+void rrhk_pad_value(char *out, size_t size, int player);
 
 /* video.c */
 void rrhk_scale2x(const uint32_t *source, uint32_t *target);
@@ -68,6 +72,7 @@ void rrhk_pointer_draw(SDL_Renderer *renderer, const SDL_Rect *dst);
 
 /* menu.c */
 int rrhk_page_rows(void);
+bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
 void rrhk_menu_draw(SDL_Renderer *renderer);

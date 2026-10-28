@@ -189,7 +189,7 @@ libretro-shaped machines provide a core and a short action table only
 
 ## 3. Behaviour: one rule per divergence
 
-Decisions (project owner, 27 October 2026; D9 and D10 on 28 October 2026), each applied as contract behaviour:
+Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour:
 
 * **D1 — Stick dead zone 16000** for all families.
 * **D2 — Windowed scaling: integer scale, centred**, for all; stretch exists
@@ -212,6 +212,21 @@ Decisions (project owner, 27 October 2026; D9 and D10 on 28 October 2026), each 
 * **D10 — One autofire notice** (28 October 2026, Arthur), for every console:
   F6 shows a short pop-up, "Autofire ON" / "Autofire OFF", about 1.8 s like the
   shell's other notices, from the shared eight-language catalogue.
+* **D11 — Pad slot policy: Automatic by default, a Gamepad row per player** (28 October 2026, Arthur), for every
+  console. By default pads go to players in plug order, the first free player. On each player's gamepad page of F2 a
+  "Gamepad" row cycles Automatic, each connected controller (by its SDL name, numbered when two share a name) and
+  None. Choosing a controller pins it to that player and takes it from the player that holds it, who falls back to
+  Automatic among the remaining pads; None leaves that player without a pad (the keyboard still works, so player 1 on
+  None and one pad gives keyboard for player 1 and pad for player 2). The choice is kept in the game's preferences
+  (section 4): `device` is `auto`, `none` or the SDL joystick GUID, `name` the controller's name for display. A pinned
+  controller that is not plugged in is shown as "disconnected", its player has no pad meanwhile (never another pad), and
+  hot-plug gives it back; two identical pads share a GUID and the first unclaimed one matches (the "#n" of the row is
+  the plug order of the moment, not a saved identity: after a restart the first identical pad found goes to the first
+  pinned player); every player keeps the pad it holds before a pinned player looks for a missing one, so unplugging one
+  of two identical pinned pads never moves the other; an Automatic player never takes a pad pinned to another player. Setting a player back to Automatic deals the automatic players' pads again in
+  plug order, as at the next start. The F2 binding of a player who has no pad shows "No gamepad for player N" instead
+  of waiting silently (Esc still leaves). Keyboard and pad keep working together, and the stick, autofire and pointer
+  rules are unchanged. This policy replaces the SMS/GG first-player toggle and pad swap when SMS/GG migrates.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
@@ -229,7 +244,7 @@ section 8.
 | 7 | Vsync: X68000 always requests it; others not on Windows, hint on POSIX | Within the single SMS/GG hint set (see row 4 sources): not requested on Windows, actual renderer state printed; POSIX hint kept; the X68000 always-on exception disappears; re-measured before adoption | `host-divergences.md:83-93`; `hosts.md:133,307-308` |
 | 8 | Window position/size remembered only by SMS/GG, session-scope, not ini-persisted | Remembered for every family on Windows (D3), adopting the SMS/GG mechanism (restore at startup and when returning from fullscreen, save at shutdown). Persisting across runs is not claimed (open question 7) | `host-divergences.md:95-107`; `hosts.md:134,309` |
 | 9 | Windowed scaling: integer+centred (SMS/GG) vs stretch/fit (NES, 16-bit, X68000); GB integer path patched upstream | Integer scale, centred, for all in windowed mode (D2); stretch only in a declared fullscreen mode | `host-divergences.md:109-120`; `hosts.md:135` |
-| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | Kit owns hotplug and slot assignment (`hosts.md:312`); the SMS swap and first-player preference stay declared machine capabilities (`hosts.md:175-178`). The base policy for the others is **pending** (open question 3) | `host-divergences.md:122-132` |
+| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | **Decided on 28 October 2026 (Arthur, D11)**: Automatic (first free player, plug order) stays the default, and each player's gamepad page of F2 gets a "Gamepad" row (Automatic, each connected controller, None) that pins a controller to that player or leaves the player without one; kept per player as `device` and `name` in the gamepad section of the preferences. The kit owns hot-plug and slot assignment (`hosts.md:312`); the SMS/GG first-player toggle and pad swap are replaced by this row when SMS/GG migrates (they are no longer declared machine capabilities). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES); SMS/GG, Game Boy and X68000 follow when they migrate | `host-divergences.md:122-132` |
 | 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit; SMS/GG, Game Boy and X68000 follow when they migrate (the "Rapid fire" and the GB status line retire with them) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
 | 12 | F8/F9: deferred to a safe CPU/state boundary (SMS/GG, 16-bit) vs executed from the event path (GB, NES, X68000 next frame) | Always deferred to a safe frame/CPU boundary (D6): the kit requests the operation and services it after `state_ready()` / the machine's safe boundary; GB, NES and X68000 stop executing it from the event path | `host-divergences.md:146-156`; `hosts.md:138,273-274` |
 | 13 | Gun pages: `[LightPhaser]` 1..5 default 1; `[NES.Zapper]` 1..8 default 3; `[<Console>.Gun]` 1..12 default 3 + SNES turbo | One gun/pointer page, one mapping and one reticle in the kit, with per-machine size ranges and rows; ranges stay as today; sections rename to `[<Console>.Pointer]` through the mapping | `host-divergences.md:158-168`; `hosts.md:139,172-174,331`; `ini-migration.md:208-212,302-306` |
@@ -274,6 +289,8 @@ filter=0                   ; 0 off, 1 light, 2 soft
 
 [<Console>.Gamepad.PlayerN]
 <Action>=<button>          ; numeric SDL_GameControllerButton, -1 unassigned
+device=auto                ; D11, which controller the player uses: auto | none | the SDL joystick GUID (32 hex digits)
+name=                      ; the pinned controller's name, for display only (empty unless device is a GUID)
 
 [<Console>.Video]
 filter=0                   ; 0..3
@@ -342,9 +359,11 @@ These stay behind capabilities in the adapter (`hosts.md:156-199`):
   to picture coordinates, reticle, the F2 gun page — is kit; the sensor/IRQ
   emulation is the machine's (`hosts.md:168-174`).
 * **Pads and buttons**: SMS/GG pause as a host-side Enter/P action and the Game
-  Gear Start row; two-pad swap; Mega Drive six-button pad with Mode; SNES
+  Gear Start row; Mega Drive six-button pad with Mode; SNES
   shoulders; Neo Geo A-D, coin and AES/MVS; CPS-1 six buttons, per-player coin,
-  players 3 and 4 (`hosts.md:175-178`).
+  players 3 and 4 (`hosts.md:175-178`). The SMS/GG two-pad swap and
+  first-player toggle are not kept: the Gamepad row (D11) replaces them when
+  SMS/GG migrates.
 * **Pages and options with no other owner**: CPS-1 DIP switch page, Neo Geo F5
   enhanced mode and F11 AES/MVS restart, NES and SMS/GG sprite flicker
   reduction, Game Boy palette, Neo Geo boot cover (`hosts.md:179-183`).
@@ -511,7 +530,7 @@ Divergences, for this family:
 | 4 audio open flags and period | **pending** with the unified output: the NES keeps its flags (format change allowed with retry) and its 256-sample request |
 | 5 callback ring | decided (D5); the NES already had it, and the kit now owns it (`rrhk_ring.c`); the 16-bit queue model is not moved in this phase |
 | 6, 7, 8, 9 Windows set, vsync, window rectangle, integer scaling | decided (D2, D3) but they need the SMS/GG mechanism: landing with phase 4, not applied. The NES keeps its fit/integer rule, except that Pixel mode in a window smaller than 256 x 240 now fits the picture instead of cropping it (the kit's rectangle function) |
-| 10 pad slots | **pending**: the NES keeps the first-free-slot policy (same as the kit's base) |
+| 10 pad slots | decided 28 October 2026 (D11), applied after phase 2: Automatic (first free slot, as in phase 2) stays the default; the F2 gamepad pages gain the Gamepad row and the `device` / `name` keys. The Zapper keeps reading the second pad (`pointer_keeps_player2`) |
 | 11 autofire notice | decided 28 October 2026 (D10), applied after phase 2: F6 is no longer handled by the adapter's `key_event`, so the shell's own F6 runs on the NES (same toggle, same memory reset, same `[Manettes] autofire` write) and shows the shared notice "Autofire ON" / "Autofire OFF" (the NES was silent in phase 2) |
 | 12 F8/F9 deferred | decided (D6), applied: the kit services them at the top of the loop, after the events, instead of from the event path; the NES boundary is the frame boundary, so no observable change in the battery |
 | 13 gun page, mapping, reticle | decided, applied: the NES uses the kit's pointer page, mapping and reticle. Visible changes on Zapper games only: the F2 page has no `>` marker (the highlight stays), the reticle is the kit's (thin cross, 2 pixels; dot sized in picture pixels), the system cursor shows over the window outside the picture, the mouse must have input focus, a setting change writes only its own key |
@@ -573,8 +592,10 @@ state or a failed save, audio open failures, a NES game with PAL timing or an ex
 2. ~~**F2 capture rule** for all families~~ **Settled on 28 October 2026
    (Arthur): the selected player's pad only**, for every console (D9). On the
    kit it is applied; SMS/GG, Game Boy and X68000 take it when they migrate.
-3. **Base pad-slot policy** (first free vs slot memory); the SMS swap and
-   first-player preference stay machine capabilities (`hosts.md:175-178`).
+3. ~~**Base pad-slot policy** (first free vs slot memory)~~ **Settled on 28
+   October 2026 (Arthur)**: Automatic by default plus a Gamepad row per player
+   (D11); the SMS swap and first-player preference are replaced by it when
+   SMS/GG migrates (`hosts.md:175-178`).
 4. **Autofire notice wording and diagnostic tag**: the wording is **settled on
    28 October 2026 (Arthur)**: one short shared pop-up on every console,
    "Autofire ON" / "Autofire OFF" from the catalogue (D10), applied on the kit
