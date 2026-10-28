@@ -1,5 +1,7 @@
 """UPX packing of validated games: Windows unchanged, Linux x86-64 packed and tested."""
+import contextlib
 import hashlib
+import io
 import os
 from pathlib import Path
 import platform
@@ -51,6 +53,7 @@ class LinuxPackingTests(unittest.TestCase):
         machine = patch('retrorecomp.packing.platform.machine', return_value='x86_64')
         machine.start()
         self.addCleanup(machine.stop)
+        self.addCleanup(packing._UNPACKED_REASONS.clear)
 
     def run_packer(self, returncode=0, executable=True):
         calls = []
@@ -83,9 +86,87 @@ class LinuxPackingTests(unittest.TestCase):
         self.assertEqual(seen[0].parent.parent, self.root)    # beside the game, never in /tmp
         self.assertFalse(seen[0].parent.exists())             # removed afterwards
 
-    def test_upx_failure_stops_publication(self):
-        with self.assertRaisesRegex(RuntimeError, 'UPX could not compact or verify Game: .*CantPackException'):
-            self.run_packer(returncode=2)
+    def scripted(self, outcomes):
+        """Run compact_linux with a fake UPX: `outcomes` maps a command ('pack' or 'test') to a
+        (returncode, message) pair. Packing really rewrites the file, as UPX does."""
+        calls = []
+        def run(command, **options):
+            args = command[1:]
+            kind = 'test' if '-t' in args else 'pack'
+            calls.append(args[:-2])
+            code, message = outcomes.get(kind, (0, ''))
+            if kind == 'pack':
+                Path(args[-1]).write_bytes(b'UPX! packed by upx')
+            return SimpleNamespace(returncode=code, stdout='', stderr=message)
+        with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
+                patch('retrorecomp.packing.os.access', return_value=True), \
+                contextlib.redirect_stderr(io.StringIO()) as printed:
+            outcome = packing.compact_linux(self.game)
+        self.printed = printed.getvalue()
+        return outcome, calls
+
+    def test_a_game_packed_and_tested_reports_nothing_and_leaves_no_copy(self):
+        outcome, calls = self.scripted({})
+        self.assertIsNone(outcome)
+        self.assertEqual(calls, [('-9',), ('-t',)])
+        self.assertEqual(self.game.read_bytes(), b'UPX! packed by upx')
+        self.assertEqual(list(self.root.iterdir()), [self.game])
+
+    def test_a_packing_rejected_by_the_upx_test_is_replaced_by_the_game_as_built(self):
+        # UPX 5.2.1 rejects valid NRV packings of some large ELFs (upx/upx issue 18937).
+        original = self.game.read_bytes()
+        message = f'upx-amd64_linux: {self.game}: Exception: compressed data violation'
+        outcome, calls = self.scripted({'test': (1, message)})
+        self.assertEqual(calls, [('-9',), ('-t',)])
+        self.assertIn('could not pack and verify Game (Exception: compressed data violation; upx/upx issue 18937)',
+                      outcome['notice'])
+        self.assertIn('published unpacked', outcome['notice'])
+        self.assertEqual(self.game.read_bytes(), original)
+        self.assertEqual(list(self.root.iterdir()), [self.game])
+
+    def test_a_packer_that_cannot_pack_leaves_the_game_unpacked_too(self):
+        original = self.game.read_bytes()
+        outcome, calls = self.scripted({'pack': (2, 'upx: Game: CantPackException: test')})
+        self.assertEqual(calls, [('-9',)])
+        self.assertIn('CantPackException', outcome['notice'])
+        self.assertNotIn('18937', outcome['notice'])
+        self.assertEqual(self.game.read_bytes(), original)
+
+    def test_a_timeout_is_a_game_left_unpacked_not_a_failed_conversion(self):
+        original = self.game.read_bytes()
+        with patch('retrorecomp.packing.subprocess.run',
+                   side_effect=subprocess.TimeoutExpired('upx', packing.LINUX_TIMEOUT)), \
+                patch('retrorecomp.packing.os.access', return_value=True), \
+                contextlib.redirect_stderr(io.StringIO()):
+            outcome = packing.compact_linux(self.game)
+        self.assertIn('timed out', outcome['notice'])
+        self.assertEqual(self.game.read_bytes(), original)
+
+    def test_a_packer_that_cannot_start_is_still_an_error(self):
+        with patch('retrorecomp.packing.subprocess.run', side_effect=OSError('exec format error')), \
+                patch('retrorecomp.packing.os.access', return_value=True):
+            with self.assertRaisesRegex(RuntimeError, 'UPX could not compact or verify Game: exec format'):
+                packing.compact_linux(self.game)
+        self.assertEqual(list(self.root.iterdir()), [self.game])
+
+    def test_the_notice_is_printed_and_the_report_says_why_a_game_was_published_unpacked(self):
+        identity = packing.file_identity(self.game)
+        # Packed and tested: the record says nothing more than before.
+        self.scripted({})
+        self.assertEqual(self.printed, '')
+        packed = packing.packing_record(identity, self.game)
+        self.assertNotIn('unpacked_reason', packed)
+        self.assertEqual(packed['level'], '-9')
+        # Published as built: the same unpacked bytes, with the reason.
+        self.game.write_bytes(ELF_X86_64 + bytes(64) + b'native game')
+        outcome, _ = self.scripted({'test': (1, 'upx: Game: Exception: compressed data violation')})
+        self.assertIn(outcome['notice'], self.printed)
+        record = packing.packing_record(identity, self.game)
+        self.assertEqual((record['packed'], record['unpacked_reason']), (False, outcome['notice']))
+        self.assertEqual(record['published']['sha256'], identity['sha256'])
+        # Another executable has no reason.
+        other = packing.packing_record({'bytes': 1, 'sha256': '0' * 64}, self.game)
+        self.assertNotIn('unpacked_reason', other)
 
     def test_a_modified_packer_is_refused(self):
         with patch.object(packing, 'UPX_LINUX_SHA256', '0' * 64), \

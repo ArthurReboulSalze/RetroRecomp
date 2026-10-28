@@ -215,6 +215,25 @@ test archive); a packed test program re-running `/proc/self/exe` works. CPU
 fidelity, hardware fidelity, gameplay and physical latency are not measured by
 these checks.
 
+**A game UPX cannot test is published unpacked (1.6.0).** UPX 5.2.0 and 5.2.1 can reject,
+with `compressed data violation`, their own default packing of a large ELF at `upx -t` and
+`upx -d` although the data are valid and the packed program runs
+([upx/upx issue 18937](https://github.com/upx/upx/issues/18937): the test unpacks each block
+in place with too little slack; fixed on the development branch after 5.2.1). It showed on the
+Neo Geo Metal Slug 3 game (78,476,040 bytes, a 59 MB read-only segment) on Debian 13 with
+1.5.6 as with 1.6.0, where the conversion stopped at the packing step; Metal Slug (42.7 MB) and
+Gururin (11.5 MB) pack and pass. With a UPX built from the development branch, `upx -t` passes
+on the file packed by 5.2.1 and `upx -d` returns the exact original, so the file is valid and
+the 5.2.1 test is the false negative. `-1`, `--best`, `--nrv2b`/`--nrv2d`/`--nrv2e`, `--no-filter` and a
+stripped file fail the same way. `--lzma` passes the test and gives 40.1 MB instead of 45.1 MB,
+but a start takes 2.7 s instead of 0.17 s on a Core i7-6600U (the unpacked file starts in
+0.01 s) and the Neo Geo F11 machine switch starts the file again, so it is not used. On Linux,
+when UPX cannot pack and test a game, the validated original is put back and published as
+built: a larger file, the same program, with the reason printed on stderr (command line) and in
+the report (`packing.packed` false, `packing.unpacked_reason`). Windows still stops the conversion when UPX
+fails. Games that pack and pass are byte for byte what they were: a Master System and a Game
+Gear game converted by the commit before and by this change are identical files.
+
 The X68000 rows were measured afterwards on the same machine and day: the
 uncompressed export by the commit that still left X68000 games as built, the
 compressed one by the commit that packs them. `upx -d` of each compressed game

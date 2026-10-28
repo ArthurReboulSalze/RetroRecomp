@@ -47,6 +47,17 @@ instructions) and rebuilt them byte for byte (the NES export differs by its proj
 key only, since the tree's folder differed). Sizes and the other checks are in
 [BUILDING.md](BUILDING.md#linux-game-compression).
 
+A Linux game that UPX cannot pack and test is published unpacked (1.6.0, see
+[BUILDING.md](BUILDING.md#linux-game-compression)). The change is in `packing.py` only, so it
+moves the build stamp of every console and no game or host stamp
+(`PackingBuildRoleTests`): `LEGACY_GAME_STAMPS` is untouched. The callers were left alone for
+that reason. For Neo Geo and CPS-1 the executable replayed against the reference is then the
+unpacked one, and the conversion report's `packing` record (`packed` false, `unpacked_reason`)
+is what says so; the build's `native-validation.json` still reads `validated_candidate:
+packed` for Neo Geo, and the message reaches the command-line output but not the interface
+log. Routing both needs a change in game-side modules, which moves every game stamp: done
+with a release that changes them anyway.
+
 The X68000 was packed on Linux afterwards, a change of `packing.py` only (another console
 packed). Same machine and day, quick scan level, the same user IPL and font ROM: the
 uncompressed exports of Active Shoot (Satou Kouji) (disk SHA-256
