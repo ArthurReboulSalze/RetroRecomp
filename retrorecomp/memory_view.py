@@ -14,7 +14,7 @@ from .dialogs import center_dialog
 from .library import library_root, atomic_json
 from .paths import APP_NAME, data_directory
 from .platforms import open_local
-from .systems import available_profiles, get_profile
+from .systems import ALL_PROFILES, available_profiles, get_profile
 PROFILES = available_profiles()
 
 
@@ -22,20 +22,22 @@ def summaries(system, cache=None, titles=None):
     """Read changed metadata only. GB traces are stat'ed, never rehashed here."""
     root = library_root(system)
     titles, cache, result, updated = titles or {}, cache or {}, [], {}
-    patterns = {'sms': '*/compilation.json', 'gg': '*/compilation.json', 'gb': '*/trace.json',
-                'nes': '*/*/cycle-seeds.trace', 'md': '*/native-entries.json',
-                'snes': '*/native-ram.json', 'ng': '*/compilation.json', 'x68': '*/compilation.json'}
+    # What each machine's record is and where its key sits come from its profile's library layout. A machine
+    # without a reader (CPS-1) has no pattern: asking for it is a KeyError, as before.
+    patterns = {profile.id: profile.library_layout.summary_glob for profile in ALL_PROFILES
+                if profile.library_layout and profile.library_layout.summary_glob}
+    layout = get_profile(system).library_layout
     seen = set()
     for path in root.glob(patterns[system]):
-        identity = path.parent.parent.name if system == 'nes' else path.parent.name.rsplit('-', 1)[-1]
+        identity = (path.parent.parent.name if layout.identity == 'grandfolder'
+                    else path.parent.name.rsplit('-', 1)[-1])
         if not re.fullmatch('[0-9a-f]{64}', identity) or identity in seen:
             continue
         seen.add(identity)
         try:
             stat = path.stat()
             stamp = [stat.st_mtime_ns, stat.st_size]
-            extra = path.parent / ('entries.trace' if system == 'gb' else 'observations.log')
-            if system in ('gb', 'sms', 'gg') and extra.is_file():
+            if layout.companion and (extra := path.parent / layout.companion).is_file():
                 details = extra.stat()
                 stamp += [details.st_mtime_ns, details.st_size]
             old = cache.get(str(path), {})

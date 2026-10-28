@@ -8,11 +8,86 @@ from retrorecomp.platforms import restore_system_library_path
 restore_system_library_path()
 from retrorecomp.core import ConversionError, convert, dependencies, read_rom
 from retrorecomp.library import GameMemory, list_games, library_root
-from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences
+from retrorecomp.paths import ROOT, save_game_language, games_root, load_preferences, console_options
 from retrorecomp.i18n import log_text
 from retrorecomp.batch import identify, convert_batch, system_output
 from retrorecomp.systems import MASTER_SYSTEM, available_profiles, discover_roms, profile_for_path
 PROFILES = available_profiles()
+
+# What `--help` says of the options the machines declare (OptionKey in systems/<machine>.py). The command line
+# builds one flag per option from the profiles; these texts keep the words of the existing flags, and a
+# machine added later gets a generic line until it has its own here.
+_PATH_HELP = {
+    'ng_bios': 'User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.',
+    'x68_ipl': 'X68000: your own IPL ROM.',
+    'x68_cgrom': 'X68000: your own font ROM (CGROM).',
+    'x68_ram': 'X68000 RAM in MiB.',
+}
+_FLAG_HELP = {
+    'convert': {
+        'gb_deep_validation': 'Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a '
+                              'faster check). Native discovery is unchanged.',
+        'md_advanced_scan': 'Mega Drive / Super Nintendo: add a 24,000-frame attract test, reproducible pseudo-random play '
+                            'routes and, on Mega Drive, the authored replays, with reference checks on each learning pass (default: off).',
+        'nes_advanced_scan': 'Add NES menu/dialogue/varied-input replays with complete reference CPU/image/audio checks (default: off).',
+    },
+    'batch': {
+        'gb_deep_validation': 'Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a '
+                              'faster check). Ignored for other consoles.',
+        'md_advanced_scan': 'Extra Mega Drive / Super Nintendo coverage scan (default: off); ignored for other consoles.',
+        'nes_advanced_scan': 'Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.',
+    },
+}
+
+
+def _option_flag(key) -> str:
+    return '--' + key.name.replace('_', '-')
+
+
+def add_machine_options(command, *, developer: bool | None = None) -> None:
+    """The firmware paths and choices every machine declares, as `--<id>-<firmware>` flags.
+
+    ``developer`` keeps the options of the machines every installation carries (False) or of the developer-only
+    ones (True); None adds all of them, in registration order."""
+    for profile, key in console_options('path', 'choice'):
+        if developer is not None and profile.developer_only != developer:
+            continue
+        help_text = _PATH_HELP.get(key.name, f'{profile.name}: {key.label or key.name}.')
+        if key.kind == 'path':
+            command.add_argument(_option_flag(key), type=Path, help=help_text)
+        else:
+            command.add_argument(_option_flag(key), type=type(key.choices[0]), choices=key.choices, default=None,
+                                 help=help_text)
+
+
+def machine_switches() -> list:
+    """The on/off options of the machines, by name (`--gb-deep-validation` / `--no-gb-deep-validation`)."""
+    return sorted(console_options('flag'), key=lambda pair: pair[1].name)
+
+
+def add_machine_switches(command, name: str) -> None:
+    for profile, key in machine_switches():
+        generic = f'{profile.name}: {key.name.replace("_", " ")} (default: {"on" if key.default else "off"}).'
+        command.add_argument(_option_flag(key), action=argparse.BooleanOptionalAction, default=bool(key.default),
+                             help=_FLAG_HELP[name].get(key.name, generic))
+
+
+def switch_keywords(args) -> dict:
+    """The machines' on/off options as `convert_batch` keywords."""
+    return {key.name: getattr(args, key.name) for _, key in machine_switches()}
+
+
+def machine_keywords(args) -> dict:
+    """The firmware paths and choices as `convert_batch` keywords: the flag, else the value saved in Options."""
+    saved = load_preferences()
+    values = {}
+    for _, key in console_options('path', 'choice'):
+        given = getattr(args, key.name)
+        if key.kind == 'path':
+            values[key.name] = given.expanduser().resolve() if given else saved.get(key.name)
+        else:
+            values[key.name] = given or saved.get(key.name, key.default)
+    return values
 
 
 def main() -> int:
@@ -114,19 +189,13 @@ def main() -> int:
     build.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto",
         help="Automatic console detection or an explicit choice for ambiguous .bin/.rom dumps.")
     build.add_argument("--profile", type=Path)
-    build.add_argument('--ng-bios',type=Path,help='User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.')
+    add_machine_options(build, developer=False)
     build.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",
         help="Console timing; Game Gear uses NTSC, Game Boy uses DMG.")
     build.add_argument("--passes", type=int, default=3,
         help="Build/test/learn pass limit (1–10, default 3).")
     build.add_argument("--frames", type=int, default=1200)
-    build.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
-        help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Native discovery is unchanged.")
-    build.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Mega Drive / Super Nintendo: add a 24,000-frame attract test, reproducible pseudo-random play '
-             'routes and, on Mega Drive, the authored replays, with reference checks on each learning pass (default: off).')
-    build.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Add NES menu/dialogue/varied-input replays with complete reference CPU/image/audio checks (default: off).')
+    add_machine_switches(build, 'convert')
     build.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
         help='Discovery scan level for every console (default: the per-console level saved in Options, '
              'else standard; --md-advanced-scan means thorough and --nes-advanced-scan extended).')
@@ -139,17 +208,14 @@ def main() -> int:
     build.add_argument("--no-online-cover", action="store_true", help="Use local box art only, without network access.")
     build.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
     build.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
+    add_machine_options(build, developer=True)
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
     batch.add_argument("roms", type=Path, nargs="*")
     batch.add_argument("--language", choices=("en", "fr", "it", "es", "de", "zh", "ja", "ru"), default="en", help="Converter and game language (default: English).")
     batch.add_argument("--rom-dir", type=Path, action="append", default=[],
         help="Add a mixed ROM folder recursively; repeat this option for more folders.")
     batch.add_argument("--system", choices=('auto',*(p.id for p in PROFILES)), default="auto")
-    batch.add_argument('--ng-bios',type=Path,help='User-supplied Neo Geo BIOS ZIP; otherwise use the path saved in Options.')
-    for command in (build,batch):
-        command.add_argument('--x68-ipl',type=Path,help='X68000: your own IPL ROM.')
-        command.add_argument('--x68-cgrom',type=Path,help='X68000: your own font ROM (CGROM).')
-        command.add_argument('--x68-ram',type=int,choices=(2,4),default=None,help='X68000 RAM in MiB.')
+    add_machine_options(batch)
     batch.add_argument("--output", type=Path, default=games_root(),
         help="Games root (default: Games beside the converter). Console folders are added automatically.")
     batch.add_argument("--backend", choices=("functions", "banked"), default="banked")
@@ -160,12 +226,7 @@ def main() -> int:
     batch.add_argument("--no-overwrite", action="store_true",
         help="Skip an already generated game instead of regenerating it.")
     batch.add_argument('--force', action='store_true', help='Regenerate even if an export is up to date (still respects --no-overwrite).')
-    batch.add_argument("--gb-deep-validation", action=argparse.BooleanOptionalAction, default=True,
-        help="Extra Game Boy CPU checks during play (default: on; use --no-gb-deep-validation for a faster check). Ignored for other consoles.")
-    batch.add_argument('--md-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Extra Mega Drive / Super Nintendo coverage scan (default: off); ignored for other consoles.')
-    batch.add_argument('--nes-advanced-scan', action=argparse.BooleanOptionalAction, default=False,
-        help='Extra NES menu/dialogue/varied-input coverage and reference checks (default: off); ignored for other consoles.')
+    add_machine_switches(batch, 'batch')
     batch.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
         help='Discovery scan level for every console in the batch (default: the per-console levels saved in Options).')
     batch.add_argument("--video-standard", choices=("auto", *MASTER_SYSTEM.video_modes, "dmg", "mvs"), default="auto",
@@ -311,7 +372,9 @@ def main() -> int:
                 if not paths:
                     parser.error("Add ROMs or a folder with --rom-dir.")
                 items = [identify(p, None if args.system == 'auto' else args.system) for p in paths]
-                ng_bios = args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios')
+                machine = machine_keywords(args)
+                # The only firmware the shared base's keys depend on: the Neo Geo BIOS (shared_batch.rom_keys).
+                ng_bios = machine.get('ng_bios')
                 # The shared base, as the window applies it: its qualified paths let a known game take the
                 # quick check; with the option on it is first brought up to date (at most once a day).
                 from retrorecomp import shared_batch, online
@@ -339,14 +402,9 @@ def main() -> int:
                         passes=args.passes, frames=args.frames,
                         backend=args.backend, language=args.language,
                         boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
-                        icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
-                        md_advanced_scan=args.md_advanced_scan,
-                        nes_advanced_scan=args.nes_advanced_scan,
+                        icon_tags=not args.no_icon_tags, **switch_keywords(args),
                         scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
-                        ng_bios=ng_bios,
-                        x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
-                        x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
-                        x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
+                        **machine,
                         standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 finally:
                     shared_batch.stop_source()
@@ -370,14 +428,9 @@ def main() -> int:
                     passes=args.passes, frames=args.frames, backend=args.backend, language=args.language,
                     boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover,
                     use_cover=not args.no_cover, icon_tags=not args.no_icon_tags,
-                    gb_deep_validation=args.gb_deep_validation,
-                    md_advanced_scan=args.md_advanced_scan,
-                    nes_advanced_scan=args.nes_advanced_scan,
+                    **switch_keywords(args),
                     scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
-                    ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
-                    x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
-                    x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
-                    x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
+                    **machine_keywords(args),
                     standard_override=None if args.video_standard == 'auto' else args.video_standard)
                 result = record['games'][0]
                 if result['status'] not in ('success', 'current'):
