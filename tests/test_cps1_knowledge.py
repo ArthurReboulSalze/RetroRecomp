@@ -752,16 +752,13 @@ class ExchangeTests(unittest.TestCase):
 
 
 class BaseTests(shared_base.BaseHarness):
-    """Line 3 of the base carries CPS-1; the converter qualifies what its engine qualified and keeps the rest to check."""
+    """The base carries CPS-1 (format 3 holds it); the converter qualifies what its engine qualified and keeps the rest to check."""
 
     def setUp(self):
         super().setUp()
         Library().start(self)
         self.addCleanup(knowledge._side_games.cache_clear)
         self.engines['cps1'] = cps1_knowledge.engine()
-        self.server.RequestHandlerClass = paths_exchange.Base3Service
-        self.server.base3 = {'manifest': None, 'files': {}, 'versions': {}, 'entries': {}}
-        self.server.knowledge_versions = None
 
     def entry(self, *, qualified=(), parts=()):
         value = {'format': 3, 'system': 'cps1', 'identity': IDENTITY,
@@ -770,9 +767,7 @@ class BaseTests(shared_base.BaseHarness):
         return hashlib.sha256(kx.canonical_bytes(value)).hexdigest(), value
 
     def publish3(self, version, sha, sources, value):
-        games = {KEY: (sha, sources)}
-        harness = paths_exchange.LineHarness
-        harness.publish_lines(self, version, {}, [], games, [(sha, value)])
+        self.publish(version, {KEY: (sha, sources)}, entries=[(sha, value)])
 
     def test_qualified_for_this_engine_goes_to_the_qualified_side_bank_the_rest_is_to_check(self):
         mine = a_record()
@@ -820,7 +815,6 @@ class BaseTests(shared_base.BaseHarness):
         online.prepare_batch([KEY])
         self.assertEqual(knowledge.imported_game('cps1', IDENTITY), a_record())
         self.server.base['manifest']['revoked'] = [47]
-        self.server.base3['manifest']['revoked'] = [47]
         online.prepare_batch([KEY], now=self.later())
         self.assertEqual(knowledge.imported_game('cps1', IDENTITY), {})
 
@@ -833,16 +827,6 @@ class BaseTests(shared_base.BaseHarness):
         self.publish3(5, sha, [47], value)
         online.prepare_batch([KEY])
         self.assertEqual((knowledge.qualified_game('cps1', IDENTITY), knowledge.imported_game('cps1', IDENTITY)), ({}, {}))
-
-    def test_line_2_never_lists_cps1(self):
-        mine = a_record()
-        sha, value = self.entry(qualified=[{'cores': kx.record_engine('cps1', mine), 'level': 'standard',
-                                            'by': 'players', 'record': mine}])
-        entries3 = {sha: kx.canonical_bytes(value).decode('ascii')}
-        projected, index = kx.project_base(entries3, {KEY: {'entry': sha, 'sources': []}}, 2)
-        self.assertEqual((projected, index), ({}, {}))
-        down = kx.entry_to_v2(value)
-        self.assertEqual(down['qualified'], [], 'no schema 1 form')
 
 
 class StampTests(unittest.TestCase):

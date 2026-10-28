@@ -41,14 +41,14 @@ class BaseService(FakeService):
         path = self.path.split('?')[0]
         self.server.hits.append(('GET', path))
         base = self.server.base
-        if path.endswith('/api/v1/base'):
+        if path.endswith('/api/v1/base3'):
             if base['manifest'] is None:
                 self.answer(404, {'error': 'no_base'})
             elif base.get('fail'):
                 self.answer(500, {'error': 'server'})
             else:
                 self.answer(200, base['manifest'])
-        elif '/api/v1/base/files/' in path:
+        elif '/api/v1/base3/files/' in path:
             self.file(base['files'].get(path.rsplit('/', 1)[1]))
         elif path.startswith('/dl/'):
             self.file(base['downloads'].get(path.rsplit('/', 1)[1]))
@@ -92,23 +92,28 @@ def qualified(addresses=(), engine=ENGINE, level='standard', by='players', recor
             'record': record if record is not None else {**sms_record(*addresses), 'engine': engine}}
 
 
+def grouped_entry(*parts, identity=IDENTITY, system='sms', qualified=()):
+    """A game's parts as the builder groups them before they become an entry (schema 1 records, `engine`)."""
+    return {'format': 2, 'system': system, 'identity': identity,
+            'qualified': sorted(qualified, key=lambda item: str(item.get('engine')) if isinstance(item, dict) else ''),
+            'parts': sorted(parts, key=lambda item: item['source'])}
+
+
 def entry(*parts, identity=IDENTITY, system='sms', qualified=()):
-    """(sha, value) of a game entry built the way the service names it."""
-    value = {'format': 2, 'system': system, 'identity': identity,
-             'qualified': sorted(qualified, key=lambda item: str(item.get('engine')) if isinstance(item, dict) else ''),
-             'parts': sorted(parts, key=lambda item: item['source'])}
+    """(sha, value) of a game entry built the way the service names it: format 3, the only one of the base."""
+    value = knowledge_exchange.entry_to_v3(grouped_entry(*parts, identity=identity, system=system, qualified=qualified))
     return hashlib.sha256(knowledge_exchange.canonical_bytes(value)).hexdigest(), value
 
 
 def base_archive(version, games, entries, wanted=None, built='2026-10-27T03:00:00+00:00',
-                 compression=zipfile.ZIP_DEFLATED):
+                 compression=zipfile.ZIP_DEFLATED, format=3):
     """The bytes of a base archive: manifest.json, index.json (the complete
     index of `version`: `games` is {key: (entry sha, [sources])}) and the entries
     of `wanted` (default: all those the index names) found in `entries`."""
-    index = {'format': 2, 'version': version, 'built_utc': built,
+    index = {'format': format, 'version': version, 'built_utc': built,
              'games': {key: {'entry': value[0], 'sources': list(value[1])} for key, value in games.items()}}
     raw = knowledge_exchange.canonical_bytes(index)
-    manifest = {'format': 2, 'version': version, 'built_utc': built, 'games': len(games),
+    manifest = {'format': format, 'version': version, 'built_utc': built, 'games': len(games),
                 'index_sha256': hashlib.sha256(raw).hexdigest()}
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', compression) as archive:
@@ -178,7 +183,7 @@ class BaseHarness(unittest.TestCase):
         online.request_code('p@example.test', 'en')
         online.sign_in('p@example.test', '123456', 'Retro-Recomp test')
 
-    def publish(self, version, games, *, revoked=(), cursor=0, format=2, entries=(), quarantined=None, full=True):
+    def publish(self, version, games, *, revoked=(), cursor=0, format=3, entries=(), quarantined=None, full=True):
         """Serve base `version`: `games` is {key: (entry sha, [sources])}; the
         `entries` ((sha, value) pairs) join those the service holds. Serves a
         difference file from every earlier version, and, with `full`, a complete
@@ -189,7 +194,7 @@ class BaseHarness(unittest.TestCase):
         manifest_full = None
         if full:
             number = version if full is True else full
-            name = f'retro-recomp-base-{number}.zip'
+            name = f'retro-recomp-base3-{number}.zip'
             blob = base_archive(number, base['versions'][number], base['entries'])
             base['downloads'][name] = blob
             route = 'redirect' if base.get('redirect') else 'dl'
@@ -199,7 +204,7 @@ class BaseHarness(unittest.TestCase):
         for earlier, before in base['versions'].items():
             if earlier >= version:
                 continue
-            name = f'retro-recomp-base-{earlier}-{version}.zip'
+            name = f'retro-recomp-base3-{earlier}-{version}.zip'
             blob = base_archive(version, games, base['entries'],
                                 {value[0] for value in games.values()} - {value[0] for value in before.values()})
             base['files'][name] = blob
@@ -223,7 +228,7 @@ class BaseHarness(unittest.TestCase):
         return json.loads((self.folder / name).read_text(encoding='utf-8'))
 
     def gets(self):
-        """The GET requests made so far, as 'base', 'base/files/<file>', 'dl/<file>'."""
+        """The GET requests made so far, as 'base', 'base3/files/<file>', 'dl/<file>'."""
         return [hit[1].split('/api/v1/', 1)[1] if '/api/v1/' in hit[1] else hit[1].lstrip('/')
                 for hit in self.server.hits if hit[0] == 'GET']
 
@@ -252,7 +257,7 @@ class PublishedBaseTests(BaseHarness):
         self.assertEqual(knowledge.imported_observations('sms', IDENTITY), [[1, 0x300, 0, 2, 0x10]])
         self.assertEqual(knowledge.imported_record('sms', 'cd' * 32), {}, 'only the batch\'s games are applied')
         # The manifest and the complete base, publicly; no other request.
-        self.assertEqual(self.gets(), ['base', 'dl/retro-recomp-base-7.zip'])
+        self.assertEqual(self.gets(), ['base3', 'dl/retro-recomp-base3-7.zip'])
         self.assertEqual(calls_after(self.server, 'POST'), [])
         state = json.loads((self.store / 'state.json').read_text(encoding='utf-8'))
         self.assertEqual((state['version'], state['origin'], state['cursor'], state['service']), (7, 'download', 90, self.url))
@@ -272,21 +277,21 @@ class PublishedBaseTests(BaseHarness):
         built = entry(part(1, 'standard', (0x100,)))
         self.publish(3, {KEY: (built[0], [1])}, entries=[built])
         online.sync_base([KEY])
-        self.assertEqual(self.gets(), ['base', 'dl/retro-recomp-base-3.zip'])
+        self.assertEqual(self.gets(), ['base3', 'dl/retro-recomp-base3-3.zip'])
         self.server.hits.clear()
         # Within the day: no request at all.
         online.sync_base([KEY], now=time.time() + online.BASE_UPDATE_EVERY - 60)
         self.assertEqual(self.server.hits, [])
         # The next day: the manifest only (same version), no download.
         summary = online.sync_base([KEY], now=self.later())
-        self.assertEqual(self.gets(), ['base'])
+        self.assertEqual(self.gets(), ['base3'])
         self.assertEqual((summary['update']['source'], summary['update']['error'], summary['version']), (None, None, 3))
         # A new version downloads its difference, not the complete base.
         grown = entry(part(1, 'standard', (0x100,)), part(2, 'thorough', (0x200,)))
         self.publish(4, {KEY: (grown[0], [1, 2])}, entries=[grown])
         self.server.hits.clear()
         summary = online.sync_base([KEY], now=self.later(2))
-        self.assertEqual(self.gets(), ['base', 'base/files/retro-recomp-base-3-4.zip'])
+        self.assertEqual(self.gets(), ['base3', 'base3/files/retro-recomp-base3-3-4.zip'])
         self.assertEqual((summary['version'], summary['games'], summary['update']['source']), (4, 1, 'delta'))
         self.assertEqual(online.shared_paths([KEY]), {KEY: {'level': 'thorough', 'records': 2}})
         self.assertEqual(json.loads((self.store / 'state.json').read_text(encoding='utf-8'))['version'], 4)
@@ -311,7 +316,7 @@ class PublishedBaseTests(BaseHarness):
         self.publish(1, {KEY: (good[0], [1])}, entries=[good])
         self.server.hits.clear()
         self.assertEqual(online.sync_base([KEY], now=time.time() + 60)['games'], 1)
-        self.assertEqual(self.gets(), ['base', 'dl/retro-recomp-base-1.zip'])
+        self.assertEqual(self.gets(), ['base3', 'dl/retro-recomp-base3-1.zip'])
 
     def test_an_entry_is_checked_against_the_hash_that_named_it_when_it_is_used(self):
         stranger = entry(part(1, 'standard', (0x100,)), identity='11' * 32)   # named by its own hash
@@ -365,7 +370,7 @@ class PublishedBaseTests(BaseHarness):
         self.publish(1, {KEY: (built[0], [47, 52])}, cursor=40, revoked=[47], entries=[built])
         self.server.hits.clear()
         summary = online.sync_base([KEY], now=self.later())
-        self.assertEqual(self.gets(), ['base'])
+        self.assertEqual(self.gets(), ['base3'])
         self.assertEqual((summary['discarded'], summary['games']), (1, 1))
         self.assertEqual(knowledge.imported_record('sms', IDENTITY)['rom_entries'], [[0x180, 0, 0, 0, 1]])
         self.assertEqual(knowledge.imported_observations('sms', IDENTITY), [])
@@ -425,7 +430,7 @@ class PublishedBaseTests(BaseHarness):
         for step in (1, 2):
             summary = online.sync_base([KEY], now=self.later(step))
             self.assertEqual((summary['games'], summary['discarded']), (0, 0))
-        self.assertEqual(self.gets(), ['base', 'base'], 'the manifest only')
+        self.assertEqual(self.gets(), ['base3', 'base3'], 'the manifest only')
         self.assertEqual(knowledge.imported_record('sms', IDENTITY), {})
         # The base names another entry for the game: it comes in.
         newer = entry(part(1, 'standard', (0x100,)), part(2, 'standard', (0x200,)), part(8, 'extended', (0x800,)))
@@ -450,11 +455,11 @@ class PublishedBaseTests(BaseHarness):
         built = entry(part(1, 'standard', (0x100,)))
         self.publish(1, {KEY: (built[0], [1])}, entries=[built])
         online.sync_base([KEY])
-        self.publish(2, {KEY: (built[0], [1])}, entries=[built], format=3)
+        self.publish(2, {KEY: (built[0], [1])}, entries=[built], format=4)
         self.server.hits.clear()
         summary = online.sync_base([KEY], now=self.later())
-        self.assertEqual((summary['note'], summary['format'], summary['version'], summary['error']), ('format', 3, 1, None))
-        self.assertEqual(self.gets(), ['base'])
+        self.assertEqual((summary['note'], summary['format'], summary['version'], summary['error']), ('format', 4, 1, None))
+        self.assertEqual(self.gets(), ['base3'])
         self.assertEqual(json.loads((self.store / 'state.json').read_text(encoding='utf-8'))['version'], 1)
         self.assertEqual(online.shared_paths([KEY]), {KEY: {'level': 'standard', 'records': 1}})
         self.assertEqual(len(knowledge.imported_record('sms', IDENTITY)['rom_entries']), 1)
@@ -681,7 +686,7 @@ class PublishedBaseTests(BaseHarness):
         # Nothing more happens while the pair stays quarantined.
         self.server.hits.clear()
         self.assertEqual(online.sync_base([KEY], now=self.later(2))['discarded'], 0)
-        self.assertEqual(self.gets(), ['base'])
+        self.assertEqual(self.gets(), ['base3'])
         # The maintainer lifts it: the part comes back.
         self.publish(1, {KEY: (built[0], [47, 52])}, cursor=40, entries=[built], quarantined=[])
         summary = online.sync_base([KEY], now=self.later(3))

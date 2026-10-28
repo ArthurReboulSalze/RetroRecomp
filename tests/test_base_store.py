@@ -66,7 +66,7 @@ class StoreTests(BaseHarness):
         # A downloaded difference or complete base may be stored as well.
         self.publish(6, games, entries=[built])
         blob = base_archive(6, games, {built[0]: built[1]}, compression=zipfile.ZIP_STORED)
-        self.server.base['downloads']['retro-recomp-base-6.zip'] = blob
+        self.server.base['downloads']['retro-recomp-base3-6.zip'] = blob
         self.server.base['manifest']['full'].update(sha256=hashlib.sha256(blob).hexdigest(), bytes=len(blob))
         self.installer.unlink()
         knowledge_exchange._installer_head.cache_clear()
@@ -152,7 +152,7 @@ class StoreTests(BaseHarness):
         self.assertEqual({name: result[name] for name in ('version', 'previous', 'source', 'error')},
                          {'version': 6, 'previous': 5, 'source': 'delta', 'error': None})
         self.assertGreater(result['downloaded_bytes'], 0)
-        self.assertEqual(self.gets(), ['base', 'base/files/retro-recomp-base-5-6.zip'])
+        self.assertEqual(self.gets(), ['base3', 'base3/files/retro-recomp-base3-5-6.zip'])
         self.assertEqual(self.entries_on_disk(), [f'{second[0]}.json'], 'what the copy lacks, nothing else')
         base = knowledge_exchange.local_base()
         self.assertEqual((base['version'], base['origin'], base['games']), (6, 'download', 2))
@@ -175,7 +175,7 @@ class StoreTests(BaseHarness):
         result = online.update_base(progress=lambda stage, done, total: seen.append((stage, done, total)))
         self.assertEqual((result['version'], result['previous'], result['source'], result['error']),
                          (3, None, 'full', None))
-        self.assertEqual(self.gets(), ['base', 'dl/retro-recomp-base-2.zip', 'base/files/retro-recomp-base-2-3.zip'])
+        self.assertEqual(self.gets(), ['base3', 'dl/retro-recomp-base3-2.zip', 'base3/files/retro-recomp-base3-2-3.zip'])
         self.assertEqual(knowledge_exchange.local_base()['cursor'], 77)
         self.assertEqual(knowledge_exchange.local_base()['version'], 3)
         self.assertTrue(seen and seen[0][0] == 'full' and seen[-1][1] == seen[-1][2], seen)
@@ -189,7 +189,7 @@ class StoreTests(BaseHarness):
         self.server.base['redirect'] = True
         self.publish(1, {KEY: (built[0], [1])}, entries=[built])
         self.assertEqual(online.update_base()['error'], None)
-        self.assertEqual(self.gets(), ['base', 'redirect/retro-recomp-base-1.zip', 'dl/retro-recomp-base-1.zip'])
+        self.assertEqual(self.gets(), ['base3', 'redirect/retro-recomp-base3-1.zip', 'dl/retro-recomp-base3-1.zip'])
         # A redirect to another host is refused.
         for path in list(self.store.glob('*')):
             if path.is_file():
@@ -296,7 +296,7 @@ class StoreTests(BaseHarness):
         manifest = self.server.base['manifest']
         manifest['full']['bytes'] = online.BASE_FULL_LIMIT + 1
         self.assertEqual(online.update_base()['error'], 'no_path')
-        self.assertEqual(self.gets().count('dl/retro-recomp-base-1.zip'), 3)
+        self.assertEqual(self.gets().count('dl/retro-recomp-base3-1.zip'), 3)
 
     def test_the_old_base_stays_when_writing_the_new_one_fails_halfway(self):
         one = entry(part(1, 'standard', (0x100,)))
@@ -367,7 +367,7 @@ class StoreTests(BaseHarness):
         self.publish(5, {KEY: (new[0], [1, 2])}, entries=[new])
         before = sorted(path.name for path in self.folder.rglob('*'))
         self.assertEqual(online.check_base(), {'local': 3, 'latest': 5, 'newer': True, 'error': None})
-        self.assertEqual(self.gets(), ['base'])
+        self.assertEqual(self.gets(), ['base3'])
         self.assertEqual(self.entries_on_disk(), [])
         self.assertEqual(knowledge_exchange.local_base()['version'], 3)
         self.assertEqual(sorted(path.name for path in self.folder.rglob('*')), sorted(before + ['base', 'site.json']))
@@ -377,7 +377,7 @@ class StoreTests(BaseHarness):
         self.assertEqual(self.server.hits, [])
         self.assertEqual(online.check_base(force=True)['latest'], 5)
         self.assertEqual(online.check_base(now=time.time() + online.BASE_CHECK_EVERY + 60)['latest'], 5)
-        self.assertEqual(self.gets(), ['base', 'base'])
+        self.assertEqual(self.gets(), ['base3', 'base3'])
         # The local base is the latest: nothing newer.
         online.update_base()
         self.assertEqual(online.check_base(force=True), {'local': 5, 'latest': 5, 'newer': False, 'error': None})
@@ -391,7 +391,7 @@ class StoreTests(BaseHarness):
         self.server.base['fail'] = True
         self.assertEqual(online.check_base(force=True)['error'], 'service')
         self.server.base['fail'] = False
-        self.publish(2, {KEY: (built[0], [1])}, entries=[built], format=3)
+        self.publish(2, {KEY: (built[0], [1])}, entries=[built], format=4)
         self.assertEqual(online.check_base(force=True)['error'], 'format')
         self.publish(2, {KEY: (built[0], [1])}, entries=[built])
         self.stop_server()
@@ -466,13 +466,11 @@ class SplitTests(BaseHarness):
         self.assertEqual(online.shared_paths([KEY]), {})
 
     def test_the_qualified_bank_is_bounded_and_validated(self):
-        built = entry(qualified=[qualified(record={'engine': ENGINE, 'rom_bytes': 8192,
-                                                   'rom_entries': [[0x100, 0, 0, 0, 1], [0xffffff, 0, 0, 0, 1], 'x']})])
+        built = entry(qualified=[qualified((0x100,))])
         self.games(((KEY, []), built))
         online.prepare_batch([KEY])
         self.assertIn([0x100, 0, 0, 0, 1], bank_record('sms', IDENTITY)['rom_entries'])
-        self.assertNotIn('x', bank_record('sms', IDENTITY)['rom_entries'])
-        # A record the bank would refuse altogether is not written.
+        # A record schema 3 refuses (the base builds none, but a damaged entry could carry one) is not written.
         broken = entry(qualified=[qualified(record={'engine': ENGINE, 'rom_bytes': 'many'})], identity='cd' * 32)
         self.publish(2, {KEY: (built[0], []), OTHER_KEY: (broken[0], [])}, entries=[broken])
         online.prepare_batch([KEY, OTHER_KEY], now=self.later())
@@ -607,31 +605,32 @@ class SplitTests(BaseHarness):
 
 
 class EntryTests(unittest.TestCase):
-    def test_format_1_entries_still_read_and_format_2_adds_the_qualified_elements(self):
+    def test_only_format_3_entries_are_read_and_the_qualified_elements_must_be_there(self):
         part_ = part(5, 'quick', (0x100,))
-        old = {'format': 1, 'system': 'sms', 'identity': IDENTITY, 'parts': [part_]}
-        sha = hashlib.sha256(knowledge_exchange.canonical_bytes(old)).hexdigest()
-        found = knowledge_exchange.base_entry(sha, old, 'sms', IDENTITY)
-        self.assertEqual((found['sources'], found['qualified']), ([5], []))
-        # A format-1 entry carries no qualified element, and a format-2 entry must carry the key.
-        self.assertIsNone(knowledge_exchange.base_entry(sha, {**old, 'qualified': []}, 'sms', IDENTITY))
         two_sha, two = entry(part_, qualified=[qualified((0x200,))])
-        self.assertEqual(len(knowledge_exchange.base_entry(two_sha, two, 'sms', IDENTITY)['qualified']), 1)
+        found = knowledge_exchange.base_entry(two_sha, two, 'sms', IDENTITY)
+        self.assertEqual((found['sources'], len(found['qualified']), found['format']), ([5], 1, 3))
+        self.assertEqual(found['qualified'][0]['engine'], ENGINE, 'handed back with the engine the rest works on')
+        # Formats 1 and 2, which converters before 1.6.0 read, are not a base any more.
+        for format_ in (1, 2):
+            old = {**two, 'format': format_}
+            if format_ == 1:
+                old = {name: value for name, value in old.items() if name != 'qualified'}
+            sha = hashlib.sha256(knowledge_exchange.canonical_bytes(old)).hexdigest()
+            self.assertIsNone(knowledge_exchange.base_entry(sha, old, 'sms', IDENTITY))
         without = {name: value for name, value in two.items() if name != 'qualified'}
         self.assertIsNone(knowledge_exchange.base_entry(hashlib.sha256(knowledge_exchange.canonical_bytes(without)).hexdigest(),
                                                         without, 'sms', IDENTITY))
         # Malformed elements are left out one by one, whatever they hold.
-        odd = entry(part_, qualified=[qualified((0x200,)), {'engine': 'x' * 300, 'level': 'standard', 'by': 'players',
-                                                           'record': {}},
-                                      {'engine': 'a' * 40, 'level': 'galactic', 'by': 'players', 'record': {}},
-                                      {'engine': 'b' * 40, 'level': 'standard', 'by': 'nobody', 'record': {}},
-                                      {'engine': 'c' * 40, 'level': 'standard', 'by': 'players', 'record': []},
-                                      {'engine': ENGINE, 'level': 'standard', 'by': 'players', 'record': {}}, 5])
-        self.assertEqual([item['engine'] for item in knowledge_exchange.base_entry(odd[0], odd[1], 'sms', IDENTITY)['qualified']],
+        good = two['qualified'][0]
+        odd = {**two, 'qualified': [good, {**good, 'cores': 'x' * 300}, {**good, 'cores': 'a' * 40, 'level': 'galactic'},
+                                    {**good, 'cores': 'b' * 40, 'by': 'nobody'}, {**good, 'cores': 'c' * 40, 'record': []},
+                                    {**good, 'cores': 'd' * 40, 'record': {}}, {'engine': ENGINE}, 5]}
+        odd_sha = hashlib.sha256(knowledge_exchange.canonical_bytes(odd)).hexdigest()
+        self.assertEqual([item['engine'] for item in knowledge_exchange.base_entry(odd_sha, odd, 'sms', IDENTITY)['qualified']],
                          [ENGINE])
         self.assertIsNone(knowledge_exchange.base_entry(two_sha, two, 'sms', 'cd' * 32))
         self.assertIsNone(knowledge_exchange.base_entry('0' * 64, two, 'sms', IDENTITY))
-        self.assertIsNone(knowledge_exchange.base_entry(two_sha, {**two, 'format': 3}, 'sms', IDENTITY))
         current, others = knowledge_exchange.split_qualified(
             'sms', knowledge_exchange.base_entry(two_sha, two, 'sms', IDENTITY)['qualified'], ENGINE)
         self.assertEqual((current['engine'], others), (ENGINE, []))

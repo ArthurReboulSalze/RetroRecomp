@@ -41,10 +41,8 @@ FORMAT = 'retro-recomp-knowledge'
 # Version 3 (1.6.0) carries the CPU-keyed paths of `path_profiles` (schema 3) in
 # place of the console-keyed records of schema 1; the observations, titles and
 # header are the same. Every version up to LATEST_VERSION is read; VERSION is
-# what a file is written as unless the receiver is known to read the later one
-# (an account upload asks the service, `online.upload_version`), because a
-# converter or a service older than 1.6.0 refuses version 3 as "not a knowledge
-# file". `read_exchange` always hands the paths back as schema 1 records.
+# what a file is written as by hand (a converter older than 1.6.0 refuses
+# version 3 as "not a knowledge file"); an account upload is version 3 since 1.6.1. `read_exchange` always hands the paths back as schema 1 records.
 VERSION = 2
 LATEST_VERSION = 3
 READ_VERSIONS = (1, 2, 3)
@@ -57,7 +55,7 @@ CONSOLE_LIMIT = 4096
 
 def schema3_only() -> tuple:
     """The shared machines whose records are schema 3 documents only (CPS-1): in the exchange and the base a
-    "record" of theirs is that document, and they travel only in version 3 files and line 3 of the base."""
+    "record" of theirs is that document, and they travel only in version 3 files and in the base (format 3)."""
     return tuple(system for system in SYSTEMS if system in path_profiles.SCHEMA3_ONLY)
 
 
@@ -837,13 +835,14 @@ def import_fetched(roms: dict) -> dict:
 # Format 3 (1.6.0, the second line of the base) has the same shape with the
 # CPU-keyed records of `path_profiles` (schema 3) in `record`, and `cores` in
 # place of `engine`: the engine identity of the whole record, the very string
-# format 2 calls `engine` (a Neo Geo record: `<core>:<loader>`); the word is the
-# one the per-CPU qualification of a later stage will keep, when a record's
-# sections can be qualified apart. `base_entry` hands a format 3 entry back in
-# the shape of format 2 (`engine`, schema 1 records), so that nothing after it
-# (the qualified bank, the imported banks, the claims) knows two formats.
+# The base holds one format since 1.6.1, 3 (the paths in schema 3, `cores` for
+# the engines of a game's qualified element). `base_entry` hands an entry back in
+# the shape the rest of the converter works on (`engine`, schema 1 records), so
+# that nothing after it (the qualified bank, the imported banks, the claims)
+# knows the schema of the base. Entries and indexes of format 1 and 2, which
+# converters before 1.6.0 read, are not read any more.
 
-BASE_FORMATS = (1, 2, 3)
+BASE_FORMAT = 3
 BASE_PARTS_LIMIT = 4096
 QUALIFIED_BY = ('maintainer', 'players')
 ENGINE_LIMIT = 128
@@ -907,8 +906,9 @@ def record_from_v3(system: str, identity: str, document):
 
 
 def entry_to_v3(entry: dict, report: dict | None = None) -> dict:
-    """The format 3 entry of a format 1 or 2 entry (a dict, not its text): the
-    same games' paths, the same parts and sources, each record in schema 3. A
+    """The format 3 entry of an entry in the shape the builder groups a game's
+    parts in (`engine`, schema 1 records; a dict, not its text): the same
+    games' paths, the same parts and sources, each record in schema 3. A
     record without a valid schema 3 form is left out (a qualified element) or
     kept as a part without its record (its observations stay), and counted in
     `report` ("qualified", "parts")."""
@@ -931,76 +931,27 @@ def entry_to_v3(entry: dict, report: dict | None = None) -> dict:
             'qualified': sorted(qualified, key=lambda item: item['cores']), 'parts': parts}
 
 
-def entry_to_v2(entry: dict, report: dict | None = None) -> dict:
-    """The down-projection: the format 2 entry of a format 3 entry (a dict). What
-    schema 1 cannot hold (a record of a machine it never had, or of several
-    cores) is left out like `entry_to_v3` does, and counted in `report`."""
-    system, identity = entry['system'], entry['identity']
-    qualified, parts = [], []
-    only = system in path_profiles.SCHEMA3_ONLY   # no schema 1 form: nothing of it reaches line 2
-    for item in entry.get('qualified', []):
-        record = None if only else record_from_v3(system, identity, item['record'])
-        if record is None:
-            if report is not None:
-                report['qualified'] = report.get('qualified', 0) + 1
-            continue
-        qualified.append({'engine': item['cores'], 'level': item['level'], 'by': item['by'], 'record': record})
-    for part in entry['parts']:
-        record = None if part['record'] is None or only else record_from_v3(system, identity, part['record'])
-        if record is None and part['record'] is not None and report is not None:
-            report['parts'] = report.get('parts', 0) + 1
-        parts.append({'source': part['source'], 'level': part['level'], 'record': record,
-                      'observations': part['observations']})
-    return {'format': 2, 'system': system, 'identity': identity,
-            'qualified': sorted(qualified, key=lambda item: item['engine']), 'parts': parts}
-
-
-def project_base(entries: dict, games: dict, target: int, report: dict | None = None) -> tuple[dict, dict]:
-    """A base in the other format, from the same games: `entries` is {sha:
-    canonical text}, `games` the index's {"system:identity": {"entry", "sources"}}.
-    Answers ({sha: canonical text} of the projected entries, the projected
-    games), every game keeping its sources; two games that project to the same
-    text share one entry. `target` is 2 (down) or 3 (up); a format 1 entry goes
-    to either. A whole game is never dropped: only a record that has no form in
-    the other schema (counted in `report`)."""
-    if target not in (2, 3):
-        raise ValueError('A base is projected to format 2 or 3.')
-    projected, index = {}, {}
-    convert = entry_to_v3 if target == 3 else entry_to_v2
-    for key, game in games.items():
-        if target == 2 and key.split(':', 1)[0] in path_profiles.SCHEMA3_ONLY:
-            continue   # CPS-1 lives in line 3 only: the other line does not list it
-        value = json.loads(entries[game['entry']])
-        text = canonical_bytes(convert(value, report)).decode('ascii')
-        sha = hashlib.sha256(text.encode('ascii')).hexdigest()
-        projected[sha] = text
-        index[key] = {'entry': sha, 'sources': list(game['sources'])}
-    return projected, index
-
-
 def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
     """The game entry `value` named `sha` for this ROM, with its well-formed
     parts and qualified elements only (a malformed one is skipped, not the
     game, though `sources` still names every part); None when it is not the
-    entry asked for: its canonical text must hash to `sha`, be format 1, 2 or 3
-    and name this ROM. A format 3 entry is returned in the shape of format 2
-    (`engine`, schema 1 records; `format` still says 3): an element whose
-    schema 3 record is not valid, or has no schema 1 form, is skipped like a
-    malformed one."""
+    entry asked for: its canonical text must hash to `sha`, be format 3 and
+    name this ROM. The entry is returned with `engine` and schema 1 records
+    (`format` says 3): an element whose schema 3 record is not valid, or has no
+    schema 1 form, is skipped like a malformed one."""
     from .scan_levels import LEVELS
-    if not isinstance(value, dict) or type(value.get('format')) is not int or value['format'] not in BASE_FORMATS:
+    if not isinstance(value, dict) or value.get('format') != BASE_FORMAT or type(value.get('format')) is not int:
         return None
-    if (set(value) != {'format', 'system', 'identity', 'parts', *(('qualified',) if value['format'] >= 2 else ())}
+    if (set(value) != {'format', 'system', 'identity', 'parts', 'qualified'}
             or value['system'] != system or value['identity'] != identity
             or not isinstance(value['parts'], list)
-            or not isinstance(value.get('qualified', []), list)):
+            or not isinstance(value['qualified'], list)):
         return None
     try:
         if hashlib.sha256(canonical_bytes(value)).hexdigest() != sha:
             return None
     except (TypeError, ValueError, RecursionError, UnicodeError):
         return None
-    third = value['format'] == 3
     parts, seen = [], set()
     # Every source the entry names, whether its part is well-formed or not.
     sources = sorted({part['source'] for part in value['parts'][:BASE_PARTS_LIMIT]
@@ -1012,7 +963,7 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
                 or not isinstance(part.get('observations'), list)):
             continue
         record = part['record']
-        if third and record is not None:
+        if record is not None:
             record = record_from_v3(system, identity, record)
             if record is None:
                 continue
@@ -1020,14 +971,14 @@ def base_entry(sha: str, value, system: str, identity: str) -> dict | None:
         rows = [] if system in path_profiles.SCHEMA3_ONLY else part['observations']
         parts.append({'source': part['source'], 'level': part['level'], 'record': record, 'observations': rows})
     qualified, engines = [], set()
-    name = 'cores' if third else 'engine'
-    for item in value.get('qualified', [])[:BASE_PARTS_LIMIT]:
+    name = 'cores'
+    for item in value['qualified'][:BASE_PARTS_LIMIT]:
         if (not isinstance(item, dict) or not isinstance(item.get(name), str)
                 or not 0 < len(item[name]) <= ENGINE_LIMIT or item[name] in engines
                 or item.get('level') not in LEVELS or item.get('by') not in QUALIFIED_BY
                 or not isinstance(item.get('record'), dict)):
             continue
-        record = record_from_v3(system, identity, item['record']) if third else item['record']
+        record = record_from_v3(system, identity, item['record'])
         if record is None:
             continue
         engines.add(item[name])
@@ -1077,9 +1028,9 @@ def usable_part(system: str, identity: str, part: dict) -> tuple[bool, int]:
 # the copy, without a copy of it; "download" at base/index.json).
 
 INSTALLER_BASE = 'Retro-Recomp-base.zip'
-# Index formats: 2 is the original line of the base, 3 the CPU-keyed one (1.6.0). A base archive,
-# its manifest and its index always agree on one of them.
-BASE_INDEX_FORMATS = (2, 3)
+# A base archive, its manifest and its index are all of the one format of the base. An archive of
+# another one (the format 2 line of the converters before 1.6.0) is not a base for this converter.
+BASE_INDEX_FORMATS = (BASE_FORMAT,)
 BASE_INDEX_JSON_LIMIT = 64 * 1024 * 1024
 BASE_ENTRY_LIMIT = 16 * 1024 * 1024
 BASE_MANIFEST_LIMIT = 64 * 1024
@@ -1141,11 +1092,10 @@ def _short(value) -> str | None:
     return value[:64] if isinstance(value, str) else None
 
 
-def parse_base_index(raw: bytes, version: int | None = None, format: int | None = None) -> dict | None:
+def parse_base_index(raw: bytes, version: int | None = None) -> dict | None:
     """{'format', 'version', 'built_utc', 'games': {key: {'entry', 'sources'}}}
-    from an index file's bytes, or None when it is not a format 2 or 3 index (of
-    `version` and `format`, when given). A malformed game is left out; the file
-    is bounded."""
+    from an index file's bytes, or None when it is not a format 3 index (of
+    `version`, when given). A malformed game is left out; the file is bounded."""
     if len(raw) > BASE_INDEX_JSON_LIMIT:
         return None
     try:
@@ -1153,7 +1103,6 @@ def parse_base_index(raw: bytes, version: int | None = None, format: int | None 
     except (ValueError, RecursionError):
         return None
     if (not isinstance(data, dict) or type(data.get('format')) is not int or data['format'] not in BASE_INDEX_FORMATS
-            or (format is not None and data['format'] != format)
             or not _count(data.get('version')) or (version is not None and data['version'] != version)
             or not isinstance(data.get('games'), dict)):
         return None
@@ -1182,12 +1131,11 @@ def _member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
     return raw
 
 
-def read_archive_head(archive: zipfile.ZipFile, version: int | None = None, format: int | None = None) -> dict:
+def read_archive_head(archive: zipfile.ZipFile, version: int | None = None) -> dict:
     """The verified manifest and index of a base archive: {'format',
     'version', 'built_utc', 'games', 'index_sha256', 'index', 'raw_index'}.
-    Raises BaseArchiveError when the archive is not a format 2 or 3 base (of
-    `version` and `format`, when given), or its index is not the one its
-    manifest names, in the format its manifest names."""
+    Raises BaseArchiveError when the archive is not a format 3 base (of
+    `version`, when given), or its index is not the one its manifest names."""
     infos = archive.infolist()
     if len(infos) > BASE_ZIP_MEMBERS or sum(info.file_size for info in infos) > BASE_UNPACKED_LIMIT:
         raise BaseArchiveError('format', 'the archive is too large')
@@ -1196,14 +1144,14 @@ def read_archive_head(archive: zipfile.ZipFile, version: int | None = None, form
     except ValueError as error:
         raise BaseArchiveError('format', 'no manifest') from error
     if (not isinstance(manifest, dict) or type(manifest.get('format')) is not int
-            or manifest['format'] not in BASE_INDEX_FORMATS or (format is not None and manifest['format'] != format)
+            or manifest['format'] not in BASE_INDEX_FORMATS
             or not _count(manifest.get('version')) or (version is not None and manifest['version'] != version)
             or not isinstance(manifest.get('index_sha256'), str) or not _SHA256.fullmatch(manifest['index_sha256'])):
         raise BaseArchiveError('format', 'unknown manifest')
     raw = _member(archive, 'index.json', BASE_INDEX_JSON_LIMIT)
     if raw is None or hashlib.sha256(raw).hexdigest() != manifest['index_sha256']:
         raise BaseArchiveError('checksum', 'the index is not the one the manifest names')
-    index = parse_base_index(raw, manifest['version'], manifest['format'])
+    index = parse_base_index(raw, manifest['version'])
     if index is None:
         raise BaseArchiveError('format', 'unknown index')
     return {'format': manifest['format'], 'version': manifest['version'], 'built_utc': _short(manifest.get('built_utc')) or index['built_utc'],
@@ -1379,11 +1327,9 @@ def prune_entries(index: dict) -> int:
     return removed
 
 
-def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: int = 0,
-                       format: int | None = None) -> dict:
+def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: int = 0) -> dict:
     """Verify the base archive at `path` (a full base, or a difference whose
-    index is the complete index of `version`, in `format` when given: a line of
-    the base is never mixed with the other) and make it the local base:
+    index is the complete index of `version`) and make it the local base:
     every entry it carries is checked against the hash that names it, the
     index against its manifest, and every entry the index names must be held
     by the archive, the local folder or the installer's copy. Nothing changes
@@ -1394,7 +1340,7 @@ def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: i
     written = []
     try:
         with zipfile.ZipFile(path) as archive:
-            head = read_archive_head(archive, version, format)
+            head = read_archive_head(archive, version)
             index = head['index']
             wanted = {game['entry'] for game in index['games'].values()}
             installer = (installer_base() or {}).get('entries', frozenset())

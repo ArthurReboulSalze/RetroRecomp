@@ -1057,28 +1057,6 @@ def send(collected: dict) -> dict:
     return finish(total)
 
 
-UPLOAD_VERSION_EVERY = 60 * 60
-_UPLOAD_VERSION = {'asked': 0.0, 'version': 2, 'service': ''}
-
-
-def upload_version(now: float | None = None) -> int:
-    """The `.rrknowledge` version an upload is written as: 3 (the paths in
-    schema 3) when the service says it reads it (`GET status` lists
-    `knowledge_versions`, since the site of 1.6.0), else 2, which every service
-    reads. Asked at most once an hour; any failure means 2."""
-    now = time.time() if now is None else now
-    service = service_url()
-    if _UPLOAD_VERSION['service'] != service or not 0 <= now - _UPLOAD_VERSION['asked'] < UPLOAD_VERSION_EVERY:
-        version = 2
-        try:
-            listed = status().get('knowledge_versions')
-            version = 3 if isinstance(listed, list) and any(type(value) is int and value == 3 for value in listed) else 2
-        except (ServiceError, ServiceConnectionError, OSError, ValueError, AttributeError):
-            pass
-        _UPLOAD_VERSION.update(asked=now, version=version, service=service)
-    return _UPLOAD_VERSION['version']
-
-
 def _send_one(collected: dict, current: dict) -> dict:
     from .knowledge_exchange import (discovery_paths, mark_shared, read_exchange, without_schema3_only,
                                      write_knowledge)
@@ -1088,8 +1066,9 @@ def _send_one(collected: dict, current: dict) -> dict:
     fd, name = tempfile.mkstemp(prefix='upload-', suffix='.rrknowledge', dir=folder)
     os.close(fd)
     try:
-        written = write_knowledge(collected, Path(name), channel=None, version=upload_version())
-        # A service that reads version 3 only is the one CPS-1 can be sent to: otherwise those games stay pending.
+        # Uploads are version 3 files (the paths in schema 3), which every service of 1.6.0 and later reads. A record
+        # schema 3 refuses (it is stricter than schema 1) makes the file version 2, which carries no CPS-1 game.
+        written = write_knowledge(collected, Path(name), channel=None, version=3)
         if written['version'] != 3:
             collected = without_schema3_only(collected)
         if not collected['games']:
@@ -1453,11 +1432,11 @@ def sync_shared(rom_keys) -> dict:
 # batch (at most once a day) or on a button (`update_base`); opening the program
 # only looks at the service's manifest (`check_base`, a few hundred bytes).
 #
-# `GET base` (public, no account) is the manifest: the version, the sources
+# `GET base3` (public, no account) is the manifest: the version, the sources
 # revoked since the build, the (source, game) pairs the service quarantined
 # (treated like revoked sources, for that game only), the highest record id the
 # base holds, the difference files that lead from an older version to the
-# current one (`deltas`, served as `GET base/files/<file>`) and the latest
+# current one (`deltas`, served as `GET base3/files/<file>`) and the latest
 # complete base (`full`, a direct download address on GitHub, never the API).
 #
 # Before a batch, each of the batch's ROMs found in the base brings its entry
@@ -1469,14 +1448,13 @@ def sync_shared(rom_keys) -> dict:
 # remembered per game in base-use.json, so a revoked source, a game left out of
 # a later base or a rejection here withdraws exactly what came from the base.
 
-# Two lines of the base share one version number (1.6.0): line 2, the original one (`GET base`, entries and
-# indexes of format 2), and line 3, the CPU-keyed one (`GET base3`, format 3). `GET base` stays the entry point: its
-# manifest lists the lines that exist in `lines`, so a converter never asks for a route that is not there. A
-# converter stays on the line its local base is in and moves to the other only when its own line gives no way
-# to the latest version (no difference from its version and no newer complete base), or when it has no base yet
-# (then line 3 first). Both lines are read to the same paths: `knowledge_exchange.base_entry`.
-BASE_FORMATS = (2, 3)
-BASE_ROUTES = {2: 'base', 3: 'base3'}
+# One line (1.6.1): the CPU-keyed one, format 3 (`GET base3`, its differences at `GET base3/files/<file>`). The
+# converters of 1.6.0 and before also read a format 2 line at `GET base`; the service keeps that route as a stub
+# for 1.6.0 alone, which this converter never calls. A converter owes compatibility to the release before it:
+# a base of another format is not read (an old one downloaded earlier is set aside, the installer's copy
+# takes its place), and what an older converter cannot do is for its player to update the program.
+BASE_FORMAT = 3
+BASE_ROUTE = 'base3'
 BASE_CHECK_EVERY = 6 * 60 * 60
 BASE_UPDATE_EVERY = 24 * 60 * 60
 BASE_DELTA_LIMIT = 64 * 1024 * 1024
@@ -1489,8 +1467,7 @@ BASE_DIRECT_HOSTS = ('github.com',)
 BASE_DIRECT_SUFFIXES = ('.githubusercontent.com',)
 BASE_DIRECT_PATH = re.compile(r'/ArthurReboulSalze/[A-Za-z0-9._-]+/releases/download/[A-Za-z0-9._+-]+/[A-Za-z0-9._+-]+\.zip')
 _SHA256 = re.compile(r'[0-9a-f]{64}')
-_DELTA_FILES = {2: re.compile(r'retro-recomp-base-\d{1,9}-\d{1,9}\.zip'),
-                3: re.compile(r'retro-recomp-base3-\d{1,9}-\d{1,9}\.zip')}
+_DELTA_FILE = re.compile(r'retro-recomp-base3-\d{1,9}-\d{1,9}\.zip')
 _NETWORK_ERRORS = (ServiceError, ServiceConnectionError, OSError, ValueError)
 # The reasons update_base and check_base give for a failure.
 BASE_ERRORS = ('offline', 'unavailable', 'no_base', 'no_path', 'format', 'verify', 'service', 'disk')
@@ -1567,48 +1544,44 @@ def _manifest_full(value) -> dict | None:
     return None
 
 
-def _manifest_deltas(value, line: int = 2) -> dict:
+def _manifest_deltas(value) -> dict:
     deltas = {}
     for start, item in (value.items() if isinstance(value, dict) else ()):
         if (isinstance(start, str) and start.isascii() and start.isdigit() and len(start) <= 9
                 and isinstance(item, dict) and isinstance(item.get('file'), str)
-                and _DELTA_FILES[line].fullmatch(item['file']) and isinstance(item.get('sha256'), str)
+                and _DELTA_FILE.fullmatch(item['file']) and isinstance(item.get('sha256'), str)
                 and _SHA256.fullmatch(item['sha256']) and _is_count(item.get('bytes'))
                 and 0 < item['bytes'] <= BASE_DELTA_LIMIT):
             deltas[str(int(start))] = {'file': item['file'], 'sha256': item['sha256'], 'bytes': item['bytes']}
     return deltas
 
 
-def _read_manifest(answer: dict, line: int = 2) -> dict:
+def _read_manifest(answer: dict) -> dict:
     """The manifest's fields, checked: ServiceError 'bad_answer' for a
-    malformed one, 'format' for a format this converter cannot read (or that
-    is not the format of the line asked for). `lines` are the lines the service
-    publishes at this version, from `GET base` (line 2 always)."""
+    malformed one, 'format' for a format this converter cannot read (its
+    number in `detail`)."""
     if type(answer.get('format')) is not int or not _is_count(answer.get('version')):
         raise ServiceError(200, 'bad_answer')
-    if answer['format'] not in BASE_FORMATS or answer['format'] != line:
+    if answer['format'] != BASE_FORMAT:
         error = ServiceError(200, 'format')
         error.detail = str(answer['format'])
         raise error
     revoked = answer.get('revoked')
-    listed = answer.get('lines')
-    lines = sorted({line, *(value for value in (listed if isinstance(listed, list) else ())
-                            if type(value) is int and value in BASE_FORMATS)}) if line == 2 else [line]
-    return {'lines': lines, 'version': answer['version'],
+    return {'version': answer['version'],
             'revoked': sorted({value for value in revoked if _is_count(value)}) if isinstance(revoked, list) else [],
             'quarantined': _quarantined(answer.get('quarantined')),
             'cursor': answer['cursor'] if _is_count(answer.get('cursor')) else 0,
             'games': answer['games'] if _is_count(answer.get('games')) else 0,
             'built_utc': _text(answer.get('built_utc')), 'published_utc': _text(answer.get('published_utc')),
-            'full': _manifest_full(answer.get('full')), 'deltas': _manifest_deltas(answer.get('deltas'), line)}
+            'full': _manifest_full(answer.get('full')), 'deltas': _manifest_deltas(answer.get('deltas'))}
 
 
 def _get_manifest(now: float) -> dict:
-    """GET base, remembered in site.json. ServiceError 'no_base' when the
+    """GET base3, remembered in site.json. ServiceError 'no_base' when the
     service has none yet."""
     site = _site()
     try:
-        answer = _call('GET', 'base', timeout=15)[1]
+        answer = _call('GET', BASE_ROUTE, timeout=15)[1]
     except ServiceError as error:
         if error.status == 404:
             _save_site({**site, 'latest': None, 'checked': now})
@@ -1619,19 +1592,6 @@ def _get_manifest(now: float) -> dict:
                 'quarantined': manifest['quarantined'], 'cursor': manifest['cursor'],
                 'built_utc': manifest['built_utc'], 'published_utc': manifest['published_utc'], 'checked': now})
     return manifest
-
-
-def _get_manifest3() -> dict | None:
-    """GET base3, the manifest of line 3 (its deltas and complete base), or
-    None when this service does not serve it (404, not a manifest, or a
-    format this converter does not know): line 2 then stays the way."""
-    try:
-        answer = _call('GET', BASE_ROUTES[3], timeout=15)[1]
-        return _read_manifest(answer, 3)
-    except ServiceError as error:
-        if error.status == 404 or error.reason in ('bad_answer', 'format'):
-            return None
-        raise
 
 
 def _stamp_updated(now: float) -> None:
@@ -1667,7 +1627,7 @@ def check_base(force: bool = False, now: float | None = None) -> dict:
     (the service's, as last read, or None), 'newer' (the service's is later
     than the local one, or there is no local base but the service has one),
     'error' (None, or 'offline', 'format' or 'service' when the manifest could
-    not be read)}. Only the manifest is read (`GET base`, a few hundred bytes),
+    not be read)}. Only the manifest is read (`GET base3`, a few hundred bytes),
     at most every BASE_CHECK_EVERY seconds unless `force`; nothing else is
     downloaded and nothing is raised. Without a service it answers from files."""
     now = time.time() if now is None else now
@@ -1765,13 +1725,13 @@ def _scratch_file() -> Path:
     return Path(name)
 
 
-def _fetch_archive(kind: str, item: dict, progress, result: dict, line: int = 2) -> Path:
+def _fetch_archive(kind: str, item: dict, progress, result: dict) -> Path:
     """Download one base archive named by the manifest into a scratch file and
     check its size and SHA-256; the caller removes the file."""
     target = _scratch_file()
     try:
         if kind == 'delta':
-            raw = _call('GET', f"{BASE_ROUTES[line]}/files/{item['file']}", timeout=120, limit=item['bytes'],
+            raw = _call('GET', f"{BASE_ROUTE}/files/{item['file']}", timeout=120, limit=item['bytes'],
                         download=True)[1]['bytes']
             digest = hashlib.sha256(raw).hexdigest()
             size = len(raw)
@@ -1789,35 +1749,23 @@ def _fetch_archive(kind: str, item: dict, progress, result: dict, line: int = 2)
         raise
 
 
-def _apply_archive(path: Path, version: int, cursor: int, line: int = 2) -> dict:
+def _apply_archive(path: Path, version: int, cursor: int) -> dict:
     from .knowledge_exchange import apply_base_archive
     try:
-        return apply_base_archive(path, version=version, service=service_url(), cursor=cursor, format=line)
+        return apply_base_archive(path, version=version, service=service_url(), cursor=cursor)
     finally:
         path.unlink(missing_ok=True)
 
 
-def _line_order(local_line: int | None, lines: list) -> list:
-    """The lines to try, in order: a base stays in its line unless that line gives
-    no way to the latest version (a line the service no longer publishes, or
-    one with neither a difference from this version nor a newer complete base);
-    no base yet starts with line 3 when the service has it."""
-    if local_line == 3:
-        return [*([3] if 3 in lines else []), 2]
-    if local_line == 2:
-        return [2, *([3] if 3 in lines else [])]
-    return [*([3] if 3 in lines else []), 2]
-
-
-def _plan(manifest: dict, line: int, previous: int | None, local_line: int | None):
-    """How a manifest of `line` leads from the local base to its version:
-    ('delta', item), ('full', item) or None. A difference only applies to a
-    base of its own line; a complete base replaces whatever is local."""
-    delta = manifest['deltas'].get(str(previous)) if previous is not None and local_line == line else None
+def _plan(manifest: dict, previous: int | None):
+    """How the manifest leads from the local base to its version: ('delta',
+    item), ('full', item) or None. A complete base replaces whatever is local
+    and is taken only when it is newer than it."""
+    delta = manifest['deltas'].get(str(previous)) if previous is not None else None
     full = manifest['full']
     if delta is not None:
         return 'delta', delta
-    if full is not None and (previous is None or local_line != line or full['version'] > previous):
+    if full is not None and (previous is None or full['version'] > previous):
         return 'full', full
     return None
 
@@ -1829,7 +1777,6 @@ def _update(result: dict, progress, now: float) -> None:
         raise ServiceError(0, 'unavailable')
     base = settle_local_base(service_url())
     previous = base['version'] if base else None
-    local_line = base['format'] if base else None
     result.update(version=previous, previous=previous)
     try:
         manifest = _get_manifest(now)
@@ -1841,30 +1788,25 @@ def _update(result: dict, progress, now: float) -> None:
     if previous is not None and previous >= latest:
         _stamp_updated(now)
         return
-    for line in _line_order(local_line, manifest['lines']):
-        current = manifest if line == 2 else _get_manifest3()
-        plan = _plan(current, line, previous, local_line) if current is not None else None
-        if plan is None:
-            continue   # this line leads nowhere from here: the next one, if any
-        kind, item = plan
-        if kind == 'delta':
-            path = _fetch_archive('delta', item, progress, result, line)
-            base = _apply_archive(path, current['version'], current['cursor'], line)
-            result.update(version=base['version'], source='delta', line=line)
-        else:
-            path = _fetch_archive('full', item, progress, result, line)
-            base = _apply_archive(path, item['version'], current['cursor'] if item['version'] == current['version'] else 0,
-                                  line)
-            result.update(version=base['version'], source='full', line=line)
-            follow = current['deltas'].get(str(item['version']))
-            if follow is not None and item['version'] < current['version']:
-                path = _fetch_archive('delta', follow, progress, result, line)
-                base = _apply_archive(path, current['version'], current['cursor'], line)
-                result['version'] = base['version']
-        _stamp_updated(now)
-        return
-    # No difference leads from this version and no complete base is newer.
-    raise ServiceError(200, 'no_path')
+    plan = _plan(manifest, previous)
+    if plan is None:
+        # No difference leads from this version and no complete base is newer: the player updates the program.
+        raise ServiceError(200, 'no_path')
+    kind, item = plan
+    if kind == 'delta':
+        path = _fetch_archive('delta', item, progress, result)
+        base = _apply_archive(path, latest, manifest['cursor'])
+        result.update(version=base['version'], source='delta')
+    else:
+        path = _fetch_archive('full', item, progress, result)
+        base = _apply_archive(path, item['version'], manifest['cursor'] if item['version'] == latest else 0)
+        result.update(version=base['version'], source='full')
+        follow = manifest['deltas'].get(str(item['version']))
+        if follow is not None and item['version'] < latest:
+            path = _fetch_archive('delta', follow, progress, result)
+            base = _apply_archive(path, latest, manifest['cursor'])
+            result['version'] = base['version']
+    _stamp_updated(now)
 
 
 def _run_update(result: dict, progress, now: float):
@@ -1879,7 +1821,7 @@ def _run_update(result: dict, progress, now: float):
 def update_base(progress=None, now: float | None = None) -> dict:
     """Bring the local base up to the service's latest version, now. Reads the
     manifest; then, when it names a difference from the local version, only that
-    difference (`GET base/files/<file>`); otherwise, when its latest complete
+    difference (`GET base3/files/<file>`); otherwise, when its latest complete
     base is newer than the local one, that base from its direct address, then
     the difference that leads on from it. Sizes and SHA-256 are checked and the
     result applied atomically (knowledge_exchange.apply_base_archive); the
@@ -1888,8 +1830,7 @@ def update_base(progress=None, now: float | None = None) -> dict:
     (stage 'delta' or 'full'). Returns {'version' (the version in use now, or
     None), 'previous' (before, or None), 'downloaded_bytes', 'source'
     ('delta', 'full' or None when nothing was downloaded), 'error' (None, or
-    one of BASE_ERRORS)}, plus 'line' (2 or 3: the line the download came from)
-    when one was made."""
+    one of BASE_ERRORS)}."""
     now = time.time() if now is None else now
     result = {'version': None, 'previous': None, 'downloaded_bytes': 0, 'source': None, 'error': None}
     result['error'] = _error_code(_run_update(result, progress, now))
