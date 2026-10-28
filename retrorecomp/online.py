@@ -1759,13 +1759,16 @@ def _apply_archive(path: Path, version: int, cursor: int) -> dict:
 
 def _plan(manifest: dict, previous: int | None):
     """How the manifest leads from the local base to its version: ('delta',
-    item), ('full', item) or None. A complete base replaces whatever is local
-    and is taken only when it is newer than it."""
+    item), ('full', item) or None. A complete base replaces whatever is local:
+    it is taken when it is newer than the local base, and also when it is older
+    but the manifest names a difference that leads on from it (or it is the
+    latest version itself), which is the way for a base newer than the full
+    base and too far behind for any difference of its own."""
     delta = manifest['deltas'].get(str(previous)) if previous is not None else None
     full = manifest['full']
     if delta is not None:
         return 'delta', delta
-    if full is not None and (previous is None or full['version'] > previous):
+    if full is not None and (previous is None or full['version'] > previous or str(full['version']) in manifest['deltas']):
         return 'full', full
     return None
 
@@ -1790,7 +1793,7 @@ def _update(result: dict, progress, now: float) -> None:
         return
     plan = _plan(manifest, previous)
     if plan is None:
-        # No difference leads from this version and no complete base is newer: the player updates the program.
+        # No difference from this version and no complete base that leads on: the base in use stays.
         raise ServiceError(200, 'no_path')
     kind, item = plan
     if kind == 'delta':

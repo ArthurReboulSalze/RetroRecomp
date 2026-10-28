@@ -1509,9 +1509,14 @@ for the differences, a complete base from its registered address, `retro-recomp-
 installer's copy and the files it wrote are read as before; a downloaded base of format 2 left by a 1.5.x-era disk is
 set aside and the installer's copy (format 3) takes its place, and a manifest in another format ends in the "update
 Retro-Recomp" message. Revocations, the quarantine and the cursor come from the same manifest. The service keeps
-a small answer at `GET base` for the converters of 1.6.0 alone (they ask it first); this converter never does. When no difference leads from a base to the latest version and no complete base
-is newer (the player skipped more versions than the service keeps differences for, a handful of nightly versions),
-the update says so (`no_path`) and the base in use stays; a new program brings a newer installer's copy.
+a small answer at `GET base` for the converters of 1.6.0 alone (they ask it first); this converter never does. The service names a difference from every version since its newest complete base, and that base (a release
+asset on GitHub) for every older player, so a base is always led to the latest version in one step or two: a
+difference from its own version, else the complete base and then the difference from that base's version. The
+converter takes a complete base older than the local one for that second case (the base goes back to it, then
+forward, in one update). Only when the service names neither (no difference from this version and no complete base
+that leads on from it, which the service's builder warns about before it happens) does the update say `no_path`
+and leave the base in use as it is: installing the program again does not change that, since a downloaded base that
+is not older than the installer's copy is the one in use.
 
 Measured on the 72 uploads in the maintainer's cache plus the 1,609 campaign records (1,723 games, 26 October
 2026, Hermes test service): the entries come to 128.8 MB of JSON in line 3 against 173.6 MB in line 2, the complete

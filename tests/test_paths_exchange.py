@@ -384,6 +384,45 @@ class OneLineTests(BaseHarness):
         summary = online.sync_base([KEY])
         self.assertEqual((summary['update']['error'], summary['version']), ('no_path', 3))
 
+    def far_behind(self):
+        """Versions 3 to 14 published, the newest full base is version 3, and a player is at version 5."""
+        values = {}
+        for number in range(3, 15):
+            values[number] = entry(part(number, 'standard', (0x100 + number,)))
+            self.publish(number, {KEY: (values[number][0], [number])}, entries=[values[number]],
+                         full=3 if number == 14 else False)
+        self.install(5, {KEY: (values[5][0], [5])}, [values[5]])
+        self.assertEqual(kx.local_base()['version'], 5)
+        return values
+
+    def test_a_base_newer_than_the_full_and_with_no_difference_of_its_own_goes_back_to_the_full_and_forward(self):
+        values = self.far_behind()
+        deltas = self.server.base['manifest']['deltas']
+        deltas.pop('5')                       # the service no longer names a difference from 5 ...
+        self.assertIn('3', deltas)            # ... but it does from the full base's version
+        summary = online.update_base(now=self.later())
+        self.assertEqual((summary['error'], summary['source'], summary['version'], summary['previous']), (None, 'full', 14, 5))
+        self.assertEqual(self.gets(), ['base3', 'dl/retro-recomp-base3-3.zip', 'base3/files/retro-recomp-base3-3-14.zip'])
+        self.assertEqual((kx.local_base()['version'], kx.local_base()['origin']), (14, 'download'))
+        with kx.BaseEntries() as entries:
+            self.assertIsNotNone(entries.text(values[14][0]))
+
+    def test_a_full_older_than_the_base_is_not_taken_when_nothing_leads_on_from_it(self):
+        self.far_behind()
+        deltas = self.server.base['manifest']['deltas']
+        deltas.pop('5')
+        deltas.pop('3')
+        summary = online.update_base(now=self.later())
+        self.assertEqual((summary['error'], summary['source'], summary['downloaded_bytes'], summary['version']),
+                         ('no_path', None, 0, 5))
+        self.assertEqual(kx.local_base()['version'], 5)
+
+    def test_the_difference_of_the_base_comes_first_even_with_an_older_full(self):
+        self.far_behind()
+        summary = online.update_base(now=self.later())
+        self.assertEqual((summary['error'], summary['source'], summary['version']), (None, 'delta', 14))
+        self.assertEqual(self.gets(), ['base3', 'base3/files/retro-recomp-base3-5-14.zip'])
+
     def test_the_qualified_bank_keeps_its_shape(self):
         value = entry(part(47, 'standard', (0x100,)), qualified=[qualified((0x100, 0x140))])
         self.publish(2, {KEY: (value[0], [47])}, entries=[value])
