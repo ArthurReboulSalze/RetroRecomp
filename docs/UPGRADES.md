@@ -228,6 +228,18 @@ Drive quick-state key (`RR16_STATE_ABI`) also moves, because it hashes the liste
 serialized layout is unchanged (the two variables the fix touches are read by no other native file, so by no state file), so the release adds the 1.6.0
 key as a compatibility key ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
 
+## NES exports of 1.6.1 in 1.6.2 (host kit phase 2)
+
+1.6.2 moves the NES player shell onto the host kit ([HOST_KIT.md](HOST_KIT.md)): `nes_host_ui.c` and
+`nes_audio_output.inc` are replaced by `native/hostkit/shell/rrhk_*.c` (shared with the 16-bit consoles) and the adapter
+`native/hostkit/adapters/rrhk_nes.c`. The NES CMake file lists them (staged by `hostkit.stage`, called once from
+`nes_runtime.py`). Host stamp of the NES: moves (every kit file, the adapter and `retrorecomp.hostkit` are host inputs).
+Host stamp of Mega Drive, Super Nintendo, Neo Geo and CPS-1: moves (the shell gained the callback-ring output and four
+per-machine switches). Game stamp of the NES: moves once, because `nes_runtime.py` (game role, owned by `nes`) gained the
+staging call and the new source list; the generated sources, the learned paths and the quick-state key
+(`RR_NES_STATE_ABI`, which hashes `retro_nes.h`, the state sources and the engine, none of which changed) are
+untouched. The release procedure decides whether the 1.6.1 game stamp of the NES joins `LEGACY_GAME_STAMPS`.
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).
@@ -244,7 +256,7 @@ The same categories apply to every machine:
 | Shared menu core (identical everywhere) | `retro_menu.c/.h`, `game_options.h`, `autofire.h`, `retro_keyboard.h` |
 | On-screen text and fonts | `runtime_catalog.inc`, `runtime_i18n.h`, `font6x10.h`, `font10x20.h` |
 | Presentation | `scale2x.h`, `scanlines.h`, `scanline_sdl.h`, `xbr_filter.h`, `xbr_sdl.h`, `display_settings.h`, `icon.c/.h` |
-| Sound output after the emulated mixer | `audio_filter.h`, `audio_cushion.h`, `audio_output.inc`, `gb_audio_output.inc`, `nes_audio_output.inc`, `md_audio_loop.inc`, `md_audio_resample.inc`, `megadrive_audio.py` |
+| Sound output after the emulated mixer | `audio_filter.h`, `audio_cushion.h`, `audio_output.inc`, `gb_audio_output.inc`, `hostkit/shell/rrhk_ring.c`, `md_audio_loop.inc`, `md_audio_resample.inc`, `megadrive_audio.py` |
 | Artwork, metadata, publishing | `artwork.py`, `cover_*.py`, `metadata.py`, `languages.py`, `publishing.py`, `windows.py`, `licenses/*.md`, `THIRD_PARTY_NOTICES.md`, application icons |
 | Checks of the above | `game_options_checks.c`, `language_checks.c`, `xbr_checks.c`, `display_settings_checks.c`, `icon_checks.c`, `audio_checks.c`, `nes_audio_checks.c` |
 
@@ -254,8 +266,7 @@ Each machine family has one shell for its window, menus and input:
 | --- | --- | --- |
 | Master System, Game Gear | `host.c`, `ui.c/.h`, `controls.c/.h` | `launcher.c` and the Z80 runtime |
 | Game Boy | `gb_menu.inc`, `gb_input_refresh.inc`, `gameboy_host.py`, `gameboy_timing.py` | `game_main.c`, `gameboy_runtime.py` |
-| NES | `nes_host_ui.c` | the runner adapted by `nes_runtime.py` |
-| Mega Drive, SNES, Neo Geo, CPS-1 | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters |
+| Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
 | Sharp X68000 | `x68000_reference/player_ui.inc` | `x68000_reference/reference_host.c` and the SDK |
 
 Files that are used both by the shell and by headless checks stay game-side:

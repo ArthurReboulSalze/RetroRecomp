@@ -1,4 +1,4 @@
-"""The host kit of the 16-bit exports: what is staged, what it may contain, and how it is built."""
+"""The host kit of the 16-bit and NES exports: what is staged, what it may contain, and how it is built."""
 from pathlib import Path
 import re
 import tempfile
@@ -9,7 +9,7 @@ from retrorecomp import hostkit
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / 'native/hostkit'
-FAMILIES = ('md', 'snes', 'ng', 'cps1')
+FAMILIES = ('md', 'snes', 'ng', 'cps1', 'nes')
 
 
 class StagingTests(unittest.TestCase):
@@ -62,13 +62,14 @@ class ContentTests(unittest.TestCase):
         for path in (KIT / 'shell').glob('*.c'):
             # console16_video.h is the geometry helper (rr16_video_rect) the headless runs share; no machine in it.
             text = path.read_text(encoding='utf-8').replace('rr16_video_rect', '')
-            self.assertIsNone(re.search(r'RR16_(NG|CPS1|MD|SNES|GUN)|rr_(ng|cps1|md)_|rr16_', text), path.name)
+            self.assertIsNone(re.search(r'RR16_(NG|CPS1|MD|SNES|GUN)|rr_(ng|cps1|md|nes)_|rr16_|cyc_|RR_NES', text), path.name)
             self.assertNotIn('retro_console16.h', text, path.name)
 
     def test_every_adapter_defines_the_entry_the_game_calls(self):
         for family in FAMILIES:
             text = (KIT / f'adapters/rrhk_{family}.c').read_text(encoding='utf-8')
-            self.assertIn('int rr16_sdl_main(const char *title, int scale)', text)
+            entry = 'int cyc_sdl_main(const char *title, int scale)' if family == 'nes' else 'int rr16_sdl_main(const char *title, int scale)'
+            self.assertIn(entry, text)
             self.assertIn('const RrhkMachine *rrhk_adapter(void)', text)
 
     def test_the_builds_list_the_kit_and_not_the_old_shell(self):
@@ -78,6 +79,21 @@ class ContentTests(unittest.TestCase):
             self.assertIn('hostkit.stage(', text, module)
             self.assertIn('hostkit.sources(', text, module)
         self.assertFalse((ROOT / 'native/console16_host_ui.c').exists())
+
+    def test_the_nes_build_stages_the_kit_and_not_its_old_host(self):
+        text = (ROOT / 'retrorecomp/nes_runtime.py').read_text(encoding='utf-8')
+        self.assertIn("hostkit.stage(project, 'nes')", text)
+        self.assertIn('cyc_host.c {kit}', text)
+        self.assertNotIn('nes_host_ui', text)
+        self.assertFalse((ROOT / 'native/nes_host_ui.c').exists())
+        self.assertFalse((ROOT / 'native/nes_audio_output.inc').exists())
+
+    def test_a_machine_picks_its_audio_model_in_the_adapter(self):
+        """The queue model is the default; the NES keeps the callback ring it always had (decision D5)."""
+        text = (KIT / 'adapters/rrhk_nes.c').read_text(encoding='utf-8')
+        self.assertIn('.audio_model = RRHK_AUDIO_RING', text)
+        for family in ('md', 'snes', 'ng', 'cps1'):
+            self.assertNotIn('RRHK_AUDIO_RING', (KIT / f'adapters/rrhk_{family}.c').read_text(encoding='utf-8'))
 
 
 if __name__ == '__main__':

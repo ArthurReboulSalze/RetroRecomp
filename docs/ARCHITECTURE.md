@@ -58,8 +58,8 @@ saves are written only after NVRAM changes.
 
 Generated games share the RetroRecomp SDL menu canvas in `native/retro_menu.c`:
 the 256 × 192 layout, pixel font and blue/fuchsia frame are independent of the
-console CPU backend. The Sega `ui.c`, Game Boy `gb_menu.inc` and NES
-`nes_host_ui.c` supply their
+console CPU backend. The Sega `ui.c`, Game Boy `gb_menu.inc` and the NES
+adapter of the host kit (`native/hostkit/adapters/rrhk_nes.c`) supply their
 own actions and labels to that canvas. Game Boy builds copy these files into
 each generated project's private runtime; the pinned upstream checkout is
 untouched. Future compiler adapters can reuse the canvas rather than exposing

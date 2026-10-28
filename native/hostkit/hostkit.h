@@ -9,10 +9,11 @@
  * is the only file that sees both sides. MIT, like the other shells.
  *
  * This is the first realisation of docs/HOST_KIT.md section 2 (phase 1: Mega
- * Drive, Super Nintendo, Neo Geo, CPS-1). The machine functions are still the
- * rr16_* link-time symbols of the 16-bit contract (retro_console16.h); the
- * adapter wraps them in the table below, and nothing in the kit looks at a
- * machine macro. */
+ * Drive, Super Nintendo, Neo Geo, CPS-1; phase 2: NES). The machine functions
+ * of the 16-bit consoles are still the rr16_* link-time symbols of the 16-bit
+ * contract (retro_console16.h) and those of the NES are the cyc_* functions of
+ * its runner; the adapter wraps them in the table below, and nothing in the
+ * kit looks at a machine macro. */
 #ifndef RR_HOSTKIT_H
 #define RR_HOSTKIT_H
 #include <SDL.h>
@@ -31,8 +32,12 @@ extern "C" {
 
 /* Kinds of pointing device; the numbers are those of the guns in gun16.h
  * (the adapters check it). */
-enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE };
+enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER };
 
+/* How the machine's sound reaches the device: pushed into a device queue as 48 kHz stereo (the
+ * 16-bit consoles), or kept in a ring that the device callback drains, the machine's own mono rate
+ * converted by the callback (the NES; the model HOST_KIT.md decision D5 chooses for every family). */
+enum { RRHK_AUDIO_QUEUE, RRHK_AUDIO_RING };
 /* DIR: the four directions; FACE: autofire-eligible buttons, always listed
  * first after nothing else; SYSTEM: every other button (Start, Coin, Mode,
  * shoulders...). */
@@ -106,6 +111,16 @@ typedef struct RrhkMachine {
     double frame_seconds;
     int pointer;                   /* RR_GUN_* kind of the game, 0 without a pointer */
     bool own_audio;                /* the engine opens its own audio device (Mega Drive) */
+    int audio_model;               /* RRHK_AUDIO_QUEUE (default) or RRHK_AUDIO_RING */
+    unsigned audio_rate;           /* ring: source rate of the mono 16-bit PCM */
+    bool (*audio_enable)(unsigned rate);   /* ring: the machine starts producing sound; false closes the device */
+
+    /* behaviours the kit keeps per machine until HOST_KIT.md settles them */
+    bool capture_any_pad;          /* divergence 3 (pending): F2 pad capture takes any connected pad */
+    bool pointer_keeps_player2;    /* a pointer game still reads the second pad (Zapper) */
+    const wchar_t *pointer_section;   /* preferences section of the pointer page, NULL: <ini_section>.Gun */
+    int pointer_max;               /* largest reticle size of the page, 0: 12 */
+    const char *save_failed_en, *save_failed_fr;   /* F8 failure notice, NULL: the kit's */
 
     /* the machine (still the rr16_* functions) */
     void (*reset)(void);

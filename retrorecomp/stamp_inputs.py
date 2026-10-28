@@ -123,23 +123,24 @@ HOST_NATIVE = frozenset((
     'display_settings.h', 'display_settings_checks.c', 'icon.c', 'icon.h', 'icon_checks.c',
     # Sound output after each machine's emulated mixer.
     'audio_filter.h', 'audio_cushion.h', 'audio_output.inc', 'audio_checks.c',
-    'gb_audio_output.inc', 'nes_audio_output.inc', 'nes_audio_checks.c',
+    'gb_audio_output.inc', 'nes_audio_checks.c',
     'md_audio_loop.inc', 'md_audio_resample.inc',
     # Converter-only controller bridge (never linked into games).
     'player_gamepad.c',
-    # Each machine family's shell: Master System / Game Gear, Game Boy, NES,
-    # the 16-bit consoles (Mega Drive, SNES, Neo Geo, CPS-1) and X68000.
+    # Each machine family's shell: Master System / Game Gear, Game Boy and X68000 (the 16-bit
+    # consoles and the NES are on the host kit below).
     'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
     'gb_menu.inc', 'gb_input_refresh.inc',
-    'nes_host_ui.c', 'neogeo_ui_test.c',
-    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo and CPS-1
-    # and the adapter of each. Every file below native/hostkit is host-side.
+    'neogeo_ui_test.c',
+    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo, CPS-1 and
+    # the NES, and the adapter of each. Every file below native/hostkit is host-side.
     'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
-    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_timing.c', 'hostkit/shell/rrhk_video.c',
+    'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
+    'hostkit/shell/rrhk_video.c',
     'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
-    'hostkit/adapters/rrhk_cps1.c',
+    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c',
     'x68000_reference/player_ui.inc'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
@@ -341,12 +342,11 @@ INPUTS = {
         'retrorecomp.systems.game_boy',
     ),
     ('nes',): (
+        'native/hostkit/adapters/rrhk_nes.c',
         'native/nes_audio_checks.c',
-        'native/nes_audio_output.inc',
         'native/nes_dense_checks.c',
         'native/nes_dense_codegen.inc',
         'native/nes_guarded_checks.c',
-        'native/nes_host_ui.c',
         'native/nes_live_codegen.inc',
         'native/nes_machine_checks.c',
         'native/nes_machine_state.inc',
@@ -676,6 +676,15 @@ INPUTS = {
         'native/gun16.c',
         'native/gun16.h',
         'native/gun16_checks.c',
+        'native/retro_console16.h',
+        'retrorecomp.console16',
+        'retrorecomp.console16_optimization',
+        'retrorecomp.console16_state',
+        'retrorecomp.gun16_runtime',
+        'retrorecomp.systems.console16',
+    ),
+    # The host kit's shell and its staging module: every console that links it (phases 1 and 2).
+    ('md', 'snes', 'ng', 'cps1', 'nes'): (
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
         'native/hostkit/shell/rrhk_audio.c',
@@ -685,15 +694,10 @@ INPUTS = {
         'native/hostkit/shell/rrhk_menu.c',
         'native/hostkit/shell/rrhk_options.c',
         'native/hostkit/shell/rrhk_pointer.c',
+        'native/hostkit/shell/rrhk_ring.c',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
-        'native/retro_console16.h',
-        'retrorecomp.console16',
-        'retrorecomp.console16_optimization',
-        'retrorecomp.console16_state',
-        'retrorecomp.gun16_runtime',
         'retrorecomp.hostkit',
-        'retrorecomp.systems.console16',
     ),
     ('md', 'ng', 'x68', 'cps1'): (
         'native/m68000_backend.c',

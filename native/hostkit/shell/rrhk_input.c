@@ -33,7 +33,8 @@ void rrhk_bind(const RrhkMachine *machine) {
         rrhk.buttons[p][a] = machine->actions[a].pad[p];
     }
     swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
-    swprintf(rrhk.pointer_section, 64, L"%ls.Gun", machine->ini_section);
+    if (machine->pointer_section) swprintf(rrhk.pointer_section, 64, L"%ls", machine->pointer_section);
+    else swprintf(rrhk.pointer_section, 64, L"%ls.Gun", machine->ini_section);
     rrhk.pointer_size = 3;
     rrhk.pointer_turbo = 1;
 }
@@ -75,7 +76,7 @@ void rrhk_load_bindings(void) {
     rrhk.autofire = rr_ini_int(L"Manettes", L"autofire", 0, rrhk.ini_file) != 0;
     rrhk.pointer_shape = rr_ini_int(rrhk.pointer_section, L"shape", 0, rrhk.ini_file) == 1;
     rrhk.pointer_size = rr_ini_int(rrhk.pointer_section, L"size", 3, rrhk.ini_file);
-    if (rrhk.pointer_size < 1 || rrhk.pointer_size > 12) rrhk.pointer_size = 3;
+    if (rrhk.pointer_size < 1 || rrhk.pointer_size > (m->pointer_max ? m->pointer_max : 12)) rrhk.pointer_size = 3;
     rrhk.pointer_color = rr_ini_int(rrhk.pointer_section, L"color", 0, rrhk.ini_file);
     if (rrhk.pointer_color < 0 || rrhk.pointer_color > 2) rrhk.pointer_color = 0;
     rrhk.pointer_turbo = rr_ini_int(rrhk.pointer_section, L"turbo", 1, rrhk.ini_file) != 0;

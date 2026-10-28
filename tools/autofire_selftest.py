@@ -134,7 +134,7 @@ static uint16_t sample(int p,uint64_t frame) {return rrhk_pad_word(p,frame);}
 
 
 def sixteen_bit(system, test):
-    """The host kit's own input module and the machine's own action table, against a mock keyboard.
+    """The host kit's own input module and the machine's own action table (the 16-bit consoles and the NES), against a mock keyboard.
 
     The table is cut from the adapter's source (the Mega Drive one in its six-button form) and the kit's
     rrhk_input.c is compiled as it is; the names keep the vocabulary of the other fixtures."""
@@ -152,29 +152,8 @@ def sixteen_bit(system, test):
 
 def source(system, test=TEST):
     """The fixture's C source: the console's real declarations and reader, then `test`."""
-    if system in ('md','snes','ng','cps1'):
+    if system in ('md','snes','ng','cps1','nes'):
         return sixteen_bit(system, test)
-    if system=='nes':
-        text=(ASSETS/'native/nes_host_ui.c').read_text()
-        declarations=text[text.index('enum { A, B, SELECT'):text.index('static wchar_t ini_file')]
-        reader=function(text,'controller_input')
-        definitions=('#define RR16_NG 0\n#define RR16_CPS1 0\n#define RR16_MD 0\n'
-                     '#define RR16_PLAYERS 2\n#define rr16_players() RR16_PLAYERS\n#define RR_MD_SIX_BUTTONS 1\n')
-        setup='''
-static int autofire;
-#define PLAYERS 2
-#define FIRST_FIRE A
-#define FIRST_MASK bits[A]
-#define FIRE_MASK fire_mask()
-static uint16_t fire_mask(void) {uint16_t n=0;for(int a=A;a<=LAST_FIRE;++a)n|=bits[a];return n;}
-static void setup(void) {}
-static void clear_fire(void) {memset(fire_state,0,sizeof fire_state);}
-static int binding(int p,int a) {return buttons[p][a];}
-static void remap(int p,int a,int b) {buttons[p][a]=(SDL_GameControllerButton)b;}
-static void keyboard(int p,int a,int down) {held_keys[keys[p][a]]=(Uint8)down;}
-static uint16_t sample(int p,uint64_t frame) {return controller_input(p,frame);}
-'''.replace('LAST_FIRE','B' if system=='nes' else 'FACE_LAST')
-        return PREAMBLE+definitions+declarations+'\nstatic int autofire;\n'+reader+setup+test
     if system in ('sms','gg'):
         text=(ASSETS/'native/controls.c').read_text()
         declarations=text[text.index('static SDL_Scancode default_keys'):text.index('const char *controls_text')]

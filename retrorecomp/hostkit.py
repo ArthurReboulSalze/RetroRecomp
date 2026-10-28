@@ -2,7 +2,8 @@
 
 The player shell of a generated game (window, picture, controls, menus,
 audio output, quick-state requests) is a set of files below native/hostkit: a
-shell shared by every machine, and one adapter per machine. This module lists
+shell shared by every machine, and one adapter per machine (phase 1: Mega Drive,
+Super Nintendo, Neo Geo, CPS-1; phase 2: NES). This module lists
 them and copies them into a game project. It is a host input: a change here or
 in the kit upgrades an export without rediscovering its code, and the headless
 runs that discover and validate a game never use the shell.
@@ -13,9 +14,9 @@ from .paths import ASSETS
 
 HEADERS = ('hostkit.h', 'hostkit_internal.h')
 SHELL = tuple(f'shell/rrhk_{name}.c' for name in
-              ('audio', 'events', 'input', 'main', 'menu', 'options', 'pointer', 'timing', 'video'))
+              ('audio', 'events', 'input', 'main', 'menu', 'options', 'pointer', 'ring', 'timing', 'video'))
 ADAPTERS = {'md': 'adapters/rrhk_md.c', 'snes': 'adapters/rrhk_snes.c',
-            'ng': 'adapters/rrhk_ng.c', 'cps1': 'adapters/rrhk_cps1.c'}
+            'ng': 'adapters/rrhk_ng.c', 'cps1': 'adapters/rrhk_cps1.c', 'nes': 'adapters/rrhk_nes.c'}
 
 
 def sources(family: str) -> list[str]:
