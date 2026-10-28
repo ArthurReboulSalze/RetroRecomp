@@ -675,13 +675,16 @@ for its first frame):
 * Pad slots on the kit host (`tools/hostkit_ab.py pads` scenarios `one`, `two`, `twin`, `twin-unplug`, `next-missing`,
   `replug`, `persist`, `capture`): all probes on the right player; the F2 binding of a player without a pad says "No
   gamepad for player N"; the preferences hold `device` and `name` and a second run on them keeps the pinned pad.
+* Mega Drive (Blockout), regression of the shared shell: the shell of 1.6.2 against this one, same project, the standard
+  battery of 3,694 iterations: **identical** pictures, window log, state file and 35 captures.
 * The headless harness of the converter is unchanged: a 600-frame headless run of the old and the new executable gives the
   same trace file, and a fresh conversion of the same game with this tree builds, runs and passes the converter's own
   comparison of the export with a fresh reference.
 * ROM-free: `tests/test_x68000_controls.py` rebuilt on the kit (60 checks of the input callbacks with virtual controllers,
   40 of the computer's events and menus on a real software renderer, 7 of a fresh process).
 
-Not covered, as for the other phases: a mouse game (the mouse profile is the same code; Columns does not read the mouse), a
+Not rerun for this phase: the other consoles of the kit than the Mega Drive (same shell code; the NES ring output and the
+Zapper page are untouched), and the NES in particular. Not covered, as for the other phases: a mouse game (the mouse profile is the same code; Columns does not read the mouse), a
 two-disk game, fast loading held during a real load, audio open failures, Linux (the same sources, not built there in this
 phase), and a timing measurement on a real display (vsync and the audio start reserve changed).
 

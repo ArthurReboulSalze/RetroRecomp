@@ -1,6 +1,7 @@
-"""A/B runs of the windowed host shell of a game (Mega Drive, SNES, Neo Geo, CPS-1, NES).
+"""A/B runs of the windowed host shell of a game (Mega Drive, SNES, Neo Geo, CPS-1, NES, X68000).
 
     python tools/hostkit_ab.py build PROJECT WORK [--plain] [--state-config FILE] [--kit nes]
+    python tools/hostkit_ab.py build-x68 KEPT_BUILD WORK [--tree TREE]                     the X68000 (see below)
     python tools/hostkit_ab.py run EXE SCRIPT OUT [--timeout S]
     python tools/hostkit_ab.py compare OUT_A OUT_B
     python tools/hostkit_ab.py script FAMILY SCRIPT [--pad-pages row|skip]    the standard battery
@@ -15,6 +16,14 @@ audio device, a scripted keyboard, mouse and controllers, and a picture read bac
 frame. `run` plays a script (see hooks.c) in an empty folder with the dummy SDL drivers and
 keeps the frame hashes, the audio and window log, the preferences file and the state files.
 `compare` says whether two runs agree, byte for byte.
+
+The X68000 is built from the repository, not from a project: `build-x68` takes the CMake folder of a kept
+conversion (`.build/x68/win/<hash>/<hash>/native/build`) and compiles its host sources against the harness, from the
+working tree (the kit) or from an unpacked archive of the release tag (`native` and `tools`: the former host).
+`script x68 --x68 play|autofire|keyboard|mouse|states|ui` writes its scripts; `run --arg=--trace --arg=datas/trace.tsv`
+makes the game write the per-frame trace of the machine (video, sound and RAM hashes, CPU registers), which is what proves
+the machine saw the same inputs. The former host presents nothing for its first frame, so the script of the kit side is
+written with `--shift 1`.
 
 A host refactor is "unchanged" when the old and the new build of the SAME game give the same
 runs. Both sides must be built the same way, from the same project, with the same
