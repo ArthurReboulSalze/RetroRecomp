@@ -183,40 +183,27 @@ class ConverterTests(unittest.TestCase):
         setting.start(); self.addCleanup(setting.stop)
         return self.root/'library'/'x68', folder
 
-    def legacy_pair(self, folder, manifest, *, sdk='old-sdk', identity=None, content=b'{"observations": 1}\n'):
-        """The pair a converter before 1.6.0 left in datas/x68000-development/<machine hash>/."""
-        old = folder/conversion.LEGACY_MEMORY/manifest.sha256
-        old.mkdir(parents=True)
-        (old/'converter-observations.json').write_bytes(content)
-        (old/'converter-qualification.json').write_text(json.dumps({
+    def pair(self, folder, manifest, *, sdk='old-sdk', identity=None, content=b'{"observations": 1}\n'):
+        """The observation file and its receipt, written into `folder`."""
+        folder.mkdir(parents=True)
+        (folder/'converter-observations.json').write_bytes(content)
+        (folder/'converter-qualification.json').write_text(json.dumps({
             'schema': 1, 'source_identity': identity or manifest.sha256, 'sdk': sdk,
             'observations_sha256': hashlib.sha256(content).hexdigest()}))
-        return old
+        return folder
 
-    def test_observations_live_under_the_game_in_the_library_and_the_old_pair_is_copied_not_moved(self):
+    def test_observations_live_under_the_game_in_the_library_and_the_pair_of_a_release_before_1_6_0_is_ignored(self):
         library, converter = self.memory_places()
         source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
-        old = self.legacy_pair(converter, m)
         target = conversion.machine_memory(source, m)
         self.assertEqual(target, library/source.game_key/m.sha256[:16])
-        self.assertEqual(conversion.adopt_legacy_memory(source, m, emit=lambda message: None), target)
-        for name in conversion.OBSERVATION_FILES:
-            self.assertEqual((target/name).read_bytes(), (old/name).read_bytes())
-            self.assertTrue((old/name).is_file())
+        # The converter folder's datas/x68000-development of the maintainer's stages is neither read nor copied.
+        self.pair(converter/'datas/x68000-development'/m.sha256, m)
+        for name in ('LEGACY_MEMORY', 'adopt_legacy_memory', 'adopt_legacy_summary'):
+            self.assertFalse(hasattr(conversion, name), name)
+        self.assertIsNone(conversion.reusable_observations(target, m))
+        self.pair(target, m)
         self.assertEqual(conversion.reusable_observations(target, m), target/'converter-observations.json')
-        # The next conversion reads the library copy and leaves a changed old pair alone.
-        (old/'converter-observations.json').write_bytes(b'{}')
-        self.assertEqual(conversion.adopt_legacy_memory(source, m), target)
-        self.assertNotEqual((target/'converter-observations.json').read_bytes(), b'{}')
-
-    def test_old_pair_is_read_in_place_when_the_copy_is_impossible(self):
-        library, converter = self.memory_places()
-        source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
-        old = self.legacy_pair(converter, m)
-        with patch.object(conversion, '_copy_file', side_effect=OSError('read-only')):
-            self.assertEqual(conversion.adopt_legacy_memory(source, m), old)
-        self.assertEqual(conversion.reusable_observations(old, m), old/'converter-observations.json')
-        self.assertTrue((old/'converter-qualification.json').is_file())
 
     def test_unreadable_observations_stop_with_a_conversion_error_and_stay_unchanged(self):
         from retrorecomp.core import ConversionError
@@ -229,15 +216,6 @@ class ConverterTests(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, 'kept unchanged'):
             conversion._read_observations(Native, [path], b'')
         self.assertEqual(path.read_text(), '{"schema": 99}')
-
-    def test_a_legacy_summary_that_is_not_an_object_never_stops_the_conversion(self):
-        library, converter = self.memory_places()
-        source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
-        legacy = library/m.sha256/'compilation.json'
-        legacy.parent.mkdir(parents=True)
-        legacy.write_text('[1, 2]')
-        self.assertEqual(conversion.adopt_legacy_summary(source, m), library/source.game_key/'compilation.json')
-        self.assertTrue(legacy.is_file())     # not understood, so left as it is
 
     def test_the_copy_reaches_the_disk_before_its_name_and_waits_for_a_busy_target(self):
         library, converter = self.memory_places()
@@ -265,37 +243,13 @@ class ConverterTests(unittest.TestCase):
         self.ipl.write_bytes(b'G'*IPL_BYTES)
         _, other = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
         self.assertNotEqual(m.sha256, other.sha256)
-        old = self.legacy_pair(converter, m, sdk='an-engine-that-no-longer-exists')
+        old = self.pair(conversion.machine_memory(source, m), m, sdk='an-engine-that-no-longer-exists')
         self.assertIsNotNone(conversion.reusable_observations(old, m))     # sdk differs: still reusable
         self.assertIsNone(conversion.reusable_observations(old, other))    # another IPL: a machine of its own
         (old/'converter-observations.json').write_bytes(b'{"observations": 2}\n')
         self.assertIsNone(conversion.reusable_observations(old, m))        # not the file the receipt names
         (old/'converter-qualification.json').write_text('not json')
         self.assertIsNone(conversion.reusable_observations(old, m))
-
-    def test_the_summary_written_under_the_machine_hash_moves_to_the_game(self):
-        library, converter = self.memory_places()
-        source, m = machine(self.playlist('one.xdf\ntwo.xdf'), self.ipl, self.cgrom)
-        legacy = library/m.sha256/'compilation.json'
-        legacy.parent.mkdir(parents=True)
-        legacy.write_text(json.dumps({'schema': 1, 'title': 'Authored', 'mouse_controls': True,
-                                      'rom_sha256': source.sha256, 'source_identity': m.sha256}))
-        summary = conversion.adopt_legacy_summary(source, m)
-        self.assertEqual(summary, library/source.game_key/'compilation.json')
-        record = json.loads(summary.read_text())
-        self.assertEqual((record['title'], record['mouse_controls'], record['game']), ('Authored', True, source.game_key))
-        self.assertFalse(legacy.exists())
-        self.assertFalse(legacy.parent.exists())
-        # A summary already written for the game wins; only the remembered mouse use is carried over.
-        legacy.parent.mkdir()
-        legacy.write_text(json.dumps({'schema': 1, 'title': 'Older', 'mouse_controls': True}))
-        (legacy.parent/'keep.txt').write_text('another file of the player')
-        summary.write_text(json.dumps({'schema': 1, 'title': 'Newer', 'mouse_controls': False, 'game': source.game_key}))
-        conversion.adopt_legacy_summary(source, m)
-        record = json.loads(summary.read_text())
-        self.assertEqual((record['title'], record['mouse_controls']), ('Newer', True))
-        self.assertFalse(legacy.exists())
-        self.assertEqual((legacy.parent/'keep.txt').read_text(), 'another file of the player')
 
     def test_the_memory_view_lists_a_game_once_under_its_game_key(self):
         from retrorecomp.memory_view import summaries

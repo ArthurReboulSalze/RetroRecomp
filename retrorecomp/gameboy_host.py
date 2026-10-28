@@ -213,34 +213,6 @@ static void set_default_input_bindings(void) {''')
     fprintf(file, "ui.language=%s\\n", rr_language_code(g_rr_language));
     fprintf(file, "input.autofire=%d\\n", g_rr_autofire ? 1 : 0);
     fprintf(file, "audio.enabled=%d\\n", g_audio_output_enabled ? 1 : 0);''')
-    source = replace_once(source, '''    update_effective_joypad_state();
-}
-
-static void binding_to_config_value''', '''    /* Upgrade only recognizable old defaults; leave custom bindings alone. */
-    const auto migrate_key = [](GBInputAction action, int slot, SDL_Scancode old_key,
-                                GBInputBinding replacement) {
-        GBInputBinding& current = g_keyboard_bindings[action][slot];
-        if (current.kind == GB_INPUT_BINDING_KEY && current.code == old_key)
-            current = replacement;
-    };
-    migrate_key(GB_INPUT_ACTION_UP, 1, SDL_SCANCODE_W, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_DOWN, 1, SDL_SCANCODE_S, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_LEFT, 1, SDL_SCANCODE_A, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_RIGHT, 1, SDL_SCANCODE_D, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_A, 0, SDL_SCANCODE_Z,
-                make_binding(GB_INPUT_BINDING_KEY, rr_letter_key(SDLK_w, SDL_SCANCODE_W)));
-    migrate_key(GB_INPUT_ACTION_A, 1, SDL_SCANCODE_J, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_B, 0, SDL_SCANCODE_X,
-                make_binding(GB_INPUT_BINDING_KEY, rr_letter_key(SDLK_x, SDL_SCANCODE_X)));
-    migrate_key(GB_INPUT_ACTION_B, 1, SDL_SCANCODE_K, make_binding(GB_INPUT_BINDING_NONE, 0));
-    migrate_key(GB_INPUT_ACTION_SELECT, 0, SDL_SCANCODE_BACKSPACE,
-                make_binding(GB_INPUT_BINDING_KEY, SDL_SCANCODE_LSHIFT));
-    migrate_key(GB_INPUT_ACTION_START, 0, SDL_SCANCODE_S,
-                make_binding(GB_INPUT_BINDING_KEY, SDL_SCANCODE_RETURN));
-    update_effective_joypad_state();
-}
-
-static void binding_to_config_value''')
     source = replace_once(source, '''            const char* name = SDL_GetScancodeName((SDL_Scancode)binding.code);
             return (name && name[0]) ? std::string(name) : ("Scancode " + std::to_string((int)binding.code));''', '''            const SDL_Scancode scan = (SDL_Scancode)binding.code;
             const char* name = SDL_GetKeyName(SDL_GetKeyFromScancode(scan));

@@ -100,82 +100,25 @@ class CompiledGamesTests(TestCase):
         self.assertTrue(game.favorite)
         self.assertEqual(restored.roots,[str(new/'Games'),str(external)])
         self.assertTrue((old/'Games/Master System/Example.exe').exists())
-        self.assertTrue((new/'datas/compiled-games.before-path-migration.json').is_file())
+        self.assertFalse((new/'datas/compiled-games.before-path-migration.json').exists())
 
-    def test_legacy_migration_merges_old_and_local_aliases_preserving_favorites(self):
+    def test_an_inventory_without_a_recorded_base_is_read_as_it_is_and_never_migrated(self):
+        # Inventories of releases before 1.6.0 that recorded no base are not guessed at any more.
         old = self.root/'old-app'
-        new = self.root/'new-app'
-        shutil.copytree(self.root/'Games',new/'Games')
-        old_game=Game(str(old/'Games/Master System/Example.exe'),'sms',self.identity,'Example',
-                      report=str(old/'Games/Master System/datas/reports/example/conversion-report.json'),
-                      source=str(self.root/'ROMS/Example.sms'),favorite=True)
-        local=game_from_report(new/'Games/Master System/datas/reports/example/conversion-report.json')
-        path=new/'datas/compiled-games.json'
+        new = self.root/'installed-app'
+        shutil.copytree(self.root/'Games', new/'Games')
+        game = Game(str(old/'Games/Master System/Example.exe'), 'sms', self.identity, 'Example',
+                    report=str(old/'Games/Master System/datas/reports/example/conversion-report.json'), favorite=True)
+        path = new/'datas/compiled-games.json'
         path.parent.mkdir(parents=True)
-        original=json.dumps(dict(schema=1,roots=[str(old/'Games')],games=[asdict(old_game),asdict(local)]))
-        path.write_text(original,encoding='utf-8')
-        inventory=Inventory(path)
-        with patch('retrorecomp.batch._embedded_export_identity',side_effect=AssertionError('No binary scan')):
-            self.assertEqual(inventory.relocate(),1)
-        games=inventory.snapshot()
-        self.assertEqual(len(games),1)
-        self.assertEqual(games[0].executable,local.executable)
-        self.assertEqual(games[0].source,old_game.source)
-        self.assertTrue(games[0].favorite)
-        self.assertEqual(inventory.roots,[str(new/'Games')])
-        self.assertEqual(path.with_name('compiled-games.before-path-migration.json').read_text(encoding='utf-8'),original)
-        self.assertFalse(Inventory(path).relocation_pending)
-        scan(inventory,[new/'Games'],{})
-        scan(inventory,[new/'Games'],{})
-        self.assertEqual(len(inventory.snapshot()),1)
-        self.assertTrue(inventory.snapshot()[0].favorite)
-
-    def test_legacy_migration_checks_exact_report_identity_not_only_the_name(self):
-        new=self.root/'new-app'
-        shutil.copytree(self.root/'Games',new/'Games')
-        path=new/'datas/compiled-games.json'
-        path.parent.mkdir(parents=True)
-        old=Game(str(self.root/'old/Games/Master System/Example.exe'),'sms','b'*64,'Example',
-                 report=str(self.root/'old/Games/Master System/datas/reports/example/conversion-report.json'))
-        path.write_text(json.dumps(dict(schema=1,games=[asdict(old)])),encoding='utf-8')
-        inventory=Inventory(path)
-        self.assertEqual(inventory.relocate(),0)
-        self.assertEqual(inventory.snapshot()[0].executable,old.executable)
-
-    def test_legacy_copy_opens_correctly_before_any_scan_without_reading_executables(self):
-        old=self.root/'old-app'
-        new=self.root/'installed-app'
-        shutil.copytree(self.root/'Games',new/'Games')
-        game=Game(str(old/'Games/Master System/Example.exe'),'sms',self.identity,'Example',
-                  report=str(old/'Games/Master System/datas/reports/example/conversion-report.json'),favorite=True)
-        path=new/'datas/compiled-games.json'
-        path.parent.mkdir(parents=True)
-        path.write_text(json.dumps(dict(schema=1,games=[asdict(game)])),encoding='utf-8')
-        inventory=Inventory(path)
-        opening=Path.open
-        def metadata_only(file,*args,**kwargs):
-            if file.suffix.lower()=='.exe':raise AssertionError('Never open games during relocation')
-            return opening(file,*args,**kwargs)
-        with patch.object(Path,'open',metadata_only),patch('subprocess.Popen',side_effect=AssertionError('Never execute')):
-            self.assertEqual(inventory.relocate(),1)
-        self.assertEqual(Path(inventory.snapshot()[0].executable),new/'Games/Master System/Example.exe')
-        self.assertTrue(inventory.snapshot()[0].favorite)
-
-    def test_temporarily_unavailable_legacy_copy_can_be_relocated_on_a_later_open(self):
-        old=self.root/'old-app'
-        new=self.root/'installed-app'
-        game=Game(str(old/'Games/Master System/Example.exe'),'sms',self.identity,'Example',
-                  report=str(old/'Games/Master System/datas/reports/example/conversion-report.json'))
-        path=new/'datas/compiled-games.json'
-        path.parent.mkdir(parents=True)
-        path.write_text(json.dumps(dict(schema=1,games=[asdict(game)])),encoding='utf-8')
-        inventory=Inventory(path)
-        self.assertEqual(inventory.relocate(),0)
-        shutil.copytree(self.root/'Games',new/'Games')
-        reopened=Inventory(path)
-        self.assertTrue(reopened.relocation_pending)
-        self.assertEqual(reopened.relocate(),1)
-        self.assertEqual(Path(reopened.snapshot()[0].executable),new/'Games/Master System/Example.exe')
+        original = json.dumps(dict(schema=1, games=[asdict(game)]))
+        path.write_text(original, encoding='utf-8')
+        inventory = Inventory(path)
+        self.assertFalse(inventory.relocation_pending)
+        self.assertEqual(inventory.relocate(), 0)
+        self.assertEqual(inventory.snapshot()[0].executable, game.executable)
+        self.assertEqual(path.read_text(encoding='utf-8'), original)
+        self.assertFalse(path.with_name('compiled-games.before-path-migration.json').exists())
 
     def test_two_existing_copies_remain_distinct_and_missing_external_alias_is_pruned(self):
         scan(self.inventory,[self.root/'Games'],{})

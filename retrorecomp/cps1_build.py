@@ -292,12 +292,6 @@ def pack(board: Path) -> bytes:
     return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
 
 
-LEGACY_STATE_ABI_141 = 'd92d265ba352da2602ee7a74492a02f6397477a131b79afab1ef42fa66f1d557'
-# Written by release 1.5.6 (found in real 1.5.6 exports, reproduced from its tag). Only Windows emits it, like the 1.4.1
-# one: the Linux key also hashes the target. A 1.5.6 state resumes in an export built with this code (docs/GAME_STATES.md).
-LEGACY_STATE_ABI_156 = 'a04dc60ccd2aab4d029fa96fef271d91595396fe3bd97b434f117ca32ff799dd'
-
-
 def state_config(game_set, title: str) -> str:
     """Quick states load only into the same romset and the same board/runtime sources."""
     import hashlib, importlib, json, os
@@ -315,10 +309,9 @@ def state_config(game_set, title: str) -> str:
     return ('#pragma once\n#define RR16_STATE_SYSTEM 4\n#define RR16_STATE_PAL 0\n'
             f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n'
-            # Release 1.4.1 (Visual Studio): the quick states of an upgraded export stay valid.
-            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_141)}\n'
-               # Release 1.5.6: the key hashed the modules of that release; the serialized bytes are the same ones.
-               f'#define RR16_STATE_COMPAT_ABI_24 {json.dumps(LEGACY_STATE_ABI_156)}\n' if os.name == 'nt' else ''))
+            # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release
+            # that follows it (docs/GAME_STATES.md); the keys of older releases are never kept. None in the tree of 1.6.0.
+            )
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,

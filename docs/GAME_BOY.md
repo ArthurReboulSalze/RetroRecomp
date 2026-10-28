@@ -63,9 +63,9 @@ the same keyboard/gamepad mapping layout; F1 opens help; P pauses.
 Defaults: arrows, **W/X** for A/B (using the current keyboard layout),
 **Enter** for cartridge Start, either **Shift** for cartridge Select;
 gamepad D-pad/left stick, face buttons, Start and Back for
-the cartridge, and left-stick click for the pause menu. Existing shared Game
-Boy settings with recognizable old defaults migrate in memory without
-rewriting the INI until a setting is saved. Custom mappings remain available.
+the cartridge, and left-stick click for the pause menu. Shared Game Boy
+settings written with the old default keys by a release before 1.6.0 keep them
+(they are no longer migrated). Custom mappings remain available.
 
 Shift+F1 resets; F3 cycles sharp pixels, Scale2x, scanlines and xBR smooth;
 F4 cycles window, integer pixel-perfect fullscreen and aspect-fit fullscreen.

@@ -7,7 +7,6 @@ matches, with no new hints, is upgraded without rediscovery.
 """
 import hashlib
 import json
-from . import __version__
 from .feedback import ingest
 from .library import file_sha256
 from .systems import get_profile, unsigned_option_keys
@@ -85,9 +84,8 @@ def current(item, target, report_path, signature, emit):
     try:
         report = json.loads(report_path.read_text(encoding='utf-8'))
         receipt = report['export_receipt']
-        schema = receipt.get('schema', 1)
-        if (schema not in (1, 2, 3) or
-                (schema == 1 and report['version'] != __version__) or
+        # Only the receipt this release writes (schema 3): those of releases before 1.6.0 are not current.
+        if (receipt.get('schema') != 3 or
                 receipt['request'] != signature or not _own_export(item, target, report, receipt)):
             return None
         return report if _no_new_hints(item, report, report_path, emit) else None
@@ -120,12 +118,10 @@ def upgradable(item, target, report_path, parts, emit):
 
 
 def report_scan_level(report):
-    """The scan level a report was converted at, wherever its writer put it: the top-level `scan_level`
-    (Master System, Game Gear, Game Boy, CPS-1, X68000, and every writer since 1.5.6), the schema-2 `scan.level`, or
-    `advanced_scan.level` (Mega Drive, Super Nintendo and NES reports of 1.5.x had only that). 'standard' when none."""
-    scan, advanced = report.get('scan'), report.get('advanced_scan')
-    for level in (report.get('scan_level'), scan.get('level') if isinstance(scan, dict) else None,
-                  advanced.get('level') if isinstance(advanced, dict) else None):
+    """The scan level a report was converted at: the top-level `scan_level` every writer carries, or the schema-2
+    `scan.level`. 'standard' when none."""
+    scan = report.get('scan')
+    for level in (report.get('scan_level'), scan.get('level') if isinstance(scan, dict) else None):
         if isinstance(level, str) and level:
             return level
     return 'standard'

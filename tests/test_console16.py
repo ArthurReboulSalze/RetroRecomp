@@ -48,48 +48,24 @@ class Console16Tests(unittest.TestCase):
         path.write_bytes(payload)
         return path
 
-    def test_previous_md_state_abi_requires_same_engine_and_disk_layout(self):
+    def test_md_state_config_accepts_no_key_of_an_earlier_release(self):
+        # Only the previous release's key may ever be listed (docs/GAME_STATES.md); the tree of 1.6.0 lists none.
         from retrorecomp.console16 import REPOSITORIES
         from retrorecomp.console16_state import write_config
         rom = read_megadrive_rom(self.source('state.md', md()))
         (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
-        write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
         import os
-        if os.name != 'nt':
-            self.assertNotIn('RR16_STATE_COMPAT_ABI',
-                             (self.root/'retro16_state_config.h').read_text())
-            # Check the retained Windows migration contract independently of
-            # the machine executing these pure source-generation tests.
-            # Only this module sees 'nt': a global os.name would make pathlib build Windows paths.
-            class WindowsOs:
-                name = 'nt'
-                def __getattr__(self, attribute):
-                    return getattr(os, attribute)
-            with patch('retrorecomp.console16_state.os', WindowsOs()):
-                write_config(self.root,rom,'md','Test',REPOSITORIES)
-        self.assertIn('RR16_STATE_COMPAT_ABI "ea70d6ee',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_2 "9462ea4e',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_3 "66c19234',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_4 "ff419f0a',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_5 "70957023',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_6 "e9576d9f',
-                      (self.root/'retro16_state_config.h').read_text())
-        self.assertIn('RR16_STATE_COMPAT_ABI_7 "b5a707ff',
-                      (self.root/'retro16_state_config.h').read_text())
-        # 1.4.1 quick states still load after the 1.5.0 default-key change.
-        self.assertIn('RR16_STATE_COMPAT_ABI_23 "58e2c720',
-                      (self.root/'retro16_state_config.h').read_text())
-        changed = {**REPOSITORIES, 'md': ('other/engine', '0'*40, 'other')}
-        write_config(self.root, rom, 'md', 'Test', changed)
-        self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
-        with patch('retrorecomp.console16_state.PORTABLE_STATE_ABI', 3):
-            write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
-            self.assertNotIn('RR16_STATE_COMPAT_ABI', (self.root/'retro16_state_config.h').read_text())
+        class WindowsOs:
+            name = 'nt'
+            def __getattr__(self, attribute):
+                return getattr(os, attribute)
+        # Only this module sees 'nt': a global os.name would make pathlib build Windows paths.
+        for patched in (os, WindowsOs()):
+            with patch('retrorecomp.console16_state.os', patched):
+                write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
+            text = (self.root/'retro16_state_config.h').read_text()
+            self.assertNotIn('RR16_STATE_COMPAT_ABI', text)
+            self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"')
 
     def test_bundled_compiler_fingerprint_needs_no_source_file(self):
         import sys

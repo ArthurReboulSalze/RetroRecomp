@@ -80,11 +80,9 @@ def extend_observations(record, extra, ipl=None):
 #   <library>/x68/<game>/<machine16>/converter-observations.json   observed guest code of one machine
 #   <library>/x68/<game>/<machine16>/converter-qualification.json  its receipt
 # <machine16> is the start of X68000Manifest.sha256: disks + the player's IPL + font ROM + RAM size, the identity
-# of the executable (states, saved data) and of the observations (they hold IPL words). Before 1.6.0 the pair
-# lived outside the library, in <converter folder>/datas/x68000-development/<machine hash>/, and the summary
-# under <library>/x68/<machine hash>/. Those places are read when the new ones are empty and copied (never
-# moved, never erased) to the new ones, so an older converter still finds what it wrote.
-LEGACY_MEMORY='datas/x68000-development'
+# of the executable (states, saved data) and of the observations (they hold IPL words). Places used before 1.6.0
+# (the converter folder's datas/x68000-development, the summary under the machine hash) are not read any more:
+# backward compatibility is owed to the previous release only.
 OBSERVATION_FILES=('converter-observations.json','converter-qualification.json')
 
 
@@ -124,52 +122,6 @@ def _copy_file(source, target):
                 time.sleep(0.05)
     finally:
         if os.path.exists(name):os.unlink(name)
-
-
-def adopt_legacy_memory(source, manifest, *, emit=print):
-    """The library folder holding this machine's observations and receipt.
-
-    A pair that only exists in the pre-1.6.0 folder is copied there first (receipt last, content checked);
-    if the copy is impossible the old folder is read instead. The old files stay where they are."""
-    target=machine_memory(source,manifest);legacy=ROOT/LEGACY_MEMORY/manifest.sha256
-    if (all((target/name).is_file() for name in OBSERVATION_FILES)
-            or not all((legacy/name).is_file() for name in OBSERVATION_FILES)):
-        return target
-    copied=False
-    try:
-        with entry_lock(target,timeout=120):
-            if not all((target/name).is_file() for name in OBSERVATION_FILES):
-                for name in OBSERVATION_FILES:_copy_file(legacy/name,target/name)
-                if digest(target/OBSERVATION_FILES[0])!=digest(legacy/OBSERVATION_FILES[0]):
-                    raise OSError('copy of the X68000 observations differs')
-                copied=True
-    except (OSError,TimeoutError):
-        return legacy
-    if copied:emit('X68000: earlier observations of this machine copied into the library.')
-    return target
-
-
-def adopt_legacy_summary(source, manifest):
-    """The game's summary file; one written under the machine hash is merged into it, then retired."""
-    entry=game_entry(source);summary=entry/'compilation.json'
-    legacy=library_root('x68')/manifest.sha256/'compilation.json'
-    if manifest.sha256==source.game_key or not legacy.is_file():return summary
-    try:
-        old=json.loads(legacy.read_text(encoding='utf-8'))
-        if not isinstance(old,dict):return summary
-        with entry_lock(entry,timeout=120):
-            if summary.is_file():
-                record=json.loads(summary.read_text(encoding='utf-8'))
-                if old.get('mouse_controls') is True:record['mouse_controls']=True
-            else:record={**old,'game':source.game_key}
-            atomic_json(summary,record)
-            # The record is written; only now does the copy under the machine hash go (the Memory view would
-            # list the same game twice). Any other file in that folder is left alone.
-            legacy.unlink()
-            try:legacy.parent.rmdir()
-            except OSError:pass
-    except (OSError,ValueError,TimeoutError,AttributeError,TypeError):pass
-    return summary
 
 
 def reusable_observations(folder, manifest, names=OBSERVATION_FILES):
@@ -392,7 +344,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
     emit('X68000: verifying exact disks, IPL, font ROM and machine settings.')
     from .feedback import ingest, records
     # Feedback belongs to the game. Exports of 1.5 and earlier recorded it under the machine hash: still read.
-    feedback=ingest('x68',source.game_key,output,emit=emit,aliases=(manifest.sha256,))
+    feedback=ingest('x68',source.game_key,output,emit=emit)
     sdk=native.SDK=sdk_tree(base)
     machine_settings=machine_sources(base,emit)
     with entry_lock(base/'discovery-lock',timeout=1800):
@@ -429,7 +381,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
-        summary=adopt_legacy_summary(source,manifest)
+        summary=game_entry(source)/'compilation.json'
         try:remembered=json.loads(summary.read_text()).get('mouse_controls') is True
         except (OSError,ValueError,AttributeError):remembered=False
         # A reviewed exact set follows the mouse list. Other sets are found by
@@ -479,17 +431,10 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         extra_routes=[(route,folder,inputs) for route,folder,inputs,_ in extra_routes]
         # Exact-input observations improve discovery, never waive the fresh
         # independent comparison above or the standalone replay below.
-        memory=adopt_legacy_memory(source,manifest,emit=emit)
-        # The pair of the maintainer's development stages is only ever read, from its old folder.
-        legacy_memory=ROOT/LEGACY_MEMORY/manifest.sha256
-        for folder,names in ((legacy_memory,('observations.json','qualification.json')),
-                             (memory,OBSERVATION_FILES)):
-            previous=reusable_observations(folder,manifest,names)
-            if not previous and folder==memory!=legacy_memory:
-                # A library copy that is not usable (cut short) never hides the pre-1.6.0 pair it came from.
-                previous=reusable_observations(legacy_memory,manifest,OBSERVATION_FILES)
-            if previous:
-                observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in _read_observations(native,[previous],ipl)]
+        memory=machine_memory(source,manifest)
+        previous=reusable_observations(memory,manifest,OBSERVATION_FILES)
+        if previous:
+            observations['variants'] += [{'pc':pc,'words':words,'hits':1} for pc,words in _read_observations(native,[previous],ipl)]
         for row in records('x68',source.game_key,13):
             end=row.address+len(row.data)
             if (not row.address&1 and 2<=len(row.data)<=16 and len(row.data)%2==0

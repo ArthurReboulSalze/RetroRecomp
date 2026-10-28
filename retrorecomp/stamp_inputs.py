@@ -21,8 +21,8 @@ the stamps (game, host and build) of each console's exported games.
   output of the algorithm on a fixed synthetic input.
 * The role tables (`HOST_*`, `BUILD_MODULES`) say which stamp a listed input
   feeds. See docs/UPGRADES.md.
-* `LEGACY_GAME_STAMPS` lists the game stamps of earlier releases whose exports
-  stay upgradable. Editing it never changes a stamp.
+* `LEGACY_GAME_STAMPS` lists the game stamps of the previous release only, whose
+  exports stay upgradable. Editing it never changes a stamp.
 """
 
 # Owner of an input that every console uses (including a console added later).
@@ -52,62 +52,21 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
 # rechecked on the quick routes.
 BUILD_MODULES = frozenset(('toolchain', 'packing'))
 
-# Game stamps of earlier releases whose exports stay upgradable: the code that
+# Game stamps of the PREVIOUS release only, whose exports stay upgradable: the code that
 # differed from today's was only how the game is built, and the exports were
 # rebuilt and compared frame by frame with the new build before being listed
 # (docs/COMPILATION_LIBRARY.md). A receipt with one of these stamps is never
 # current: it is always rebuilt and rechecked, or converted in full.
-# Release procedure: remove the entries, or complete them, whenever a release
-# really changes what a game does.
-LEGACY_GAME_STAMPS = {
-    # Release 1.4.1 (tag v1.4.1, Python 3.14.5). Each stamp reproduced the game part of a real receipt written by
-    # the released Retro-Recomp.exe (see docs/COMPILATION_LIBRARY.md). A console without a verified receipt has no entry:
-    # the X68000 request also carries an SDK stamp that could not be reproduced from the tag, so it is converted in full.
-    # Release 1.5.1 (tag v1.5.1, Python 3.14.5), second value where present: same rule, one real receipt per console
-    # (Master System, Game Gear, Game Boy, NES, Neo Geo, CPS-1). The released Windows Retro-Recomp.exe 1.5.1 cannot
-    # convert Mega Drive or Super Nintendo games (probe16 lost its subprocess import), so those consoles have no 1.5.1
-    # receipt and no 1.5.1 entry; the X68000 still has none either.
-    # Release 1.5.2 (tag v1.5.2, Python 3.14.5), last value where present: same rule, one real receipt per console
-    # (Master System, Game Gear, Game Boy, NES, Mega Drive, Neo Geo, CPS-1). X68000: none (no receipt, SDK stamp).
-    # Super Nintendo: no entry at all any more, although its 1.5.2 receipt matched. After 1.5.2 the SNES engine changes
-    # what games do ($4016 strobe, GSU bus ownership, Super FX), which is not a build-only difference, so the 1.4.1
-    # entry was removed too (release procedure): SNES exports of 1.4.1, 1.5.1 and 1.5.2 are converted in full.
-    # Neo Geo: no entry either. A Neo Geo receipt written before 1.6.0 hashed the whole Neo Geo bank in its
-    # knowledge part, and 1.6.0 hashes the record of the game: the two never match, so an entry could never be
-    # recognised (the 1.4.1, 1.5.1 and 1.5.2 ones were removed for that reason). Neo Geo exports of earlier
-    # releases are converted in full by 1.6.0, which is safe. The release procedure must not add a Neo Geo
-    # entry for 1.5.6 or any release before 1.6.0.
-    # Release 1.5.6 (tag v1.5.6, Python 3.14.5), last value where present, declared on 27 October 2026 for the
-    # Master System, Game Gear, Game Boy, NES, Mega Drive and CPS-1 (none for the Super Nintendo, the Neo Geo and the
-    # X68000, for the reasons above). Each stamp reproduced the game part of real receipts written by the 1.5.6
-    # converter (two games per console, quick level), and the sources generated for those games by 1.5.6 and by the
-    # 1.6.0 tree, from the same folder, are identical except the host shell, the version text and the state keys
-    # (docs/UPGRADES.md, "Exports of 1.5.6 in 1.6.0"). The 1.6.0 stamp break itself is the Stage B3 change, the host
-    # kit and the CPS-1 build modules, none of which changes a generated game.
-    'cps1': ('65f657f66eeeb24e1aa77c1256ee347e8d53ca7d23df0db6cbbf6db610eeb179',
-             '12eccbacd93d6193d7ad121dd26155cc49ea0a21192639d28bb3d2e995d1135f',
-             '12651539b1dd0cbc5698953adf98947d801cba78816041560e1c6fcf10022835',
-             '187c9db92db22e872d352e6c5895640c414849ba6e50b07db0b06c4e703738fb'),
-    'gb': ('9fcf1ec07784535f5c116a47aacf9942d7a3d28d6d6a7a569db3f8eef7383eb5',
-           '16825d28b6c8d66b1625ccc66470f5e7a7c1a7bf7e43d4a3d287f734f22aa72c',
-           '0739d322ab085c14f31f6b7f0406e9faee63fae6f0415d62e0470c0eba53f5cf',
-           'c8a90b01e99b68da0f9796d109d7f161e9c848d2f8100651731c6dfe3f56f806'),
-    'gg': ('c7e020df1d407c4fbae08b8ff7da1656cad1859bbcb810bcca46e6b4a29ab96a',
-           '41dd8ebe1560245b459d83cd863c53ae8735c53a43795f2690f0a91cf22751e3',
-           '2cf791660628ebacd7a0f75e4b6c62f268032c769bc2c304925e6317cbe8a777',
-           '08950dbb0d3cce0475b17c309d17f72c0b65ed02e9e99cf1b9a4138afe50747b'),
-    'md': ('d6e6de27805f9dafe7911bbc06e5f7110c7e028a4eda29d83e4c4382e3a1b1fb',
-           'c06987ee70ec4425daa373af5cb3822b06741dd881de222f3549507abd72cf96',
-           'd9bd59e01303a56a92e619aef54f67203fa7d0b3a7cb3211addc0562d6f9aa18'),
-    'nes': ('e0bbe86ba8330eff167f8742e504870fd066246406f1e7f0a084e0c35c85afb3',
-            'e91ebf5dfb64aa0dcaddd64ffa6a1687a9e72c1ae8bc786b11ef9a26eacb2980',
-            'd7d318d434cf60ce149350b1505698201034f7740cc5f2a6dfa5f10d2cd213fe',
-            'c98420ac1dfde068026e7fb72da97844714b6a31e6536cca93ff012add168715'),
-    'sms': ('3753156009df8ea0de2477006e4c9c402b14e57d6a759e754be70cae879f762d',
-            '68e4f80be46807908034ea578d86ded0d7160e2f72a000a574f1120bb0e5011e',
-            '57bbfa230daa6a5ac340f36280ed927cf79fe2dfe2a29adcecba9ffdf5911f92',
-            '3897d8b37cffe8a438fd12cb7b522c9fac5222c5b94c9eb045457ef557e2fa7b'),
-}
+# Backward compatibility is owed to the previous release only (decision of
+# 28 October 2026): the table never holds an entry for a release older than
+# that one, and a console whose previous-release game code really differs from
+# today's has no entry either. A player coming from an older release reconverts.
+# Release procedure: replace the entries with those of the release being left
+# (one real receipt per console, proved build-only); never add them to the
+# older ones. The table is empty in the tree of 1.6.0: the releases before it
+# are no longer accepted, and the entries of 1.6.0 are added by the release
+# that follows it.
+LEGACY_GAME_STAMPS = {}
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
 # the window, menus, options, bindings, on-screen text, fonts, filters, icons

@@ -31,28 +31,23 @@ Mega Drive ABI-11 adds pointer-free cartridge state: Sega bank-page registers,
 serial EEPROM phase/lines/address/staged page and remaining guest-clock write
 time. F9 validates the full cartridge before mutation, rebuilds its ROM mapping
 and preserves already prefetched CPU words. Independent actual-backend fixtures
-exercise busy-write and banked-code states in fresh processes. Supported older
-ordinary-cartridge signatures migrate explicitly, including the preceding
-ABI-10 signature; previously unsupported EEPROM/mapper images cannot invent
-that cartridge history from old ordinary states. See
+exercise busy-write and banked-code states in fresh processes. Quick states of
+the Mega Drive and Super Nintendo are bound to the exact build signature, with
+one exception: the signature of the previous release (see
+[the rule](#the-rule-the-previous-release-only)). Earlier signatures that older
+releases accepted (the ABI-2 to ABI-11 predecessors, the 1.4.1 and 1.5.6 keys)
+are no longer recognized, so the migrations of their layouts that the
+generated code still holds can no longer be reached; a previously unsupported
+EEPROM/mapper image cannot invent that cartridge history from old ordinary states. See
 [EEPROM persistence](MEGADRIVE_EEPROM.md) and [banked code](MEGADRIVE_MAPPERS.md).
-The two qualified ABI-11 predecessors are also recognized explicitly after
-wire-state validation and the delayed H/V acknowledge correction. These changes
-add no serialized fields. The 1.4.1 signature is recognized as well
-(`RR16_STATE_COMPAT_ABI_23`): 1.5.0 changes the default keys of the player
-shell (then `console16_host_ui.c`, and `retro_keyboard.h`), which the signature
-hashed but which never reaches a serialized byte. SNES has no such list: its quick
-states are bound to the exact build signature, as before. The local regression restores 57 previous states from
-22 exact signatures, including cartridge states, and replays 600 frames against
-the decoded CPU in fresh processes. Invalid source-latch/wire combinations are
+Invalid source-latch/wire combinations are
 rejected before changing guest state.
 
 Since the player shell moved into the host kit (`native/hostkit`, see
 [HOST_KIT.md](HOST_KIT.md)), a Mega Drive or Super Nintendo signature no longer
 hashes the shell files of the kit: it covers the listed files directly below `native/`, and the
 kit lives one level down. That one change of the list gives the first kit
-release a new signature, so quick states written by earlier exports do not
-load into a rebuilt export; later edits of the shell leave the signature alone.
+release a new signature; later edits of the shell leave the signature alone.
 
 The Mega Drive backend's ABI-10 also stores its two-word 68000 prefetch queue
 in twelve pointer-free CPU-section bytes. F9 preserves already fetched words
@@ -254,7 +249,22 @@ Current packed fresh-process states and the 448-row attract case are checked
 separately; accepting an old architectural state does not recreate every
 old microphase. See [phase evidence](MEGADRIVE_PREFETCH.md).
 
-## States written by release 1.5.6
+## The rule: the previous release only
+
+A quick state resumes only in an export built by the same release, or by the next one when that release lists the
+state key of the previous one: backward compatibility is owed to the previous release and to nothing older (decision of
+28 October 2026). The key is the 64-character `RR16_STATE_ABI` of `retro16_state_config.h`. The release that follows a
+release writes that release's key as `RR16_STATE_COMPAT_ABI` (`console16_state.write_config` for the Mega Drive and
+Super Nintendo, `neogeo_build.state_config`, `cps1_build.state_config`; `native/console16_state.c` accepts the keys a
+build defines, next to its own) after checking, with a real state of a real export, that the serialized bytes are the
+same. It drops the keys of older releases. The tree of 1.6.0 lists none: its states resume in 1.6.0 exports only, and
+the release after it adds the key of 1.6.0. A state that is not accepted is refused cleanly by the loader, never loaded
+wrongly; a player coming from an older release starts the game again from its own saves.
+
+## States written by release 1.5.6 (history)
+
+This section is the dated record of the 1.6.0 work; the keys it names are no longer listed by any build (see the rule
+above), so a 1.5.6 state no longer loads in 1.6.0 or after.
 
 1.6.0 changes the quick-state key of the Mega Drive, Super Nintendo, Neo Geo and CPS-1 (the shell files of the host kit are
 no longer part of the key, the build modules of CPS-1 changed). What each key hashes is not what is serialized, so what

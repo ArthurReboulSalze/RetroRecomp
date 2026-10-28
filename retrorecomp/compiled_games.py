@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import time
 from threading import Event, Lock
 
@@ -46,10 +45,9 @@ def linked(path):
         return True
 
 
-# Consoles whose reports keep the scan level under advanced_scan, and the
-# revision of how the collection reads levels (1.5.6).
+# Kept only for online.resend_deeper_levels, a one-time resend for releases before 1.6.0 that belongs to the shared
+# base code (the collection itself no longer reads levels from advanced_scan). Remove both together.
 ADVANCED_SCAN_SYSTEMS = ('md', 'snes', 'nes')
-LEVELS_REVISION = 2
 
 
 @dataclass
@@ -90,18 +88,17 @@ class Inventory:
         self.games = {}
         self.roots = []
         self.lock = Lock()
-        self.relocation_pending = self.legacy_paths = False
+        self.relocation_pending = False
         try:
             data = read_json(self.path)
             if data.get('schema') != 1 or not isinstance(data.get('games'), list):
                 return
-            # Saved before 1.5.6: Mega Drive, Super Nintendo and NES levels were
-            # read as Standard; those rows read their report once more.
-            reread_levels = data.get('levels') != LEVELS_REVISION
             previous = data.get('base')
             previous = Path(previous) if isinstance(previous, str) and Path(previous).is_absolute() else None
-            self.legacy_paths = previous is None or data.get('legacy_paths') is True
-            self.relocation_pending = bool(data['games']) and (self.legacy_paths or previous != self.base)
+            # Paths are rebased while loading, so a collection copied or moved with its converter folder opens right;
+            # the rebased inventory is saved once by relocate(). An inventory that records no base (written by a
+            # release before 1.6.0) is read as it is: its paths are not guessed.
+            self.relocation_pending = bool(data['games']) and previous is not None and previous != self.base
             for raw in data['games'][:MAX_GAMES]:
                 try:
                     game = Game(**raw)
@@ -114,8 +111,6 @@ class Inventory:
                         if previous is not None:
                             for field in ('executable', 'report', 'source'):
                                 setattr(game, field, _rebase(getattr(game, field), previous, self.base))
-                        if reread_levels and game.system in ADVANCED_SCAN_SYSTEMS and game.level == 'standard':
-                            game.level = ''
                         old = self.games.get(game.key)
                         if old and (old.system, old.identity) == (game.system, game.identity):
                             game.favorite |= old.favorite
@@ -132,7 +127,7 @@ class Inventory:
     def save(self):
         with self.lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_json(self.path, {'schema': 1, 'levels': LEVELS_REVISION, 'base': str(self.base), 'legacy_paths': self.legacy_paths, 'roots': self.roots,
+            atomic_json(self.path, {'schema': 1, 'base': str(self.base), 'roots': self.roots,
                 'games': [asdict(game) for game in self.games.values()]})
 
     def snapshot(self):
@@ -151,64 +146,13 @@ class Inventory:
             self.games[game.key] = game
 
     def relocate(self):
-        """Repair known local paths only; never walk folders or open game binaries.
-
-        Modern inventories retain the converter base, so rebasing happens while
-        loading. Legacy migration uses the copied report or an exact existing
-        collection entry, never a title-only match. Called in the view's worker.
-        """
+        """Save the inventory whose paths were rebased while loading (see __init__); never walks folders or
+        opens game binaries. Called in the view's worker."""
         if not self.relocation_pending:
             return 0
-        backup = self.path.with_name(self.path.stem + '.before-path-migration.json')
-        try:
-            with self.path.open('rb') as original, backup.open('xb') as output:
-                shutil.copyfileobj(original, output)
-        except FileExistsError:
-            pass
-        changed, bases = 0, set()
-        if self.legacy_paths:
-            for game in self.snapshot():
-                old_base = _legacy_base(game)
-                if old_base is None or old_base == self.base:
-                    continue
-                executable = Path(_rebase(game.executable, old_base, self.base))
-                if not executable.is_file() or linked(executable):
-                    continue
-                candidate = Game(**{**asdict(game), 'executable': str(executable),
-                                  'report': _rebase(game.report, old_base, self.base)})
-                with self.lock:
-                    local = self.games.get(candidate.key)
-                if local and (local.system, local.identity) != (game.system, game.identity):
-                    continue
-                if local is None:
-                    try:
-                        if not candidate.report or linked(Path(candidate.report)):
-                            continue
-                        report = game_from_report(Path(candidate.report), executable.parent)
-                        if (report.system, report.identity, report.key) != (game.system, game.identity, candidate.key):
-                            continue
-                        candidate.target = candidate.target or report.target
-                        candidate.version = candidate.version or report.version
-                    except (OSError, ValueError, TypeError, KeyError):
-                        continue
-                else:
-                    candidate = Game(**{**asdict(local), 'favorite': local.favorite or game.favorite,
-                                      'source': local.source or game.source,
-                                      'report': local.report or candidate.report})
-                self.remember(candidate)
-                with self.lock:
-                    self.games.pop(game.key, None)
-                bases.add(old_base)
-                changed += 1
-            for old_base in bases:
-                self.roots = [_rebase(root, old_base, self.base) for root in self.roots]
-            self.roots = list(dict.fromkeys(self.roots))
-        self.legacy_paths = self.legacy_paths and any(
-            (previous := _legacy_base(game)) is not None and previous != self.base
-            for game in self.snapshot())
         self.relocation_pending = False
         self.save()
-        return changed
+        return 0
 
     def set_favorite(self, game, value):
         with self.lock:
@@ -224,16 +168,6 @@ def _rebase(value, previous, current):
         return str(current / Path(value).relative_to(previous))
     except ValueError:
         return value
-
-
-def _legacy_base(game):
-    """Recognize only the app's conventional Games/<console>/... hierarchy."""
-    path = Path(game.executable)
-    console = get_profile(game.system).export_folder.casefold()
-    for index in range(1, len(path.parts)-2):
-        if path.parts[index].casefold() == 'games' and path.parts[index+1].casefold() == console:
-            return Path(*path.parts[:index])
-    return None
 
 
 def default_roots(preferences):
@@ -319,14 +253,10 @@ def report_level(report) -> str:
     else 'standard'. A quick check from known or shared paths counts as
     standard: it only rechecked paths found before."""
     report = report if isinstance(report, dict) else {}
-    # Mega Drive, Super Nintendo and NES reports kept their level under
-    # advanced_scan only; 1.5.2-1.5.5 read only the top level and took them for
-    # Standard (stars and the depth coins of their conversions). Every writer
-    # now also writes scan_level and the schema-2 scan section, but exports
-    # made before keep the old places, so all of them are read.
-    advanced, scan = report.get('advanced_scan'), report.get('scan')
+    # Every writer of 1.6.0 writes scan_level and the schema-2 scan section; the upgrade record carries the level an
+    # upgraded export inherited.
+    scan = report.get('scan')
     levels = [report.get('scan_level'), scan.get('level') if isinstance(scan, dict) else None,
-              advanced.get('level') if isinstance(advanced, dict) else None,
               ((report.get('upgrade') or {}).get('discovery') or {}).get('scan_level')]
     deepest = max((LEVEL_STARS.get(level, 1) for level in levels if isinstance(level, str)), default=1)
     return {1: 'standard', 2: 'extended', 3: 'thorough'}[deepest]

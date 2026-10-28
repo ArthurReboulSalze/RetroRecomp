@@ -12,8 +12,8 @@ or how it is validated still triggers a full conversion.
 A conversion batch (or **Reconvert** in the collection) upgrades a game only
 when all of the following hold:
 
-- the previous export has a version 3 receipt (written since 1.2.8), and its
-  executable is exactly the file that receipt names;
+- the previous export has a version 3 receipt (the only one this release
+  writes and reads), and its executable is exactly the file that receipt names;
 - the request's **game part** is unchanged: game-side converter inputs, scan
   level, passes, frames, video standard, BIOS or machine identity, target,
   ROM and the bundled or imported knowledge for that cartridge;
@@ -22,16 +22,35 @@ when all of the following hold:
 - only the **host part** changed: host inputs, title, language, artwork or
   icon tags.
 
-Older receipts have no game part, so the first batch after updating to 1.2.8
-still converts each game once in full. A forced conversion from the queue
+Older receipts have no game part: the first batch after updating from a release
+before 1.6.0 converts each game once in full. A forced conversion from the queue
 always rediscovers; **Reconvert** in the collection always rebuilds, but
 upgrades when the conditions above hold.
 
 A third role, **build**, covers the choice of the C toolchain
 (`retrorecomp/toolchain.py`): changing the compiler or its options also upgrades an
 export, because the executable is recompiled and rechecked on the quick routes.
-Exports of an earlier release can be accepted the same way through an explicit list of
+Exports of the **previous release** can be accepted the same way through an explicit list of
 equivalent game stamps; see [Build inputs](COMPILATION_LIBRARY.md#build-inputs-and-exports-of-an-earlier-release-that-stay-upgradable-150).
+
+## The rule: the previous release only
+
+Backward compatibility is owed to the previous release and to nothing older (decision of 28 October 2026). For release
+N it covers the exports, receipts, quick states and local files that release N-1 wrote, and nothing else:
+
+- `LEGACY_GAME_STAMPS` (`retrorecomp/stamp_inputs.py`) lists the game stamps of release N-1, where its exports were
+  shown to differ from release N only in how the game is built. The release procedure replaces the entries, it never
+  adds to those of an older release. The table is empty in the tree of 1.6.0; the release after it adds the entries
+  of 1.6.0.
+- The quick-state keys of release N-1 are the only `RR16_STATE_COMPAT_ABI` lines a build writes
+  ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0.
+- A receipt of another schema than the current one (3) is never current, and a report is read in the places the current
+  writers use (`scan_level`, `scan.level`), not in those of releases before 1.6.0.
+- Nothing migrates the files of a release older than N-1 (collection inventories without a recorded base, the X68000
+  observation pairs of the development stages, the library of the former name, default key bindings of old settings).
+
+A player coming from an older release reconverts (or reinstalls); nothing is lost on disk, the old files are simply
+not read.
 
 ## What an upgrade does
 
@@ -50,7 +69,11 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
-## Exports of 1.5.6 in 1.6.0
+## Exports of 1.5.6 in 1.6.0 (history)
+
+This section is the dated record of the release that moved the stamps; 1.6.0 itself no longer carries these entries
+(see [the rule](#the-rule-the-previous-release-only)): a 1.5.6 export, like any export older than 1.6.0, is converted in
+full by 1.6.1 and after.
 
 1.6.0 moves every console's game stamp on purpose (standardisation: the paths module of stage B3, the host kit, the
 CPS-1 build modules, reproducible stamps). What a conversion generates did not move, so the exports of the last release
@@ -152,8 +175,8 @@ game starts from. Since 1.6.0 `knowledge.py` delegates to `path_profiles.py`, so
 that module is in every console's game stamp (it was an interface module while
 only the exchange and the shared base used it). The modules that only share
 discoveries (`knowledge_exchange.py`, `knowledge_build.py`, `online.py`) stay
-interface modules. The Neo Geo has no `LEGACY_GAME_STAMPS` entry since 1.6.0: its knowledge part used to hash the
-whole Neo Geo bank, so its exports of earlier releases are converted in full once (do not add an entry for 1.5.6).
+interface modules. Neo Geo receipts of releases before 1.6.0 hashed the whole Neo Geo bank in their knowledge part; 1.6.0 hashes the
+game's own record, which is one more reason none of them is listed.
 A Neo Geo receipt is written with the game's key as the conversion found it. The paths' own stamp (`knowledge_stamp`) hashes the game's
 record, not the bank: see [the paths and the stamps](COMPILATION_LIBRARY.md#stage-b3-the-conversions-follow-the-module-27-october-2026).
 
