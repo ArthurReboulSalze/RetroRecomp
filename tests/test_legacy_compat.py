@@ -35,6 +35,19 @@ GAME_STAMPS_161 = {
     'snes': '463da5c5cf464363bbc887e524a1933288e9f94c7d748cae624748dc172b6ae4',
 }
 X68_GAME_STAMP_161_NOT_LISTED = '428f2fc57bfbd0d11cf3e1bbd7977a967628bc328728746dc784cea0c39241ca'
+# The same release's Linux converter, built with Python 3.13 (code is fingerprinted as bytecode): the stamps the published
+# Linux 1.6.1 converter gives with its own `_compilation-inputs`, equal to git archive v1.6.1 under Python 3.13.
+GAME_STAMPS_161_LINUX = {
+    'cps1': '5a47af5e465134ab8fa927cd3389c7bbbcc12d61ec02f18461de63e89ae175fb',
+    'gb': 'f194a7e52b26bddadcf02362d4921774ec75f8c65629724286c3ad5c716322d5',
+    'gg': '2e805515d5cf5e080ea5f9ac10d97759bcf22b6976b565b2a73d599f2d82d736',
+    'md': '47c10b4b7a49bd24c34cee183442cdb5344c578657f5b3ed83106794a9944db9',
+    'nes': '480b9aea940b6c5fe11adcf226dcf6fc15fb5df2703080c8c62ef71a4efba5c2',
+    'ng': 'cc24dd0a1115f37f2053188a478f8592bb2e42765b6e07aacd8f8d4bf7427e4f',
+    'sms': '1a3b71b7a75d91e2ed859656671c7471a31d9ce4527f2f15170146e961a71346',
+    'snes': '0a62f3c2061a22948f8442c8b84faee71f0925772536f8a7d30d4ae43bef63d9',
+}
+X68_GAME_STAMP_161_LINUX_NOT_LISTED = '0aea38e48dea2196c46904a2f9a2bbb8c9cf565ad455cf59969e7c0e7b8d3f71'
 # Game stamps of release 1.6.0 (the table of 1.6.1 listed them): owed to nobody any more.
 GAME_STAMPS_160_REMOVED = {
     'cps1': '699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95',
@@ -79,9 +92,10 @@ STATE_ABI_156_REMOVED = ('9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa
 
 class LegacyStampTests(unittest.TestCase):
     def test_the_table_lists_release_1_6_1_and_nothing_older(self):
-        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {system: (stamp,) for system, stamp in GAME_STAMPS_161.items()})
+        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {system: (stamp, GAME_STAMPS_161_LINUX[system])
+                                                     for system, stamp in GAME_STAMPS_161.items()})
         for system in sorted(inputs.SYSTEMS):
-            expected = (GAME_STAMPS_161[system],) if system in GAME_STAMPS_161 else ()
+            expected = (GAME_STAMPS_161[system], GAME_STAMPS_161_LINUX[system]) if system in GAME_STAMPS_161 else ()
             self.assertEqual(inputs.legacy_game_stamps(system), expected, system)
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
@@ -93,17 +107,19 @@ class LegacyStampTests(unittest.TestCase):
         for system in sorted(inputs.SYSTEMS):
             self.assertNotIn(inputs.role_stamps(system)['game'], inputs.legacy_game_stamps(system), system)
             self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_161.get(system), system)
+            self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_161_LINUX.get(system), system)
 
     def test_the_x68000_is_converted_in_full_by_the_next_release(self):
         # Its request holds `x68_sdk`, hash of the game stamp of the tree that wrote it: not covered by the table.
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
         self.assertNotIn(X68_GAME_STAMP_161_NOT_LISTED, listed)
+        self.assertNotIn(X68_GAME_STAMP_161_LINUX_NOT_LISTED, listed)
         self.assertNotIn(X68_GAME_STAMP_160_NOT_LISTED, listed)
 
     def test_super_nintendo_exports_of_1_6_1_are_upgraded(self):
         # Nothing Super Nintendo specific changed between 1.6.1 and 1.6.2 (docs/UPGRADES.md): the entry is listed.
-        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_161['snes'],))
+        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_161['snes'], GAME_STAMPS_161_LINUX['snes']))
 
 
     def test_entries_of_the_previous_release_are_wellformed_and_never_the_current_stamp(self):
@@ -201,15 +217,17 @@ class LegacyReceiptTests(unittest.TestCase):
         for system in sorted(GAME_STAMPS_161):
             with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
                 item, parts = self.parts(system)
-                frozen = self.parts(system, GAME_STAMPS_161[system])[1]
-                self.assertEqual(parts['legacy_games'], [frozen['game']])
-                self.assertNotEqual(parts['game'], frozen['game'])
-                with patch('retrorecomp.freshness._no_new_hints', return_value=True):
-                    target, path = self.receipt(folder, item, frozen['game'])
-                    self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
-                    previous = freshness.upgradable(item, target, path, parts, print)
-                    self.assertEqual(previous['legacy_release'], '1.6.1')
-                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.1')
+                # The Windows and the Linux converter of 1.6.1, in the table's order.
+                frozen = [self.parts(system, stamps[system])[1] for stamps in (GAME_STAMPS_161, GAME_STAMPS_161_LINUX)]
+                self.assertEqual(parts['legacy_games'], [part['game'] for part in frozen])
+                for part in frozen:
+                    self.assertNotEqual(parts['game'], part['game'])
+                    with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                        target, path = self.receipt(folder, item, part['game'])
+                        self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
+                        previous = freshness.upgradable(item, target, path, parts, print)
+                        self.assertEqual(previous['legacy_release'], '1.6.1')
+                        self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.1')
 
     def test_nothing_is_upgraded_from_a_release_the_table_does_not_list(self):
         # 1.5.6 and 1.6.0 (listed by the tables of 1.6.0 and 1.6.1, not by this one) and any other game part:
@@ -219,7 +237,7 @@ class LegacyReceiptTests(unittest.TestCase):
             for system in sorted(removed):
                 with self.subTest(release=release, system=system), tempfile.TemporaryDirectory() as folder:
                     item, parts = self.parts(system)
-                    self.assertEqual(len(parts['legacy_games']), 1)
+                    self.assertEqual(len(parts['legacy_games']), 2)     # 1.6.1 on Windows and on Linux
                     old = self.parts(system, removed[system])[1]['game']
                     with patch('retrorecomp.freshness._no_new_hints', return_value=True):
                         for game in (old, 'f' * 64):

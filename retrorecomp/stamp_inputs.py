@@ -81,14 +81,25 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # entry: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not
 # recompute.
 LEGACY_GAME_STAMPS = {
-    'cps1': ('fb7d9315c9637c103aa81f259712524d9bf29b33e6e9d920ce8f4b5ad83f92db',),
-    'gb': ('e5fc74915974ec27ab05bc9c9ae5ecea03050316ed39d9842b11485d2ffe1e09',),
-    'gg': ('f860d65789176fa85ad7c7880c766da1754ea98fedac4f50edcf77d664f799cd',),
-    'md': ('2effe9f498891007f54fadc029a8f55f625ed414c73894fe2cbde5684dcfd188',),
-    'nes': ('a8b871f2ab08ffc44633cc562b942fdac9a3cc4d65a7706030b714abf96fa017',),
-    'ng': ('1d1a5224f6c89a58ff7f1f79d807918a1c4f1295e0ae3543a253a4d884d2959b',),
-    'sms': ('c4589fe7b51645c8fc779fb2511d3dc9c793fa855b5c910089bbdf0cb3dea68d',),
-    'snes': ('463da5c5cf464363bbc887e524a1933288e9f94c7d748cae624748dc172b6ae4',),
+    # (the Windows converter's stamp, built with Python 3.14; the Linux converter's, built with Python 3.13: code is
+    # fingerprinted as bytecode, so the two published 1.6.1 converters stamp differently; both checked with their own
+    # `_compilation-inputs` against this table)
+    'cps1': ('fb7d9315c9637c103aa81f259712524d9bf29b33e6e9d920ce8f4b5ad83f92db',
+        '5a47af5e465134ab8fa927cd3389c7bbbcc12d61ec02f18461de63e89ae175fb'),
+    'gb': ('e5fc74915974ec27ab05bc9c9ae5ecea03050316ed39d9842b11485d2ffe1e09',
+        'f194a7e52b26bddadcf02362d4921774ec75f8c65629724286c3ad5c716322d5'),
+    'gg': ('f860d65789176fa85ad7c7880c766da1754ea98fedac4f50edcf77d664f799cd',
+        '2e805515d5cf5e080ea5f9ac10d97759bcf22b6976b565b2a73d599f2d82d736'),
+    'md': ('2effe9f498891007f54fadc029a8f55f625ed414c73894fe2cbde5684dcfd188',
+        '47c10b4b7a49bd24c34cee183442cdb5344c578657f5b3ed83106794a9944db9'),
+    'nes': ('a8b871f2ab08ffc44633cc562b942fdac9a3cc4d65a7706030b714abf96fa017',
+        '480b9aea940b6c5fe11adcf226dcf6fc15fb5df2703080c8c62ef71a4efba5c2'),
+    'ng': ('1d1a5224f6c89a58ff7f1f79d807918a1c4f1295e0ae3543a253a4d884d2959b',
+        'cc24dd0a1115f37f2053188a478f8592bb2e42765b6e07aacd8f8d4bf7427e4f'),
+    'sms': ('c4589fe7b51645c8fc779fb2511d3dc9c793fa855b5c910089bbdf0cb3dea68d',
+        '1a3b71b7a75d91e2ed859656671c7471a31d9ce4527f2f15170146e961a71346'),
+    'snes': ('463da5c5cf464363bbc887e524a1933288e9f94c7d748cae624748dc172b6ae4',
+        '0a62f3c2061a22948f8442c8b84faee71f0925772536f8a7d30d4ae43bef63d9'),
 }
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw

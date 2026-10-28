@@ -126,7 +126,7 @@ additional components shipped with their respective distributions.
 
 Full notice files are reproduced from the installed packages or the pinned
 upstream sources and bundled inside `Retro-Recomp.exe`. The matching
-[UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.6.2/licenses/upx-5.3.0-src.tar.xz)
+[UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/3846c13bf21575ecb9dbaecead2943f72403e5c9/licenses/upx-5.3.0-src.tar.xz)
 is maintained separately in the public repository and linked from Credits.
 The executable download page must also link to that archive. No ROMs, box art,
 personal settings, compilation

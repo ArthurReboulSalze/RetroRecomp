@@ -1,7 +1,7 @@
 """Execute the real frontend callbacks using SDL virtual controllers/events."""
 from pathlib import Path
 import json
-import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -18,7 +18,7 @@ class SDLControlsTests(unittest.TestCase):
 
     def run_harness(self, harness, fresh=False):
         from retrorecomp.core import toolchain, ConversionError
-        from retrorecomp.platforms import cmake_target_args, sdl_install
+        from retrorecomp.platforms import build_executable, cmake_target_args, sdl_install
         sdl = sdl_install()
         # libretro.h is the MIT API header shipped by the pinned Geolith checkout.
         libretro = ROOT / '.deps/geolith-libretro/deps/libretro-common/include'
@@ -56,7 +56,8 @@ else()
 endif()
 '''.format(root=ROOT.as_posix(), harness=harness, libretro=libretro.as_posix())
         (work / 'CMakeLists.txt').write_text(cmakelists, encoding='utf-8')
-        build = work / 'build'
+        # One build folder per generator: CMake refuses a folder configured by another one (Visual Studio, Ninja).
+        build = work / ('build-' + re.sub(r'\W+', '-', generator).strip('-').lower())
         for command in ([str(cmake), '-S', str(work), '-B', str(build), '-G', generator,
                          *cmake_target_args(), f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'],
                         [str(cmake), '--build', str(build), '--config', 'Release', '--parallel', '2']):
@@ -64,7 +65,7 @@ endif()
             (work / ('configure.log' if '-S' in command else 'build.log')).write_text(
                 result.stdout + result.stderr, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        executable = build / ('Release/controls.exe' if os.name == 'nt' else 'controls')
+        executable = build_executable(build, 'controls')
         result = subprocess.run([str(executable)], capture_output=True, text=True, encoding="utf-8", timeout=30)
         (work / 'result.log').write_text(result.stdout + result.stderr, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

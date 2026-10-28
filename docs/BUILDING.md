@@ -451,7 +451,7 @@ python tools/prepare_publication.py --source .build/publication/repository --exe
 ```
 
 The EXE contains the converter and its legal notices. The matching
-[UPX 5.3.0 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.6.2/licenses/upx-5.3.0-src.tar.xz)
+[UPX 5.3.0 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/3846c13bf21575ecb9dbaecead2943f72403e5c9/licenses/upx-5.3.0-src.tar.xz)
 stays in the public repository. Link it clearly beside the EXE on every
 download page. No loose license files are needed beside the local EXE.
 Keep source staging and

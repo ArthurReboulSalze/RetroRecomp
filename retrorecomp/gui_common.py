@@ -17,7 +17,7 @@ LOCAL_PLATFORM = 'windows-x64' if os.name == 'nt' else target_id()
 PLATFORMS = {LOCAL_PLATFORM: 'Windows version' if os.name == 'nt' else 'Linux version'}
 HELP_URL = 'https://github.com/ArthurReboulSalze/RetroRecomp/blob/main/docs/INDEX.md'
 UPX_SOURCE_URL = ('https://github.com/ArthurReboulSalze/RetroRecomp/blob/'
-                  'v1.6.2/licenses/upx-5.3.0-src.tar.xz')
+                  '3846c13bf21575ecb9dbaecead2943f72403e5c9/licenses/upx-5.3.0-src.tar.xz')
 
 
 def update_error_text(error: Exception | str, language: str) -> str:

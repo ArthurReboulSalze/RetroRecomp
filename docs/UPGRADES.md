@@ -251,9 +251,17 @@ The release procedure (the rule above) replaces the entries of 1.6.0 by those of
 Run the same way on the `v1.6.0` tag, the computation gave the nine stamps of 1.6.0 again, byte for byte, which is the check
 that the method and the Python are the ones that produced the entries of the previous table.
 
+**Two converters, two stamps per console.** Code is fingerprinted as bytecode, so the Windows converter of 1.6.1 (built
+with Python 3.14) and the Linux one (built with Python 3.13) stamp differently: each console lists both, Windows first. Both
+were checked against the published converters themselves on 28 October 2026: the `Retro-Recomp.exe` and
+`Retro-Recomp-linux-x86_64` assets of the v1.6.1 release (SHA-256 checked against its `SHA256SUMS.txt`) were run with
+their internal `_compilation-inputs` command, and the game, host and build stamps recomputed from their own input
+fingerprints equal, on all nine consoles, the stamps of `git archive v1.6.1` under Python 3.14 (Windows) and 3.13 (Hermès,
+the Linux build host). Without the Linux entries a Linux export of 1.6.1 would be converted in full.
+
 **Evidence, and what is not proved.** No game was converted for these entries and `Export/` holds no receipt written by
 1.6.1: the only schema 3 receipt of 1.6.0 or later there is one Mega Drive game of 1.6.0. The claim rests on the list of
-inputs above, not on a receipt per console. An entry cannot accept a wrong export: a receipt matches only if its game part
+inputs above and on the published converters' own stamps, not on a receipt per console. An entry cannot accept a wrong export: a receipt matches only if its game part
 is the hash of the request with `engine` equal to the listed stamp, so a stamp the 1.6.1 converter did not write matches
 nothing and the export is converted in full as before. What the table cannot show without receipts is that a matching
 export is equivalent to a reconversion. An export of 1.6.1 that is upgraded is rebuilt and rechecked on the quick routes

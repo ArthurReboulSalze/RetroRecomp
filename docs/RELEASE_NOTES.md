@@ -37,13 +37,13 @@
 
 **Your exports and quick states.** 1.6.2 moves every console's build stamp (the
 packer changed). Master System, Game Gear, Game Boy, NES, Mega Drive, Super
-Nintendo, Neo Geo and CPS-1 exports of 1.6.1 are upgraded: rebuilt from their
-learned paths, packed by UPX 5.3.0 and rechecked on the quick routes, without a
-new discovery; an upgrade is not a replay of the long routes. Sharp X68000
-exports are converted in full once. F8/F9 quick states written by a 1.6.1
-Mega Drive, Super Nintendo, Neo Geo or CPS-1 export on Windows load in the 1.6.2
-export; states of 1.6.0 and states written by a Linux 1.6.1 export are
-refused cleanly. Exports older than 1.6.1 are converted in full. The details and the
+Nintendo, Neo Geo and CPS-1 exports of 1.6.1, on Windows and on Linux, are
+upgraded: rebuilt from their learned paths, packed by UPX 5.3.0 and rechecked on
+the quick routes, without a new discovery; an upgrade is not a replay of the
+long routes. Sharp X68000 exports are converted in full once. F8/F9 quick
+states written by a 1.6.1 Mega Drive, Super Nintendo, Neo Geo or CPS-1 export
+on Windows are accepted by the 1.6.2 export (their keys are listed); states of
+1.6.0 and states written by a Linux 1.6.1 export are refused cleanly. Exports older than 1.6.1 are converted in full. The details and the
 evidence are in [UPGRADES.md](UPGRADES.md).
 
 **Windows security warning.** RetroRecomp is not signed with a paid
