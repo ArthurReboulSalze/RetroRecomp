@@ -25,7 +25,7 @@ restores the program in memory when it starts; `upx -d` gives the unpacked file
 back. Sizes and start-up times measured on Debian are in
 [BUILDING.md](BUILDING.md#linux-game-compression). If UPX cannot pack and test a
 very large game (it happens with the 78 MB Metal Slug 3), the game is published
-unpacked rather than failing the conversion; the report says so.
+unpacked rather than failing the conversion; the conversion log and the report say so.
 
 Conversion still requires the native build tools: `build-essential`, `cmake`,
 `ninja-build`, `git`, `pkg-config`, `curl` and the SDL2 development dependencies

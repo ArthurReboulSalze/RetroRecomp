@@ -44,7 +44,7 @@ class PublishingTests(unittest.TestCase):
         self.assertFalse(is_pending(self.target))
 
     def test_compaction_happens_on_staged_copy_before_replacement(self):
-        def compact(staged):
+        def compact(staged, emit=None):
             self.assertEqual(self.source.read_bytes(), b'new generation')
             staged.write_bytes(b'compact generation')
         with patch('retrorecomp.publishing.compact_executable', side_effect=compact) as packer:
@@ -52,6 +52,15 @@ class PublishingTests(unittest.TestCase):
         packer.assert_called_once()
         self.assertEqual(self.target.read_bytes(), b'compact generation')
         self.assertEqual(self.source.read_bytes(), b'new generation')
+
+    def test_a_packing_notice_goes_to_the_log_given_to_the_publication(self):
+        log = []
+        def compact(staged, emit=None):
+            emit('UPX could not pack and verify the executable (test). It is published unpacked.')
+        with patch('retrorecomp.publishing.compact_executable', side_effect=compact):
+            self.assertFalse(publish_executable(self.source, self.target, compact=True, emit=log.append))
+        self.assertEqual(log, ['UPX could not pack and verify the executable (test). It is published unpacked.'])
+        self.assertEqual(self.target.read_bytes(), b'new generation')
 
     def test_compaction_failure_preserves_previous_executable(self):
         with patch('retrorecomp.publishing.compact_executable', side_effect=RuntimeError('UPX failed')):

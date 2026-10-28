@@ -254,8 +254,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         from .packing import compact_executable
         packed = project / 'packed-game.exe' if os.name == 'nt' else project / 'packed-game'
         shutil.copy2(executable, packed)
-        compact_executable(packed)
-        emit('CPS-1: comparing the compressed executable with the fresh reference.')
+        notice = compact_executable(packed, emit)
+        emit('CPS-1: comparing the ' + ('unpacked' if notice else 'compressed') + ' executable with the fresh reference.')
         final = {}
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for (name, _, _), result in zip(plan, pool.map(

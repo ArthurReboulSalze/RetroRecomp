@@ -94,6 +94,45 @@ class NeoGeoConverterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'AES qualification is incomplete'):
                 qualified_record(report)
 
+    def test_validation_file_names_the_candidate_that_was_compared(self):
+        # A large Linux game UPX cannot pack and test is published unpacked: the file says so (fake UPX).
+        from types import SimpleNamespace
+        from retrorecomp import packing
+        from retrorecomp.neogeo_conversion import record_candidate_validation
+        from tests.test_packing import ELF_X86_64, POSIX_OS
+        project=self.root/'project';project.mkdir()
+        rows=[{'name':'play','frames':300,'native_entries':5,'interpreted_opcodes':0,
+               'audio_native_opcodes':7,'audio_interpreted_opcodes':0}]
+        def candidate(failure):
+            game=project/'packed-game.exe';game.write_bytes(ELF_X86_64+bytes(64)+b'native game')
+            (project/'native-validation.json').write_text(json.dumps(
+                {'passed':False,'awaiting_packed_validation':True,'routes':[]}),encoding='utf-8')
+            log=[]
+            def run(command,**options):
+                if '-9' in command:Path(command[-1]).write_bytes(b'UPX! packed')
+                return SimpleNamespace(returncode=1 if failure and '-t' in command else 0,stdout='',
+                                       stderr='upx: packed-game.exe: Exception: compressed data violation')
+            with patch('retrorecomp.packing.subprocess.run',side_effect=run),patch('retrorecomp.packing.os',POSIX_OS),\
+                    patch('retrorecomp.packing.platform.machine',return_value='x86_64'):
+                notice=packing.compact_executable(game,log.append)
+            return game,notice,log,record_candidate_validation(project,game,notice,rows)
+        game,notice,log,validation=candidate(True)
+        self.assertEqual(log,[notice['notice']])
+        self.assertEqual(game.read_bytes(),ELF_X86_64+bytes(64)+b'native game')
+        self.assertEqual(validation['validated_candidate'],'unpacked')
+        self.assertEqual(validation['unpacked_sha256'],hashlib.sha256(game.read_bytes()).hexdigest())
+        self.assertEqual(validation['unpacked_reason'],notice['notice'])
+        self.assertNotIn('packed_sha256',validation)
+        self.assertEqual(json.loads((project/'native-validation.json').read_text(encoding='utf-8')),validation)
+        self.assertEqual((validation['passed'],validation['awaiting_packed_validation']),(True,False))
+        game,notice,log,validation=candidate(False)
+        self.assertEqual((notice,log),(None,[]))
+        self.assertEqual(validation['validated_candidate'],'packed')
+        self.assertEqual(validation['packed_sha256'],hashlib.sha256(game.read_bytes()).hexdigest())
+        self.assertNotIn('unpacked_reason',validation)
+        self.assertEqual(validation['routes'],[{'route':'play','frames':300,'passed':True,'main_native':5,
+            'main_fallback':0,'sound_native':7,'sound_fallback':0}])
+
     def test_auto_detection_needs_no_compiler_or_bios(self):
         with patch('retrorecomp.neogeo_build.preparation_tool',side_effect=AssertionError('identification built a tool')):
             item=identify(self.neo())

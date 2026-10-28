@@ -34,8 +34,9 @@ LINUX_TIMEOUT = 300
 # and is smaller (40 MB against 45 MB) but a start costs 2.7 s instead of 0.17 s on a Core i7-6600U (the
 # unpacked 78 MB file starts in 0.01 s), and the Neo Geo F11 machine switch starts the file again: not
 # worth it for the player, so a game UPX cannot pack and test is published unpacked, as built and validated.
-# The reason is kept for packing_record by the SHA-256 of the unpacked bytes (and printed on stderr): the
-# callers, game-side modules, are left alone on purpose, since changing them would move every game stamp.
+# The reason is kept for packing_record by the SHA-256 of the unpacked bytes, and handed to the caller's
+# `emit` (the conversion log that the interface and the batch command line show); with no `emit` it goes
+# to stderr, once.
 _UNPACKED_REASONS: dict[str, str] = {}
 
 
@@ -70,14 +71,22 @@ def packing_record(unpacked: dict, published: Path) -> dict:
     return record
 
 
-def compact_executable(path: Path) -> dict | None:
+def compact_executable(path: Path, emit=None) -> dict | None:
     """Pack a disposable staged copy; raise before replacing an existing game.
 
     Windows raises when UPX cannot pack and test the file. On Linux that is a last
     resort only (see compact_linux). Returns None when the file was packed as usual or
-    left as built on purpose, else compact_linux's account of why it stays unpacked."""
+    left as built on purpose, else {'notice': text}, the reason it stays unpacked. The
+    text is passed to `emit` (the conversion log) when given, else printed on stderr:
+    never both, so a command line shows it once."""
     if os.name != 'nt':
-        return compact_linux(path)
+        outcome = compact_linux(path)
+        if outcome:
+            if emit is not None:
+                emit(outcome['notice'])
+            else:
+                print(outcome['notice'], file=sys.stderr, flush=True)
+        return outcome
     tool = ASSETS / "assets/tools/upx.exe"
     if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
         raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")
@@ -167,11 +176,10 @@ def compact_linux(path: Path) -> dict | None:
             return None
         shutil.copyfile(original, path)
         notice = (
-            f"UPX {UPX_VERSION} could not pack and verify {path.name} ({failure}"
+            f"UPX {UPX_VERSION} could not pack and verify the executable ({failure}"
             f"{'; upx/upx issue 18937' if 'violation' in failure else ''}). It is published unpacked, "
             "exactly as built and validated: a larger file, the same program.")
         _UNPACKED_REASONS[hashlib.sha256(original.read_bytes()).hexdigest()] = notice
-        print(notice, file=sys.stderr, flush=True)
         return {'notice': notice}
     finally:
         original.unlink(missing_ok=True)

@@ -189,6 +189,26 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(Path(alone['games'][0]['executable']).name, names[first.sha256])
         self.assertEqual({path.name for path in exports(self.output)}, set(names.values()))
 
+    def test_a_packing_notice_reaches_the_conversion_log_once(self):
+        # UPX could not pack and test the game (Linux): the log the interface shows says so, once.
+        item = self.item("one", 1)
+        notice = 'UPX 5.2.1 could not pack and verify the executable (test). It is published unpacked.'
+        def compact(staged, emit=None):
+            emit(notice)
+        def convert(said_during_conversion):
+            def compile(path, **options):
+                if said_during_conversion:    # a console that packs while converting (Neo Geo, CPS-1)
+                    options['emit'](notice)
+                return self.compiler(path, **options)
+            log = []
+            with patch("retrorecomp.systems.master_system.MasterSystemProfile.convert", side_effect=compile), \
+                    patch('retrorecomp.publishing.compact_executable', side_effect=compact):
+                record = convert_batch([item], self.games_root, emit=log.append, force=True)
+            self.assertEqual(record["succeeded"], 1)
+            return [line for line in log if notice in line]
+        self.assertEqual(convert(False), [f'{item.title}: {notice}'])
+        self.assertEqual(convert(True), [f'[1/1 - {item.title}] {notice}'])
+
     def test_failure_preserves_previous_executable_and_next_rom_still_runs(self):
         first, second = self.item("one", 1), self.item("two", 2)
         self.output.mkdir(parents=True)

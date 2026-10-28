@@ -722,7 +722,7 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
         from .packing import compact_executable
         packed_executable = project / 'packed-game.exe'
         shutil.copy2(executable, packed_executable)
-        compact_executable(packed_executable)
+        compact_executable(packed_executable, emit)
         shutil.copy2(packed_executable, output)
         return output
 
