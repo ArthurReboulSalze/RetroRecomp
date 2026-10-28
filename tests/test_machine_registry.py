@@ -74,7 +74,10 @@ def _qualification_matrix() -> dict:
 
 
 def _gui_builds_the_tab(source: str, system: str) -> bool:
-    """The options panel of gui.py builds a tab for this console (a call or a loop over a tuple of ids)."""
+    """The options panel of gui.py builds a tab for this console: the generic page over the registered profiles
+    (1.6.3), else a call or a loop over a tuple of ids."""
+    if 'self.build_console_tab(profile, tab, checkbox)' in source:
+        return system in {profile.id for profile in ALL_PROFILES}
     quoted = r"""['"]%s['"]""" % re.escape(system)
     call = re.search(r'build_scan_options\([^)\n]*' + quoted + r'[^)\n]*\)', source)
     loop = re.search(r'for \w+ in \([^)\n]*' + quoted + r'[^)\n]*\)\s*:', source)
@@ -159,11 +162,16 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         option = f'{system}_{firmware}'
         if option not in profile.option_key_names:
             add(f'the profile declares the firmware {firmware!r} but no option_keys entry {option!r}')
-        for where, source in (('RetroRecomp.py', _text('RetroRecomp.py')), ('retrorecomp/paths.py', _text('retrorecomp/paths.py')),
-                              ('retrorecomp/gui.py', gui_source())):
-            token = '--' + option.replace('_', '-') if where == 'RetroRecomp.py' else option
-            if token not in source:
-                add(f'{where} does not carry {token!r} (firmware option of the console)')
+        # Since 1.6.3 the command line, the saved paths and the window read the option from the profile.
+        import argparse
+        import RetroRecomp
+        from retrorecomp import paths
+        parser = argparse.ArgumentParser()
+        RetroRecomp.add_machine_options(parser)
+        if '--' + option.replace('_', '-') not in parser._option_string_actions:
+            add(f'RetroRecomp.py builds no --{option.replace("_", "-")} flag (firmware option of the console)')
+        if option not in paths.path_option_names():
+            add(f'retrorecomp/paths.py does not save {option!r} relative to the export folder (firmware option of the console)')
 
     # --- interface: tab, scan note, translations in every language -------------------------------
     tab = LEGACY_TAB_KEYS.get(system, 'options_' + system)
@@ -213,8 +221,8 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         add('random_routes.CONSOLES has no pad layout (or list the console in DECLINED["random_routes"] with the reason)')
     if system not in artwork.REPOSITORIES and system not in DECLINED['artwork']:
         add('artwork.REPOSITORIES has no box-art repository (or decline it in DECLINED["artwork"])')
-    if f"'{system}':" not in Path(memory_view.__file__).read_text(encoding='utf-8') and system not in DECLINED['memory_view']:
-        add('memory_view.summaries has no library pattern (or decline it in DECLINED["memory_view"])')
+    if not (profile.library_layout and profile.library_layout.summary_glob) and system not in DECLINED['memory_view']:
+        add('the profile has no library_layout.summary_glob for memory_view.summaries (or decline it in DECLINED["memory_view"])')
 
     # --- tier two: only a `supported` machine -------------------------------------------------
     if profile.status == 'supported':
