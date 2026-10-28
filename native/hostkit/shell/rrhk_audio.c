@@ -1,7 +1,7 @@
-/* Audio output of the 16-bit machines: one queued device at 48 kHz stereo, a
- * priming reserve, and the pacing that keeps the picture from running ahead of
- * the sound. The machine's source rate and layout stay its own business; it
- * hands over 48 kHz stereo PCM. */
+/* Audio output of the windowed loop. Queue model (the 16-bit machines): one queued device at
+ * 48 kHz stereo, a priming reserve, and the pacing that keeps the picture from running ahead of
+ * the sound; the machine hands over 48 kHz stereo PCM. Ring model (the NES): the machine's mono
+ * PCM goes through rrhk_ring.c. Each machine's source rate and layout stay its own business. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
@@ -14,6 +14,15 @@ void rrhk_audio_open(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_AudioSpec want = {0};
     memset(&run->have, 0, sizeof run->have);
+    if (m->audio_model == RRHK_AUDIO_RING) {
+        run->audio = 0;
+        run->audio_playing = false;
+        if (!run->video_clock_test && rrhk_ring_open(m->audio_rate)) {
+            if (!m->audio_enable || m->audio_enable(m->audio_rate)) { rrhk_ring_start(); run->audio = rrhk_ring_device(); }
+            else rrhk_ring_close();
+        }
+        return;
+    }
     want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
     run->audio = 0;
     /* A dummy audio device's callback timer is not a calibrated 48 kHz
@@ -31,11 +40,37 @@ void rrhk_audio_open(RrhkRun *run) {
 }
 
 void rrhk_audio_pause_output(RrhkRun *run) {
+    if (run->machine->audio_model == RRHK_AUDIO_RING) { rrhk_ring_clear(); return; }
     rrhk_options_audio_reset();
     if (!run->audio) return;
     SDL_PauseAudioDevice(run->audio, 1);
     SDL_ClearQueuedAudio(run->audio);
     run->audio_playing = false;
+}
+
+/* The loop did not run the machine this time (a menu is open). */
+void rrhk_audio_idle(RrhkRun *run) {
+    if (run->machine->audio_model == RRHK_AUDIO_RING) rrhk_ring_clear();
+    else if (run->audio_playing) rrhk_audio_pause_output(run);
+}
+
+/* Bytes waiting in the device queue; 0 without a device or on the ring model. */
+unsigned rrhk_audio_queued(const RrhkRun *run) {
+    return run->audio && run->machine->audio_model == RRHK_AUDIO_QUEUE ? SDL_GetQueuedAudioSize(run->audio) : 0;
+}
+
+/* The sound of the frame just run, from the machine to the device. The ring model drains the
+ * machine until it has nothing more; the queue model takes one block. */
+void rrhk_audio_frame(RrhkRun *run) {
+    const RrhkMachine *m = run->machine;
+    int16_t pcm[4096]; size_t n;
+    if (m->audio_model == RRHK_AUDIO_RING) {
+        while ((n = m->audio(pcm, 4096)) > 0)
+            if (run->audio) rrhk_ring_submit(pcm, (uint32_t)n);
+        return;
+    }
+    n = m->audio(pcm, 4096);
+    if (n && run->audio) rrhk_audio_push(run, pcm, n);
 }
 
 /* Preserve every produced block. If the host catches up after a scheduling
@@ -84,6 +119,7 @@ void rrhk_audio_pace(RrhkRun *run, Uint64 now) {
 }
 
 void rrhk_audio_close(RrhkRun *run) {
+    if (run->machine->audio_model == RRHK_AUDIO_RING) { rrhk_ring_close(); return; }
     if (run->audio && SDL_AtomicGet(&run->cushion.raises))
         fprintf(stderr, "[host] audio reserve=+%d ms (raised %d times); physical latency unmeasured\n",
             rr_cushion_ms(&run->cushion), SDL_AtomicGet(&run->cushion.raises));

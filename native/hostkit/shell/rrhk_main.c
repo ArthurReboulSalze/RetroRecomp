@@ -81,7 +81,8 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
             bool ok = m->state_file(r->state_path, load);
             r->pending_state = 0;
             const char *message = ok ? (load ? rrhk_tr("Quick state loaded", "Partie chargee") : rrhk_tr("Quick state saved", "Partie sauvegardee")) :
-                (load ? rrhk_tr("No compatible quick state to load", "Aucune sauvegarde compatible") : rrhk_tr("Cannot save game state", "Impossible de sauvegarder"));
+                (load ? rrhk_tr("No compatible quick state to load", "Aucune sauvegarde compatible") :
+                 m->save_failed_en ? rrhk_tr(m->save_failed_en, m->save_failed_fr) : rrhk_tr("Cannot save game state", "Impossible de sauvegarder"));
             rrhk_notice(message, 1800);
             if (ok) { rrhk.menu = 0; rrhk.capturing = 0; }
             if (ok && load) { rrhk_audio_pause_output(r); r->next = SDL_GetPerformanceCounter(); }
@@ -96,18 +97,17 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
         if (!rrhk.menu || r->pending_state) {
             if (timing_enabled) timing_ticks[1] = SDL_GetPerformanceCounter();
             if (m->before_frame) {
-                RrhkAudioProbe probe = {r->audio_playing, r->audio ? SDL_GetQueuedAudioSize(r->audio) : 0,
+                RrhkAudioProbe probe = {r->audio_playing, rrhk_audio_queued(r),
                                         (unsigned)r->have.freq, r->have.samples};
                 m->before_frame(&probe, input_frame);
             }
-            if (!m->run_frame(pad1, m->pointer ? 0 : rrhk_pad_word(1, input_frame))) { r->running = false; break; }
+            if (!m->run_frame(pad1, m->pointer && !m->pointer_keeps_player2 ? 0 : rrhk_pad_word(1, input_frame))) { r->running = false; break; }
             ++r->frame;
             timing_ran_frame = true;
             if (timing_enabled) timing_ticks[2] = SDL_GetPerformanceCounter();
-            int16_t pcm[4096]; size_t n = m->audio(pcm, 4096);
-            if (n && r->audio) rrhk_audio_push(r, pcm, n);
+            rrhk_audio_frame(r);
             if (r->test_frames && r->frame >= r->test_frames) r->running = false;
-        } else if (r->audio_playing) rrhk_audio_pause_output(r);
+        } else rrhk_audio_idle(r);
         if (timing_enabled) timing_ticks[3] = SDL_GetPerformanceCounter();
         rrhk_present_picture(r);
 

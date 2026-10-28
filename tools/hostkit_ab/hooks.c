@@ -6,7 +6,9 @@
  *   - the clock (a virtual one: SDL_Delay advances it, every read adds a
  *     microsecond), so pacing, notices and the audio reserve are repeatable;
  *   - the audio device (a model that drains the queue in whole periods of the
- *     virtual clock), logging every push, pause and clear with a hash of the PCM;
+ *     virtual clock, or, for a device opened with a callback, runs that callback on the
+ *     calling thread at every period boundary), logging every push, pause and clear with
+ *     a hash of the PCM;
  *   - the keyboard, the mouse and the window focus (scripted);
  *   - the event stream (the script pushes real SDL events and drives virtual
  *     game controllers);
@@ -47,6 +49,9 @@ static int audio_open_flag, audio_playing;
 static Uint32 audio_queue, audio_period_bytes;
 static Uint64 audio_next_period;
 static Uint64 audio_period_us;
+static SDL_AudioCallback audio_callback;      /* a callback device (the NES ring): no queue */
+static void *audio_userdata;
+static int cursor_shown = 1;
 
 static uint64_t fnv(uint64_t h, const void *data, size_t size) {
     const unsigned char *p = data;
@@ -163,6 +168,13 @@ void rrab_Delay(Uint32 ms) {
 static void audio_advance(void) {
     if (!audio_playing || !audio_period_us) return;
     while (virtual_us >= audio_next_period) {
+        if (audio_callback) {
+            static Uint8 block[65536];
+            audio_next_period += audio_period_us;
+            audio_callback(audio_userdata, block, (int)audio_period_bytes);
+            fprintf(events_log, "A b %u %016llx\n", iteration, (unsigned long long)fnv(14695981039346656037ull, block, audio_period_bytes));
+            continue;
+        }
         Uint32 take = audio_queue < audio_period_bytes ? audio_queue : audio_period_bytes;
         audio_queue -= take;
         audio_next_period += audio_period_us;
@@ -171,6 +183,7 @@ static void audio_advance(void) {
 SDL_AudioDeviceID rrab_OpenAudioDevice(const char *name, int capture, const SDL_AudioSpec *want, SDL_AudioSpec *have, int allowed) {
     (void)name; (void)capture; (void)allowed; init();
     *have = *want;
+    audio_callback = want->callback; audio_userdata = want->userdata;
     audio_open_flag = 1;
     audio_period_bytes = (Uint32)want->samples * want->channels * 2;
     audio_period_us = (Uint64)want->samples * 1000000u / (Uint64)want->freq;
@@ -183,6 +196,8 @@ int rrab_QueueAudio(SDL_AudioDeviceID dev, const void *data, Uint32 size) {
     audio_queue += size; return 0;
 }
 Uint32 rrab_GetQueuedAudioSize(SDL_AudioDeviceID dev) { (void)dev; audio_advance(); return audio_queue; }
+void rrab_LockAudioDevice(SDL_AudioDeviceID dev) { (void)dev; audio_advance(); }
+void rrab_UnlockAudioDevice(SDL_AudioDeviceID dev) { (void)dev; }
 void rrab_PauseAudioDevice(SDL_AudioDeviceID dev, int pause) {
     (void)dev; audio_advance();
     if (!pause && !audio_playing) audio_next_period = virtual_us + audio_period_us;
@@ -192,8 +207,17 @@ void rrab_PauseAudioDevice(SDL_AudioDeviceID dev, int pause) {
 void rrab_ClearQueuedAudio(SDL_AudioDeviceID dev) { (void)dev; audio_queue = 0; fprintf(events_log, "A c %u\n", iteration); }
 void rrab_CloseAudioDevice(SDL_AudioDeviceID dev) { (void)dev; audio_open_flag = 0; fprintf(events_log, "A x %u\n", iteration); }
 
+/* A title equal to the current one changes nothing and is not logged. */
 void rrab_SetWindowTitle(SDL_Window *window, const char *title) {
-    init(); fprintf(events_log, "T %u %s\n", iteration, title); SDL_SetWindowTitle(window, title);
+    init();
+    if (strcmp(SDL_GetWindowTitle(window), title)) fprintf(events_log, "T %u %s\n", iteration, title);
+    SDL_SetWindowTitle(window, title);
+}
+/* Only a change of the pointer's visibility is logged. */
+int rrab_ShowCursor(int toggle) {
+    init();
+    if (toggle >= 0 && (toggle != 0) != cursor_shown) { cursor_shown = toggle != 0; fprintf(events_log, "C %u %d\n", iteration, cursor_shown); }
+    return SDL_ShowCursor(toggle);
 }
 int rrab_SetWindowFullscreen(SDL_Window *window, Uint32 flags) {
     init(); int r = SDL_SetWindowFullscreen(window, flags); fprintf(events_log, "F %u %u -> %d\n", iteration, flags, r); return r;
@@ -219,11 +243,25 @@ void rrab_RenderPresent(SDL_Renderer *renderer) {
 
 /* What the host hands to the machine, logged and passed on: the pad words, the extra
  * CPS-1 pads and the pointer. */
+#ifndef RRAB_NES
 extern bool rr16_frame(uint16_t p1, uint16_t p2);
 bool rrab_frame(uint16_t p1, uint16_t p2) {
     init(); fprintf(events_log, "G %u %04x %04x\n", iteration, p1, p2);
     return rr16_frame(p1, p2);
 }
+#else
+/* The NES: the two controller words and the Zapper, as the host hands them to the machine. */
+extern void cyc_set_controller(int port, uint8_t buttons);
+void rrab_set_controller(int port, uint8_t buttons) {
+    init(); fprintf(events_log, "G %u %d %02x\n", iteration, port, buttons);
+    cyc_set_controller(port, buttons);
+}
+extern void rr_nes_zapper_aim(int x, int y, bool trigger, bool offscreen);
+void rrab_zapper_aim(int x, int y, bool trigger, bool offscreen) {
+    init(); fprintf(events_log, "X %u %d %d %d%d\n", iteration, x, y, trigger, offscreen);
+    rr_nes_zapper_aim(x, y, trigger, offscreen);
+}
+#endif
 #ifdef RRAB_CPS1
 extern void rr_cps1_set_extra_pads(uint16_t p3, uint16_t p4);
 void rrab_extra_pads(uint16_t p3, uint16_t p4) {

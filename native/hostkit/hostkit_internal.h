@@ -98,10 +98,21 @@ void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title);
 /* audio.c */
 void rrhk_audio_open(RrhkRun *run);
 void rrhk_audio_pause_output(RrhkRun *run);
+void rrhk_audio_idle(RrhkRun *run);
 void rrhk_audio_wait_room(RrhkRun *run);
 void rrhk_audio_push(RrhkRun *run, int16_t *pcm, size_t samples);
+void rrhk_audio_frame(RrhkRun *run);
+unsigned rrhk_audio_queued(const RrhkRun *run);
 void rrhk_audio_pace(RrhkRun *run, Uint64 now);
 void rrhk_audio_close(RrhkRun *run);
+
+/* ring.c: the callback-ring output (RRHK_AUDIO_RING). */
+bool rrhk_ring_open(unsigned rate);
+void rrhk_ring_start(void);
+void rrhk_ring_submit(const int16_t *pcm, uint32_t count);
+void rrhk_ring_clear(void);
+void rrhk_ring_close(void);
+SDL_AudioDeviceID rrhk_ring_device(void);
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);

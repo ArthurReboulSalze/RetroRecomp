@@ -1,4 +1,4 @@
-"""Build the real NES host output and check authored PCM timelines, silently."""
+"""Build the host kit's callback-ring output (the NES host's sound) and check authored PCM timelines, silently."""
 from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,7 +10,7 @@ def main():
     project = ROOT / '.build/nes-audio-selftest'
     project.mkdir(parents=True, exist_ok=True)
     result = compile_and_run(project, ROOT/'native/nes_audio_checks.c',
-        requires_sdl=True, link_libraries=('SDL2::SDL2-static',), log=True, timeout=60)
+        include_dirs=(ROOT/'native',), requires_sdl=True, link_libraries=('SDL2::SDL2-static',), log=True, timeout=60)
     (project/'checks.log').write_text(result)
     print(result)
 

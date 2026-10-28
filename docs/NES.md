@@ -391,7 +391,7 @@ The palette remains an approximation. Timing references:
 
 ## Controls, quick states and Zapper
 
-The NES host uses the shared RetroRecomp menu canvas. Player 1 uses arrows,
+The NES host is the NES adapter of the shared host kit ([HOST_KIT.md](HOST_KIT.md)) and uses the shared RetroRecomp menu canvas. Player 1 uses arrows,
 W/X, Enter for Start and Shift for Select (left by default, either Shift
 works since 1.5.0). Player 2 uses keypad
 5/2/1/3, 8/9, 7 for Start and 4 for Select. Gamepads use D-pad/left stick,

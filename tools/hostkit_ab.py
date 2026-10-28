@@ -1,11 +1,12 @@
-"""A/B runs of the windowed host shell of a 16-bit game (Mega Drive, SNES, Neo Geo, CPS-1).
+"""A/B runs of the windowed host shell of a game (Mega Drive, SNES, Neo Geo, CPS-1, NES).
 
-    python tools/hostkit_ab.py build PROJECT WORK [--plain] [--state-config FILE] [--sdl-defs]
+    python tools/hostkit_ab.py build PROJECT WORK [--plain] [--state-config FILE] [--kit nes]
     python tools/hostkit_ab.py run EXE SCRIPT OUT [--timeout S]
     python tools/hostkit_ab.py compare OUT_A OUT_B
 
 PROJECT is the folder of a kept build (`--keep-build`) holding CMakeLists.txt. `build`
-copies it, builds target `game` and prints the executable; with the harness
+copies it, builds target `game` and prints the executable (`--kit nes` puts the host kit's NES
+adapter in place of the NES host the project was converted with); with the harness
 (tools/hostkit_ab/hooks.c) the host sources are compiled against a virtual clock, a modelled
 audio device, a scripted keyboard, mouse and controllers, and a picture read back at every
 frame. `run` plays a script (see hooks.c) in an empty folder with the dummy SDL drivers and
@@ -37,17 +38,34 @@ sys.path.insert(0, str(ROOT))
 SDL_CALLS = ('PollEvent', 'GetKeyboardState', 'GetMouseState', 'GetWindowFlags', 'GetPerformanceFrequency',
              'GetPerformanceCounter', 'GetTicks64', 'Delay', 'OpenAudioDevice', 'QueueAudio',
              'GetQueuedAudioSize', 'PauseAudioDevice', 'ClearQueuedAudio', 'CloseAudioDevice',
-             'SetWindowTitle', 'SetWindowFullscreen', 'RenderPresent')
-HOST_SOURCE = re.compile(r'console16_host_ui\.c|hostkit/(?:shell|adapters)/rrhk_\w+\.c')
+             'LockAudioDevice', 'UnlockAudioDevice', 'SetWindowTitle', 'SetWindowFullscreen', 'ShowCursor',
+             'RenderPresent')
+# The host sources of a project: the 16-bit shell before the kit, the kit, and the NES host before the kit.
+HOST_SOURCE = re.compile(r'console16_host_ui\.c|hostkit/(?:shell|adapters)/rrhk_\w+\.c|\$\{RETRO_NATIVE_DIR\}/nes_host_ui\.c')
+NES_OLD_HOST = '${RETRO_NATIVE_DIR}/nes_host_ui.c'
+
+
+def rehome(work: Path, project: Path) -> None:
+    """A NES project names its own folder in its CMake files: point them at the copy."""
+    old = project.as_posix().encode()
+    new = work.as_posix().encode()
+    for path in work.rglob('*'):
+        if path.is_file() and path.relative_to(work).parts[0] != 'build' and path.stat().st_size < 4_000_000:
+            data = path.read_bytes()
+            if old in data:
+                path.write_bytes(data.replace(old, new))
 
 
 def build(project: Path, work: Path, plain: bool, state_config: Path | None, refresh_kit: bool = False,
-          patches=(), legacy_host: Path | None = None) -> Path:
+          patches=(), legacy_host: Path | None = None, kit: str | None = None) -> Path:
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args, sdl_install
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(project, work, ignore=shutil.ignore_patterns('build', 'build.log', 'entry.lock'))
+    nes = (work / 'cyc_host.c').is_file()
+    if nes:
+        rehome(work, project)
     if state_config:
         shutil.copyfile(state_config, work / 'retro16_state_config.h')
     if refresh_kit and (work / 'hostkit').is_dir():
@@ -60,6 +78,11 @@ def build(project: Path, work: Path, plain: bool, state_config: Path | None, ref
         (work / name).write_text(text.replace(old, new), encoding='utf-8')
     cmake_file = work / 'CMakeLists.txt'
     text = cmake_file.read_text(encoding='utf-8')
+    if kit:   # the NES host of the kit instead of the one the project was converted with
+        from retrorecomp import hostkit
+        if kit != 'nes' or NES_OLD_HOST not in text:
+            raise SystemExit('--kit nes needs a NES project converted with the host of before the kit')
+        text = text.replace(NES_OLD_HOST, ' '.join(hostkit.stage(work, kit)))
     if legacy_host:   # the host as it was before the kit, over the same generated project
         shutil.rmtree(work / 'hostkit', ignore_errors=True)
         shutil.copyfile(legacy_host, work / 'console16_host_ui.c')
@@ -71,6 +94,10 @@ def build(project: Path, work: Path, plain: bool, state_config: Path | None, ref
         shutil.copyfile(ROOT / 'tools/hostkit_ab/hooks.c', work / 'rrab_hooks.c')
         calls = [f'SDL_{name}=rrab_{name}' for name in SDL_CALLS] + ['rr16_frame=rrab_frame']
         own = []
+        if nes:
+            calls = [c for c in calls if not c.startswith('rr16_')] + ['cyc_set_controller=rrab_set_controller',
+                                                                      'rr_nes_zapper_aim=rrab_zapper_aim']
+            own.append('RRAB_NES=1')
         if 'RR16_CPS1=1' in text:
             calls.append('rr_cps1_set_extra_pads=rrab_extra_pads'); own.append('RRAB_CPS1=1')
         if 'gun16.c' in text:
@@ -117,7 +144,9 @@ def collect(out: Path) -> dict:
     for name in ('frames.log', 'events.log', 'stderr.txt', 'returncode.txt', 'timing.json'):
         path = out / name
         result[name] = path.read_bytes() if path.is_file() else b''
-    datas = out / 'box' / 'datas'
+    # Every family prints the same honesty line since the NES moved to the kit (decision D8).
+    result['stderr.txt'] = result['stderr.txt'].replace(b'; physical latency unmeasured', b'')
+    datas =out / 'box' / 'datas'
     if datas.is_dir():
         for path in sorted(datas.rglob('*')):
             if path.is_file():
@@ -127,8 +156,17 @@ def collect(out: Path) -> dict:
     return result
 
 
-def compare(a: Path, b: Path) -> int:
+def compare(a: Path, b: Path, ignore_events: tuple = (), ignore_files: tuple = ()) -> int:
+    """`ignore_events` drops the lines of events.log (and frames.log when 'P') that start with one of the
+    prefixes, `ignore_files` skips files: both are for differences a change documents on purpose."""
     first, second = collect(a), collect(b)
+    for run in (first, second):
+        for name in ('events.log', 'frames.log'):
+            if ignore_events or ignore_files:
+                run[name] = b''.join(line for line in run[name].splitlines(True)
+                                     if not line.startswith(tuple(p.encode() + b' ' for p in ignore_events)))
+        for name in [n for n in run if n in ignore_files]:
+            del run[name]
     differing = []
     for name in sorted(set(first) | set(second)):
         if first.get(name) != second.get(name):
@@ -279,6 +317,9 @@ def battery(family: str, players: int = 2, gun: bool = False, pages: int = 5, le
         s.say('capture pointer-page-2.bmp', 2).tap('F2', 4)
         s.say('mouse 400 300 1', 4).say('capture pointer-new.bmp', 3).say('mouse 400 300 0', 3)
         s.tap('F4', 4).say('mouse 400 300 1', 4).say('capture pointer-display.bmp', 3).say('mouse 400 300 0', 3).tap('F4', 4).tap('F4', 4)
+    # 10a. NES: sprite flicker reduction on and off.
+    if family == 'nes':
+        s.tap('F5', 6).say('capture sprites.bmp', 2).tap('F5', 6)
     # 10b. Neo Geo: enhanced mode on and off; the AES/MVS switch restarts the game, so it comes last.
     if family == 'ng':
         s.tap('F5', 6).say('capture enhanced.bmp', 2).tap('F5', 6).tap('F11', 6).say('capture aes.bmp', 2)
@@ -297,13 +338,16 @@ def main() -> int:
                    help='replace text in a project file before building, e.g. retro_gun_game.h "RR16_GUN 0" "RR16_GUN 3"')
     p.add_argument('--legacy-host', type=Path, help='build the old console16_host_ui.c over this project instead of the kit')
     p.add_argument('--refresh-kit', action='store_true', help="copy native/hostkit of this tree over the kit of the project")
+    p.add_argument('--kit', choices=('nes',), help="build the host kit's adapter of this machine over a project converted before the kit")
     p = sub.add_parser('run'); p.add_argument('exe', type=Path); p.add_argument('script', type=Path)
     p.add_argument('out', type=Path); p.add_argument('--timeout', type=int, default=900)
     p.add_argument('--seed-states', type=Path, help='a datas/states folder (of another run) to start from')
     p.add_argument('--env', action='append', default=[], metavar='NAME=VALUE', help='extra environment; @OUT@ is the output folder')
     p = sub.add_parser('compare'); p.add_argument('a', type=Path); p.add_argument('b', type=Path)
+    p.add_argument('--ignore-events', nargs='*', default=[], metavar='TAG', help='events.log line tags to leave out, e.g. C (cursor)')
+    p.add_argument('--ignore-files', nargs='*', default=[], metavar='NAME', help='files to leave out, e.g. f2-0-4.bmp')
     p = sub.add_parser('script', help='write the standard battery of the shell for one machine')
-    p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1')); p.add_argument('out', type=Path)
+    p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes')); p.add_argument('out', type=Path)
     p.add_argument('--players', type=int, default=2); p.add_argument('--gun', action='store_true')
     p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (for hosts built before the Linux fix of game_options.h)')
     p.add_argument('--soak', type=int, default=2400, help='iterations of play between the sweeps and the menus')
@@ -314,13 +358,13 @@ def main() -> int:
         args.out.write_text(battery(args.family, args.players, args.gun, pages, soak=args.soak, options=not args.no_options_page), encoding='ascii')
         return 0
     if args.command == 'build':
-        print(build(args.project.resolve(), args.work.resolve(), args.plain, args.state_config, args.refresh_kit, args.patch, args.legacy_host))
+        print(build(args.project.resolve(), args.work.resolve(), args.plain, args.state_config, args.refresh_kit, args.patch, args.legacy_host, args.kit))
         return 0
     if args.command == 'run':
         code = play(args.exe.resolve(), args.script.resolve(), args.out.resolve(), args.timeout, args.env, args.seed_states)
         print('exit', code)
         return 0 if code == 0 else 1
-    return compare(args.a.resolve(), args.b.resolve())
+    return compare(args.a.resolve(), args.b.resolve(), tuple(args.ignore_events), tuple(args.ignore_files))
 
 
 if __name__ == '__main__':

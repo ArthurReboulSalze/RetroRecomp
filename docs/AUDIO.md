@@ -107,7 +107,8 @@ SDL references: [audio devices](https://wiki.libsdl.org/SDL2/SDL_OpenAudioDevice
 
 ## NES output continuity
 
-`native/nes_audio_output.inc` delivers the APU's existing 48 kHz mono PCM
+`native/hostkit/shell/rrhk_ring.c` (the host kit's callback-ring output, first the NES host's own
+`nes_audio_output.inc`) delivers the APU's existing 48 kHz mono PCM
 through a bounded callback ring. The old host started an empty SDL queue
 immediately and discarded a whole frame of new sound whenever the pending
 queue exceeded 20 ms. Scheduling variation could therefore create gaps even

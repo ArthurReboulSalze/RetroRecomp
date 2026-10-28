@@ -387,7 +387,10 @@ and a project builds one object per name). The staging code that copies host
 files into a project belongs to the game-role modules `console16.py`,
 `cps1_build.py` and `neogeo_build.py`; calling `hostkit.stage()` changed those
 three modules once, which moves the game stamp of the four consoles once, and
-every later kit edit is host-only (`tests/test_compilation_inputs.py`). The
+every later kit edit is host-only (`tests/test_compilation_inputs.py`). Phase 2 (1.6.2)
+adds the NES to the owners of the shell files and of `retrorecomp.hostkit`
+(`rrhk_nes.c` by the NES alone, `rrhk_ring.c` with the shell); the staging call entered
+the game-role module `nes_runtime.py` once, which moves the NES game stamp once. The
 text below is the original reasoning, kept for the record.
 
 Until that release, **no kit file goes into `native/`**: an unclassified new
@@ -409,7 +412,7 @@ Order (`hosts.md:426-461`), with the stamp effect of each phase
 | --- | --- | --- |
 | 0 | — | Kit skeleton, role classification and scoping, tests for roles, byte-identical project proofs; the one change that moves every game stamp; nothing else starts without it |
 | 1 | Mega Drive, SNES, Neo Geo, CPS-1 | `console16_host_ui.c` splits into kit + adapters; 1a moves code with zero behaviour change, 1b removes the `#if` branches; waits for the in-flight CPS-1/X68000 branches |
-| 2 | NES | Proves the kit on a second, non-16-bit-shaped loop (upstream runner) |
+| 2 | NES | Proves the kit on a second, non-16-bit-shaped loop (upstream runner). **Done in 1.6.2**, see "Phase 2" below |
 | 3 | X68000 | Already MIT, already on the shared headers, libretro-shaped; resolves divergences 2, 3, 5 and 7 |
 | 4 | Master System / Game Gear | Largest single shell; French ini legacy table, guest-driven input refresh, reset unwinding, window rect, the Windows hint set |
 | 5 | Game Boy | Kit functions called from the patched upstream code, never the loop owner |
@@ -474,6 +477,75 @@ coverage, CPU fidelity, hardware fidelity, gameplay validation or physical
 latency (`hosts.md:465-467`). Every behaviour change in section 3 is its own
 documented step with its own A/B measurement and never rides on a phase that
 claims "unchanged" (`hosts.md:487-489,546-548`).
+
+### Phase 2: the NES (1.6.2)
+
+`nes_host_ui.c` (511 lines) and `nes_audio_output.inc` (150) are gone. The NES runs the same shell as the 16-bit
+consoles with `native/hostkit/adapters/rrhk_nes.c` (the action table, the F5 sprite-flicker option, the Zapper hook, the
+runner's `cyc_sdl_main` entry) and one new shell file, `rrhk_ring.c`, the callback-ring sound output of the NES host
+moved unchanged in its logic (`RRHK_AUDIO_RING`, selected by the adapter; the 16-bit consoles keep the queue model).
+The runner's quick-state functions (`rr_nes_state_*`, `nes_state.c`) are called as they were: the state file, its magic,
+its ABI key and the datas path are untouched, so exports and quick states of 1.6.0 and 1.6.1 carry over. Staging goes
+through `hostkit.stage(project, 'nes')`, called once from `nes_runtime.py` (the one converter edit; it moves the NES game
+stamp once, see [UPGRADES.md](UPGRADES.md#nes-exports-of-161-in-162-host-kit-phase-2)).
+
+Kit switches the NES needed, each one a named per-machine setting of `RrhkMachine`, not an `if` on the machine:
+`audio_model` / `audio_rate` / `audio_enable` (ring output), `capture_any_pad` (divergence 3), `pointer_section` and
+`pointer_max` (the `[NES.Zapper]` section and its 1..8 size range, divergence 13), `pointer_keeps_player2` (the Zapper
+game still reads the second pad), `save_failed_*` (the F8 failure wording).
+
+Divergences, for this family:
+
+| # | Status for the NES |
+| --- | --- |
+| 1 stick 16000 | decided (D1); the NES already used it, nothing changed |
+| 2 autofire | decided (D4); the NES already used `rr_autofire` on A and B per guest frame; nothing changed |
+| 3 F2 pad capture | **pending**: the NES keeps "any connected pad" (`capture_any_pad`) |
+| 4 audio open flags and period | **pending** with the unified output: the NES keeps its flags (format change allowed with retry) and its 256-sample request |
+| 5 callback ring | decided (D5); the NES already had it, and the kit now owns it (`rrhk_ring.c`); the 16-bit queue model is not moved in this phase |
+| 6, 7, 8, 9 Windows set, vsync, window rectangle, integer scaling | decided (D2, D3) but they need the SMS/GG mechanism: landing with phase 4, not applied. The NES keeps its fit/integer rule, except that Pixel mode in a window smaller than 256 x 240 now fits the picture instead of cropping it (the kit's rectangle function) |
+| 10 pad slots | **pending**: the NES keeps the first-free-slot policy (same as the kit's base) |
+| 11 autofire notice | **pending**: the NES stays silent (its F6 goes through the adapter's `key_event`) |
+| 12 F8/F9 deferred | decided (D6), applied: the kit services them at the top of the loop, after the events, instead of from the event path; the NES boundary is the frame boundary, so no observable change in the battery |
+| 13 gun page, mapping, reticle | decided, applied: the NES uses the kit's pointer page, mapping and reticle. Visible changes on Zapper games only: the F2 page has no `>` marker (the highlight stays), the reticle is the kit's (thin cross, 2 pixels; dot sized in picture pixels), the system cursor shows over the window outside the picture, the mouse must have input focus, a setting change writes only its own key |
+| 14, 15 preference layout, autofire key | decided (D7), **later** with the preferences phase: the NES still writes `[Manettes] autofire` and `[NES.Zapper]` |
+| 16 title texts | decided (D8): the NES texts were already those of the kit |
+| 17 latency line | decided (D8), applied: the NES ring output's closing line ends with "physical latency unmeasured" |
+| 18 diagnostic tags | **pending**: `[host]` kept |
+| 19 ini writers | decided: the NES already used the shared ini layer |
+| 20 dead renderer block | X68000 only |
+| 21 help language lookup | decided: rendered help is identical in the five languages (A/B captures) |
+
+Also differing from the old NES host, with no decision on file and no observable effect in the battery: the window title
+is set once at the start (the same text), the kit's hidden-window test hooks (`RETRORECOMP_HOST_TEST_FRAMES`, ...) and
+the explicit timing report (`RETRORECOMP_TIMING_REPORT`) now exist for the NES too, and the pad word is sampled while a
+menu is open (autofire memory only).
+
+Measurements (Windows, MSVC, offscreen SDL, `tools/hostkit_ab.py`, one script of 3,700 loop iterations: every key and
+controller button of both players, the stick around its threshold, autofire, filters and display modes, F8/F9, reset,
+every F2 page and the help in five languages, rebinding, quit/restart combinations, F5 sprites, hot-plug):
+
+* Donkey Kong (NES, mapper 0, NTSC; no Zapper): old host against kit host, same generated game, 3,707 loop iterations.
+  **Identical**: 3,707 presented pictures (hash of every one), 11,486 audio callback blocks (hash of each, 2,694,634
+  samples produced, 2,671,515 played, 0 missing, 0 trimmed, both sides), both controller words at every frame, the window
+  and fullscreen log, the preferences file, the quick-state file (330,024 bytes, byte equal), and 36 saved captures (help
+  and every F2 page in five languages, rebinding, combinations, options, sprites). Only stderr differs, by the one
+  sentence decision D8 adds ("physical latency unmeasured"), left out of the comparison.
+* Duck Hunt (NES, Zapper): the same battery with the mouse outside the window (`--ignore-events C`): 3,745 pictures, all
+  identical but the 41 in which the Zapper page of F2 is on screen (the missing `>` marker); audio, pads, states and
+  preferences identical. A second script with the mouse moved, clicked and taken off the picture (3,910 iterations): the
+  3,462 aim calls (position, trigger, off-picture flag) are identical in both runs; the pictures differ by the reticle, the
+  gun page and the cursor lines, as listed above; the preferences hold the same keys and values (the old host wrote
+  `shape` first, the kit writes the key it changes).
+* Mega Drive (Alex Kidd in the Enchanted Castle), regression of the shared shell: the shell of 1.6.1 against this one,
+  same project, 3,694 iterations: **identical** pictures, window log, state file and 35 captures.
+* ROM-free: `tools/nes_audio_selftest.py` (the ring against 160 authored timelines, now compiled from `rrhk_ring.c`),
+  `tools/autofire_selftest.py` and `tools/start_select_selftest.py` (the NES fixture is now the kit's input module with the
+  adapter's action table), all passing; a fresh conversion of Donkey Kong with the kit builds, validates and keeps the
+  same quick-state key (`RR_NES_STATE_ABI`).
+
+Not covered by this battery (as for phase 1): menus driven by a pad, hot unplug, mouse clicks on option rows, F9 with no
+state or a failed save, audio open failures, a NES game with PAL timing or an expansion-audio mapper, Linux.
 
 ## 8. Open questions
 

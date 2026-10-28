@@ -205,8 +205,8 @@ tests/fixtures/presentation/mode4_reference.inc
 docs/RUNTIME_PERFORMANCE.md
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
-native/nes_host_ui.c native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
-native/nes_audio_output.inc native/nes_audio_checks.c tools/nes_audio_selftest.py
+native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
+native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py
 native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/nes_windows_checks.c tools/nes_windows_selftest.py
@@ -259,9 +259,10 @@ native/retro_console16.h native/console16_main.c native/scanlines.h
 native/hostkit/hostkit.h native/hostkit/hostkit_internal.h retrorecomp/hostkit.py
 native/hostkit/shell/rrhk_audio.c native/hostkit/shell/rrhk_events.c native/hostkit/shell/rrhk_input.c
 native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit/shell/rrhk_options.c
-native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_timing.c native/hostkit/shell/rrhk_video.c
+native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
+native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
-native/hostkit/adapters/rrhk_cps1.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
+native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py

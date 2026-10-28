@@ -12,20 +12,25 @@ static bool synthetic = true;
 static Uint64 clock_us;
 static Uint64 counter(void) { return synthetic ? clock_us : SDL_GetPerformanceCounter(); }
 static Uint64 check_frequency(void) { return synthetic ? 1000000 : SDL_GetPerformanceFrequency(); }
-#define RR_NES_AUDIO_COUNTER counter
-#define RR_NES_AUDIO_FREQUENCY check_frequency
-#include "nes_audio_output.inc"
+#define RRHK_RING_COUNTER counter
+#define RRHK_RING_FREQUENCY check_frequency
+/* The callback-ring output of the host kit (the NES host's sound output), against authored timelines. */
+#include "hostkit/shell/rrhk_ring.c"
+void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
+    (void)pcm; (void)frames; (void)channels; (void)floating; (void)rate;
+}
+void rrhk_options_audio_reset(void) {}
 
 static int16_t sample(uint64_t index) { return (int16_t)(index * 173u + 19u); }
 static void reset(unsigned period, SDL_AudioFormat format) {
-    nes_audio_clear();
-    nes_audio.spec.samples = (Uint16)period;
-    nes_audio.spec.format = format;
-    nes_audio.produced = nes_audio.played = nes_audio.dropped = nes_audio.missing = 0;
-    nes_audio.startup_silence = nes_audio.peak = 0;
-    memset(&nes_audio.cushion, 0, sizeof(nes_audio.cushion));
-    nes_audio.keep = (21u + RR_NES_AUDIO_MARGIN_MS) * 48u + period;
-    nes_audio.limit = nes_audio.keep + 1008u;
+    rrhk_ring_clear();
+    rrhk_ring.spec.samples = (Uint16)period;
+    rrhk_ring.spec.format = format;
+    rrhk_ring.produced = rrhk_ring.played = rrhk_ring.dropped = rrhk_ring.missing = 0;
+    rrhk_ring.startup_silence = rrhk_ring.peak = 0;
+    memset(&rrhk_ring.cushion, 0, sizeof(rrhk_ring.cushion));
+    rrhk_ring.keep = (21u + RRHK_RING_MARGIN_MS) * 48u + period;
+    rrhk_ring.limit = rrhk_ring.keep + 1008u;
 }
 
 static void schedules(void) {
@@ -50,19 +55,19 @@ static void schedules(void) {
                     unsigned n = (unsigned)(end - produced); int16_t block[1024];
                     assert(n <= 1024);
                     for (unsigned i = 0; i < n; ++i) block[i] = sample(produced + i);
-                    nes_audio_submit(block, n); produced = end; frame++;
+                    rrhk_ring_submit(block, n); produced = end; frame++;
                     /* Old host submits or drops a complete frame at 20 ms. */
                     if (legacy_fill < 960) legacy_fill += n; else legacy_dropped += n;
                 } else {
                     clock_us = pull_time;
                     float output[2048];
-                    uint64_t before = nes_audio.played, silence_before = nes_audio.startup_silence;
-                    nes_audio_callback(NULL, (Uint8 *)output, (int)(period * 2u * SDL_AUDIO_BITSIZE(format) / 8u));
-                    unsigned silence = (unsigned)(nes_audio.startup_silence - silence_before);
-                    unsigned took = (unsigned)(nes_audio.played - before);
+                    uint64_t before = rrhk_ring.played, silence_before = rrhk_ring.startup_silence;
+                    rrhk_ring_callback(NULL, (Uint8 *)output, (int)(period * 2u * SDL_AUDIO_BITSIZE(format) / 8u));
+                    unsigned silence = (unsigned)(rrhk_ring.startup_silence - silence_before);
+                    unsigned took = (unsigned)(rrhk_ring.played - before);
                     if (took && !consumed) {
                         double start = (clock_us - origin) / 1000.0 + silence / 48.0;
-                        double expected = period / 48.0 + RR_NES_AUDIO_MARGIN_MS;
+                        double expected = period / 48.0 + RRHK_RING_MARGIN_MS;
                         assert(start >= expected - .002 && start <= expected + .022);
                     }
                     for (unsigned i = 0; i < took; ++i) for (unsigned ch = 0; ch < 2; ++ch) {
@@ -74,10 +79,10 @@ static void schedules(void) {
                     unsigned take = SDL_min(legacy_fill, period);
                     if (frame > 2) legacy_missing += period - take;
                     legacy_fill -= take;
-                    assert(!nes_audio.missing && !nes_audio.dropped);
+                    assert(!rrhk_ring.missing && !rrhk_ring.dropped);
                 }
             }
-            assert(nes_audio.produced == produced && nes_audio.played == consumed);
+            assert(rrhk_ring.produced == produced && rrhk_ring.played == consumed);
             ++cases;
         }
     }
@@ -90,30 +95,30 @@ static void schedules(void) {
 static void resets(void) {
     reset(480, AUDIO_S16SYS); clock_us = 1000000;
     int16_t input[4096]; for (unsigned i = 0; i < 4096; ++i) input[i] = sample(i);
-    nes_audio_submit(input, 960);
-    assert(nes_audio.deadline == 1040000);
-    nes_audio_clear(); assert(!nes_audio.fill && !nes_audio.deadline && !nes_audio.started);
-    int16_t output[2048]; nes_audio_callback(NULL, (Uint8 *)output, sizeof output);
+    rrhk_ring_submit(input, 960);
+    assert(rrhk_ring.deadline == 1040000);
+    rrhk_ring_clear(); assert(!rrhk_ring.fill && !rrhk_ring.deadline && !rrhk_ring.started);
+    int16_t output[2048]; rrhk_ring_callback(NULL, (Uint8 *)output, sizeof output);
     for (unsigned i = 0; i < 2048; ++i) assert(output[i] == 0);
-    assert(!nes_audio.missing);
-    nes_audio_submit(input, 100); clock_us += 40000;
-    nes_audio_callback(NULL, (Uint8 *)output, 480 * 4);
-    assert(nes_audio.missing == 380 && !nes_audio.started);
+    assert(!rrhk_ring.missing);
+    rrhk_ring_submit(input, 100); clock_us += 40000;
+    rrhk_ring_callback(NULL, (Uint8 *)output, 480 * 4);
+    assert(rrhk_ring.missing == 380 && !rrhk_ring.started);
     /* The guest was still producing: that gap adds one restart step. */
-    assert(rr_cushion_ms(&nes_audio.cushion) == RR_CUSHION_STEP_MS);
-    nes_audio_submit(input, 960); assert(nes_audio.deadline == clock_us + 40000 + RR_CUSHION_STEP_MS * 1000u);
-    nes_audio_clear();
-    nes_audio_submit(input, 4096); nes_audio_submit(input, 4096);
+    assert(rr_cushion_ms(&rrhk_ring.cushion) == RR_CUSHION_STEP_MS);
+    rrhk_ring_submit(input, 960); assert(rrhk_ring.deadline == clock_us + 40000 + RR_CUSHION_STEP_MS * 1000u);
+    rrhk_ring_clear();
+    rrhk_ring_submit(input, 4096); rrhk_ring_submit(input, 4096);
     /* Exceptional catch-up: keep the newest PCM, including the reserve. */
-    uint32_t keep = nes_audio.keep + RR_CUSHION_STEP_MS * 48u;
-    assert(nes_audio.fill == keep && nes_audio.dropped == 8192 - keep);
-    assert(nes_audio.pcm[nes_audio.read] == input[4096 - keep]);
+    uint32_t keep = rrhk_ring.keep + RR_CUSHION_STEP_MS * 48u;
+    assert(rrhk_ring.fill == keep && rrhk_ring.dropped == 8192 - keep);
+    assert(rrhk_ring.pcm[rrhk_ring.read] == input[4096 - keep]);
     puts("PASS: pause/reset/load flush, silence while empty, underrun recovery, bounded catch-up keeps newest samples.");
 }
 
 int main(void) {
     SDL_SetMainReady(); SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
     assert(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER) == 0);
-    assert(nes_audio_open()); /* Remains paused during virtual-clock tests. */
-    schedules(); resets(); nes_audio_close(); SDL_Quit(); return 0;
+    assert(rrhk_ring_open(48000u)); /* Remains paused during virtual-clock tests. */
+    schedules(); resets(); rrhk_ring_close(); SDL_Quit(); return 0;
 }

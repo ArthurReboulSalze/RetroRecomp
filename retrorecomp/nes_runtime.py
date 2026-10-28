@@ -9,13 +9,14 @@ from .core import replace_once, slug
 from .paths import ASSETS
 from .nes_machine import prepare_machine
 from .nes_build import stage_native
-from . import __version__
+from . import __version__, hostkit
 
 
 def prepare_host(project: Path, engine: Path, rom_sha256: str, title: str,
                  *, standard: str = 'ntsc', zapper: bool = False, mapper: int | None = None) -> None:
     machine = prepare_machine(project, engine)
     native = stage_native(project, ASSETS / 'native')
+    kit = ' '.join(hostkit.stage(project, 'nes'))   # the player shell, below the project (docs/HOST_KIT.md)
     (project / 'retro_nes_config.h').write_text(
         f'#define RR_NES_ROM_SHA "{rom_sha256}"\n'
         f'#define RR_NES_STATE_NAME L"{slug(title)}-{rom_sha256[:12]}"\n', encoding='utf-8')
@@ -128,7 +129,7 @@ target_compile_features(nes_hardware PRIVATE c_std_11)
 target_compile_definitions(nes_hardware PRIVATE _CRT_SECURE_NO_WARNINGS CYC_WITH_SDL
     RR_NES_PAL={int(standard == 'pal')} RR_NES_ZAPPER={int(zapper)})
 add_executable(game $<TARGET_OBJECTS:nes_hardware> ${{CYC_PROJECT_SOURCES}}
-    cyc_host.c ${{RETRO_NATIVE_DIR}}/nes_host_ui.c
+    cyc_host.c {kit}
     ${{RETRO_NATIVE_DIR}}/nes_state.c
     ${{RETRO_NATIVE_DIR}}/retro_menu.c ${{RETRO_NATIVE_DIR}}/platform_io.c)
 if(WIN32)

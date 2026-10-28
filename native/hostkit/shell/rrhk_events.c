@@ -20,7 +20,9 @@ void rrhk_poll_events(RrhkRun *run) {
         if (event.type == SDL_QUIT) run->running = false;
         if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) rrhk_open_pads();
         if (event.type == SDL_CONTROLLERBUTTONDOWN && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing && rrhk.gamepad_page == 1) {
-            if (rrhk.pads[rrhk.player] && event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
+            /* Which pad may bind (divergence 3): the selected player's, or any one on machines that keep the older rule. */
+            if (m->capture_any_pad || (rrhk.pads[rrhk.player] &&
+                event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player])))) {
                 rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)event.cbutton.button;
                 rrhk_store_binding(); rrhk.capturing = 0; rrhk.status[0] = 0;
             }

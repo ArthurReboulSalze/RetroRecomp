@@ -90,15 +90,16 @@ class CompilationInputTests(unittest.TestCase):
         before = after
         self.write('native/hostkit/shell/rrhk_menu.c', 'new shared menus')
         after = self.stamps()
-        for system in ('md', 'snes', 'ng', 'cps1'):
+        for system in ('md', 'snes', 'ng', 'cps1', 'nes'):
             self.assertNotEqual(before[system], after[system])
-        self.assertEqual(before['nes'], after['nes'])
+        self.assertEqual(before['sms'], after['sms'])
+        self.assertEqual(before['gb'], after['gb'])
 
     def test_host_kit_edits_are_host_side_and_scoped_by_adapter(self):
         """Rebuilt, never rediscovered: the kit's files feed the host stamp and nothing else."""
         def role_stamps():
             return {s: inputs.role_stamps(s) for s in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')}
-        shared = ('md', 'snes', 'ng', 'cps1')
+        shared = ('md', 'snes', 'ng', 'cps1', 'nes')
         kit = [name for name in inputs.manifest_names() if name.startswith('native/hostkit/')]
         self.assertTrue(kit)
         for name in kit:
@@ -203,8 +204,8 @@ class InputRoleTests(unittest.TestCase):
         shells = ('native/retro_menu.c', 'native/game_options.h', 'native/runtime_catalog.inc',
                   'native/host.c', 'native/controls.c', 'native/ui.c',          # Master System / Game Gear
                   'native/gb_menu.inc', 'retrorecomp.gameboy_host',                 # Game Boy
-                  'native/nes_host_ui.c',                                         # NES
                   'native/hostkit/shell/rrhk_main.c', 'native/hostkit/adapters/rrhk_md.c',   # Mega Drive, SNES, Neo Geo, CPS-1
+                  'native/hostkit/shell/rrhk_ring.c', 'native/hostkit/adapters/rrhk_nes.c',  # NES
                   'retrorecomp.hostkit',
                   'native/x68000_reference/player_ui.inc',                        # X68000
                   'licenses/SDL2.md', 'THIRD_PARTY_NOTICES.md', 'retrorecomp.metadata')
