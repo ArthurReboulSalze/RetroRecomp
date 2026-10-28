@@ -185,6 +185,7 @@ tools/snes_hdma_selftest.py
 retrorecomp/peripherals.py
 retrorecomp/metadata.py tests/test_metadata.py
 retrorecomp/systems/__init__.py retrorecomp/systems/master_system.py
+retrorecomp/systems/registry.py retrorecomp/systems/specs.py tests/test_registration_surface.py
 retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
