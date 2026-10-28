@@ -12,10 +12,21 @@
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
 
+void rrhk_toggle_autofire(void) {
+    rrhk.autofire = !rrhk.autofire;
+    rrhk_autofire_reset();
+    /* Divergence 11 (decided 28 October 2026): one short notice from the shared catalogue, on every console. */
+    rrhk_notice(rr_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF"), 1800);
+    if (rrhk.ini_file[0]) { rr_mkdir(rrhk.data_dir);
+        rr_ini_set(rrhk_autofire_section(), L"autofire", rrhk.autofire ? L"1" : L"0", rrhk.ini_file); }
+}
+
 void rrhk_poll_events(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        /* A computer's own shortcuts and the guest keyboard come first (X68000). */
+        if (m->event && m->event(&event, &run->running)) continue;
         if (rrhk_options_event(&event, &rrhk.menu, rrhk.capturing != 0)) continue;
         if (event.type == SDL_QUIT) run->running = false;
         if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) rrhk_open_pads();
@@ -77,17 +88,11 @@ void rrhk_poll_events(RrhkRun *run) {
             if (!rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"filter", rrhk.filter))
                 snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
         } else if (key == SDL_SCANCODE_F4) {
-            int changed = rr_display_cycle(run->win, &rrhk.fullscreen, rrhk.ini_file, rrhk.data_dir, rrhk.video_section);
-            if (changed < 0) snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+            rrhk_cycle_display();
         } else if (m->key_event && m->key_event(&rrhk, key, &run->running)) {
             /* a machine key (Neo Geo F5, F11) */
         } else if (key == SDL_SCANCODE_F6) {
-            rrhk.autofire = !rrhk.autofire;
-            rrhk_autofire_reset();
-            /* Divergence 11 (decided 28 October 2026): one short notice from the shared catalogue, on every console. */
-            rrhk_notice(rr_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF"), 1800);
-            if (rrhk.ini_file[0]) { rr_mkdir(rrhk.data_dir);
-                rr_ini_set(L"Manettes", L"autofire", rrhk.autofire ? L"1" : L"0", rrhk.ini_file); }
+            rrhk_toggle_autofire();
         }
         else if (key == SDL_SCANCODE_F7) {
             rrhk.language = rr_language_next(rrhk.language); rr_language_set(rrhk.language);
@@ -110,7 +115,8 @@ void rrhk_poll_events(RrhkRun *run) {
                 /* Quit and restart combinations: hold them one second in play. */
                 if (enter) rrhk_combo_start(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
-            } else if (enter) rrhk.capturing = 1;
+            } else if (m->bindings_clearable && key == SDL_SCANCODE_DELETE) rrhk_clear_binding();
+            else if (enter) rrhk.capturing = 1;
         }
     }
 }

@@ -114,3 +114,22 @@ class ContentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class X68000Tests(unittest.TestCase):
+    """The X68000 (phase 3) compiles the kit from the tree: its adapter is included by the one translation unit that owns the core."""
+
+    def test_the_adapter_is_included_by_the_frontend_and_the_build_lists_the_shell(self):
+        host = (ROOT / 'native/x68000_reference/reference_host.c').read_text(encoding='utf-8')
+        self.assertIn('#include "hostkit/adapters/rrhk_x68k.inc"', host)
+        adapter = (KIT / 'adapters/rrhk_x68k.inc').read_text(encoding='utf-8')
+        self.assertIn('const RrhkMachine *rrhk_adapter(void)', adapter)
+        self.assertIn('rrhk_main(', adapter)
+        cmake = (ROOT / 'native/x68000_reference/CMakeLists.txt').read_text(encoding='utf-8')
+        for name in hostkit.SHELL:
+            self.assertIn(Path(name).stem.removeprefix('rrhk_'), cmake.split('foreach(RR_KIT_FILE', 1)[1].split(')', 1)[0], name)
+        self.assertEqual(inputs.role('native/hostkit/adapters/rrhk_x68k.inc'), 'host')
+        self.assertEqual(inputs.role('native/x68000_reference/reference_host.c'), 'game')
+
+    def test_the_old_player_ui_is_gone(self):
+        self.assertFalse((ROOT / 'native/x68000_reference/player_ui.inc').exists())

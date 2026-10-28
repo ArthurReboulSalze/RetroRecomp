@@ -22,6 +22,9 @@ void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const ch
 }
 
 void rrhk_options_init(const wchar_t *console) { rr_options_init(console); }
+void rrhk_options_keyboard(const char *machine, int count) { rr_options_keyboard(machine, count); }
+void rrhk_options_observe(const SDL_Event *event) { rr_options_observe(event); }
+bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_options_host_fkey(key, mod, menu); }
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
     return rr_options_event(event, menu, binding_capture);
 }

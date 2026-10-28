@@ -32,7 +32,8 @@ void rrhk_bind(const RrhkMachine *machine) {
         rrhk.keys[p][a] = machine->actions[a].key[p];
         rrhk.buttons[p][a] = machine->actions[a].pad[p];
     }
-    swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
+    if (machine->video_section) swprintf(rrhk.video_section, 64, L"%ls", machine->video_section);
+    else swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
     if (machine->pointer_section) swprintf(rrhk.pointer_section, 64, L"%ls", machine->pointer_section);
     else swprintf(rrhk.pointer_section, 64, L"%ls.Gun", machine->ini_section);
     rrhk.pointer_size = 3;
@@ -50,7 +51,20 @@ static void section(wchar_t *out, int p, bool pad) {
     swprintf(out, 64, L"%ls.%ls.Player%d", rrhk.machine->ini_section, pad ? L"Gamepad" : L"Keyboard", p + 1);
 }
 
+/* Where a binding lives: the kit's section and the action's own name, or, for a machine that keeps the layout
+ * of its earlier host (X68000, divergence 14 pending), [<ini_section>] and p<player>_key<index> / p<player>_pad<index>. */
+static void binding_entry(wchar_t *sec, wchar_t *key, int p, int action, bool pad) {
+    if (rrhk.machine->indexed_bindings) {
+        swprintf(sec, 64, L"%ls", rrhk.machine->ini_section);
+        swprintf(key, 48, pad ? L"p%d_pad%d" : L"p%d_key%d", p, action);
+    } else {
+        section(sec, p, pad);
+        swprintf(key, 48, L"%ls", rrhk.machine->actions[action].ini_key);
+    }
+}
+
 static void load_choice(int p);
+static const wchar_t *autofire_section(void) { return rrhk.machine->autofire_section ? rrhk.machine->autofire_section : L"Manettes"; }
 
 void rrhk_load_bindings(void) {
     const RrhkMachine *m = rrhk.machine;
@@ -62,21 +76,22 @@ void rrhk_load_bindings(void) {
     if (!rrhk.ini_file[0]) return;
     rr_display_load(rrhk.ini_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
     if (m->settings_loaded) m->settings_loaded(&rrhk);
-    wchar_t sec[64];
+    wchar_t sec[64], entry[48];
+    const int lowest_button = m->bindings_clearable ? -1 : 0, lowest_key = m->bindings_clearable ? 0 : 1;
     for (int p = 0; p < m->players(); ++p) for (int mode = 0; mode < 2; ++mode) {
-        section(sec, p, mode != 0);
         for (int a = 0; a < m->action_count; ++a) {
             int old = mode ? rrhk.buttons[p][a] : rrhk.keys[p][a];
-            int value = rr_ini_int(sec, m->actions[a].ini_key, old, rrhk.ini_file);
-            if (mode && value >= 0 && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
-            if (!mode && value > 0 && value < SDL_NUM_SCANCODES) rrhk.keys[p][a] = (SDL_Scancode)value;
+            binding_entry(sec, entry, p, a, mode != 0);
+            int value = rr_ini_int(sec, entry, old, rrhk.ini_file);
+            if (mode && value >= lowest_button && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
+            if (!mode && value >= lowest_key && value < SDL_NUM_SCANCODES) rrhk.keys[p][a] = (SDL_Scancode)value;
         }
     }
     for (int p = 0; p < m->players(); ++p) load_choice(p);
     wchar_t language[12];
     rr_ini_get(L"Interface", L"language", L"en", language, 12, rrhk.ini_file);
     rrhk.language = rr_language_from_wide(language); rr_language_set(rrhk.language);
-    rrhk.autofire = rr_ini_int(L"Manettes", L"autofire", 0, rrhk.ini_file) != 0;
+    rrhk.autofire = rr_ini_int(autofire_section(), L"autofire", 0, rrhk.ini_file) != 0;
     rrhk.pointer_shape = rr_ini_int(rrhk.pointer_section, L"shape", 0, rrhk.ini_file) == 1;
     rrhk.pointer_size = rr_ini_int(rrhk.pointer_section, L"size", 3, rrhk.ini_file);
     if (rrhk.pointer_size < 1 || rrhk.pointer_size > (m->pointer_max ? m->pointer_max : 12)) rrhk.pointer_size = 3;
@@ -88,11 +103,20 @@ void rrhk_load_bindings(void) {
 void rrhk_store_binding(void) {
     if (!rrhk.ini_file[0]) return;
     rr_mkdir(rrhk.data_dir);
-    wchar_t sec[64], value[16];
-    section(sec, rrhk.player, rrhk.gamepad_page != 0);
+    wchar_t sec[64], entry[48], value[16];
+    binding_entry(sec, entry, rrhk.player, rrhk.row, rrhk.gamepad_page != 0);
     swprintf(value, 16, L"%d", rrhk.gamepad_page ? rrhk.buttons[rrhk.player][rrhk.row] : rrhk.keys[rrhk.player][rrhk.row]);
-    rr_ini_set(sec, rrhk.machine->actions[rrhk.row].ini_key, value, rrhk.ini_file);
+    rr_ini_set(sec, entry, value, rrhk.ini_file);
 }
+
+/* Delete on a binding row (machines with clearable bindings): no key, no button. */
+void rrhk_clear_binding(void) {
+    if (rrhk.gamepad_page) rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)-1;
+    else rrhk.keys[rrhk.player][rrhk.row] = SDL_SCANCODE_UNKNOWN;
+    rrhk_store_binding();
+}
+
+const wchar_t *rrhk_autofire_section(void) { return autofire_section(); }
 
 /* Which gamepad each player uses (divergence 10, decided 28 October 2026). By default pads go to players in plug
  * order, the first free player (Automatic). A player may instead be pinned to one gamepad, by its SDL GUID, or set to
@@ -280,11 +304,13 @@ uint16_t rrhk_pad_word(int p, uint64_t frame) {
     const RrhkMachine *m = rrhk.machine;
     const Uint8 *state = SDL_GetKeyboardState(NULL);
     uint16_t value = 0;
+    const bool keyboard = !m->keyboard_pad || m->keyboard_pad();
     for (int a = 0; a < m->action_count; ++a) {
         const RrhkAction *action = &m->actions[a];
         /* Enter is Start and either Shift is Select/Coin (retro_keyboard.h). */
-        bool down = rr_keyboard_held(state, rrhk.keys[p][a], &rrhk.keys[0][0], (int)(sizeof rrhk.keys / sizeof rrhk.keys[0][0])) ||
-            (rrhk.pads[p] && SDL_GameControllerGetButton(rrhk.pads[p], rrhk.buttons[p][a]));
+        bool down = (keyboard && rr_keyboard_held(state, rrhk.keys[p][a], &rrhk.keys[0][0], (int)(sizeof rrhk.keys / sizeof rrhk.keys[0][0]))) ||
+            (rrhk.pads[p] && rrhk.buttons[p][a] >= 0 && SDL_GameControllerGetButton(rrhk.pads[p], rrhk.buttons[p][a])) ||
+            (m->action_held && m->action_held(p, a));
         if (action->group == RRHK_FACE) down = rr_autofire(&fire_state[p][a], down, rrhk.autofire != 0, frame);
         if (down) value |= action->bit;
     }

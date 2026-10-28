@@ -338,6 +338,36 @@ CPS-1 keys move with the edit of `neogeo_build` and `cps1_build` that the rollov
 keys: the two new keys are read when present and ignored otherwise. When Master System and Game Gear move to the kit this
 row replaces their first-player toggle and pad swap.
 
+## X68000 exports in 1.6.3 (host kit phase 3)
+
+1.6.3 moves the X68000 player shell onto the host kit ([HOST_KIT.md](HOST_KIT.md#phase-3-the-x68000-163)): `player_ui.inc`
+is replaced by the adapter `native/hostkit/adapters/rrhk_x68k.inc`, which `reference_host.c` includes, and by the kit's
+shell, which `native/x68000_reference/CMakeLists.txt` compiles from the tree (the X68000 export is built from the
+repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
+
+*Stamps* (computed from the tree of the tag `v1.6.2` and from this tree with `compilation_inputs.role_stamps`, Python 3.14):
+
+| | game | host | build |
+| --- | --- | --- | --- |
+| Sharp X68000, 1.6.2 | `699f09265a9fe722e1cedabd80d711961f8edd8e06385366eb1aa7cc1befab39` | `313288846e5d0a842654f46cdad246a075586313ef599e9db83000f3a32cbd80` | `e84c6e39d05d7f47ac5e0a51a2b676351cef673e855923b3bbb276597279a255` |
+| Sharp X68000, 1.6.3 | `94d006e26fef109b506c49596446962f687ede9d4817231d3694e66dc79b536f` | `84ab517744f9e12ff2b2be18fe06b7f7c8144a54dd71e5e8f9be7cff8abe1d6e` | unchanged |
+
+- *X68000 game stamp: moves.* `reference_host.c` (the frontend that owns the core, game role) lost its window, picture, sound
+  and pad code and gained the frame function, its CMake file lists the kit, `x68000_conversion.py` names the new adapter in a
+  docstring, and the X68000 now owns `console16_video.h` (the kit's video shell includes it). The SDK stamp (`x68_sdk`)
+  follows. As in every release the X68000 has no entry in `LEGACY_GAME_STAMPS`: an export of 1.6.2 is converted in full once.
+  What a conversion generates (the guarded CPU, the learned paths, the media session) is unchanged.
+- *X68000 quick-state key: moves.* `RR_X68K_STATE_ABI` hashes `reference_host.c`. A quick state written by an X68000 export
+  of 1.6.2 is refused by the export of 1.6.3, as between any two releases ([GAME_STATES.md](GAME_STATES.md)). The state file
+  layout, its host auxiliary block and its media section are unchanged.
+- *Host stamps: move* for the Mega Drive, Super Nintendo, Neo Geo, CPS-1, NES and X68000 (the shell gained twelve
+  per-machine fields and hooks, all optional). *Game and build stamps of the other eight consoles: unchanged* (checked
+  against the tree of the tag). Learned paths do not move.
+- *Behaviour.* The X68000 follows every rule decided for the other consoles ([HOST_KIT.md](HOST_KIT.md): stick dead zone
+  16000, one autofire behaviour with the shared notice, F2 capture from the selected player's pad, the Gamepad row, F8/F9 at
+  a safe boundary, one set of window titles). Its preferences keep their layout, and the files written by the old and the new
+  host are identical on the measured script.
+
 ## UPX 5.3.0 (packing, a build input)
 
 1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
@@ -379,7 +409,7 @@ Each machine family has one shell for its window, menus and input:
 | Master System, Game Gear | `host.c`, `ui.c/.h`, `controls.c/.h` | `launcher.c` and the Z80 runtime |
 | Game Boy | `gb_menu.inc`, `gb_input_refresh.inc`, `gameboy_host.py`, `gameboy_timing.py` | `game_main.c`, `gameboy_runtime.py` |
 | Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
-| Sharp X68000 | `x68000_reference/player_ui.inc` | `x68000_reference/reference_host.c` and the SDK |
+| Sharp X68000 | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_x68k.inc`, included by the frontend | `x68000_reference/reference_host.c` (frame loop, reports, states, disks) and the SDK |
 
 Files that are used both by the shell and by headless checks stay game-side:
 `platform_io.c/.h` (quick-state files), `embedded_resources.h`, the

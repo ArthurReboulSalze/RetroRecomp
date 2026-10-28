@@ -149,7 +149,7 @@ SDK_TOOLS=('x68000_native.py','x68000_reference.py','x68000_reference_check.py',
 
 def sdk_stamp(part=None):
     """The SDK build identity; part='game' leaves out the player shell
-    (player_ui.inc and host inputs), for upgrades without rediscovery.
+    (rrhk_x68k.inc and host inputs), for upgrades without rediscovery.
 
     Every file of the SDK comes from the listed X68000 inputs (one explicit manifest, text with normalised
     line ends): nothing is globbed from native/x68000_* and a missing file is an error. The machine base

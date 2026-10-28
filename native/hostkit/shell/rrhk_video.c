@@ -28,6 +28,8 @@ void rrhk_scale2x(const uint32_t *source, uint32_t *target) {
 SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     const RrhkMachine *m = rrhk.machine;
     int w, h; SDL_GetRendererOutputSize(renderer, &w, &h);
+    SDL_Rect own;
+    if (m->game_rect && m->game_rect(w, h, rrhk.fullscreen, &own)) return own;
     int density = m->visible_height() / m->raster_height();
     int horizontal = m->visible_width() / m->display_width();
     if (horizontal > density) density = horizontal;

@@ -189,7 +189,9 @@ libretro-shaped machines provide a core and a short action table only
 
 ## 3. Behaviour: one rule per divergence
 
-Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour:
+Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), each applied as contract behaviour. A
+standing rule of the maintainer (28 October 2026): **every host behaviour rule decided for one machine applies to the
+X68000 too, without asking again**.
 
 * **D1 — Stick dead zone 16000** for all families.
 * **D2 — Windowed scaling: integer scale, centred**, for all; stretch exists
@@ -197,7 +199,9 @@ Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), 
 * **D3 — Windows shell set for all families on Windows**: D3D11 renderer hint,
   joystick thread, per-monitor DPI, remembered window position/size.
 * **D4 — One autofire behaviour**: `rr_autofire` semantics (each new press
-  starts on, per button, guest-frame based) for all, X68000 included.
+  starts on, per button, guest-frame based) for all, X68000 included. Settled for the X68000 on 28 October 2026 ("same
+  rules on every machine", maintainer): its face buttons follow the common rule exactly, a key or a mouse button bound
+  to such a button *is* that button, and no X68000-specific pulse remains (open question 5).
 * **D5 — One audio delivery model**: callback ring for all.
 * **D6 — F8/F9 always deferred** to a safe frame/CPU boundary.
 * **D7 — Preferences in English sections and keys** for all (the layout of
@@ -236,18 +240,16 @@ section 8.
 | # | Divergence today | Kit behaviour | Sources |
 | --- | --- | --- | --- |
 | 1 | Stick dead zone 12000 (SMS/GG, X68000) vs 16000 (NES, 16-bit); GB threshold upstream, unknown | 16000 for all (D1). The single kit threshold removes the GB fork | `host-divergences.md:12-22`; `hosts.md:127` |
-| 2 | `rr_autofire` (SMS/GG, GB, NES, 16-bit) vs unconditional parity pulse with global clears (X68000) | `rr_autofire` semantics on every FACE-group action, per button, each new press starts on, guest frames (D4). The X68000 pulse is removed; its keyboard/mouse aliases are a capability to settle with that migration (open question 5) | `host-divergences.md:24-34`; `hosts.md:128,230` |
-| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Decided on 28 October 2026 (Arthur, D9)**: the selected player's pad only, for every console. The kit shell applies one guard; the `capture_any_pad` setting is gone. The same rule covers the gamepad Quit/Restart combinations of F2 (1.6.3: the
-kit sets `capture_guard`/`capture_from` in `game_options.h` from the selected player's pad; same rules on every machine,
-Arthur, 28 October 2026). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES: the NES changes); SMS/GG, Game Boy and X68000 follow when they migrate | `host-divergences.md:36-46` |
+| 2 | `rr_autofire` (SMS/GG, GB, NES, 16-bit) vs unconditional parity pulse with global clears (X68000) | `rr_autofire` semantics on every FACE-group action, per button, each new press starts on, guest frames (D4). **Applied to the X68000 in phase 3** (decided 28 October 2026, "same rules on every machine", maintainer, which settles open question 5): both game buttons are FACE actions, the key or mouse button bound to one of them is that button and is released with it, the unconditional pulse is gone | `host-divergences.md:24-34`; `hosts.md:128,230` |
+| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Decided on 28 October 2026 (Arthur, D9)**: the selected player's pad only, for every console. The kit shell applies one guard; the `capture_any_pad` setting is gone. The same rule covers the gamepad Quit/Restart combinations of F2 (1.6.3: the kit sets `capture_guard`/`capture_from` in `game_options.h` from the selected player's pad; same rules on every machine, Arthur, 28 October 2026). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES: the NES changed; the X68000 took any connected pad before phase 3); SMS/GG and Game Boy follow when they migrate | `host-divergences.md:36-46` |
 | 4 | Audio open flags and sample counts differ per family | One callback-ring output (D5) with one open-flag policy (format change allowed with retry, as SMS/GG/NES/GB today) and one requested period, fixed when the output is unified and re-measured before adoption; device negotiation changes land outside "unchanged" phases | `host-divergences.md:48-61`; `hosts.md:307-308,487-489` |
 | 5 | Callback ring (SMS, GB, NES, MD runtime) vs `SDL_QueueAudio` push (SNES, NG, CPS-1, X68000) | Callback ring for all (D5). Machine source rates and channel layouts stay machine-specific | `host-divergences.md:63-68`; `hosts.md:131,187-191` |
 | 6 | D3D11 driver hint, joystick thread, per-monitor DPI, renderer info line only on SMS/GG | The SMS/GG Windows set for every family (D3); POSIX keeps the vsync hint | `host-divergences.md:70-81`; `hosts.md:132` |
 | 7 | Vsync: X68000 always requests it; others not on Windows, hint on POSIX | Within the single SMS/GG hint set (see row 4 sources): not requested on Windows, actual renderer state printed; POSIX hint kept; the X68000 always-on exception disappears; re-measured before adoption | `host-divergences.md:83-93`; `hosts.md:133,307-308` |
 | 8 | Window position/size remembered only by SMS/GG, session-scope, not ini-persisted | Remembered for every family on Windows (D3), adopting the SMS/GG mechanism (restore at startup and when returning from fullscreen, save at shutdown). Persisting across runs is not claimed (open question 7) | `host-divergences.md:95-107`; `hosts.md:134,309` |
 | 9 | Windowed scaling: integer+centred (SMS/GG) vs stretch/fit (NES, 16-bit, X68000); GB integer path patched upstream | Integer scale, centred, for all in windowed mode (D2); stretch only in a declared fullscreen mode | `host-divergences.md:109-120`; `hosts.md:135` |
-| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | **Decided on 28 October 2026 (Arthur, D11)**: Automatic (first free player, plug order) stays the default, and each player's gamepad page of F2 gets a "Gamepad" row (Automatic, each connected controller, None) that pins a controller to that player or leaves the player without one; kept per player as `device` and `name` in the gamepad section of the preferences. The kit owns hot-plug and slot assignment (`hosts.md:312`); the SMS/GG first-player toggle and pad swap are replaced by this row when SMS/GG migrates (they are no longer declared machine capabilities). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES); SMS/GG, Game Boy and X68000 follow when they migrate | `host-divergences.md:122-132` |
-| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit; SMS/GG, Game Boy and X68000 follow when they migrate (the "Rapid fire" and the GB status line retire with them) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
+| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | **Decided on 28 October 2026 (Arthur, D11)**: Automatic (first free player, plug order) stays the default, and each player's gamepad page of F2 gets a "Gamepad" row (Automatic, each connected controller, None) that pins a controller to that player or leaves the player without one; kept per player as `device` and `name` in the gamepad section of the preferences. The kit owns hot-plug and slot assignment (`hosts.md:312`); the SMS/GG first-player toggle and pad swap are replaced by this row when SMS/GG migrates (they are no longer declared machine capabilities). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES, X68000); SMS/GG and Game Boy follow when they migrate | `host-divergences.md:122-132` |
+| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit (the X68000's "Rapid fire" retired in phase 3); SMS/GG and Game Boy follow when they migrate (the GB status line retires with them) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
 | 12 | F8/F9: deferred to a safe CPU/state boundary (SMS/GG, 16-bit) vs executed from the event path (GB, NES, X68000 next frame) | Always deferred to a safe frame/CPU boundary (D6): the kit requests the operation and services it after `state_ready()` / the machine's safe boundary; GB, NES and X68000 stop executing it from the event path | `host-divergences.md:146-156`; `hosts.md:138,273-274` |
 | 13 | Gun pages: `[LightPhaser]` 1..5 default 1; `[NES.Zapper]` 1..8 default 3; `[<Console>.Gun]` 1..12 default 3 + SNES turbo | One gun/pointer page, one mapping and one reticle in the kit, with per-machine size ranges and rows; ranges stay as today; sections rename to `[<Console>.Pointer]` through the mapping | `host-divergences.md:158-168`; `hosts.md:139,172-174,331`; `ini-migration.md:208-212,302-306` |
 | 14 | Preference layouts: French sections/keys (SMS/GG), numeric English (NES, 16-bit), `[X68000] p0_key0`, flat GB file | English sections and keys for all (D7), per section 4; old keys read when the new one is absent; nothing deleted | `host-divergences.md:170-178`; `hosts.md:140`; `ini-migration.md:174-240` |
@@ -348,7 +350,7 @@ document until the kit lands, like the other local documents listed in
 
 These stay behind capabilities in the adapter (`hosts.md:156-199`):
 
-* **X68000**: full guest keyboard (scancode map, guest keyboard mode, F1-F10
+* **X68000** (adapter `rrhk_x68k.inc`): full guest keyboard (scancode map, guest keyboard mode, F1-F10
   handover, Ctrl+Alt chords), captured relative mouse with the mouse-game
   profile, floppy drives (swap, eject, saved choices, disk snapshots,
   `--disk-events`), the fast-loading detector, variable resolution and
@@ -414,7 +416,11 @@ and a project builds one object per name). The staging code that copies host
 files into a project belongs to the game-role modules `console16.py`,
 `cps1_build.py` and `neogeo_build.py`; calling `hostkit.stage()` changed those
 three modules once, which moves the game stamp of the four consoles once, and
-every later kit edit is host-only (`tests/test_compilation_inputs.py`). Phase 2 (1.6.2)
+every later kit edit is host-only (`tests/test_compilation_inputs.py`). Phase 3 (1.6.3) adds the X68000 to the owners
+of the shell files and of `console16_video.h`; its adapter `rrhk_x68k.inc` is a host file owned by the X68000 alone and
+replaces `player_ui.inc`; the X68000 compiles the kit from the tree and has no staging call, but `reference_host.c` and
+its CMake file (game role) change, which moves the X68000 game stamp, the SDK stamp and the quick-state key once
+([UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)). Phase 2 (1.6.2)
 adds the NES to the owners of the shell files and of `retrorecomp.hostkit`
 (`rrhk_nes.c` by the NES alone, `rrhk_ring.c` with the shell); the staging call entered
 the game-role module `nes_runtime.py` once, which moves the NES game stamp once. The
@@ -440,7 +446,7 @@ Order (`hosts.md:426-461`), with the stamp effect of each phase
 | 0 | — | Kit skeleton, role classification and scoping, tests for roles, byte-identical project proofs; the one change that moves every game stamp; nothing else starts without it |
 | 1 | Mega Drive, SNES, Neo Geo, CPS-1 | `console16_host_ui.c` splits into kit + adapters; 1a moves code with zero behaviour change, 1b removes the `#if` branches; waits for the in-flight CPS-1/X68000 branches |
 | 2 | NES | Proves the kit on a second, non-16-bit-shaped loop (upstream runner). **Done in 1.6.2**, see "Phase 2" below |
-| 3 | X68000 | Already MIT, already on the shared headers, libretro-shaped; resolves divergences 2, 3, 5 and 7 |
+| 3 | X68000 | Already MIT, already on the shared headers, libretro-shaped; resolves divergences 2, 3, 5 and 7. **Done in 1.6.3**, see "Phase 3" below |
 | 4 | Master System / Game Gear | Largest single shell; French ini legacy table, guest-driven input refresh, reset unwinding, window rect, the Windows hint set |
 | 5 | Game Boy | Kit functions called from the patched upstream code, never the loop owner |
 | 6 | all | Core flag day (state container with legacy magics, battery container, CLI/script/report, one OS layer), one planned requalification campaign; new machines can adopt shell and core from the first day after phase 1 |
@@ -586,6 +592,102 @@ already these. Not run: the consoles of the kit other than these two (same shell
 Not covered by this battery (as for phase 1): menus driven by a pad, hot unplug, mouse clicks on option rows, F9 with no
 state or a failed save, audio open failures, a NES game with PAL timing or an expansion-audio mapper, Linux.
 
+### Phase 3: the X68000 (1.6.3)
+
+`player_ui.inc` (383 lines) and the window, picture, sound and pad code of `reference_host.c` are gone. The X68000 runs
+the shell of the other consoles with `native/hostkit/adapters/rrhk_x68k.inc`, an adapter that `reference_host.c`
+includes (one translation unit, like the old `player_ui.inc`: the frontend owns the libretro core, the disks and the
+quick-state envelope, and a separate file would have needed a dozen of its statics exported). The kit's loop calls the
+adapter's `run_frame`, which hands the pad words to the core's input callback and runs `host_frame()`, the body of the old
+loop moved into a function that the headless loop calls too: the checks, reports, traces, disk events and `--state-*`
+options are the same code as before (a 600-frame headless trace of the old and the new executable is byte identical).
+The kit's files are compiled from the tree (`native/x68000_reference/CMakeLists.txt` lists the shell), not staged: the
+X68000 export is built from the repository, so `hostkit.stage` is not used and `retrorecomp.hostkit` is not an X68000
+input.
+
+What the X68000 keeps as its own, behind hooks of `RrhkMachine` (HOST_KIT.md section 5): the guest keyboard and its
+Ctrl+Alt chords (`event`, `keyboard_pad`), the function keys that the options hand to the guest (`machine_fkeys`), the
+captured mouse and the mouse-game profile (`event`, `action_held`), the floppy drives (Ctrl+Alt+Page Up/Down/Backspace,
+disk events, automatic changes: unchanged in `host_frame`), the fast-loading key (`fast_forward`), the variable picture
+size read from the core and its 4:3 placement (`game_rect`), the second help page (`help_page`), F5 and F11 in the help,
+the window size of `player.cfg`, and the F11 pause, which became a kit state (`paused`: the machine does not run, the
+picture stays, "Paused" is drawn, Esc still quits).
+
+Settings the kit gained for this family (each one a named per-machine field, none an `if` on the machine):
+`video_section`, `autofire_section` and `indexed_bindings` (the preferences keep the layout of the first host, divergences
+14 and 15 being "later": `[X68000] filter`, `display_mode`, `autofire`, `guest_keyboard`, `p<player>_key<n>`,
+`p<player>_pad<n>`, `[X68000.Options] fkeys_machine`), `bindings_clearable` (Delete clears a binding: the old page had
+it; the other consoles are not given it by this phase), `audio_rate` for the queue model (44,100 Hz stereo), `audio_chunked`
+(more than one buffer of sound per frame), `machine_fkeys`, and the hooks `event`, `keyboard_pad`, `action_held`,
+`fast_forward`, `game_rect`, `help_page`.
+
+Divergences, for this family:
+
+| # | Status for the X68000 |
+| --- | --- |
+| 1 stick 16000 | decided (D1), applied: it was 12000 (the stick of the pointer emulation of a mouse game included) |
+| 2 autofire | decided (D4) and settled for this machine on 28 October 2026 ("same rules on every machine", maintainer; open question 5): `rr_autofire` per button on both game buttons (they are FACE actions; the old pulse touched Button A only), each new press starts on, guest frames; the key bound to a button is that button (the key the guest reads is released with it), a mouse button of a mouse game is Button A / Button B (it is held into the same autofire state); the unconditional parity pulse, the global clears and the separate mouse pulse are gone; Ctrl+Alt+F is the same toggle as F6 |
+| 3 F2 pad capture | decided (D9), applied: it took any connected pad |
+| 4 audio open flags and period | **pending**: opened as before (44,100 Hz, stereo, 512 samples, no format change); the start reserve is the kit's queue model's (one frame plus one period plus the adaptive cushion; the old host added 10 ms and counted the frame at 55 Hz): 5,740 bytes queued when the device starts instead of 8,608 on the Columns script |
+| 5 callback ring | decided (D5) but not applied to any 16-bit console either: the X68000 shares the kit's queue output (audio filter, cushion, wait for room) |
+| 6, 8 Windows set, window rectangle | decided (D3), not applied (they need the SMS/GG mechanism, phase 4); the X68000 keeps the width and height it keeps in `player.cfg` across runs |
+| 7 vsync | decided, applied by the kit's renderer: not requested on Windows (it was always requested), POSIX hint kept. Not measured on a real display: the A/B runs use a virtual clock |
+| 9 integer scaling | decided (D2), **later** with phase 4: the placement is the X68000's own (aspect-correct fit; Pixel mode is the largest whole multiple of the picture's pixel grid), identical pictures measured in the four display modes |
+| 10 pad slots | decided (D11), applied: Automatic by default, a Gamepad row on each player's gamepad page, `device` and `name` in `[X68000.Gamepad.PlayerN]`; the old host dealt pads in plug order with no choice |
+| 11 autofire notice | decided (D10), applied: "Autofire ON" / "Autofire OFF" for F6 and Ctrl+Alt+F; "Rapid fire" retires |
+| 12 F8/F9 deferred | decided (D6), applied: the kit saves and loads at the top of the loop, before the next guest frame; the old host did it after the frame that read the key. A state is therefore taken one guest frame earlier (measured: the machine repeats frame 101 after a load that followed a save at 101, where the old host repeated 102). Its messages are the kit's ("Quick state saved" ...) |
+| 13 gun page | not applicable (the mouse is the computer's, captured with Ctrl+Alt+M or a click) |
+| 14, 15 preference layout, autofire key | decided (D7), **later** with the preferences phase: the X68000 keeps its layout and `[X68000] autofire` (see above); the files of the old and the new host are identical on the Columns script |
+| 16 title texts | decided (D8), applied: "Native code" or "Interpreter fallback" after the title, counted from the CPU's own interpreter counters; the states "Starting" and "Native code + Interpreter fallback" are gone, and the reference prototype (no native CPU) always says "Interpreter fallback" |
+| 17 latency line | the kit prints its closing line only when the audio reserve was raised; the old host printed it always. Tag `[host]` instead of `[player]`; the tag decision (18) stays pending |
+| 18 diagnostic tags | **pending**: `[host]` through the kit |
+| 19 ini writers | decided: the shared ini layer, as before |
+| 20 dead renderer block | removed (zero behaviour change: it was unreachable) |
+| 21 help language lookup | decided: the kit's lines come from the catalogue; the X68000's own lines had no translation before and have none now (English in every language) |
+
+Also differing from the old X68000 host, with no decision on file: opposite directions cancel (the kit's pad word, on
+every console), F2 has five pages (a keyboard and a gamepad page per player, then the options) instead of three, F3 shows
+the name of the filter for 1.8 s and F4 shows nothing (the old host showed the display mode for 3.5 s and nothing for F3),
+every notice is the kit's status line (1.8 s) instead of the old box (3.5 s), the options page, help page, pause word and
+binding pages are the kit's drawing, and the picture is converted into a fixed 800 x 600 buffer that the kit uploads whole.
+
+Measurements (Windows, MSVC, offscreen SDL, virtual clock and modelled audio device, `tools/hostkit_ab.py build-x68`:
+the same kept build of Columns (Gyagon), Sharp X68000, 2 MiB, compiled once from the tree of the tag `v1.6.2` and once from
+this tree, both against the harness; the second script is shifted by one iteration because the old host presents nothing
+for its first frame):
+
+* Script `play` (every key of both players, every button, the sticks around and beyond the dead zone, two buttons at once,
+  a few thousand iterations of play, the four filters and four display modes with a picture each after the notices are
+  gone; 3,280 frames): the per-frame trace (video, sound and RAM hashes, 18 CPU registers, the hardware counters) is
+  **identical**; the 506 answers the core received are **identical**; the stream sent to the audio device is **identical**
+  (10,336,324 bytes, one hash); the preferences file is **identical**; of the 3,280 pictures 2,099 are identical and 1,181
+  differ in eight runs that are exactly the notice windows after each F3 (the kit's notice) and F4 (the old notice).
+* Script `keyboard` (Ctrl+Alt+K, keys, F2, F5, F8-F10, Escape and Tab to the guest, back to game mode): all 68 answers
+  identical; the trace identical until the F8 and F9 of the game mode, which act one frame apart (divergence 12).
+* Script `mouse` (click to capture, motion with and without buttons, Ctrl+Alt+M release and capture again): trace and the 16
+  mouse answers identical; the relative mode is set at the same iterations (the kit applies it at the start of the next one).
+* Script `autofire` (F6, held keys and buttons, the bound key, both players, Ctrl+Alt+F): the pulses differ from the old
+  host exactly as decided (a new press starts on; Button B pulses; the old host pulsed Button A by the parity of the frame).
+* Script `states` (F9 with nothing saved, F8, F9 without input): a load returns the machine to the saved frame in both
+  hosts; the state of the kit host is one frame earlier (divergence 12). The quick-state key of the X68000 hashes
+  `reference_host.c`, so it moves (see [UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)); a state written by
+  the old host is refused, as between any two releases of the X68000.
+* Pad slots on the kit host (`tools/hostkit_ab.py pads` scenarios `one`, `two`, `twin`, `twin-unplug`, `next-missing`,
+  `replug`, `persist`, `capture`): all probes on the right player; the F2 binding of a player without a pad says "No
+  gamepad for player N"; the preferences hold `device` and `name` and a second run on them keeps the pinned pad.
+* Mega Drive (Blockout), regression of the shared shell: the shell of 1.6.2 against this one, same project, the standard
+  battery of 3,694 iterations: **identical** pictures, window log, state file and 35 captures.
+* The headless harness of the converter is unchanged: a 600-frame headless run of the old and the new executable gives the
+  same trace file, and a fresh conversion of the same game with this tree builds, runs and passes the converter's own
+  comparison of the export with a fresh reference.
+* ROM-free: `tests/test_x68000_controls.py` rebuilt on the kit (60 checks of the input callbacks with virtual controllers,
+  40 of the computer's events and menus on a real software renderer, 7 of a fresh process).
+
+Not rerun for this phase: the other consoles of the kit than the Mega Drive (same shell code; the NES ring output and the
+Zapper page are untouched), and the NES in particular. Not covered, as for the other phases: a mouse game (the mouse profile is the same code; Columns does not read the mouse), a
+two-disk game, fast loading held during a real load, audio open failures, Linux (the same sources, not built there in this
+phase), and a timing measurement on a real display (vsync and the audio start reserve changed).
+
 ## 8. Open questions
 
 1. **Game Boy upstream rows**: the exact behaviour of divergences 1, 3, 5, 8
@@ -604,14 +706,18 @@ state or a failed save, audio open failures, a NES game with PAL timing or an ex
    consoles and taken by SMS/GG, Game Boy and X68000 when they migrate. The
    diagnostic tag (one tag for all, or a fixed per-layer set,
    `host-divergences.md:214-225`) is **still pending** (divergence 18).
-5. **X68000 autofire aliases**: what guest-keyboard keys and mouse buttons do
-   once autofire follows `rr_autofire` semantics (`host-divergences.md:32`).
+5. ~~**X68000 autofire aliases**: what guest-keyboard keys and mouse buttons do
+   once autofire follows `rr_autofire` semantics (`host-divergences.md:32`).~~
+   **Settled on 28 October 2026 (maintainer, "same rules on every machine")**: a
+   key or a mouse button bound to a face button is that button, with its
+   autofire; no machine-specific pulse (phase 3).
 6. **One requested audio period** (256 vs 512 today) and the Mega Drive final
    period, not visible in the checkout (`host-divergences.md:55-67`).
 7. **Window rect scope**: session memory (today's SMS/GG mechanism) vs
    persisted across runs (`host-divergences.md:95-107`).
-8. **Not yet examined**: SMS/GG battery handling and the X68000 libretro
-   bridge (`hosts.md:541-542`).
+8. **Not yet examined**: SMS/GG battery handling (`hosts.md:541-542`). The X68000
+   libretro bridge was examined in phase 3: the frontend keeps the core and calls
+   the kit's loop one frame at a time.
 9. **Product docs to update when the kit lands**: `docs/UPGRADES.md` (shell
    table), `docs/CONTROLS.md`, `docs/COMPILATION_LIBRARY.md`, and the local
    `PROJECT_STATE.md` (`hosts.md:549-551`).

@@ -71,10 +71,10 @@ Captain Commando needs **Play Mode: 4 Players** for four players.
 F2 gathers every setting in one place, on every console, as pages:
 
 1. the control pages: keyboard then gamepad for each player (Game Gear and
-   Game Boy: keyboard, gamepad; X68000: one page per player, keys and buttons
-   side by side). Player 1's pages end with the **Quit** and **Restart**
-   combinations: keyboard ones on the keyboard page, controller ones on the
-   gamepad page (the X68000 shows both in its two columns);
+   Game Boy: keyboard, gamepad). Player 1's pages end with the **Quit** and
+   **Restart** combinations: keyboard ones on the keyboard page, controller
+   ones on the gamepad page; the X68000 has the same pages since 1.6.3 (it
+   used one page per player, keys and buttons side by side);
 2. on recognised gun games, the gun page (Light Phaser, Zapper, Menacer,
    Justifier or Super Scope): cross or dot, size, colour, and Super Scope turbo;
 3. **Options**: the function-key settings with their current value (F3
@@ -129,8 +129,7 @@ pages.
   combination belongs to one controller, not buttons split between players.
   The keyboard row is unassigned by default; the gamepad default is
   **L3+R3**. Delete/Backspace or controller X clears the selected
-  combination; Esc cancels capture. On the X68000 page, Enter captures the
-  keyboard combination and A the controller one.
+  combination; Esc cancels capture.
 - **Restart (keyboard page / gamepad page):** assigned the same way. The keyboard row is
   unassigned by default (Shift+F1 always restarts); the gamepad default is
   **Start+Select (Back)**. A held restart fires once, then waits for release.
@@ -287,7 +286,9 @@ Each quick state uses the game's name and exact ROM identity in `datas/states`.
 See [state formats and compatibility](GAME_STATES.md#mega-drive-and-super-nintendo).
 
 F6 autofire is off by default. It pulses held, mapped fire/face buttons from
-**both keyboard and gamepad**, independently for each player and button. A new
+**both keyboard and gamepad**, independently for each player and button; on the
+X68000 (since 1.6.3) both game buttons pulse, a key or a mouse button bound to
+one of them is that button, and Ctrl+Alt+F is the same switch as F6. A new
 press fires immediately. Each pulse is one guest frame pressed and one released:
 about 30 pulses per second on 60 Hz consoles, 25 in PAL, and 29.6 on Neo Geo.
 This replaces the earlier 40 Hz timer, whose pulses could be missed by games
@@ -300,7 +301,8 @@ actions through F2. Together, held for one second, they quit by default (game
 options). Existing explicitly saved bindings remain in effect. Use P to pause
 and Shift+F1 to restart.
 
-The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`;
+The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`
+(the X68000 keeps `X68000/autofire`);
 Game Boy keeps its own persistent `input.autofire` setting. Existing games need
 regeneration to receive these input changes.
 
