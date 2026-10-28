@@ -14,6 +14,7 @@ from zipfile import ZipFile
 from retrorecomp.dropfiles import enable_file_drop, local_drop_paths
 from retrorecomp.gui import Application
 from retrorecomp.i18n import tr
+from tools.gui_patching import patch_gui
 
 
 class DropQueueTests(unittest.TestCase):
@@ -48,8 +49,8 @@ class WindowsDropTests(unittest.TestCase):
         self.folder.mkdir()
         self.root = tk.Tk()
         self.root.withdraw()
-        with patch('retrorecomp.gui.load_preferences', return_value={}), \
-                patch('retrorecomp.gui.preferred_games_root', return_value=(self.folder / 'exports', False)):
+        with patch_gui('load_preferences', return_value={}), \
+                patch_gui('preferred_games_root', return_value=(self.folder / 'exports', False)):
             self.app = Application(self.root)
         self.root.update_idletasks()
         self.assertIsNotNone(self.app.file_drop)
@@ -184,7 +185,7 @@ class WindowsDropTests(unittest.TestCase):
 
     def test_inaccessible_folder_does_not_discard_other_dropped_files(self):
         path = self.fixture('a.sms', bytes(8192))
-        with patch('retrorecomp.gui.discover_roms', side_effect=PermissionError('denied')):
+        with patch_gui('discover_roms', side_effect=PermissionError('denied')):
             self.send_drop(self.app.table, [self.folder, path])
             self.settle()
         self.assertEqual(len(self.app.items), 1)

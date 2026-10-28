@@ -18,6 +18,7 @@ from retrorecomp.compiled_games_view import EXTENDED_COINS, THOROUGH_COINS, Comp
 from retrorecomp.gui import Application, typed_pseudonym
 from retrorecomp.i18n import STRINGS, tr
 from retrorecomp.languages import LANGUAGES
+from tools.gui_patching import patch_gui, gui_source
 
 SHA = 'cd' * 32
 SIGNED = {'email': 'p@example.test', 'service': 'https://example.test', 'token': 'rr1_' + 'a' * 43}
@@ -109,7 +110,7 @@ class ReconversionSettings(unittest.TestCase):
             app.busy = stop == 'busy'
             app.ensure_build_tools = Mock(return_value=stop != 'tools')
             game.target = 'elsewhere' if stop == 'platform' else ''
-            with patch('retrorecomp.gui.messagebox.showinfo'):
+            with patch('tkinter.messagebox.showinfo'):
                 app.go_deeper([game], 'thorough')
         app.busy = False
         # The next ordinary reconversion, once its ROM is found: no level.
@@ -120,7 +121,7 @@ class ReconversionSettings(unittest.TestCase):
     def test_a_closed_rom_picker_or_a_cancel_drops_the_level(self):
         game = self.game()
         app = application(begin_reconvert=Mock(), compiled_view=Mock())
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=''):
+        with patch('tkinter.filedialog.askdirectory', return_value=''):
             app.finish_source_lookup([(game, None)], 'thorough')
         app.cancel.set()
         app.finish_source_lookup([(game, Path('X:/ROMs/Mario.gb'))], 'extended')
@@ -134,7 +135,7 @@ class ReconversionSettings(unittest.TestCase):
         app = application(ensure_build_tools=Mock(return_value=True), compiled_inventory=Mock(snapshot=Mock(return_value=[])),
                           items={}, compiled_view=Mock(), preferences=Mock(return_value={}))
         threads = Threads()
-        with patch('retrorecomp.gui.threading.Thread', threads), \
+        with patch('threading.Thread', threads), \
                 patch('retrorecomp.rom_sources.RomSources') as sources:
             sources.return_value.resolve.return_value = [(game, None)]
             app.go_deeper([game], 'thorough')
@@ -147,7 +148,7 @@ class ReconversionSettings(unittest.TestCase):
         self.assertEqual(event[2:], (None, True))
         # New paths: a missing ROM waits for later, no file dialog; the next lookup asks again.
         app.busy, app.begin_reconvert = False, Mock()
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+        with patch('tkinter.filedialog.askdirectory', return_value='') as asked:
             app.finish_source_lookup(*event[1:])
             asked.assert_not_called()
             app.finish_source_lookup([(game, None)])
@@ -160,10 +161,10 @@ class SendsByHand(unittest.TestCase):
 
     def setUp(self):
         self.threads = Threads()
-        for patcher in (patch('retrorecomp.gui.SENDING_AVAILABLE', True),
+        for patcher in (patch_gui('SENDING_AVAILABLE', True),
                         patch('retrorecomp.online.account', return_value=SIGNED),
-                        patch('retrorecomp.gui.threading.Thread', self.threads),
-                        patch('retrorecomp.gui.save_preferences')):
+                        patch('threading.Thread', self.threads),
+                        patch_gui('save_preferences')):
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -205,7 +206,7 @@ class SendsByHand(unittest.TestCase):
 
     def test_knowledge_send_replaces_the_waiting_send(self):
         app = self.waiting_send()
-        with patch('retrorecomp.gui.messagebox.showinfo'):
+        with patch('tkinter.messagebox.showinfo'):
             app.knowledge_done(('sent', {'games': 2, 'bytes': 100}), None)
         self.assertIsNone(app.deferred_send)
         self.assertFalse(app.discoveries_waiting)
@@ -215,7 +216,7 @@ class SendsByHand(unittest.TestCase):
 
     def test_a_failed_send_by_hand_keeps_the_waiting_send(self):
         app = self.waiting_send()
-        with patch('retrorecomp.gui.messagebox.showinfo'):
+        with patch('tkinter.messagebox.showinfo'):
             app.knowledge_done(('sent', {'error': 'offline'}), None)
         self.assertEqual(app.deferred_send, 'later')
         self.assertTrue(app.discoveries_waiting)
@@ -224,7 +225,7 @@ class SendsByHand(unittest.TestCase):
         app = application(knowledge_task=Mock(), achievement=Mock(return_value=True))
         pending = dict(games=2, consoles={'gb': 2}, discoveries=0, observations={}, titles={}, payload={})
         with patch('retrorecomp.online.pending', return_value=pending), \
-                patch('retrorecomp.gui.messagebox.askyesno', return_value=True) as asked:
+                patch('tkinter.messagebox.askyesno', return_value=True) as asked:
             app.knowledge_done(('send_collect', {'games': 2}), None)
         app.achievement.assert_not_called()
         self.assertIn(app.tr('knowledge_send_found', games=2, consoles=1), asked.call_args.args[1])
@@ -239,7 +240,7 @@ class FileExportMessage(unittest.TestCase):
 
     def shown(self, language, **changes):
         app = application(language=language)
-        with patch('retrorecomp.gui.messagebox.showinfo') as shown:
+        with patch('tkinter.messagebox.showinfo') as shown:
             app.knowledge_done(('export', {**self.SUMMARY, **changes}), None)
         return shown.call_args.args[1]
 
@@ -269,7 +270,7 @@ class SendsAndTheWindow(unittest.TestCase):
         for kind, event in (('done', ('done', {})), ('collection', ('collection_done', {'success': 1, 'failed': 0}))):
             app = application(close=Mock(), close_when_idle=True, running_jobs=set(), busy=True, converting=True)
             app.messages.put(event)
-            with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+            with patch_gui('SENDING_AVAILABLE', True), \
                     patch('retrorecomp.online.account', return_value=SIGNED):
                 app.drain()
             app.close.assert_called_once()
@@ -280,7 +281,7 @@ class SendsAndTheWindow(unittest.TestCase):
             app = application(close=Mock(), close_when_idle=True, running_jobs=set())
             app.send_after_batch.get.return_value = enabled
             app.messages.put(('done', {}))
-            with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=account):
+            with patch_gui('SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=account):
                 app.drain()
             self.assertFalse(app.discoveries_waiting)
 
@@ -301,11 +302,11 @@ class AccountReadings(unittest.TestCase):
         self.threads = Threads()
         self.answers = [{'profile': {'conversions': {'queued': 5, 'queued_days': 2}}},
                         {'profile': {'conversions': {'queued': 7, 'queued_days': 3}}}]
-        for patcher in (patch('retrorecomp.gui.SENDING_AVAILABLE', True),
+        for patcher in (patch_gui('SENDING_AVAILABLE', True),
                         patch('retrorecomp.online.account', return_value=SIGNED),
                         patch('retrorecomp.online.cached_player', return_value=None),
                         patch('retrorecomp.online.player', side_effect=self.answers),
-                        patch('retrorecomp.gui.threading.Thread', self.threads)):
+                        patch('threading.Thread', self.threads)):
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -378,7 +379,7 @@ class ButtonHints(unittest.TestCase):
                'tip_auto_cover', 'tip_knowledge')
 
     def test_each_text_button_names_its_hint(self):
-        source = Path(gui.__file__).read_text(encoding='utf-8')
+        source = gui_source()
         calls = [node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Attribute) and node.func.attr == 'button'
                  and isinstance(node.func.value, ast.Name) and node.func.value.id == 'self']
@@ -402,7 +403,7 @@ class ButtonHints(unittest.TestCase):
 
     def test_a_german_window_gets_the_hint(self):
         app = application(language='de', controls=[], toolbar='.toolbar', tooltips=[], decorate_button=Mock())
-        with patch('retrorecomp.gui.ttk.Button'), patch('retrorecomp.gui.Tooltip') as hint:
+        with patch('tkinter.ttk.Button'), patch_gui('Tooltip') as hint:
             app.button('.selection', tr('choose_cover', 'de'), app.choose_cover, 'tip_choose_cover')
         self.assertEqual(hint.call_args.args[1](), tr('tip_choose_cover', 'de'))
 
@@ -460,7 +461,7 @@ class InterfacePreferences(unittest.TestCase):
     with "unexpected keyword argument"."""
 
     def preference_keys(self):
-        source = Path(gui.__file__).read_text(encoding='utf-8')
+        source = gui_source()
         method = next(node for node in ast.walk(ast.parse(source))
                       if isinstance(node, ast.FunctionDef) and node.name == 'preferences')
         call = next(node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -525,10 +526,10 @@ class MissingRomFolder(unittest.TestCase):
         self.app = application(begin_reconvert=Mock(), compiled_view=Mock(), rom_paths={'sms': self.saved},
                                preferences=Mock(return_value={}))
         self.threads = Threads()
-        saving = patch('retrorecomp.gui.save_preferences')
+        saving = patch_gui('save_preferences')
         self.save = saving.start()
         self.addCleanup(saving.stop)
-        for patcher in (patch('retrorecomp.gui.threading.Thread', self.threads),
+        for patcher in (patch('threading.Thread', self.threads),
                         patch('retrorecomp.rom_sources.data_directory', return_value=self.root / 'datas')):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -544,7 +545,7 @@ class MissingRomFolder(unittest.TestCase):
 
     def test_one_folder_finds_every_missing_rom_of_the_console_and_is_remembered(self):
         missing = [(game, None) for game in self.games[:2]]
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked:
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked:
             self.app.finish_source_lookup(missing)
             self.settle()
         asked.assert_called_once()
@@ -561,8 +562,8 @@ class MissingRomFolder(unittest.TestCase):
 
     def test_a_rom_already_found_is_not_asked_for_and_only_the_missing_ones_count(self):
         pairs = [(self.games[0], self.library / 'a.sms'), (self.games[1], None), (self.games[2], None)]
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked, \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False) as question:
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.root / 'library')) as asked, \
+                patch('tkinter.messagebox.askyesnocancel', return_value=False) as question:
             self.app.finish_source_lookup(pairs)
             self.assertIn('2 to find', asked.call_args.kwargs['title'])
             self.settle()
@@ -574,9 +575,9 @@ class MissingRomFolder(unittest.TestCase):
     def test_leftovers_get_one_more_question_and_a_second_folder_then_are_skipped(self):
         pairs = [(game, None) for game in self.games]
         dialogs = []
-        with patch('retrorecomp.gui.filedialog.askdirectory',
+        with patch('tkinter.filedialog.askdirectory',
                    side_effect=lambda **kw: dialogs.append(kw['title']) or str(self.library.parent)) as asked, \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=True) as question:
+                patch('tkinter.messagebox.askyesnocancel', return_value=True) as question:
             self.app.finish_source_lookup(pairs)
             self.settle()                       # finds games 1 and 2; game 3 is missing
             question.assert_called_once()
@@ -594,8 +595,8 @@ class MissingRomFolder(unittest.TestCase):
     def test_a_second_folder_can_complete_the_set(self):
         pairs = [(game, None) for game in self.games]
         folders = iter([str(self.library.parent), str(self.elsewhere)])
-        with patch('retrorecomp.gui.filedialog.askdirectory', side_effect=lambda **kw: next(folders)), \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=True):
+        with patch('tkinter.filedialog.askdirectory', side_effect=lambda **kw: next(folders)), \
+                patch('tkinter.messagebox.askyesnocancel', return_value=True):
             self.app.finish_source_lookup(pairs)
             self.settle()
             self.settle()
@@ -606,8 +607,8 @@ class MissingRomFolder(unittest.TestCase):
 
     def test_declining_the_second_folder_skips_the_leftovers_and_reconverts_the_rest(self):
         pairs = [(game, None) for game in self.games]
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)) as asked, \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False):
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.library.parent)) as asked, \
+                patch('tkinter.messagebox.askyesnocancel', return_value=False):
             self.app.finish_source_lookup(pairs)
             self.settle()
         asked.assert_called_once()
@@ -616,12 +617,12 @@ class MissingRomFolder(unittest.TestCase):
 
     def test_cancelling_the_question_or_a_folder_stops_the_reconversion(self):
         pairs = [(game, None) for game in self.games]
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+        with patch('tkinter.filedialog.askdirectory', return_value='') as asked:
             self.app.finish_source_lookup(pairs)
         asked.assert_called_once()
         self.assertEqual(self.threads.started, [])
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)), \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=None):
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.library.parent)), \
+                patch('tkinter.messagebox.askyesnocancel', return_value=None):
             self.app.finish_source_lookup(pairs)
             self.settle()
         self.app.begin_reconvert.assert_not_called()
@@ -629,8 +630,8 @@ class MissingRomFolder(unittest.TestCase):
     def test_a_folder_that_holds_none_is_not_remembered(self):
         empty = self.root / 'empty'
         empty.mkdir()
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(empty)), \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False):
+        with patch('tkinter.filedialog.askdirectory', return_value=str(empty)), \
+                patch('tkinter.messagebox.askyesnocancel', return_value=False):
             self.app.finish_source_lookup([(self.games[0], None)])
             self.settle()
         self.saved.set.assert_not_called()
@@ -645,9 +646,9 @@ class MissingRomFolder(unittest.TestCase):
             searched.append(sorted(game.title for game in games))
             return [(game, Path('X:/found/' + game.title) if game.system == 'sms' else None) for game in games]
         asked = []
-        with patch('retrorecomp.gui.filedialog.askdirectory',
+        with patch('tkinter.filedialog.askdirectory',
                    side_effect=lambda **kw: asked.append(kw['title']) or str(self.root / 'roms')), \
-                patch('retrorecomp.gui.messagebox.askyesnocancel', return_value=False), \
+                patch('tkinter.messagebox.askyesnocancel', return_value=False), \
                 patch('retrorecomp.rom_sources.RomSources.resolve', resolve):
             self.app.rom_paths['gb'] = Mock(get=Mock(return_value=''))
             self.app.finish_source_lookup(pairs)
@@ -661,7 +662,7 @@ class MissingRomFolder(unittest.TestCase):
         self.assertEqual([game.title for game, _ in chosen], ['Game 1', 'Game 2'])
 
     def test_new_paths_and_closing_still_skip_a_missing_rom_without_asking(self):
-        with patch('retrorecomp.gui.filedialog.askdirectory') as asked:
+        with patch('tkinter.filedialog.askdirectory') as asked:
             self.app.finish_source_lookup([(self.games[0], None)], skip_missing=True)
             self.app.closing_after_recompile = True
             self.app.finish_source_lookup([(self.games[0], None)])
@@ -669,7 +670,7 @@ class MissingRomFolder(unittest.TestCase):
         self.app.begin_reconvert.assert_not_called()
 
     def test_stop_while_searching_leaves_the_reconversion_alone(self):
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value=str(self.library.parent)):
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.library.parent)):
             self.app.finish_source_lookup([(self.games[0], None)])
             self.app.cancel.set()
             self.settle()
@@ -678,10 +679,10 @@ class MissingRomFolder(unittest.TestCase):
 
     def test_the_saved_folder_opens_the_dialog_when_it_exists(self):
         self.saved.get.return_value = str(self.library)
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+        with patch('tkinter.filedialog.askdirectory', return_value='') as asked:
             self.app.finish_source_lookup([(self.games[0], None)])
         self.assertEqual(asked.call_args.kwargs['initialdir'], str(self.library))
         self.saved.get.return_value = str(self.root / 'gone')
-        with patch('retrorecomp.gui.filedialog.askdirectory', return_value='') as asked:
+        with patch('tkinter.filedialog.askdirectory', return_value='') as asked:
             self.app.finish_source_lookup([(self.games[0], None)])
         self.assertNotIn('initialdir', asked.call_args.kwargs)

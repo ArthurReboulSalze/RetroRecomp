@@ -25,6 +25,7 @@ from retrorecomp.neogeo_build import GEOLITH_REV, LITHOGEN_REV
 from retrorecomp.neogeo_knowledge import (compact_record, entry_set, expanded_record, key, merged_record,
                                           salvaged_record, validate_record)
 from tests import test_shared_base as shared_base
+from tools.gui_patching import patch_gui
 
 CART, BIOS, SET = 'a' * 64, 'b' * 64, 'c' * 64
 IDENTITY = key(CART, BIOS)
@@ -557,20 +558,20 @@ class WindowTests(unittest.TestCase):
         neogeo_knowledge.remember_prepared(SET, CART)
         entries = [('ng', SET, Path('a.zip')), ('ng', 'e' * 64, Path('never-prepared.zip')), ('ng', CART, Path('b.neo')),
                    ('gb', 'f' * 64, Path('c.gb'))]
-        with patch('retrorecomp.gui.selected_bios_path', return_value=Path('bios.zip')), \
+        with patch_gui('selected_bios_path', return_value=Path('bios.zip')), \
                 patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': BIOS}):
             keys = self.owner.shared_rom_keys(entries, {'ng_bios': 'bios.zip'})
             self.assertEqual(keys, [GAME_KEY, GAME_KEY, 'gb:' + 'f' * 64])
             self.assertEqual(self.owner.shared_rom_keys([('gb', 'f' * 64, Path('c.gb'))], {}), ['gb:' + 'f' * 64])
-        with patch('retrorecomp.gui.selected_bios_path', return_value=None):
+        with patch_gui('selected_bios_path', return_value=None):
             self.assertEqual(self.owner.shared_rom_keys(entries, {}), ['gb:' + 'f' * 64], 'no BIOS: no Neo Geo game is asked for')
-        with patch('retrorecomp.gui.selected_bios_path', return_value=Path('bios.zip')), \
+        with patch_gui('selected_bios_path', return_value=Path('bios.zip')), \
                 patch('retrorecomp.neogeo.validate_bios', side_effect=ValueError('wrong BIOS')):
             self.assertEqual(self.owner.shared_rom_keys(entries, {}), ['gb:' + 'f' * 64])
 
     def test_a_neo_geo_conversion_asks_the_base_once_per_game_and_quietly(self):
         calls = []
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch.object(online, 'prepare_batch', side_effect=lambda keys, enabled=True:
                              calls.append(keys) or {'paths': {}, 'summary': None, 'error': None, 'base': None}):
             self.owner.start_shared_source(True, [GAME_KEY], {'ng'})
@@ -598,7 +599,7 @@ class WindowTests(unittest.TestCase):
         clean = folder / 'clean.json'
         clean.write_text(json.dumps(report()), encoding='utf-8')
         game = SimpleNamespace(system='ng', identity=SET)
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch.object(online, 'note_conversion') as note:
+        with patch_gui('SENDING_AVAILABLE', True), patch.object(online, 'note_conversion') as note:
             self.owner.note_conversion({'status': 'success', 'report': str(rejected)}, game)
             self.owner.note_conversion({'status': 'success', 'report': str(clean)}, game)
             self.owner.note_conversion({'status': 'success', 'report': str(folder / 'missing.json')}, game)

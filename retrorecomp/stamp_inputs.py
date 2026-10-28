@@ -30,6 +30,10 @@ ALL = '*'
 
 
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
+                               # The window, split by responsibility (gui.py assembles the Application).
+                               'gui_common', 'gui_drawing', 'gui_window', 'gui_queue', 'gui_conversion',
+                               'gui_collection', 'gui_updates', 'gui_options', 'gui_sharing', 'gui_reports',
+                               'gui_account', 'gui_leaderboard',
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',

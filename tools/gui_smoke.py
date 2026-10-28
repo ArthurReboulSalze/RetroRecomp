@@ -44,6 +44,7 @@ from retrorecomp.nes import list_memory as list_nes_memory
 from retrorecomp.neogeo_knowledge import list_memory as list_ng_memory
 from retrorecomp.cover_settings import defaults as cover_defaults
 from retrorecomp.languages import LANGUAGES, LANGUAGE_NAMES
+from tools.gui_patching import patch_gui
 
 
 def smoke(window):
@@ -164,7 +165,7 @@ def smoke(window):
     assert len(toplevels()) == before_help + 1
     toplevels()[-1].destroy()
     # With the service on, the help window offers a free-text report.
-    with patch('retrorecomp.gui.SENDING_AVAILABLE', True):
+    with patch_gui('SENDING_AVAILABLE', True):
         application.show_help()
     labels = [w.cget('text') for w in descendants(toplevels()[-1]) if w.winfo_class() == 'TButton']
     assert application.tr('report_title') in labels and application.tr('help_guides') in labels, labels
@@ -269,7 +270,7 @@ def smoke(window):
     assert application.header.tag_bind('player', '<Button-3>') and application.header.tag_bind('portrait', '<Button-3>')
     # Back to the window: no reading before the start-up one, then at most every PLAYER_REFRESH.
     from retrorecomp import online
-    with patch.object(application, 'refresh_player') as reread, patch('retrorecomp.gui.SENDING_AVAILABLE', True),             patch('retrorecomp.online.account', return_value={'email': 'pat@example.test'}):
+    with patch.object(application, 'refresh_player') as reread, patch_gui('SENDING_AVAILABLE', True),             patch('retrorecomp.online.account', return_value={'email': 'pat@example.test'}):
         # A clock of its own (seconds): the last reading started at 1000.
         application.player_refreshing = False
         application.player_checked = 1000.0
@@ -330,7 +331,7 @@ def smoke(window):
     assert not application.account_sync.winfo_manager() and not application.account_rewards.winfo_manager()
     # Signed in: the balance, the title, the site's titles and the two shared-base options.
     signed = {'email': 'pat@example.test', 'service': 'https://example.test', 'token': 'rr1_' + 'a' * 43}
-    with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=signed):
+    with patch_gui('SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=signed):
         application.player = {'profile': {'coins': {'balance': 20}, 'title': {'name': {'en': 'Explorer'}}}}
         application.update_account_options()
         assert application.account_sync.winfo_manager() == 'pack' == application.account_rewards.winfo_manager()
@@ -380,7 +381,7 @@ def smoke(window):
         assert condition()
     with patch('retrorecomp.build_cleanup.leftover_projects', return_value=leftovers), \
             patch('retrorecomp.build_cleanup.remove_projects', return_value=freed) as remove, \
-            patch('retrorecomp.gui.messagebox.askyesno', side_effect=[False, True]) as ask:
+            patch('tkinter.messagebox.askyesno', side_effect=[False, True]) as ask:
         application.measure_disk_space()
         settle(lambda: application.disk_state['phase'] == 'measured')
         assert application.size_text(2348 * megabyte) == '2.3 GB'
@@ -414,7 +415,7 @@ def smoke(window):
             patch('retrorecomp.build_cleanup.tool_folders', return_value=tool_folders), \
             patch('retrorecomp.build_cleanup.remove_tool_folders', return_value=tools_removed) as remove_tools, \
             patch('retrorecomp.build_cleanup.leftover_projects', return_value=[]), \
-            patch('retrorecomp.gui.messagebox.askyesno', side_effect=[False, True]) as ask:
+            patch('tkinter.messagebox.askyesno', side_effect=[False, True]) as ask:
         application.measure_tool_space()
         settle(lambda: application.tools_state['phase'] == 'measured')
         assert application.tools_row.winfo_manager()
@@ -463,7 +464,7 @@ def smoke(window):
     assert str(application.gb_deep_control.cget('state')) == 'disabled'
     application.set_controls(True)
     assert str(application.gb_deep_control.cget('state')) == 'normal'
-    with patch('retrorecomp.gui.save_preferences'):
+    with patch_gui('save_preferences'):
         application.close_options()
     assert application.options_panel is None
     assert len(application.tooltips) >= 10
@@ -507,12 +508,12 @@ def smoke(window):
     # Discoveries are counted before choosing a file; nothing new means a
     # message only, never a save dialog or an import.
     omitted = dict(already_known=2, missing_rom=0, unqualified=1, ram_without_rom_source=0)
-    with patch('retrorecomp.gui.messagebox.showinfo') as info, \
-            patch('retrorecomp.gui.filedialog.asksaveasfilename') as save:
+    with patch('tkinter.messagebox.showinfo') as info, \
+            patch('tkinter.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=0, consoles={}, discoveries=0, omitted=omitted)), None)
         assert info.called and not save.called
     with patch.object(application, 'achievement', return_value=False) as card, \
-            patch('retrorecomp.gui.filedialog.asksaveasfilename') as save:
+            patch('tkinter.filedialog.asksaveasfilename') as save:
         application.knowledge_done(('collect', dict(games=2, consoles={'md': 2}, discoveries=9, omitted=omitted)), None)
         assert card.call_args.args[0] == 9 and not save.called
     # The closing card opens, animates and cancels.
@@ -548,10 +549,10 @@ def smoke(window):
         assert card.call_args.args[0] == 4 and card.call_args.args[2] == application.tr('knowledge_send_action')
         assert task.called
     with patch('retrorecomp.online.pending', return_value=dict(pending, games=0)), \
-            patch('retrorecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
+            patch('tkinter.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
         application.knowledge_done(('send_collect', dict(games=0)), None)
         assert info.call_args.args[1] == application.tr('knowledge_send_none') and not card.called
-    with patch('retrorecomp.gui.messagebox.showinfo') as info:
+    with patch('tkinter.messagebox.showinfo') as info:
         application.knowledge_done(('sent', {'error': application.tr('online_unreachable')}), None)
         assert info.call_args.args[1] == application.tr('online_unreachable')
     # The sign-in dialog opens on the e-mail step and cancels.
@@ -562,7 +563,7 @@ def smoke(window):
         application.toggle_compiled_games()
     application.update_new_paths()
     assert all(str(b.cget('state')) == 'disabled' for b in application.new_paths_buttons)
-    with patch('retrorecomp.gui.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
+    with patch('tkinter.messagebox.showinfo') as info, patch.object(application, 'achievement') as card:
         application.knowledge_done(('preview', (Path('shared.rrknowledge'),
                                                 dict(games=0, discoveries=0, consoles={}))), None)
         assert info.called and not card.called
@@ -579,7 +580,7 @@ def smoke(window):
         window.update();time.sleep(.01)
     assert len(table.get_children())==expected
     old_output = application.output.get()
-    with tempfile.TemporaryDirectory() as folder, patch('retrorecomp.gui.save_preferences') as save:
+    with tempfile.TemporaryDirectory() as folder, patch_gui('save_preferences') as save:
         application.output.set(folder)
         application.language_name.set('Français')
         application.change_language()
@@ -607,7 +608,7 @@ def smoke(window):
                 games.append(result);on_event('result',index,result)
             return dict(games=games,succeeded=0,current=len(items),existing=0,unrecognized=0,
                         skipped=0,failed=0,duplicates=0,pending=0)
-        with patch('retrorecomp.gui.convert_batch',side_effect=selected_batch), patch('retrorecomp.gui.save_preferences'):
+        with patch_gui('convert_batch',side_effect=selected_batch), patch_gui('save_preferences'):
             application.selected_button.invoke()
             deadline=time.monotonic()+5
             while application.busy and time.monotonic()<deadline:
@@ -652,10 +653,10 @@ def smoke(window):
 
 tk.Tk.mainloop = smoke
 with tempfile.TemporaryDirectory() as queue_folder, \
-        patch('retrorecomp.gui.data_directory',return_value=Path(queue_folder)), \
+        patch_gui('data_directory',return_value=Path(queue_folder)), \
         patch('retrorecomp.compiled_games.data_directory',return_value=Path(queue_folder)), \
-        patch('retrorecomp.gui.load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
-        patch('retrorecomp.gui.load_cover_settings', side_effect=cover_defaults), \
-        patch('retrorecomp.gui.save_cover_settings'), \
-        patch('retrorecomp.gui.save_preferences'):
+        patch_gui('load_preferences', return_value={'language': 'en', 'system_mode': 'auto'}), \
+        patch_gui('load_cover_settings', side_effect=cover_defaults), \
+        patch_gui('save_cover_settings'), \
+        patch_gui('save_preferences'):
     launch()

@@ -20,6 +20,7 @@ from pathlib import Path
 import retrorecomp
 from retrorecomp import report_schema
 from retrorecomp.compilation_inputs import INTERFACE_MODULES
+from tools.gui_patching import gui_source
 from retrorecomp.report_schema import (MEASURES, REQUIRED_KEYS, SCHEMA_VERSION, ReportShapeError,
                                        fallback_summary, read_report)
 from retrorecomp.snes_chips import device_entry, device_summary, main_interpreted
@@ -351,7 +352,8 @@ class SummaryParity(unittest.TestCase):
             "c.get('interpreter_cycles', 0) for c in report['final_checks']",
             "reference_vdp_trace_match=report.get('reference_vdp_trace_match')")
         for module in ('batch.py', 'gui.py'):
-            source = (folder / module).read_text(encoding='utf-8').replace('"', "'")
+            # gui.py stands for the whole window: gui.py and the gui_*.py modules (docs/ARCHITECTURE.md).
+            source = (gui_source() if module == 'gui.py' else (folder / module).read_text(encoding='utf-8')).replace('"', "'")
             with self.subTest(module=module):
                 self.assertIn('fallback_summary(report, lenient=True)', source)
                 for expression in expressions:

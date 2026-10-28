@@ -15,6 +15,7 @@ from queue import Queue
 from retrorecomp.compiled_games import Inventory, Game, game_from_report, refresh, scan
 from retrorecomp.feedback import Observation, encode
 from retrorecomp.memory_view import summaries
+from tools.gui_patching import patch_gui
 
 
 class CompiledGamesTests(TestCase):
@@ -266,7 +267,7 @@ class CompiledGamesTests(TestCase):
             args[7].write_bytes(self.exe.read_bytes())
             with lock:active-=1
             return {'status':'success','report':str(path),'executable':str(args[7])}
-        with patch('retrorecomp.gui.identify',return_value=item), \
+        with patch_gui('identify',return_value=item), \
              patch('retrorecomp.batch._convert_in_budget',side_effect=convert) as compiler:
             owner.begin_reconvert([(game,source),(second,source)])
             while True:

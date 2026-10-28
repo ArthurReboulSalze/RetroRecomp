@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from retrorecomp.gui import Application
+from tools.gui_patching import patch_gui
 
 
 class ShutdownTests(unittest.TestCase):
@@ -45,10 +46,10 @@ class ShutdownTests(unittest.TestCase):
         for event in (('done', {}), ('fatal', 'Authored failure')):
             with self.subTest(event=event[0]):
                 application = self.application()
-                with patch('retrorecomp.gui.messagebox.showinfo') as info, \
+                with patch('tkinter.messagebox.showinfo') as info, \
                         patch.object(Application, 'stop_dialog', return_value='now') as ask, \
                         patch('retrorecomp.core.stop_processes') as kill, \
-                        patch('retrorecomp.gui.save_preferences') as save:
+                        patch_gui('save_preferences') as save:
                     application.close()
                     # Closing a busy window offers the same two ways to stop;
                     # "stop now" kills the running conversions.
@@ -87,7 +88,7 @@ class ShutdownTests(unittest.TestCase):
 
     def test_closing_the_window_after_choosing_to_wait_just_waits(self):
         application = self.application()
-        with patch.object(Application, 'stop_dialog', return_value='wait'),                 patch('retrorecomp.core.stop_processes') as kill,                 patch('retrorecomp.gui.save_preferences'):
+        with patch.object(Application, 'stop_dialog', return_value='wait'),                 patch('retrorecomp.core.stop_processes') as kill,                 patch_gui('save_preferences'):
             application.close()
             # A second close asks nothing more: the games are already finishing.
             with patch.object(Application, 'stop_dialog') as again:
@@ -103,14 +104,14 @@ class ShutdownTests(unittest.TestCase):
     def test_close_of_idle_application_remains_immediate(self):
         application = self.application()
         application.busy = False
-        with patch('retrorecomp.gui.save_preferences'):
+        with patch_gui('save_preferences'):
             application.close()
         application.app.destroy.assert_called_once()
 
     def test_close_releases_reserved_recovery_queue(self):
         application=self.application();application.busy=False
         application.recovered_batch=Mock()
-        with patch('retrorecomp.gui.save_preferences'):
+        with patch_gui('save_preferences'):
             application.close()
         application.recovered_batch.close.assert_called_once()
         application.app.destroy.assert_called_once()
