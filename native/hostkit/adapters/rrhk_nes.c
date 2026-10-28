@@ -65,7 +65,7 @@ static void settings_loaded(RrhkUi *ui) {
     rr_nes_extra_sprites(extra_sprites != 0);
 }
 
-/* F5 sprite flicker reduction and F6 autofire. F6 gives no notice on the NES (divergence 11, pending). */
+/* F5 sprite flicker reduction. F6 autofire is the shell's own key, with its notice (divergence 11). */
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
     if (key == SDL_SCANCODE_F5) {
@@ -74,13 +74,6 @@ static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
                                     rrhk_tr("Original console sprite limit", "Limite de sprites de la console"), 1800);
         if (!rr_display_save(ui->ini_file, ui->data_dir, L"NES.Video", L"reduce_sprite_flicker", extra_sprites))
             snprintf(ui->status, sizeof ui->status, "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
-        return true;
-    }
-    if (key == SDL_SCANCODE_F6) {
-        ui->autofire = !ui->autofire;
-        rrhk_autofire_reset();
-        if (ui->ini_file[0]) { rr_mkdir(ui->data_dir);
-            rr_ini_set(L"Manettes", L"autofire", ui->autofire ? L"1" : L"0", ui->ini_file); }
         return true;
     }
     return false;
@@ -116,7 +109,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .max_width = 256, .max_height = 240, .frame_seconds = RR_FRAME_SECONDS,
             .pointer = RR_NES_ZAPPER ? RRHK_POINTER_ZAPPER : RRHK_POINTER_NONE,
             .audio_model = RRHK_AUDIO_RING, .audio_rate = 48000u, .audio_enable = audio_enable,
-            .capture_any_pad = true, .pointer_keeps_player2 = true,
+            .pointer_keeps_player2 = true,
             .pointer_section = L"NES.Zapper", .pointer_max = 8,
             .save_failed_en = "Unable to save quick state", .save_failed_fr = "Impossible de sauvegarder",
             .reset = reset, .run_frame = run_frame, .pause = pause_machine,

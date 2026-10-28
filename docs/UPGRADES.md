@@ -240,6 +240,17 @@ staging call and the new source list; the generated sources, the learned paths a
 (`RR_NES_STATE_ABI`, which hashes `retro_nes.h`, the state sources and the engine, none of which changed) are
 untouched. The release procedure decides whether the 1.6.1 game stamp of the NES joins `LEGACY_GAME_STAMPS`.
 
+## Exports of 1.6.1 in 1.6.2 (host kit: F2 capture and autofire notice)
+
+Two behaviour decisions of 28 October 2026 land in the kit shell ([HOST_KIT.md](HOST_KIT.md), divergences 3 and 11):
+the F2 "press a control" capture accepts the selected player's gamepad only on every console (the NES took any connected
+pad; the `capture_any_pad` setting is gone), and F6 shows one shared notice, "Autofire ON" / "Autofire OFF", from the
+eight-language catalogue on every console (the NES was silent; its F6 is now the shell's own key, with the same toggle and
+the same `[Manettes] autofire` write). Edited files: `hostkit/hostkit.h`, `hostkit/shell/rrhk_events.c` and
+`hostkit/adapters/rrhk_nes.c`, all host inputs. The host stamps of the Mega Drive, Super Nintendo, Neo Geo, CPS-1 and NES
+move; no game stamp, learned path or quick-state key does. Master System, Game Gear, Game Boy and X68000 are not on the kit
+yet and keep their own behaviour until they migrate.
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).
