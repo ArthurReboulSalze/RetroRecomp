@@ -1,3 +1,61 @@
+# RetroRecomp v1.6.2 — A gamepad choice per player, the NES on the common host kit, UPX 5.3.0
+
+- **A gamepad choice per player (Mega Drive, Super Nintendo, Neo Geo, CPS-1
+  and NES).** On each player's gamepad page in F2, a new **Gamepad** row
+  cycles Automatic, each connected controller, and None. Automatic is the
+  default and behaves as before: pads go to the players in plug order, so an
+  export you never touch plays as it did. A chosen controller is pinned to its
+  player by model; None leaves the player on the keyboard, so a lone pad can
+  drive player 2 while player 1 plays on the keyboard. A pinned controller that
+  is unplugged leaves its player without a pad until it is plugged in again,
+  and the F2 binding says "No gamepad for player N".
+- **F2 capture and autofire, the same everywhere.** "Press a control" accepts
+  the selected player's gamepad only; the NES used to take any connected pad.
+  F6 shows one short notice, "Autofire ON" or "Autofire OFF", in the eight
+  interface languages on every one of these consoles; the NES was silent.
+- **The NES on the common host kit.** The NES window, menus, options, sound
+  output and Zapper page now come from the host kit that the 16-bit consoles
+  already share, with one adapter for the machine. What the game itself runs
+  is unchanged; an A/B comparison on Donkey Kong gave identical results before
+  and after the move.
+- **The command line takes the shared base too.** `batch` now applies the
+  shared base like the window does, so a game the base already knows takes the
+  quick check instead of a full discovery. `--shared-base` and `--no-shared-base`
+  override the saved option. Art Alive (Mega Drive), known to the base, took
+  33 seconds from the command line.
+- **Where a conversion spends its time.** Every conversion report now carries
+  its `timings`, the time of each phase, and the batch log prints one `times:`
+  line per game. The measurements change nothing a conversion does or checks.
+- **UPX 5.3.0.** The bundled packer is the unmodified official 5.3.0 build,
+  checked by SHA-256, with its source archive in the repository. It contains
+  the fix of upx/upx issue 18937, the "compressed data violation" that made a
+  large Linux game such as Neo Geo Metal Slug 3 publish unpacked. That game has
+  not been converted on Linux with this release yet; if UPX still rejects a
+  game, it is published unpacked, as built and validated, and the log says so.
+- **Under the hood.** The window's code is split by responsibility into twelve
+  modules, with no change of behaviour.
+
+**Your exports and quick states.** 1.6.2 moves every console's build stamp (the
+packer changed). Master System, Game Gear, Game Boy, NES, Mega Drive, Super
+Nintendo, Neo Geo and CPS-1 exports of 1.6.1 are upgraded: rebuilt from their
+learned paths, packed by UPX 5.3.0 and rechecked on the quick routes, without a
+new discovery; an upgrade is not a replay of the long routes. Sharp X68000
+exports are converted in full once. F8/F9 quick states written by a 1.6.1
+Mega Drive, Super Nintendo, Neo Geo or CPS-1 export on Windows load in the 1.6.2
+export; states of 1.6.0 and states written by a Linux 1.6.1 export are
+refused cleanly. Exports older than 1.6.1 are converted in full. The details and the
+evidence are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+
+---
+
 # RetroRecomp v1.6.1 — Super Street Fighter II converts again, one shared base, the previous release only
 
 - **Super Street Fighter II (Mega Drive) converts again.** Its conversion was
