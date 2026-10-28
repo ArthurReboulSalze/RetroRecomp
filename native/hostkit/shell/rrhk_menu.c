@@ -107,8 +107,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         rrhk_menu_line(&ctx, hint_y, rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
             rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
             rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
-        /* A binding waits for the selected player's own pad (divergence 3): say so when that player has none. */
-        if (rrhk.capturing && rrhk.gamepad_page && !rrhk.pads[rrhk.player])
+        /* A binding or a combination waits for the selected player's own pad (divergence 3): say so when that
+         * player has none. */
+        if ((rrhk.capturing || rrhk_combo_capturing_pad()) && rrhk.gamepad_page && !rrhk.pads[rrhk.player])
             snprintf(missing, sizeof missing, rr_tr("No gamepad for player %d"), rrhk.player + 1);
     } else if (rrhk.menu == RRHK_MENU_PAGE) {
         if (m->page && m->page->draw) m->page->draw(&rrhk, &ctx);

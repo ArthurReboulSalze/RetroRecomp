@@ -94,6 +94,7 @@ int rrhk_option_page_event(const SDL_Event *event);
 void rrhk_option_page_draw(SDL_Renderer *renderer);
 int rrhk_combo_rows(void);
 void rrhk_combo_start(int index, bool gamepad);
+bool rrhk_combo_capturing_pad(void);     /* a gamepad combination waits for its buttons */
 void rrhk_combo_clear(int index, bool gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);

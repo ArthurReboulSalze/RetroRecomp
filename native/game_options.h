@@ -28,6 +28,10 @@ static struct {
     int key[3], pad, row, capture, armed, pending_key[3], count;
     Uint32 pending_pad;
     SDL_JoystickID capture_pad;
+    /* When set by the host, a gamepad combination is captured from this pad only (the selected player's, as the
+     * button bindings are: docs/HOST_KIT.md, divergence 3); rr_combo_start clears it, so other hosts take any pad. */
+    Uint8 capture_guard;
+    SDL_JoystickID capture_from;
     Uint8 down[SDL_NUM_SCANCODES];
     struct { SDL_JoystickID id; Uint32 mask; } pads[4];
     Uint64 hold;
@@ -223,7 +227,7 @@ static int rr_combo_id(int index, bool gamepad) {return (index ? 3 : 1) + (gamep
 static const char *rr_combo_label(int index) {return rr_tr(index ? "Restart" : "Quit");}
 static void rr_combo_start(int index, bool gamepad) {
     rr_options.capture = rr_combo_id(index, gamepad);
-    rr_options.armed = 0; rr_options.count = 0; rr_options.pending_pad = 0;
+    rr_options.armed = 0; rr_options.count = 0; rr_options.pending_pad = 0; rr_options.capture_guard = 0;
     memset(rr_options.pending_key, 0, sizeof rr_options.pending_key);
     rr_options.status[0] = 0; rr_options.suppressed = 1;
 }
@@ -374,7 +378,8 @@ static bool rr_options_event(const SDL_Event *e, int *menu, bool binding_capture
             for (int i = 0; i < rr_options.count; ++i) if (rr_options.pending_key[i] == key) found = true;
             if (!found) rr_options.pending_key[rr_options.count++] = key;
         }
-        if ((rr_options.capture == 2 || rr_options.capture == 4) && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX) {
+        if ((rr_options.capture == 2 || rr_options.capture == 4) && button >= 0 && button < SDL_CONTROLLER_BUTTON_MAX
+            && !(rr_options.capture_guard && e->cbutton.which != rr_options.capture_from)) {
             if (!rr_options.pending_pad) rr_options.capture_pad = e->cbutton.which;
             if (rr_options.capture_pad == e->cbutton.which) rr_options.pending_pad |= 1u << button;
         }

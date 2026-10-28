@@ -203,6 +203,17 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
+## Exports of 1.6.2 in 1.6.3 (to complete at the release)
+
+- **F2 gamepad combinations from the selected player's pad.** The Quit and Restart combinations of a player's gamepad
+  page are captured from that player's own pad only, as the button bindings are since 1.6.2 (divergence 3); a pad of
+  another player is ignored and a player without a pad sees "No gamepad for player N". Edited: `native/game_options.h`
+  (an optional guard, off unless the host sets it: hosts not on the kit keep taking any pad until they migrate),
+  `native/hostkit/shell/rrhk_options.c`, `rrhk_menu.c`, `hostkit/hostkit_internal.h`, all host inputs: the host stamps
+  of the consoles that own them move, no game stamp or quick-state key does. Checked on Mega Drive Blockout with
+  `tools/hostkit_ab.py pads combo` (two virtual pads: player 2's B ignored while player 1's page waits, then player 1's
+  A bound, `quit_pad=1`).
+
 ## Exports of 1.6.1 in 1.6.2
 
 1.6.2 moves the game, host and build stamps of every console, and none of what a game is or does changes with it. The

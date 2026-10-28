@@ -70,7 +70,16 @@ void rrhk_option_page_draw(SDL_Renderer *renderer) {
     rr_option_page_draw(renderer, &d.rows, rrhk_pages_index(), rrhk_pages_count());
 }
 
-void rrhk_combo_start(int index, bool gamepad) { rr_combo_start(index, gamepad); }
+/* A gamepad combination is captured from the selected player's own pad, like a button binding (divergence 3): a
+ * player without a pad waits, and the page says so (rrhk_menu_draw). */
+void rrhk_combo_start(int index, bool gamepad) {
+    rr_combo_start(index, gamepad);
+    if (!gamepad) return;
+    SDL_GameController *pad = rrhk.pads[rrhk.player];
+    rr_options.capture_guard = 1;
+    rr_options.capture_from = pad ? SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad)) : -1;
+}
+bool rrhk_combo_capturing_pad(void) { return rr_options.capture == 2 || rr_options.capture == 4; }
 void rrhk_combo_clear(int index, bool gamepad) { rr_combo_clear(index, gamepad); }
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_combo_value(out, size, index, gamepad); }
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }

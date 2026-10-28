@@ -456,6 +456,15 @@ def pad_scenario(name: str) -> tuple[str, list]:
         probe(0, [1])
         row(3, 'Return', 'capture')                              # Pad One is the last pad -> None
         probe(0, [0])                                            # player 1, automatic, gets Pad One back
+    elif name == 'combo':      # the quit combination is captured from the selected player's own pad only
+        s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
+        s.tap('F2', 3).tap('Right', 3).tap('Up', 3).tap('Up', 3).tap('Up', 3)   # player 1's gamepad page, Quit row
+        s.tap('Return', 3)
+        s.say('button 1 b 1', 2).say('button 1 b 0', 4)                       # player 2's pad: ignored
+        shots.append(1)
+        s.say(f'capture {name}-waiting.bmp', 2)
+        s.say('button 0 a 1', 2).say('button 0 a 0', 4)                       # player 1's pad: bound (quit_pad = A)
+        s.say(f'capture {name}-bound.bmp', 2).tap('F2', 4)
     elif name == 'replug':     # player 2 pinned to a pad that is unplugged and plugged again; no fallback meanwhile
         s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
         probe(0, [0]); probe(1, [1])
