@@ -25,8 +25,6 @@ MEDIA = {
     "credits.webp": ("MEDIAS/RetroRecomp_Credits_ja.png", 1162),
     "closing.gif": ("MEDIAS/RetroRecomp_Closing_it.gif", None),
     "learning-cycle.webp": ("MEDIAS/RetroRecomp_learning_cycle.png", 1200),
-    "native-games-poster.webp": ("MEDIAS/RetroRecomp_Native_Games_poster.jpg", 1280),
-    "native-games.mp4": ("MEDIAS/RetroRecomp_Native_Games_web.mp4", None),
     "icon-32.png": ("assets/Retro-Recomp-icon-32.png", None),
     "icon-64.png": ("assets/Retro-Recomp-icon-64.png", None),
     "icon-256.png": ("assets/Retro-Recomp-icon-256.png", None),
