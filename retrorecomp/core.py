@@ -21,7 +21,7 @@ from .library import GameMemory, entry_lock, library_root, read_observations, wr
 from .report_schema import write_report
 from .artwork import ArtworkError, prepare_icon
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
-from . import __version__
+from . import __version__, timings
 from .i18n import log_text
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
@@ -847,8 +847,9 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
     env["RETRO_RECOMP_LIBRARY_DIR"] = str(directory / "learning")
     env["RETRO_RECOMP_LEARNING"] = "1"
     started = time.perf_counter()
-    result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=max(60, frames // 15), creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    with timings.phase('reference_runs' if reference else 'native_runs'):
+        result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=max(60, frames // 15), creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
     completed = re.search(r"stopped after (\d+) frames; dispatch misses: (\d+)", text)
     percent = re.search(r"([\d.]+)% interp / ([\d.]+)% static", text)
@@ -1102,6 +1103,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     coverage = None
     profile_history = []
     for iteration in range(max(1, passes)):
+        timings.begin_pass(iteration + 1)
         compiled_seeds = set() if banked else read_observations(game / "dispatch_manifest.txt")
         emit(f"Passe {iteration + 1}/{passes} : couverture native ROM et variantes RAM…" if banked else
              f"Passe {iteration + 1}/{passes} : traduction Z80 et compilation native…")
@@ -1110,8 +1112,9 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             write_code_patterns(game / "native.patterns", compiled_patterns)
             for stale in (game / "generated").glob("game_banked_ops_*.c"):
                 stale.unlink()
-        result = run([build_executable(ROOT / ('.deps/recompiler-build' + suffix()), 'SmsRecomp'), "--game", game / "game.toml",
-                      *(["--banked-step"] if banked else [])], log=log)
+        with timings.phase('code_generation'):
+            result = run([build_executable(ROOT / ('.deps/recompiler-build' + suffix()), 'SmsRecomp'), "--game", game / "game.toml",
+                          *(["--banked-step"] if banked else [])], log=log)
         if "FATAL" in result:
             raise ConversionError(result[-4000:])
         for file in (("game_banked_index.c", "banked-coverage.json", "game_layout.c") if banked else
@@ -1122,14 +1125,15 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             coverage = json.loads((game / "generated/banked-coverage.json").read_text())
             emit(f"{coverage['compiled_positions']}/{coverage['rom_positions']} positions ROM traduites ; "
                  f"{coverage['unique_native_bodies']} corps natifs partagés.")
-        run([cmake, "-S", native_source, "-B", build, "-G", generator, *cmake_target_args(),
-            f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
-            f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
-            f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
-            f"-DSMSRECOMP_BUILD_JOBS={build_jobs()}",
-            f"-DRETRO_RECOMP_VERSION={__version__}",
-            f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
-        run([cmake, "--build", build, "--config", "Release", "--target", name, "--parallel", build_jobs()], log=log)
+        with timings.phase('compile'):
+            run([cmake, "-S", native_source, "-B", build, "-G", generator, *cmake_target_args(),
+                f"-DENGINE_DIR={engine.as_posix()}", f"-DGAME_DIR={game.as_posix()}",
+                f"-DSMSRECOMP_BANKED_AOT={'ON' if banked else 'OFF'}",
+                f"-DGAME_SYSTEM={system.id}", f"-DGAME_NAME={name}",
+                f"-DSMSRECOMP_BUILD_JOBS={build_jobs()}",
+                f"-DRETRO_RECOMP_VERSION={__version__}",
+                f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"], log=log)
+            run([cmake, "--build", build, "--config", "Release", "--target", name, "--parallel", build_jobs()], log=log)
         added = 0
         patterns_added = 0
         for scenario, inputs, budget in scenarios:
@@ -1173,6 +1177,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
             break
         else:
             emit(f"{added} nouvelles entrées repérées : recompilation à la passe suivante.")
+    timings.end_passes()
     final_checks = history[-len(scenarios):]
     if banked:
         profile_stop = ("zero_fallback_on_tested_scenarios" if all(c.get("interpreter_cycles") == 0 for c in final_checks)
@@ -1321,7 +1326,8 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         write_code_patterns(destination / "native.patterns", memory.code_patterns())
     if not publish_result:
         return executable
-    pending = publish_executable(executable, final_executable, compact=True, emit=emit)
+    with timings.phase('publication'):
+        pending = publish_executable(executable, final_executable, compact=True, emit=emit)
     if pending:
         emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {final_executable}")
     else:

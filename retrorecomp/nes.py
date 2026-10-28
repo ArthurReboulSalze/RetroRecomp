@@ -19,7 +19,7 @@ import zlib
 import wave
 from typing import Callable
 
-from . import __version__
+from . import __version__, timings
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .toolchain import describe as toolchain_description
@@ -521,11 +521,13 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     build_passes = []
     compared_executable_sha = None
     for number in range(1, passes + 1):
+        timings.begin_pass(number)
         prior = _seed_sites(seed)
         prior_ram = ram_sites(seed)
         emit(f'NES pass {number}/{passes}: generating and compiling native 6502 paths…')
         phase = time.perf_counter()
-        cache = prepare_native(project, compiler, rom, prior, prior_ram)
+        with timings.phase('code_generation'):
+            cache = prepare_native(project, compiler, rom, prior, prior_ram)
         generation_seconds = time.perf_counter() - phase
         compiled_ram_guards = cache['compiled_ram_guards']
         emit(f"NES native source cache: {cache['unchanged_sources']}/{cache['source_files']} unchanged; "
@@ -554,8 +556,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         final_checks = []
         compared_executable_sha = hashlib.sha256(executable.read_bytes()).hexdigest()
         for scenario, script in scripts.items():
-            check = _probe(executable, project, scenario, budgets[scenario], seed, script,
-                           differential=nes_advanced_scan)
+            with timings.phase('native_runs'):
+                check = _probe(executable, project, scenario, budgets[scenario], seed, script,
+                               differential=nes_advanced_scan)
             check['executable_sha256'] = compared_executable_sha
             check['input_sha256'] = hashlib.sha256(script.read_bytes()).hexdigest() if script else None
             check['pass'] = number
@@ -572,6 +575,7 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
             emit('NES: no new ROM/RAM entry variants; remaining fallback stays reported.')
             break
         emit(f'NES: {len(new)} new ROM entries and {len(new_ram)} guarded RAM variants for the next pass.')
+    timings.end_passes()
     # Validate the final generated code against the reference interpreter in
     # the same runtime. This is a CPU/runtime differential, not independent
     # hardware or full-game validation.
@@ -587,8 +591,9 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
         # Include input-driven execution after the delayed Start; 120 frames
         # alone would compare only boot for the late-start gameplay scenario.
         comparison_frames = budgets[scenario] if nes_advanced_scan or compiled_ram_guards or (rom.mapper in (1, 153, 155) and rom.data[4] > 16) else min(budgets[scenario], 600 if script else 120)
-        comparison = _probe(executable, project, scenario, comparison_frames, seed,
-                            script, differential=True)
+        with timings.phase('reference_runs'):
+            comparison = _probe(executable, project, scenario, comparison_frames, seed,
+                                script, differential=True)
         cpu_checks.append(comparison)
         emit(f'NES {scenario}: internal CPU/visible-state/audio comparison matches '
              f"for {comparison['frames']} frames.")

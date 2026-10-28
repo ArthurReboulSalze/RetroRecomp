@@ -34,6 +34,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
                                'report_schema',
+                               # Measures the time of each phase of a conversion; changes nothing a game is or does.
+                               'timings',
                                'game_details','game_metadata','game_card_view','rom_sources',
                                # Sharing discoveries never runs during a conversion.
                                'knowledge_build','knowledge_exchange','online',

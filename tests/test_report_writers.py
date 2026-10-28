@@ -26,7 +26,7 @@ WRITERS = {'core.py': 'sms and gg', 'gameboy.py': 'gb', 'nes.py': 'nes', 'consol
            'neogeo_conversion.py': 'ng', 'cps1_conversion.py': 'cps1', 'x68000_conversion.py': 'x68'}
 # What batch.py adds to a report after the conversion (published() in test_report_schema reproduces it).
 BATCH_KEYS = {'ui_languages', 'language_switch_key', 'language_scope', 'upgrade', 'shared_paths', 'bundled_paths',
-              'published_directory', 'source_rom', 'packing', 'export_receipt'}
+              'published_directory', 'source_rom', 'packing', 'export_receipt', 'timings'}
 # Written by the converter itself, in the parts of the code the report literal does not show.
 NEOGEO_LATE = {'conversion_phases_seconds', 'validation_workers', 'runtime_modes', 'scan_level',
                'qualification_scope', 'qualification_extra_routes'}

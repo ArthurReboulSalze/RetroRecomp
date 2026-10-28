@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import time
 
-from . import __version__, path_profiles
+from . import __version__, path_profiles, timings as stages
 from .core import ConversionError, executable_name, run_process
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
@@ -210,11 +210,14 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         reference, results, prepared = {}, {}, None
         attempts = max(1, min(int(passes or 1), 10))
         for attempt in range(attempts):
+            stages.begin_pass(attempt + 1)
             phase = time.perf_counter()
             emit(f'CPS-1: translating the 68000 program and Z80 sound code (pass {attempt + 1}).')
-            prepared = prepare_game(project, game_set, game, title=title, observations=observations,
-                                    presentation=presentation, hints=shared_hints)
-            executable = build_game(project)
+            with stages.phase('code_generation'):
+                prepared = prepare_game(project, game_set, game, title=title, observations=observations,
+                                        presentation=presentation, hints=shared_hints)
+            with stages.phase('compile'):
+                executable = build_game(project)
             timings[f'translate_and_build_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
             phase = time.perf_counter()
             candidate = checks / f'pass-{attempt + 1}' / executable.name
@@ -225,7 +228,9 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 emit('CPS-1: fresh reference runs (every instruction interpreted).')
                 jobs += [('reference', name, count) for name, count, _ in plan]
             jobs += [('native', name, count) for name, count, _ in plan]
-            with ThreadPoolExecutor(max_workers=workers) as pool:
+            # The reference and native replays share one pool: their wall time is not told apart.
+            with stages.phase('native_runs' if reference else 'reference_and_native_runs'), \
+                    ThreadPoolExecutor(max_workers=workers) as pool:
                 done = list(pool.map(lambda job: (job, run(candidate, checks / job[0] / f'pass-{attempt + 1}', job[1], job[2],
                                                           scripts[job[1]], *(['--reference'] if job[0] == 'reference' else []))),
                                      jobs))
@@ -248,6 +253,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                 emit(f'CPS-1: {fallback} interpreted instructions remain; they stay counted and reported.')
                 break
             emit(f'CPS-1: {fallback} interpreted instructions observed; extending guarded native code.')
+        stages.end_passes()
         if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
             raise ConversionError('CPS-1 validation produced no sound on any route.')
         phase = time.perf_counter()
@@ -257,7 +263,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         notice = compact_executable(packed, emit)
         emit('CPS-1: comparing the ' + ('unpacked' if notice else 'compressed') + ' executable with the fresh reference.')
         final = {}
-        with ThreadPoolExecutor(max_workers=workers) as pool:
+        with stages.phase('packed_replays'), ThreadPoolExecutor(max_workers=workers) as pool:
             for (name, _, _), result in zip(plan, pool.map(
                     lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]]), plan)):
                 if result['trace'].read_bytes() != reference[name]['trace'].read_bytes():
@@ -267,7 +273,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         phase = time.perf_counter()
         emit('CPS-1: checking F8/F9 in a fresh process and rejecting an invalid state.')
         play = next(row for row in plan if row[0] == 'play')
-        states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'])
+        with stages.phase('state_checks'):
+            states = check_states(packed, checks / 'states', 'play', play[1], scripts['play'], final['play']['trace'])
         timings['state_checks'] = round(time.perf_counter() - phase, 3)
         # The shared path record: numbers about this romset's own images, made only from the fresh reference
         # runs of this conversion (every check above passed), never from feedback rows or from the hints

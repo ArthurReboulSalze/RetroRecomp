@@ -124,6 +124,39 @@ hashes it, because the report does not change what a game is or does.
   report written by hand). `compiled_games.report_level` also reads
   `scan.level`; `freshness`, `knowledge_build`, `library` and the website read
   the old keys, which are still there.
+- **Where the time goes (`timings`, 1.6.2).** The report carries one optional
+  object, `timings`: `{phase: seconds, ..., "total": seconds}`, wall clock at
+  0.1 s, written by `batch.py` (every write of the report refreshes it, so the
+  last one holds the whole game). Schema 2 keeps its number: the key is optional
+  on disk, a report from before it, or an object that is not a set of figures,
+  reads `None`, and nothing else reads it. `retrorecomp/timings.py` is the one
+  recorder (an interface module, no stamp hashes it): `batch._convert_one` starts
+  it, each converter marks its steps with `timings.phase(name)` and its learning
+  loop with `begin_pass` / `end_passes`, and without a recorder every call does
+  nothing. Phases are disjoint (a phase opened inside another takes its time
+  from it); what is in none of them is `other`, so the phases add up to `total`
+  within 0.1 s each. The batch log ends each game with one line,
+  `times: code generation 2.0 s, compile 40.0 s, ..., total 96.8 s`.
+
+  | Phase | What it holds |
+  |---|---|
+  | `code_generation` | the translators and the analysis that write the game's C (Mega Drive and Super Nintendo: also the preparation of the build project) |
+  | `compile` | CMake configure and build together; the host and runtime files and the generated code are one target, so they are not told apart |
+  | `profile_training` | the short native run that guides the compiler (Mega Drive, Super Nintendo, NES) |
+  | `native_runs` | the generated executable on the tested routes (also the strict-mode runs) |
+  | `reference_runs` | the same routes on the reference interpreter, and the comparison; Neo Geo: the reference observation inside `compile_native`, with the writing of the native project files and the hints; Game Boy: the instruction-by-instruction comparison |
+  | `reference_and_native_runs` | CPS-1, first pass only: the two kinds share one pool and are not told apart |
+  | `packed_replays`, `state_checks`, `save_checks` | the compressed executable against the reference (Neo Geo, CPS-1); F8/F9 in fresh processes (Neo Geo, CPS-1, X68000); ordinary saves (Neo Geo) |
+  | `packing` | UPX, wherever it runs (`packing.compact_executable`) |
+  | `publication` | placing the executable, without its packing |
+  | `discovery` | the learning passes after the first, whole; `0.0` when the game was built in one pass (what a quick check does); absent for Neo Geo, which has no passes |
+  | `failed_quick_attempt` | a quick check that did not pass, before the full conversion |
+  | `other`, `total` | the rest (ROM, artwork, hashing, report); the whole game, from the start of its conversion to the last report written |
+
+  Master System, Game Gear, Game Boy, NES and the Mega Drive / Super Nintendo
+  keep no F8/F9 check in their conversion, so they have no `state_checks`. A figure
+  is one run on one machine, not a property of the game; the converters' own
+  `conversion_phases_seconds` and `stage_seconds` keep their meaning beside it.
 - **Two readings changed on purpose.** The summary's `main_interpreted_opcodes`
   carries the instruction count of the main CPU when the writer measured one
   (Game Boy: 900 where it read 0; the window still shows Game Boy in cycles),

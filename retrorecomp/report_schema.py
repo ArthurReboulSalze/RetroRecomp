@@ -30,6 +30,11 @@ Rules the reader keeps (docs/STANDARDS.md, rules 6 to 8):
   flag the writer stored.
 * Main CPU, sound CPU and cartridge devices are separate sections; their
   counters are never added together.
+* ``timings`` was added to schema 2 in 1.6.2 without a new schema number: it is optional on disk, a report
+  from before it reads ``None``, and a value that is not a ``{phase: seconds}`` object reads ``None`` too.
+  It is the wall time of each phase of the conversion at 0.1 s (retrorecomp/timings.py names the phases;
+  ``total`` is the whole conversion of the game and is not one of the phases); the batch writes it. It is
+  a measure of this run on this machine, not of the game, and no claim of the report depends on it.
 * A shape the reader does not know raises ``ReportShapeError``. A schema number
   it does not know raises it too, so a newer document is never misread.
 
@@ -62,6 +67,7 @@ missing, because the old readers take a null for a value)::
     knowledge     {'record', 'learning', 'library_identity', 'shared_paths',
                    'bundled_paths'}
     build         {'executable', 'build_executable', 'toolchain', ...}
+    timings       {phase: seconds, ..., 'total': seconds} | None
     upgrade, export_receipt                 as written, else None
     legacy        keys of the old shapes with no schema-2 home yet
 """
@@ -77,7 +83,7 @@ SCHEMA_VERSION = 2
 
 REQUIRED_KEYS = ('schema', 'read_from', 'tool', 'version', 'created_utc', 'target', 'system', 'rom', 'scan',
                  'cpus', 'devices', 'validation', 'honesty', 'packed', 'states', 'saves', 'runtime',
-                 'knowledge', 'build', 'upgrade', 'export_receipt', 'legacy')
+                 'knowledge', 'build', 'timings', 'upgrade', 'export_receipt', 'legacy')
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
 
 
@@ -473,6 +479,15 @@ def _build(data):
             'published_directory': data.get('published_directory'), 'source_rom': data.get('source_rom')}
 
 
+def _timings(value):
+    """The ``{phase: seconds}`` object of a report, else None. Entries that are not a number of seconds are
+    left out; an object with none left, or with no ``total``, is not a timing record."""
+    if not isinstance(value, dict):
+        return None
+    figures = {str(name): seconds for name, seconds in value.items() if _count(seconds) is not None and seconds >= 0}
+    return figures if _count(figures.get('total')) is not None else None
+
+
 # ---------------------------------------------------------------- entry points
 
 # Keys only schema 2 introduces. Writers still write the old keys beside them (dual-write, one version): a
@@ -483,7 +498,7 @@ V2_ONLY_KEYS = ('schema', 'read_from', 'scan', 'cpus', 'devices', 'validation', 
 # Schema-2 keys whose names the old shapes already use. A writer leaves out what it does not know, and old readers
 # take a missing key for "absent" but a null for a value (`report.get('upgrade', {})`, `report.get('target', t)`),
 # so a document on disk never carries these as null; read_report still returns them, as None.
-OPTIONAL_ON_DISK = ('version', 'created_utc', 'target', 'upgrade', 'export_receipt')
+OPTIONAL_ON_DISK = ('version', 'created_utc', 'target', 'timings', 'upgrade', 'export_receipt')
 # `knowledge` is also an old key (Neo Geo writes its memory record there). On disk the two meet in one object:
 # the writer's own keys stay, the schema-2 keys are added beside them.
 KNOWLEDGE_KEYS = ('record', 'learning', 'library_identity', 'shared_paths', 'bundled_paths')
@@ -500,6 +515,7 @@ def _validate_v2(data):
         raise ReportShapeError('Schema 2 report is incomplete: missing ' + ', '.join(missing) + '.')
     # Only the schema-2 keys: the old keys of a dual-written document are not part of the document read.
     report = {key: _copy(data.get(key)) for key in REQUIRED_KEYS}
+    report['timings'] = _timings(data.get('timings'))
     if isinstance(report['knowledge'], dict):
         report['knowledge'] = {key: report['knowledge'].get(key) for key in KNOWLEDGE_KEYS}
     return report
@@ -545,6 +561,7 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
         'scan': _scan(shape, data, rows), 'cpus': cpus, 'devices': devices, 'validation': validation,
         'honesty': _honesty(data, validation), 'packed': _packed(shape, data, rows), 'states': _states(data),
         'saves': _saves(data), 'runtime': _runtime(data), 'knowledge': _knowledge(data), 'build': _build(data),
+        'timings': _timings(data.get('timings')),
         'upgrade': _copy(data.get('upgrade')), 'export_receipt': _copy(data.get('export_receipt')),
         # Written by the old shapes, not yet given a schema-2 home. reference_vdp_trace_match is kept here
         # because the X68000 writer hard-coded it to True (it writes null now): it is not a measurement and

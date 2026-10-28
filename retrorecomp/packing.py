@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 
+from . import timings
 from .paths import ASSETS
 
 
@@ -72,6 +73,12 @@ def packing_record(unpacked: dict, published: Path) -> dict:
 
 
 def compact_executable(path: Path, emit=None) -> dict | None:
+    """``_compact_executable``, its time counted as the ``packing`` phase of the conversion (timings.py)."""
+    with timings.phase('packing'):
+        return _compact_executable(path, emit)
+
+
+def _compact_executable(path: Path, emit=None) -> dict | None:
     """Pack a disposable staged copy; raise before replacing an existing game.
 
     Windows raises when UPX cannot pack and test the file. On Linux that is a last

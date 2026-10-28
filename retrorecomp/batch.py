@@ -14,7 +14,7 @@ import time
 from .core import slug, executable_name, ConversionError, StopRequested, reset_stop
 from .library import atomic_json
 from .build_cleanup import release_build
-from . import __version__
+from . import __version__, timings
 from .publishing import publish_executable
 from .report_schema import fallback_summary, with_schema_v2
 from .systems import (ALL_PROFILES, profile_for_path, get_profile, drop_foreign_options,
@@ -24,7 +24,12 @@ from .systems import (ALL_PROFILES, profile_for_path, get_profile, drop_foreign_
 def _write_report(path: Path, report: dict) -> dict:
     """Write the report again after the fields the batch adds (the converter wrote it in schema 2 beside its own
     keys): the schema-2 sections are derived anew from the keys, so they carry what was added. A report that
-    no converter wrote in schema 2 (a stand-in, or a machine whose writer is not on it yet) is written as it is."""
+    no converter wrote in schema 2 (a stand-in, or a machine whose writer is not on it yet) is written as it is.
+    The time of each phase so far (retrorecomp/timings.py) is written with it, each time, so the last write holds
+    the whole conversion."""
+    figures = timings.snapshot()
+    if figures is not None:
+        report = {**report, 'timings': figures}
     if 'schema' in report:
         report = with_schema_v2(report)
     atomic_json(path, report)
@@ -349,6 +354,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                  emit, options: dict) -> dict:
     result = {"rom": str(item.path), "title": item.title, "system": item.system,
               "sha256": item.sha256}
+    _recorder, clock_token = timings.start()
     try:
         if item.cover is None:
             from .compiled_games import Game
@@ -469,6 +475,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
                  f'{item.title}: the quick check from the qualified paths in the base did not pass ({reason}); '
                  'discovering the game in full instead.')
             inherited, known_used, run_settings = None, None, settings
+            timings.collapse(timings.FAILED_QUICK)
             executable = convert_with(run_settings)
         temporary = reports / "published-executable.tmp"
         report_path = reports / "conversion-report.json"
@@ -491,7 +498,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         from .packing import file_identity, packing_record
         unpacked_identity = file_identity(temporary)
         try:
-            pending = publish_executable(temporary, target, compact=True, emit=publish_emit)
+            with timings.phase('publication'):
+                pending = publish_executable(temporary, target, compact=True, emit=publish_emit)
         finally:
             temporary.unlink(missing_ok=True)
         # Record what was published (a pending installation waits as a staged copy).
@@ -543,6 +551,9 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             upgraded=bool(inherited), pending_install=pending, **summary)
         if shared_used:
             result['shared_paths'] = shared_used
+        line = timings.describe(report.get('timings'))
+        if line:
+            emit(f'{item.title}: {line}')
     except StopRequested:
         # Killed by Stop: the earlier export, if any, is untouched.
         result.update(status="stopped", message="Conversion arrêtée ; l’export précédent est conservé.")
@@ -550,6 +561,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
     except Exception as exc:
         result.update(status="error", message=str(exc))
         emit(f"{item.title} : {exc}")
+    finally:
+        timings.stop(clock_token)
     return result
 
 
