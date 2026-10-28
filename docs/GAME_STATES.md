@@ -299,7 +299,7 @@ see [UPGRADES.md](UPGRADES.md#mega-drive-exports-of-160-in-161)) and `native/md_
 the console, and the key hashes them. Neo Geo and CPS-1: their keys hash the fingerprints of `neogeo_build` and
 `cps1_build`, which changed (packing notice, removal of the pre-1.6.0 keys, and now the compatibility line itself). The
 serialized states did not change. The release adds the 1.6.0 key of each as a compatibility key, so the states of the
-previous release keep loading (the rule: the previous release only). Super Nintendo and the 8-bit consoles keep their keys.
+previous release keep loading (the rule: the previous release only). The Super Nintendo key did not change.
 
 | Console | Key written by 1.6.0 (Windows) | Where it is listed |
 | --- | --- | --- |

@@ -194,6 +194,11 @@ A real receipt per console (the 1.5.6 procedure: `tools/campaign.py upgrade` on 
 tree) remains to be done if "upgraded" is to be proved console by console. An export of 1.6.0 that is upgraded is rebuilt
 and rechecked on the quick routes like any upgrade, and the report says so.
 
+**Stars of the collection.** 1.6.0 reread the scan level of Mega Drive, Super Nintendo and NES rows of a 1.5.x inventory
+in memory and wrote it back only when **Compiled games** saved the collection. A 1.6.0 player who never opened it may
+still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
+keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
+
 ## Mega Drive exports of 1.6.0 in 1.6.1
 
 1.6.1 corrects the deferred sound-CPU payment of the Mega Drive runtime (`native/md_z80_bus.inc`, game-side, owned by

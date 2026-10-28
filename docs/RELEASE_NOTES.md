@@ -1,3 +1,37 @@
+# RetroRecomp v1.6.1 — Super Street Fighter II converts again, one shared base, the previous release only
+
+- **Super Street Fighter II (Mega Drive) converts again.** Its conversion was
+  refused for many releases: a few sound writes came 18 cycles late from frame
+  1,927 of the demo. The deferred sound CPU answered a bus request one step too
+  late when the request ended a grouped catch-up; it now answers at once, still
+  deferred, so no speed is lost. The game passes the native/reference comparison
+  over 3,600 frames with 0 interpreted 68000 and Z80 opcodes; Sonic the
+  Hedgehog and Gunstar Heroes give exactly the same final checks as before, and
+  a ROM-free sweep of 32,768 cases guards the fix.
+- **One shared base.** The base of paths travels in one line, CPU-keyed
+  (format 3). Converters from 1.6.0 keep receiving it; a player far behind
+  catches up from the newest complete base without reinstalling.
+- **The previous release only.** Exports, F8/F9 quick states and bases of
+  1.6.0 carry into 1.6.1: exports are rebuilt from their learned paths and
+  rechecked, Mega Drive, Neo Geo and CPS-1 states load (Windows), and the
+  Super Nintendo state key did not change. Support for releases before 1.6.0
+  is removed: their exports are converted in full, their states are refused,
+  and converters before 1.6.0 are asked to update instead of receiving the
+  base or sending discoveries.
+- **Linux: an unpacked game is said in the window.** When UPX cannot compress
+  a large Linux game (upx/upx issue 18937), the conversion log now says so, and
+  the Neo Geo validation file names the unpacked file that was validated.
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+
+---
+
 # RetroRecomp v1.6.0 — One standard for every console: paths per processor, one report, one host for 16-bit games, CPS-1 in the shared base
 
 - **Paths per processor, in a second line of the shared base.** The native
