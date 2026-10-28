@@ -13,7 +13,7 @@ import zlib
 from typing import Callable
 
 from . import __version__, timings
-from .conversion_common import check_run_budget, convert_single, prepare_game_icon, preserve_unchanged, resolve_scan_level
+from .conversion_common import check_run_budget, convert_single, prepare_game_icon, resolve_scan_level
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug
 from .gameboy_runtime import adapt_generated_project
 from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch

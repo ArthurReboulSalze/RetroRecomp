@@ -49,6 +49,13 @@ TEXT_SUFFIXES = {'.c', '.h', '.inc', '.cpp', '.cmake', '.txt', '.toml', '.rc', '
 VOLATILE_KEY = re.compile(r'(created|elapsed|seconds|wall|stamp|timing|_utc|duration|_ms$|started|finished)', re.I)
 VOLATILE_TOP = {'version', 'tool', 'converter_version'}
 EXECUTABLE_SECTIONS = {'packed', 'packing', 'export_receipt'}
+# The receipt's game stamp hashes the converter's code, and its request is derived from it: they differ when the code does.
+STAMP_DERIVED = {'game', 'request'}
+# Digests of things built inside the tree (the NES emitter binary, its log with its path): they differ between two trees
+# by construction, as a run of one tree against itself shows. The generated sources they produced are compared.
+BUILT_IN_TREE = {'generation.json': {'compiler', 'log'}}
+# A state key derived from the game stamp (so from the converter's code), written into a header.
+STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
 
 
@@ -143,7 +150,8 @@ def variants(path: Path) -> list[str]:
 
 
 class Normaliser:
-    def __init__(self, replacements: dict[Path, str]):
+    def __init__(self, replacements: dict[Path, str], drop: frozenset = frozenset()):
+        self.drop = drop
         self.pairs = [(form, token) for path, token in replacements.items() for form in variants(path)]
         self.pairs.sort(key=lambda pair: len(pair[0]), reverse=True)
 
@@ -164,7 +172,9 @@ class Normaliser:
             binary = bool(set(context) & EXECUTABLE_SECTIONS)
             return {key: self.json(item, False, (*context, key)) for key, item in value.items()
                     if not VOLATILE_KEY.search(key) and not (top and key in VOLATILE_TOP)
-                    and not (binary and key in ('sha256', 'bytes'))}
+                    and not (binary and key in ('sha256', 'bytes'))
+                    and not (context[-1:] == ('export_receipt',) and key in STAMP_DERIVED)
+                    and not key.endswith('executable_sha256') and key not in self.drop}
         if isinstance(value, list):
             return [self.json(item, False, context) for item in value]
         if isinstance(value, str):
@@ -180,12 +190,14 @@ def fingerprint(path: Path, normaliser: Normaliser) -> str:
     data = path.read_bytes()
     if path.suffix.lower() == '.json':
         try:
-            return digest(json.dumps(normaliser.json(json.loads(data.decode('utf-8'))), sort_keys=True,
+            local = Normaliser({}, frozenset(BUILT_IN_TREE.get(path.name, ())))
+            local.pairs = normaliser.pairs
+            return digest(json.dumps(local.json(json.loads(data.decode('utf-8'))), sort_keys=True,
                                      ensure_ascii=False).encode('utf-8'))
         except ValueError:
             pass
     if path.suffix.lower() in TEXT_SUFFIXES and b'\0' not in data[:4096]:
-        data = normaliser.data(data)
+        data = STAMP_TEXT.sub(rb'<stamp>', normaliser.data(data))
     return digest(data)
 
 

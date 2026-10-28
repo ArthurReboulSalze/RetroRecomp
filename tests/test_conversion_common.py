@@ -549,6 +549,26 @@ class HelperTests(unittest.TestCase):
                     prepare_game_icon(self.root, self.root / 'r.nes', 'T', Path('art'))
             self.assertEqual(str(caught.exception), str(error))
 
+    def test_the_ab_tool_ignores_what_differs_by_construction_and_sees_a_real_difference(self):
+        from tools import ab_conversion as ab
+        first = ab.Normaliser({self.root / 'tree-a': '<TREE>'})
+        second = ab.Normaliser({self.root / 'tree-b': '<TREE>'})
+        report = lambda tree, stamp: {'version': stamp, 'created_utc': stamp, 'timings': {'total': stamp},
+                                      'rom': {'sha256': 'r'}, 'packed': {'sha256': stamp, 'bytes': 1},
+                                      'path': str(self.root / tree / 'x.c'), 'wall_seconds': stamp,
+                                      'native_percent': 99.5}
+        self.assertEqual(first.json(report('tree-a', '1')), second.json(report('tree-b', '2')))
+        self.assertEqual(first.json(report('tree-a', '1'))['rom'], {'sha256': 'r'})
+        changed = report('tree-b', '2')
+        changed['native_percent'] = 99.4
+        self.assertNotEqual(first.json(report('tree-a', '1')), second.json(changed))
+        one = {'projects': {'game': {'generated/a.c': 'x', 'rom.nes': 'y'}}, 'reports': {'r.json': {'a': 1}}}
+        two = {'projects': {'game': {'generated/a.c': 'x', 'rom.nes': 'y'}}, 'reports': {'r.json': {'a': 1}}}
+        self.assertEqual(ab.compare(one, two), [])
+        two['projects']['game']['generated/a.c'] = 'z'
+        two['reports']['r.json']['a'] = 2
+        self.assertEqual(len(ab.compare(one, two)), 2)
+
     def test_the_converters_adopted_the_helpers_instead_of_keeping_copies(self):
         """No console keeps its own copy: the sources name the helper, and the old names are gone."""
         for module, names in (('core', ('convert_single(', 'check_run_budget(', 'resolve_scan_level(', 'prepare_game_icon(',
