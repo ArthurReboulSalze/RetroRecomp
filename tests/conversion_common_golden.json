@@ -1,0 +1,2393 @@
+{
+ "checks": {
+  "gb/bad_frames/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_frames/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_frames_high/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_frames_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_level/delegated": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_level/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_passes/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_passes_high/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/bad_passes_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/good_edge/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "raised": "ConversionError"
+   }
+  },
+  "gb/good_edge/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "raised": "FileNotFoundError"
+   }
+  },
+  "gb/level_and_passes/delegated": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/level_and_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_frames/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_frames/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_frames_high/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_frames_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_level/delegated": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_level/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_passes/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_passes_high/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/bad_passes_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choose 1–10 passes and 1–10000 frames per test.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/good_edge/delegated": {
+   "delegated_level": [
+    "standard"
+   ],
+   "outcome": {
+    "raised": "ConversionError"
+   }
+  },
+  "nes/good_edge/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "raised": "FileNotFoundError"
+   }
+  },
+  "nes/level_and_passes/delegated": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/level_and_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_backend": {
+   "message": "Backend inconnu : functions ou banked attendu.",
+   "raised": "ConversionError"
+  },
+  "sms/bad_frames/delegated": {
+   "delegated_level": [
+    null
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_frames/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choisis 1 à 10 passes et 1 à 10000 images par test.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_frames_high/delegated": {
+   "delegated_level": [
+    null
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_frames_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choisis 1 à 10 passes et 1 à 10000 images par test.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_level/delegated": {
+   "delegated_level": [
+    "bogus"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_level/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Unknown scan level: 'bogus'.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_passes/delegated": {
+   "delegated_level": [
+    null
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choisis 1 à 10 passes et 1 à 10000 images par test.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_passes_high/delegated": {
+   "delegated_level": [
+    null
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/bad_passes_high/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choisis 1 à 10 passes et 1 à 10000 images par test.",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/good_edge/delegated": {
+   "delegated_level": [
+    null
+   ],
+   "outcome": {
+    "raised": "ConversionError"
+   }
+  },
+  "sms/good_edge/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "raised": "FileNotFoundError"
+   }
+  },
+  "sms/level_and_passes/delegated": {
+   "delegated_level": [
+    "bogus"
+   ],
+   "outcome": {
+    "message": "delegated",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/level_and_passes/direct": {
+   "delegated_level": [],
+   "outcome": {
+    "message": "Choisis 1 à 10 passes et 1 à 10000 images par test.",
+    "raised": "ConversionError"
+   }
+  }
+ },
+ "files": {
+  "preserve_gb": {
+   "CMakeLists.txt": true,
+   "a.rc": true,
+   "b.md": true,
+   "created.c": false,
+   "host.c": true,
+   "host.h": false,
+   "rom.gb": false,
+   "runtime/inner.h": true,
+   "skip.txt": false
+  },
+  "preserve_nes": {
+   "CMakeLists.txt": true,
+   "a.inc": true,
+   "b.bin": true,
+   "created.c": false,
+   "host.c": true,
+   "host.h": false,
+   "rom.nes": false,
+   "runtime/inner.h": false,
+   "skip.txt": false
+  },
+  "write": {
+   "data": "two",
+   "different": true,
+   "first": true,
+   "same": false,
+   "stamp_kept_when_same": true,
+   "stamp_moved_when_changed": true
+  }
+ },
+ "icon_calls": {
+  "gb/artwork_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-gb-artwork_error/.build/gb_Icon_game_c35020473aed_9150f87d",
+      "Game.gb",
+      "Icon game",
+      "<T>/build-gb-artwork_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/gb",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "gb",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "no art",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/os_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-gb-os_error/.build/gb_Icon_game_c35020473aed_9150f87d",
+      "Game.gb",
+      "Icon game",
+      "<T>/build-gb-os_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/gb",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "gb",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "disk full",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/other_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-gb-other_error/.build/gb_Icon_game_c35020473aed_9150f87d",
+      "Game.gb",
+      "Icon game",
+      "<T>/build-gb-other_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/gb",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "gb",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "not converted",
+    "raised": "ValueError"
+   }
+  },
+  "nes/artwork_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-nes-artwork_error/.build/nes_Icon_game_99f2c3dd2122_1b0c621a_ntsc",
+      "Game.nes",
+      "Icon game",
+      "<T>/build-nes-artwork_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/nes",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "nes",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "no art",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/os_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-nes-os_error/.build/nes_Icon_game_99f2c3dd2122_1b0c621a_ntsc",
+      "Game.nes",
+      "Icon game",
+      "<T>/build-nes-os_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/nes",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "nes",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "disk full",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/other_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-nes-other_error/.build/nes_Icon_game_99f2c3dd2122_1b0c621a_ntsc",
+      "Game.nes",
+      "Icon game",
+      "<T>/build-nes-other_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/nes",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "nes",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "not converted",
+    "raised": "ValueError"
+   }
+  },
+  "sms/artwork_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-sms-artwork_error/.build/sms_Icon_game_011FFCA6_c35020473aed_banked",
+      "Game.sms",
+      "Icon game",
+      "<T>/build-sms-artwork_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/sms",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "sms",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "no art",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/os_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-sms-os_error/.build/sms_Icon_game_011FFCA6_c35020473aed_banked",
+      "Game.sms",
+      "Icon game",
+      "<T>/build-sms-os_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/sms",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "sms",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "disk full",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/other_error": {
+   "calls": [
+    {
+     "args": [
+      "<T>/build-sms-other_error/.build/sms_Icon_game_011FFCA6_c35020473aed_banked",
+      "Game.sms",
+      "Icon game",
+      "<T>/build-sms-other_error/art"
+     ],
+     "kwargs": {
+      "cache_directory": "<R>/Export/datas/BoxArt/sms",
+      "emit": "callable",
+      "enabled": true,
+      "explicit": "c.png",
+      "online": false,
+      "system_id": "sms",
+      "tags": []
+     }
+    }
+   ],
+   "outcome": {
+    "message": "not converted",
+    "raised": "ValueError"
+   }
+  }
+ },
+ "replacements": {
+  "core.replace_once": [
+   {
+    "returned": "aXc"
+   },
+   {
+    "message": "L'interface du moteur a changé ; adaptation nécessaire : 'b'",
+    "raised": "ConversionError"
+   },
+   {
+    "message": "L'interface du moteur a changé ; adaptation nécessaire : 'z'",
+    "raised": "ConversionError"
+   },
+   {
+    "returned": "Yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   }
+  ],
+  "nes_codegen._replace_count": [
+   {
+    "returned": "aXc"
+   },
+   {
+    "message": "Pinned NES codegen changed around 'b'.",
+    "raised": "ConversionError"
+   },
+   {
+    "message": "Pinned NES codegen changed around 'b'.",
+    "raised": "ConversionError"
+   },
+   {
+    "returned": "aXcX"
+   },
+   {
+    "message": "Pinned NES codegen changed around 'z'.",
+    "raised": "ConversionError"
+   },
+   {
+    "message": "Pinned NES codegen changed around 'z'.",
+    "raised": "ConversionError"
+   },
+   {
+    "returned": "Yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   {
+    "message": "Pinned NES codegen changed around 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.",
+    "raised": "ConversionError"
+   }
+  ]
+ },
+ "run_probes": {
+  "gb_cpu_compare": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--differential",
+      "--differential-frames",
+      "30",
+      "--input",
+      "<T>/play.inputs"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "returned": "[DIFF] Matched generated and interpreter execution for 30 steps / 30 frames"
+  },
+  "gb_probe": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--headless",
+      "--limit-frames",
+      "30",
+      "--report-interpreter-hotspots",
+      "--trace-entries",
+      "<T>/work/entries.trace"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "report": {
+    "fallback_details": [],
+    "fallback_sites": 0,
+    "fallback_sites_dropped": 0,
+    "frames": 30,
+    "input_script": "",
+    "interpreter_cycles": 0,
+    "interpreter_entries": 0,
+    "interpreter_handoffs": 0,
+    "interpreter_instructions": 0,
+    "interpreter_percent": null,
+    "scenario": "boot",
+    "trace_entries_bytes": 0
+   }
+  },
+  "gb_probe_exit": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--headless",
+      "--limit-frames",
+      "30",
+      "--report-interpreter-hotspots",
+      "--trace-entries",
+      "<T>/work/entries.trace"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "outcome": {
+    "message": "Commande interrompue (3).\nanything",
+    "raised": "ConversionError"
+   }
+  },
+  "gb_probe_script": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--headless",
+      "--limit-frames",
+      "30",
+      "--report-interpreter-hotspots",
+      "--trace-entries",
+      "<T>/work/entries.trace",
+      "--input",
+      "<T>/play.inputs"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "report": {
+    "fallback_details": [],
+    "fallback_sites": 0,
+    "fallback_sites_dropped": 0,
+    "frames": 30,
+    "input_script": "<T>/play.inputs",
+    "interpreter_cycles": 0,
+    "interpreter_entries": 0,
+    "interpreter_handoffs": 0,
+    "interpreter_instructions": 0,
+    "interpreter_percent": null,
+    "scenario": "play_r",
+    "trace_entries_bytes": 0
+   }
+  },
+  "gb_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything",
+  "nes_probe": {
+   "calls": [
+    {
+     "args": [
+      "<T>/work/nes-probe-X/game.exe",
+      "--frames",
+      "30",
+      "--input",
+      "<T>/play.inputs",
+      "--miss-log",
+      "<T>/work/seed.trace"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "report": {
+    "audio_pcm_match": null,
+    "audio_pcm_sha256": null,
+    "audio_samples": null,
+    "cycles": 1000,
+    "frames": 30,
+    "internal_differential": false,
+    "interpreter_cycles": 80,
+    "interpreter_other_cycles": 10,
+    "interpreter_percent": 8.0,
+    "interpreter_ram_cycles": 20,
+    "interpreter_rom_cycles": 50,
+    "native_cycles": 900,
+    "native_percent": 90.0,
+    "non_dispatch_cycles": 20,
+    "scenario": "boot"
+   }
+  },
+  "nes_probe_differential": {
+   "calls": [
+    {
+     "args": [
+      "<T>/work/nes-probe-X/game.exe",
+      "--frames",
+      "30",
+      "--input",
+      "<T>/play.inputs",
+      "--miss-log",
+      "<T>/work/seed.trace",
+      "--hash-out",
+      "<T>/work/boot-native.hash",
+      "--wav-out",
+      "<T>/work/boot-native.wav"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    },
+    {
+     "args": [
+      "<T>/work/nes-probe-X/game.exe",
+      "--frames",
+      "30",
+      "--interp-only",
+      "--hash-out",
+      "<T>/work/boot-reference.hash",
+      "--wav-out",
+      "<T>/work/boot-reference.wav",
+      "--input",
+      "<T>/play.inputs"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "report": {
+    "audio_pcm_match": true,
+    "audio_pcm_sha256": "aebf405592dd2d2a2e5b4a256e4a7167b6189b5272cd5cbced17a8ba139c2616",
+    "audio_samples": 64,
+    "cycles": 1000,
+    "frames": 30,
+    "internal_differential": true,
+    "interpreter_cycles": 80,
+    "interpreter_other_cycles": 10,
+    "interpreter_percent": 8.0,
+    "interpreter_ram_cycles": 20,
+    "interpreter_rom_cycles": 50,
+    "native_cycles": 900,
+    "native_percent": 90.0,
+    "non_dispatch_cycles": 20,
+    "scenario": "boot"
+   }
+  },
+  "nes_run_probe": {
+   "calls": [
+    {
+     "args": [
+      "<T>/work/nes-probe-X/game.exe",
+      "--frames",
+      "30"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "returned": "mode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n"
+  },
+  "nes_run_probe_exit": {
+   "calls": [
+    {
+     "args": [
+      "<T>/work/nes-probe-X/game.exe",
+      "--frames",
+      "30"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/work",
+     "executable_existed": true,
+     "other": [
+      "encoding",
+      "errors"
+     ],
+     "stderr": -2,
+     "stdout": -1,
+     "timeout": 600
+    }
+   ],
+   "outcome": {
+    "message": "Commande interrompue (5).\nx",
+    "raised": "ConversionError"
+   }
+  },
+  "nes_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace --hash-out <T>/work/boot-native.hash --wav-out <T>/work/boot-native.wav\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --interp-only --hash-out <T>/work/boot-reference.hash --wav-out <T>/work/boot-reference.wav --input <T>/play.inputs\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nx"
+ },
+ "single_rom": {
+  "gb/current/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/current/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/error/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/error/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "gb/existing/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/existing/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/stopped/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/stopped/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/success/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "gb/success/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "gb_deep_validation": false,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "dmg",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.gb",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/current/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/current/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/error/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/error/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "nes/existing/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/existing/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/stopped/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/stopped/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/success/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "nes/success/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "thorough",
+     "standard_override": "pal",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.nes",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "sms/current/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/current/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/error/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/error/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/existing/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/existing/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/stopped/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/stopped/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms/success/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "sms/success/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": "extended",
+     "standard_override": "ntsc",
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "sms_default_level/current/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/current/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/error/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/error/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/existing/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/existing/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/stopped/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/stopped/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "message": "the message",
+    "raised": "ConversionError"
+   }
+  },
+  "sms_default_level/success/Custom title": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Custom title"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  },
+  "sms_default_level/success/None": {
+   "batch": {
+    "emit_passed": true,
+    "items": [
+     {
+      "cover": "cover.png",
+      "title": "Identified"
+     }
+    ],
+    "kwargs": {
+     "backend": "banked",
+     "boxart_dir": "art",
+     "frames": 5,
+     "icon_tags": false,
+     "language": "fr",
+     "online_cover": false,
+     "passes": 2,
+     "profile": null,
+     "scan_level": null,
+     "standard_override": null,
+     "use_cover": false
+    },
+    "root_is_games_root": true
+   },
+   "identify": {
+    "path": "Game.sms",
+    "rest": []
+   },
+   "outcome": {
+    "returned": "Game.exe"
+   }
+  }
+ },
+ "sms_probe": {
+  "full": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--headless",
+      "--frames",
+      "600",
+      "--log",
+      "<T>/probe-full/runtime.log",
+      "--vdp-trace",
+      "<T>/probe-full/vdp.csv",
+      "--dump-frame",
+      "600",
+      "--dump-out",
+      "<T>/probe-full/frame.png",
+      "--strict",
+      "--interp",
+      "--press",
+      "A",
+      "--press",
+      "START"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/probe-full",
+     "cwd_existed": true,
+     "env_changed": {
+      "RETRO_RECOMP_LEARNING": "1",
+      "RETRO_RECOMP_LIBRARY_DIR": "<T>/probe-full/learning",
+      "SMSRECOMP_LIBRARY_DIR": "<T>/probe-full/learning"
+     },
+     "env_removed": [
+      "SMSRECOMP_STRICT"
+     ],
+     "input": null,
+     "other": [],
+     "stderr": -1,
+     "stdout": -1,
+     "timeout": 60
+    }
+   ],
+   "directory_exists": true,
+   "events": [
+    "enter reference_runs",
+    "popen",
+    "exit reference_runs"
+   ],
+   "report": {
+    "completed_frames": 120,
+    "dispatch_misses": 2,
+    "exit_code": 0,
+    "interpreter_percent": 7.5,
+    "passed": false,
+    "reference": true,
+    "requested_frames": 600,
+    "scripted_input": [
+     "A",
+     "START"
+    ],
+    "static_percent": 92.5,
+    "strict": true
+   },
+   "result_json": {
+    "completed_frames": 120,
+    "dispatch_misses": 2,
+    "exit_code": 0,
+    "interpreter_percent": 7.5,
+    "passed": false,
+    "reference": true,
+    "requested_frames": 600,
+    "scripted_input": [
+     "A",
+     "START"
+    ],
+    "static_percent": 92.5,
+    "strict": true
+   }
+  },
+  "plain": {
+   "calls": [
+    {
+     "args": [
+      "<T>/game.exe",
+      "--headless",
+      "--frames",
+      "600",
+      "--log",
+      "<T>/probe-plain/runtime.log",
+      "--vdp-trace",
+      "<T>/probe-plain/vdp.csv",
+      "--dump-frame",
+      "600",
+      "--dump-out",
+      "<T>/probe-plain/frame.png"
+     ],
+     "creationflags": "no_window_if_windows",
+     "cwd": "<T>/probe-plain",
+     "cwd_existed": true,
+     "env_changed": {
+      "RETRO_RECOMP_LEARNING": "1",
+      "RETRO_RECOMP_LIBRARY_DIR": "<T>/probe-plain/learning",
+      "SMSRECOMP_LIBRARY_DIR": "<T>/probe-plain/learning"
+     },
+     "env_removed": [
+      "SMSRECOMP_STRICT"
+     ],
+     "input": null,
+     "other": [],
+     "stderr": -1,
+     "stdout": -1,
+     "timeout": 60
+    }
+   ],
+   "directory_exists": true,
+   "events": [
+    "enter native_runs",
+    "popen",
+    "exit native_runs"
+   ],
+   "report": {
+    "completed_frames": 120,
+    "dispatch_misses": 2,
+    "exit_code": 0,
+    "interpreter_percent": 7.5,
+    "passed": false,
+    "reference": false,
+    "requested_frames": 600,
+    "scripted_input": [],
+    "static_percent": 92.5,
+    "strict": false
+   },
+   "result_json": {
+    "completed_frames": 120,
+    "dispatch_misses": 2,
+    "exit_code": 0,
+    "interpreter_percent": 7.5,
+    "passed": false,
+    "reference": false,
+    "requested_frames": 600,
+    "scripted_input": [],
+    "static_percent": 92.5,
+    "strict": false
+   }
+  }
+ }
+}

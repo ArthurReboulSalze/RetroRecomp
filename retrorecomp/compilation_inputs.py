@@ -68,6 +68,8 @@ def owners(name):
         return frozenset(('md',))
     if name.startswith(('nes_', 'retro_nes')) or name in ('nes', 'nes.py'):
         return frozenset(('nes',))
+    if name.startswith('conversion_common'):
+        return frozenset(('sms', 'gg', 'gb', 'nes'))
     if name.startswith('m68000'):
         return frozenset(('md', 'ng', 'x68', 'cps1'))
     # The shared 16-bit host is linked into Neo Geo and CPS-1 games too; 'hostkit' matches retrorecomp/hostkit.py

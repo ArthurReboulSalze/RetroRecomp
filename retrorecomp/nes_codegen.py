@@ -11,15 +11,15 @@ from hashlib import sha256
 from pathlib import Path
 import shutil
 
+from .conversion_common import replace_counted
 from .core import ConversionError, replace_once, run
 from .paths import ROOT, ASSETS
 from .platforms import build_executable, cmake_target_args, build_jobs
 
 
 def _replace_count(source: str, old: str, new: str, count: int) -> str:
-    if source.count(old) != count:
-        raise ConversionError(f'Pinned NES codegen changed around {old!r}.')
-    return source.replace(old, new)
+    return replace_counted(source, old, new, count=count,
+                           error=lambda old: ConversionError(f'Pinned NES codegen changed around {old!r}.'))
 
 
 def _dense_codegen(source: str) -> str:
