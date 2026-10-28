@@ -22,7 +22,7 @@
   <a href="https://retro-recomp.com">Website</a>
 </p>
 
-https://github.com/user-attachments/assets/d08e5a5d-b05f-4175-97ac-9e4b362db101
+https://github.com/user-attachments/assets/818d3278-d698-491e-a58b-e11edc602923
 
 <p align="center"><sub><em>RetroRecomp in under two minutes: how your own game dumps become native Windows and Linux programs.</em></sub></p>
 
