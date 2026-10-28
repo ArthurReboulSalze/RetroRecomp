@@ -35,27 +35,47 @@ import hashlib
 import json
 import re
 
+from .systems.registry import all_profiles
+from .systems.specs import CARTRIDGE_BOUNDS as _CARTRIDGE_BOUNDS
+
 SCHEMA = 3
 U32 = 0xffffffff
-SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68')
+# The machines of the schema, in the order of the schema (cartridge machines, then Neo Geo, CPS-1, X68000: it
+# is not the order of the documents), and the tables that describe each one come from its profile
+# (`SystemProfile.path_spec`, `shared_knowledge`): a new machine adds no line here.
+_SPECS = tuple(sorted(((profile.id, profile) for profile in all_profiles() if profile.path_spec is not None),
+                      key=lambda item: item[1].path_spec.order))
+SYSTEMS = tuple(system for system, _ in _SPECS)
+# The (CPU family, memory map) sections a game record of each machine owns.
+SYSTEM_SECTIONS = {system: profile.path_spec.sections for system, profile in _SPECS}
 GAME_KEY = re.compile('(?:' + '|'.join(SYSTEMS) + '):[0-9a-f]{64}')
+
+
+def _shared(tier: str) -> tuple:
+    return tuple(system for system, profile in _SPECS
+                 if profile.shared_knowledge is not None and profile.shared_knowledge.tier == tier)
+
+
 # Consoles whose discoveries travel. The first group is stable. EXPERIMENTAL_SHARED lists the machines
 # that are still being developed (CPS-1: its recompiler will change again): their paths travel like the
-# others', but only as schema 3 records (they have no schema 1 form) and only in line 3 of the base.
+# others', but only as schema 3 records (they have no schema 1 form) and only in line 3 of the base. Both
+# lists are read from the profiles' `shared_knowledge` tier.
 #
-# THE SWITCH: empty EXPERIMENTAL_SHARED to withdraw them all at once. The converter then neither collects,
-# sends, imports nor reads their paths, `read_exchange` refuses a file that carries them like any unknown
-# console, the web limits generated from this module (tools/build_web_limits.py) stop the service accepting
-# them, and the site's builder (BASE_SYSTEMS is read from here) no longer puts them in line 3. Local banks and
-# line 3 for the other consoles are untouched: what was stored for them stays on disk, unread, and comes
-# back when the name does. See docs/COMPILATION_LIBRARY.md ("CPS-1 joins the base").
-STABLE_SHARED = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
-EXPERIMENTAL_SHARED = ('cps1',)
+# THE SWITCH: empty EXPERIMENTAL_SHARED (replace its line by `EXPERIMENTAL_SHARED = ()`) to withdraw them all at
+# once. The converter then neither collects, sends, imports nor reads their paths, `read_exchange` refuses a
+# file that carries them like any unknown console, the web limits generated from this module
+# (tools/build_web_limits.py) stop the service accepting them, and the site's builder (BASE_SYSTEMS is read
+# from here) no longer puts them in line 3. Local banks and line 3 for the other consoles are untouched: what
+# was stored for them stays on disk, unread, and comes back when the name does. See
+# docs/COMPILATION_LIBRARY.md ("CPS-1 joins the base").
+STABLE_SHARED = _shared('stable')
+EXPERIMENTAL_SHARED = _shared('experimental')
 SHARED_SYSTEMS = STABLE_SHARED + EXPERIMENTAL_SHARED
 # Machines that were shared and are not any more because their name left EXPERIMENTAL_SHARED. A file or an upload
 # that names them is read without them (their games are left out one by one), not refused whole: the players who
 # still send them must not lose the sharing of their other games the day the machine is withdrawn.
-WITHDRAWABLE = ('cps1',)
+WITHDRAWABLE = tuple(system for system, profile in _SPECS
+                     if profile.shared_knowledge is not None and profile.shared_knowledge.withdrawable)
 WITHDRAWN = tuple(system for system in WITHDRAWABLE if system not in SHARED_SYSTEMS)
 
 
@@ -285,53 +305,56 @@ class Profile:
 
 
 def _p(**fields) -> Profile:
-    return Profile(**fields)
+    # The machines that use this CPU on this map are the ones whose profile lists the section (the Master System
+    # and the Game Gear share the Z80 of the 'sms' map).
+    section = (fields['cpu'], fields['map'])
+    return Profile(systems=tuple(system for system in SYSTEMS if section in SYSTEM_SECTIONS[system]), **fields)
 
 
 PROFILES = {
-    ('m68k', 'md'): _p(cpu='m68k', map='md', systems=('md',), roles=('rom',),
+    ('m68k', 'md'): _p(cpu='m68k', map='md', roles=('rom',),
                        caps={'phys': 65536, 'insn': 2048},
                        entry_align=2, entry_min=0x200, entry_tail=8,
                        windows=((0xe00000, 0x1000000),), contained=True,
                        length=(2, 16), length_align=2, address_align=2),
-    ('m68k', 'ng'): _p(cpu='m68k', map='ng', systems=('ng',), roles=('p', 'bios'),
+    ('m68k', 'ng'): _p(cpu='m68k', map='ng', roles=('p', 'bios'),
                        caps={'phys': 262144, 'phys_deltas': 2, 'insn': 4096},
                        entry_align=2, entry_tail=2,
                        windows=((0x100000, 0x110000),), contained=True, address_base=0x100000,
                        length=(2, 16), length_align=2, offset_align=2, address_align=2),
-    ('m68k', 'cps1'): _p(cpu='m68k', map='cps1', systems=('cps1',), roles=('maincpu',),
+    ('m68k', 'cps1'): _p(cpu='m68k', map='cps1', roles=('maincpu',),
                          caps={'insn': 4096},
                          windows=((0xff0000, 0x1000000),), contained=True,
                          length=(2, 16), length_align=2, offset_align=2, address_align=2),
-    ('m68k', 'x68'): _p(cpu='m68k', map='x68', systems=('x68',), roles=('ipl', 'disk'),
+    ('m68k', 'x68'): _p(cpu='m68k', map='x68', roles=('ipl', 'disk'),
                         caps={'insn': 65536, 'span': 4096},
                         windows=((0, 0xc00000), (0xe00000, 0xe80000), (0xea0000, 0xea2000),
                                  (0xfc0000, 0xfffffe)),
                         contained=True, length=(2, 16), length_align=2, offset_align=2, address_align=2,
                         span_max=131072),
-    ('z80', 'sms'): _p(cpu='z80', map='sms', systems=('sms', 'gg'), roles=('rom',),
+    ('z80', 'sms'): _p(cpu='z80', map='sms', roles=('rom',),
                        caps={'sega5': 65536, 'window4': 4096}, pc_below=0xbf01),
-    ('z80', 'md-sound'): _p(cpu='z80', map='md-sound', systems=('md',), roles=('rom',),
+    ('z80', 'md-sound'): _p(cpu='z80', map='md-sound', roles=('rom',),
                             caps={'insn': 32768},
                             windows=((0, 0x4000), (0x8000, 0x10000)),
                             length=(4, 4), guard='derived'),
-    ('z80', 'ng-sound'): _p(cpu='z80', map='ng-sound', systems=('ng',), roles=('m1', 'sm1'),
+    ('z80', 'ng-sound'): _p(cpu='z80', map='ng-sound', roles=('m1', 'sm1'),
                             caps={'insn_masked': 32768},
                             windows=((0xf800, 0x10000),), length=(4, 4), guard='mask'),
-    ('z80', 'cps1-sound'): _p(cpu='z80', map='cps1-sound', systems=('cps1',), roles=('audiocpu',),
+    ('z80', 'cps1-sound'): _p(cpu='z80', map='cps1-sound', roles=('audiocpu',),
                               caps={'insn_masked': 4096},
                               windows=((0xd000, 0xd800),), length=(4, 4), guard='mask'),
-    ('sm83', 'gb'): _p(cpu='sm83', map='gb', systems=('gb',), roles=('rom',),
+    ('sm83', 'gb'): _p(cpu='sm83', map='gb', roles=('rom',),
                        caps={'gb_offsets': 65536, 'gb_rows': 65536},
                        unit=0x4000, pc_window=(0, 0x7fff)),
-    ('mos6502', 'nes'): _p(cpu='mos6502', map='nes', systems=('nes',), roles=('rom',),
+    ('mos6502', 'nes'): _p(cpu='mos6502', map='nes', roles=('rom',),
                            caps={'nes_rows': 65536, 'opcode_ptr': 65536},
                            unit=0x1000, pc_window=(0x8000, 0xffff),
                            windows=((0, 0x2000), (0x6000, 0x10000)), guard='first'),
-    ('w65c816', 'snes'): _p(cpu='w65c816', map='snes', systems=('snes',), roles=('rom',),
+    ('w65c816', 'snes'): _p(cpu='w65c816', map='snes', roles=('rom',),
                             caps={'insn': 16384, 'opcode_ptr': 16384},
                             windows=((0, 0x1000000),), length=(4, 4), guard='first'),
-    ('spc700', 'snes'): _p(cpu='spc700', map='snes', systems=('snes',), roles=('rom',),
+    ('spc700', 'snes'): _p(cpu='spc700', map='snes', roles=('rom',),
                            caps={'spc_refs': 262144, 'spc_ranges': 262144, 'spc_bitmaps': 262144,
                                  'spc_deltas': 262144},
                            windows=((0, 0xf0), (0x100, 0x10000)), guard='first', budget=262144),
@@ -359,13 +382,6 @@ SHAPES = {
 }
 KINDS = ('entries', 'windows', 'ram_code', 'spans')
 
-SYSTEM_SECTIONS = {
-    'sms': (('z80', 'sms'),), 'gg': (('z80', 'sms'),), 'gb': (('sm83', 'gb'),),
-    'nes': (('mos6502', 'nes'),), 'md': (('m68k', 'md'), ('z80', 'md-sound')),
-    'snes': (('w65c816', 'snes'), ('spc700', 'snes')), 'ng': (('m68k', 'ng'), ('z80', 'ng-sound')),
-    'cps1': (('m68k', 'cps1'), ('z80', 'cps1-sound')), 'x68': (('m68k', 'x68'),),
-}
-
 # Cartridge devices have no path kind of their own yet but the GSU's indirect
 # jump pairs (planned, see docs/SNES_SUPERFX.md); sites and targets are 24-bit.
 DEVICES = {'gsu': {'systems': ('snes',), 'kinds': {'targets': 65536}},
@@ -373,22 +389,17 @@ DEVICES = {'gsu': {'systems': ('snes',), 'kinds': {'targets': 65536}},
            'dsp1': {'systems': ('snes',), 'kinds': {}}}
 
 SPAN_BYTES = 4 << 20
-ROM_BOUNDS = (8192, 128 * 1024 * 1024 + 528)
-# (minimum, maximum) bytes of every source, per system and source role. Neo Geo
-# are the bounds of `neogeo_knowledge.SIZE_BOUNDS`; CPS-1 and X68000 are new and
-# provisional (nothing stores them yet).
-SOURCE_BOUNDS = {
-    **{system: {'rom': ROM_BOUNDS} for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes')},
-    'ng': {'cart': (4096, 512 << 20), 'p': (512, 16 << 20), 'bios': (0x20000, 0x20000),
-           'm1': (0x10000, 512 << 10), 'sm1': (0x20000, 0x20000)},
-    # CPS-1: the assembled 68000 program (even, at most 4 MiB) and Z80 sound program images the offsets point into.
-    'cps1': {'maincpu': (0x1000, 0x400000), 'audiocpu': (0x8000, 0x100000)},
-    'x68': {'ipl': (1, 1 << 20), 'disk': (1, 1 << 30)},
-}
-REQUIRED_SOURCES = {'ng': ('cart', 'p', 'bios', 'm1', 'sm1'), 'cps1': ('maincpu', 'audiocpu'),
-                    **{system: ('rom',) for system in ('sms', 'gg', 'gb', 'nes', 'md', 'snes')}}
+ROM_BOUNDS = _CARTRIDGE_BOUNDS
+# (minimum, maximum) bytes of every source, per system and source role (`PathSpec.source_bounds`). Neo Geo
+# are the bounds of `neogeo_knowledge.SIZE_BOUNDS`; CPS-1 (the assembled 68000 program, even, at most 4 MiB,
+# and the Z80 sound program images the offsets point into) and X68000 are new and provisional (nothing stores
+# them yet).
+SOURCE_BOUNDS = {system: dict(profile.path_spec.source_bounds) for system, profile in _SPECS}
+REQUIRED_SOURCES = {system: profile.path_spec.required_sources for system, profile in _SPECS
+                    if profile.path_spec.required_sources}
 # Systems whose sources must carry a SHA-256 (the identity of their key).
-HASHED_SOURCES = {'ng': ('cart', 'bios'), 'cps1': ('maincpu', 'audiocpu')}
+HASHED_SOURCES = {system: profile.path_spec.hashed_sources for system, profile in _SPECS
+                  if profile.path_spec.hashed_sources}
 # Neo Geo regions as schema 1 numbers them, and the section they belong to.
 NG_REGIONS = {'p': 1, 'bios': 2, 'm1': 3, 'sm1': 4}
 NG_CPU_SOURCES = {'m68k': ('p', 'bios'), 'z80': ('m1', 'sm1')}
