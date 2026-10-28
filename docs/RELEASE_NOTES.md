@@ -29,9 +29,11 @@
 - **UPX 5.3.0.** The bundled packer is the unmodified official 5.3.0 build,
   checked by SHA-256, with its source archive in the repository. It contains
   the fix of upx/upx issue 18937, the "compressed data violation" that made a
-  large Linux game such as Neo Geo Metal Slug 3 publish unpacked. That game has
-  not been converted on Linux with this release yet; if UPX still rejects a
-  game, it is published unpacked, as built and validated, and the log says so.
+  large Linux game such as Neo Geo Metal Slug 3 publish unpacked. Converted on
+  Debian 13 with this release, Metal Slug 3 is now published packed (45 MB
+  instead of 78 MB), passes UPX's own test and replays the reference routes
+  packed. If UPX still rejects a game, it is published unpacked, as built and
+  validated, and the log says so.
 - **Under the hood.** The window's code is split by responsibility into twelve
   modules, with no change of behaviour.
 

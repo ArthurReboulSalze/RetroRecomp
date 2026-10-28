@@ -337,7 +337,9 @@ that made Linux games such as the Neo Geo Metal Slug 3 publish unpacked. `packin
 of every console moves**: an export of 1.6.1 is rebuilt from the paths it already learned, rechecked on the quick routes
 and packed by the new UPX, like any export whose build changed. The host stamps move too (`licenses/UPX.md` and
 `THIRD_PARTY_NOTICES.md` are host inputs); the game stamps do not move for this reason. The Linux fallback (a game UPX cannot pack and test is published unpacked, with the reason in the log and the report) stays as a
-safety net; with 5.3.0 it is no longer expected for the known case, which has not been re-measured on that game yet.
+safety net; with 5.3.0 the known case is gone: converted on Debian 13 (Hermès) from the 1.6.2 tree on 28 October 2026,
+Metal Slug 3 is published packed (78,492,880 bytes unpacked, 45,086,824 packed, UPX 5.3.0 -9), `upx -t` passes on it and
+its five packed replays match the reference.
 
 ## Host or game: the classification
 
