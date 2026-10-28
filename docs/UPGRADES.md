@@ -263,7 +263,10 @@ says "No gamepad for player N". Five strings join the runtime catalogue in the e
 `hostkit/shell/rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c` and `runtime_catalog.inc`. The catalogue is shared by every
 shell, so the host stamp of each of the nine consoles moves (checked against the previous tree: the game and build stamps
 of all nine stay equal); the same release already moves them, so nothing more is owed to exports of 1.6.1. Learned paths
-and quick-state keys do not move. Exports of 1.6.1 keep their existing `[<Console>.Gamepad.PlayerN]`
+do not move. The catalogue is also one of the native files the quick-state key of the 16-bit consoles hashes, so those
+keys move too (the serialized layout does not): at the release, the 1.6.1 keys are added as compatibility keys like the
+1.6.0 ones, and the Super Nintendo one, which had not moved since 1.6.0, needs its first compatibility line
+(`tests/test_legacy_compat.py` pins the unmoved key until then). Exports of 1.6.1 keep their existing `[<Console>.Gamepad.PlayerN]`
 keys: the two new keys are read when present and ignored otherwise. When Master System and Game Gear move to the kit this
 row replaces their first-player toggle and pad swap.
 
