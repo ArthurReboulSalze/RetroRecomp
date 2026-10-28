@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import zlib
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+from .conversion_common import check_exit, pinned_checkout, replace_counted, spawn
 from .core import serialized_setup
 
 from .paths import ROOT, ASSETS
@@ -66,24 +67,26 @@ def aes_available(project: Path) -> bool:
 def pinned_dependency(name: str, url: str, revision: str) -> Path:
     from .core import run
     target = ROOT / '.deps' / name
-    if not target.exists():
+
+    def git(*arguments, **options):
+        return run(['git', '-C', target, *arguments], **options)
+
+    def clone():
         research = ROOT / '.build/neogeo-research-20261013' / name
         source = research if research.is_dir() else url
         run(['git', 'clone', '--no-hardlinks', source, target])
-        run(['git', '-C', target, 'checkout', '--detach', revision])
-    head = run(['git', '-C', target, 'rev-parse', 'HEAD']).strip()
-    if head != revision:
+        git('checkout', '--detach', revision)
+
+    def refuse(head):
         raise ValueError(f'{name} revision differs from the qualified integration pin.')
-    if run(['git', '-C', target, 'status', '--porcelain', '--untracked-files=no']).strip():
-        raise ValueError(f'{name} sources changed; use an isolated adapter copy.')
+    pinned_checkout(target, revision, git, present=target.exists(), clone=clone, moved=refuse,
+                    dirty=lambda: ValueError(f'{name} sources changed; use an isolated adapter copy.'))
     return target
 
 
 def _replace(source: str, old: str, new: str, *, count: int | None = None) -> str:
-    found = source.count(old)
-    if not found or (count is not None and found != count):
-        raise ValueError(f'Pinned Neo Geo source changed at {old[:65]!r}.')
-    return source.replace(old, new)
+    return replace_counted(source, old, new, count=count,
+                           error=lambda text: ValueError(f'Pinned Neo Geo source changed at {text[:65]!r}.'))
 
 
 def staging_project(identity: str,native: bool,inputs: list[Path]) -> Path:
@@ -715,10 +718,9 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
             from .core import executable_name
             output = ROOT / 'Export/Prototypes/Neo Geo' / executable_name(prepared.title)
         output.parent.mkdir(parents=True, exist_ok=True)
-        from .packing import compact_executable
+        from .conversion_gates import pack_candidate
         packed_executable = project / 'packed-game.exe'
-        shutil.copy2(executable, packed_executable)
-        compact_executable(packed_executable, emit)
+        pack_candidate(executable, packed_executable, emit)
         shutil.copy2(packed_executable, output)
         return output
 
@@ -745,10 +747,10 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
     references={};seeds=set();ram=[];main_ram=[];physical={'p':set(),'bios':set()}
     def probe(binary,name,frames,script):
         destination=observations/(name+'.json')
-        from .core import run_process
-        result=run_process([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
-            '--rtc-seed','1760000000','--report',str(destination)],capture_output=True,timeout=max(180,frames/60*4))
-        if result.returncode:raise probe_failure(name, result)
+        result=spawn([str(binary),'--headless',*route_arguments(name),'--frames',str(frames),'--script',str(script),
+            '--rtc-seed','1760000000','--report',str(destination)],cwd=observations,timeout=max(180,frames/60*4),
+            capture_output=True)
+        check_exit(result,lambda failed:probe_failure(name, failed))
         return json.loads(destination.read_text(encoding='utf-8'))
     def observe(row):
         name,(frames,text)=row

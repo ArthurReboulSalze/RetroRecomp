@@ -1,10 +1,107 @@
 {
  "console16_checks": {
+  "batch_current": {
+   "batch": [
+    {
+     "cover": null,
+     "directory": "<T>/games",
+     "emit_given": true,
+     "kwargs": {
+      "boxart_dir": null,
+      "frames": 3600,
+      "icon_tags": true,
+      "language": "en",
+      "online_cover": true,
+      "passes": 3,
+      "scan_level": "standard",
+      "standard_override": null,
+      "use_cover": true
+     },
+     "title": "T"
+    }
+   ],
+   "outcome": {
+    "returned": "<T>/game.exe"
+   }
+  },
+  "batch_error": {
+   "batch": [
+    {
+     "cover": null,
+     "directory": "<T>/games",
+     "emit_given": true,
+     "kwargs": {
+      "boxart_dir": null,
+      "frames": 3600,
+      "icon_tags": true,
+      "language": "en",
+      "online_cover": true,
+      "passes": 3,
+      "scan_level": "standard",
+      "standard_override": null,
+      "use_cover": true
+     },
+     "title": "T"
+    }
+   ],
+   "outcome": {
+    "message": "Compiler stopped.",
+    "raised": "ConversionError"
+   }
+  },
+  "batch_other_status": {
+   "batch": [
+    {
+     "cover": null,
+     "directory": "<T>/games",
+     "emit_given": true,
+     "kwargs": {
+      "boxart_dir": null,
+      "frames": 3600,
+      "icon_tags": true,
+      "language": "en",
+      "online_cover": true,
+      "passes": 3,
+      "scan_level": "standard",
+      "standard_override": null,
+      "use_cover": true
+     },
+     "title": "T"
+    }
+   ],
+   "outcome": {
+    "returned": "<T>/game.exe"
+   }
+  },
   "budget_before_level": {
    "batch": [],
    "outcome": {
     "message": "Choose 1–10 passes and 1–10000 frames per test.",
     "raised": "ConversionError"
+   }
+  },
+  "covered": {
+   "batch": [
+    {
+     "cover": "<T>/cover.png",
+     "directory": "<T>/games",
+     "emit_given": true,
+     "kwargs": {
+      "boxart_dir": null,
+      "frames": 3600,
+      "icon_tags": true,
+      "language": "en",
+      "online_cover": true,
+      "passes": 3,
+      "scan_level": "standard",
+      "standard_override": null,
+      "use_cover": true
+     },
+     "title": "T"
+    }
+   ],
+   "outcome": {
+    "returned": "<T>/game.exe"
    }
   },
   "edge_frames": {
@@ -183,6 +280,30 @@
       "use_cover": true
      },
      "title": "S"
+    }
+   ],
+   "outcome": {
+    "returned": "<T>/game.exe"
+   }
+  },
+  "titled": {
+   "batch": [
+    {
+     "cover": null,
+     "directory": "<T>/games",
+     "emit_given": true,
+     "kwargs": {
+      "boxart_dir": null,
+      "frames": 3600,
+      "icon_tags": true,
+      "language": "en",
+      "online_cover": true,
+      "passes": 3,
+      "scan_level": "standard",
+      "standard_override": null,
+      "use_cover": true
+     },
+     "title": "My title"
     }
    ],
    "outcome": {
@@ -2121,26 +2242,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/no_audio/packed-game.exe",
-      "--headless",
-      "--frames",
-      "7200",
-      "--script",
-      "<T>/no_audio/project/native-discovery/play.inputs",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/no_audio/project/packed-checks/play.json"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 480.0
     }
    ],
    "outcome": {
@@ -2148,8 +2249,7 @@
     "raised": "ConversionError"
    },
    "reports": [
-    "attract.json",
-    "play.json"
+    "attract.json"
    ]
   },
   "no_image": {
@@ -2173,26 +2273,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/no_image/packed-game.exe",
-      "--headless",
-      "--frames",
-      "7200",
-      "--script",
-      "<T>/no_image/project/native-discovery/play.inputs",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/no_image/project/packed-checks/play.json"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 480.0
     }
    ],
    "outcome": {
@@ -2200,8 +2280,7 @@
     "raised": "ConversionError"
    },
    "reports": [
-    "attract.json",
-    "play.json"
+    "attract.json"
    ]
   },
   "reference_differs": {
@@ -2225,26 +2304,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/reference_differs/packed-game.exe",
-      "--headless",
-      "--frames",
-      "7200",
-      "--script",
-      "<T>/reference_differs/project/native-discovery/play.inputs",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/reference_differs/project/packed-checks/play.json"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 480.0
     }
    ],
    "outcome": {
@@ -2252,8 +2311,7 @@
     "raised": "RuntimeError"
    },
    "reports": [
-    "attract.json",
-    "play.json"
+    "attract.json"
    ]
   },
   "total_differs": {
@@ -2277,26 +2335,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/total_differs/packed-game.exe",
-      "--headless",
-      "--frames",
-      "7200",
-      "--script",
-      "<T>/total_differs/project/native-discovery/play.inputs",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/total_differs/project/packed-checks/play.json"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 480.0
     }
    ],
    "outcome": {
@@ -2304,8 +2342,7 @@
     "raised": "RuntimeError"
    },
    "reports": [
-    "attract.json",
-    "play.json"
+    "attract.json"
    ]
   }
  },
@@ -4214,29 +4251,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "60",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/rejected-inner-magic.json",
-      "--trace",
-      "<T>/state-checks/rejected-inner-magic.csv",
-      "--load-state",
-      "<T>/state-checks/inner-magic.rrstate",
-      "--ignore-load-error"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {},
@@ -4249,7 +4263,6 @@
     "continuous.json",
     "frame-30.rrstate",
     "frame-45.rrstate",
-    "inner-magic.rrstate",
     "inner-truncated.rrstate",
     "play.inputs",
     "region.rrstate",
@@ -4257,8 +4270,6 @@
     "rejected-abi.json",
     "rejected-checksum.csv",
     "rejected-checksum.json",
-    "rejected-inner-magic.csv",
-    "rejected-inner-magic.json",
     "rejected-inner-truncated.csv",
     "rejected-inner-truncated.json",
     "rejected-region.csv",
@@ -4520,29 +4531,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "60",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/rejected-trailing.json",
-      "--trace",
-      "<T>/state-checks/rejected-trailing.csv",
-      "--load-state",
-      "<T>/state-checks/trailing.rrstate",
-      "--ignore-load-error"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {},
@@ -4567,8 +4555,6 @@
     "rejected-rom.json",
     "rejected-system.csv",
     "rejected-system.json",
-    "rejected-trailing.csv",
-    "rejected-trailing.json",
     "rejected-truncated.csv",
     "rejected-truncated.json",
     "restored-30.csv",
@@ -4577,7 +4563,6 @@
     "restored-45.json",
     "rom.rrstate",
     "system.rrstate",
-    "trailing.rrstate",
     "truncated.rrstate"
    ],
    "outcome": {
@@ -6395,44 +6380,20 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "20",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/restored-45.json",
-      "--trace",
-      "<T>/state-checks/restored-45.csv",
-      "--script",
-      "<T>/state-checks/play.inputs",
-      "--load-state",
-      "<T>/state-checks/frame-45.rrstate"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {
     "divergence.json": {
      "continuous": {
-      "frame": "50",
-      "hash": "104"
+      "frame": "35",
+      "hash": "51"
      },
      "first_mismatch": 5,
      "restored": {
-      "frame": "50",
-      "hash": "105"
+      "frame": "35",
+      "hash": "52"
      },
-     "warmup": 45
+     "warmup": 30
     }
    },
    "files": [
@@ -6443,9 +6404,7 @@
     "frame-45.rrstate",
     "play.inputs",
     "restored-30.csv",
-    "restored-30.json",
-    "restored-45.csv",
-    "restored-45.json"
+    "restored-30.json"
    ],
    "outcome": {
     "message": "{'warmup': 30, 'first_mismatch': 5, 'continuous': {'frame': '35', 'hash': '51'}, 'restored': {'frame': '35', 'hash': '52'}}",
@@ -7392,30 +7351,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "20",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/restored-45.json",
-      "--trace",
-      "<T>/state-checks/restored-45.csv",
-      "--script",
-      "<T>/state-checks/play.inputs",
-      "--load-state",
-      "<T>/state-checks/frame-45.rrstate"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {},
@@ -7426,9 +7361,7 @@
     "frame-45.rrstate",
     "play.inputs",
     "restored-30.csv",
-    "restored-30.json",
-    "restored-45.csv",
-    "restored-45.json"
+    "restored-30.json"
    ],
    "outcome": {
     "message": "Fresh state replay did not load/complete.",
@@ -7555,34 +7488,10 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "60",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/rejected-abi.json",
-      "--trace",
-      "<T>/state-checks/rejected-abi.csv",
-      "--load-state",
-      "<T>/state-checks/abi.rrstate",
-      "--ignore-load-error"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {},
    "files": [
-    "abi.rrstate",
     "cold.csv",
     "cold.json",
     "continuous.csv",
@@ -7590,8 +7499,6 @@
     "frame-30.rrstate",
     "frame-45.rrstate",
     "play.inputs",
-    "rejected-abi.csv",
-    "rejected-abi.json",
     "rejected-rom.csv",
     "rejected-rom.json",
     "restored-30.csv",
@@ -7658,30 +7565,6 @@
      "other": [],
      "text": null,
      "timeout": 240
-    },
-    {
-     "args": [
-      "<T>/packed-game.exe",
-      "--headless",
-      "--frames",
-      "20",
-      "--rtc-seed",
-      "1760000000",
-      "--report",
-      "<T>/state-checks/restored-45.json",
-      "--trace",
-      "<T>/state-checks/restored-45.csv",
-      "--script",
-      "<T>/state-checks/play.inputs",
-      "--load-state",
-      "<T>/state-checks/frame-45.rrstate"
-     ],
-     "capture_output": true,
-     "env_changed": {},
-     "env_removed": [],
-     "other": [],
-     "text": null,
-     "timeout": 240
     }
    ],
    "details": {},
@@ -7692,9 +7575,7 @@
     "frame-45.rrstate",
     "play.inputs",
     "restored-30.csv",
-    "restored-30.json",
-    "restored-45.csv",
-    "restored-45.json"
+    "restored-30.json"
    ],
    "outcome": {
     "message": "Interpreter fallback during the strict state replay.",

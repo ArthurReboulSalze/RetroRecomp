@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 if str(Path(__file__).parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent))
 
+from retrorecomp.core import ConversionError  # noqa: E402
 from retrorecomp import (console16, cps1_build, cps1_conversion, neogeo_build, neogeo_conversion,  # noqa: E402
                          neogeo_persistence_checks, neogeo_state_checks, timings)
 from test_conversion_common import fake_phase_factory, flags, outcome, plain  # noqa: E402
@@ -82,11 +83,29 @@ class Recorder:
         return self.behave(argv, record)
 
 
+class SerialPool:
+    """A pool that runs each job when its result is asked for: a failing job stops the later ones, always."""
+
+    def __init__(self, max_workers=None):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def map(self, function, *iterables):
+        return map(function, *iterables)
+
+
 @contextlib.contextmanager
 def fake_process(recorder):
-    """`core.run_process` replaced by `recorder`, also in the converters that imported the name before the move."""
+    """`core.run_process` replaced by `recorder`, also in the converters that imported the name before the move,
+    and the thread pools replaced by `SerialPool` (the order of the probes is then the order of the code)."""
     with contextlib.ExitStack() as stack:
         stack.enter_context(patch('retrorecomp.core.run_process', recorder))
+        stack.enter_context(patch('concurrent.futures.ThreadPoolExecutor', SerialPool))
         for module in (neogeo_conversion, neogeo_persistence_checks, cps1_conversion):
             if hasattr(module, 'run_process'):
                 stack.enter_context(patch.object(module, 'run_process', recorder))
@@ -169,17 +188,20 @@ def collect_console16_checks(root):
     from retrorecomp import guns16, megadrive, supernintendo
     result = {}
     rom = SimpleNamespace(crc32=0, path=Path('x.bin'), sha256='0' * 64)
-    batch_calls = []
+    batch_calls, rows = [], {}
 
     def convert_batch(items, directory, **kwargs):
         batch_calls.append({'title': items[0].title, 'cover': items[0].cover,
                             'kwargs': {key: value for key, value in kwargs.items() if key != 'emit'},
                             'emit_given': callable(kwargs.get('emit')),
                             'directory': directory})
-        return {'failed': 0, 'games': [{'executable': str(root / 'game.exe')}]}
+        row = {'status': 'success', 'executable': str(root / 'game.exe'), 'message': 'ok'}
+        row.update(rows.get('row', {}))
+        return {'failed': int(row['status'] == 'error'), 'games': [row]}
 
-    def reached(label, **options):
+    def reached(label, row=None, **options):
         batch_calls.clear()
+        rows['row'] = row or {}
         arguments = dict(system_id='md', passes=3, frames=3600)
         arguments.update(options)
         with patch.object(console16, 'conversion_rom', lambda *a, **k: rom), \
@@ -201,7 +223,11 @@ def collect_console16_checks(root):
                            ('legacy_switch', dict(md_advanced_scan=True)), ('snes_legacy_switch',
                                                                             dict(system_id='snes', md_advanced_scan=True)),
                            ('level_beats_switch', dict(scan_level='quick', md_advanced_scan=True)),
-                           ('budget_before_level', dict(scan_level='bogus', frames=0))):
+                           ('budget_before_level', dict(scan_level='bogus', frames=0)),
+                           ('batch_error', dict(row={'status': 'error', 'message': 'Compiler stopped.'})),
+                           ('batch_current', dict(row={'status': 'current'})),
+                           ('batch_other_status', dict(row={'status': 'skipped', 'message': 'x'})),
+                           ('titled', dict(title='My title')), ('covered', dict(cover=root / 'cover.png'))):
         reached(label, **options)
     return plain(result, root)
 
@@ -708,6 +734,214 @@ class RecordedBehaviourTests(unittest.TestCase):
 
     def test_the_cps1_build_helpers_give_the_same_results(self):
         self.check('cps1_helpers')
+
+
+class GateTests(unittest.TestCase):
+    """The shared gates on synthetic values (no recording: they are new)."""
+
+    def test_the_gates_raise_the_error_they_are_given_and_only_then(self):
+        from retrorecomp import conversion_gates as gates
+        gates.require(True, lambda: self.fail('built an error for a passing gate'))
+        gates.require_equal([1, 2], [1, 2], lambda: self.fail('built an error for equal rows'))
+        with self.assertRaisesRegex(ValueError, 'differ'):
+            gates.require_equal([1, 2], [1, 3], lambda: ValueError('differ'))
+        with self.assertRaises(ConversionError):
+            gates.require(False, lambda: ConversionError('stop'))
+
+    def test_trace_files_are_equal_when_their_bytes_are(self):
+        from retrorecomp import conversion_gates as gates
+        with tempfile.TemporaryDirectory() as folder:
+            one, two, three = (Path(folder) / name for name in ('one.csv', 'two.csv', 'three.csv'))
+            one.write_bytes(b'frame,hash\n0,1\n')
+            two.write_bytes(b'frame,hash\n0,1\n')
+            three.write_bytes(b'frame,hash\n0,2\n')
+            gates.require_same_file(one, two, lambda: self.fail('equal files refused'))
+            with self.assertRaisesRegex(RuntimeError, 'trace'):
+                gates.require_same_file(one, three, lambda: RuntimeError('trace differs'))
+
+    def test_the_first_difference_is_found_where_the_rows_part_or_one_ends(self):
+        from retrorecomp.conversion_gates import continuation_difference, first_difference
+        self.assertIsNone(first_difference([], []))
+        self.assertIsNone(first_difference(['a', 'b'], ['a', 'b']))
+        self.assertEqual(first_difference(['a', 'b', 'c'], ['a', 'x', 'c']), 1)
+        self.assertEqual(first_difference(['a', 'b'], ['a', 'b', 'c']), 2)
+        self.assertEqual(first_difference(['a'], ['b']), 0)
+        timeline = [str(i) for i in range(100)]
+        self.assertIsNone(continuation_difference(timeline, timeline[40:60], 40, 20))
+        self.assertEqual(continuation_difference(timeline, timeline[40:55] + ['x'] + timeline[56:60], 40, 20), 15)
+        self.assertEqual(continuation_difference(timeline, timeline[40:59], 40, 20), 19)
+        self.assertEqual(continuation_difference(timeline, timeline[40:61], 40, 20), 20)
+        self.assertEqual(continuation_difference(timeline, [], 40, 20), 0)
+
+    def test_the_comparison_notice_names_the_delivered_file(self):
+        from retrorecomp.conversion_gates import comparison_notice
+        self.assertEqual(comparison_notice('Neo Geo', None),
+                         'Neo Geo: comparing the compressed executable with the fresh reference.')
+        self.assertEqual(comparison_notice('CPS-1', {'notice': 'too big'}),
+                         'CPS-1: comparing the unpacked executable with the fresh reference.')
+
+    def test_the_candidate_is_a_copy_that_is_packed_and_the_notice_comes_back(self):
+        from retrorecomp import conversion_gates as gates
+        for notice in (None, {'notice': 'left as built'}):
+            with tempfile.TemporaryDirectory() as folder:
+                built, packed = Path(folder) / 'game.exe', Path(folder) / 'packed' / 'candidate.exe'
+                packed.parent.mkdir()
+                built.write_bytes(b'built')
+                seen = []
+                said = []
+
+                def compact(path, emit=None):
+                    seen.append((path, path.read_bytes(), emit))
+                    path.write_bytes(b'packed')
+                    return notice
+                with patch('retrorecomp.packing.compact_executable', compact):
+                    self.assertEqual(gates.pack_candidate(built, packed, said.append), notice)
+                self.assertEqual(seen, [(packed, b'built', said.append)])
+                self.assertEqual(built.read_bytes(), b'built')
+                self.assertEqual(packed.read_bytes(), b'packed')
+
+
+class PinnedCheckoutTests(unittest.TestCase):
+    """The skeleton of the pinned checkouts, with the commands recorded (the consoles' own are in the golden)."""
+
+    def run_case(self, *, present=True, empty=False, head='pin', dirty=False, dirty_first=False, fill=True, refuse=False):
+        from retrorecomp.conversion_common import pinned_checkout
+        log = []
+        with tempfile.TemporaryDirectory() as folder:
+            checkout = Path(folder) / 'engine'
+            (checkout / '.git').mkdir(parents=True)
+            if not empty:
+                (checkout / 'file.c').write_text('x', encoding='utf-8')
+
+            def checkout_command(*arguments, **options):
+                log.append(arguments[0])
+                return {'status': ' M a.c\n' if dirty else '', 'rev-parse': head + '\n'}.get(arguments[0], '')
+
+            def moved(found):
+                log.append('moved')
+                if refuse:
+                    raise ValueError('moved')
+            try:
+                pinned_checkout(checkout, 'pin', checkout_command, present=present, clone=lambda: log.append('clone'),
+                                fill=(lambda: log.append('fill')) if fill else None, moved=moved,
+                                dirty=lambda: RuntimeError('edited'), dirty_first=dirty_first)
+                result = 'ok'
+            except Exception as error:  # noqa: BLE001
+                result = type(error).__name__
+        return result, log
+
+    def test_a_missing_checkout_is_cloned_first_and_an_empty_one_is_filled(self):
+        self.assertEqual(self.run_case(present=False), ('ok', ['clone', 'rev-parse', 'status']))
+        self.assertEqual(self.run_case(empty=True), ('ok', ['fill', 'rev-parse', 'status']))
+        self.assertEqual(self.run_case(empty=True, fill=False), ('ok', ['rev-parse', 'status']))
+        self.assertEqual(self.run_case(), ('ok', ['rev-parse', 'status']))
+
+    def test_the_order_of_the_two_verifications_is_the_one_asked_for(self):
+        self.assertEqual(self.run_case(dirty_first=True), ('ok', ['status', 'rev-parse']))
+        self.assertEqual(self.run_case(head='other', dirty=True, dirty_first=True), ('RuntimeError', ['status']))
+        self.assertEqual(self.run_case(head='other', dirty=True), ('RuntimeError', ['rev-parse', 'moved', 'status']))
+
+    def test_a_checkout_at_another_revision_is_handed_to_the_caller(self):
+        self.assertEqual(self.run_case(head='other'), ('ok', ['rev-parse', 'moved', 'status']))
+        self.assertEqual(self.run_case(head='other', refuse=True), ('ValueError', ['rev-parse', 'moved']))
+
+
+class ProcessContextTests(unittest.TestCase):
+    """What the move changes on purpose: the probes of Neo Geo and CPS-1 run in the folder they write their evidence to,
+    with no console window on Windows (the other values of the call are in the golden)."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
+
+    def test_the_neo_geo_state_probe_runs_in_its_output_folder_without_a_window(self):
+        output = self.root / 'state-checks'
+        output.mkdir()
+        recorder = Recorder(FakeNeoGeo(), context=False)
+        with fake_process(recorder):
+            neogeo_state_checks.probe(self.root / 'game.exe', output, 'cold', 30)
+        self.assertEqual(recorder.raw, [{'cwd': output, 'cwd_existed': True, 'creationflags': 'no_window_if_windows'}])
+
+    def test_the_cps1_runs_run_in_their_folder_without_a_window_and_make_it(self):
+        folder = self.root / 'checks' / 'native'
+        script = self.root / 'play.inputs'
+        script.write_text('0 000 000\n', encoding='ascii')
+        recorder = Recorder(FakeCps1(), context=False)
+        with fake_process(recorder):
+            cps1_conversion.run(self.root / 'game.exe', folder, 'play', 30, script)
+        self.assertEqual(recorder.raw, [{'cwd': folder, 'cwd_existed': True, 'creationflags': 'no_window_if_windows'}])
+
+    def test_the_neo_geo_packed_replays_run_in_their_folder_without_a_window(self):
+        project = self.root / 'project'
+        (project / 'native-discovery').mkdir(parents=True)
+        from retrorecomp.neogeo_validation import extended_routes
+        for name, (frames, _) in extended_routes('gururin', None).items():
+            (project / 'native-discovery' / (name + '-reference.json')).write_text(json.dumps(route_report(frames)),
+                                                                                   encoding='utf-8')
+
+        def behave(argv, record):
+            Path(option(argv, '--report')).write_text(json.dumps(route_report(int(option(argv, '--frames')))),
+                                                      encoding='utf-8')
+            return subprocess.CompletedProcess(argv, 0, b'', b'')
+        recorder = Recorder(behave, context=False)
+        with fake_process(recorder), patch.object(neogeo_conversion, 'aes_available', lambda p: False):
+            neogeo_conversion.check_routes(self.root / 'game.exe', project, 'gururin', None, workers=1)
+        self.assertEqual({(call['cwd'], call['creationflags']) for call in recorder.raw},
+                         {(project / 'packed-checks', 'no_window_if_windows')})
+        self.assertEqual(len(recorder.raw), 3)
+
+
+class AdoptionTests(unittest.TestCase):
+    """No console keeps its own copy: the sources name the helper, and the old forms are gone."""
+
+    def source(self, name):
+        return (ROOT / 'retrorecomp' / (name + '.py')).read_text(encoding='utf-8')
+
+    def test_the_converters_call_the_shared_helpers(self):
+        for module, names in (('console16', ('spawn(', 'check_exit(', 'probe_environment(', 'check_run_budget(',
+                                              'resolve_scan_level(', 'convert_single(', 'pinned_checkout(')),
+                              ('neogeo_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'pack_candidate(',
+                                                     'comparison_notice(')),
+                              ('neogeo_state_checks', ('spawn(', 'check_exit(', 'continuation_difference(', 'require(',
+                                                       'require_equal(')),
+                              ('neogeo_persistence_checks', ('spawn(', 'check_exit(')),
+                              ('neogeo_build', ('spawn(', 'check_exit(', 'pinned_checkout(', 'replace_counted(',
+                                                'pack_candidate(')),
+                              ('cps1_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'pack_candidate(',
+                                                   'comparison_notice(', 'require_same_file(', 'continuation_difference(')),
+                              ('cps1_build', ('replace_counted(', 'write_if_changed('))):
+            text = self.source(module)
+            for name in names:
+                self.assertIn(name, text, f'{module} should call {name}')
+
+    def test_the_old_copies_are_gone(self):
+        for module in ('console16', 'neogeo_conversion', 'neogeo_state_checks', 'neogeo_persistence_checks', 'cps1_conversion'):
+            text = self.source(module)
+            self.assertNotIn('run_process', text, module)
+            self.assertNotIn('Unknown scan level', text, module)
+        self.assertNotIn('os.environ.copy', self.source('console16'))
+        for module in ('neogeo_conversion', 'cps1_conversion', 'neogeo_build'):
+            self.assertNotIn('compact_executable', self.source(module))
+        self.assertNotIn('write_changed', self.source('cps1_build'))
+        self.assertNotIn('text.count(old)', self.source('cps1_build'))
+        self.assertNotIn('source.count(old)', self.source('neogeo_build'))
+        self.assertNotIn('.read_bytes() !=', self.source('cps1_conversion'))
+
+    def test_the_shared_module_is_owned_by_exactly_the_consoles_that_import_it(self):
+        from retrorecomp import compilation_inputs as inputs
+        importers = [path.stem for path in (ROOT / 'retrorecomp').glob('*.py')
+                     if path.stem != 'conversion_gates' and re.search(r'conversion_gates import|import conversion_gates',
+                                                                      path.read_text(encoding='utf-8'))]
+        self.assertTrue(importers)
+        expected = {system for system in inputs.SYSTEMS for name in importers
+                    if 'retrorecomp.' + name in inputs.manifest_names(system)}
+        owners = {system for system in inputs.SYSTEMS if 'retrorecomp.conversion_gates' in inputs.manifest_names(system)}
+        self.assertEqual(owners, expected, importers)
+        self.assertEqual(owners, {'ng', 'cps1'})
+        common = {system for system in inputs.SYSTEMS
+                  if 'retrorecomp.conversion_common' in inputs.manifest_names(system)}
+        self.assertEqual(common, {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'})
 
 
 if __name__ == '__main__':

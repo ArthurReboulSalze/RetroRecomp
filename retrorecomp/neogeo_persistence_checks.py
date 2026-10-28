@@ -2,9 +2,9 @@
 import json
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
-from .core import ConversionError, run_process
+from .conversion_common import check_exit, spawn
+from .core import ConversionError
 
 
 def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None,mode=None) -> dict:
@@ -17,8 +17,8 @@ def check(executable: Path,project: Path,*,frames=7200,script: Path | None=None,
                   '--rtc-seed','1760000000','--report',str(report)]
             if script:args+=['--script',str(script)]
             if mode=='aes':args+=['--aes']
-            run=run_process(args,capture_output=True,timeout=240)
-            if run.returncode:raise ConversionError(f'Neo Geo ordinary save {label} failed ({run.returncode}).')
+            run=spawn(args,cwd=folder,timeout=240,capture_output=True)
+            check_exit(run,lambda r:ConversionError(f'Neo Geo ordinary save {label} failed ({r.returncode}).'))
             data=json.loads(report.read_text(encoding='utf-8'))
             return data
         idle=probe('idle',180)
