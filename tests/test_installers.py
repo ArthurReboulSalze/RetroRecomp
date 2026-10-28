@@ -126,6 +126,12 @@ class InstallerPayloadTests(unittest.TestCase):
         for language in languages:
             for message in ('PurgeToolsQuestion', 'PurgeToolsQuestionNoSize', 'PurgeToolsRemoving', 'PurgeToolsMB', 'PurgeToolsGB'):
                 self.assertIn(f'\n{language}.{message}=', text, (language, message))
+        # The security notice (converted games are unsigned, antivirus false
+        # positives) exists in every declared language and is added once to the finished page.
+        for language in languages:
+            self.assertIn(f'\n{language}.SecurityNotice=', text, language)
+        self.assertIn("CustomMessage('SecurityNotice')", code)
+        self.assertIn('wpFinished', code)
 
 
 def find_bash():

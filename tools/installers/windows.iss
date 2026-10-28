@@ -81,33 +81,63 @@ english.PurgeToolsQuestionNoSize=Also remove the build tools and compiler caches
 english.PurgeToolsRemoving=Removing the build tools and compiler caches...
 english.PurgeToolsMB=%1 MB
 english.PurgeToolsGB=%1.%2 GB
+english.SecurityNotice=Games you convert are built on this PC, so they carry no signature: on Windows 11, Smart App Control may block them. Antivirus alerts on Retro-Recomp files are false positives: please report them to us.
 french.PurgeToolsQuestion=Supprimer aussi les outils de compilation et les caches du compilateur (%1) ?%n%nTes jeux, tes réglages et tes découvertes sont toujours conservés.
 french.PurgeToolsQuestionNoSize=Supprimer aussi les outils de compilation et les caches du compilateur ?%n%nTes jeux, tes réglages et tes découvertes sont toujours conservés.
 french.PurgeToolsRemoving=Suppression des outils de compilation et des caches du compilateur...
 french.PurgeToolsMB=%1 Mo
 french.PurgeToolsGB=%1,%2 Go
+french.SecurityNotice=Les jeux que tu convertis sont compilés sur ton PC, donc sans signature : sous Windows 11, le Contrôle intelligent des applications peut les bloquer. Une alerte antivirus sur un fichier de Retro-Recomp est un faux positif : signale-la-nous.
 german.PurgeToolsQuestion=Auch die Build-Werkzeuge und Compiler-Caches (%1) löschen?%n%nDeine Spiele, Einstellungen und Entdeckungen bleiben in jedem Fall erhalten.
 german.PurgeToolsQuestionNoSize=Auch die Build-Werkzeuge und Compiler-Caches löschen?%n%nDeine Spiele, Einstellungen und Entdeckungen bleiben in jedem Fall erhalten.
 german.PurgeToolsRemoving=Build-Werkzeuge und Compiler-Caches werden gelöscht...
 german.PurgeToolsMB=%1 MB
 german.PurgeToolsGB=%1,%2 GB
+german.SecurityNotice=Spiele, die du konvertierst, werden auf diesem PC erstellt und tragen daher keine Signatur: Unter Windows 11 kann die Intelligente App-Steuerung sie blockieren. Virenwarnungen zu Retro-Recomp-Dateien sind Fehlalarme: bitte melde sie uns.
 italian.PurgeToolsQuestion=Eliminare anche gli strumenti di compilazione e le cache del compilatore (%1)?%n%nGiochi, impostazioni e scoperte vengono sempre conservati.
 italian.PurgeToolsQuestionNoSize=Eliminare anche gli strumenti di compilazione e le cache del compilatore?%n%nGiochi, impostazioni e scoperte vengono sempre conservati.
 italian.PurgeToolsRemoving=Eliminazione degli strumenti di compilazione e delle cache del compilatore...
 italian.PurgeToolsMB=%1 MB
 italian.PurgeToolsGB=%1,%2 GB
+italian.SecurityNotice=I giochi che converti vengono compilati su questo PC, quindi senza firma: in Windows 11 il Controllo intelligente delle app (Smart App Control) può bloccarli. Gli avvisi dell'antivirus sui file di Retro-Recomp sono falsi positivi: segnalaceli.
 spanish.PurgeToolsQuestion=¿Eliminar también las herramientas de compilación y las cachés del compilador (%1)?%n%nTus juegos, ajustes y descubrimientos se conservan siempre.
 spanish.PurgeToolsQuestionNoSize=¿Eliminar también las herramientas de compilación y las cachés del compilador?%n%nTus juegos, ajustes y descubrimientos se conservan siempre.
 spanish.PurgeToolsRemoving=Eliminando las herramientas de compilación y las cachés del compilador...
 spanish.PurgeToolsMB=%1 MB
 spanish.PurgeToolsGB=%1,%2 GB
+spanish.SecurityNotice=Los juegos que conviertes se compilan en este PC, así que no llevan firma: en Windows 11, el Control inteligente de aplicaciones puede bloquearlos. Las alertas del antivirus sobre archivos de Retro-Recomp son falsos positivos: avísanos, por favor.
 russian.PurgeToolsQuestion=Удалить также инструменты сборки и кэши компилятора (%1)?%n%nВаши игры, настройки и находки сохраняются в любом случае.
 russian.PurgeToolsQuestionNoSize=Удалить также инструменты сборки и кэши компилятора?%n%nВаши игры, настройки и находки сохраняются в любом случае.
 russian.PurgeToolsRemoving=Удаление инструментов сборки и кэшей компилятора...
 russian.PurgeToolsMB=%1 МБ
 russian.PurgeToolsGB=%1,%2 ГБ
+russian.SecurityNotice=Игры, которые вы конвертируете, собираются на этом компьютере и потому не имеют подписи: в Windows 11 «Интеллектуальное управление приложениями» (Smart App Control) может их блокировать. Предупреждения антивируса о файлах Retro-Recomp — ложные срабатывания: пожалуйста, сообщите нам о них.
 
 [Code]
+// Shown once on the finished page: SmartScreen has already had its say before
+// the installer starts, so this is about what comes after (converted games are
+// built on the player's PC and cannot be signed; antivirus false positives).
+var
+  SecurityNoticeAdded: Boolean;
+
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Wanted: Integer;
+begin
+  if (CurPageID <> wpFinished) or SecurityNoticeAdded then
+    Exit;
+  SecurityNoticeAdded := True;
+  WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + CustomMessage('SecurityNotice');
+  WizardForm.FinishedLabel.AdjustHeight;
+  // Keep the list of launch options below the longer text, never above.
+  Wanted := WizardForm.FinishedLabel.Top + WizardForm.FinishedLabel.Height + ScaleY(8);
+  if WizardForm.RunList.Top < Wanted then
+  begin
+    WizardForm.RunList.Height := WizardForm.RunList.Height - (Wanted - WizardForm.RunList.Top);
+    WizardForm.RunList.Top := Wanted;
+  end;
+end;
+
 // Optional removal of what the converter installed beside itself: the portable
 // build tools (datas\tools), the engine sources and compiler builds (.deps) and
 // the shared caches (.build). Only these three folders under {app}; a link or
