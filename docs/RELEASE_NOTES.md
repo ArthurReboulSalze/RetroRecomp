@@ -1,3 +1,51 @@
+# RetroRecomp v1.6.0 — One standard for every console: paths per processor, one report, one host for 16-bit games, CPS-1 in the shared base
+
+- **Paths per processor, in a second line of the shared base.** The native
+  paths a conversion learns are now kept per processor (schema 3), so a
+  console with a sound CPU or two main CPUs records each one apart. The shared
+  base of retro-recomp.com travels in two lines: line 2, read by earlier
+  converters, and line 3, the CPU-keyed one. 1.6.0 reads both and falls back to
+  line 2 when the service does not publish line 3.
+- **Capcom CPS-1 joins the shared base.** Its learned paths are numbers about
+  the game (addresses and positions, never ROM bytes), checked against fresh
+  reference runs, and travel in line 3 only. CPS-1 stays experimental.
+- **One report for every console.** Every conversion writes the same report
+  format (version 2) beside its console's own details: native code, CPU
+  fidelity, hardware fidelity, gameplay validation and physical latency stay
+  separate, and the interpreter fallback is counted per processor and per
+  device.
+- **One host for the 16-bit games.** Mega Drive, Super Nintendo, Neo Geo and
+  CPS-1 exports share one host kit for their window, menus, options and quick
+  states, with one adapter per machine. What the game itself runs is unchanged.
+- **Linux: the F2 options page is readable again.** Built with GCC, the options
+  page of exported games showed garbled text: its rows pointed into memory that
+  was already gone. Windows builds were not affected.
+- **Linux: large games no longer fail at compression.** UPX 5.2.1 rejects some
+  valid compressions of large Linux games when it tests them (upx/upx issue
+  18937). Neo Geo Metal Slug 3 never converted on Linux because of it, 1.5.6
+  included. Such a game is now published uncompressed, exactly as built and
+  validated, and the report says why. Windows is unchanged.
+- **Sharp X68000 (experimental): one key per game.** The library, the
+  observations and the runtime feedback of an X68000 game are now filed under
+  its disk set, with the machine below it; the files of earlier releases are
+  copied to the new place, never erased. What the converter remembers of the
+  IPL no longer stores IPL words: only where IPL code starts, reread from your
+  own IPL.
+- **Interrupted batches resume with X68000 and CPS-1 games too**, and the
+  X68000 result line counts interpreted 68000 opcodes like the other consoles.
+- **Super Nintendo:** Stunt Race FX has a two-player Battle Trax route, learned
+  with 0 interpreted 65816 and SPC700 opcodes.
+
+**Your exports and quick states.** 1.6.0 moves every console's build stamp once.
+Master System, Game Gear, Game Boy, NES, Mega Drive and CPS-1 exports of 1.5.6
+are upgraded: rebuilt from their learned paths and rechecked, without a new
+discovery. Super Nintendo, Neo Geo and X68000 exports are converted in full
+once. F8/F9 quick states written by a 1.5.6 Mega Drive, Neo Geo or CPS-1 export
+on Windows load in the 1.6.0 export; Super Nintendo states and states written
+by a Linux 1.5.6 export are refused cleanly.
+
+---
+
 # RetroRecomp v1.5.6 — Extended and Thorough conversions counted on Mega Drive, Super Nintendo and NES
 
 - **Your deeper conversions count again.** Mega Drive, Super Nintendo and NES
