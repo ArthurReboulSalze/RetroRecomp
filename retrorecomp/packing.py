@@ -12,6 +12,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from .paths import ASSETS
@@ -25,6 +26,17 @@ UPX_LINUX = "assets/tools/upx-amd64_linux"
 UPX_LINUX_SHA256 = "287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1"
 # Large Mega Drive and Super Nintendo ELFs take longer than PEs to pack at -9.
 LINUX_TIMEOUT = 300
+# UPX 5.2.0 and 5.2.1 can reject, with "compressed data violation", their own default (NRV) packing of a
+# large ELF at `upx -t` and `upx -d` although the data are valid and the packed program runs (upx/upx
+# issue 18937: the test unpacks each block in place with too little slack; fixed on the development
+# branch after 5.2.1, not released). Seen on Debian with the 78 MB Neo Geo Metal Slug 3 game, in 1.5.6 as in
+# 1.6.0. -1, --best, --nrv2b/d/e, --no-filter and a stripped file fail the same way. --lzma passes the test
+# and is smaller (40 MB against 45 MB) but a start costs 2.7 s instead of 0.17 s on a Core i7-6600U (the
+# unpacked 78 MB file starts in 0.01 s), and the Neo Geo F11 machine switch starts the file again: not
+# worth it for the player, so a game UPX cannot pack and test is published unpacked, as built and validated.
+# The reason is kept for packing_record by the SHA-256 of the unpacked bytes (and printed on stderr): the
+# callers, game-side modules, are left alone on purpose, since changing them would move every game stamp.
+_UNPACKED_REASONS: dict[str, str] = {}
 
 
 def file_identity(path: Path) -> dict:
@@ -40,22 +52,32 @@ def packing_record(unpacked: dict, published: Path) -> dict:
     executable; the published one is that file packed by UPX. This records both
     identities and whether the published file really carries the UPX header, so
     a packed validation (tools/snes_packed_check.py) can name the exact file it
-    checked. It never claims the packed file was itself replayed.
+    checked. It never claims the packed file was itself replayed. A Linux game that UPX
+    could not pack and test is published unpacked (`packed` false) and `unpacked_reason`
+    says why.
     """
     data = Path(published).read_bytes()
-    return {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL, 'packed': b'UPX!' in data,
-            'unpacked': unpacked,
-            'published': {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()},
-            'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
-            'compared_on': 'unpacked build executable',
-            'packed_validation': 'tools/snes_packed_check.py (developer qualification, not run during conversion)'}
+    packed = b'UPX!' in data
+    record = {'packer': 'UPX', 'version': UPX_VERSION, 'level': UPX_LEVEL, 'packed': packed,
+              'unpacked': unpacked,
+              'published': {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()},
+              'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
+              'compared_on': 'unpacked build executable',
+              'packed_validation': 'tools/snes_packed_check.py (developer qualification, not run during conversion)'}
+    reason = _UNPACKED_REASONS.get(unpacked.get('sha256'))
+    if reason and not packed:
+        record['unpacked_reason'] = reason
+    return record
 
 
-def compact_executable(path: Path) -> None:
-    """Pack a disposable staged copy; raise before replacing an existing game."""
+def compact_executable(path: Path) -> dict | None:
+    """Pack a disposable staged copy; raise before replacing an existing game.
+
+    Windows raises when UPX cannot pack and test the file. On Linux that is a last
+    resort only (see compact_linux). Returns None when the file was packed as usual or
+    left as built on purpose, else compact_linux's account of why it stays unpacked."""
     if os.name != 'nt':
-        compact_linux(path)
-        return
+        return compact_linux(path)
     tool = ASSETS / "assets/tools/upx.exe"
     if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
         raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")
@@ -74,6 +96,7 @@ def compact_executable(path: Path) -> None:
             detail = (result.stderr or result.stdout).strip().splitlines()
             raise RuntimeError(f"UPX could not compact or verify {path.name}: "
                                f"{detail[-1] if detail else 'unknown error'}")
+    return None
 
 
 def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
@@ -94,12 +117,36 @@ def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
     return copy, private
 
 
-def compact_linux(path: Path) -> None:
+def _upx_attempt(tool: Path, path: Path) -> str | None:
+    """Pack then test `path` in place: None when both passed, else why not. A packer
+    that cannot even start (OSError) is an installation fault and stays an error."""
+    for args in (("-9", "-q", str(path)), ("-t", "-q", str(path))):
+        try:
+            result = subprocess.run((str(tool), *args), capture_output=True, text=True,
+                                    timeout=LINUX_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return f"UPX {args[0]} timed out after {LINUX_TIMEOUT} s"
+        except OSError as exc:
+            raise RuntimeError(f"UPX could not compact or verify {path.name}: {exc}") from exc
+        if result.returncode:
+            detail = (result.stderr or result.stdout).strip().splitlines()
+            # "upx-amd64_linux: /path/packed-game.exe: Exception: compressed data violation"
+            return detail[-1].replace(f"{path}: ", "").split(": ", 1)[-1] if detail else 'unknown error'
+    return None
+
+
+def compact_linux(path: Path) -> dict | None:
     """Pack a native Linux x86-64 game; leave other ELFs as built.
 
     Every console is packed. Players only use /proc/self/exe to find their
     folder; their data, X68000 disks and firmware included, is linked into the
-    program (resources.embed_resources) and restored by UPX with the rest."""
+    program (resources.embed_resources) and restored by UPX with the rest.
+
+    The packing is the one every earlier release used, byte for byte. When UPX cannot
+    pack the game or rejects its own result (see the note on UPX 5.2.1 above), the
+    validated original is put back and the game is published unpacked, exactly as built,
+    rather than failing the whole conversion. That is returned as {'notice': text};
+    None means the game was packed and tested, or is not an x86-64 ELF."""
     with path.open('rb') as stream:
         header = stream.read(20)
     if header[:4] != b'\x7fELF':
@@ -107,20 +154,26 @@ def compact_linux(path: Path) -> None:
     # 64-bit little-endian x86-64 only: the bundled UPX is an x86-64 program.
     if (header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != 62
             or platform.machine().lower() not in ('x86_64', 'amd64')):
-        return
+        return None
     tool, private = _linux_tool(path.parent)
+    # UPX rewrites the file in place: keep the validated original beside it.
+    handle, name = tempfile.mkstemp(prefix='.upx-original-', dir=path.parent)
+    os.close(handle)
+    original = Path(name)
     try:
-        # Same level as Windows; PE-only resource options do not apply to ELF.
-        for args in (("-9", "-q", str(path)), ("-t", "-q", str(path))):
-            try:
-                result = subprocess.run((str(tool), *args), capture_output=True, text=True,
-                                        timeout=LINUX_TIMEOUT)
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise RuntimeError(f"UPX could not compact or verify {path.name}: {exc}") from exc
-            if result.returncode:
-                detail = (result.stderr or result.stdout).strip().splitlines()
-                raise RuntimeError(f"UPX could not compact or verify {path.name}: "
-                                   f"{detail[-1] if detail else 'unknown error'}")
+        shutil.copyfile(path, original)
+        failure = _upx_attempt(tool, path)
+        if failure is None:
+            return None
+        shutil.copyfile(original, path)
+        notice = (
+            f"UPX {UPX_VERSION} could not pack and verify {path.name} ({failure}"
+            f"{'; upx/upx issue 18937' if 'violation' in failure else ''}). It is published unpacked, "
+            "exactly as built and validated: a larger file, the same program.")
+        _UNPACKED_REASONS[hashlib.sha256(original.read_bytes()).hexdigest()] = notice
+        print(notice, file=sys.stderr, flush=True)
+        return {'notice': notice}
     finally:
+        original.unlink(missing_ok=True)
         if private:
             shutil.rmtree(private, ignore_errors=True)
