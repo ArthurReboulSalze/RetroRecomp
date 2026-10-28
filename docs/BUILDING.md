@@ -54,7 +54,7 @@ python3 -m venv .venv
 The game is an executable ELF, with its ROM, SDL2, menu font and notices embedded.
 It needs compatible Linux system/display/audio libraries, with no Python or
 compiler required to play. Validated Linux x86-64 game ELFs, X68000 games
-included, are packed with the bundled UPX 5.2.1, like Windows games (below).
+included, are packed with the bundled UPX 5.3.0, like Windows games (below).
 The converter supports manual GitHub updates. `--credits` prints the game notices. Settings,
 quick states and shutdown-only fallback hints use `datas` beside the game.
 Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
@@ -146,17 +146,17 @@ in Super FX gameplay and in F-Zero, see [SNES_SUPERFX.md](SNES_SUPERFX.md#host-c
 
 The packaged converter includes Python. Generated games include their runtime
 and SDL2 and do not need a development environment to play.
-The converter bundles UPX 5.2.1 and compacts each validated game executable
+The converter bundles UPX 5.3.0 and compacts each validated game executable
 before replacing the previous export, then has UPX test it. On Windows
 (`assets/tools/upx.exe`, `-9 --compress-resources=0 --compress-icons=0`) every
 console is packed; resources stay readable. On Linux x86-64
 (`assets/tools/upx-amd64_linux`, `-9`) every console is packed too, the X68000
 included. Both
-binaries are the unmodified official builds of the v5.2.1 release, checked by
+binaries are the unmodified official builds of the v5.3.0 release, checked by
 SHA-256 before each use (`retrorecomp/packing.py`): the Linux one is `upx` from
-`upx-5.2.1-amd64_linux.tar.xz` (archive
-`402162aad30af47e60dbd767fb2e64ca394ace9727ba1f40283641f1d1b91657`, binary
-`287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1`). Each
+`upx-5.3.0-amd64_linux.tar.xz` (archive
+`79cea8a50b6fa102d10c7b79a419cd77dead3cc2d78661de2dc5e5815dc505c1`, binary
+`39bbf81cb4c56ce3e2e13a1755a31ec4970e33f061db8e214e9fac59354fc9aa`). Each
 converter carries only its own packer. Neo Geo and CPS-1 replay their routes
 on the packed executable; the other consoles validate the build before packing.
 UPX restores the same program in memory at start-up: Linux games still find
@@ -219,7 +219,8 @@ these checks.
 with `compressed data violation`, their own default packing of a large ELF at `upx -t` and
 `upx -d` although the data are valid and the packed program runs
 ([upx/upx issue 18937](https://github.com/upx/upx/issues/18937): the test unpacks each block
-in place with too little slack; fixed on the development branch after 5.2.1). It showed on the
+in place with too little slack; fixed in 5.3.0, released on 28 October 2026 and bundled
+since 1.6.2). It showed on the
 Neo Geo Metal Slug 3 game (78,476,040 bytes, a 59 MB read-only segment) on Debian 13 with
 1.5.6 as with 1.6.0, where the conversion stopped at the packing step; Metal Slug (42.7 MB) and
 Gururin (11.5 MB) pack and pass. With a UPX built from the development branch, `upx -t` passes
@@ -450,7 +451,7 @@ python tools/prepare_publication.py --source .build/publication/repository --exe
 ```
 
 The EXE contains the converter and its legal notices. The matching
-[UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz)
+[UPX 5.3.0 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.6.2/licenses/upx-5.3.0-src.tar.xz)
 stays in the public repository. Link it clearly beside the EXE on every
 download page. No loose license files are needed beside the local EXE.
 Keep source staging and

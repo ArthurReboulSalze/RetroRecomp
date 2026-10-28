@@ -19,7 +19,7 @@ game part.
 ### Packing is a build input (1.5.0, Linux compression)
 
 `retrorecomp/packing.py` packs the validated executable with the bundled, unmodified
-UPX 5.2.1 just before it is published. UPX restores the same program in memory before
+UPX 5.3.0 just before it is published. UPX restores the same program in memory before
 it starts; it never chooses which guest code is discovered, translated or validated.
 Neo Geo and CPS-1 also replay their routes on the packed executable and compare it with
 the reference, so a packing that changed the game would fail there. Until 1.5.0 the module

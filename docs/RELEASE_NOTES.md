@@ -1743,7 +1743,7 @@ Use **Check for updates** or download the single Windows x64 **Retro-Recomp.exe*
 Your games, settings, learning library and downloaded artwork stay local and are
 preserved by an update. Regenerate games to receive runtime improvements.
 No ROMs, downloaded artwork, generated games or private settings are bundled.
-Component notices are embedded; the matching [UPX sources](../licenses/upx-5.2.1-src.tar.xz)
+Component notices are embedded; the matching [UPX sources](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz)
 remain available in the repository.
 
 Native coverage, agreement with the internal reference, hardware fidelity,
@@ -1791,7 +1791,7 @@ Regenerate the affected games to receive the gun improvements. Updating the
 converter preserves existing games and settings. No ROMs, downloaded covers,
 generated games, personal settings or compilation library are bundled.
 Component notices remain embedded in the EXE; their own licensing terms apply.
-The matching [UPX source archive](../licenses/upx-5.2.1-src.tar.xz) is in the repository.
+The matching [UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz) is in the repository.
 
 ---
 
@@ -1858,7 +1858,7 @@ the converter preserves existing game exports and settings. No ROMs, downloaded
 covers, generated games, settings or personal compilation library are bundled.
 Component terms and notices remain in the EXE, including the imported
 frameworks' PolyForm Noncommercial licences. The matching
-[UPX 5.2.1 source archive](../licenses/upx-5.2.1-src.tar.xz) remains in the repository.
+[UPX 5.2.1 source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz) remains in the repository.
 
 # RetroRecomp v0.18.0 — Mega Drive expansion and broader NES support
 

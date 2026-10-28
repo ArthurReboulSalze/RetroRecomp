@@ -1,14 +1,14 @@
-# UPX 5.2.1
+# UPX 5.3.0
 
-Official release: https://github.com/upx/upx/releases/tag/v5.2.1
+Official release: https://github.com/upx/upx/releases/tag/v5.3.0
 The UPX executable is GPL licensed. Its special exception permits packing other executables under their own license, subject to the conditions below.
 
 The corresponding unmodified source archive is in the public repository at
-https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz
+https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.6.2/licenses/upx-5.3.0-src.tar.xz
 and linked from Credits (SHA-256:
-`a7d457be4ef942e46844ee8f301206b111394cbcbde3599747a6904c54ff116b`).
+`6229b5564dd91dd423a5280a7c15b70fc05449d2605bb853ce076743057fcf55`).
 The bundled Windows executable SHA-256 is
-`d20ebe0b7b22b6be968c8c34be61f94ddea12cb11462e2cec27f548ef9574df8`.
+`ff30a651c9e41a2bbb363825fac9e7e23d92871c1ac82813a264e3b8d1cd302b`.
 
 ## UPX LICENSE
 

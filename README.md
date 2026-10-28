@@ -242,6 +242,6 @@ Original RetroRecomp contributions use the [MIT license](LICENSE). Imported
 components retain their own terms, including noncommercial restrictions;
 MIT does not override them. See [third-party notices](THIRD_PARTY_NOTICES.md).
 Notices are embedded in the converter; the matching
-[UPX source archive](licenses/upx-5.2.1-src.tar.xz) is available in this repository.
+[UPX source archive](licenses/upx-5.3.0-src.tar.xz) is available in this repository.
 
 Feedback and contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md).

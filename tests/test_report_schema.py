@@ -263,7 +263,7 @@ def published(report, *, upgrade=None):
     """What batch.py adds after a conversion (rom.sha256, executable, packing, upgrade)."""
     report = copy.deepcopy(report)
     report.update(ui_languages=['en', 'fr'], language_switch_key='F7', published_directory='C:/out',
-                  source_rom='C:/roms/g.rom', packing={'packer': 'UPX', 'version': '5.2.1', 'level': 9, 'packed': True,
+                  source_rom='C:/roms/g.rom', packing={'packer': 'UPX', 'version': '5.3.0', 'level': 9, 'packed': True,
                   'unpacked': {'bytes': 3000, 'sha256': '1' * 64}, 'published': {'bytes': 1200, 'sha256': '2' * 64},
                   'size_ratio': 0.4, 'compared_on': 'unpacked build executable'})
     report.setdefault('rom', {})['sha256'] = SHA
@@ -566,7 +566,7 @@ class SchemaShape(unittest.TestCase):
         self.assertIs(ng['saves']['supported'], True)
         self.assertEqual(ng['states']['validation'], {'fresh_process': True, 'invalid_rejected': 2})
         self.assertEqual(ng['packed']['replay'], {'done': True, 'routes': 2, 'match': True, 'candidate_sha256': 'e' * 64})
-        self.assertEqual((ng['packed']['packer'], ng['packed']['version'], ng['packed']['is_packed']), ('UPX', '5.2.1', True))
+        self.assertEqual((ng['packed']['packer'], ng['packed']['version'], ng['packed']['is_packed']), ('UPX', '5.3.0', True))
         self.assertEqual(ng['packed']['published'], {'bytes': 1200, 'sha256': '2' * 64})
         self.assertEqual(ng['build']['phases_seconds'], {'packed_replays': 20.0})
         cps1 = read_report(cps1_report())

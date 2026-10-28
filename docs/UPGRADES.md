@@ -274,6 +274,18 @@ CPS-1 keys move with the edit of `neogeo_build` and `cps1_build` that the rollov
 keys: the two new keys are read when present and ignored otherwise. When Master System and Game Gear move to the kit this
 row replaces their first-player toggle and pad swap.
 
+## UPX 5.3.0 (packing, a build input)
+
+1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
+`assets/tools/upx-amd64_linux` are the unmodified official builds, checked by SHA-256 against the release assets
+(`retrorecomp/packing.py`, `licenses/UPX.md`), and the corresponding source archive in `licenses/` is the 5.3.0 one. The
+release contains the fix of [upx/upx issue 18937](https://github.com/upx/upx/issues/18937), the `compressed data violation`
+that made Linux games such as the Neo Geo Metal Slug 3 publish unpacked. `packing` is a build module, so the **build stamp
+of every console moves**: an export of 1.6.1 is rebuilt from the paths it already learned, rechecked on the quick routes
+and packed by the new UPX, like any export whose build changed. The game and host stamps do not move for this reason. The
+Linux fallback (a game UPX cannot pack and test is published unpacked, with the reason in the log and the report) stays as a
+safety net; with 5.3.0 it is no longer expected for the known case, which has not been re-measured on that game yet.
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).

@@ -167,7 +167,7 @@ NOT_INPUTS = (
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
-    'licenses/upx-5.2.1-src.tar.xz')
+    'licenses/upx-5.3.0-src.tar.xz')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each.
