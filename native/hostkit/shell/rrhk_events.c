@@ -102,7 +102,11 @@ void rrhk_poll_events(RrhkRun *run) {
             bool enter = key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER;
             if (key == SDL_SCANCODE_UP) rrhk.row = (rrhk.row + rrhk_page_rows() - 1) % rrhk_page_rows();
             else if (key == SDL_SCANCODE_DOWN) rrhk.row = (rrhk.row + 1) % rrhk_page_rows();
-            else if (rrhk.row >= m->action_count) {
+            else if (rrhk_device_row()) {
+                /* Divergence 10 (decided 28 October 2026): which pad this player uses. */
+                if (enter) rrhk_pad_next(rrhk.player);
+                else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_pad_automatic(rrhk.player);
+            } else if (rrhk.row >= m->action_count) {
                 /* Quit and restart combinations: hold them one second in play. */
                 if (enter) rrhk_combo_start(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk.row - m->action_count, rrhk.gamepad_page != 0);

@@ -20,7 +20,8 @@
  * Script: one command per line, `<host loop iteration> <command> [arguments]`.
  *   press <KeyName> [shift]   key down then up (names as SDL_GetScancodeFromName)
  *   hold <KeyName> | release <KeyName>   scripted keyboard state and the events
- *   attach <p> | detach <p>   virtual game controller of player p
+ *   attach <p> | detach <p>   virtual game controller of player p (slot p of the harness, not a player)
+ *   attachx <p> <vendor> <product> <name>   the same with its own identity, so its own GUID and name
  *   button <p> <Name> <0|1>   | axis <p> <Name> <value>
  *   mouse <x> <y> <mask>      window coordinates, SDL button mask
  *   capture <file.bmp>        save the next presented picture
@@ -110,7 +111,7 @@ static SDL_Scancode scancode(const char *name) {
 }
 
 static void run_command(const char *command) {
-    char name[128]; int p, value; unsigned x, y, mask;
+    char name[128]; int p, value, consumed = 0; unsigned x, y, mask;
     if (sscanf(command, "press %127s", name) == 1) {
         Uint16 mod = strstr(command, " shift") ? KMOD_LSHIFT : 0;
         if (mod) push_key(SDL_SCANCODE_LSHIFT, 1, 0);
@@ -118,6 +119,17 @@ static void run_command(const char *command) {
         if (mod) push_key(SDL_SCANCODE_LSHIFT, 0, 0);
     } else if (sscanf(command, "hold %127s", name) == 1) { held[scancode(name)] = 1; push_key(scancode(name), 1, 0); }
     else if (sscanf(command, "release %127s", name) == 1) { held[scancode(name)] = 0; push_key(scancode(name), 0, 0); }
+    else if (sscanf(command, "attachx %d %u %u %n", &p, &x, &y, &consumed) >= 3 && consumed && p >= 0 && p < 4 && !joysticks[p]) {
+        /* a controller with its own identity (USB vendor and product, name), hence its own GUID */
+        static char names[4][64];
+        snprintf(names[p], sizeof names[p], "%s", command + consumed);
+        SDL_VirtualJoystickDesc desc; SDL_zero(desc);
+        desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION; desc.type = SDL_JOYSTICK_TYPE_GAMECONTROLLER;
+        desc.naxes = SDL_CONTROLLER_AXIS_MAX; desc.nbuttons = SDL_CONTROLLER_BUTTON_MAX;
+        desc.vendor_id = (Uint16)x; desc.product_id = (Uint16)y; desc.name = names[p];
+        int index = SDL_JoystickAttachVirtualEx(&desc);
+        if (index < 0 || !(joysticks[p] = SDL_JoystickOpen(index))) exit(5);
+    }
     else if (sscanf(command, "attach %d", &p) == 1 && p >= 0 && p < 4 && !joysticks[p]) {
         int index = SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER, SDL_CONTROLLER_AXIS_MAX, SDL_CONTROLLER_BUTTON_MAX, 0);
         if (index < 0 || !(joysticks[p] = SDL_JoystickOpen(index))) exit(5);

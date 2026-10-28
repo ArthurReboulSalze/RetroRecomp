@@ -875,6 +875,11 @@
     "Button 3": "Кнопка 3",
     "Button 4": "Кнопка 4",
     "Button 5": "Кнопка 5",
-    "Button 6": "Кнопка 6"
+    "Button 6": "Кнопка 6",
+    "Automatic": "Авто",
+    "None": "Нет",
+    "%s (disconnected)": "%s (отключён)",
+    "No gamepad for player %d": "Нет геймпада для игрока %d",
+    "Enter: change gamepad | Delete: Automatic": "Enter: сменить геймпад | Delete: Авто"
   }
 }

@@ -21,7 +21,9 @@ void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y) {
                                                               rrhk_tr("Sound CPU: native code", "CPU audio : code natif"));
 }
 
-int rrhk_page_rows(void) { return rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS); }
+/* The rows of a page: the actions, player 1's two combinations and, on a gamepad page, the Gamepad row (divergence 10). */
+int rrhk_page_rows(void) { return rrhk.machine->action_count + (rrhk.player ? 0 : RRHK_COMBO_ROWS) + (rrhk.gamepad_page ? 1 : 0); }
+bool rrhk_device_row(void) { return rrhk.gamepad_page && rrhk.row == rrhk_page_rows() - 1; }
 
 /* Control pages share their rows, so the selected row survives between them. */
 void rrhk_turn_page(int step) {
@@ -50,7 +52,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     rr_menu_layout(ren, &ctx.ox, &ctx.oy, &ctx.unit);
     const int ox = ctx.ox, oy = ctx.oy, unit = ctx.unit;
     rr_menu_begin(ren, ox, oy, unit);
-    char heading[64];
+    char heading[64], missing[80] = "";
+    int status_y = RR_MENU_LAST_LINE;
     snprintf(heading, sizeof(heading), rr_tr(rrhk.gamepad_page ? "Player %d - Gamepad" : "Player %d - Keyboard"), rrhk.player + 1);
     if (rrhk.menu == RRHK_MENU_CONTROLS || rrhk.menu == RRHK_MENU_PAGE)
         rrhk_menu_page_header(&ctx, rrhk.menu == RRHK_MENU_CONTROLS ? heading : rr_tr(m->page->title));
@@ -80,10 +83,17 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         /* Every control fits on the page, up to fourteen rows; player 1's
          * pages end with the quit and restart combinations. */
         char line[120], value[80];
-        for (int a = 0; a < rrhk_page_rows(); ++a) {
+        const int rows = rrhk_page_rows();
+        /* Fifteen rows (twelve actions, the combinations and the Gamepad row) push the hint and the status down. */
+        const int hint_y = rows > 14 ? 173 : RR_MENU_HINT_LINE;
+        if (rows > 14) status_y = 182;
+        for (int a = 0; a < rows; ++a) {
             int y = RR_MENU_FIRST_LINE + a * RR_MENU_LINE;
             if (a == rrhk.row) rr_menu_box(ren, ox, oy, unit, 12, y, 232, RR_MENU_LINE, RR_MENU_SELECT, 255);
-            if (a >= m->action_count) {
+            if (rrhk.gamepad_page && a == rows - 1) {
+                rrhk_pad_value(value, sizeof value, rrhk.player);
+                snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr("Gamepad"), value);
+            } else if (a >= m->action_count) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rrhk_combo_label(a - m->action_count), value);
             } else {
@@ -94,12 +104,17 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
             }
             rrhk_menu_line(&ctx, y, line);
         }
-        rrhk_menu_line(&ctx, RR_MENU_HINT_LINE, rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
+        rrhk_menu_line(&ctx, hint_y, rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
+            rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
             rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
+        /* A binding waits for the selected player's own pad (divergence 3): say so when that player has none. */
+        if (rrhk.capturing && rrhk.gamepad_page && !rrhk.pads[rrhk.player])
+            snprintf(missing, sizeof missing, rr_tr("No gamepad for player %d"), rrhk.player + 1);
     } else if (rrhk.menu == RRHK_MENU_PAGE) {
         if (m->page && m->page->draw) m->page->draw(&rrhk, &ctx);
     }
     if (rrhk.menu == RRHK_MENU_HELP) rr_menu_build_footer(ren, ox, oy, unit);
-    else if (rrhk.status[0]) rrhk_menu_line(&ctx, RR_MENU_LAST_LINE, rrhk.status);
+    else if (missing[0]) rrhk_menu_line(&ctx, status_y, missing);
+    else if (rrhk.status[0]) rrhk_menu_line(&ctx, status_y, rrhk.status);
     rr_menu_end(ren);
 }

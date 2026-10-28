@@ -251,6 +251,22 @@ the same `[Manettes] autofire` write). Edited files: `hostkit/hostkit.h`, `hostk
 move; no game stamp, learned path or quick-state key does. Master System, Game Gear, Game Boy and X68000 are not on the kit
 yet and keep their own behaviour until they migrate.
 
+A third decision of the same day, the pad slot policy (divergence 10, D11), lands in the same shell. Pads still go to the
+players in plug order by default (Automatic), so an export that is never touched plays exactly as before and writes
+nothing new to its preferences. The gamepad page of each player in F2 gains one "Gamepad" row (Enter cycles Automatic,
+each connected controller, None; Delete goes back to Automatic): a controller chosen there is pinned to that player,
+None leaves the player on the keyboard (a lone pad then drives player 2), and the choice is stored in the player's
+gamepad section as `device` (`auto`, `none` or the SDL joystick GUID) and `name` (for display). A pinned controller that
+is unplugged leaves its player without a pad until it is plugged in again, and the F2 binding of a player without a pad
+says "No gamepad for player N". Five strings join the runtime catalogue in the eight languages (Automatic, None,
+"%s (disconnected)", "No gamepad for player %d" and the row's hint). Edited files, all host inputs: `hostkit/hostkit_internal.h`,
+`hostkit/shell/rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c` and `runtime_catalog.inc`. The catalogue is shared by every
+shell, so the host stamp of each of the nine consoles moves (checked against the previous tree: the game and build stamps
+of all nine stay equal); the same release already moves them, so nothing more is owed to exports of 1.6.1. Learned paths
+and quick-state keys do not move. Exports of 1.6.1 keep their existing `[<Console>.Gamepad.PlayerN]`
+keys: the two new keys are read when present and ignored otherwise. When Master System and Game Gear move to the kit this
+row replaces their first-player toggle and pad swap.
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).

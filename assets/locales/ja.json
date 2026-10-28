@@ -875,6 +875,11 @@
     "Button 3": "ボタン 3",
     "Button 4": "ボタン 4",
     "Button 5": "ボタン 5",
-    "Button 6": "ボタン 6"
+    "Button 6": "ボタン 6",
+    "Automatic": "自動",
+    "None": "なし",
+    "%s (disconnected)": "%s (未接続)",
+    "No gamepad for player %d": "プレイヤー%dのパッドがありません",
+    "Enter: change gamepad | Delete: Automatic": "Enter: パッド変更 | Delete: 自動"
   }
 }
