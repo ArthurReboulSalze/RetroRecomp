@@ -164,13 +164,15 @@ class CoverageTests(unittest.TestCase):
             return 'matched'
 
         with ExitStack() as stack:
-            patches = {'ROOT': self.root, 'prepare_icon': lambda *a, **k: {'embedded': False},
+            patches = {'ROOT': self.root,
                        '_dependencies': lambda emit: (self.root, self.root/'compiler', self.root, self.root/'cmake', 'generator'),
                        'write_game_metadata': lambda *a, **k: {}, 'adapt_generated_project': lambda *a: None,
                        '_verified_trace': lambda rom: prior, 'run': fake_command, '_probe': fake_probe,
                        '_cpu_compare': fake_compare, '_remember_trace': lambda *a: None}
             for name, value in patches.items():
                 stack.enter_context(patch('retrorecomp.gameboy.' + name, value))
+            # The icon preparation lives in the shared conversion helpers.
+            stack.enter_context(patch('retrorecomp.conversion_common.prepare_icon', lambda *a, **k: {'embedded': False}))
             for deep in (False, True):
                 with self.subTest(deep=deep):
                     generations.clear()

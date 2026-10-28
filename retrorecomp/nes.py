@@ -20,12 +20,13 @@ import wave
 from typing import Callable
 
 from . import __version__, timings
-from .artwork import ArtworkError, prepare_icon
+from .conversion_common import (check_run_budget, convert_single, prepare_game_icon, resolve_scan_level,
+                                write_if_changed)
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug, toolchain
 from .toolchain import describe as toolchain_description
 from .library import atomic_text, entry_lock, library_root
 from .report_schema import write_report
-from .nes_build import object_stamps, prepare_native, preserve_inputs, write_changed
+from .nes_build import object_stamps, prepare_native, preserve_inputs
 from .knowledge import record_for
 from .metadata import write_game_metadata
 from .nes_codegen import prepare_compiler
@@ -409,28 +410,17 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
                 nes_advanced_scan: bool = False, scan_level: str | None = None,
                 standard_override: str | None = None,
                 emit: Callable[[str], None] = print) -> Path:
-    from .scan_levels import LEVELS, legacy_level, nes_budget
-    level = scan_level or legacy_level('nes', nes_advanced_scan=bool(nes_advanced_scan))
-    if level not in LEVELS:
-        raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import legacy_level, nes_budget
+    level = resolve_scan_level(scan_level, legacy_level('nes', nes_advanced_scan=bool(nes_advanced_scan)))
     if output is None:
-        from .batch import convert_batch, identify
-        item = identify(rom_path)
-        if title:
-            item.title = title
-        item.cover = cover
-        record = convert_batch([item], games_root(), profile=profile, passes=passes,
+        return convert_single(rom_path, games_root(), title=title, cover=cover, profile=profile, passes=passes,
             frames=frames, backend=backend, language=language, boxart_dir=boxart_dir,
             online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
             scan_level=level,
             standard_override=standard_override, emit=emit)
-        if record['failed']:
-            raise ConversionError(record['games'][0]['message'])
-        return Path(record['games'][0]['executable'])
     if profile is not None:
         raise ConversionError('NES uses verified ROM traces, not Sega TOML profiles.')
-    if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
-        raise ConversionError('Choose 1–10 passes and 1–10000 frames per test.')
+    check_run_budget(passes, frames, 'Choose 1–10 passes and 1–10000 frames per test.')
     started = time.perf_counter()
     rom = read_nes_rom(rom_path)
     if rom.video_standard == 'dendy' or standard_override not in (None, 'ntsc', 'pal'):
@@ -449,15 +439,12 @@ def convert_nes(rom_path: Path, *, title: str | None = None, output: Path | None
     emit(f'NES video timing: {standard.upper()} ({"manual" if standard_override else rom.timing_source}).')
     if gun:
         emit('NES Zapper enabled: mouse aim and trigger on controller port 2.')
-    try:
-        artwork = prepare_icon(project, rom.path, title,
-            (boxart_dir or ROOT / 'BoxArt/Nintendo NES').resolve(), explicit=cover,
-            online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory('nes'),
-            tags=('shooting',) if gun and icon_tags else (), system_id='nes', emit=emit)
-    except (ArtworkError, OSError) as exc:
-        raise ConversionError(str(exc)) from exc
+    artwork = prepare_game_icon(project, rom.path, title,
+        boxart_dir or ROOT / 'BoxArt/Nintendo NES', explicit=cover,
+        online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory('nes'),
+        tags=('shooting',) if gun and icon_tags else (), system_id='nes', emit=emit)
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
-    write_changed(project / 'rom.nes', rom.data)
+    write_if_changed(project / 'rom.nes', rom.data)
     with preserve_inputs(project):
         prepare_host(project, engine, rom.sha256, title, standard=standard, zapper=gun, mapper=rom.mapper)
         metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False,

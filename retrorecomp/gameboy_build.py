@@ -6,10 +6,10 @@ native bodies, optimization level and validation budgets are unchanged.
 from __future__ import annotations
 
 from contextlib import contextmanager
-import hashlib
-import os
 from pathlib import Path
 import re
+
+from .conversion_common import preserve_unchanged
 
 
 @contextmanager
@@ -27,19 +27,8 @@ def preserve_unchanged_sources(project: Path):
         if runtime.is_dir():
             yield from (p for p in runtime.rglob('*') if p.is_file())
 
-    previous = {}
-    for path in sources():
-        stat = path.stat()
-        with path.open('rb') as stream:
-            digest=hashlib.file_digest(stream,'sha256').digest()
-        previous[path] = (stat.st_mtime_ns, stat.st_size,digest)
-    yield
-    for path, (mtime, size, digest) in previous.items():
-        if path.is_file() and path.stat().st_size == size:
-            with path.open('rb') as stream:
-                current=hashlib.file_digest(stream,'sha256').digest()
-            if current == digest:
-                os.utime(path, ns=(path.stat().st_atime_ns, mtime))
+    with preserve_unchanged(sources):
+        yield
 
 
 _PAGE = re.compile(r'void (game_dispatch_[0-9a-f]+)\(GBContext\* ctx, uint16_t addr, uint16_t bank\) \{\n(.*?)\n\}', re.S)

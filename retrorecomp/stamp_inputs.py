@@ -669,6 +669,11 @@ INPUTS = {
         'retrorecomp.systems.master_system',
         'retrorecomp.validation',
     ),
+    # The shell every converter of these consoles shares: single-ROM path, checks, spawn layer of the probes, pinned
+    # source patching and file writes. Game role. P5b (the other families) extends the owners when they adopt it.
+    ('sms', 'gg', 'gb', 'nes'): (
+        'retrorecomp.conversion_common',
+    ),
     ('md', 'snes'): (
         'retrorecomp.guns16',
     ),
