@@ -5,7 +5,35 @@ import json
 from pathlib import Path
 import re
 
-from . import Capabilities, Cpu, SystemProfile
+from . import Capabilities, Cpu, SystemProfile, find_profile
+from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,
+                    SharedKnowledge)
+
+
+def sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
+    """The Master System or the Game Gear, from the region nibble of a 'TMR SEGA' header; None without one.
+    The two share a cartridge format: a known header is stronger evidence than a misnamed extension."""
+    offset = 512 if byte_size % 16384 == 512 else 0
+    sega = data[offset:]
+    for header in (0x7ff0, 0x3ff0, 0x1ff0):
+        if sega[header:header + 8] == b'TMR SEGA' and len(sega) > header + 15:
+            region = sega[header + 15] >> 4
+            if region in (3, 4): return find_profile('sms')
+            if region in (5, 6, 7): return find_profile('gg')
+    return None
+
+
+def refine_by_header(profile: SystemProfile, path: Path, data: bytes | None) -> SystemProfile:
+    """An extension match of either Sega console, settled by the header also inside ZIPs."""
+    if data is None and not path.is_file():
+        return profile
+    if data is None:
+        byte_size = path.stat().st_size
+        with path.open('rb') as source:
+            data = source.read(0x8000 + 512)
+    else:
+        byte_size = len(data)
+    return sega_profile(data, byte_size) or profile
 
 
 class MasterSystemProfile(SystemProfile):
@@ -19,6 +47,24 @@ class MasterSystemProfile(SystemProfile):
     capabilities = Capabilities(guns=("light_phaser",))
     feedback_kinds = frozenset({1})
     converter_publishes = True
+    options_tab = "options_master_system"
+    path_spec = PathSpec(order=0, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
+                         required_sources=("rom",))
+    report_shape = ReportShape("core", "strict_checks")
+    catalogues = Catalogues(libretro="libretro-thumbnails/Sega_-_Master_System_-_Mark_III", screenscraper=2,
+                            thegamesdb=35, wikidata=("Q209868",), cover_references=True)
+    # The library of the Master System predates the per-console folders.
+    library_layout = LibraryLayout(folder="", summary_glob="*/compilation.json", companion="observations.log")
+    input_layout = InputLayout(("a", "b"), (), None, 240, start=False, script_format="sega")
+    shared_knowledge = SharedKnowledge("stable", site_builder=True)
+    # Also asked for the bytes of a headerless dump: the Game Gear is told apart by the same header.
+    identify = Identify(content_order=3)
+
+    def refine_match(self, path: Path, data: bytes | None):
+        return refine_by_header(self, path, data)
+
+    def identify_content(self, data: bytes):
+        return sega_profile(data, len(data))
 
     def read_rom(self, path: Path):
         from ..core import read_rom

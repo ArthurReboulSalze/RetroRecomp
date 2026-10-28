@@ -2,13 +2,24 @@
 
 Each future console registers its own reader, converter and timing vocabulary.
 No timing rule or cartridge format is shared implicitly between systems.
+
+This module holds the types (`SystemProfile` and its data), the generic functions that read the registered
+profiles (identification, option filtering, lookups) and nothing that names a console. The registration list
+is `systems/registry.py`, which is not an input of any stamp: a new machine adds its profile module and one
+line there. The lists (`ALL_PROFILES`, `PROFILES`, `EXPERIMENTAL_PROFILES`, `ROM_CANDIDATE_EXTENSIONS`) and
+the profile constants (`MASTER_SYSTEM`...) are read from it on access (module `__getattr__`), so every
+existing `from retrorecomp.systems import ...` keeps working.
 """
 from __future__ import annotations
 
+import importlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
+
+from .specs import (Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape,  # noqa: F401
+                    SharedKnowledge)
 
 MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
                           '.gg': 4 * 1024 * 1024 + 512,
@@ -20,13 +31,6 @@ MAX_ARCHIVED_ROM_BYTES = {'.sms': 4 * 1024 * 1024 + 512,
                           '.smc': 8 * 1024 * 1024 + 512,
                           '.bin': 8 * 1024 * 1024,
                           '.rom': 8 * 1024 * 1024}
-
-ROM_CANDIDATE_EXTENSIONS = frozenset({
-    '.sms', '.gg', '.gb', '.zip', '.bin', '.rom', '.gbc', '.gba', '.nes',
-    '.fds', '.sfc', '.smc', '.n64', '.z64', '.v64', '.md', '.gen', '.smd', '.pce',
-    '.a26', '.a78', '.7z', '.chd', '.cue', '.iso', '.neo',
-    '.dim', '.xdf', '.m3u',
-})
 
 
 class UnsupportedConsoleError(ValueError):
@@ -41,8 +45,9 @@ class ConsoleMismatchError(UnsupportedConsoleError):
 
 def discover_roms(folder: Path) -> list[Path]:
     """Scan without writing beside source ROMs, including foreign systems."""
+    candidates = _registry().ROM_CANDIDATE_EXTENSIONS
     return sorted((path for path in folder.rglob('*')
-                   if path.is_file() and path.suffix.casefold() in ROM_CANDIDATE_EXTENSIONS
+                   if path.is_file() and path.suffix.casefold() in candidates
                    and (path.suffix.casefold() != '.md' or path.stat().st_size >= 0x8000)),
                   key=lambda path: str(path).casefold())
 
@@ -86,9 +91,20 @@ class OptionKey:
     """A converter option only one family of consoles accepts.
 
     ``signature`` is False for options that tune how a conversion runs (worker
-    counts) and must never change the export's request signature."""
+    counts) and must never change the export's request signature.
+
+    ``kind`` says what the option is, so that the interface and the command line can build a control from it:
+    'flag' (on or off), 'path' (a file the player supplies, saved relative to the export folder), 'choice' (one
+    of ``choices``), 'count' (a number of workers, never shown) or 'plan' (a table the converter passes to
+    itself, never shown). ``label`` is the interface string key of the control, or the text itself where no
+    key exists; ``hint`` the key of its tooltip; ``default`` the value used when nothing was chosen."""
     name: str
     signature: bool = True
+    kind: str = 'flag'
+    label: str = ''
+    hint: str = ''
+    choices: tuple = ()
+    default: object = None
 
 
 @dataclass(frozen=True)
@@ -150,6 +166,25 @@ class SystemProfile(ABC):
     # has no prepared cartridge before). The batch then computes the request parts again before it
     # writes the receipt, so that the receipt carries what the conversion used.
     knowledge_identity_after_conversion: bool = False
+    # The data below is what the registries elsewhere used to hold for every console (docs/NEW_MACHINE.md).
+    # ``None`` means the machine has no entry in that registry (it declines it, on the record).
+    path_spec: PathSpec | None = None
+    report_shape: ReportShape | None = None
+    catalogues: Catalogues | None = None
+    library_layout: LibraryLayout | None = None
+    input_layout: InputLayout | None = None
+    shared_knowledge: SharedKnowledge | None = None
+    # The host-kit adapter file below native/hostkit (hostkit.py), for the machines on the common host kit.
+    host_adapter: str | None = None
+    # Recognition of a file (systems.profile_for_path) and the machine's presence in an installation.
+    identify: Identify = Identify()
+    # The machine is only convertible when the installation carries its files (``available``).
+    developer_only: bool = False
+
+    @property
+    def options_tab(self) -> str:
+        """The interface string key of the machine's options tab."""
+        return 'options_' + self.id
 
     @property
     def experimental(self) -> bool:
@@ -163,6 +198,24 @@ class SystemProfile(ABC):
     def request_identity(self, item, options: dict, settings: dict) -> None:
         """Add the console's own identity (firmware, machine) to the request
         settings that are about to be hashed. Most consoles have none."""
+
+    def available(self) -> bool:
+        """True when this installation can convert the machine (True unless ``developer_only``)."""
+        return True
+
+    def identify_path(self, path: Path, suffix: str, selected_system: str | None):
+        """Claim a file from its path before a ZIP is opened: return this profile, or None when the file is not
+        this machine's. May raise ``UnsupportedConsoleError`` or ``ConsoleMismatchError``."""
+        return None
+
+    def refine_match(self, path: Path, data: bytes | None):
+        """The profile that finally owns a file whose extension named this one (two machines may share a
+        cartridge format and tell each other apart by header). ``data`` is the bytes of a ZIP member, else None."""
+        return self
+
+    def identify_content(self, data: bytes):
+        """Sniff the bytes of a ``.bin`` or ``.rom``: return the profile that owns them, or None."""
+        return None
 
     def knowledge_identity(self, item, settings: dict) -> str:
         """The key of this game in the paths banks: the ROM's hash, unless the console names its
@@ -183,38 +236,24 @@ class SystemProfile(ABC):
         """Build the console-specific runtime and executable."""
 
 
-from .master_system import MASTER_SYSTEM  # noqa: E402
-from .game_gear import GAME_GEAR  # noqa: E402
-from .game_boy import GAME_BOY  # noqa: E402
-from .nes import NES  # noqa: E402
-from .console16 import MEGA_DRIVE, SUPER_NINTENDO  # noqa: E402
-from .neogeo import NEOGEO  # noqa: E402
-from .cps1 import CPS1  # noqa: E402
-from .x68000 import X68000  # noqa: E402
+def _registry():
+    # importlib, not ``from . import registry``: that form asks this module for the attribute first.
+    return importlib.import_module('.registry', __name__)
 
-PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO, NEOGEO,
-                                       CPS1)
-# Availability in the converter does not imply the profile has left development.
-from ..x68000 import developer_available  # noqa: E402
+
+def __getattr__(name: str):
+    """The lists and the profile constants are read from the registry when asked for."""
+    if name.startswith('__') or name == 'registry':
+        raise AttributeError(name)
+    try:
+        return _registry().exported(name)
+    except KeyError:
+        raise AttributeError(f'module {__name__!r} has no attribute {name!r}') from None
 
 
 def convertible_profiles() -> tuple[SystemProfile, ...]:
-    """The profiles this installation can convert: X68000 only with its files."""
-    return PROFILES + ((X68000,) if developer_available() else ())
-
-
-# Read from the profiles' own status attribute, so this registry cannot drift
-# from the statuses the documents and interface lint against.
-EXPERIMENTAL_PROFILES: tuple[SystemProfile, ...] = tuple(
-    profile for profile in convertible_profiles() if profile.status == 'experimental')
-
-
-# Every console the converter knows, whether or not this installation can
-# convert it: the registry the lists of console ids elsewhere are read from.
-# The order is the one of the documents and settings (X68000 before CPS-1);
-# PROFILES keeps the order detection tries them in.
-ALL_PROFILES: tuple[SystemProfile, ...] = (MASTER_SYSTEM, GAME_GEAR, GAME_BOY, NES, MEGA_DRIVE, SUPER_NINTENDO,
-                                           NEOGEO, X68000, CPS1)
+    """The profiles this installation can convert: a developer-only machine (X68000) only with its files."""
+    return _registry().convertible_profiles()
 
 
 def available_profiles():
@@ -223,19 +262,19 @@ def available_profiles():
 
 def find_profile(system_id: str) -> SystemProfile | None:
     """The profile of one console id, or None for an id nobody registered."""
-    return next((profile for profile in ALL_PROFILES if profile.id == system_id), None)
+    return next((profile for profile in _registry().all_profiles() if profile.id == system_id), None)
 
 
 def system_ids() -> tuple[str, ...]:
     """The ids of every console, in registration order."""
-    return tuple(profile.id for profile in ALL_PROFILES)
+    return tuple(profile.id for profile in _registry().all_profiles())
 
 
 def get_profile(system_id: str) -> SystemProfile:
     # Metadata, cache and saved-feedback paths remain readable for an existing
     # X68000 export even when this installation cannot compile that prototype.
     # Conversion availability is checked by profile_for_path and convert.
-    for profile in ALL_PROFILES:
+    for profile in _registry().all_profiles():
         if profile.id == system_id:
             return profile
     raise ValueError(f"Unsupported console profile: {system_id}")
@@ -243,12 +282,12 @@ def get_profile(system_id: str) -> SystemProfile:
 
 def console_option_keys() -> frozenset:
     """Every console-specific option name, whichever console accepts it."""
-    return frozenset(name for profile in ALL_PROFILES for name in profile.option_key_names)
+    return frozenset(name for profile in _registry().all_profiles() for name in profile.option_key_names)
 
 
 def unsigned_option_keys() -> frozenset:
     """Options that never enter a request signature (they only size the work)."""
-    return frozenset(key.name for profile in ALL_PROFILES for key in profile.option_keys
+    return frozenset(key.name for profile in _registry().all_profiles() for key in profile.option_keys
                      if not key.signature)
 
 
@@ -259,59 +298,22 @@ def drop_foreign_options(system_id: str, settings: dict) -> None:
         settings.pop(name, None)
 
 
-def _sega_profile(data: bytes, byte_size: int) -> SystemProfile | None:
-    offset = 512 if byte_size % 16384 == 512 else 0
-    sega = data[offset:]
-    for header in (0x7ff0, 0x3ff0, 0x1ff0):
-        if sega[header:header + 8] == b'TMR SEGA' and len(sega) > header + 15:
-            region = sega[header + 15] >> 4
-            if region in (3, 4): return MASTER_SYSTEM
-            if region in (5, 6, 7): return GAME_GEAR
-    return None
-
-
 def profile_for_path(path: Path, selected_system: str | None = None) -> SystemProfile:
+    """Recognise a file: each registered profile's hooks in their declared order (the file itself, before a ZIP
+    is opened), then the extension, then the bytes of a headerless ``.bin`` or ``.rom``. An explicit choice
+    settles only a headerless dump."""
+    registry = _registry()
     suffix = path.suffix.casefold()
     data = None
-    if suffix in X68000.extensions:
-        if not developer_available():
-            raise UnsupportedConsoleError(
-                'The experimental Sharp X68000 profile is unavailable in this installation.')
-        if selected_system and selected_system != 'x68':
-            raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', 'x68')
-        return X68000
-    if suffix == '.zip' and selected_system in (None, 'cps1'):
-        # Arcade romsets are recognised by their program ROM CRCs, never by name.
-        from ..cps1 import looks_like_cps1_zip
-        try:
-            detected_cps1 = selected_system == 'cps1' or looks_like_cps1_zip(path)
-        except ValueError:
-            detected_cps1 = False
-        if detected_cps1:
-            return CPS1
-    if suffix in ('.neo', '.zip'):
-        from ..neogeo import looks_like_neogeo_zip, parse_neo
-        detected_ng = suffix == '.neo' or selected_system == 'ng' or looks_like_neogeo_zip(path)
-        if detected_ng:
-            if suffix == '.neo': parse_neo(path)
-            if selected_system and selected_system != 'ng':
-                raise ConsoleMismatchError('Detected Neo Geo; choose Automatic or Neo Geo.', 'ng')
-            return NEOGEO
+    for profile in registry.path_stage():
+        found = profile.identify_path(path, suffix, selected_system)
+        if found is not None:
+            return found
     if suffix == '.zip':
         suffix, data = archive_rom(path)
-    matches = [profile for profile in PROFILES if suffix in profile.extensions]
+    matches = [profile for profile in registry.listed_profiles() if suffix in profile.extensions]
     if len(matches) == 1:
-        profile = matches[0]
-        if profile.id in ('sms', 'gg') and (data is not None or path.is_file()):
-            # These consoles share a cartridge format. A known header is
-            # stronger evidence than a misnamed extension, also inside ZIPs.
-            if data is None:
-                byte_size = path.stat().st_size
-                with path.open('rb') as source:
-                    data = source.read(0x8000 + 512)
-            else:
-                byte_size = len(data)
-            profile = _sega_profile(data, byte_size) or profile
+        profile = matches[0].refine_match(path, data)
         if selected_system and selected_system != profile.id:
             raise ConsoleMismatchError(
                 f'Detected {profile.name}; selected {get_profile(selected_system).name}. '
@@ -323,29 +325,10 @@ def profile_for_path(path: Path, selected_system: str | None = None) -> SystemPr
         with path.open('rb') as source:
             data = source.read(8 * 1024 * 1024 + 513)
     detected = None
-    from ..cartridge16 import is_megadrive, snes_header
-    if is_megadrive(data):
-        detected = MEGA_DRIVE
-    if data.startswith(b'NES\x1a'):
-        detected = NES
-    offset = 512 if len(data) % 16384 == 512 else 0
-    sega = data[offset:]
-    if detected is None:
-        detected = _sega_profile(data, len(data))
-    if detected is None and snes_header(sega) is not None:
-        detected = SUPER_NINTENDO
-    if detected is None and len(data) >= 0x8000 and len(data) % 0x4000 == 0:
-        checksum = 0
-        for value in data[0x134:0x14d]:
-            checksum = (checksum - value - 1) & 0xff
-        title = data[0x134:0x143].split(b'\0', 1)[0]
-        size_code = data[0x148]
-        declared_size = (0x8000 << size_code) if size_code <= 8 else {
-            0x52: 72 * 0x4000, 0x53: 80 * 0x4000,
-            0x54: 96 * 0x4000}.get(size_code)
-        if (checksum == data[0x14d] and declared_size == len(data)
-                and title and all(32 <= value < 127 for value in title)):
-            detected = GAME_BOY
+    for profile in registry.content_stage():
+        detected = profile.identify_content(data)
+        if detected is not None:
+            break
     if selected_system:
         if detected is not None and detected.id != selected_system:
             raise ConsoleMismatchError(
