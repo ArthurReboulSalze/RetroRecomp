@@ -45,11 +45,6 @@ def linked(path):
         return True
 
 
-# Kept only for online.resend_deeper_levels, a one-time resend for releases before 1.6.0 that belongs to the shared
-# base code (the collection itself no longer reads levels from advanced_scan). Remove both together.
-ADVANCED_SCAN_SYSTEMS = ('md', 'snes', 'nes')
-
-
 @dataclass
 class Game:
     executable: str

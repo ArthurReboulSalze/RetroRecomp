@@ -846,51 +846,6 @@ def _base_outcome(key: str, rejected: bool) -> dict | None:
             'outcome': 'rejected' if rejected else 'used'}
 
 
-LEVEL_FIX_NAME = 'account-levels.json'
-
-
-def resend_deeper_levels(games) -> int:
-    """Once per account (1.5.6): 1.5.2-1.5.5 declared every Mega Drive, Super
-    Nintendo and NES conversion as Standard, as their reports keep the level
-    under advanced_scan. Those completed at the Extended or Thorough level
-    are noted again and their account sharing forgotten, so the next send
-    declares their real level; the service keeps each game's deepest level
-    and pays only what was missing. Returns how many games were noted."""
-    from .compiled_games import ADVANCED_SCAN_SYSTEMS, read_json, report_level
-    from .knowledge_exchange import forget_shared
-    current = account() if sending_available() else None
-    if not current:
-        return 0
-    path = _account_path().with_name(LEVEL_FIX_NAME)
-    who = hashlib.sha256(f"{current.get('service')}|{current.get('email')}".encode('utf-8')).hexdigest()
-    try:
-        done = json.loads(path.read_text(encoding='utf-8'))
-        done = done if isinstance(done, dict) else {}
-    except (OSError, ValueError):
-        done = {}
-    if who in done.get('accounts', []):
-        return 0
-    keys = []
-    for game in games:
-        if game.system not in ADVANCED_SCAN_SYSTEMS or not game.report:
-            continue
-        try:
-            report = read_json(game.report)
-        except (OSError, ValueError, TypeError):
-            continue
-        top = report.get('scan_level') if isinstance(report, dict) else None
-        if report_level(report) != 'standard' and top not in ('extended', 'thorough'):
-            if note_conversion(game.system, game.identity):
-                keys.append(f'{game.system}:{game.identity}')
-    forget_shared('account', keys)
-    done['accounts'] = [*done.get('accounts', []), who]
-    try:
-        _write_bytes(path, json.dumps(done, indent=1).encode('utf-8'))
-    except OSError:
-        pass
-    return len(keys)
-
-
 def note_conversion(system: str, identity: str, rejected: bool = False) -> bool:
     """Remember that this account converted this exact game successfully;
     nothing without an account or for a console the service does not take.
