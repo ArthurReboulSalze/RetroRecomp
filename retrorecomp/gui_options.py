@@ -1,13 +1,15 @@
 """The options window and its pages."""
 from __future__ import annotations
 
+import importlib
 import threading
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 from . import online
-from .paths import APP_NAME, save_preferences, selected_bios_path
+from .paths import APP_NAME, save_preferences, selected_bios_path, console_options
+from .i18n import STRINGS
 from .languages import language_code
 from .cover_settings import (
     FIELDS as COVER_FIELDS, load_settings as load_cover_settings, save_settings as save_cover_settings,
@@ -16,6 +18,31 @@ from .cover_keyring import KeyringError
 from .cover_sources import PROVIDERS as COVER_PROVIDERS
 from .branding import COLORS
 from .gui_common import PROFILES, SENDING_AVAILABLE
+
+# How each machine's options page is laid out. The page itself is built from the profile (build_console_tab);
+# only the look that differs between machines is listed here, and a machine missing from the table gets the
+# plain look: a note that does not wrap, no extra checkbox. The note wraps per machine and not at one common
+# width on purpose (1.6.3: no visible change). 'note' is the interface key of the note when it is not
+# 'options_<id>_note'; 'extended' adds the Sega mapper checkbox (the "extended" native coverage setting).
+PAGE_LAYOUT = {
+    'sms': {'note': 'options_sega_note', 'extended': True},
+    'gg': {'note': 'options_sega_note', 'extended': True},
+    'md': {'wraplength': 590},
+    'snes': {'wraplength': 590},
+    'ng': {'wraplength': 880, 'justify': 'left', 'pady': (0, 20)},
+    'cps1': {'wraplength': 880, 'justify': 'left', 'pady': (0, 14)},
+    'x68': {'wraplength': 840, 'justify': 'left', 'pady': (0, 14)},
+}
+# A firmware row (OptionKey kind 'path'): the space above its label, the file types of Browse, the title of the
+# dialog ('browse', or the option's own label), whether the saved path is shown resolved against the export
+# folder ('resolve'; the X68000's two files are still shown as saved, as in 1.6.2) and, for a firmware the
+# window can verify, the (module, function) that does it: the row then has a Check button and a status line.
+FIRMWARE_ROWS_DEFAULT = {'pady': (8, 4), 'title': 'browse', 'resolve': False,
+                         'filetypes': [('ROM / DAT', '*.dat *.rom *.bin'), ('All files', '*.*')]}
+FIRMWARE_ROWS = {
+    'ng_bios': {'pady': (0, 8), 'title': 'label', 'filetypes': [('ZIP', '*.zip')], 'resolve': True,
+                'check': ('neogeo', 'validate_bios')},
+}
 
 
 class OptionsMixin:
@@ -100,7 +127,8 @@ class OptionsMixin:
             control = ttk.Checkbutton(parent, text=self.tr(key), variable=variable)
             control.pack(anchor='w', pady=(0, 8))
             self.option_controls.append((control, 'normal'))
-            self.hint(control, hint)
+            if hint:
+                self.hint(control, hint)
             return control
 
         # Common holds the shared settings, the account and box art.
@@ -164,74 +192,9 @@ class OptionsMixin:
         disk.grid(row=7, column=0, sticky='ew', pady=(14, 0))
         self.build_disk_options(disk)
 
-        for key in ('sms', 'gg'):
-            profile_page = tab('options_master_system' if key == 'sms' else 'options_game_gear')
-            self.build_scan_options(profile_page, key)
-            control = checkbox(profile_page, 'extended', self.extended, 'tip_extended')
-            if key == 'sms':
-                self.extended_control = control
-            ttk.Label(profile_page, text=self.tr('options_sega_note'), style='Muted.TLabel').pack(anchor='w')
-            self.build_feedback_options(profile_page, key)
-
-        game_boy = tab('options_game_boy')
-        self.build_scan_options(game_boy, 'gb')
-        self.gb_deep_control = checkbox(game_boy, 'gb_deep_validation',
-                                        self.gb_deep_validation, 'tip_gb_deep_validation')
-        ttk.Label(game_boy, text=self.tr('options_gb_note'), style='Muted.TLabel').pack(anchor='w')
-        self.build_feedback_options(game_boy, 'gb')
-
-        nes = tab('options_nes')
-        self.build_scan_options(nes, 'nes')
-        ttk.Label(nes, text=self.tr('options_nes_note'), style='Muted.TLabel').pack(anchor='w')
-        self.build_feedback_options(nes, 'nes')
-        for console in ('md', 'snes'):
-            page = tab('options_' + console)
-            self.build_scan_options(page, console)
-            ttk.Label(page, text=self.tr('options_' + console + '_note'),
-                      style='Muted.TLabel', wraplength=590).pack(anchor='w')
-            self.build_feedback_options(page, console)
-
-        neo_geo = tab('options_ng')
-        self.build_scan_options(neo_geo, 'ng')
-        ttk.Label(neo_geo, text=self.tr('options_ng_note'), style='Muted.TLabel',
-                  wraplength=880, justify='left').pack(anchor='w', pady=(0, 20))
-        ttk.Label(neo_geo, text=self.tr('ng_bios_label')).pack(anchor='w', pady=(0, 8))
-        bios_row = ttk.Frame(neo_geo)
-        bios_row.pack(fill='x')
-        self.ng_bios_field = ttk.Entry(bios_row, textvariable=self.ng_bios)
-        self.ng_bios_field.pack(side='left', fill='x', expand=True)
-        self.option_controls.append((self.ng_bios_field, 'normal'))
-        browse = ttk.Button(bios_row, text=self.tr('browse'), command=self.choose_ng_bios)
-        browse.pack(side='left', padx=(8, 0))
-        self.option_controls.append((browse, 'normal'))
-        check = ttk.Button(bios_row, text=self.tr('ng_bios_check'), command=self.check_ng_bios)
-        check.pack(side='left', padx=(8, 0))
-        self.option_controls.append((check, 'normal'))
-        ttk.Label(neo_geo, textvariable=self.ng_bios_status, style='Muted.TLabel',
-                  wraplength=880).pack(anchor='w', pady=(12, 0))
-        self.build_feedback_options(neo_geo, 'ng')
-        cps1 = tab('options_cps1')
-        self.build_scan_options(cps1, 'cps1')
-        ttk.Label(cps1, text=self.tr('options_cps1_note'), style='Muted.TLabel',
-                  wraplength=880, justify='left').pack(anchor='w', pady=(0, 14))
-        self.build_feedback_options(cps1, 'cps1')
-        if any(p.id == 'x68' for p in PROFILES):
-            x68 = tab('options_x68')
-            self.build_scan_options(x68, 'x68')
-            ttk.Label(x68,text=self.tr('options_x68_note'),style='Muted.TLabel',wraplength=840,justify='left').pack(anchor='w',pady=(0,14))
-            for label,variable in (('x68_ipl',self.x68_ipl),('x68_cgrom',self.x68_cgrom)):
-                ttk.Label(x68,text=self.tr(label)).pack(anchor='w',pady=(8,4))
-                row=ttk.Frame(x68);row.pack(fill='x')
-                field=ttk.Entry(row,textvariable=variable);field.pack(side='left',fill='x',expand=True)
-                self.option_controls.append((field,'normal'))
-                def choose(var=variable):
-                    chosen=filedialog.askopenfilename(parent=self.options_panel,title=self.tr('browse'),filetypes=[('ROM / DAT','*.dat *.rom *.bin'),('All files','*.*')])
-                    if chosen:var.set(chosen)
-                browse=ttk.Button(row,text=self.tr('browse'),command=choose);browse.pack(side='left',padx=(8,0));self.option_controls.append((browse,'normal'))
-            ttk.Label(x68,text='RAM (MiB)').pack(anchor='w',pady=(12,4))
-            control=ttk.Combobox(x68,textvariable=self.x68_ram,values=(2,4),width=8,state='readonly');control.pack(anchor='w')
-            self.option_controls.append((control,'readonly'))
-            self.build_feedback_options(x68,'x68')
+        # One page per machine, built from its profile (build_console_tab).
+        for profile in PROFILES:
+            self.build_console_tab(profile, tab, checkbox)
 
         # Over a list or a number field, the wheel scrolls the page rather
         # than changing the value under the pointer by accident.
@@ -250,6 +213,67 @@ class OptionsMixin:
         ttk.Button(buttons, text=self.tr('close_options'), width=-26,
                    command=self.close_options).pack(side='right', pady=(2, 0), ipady=2)
         self.queue_background(self.body)
+
+    def build_console_tab(self, profile, tab, checkbox):
+        """The options page of one machine, read from its profile: the scan level, the on/off options it declares
+        (OptionKey 'flag' with a label), its note, the firmware files and choices it declares ('path', 'choice'),
+        then the ROM and feedback folders. Only how the page is laid out comes from PAGE_LAYOUT."""
+        layout = PAGE_LAYOUT.get(profile.id, {})
+        page = tab(profile.options_tab)
+        self.build_scan_options(page, profile.id)
+        if layout.get('extended'):
+            self.extended_control = checkbox(page, 'extended', self.extended, 'tip_extended')
+        for key in profile.option_keys:
+            if key.kind == 'flag' and key.label:
+                control = checkbox(page, key.label, getattr(self, key.name), key.hint)
+                setattr(self, key.name + '_control', control)
+                if key.name == 'gb_deep_validation':
+                    self.gb_deep_control = control   # the name the checks of the window use
+        note = {name: layout[name] for name in ('wraplength', 'justify') if name in layout}
+        ttk.Label(page, text=self.tr(layout.get('note', 'options_' + profile.id + '_note')), style='Muted.TLabel',
+                  **note).pack(anchor='w', **({'pady': layout['pady']} if 'pady' in layout else {}))
+        for key in profile.option_keys:
+            if key.kind == 'path':
+                self.build_firmware_row(page, key)
+        for key in profile.option_keys:
+            if key.kind == 'choice':
+                self.build_choice_row(page, key)
+        self.build_feedback_options(page, profile.id)
+
+    def option_text(self, label):
+        """The label of an option: an interface string key, or the text itself where no key exists."""
+        return self.tr(label) if label in STRINGS else label
+
+    def build_firmware_row(self, page, key):
+        """A file the player supplies (a console's firmware): a label, the field and Browse, and the Check button
+        and status line of a firmware the window can verify."""
+        row_style = {**FIRMWARE_ROWS_DEFAULT, **FIRMWARE_ROWS.get(key.name, {})}
+        variable = getattr(self, key.name)
+        ttk.Label(page, text=self.option_text(key.label or key.name)).pack(anchor='w', pady=row_style['pady'])
+        row = ttk.Frame(page)
+        row.pack(fill='x')
+        field = ttk.Entry(row, textvariable=variable)
+        field.pack(side='left', fill='x', expand=True)
+        setattr(self, key.name + '_field', field)
+        self.option_controls.append((field, 'normal'))
+        browse = ttk.Button(row, text=self.tr('browse'), command=lambda name=key.name: self.choose_firmware(name))
+        browse.pack(side='left', padx=(8, 0))
+        self.option_controls.append((browse, 'normal'))
+        if row_style.get('check'):
+            check = ttk.Button(row, text=self.tr(key.name + '_check'),
+                               command=lambda name=key.name: self.check_firmware(name))
+            check.pack(side='left', padx=(8, 0))
+            self.option_controls.append((check, 'normal'))
+            ttk.Label(page, textvariable=getattr(self, key.name + '_status'), style='Muted.TLabel',
+                      wraplength=880).pack(anchor='w', pady=(12, 0))
+
+    def build_choice_row(self, page, key):
+        """One of a few values (the X68000's RAM size): a label and a read-only list."""
+        ttk.Label(page, text=self.option_text(key.label or key.name)).pack(anchor='w', pady=(12, 4))
+        control = ttk.Combobox(page, textvariable=getattr(self, key.name), values=key.choices, width=8,
+                               state='readonly')
+        control.pack(anchor='w')
+        self.option_controls.append((control, 'readonly'))
 
     def build_feedback_options(self, page, system):
         section = ttk.LabelFrame(page,text=self.tr('rom_folder'),padding=10)
@@ -316,25 +340,34 @@ class OptionsMixin:
                 self.messages.put(('feedback_import', system, None, str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
-    def choose_ng_bios(self):
-        path = filedialog.askopenfilename(parent=self.options_panel,
-            title=self.tr('ng_bios_label'), filetypes=[('ZIP', '*.zip')])
+    def choose_firmware(self, name):
+        """Browse for a firmware file; one the window can verify is checked at once."""
+        row_style = {**FIRMWARE_ROWS_DEFAULT, **FIRMWARE_ROWS.get(name, {})}
+        key = next(key for _, key in console_options('path') if key.name == name)
+        path = filedialog.askopenfilename(
+            parent=self.options_panel,
+            title=self.tr('browse' if row_style['title'] == 'browse' else key.label),
+            filetypes=row_style['filetypes'])
         if path:
-            self.ng_bios.set(path)
-            self.check_ng_bios()
+            getattr(self, name).set(path)
+            if row_style.get('check'):
+                self.check_firmware(name)
 
-    def check_ng_bios(self):
-        from .neogeo import validate_bios
-        path = selected_bios_path(self.ng_bios.get())
+    def check_firmware(self, name):
+        """Verify a firmware file and say so in its status line (the Neo Geo BIOS archive)."""
+        module, function = FIRMWARE_ROWS[name]['check']
+        validate = getattr(importlib.import_module('.' + module, __package__), function)
+        status = getattr(self, name + '_status')
+        path = selected_bios_path(getattr(self, name).get())
         if path is None:
-            self.ng_bios_status.set(self.tr('ng_bios_missing'))
+            status.set(self.tr(name + '_missing'))
             return False
         try:
-            info = validate_bios(path)
-            self.ng_bios_status.set(self.tr('ng_bios_dual' if 'aes' in info else 'ng_bios_valid'))
+            info = validate(path)
+            status.set(self.tr(name + ('_dual' if 'aes' in info else '_valid')))
             return True
         except ValueError as exc:
-            self.ng_bios_status.set(self.tr('ng_bios_invalid', error=str(exc)))
+            status.set(self.tr(name + '_invalid', error=str(exc)))
             return False
 
     def build_account_options(self, page):

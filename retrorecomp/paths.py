@@ -71,6 +71,28 @@ def selected_bios_path(value: str | Path | None) -> Path | None:
     return path.resolve() if path.is_absolute() else (export_directory() / path).resolve()
 
 
+def console_options(*kinds: str) -> tuple:
+    """The (profile, OptionKey) pairs of the options of these kinds, read from the registered profiles.
+
+    Registration order; an option two machines share (the Mega Drive / Super Nintendo advanced scan) is
+    listed once, with the first machine that declares it. The command line, the window, the preferences and
+    the batch keywords all read the machines' options from here, so a new machine's firmware paths and
+    switches need no list of consoles anywhere else (docs/NEW_MACHINE.md)."""
+    from .systems import ALL_PROFILES
+    seen, found = set(), []
+    for profile in ALL_PROFILES:
+        for key in profile.option_keys:
+            if key.kind in kinds and key.name not in seen:
+                seen.add(key.name)
+                found.append((profile, key))
+    return tuple(found)
+
+
+def path_option_names() -> tuple[str, ...]:
+    """The preferences that name a file the player supplies (a console's firmware), saved relative to the export folder."""
+    return tuple(key.name for _, key in console_options('path'))
+
+
 def boxart_cache_directory(system_id: str) -> Path:
     """Keep downloaded covers beside the converter, separate for each console."""
     from .systems import get_profile
@@ -93,7 +115,7 @@ def save_preferences(value: dict) -> None:
             value['output'] = str(output.relative_to(export_directory()))
         except ValueError:
             value['output'] = str(output)
-    for field in ('ng_bios', 'x68_ipl', 'x68_cgrom'):
+    for field in path_option_names():
         if value.get(field):
             bios = selected_bios_path(value[field])
             try:
@@ -131,12 +153,12 @@ def feedback_search_paths(preferences: dict) -> dict[str, Path]:
     """Optional read-only gameplay-feedback search root for each console."""
     # Every known console, experimental ones included: a folder saved for
     # the X68000 must survive preference saves even before it graduates.
-    from .systems import PROFILES, X68000
+    from .systems import ALL_PROFILES, PROFILES
     saved = preferences.get('feedback_paths', {})
     if not isinstance(saved, dict):
         return {}
     result = {}
-    for profile in (*PROFILES, X68000):
+    for profile in (*PROFILES, *(p for p in ALL_PROFILES if p.developer_only)):
         raw = saved.get(profile.id)
         if not isinstance(raw, str) or not raw.strip():
             continue

@@ -230,22 +230,33 @@ class ProfileContractTests(unittest.TestCase):
 
     def test_library_layout_equals_the_library_root_and_the_memory_window(self):
         import os
+        from retrorecomp import memory_view
         from retrorecomp.library import library_root
-        source = (REPO / 'retrorecomp' / 'memory_view.py').read_text(encoding='utf-8')
+        # Since 1.6.3 the memory window reads the profile's layout itself: one record per console, laid out as
+        # the profile says, is found by memory_view.summaries (a console without a reader has none).
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'RETRO_RECOMP_LIBRARY_DIR': folder}):
             base = Path(folder).resolve()
-            for profile in ALL_PROFILES:
+            for number, profile in enumerate(ALL_PROFILES, 1):
                 layout = profile.library_layout
                 with self.subTest(profile.id):
                     self.assertEqual(library_root(profile.id), base / layout.folder if layout.folder else base)
-                    if layout.summary_glob:
-                        self.assertIn(f"'{profile.id}': '{layout.summary_glob}'", source)
-                    else:
-                        self.assertNotIn(f"'{profile.id}': '", source)
+                    if not layout.summary_glob:
+                        with self.assertRaises(KeyError):
+                            memory_view.summaries(profile.id)
+                        continue
+                    identity = format(number, 'x').rjust(64, '0')
+                    *folders, name = layout.summary_glob.split('/')
+                    # The key is in the record's folder name ('folder_suffix') or in the folder above it.
+                    parts = [identity if layout.identity == 'grandfolder' and index == 0 else f'title-{identity}'
+                             for index, _ in enumerate(folders)]
+                    record = library_root(profile.id).joinpath(*parts, name)
+                    record.parent.mkdir(parents=True)
+                    record.write_text('{"title": "Synthetic"}' if record.suffix == '.json' else 'a\n', encoding='utf-8')
+                    rows, _ = memory_view.summaries(profile.id)
+                    self.assertEqual([row['identity'] for row in rows], [identity])
         self.assertEqual({p.id for p in ALL_PROFILES if p.library_layout.identity == 'grandfolder'}, {'nes'})
         self.assertEqual({p.id: p.library_layout.companion for p in ALL_PROFILES if p.library_layout.companion},
                          {'sms': 'observations.log', 'gg': 'observations.log', 'gb': 'entries.trace'})
-        self.assertIn("system in ('gb', 'sms', 'gg')", source)
 
     def test_input_layout_equals_the_random_route_pads_and_scripts(self):
         from retrorecomp import random_routes as routes

@@ -9,10 +9,13 @@ import re
 import urllib.parse
 
 from .paths import ASSETS
+from .systems import ALL_PROFILES
 
 RESOURCE = 'assets/cover-references.json'
 MAX_BYTES = 1024 * 1024
-SYSTEMS = frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'))
+# The machines that take part in the reviewed cover references, from the profiles' catalogues.
+SYSTEMS = frozenset(profile.id for profile in ALL_PROFILES
+                    if profile.catalogues and profile.catalogues.cover_references)
 FIELDS = frozenset(('id', 'system_id', 'rom_sha256', 'rom_names', 'style',
                     'image_urls', 'source_page'))
 

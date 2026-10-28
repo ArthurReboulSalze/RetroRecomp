@@ -26,21 +26,15 @@ import urllib.request
 
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 from .paths import ASSETS, boxart_cache_directory
+from .systems import ALL_PROFILES
 from .cover_settings import load_settings, configured
 from .cover_sources import PROVIDERS, CoverServiceError, fetch
 from .cover_references import find as cover_reference
 from .cover_titles import matching_indices, normalized, sequence_numbers
 
-REPOSITORIES = {
-    'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
-    'gg': 'libretro-thumbnails/Sega_-_Game_Gear',
-    'gb': 'libretro-thumbnails/Nintendo_-_Game_Boy',
-    'nes': 'libretro-thumbnails/Nintendo_-_Nintendo_Entertainment_System',
-    'md': 'libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis',
-    'snes': 'libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
-    'ng': 'libretro-thumbnails/SNK_-_Neo_Geo',
-    'x68': 'libretro-thumbnails/Sharp_-_X68000',
-}
+# The libretro-thumbnails repository of each machine that has one: read from the profiles' catalogues.
+REPOSITORIES = {profile.id: profile.catalogues.libretro for profile in ALL_PROFILES
+                if profile.catalogues and profile.catalogues.libretro}
 REPOSITORY = REPOSITORIES['sms']  # Keep the existing SMS artwork source stable.
 FORMATS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"}
 ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)

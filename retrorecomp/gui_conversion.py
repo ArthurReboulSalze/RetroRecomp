@@ -12,7 +12,9 @@ from tkinter import messagebox, ttk
 from . import online
 from .batch import convert_batch
 from .publishing import is_pending
-from .paths import APP_NAME, save_preferences, save_game_language, selected_bios_path, data_directory
+from .paths import (
+    APP_NAME, save_preferences, save_game_language, selected_bios_path, data_directory, console_options,
+)
 from .i18n import log_text
 from .branding import COLORS
 from .dialogs import center_dialog
@@ -45,7 +47,7 @@ class ConversionMixin:
             output=self.output.get(), custom_output=self.custom_output.get(),
             system_mode=self.system_mode, platform=self.platform_id,
             backend='banked' if self.extended.get() else 'functions',
-            gb_deep_validation=self.gb_deep_validation.get(),
+            **{key.name: getattr(self, key.name).get() for _, key in console_options('flag') if key.label},
             console_scan=self.console_scan_preferences(),
             passes=self.passes.get(), frames=self.frames.get(), jobs=self.jobs.get(),
             console_jobs=self.console_jobs_preferences(),
@@ -54,8 +56,8 @@ class ConversionMixin:
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
             discoveries_waiting=self.discoveries_waiting,
-            overwrite=self.overwrite.get(), force=self.force.get(), ng_bios=self.ng_bios.get(),
-            x68_ipl=self.x68_ipl.get(),x68_cgrom=self.x68_cgrom.get(),x68_ram=self.x68_ram.get(),
+            overwrite=self.overwrite.get(), force=self.force.get(),
+            **{key.name: getattr(self, key.name).get() for _, key in console_options('path', 'choice')},
             feedback_paths={system: value.get().strip() for system, value in self.feedback_paths.items() if value.get().strip()},
             rom_paths={system:value.get().strip() for system,value in self.rom_paths.items() if value.get().strip()})
 
