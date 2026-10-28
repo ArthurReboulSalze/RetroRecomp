@@ -84,7 +84,7 @@ Seven converters write `conversion-report.json` in seven shapes: Master System
 and Game Gear, Game Boy, NES, Mega Drive and Super Nintendo, Neo Geo, CPS-1 and
 X68000. They count the interpreter in cycles (Master System, Game Gear, Game
 Boy, NES) or in opcodes, under several key names, and the one-line fallback
-summary is computed twice, in `batch.py` and in `gui.py`.
+summary is computed twice, in `batch.py` and in the window (`gui_queue.py`).
 `retrorecomp/report_schema.py` defines schema 2, the one builder the writers go
 through and the one reader of every shape. It is an interface module: no stamp
 hashes it, because the report does not change what a game is or does.
@@ -264,7 +264,7 @@ the dependency itself is unchanged. See [game-state format and limits](GAME_STAT
 
 | Area | Files |
 | --- | --- |
-| Desktop/CLI | `RetroRecomp.py`, `retrorecomp/gui.py`, `retrorecomp/i18n.py` |
+| Desktop/CLI | `RetroRecomp.py`, `retrorecomp/gui.py` and `retrorecomp/gui_*.py` (the window, below), `retrorecomp/i18n.py` |
 | Console profiles | `retrorecomp/systems/__init__.py`, `retrorecomp/systems/master_system.py` |
 | Conversion and CPU adaptations | `retrorecomp/core.py`, `retrorecomp/cpu.py`, `native/banked_*` |
 | Learning and file identity | `retrorecomp/library.py`, `native/learning.c`, `native/manifest.inc` |
@@ -273,6 +273,31 @@ the dependency itself is unchanged. See [game-state format and limits](GAME_STAT
 | Covers and icons | `retrorecomp/artwork.py`, `native/icon.c` |
 | Regeneration | `retrorecomp/batch.py`, `retrorecomp/publishing.py` |
 | Validation | `retrorecomp/validation.py`, `native/*checks.c`, `tools/*selftest.py` |
+
+### The window
+
+The window is the `Application` class of `retrorecomp/gui.py`, assembled from
+mixins that each hold one responsibility (standard 12). `gui.py` keeps the
+constructor, closing, the single-instance check, the start-up picture and
+`launch`, and re-exports every name the module had before the split.
+
+| Module | Responsibility |
+| --- | --- |
+| `gui_common.py`, `gui_drawing.py` | shared constants and helpers; portraits, styled names, pins, badges, header themes, icons |
+| `gui_window.py` | header, background, buttons, language, help, credits and legal notices |
+| `gui_queue.py` | the ROM queue: restoring, dropping and importing paths, the list and its menu |
+| `gui_conversion.py` | running a batch: preferences, start, stop, progress, results |
+| `gui_collection.py` | converted games, new paths, going deeper and reconverting |
+| `gui_updates.py` | updates of the converter and of the shared base, build tools |
+| `gui_options.py` | the options window and its pages |
+| `gui_sharing.py`, `gui_reports.py` | discoveries, the shared base and sending; problem reports |
+| `gui_account.py`, `gui_leaderboard.py` | the player corner and sign-in; leaderboard, achievement and closing cards |
+
+All of them are interface modules: no stamp hashes them
+(`INTERFACE_MODULES` in `retrorecomp/stamp_inputs.py`). A test or a tool that
+replaces a name of the window uses `tools/gui_patching.patch_gui`, which
+patches it in every window module that has it, and reads the window's source
+through `gui_source()`.
 
 AI exploration is a future direction. The current converter learns from
 fixed conversion scripts; it does not ship a local LLM or AI player.
