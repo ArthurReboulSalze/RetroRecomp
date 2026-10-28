@@ -60,7 +60,12 @@ class Console16Tests(unittest.TestCase):
                              (self.root/'retro16_state_config.h').read_text())
             # Check the retained Windows migration contract independently of
             # the machine executing these pure source-generation tests.
-            with patch('retrorecomp.console16_state.os.name','nt'):
+            # Only this module sees 'nt': a global os.name would make pathlib build Windows paths.
+            class WindowsOs:
+                name = 'nt'
+                def __getattr__(self, attribute):
+                    return getattr(os, attribute)
+            with patch('retrorecomp.console16_state.os', WindowsOs()):
                 write_config(self.root,rom,'md','Test',REPOSITORIES)
         self.assertIn('RR16_STATE_COMPAT_ABI "ea70d6ee',
                       (self.root/'retro16_state_config.h').read_text())

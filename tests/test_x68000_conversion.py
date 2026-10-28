@@ -18,7 +18,8 @@ class ConverterTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # Long form: the Windows runner spells the temporary folder RUNNER~1, the converter resolves it.
+        self.root = Path(self.temp.name).resolve()
         for name, size, byte in [('one.xdf', XDF_BYTES, 1), ('two.xdf', XDF_BYTES, 2),
                                  ('iplrom.dat', IPL_BYTES, 3), ('cgrom.dat', CGROM_BYTES, 4)]:
             (self.root/name).write_bytes(bytes([byte])*size)
