@@ -7,7 +7,7 @@
 <p align="center"><em>Less emulation. No FPGA. As native as possible.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/release-1.6.1-d4a737" alt="Release version 1.6.1">
+  <img src="https://img.shields.io/badge/release-1.6.2-d4a737" alt="Release version 1.6.2">
   <img src="https://img.shields.io/badge/console_profiles-9-626262" alt="Nine console profiles, including the experimental Capcom CPS-1 and Sharp X68000">
   <img src="https://img.shields.io/badge/platforms-Windows_x64_%7C_Linux_x86--64-343434" alt="Windows x64 and Linux x86-64">
   <img src="https://img.shields.io/badge/original_code-MIT-d4a737" alt="Original contributions: MIT">
@@ -242,6 +242,6 @@ Original RetroRecomp contributions use the [MIT license](LICENSE). Imported
 components retain their own terms, including noncommercial restrictions;
 MIT does not override them. See [third-party notices](THIRD_PARTY_NOTICES.md).
 Notices are embedded in the converter; the matching
-[UPX source archive](licenses/upx-5.2.1-src.tar.xz) is available in this repository.
+[UPX source archive](licenses/upx-5.3.0-src.tar.xz) is available in this repository.
 
 Feedback and contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md).

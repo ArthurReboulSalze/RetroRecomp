@@ -115,7 +115,7 @@ Free BIOS replacements are research candidates only, not bundled dependencies.
 | Pillow and bundled image codecs | 12.3.0; MIT-CMU and component licenses | [Full text](licenses/Pillow.md) |
 | PyInstaller | 6.22.3; GPLv2+ with distribution exception | [Full text and exception](licenses/PyInstaller.md) |
 | PyInstaller hooks | 2026.7; component terms in the hook package | [Full text](licenses/PyInstaller-hooks.md) |
-| UPX executable packer | 5.2.1; GPL with special exception for packed executables | [Full text and exception](licenses/UPX.md), [corresponding source](licenses/upx-5.2.1-src.tar.xz) |
+| UPX executable packer | 5.3.0; GPL with special exception for packed executables | [Full text and exception](licenses/UPX.md), [corresponding source](licenses/upx-5.3.0-src.tar.xz) |
 | OpenSSL | 3.0.20; Apache 2.0 | [Full text](licenses/OpenSSL.md) |
 | zlib / zlib-ng | zlib terms; CPython uses zlib-ng 2.2.4 | [zlib](licenses/zlib.md), [zlib-ng](licenses/zlib-ng.md) |
 
@@ -126,7 +126,7 @@ additional components shipped with their respective distributions.
 
 Full notice files are reproduced from the installed packages or the pinned
 upstream sources and bundled inside `Retro-Recomp.exe`. The matching
-[UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/e522cbde7ca6e7e6eccc0c901389a4178492e6d7/licenses/upx-5.2.1-src.tar.xz)
+[UPX source archive](https://github.com/ArthurReboulSalze/RetroRecomp/blob/v1.6.2/licenses/upx-5.3.0-src.tar.xz)
 is maintained separately in the public repository and linked from Credits.
 The executable download page must also link to that archive. No ROMs, box art,
 personal settings, compilation

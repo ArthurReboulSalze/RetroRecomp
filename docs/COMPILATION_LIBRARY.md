@@ -19,7 +19,7 @@ game part.
 ### Packing is a build input (1.5.0, Linux compression)
 
 `retrorecomp/packing.py` packs the validated executable with the bundled, unmodified
-UPX 5.2.1 just before it is published. UPX restores the same program in memory before
+UPX 5.3.0 just before it is published. UPX restores the same program in memory before
 it starts; it never chooses which guest code is discovered, translated or validated.
 Neo Geo and CPS-1 also replay their routes on the packed executable and compare it with
 the reference, so a packing that changed the game would fail there. Until 1.5.0 the module
@@ -78,8 +78,9 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 **The rule (28 October 2026): the previous release only.** `compilation_inputs.LEGACY_GAME_STAMPS` lists the game
 stamps of the release before the one being built, never those of older releases, and the quick-state keys
 (`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
-table was empty in the tree of 1.6.0; the tree of 1.6.1 lists the entries of 1.6.0 (eight consoles, the X68000 apart: see
-[UPGRADES.md](UPGRADES.md#exports-of-160-in-161), with the evidence and what it does not prove), and each release after
+table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES.md](UPGRADES.md#exports-of-160-in-161)); the
+tree of 1.6.2 lists those of 1.6.1 (eight consoles, the X68000 apart: see
+[UPGRADES.md](UPGRADES.md#exports-of-161-in-162), with the evidence and what it does not prove), and each release after
 replaces them, proving each one build-only with a real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no

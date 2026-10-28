@@ -1,7 +1,7 @@
 """Compact validated game builds before they become public exports.
 
 Windows and Linux x86-64 games are packed with the bundled, unmodified UPX
-5.2.1 (licenses/UPX.md), then tested by UPX itself. This is how a game is
+5.3.0 (licenses/UPX.md), then tested by UPX itself. This is how a game is
 built, not what it does: a build input (compilation_inputs.BUILD_MODULES).
 """
 from __future__ import annotations
@@ -19,22 +19,23 @@ from . import timings
 from .paths import ASSETS
 
 
-UPX_VERSION = "5.2.1"
+UPX_VERSION = "5.3.0"
 UPX_LEVEL = "-9"
-UPX_SHA256 = "d20ebe0b7b22b6be968c8c34be61f94ddea12cb11462e2cec27f548ef9574df8"
-# Official upx-5.2.1-amd64_linux.tar.xz (SHA-256 402162aa...1b91657), its upx file.
+UPX_SHA256 = "ff30a651c9e41a2bbb363825fac9e7e23d92871c1ac82813a264e3b8d1cd302b"
+# Official upx-5.3.0-amd64_linux.tar.xz (SHA-256 79cea8a5...dc505c1), its upx file.
 UPX_LINUX = "assets/tools/upx-amd64_linux"
-UPX_LINUX_SHA256 = "287b3dffe9dcafd8e366e162ac4ab41e5cf45a3c6768970256af0869288d84a1"
+UPX_LINUX_SHA256 = "39bbf81cb4c56ce3e2e13a1755a31ec4970e33f061db8e214e9fac59354fc9aa"
 # Large Mega Drive and Super Nintendo ELFs take longer than PEs to pack at -9.
 LINUX_TIMEOUT = 300
 # UPX 5.2.0 and 5.2.1 can reject, with "compressed data violation", their own default (NRV) packing of a
 # large ELF at `upx -t` and `upx -d` although the data are valid and the packed program runs (upx/upx
-# issue 18937: the test unpacks each block in place with too little slack; fixed on the development
-# branch after 5.2.1, not released). Seen on Debian with the 78 MB Neo Geo Metal Slug 3 game, in 1.5.6 as in
+# issue 18937: the test unpacks each block in place with too little slack; fixed in UPX 5.3.0, the bundled
+# release since 1.6.2). Seen on Debian with the 78 MB Neo Geo Metal Slug 3 game, in 1.5.6 as in
 # 1.6.0. -1, --best, --nrv2b/d/e, --no-filter and a stripped file fail the same way. --lzma passes the test
 # and is smaller (40 MB against 45 MB) but a start costs 2.7 s instead of 0.17 s on a Core i7-6600U (the
 # unpacked 78 MB file starts in 0.01 s), and the Neo Geo F11 machine switch starts the file again: not
 # worth it for the player, so a game UPX cannot pack and test is published unpacked, as built and validated.
+# 5.3.0 fixes the known case; the fallback stays as a safety net for any other game UPX rejects.
 # The reason is kept for packing_record by the SHA-256 of the unpacked bytes, and handed to the caller's
 # `emit` (the conversion log that the interface and the batch command line show); with no `emit` it goes
 # to stderr, once.
@@ -96,7 +97,7 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
         return outcome
     tool = ASSETS / "assets/tools/upx.exe"
     if not tool.is_file() or hashlib.sha256(tool.read_bytes()).hexdigest() != UPX_SHA256:
-        raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")
+        raise RuntimeError("Bundled UPX 5.3.0 is missing or failed its integrity check.")
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     # The exhaustive --best search can spend minutes on large native ROM-PC
     # tables. Level 9 retains the same transparent loader and most of the
@@ -121,7 +122,7 @@ def _linux_tool(folder: Path) -> tuple[Path, Path | None]:
     tool = ASSETS / UPX_LINUX
     data = tool.read_bytes() if tool.is_file() else b''
     if hashlib.sha256(data).hexdigest() != UPX_LINUX_SHA256:
-        raise RuntimeError("Bundled UPX 5.2.1 is missing or failed its integrity check.")
+        raise RuntimeError("Bundled UPX 5.3.0 is missing or failed its integrity check.")
     if os.access(tool, os.X_OK):
         return tool, None
     # Beside the game being published: that volume must already allow programs.
@@ -159,7 +160,7 @@ def compact_linux(path: Path) -> dict | None:
     program (resources.embed_resources) and restored by UPX with the rest.
 
     The packing is the one every earlier release used, byte for byte. When UPX cannot
-    pack the game or rejects its own result (see the note on UPX 5.2.1 above), the
+    pack the game or rejects its own result (see the note on UPX 5.2.0 and 5.2.1 above), the
     validated original is put back and the game is published unpacked, exactly as built,
     rather than failing the whole conversion. That is returned as {'notice': text};
     None means the game was packed and tested, or is not an x86-64 ELF."""

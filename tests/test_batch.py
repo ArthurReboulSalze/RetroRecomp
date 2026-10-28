@@ -218,7 +218,7 @@ class BatchTests(unittest.TestCase):
     def test_a_packing_notice_reaches_the_conversion_log_once(self):
         # UPX could not pack and test the game (Linux): the log the interface shows says so, once.
         item = self.item("one", 1)
-        notice = 'UPX 5.2.1 could not pack and verify the executable (test). It is published unpacked.'
+        notice = 'UPX 5.3.0 could not pack and verify the executable (test). It is published unpacked.'
         def compact(staged, emit=None):
             emit(notice)
         def convert(said_during_conversion):

@@ -69,27 +69,26 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # today's has no entry either. A player coming from an older release reconverts.
 # Release procedure: replace the entries with those of the release being left
 # (one real receipt per console, proved build-only); never add them to the
-# older ones. The table was empty in the tree of 1.6.0: the releases before it
-# are no longer accepted, and the entries of 1.6.0 are the ones below.
-# Release 1.6.0 (tag v1.6.0, commit 84d5a9e, Python 3.14.5, the Python of the packaged converter), declared on
+# older ones. The table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the stamps of 1.6.0; the entries of
+# 1.6.1 are the ones below.
+# Release 1.6.1 (tag v1.6.1, commit 48b1fac, Python 3.14.5, the Python of the packaged converter), declared on
 # 28 October 2026 for the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo and CPS-1.
-# Each value is the game stamp computed from the tag (`git archive`, then `compilation_inputs.role_stamps`). Between
-# the tag and 1.6.1 no listed input changed what a conversion generates but the Mega Drive runtime: the packer's
-# notice reaches the conversion log (every console), the readers of files older than 1.6.0 are gone, and, for the
-# Mega Drive only, `native/md_z80_bus.inc` (the deferred sound-CPU payment: an upgraded Mega Drive export is rebuilt
-# with it and rechecked against the reference on the quick routes, which is the point of its entry). Nothing Super
-# Nintendo specific changed. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1". The X68000 has no
+# Each value is the game stamp computed from the tag (`git archive`, then `compilation_inputs.role_stamps`; the same
+# method gives the 1.6.0 entries of the tree of 1.6.1 again, byte for byte). Between the tag and 1.6.2 no listed input
+# changed what a conversion generates: the report gained its `timings`, the batch applies the shared base, the NES
+# player shell moved onto the host kit (the generated sources and the learned paths are the same), and the packer is
+# UPX 5.3.0 (a build input). Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.1 in 1.6.2". The X68000 has no
 # entry: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not
 # recompute.
 LEGACY_GAME_STAMPS = {
-    'cps1': ('699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95',),
-    'gb': ('c36134ebfc832440005280367b64225bc09b486c3fff560d0f8a1376110712da',),
-    'gg': ('47c60b9a2034948c0f2c31e8e3a209a368f8ef45490cc6047f73cfb882c637be',),
-    'md': ('4db8a6f2397ab51d383166778c227e45cadcd3806bd7bf5aaf7e965267744b75',),
-    'nes': ('511451fc62f41db3f8dee6f57e1d2b2d2623cf8a0171482bd73bcb2bb595432b',),
-    'ng': ('41577b77c4e78dd15d8644092591e5852efc1c96e9fe5be1dde2bbca8b1fcb61',),
-    'sms': ('19b8bd2a33d49f8b2d08e2335e7ee5d96178347c941d3da73800b0bb61551732',),
-    'snes': ('cccb132e2e23df78340770cd1c0c562d32645d732e97aa15c4e853e66c06af36',),
+    'cps1': ('fb7d9315c9637c103aa81f259712524d9bf29b33e6e9d920ce8f4b5ad83f92db',),
+    'gb': ('e5fc74915974ec27ab05bc9c9ae5ecea03050316ed39d9842b11485d2ffe1e09',),
+    'gg': ('f860d65789176fa85ad7c7880c766da1754ea98fedac4f50edcf77d664f799cd',),
+    'md': ('2effe9f498891007f54fadc029a8f55f625ed414c73894fe2cbde5684dcfd188',),
+    'nes': ('a8b871f2ab08ffc44633cc562b942fdac9a3cc4d65a7706030b714abf96fa017',),
+    'ng': ('1d1a5224f6c89a58ff7f1f79d807918a1c4f1295e0ae3543a253a4d884d2959b',),
+    'sms': ('c4589fe7b51645c8fc779fb2511d3dc9c793fa855b5c910089bbdf0cb3dea68d',),
+    'snes': ('463da5c5cf464363bbc887e524a1933288e9f94c7d748cae624748dc172b6ae4',),
 }
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
@@ -167,7 +166,7 @@ NOT_INPUTS = (
     'assets/RetroRecomp-UI-JP.otf', 'assets/RetroRecomp-UI-SC.otf', 'assets/board-',
     'assets/compilation-knowledge.json.gz', 'assets/cover-references.json', 'assets/font-coverage.json',
     'assets/credits/', 'assets/locales/', 'assets/tools/',
-    'licenses/upx-5.2.1-src.tar.xz')
+    'licenses/upx-5.3.0-src.tar.xz')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
 # with the consoles that own each.

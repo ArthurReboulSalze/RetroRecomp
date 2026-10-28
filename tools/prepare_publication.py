@@ -152,7 +152,7 @@ licenses/UPX.md licenses/llvm-mingw.md
 licenses/segagenesisrecomp.md licenses/snesrecomp.md
 licenses/geolith.md licenses/lithogen.md licenses/musashi.md
 licenses/x68000-machine.md licenses/fmgen.md
-licenses/upx-5.2.1-src.tar.xz
+licenses/upx-5.3.0-src.tar.xz
 licenses/SingleStepTests-z80.md licenses/SingleStepTests-m68000.md licenses/Python.md licenses/Tcl-Tk.md
 licenses/Pillow.md licenses/PyInstaller.md licenses/PyInstaller-hooks.md
 licenses/OpenSSL.md licenses/zlib.md licenses/zlib-ng.md
