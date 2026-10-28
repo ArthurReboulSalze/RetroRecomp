@@ -105,6 +105,18 @@ Measurements stay separate: this is native code, CPU fidelity against the fresh 
 of the generated game; it says nothing about hardware fidelity, gameplay or latency. A Linux 1.5.6 export is not covered (the
 stamps are bytecode digests of Python 3.14.5, the Linux converter is built with another Python).
 
+## Mega Drive exports of 1.6.0 in 1.6.1
+
+1.6.1 corrects the deferred sound-CPU payment of the Mega Drive runtime (`native/md_z80_bus.inc`, game-side, owned by
+`md` only): when the 68000 writes BUSREQ or RESET during the merged final catch-up of a payment that crosses a slice end,
+the host checkpoint no longer runs the 68000 a second time before answering the request (Super Street Fighter II
+answered a bus request one poll late, which shifted a few YM2612 and PSG writes by 18 68000 clocks). That changes what a
+Mega Drive game does, so the Mega Drive game stamp moves and **no 1.6.0 entry is added to `LEGACY_GAME_STAMPS`**: Mega
+Drive exports of 1.6.0 are converted in full once, not upgraded. The other consoles do not own the file: their stamps do
+not move. The Mega Drive quick-state key (`RR16_STATE_ABI`) also moves, because it hashes the listed native files of the
+console; the serialized layout is unchanged, but a state written by a 1.6.0 export is refused cleanly by a 1.6.1 export
+([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).

@@ -280,3 +280,12 @@ The compatibility keys of the Mega Drive, Neo Geo and CPS-1 (and the 1.4.1 ones)
 (`console16_state.py`, `neogeo_build.py`, `cps1_build.py`: `os.name == 'nt'`): the key of a Linux build also hashes its target, which no
 Linux 1.5.6 key was recorded for, so a state written by a Linux 1.5.6 export is refused by a 1.6.0 export (cleanly, as above). Not
 run on Linux.
+
+## States written by release 1.6.0
+
+1.6.1 changes the quick-state key of the Mega Drive only: `native/md_z80_bus.inc` (the deferred sound-CPU payment, see
+[UPGRADES.md](UPGRADES.md#mega-drive-exports-of-160-in-161)) and `native/md_boundary_checks.c` are listed native files of
+the console, and the key hashes them. The serialized state did not change (same ABI-11 layout, same sections). No
+compatibility key is added for 1.6.0: a Mega Drive state written by a 1.6.0 export is refused by a 1.6.1 export, by the design of the key
+(like the other refusals above; this one was not exercised). Super Nintendo, Neo Geo, CPS-1 and the 8-bit
+consoles do not own the file, so their keys do not move. Not run on Linux.

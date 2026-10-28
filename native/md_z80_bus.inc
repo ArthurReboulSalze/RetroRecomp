@@ -235,7 +235,7 @@ static void rr_lazy_flush(GenesisMachine *m,unsigned final_target) {
     /* The nested arbiter's catch-up for each queued point, in order. At the
      * slice end the host's own final catch-up (same bus split) may follow in
      * the same run; nonzero final_target is that deadline. */
-    rr_lazy_flushing=1;rr_lazy_restored=0;rr_lazy_cursor=0;
+    rr_lazy_flushing=1;rr_lazy_restored=0;rr_lazy_cursor=0;rr_bus_control_event=0;
     rr_lazy_after_time=rr_lazy_point[rr_lazy_points-1u].time;
     while(!rr_lazy_restored) {
         uint32_t elapsed=g_audio_cycle_counter-rr_bus_main_origin;
@@ -515,7 +515,12 @@ static void rr_z80_resume(void) {
             if(rr_lazy_restored) { rr_lazy_recycle();continue; }
             rr_lazy_beyond_return=rr_lazy_arbiter_returns();
             if(rr_lazy_beyond_return)continue;
-            /* The arbiter's host checkpoint; rr_bus_slice serves it next. */
+            /* The arbiter's host checkpoint; rr_bus_slice serves it next. A
+             * BUSREQ/RESET write that ended the merged run is this very
+             * checkpoint's catch-up: the immediate schedule stops at that
+             * write and answers the request at once, so the host must not run
+             * the 68000 again (one more instruction) before the answer. */
+            if(final_target && rr_bus_control_event)rr_z80_checkpoint_advanced=1;
             rr_z80_checkpoint=1;break;
         }
         if(!rr_lazy_points)break;
