@@ -11,6 +11,7 @@
 #include <string.h>
 #include <wchar.h>
 #include "platform_io.h"
+#include "display_settings.h"
 #include "embedded_resources.h"
 #include "retro_menu.h"
 #include "runtime_feedback_sdl.h"
@@ -31,6 +32,7 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
     rrhk_bind(m);
     rrhk_load_bindings();
     rrhk_options_init(m->ini_section);
+    if (m->machine_fkeys) rrhk_options_keyboard(m->console_name, m->machine_fkeys);
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     r->test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
     if (!r->test_frames && m->frame_limit) r->test_frames = m->frame_limit();
@@ -76,6 +78,9 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
         if (rrhk_options_quit(rrhk.menu)) r->running = false;
         else if (rrhk_options_restart(rrhk.menu)) { m->reset(); rrhk_audio_pause_output(r); rrhk.menu = 0; }
         if (!r->running) break;
+        /* A computer's fast loading key: no pacing, no sound, a picture every eighth frame. */
+        bool fast = m->fast_forward && m->fast_forward();
+        if (fast != r->fast) { r->fast = fast; r->next = SDL_GetPerformanceCounter(); rrhk_audio_pause_output(r); }
         if (r->pending_state && m->state_ready()) {
             bool load = r->pending_state == 2;
             bool ok = m->state_file(r->state_path, load);
@@ -87,14 +92,15 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
             if (ok) { rrhk.menu = 0; rrhk.capturing = 0; }
             if (ok && load) { rrhk_audio_pause_output(r); r->next = SDL_GetPerformanceCounter(); }
         }
-        m->pause(rrhk.menu != 0 && !r->pending_state);
+        bool idle = (rrhk.menu != 0 || rrhk.paused) && !r->pending_state;
+        m->pause(idle);
         /* Explicit performance reports only; include CPU, audio preparation,
          * drawing and Present, but exclude intentional pacing/menu waits. */
-        Uint64 work_started = m->cost_enabled && m->cost_enabled() && !rrhk.menu ? SDL_GetPerformanceCounter() : 0;
+        Uint64 work_started = m->cost_enabled && m->cost_enabled() && !rrhk.menu && !rrhk.paused ? SDL_GetPerformanceCounter() : 0;
         uint64_t input_frame = m->input_frame ? m->input_frame() : r->frame;
         uint16_t pad1 = rrhk_pad_word(0, input_frame);
         if (m->pointer) rrhk_pointer_sample(r->win, r->ren, pad1);
-        if (!rrhk.menu || r->pending_state) {
+        if (!idle) {
             if (timing_enabled) timing_ticks[1] = SDL_GetPerformanceCounter();
             if (m->before_frame) {
                 RrhkAudioProbe probe = {r->audio_playing, rrhk_audio_queued(r),
@@ -109,7 +115,8 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
             if (r->test_frames && r->frame >= r->test_frames) r->running = false;
         } else rrhk_audio_idle(r);
         if (timing_enabled) timing_ticks[3] = SDL_GetPerformanceCounter();
-        rrhk_present_picture(r);
+        const bool shown = !r->fast || (r->frame & 7) == 0;
+        if (shown) rrhk_present_picture(r);
 
         int current_title_state = (m->interpreted() || m->audio_interpreted() ? 1 : 0);
         /* A cartridge device (GSU, CX4, DSP-1) still running on its instruction
@@ -130,12 +137,13 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
         if (m->before_present) m->before_present(r->ren);
         Uint64 present_started = work_started ? SDL_GetPerformanceCounter() : 0;
         if (timing_enabled) timing_ticks[4] = SDL_GetPerformanceCounter();
-        SDL_RenderPresent(r->ren);
+        if (shown) SDL_RenderPresent(r->ren);
         Uint64 now = SDL_GetPerformanceCounter();
         timing_ticks[5] = now;
         if (work_started && m->cost) m->cost(1000.0 * (now - work_started) / r->frequency,
                                             1000.0 * (now - present_started) / r->frequency);
-        if (rrhk.menu) { r->next = now; SDL_Delay(16); continue; }
+        if (rrhk.menu || rrhk.paused) { r->next = now; SDL_Delay(16); continue; }
+        if (r->fast) { r->next = now; continue; }
         r->next += (Uint64)(m->frame_seconds * r->frequency);
         rrhk_audio_pace(r, now);
         if (r->next > now) {
@@ -170,6 +178,14 @@ int rrhk_main(const RrhkMachine *m, const char *title, int scale) {
     rr_scanlines_destroy(&r->scanlines);
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(r->ren); SDL_DestroyWindow(r->win); return 0;
+}
+
+SDL_Window *rrhk_window(void) { return run.win; }
+
+/* F4 and the computers' own display shortcut. */
+void rrhk_cycle_display(void) {
+    int changed = rr_display_cycle(run.win, &rrhk.fullscreen, rrhk.ini_file, rrhk.data_dir, rrhk.video_section);
+    if (changed < 0) snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
 }
 
 void rrhk_notice(const char *text, Uint64 milliseconds) {

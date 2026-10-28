@@ -36,8 +36,9 @@ class SDLControlsTests(unittest.TestCase):
 project(x68000_controls C)
 find_package(SDL2 CONFIG REQUIRED)
 set(ROOT "{root}")
+file(GLOB RR_KIT_SHELL "${{ROOT}}/native/hostkit/shell/rrhk_*.c")
 add_executable(controls "${{ROOT}}/tests/x68000_{harness}_harness.c"
- "${{ROOT}}/native/retro_menu.c" "${{ROOT}}/native/platform_io.c"
+ "${{ROOT}}/native/retro_menu.c" "${{ROOT}}/native/platform_io.c" ${{RR_KIT_SHELL}}
  "${{ROOT}}/native/x68000_reference/media_session.c"
  "${{ROOT}}/native/x68000_reference/state_store.c")
 target_include_directories(controls PRIVATE "{libretro}"
@@ -70,7 +71,7 @@ endif()
         (work / 'result.log').write_text(result.stdout + result.stderr, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = json.loads(result.stdout.splitlines()[-1])
-        self.assertGreaterEqual(report['checks'], 20 if fresh else 25)
+        self.assertGreaterEqual(report['checks'], 35 if fresh else 55)
         self.assertEqual(report['failures'], 0)
         if fresh:
             result = subprocess.run([str(executable), '--verify'], capture_output=True, text=True, encoding="utf-8", timeout=30)

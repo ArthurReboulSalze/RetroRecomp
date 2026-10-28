@@ -42,7 +42,9 @@ SDL_CALLS = ('PollEvent', 'GetKeyboardState', 'GetMouseState', 'GetWindowFlags',
              'GetPerformanceCounter', 'GetTicks64', 'Delay', 'OpenAudioDevice', 'QueueAudio',
              'GetQueuedAudioSize', 'PauseAudioDevice', 'ClearQueuedAudio', 'CloseAudioDevice',
              'LockAudioDevice', 'UnlockAudioDevice', 'SetWindowTitle', 'SetWindowFullscreen', 'ShowCursor',
-             'RenderPresent')
+             'RenderPresent', 'GetTicks')
+# The X68000 host also reads the captured mouse; its frontend answers the core through libretro callbacks.
+X68_SDL_CALLS = (*SDL_CALLS, 'GetRelativeMouseState', 'SetRelativeMouseMode')
 # The host sources of a project: the 16-bit shell before the kit, the kit, and the NES host before the kit.
 HOST_SOURCE = re.compile(r'console16_host_ui\.c|hostkit/(?:shell|adapters)/rrhk_\w+\.c|\$\{RETRO_NATIVE_DIR\}/nes_host_ui\.c')
 NES_OLD_HOST = '${RETRO_NATIVE_DIR}/nes_host_ui.c'
@@ -123,8 +125,44 @@ def build(project: Path, work: Path, plain: bool, state_config: Path | None, ref
     return build_executable(work / 'build', 'game')
 
 
+def build_x68(tree: Path, kept: Path, work: Path) -> Path:
+    """The X68000 export of a kept build (its CMake cache says where its payload, CPU and machine sources are), compiled from
+    the host sources of `tree` against the harness. `tree` is the working tree for the host kit, or an unpacked `git archive`
+    of the release tag (native and tools) for the former host: both sides are built the same way, from the same kept build."""
+    from retrorecomp.core import run, toolchain
+    from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args, sdl_install
+    cache = {}
+    for line in (kept / 'CMakeCache.txt').read_text(encoding='utf-8', errors='replace').splitlines():
+        match = re.match(r'([A-Za-z0-9_]+):[A-Z]+=(.*)', line)
+        if match:
+            cache[match.group(1)] = match.group(2)
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    hooks = ROOT / 'tools/hostkit_ab/hooks.c'
+    host = [tree / 'native/x68000_reference/reference_host.c', *sorted((tree / 'native/hostkit/shell').glob('rrhk_*.c'))]
+    calls = ';'.join([f'SDL_{name}=rrab_{name}' for name in X68_SDL_CALLS] + ['retro_set_input_state=rrab_set_input_state'])
+    text = ('cmake_minimum_required(VERSION 3.20)\nproject(RrabX68 LANGUAGES C CXX)\n'
+            f'add_subdirectory("{(tree / "native/x68000_native").as_posix()}" native)\n'
+            f'target_sources(x68000_reference_host PRIVATE "{hooks.as_posix()}")\n'
+            f'set_source_files_properties("{hooks.as_posix()}" TARGET_DIRECTORY x68000_reference_host PROPERTIES COMPILE_DEFINITIONS "RRAB_X68=1")\n'
+            f'set_source_files_properties({" ".join(chr(34) + p.as_posix() + chr(34) for p in host)} TARGET_DIRECTORY x68000_reference_host '
+            f'PROPERTIES COMPILE_DEFINITIONS "{calls}")\n')
+    (work / 'CMakeLists.txt').write_text(text, encoding='utf-8', newline='\n')
+    cmake, generator = toolchain()
+    defines = [f'-D{name}={cache[name]}' for name in ('RR_X68000_GENERATED', 'RR_X68000_PAYLOAD_DIR', 'RR_X68000_B74_TREE',
+                                                      'RR_X68000_TOOL_STAMP', 'RR_B74_SOURCE', 'RR_GEOLITH_DIR', 'RR_RECOMP_VERSION')
+               if name in cache]
+    log = work / 'build.log'
+    run([cmake, '-S', work, '-B', work / 'build', '-G', generator, *cmake_target_args(),
+         f'-DCMAKE_PREFIX_PATH={sdl_install().as_posix()}', *defines], log=log)
+    run([cmake, '--build', work / 'build', '--config', 'Release', '--target', 'x68000_reference_host', '--parallel', build_jobs()],
+        log=log, timeout=3600)
+    return build_executable(work / 'build' / 'native' / 'reference', 'RetroRecomp-X68000-Native')
+
+
 def play(exe: Path, script: Path, out: Path, timeout: int, extra=(), seed: Path | None = None,
-         seed_datas: Path | None = None) -> int:
+         seed_datas: Path | None = None, arguments=()) -> int:
     if out.exists():
         shutil.rmtree(out)
     box = out / 'box'
@@ -142,7 +180,7 @@ def play(exe: Path, script: Path, out: Path, timeout: int, extra=(), seed: Path 
     for pair in extra:   # NAME=VALUE; @OUT@ stands for the output folder
         name, value = pair.split('=', 1)
         environment[name] = value.replace('@OUT@', str(out))
-    done = subprocess.run([str(box / exe.name)], cwd=box, env=environment, capture_output=True, timeout=timeout)
+    done = subprocess.run([str(box / exe.name), *arguments], cwd=box, env=environment, capture_output=True, timeout=timeout)
     (out / 'stderr.txt').write_bytes(done.stderr)
     (out / 'returncode.txt').write_text(str(done.returncode))
     return done.returncode
@@ -378,6 +416,86 @@ def battery(family: str, players: int = 2, gun: bool = False, pages: int = 5, le
     return s.text()
 
 
+def x68_script(kind: str) -> str:
+    """Scripts for the Sharp X68000 (HOST_KIT.md phase 3). The player is a libretro frontend whose F2 pages, notices and
+    audio priming differ from the former host on purpose, so the scripts are split by what they prove:
+
+    play       the machine's input and the pictures: keys, controllers, sticks (beyond the dead zone of both hosts),
+               filters and display modes with the pictures taken after the notices are gone. The traces of the two
+               hosts must agree to the bit.
+    autofire   F6 and Ctrl+Alt+F, a held button, the bound key and the second player's pad (decision D4: the common rule).
+    keyboard   the guest keyboard (Ctrl+Alt+K): keys, function keys and Escape reach the guest, the host keys do not.
+    mouse      a click captures the mouse, Ctrl+Alt+M releases it, motion and buttons are handed on.
+    ui         help and its second page, every F2 page and the options in the five languages, pause, rebinding, clearing,
+               the Pause binding, quit combinations, Ctrl+Alt chords: the pictures are read by eye."""
+    s = Script()
+    s.at(40)
+    if kind == 'play':
+        for p in range(2):
+            s.say(f'attach {p}', 3)
+        for key in ('Up', 'Down', 'Left', 'Right', 'W', 'X', 'Return', 'Z', 'C'):
+            s.hold(key, 4)
+        for p in range(2):
+            for button in ('a', 'b', 'dpup', 'dpdown', 'dpleft', 'dpright', 'start', 'x', 'y', 'back', 'leftshoulder', 'leftstick'):
+                s.say(f'button {p} {button} 1', 3).say(f'button {p} {button} 0', 2)
+            for axis, value in (('leftx', -32000), ('leftx', -16001), ('leftx', 16001), ('leftx', 32000),
+                                ('lefty', -32000), ('lefty', -16001), ('lefty', 16001), ('lefty', 32000)):
+                s.say(f'axis {p} {axis} {value}', 3).say(f'axis {p} {axis} 0', 2)
+        s.say('hold W', 0).say('hold X', 3).say('release W', 0).say('release X', 3)
+        keys = ('Return', 'W', 'Right', 'X', 'Left', 'Down', 'Up', 'Return')
+        for n in range(40):
+            s.hold(keys[n % len(keys)], 5).at(s.now + 20)
+        for shot in range(4):                    # sharp, xBR, Scale2x, scanlines
+            s.tap('F3', 8).at(s.now + 230).say(f'capture filter-{shot}.bmp', 2)
+        for shot in range(3):                    # pixel, fit, window
+            s.tap('F4', 8).at(s.now + 230).say(f'capture display-{shot}.bmp', 2)
+        s.tap('F4', 8).at(s.now + 230).say('capture display-3.bmp', 2)
+    elif kind == 'autofire':
+        s.say('attach 0', 3).say('attach 1', 3)
+        s.hold('W', 12).tap('F6', 3).hold('W', 24).hold('X', 24).hold('Return', 24)
+        s.say('button 0 a 1', 0).say('button 1 a 1', 20).say('button 0 a 0', 0).say('button 1 a 0', 4)
+        s.say('hold W', 0).say('button 0 a 1', 10).say('release W', 0).say('button 0 a 0', 4)
+        s.tap('F6', 3).hold('W', 12)
+        s.say('press F ctrlalt', 3).hold('W', 24).say('press F ctrlalt', 3).hold('W', 12)
+    elif kind == 'keyboard':
+        s.say('press K ctrlalt', 4)
+        for key in ('W', 'X', 'Return', 'Escape', 'F2', 'F5', 'F8', 'F9', 'F10', 'A', 'Space', 'Tab', 'Left_Shift'):
+            s.hold(key, 4)
+        s.tap('F8', 4).tap('F9', 4)
+        s.say('press K ctrlalt', 4)
+        for key in ('W', 'X', 'F8', 'F9'):
+            s.hold(key, 4)
+    elif kind == 'mouse':
+        s.say('attach 0', 3).say('mouse 300 200 0', 4).say('click', 4).say('mouse 330 190 0', 4).say('mouse 340 180 1', 4)
+        s.say('mouse 340 180 0', 4).say('mouse 300 200 2', 4).say('mouse 300 200 0', 4)
+        s.say('press M ctrlalt', 6).say('mouse 400 300 1', 4).say('mouse 400 300 0', 4).say('press M ctrlalt', 6)
+        s.say('mouse 410 310 1', 4).say('mouse 410 310 0', 4)
+    elif kind == 'ui':
+        for language in range(LANGUAGES):
+            s.tap('F1', 4).say(f'capture ui-help-{language}.bmp', 2).tap('Tab', 4).say(f'capture ui-help2-{language}.bmp', 2).tap('Tab', 3).tap('F1', 4)
+            s.tap('F2', 4).say(f'capture ui-f2-{language}-0.bmp', 2)
+            for page in range(1, 5):
+                s.tap('Right', 3).say(f'capture ui-f2-{language}-{page}.bmp', 2)
+            for _ in range(4):
+                s.tap('Left', 2)
+            s.tap('F2', 4)
+            s.tap('F11', 4).say(f'capture ui-pause-{language}.bmp', 2).tap('F11', 4)
+            s.tap('F7', 5)
+        # rebinding: a key and a button of player 1, then Delete clears them; the Pause binding
+        s.tap('F2', 3).tap('Down', 2).tap('Down', 2).tap('Down', 2).tap('Down', 2).tap('Down', 2).tap('Down', 2).tap('Down', 2)   # the Pause row
+        s.tap('Return', 3).tap('P', 3).say('capture ui-bound-key.bmp', 2)
+        s.tap('Right', 3).tap('Return', 3).say('attach 0', 3).say('button 0 leftstick 1', 2).say('button 0 leftstick 0', 4)
+        s.say('capture ui-bound-pad.bmp', 2).tap('Delete', 3).say('capture ui-cleared.bmp', 2).tap('Left', 3).tap('F2', 4)
+        s.tap('P', 4).say('capture ui-pause-key.bmp', 2).tap('P', 4)
+        s.say('press H ctrlalt', 4).say('capture ui-chord-help.bmp', 2).say('press H ctrlalt', 4)
+        s.say('press O ctrlalt', 4).say('capture ui-chord-options.bmp', 2).tap('F2', 4)
+        s.say('press Return ctrlalt', 6).say('press Return ctrlalt', 6)
+    else:
+        raise SystemExit(f'unknown X68000 script {kind}')
+    s.at(s.now + 20).say('capture end.bmp', 2).say('quit')
+    return s.text()
+
+
 PAD_A = '4369 4369 Pad One'          # attachx: vendor 0x1111, product 0x1111, name
 PAD_B = '8738 8738 Pad Two'          # vendor 0x2222
 PAD_TWIN = '13107 13107 Twin Pad'    # two pads with this identity share a GUID and a name
@@ -494,7 +612,10 @@ def check_pads(out: Path, probes: list, family: str) -> int:
         part = line.split()
         if part and part[0] == 'G':
             iteration = int(part[1])
-            if family == 'nes':       # one line per port: G iteration port byte
+            if family == 'x68':       # one line per answer to the core: G iteration port device id value (device 1: the joypad)
+                if int(part[3]) == 1 and int(part[2]) < 2:
+                    words.setdefault(iteration, [0, 0])[int(part[2])] |= 1
+            elif family == 'nes':     # one line per port: G iteration port byte
                 words.setdefault(iteration, [0, 0])[int(part[2])] = int(part[3], 16)
             else:                     # G iteration p1 p2
                 words[iteration] = [int(part[2], 16), int(part[3], 16)]
@@ -523,20 +644,26 @@ def main() -> int:
     p.add_argument('--refresh-kit', nargs='?', const=True, default=False, type=Path, metavar='TREE',
                    help="copy native/hostkit (and the runtime catalogue) of this tree, or of TREE, over the kit of the project")
     p.add_argument('--kit', choices=('nes',), help="build the host kit's adapter of this machine over a project converted before the kit")
+    p = sub.add_parser('build-x68', help='the X68000 export of a kept build, host sources of TREE, against the harness')
+    p.add_argument('kept', type=Path, help='the kept build folder holding CMakeCache.txt (.build/x68/win/<hash>/<hash>/native/build)')
+    p.add_argument('work', type=Path); p.add_argument('--tree', type=Path, default=ROOT, help='working tree, or an unpacked archive of the release tag (native and tools)')
     p = sub.add_parser('run'); p.add_argument('exe', type=Path); p.add_argument('script', type=Path)
     p.add_argument('out', type=Path); p.add_argument('--timeout', type=int, default=900)
+    p.add_argument('--arg', action='append', default=[], help='command-line argument of the game (e.g. --trace datas/trace.tsv)')
     p.add_argument('--seed-states', type=Path, help='a datas/states folder (of another run) to start from')
     p.add_argument('--seed-datas', type=Path, help='a whole datas folder (of another run, preferences included) to start from')
     p.add_argument('--env', action='append', default=[], metavar='NAME=VALUE', help='extra environment; @OUT@ is the output folder')
     p = sub.add_parser('pads', help='write the script of a pad slot scenario (one, two, twin, replug, persist, capture); probes go to OUT.probes')
     p.add_argument('scenario'); p.add_argument('out', type=Path)
     p = sub.add_parser('check-pads', help='check the probes of a pad scenario against the events.log of a run')
-    p.add_argument('out', type=Path, help='the run folder'); p.add_argument('probes', type=Path); p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes'))
+    p.add_argument('out', type=Path, help='the run folder'); p.add_argument('probes', type=Path); p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes', 'x68'))
     p = sub.add_parser('compare'); p.add_argument('a', type=Path); p.add_argument('b', type=Path)
     p.add_argument('--ignore-events', nargs='*', default=[], metavar='TAG', help='events.log line tags to leave out, e.g. C (cursor)')
     p.add_argument('--ignore-files', nargs='*', default=[], metavar='NAME', help='files to leave out, e.g. f2-0-4.bmp')
     p = sub.add_parser('script', help='write the standard battery of the shell for one machine')
-    p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes')); p.add_argument('out', type=Path)
+    p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes', 'x68')); p.add_argument('out', type=Path)
+    p.add_argument('--x68', choices=('play', 'autofire', 'keyboard', 'mouse', 'ui'), default='play', help='the X68000 script to write')
+    p.add_argument('--shift', type=int, default=0, help='X68000: add this to every iteration (the former host presents nothing for its first frame, the kit does)')
     p.add_argument('--players', type=int, default=2); p.add_argument('--gun', action='store_true')
     p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (for hosts built before the Linux fix of game_options.h)')
     p.add_argument('--soak', type=int, default=2400, help='iterations of play between the sweeps and the menus')
@@ -544,6 +671,12 @@ def main() -> int:
                    help="the Gamepad row of the F2 gamepad pages: 'row' for the build that has it, 'skip' to never draw those pages")
     p.add_argument('--pages', type=int, default=0, help='F2 pages (default: 2 per player, the machine page, the options)')
     args = parser.parse_args()
+    if args.command == 'script' and args.family == 'x68':
+        text = x68_script(args.x68)
+        if args.shift:
+            text = ''.join(f'{int(line.split(" ", 1)[0]) + args.shift} {line.split(" ", 1)[1]}' for line in text.splitlines(True))
+        args.out.write_text(text, encoding='ascii')
+        return 0
     if args.command == 'script':
         pages = args.pages or 2 * args.players + (1 if args.gun or args.family == 'cps1' else 0) + 1
         args.out.write_text(battery(args.family, args.players, args.gun, pages, soak=args.soak, options=not args.no_options_page, pad_pages=args.pad_pages), encoding='ascii')
@@ -557,12 +690,15 @@ def main() -> int:
     if args.command == 'check-pads':
         probes = [(int(line.split()[0]), [int(n) for n in line.split()[1:]]) for line in args.probes.read_text(encoding='ascii').splitlines() if line.strip()]
         return check_pads(args.out.resolve(), probes, args.family)
+    if args.command == 'build-x68':
+        print(build_x68(args.tree.resolve(), args.kept.resolve(), args.work.resolve()))
+        return 0
     if args.command == 'build':
         print(build(args.project.resolve(), args.work.resolve(), args.plain, args.state_config,
                      args.refresh_kit if args.refresh_kit is True or not args.refresh_kit else args.refresh_kit.resolve(), args.patch, args.legacy_host, args.kit))
         return 0
     if args.command == 'run':
-        code = play(args.exe.resolve(), args.script.resolve(), args.out.resolve(), args.timeout, args.env, args.seed_states, args.seed_datas)
+        code = play(args.exe.resolve(), args.script.resolve(), args.out.resolve(), args.timeout, args.env, args.seed_states, args.seed_datas, args.arg)
         print('exit', code)
         return 0 if code == 0 else 1
     return compare(args.a.resolve(), args.b.resolve(), tuple(args.ignore_events), tuple(args.ignore_files))

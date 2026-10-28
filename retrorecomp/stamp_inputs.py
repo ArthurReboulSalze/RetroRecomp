@@ -137,8 +137,8 @@ HOST_NATIVE = frozenset((
     'md_audio_loop.inc', 'md_audio_resample.inc',
     # Converter-only controller bridge (never linked into games).
     'player_gamepad.c',
-    # Each machine family's shell: Master System / Game Gear, Game Boy and X68000 (the 16-bit
-    # consoles and the NES are on the host kit below).
+    # Each machine family's shell: Master System / Game Gear and Game Boy (the 16-bit consoles, the NES
+    # and the X68000 are on the host kit below).
     'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
     'gb_menu.inc', 'gb_input_refresh.inc',
     'neogeo_ui_test.c',
@@ -150,8 +150,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
-    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c',
-    'x68000_reference/player_ui.inc'))
+    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
@@ -530,6 +529,7 @@ INPUTS = {
         'retrorecomp.systems.neogeo',
     ),
     ('x68',): (
+        'native/hostkit/adapters/rrhk_x68k.inc',
         'native/x68000_machine/PROVENANCE.md',
         'native/x68000_machine/base74/alias/libretro/dswin.h',
         'native/x68000_machine/base74/alias/libretro/joystick.h',
@@ -592,7 +592,6 @@ INPUTS = {
         'native/x68000_reference/mouse_games.json',
         'native/x68000_reference/payload.c',
         'native/x68000_reference/payload.h',
-        'native/x68000_reference/player_ui.inc',
         'native/x68000_reference/probe.c',
         'native/x68000_reference/probe.h',
         'native/x68000_reference/reference_host.c',
@@ -692,9 +691,9 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell and its staging module: every console that links it (phases 1 and 2). console16_video.h
-    # (rr16_video_rect) is included by the kit's video shell, so NES exports compile it too; game role.
-    ('md', 'snes', 'ng', 'cps1', 'nes'): (
+    # The host kit's shell: every console that links it (phases 1 to 3). console16_video.h (rr16_video_rect) is
+    # included by the kit's video shell, so NES and X68000 exports compile it too; game role.
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68'): (
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
@@ -708,6 +707,9 @@ INPUTS = {
         'native/hostkit/shell/rrhk_ring.c',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
+    ),
+    # Its staging module: the consoles whose projects get a copy of the kit (the X68000 compiles it from the tree).
+    ('md', 'snes', 'ng', 'cps1', 'nes'): (
         'retrorecomp.hostkit',
     ),
     ('md', 'ng', 'x68', 'cps1'): (

@@ -191,7 +191,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
             (self.root / stray).write_text('stray', encoding='utf-8')
         self.assertEqual((sdk_stamp(), sdk_stamp('game')), before)
         # A listed file moves it; the player shell moves the full stamp only.
-        (self.root / 'native/x68000_reference/player_ui.inc').write_text('new menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_x68k.inc').write_text('new menu', encoding='utf-8')
         self.assertEqual(sdk_stamp('game'), before[1])
         self.assertNotEqual(sdk_stamp(), before[0])
         (self.root / 'native/x68000_reference/probe.c').write_text('new probe', encoding='utf-8')

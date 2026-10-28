@@ -42,8 +42,16 @@ void rrhk_toggle_settings(void) {
 }
 
 void rrhk_menu_draw(SDL_Renderer *ren) {
-    if (!rrhk.menu) return;
     const RrhkMachine *m = rrhk.machine;
+    if (!rrhk.menu) {
+        if (rrhk.paused) {      /* F11 (X68000): the picture stays under the word */
+            int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
+            rr_menu_begin(ren, ox, oy, unit);
+            rr_menu_text(ren, ox, oy, unit, 100, 85, rr_tr("Paused"), RR_MENU_GOLD);
+            rr_menu_end(ren);
+        }
+        return;
+    }
     if (rrhk.menu == RRHK_MENU_OPTIONS) {
         rrhk_option_page_draw(ren);
         return;
@@ -58,7 +66,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     if (rrhk.menu == RRHK_MENU_CONTROLS || rrhk.menu == RRHK_MENU_PAGE)
         rrhk_menu_page_header(&ctx, rrhk.menu == RRHK_MENU_CONTROLS ? heading : rr_tr(m->page->title));
     else rrhk_menu_line(&ctx, RR_MENU_TITLE_LINE, rrhk_tr("RetroRecomp - Help", "RetroRecomp - Aide"));
-    if (rrhk.menu == RRHK_MENU_HELP) {
+    if (rrhk.menu == RRHK_MENU_HELP && m->help_page && m->help_page(&rrhk, &ctx)) {
+        /* the machine drew a whole page of its own (X68000: Tab) */
+    } else if (rrhk.menu == RRHK_MENU_HELP) {
         /* One line per function key, then the console's own controls. */
         const char *lines[14]; int count = 0;
         char fire[64];

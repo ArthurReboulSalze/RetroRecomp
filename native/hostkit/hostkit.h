@@ -30,6 +30,12 @@ extern "C" {
 #define RRHK_MAX_PLAYERS 4
 #define RRHK_MAX_ACTIONS 12
 
+/* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
+#define RRHK_MENU_HELP 1
+#define RRHK_MENU_CONTROLS 2
+#define RRHK_MENU_PAGE 4
+#define RRHK_MENU_OPTIONS 5
+
 /* Kinds of pointing device; the numbers are those of the guns in gun16.h
  * (the adapters check it). */
 enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER };
@@ -68,6 +74,7 @@ typedef struct RrhkUi {
     wchar_t ini_file[32768], data_dir[32768];
     wchar_t video_section[64], pointer_section[64];
     int menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    int paused;                /* F11 (X68000): the machine does not run, the picture stays, "Paused" is drawn */
     char status[80];
     Uint64 status_until;
     int pointer_shape, pointer_size, pointer_color, pointer_turbo;
@@ -122,6 +129,14 @@ typedef struct RrhkMachine {
     const wchar_t *pointer_section;   /* preferences section of the pointer page, NULL: <ini_section>.Gun */
     int pointer_max;               /* largest reticle size of the page, 0: 12 */
     const char *save_failed_en, *save_failed_fr;   /* F8 failure notice, NULL: the kit's */
+    /* Where the machine keeps settings its own way (X68000, phase 3: preferences layout is divergence 14/15, still the
+     * legacy one there). NULL / false: the kit's layout. */
+    const wchar_t *video_section;     /* section of filter and display mode, NULL: <ini_section>.Video */
+    const wchar_t *autofire_section;  /* section of the autofire key, NULL: Manettes */
+    bool indexed_bindings;            /* bindings are [<ini_section>] p<player>_key<action index> / p<player>_pad<action index> */
+    bool bindings_clearable;          /* Delete / X on a binding row clears it (key 0, button -1) */
+    int machine_fkeys;                /* a computer's own F1..Fn: the options page offers to hand them to the guest, 0: none */
+    bool audio_chunked;               /* queue model: the machine may hold more than one buffer of sound per frame */
 
     /* the machine (still the rr16_* functions) */
     void (*reset)(void);
@@ -157,6 +172,13 @@ typedef struct RrhkMachine {
     void (*cost)(double busy_ms, double present_ms);
     void (*before_present)(SDL_Renderer *renderer);
     void (*finished)(double elapsed_seconds);
+    /* Computers (X68000, phase 3). */
+    bool (*event)(const SDL_Event *event, bool *running);   /* first look at every event; true: consumed */
+    bool (*keyboard_pad)(void);             /* false: the keyboard bindings are not read (the guest has the keyboard) */
+    bool (*action_held)(int player, int action);   /* a device of the machine (a captured mouse) also holds this action */
+    bool (*fast_forward)(void);             /* true: no pacing, no sound, a picture every eighth frame */
+    bool (*game_rect)(int canvas_w, int canvas_h, int display_mode, SDL_Rect *rect);   /* the machine's own placement */
+    bool (*help_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* true: drew the whole help page */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -170,6 +192,11 @@ uint16_t rrhk_pad_word(int player, uint64_t frame);
 void rrhk_autofire_reset(void);
 void rrhk_notice(const char *text, Uint64 milliseconds);
 const char *rrhk_tr(const char *english, const char *french);
+SDL_Window *rrhk_window(void);
+void rrhk_cycle_display(void);                     /* F4 */
+void rrhk_toggle_autofire(void);                   /* F6: flip, forget held buttons, shared notice, keep in the preferences */
+void rrhk_options_observe(const SDL_Event *event); /* keys and buttons held, for the quit/restart combinations */
+bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu);
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);

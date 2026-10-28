@@ -1,6 +1,8 @@
 /* Original RetroRecomp reference frontend, MIT. No game or firmware data.
  * This process loads a separate PX68k reference module. It does not link the
- * PolyForm translation engine and never labels interpreted execution native. */
+ * PolyForm translation engine and never labels interpreted execution native.
+ * Windowed play runs on the host kit (native/hostkit, adapter rrhk_x68k.inc); the headless
+ * checks and reports below do not use it. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
@@ -24,8 +26,8 @@
 #include "loading.h"
 #include "state_store.h"
 #include "media_session.h"
-#include "../font6x10.h"
 #include "platform_io.h"
+#include "hostkit/hostkit.h"
 #ifdef _WIN32
 #include <shellapi.h>
 #endif
@@ -78,7 +80,7 @@ static struct {
    unsigned (*guard_checks)(void);
 #endif
 } core;
-static char system_dir[PATH_CAP], saves_dir[PATH_CAP], content_dir[PATH_CAP];
+static char system_dir[PATH_CAP], saves_dir[PATH_CAP], content_dir[PATH_CAP], content[PATH_CAP];
 static char options_key[MAX_OPTIONS][128], options_value[MAX_OPTIONS][256];
 static unsigned option_count, frame_number, video_frames, nonblack_frames;
 static unsigned geometry_changes, width, height, frame_samples;
@@ -93,13 +95,8 @@ static bool hash_video = true, keep_pixels = true;
 static uint64_t total_samples, nonzero_samples;
 static uint8_t *last_pixels;
 static size_t last_pixels_size;
-static SDL_Window *window;
-static SDL_Renderer *renderer;
-static SDL_Texture *texture;
-static unsigned texture_width, texture_height;
-static SDL_AudioDeviceID audio_device;
+static bool audio_output;
 static const uint8_t *keys;
-static SDL_GameController *controllers[2];
 static struct retro_frame_time_callback frame_time;
 static InputEvent events[MAX_EVENTS];
 static unsigned event_count;
@@ -110,7 +107,7 @@ static unsigned auto_disk_changes;
 static unsigned ram_megabytes = 2;
 static struct retro_disk_control_callback disk_callbacks;
 static RRMediaSession media;
-static bool media_opened,guest_keyboard,mouse_grab,help_open,autofire,input_focus=true;
+static bool media_opened,guest_keyboard,mouse_grab,input_focus=true;
 static bool fast_forward;
 static bool automatic_loading;
 static unsigned loading_holdoff,loading_candidate_frames,accelerated_frames;
@@ -123,9 +120,15 @@ static Uint32 mouse_buttons;
 static uint64_t input_frame,polled_frame=UINT64_MAX;
 static double elapsed_usec;
 static char source_identity[65],state_slot[PATH_CAP],player_config[PATH_CAP],media_config[PATH_CAP];
-static char status_text[192];
 static char last_error[384];
-static Uint32 status_until;
+/* The frame loop's own state, shared by the headless loop and the kit's frame callback. */
+static unsigned frame_limit,completed,save_at=UINT32_MAX,load_at=UINT32_MAX;
+static bool load_start;
+static uint64_t hardware[8];
+static FrameRecord *records;
+#ifdef RR_X68000_DEVCPU
+static uint64_t cpu_stats[8];
+#endif
 static unsigned saved_count,loaded_count,rejected_count,swapped_count;
 /* Bounded media timeline for reports. Observation only: presence and blink
  * changes made by the guest during a frame, then those made by the host
@@ -157,60 +160,25 @@ static void media_log_scan(bool host){
    }
    media_log_seen=now;
 }
-static void player_present(const void *,unsigned,unsigned,size_t);
-static int player_init(void),player_blocked(void),player_joy(unsigned),player_action(unsigned,unsigned),player_ui_quit(void),player_ui_restart(void);
-static int player_escape_held(void);
-static unsigned player_fire_scan(void);
+/* The host kit's side (rrhk_x68k.inc). */
+static void player_picture(const void *,unsigned,unsigned,size_t);
+static int player_blocked(void),player_joy(unsigned),player_start(void),player_pad_start(void),player_escape_held(void);
+static int player_face_alias(unsigned);
 static int player_mouse(unsigned,int);
-static int player_fast_forward(void);
-static bool player_event(const SDL_Event *);
 static int player_host_fkey(int,SDL_Keymod);
-static void player_shutdown(void),player_pause_audio(void);
+static void player_shutdown(void),player_poll(void),player_notice(const char *),player_store_exit(void);
 static int player_queue_audio(const int16_t *,size_t);
+static int player_run_windowed(const char *);
+static bool host_frame(void);
 static FILE *player_fopen(const char *path,const char *mode){
    wchar_t p[4096],m[16];return rr_from_utf8(path,p,4096)&&rr_from_utf8(mode,m,16)?rr_fopen(p,m):NULL;
 }
 #define fopen player_fopen
 
 static void notify(const char *message) {
-   snprintf(status_text,sizeof(status_text),"%s",message); status_until=SDL_GetTicks()+3500;
+   player_notice(message);
    fprintf(stdout,"Session: %s\n",message);fflush(stdout);
 }
-static void text_line(int x,int y,const char *s,int scale) {
-   for(;*s;s++,x+=6*scale) {
-      unsigned c=(unsigned char)*s,row,col;
-      if(c<32||c>127)c='?';
-      for(row=0;row<10;row++)for(col=0;col<6;col++)if(rr_font6x10[c-32][row]&(1u<<col)){
-         SDL_Rect dot={x+(int)col*scale,y+(int)row*scale,scale,scale};SDL_RenderFillRect(renderer,&dot);
-      }
-   }
-}
-static void overlay(void) {
-   int w,h,scale;SDL_Rect panel;
-   if(!renderer)return;SDL_GetRendererOutputSize(renderer,&w,&h);scale=w>=760?2:1;
-   if(help_open){
-      const char *lines[]={"Retro-Recomp | X68000 controls",
-       "Arrows / left stick: move    Z / X: buttons",
-       "Gamepad A / B: buttons       Start: Enter",
-       "F8: save state              F9: load state",
-       "Ctrl+Alt+K: full guest keyboard (F8/F9 pass through)",
-       "Ctrl+Alt+M: capture / release mouse",
-       "Ctrl+Alt+F: rapid fire while holding button 1",
-       "Ctrl+Alt+Page Up/Down: previous / next disk in FDD0",
-       "Add Shift for FDD1; Ctrl+Alt+Backspace: eject",
-       "Ctrl+Alt+Enter: fullscreen   Ctrl+Alt+Q: quit",
-       "Ctrl+Alt+H: close this help"};unsigned i;
-      panel=(SDL_Rect){10,10,w-20,(int)(sizeof(lines)/sizeof(lines[0]))*14*scale+20};
-      SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);SDL_SetRenderDrawColor(renderer,18,18,18,235);SDL_RenderFillRect(renderer,&panel);
-      for(i=0;i<sizeof(lines)/sizeof(lines[0]);i++){SDL_SetRenderDrawColor(renderer,i?235:212,i?235:167,i?235:55,255);text_line(20,20+(int)i*14*scale,lines[i],scale);}
-   }
-   if(status_text[0]&&(int32_t)(status_until-SDL_GetTicks())>0){
-      panel=(SDL_Rect){10,h-16*scale-12,w-20,16*scale+4};
-      SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);SDL_SetRenderDrawColor(renderer,18,18,18,235);SDL_RenderFillRect(renderer,&panel);
-      SDL_SetRenderDrawColor(renderer,245,205,76,255);text_line(16,panel.y+4,status_text,scale);
-   }
-}
-
 static uint64_t hash_bytes(uint64_t h, const void *ptr, size_t size) {
    const uint8_t *p = (const uint8_t *)ptr;
    while (size--) { h ^= *p++; h *= UINT64_C(1099511628211); }
@@ -329,25 +297,7 @@ static void video(const void *data, unsigned w, unsigned h, size_t pitch) {
       if(!lit) for(x=0;x<w*bpp;x++) if (row[x]) { lit=true; break; }
    }
    width=w; height=h; video_frames++; nonblack_frames+=lit;
-   if(renderer){if(!fast_forward||!(input_frame&7))player_present(data,w,h,pitch);return;}
-   if (renderer) {
-      if (!texture || w!=texture_width || h!=texture_height) {
-         if(texture) SDL_DestroyTexture(texture);
-         texture=SDL_CreateTexture(renderer,bpp==2?SDL_PIXELFORMAT_RGB565:SDL_PIXELFORMAT_ARGB8888,
-                                  SDL_TEXTUREACCESS_STREAMING,(int)w,(int)h);
-         texture_width=w; texture_height=h;
-      }
-      if(!texture) { fail(SDL_GetError()); return; }
-      { int rw,rh; SDL_Rect destination;
-        if(SDL_GetRendererOutputSize(renderer,&rw,&rh)!=0 || rw<=0 || rh<=0) { fail(SDL_GetError()); return; }
-        destination.w=rw; destination.h=(int)round(rw/aspect_ratio);
-        if(destination.h>rh) { destination.h=rh; destination.w=(int)round(rh*aspect_ratio); }
-        destination.x=(rw-destination.w)/2; destination.y=(rh-destination.h)/2;
-        SDL_UpdateTexture(texture,NULL,data,(int)pitch);
-        SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer,texture,NULL,&destination); overlay(); SDL_RenderPresent(renderer);
-      }
-   }
+   if(!fast_forward||!(input_frame&7))player_picture(data,w,h,pitch);
 }
 static size_t audio_batch(const int16_t *samples, size_t count) {
    size_t i;
@@ -358,7 +308,7 @@ static size_t audio_batch(const int16_t *samples, size_t count) {
       if(samples[i]) nonzero_samples++;
    }
    total_samples+=count; frame_samples+=(unsigned)count;
-   if(audio_device && !fast_forward && !player_queue_audio(samples,count))fail(SDL_GetError());
+   if(audio_output && !fast_forward && !player_queue_audio(samples,count))fail("Audio buffer allocation failed");
    return count;
 }
 static void audio_sample(int16_t left,int16_t right) { int16_t v[2]={left,right}; audio_batch(v,1); }
@@ -381,58 +331,12 @@ static unsigned key_scan(unsigned id) {
    default: return id<128?SDL_GetScancodeFromKey((SDL_Keycode)id):SDL_SCANCODE_UNKNOWN;
    }
 }
-static void add_controller(int device_index) {
-   unsigned p;
-   if(!SDL_IsGameController(device_index))return;
-   for(p=0;p<2;p++)if(controllers[p]&&SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controllers[p]))==SDL_JoystickGetDeviceInstanceID(device_index))return;
-   for(p=0;p<2;p++)if(!controllers[p]){controllers[p]=SDL_GameControllerOpen(device_index);break;}
-}
+/* The keyboard and the mouse of this frame; the events themselves are the kit's (rrhk_x68k.inc). */
 static void input_poll(void) {
-   SDL_Event e;
    if(polled_frame==frame_number)return;
    polled_frame=frame_number;
    if(headless) return;
-   while(SDL_PollEvent(&e)) {
-      if(e.type==SDL_QUIT) quit_requested=true;
-      if(e.type==SDL_CONTROLLERDEVICEADDED)add_controller(e.cdevice.which);
-      if(e.type==SDL_CONTROLLERDEVICEREMOVED){unsigned p;for(p=0;p<2;p++)if(controllers[p]&&SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controllers[p]))==e.cdevice.which){SDL_GameControllerClose(controllers[p]);controllers[p]=NULL;}}
-      if(e.type==SDL_WINDOWEVENT&&e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){input_focus=false;SDL_SetRelativeMouseMode(SDL_FALSE);}
-      if(e.type==SDL_WINDOWEVENT&&e.window.event==SDL_WINDOWEVENT_FOCUS_GAINED){input_focus=true;if(mouse_grab)SDL_SetRelativeMouseMode(SDL_TRUE);}
-      if((e.type==SDL_KEYDOWN&&!e.key.repeat&&e.key.keysym.sym!=SDLK_F5)||
-         e.type==SDL_MOUSEBUTTONDOWN||e.type==SDL_CONTROLLERBUTTONDOWN||
-         (e.type==SDL_MOUSEMOTION&&(e.motion.xrel||e.motion.yrel))||
-         (e.type==SDL_CONTROLLERAXISMOTION&&(e.caxis.value>12000||e.caxis.value< -12000)))
-         loading_holdoff=16;
-      if(player_event(&e))continue;
-      /* Mouse-driven computer games can be unknown to the title profiles.
-       * Clicking the active game captures it without a hidden key chord.
-       * Menus and an unfocused window never capture the pointer. */
-      if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.button==SDL_BUTTON_LEFT&&
-            input_focus&&!player_blocked()&&!mouse_grab){
-         mouse_grab=true;SDL_SetRelativeMouseMode(SDL_TRUE);
-         notify("Mouse captured (Ctrl+Alt+M to release)");
-      }
-      if(e.type==SDL_KEYDOWN && !e.key.repeat && (e.key.keysym.mod & KMOD_CTRL) &&
-          (e.key.keysym.mod & KMOD_ALT)) {
-         if(e.key.keysym.sym==SDLK_q) quit_requested=true;
-         if(e.key.keysym.sym==SDLK_h) help_open=!help_open;
-         if(e.key.keysym.sym==SDLK_k){guest_keyboard=!guest_keyboard;notify(guest_keyboard?"Full guest keyboard: ON (F8/F9 sent to X68000)":"Game shortcuts: ON (F8/F9 save and load)");}
-         if(e.key.keysym.sym==SDLK_f){autofire=!autofire;notify(autofire?"Rapid fire: ON":"Rapid fire: OFF");}
-         if(e.key.keysym.sym==SDLK_m){mouse_grab=!mouse_grab;SDL_SetRelativeMouseMode(mouse_grab?SDL_TRUE:SDL_FALSE);notify(mouse_grab?"Mouse captured (Ctrl+Alt+M to release)":"Mouse released");}
-         if(e.key.keysym.sym==SDLK_PAGEUP||e.key.keysym.sym==SDLK_PAGEDOWN){want_swap=true;swap_drive=(e.key.keysym.mod&KMOD_SHIFT)?1:0;swap_direction=e.key.keysym.sym==SDLK_PAGEUP?-1:1;}
-         if(e.key.keysym.sym==SDLK_BACKSPACE){want_eject=true;swap_drive=(e.key.keysym.mod&KMOD_SHIFT)?1:0;}
-         if(e.key.keysym.sym==SDLK_RETURN) SDL_SetWindowFullscreen(window,
-            (SDL_GetWindowFlags(window)&SDL_WINDOW_FULLSCREEN_DESKTOP)?0:SDL_WINDOW_FULLSCREEN_DESKTOP);
-      } else if(e.type==SDL_KEYDOWN&&!e.key.repeat&&player_host_fkey(e.key.keysym.scancode,(SDL_Keymod)e.key.keysym.mod)) {
-         if(e.key.keysym.sym==SDLK_F8)want_save=true;
-         if(e.key.keysym.sym==SDLK_F9)want_load=true;
-      }
-   }
-   keys=SDL_GetKeyboardState(NULL);
-   if(player_ui_quit())quit_requested=true;
-   else if(player_ui_restart())player_pause_audio();
-   mouse_buttons=SDL_GetRelativeMouseState(&mouse_dx,&mouse_dy);
-   if(!mouse_grab||!input_focus){mouse_dx=mouse_dy=0;mouse_buttons=0;}
+   player_poll();
 }
 static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned id) {
    unsigned i; int value=0;
@@ -446,31 +350,13 @@ static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned
             player_host_fkey((int)key_scan(id),SDL_GetModState())))return 0;
       if(id==RETROK_ESCAPE&&(!guest_keyboard||player_escape_held()))return 0;
       if(keys&&input_focus&&!(SDL_GetModState()&KMOD_CTRL&&SDL_GetModState()&KMOD_ALT)&&key_scan(id)!=SDL_SCANCODE_UNKNOWN)value=keys[key_scan(id)]!=0;
-      if(id==RETROK_RETURN&&input_focus&&controllers[0]&&SDL_GameControllerGetButton(controllers[0],SDL_CONTROLLER_BUTTON_START))value=1;
-      if(id==RETROK_RETURN&&player_action(0,6)>=0&&!guest_keyboard)value=player_action(0,6);
+      if(id==RETROK_RETURN&&input_focus&&player_pad_start())value=1;
+      if(id==RETROK_RETURN&&!guest_keyboard){int start=player_start();if(start>=0)value=start;}
    } else if(device==RETRO_DEVICE_JOYPAD) {
       unsigned mask=0;
-      if(keys&&input_focus&&port==0&&!(SDL_GetModState()&KMOD_CTRL&&SDL_GetModState()&KMOD_ALT)) {
-         if(keys[SDL_SCANCODE_UP]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_UP;
-         if(keys[SDL_SCANCODE_DOWN]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_DOWN;
-         if(keys[SDL_SCANCODE_LEFT]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_LEFT;
-         if(keys[SDL_SCANCODE_RIGHT]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_RIGHT;
-         if(keys[SDL_GetScancodeFromKey(SDLK_w)]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_B;
-         if(keys[SDL_GetScancodeFromKey(SDLK_x)]) mask|=1u<<RETRO_DEVICE_ID_JOYPAD_A;
-      }
-      if(controllers[port]&&input_focus) {
-         static const unsigned joy[]={ RETRO_DEVICE_ID_JOYPAD_B,RETRO_DEVICE_ID_JOYPAD_A,
-            RETRO_DEVICE_ID_JOYPAD_UP,RETRO_DEVICE_ID_JOYPAD_DOWN,RETRO_DEVICE_ID_JOYPAD_LEFT,RETRO_DEVICE_ID_JOYPAD_RIGHT };
-         static const SDL_GameControllerButton btn[]={SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,
-            SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
-         int x=SDL_GameControllerGetAxis(controllers[port],SDL_CONTROLLER_AXIS_LEFTX),y=SDL_GameControllerGetAxis(controllers[port],SDL_CONTROLLER_AXIS_LEFTY);
-         for(i=0;i<6;i++) if(SDL_GameControllerGetButton(controllers[port],btn[i])) mask|=1u<<joy[i];
-         if(x< -12000)mask|=1u<<RETRO_DEVICE_ID_JOYPAD_LEFT;if(x>12000)mask|=1u<<RETRO_DEVICE_ID_JOYPAD_RIGHT;
-         if(y< -12000)mask|=1u<<RETRO_DEVICE_ID_JOYPAD_UP;if(y>12000)mask|=1u<<RETRO_DEVICE_ID_JOYPAD_DOWN;
-      }
+      /* The kit's pad word: bindings, controllers, stick and autofire (headless runs have none). */
       {int mapped=player_joy(port);if(mapped>=0)mask=(unsigned)mapped;}
       for(i=0;i<event_count;i++) if(!events[i].keyboard&&!events[i].mouse&&port==events[i].port&&input_frame>=events[i].begin&&input_frame<events[i].end&&events[i].value)mask|=1u<<events[i].id;
-      if(autofire&&(input_frame&1))mask&=~(1u<<RETRO_DEVICE_ID_JOYPAD_B);
       /* Never send L2/R2/Select/stick clicks to the core's private menus. */
       mask&=~((1u<<RETRO_DEVICE_ID_JOYPAD_L2)|(1u<<RETRO_DEVICE_ID_JOYPAD_R2)|(1u<<RETRO_DEVICE_ID_JOYPAD_SELECT)|(1u<<RETRO_DEVICE_ID_JOYPAD_L3)|(1u<<RETRO_DEVICE_ID_JOYPAD_R3));
       return (int16_t)(id==RETRO_DEVICE_ID_JOYPAD_MASK?mask:(id<16?((mask>>id)&1):0));
@@ -483,15 +369,13 @@ static int16_t input_state(unsigned port,unsigned device,unsigned index,unsigned
    }
    for(i=0;i<event_count;i++)if(id==events[i].id&&input_frame>=events[i].begin&&input_frame<events[i].end&&
       ((events[i].keyboard&&device==RETRO_DEVICE_KEYBOARD)||(events[i].mouse&&device==RETRO_DEVICE_MOUSE)))value=events[i].value;
-   /* Some games OR keyboard Z with joystick button 1. Pulsing the joystick
-    * alone leaves an unbroken keyboard press and defeats rapid fire. Apply
-    * the same release phase to the bound keyboard button, before returning
-    * either input interface; full computer typing remains unmodified. */
-   if(device==RETRO_DEVICE_KEYBOARD&&!guest_keyboard&&autofire&&(input_frame&1)){
-      unsigned fire=player_fire_scan();
-      if(fire&&key_scan(id)==fire)value=0;
+   /* Some games OR keyboard Z with joystick button 1. A key bound to a button is that button, so autofire releases the
+    * key with the button (decision of 28 October 2026: the common autofire rule on every machine); full computer typing
+    * remains unmodified. */
+   if(device==RETRO_DEVICE_KEYBOARD&&!guest_keyboard&&!port){
+      int alias=player_face_alias(key_scan(id));
+      if(alias>=0)value=value&&alias;
    }
-   if(device==RETRO_DEVICE_MOUSE&&mouse_game&&autofire&&(input_frame&1)&&id==RETRO_DEVICE_ID_MOUSE_LEFT)value=0;
    return (int16_t)value;
 }
 static bool load_events(const char *path) {
@@ -536,7 +420,7 @@ static bool capture_auxiliary(void *context,void *data,size_t size) {
    memset(&header,0,sizeof(header));header.version=1;header.header_size=sizeof(header);
    header.width=width;header.height=height;header.pixel_format=(uint32_t)pixel_format;
    header.input_frame=input_frame;header.media_size=bytes;header.elapsed_usec=elapsed_usec;
-   header.fps=fps;header.aspect_ratio=aspect_ratio;header.autofire=autofire;
+   header.fps=fps;header.aspect_ratio=aspect_ratio;header.autofire=rrhk_ui()->autofire!=0;
    memcpy(data,&header,sizeof(header));memcpy((uint8_t*)data+sizeof(header),disks,bytes);free(disks);return true;
 }
 static bool validate_auxiliary(void *context,const void *data,size_t size) {
@@ -555,7 +439,7 @@ static bool apply_auxiliary(void *context,const void *data,size_t size) {
    if(!rr_media_apply(&media,(const uint8_t*)data+sizeof(header),(size_t)header.media_size))return false;
    input_frame=header.input_frame;elapsed_usec=header.elapsed_usec;fps=header.fps;
    aspect_ratio=header.aspect_ratio;pixel_format=(int)header.pixel_format;
-   width=header.width;height=header.height;autofire=header.autofire!=0;
+   width=header.width;height=header.height;rrhk_ui()->autofire=header.autofire!=0;
    return true;
 }
 static RRStateResult snapshot(bool load) {
@@ -571,26 +455,13 @@ static RRStateResult snapshot(bool load) {
    result=load?rr_x68k_state_load(state_slot,&io,error,sizeof(error)):rr_x68k_state_save(state_slot,&io,error,sizeof(error));
    if(result==RR_STATE_OK){
       if(load){loaded_count++;automatic_loading=false;loading_holdoff=16;memset(&loading_detector,0,sizeof(loading_detector));
-         if(audio_device)SDL_ClearQueuedAudio(audio_device);player_pause_audio();
          video(core.framebuffer(),width,height,800*2);}
       else saved_count++;
       notify(load?"State loaded":"State saved");
    }else{rejected_count++;notify(error);if(result==RR_STATE_ROLLBACK_ERROR)fail("Snapshot rollback failed; stopping to preserve state");}
    return result;
 }
-static void player_load(void) {
-   FILE *f=fopen(player_config,"rb");unsigned full=0,keyboard=0,fire=0,w=0,h=0;char extra;
-   if(f){int n=fscanf(f,"fullscreen=%u keyboard=%u autofire=%u width=%u height=%u %c",&full,&keyboard,&fire,&w,&h,&extra);fclose(f);
-      if(n==5&&full<2&&keyboard<2&&fire<2&&w>=400&&w<=8192&&h>=300&&h<=8192){
-         guest_keyboard=keyboard!=0;autofire=fire!=0;if(window){SDL_SetWindowSize(window,(int)w,(int)h);if(full)SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN_DESKTOP);}
-      }}
-}
-static void player_save(void) {
-   FILE *f;int w=900,h=675;if(!window)return;SDL_GetWindowSize(window,&w,&h);
-   f=fopen(player_config,"wb");if(f){fprintf(f,"fullscreen=%u keyboard=%u autofire=%u width=%d height=%d\n",
-      (SDL_GetWindowFlags(window)&SDL_WINDOW_FULLSCREEN_DESKTOP)!=0,guest_keyboard,autofire,w,h);fclose(f);}
-}
-#include "player_ui.inc"
+#include "hostkit/adapters/rrhk_x68k.inc"
 static bool capture(const char *path) {
    unsigned x,y,bpp=pixel_format==RETRO_PIXEL_FORMAT_RGB565?2:4;
    FILE *f;
@@ -628,23 +499,85 @@ static void *linked_symbol(const char *name){
 #else
 #define LOAD(member,name) do { *(void **)(&core.member)=SDL_LoadFunction(module,name); if(!core.member) { fail(name); goto cleanup; } } while(0)
 #endif
+/* One guest frame and what the host does around it (media, states, disk events, reports). false: stop. */
+static bool host_frame(void) {
+   bool restored_start=false;
+   uint64_t before=(uint64_t)elapsed_usec,ram_hash=0; size_t ram_size; unsigned i;
+   elapsed_usec+=1000000.0/fps;
+      /* The peripheral tick ledger owns RTC time. The frontend interval only
+       * drives the core's frame callback; never move RTC ahead then back. */
+      if(frame_time.callback) frame_time.callback((retro_usec_t)((uint64_t)elapsed_usec-before));
+      media_log_scan(true);
+      frame_pcm=FNV_START; frame_samples=0; core.run(); completed++;input_frame++;
+      media_log_scan(false);
+      automatic_loading=rr_loading_update(&loading_detector,core.media_activity(),video_hash)!=0;
+      if(automatic_loading)loading_candidate_frames++;
+      if(fast_forward)accelerated_frames++;
+      if(loading_holdoff)loading_holdoff--;
+      core.hardware_snapshot(hardware);
+      if(hardware[5]) fail("Guest audio batch exceeded its validated bound; no PCM was discarded");
+#ifdef RR_X68000_DEVCPU
+      core.cpu_stats(cpu_stats);
+#endif
+      if(records && frame_number<MAX_FRAMES) {
+         FrameRecord *r=&records[frame_number]; r->video=video_hash; r->pcm=frame_pcm; r->samples=frame_samples; r->width=width; r->height=height;
+         memcpy(r->hardware,hardware,sizeof(hardware));
+         core.get_cpu(r->regs); ram_size=core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM);
+         if(core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM) && ram_size>=ram_megabytes*1024*1024 && ram_size<=12*1024*1024) ram_hash=hash_bytes(FNV_START,core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM),ram_megabytes*1024*1024);
+         r->ram=ram_hash;
+      }
+      if(frame_number%300==0) { uint32_t regs[18]; core.get_cpu(regs); fprintf(stdout,"frame=%u pc=%06x video=%ux%u samples=%" PRIu64 "\n",frame_number,regs[0],width,height,total_samples); fflush(stdout); }
+      if(core_error) { quit_requested=true; return false; }
+      /* pre_main initializes the controllers inside the first retro_run.
+       * Restore drive choices only after that initialization has completed. */
+      if(!media_opened){
+         media_opened=rr_media_open(&media,content,media_config,&disk_callbacks,select_drive,core.media_ready)!=0;
+         if(!media_opened){fail(rr_media_error(&media));return false;}
+         rr_media_set_interest(&media,core.media_interest);
+#ifndef RR_X68000_LINKED
+         /* Standalone games cold-boot their original pair. Their last data
+          * disk belongs to F9, not to the next boot; keep the diagnostic
+          * reference host's explicit media-session behaviour separate. */
+         if(!rr_media_load_session(&media))notify(rr_media_error(&media));
+#endif
+         if(load_start){if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested startup state rejected");return false;}load_start=false;restored_start=true;}
+      }
+      if(want_swap||want_eject){
+         int ok=want_eject?rr_media_swap(&media,swap_drive,-1):rr_media_cycle(&media,swap_drive,swap_direction);
+         if(ok){char message[128];swapped_count++;snprintf(message,sizeof(message),"FDD%u: %s",swap_drive,media.selected[swap_drive]<0?"empty":media.names[media.selected[swap_drive]]);notify(message);}
+         else notify(rr_media_error(&media));
+         want_swap=want_eject=false;
+      }
+      /* The initialization frame ran before the restored snapshot. It must
+       * not consume a removal tick belonging to the restored machine. */
+      if(auto_disk&&!restored_start){
+         int changed=rr_media_auto_advance(&media);
+         if(changed<0){fail(rr_media_error(&media));return false;}
+         if(changed){auto_disk_changes+=(unsigned)changed;notify("Next disk inserted automatically");}
+      }
+      for(i=0;i<disk_event_count;i++)if(disk_events[i].frame==frame_number){
+         if(!rr_media_swap(&media,disk_events[i].drive,disk_events[i].image)){fail(rr_media_error(&media));break;}
+         swapped_count++;
+      }
+      if(core_error)return false;
+      if(want_save||frame_number==save_at){want_save=false;if(snapshot(false)!=RR_STATE_OK&&headless){fail("Requested save failed");return false;}}
+      if(want_load||frame_number==load_at){want_load=false;if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested load failed");return false;}}
+   media_log_scan(true);
+   frame_number++;
+   return true;
+}
 static int player_main(int argc,char **argv) {
-   char core_path[PATH_CAP],content[PATH_CAP],report[PATH_CAP],capture_path[PATH_CAP]={0},trace_path[PATH_CAP]={0},config_path[PATH_CAP];
-   char *base,base_path[PATH_CAP]; const char *events_path=NULL,*disk_events_path=NULL; unsigned frames=0,i,completed=0;
+   char core_path[PATH_CAP],report[PATH_CAP],capture_path[PATH_CAP]={0},trace_path[PATH_CAP]={0},config_path[PATH_CAP];
+   char *base,base_path[PATH_CAP]; const char *events_path=NULL,*disk_events_path=NULL; unsigned i;
    bool report_requested=false,state_slot_requested=false;
    const char *video_checks_path=NULL,*audio_checks_path=NULL,*timing_checks_path=NULL;
    const char *session_checks_path=NULL,*disk_checks_path=NULL;
-   bool load_start=false;
-   unsigned save_at=UINT32_MAX,load_at=UINT32_MAX;
-   uint64_t hardware[8]={0};
    void *module=NULL; bool initialized=false,loaded=false; int result=1;
-   double wall_start,deadline,frequency;
-   FrameRecord *records=NULL;
+   double wall_start,frequency;
 #ifdef RR_X68000_DEVCPU
    const char *observations_path=NULL;int reference_cpu=0;
    const char *instruction_trace_path=NULL;
    const char *guard_checks_path=NULL;
-   uint64_t cpu_stats[8]={0};
 #endif
    SDL_SetMainReady();
 #ifdef RR_X68000_LINKED
@@ -711,7 +644,7 @@ static int player_main(int argc,char **argv) {
       } else {
          const char *arg=argv[i]; char *end=NULL;
          if(++i>=(unsigned)argc) { fail("Missing argument"); goto cleanup; }
-         if(!strcmp(arg,"--frames")) { unsigned long n=strtoul(argv[i],&end,10); if(!*argv[i] || *end || n==0 || n>MAX_FRAMES) { fail("Invalid frame limit"); goto cleanup; } frames=(unsigned)n; }
+         if(!strcmp(arg,"--frames")) { unsigned long n=strtoul(argv[i],&end,10); if(!*argv[i] || *end || n==0 || n>MAX_FRAMES) { fail("Invalid frame limit"); goto cleanup; } frame_limit=(unsigned)n; }
          else if(!strcmp(arg,"--ram-mb")) { if(strcmp(argv[i],"2") && strcmp(argv[i],"4")) { fail("RAM must be 2 or 4 MiB"); goto cleanup; } ram_megabytes=(unsigned)atoi(argv[i]); }
          else if(!strcmp(arg,"--input-events")) events_path=argv[i];
          else if(!strcmp(arg,"--disk-events")) disk_events_path=argv[i];
@@ -743,7 +676,7 @@ static int player_main(int argc,char **argv) {
          }
       }
    }
-   if(headless && !frames) { fail("Headless mode requires a bounded --frames"); goto cleanup; }
+   if(headless && !frame_limit) { fail("Headless mode requires a bounded --frames"); goto cleanup; }
 #ifdef RR_X68000_LINKED
    {char game_dir[PATH_CAP];
     if(!rr_x68k_payload_prepare(base_path,game_dir,sizeof(game_dir))){fail("Cannot prepare private game data (linked path, changed firmware, or another running copy)");goto cleanup;}
@@ -765,35 +698,7 @@ static int player_main(int argc,char **argv) {
    if(disk_events_path&&!load_disk_events(disk_events_path)){fail("Invalid disk event file");goto cleanup;}
    copy_path(content_dir,content);
    { char *a=strrchr(content_dir,'/'),*b=strrchr(content_dir,'\\'); char *p=a?(b && b>a?b:a):b; if(!p) strcpy(content_dir,"."); else *p=0; }
-   if(!headless) {
-      if(SDL_InitSubSystem(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER|SDL_INIT_AUDIO)!=0) { fail(SDL_GetError()); goto cleanup; }
-      SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"0");
-      window=SDL_CreateWindow(
-#ifdef RR_X68000_DEVCPU
-          RR_X68K_GAME_TITLE " | Sharp X68000 | Starting",
-#else
-          "Cho Ren Sha 68k | X68000 reference | Interpreter CPU",
-#endif
-          SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,768,576,SDL_WINDOW_RESIZABLE|SDL_WINDOW_ALLOW_HIGHDPI);
-      if(!window) { fail(SDL_GetError()); goto cleanup; }
-      renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
-      if(!renderer) renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);
-      if(!renderer) { fail(SDL_GetError()); goto cleanup; }
-      for(i=0;i<(unsigned)SDL_NumJoysticks();i++) add_controller((int)i);
-      SDL_SetWindowMinimumSize(window,400,340);player_load();
-      if(!player_init()){fail("Cannot initialize shared player menus");goto cleanup;}
-      if(mouse_game){mouse_grab=true;SDL_SetRelativeMouseMode(SDL_TRUE);notify("Mouse controls: Ctrl+Alt+M releases the mouse");}
-#ifdef RR_X68000_LINKED
-      rr_set_window_icon(window);
-#endif
-      if(!mute) {
-         SDL_AudioSpec want,got; SDL_zero(want); want.freq=44100; want.format=AUDIO_S16SYS; want.channels=2; want.samples=512;
-         audio_device=SDL_OpenAudioDevice(NULL,0,&want,&got,0);
-         if(!audio_device) { fail(SDL_GetError()); goto cleanup; }
-         /* Stays paused until player_queue_audio has primed the queue. */
-         player_audio_period=got.samples?got.samples:512u;
-      }
-   }
+   audio_output=!headless&&!mute;
 #ifndef RR_X68000_LINKED
    module=SDL_LoadObject(core_path); if(!module) { fail(SDL_GetError()); goto cleanup; }
 #else
@@ -836,107 +741,16 @@ static int player_main(int argc,char **argv) {
      if(isfinite(av.geometry.aspect_ratio) && av.geometry.aspect_ratio>0.1 && av.geometry.aspect_ratio<10.0) aspect_ratio=av.geometry.aspect_ratio;
    }
    if(!isfinite(fps) || fps<20 || fps>120 || sample_rate!=44100) { fail("Invalid initial AV timing"); goto cleanup; }
-   hash_video=trace_path[0] || report[0]; keep_pixels=hash_video || capture_path[0] || renderer;
-   if(trace_path[0]) { records=(FrameRecord *)calloc(frames?frames:MAX_FRAMES,sizeof(*records)); if(!records) { fail("Trace allocation failed"); goto cleanup; } }
-   frequency=(double)SDL_GetPerformanceFrequency(); wall_start=(double)SDL_GetPerformanceCounter()/frequency; deadline=wall_start;
-   for(frame_number=0;!quit_requested && (!frames || frame_number<frames);) {
-      bool restored_start=false;
-      uint64_t before=(uint64_t)elapsed_usec,ram_hash=0; size_t ram_size;
-      input_poll();if(quit_requested)break;
-      {bool accelerate=player_fast_forward()!=0;
-       if(accelerate!=fast_forward){fast_forward=accelerate;deadline=(double)SDL_GetPerformanceCounter()/frequency;
-          if(audio_device){SDL_PauseAudioDevice(audio_device,1);SDL_ClearQueuedAudio(audio_device);player_audio_primed=0;}
-          rr_options_audio_reset();}}
-      if(player_ui.want_reset){core.reset();player_ui.want_reset=0;
-         if(media_opened&&!rr_media_boot(&media)){fail(rr_media_error(&media));break;}
-         automatic_loading=false;memset(&loading_detector,0,sizeof(loading_detector));player_pause_audio();}
-      if(player_blocked()){
-         if(last_pixels&&width&&height)player_present(last_pixels,width,height,(size_t)width*(pixel_format==RETRO_PIXEL_FORMAT_RGB565?2:4));
-         else{SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);player_overlay();SDL_RenderPresent(renderer);}
-         SDL_Delay(10);polled_frame=UINT64_MAX;deadline=(double)SDL_GetPerformanceCounter()/frequency;continue;
+   hash_video=trace_path[0] || report[0]; keep_pixels=hash_video || capture_path[0] || !headless;
+   if(trace_path[0]) { records=(FrameRecord *)calloc(frame_limit?frame_limit:MAX_FRAMES,sizeof(*records)); if(!records) { fail("Trace allocation failed"); goto cleanup; } }
+   frequency=(double)SDL_GetPerformanceFrequency(); wall_start=(double)SDL_GetPerformanceCounter()/frequency;
+   frame_number=0;
+   if(headless){
+      while(!quit_requested && (!frame_limit || frame_number<frame_limit)) {
+         input_poll();if(quit_requested)break;
+         if(!host_frame())break;
       }
-      elapsed_usec+=1000000.0/fps;
-      /* The peripheral tick ledger owns RTC time. The frontend interval only
-       * drives the core's frame callback; never move RTC ahead then back. */
-      if(frame_time.callback) frame_time.callback((retro_usec_t)((uint64_t)elapsed_usec-before));
-      media_log_scan(true);
-      frame_pcm=FNV_START; frame_samples=0; core.run(); completed++;input_frame++;
-      media_log_scan(false);
-      automatic_loading=rr_loading_update(&loading_detector,core.media_activity(),video_hash)!=0;
-      if(automatic_loading)loading_candidate_frames++;
-      if(fast_forward)accelerated_frames++;
-      if(loading_holdoff)loading_holdoff--;
-      core.hardware_snapshot(hardware);
-      if(hardware[5]) fail("Guest audio batch exceeded its validated bound; no PCM was discarded");
-#ifdef RR_X68000_DEVCPU
-      core.cpu_stats(cpu_stats);
-      if(window && frame_number%30==0)SDL_SetWindowTitle(window,
-         cpu_stats[2]+cpu_stats[3]?RR_X68K_GAME_TITLE " | Sharp X68000 | Native code + Interpreter fallback":
-         cpu_stats[0]+cpu_stats[1]?RR_X68K_GAME_TITLE " | Sharp X68000 | Native code":
-         RR_X68K_GAME_TITLE " | Sharp X68000 | Starting");
-#endif
-      if(records && frame_number<MAX_FRAMES) {
-         FrameRecord *r=&records[frame_number]; r->video=video_hash; r->pcm=frame_pcm; r->samples=frame_samples; r->width=width; r->height=height;
-         memcpy(r->hardware,hardware,sizeof(hardware));
-         core.get_cpu(r->regs); ram_size=core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM);
-         if(core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM) && ram_size>=ram_megabytes*1024*1024 && ram_size<=12*1024*1024) ram_hash=hash_bytes(FNV_START,core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM),ram_megabytes*1024*1024);
-         r->ram=ram_hash;
-      }
-      if(frame_number%300==0) { uint32_t regs[18]; core.get_cpu(regs); fprintf(stdout,"frame=%u pc=%06x video=%ux%u samples=%" PRIu64 "\n",frame_number,regs[0],width,height,total_samples); fflush(stdout); }
-      if(core_error) { quit_requested=true; break; }
-      /* pre_main initializes the controllers inside the first retro_run.
-       * Restore drive choices only after that initialization has completed. */
-      if(!media_opened){
-         media_opened=rr_media_open(&media,content,media_config,&disk_callbacks,select_drive,core.media_ready)!=0;
-         if(!media_opened){fail(rr_media_error(&media));break;}
-         rr_media_set_interest(&media,core.media_interest);
-#ifndef RR_X68000_LINKED
-         /* Standalone games cold-boot their original pair. Their last data
-          * disk belongs to F9, not to the next boot; keep the diagnostic
-          * reference host's explicit media-session behaviour separate. */
-         if(!rr_media_load_session(&media))notify(rr_media_error(&media));
-#endif
-         if(load_start){if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested startup state rejected");break;}load_start=false;restored_start=true;}
-      }
-      if(want_swap||want_eject){
-         int ok=want_eject?rr_media_swap(&media,swap_drive,-1):rr_media_cycle(&media,swap_drive,swap_direction);
-         if(ok){char message[128];swapped_count++;snprintf(message,sizeof(message),"FDD%u: %s",swap_drive,media.selected[swap_drive]<0?"empty":media.names[media.selected[swap_drive]]);notify(message);}
-         else notify(rr_media_error(&media));
-         want_swap=want_eject=false;
-      }
-      /* The initialization frame ran before the restored snapshot. It must
-       * not consume a removal tick belonging to the restored machine. */
-      if(auto_disk&&!restored_start){
-         int changed=rr_media_auto_advance(&media);
-         if(changed<0){fail(rr_media_error(&media));break;}
-         if(changed){auto_disk_changes+=(unsigned)changed;notify("Next disk inserted automatically");}
-      }
-      for(i=0;i<disk_event_count;i++)if(disk_events[i].frame==frame_number){
-         if(!rr_media_swap(&media,disk_events[i].drive,disk_events[i].image)){fail(rr_media_error(&media));break;}
-         swapped_count++;
-      }
-      if(core_error)break;
-      if(want_save||frame_number==save_at){want_save=false;if(snapshot(false)!=RR_STATE_OK&&headless){fail("Requested save failed");break;}}
-      if(want_load||frame_number==load_at){want_load=false;if(snapshot(true)!=RR_STATE_OK&&headless){fail("Requested load failed");break;}deadline=(double)SDL_GetPerformanceCounter()/frequency;}
-      if(!headless&&!fast_forward) {
-         double now; deadline+=1.0/fps; now=(double)SDL_GetPerformanceCounter()/frequency;
-         if(now<deadline) SDL_Delay((Uint32)((deadline-now)*1000));
-         else if(now-deadline>0.25) deadline=now;
-         /* A display-rate mismatch or a brief stall must not terminate a
-          * working game. Retain every PCM pair and drain the queue while
-          * continuing to service menus/quit; menus themselves clear it. */
-         /* Drain bounds follow the adaptive start target. */
-         Uint32 drain_high=SDL_max(44100u*4u*120u/1000u,player_audio_target()+44100u*4u*40u/1000u);
-         Uint32 drain_low=SDL_max(44100u*4u*80u/1000u,player_audio_target()+44100u*4u*10u/1000u);
-         if(audio_device&&SDL_GetQueuedAudioSize(audio_device)>drain_high){
-            do{polled_frame=UINT64_MAX;input_poll();if(quit_requested||player_blocked())break;SDL_Delay(1);}
-            while(SDL_GetQueuedAudioSize(audio_device)>drain_low);
-            deadline=(double)SDL_GetPerformanceCounter()/frequency;
-         }
-      }
-      media_log_scan(true);
-      frame_number++;
-   }
+   } else result=player_run_windowed(RR_X68K_GAME_TITLE " | Sharp X68000");
    if(report[0]){ uint32_t regs[18]; FILE *f; size_t ram_size=core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM); uint64_t ram_hash=0;
      core.get_cpu(regs);
      if(core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM) && ram_size>=ram_megabytes*1024*1024 && ram_size<=12*1024*1024) ram_hash=hash_bytes(FNV_START,core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM),ram_megabytes*1024*1024);
@@ -998,20 +812,15 @@ static int player_main(int argc,char **argv) {
    result=core_error || !video_frames?1:0;
 cleanup:
    if(media_opened&&!rr_media_save_session(&media)){fprintf(stderr,"X68000 media: %s\n",rr_media_error(&media));result=1;}
-   if(player_ui.ready){player_store(L"guest_keyboard",guest_keyboard);player_store(L"autofire",autofire);}
-   player_save();
+   player_store_exit();
 #ifdef RR_X68000_LINKED
-   rr_feedback_close_screen(renderer);
+   if(headless)rr_feedback_close_screen(NULL);
 #endif
    if(loaded) core.unload_game(); if(initialized) core.deinit(); if(module) SDL_UnloadObject(module);
-   if(audio_device)fprintf(stderr,"[player] audio reserve=+%d ms (raised %d times); physical latency unmeasured\n",
-      rr_cushion_ms(&player_cushion),SDL_AtomicGet(&player_cushion.raises));
-   if(audio_device) SDL_CloseAudioDevice(audio_device);for(i=0;i<2;i++)if(controllers[i])SDL_GameControllerClose(controllers[i]);
    player_shutdown();
 #ifdef RR_X68000_LINKED
    rr_x68k_payload_release();
 #endif
-   if(texture) SDL_DestroyTexture(texture); if(renderer) SDL_DestroyRenderer(renderer); if(window) SDL_DestroyWindow(window);
    if(player_config[0]&&!headless){char name[PATH_CAP];
       int n=snprintf(name,sizeof(name),"%s.last-run.txt",player_config);
       if(n>0&&(size_t)n<sizeof(name)){FILE*f=fopen(name,"wb");if(f){

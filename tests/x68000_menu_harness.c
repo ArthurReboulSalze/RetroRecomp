@@ -1,149 +1,105 @@
-/* Original Retro-Recomp, MIT. Real SDL/software-rendered common player menus. */
+/* Original Retro-Recomp, MIT. The X68000's own part of the player menus on the host kit: the computer's events
+ * (guest keyboard, Ctrl+Alt chords, function keys, pause, help pages) and real software-rendered pages. The kit's
+ * pages themselves are proved by the A/B battery (tools/hostkit_ab.py) and the self-tests of the shell. */
+#include <SDL.h>
 #define main rr_unused_frontend_main
 #include "../native/x68000_reference/reference_host.c"
 #undef main
 static unsigned checks,failures;
+static bool harness_running=true;
 static void check(int okay,const char *name){checks++;if(!okay){failures++;fprintf(stderr,"FAIL: %s\n",name);}}
-static int option_row(int key){RrOptionRows d=player_option_rows();for(int i=0;i<d.count;i++)if(d.keys[i]==key)return i;return -1;}
-static void send_key(SDL_Keycode key,SDL_Keymod mod){
-    SDL_Event e;memset(&e,0,sizeof(e));e.type=SDL_KEYDOWN;e.key.keysym.sym=key;
-    e.key.keysym.scancode=SDL_GetScancodeFromKey(key);e.key.keysym.mod=mod;
-    frame_number++;SDL_PushEvent(&e);input_poll();
-    e.type=SDL_KEYUP;frame_number++;SDL_PushEvent(&e);input_poll();
+static bool press(SDL_Scancode scan,SDL_Keymod mod){
+    SDL_Event e;memset(&e,0,sizeof(e));e.type=SDL_KEYDOWN;e.key.keysym.scancode=scan;e.key.keysym.sym=SDL_GetKeyFromScancode(scan);e.key.keysym.mod=mod;
+    return rrhk_adapter()->event(&e,&harness_running);
 }
-/* Closing a menu re-primes output: the device plays once a start reserve of
- * guest PCM is queued again, never on an empty queue. */
-static int resumes_after_priming(void){
-    static int16_t pcm[800*2];
-    int paused_first=SDL_GetAudioDeviceStatus(audio_device)==SDL_AUDIO_PAUSED;
-    for(int n=0;n<8&&SDL_GetAudioDeviceStatus(audio_device)!=SDL_AUDIO_PLAYING;n++)player_queue_audio(pcm,800);
-    return paused_first&&SDL_GetAudioDeviceStatus(audio_device)==SDL_AUDIO_PLAYING;
+static void lift(SDL_Scancode scan){
+    SDL_Event e;memset(&e,0,sizeof(e));e.type=SDL_KEYUP;e.key.keysym.scancode=scan;e.key.keysym.sym=SDL_GetKeyFromScancode(scan);
+    rrhk_adapter()->event(&e,&harness_running);
 }
+#define CHORD (SDL_Keymod)(KMOD_CTRL|KMOD_ALT)
 int main(int argc,char **argv){
-    int verify=argc>1&&!strcmp(argv[1],"--verify");wchar_t path[4096];
+    int verify=argc>1&&!strcmp(argv[1],"--verify");wchar_t path[4096];RrhkUi *ui;
     SDL_SetMainReady();SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_AUDIODRIVER","dummy",1);
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER))return 2;
-    window=SDL_CreateWindow("X68000 menus",0,0,768,576,SDL_WINDOW_HIDDEN);
-    renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);if(!renderer)return 2;
+    SDL_Window *window=SDL_CreateWindow("X68000 menus",0,0,768,576,SDL_WINDOW_HIDDEN);
+    SDL_Renderer *renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);if(!renderer)return 2;
     SDL_FlushEvents(SDL_FIRSTEVENT,SDL_LASTEVENT);
     rr_executable_directory(path,4000);rr_wide_append(path,4096,RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");
     if(!verify)rr_remove(path);
-    check(player_init(),"shared font atlas and options initialize");
-    SDL_AudioSpec spec;SDL_zero(spec);spec.freq=44100;spec.format=AUDIO_S16SYS;spec.channels=2;spec.samples=512;
-    audio_device=SDL_OpenAudioDevice(NULL,0,&spec,NULL,0);
-    check(audio_device!=0,"queued audio device opens for menu pause and resume checks");
-    SDL_PauseAudioDevice(audio_device,0);
+    rrhk_bind(rrhk_adapter());rrhk_load_bindings();rrhk_options_init(L"X68000");rrhk_options_keyboard("X68000",10);
+    ui=rrhk_ui();xa.windowed=true;
+    check(rr_menu_init(renderer),"shared font atlas initializes");
     if(verify){
-        check(player_ui.filter==3,"scanlines persist across a fresh process");
-        check(player_ui.display==1,"pixel display mode persists across a fresh process");
-        check(rr_language_get()==1,"language persists across a fresh process");
-        check(player_ui.pad[0][X_PAUSE]==SDL_CONTROLLER_BUTTON_LEFTSTICK,"explicit L3 assignment persists");
-        check(SDL_AtomicGet(&rr_options.audio_mode)==1,"optional audio filter persists");
-        check(player_ui.key[0][X_A]==SDL_GetScancodeFromKey(SDLK_z),"explicit fire binding overrides the new W default after restart");
+        check(ui->filter==3,"scanlines persist across a fresh process");
+        check(ui->fullscreen==1,"pixel display mode persists across a fresh process");
+        check(ui->language==1&&rr_language_get()==1,"language persists across a fresh process");
+        check(ui->buttons[0][X_PAUSE]==SDL_CONTROLLER_BUTTON_LEFTSTICK,"explicit L3 assignment persists");
+        check(ui->keys[0][X_A]==SDL_GetScancodeFromKey(SDLK_z),"explicit fire binding overrides the new W default after restart");
+        check(guest_keyboard&&ui->autofire,"the guest keyboard and autofire persist across a fresh process");
     }else{
-        check(player_ui.pad[0][X_PAUSE]<0&&X_ACTIONS==X_PAUSE+1,"no pause on stick clicks by default and no restart row");
-        check(player_ui.key[0][X_A]==SDL_GetScancodeFromKey(SDLK_w)&&player_ui.key[0][X_B]==SDL_GetScancodeFromKey(SDLK_x),"unsaved defaults use logical W and X");
-        send_key(SDLK_h,KMOD_NONE);send_key(SDLK_p,KMOD_NONE);
-        check(!player_blocked(),"H and P remain available to computer games instead of opening help or pause");
-        send_key(SDLK_F11,KMOD_NONE);check(player_ui.paused&&player_blocked(),"F11 pauses without consuming a letter key");
-        send_key(SDLK_F11,KMOD_NONE);check(!player_blocked(),"F11 resumes without requiring a letter key");
-        send_key(SDLK_F1,KMOD_NONE);check(player_ui.menu==1&&player_blocked(),"F1 opens help and pauses guest execution");
-        check(SDL_GetAudioDeviceStatus(audio_device)==SDL_AUDIO_PAUSED,"help pauses the audio device");
-        send_key(SDLK_F1,KMOD_NONE);
-        check(!player_blocked()&&!quit_requested&&resumes_after_priming(),"F1 closes help and resumes the guest; audio plays once re-primed");
-        send_key(SDLK_F1,KMOD_NONE);
-        send_key(SDLK_TAB,KMOD_NONE);check(player_ui.help_page==1,"Tab exposes computer keyboard and disk shortcuts");
-        send_key(SDLK_ESCAPE,KMOD_NONE);check(!player_blocked()&&!quit_requested,"Escape closes help without quitting");
-        check(resumes_after_priming(),"Escape resumes the audio device once re-primed");
-        send_key(SDLK_F1,KMOD_NONE);
-        SDL_Event esc;SDL_zero(esc);esc.type=SDL_KEYDOWN;esc.key.keysym.scancode=SDL_SCANCODE_ESCAPE;esc.key.keysym.sym=SDLK_ESCAPE;
-        player_event(&esc);
-        check(!player_blocked()&&player_ui.escape_held&&!quit_requested,"menu Escape is consumed until release");
-        player_event(&esc);esc.key.repeat=1;player_event(&esc);
-        check(!quit_requested,"held menu Escape cannot become a quit event");
-        static Uint8 held_keys[SDL_NUM_SCANCODES];held_keys[SDL_SCANCODE_ESCAPE]=1;keys=held_keys;
-        guest_keyboard=true;
+        /* Pause: F11, or the Pause binding of a player. */
+        check(press(SDL_SCANCODE_F11,KMOD_NONE)&&ui->paused,"F11 pauses without consuming a letter key");
+        check(player_blocked(),"a paused guest is blocked");
+        press(SDL_SCANCODE_F11,KMOD_NONE);check(!player_blocked(),"F11 resumes without consuming a letter key");
+        check(!press(SDL_SCANCODE_H,KMOD_NONE)&&!press(SDL_SCANCODE_P,KMOD_NONE)&&!player_blocked(),"H and P remain available to computer games instead of opening help or pause");
+        ui->keys[0][X_PAUSE]=SDL_SCANCODE_P;
+        check(press(SDL_SCANCODE_P,KMOD_NONE)&&ui->paused,"the Pause binding pauses");
+        press(SDL_SCANCODE_P,KMOD_NONE);check(!ui->paused,"the Pause binding resumes");
+        ui->menu=1;press(SDL_SCANCODE_P,KMOD_NONE);check(!ui->paused,"a menu ignores the Pause binding");ui->menu=0;
+        guest_keyboard=true;check(press(SDL_SCANCODE_P,KMOD_NONE)&&!ui->paused,"full typing leaves P to the guest");guest_keyboard=false;
+        ui->keys[0][X_PAUSE]=SDL_SCANCODE_UNKNOWN;
+        /* Escape closes a menu entirely before it can do anything else. */
+        ui->menu=1;
+        check(!press(SDL_SCANCODE_ESCAPE,KMOD_NONE)&&xa.escape_held,"menu Escape starts as the frontend's");
+        ui->menu=0;
+        check(press(SDL_SCANCODE_ESCAPE,KMOD_NONE),"menu Escape is consumed until release");
+        {SDL_Event again;memset(&again,0,sizeof(again));again.type=SDL_KEYDOWN;again.key.repeat=1;again.key.keysym.scancode=SDL_SCANCODE_ESCAPE;
+         check(rrhk_adapter()->event(&again,&harness_running)&&harness_running,"held menu Escape cannot become a quit event");}
+        static Uint8 *state;state=(Uint8*)SDL_GetKeyboardState(NULL);keys=state;state[SDL_SCANCODE_ESCAPE]=1;guest_keyboard=true;
         check(!input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"menu Escape never leaks into the full guest keyboard");
-        esc.type=SDL_KEYUP;player_event(&esc);
-        check(!player_ui.escape_held&&input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"release restores ordinary guest Escape handling");
-        guest_keyboard=false;keys=SDL_GetKeyboardState(NULL);
-        send_key(SDLK_F2,KMOD_NONE);check(player_ui.menu==2,"F2 opens actual controls menu");
-        player_ui.row=X_A;send_key(SDLK_RETURN,KMOD_NONE);send_key(SDLK_z,KMOD_NONE);
-        check(player_ui.key[0][X_A]==SDL_GetScancodeFromKey(SDLK_z),"F2 can still assign Z explicitly instead of default W");
-        send_key(SDLK_F2,KMOD_NONE);
-        check(!player_blocked()&&resumes_after_priming(),"F2 closes controls and resumes the guest; audio plays once re-primed");
-        send_key(SDLK_F1,KMOD_NONE);send_key(SDLK_F2,KMOD_NONE);
-        check(player_ui.menu==2,"F2 switches directly from help to controls");
-        send_key(SDLK_F1,KMOD_NONE);check(player_ui.menu==1,"F1 switches directly from controls to help");
-        send_key(SDLK_F2,KMOD_NONE);
-        send_key(SDLK_TAB,KMOD_NONE);check(player_ui.menu==2&&player_ui.player==1,"the next F2 page is the independent second player");
-        send_key(SDLK_LEFT,KMOD_NONE);check(player_ui.menu==2&&player_ui.player==0,"Left returns to the first player page");
-        player_ui.row=X_PAUSE;send_key(SDLK_RETURN,KMOD_NONE);
-        SDL_Event e;memset(&e,0,sizeof(e));e.type=SDL_CONTROLLERBUTTONDOWN;e.cbutton.button=SDL_CONTROLLER_BUTTON_LEFTSTICK;
-        check(player_event(&e)&&player_ui.pad[0][X_PAUSE]==SDL_CONTROLLER_BUTTON_LEFTSTICK,"L3 can be explicitly captured as pause");
-        e.type=SDL_CONTROLLERBUTTONUP;player_event(&e);
-        send_key(SDLK_ESCAPE,KMOD_NONE);
-        send_key(SDLK_F3,KMOD_NONE);check(player_ui.filter==2,"first filter after pixels is Scale2x");
-        send_key(SDLK_F3,KMOD_NONE);check(player_ui.filter==3,"next filter is proportional scanlines");
-        send_key(SDLK_F3,KMOD_NONE);check(player_ui.filter==1,"xBR is last in the filter cycle");
-        send_key(SDLK_F3,KMOD_NONE);check(player_ui.filter==0,"filter cycle returns to clean pixels");
-        send_key(SDLK_F4,KMOD_NONE);check(player_ui.display==1,"F4 chooses pixel perfect fullscreen");
-        send_key(SDLK_F7,KMOD_NONE);check(rr_language_get()==1,"F7 cycles language");
-        for(int i=1;i<RR_LANGUAGE_COUNT;i++)send_key(SDLK_F7,KMOD_NONE);
-        check(rr_language_get()==0,"every game language cycles back to English");
-        send_key(SDLK_F10,KMOD_NONE);check(!player_ui.menu,"F10 is free");
-        send_key(SDLK_F2,KMOD_NONE);send_key(SDLK_LEFT,KMOD_NONE);
-        check(player_ui.menu==RR_OPTIONS_MENU&&player_page()==2,"the options are the last F2 page");
-        rr_options.row=option_row(RR_ROW_AUDIO);send_key(SDLK_RETURN,KMOD_NONE);
-        check(SDL_AtomicGet(&rr_options.audio_mode)==1,"audio filtering is optional and selectable on the options page");
-        rr_options.row=0;send_key(SDLK_RETURN,KMOD_NONE);check(player_ui.filter==2&&player_ui.menu==RR_OPTIONS_MENU,"an option row runs its function key");
-        for(int i=0;i<3;i++)send_key(SDLK_RETURN,KMOD_NONE);
-        check(player_ui.filter==0,"the filter row cycles back to clean pixels");
-        send_key(SDLK_ESCAPE,KMOD_NONE);check(!player_ui.menu,"options close without quitting");
-        /* Quit and restart combinations close player 1's page. */
-        send_key(SDLK_F2,KMOD_NONE);send_key(SDLK_UP,KMOD_NONE);check(player_ui.row==X_ACTIONS+1,"restart is the last row of player 1");
-        send_key(SDLK_UP,KMOD_NONE);send_key(SDLK_RETURN,KMOD_NONE);
-        check(rr_options.capture==1&&rr_options.armed,"Enter captures the keyboard quit combination");
-        send_key(SDLK_END,KMOD_NONE);check(!rr_options.capture&&rr_options.key[0]==SDL_SCANCODE_END,"the keyboard quit combination is stored");
-        send_key(SDLK_DELETE,KMOD_NONE);check(!rr_options.key[0],"Delete clears it");
-        send_key(SDLK_RIGHT,KMOD_NONE);check(player_ui.player==1&&player_ui.row==X_ACTIONS-1,"player 2's page has no combination rows");
-        send_key(SDLK_ESCAPE,KMOD_NONE);
-        /* Option: F1-F10 to the X68000; Ctrl+F1-F12 stay Retro-Recomp's. */
-        check(rr_options.fkeys==10&&!rr_options.fkeys_machine,"function keys stay Retro-Recomp's by default");
-        send_key(SDLK_F2,KMOD_NONE);send_key(SDLK_LEFT,KMOD_NONE);rr_options.row=option_row(RR_ROW_FKEYS);send_key(SDLK_RETURN,KMOD_NONE);
-        check(rr_options.fkeys_machine,"the options row hands F1-F10 to the X68000");
-        send_key(SDLK_ESCAPE,KMOD_NONE);
-        {
-            static Uint8 fkey_state[SDL_NUM_SCANCODES];fkey_state[SDL_SCANCODE_F2]=1;keys=fkey_state;
-            check(input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_F2)&&!input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_F12),
-                "F2 reaches the X68000, which has no F12");
-            keys=SDL_GetKeyboardState(NULL);
-        }
-        send_key(SDLK_F2,KMOD_NONE);check(!player_ui.menu,"plain F2 stays with the X68000");
-        want_save=false;send_key(SDLK_F8,KMOD_NONE);check(!want_save,"plain F8 stays with the X68000");
-        send_key(SDLK_F8,KMOD_LCTRL);check(want_save,"Ctrl+F8 saves the game state");want_save=false;
-        send_key(SDLK_F2,KMOD_LCTRL);check(player_ui.menu==2,"Ctrl+F2 opens the F2 pages");
-        send_key(SDLK_F2,KMOD_NONE);check(!player_ui.menu,"inside a menu F2 closes it without Ctrl");
-        send_key(SDLK_F11,KMOD_NONE);check(player_ui.paused,"F11, absent from the X68000, still pauses");
-        send_key(SDLK_F11,KMOD_NONE);
-        send_key(SDLK_F2,KMOD_LCTRL);send_key(SDLK_LEFT,KMOD_NONE);rr_options.row=option_row(RR_ROW_FKEYS);send_key(SDLK_RETURN,KMOD_NONE);
-        check(!rr_options.fkeys_machine,"the row returns F1-F10 to Retro-Recomp");
-        send_key(SDLK_ESCAPE,KMOD_NONE);
-        send_key(SDLK_F1,KMOD_SHIFT);check(player_ui.want_reset&&!player_ui.menu,"Shift F1 queues a restart between guest frames at once");
-        player_ui.want_reset=0;
-        send_key(SDLK_k,(SDL_Keymod)(KMOD_CTRL|KMOD_ALT));want_save=false;send_key(SDLK_F8,KMOD_NONE);
-        check(guest_keyboard&&!want_save,"computer typing keeps guest F8 independent from snapshots");
-        send_key(SDLK_h,(SDL_Keymod)(KMOD_CTRL|KMOD_ALT));check(player_ui.menu==1,"explicit computer chord regains host help");
-        send_key(SDLK_ESCAPE,KMOD_NONE);send_key(SDLK_k,(SDL_Keymod)(KMOD_CTRL|KMOD_ALT));
-        send_key(SDLK_F8,KMOD_NONE);send_key(SDLK_F9,KMOD_NONE);check(want_save&&want_load,"game mode restores F8/F9 snapshot requests");
-        static uint16_t pixels[256*192];for(int i=0;i<256*192;i++)pixels[i]=(uint16_t)i;
+        lift(SDL_SCANCODE_ESCAPE);
+        check(!xa.escape_held&&input_state(0,RETRO_DEVICE_KEYBOARD,0,RETROK_ESCAPE),"release restores ordinary guest Escape handling");
+        guest_keyboard=false;state[SDL_SCANCODE_ESCAPE]=0;
+        /* Help and its second page. */
+        ui->menu=RRHK_MENU_HELP;check(!x_help_page(ui,&(RrhkMenuCtx){renderer,0,0,1}),"the first help page is the kit's");
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==1,"Tab exposes computer keyboard and disk shortcuts");
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==0,"Tab returns to the shared page");ui->menu=0;
+        press(SDL_SCANCODE_TAB,KMOD_NONE);check(xa.help_page==0,"Tab outside help is the guest's");
+        /* Ctrl+Alt chords belong to the computer and always win. */
+        check(press(SDL_SCANCODE_H,CHORD)&&ui->menu==RRHK_MENU_HELP,"Ctrl+Alt+H opens help");
+        press(SDL_SCANCODE_H,CHORD);check(!ui->menu,"Ctrl+Alt+H closes it");
+        press(SDL_SCANCODE_O,CHORD);check(ui->menu==RRHK_MENU_OPTIONS,"Ctrl+Alt+O opens the options");ui->menu=0;
+        press(SDL_SCANCODE_K,CHORD);check(guest_keyboard,"Ctrl+Alt+K hands the keyboard to the guest");
+        press(SDL_SCANCODE_H,CHORD);check(ui->menu==RRHK_MENU_HELP,"explicit computer chord regains host help in full typing");ui->menu=0;
+        press(SDL_SCANCODE_K,CHORD);check(!guest_keyboard,"Ctrl+Alt+K returns to game shortcuts");
+        press(SDL_SCANCODE_F,CHORD);check(ui->autofire,"Ctrl+Alt+F is the kit's autofire");press(SDL_SCANCODE_F,CHORD);check(!ui->autofire,"and turns it off again");
+        check(harness_running,"nothing quit so far");press(SDL_SCANCODE_Q,CHORD);check(!harness_running,"Ctrl+Alt+Q quits");harness_running=true;
+        press(SDL_SCANCODE_PAGEDOWN,CHORD);check(want_swap&&swap_direction==1&&!swap_drive,"Ctrl+Alt+Page Down is the next disk of FDD0");want_swap=false;
+        press(SDL_SCANCODE_PAGEUP,(SDL_Keymod)(CHORD|KMOD_SHIFT));check(want_swap&&swap_direction==-1&&swap_drive==1,"Shift selects FDD1");want_swap=false;
+        press(SDL_SCANCODE_BACKSPACE,CHORD);check(want_eject,"Ctrl+Alt+Backspace ejects");want_eject=false;
+        /* Function keys: Retro-Recomp's by default; F1-F10 are the X68000's when the options hand them over. */
+        check(!press(SDL_SCANCODE_F2,KMOD_NONE)&&!press(SDL_SCANCODE_F8,KMOD_NONE),"function keys stay Retro-Recomp's by default");
+        {wchar_t on[2]=L"1";rr_ini_set(L"X68000.Options",L"fkeys_machine",on,ui->ini_file);}
+        rrhk_options_keyboard("X68000",10);
+        check(press(SDL_SCANCODE_F2,KMOD_NONE)&&press(SDL_SCANCODE_F8,KMOD_NONE),"the options row hands F1-F10 to the X68000");
+        check(!press(SDL_SCANCODE_F12,KMOD_NONE),"F12, absent from the X68000, stays Retro-Recomp's");
+        check(press(SDL_SCANCODE_F11,KMOD_NONE)&&ui->paused,"F11 still pauses");ui->paused=0;
+        check(!press(SDL_SCANCODE_F8,KMOD_LCTRL),"Ctrl+F8 stays Retro-Recomp's");
+        ui->menu=2;check(!press(SDL_SCANCODE_F2,KMOD_NONE),"inside a menu F2 closes it without Ctrl");ui->menu=0;
+        {wchar_t off[2]=L"0";rr_ini_set(L"X68000.Options",L"fkeys_machine",off,ui->ini_file);}
+        rrhk_options_keyboard("X68000",10);
+        /* Every shared page renders in every game language, on the real renderer. */
         for(int lang=0;lang<RR_LANGUAGE_COUNT;lang++){
-            rr_language_set(lang);player_ui.menu=1;player_present(pixels,256,192,512);
-            player_ui.menu=2;player_present(pixels,256,192,512);
-            player_ui.menu=RR_OPTIONS_MENU;player_present(pixels,256,192,512);
+            rr_language_set(lang);ui->language=lang;
+            ui->menu=RRHK_MENU_HELP;xa.help_page=0;SDL_RenderClear(renderer);rrhk_menu_draw(renderer);
+            xa.help_page=1;rrhk_menu_draw(renderer);xa.help_page=0;
+            ui->menu=RRHK_MENU_CONTROLS;rrhk_menu_draw(renderer);
+            ui->menu=RRHK_MENU_OPTIONS;rrhk_menu_draw(renderer);
+            ui->menu=0;ui->paused=1;rrhk_menu_draw(renderer);ui->paused=0;
         }
-        check(!core_error,"all shared menu pages render in every game language");
-        rr_language_set(0);player_ui.menu=2;player_present(pixels,256,192,512);
+        check(!core_error,"all menu pages render in every game language");
+        rr_language_set(0);ui->language=0;ui->menu=RRHK_MENU_HELP;xa.help_page=1;
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);rrhk_menu_draw(renderer);
         {
             int w,h;SDL_GetRendererOutputSize(renderer,&w,&h);
             SDL_Surface *preview=SDL_CreateRGBSurfaceWithFormat(0,w,h,32,SDL_PIXELFORMAT_ARGB8888);
@@ -151,13 +107,19 @@ int main(int argc,char **argv){
             check(preview&&SDL_RenderReadPixels(renderer,NULL,preview->format->format,preview->pixels,preview->pitch)==0&&SDL_SaveBMP(preview,name)==0,"menu preview captured from the actual SDL renderer");
             if(preview)SDL_FreeSurface(preview);SDL_free(base);
         }
-        player_ui.menu=0;player_ui.filter=3;player_store(L"filter",3);rr_language_set(0);player_language();
-        rr_options.key[0]=SDL_SCANCODE_Q;rr_options.key[1]=rr_options.key[2]=0;
-        rr_options.down[SDL_SCANCODE_Q]=1;rr_options.focused=1;rr_options.suppressed=0;
-        (void)player_ui_quit();rr_options.hold=SDL_GetTicks64()-1100;
-        check(player_ui_quit(),"held quit chord triggers without waiting for another SDL event");
+        ui->menu=0;xa.help_page=0;
+        /* What a fresh process finds: the kit's settings and the legacy layout of the first host. */
+        ui->player=0;ui->row=X_A;ui->gamepad_page=0;ui->keys[0][X_A]=SDL_GetScancodeFromKey(SDLK_z);rrhk_store_binding();
+        ui->row=X_PAUSE;ui->gamepad_page=1;ui->buttons[0][X_PAUSE]=SDL_CONTROLLER_BUTTON_LEFTSTICK;rrhk_store_binding();ui->gamepad_page=0;
+        rr_display_save(ui->ini_file,ui->data_dir,L"X68000",L"filter",3);rr_display_save(ui->ini_file,ui->data_dir,L"X68000",L"display_mode",1);
+        {wchar_t one[2]=L"1";rr_ini_set(L"Interface",L"language",rr_language_wide(1),ui->ini_file);rr_ini_set(L"X68000",L"autofire",one,ui->ini_file);}
+        guest_keyboard=true;ui->autofire=1;player_store_exit();
+        {char text[8192]="";size_t n=0;char narrow[4096];FILE *f;
+         rr_to_utf8(ui->ini_file,narrow,sizeof(narrow));
+         f=fopen(narrow,"rb");if(f){n=fread(text,1,sizeof(text)-1,f);fclose(f);}text[n]=0;
+         check(strstr(text,"p0_key4=")&&strstr(text,"p0_pad7=")&&strstr(text,"[X68000]"),"bindings keep the layout of the first host: [X68000] p<player>_key<n> and p<player>_pad<n>");}
     }
-    player_shutdown();SDL_CloseAudioDevice(audio_device);SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
+    player_shutdown();rr_menu_shutdown();SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
     printf("{\"checks\":%u,\"failures\":%u,\"fresh_process\":%s}\n",checks,failures,verify?"true":"false");
     return failures?1:0;
 }

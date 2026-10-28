@@ -49,7 +49,7 @@ native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.
 native/x68000_reference/loading.h native/x68000_reference/media_probe.c
 native/x68000_reference/media_session.c native/x68000_reference/media_session.h native/x68000_reference/mouse_games.json
 native/x68000_reference/payload.c native/x68000_reference/payload.h
-native/x68000_reference/player_ui.inc native/x68000_reference/probe.c
+native/x68000_reference/probe.c
 native/x68000_reference/probe.h native/x68000_reference/reference_host.c
 native/x68000_reference/rtc_clock_shim.h native/x68000_reference/session_bridge.c
 native/x68000_reference/session_checks.c native/x68000_reference/session_checks.h
@@ -265,7 +265,7 @@ native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit
 native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
-native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
+native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py

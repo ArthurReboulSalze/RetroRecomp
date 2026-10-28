@@ -18,12 +18,12 @@
  *
  * Environment: RRAB_SCRIPT (script), RRAB_OUT (output directory).
  * Script: one command per line, `<host loop iteration> <command> [arguments]`.
- *   press <KeyName> [shift]   key down then up (names as SDL_GetScancodeFromName)
+ *   press <KeyName> [shift|ctrlalt]   key down then up (names as SDL_GetScancodeFromName), with Shift or Ctrl+Alt held
  *   hold <KeyName> | release <KeyName>   scripted keyboard state and the events
  *   attach <p> | detach <p>   virtual game controller of player p (slot p of the harness, not a player)
  *   attachx <p> <vendor> <product> <name>   the same with its own identity, so its own GUID and name
  *   button <p> <Name> <0|1>   | axis <p> <Name> <value>
- *   mouse <x> <y> <mask>      window coordinates, SDL button mask
+ *   mouse <x> <y> <mask>      window coordinates, SDL button mask; click: a left button press event
  *   capture <file.bmp>        save the next presented picture
  *   quit                      push SDL_QUIT
  */
@@ -35,6 +35,12 @@
 #include <string.h>
 
 static FILE *script, *frames_log, *events_log;
+#ifdef RRAB_X68
+static uint64_t call_hash = 14695981039346656037ull;   /* every answer to the core within one iteration, zeros too */
+static unsigned calls;
+#endif
+static uint64_t audio_stream = 14695981039346656037ull;     /* every byte ever queued, hashed in order */
+static unsigned long long audio_bytes;
 static char pending_line[1024];
 static unsigned pending_due, iteration;
 static int has_line, initialized, iteration_started;
@@ -60,7 +66,9 @@ static uint64_t fnv(uint64_t h, const void *data, size_t size) {
     return h;
 }
 
+static uint64_t fnv(uint64_t h, const void *data, size_t size);
 static void finish(void) {
+    if (events_log) fprintf(events_log, "A total %llu %016llx\n", audio_bytes, (unsigned long long)audio_stream);
     if (frames_log) fclose(frames_log);
     if (events_log) fclose(events_log);
     frames_log = events_log = NULL;
@@ -113,10 +121,12 @@ static SDL_Scancode scancode(const char *name) {
 static void run_command(const char *command) {
     char name[128]; int p, value, consumed = 0; unsigned x, y, mask;
     if (sscanf(command, "press %127s", name) == 1) {
-        Uint16 mod = strstr(command, " shift") ? KMOD_LSHIFT : 0;
-        if (mod) push_key(SDL_SCANCODE_LSHIFT, 1, 0);
+        Uint16 mod = (strstr(command, " shift") ? KMOD_LSHIFT : 0) | (strstr(command, " ctrlalt") ? KMOD_LCTRL | KMOD_LALT : 0);
+        if (mod & KMOD_LSHIFT) push_key(SDL_SCANCODE_LSHIFT, 1, 0);
+        if (mod & KMOD_LCTRL) { push_key(SDL_SCANCODE_LCTRL, 1, 0); push_key(SDL_SCANCODE_LALT, 1, 0); }
         push_key(scancode(name), 1, mod); push_key(scancode(name), 0, mod);
-        if (mod) push_key(SDL_SCANCODE_LSHIFT, 0, 0);
+        if (mod & KMOD_LCTRL) { push_key(SDL_SCANCODE_LALT, 0, 0); push_key(SDL_SCANCODE_LCTRL, 0, 0); }
+        if (mod & KMOD_LSHIFT) push_key(SDL_SCANCODE_LSHIFT, 0, 0);
     } else if (sscanf(command, "hold %127s", name) == 1) { held[scancode(name)] = 1; push_key(scancode(name), 1, 0); }
     else if (sscanf(command, "release %127s", name) == 1) { held[scancode(name)] = 0; push_key(scancode(name), 0, 0); }
     else if (sscanf(command, "attachx %d %u %u %n", &p, &x, &y, &consumed) >= 3 && consumed && p >= 0 && p < 4 && !joysticks[p]) {
@@ -145,6 +155,11 @@ static void run_command(const char *command) {
         if (a == SDL_CONTROLLER_AXIS_INVALID || SDL_JoystickSetVirtualAxis(joysticks[p], a, (Sint16)value)) exit(5);
         SDL_JoystickUpdate();
     } else if (sscanf(command, "mouse %u %u %u", &x, &y, &mask) == 3) { mouse_x = (int)x; mouse_y = (int)y; mouse_mask = mask; }
+    else if (!strcmp(command, "click")) {      /* the left button of the mouse goes down, as an event (the mask stays the script's) */
+        SDL_Event e; memset(&e, 0, sizeof e);
+        e.type = SDL_MOUSEBUTTONDOWN; e.button.state = SDL_PRESSED; e.button.button = SDL_BUTTON_LEFT; e.button.clicks = 1;
+        e.button.x = mouse_x; e.button.y = mouse_y; SDL_PushEvent(&e);
+    }
     else if (sscanf(command, "capture %127s", name) == 1) snprintf(capture_path, sizeof capture_path, "%s/%s", getenv("RRAB_OUT"), name);
     else if (!strcmp(command, "quit")) { SDL_Event e; memset(&e, 0, sizeof e); e.type = SDL_QUIT; SDL_PushEvent(&e); }
     else { fprintf(stderr, "rrab: unknown command %s\n", command); exit(5); }
@@ -170,6 +185,7 @@ Uint32 rrab_GetWindowFlags(SDL_Window *window) { return SDL_GetWindowFlags(windo
 Uint64 rrab_GetPerformanceFrequency(void) { return 1000000; }
 Uint64 rrab_GetPerformanceCounter(void) { return virtual_us++; }
 Uint64 rrab_GetTicks64(void) { return virtual_us / 1000; }
+Uint32 rrab_GetTicks(void) { return (Uint32)(virtual_us / 1000); }
 void rrab_Delay(Uint32 ms) {
     init();
     if (events_log) fprintf(events_log, "D %u %u\n", iteration, ms);
@@ -205,6 +221,7 @@ SDL_AudioDeviceID rrab_OpenAudioDevice(const char *name, int capture, const SDL_
 int rrab_QueueAudio(SDL_AudioDeviceID dev, const void *data, Uint32 size) {
     (void)dev; audio_advance();
     fprintf(events_log, "A q %u %u %016llx\n", iteration, size, (unsigned long long)fnv(14695981039346656037ull, data, size));
+    audio_stream = fnv(audio_stream, data, size); audio_bytes += size;
     audio_queue += size; return 0;
 }
 Uint32 rrab_GetQueuedAudioSize(SDL_AudioDeviceID dev) { (void)dev; audio_advance(); return audio_queue; }
@@ -244,6 +261,10 @@ void rrab_RenderPresent(SDL_Renderer *renderer) {
     uint64_t h64 = 14695981039346656037ull;
     for (int y = 0; y < h; ++y) h64 = fnv(h64, (const char *)image->pixels + (size_t)y * image->pitch, (size_t)w * 4);
     fprintf(frames_log, "P %u %016llx %dx%d\n", iteration, (unsigned long long)h64, w, h);
+#ifdef RRAB_X68
+    fprintf(events_log, "H %u %u %016llx\n", iteration, calls, (unsigned long long)call_hash);   /* every answer to the core, zeros too */
+    calls = 0; call_hash = 14695981039346656037ull;
+#endif
     if (capture_path[0]) {
         if (SDL_SaveBMP(image, capture_path)) { fprintf(stderr, "rrab: cannot save %s\n", capture_path); exit(5); }
         capture_path[0] = 0;
@@ -255,7 +276,31 @@ void rrab_RenderPresent(SDL_Renderer *renderer) {
 
 /* What the host hands to the machine, logged and passed on: the pad words, the extra
  * CPS-1 pads and the pointer. */
-#ifndef RRAB_NES
+#if defined(RRAB_X68)
+/* The X68000 (a libretro frontend): every answer to the core that is not zero, as
+ * `G iteration port device id value`; the mouse in relative mode and its capture. */
+#include <libretro.h>
+extern void retro_set_input_state(retro_input_state_t callback);
+static retro_input_state_t real_input_state;
+static int16_t logged_input_state(unsigned port, unsigned device, unsigned index, unsigned id) {
+    int16_t value = real_input_state(port, device, index, id);
+    unsigned long long record[4] = {port, device, id, (unsigned short)value};
+    call_hash = fnv(call_hash, record, sizeof record); ++calls;
+    if (value) { init(); fprintf(events_log, "G %u %u %u %u %d\n", iteration, port, device, id, value); }
+    return value;
+}
+void rrab_set_input_state(retro_input_state_t callback) { real_input_state = callback; retro_set_input_state(logged_input_state); }
+static int relative_x, relative_y;
+Uint32 rrab_GetRelativeMouseState(int *x, int *y) {
+    if (x) *x = mouse_x - relative_x;
+    if (y) *y = mouse_y - relative_y;
+    relative_x = mouse_x; relative_y = mouse_y; return mouse_mask;
+}
+int rrab_SetRelativeMouseMode(SDL_bool enabled) {
+    init(); fprintf(events_log, "R %u %d\n", iteration, enabled == SDL_TRUE);
+    return 0;
+}
+#elif !defined(RRAB_NES)
 extern bool rr16_frame(uint16_t p1, uint16_t p2);
 bool rrab_frame(uint16_t p1, uint16_t p2) {
     init(); fprintf(events_log, "G %u %04x %04x\n", iteration, p1, p2);

@@ -23,7 +23,7 @@ void rrhk_audio_open(RrhkRun *run) {
         }
         return;
     }
-    want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
+    want.freq = m->audio_rate ? (int)m->audio_rate : 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
     run->audio = 0;
     /* A dummy audio device's callback timer is not a calibrated 48 kHz
      * oscillator. The explicit test-only mode isolates the video deadline;
@@ -71,6 +71,9 @@ void rrhk_audio_frame(RrhkRun *run) {
     }
     n = m->audio(pcm, 4096);
     if (n && run->audio) rrhk_audio_push(run, pcm, n);
+    /* A machine that may hold more than one buffer of sound per frame (the X68000's batches) is asked again while it fills one. */
+    while (m->audio_chunked && n == 4096 && (n = m->audio(pcm, 4096)) > 0)
+        if (run->audio) rrhk_audio_push(run, pcm, n);
 }
 
 /* Preserve every produced block. If the host catches up after a scheduling
@@ -81,7 +84,7 @@ void rrhk_audio_frame(RrhkRun *run) {
  * little for a costly frame. */
 void rrhk_audio_wait_room(RrhkRun *run) {
     run->audio_target = run->audio_preroll + rr_cushion_frames(&run->cushion, (Uint32)run->have.freq) * 4;
-    if (run->audio && run->audio_playing && !rrhk.menu) {
+    if (run->audio && run->audio_playing && !rrhk.menu && !rrhk.paused) {
         Uint64 until = SDL_GetTicks64() + 20;
         while (SDL_GetQueuedAudioSize(run->audio) > run->audio_target && SDL_GetTicks64() < until)
             SDL_Delay(1);

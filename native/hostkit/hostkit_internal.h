@@ -6,11 +6,6 @@
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
 
-/* Menu numbers (options.c checks them against game_options.h). */
-#define RRHK_MENU_HELP 1
-#define RRHK_MENU_CONTROLS 2
-#define RRHK_MENU_PAGE 4
-#define RRHK_MENU_OPTIONS 5
 #define RRHK_COMBO_ROWS 2
 
 extern RrhkUi rrhk;
@@ -37,6 +32,7 @@ typedef struct RrhkRun {
     uint64_t frame;
     int title_state;
     bool running;
+    bool fast;                     /* the machine's fast-forward hook was true at the start of this iteration */
     RrScanlineMask scanlines;
     RrXbr xbr;
 } RrhkRun;
@@ -53,6 +49,8 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
 /* input.c */
 void rrhk_settings_path(void);
 void rrhk_store_binding(void);
+void rrhk_clear_binding(void);
+const wchar_t *rrhk_autofire_section(void);
 void rrhk_open_pads(void);
 void rrhk_close_pads(void);
 /* The Gamepad row of each player's gamepad page (divergence 10): which pad the player uses. */
@@ -80,6 +78,7 @@ void rrhk_menu_draw(SDL_Renderer *renderer);
 /* options.c: the only file that includes game_options.h, whose settings are
  * one set of statics per translation unit. */
 void rrhk_options_init(const wchar_t *console);
+void rrhk_options_keyboard(const char *machine, int count);
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture);
 bool rrhk_options_quit(int menu);
 bool rrhk_options_restart(int menu);
