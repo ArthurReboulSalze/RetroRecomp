@@ -1,11 +1,12 @@
 """Backward compatibility is owed to the previous release only (decision of 28 October 2026).
 
-The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 lists the previous release, 1.6.0, and only
-it: its game stamps in `LEGACY_GAME_STAMPS` (eight consoles) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega
-Drive, Neo Geo and CPS-1, Windows). The values below are frozen: they were computed from the `v1.6.0` tag with
-Python 3.14.5 (docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1"; docs/GAME_STATES.md, "States written by release 1.6.0").
-The release that follows 1.6.1 replaces them with those of 1.6.1; the mechanisms are driven here with synthetic values
-as well.
+The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 listed the previous release, 1.6.0, and
+only it. The tree of 1.6.2 lists 1.6.1: its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega Drive, Super Nintendo,
+Neo Geo and CPS-1, Windows; the 1.6.0 keys are dropped), while the game stamps in `LEGACY_GAME_STAMPS` are still those of
+1.6.0 until the release procedure replaces them. The values below are frozen: they were computed from the `v1.6.0` and
+`v1.6.1` tags with Python 3.14.5 (docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1"; docs/GAME_STATES.md, "States written by
+release 1.6.0" and "States written by release 1.6.1"). The release that follows 1.6.2 replaces the state keys with
+those of 1.6.2; the mechanisms are driven here with synthetic values as well.
 """
 import json
 import os
@@ -43,12 +44,21 @@ GAME_STAMPS_156_REMOVED = {
     'nes': 'c98420ac1dfde068026e7fb72da97844714b6a31e6536cca93ff012add168715',
     'sms': '3897d8b37cffe8a438fd12cb7b522c9fac5222c5b94c9eb045457ef557e2fa7b',
 }
-# Quick-state keys of release 1.6.0 (Windows), from the v1.6.0 tag; the same code gives the documented 1.5.6 keys from
-# the v1.5.6 tag. The Super Nintendo key is the same in 1.6.0 and 1.6.1: it needs no compatibility line.
-MD_STATE_ABI_160 = '2832912487d66aa2f846a6c48ca7248976adec158ee407b8fcb3a509f514d6c8'
-NEO_GEO_STATE_ABI_160 = '6e0721d152aa17f6bec321b960177773b7e9eaf06c29cc350b39f3a4b91fc46a'
-CPS1_STATE_ABI_160 = 'bc842183c642e70f5c9a43570d685ce8ea1efa826c7f21e8268c4a6abfb6fa9d'
+# Quick-state keys of release 1.6.1 (Windows), from the v1.6.1 tag; the same code gives the documented 1.5.6 keys from
+# the v1.5.6 tag. The Super Nintendo key is the same in 1.6.0 and 1.6.1 (SNES_STATE_ABI_160 below): 1.6.1 needed no line
+# for it, 1.6.2 lists it for the first time because the runtime catalogue moved the key.
+MD_STATE_ABI_161 = 'fb6d191a2b8c3975e4a69560fb204ad1e79c8726bb55f448e15e2d201550c959'
+SNES_STATE_ABI_161 = '366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1'
+NEO_GEO_STATE_ABI_161 = '5c25722def19e560b4cbce7c7424d3c2f3317a2a91f6d3d3f184f16a46fdc474'
+CPS1_STATE_ABI_161 = 'f745f993a28521fa17dbe84332964b677a3ab35f5bbb77b7f7c1fcb95cd902ee'
+# Keys of release 1.6.0 (the previous release of the tree of 1.6.1): owed to nobody any more. The Super Nintendo one is
+# also its 1.6.1 key (the key did not move), so it stays accepted and is not in this tuple.
 SNES_STATE_ABI_160 = '366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1'
+STATE_ABI_160_REMOVED = {
+    'md': '2832912487d66aa2f846a6c48ca7248976adec158ee407b8fcb3a509f514d6c8',
+    'ng': '6e0721d152aa17f6bec321b960177773b7e9eaf06c29cc350b39f3a4b91fc46a',
+    'cps1': 'bc842183c642e70f5c9a43570d685ce8ea1efa826c7f21e8268c4a6abfb6fa9d',
+}
 # Keys of releases before 1.6.0 that earlier trees listed: never listed again.
 STATE_ABI_156_REMOVED = ('9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa12ca2a8520',
                          'fa66982c49f9d86ebf38e555714601d7466bf43331de44eaf4093e6d759bea41',
@@ -249,59 +259,65 @@ class StateCompatibilityTests(unittest.TestCase):
         texts['snes'] = self.sixteen_bit_config('snes')
         return texts
 
-    def test_the_states_of_release_1_6_0_are_accepted_by_mega_drive_neo_geo_and_cps1(self):
+    def test_the_states_of_release_1_6_1_are_accepted_by_the_four_consoles_whose_key_moved(self):
         from retrorecomp import console16_state, cps1_build, neogeo_build
-        self.assertEqual(console16_state.MD_STATE_ABI_160, MD_STATE_ABI_160)
-        self.assertEqual(neogeo_build.STATE_ABI_160, NEO_GEO_STATE_ABI_160)
-        self.assertEqual(cps1_build.LEGACY_STATE_ABI_160, CPS1_STATE_ABI_160)
+        self.assertEqual(console16_state.MD_STATE_ABI_161, MD_STATE_ABI_161)
+        self.assertEqual(console16_state.SNES_STATE_ABI_161, SNES_STATE_ABI_161)
+        self.assertEqual(neogeo_build.STATE_ABI_161, NEO_GEO_STATE_ABI_161)
+        self.assertEqual(cps1_build.LEGACY_STATE_ABI_161, CPS1_STATE_ABI_161)
         texts = self.configs()
-        for system, key in (('md', MD_STATE_ABI_160), ('ng', NEO_GEO_STATE_ABI_160), ('cps1', CPS1_STATE_ABI_160)):
+        for system, key in (('md', MD_STATE_ABI_161), ('snes', SNES_STATE_ABI_161), ('ng', NEO_GEO_STATE_ABI_161),
+                            ('cps1', CPS1_STATE_ABI_161)):
             text = texts[system]
-            # Exactly one compatibility line, and it is the key of 1.6.0, which is not the build's own key.
+            # Exactly one compatibility line, and it is the key of 1.6.1, which is not the build's own key.
             self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 1, system)
             self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{key}"\n', text, system)
             self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"', system)
             self.assertNotIn(f'RR16_STATE_ABI "{key}"', text, system)
 
-    def test_the_layout_versions_the_1_6_0_keys_stand_for_did_not_move(self):
+    def test_the_layout_versions_the_1_6_1_keys_stand_for_did_not_move(self):
         # The keys hash files; what is serialized is fixed by these versions and the state files, none of which changed
-        # between the v1.6.0 tag and 1.6.1 (only md_z80_bus.inc and md_boundary_checks.c differ below native/, and no
-        # state file reads the two variables the former touches).
+        # between the v1.6.1 tag and 1.6.2 (below native/ only the host kit shell, the NES host files and
+        # runtime_catalog.inc differ: strings and shell code, none of it saved in a state).
         from retrorecomp import console16_state
         self.assertEqual((console16_state.PORTABLE_STATE_ABI, console16_state.MD_PORTABLE_STATE_ABI), (2, 11))
-        for name in sorted(os.listdir(ASSETS / 'native')):
-            if name == 'md_z80_bus.inc' or not name.endswith(('.c', '.inc', '.h', '.cpp')):
-                continue
-            text = (ASSETS / 'native' / name).read_text(encoding='utf-8', errors='replace')
-            for variable in ('rr_bus_control_event', 'rr_z80_checkpoint_advanced'):
-                self.assertNotIn(variable, text, (name, variable))
+        for name in StateLayoutGuardTests.FILES:
+            path = ASSETS / 'native' / name
+            if path.is_file():
+                self.assertNotIn('runtime_catalog', path.read_text(encoding='utf-8', errors='replace'), name)
 
-    def test_the_super_nintendo_key_did_not_move_and_needs_no_compatibility_line(self):
-        # The key of the previous release is the build's own: its quick states resume as they are. (The release that
-        # follows 1.6.1 pins the 1.6.1 key here instead.)
+    def test_the_super_nintendo_key_of_1_6_1_is_the_one_of_1_6_0_and_is_no_longer_the_build_key(self):
+        # 1.6.1 needed no line: its key was 1.6.0's. The runtime catalogue moved it in 1.6.2, which lists it now.
+        self.assertEqual(SNES_STATE_ABI_161, SNES_STATE_ABI_160)
         text = self.configs()['snes']
-        self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 0)
-        self.assertIn(f'#define RR16_STATE_ABI "{SNES_STATE_ABI_160}"', text)
+        self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{SNES_STATE_ABI_161}"', text)
+        self.assertNotIn(f'#define RR16_STATE_ABI "{SNES_STATE_ABI_161}"', text)
 
-    def test_no_state_key_of_a_release_before_1_6_0_is_accepted(self):
+    def test_no_state_key_of_a_release_before_1_6_1_is_accepted(self):
         texts = self.configs()
         for system, text in texts.items():
             for key in STATE_ABI_156_REMOVED:
                 self.assertNotIn(key, text, system)
+            if system in STATE_ABI_160_REMOVED:
+                self.assertNotIn(STATE_ABI_160_REMOVED[system], text, system)
             self.assertNotRegex(text, r'RR16_STATE_COMPAT_ABI_\d', system)
+        # The 1.6.0 keys of the three consoles whose key changed in 1.6.1 are not 1.6.1 keys either.
+        for system, key in (('md', MD_STATE_ABI_161), ('ng', NEO_GEO_STATE_ABI_161), ('cps1', CPS1_STATE_ABI_161)):
+            self.assertNotEqual(key, STATE_ABI_160_REMOVED[system], system)
 
-    def test_the_state_key_constants_are_those_of_1_6_0_only(self):
+    def test_the_state_key_constants_are_those_of_1_6_1_only(self):
         from retrorecomp import console16_state, cps1_build, neogeo_build
         for module in (console16_state, cps1_build, neogeo_build):
             for name in dir(module):
                 match = re.search(r'STATE_ABI_(\d+)$', name)
                 if match:
-                    self.assertEqual(match.group(1), '160', (module.__name__, name))
-        self.assertFalse(hasattr(console16_state, 'MD_STATE_ABI_141'))
-        self.assertFalse(hasattr(console16_state, 'SNES_STATE_ABI_141'))
-        self.assertFalse(hasattr(console16_state, 'MD_STATE_ABI_156'))
-        self.assertFalse(hasattr(neogeo_build, 'STATE_ABI_156'))
-        self.assertFalse(hasattr(cps1_build, 'LEGACY_STATE_ABI_156'))
+                    self.assertEqual(match.group(1), '161', (module.__name__, name))
+        for module, name in ((console16_state, 'MD_STATE_ABI_160'), (console16_state, 'SNES_STATE_ABI_160'),
+                             (neogeo_build, 'STATE_ABI_160'), (cps1_build, 'LEGACY_STATE_ABI_160'),
+                             (console16_state, 'MD_STATE_ABI_141'), (console16_state, 'SNES_STATE_ABI_141'),
+                             (console16_state, 'MD_STATE_ABI_156'), (neogeo_build, 'STATE_ABI_156'),
+                             (cps1_build, 'LEGACY_STATE_ABI_156')):
+            self.assertFalse(hasattr(module, name), (module.__name__, name))
 
     def test_the_shared_16_bit_state_loader_accepts_the_compatibility_key_a_build_defines(self):
         loader = (ASSETS / 'native/console16_state.c').read_text(encoding='utf-8')
@@ -309,7 +325,7 @@ class StateCompatibilityTests(unittest.TestCase):
 
 
 class NeoGeoStateKeyPlatformTests(unittest.TestCase):
-    """The key of 1.6.0 is a Windows key: a Linux build writes none (its own key also hashes its target)."""
+    """The key of 1.6.1 is a Windows key: a Linux build writes none (its own key also hashes its target)."""
 
     def test_the_neo_geo_compatibility_line_is_written_on_windows_only(self):
         from retrorecomp import neogeo_build
@@ -329,7 +345,7 @@ class NeoGeoStateKeyPlatformTests(unittest.TestCase):
                     patch('retrorecomp.neogeo_build.os', FakeOs(name)), \
                     patch('retrorecomp.platforms.target_id', return_value='linux-x86_64'):
                 text = neogeo_build.state_config(Path('cartridge.neo'), Path('neogeo.zip'), 'Test')
-            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_160}"' in text, listed)
+            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_161}"' in text, listed)
             self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), int(listed))
 
 

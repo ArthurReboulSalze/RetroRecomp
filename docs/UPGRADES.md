@@ -44,7 +44,8 @@ N it covers the exports, receipts, quick states and local files that release N-1
   ([below](#exports-of-160-in-161)).
 - The quick-state keys of release N-1 are the only `RR16_STATE_COMPAT_ABI` lines a build writes
   ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0; the Mega Drive, Neo
-  Geo and CPS-1 keys of 1.6.0 (Windows) in the tree of 1.6.1.
+  Geo and CPS-1 keys of 1.6.0 (Windows) in the tree of 1.6.1. The Mega Drive, Super Nintendo, Neo
+  Geo and CPS-1 keys of 1.6.1 (Windows) in the tree of 1.6.2.
 - A receipt of another schema than the current one (3) is never current, and a report is read in the places the current
   writers use (`scan_level`, `scan.level`), not in those of releases before 1.6.0.
 - Nothing migrates the files of a release older than N-1 (collection inventories without a recorded base, the X68000
@@ -209,7 +210,8 @@ game-side modules: `batch`, `core`, `console16`, `console16_optimization`,
 and `x68000_conversion` (and `packing`, a build module), so the game and build
 stamps of the nine consoles move. `neogeo_build`, `neogeo_codegen`, `neogeo_z80`,
 `cps1_build`, `cps1_codegen`, `console16_state` and the Super Nintendo modules
-that the quick-state keys hash are not touched, so no state key moves. Like the
+that the quick-state keys hash were not touched by that step (the state-key rollover of 1.6.2 edits `console16_state`,
+`neogeo_build` and `cps1_build` afterwards, see below). Like the
 entries for 1.6.0, the 1.6.1 game stamps go into `LEGACY_GAME_STAMPS` at the
 release, computed from the tag.
 
@@ -263,10 +265,12 @@ says "No gamepad for player N". Five strings join the runtime catalogue in the e
 `hostkit/shell/rrhk_input.c`, `rrhk_events.c`, `rrhk_menu.c` and `runtime_catalog.inc`. The catalogue is shared by every
 shell, so the host stamp of each of the nine consoles moves (checked against the previous tree: the game and build stamps
 of all nine stay equal); the same release already moves them, so nothing more is owed to exports of 1.6.1. Learned paths
-do not move. The catalogue is also one of the native files the quick-state key of the 16-bit consoles hashes, so those
-keys move too (the serialized layout does not): at the release, the 1.6.1 keys are added as compatibility keys like the
-1.6.0 ones, and the Super Nintendo one, which had not moved since 1.6.0, needs its first compatibility line
-(`tests/test_legacy_compat.py` pins the unmoved key until then). Exports of 1.6.1 keep their existing `[<Console>.Gamepad.PlayerN]`
+do not move. The catalogue is also one of the native files the quick-state key of the 16-bit consoles hashes, so the Mega Drive
+and Super Nintendo keys move too (the serialized layout does not). The state-key rollover is done in this tree: the
+1.6.1 keys of the Mega Drive, Super Nintendo, Neo Geo and CPS-1 are the compatibility keys (Windows) and the 1.6.0 ones
+are dropped; the Super Nintendo, which had not moved since 1.6.0, has its first compatibility line, and the Neo Geo and
+CPS-1 keys move with the edit of `neogeo_build` and `cps1_build` that the rollover is
+([GAME_STATES.md](GAME_STATES.md#states-written-by-release-161)). Exports of 1.6.1 keep their existing `[<Console>.Gamepad.PlayerN]`
 keys: the two new keys are read when present and ignored otherwise. When Master System and Game Gear move to the kit this
 row replaces their first-player toggle and pad swap.
 
