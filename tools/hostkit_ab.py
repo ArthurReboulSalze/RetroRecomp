@@ -438,6 +438,24 @@ def pad_scenario(name: str) -> tuple[str, list]:
         probe(0, [0]); probe(1, [1])
         row(1, 'capture', 'Return', 'Return', 'capture')
         probe(1, [0]); probe(0, [1])
+    elif name == 'twin-unplug':  # both players pinned to identical pads: unplugging one never moves the other
+        s.say(f'attachx 0 {PAD_TWIN}', 4).say(f'attachx 1 {PAD_TWIN}', 4)
+        row(3, 'Return', 'Return')                               # player 2: Automatic -> Twin #1 -> Twin #2
+        row(1, 'Return', 'capture')                              # player 1: Automatic -> Twin #1
+        probe(0, [0]); probe(1, [1])
+        s.say('detach 0', 4)
+        probe(1, [1])                                            # player 2 keeps its pad; player 1 has none
+        row(1, 'capture')                                        # "Twin Pad (disconnected)"
+        s.say(f'attachx 0 {PAD_TWIN}', 4)
+        probe(0, [0]); probe(1, [1])                             # plugged in again: back to player 1
+    elif name == 'next-missing':  # Enter on a pinned pad that is missing goes on with the connected pads, then None
+        s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
+        row(3, 'Return', 'Return')                               # player 2: Automatic -> Pad One -> Pad Two
+        s.say('detach 1', 4)
+        row(3, 'Return', 'capture')                              # missing Pad Two -> Pad One (taken from player 1)
+        probe(0, [1])
+        row(3, 'Return', 'capture')                              # Pad One is the last pad -> None
+        probe(0, [0])                                            # player 1, automatic, gets Pad One back
     elif name == 'replug':     # player 2 pinned to a pad that is unplugged and plugged again; no fallback meanwhile
         s.say(f'attachx 0 {PAD_A}', 4).say(f'attachx 1 {PAD_B}', 4)
         probe(0, [0]); probe(1, [1])

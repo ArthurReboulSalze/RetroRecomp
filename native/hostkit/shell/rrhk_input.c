@@ -147,20 +147,24 @@ void rrhk_open_pads(void) {
     int target[RRHK_MAX_PLAYERS];     /* position in the list, -1: no pad */
     bool taken[PAD_MAX] = {false};
     for (int p = 0; p < RRHK_MAX_PLAYERS; ++p) target[p] = -1;
-    /* Pinned players first: their own pad if it still matches, else the first unclaimed pad of that GUID. */
+    /* Every player first keeps the pad it holds: a pinned player when the pad still matches its GUID, an automatic
+     * player unless another player claimed it. Only then does a pinned player without its pad look for an unclaimed
+     * one of that GUID, so unplugging one of two identical pinned pads never moves the other to another player, and
+     * a pinned pad that is missing is never replaced by an identical pad another player is using. */
     for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_PINNED) {
         int held = pad_position(list, count, rrhk.pads[p]);
-        if (held >= 0 && !taken[held] && !strcmp(list[held].guid, choice[p].guid)) target[p] = held;
-        else for (int j = 0; j < count && target[p] < 0; ++j) if (!taken[j] && !strcmp(list[j].guid, choice[p].guid)) target[p] = j;
-        if (target[p] >= 0) taken[target[p]] = true;
+        if (held >= 0 && !taken[held] && !strcmp(list[held].guid, choice[p].guid)) { target[p] = held; taken[held] = true; }
     }
-    /* Automatic players keep the pad they hold unless another player claimed it ... */
     for (int p = 0; p < players && !redeal; ++p) if (choice[p].mode == PAD_AUTO) {
         int held = pad_position(list, count, rrhk.pads[p]);
         if (held >= 0 && !taken[held]) { target[p] = held; taken[held] = true; }
     }
     redeal = false;
-    /* ... and the pads that are left go to the first free automatic player, in plug order. */
+    for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_PINNED && target[p] < 0) {
+        for (int j = 0; j < count && target[p] < 0; ++j) if (!taken[j] && !strcmp(list[j].guid, choice[p].guid)) target[p] = j;
+        if (target[p] >= 0) taken[target[p]] = true;
+    }
+    /* The pads that are left go to the first free automatic player, in plug order. */
     for (int j = 0; j < count; ++j) if (!taken[j])
         for (int p = 0; p < players; ++p) if (choice[p].mode == PAD_AUTO && target[p] < 0) { target[p] = j; taken[j] = true; break; }
     SDL_GameController *old[RRHK_MAX_PLAYERS], *now[RRHK_MAX_PLAYERS];
@@ -239,7 +243,9 @@ void rrhk_pad_next(int p) {
     else if (c->mode == PAD_AUTO) { if (count) pin_pad(p, &list[0]); else c->mode = PAD_NONE; }
     else if (held >= 0 && held + 1 < count) pin_pad(p, &list[held + 1]);
     else if (held >= 0) { memset(c, 0, sizeof *c); c->mode = PAD_NONE; }
-    else memset(c, 0, sizeof *c);       /* a pinned gamepad that is not plugged in: back to automatic */
+    /* A pinned gamepad that is not plugged in: the cycle goes on with the connected pads, then None. */
+    else if (count) pin_pad(p, &list[0]);
+    else { memset(c, 0, sizeof *c); c->mode = PAD_NONE; }
     store_choice(p);
     redeal = c->mode == PAD_AUTO;
     rrhk_open_pads();

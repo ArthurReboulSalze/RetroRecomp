@@ -220,8 +220,10 @@ Decisions (project owner, 27 October 2026; D9, D10 and D11 on 28 October 2026), 
   None and one pad gives keyboard for player 1 and pad for player 2). The choice is kept in the game's preferences
   (section 4): `device` is `auto`, `none` or the SDL joystick GUID, `name` the controller's name for display. A pinned
   controller that is not plugged in is shown as "disconnected", its player has no pad meanwhile (never another pad), and
-  hot-plug gives it back; two identical pads share a GUID and the first unclaimed one matches; an Automatic player never
-  takes a pad pinned to another player. Setting a player back to Automatic deals the automatic players' pads again in
+  hot-plug gives it back; two identical pads share a GUID and the first unclaimed one matches (the "#n" of the row is
+  the plug order of the moment, not a saved identity: after a restart the first identical pad found goes to the first
+  pinned player); every player keeps the pad it holds before a pinned player looks for a missing one, so unplugging one
+  of two identical pinned pads never moves the other; an Automatic player never takes a pad pinned to another player. Setting a player back to Automatic deals the automatic players' pads again in
   plug order, as at the next start. The F2 binding of a player who has no pad shows "No gamepad for player N" instead
   of waiting silently (Esc still leaves). Keyboard and pad keep working together, and the stick, autofire and pointer
   rules are unchanged. This policy replaces the SMS/GG first-player toggle and pad swap when SMS/GG migrates.
