@@ -1,6 +1,7 @@
 """Neo Geo conversion profile with explicitly selected, verified firmware."""
 from pathlib import Path
-from . import Capabilities, Cpu, OptionKey, SystemProfile
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SystemProfile
+from .specs import Catalogues, Identify, InputLayout, LibraryLayout, PathSpec, ReportShape, SharedKnowledge
 
 
 class NeoGeoProfile(SystemProfile):
@@ -25,9 +26,38 @@ class NeoGeoProfile(SystemProfile):
     title_from_romset = True
     # ng_bios names the firmware, whose verified identity enters the request
     # (request_identity); ng_parallel_games only sizes the conversion.
-    option_keys = (OptionKey('ng_bios', signature=False), OptionKey('ng_qualification_routes'),
-                   OptionKey('ng_parallel_games', signature=False))
+    option_keys = (OptionKey('ng_bios', signature=False, kind='path', label='ng_bios_label'),
+                   OptionKey('ng_qualification_routes', kind='plan'),
+                   OptionKey('ng_parallel_games', signature=False, kind='count', default=1))
     parallel_games_option = 'ng_parallel_games'
+    path_spec = PathSpec(
+        order=6, sections=(('m68k', 'ng'), ('z80', 'ng-sound')),
+        source_bounds=(('cart', (4096, 512 << 20)), ('p', (512, 16 << 20)), ('bios', (0x20000, 0x20000)),
+                       ('m1', (0x10000, 512 << 10)), ('sm1', (0x20000, 0x20000))),
+        required_sources=('cart', 'p', 'bios', 'm1', 'sm1'), hashed_sources=('cart', 'bios'))
+    report_shape = ReportShape('neogeo_conversion', 'prepared_cartridge')
+    catalogues = Catalogues(libretro='libretro-thumbnails/SNK_-_Neo_Geo',
+                            wikidata=('Q1054350', 'Q3338058', 'Q64428080'), cover_references=True,
+                            local_catalogue='assets/neogeo-catalogue.json')
+    library_layout = LibraryLayout(folder='ng', summary_glob='*/compilation.json')
+    input_layout = InputLayout(('a', 'b', 'c', 'd'), (), None, 2400, script_format='neogeo',
+                               script_suffix='.inputs')
+    shared_knowledge = SharedKnowledge('stable')
+    host_adapter = 'adapters/rrhk_ng.c'
+    # A .neo container, or a ZIP whose members are named like a cartridge set (program, sprites, sound).
+    identify = Identify(path_order=30)
+
+    def identify_path(self, path: Path, suffix: str, selected_system: str | None):
+        if suffix not in ('.neo', '.zip'):
+            return None
+        from ..neogeo import looks_like_neogeo_zip, parse_neo
+        detected = suffix == '.neo' or selected_system == self.id or looks_like_neogeo_zip(path)
+        if not detected:
+            return None
+        if suffix == '.neo': parse_neo(path)
+        if selected_system and selected_system != self.id:
+            raise ConsoleMismatchError('Detected Neo Geo; choose Automatic or Neo Geo.', self.id)
+        return self
 
     def read_rom(self, path: Path):
         from ..neogeo import read_set

@@ -1,13 +1,16 @@
 """The inputs of the stamps, as data (docs/STANDARDS.md rules 4 and 5).
 
-This module holds tables and no logic. `compilation_inputs` reads it to compute
+This module holds tables and no logic (but for the derivation of one CPU family's
+owners from the profiles). `compilation_inputs` reads it to compute
 the stamps (game, host and build) of each console's exported games.
 
 * `INPUTS` is the explicit, reviewed manifest: every converter module and every
   file that may enter a stamp, grouped by the consoles that own it. Nothing is
-  discovered on disk. A file or module that is not listed here is ignored by
-  the stamps, and a listed one that is missing is an error. A new file is
-  therefore added here, with its owners, when it is created;
+  discovered on disk. It is the only place an owner is stated (there is no
+  default scope by file name); the consoles of a CPU family come from the
+  profiles. A file or module that is not listed here is ignored by the stamps,
+  and a listed one that is missing is an error. A new file is therefore added
+  here, with its owners, when it is created;
   `tests/test_stamp_inputs.py` fails when a tracked file is neither listed nor
   declared out of the stamps, and when a listed file is not bundled in the
   executable.
@@ -18,15 +21,23 @@ the stamps (game, host and build) of each console's exported games.
   moved every console's stamp whenever a console's file list, the interface
   list or `LEGACY_GAME_STAMPS` was edited. A change of the algorithm itself
   must bump the label in `compilation_inputs` (`STAMP_LABEL`); a test pins the
-  output of the algorithm on a fixed synthetic input.
+  output of the algorithm on a fixed synthetic input. `systems/registry.py`, the
+  registration list of the machines, is one too: registering a machine moves no
+  other console's stamp.
 * The role tables (`HOST_*`, `BUILD_MODULES`) say which stamp a listed input
   feeds. See docs/UPGRADES.md.
 * `LEGACY_GAME_STAMPS` lists the game stamps of the previous release only, whose
   exports stay upgradable. Editing it never changes a stamp.
 """
 
+from .systems import ALL_PROFILES
+
 # Owner of an input that every console uses (including a console added later).
 ALL = '*'
+
+# The consoles that own the files of one CPU family: those whose profile declares the CPU. A machine with that CPU
+# joins the family by being registered (systems/registry.py), not by an edit here.
+M68000_FAMILY = tuple(profile.id for profile in ALL_PROFILES if any(cpu.arch == 'm68000' for cpu in profile.cpus))
 
 
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
@@ -46,6 +57,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
+                               # The registration list of the machines: a new machine adds one line there and
+                               # no other console's stamp moves (docs/NEW_MACHINE.md).
+                               'registry',
                                # The definition of the stamps: see the docstring above.
                                'compilation_inputs', 'stamp_inputs'))
 
@@ -329,6 +343,7 @@ INPUTS = {
         'retrorecomp.resources',
         'retrorecomp.scan_levels',
         'retrorecomp.systems',
+        'retrorecomp.systems.specs',
         'retrorecomp.toolchain',
         'retrorecomp.windows',
     ),
@@ -710,7 +725,7 @@ INPUTS = {
         'native/hostkit/shell/rrhk_video.c',
         'retrorecomp.hostkit',
     ),
-    ('md', 'ng', 'x68', 'cps1'): (
+    M68000_FAMILY: (
         'native/m68000_backend.c',
         'native/m68000_backend.h',
         'native/m68000_backend_checks.c',
