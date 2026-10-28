@@ -13,9 +13,10 @@ holds its own workspace: the first run fetches the pinned sources and tools,
 later runs reuse them) or a source checkout's ``RetroRecomp.py``. Games go to
 DIR/Games, the result to DIR/release-check.json. The console comes from the
 converter's own detection (the ``batch`` command line's ``--system auto``) or
-from --console. Reports differ between consoles today, so each known report
-shape has its own small reader here; an unknown shape is reported, never
-guessed. Per game, the tool checks what a report can prove today: the
+from --console. The consoles, their report writers and their CPUs come from the
+profiles (``retrorecomp/systems``) and every report is read through
+``retrorecomp.report_schema.read_report``, whatever its writer; a report that is
+not of the shape the profile's writer produces is reported, never guessed. Per game, the tool checks what a report can prove today: the
 conversion level, native/reference agreement on every final scenario, the
 interpreted main-CPU and audio-CPU counts against --max-fallback, cartridge
 device instructions against --max-device (only when given), and the packed
@@ -36,7 +37,12 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from retrorecomp.report_schema import ReportShapeError, read_report  # noqa: E402
+from retrorecomp.systems import ALL_PROFILES  # noqa: E402
+
+CONSOLES = tuple(profile.id for profile in ALL_PROFILES)
 LEVELS = ('quick', 'standard', 'extended', 'thorough')
 
 
@@ -62,226 +68,118 @@ def batch_problems(record: dict, requested: int, expected_system: str | None = N
     return problems
 
 
-def read_core_shape(report: dict) -> dict | None:
-    """Master System and Game Gear reports: Z80 cycles per scenario, a native/reference verdict per scenario."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if 'strict_checks' not in report or not isinstance(validation, dict) or not isinstance(checks, list):
-        return None
-    proven = validation.get('scenarios')
-    if not isinstance(proven, list):
-        return None
-    scenarios = []
-    for check in checks:
-        if not isinstance(check, dict) or 'scenario' not in check or 'interpreter_cycles' not in check:
-            return None
-        scenarios.append({'name': check['scenario'], 'main_interpreted': int(check['interpreter_cycles']),
-                          'audio_interpreted': None})
-    by_scenario = {row.get('scenario'): row for row in proven if isinstance(row, dict)}
-    agreement_problems = []
-    for scenario in scenarios:
-        row = by_scenario.get(scenario['name'])
-        if row is None:
-            agreement_problems.append(f"{scenario['name']}: no native/reference comparison in the report")
-        elif row.get('passed') is not True or row.get('missing_or_invalid_evidence'):
-            agreement_problems.append(f"{scenario['name']}: native and reference differ")
-    if validation.get('passed') is not True:
-        agreement_problems.append('native validation did not pass')
-    return {'shape': 'core', 'unit': 'CPU cycles', 'level': report.get('scan_level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems, 'packed': None, 'states': {}, 'device': None}
+# Report writers whose CPU differential runs once, on a short boot, not on every final scenario (Game Boy).
+COMPARES_ONCE = ('gameboy',)
 
 
-def read_console16_shape(report: dict) -> dict | None:
-    """Mega Drive and Super Nintendo reports."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if not isinstance(validation, dict) or not isinstance(checks, list):
+# The wording the messages of three writers have always used for their opcode counts (tests pin it). A writer
+# that is not listed is named from the profile's ``fallback_display``.
+UNIT_WORDING = {'console16': 'main/audio CPU opcodes', 'neogeo_conversion': '68000/Z80 opcodes',
+                'cps1_conversion': '68000/Z80 opcodes'}
+
+
+def _unit_label(profile) -> str:
+    """How a fallback count is named in a message."""
+    if profile.report_shape.writer in UNIT_WORDING:
+        return UNIT_WORDING[profile.report_shape.writer]
+    return {'cycles': 'CPU cycles', 'opcodes': 'opcodes'}.get(profile.fallback_display, profile.fallback_display)
+
+
+def _fresh_process(states: dict) -> bool | None:
+    """Whether F8/F9 continued identically in a fresh process, as the report states it (None when it does not)."""
+    validation = states.get('validation') if isinstance(states.get('validation'), dict) else {}
+    fresh = validation.get('fresh_process_match')
+    routes = validation.get('routes')
+    # Neo Geo writes one row per route.
+    if fresh is None and isinstance(routes, list) and routes:
+        matches = [route.get('fresh_process_match') if isinstance(route, dict) else None for route in routes]
+        fresh = all(match is True for match in matches)
+    return fresh if fresh is not None else states.get('fresh_process_verified')
+
+
+def read_gate_data(report: dict, profile) -> dict | None:
+    """What the gates need from one conversion report of ``profile``'s machine, read through report_schema.
+
+    The one reader of every console: ``read_report`` turns the report of any writer into the schema-2 document
+    and this function takes the counts and verdicts the gates compare from it. None when the report is not of
+    the shape the profile's writer produces, or lacks a figure a gate needs: it is reported, never guessed.
+    """
+    if profile.report_shape is None:
         return None
-    comparisons = validation.get('comparisons')
-    if not isinstance(comparisons, list):
+    try:
+        document = read_report(report, lenient=True)
+    except ReportShapeError:
         return None
-    scenarios = []
-    for check in checks:
-        if not isinstance(check, dict) or 'scenario' not in check:
+    if document['read_from']['writer'] != profile.report_shape.writer:
+        return None
+    main = next((cpu for cpu in document['cpus'] if cpu['role'] == 'main'), None)
+    audio = next((cpu for cpu in document['cpus'] if cpu['role'] == 'audio'), None)
+    if main is None:
+        return None
+    # A CPU is counted in one unit: instructions, or cycles when its writer only counted those.
+    cycles = main['original_unit'] == 'cycles'
+    fidelity = document['validation']['cpu_fidelity']
+    compared = {row['name']: row for row in fidelity['scenarios']}
+    sound = any(cpu.role == 'sound' for cpu in profile.cpus)
+    once = document['read_from']['writer'] in COMPARES_ONCE
+    scenarios, agreement_problems = [], []
+    for index, row in enumerate(main['scenarios']):
+        figure = (row['cycles'] or {}).get('interpreted') if cycles else row['interpreted']
+        name = row['name'] or ('main' if index == 0 else None)
+        if figure is None or not name:
             return None
-        main = check.get('main_interpreted_opcodes')
-        if main is None:
-            if 'interpreted_opcodes' not in check:
-                return None
-            main = check['interpreted_opcodes']
-        audio = check.get('audio_interpreted_opcodes', 0)
-        scenarios.append({'name': check['scenario'], 'main_interpreted': int(main),
-                          'audio_interpreted': int(audio)})
-    by_scenario = {row.get('scenario'): row for row in comparisons if isinstance(row, dict)}
-    agreement_problems = []
-    for scenario in scenarios:
-        comparison = by_scenario.get(scenario['name'])
-        if comparison is None:
-            agreement_problems.append(f"{scenario['name']}: no native/reference comparison in the report")
-        elif comparison.get('differences'):
-            agreement_problems.append(f"{scenario['name']}: native and reference differ")
-    if validation.get('passed') is not True:
+        audio_row = audio['scenarios'][index] if audio and index < len(audio['scenarios']) else None
+        scenarios.append({'name': name, 'main_interpreted': int(figure),
+                          'audio_interpreted': int((audio_row or {}).get('interpreted') or 0) if sound else None})
+        if once:
+            continue
+        verdict = compared.get(row['name'])
+        if verdict is None:
+            agreement_problems.append(f"{name}: no native/reference comparison in the report")
+        elif verdict['match'] is not True:
+            agreement_problems.append(f"{name}: native and reference differ")
+    if once:
+        rows = fidelity['scenarios']
+        if not any(row['match'] is True for row in rows):
+            agreement_problems.append('no native/reference CPU comparison in the report')
+        agreement_problems += [f"{row['name']}: native and reference differ" for row in rows if row['match'] is False]
+    if not scenarios:
+        agreement_problems.append('no final checks')
+    if fidelity['passed'] is not True:
         agreement_problems.append('native validation did not pass')
-    device = report.get('cartridge_device')
-    if device is not None and not _device_totals(device):
-        return None
-    return {'shape': 'console16', 'unit': 'main/audio CPU opcodes',
-            'level': report.get('scan_level') or (report.get('advanced_scan') or {}).get('level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems, 'packed': None, 'states': {},
+    device = document['devices'][0] if document['devices'] else None
+    replay = (document['packed'] or {}).get('replay')
+    states = document['states'] or {}
+    validation = states.get('validation') if isinstance(states.get('validation'), dict) else {}
+    damaged = validation.get('truncated_state_rejected')
+    rejected = validation.get('invalid_states_rejected')
+    if damaged is None and isinstance(rejected, int):
+        damaged = rejected > 0
+    flags = {}
+    if validation or states.get('fresh_process_verified') is not None:
+        flags = {'fresh_process': _fresh_process(states)}
+        if damaged is not None:
+            flags['damaged_refused'] = damaged
+    return {'shape': document['read_from']['writer'], 'unit': _unit_label(profile), 'level': document['scan']['level'],
+            'scenarios': scenarios, 'agreement': not agreement_problems, 'agreement_problems': agreement_problems,
+            'packed': replay['match'] if replay else None, 'states': flags,
             'device': _device_totals(device)}
 
 
-def read_arcade_shape(report: dict) -> dict | None:
-    """CPS-1 and Neo Geo reports: retired opcodes, packed replay, F8/F9."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if not isinstance(validation, dict) or 'packed_reference_match' not in validation:
-        return None
-    if not isinstance(checks, list):
-        return None
-    scenarios = []
-    for check in checks:
-        if not isinstance(check, dict) or 'interpreted_opcodes' not in check \
-                or 'audio_interpreted_opcodes' not in check or 'reference_match' not in check:
-            return None
-        scenarios.append({'name': check.get('name'), 'main_interpreted': int(check['interpreted_opcodes']),
-                          'audio_interpreted': int(check['audio_interpreted_opcodes']),
-                          'reference_match': bool(check['reference_match'])})
-    agreement_problems = []
-    if not scenarios:
-        agreement_problems.append('no final checks')
-    for scenario in scenarios:
-        if not scenario['reference_match']:
-            agreement_problems.append(f"{scenario['name']}: native and reference differ")
-    if validation.get('passed') is not True:
-        agreement_problems.append('native validation did not pass')
-    state = report.get('game_states') or {}
-    state = state.get('validation') if isinstance(state, dict) else None
-    states = {}
-    if isinstance(state, dict):
-        states = {'fresh_process': state.get('fresh_process_match'),
-                  'damaged_refused': state.get('truncated_state_rejected')}
-        # Neo Geo writes one row per route and a count of the damaged states it refused.
-        routes = state.get('routes')
-        if states['fresh_process'] is None and isinstance(routes, list) and routes:
-            matches = [route.get('fresh_process_match') if isinstance(route, dict) else None for route in routes]
-            states['fresh_process'] = all(match is True for match in matches)
-        rejected = state.get('invalid_states_rejected')
-        if states['damaged_refused'] is None and isinstance(rejected, int):
-            states['damaged_refused'] = rejected > 0
-    return {'shape': 'arcade', 'unit': '68000/Z80 opcodes', 'level': report.get('scan_level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems,
-            'packed': validation.get('packed_reference_match'), 'states': states, 'device': None}
+def _reader(profile):
+    return lambda report: read_gate_data(report, profile)
 
 
-def read_nes_shape(report: dict) -> dict | None:
-    """NES reports: 6502 cycles per scenario, differential reference probes."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if not isinstance(validation, dict) or not isinstance(checks, list):
-        return None
-    proven = validation.get('scenarios')
-    if not isinstance(proven, list):
-        return None
-    scenarios = []
-    for check in checks:
-        if not isinstance(check, dict) or 'interpreter_rom_cycles' not in check or 'scenario' not in check:
-            return None
-        scenarios.append({'name': check['scenario'], 'main_interpreted': int(check['interpreter_cycles']),
-                          'audio_interpreted': None})
-    by_scenario = {row.get('scenario'): row for row in proven if isinstance(row, dict)}
-    agreement_problems = []
-    for scenario in scenarios:
-        row = by_scenario.get(scenario['name'])
-        if row is None or not row.get('internal_differential'):
-            agreement_problems.append(f"{scenario['name']}: no native/reference differential in the report")
-    if validation.get('passed') is not True:
-        agreement_problems.append('native validation did not pass')
-    return {'shape': 'nes', 'unit': 'CPU cycles',
-            'level': (report.get('advanced_scan') or {}).get('level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems, 'packed': None, 'states': {}, 'device': None}
-
-
-def read_gameboy_shape(report: dict) -> dict | None:
-    """Game Boy reports: SM83 cycles per scenario, differential CPU checks."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if not isinstance(validation, dict) or not isinstance(checks, list):
-        return None
-    if 'cpu_differential' not in validation:
-        return None
-    proven = validation.get('scenarios')
-    if not isinstance(proven, list):
-        return None
-    scenarios = []
-    for check in checks:
-        if not isinstance(check, dict) or 'interpreter_handoffs' not in check or 'scenario' not in check:
-            return None
-        scenarios.append({'name': check['scenario'], 'main_interpreted': int(check['interpreter_cycles']),
-                          'audio_interpreted': None})
-    agreement_problems = []
-    if not any(isinstance(row, dict) and row.get('result') for row in proven):
-        agreement_problems.append('no native/reference CPU comparison in the report')
-    if validation.get('passed') is not True:
-        agreement_problems.append('native validation did not pass')
-    return {'shape': 'gameboy', 'unit': 'CPU cycles', 'level': report.get('scan_level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems, 'packed': None, 'states': {}, 'device': None}
-
-
-def read_x68000_shape(report: dict) -> dict | None:
-    """X68000 reports: one main check plus per-route exploration checks."""
-    validation = report.get('native_validation')
-    checks = report.get('final_checks')
-    if not isinstance(validation, dict) or 'exploration_checks' not in report:
-        return None
-    if not isinstance(checks, list):
-        return None
-    scenarios = []
-    for index, check in enumerate(checks):
-        if not isinstance(check, dict) or 'interpreted_opcodes' not in check or 'reference_match' not in check:
-            return None
-        name = check.get('route') or ('main' if index == 0 else None)
-        if not name:
-            return None
-        scenarios.append({'name': name, 'main_interpreted': int(check['interpreted_opcodes']),
-                          'audio_interpreted': None, 'reference_match': bool(check['reference_match'])})
-    agreement_problems = []
-    if not scenarios:
-        agreement_problems.append('no final checks')
-    for scenario in scenarios:
-        if not scenario['reference_match']:
-            agreement_problems.append(f"{scenario['name']}: native and reference differ")
-    if validation.get('passed') is not True:
-        agreement_problems.append('native validation did not pass')
-    states = {'fresh_process': (report.get('game_states') or {}).get('fresh_process_verified')}
-    return {'shape': 'x68000', 'unit': 'opcodes', 'level': report.get('scan_level'),
-            'scenarios': scenarios, 'agreement': not agreement_problems,
-            'agreement_problems': agreement_problems, 'packed': None, 'states': states, 'device': None}
-
-
-def read_sega8_shape(report: dict) -> dict | None:
-    """Master System and Game Gear: the core writer's shape, else the shared 16-bit one."""
-    return read_core_shape(report) or read_console16_shape(report)
-
-
-READERS = {'sms': read_sega8_shape, 'gg': read_sega8_shape, 'md': read_console16_shape,
-           'snes': read_console16_shape, 'cps1': read_arcade_shape, 'ng': read_arcade_shape,
-           'nes': read_nes_shape, 'gb': read_gameboy_shape, 'x68': read_x68000_shape}
+READERS = {profile.id: _reader(profile) for profile in ALL_PROFILES}
 
 
 def _device_totals(device) -> dict | None:
     """Cartridge-device instructions, kept apart from the CPUs' counts."""
-    if not isinstance(device, dict) or not isinstance(device.get('scenarios'), list):
+    if not device:
         return None
-    rows = [row for row in device['scenarios'] if isinstance(row, dict)
-            and isinstance(row.get('interpreted_instructions'), int)]
-    return {'chip': device.get('chip'), 'total_instructions': sum(row['interpreted_instructions'] for row in rows),
-            'failed': bool(device.get('failed'))}
+    rows = [row for row in device['scenarios'] if isinstance(row.get('interpreted'), int)]
+    return {'chip': device['id'], 'total_instructions': sum(row['interpreted'] for row in rows),
+            'failed': bool(device['failed'])}
 
 
 def _states_gate(flags: dict) -> tuple[str, list[str]]:

@@ -2,8 +2,9 @@
 
 Seven converters write ``conversion-report.json`` (Master System and Game Gear,
 Game Boy, NES, Mega Drive and Super Nintendo, Neo Geo, CPS-1, X68000). They
-used to write seven different shapes; this module is the only place that knows
-them all. ``read_report`` turns any of them into the schema-2 document
+used to write seven different shapes; this module is the only place that reads
+them all, and the profile of each machine (``report_shape``, ``cpus``) says which
+writer and which CPUs a report has. ``read_report`` turns any of them into the schema-2 document
 described below; ``fallback_summary`` is the one-line interpreter summary the
 batch result and the window both compute from a report.
 
@@ -100,17 +101,34 @@ class _Shape:
     main_unit: str      # unit of the writer's own main CPU counters
 
 
-_SHAPES = {
-    'sms': _Shape('core', 'strict_checks', 'z80', None, 'cycles'),
-    'gg': _Shape('core', 'strict_checks', 'z80', None, 'cycles'),
-    'gb': _Shape('gameboy', 'generated_build', 'sm83', None, 'cycles'),
-    'nes': _Shape('nes', 'host_audio', '6502', None, 'cycles'),
-    'md': _Shape('console16', 'native_percentage', 'm68000', 'z80', 'instructions'),
-    'snes': _Shape('console16', 'native_percentage', '65816', 'spc700', 'instructions'),
-    'ng': _Shape('neogeo_conversion', 'prepared_cartridge', 'm68000', 'z80', 'instructions'),
-    'cps1': _Shape('cps1_conversion', 'native_analysis', 'm68000', 'z80', 'instructions'),
-    'x68': _Shape('x68000_conversion', 'exploration_checks', 'm68000', None, 'instructions'),
-}
+def _shape_of(profile):
+    """The shape of a profile's report, from its ``report_shape`` and its CPUs; None for a machine with no report."""
+    spec = profile.report_shape
+    main = next((cpu for cpu in profile.cpus if cpu.role == 'main'), None)
+    if spec is None or main is None:
+        return None
+    sound = next((cpu for cpu in profile.cpus if cpu.role == 'sound'), None)
+    return _Shape(spec.writer, spec.marker, main.arch, sound.arch if sound else None, main.unit)
+
+
+def _shapes():
+    """``{console id: _Shape}`` of the registered machines, read from their profiles (retrorecomp/systems)."""
+    from .systems import ALL_PROFILES
+    shapes = {}
+    for profile in ALL_PROFILES:
+        shape = _shape_of(profile)
+        if shape is not None:
+            shapes[profile.id] = shape
+    return shapes
+
+
+def __getattr__(name):
+    # ``_SHAPES`` is the profiles' view, computed on access so that a machine registered later is known at once.
+    if name == '_SHAPES':
+        return _shapes()
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+
 # A report no writer produced (a hand-made or very old one) that a caller still wants to summarise: its rows are
 # read by the keys they carry, whatever the console. Only the lenient reading uses it.
 _GENERIC = _Shape('unknown', '', 'unknown', 'unknown', 'instructions')
@@ -534,11 +552,11 @@ def _from_legacy(data, *, lenient=False, schema_version=1):
     """The schema-2 document of a report in the writers' own keys (no schema-2 key in it)."""
     system = _dict(data.get('system'))
     if lenient:
-        shape = _SHAPES.get(system.get('id'), _GENERIC)
+        shape = _shapes().get(system.get('id'), _GENERIC)
     else:
         if data.get('tool') != 'Retro-Recomp':
             raise ReportShapeError('Not a Retro-Recomp conversion report.')
-        shape = _SHAPES.get(system.get('id'))
+        shape = _shapes().get(system.get('id'))
         if shape is None:
             raise ReportShapeError(f'Unknown console in a report: {system.get("id")!r}.')
     rows = data.get('final_checks')
@@ -654,13 +672,23 @@ def with_schema_v2(report) -> dict:
     return document
 
 
+def _profile_of(report):
+    """The registered profile of the machine a report names, else None."""
+    from .systems import ALL_PROFILES
+    system_id = _dict(report.get('system')).get('id')
+    return next((profile for profile in ALL_PROFILES if profile.id == system_id), None)
+
+
 def write_report(path, report) -> dict:
     """Write a conversion report in schema 2 beside the writer's own keys; returns the document written.
 
     ``created_utc`` and ``target`` are filled in when the writer did not carry them (Game Boy had no
     time; only some writers had the target, and a report with none was taken for the current
-    target's). The file is replaced atomically. Raises ``ReportShapeError`` before anything is written
-    if the report has no known shape.
+    target's). ``status`` is filled in from the machine's profile when the writer left it unset (the
+    Master System, Game Gear, Game Boy and NES writers store none): the one source of "supported" or
+    "experimental" is the profile (docs/STANDARDS.md). A writer that states its own status, a stage
+    that depends on the cartridge (``completed``, ``experimental``), keeps it. The file is replaced
+    atomically. Raises ``ReportShapeError`` before anything is written if the report has no known shape.
     """
     from datetime import datetime, timezone
     from .library import atomic_json
@@ -670,6 +698,10 @@ def write_report(path, report) -> dict:
         additions['created_utc'] = datetime.now(timezone.utc).isoformat()
     if report.get('target') is None:
         additions['target'] = target_id()
+    if report.get('status') is None:
+        profile = _profile_of(report)
+        if profile is not None:
+            additions['status'] = profile.status
     data = {key: value for key, value in report.items() if key not in additions}
     if additions:
         # Keep the identity keys together at the top, as the writers that carry them do.
