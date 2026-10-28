@@ -292,6 +292,11 @@ def pack(board: Path) -> bytes:
     return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
 
 
+# State key written by release 1.6.0 (Windows), computed from the v1.6.0 tag; the serialized bytes did not change since
+# (docs/GAME_STATES.md, "States written by release 1.6.0").
+LEGACY_STATE_ABI_160 = 'bc842183c642e70f5c9a43570d685ce8ea1efa826c7f21e8268c4a6abfb6fa9d'
+
+
 def state_config(game_set, title: str) -> str:
     """Quick states load only into the same romset and the same board/runtime sources."""
     import hashlib, importlib, json, os
@@ -310,8 +315,9 @@ def state_config(game_set, title: str) -> str:
             f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n'
             # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release
-            # that follows it (docs/GAME_STATES.md); the keys of older releases are never kept. None in the tree of 1.6.0.
-            )
+            # that follows it (docs/GAME_STATES.md); the keys of older releases are never kept. Windows only: the key
+            # of a Linux build also hashes its target, and no Linux 1.6.0 key was recorded.
+            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_160)}\n' if os.name == 'nt' else ''))
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,

@@ -1,8 +1,11 @@
 """Backward compatibility is owed to the previous release only (decision of 28 October 2026).
 
-In the tree of 1.6.0 nothing is listed for a previous release: `LEGACY_GAME_STAMPS` is empty and no build writes a
-`RR16_STATE_COMPAT_ABI` key. The mechanisms stay, and the tests below drive them with synthetic values: the release that
-follows 1.6.0 adds the entries of 1.6.0 (and only those) and replaces them at each release after.
+The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 lists the previous release, 1.6.0, and only
+it: its game stamps in `LEGACY_GAME_STAMPS` (eight consoles) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega
+Drive, Neo Geo and CPS-1, Windows). The values below are frozen: they were computed from the `v1.6.0` tag with
+Python 3.14.5 (docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1"; docs/GAME_STATES.md, "States written by release 1.6.0").
+The release that follows 1.6.1 replaces them with those of 1.6.1; the mechanisms are driven here with synthetic values
+as well.
 """
 import json
 import os
@@ -16,13 +19,68 @@ from unittest.mock import patch
 from retrorecomp import compilation_inputs as inputs
 from retrorecomp.paths import ASSETS
 
+# Game stamps of release 1.6.0, from the v1.6.0 tag (`git archive`, `role_stamps(system)['game']`). The Super Nintendo
+# has one too: between 1.6.0 and 1.6.1 nothing specific to it changed (its game stamp moves because the shared modules
+# that log the packing notice changed). The X68000 is not listed: its request carries an SDK stamp derived from the game
+# stamp that the mechanism does not recompute, so its 1.6.0 stamp (below) is recorded and must stay unlisted.
+GAME_STAMPS_160 = {
+    'cps1': '699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95',
+    'gb': 'c36134ebfc832440005280367b64225bc09b486c3fff560d0f8a1376110712da',
+    'gg': '47c60b9a2034948c0f2c31e8e3a209a368f8ef45490cc6047f73cfb882c637be',
+    'md': '4db8a6f2397ab51d383166778c227e45cadcd3806bd7bf5aaf7e965267744b75',
+    'nes': '511451fc62f41db3f8dee6f57e1d2b2d2623cf8a0171482bd73bcb2bb595432b',
+    'ng': '41577b77c4e78dd15d8644092591e5852efc1c96e9fe5be1dde2bbca8b1fcb61',
+    'sms': '19b8bd2a33d49f8b2d08e2335e7ee5d96178347c941d3da73800b0bb61551732',
+    'snes': 'cccb132e2e23df78340770cd1c0c562d32645d732e97aa15c4e853e66c06af36',
+}
+X68_GAME_STAMP_160_NOT_LISTED = '7de0d3b5731e81f2df6a705a502e165d07349423641dcc2454ce1de9392a6f36'
+# Game stamps of release 1.5.6 (the table of 1.6.0 listed them): owed to nobody any more.
+GAME_STAMPS_156_REMOVED = {
+    'cps1': '187c9db92db22e872d352e6c5895640c414849ba6e50b07db0b06c4e703738fb',
+    'gb': 'c8a90b01e99b68da0f9796d109d7f161e9c848d2f8100651731c6dfe3f56f806',
+    'gg': '08950dbb0d3cce0475b17c309d17f72c0b65ed02e9e99cf1b9a4138afe50747b',
+    'md': 'd9bd59e01303a56a92e619aef54f67203fa7d0b3a7cb3211addc0562d6f9aa18',
+    'nes': 'c98420ac1dfde068026e7fb72da97844714b6a31e6536cca93ff012add168715',
+    'sms': '3897d8b37cffe8a438fd12cb7b522c9fac5222c5b94c9eb045457ef557e2fa7b',
+}
+# Quick-state keys of release 1.6.0 (Windows), from the v1.6.0 tag; the same code gives the documented 1.5.6 keys from
+# the v1.5.6 tag. The Super Nintendo key is the same in 1.6.0 and 1.6.1: it needs no compatibility line.
+MD_STATE_ABI_160 = '2832912487d66aa2f846a6c48ca7248976adec158ee407b8fcb3a509f514d6c8'
+NEO_GEO_STATE_ABI_160 = '6e0721d152aa17f6bec321b960177773b7e9eaf06c29cc350b39f3a4b91fc46a'
+CPS1_STATE_ABI_160 = 'bc842183c642e70f5c9a43570d685ce8ea1efa826c7f21e8268c4a6abfb6fa9d'
+SNES_STATE_ABI_160 = '366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1'
+# Keys of releases before 1.6.0 that earlier trees listed: never listed again.
+STATE_ABI_156_REMOVED = ('9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa12ca2a8520',
+                         'fa66982c49f9d86ebf38e555714601d7466bf43331de44eaf4093e6d759bea41',
+                         'a04dc60ccd2aab4d029fa96fef271d91595396fe3bd97b434f117ca32ff799dd')
+
 
 class LegacyStampTests(unittest.TestCase):
-    def test_the_table_lists_no_release_in_the_tree_of_1_6_0(self):
-        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {})
+    def test_the_table_lists_release_1_6_0_and_nothing_older(self):
+        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {system: (stamp,) for system, stamp in GAME_STAMPS_160.items()})
         for system in sorted(inputs.SYSTEMS):
-            self.assertEqual(inputs.legacy_game_stamps(system), (), system)
+            expected = (GAME_STAMPS_160[system],) if system in GAME_STAMPS_160 else ()
+            self.assertEqual(inputs.legacy_game_stamps(system), expected, system)
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
+        listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
+        self.assertFalse(listed & set(GAME_STAMPS_156_REMOVED.values()))
+
+    def test_every_listed_stamp_moved_since_1_6_0_and_is_not_the_current_one(self):
+        # The stamp of 1.6.1 is another one on every console: a listed stamp is a receipt that is never current.
+        for system in sorted(inputs.SYSTEMS):
+            self.assertNotIn(inputs.role_stamps(system)['game'], inputs.legacy_game_stamps(system), system)
+            self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_160.get(system), system)
+
+    def test_the_x68000_is_converted_in_full_by_the_next_release(self):
+        # Its request holds `x68_sdk`, hash of the game stamp of the tree that wrote it: not covered by the table.
+        self.assertEqual(inputs.legacy_game_stamps('x68'), ())
+        listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
+        self.assertNotIn(X68_GAME_STAMP_160_NOT_LISTED, listed)
+
+    def test_super_nintendo_exports_of_1_6_0_are_upgraded(self):
+        # Nothing Super Nintendo specific changed between 1.6.0 and 1.6.1 (docs/UPGRADES.md): the entry is listed.
+        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_160['snes'],))
+
 
     def test_entries_of_the_previous_release_are_wellformed_and_never_the_current_stamp(self):
         # What a release adds: a 64-digit game stamp per listed console, never today's.
@@ -112,13 +170,45 @@ class LegacyReceiptTests(unittest.TestCase):
                     target, path = self.receipt(folder, item, 'f' * 64)
                     self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
-    def test_nothing_is_upgraded_from_a_release_the_table_does_not_list(self):
+    def test_the_game_part_of_a_1_6_0_receipt_is_what_the_table_makes_1_6_1_accept(self):
+        # A 1.6.0 receipt carries hash(request with engine = the game stamp of the tag): the request of 1.6.1, asked
+        # with that engine, gives the same hash on every listed console, and the table lists exactly that hash.
         from retrorecomp import freshness
-        with tempfile.TemporaryDirectory() as folder:
+        for system in sorted(GAME_STAMPS_160):
+            with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
+                item, parts = self.parts(system)
+                frozen = self.parts(system, GAME_STAMPS_160[system])[1]
+                self.assertEqual(parts['legacy_games'], [frozen['game']])
+                self.assertNotEqual(parts['game'], frozen['game'])
+                with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                    target, path = self.receipt(folder, item, frozen['game'])
+                    self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
+                    previous = freshness.upgradable(item, target, path, parts, print)
+                    self.assertEqual(previous['legacy_release'], '1.6.0')
+                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.0')
+
+    def test_nothing_is_upgraded_from_a_release_the_table_does_not_list(self):
+        # 1.5.6 (listed by the table of 1.6.0, not by this one) and any other game part: converted in full.
+        from retrorecomp import freshness
+        for system in sorted(GAME_STAMPS_156_REMOVED):
+            with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
+                item, parts = self.parts(system)
+                self.assertEqual(len(parts['legacy_games']), 1)
+                old = self.parts(system, GAME_STAMPS_156_REMOVED[system])[1]['game']
+                with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                    for game in (old, 'f' * 64):
+                        target, path = self.receipt(folder, item, game, '1.5.6')
+                        self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
+
+    def test_without_an_entry_a_1_6_0_receipt_is_converted_in_full(self):
+        # What the X68000 gets (its request needs real disks and firmware, so a console with an entry stands for it).
+        from retrorecomp import freshness
+        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_160)), ['x68'])
+        with tempfile.TemporaryDirectory() as folder, patch.dict(inputs.LEGACY_GAME_STAMPS, {}, clear=True):
             item, parts = self.parts('sms')
             self.assertEqual(parts['legacy_games'], [])
             with patch('retrorecomp.freshness._no_new_hints', return_value=True):
-                target, path = self.receipt(folder, item, 'f' * 64, '1.5.6')
+                target, path = self.receipt(folder, item, GAME_STAMPS_160['sms'])
                 self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
     def test_only_the_receipt_this_release_writes_is_current(self):
@@ -149,7 +239,7 @@ class StateCompatibilityTests(unittest.TestCase):
             console16_state.write_config(project, SimpleNamespace(sha256='d' * 64), system, 'Test', REPOSITORIES)
             return (project / 'retro16_state_config.h').read_text(encoding='ascii')
 
-    def test_no_state_key_of_an_earlier_release_is_accepted_by_any_console(self):
+    def configs(self):
         from retrorecomp import cps1_build, neogeo_build
         with patch('retrorecomp.neogeo.parse_neo', return_value=SimpleNamespace(sha256='a' * 64)), \
                 patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': 'b' * 64}):
@@ -157,19 +247,90 @@ class StateCompatibilityTests(unittest.TestCase):
         texts['cps1'] = cps1_build.state_config(SimpleNamespace(sha256='c' * 64), 'Test')
         texts['md'] = self.sixteen_bit_config('md')
         texts['snes'] = self.sixteen_bit_config('snes')
-        for system, text in texts.items():
-            self.assertNotIn('RR16_STATE_COMPAT_ABI', text, system)
-            self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"', system)
+        return texts
 
-    def test_the_state_key_constants_of_earlier_releases_are_gone(self):
+    def test_the_states_of_release_1_6_0_are_accepted_by_mega_drive_neo_geo_and_cps1(self):
+        from retrorecomp import console16_state, cps1_build, neogeo_build
+        self.assertEqual(console16_state.MD_STATE_ABI_160, MD_STATE_ABI_160)
+        self.assertEqual(neogeo_build.STATE_ABI_160, NEO_GEO_STATE_ABI_160)
+        self.assertEqual(cps1_build.LEGACY_STATE_ABI_160, CPS1_STATE_ABI_160)
+        texts = self.configs()
+        for system, key in (('md', MD_STATE_ABI_160), ('ng', NEO_GEO_STATE_ABI_160), ('cps1', CPS1_STATE_ABI_160)):
+            text = texts[system]
+            # Exactly one compatibility line, and it is the key of 1.6.0, which is not the build's own key.
+            self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 1, system)
+            self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{key}"\n', text, system)
+            self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"', system)
+            self.assertNotIn(f'RR16_STATE_ABI "{key}"', text, system)
+
+    def test_the_layout_versions_the_1_6_0_keys_stand_for_did_not_move(self):
+        # The keys hash files; what is serialized is fixed by these versions and the state files, none of which changed
+        # between the v1.6.0 tag and 1.6.1 (only md_z80_bus.inc and md_boundary_checks.c differ below native/, and no
+        # state file reads the two variables the former touches).
+        from retrorecomp import console16_state
+        self.assertEqual((console16_state.PORTABLE_STATE_ABI, console16_state.MD_PORTABLE_STATE_ABI), (2, 11))
+        for name in sorted(os.listdir(ASSETS / 'native')):
+            if name == 'md_z80_bus.inc' or not name.endswith(('.c', '.inc', '.h', '.cpp')):
+                continue
+            text = (ASSETS / 'native' / name).read_text(encoding='utf-8', errors='replace')
+            for variable in ('rr_bus_control_event', 'rr_z80_checkpoint_advanced'):
+                self.assertNotIn(variable, text, (name, variable))
+
+    def test_the_super_nintendo_key_did_not_move_and_needs_no_compatibility_line(self):
+        # The key of the previous release is the build's own: its quick states resume as they are. (The release that
+        # follows 1.6.1 pins the 1.6.1 key here instead.)
+        text = self.configs()['snes']
+        self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 0)
+        self.assertIn(f'#define RR16_STATE_ABI "{SNES_STATE_ABI_160}"', text)
+
+    def test_no_state_key_of_a_release_before_1_6_0_is_accepted(self):
+        texts = self.configs()
+        for system, text in texts.items():
+            for key in STATE_ABI_156_REMOVED:
+                self.assertNotIn(key, text, system)
+            self.assertNotRegex(text, r'RR16_STATE_COMPAT_ABI_\d', system)
+
+    def test_the_state_key_constants_are_those_of_1_6_0_only(self):
         from retrorecomp import console16_state, cps1_build, neogeo_build
         for module in (console16_state, cps1_build, neogeo_build):
             for name in dir(module):
-                self.assertNotRegex(name, r'STATE_ABI_\d', (module.__name__, name))
+                match = re.search(r'STATE_ABI_(\d+)$', name)
+                if match:
+                    self.assertEqual(match.group(1), '160', (module.__name__, name))
+        self.assertFalse(hasattr(console16_state, 'MD_STATE_ABI_141'))
+        self.assertFalse(hasattr(console16_state, 'SNES_STATE_ABI_141'))
+        self.assertFalse(hasattr(console16_state, 'MD_STATE_ABI_156'))
+        self.assertFalse(hasattr(neogeo_build, 'STATE_ABI_156'))
+        self.assertFalse(hasattr(cps1_build, 'LEGACY_STATE_ABI_156'))
 
     def test_the_shared_16_bit_state_loader_accepts_the_compatibility_key_a_build_defines(self):
         loader = (ASSETS / 'native/console16_state.c').read_text(encoding='utf-8')
         self.assertRegex(loader, r'#ifdef RR16_STATE_COMPAT_ABI\b')
+
+
+class NeoGeoStateKeyPlatformTests(unittest.TestCase):
+    """The key of 1.6.0 is a Windows key: a Linux build writes none (its own key also hashes its target)."""
+
+    def test_the_neo_geo_compatibility_line_is_written_on_windows_only(self):
+        from retrorecomp import neogeo_build
+        real = os
+
+        class FakeOs:
+            def __init__(self, name):
+                self.name = name
+
+            def __getattr__(self, attribute):
+                return getattr(real, attribute)
+
+        for name, listed in (('nt', True), ('posix', False)):
+            with self.subTest(name=name), \
+                    patch('retrorecomp.neogeo.parse_neo', return_value=SimpleNamespace(sha256='a' * 64)), \
+                    patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': 'b' * 64}), \
+                    patch('retrorecomp.neogeo_build.os', FakeOs(name)), \
+                    patch('retrorecomp.platforms.target_id', return_value='linux-x86_64'):
+                text = neogeo_build.state_config(Path('cartridge.neo'), Path('neogeo.zip'), 'Test')
+            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_160}"' in text, listed)
+            self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), int(listed))
 
 
 class StateLayoutGuardTests(unittest.TestCase):

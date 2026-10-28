@@ -63,10 +63,28 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # today's has no entry either. A player coming from an older release reconverts.
 # Release procedure: replace the entries with those of the release being left
 # (one real receipt per console, proved build-only); never add them to the
-# older ones. The table is empty in the tree of 1.6.0: the releases before it
-# are no longer accepted, and the entries of 1.6.0 are added by the release
-# that follows it.
-LEGACY_GAME_STAMPS = {}
+# older ones. The table was empty in the tree of 1.6.0: the releases before it
+# are no longer accepted, and the entries of 1.6.0 are the ones below.
+# Release 1.6.0 (tag v1.6.0, commit 84d5a9e, Python 3.14.5, the Python of the packaged converter), declared on
+# 28 October 2026 for the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo and CPS-1.
+# Each value is the game stamp computed from the tag (`git archive`, then `compilation_inputs.role_stamps`). Between
+# the tag and 1.6.1 no listed input changed what a conversion generates but the Mega Drive runtime: the packer's
+# notice reaches the conversion log (every console), the readers of files older than 1.6.0 are gone, and, for the
+# Mega Drive only, `native/md_z80_bus.inc` (the deferred sound-CPU payment: an upgraded Mega Drive export is rebuilt
+# with it and rechecked against the reference on the quick routes, which is the point of its entry). Nothing Super
+# Nintendo specific changed. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1". The X68000 has no
+# entry: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not
+# recompute.
+LEGACY_GAME_STAMPS = {
+    'cps1': ('699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95',),
+    'gb': ('c36134ebfc832440005280367b64225bc09b486c3fff560d0f8a1376110712da',),
+    'gg': ('47c60b9a2034948c0f2c31e8e3a209a368f8ef45490cc6047f73cfb882c637be',),
+    'md': ('4db8a6f2397ab51d383166778c227e45cadcd3806bd7bf5aaf7e965267744b75',),
+    'nes': ('511451fc62f41db3f8dee6f57e1d2b2d2623cf8a0171482bd73bcb2bb595432b',),
+    'ng': ('41577b77c4e78dd15d8644092591e5852efc1c96e9fe5be1dde2bbca8b1fcb61',),
+    'sms': ('19b8bd2a33d49f8b2d08e2335e7ee5d96178347c941d3da73800b0bb61551732',),
+    'snes': ('cccb132e2e23df78340770cd1c0c562d32645d732e97aa15c4e853e66c06af36',),
+}
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
 # the window, menus, options, bindings, on-screen text, fonts, filters, icons
