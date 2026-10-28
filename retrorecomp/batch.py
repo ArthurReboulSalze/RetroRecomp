@@ -441,9 +441,21 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
             for key in ('md_advanced_scan', 'nes_advanced_scan'):
                 if key in run_settings:
                     run_settings[key] = False
+        shown = set()
+
+        def convert_emit(message):
+            shown.add(message)
+            emit(f"[{index+1}/{count} - {item.title}] {message}")
+
+        def publish_emit(message):
+            # A console that packs its executable during the conversion (Neo Geo, CPS-1) has already said
+            # why UPX left it unpacked; the publication packs the same build again and finds the same reason.
+            if message not in shown:
+                emit(f"{item.title}: {message}")
+
         def convert_with(arguments):
             return system.convert(item.path, title=item.title, output=reports, cover=item.cover,
-                emit=lambda message: emit(f"[{index+1}/{count} - {item.title}] {message}"), **arguments)
+                emit=convert_emit, **arguments)
         try:
             executable = convert_with(run_settings)
         except Exception as exc:
@@ -479,7 +491,7 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         from .packing import file_identity, packing_record
         unpacked_identity = file_identity(temporary)
         try:
-            pending = publish_executable(temporary, target, compact=True)
+            pending = publish_executable(temporary, target, compact=True, emit=publish_emit)
         finally:
             temporary.unlink(missing_ok=True)
         # Record what was published (a pending installation waits as a staged copy).

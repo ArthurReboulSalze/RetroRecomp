@@ -229,9 +229,10 @@ stripped file fail the same way. `--lzma` passes the test and gives 40.1 MB inst
 but a start takes 2.7 s instead of 0.17 s on a Core i7-6600U (the unpacked file starts in
 0.01 s) and the Neo Geo F11 machine switch starts the file again, so it is not used. On Linux,
 when UPX cannot pack and test a game, the validated original is put back and published as
-built: a larger file, the same program, with the reason printed on stderr (command line) and in
-the report (`packing.packed` false, `packing.unpacked_reason`). Windows still stops the conversion when UPX
-fails. Games that pack and pass are byte for byte what they were: a Master System and a Game
+built: a larger file, the same program, with the reason in the conversion log (the interface and
+the batch command line, once per game) and in the report (`packing.packed` false,
+`packing.unpacked_reason`); the Neo Geo `native-validation.json` reads `validated_candidate:
+unpacked`. Windows still stops the conversion when UPX fails. Games that pack and pass are byte for byte what they were: a Master System and a Game
 Gear game converted by the commit before and by this change are identical files.
 
 The X68000 rows were measured afterwards on the same machine and day: the

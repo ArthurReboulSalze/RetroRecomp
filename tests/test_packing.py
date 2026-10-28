@@ -16,7 +16,10 @@ from retrorecomp import packing
 from retrorecomp.paths import ASSETS
 
 ELF_X86_64 = b'\x7fELF\x02\x01\x01' + bytes(11) + (62).to_bytes(2, 'little')
-ELF_ARM64 = b'\x7fELF\x02\x01\x01' + bytes(11) + (183).to_bytes(2, 'little')
+# What packing.py asks of `os` on a POSIX machine, so compact_executable takes its Linux branch anywhere
+# (patching os.name itself would make pathlib build the other platform's paths).
+POSIX_OS = SimpleNamespace(name='posix', access=lambda *_: True, close=os.close, X_OK=os.X_OK)
+ELF_ARM64 =b'\x7fELF\x02\x01\x01' + bytes(11) + (183).to_bytes(2, 'little')
 
 
 class BundledPackerTests(unittest.TestCase):
@@ -86,9 +89,10 @@ class LinuxPackingTests(unittest.TestCase):
         self.assertEqual(seen[0].parent.parent, self.root)    # beside the game, never in /tmp
         self.assertFalse(seen[0].parent.exists())             # removed afterwards
 
-    def scripted(self, outcomes):
+    def scripted(self, outcomes, emit=None):
         """Run compact_linux with a fake UPX: `outcomes` maps a command ('pack' or 'test') to a
-        (returncode, message) pair. Packing really rewrites the file, as UPX does."""
+        (returncode, message) pair. Packing really rewrites the file, as UPX does. With `emit`,
+        compact_executable runs as on a Linux machine instead (the log callback is its business)."""
         calls = []
         def run(command, **options):
             args = command[1:]
@@ -99,9 +103,9 @@ class LinuxPackingTests(unittest.TestCase):
                 Path(args[-1]).write_bytes(b'UPX! packed by upx')
             return SimpleNamespace(returncode=code, stdout='', stderr=message)
         with patch('retrorecomp.packing.subprocess.run', side_effect=run), \
-                patch('retrorecomp.packing.os.access', return_value=True), \
+                patch('retrorecomp.packing.os', POSIX_OS), \
                 contextlib.redirect_stderr(io.StringIO()) as printed:
-            outcome = packing.compact_linux(self.game)
+            outcome = packing.compact_linux(self.game) if emit is None else packing.compact_executable(self.game, emit)
         self.printed = printed.getvalue()
         return outcome, calls
 
@@ -118,7 +122,7 @@ class LinuxPackingTests(unittest.TestCase):
         message = f'upx-amd64_linux: {self.game}: Exception: compressed data violation'
         outcome, calls = self.scripted({'test': (1, message)})
         self.assertEqual(calls, [('-9',), ('-t',)])
-        self.assertIn('could not pack and verify Game (Exception: compressed data violation; upx/upx issue 18937)',
+        self.assertIn('could not pack and verify the executable (Exception: compressed data violation; upx/upx issue 18937)',
                       outcome['notice'])
         self.assertIn('published unpacked', outcome['notice'])
         self.assertEqual(self.game.read_bytes(), original)
@@ -149,18 +153,38 @@ class LinuxPackingTests(unittest.TestCase):
                 packing.compact_linux(self.game)
         self.assertEqual(list(self.root.iterdir()), [self.game])
 
-    def test_the_notice_is_printed_and_the_report_says_why_a_game_was_published_unpacked(self):
+    def test_the_notice_reaches_the_conversion_log_and_not_stderr(self):
+        log = []
+        outcome, calls = self.scripted({'test': (1, 'upx: Game: Exception: compressed data violation')}, emit=log.append)
+        self.assertEqual(calls, [('-9',), ('-t',)])
+        self.assertEqual(log, [outcome['notice']])
+        self.assertIn('compressed data violation', log[0])
+        self.assertEqual(self.printed, '')    # the command line shows the log line once, not twice
+
+    def test_without_a_log_the_notice_goes_to_stderr_once(self):
+        with patch('retrorecomp.packing.subprocess.run',
+                   return_value=SimpleNamespace(returncode=1, stdout='', stderr='upx: Game: Exception: test')), \
+                patch('retrorecomp.packing.os', POSIX_OS), \
+                contextlib.redirect_stderr(io.StringIO()) as printed:
+            outcome = packing.compact_executable(self.game)
+        self.assertEqual(printed.getvalue(), outcome['notice'] + '\n')
+
+    def test_a_game_packed_and_tested_says_nothing_to_the_log(self):
+        log = []
+        outcome, _ = self.scripted({}, emit=log.append)
+        self.assertIsNone(outcome)
+        self.assertEqual((log, self.printed), ([], ''))
+
+    def test_the_report_says_why_a_game_was_published_unpacked(self):
         identity = packing.file_identity(self.game)
         # Packed and tested: the record says nothing more than before.
         self.scripted({})
-        self.assertEqual(self.printed, '')
         packed = packing.packing_record(identity, self.game)
         self.assertNotIn('unpacked_reason', packed)
         self.assertEqual(packed['level'], '-9')
         # Published as built: the same unpacked bytes, with the reason.
         self.game.write_bytes(ELF_X86_64 + bytes(64) + b'native game')
         outcome, _ = self.scripted({'test': (1, 'upx: Game: Exception: compressed data violation')})
-        self.assertIn(outcome['notice'], self.printed)
         record = packing.packing_record(identity, self.game)
         self.assertEqual((record['packed'], record['unpacked_reason']), (False, outcome['notice']))
         self.assertEqual(record['published']['sha256'], identity['sha256'])

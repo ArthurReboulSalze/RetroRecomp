@@ -1321,7 +1321,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         write_code_patterns(destination / "native.patterns", memory.code_patterns())
     if not publish_result:
         return executable
-    pending = publish_executable(executable, final_executable, compact=True)
+    pending = publish_executable(executable, final_executable, compact=True, emit=emit)
     if pending:
         emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {final_executable}")
     else:

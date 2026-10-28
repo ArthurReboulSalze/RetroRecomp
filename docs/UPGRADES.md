@@ -105,6 +105,16 @@ Measurements stay separate: this is native code, CPU fidelity against the fresh 
 of the generated game; it says nothing about hardware fidelity, gameplay or latency. A Linux 1.5.6 export is not covered (the
 stamps are bytecode digests of Python 3.14.5, the Linux converter is built with another Python).
 
+## Exports of 1.6.0 in 1.6.1
+
+1.6.1 moves the game, host and build stamps of every console. The reason is the packing notice (a Linux game UPX cannot
+pack and test is published unpacked): `packing.py` (build), `publishing.py` (host) and the callers `batch.py`, `core.py`,
+`systems/master_system.py` (game, all consoles), `neogeo_conversion.py`, `neogeo_build.py` and `cps1_conversion.py` now pass
+the conversion log to the packer, so the interface shows the reason, and the Neo Geo `native-validation.json` says
+`validated_candidate: unpacked` when it applies. Nothing a game generates changed. `LEGACY_GAME_STAMPS` has no 1.6.0 entry:
+declaring one needs the real receipts of the released 1.6.0 converter (release procedure), so until it is added an export of
+1.6.0 is converted in full by 1.6.1.
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).

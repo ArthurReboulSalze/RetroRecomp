@@ -133,7 +133,7 @@ def _start_installer(marker: Path, token: str):
     return child
 
 
-def publish_executable(source: Path, target: Path, *, start_worker=True,
+def publish_executable(source: Path, target: Path, *, start_worker=True, emit=None,
                        compact=False) -> bool:
     """Return True when installation is waiting for a running/locked game.
 
@@ -150,7 +150,7 @@ def publish_executable(source: Path, target: Path, *, start_worker=True,
     pending = False
     try:
         if compact:
-            compact_executable(staged)
+            compact_executable(staged, emit)
         with publication_lock(target):
             previous = None
             try:

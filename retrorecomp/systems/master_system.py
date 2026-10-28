@@ -77,7 +77,7 @@ def convert_checked(system, path: Path, **options) -> Path:
     title = options.get('title') or re.sub(r"\s*\([^)]*\)", "", Path(path).stem).strip()
     final = destination / executable_name(title)
     emit = options.get('emit', print)
-    if publish_executable(executable, final, compact=True):
+    if publish_executable(executable, final, compact=True, emit=emit):
         emit(f"Nouvelle version prête ; remplacement à la fermeture du jeu : {final}")
     else:
         emit(f"Exécutable créé : {final}")

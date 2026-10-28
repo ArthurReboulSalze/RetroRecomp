@@ -86,6 +86,25 @@ def convert(path: Path, **options) -> Path:
     return executable
 
 
+def record_candidate_validation(project,candidate,notice,checks):
+    """Complete the build's native-validation.json once the delivered executable passed every route.
+
+    `validated_candidate` names the file that was compared: 'packed' normally, 'unpacked' when UPX could not
+    pack and test a large Linux game and the published file is the build as it is (`notice` is then packing's
+    {'notice': reason}); the report's `packing` field says the same. The digest key follows the same word."""
+    validation=json.loads((project/'native-validation.json').read_text(encoding='utf-8'))
+    kind='unpacked' if notice else 'packed'
+    validation.update(passed=True,awaiting_packed_validation=False,validated_candidate=kind,
+        routes=[{'route':row['name'],'frames':row['frames'],'passed':True,
+                 'main_native':row['native_entries'],'main_fallback':row['interpreted_opcodes'],
+                 'sound_native':row['audio_native_opcodes'],'sound_fallback':row['audio_interpreted_opcodes']}
+                for row in checks])
+    validation[kind+'_sha256']=hashlib.sha256(Path(candidate).read_bytes()).hexdigest()
+    if notice:validation['unpacked_reason']=notice['notice']
+    atomic_json(project/'native-validation.json',validation)
+    return validation
+
+
 def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
              use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
              language='en', passes=3, frames=3600, backend='banked', standard_override=None,
@@ -146,22 +165,15 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     from .packing import compact_executable
     packed=project/'packed-game.exe'
     shutil.copy2(executable,packed)
-    compact_executable(packed)
+    notice=compact_executable(packed,emit)
     timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
-    emit('Neo Geo: comparing the compressed executable with the fresh reference.')
+    emit('Neo Geo: comparing the '+('unpacked' if notice else 'compressed')+' executable with the fresh reference.')
     checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
     # The delivered, compressed executable is the native candidate. Compare
     # every route once against the fresh reference; an earlier uncompressed
     # replay of identical CPU code adds no coverage. Until this gate passes,
     # the build receipt remains explicitly unqualified.
-    validation=json.loads((project/'native-validation.json').read_text(encoding='utf-8'))
-    validation.update(passed=True,awaiting_packed_validation=False,validated_candidate='packed',
-        packed_sha256=hashlib.sha256(packed.read_bytes()).hexdigest(),
-        routes=[{'route':row['name'],'frames':row['frames'],'passed':True,
-                 'main_native':row['native_entries'],'main_fallback':row['interpreted_opcodes'],
-                 'sound_native':row['audio_native_opcodes'],'sound_fallback':row['audio_interpreted_opcodes']}
-                for row in checks])
-    atomic_json(project/'native-validation.json',validation)
+    record_candidate_validation(project,packed,notice,checks)
     timings['packed_replays']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     from .neogeo_state_checks import check as check_states
     warmups=(30,3300,7000) if game.set_name=='nam1975' else (30,4500,6000)
