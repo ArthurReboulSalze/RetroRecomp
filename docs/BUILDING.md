@@ -262,6 +262,12 @@ python RetroRecomp.py batch --rom-dir "D:/mixed-a" --rom-dir "D:/mixed-b" --syst
 python RetroRecomp.py batch --rom-dir ROMS --no-overwrite
 ```
 
+`batch` applies the shared base before converting, as the window does: a game
+whose paths the base qualified for this converter takes the quick check instead
+of a discovery. With the "Use the shared base" option (or `--shared-base`) the
+local base is first brought up to date, at most once a day; `--no-shared-base`
+uses the local base as it is, without the network.
+
 `ROMS` is a local folder for your own ROMs; it is not committed. Source usage
 exports to `Export`; build files and dependencies stay in `.build` and `.deps`.
 The packaged converter creates `Games` beside its executable. Automatic

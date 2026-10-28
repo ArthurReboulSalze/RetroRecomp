@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import sys
 import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from . import online
-from .paths import APP_NAME, selected_bios_path
+from . import online, shared_batch
+from .paths import APP_NAME
 from .branding import COLORS
 from .gui_common import BUSY_SEND_RETRY, SENDING_AVAILABLE, SEND_EVERY
 
@@ -155,10 +154,7 @@ class SharingMixin:
         a signed-in player also fetches the paths found since. Said in a few
         log lines. A failure leaves the conversions as they would be offline.
         `quiet` leaves out the lines that say nothing came."""
-        try:
-            outcome = online.prepare_batch(keys, bool(enabled))
-        except Exception as exc:   # the batch goes on whatever happens here
-            outcome = {'paths': {}, 'summary': None, 'error': exc, 'base': None}
+        outcome = shared_batch.prepare(keys, enabled)
         summary, error = outcome['summary'], outcome['error']
         self.log_published_base(outcome.get('base'), summary, error, quiet)
         if error is not None:
@@ -171,55 +167,16 @@ class SharingMixin:
         return outcome['paths']
 
     def shared_rom_keys(self, entries, options):
-        """The shared base's names ('system:identity') for the ROMs of a batch,
-        from (system, sha256, path) triples. A cartridge console is named by
-        its ROM's hash. A Neo Geo game by its prepared cartridge and the BIOS
-        its conversion will use (neogeo_knowledge.key); one whose cartridge is
-        not prepared yet is not asked for here: its conversion asks once it is
-        (start_shared_source)."""
-        keys, bios_sha, checked = [], None, False
-        for system, sha256, path in entries:
-            if system != 'ng':
-                keys.append(f'{system}:{sha256}')
-                continue
-            if not checked:
-                checked = True
-                try:
-                    from .neogeo import validate_bios
-                    firmware = selected_bios_path((options or {}).get('ng_bios'))
-                    bios_sha = validate_bios(firmware)['sha256'] if firmware else None
-                except (ValueError, OSError):
-                    bios_sha = None
-            try:
-                from .neogeo_knowledge import shared_identity
-                identity = shared_identity(Path(path), sha256, bios_sha)
-            except (OSError, ValueError, TypeError):
-                identity = None
-            if identity:
-                keys.append(f'ng:{identity}')
-        return keys
+        """The shared base's names for the ROMs of a batch (shared_batch.rom_keys)."""
+        return shared_batch.rom_keys(entries, (options or {}).get('ng_bios'))
 
     def start_shared_source(self, enabled, keys, systems):
-        """For the length of a batch with Neo Geo games: a conversion that has
-        just prepared its cartridge asks the shared base for it, once, unless
-        `keys` (the batch's first request) already covered it."""
-        if 'ng' not in systems:
-            return
-        from . import neogeo_knowledge
-        asked, lock = set(keys), threading.Lock()
-        def source(identity):
-            key = f'ng:{identity}'
-            with lock:   # one request at a time: they all write the same files
-                if key in asked:
-                    return
-                asked.add(key)
-                self.prepare_shared_paths([key], enabled, quiet=True)
-        neogeo_knowledge.SHARED_SOURCE = source
+        """For the length of a batch with Neo Geo games: a cartridge prepared
+        during it asks the shared base once, quietly (shared_batch.start_source)."""
+        shared_batch.start_source(lambda more: self.prepare_shared_paths(more, enabled, quiet=True), keys, systems)
 
     def stop_shared_source(self):
-        module = sys.modules.get(__package__ + '.neogeo_knowledge')
-        if module is not None:
-            module.SHARED_SOURCE = None
+        shared_batch.stop_source()
 
     def log_published_base(self, base, summary, error, quiet=False):
         """The shared base's outcome for this batch in log lines: an update
@@ -228,38 +185,18 @@ class SharingMixin:
         there was no connection, its number and the games received, nothing
         new (left to the signed-in sync's own line when there is one), a format
         this version cannot read, and the problem that stopped it, if any.
-        Nothing when there is no base and nothing was asked of it."""
-        if not base:
-            return
-        update = base.get('update') or {}
-        if update.get('source'):
-            self.messages.put(('log', self.tr('base_updated', version=update['version'],
-                                              size=self.byte_size(update.get('downloaded_bytes', 0)))))
-        if base.get('offline') and not quiet:
-            if base.get('version') is None:
-                self.messages.put(('log', self.tr('base_none')))
-                if not getattr(self, 'base_notice_given', False):
-                    self.base_notice_given = True
-                    self.messages.put(('notice', self.tr('base_none')))
-            else:
-                self.messages.put(('log', self.tr('base_local_offline', version=base['version'])))
-        if base.get('note') == 'format':
-            self.messages.put(('log', self.tr('shared_base_format', format=base.get('format'))))
-        elif base.get('version') is not None and base.get('games'):
-            self.messages.put(('log', self.tr('shared_base_received', version=base['version'], games=base['games'])))
-        elif (base.get('version') is not None and base.get('error') is None and summary is None and base.get('asked')
-                and not quiet):
-            self.messages.put(('log', self.tr('shared_base_nothing', version=base['version'])))
-        if base.get('error') is not None and not (base.get('offline') or base.get('note') == 'format'):
-            problem = self.service_problem(base['error'])
-            # Offline, the signed-in sync reports the same problem right after.
-            if error is None or problem != self.service_problem(error):
-                self.messages.put(('log', self.tr('shared_base_unavailable', error=problem)))
+        Nothing when there is no base and nothing was asked of it. The notice
+        is given once per session (shared_batch.base_lines)."""
+        for kind, text in shared_batch.base_lines(base, summary, error, self.tr, self.service_problem, quiet):
+            if kind == 'notice':
+                if getattr(self, 'base_notice_given', False):
+                    continue
+                self.base_notice_given = True
+            self.messages.put((kind, text))
 
     @staticmethod
     def byte_size(count):
-        """A download size in words: '312 KiB', '4.7 MiB'."""
-        return f'{count / 1048576:.1f} MiB' if count >= 1048576 else f'{max(1, round(count / 1024))} KiB'
+        return shared_batch.byte_size(count)
 
     # --- The shared base on demand ---------------------------------------------
 
@@ -289,22 +226,7 @@ class SharingMixin:
     def forget_rejected_shared(self, shared, results):
         """Shared paths a batch set aside after they broke a conversion no
         longer allow a quick check for that ROM."""
-        rejected = [f"{result.get('system')}:{result.get('sha256')}" for result in results
-                    if result.get('imported_hints_rejected')]
-        keys = [key for key in rejected if key in shared]
-        for result in results:
-            if result.get('system') == 'ng' and result.get('report'):
-                # Neo Geo says it in its own report, under the cartridge and BIOS identity (a
-                # game asked for once its cartridge was prepared is not in `shared`).
-                from .knowledge_exchange import report_game_key
-                identity, flagged = report_game_key(result['report'])
-                if identity and flagged:
-                    keys.append(f'ng:{identity}')
-        if keys:
-            try:
-                online.forget_shared(keys)
-            except OSError:
-                pass
+        shared_batch.forget_rejected(shared, results)
 
     def sending_started(self, key='sending_discoveries'):
         """While discoveries (or a report) travel to the server, the status

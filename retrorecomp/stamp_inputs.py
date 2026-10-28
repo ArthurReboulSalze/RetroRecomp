@@ -42,7 +42,7 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'timings',
                                'game_details','game_metadata','game_card_view','rom_sources',
                                # Sharing discoveries never runs during a conversion.
-                               'knowledge_build','knowledge_exchange','online',
+                               'knowledge_build','knowledge_exchange','online','shared_batch',
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',

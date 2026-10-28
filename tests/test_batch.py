@@ -122,6 +122,32 @@ class BatchTests(unittest.TestCase):
                 patch('RetroRecomp.save_game_language'):
             self.assertEqual(RetroRecomp.main(), 0)
 
+    def test_cli_batch_applies_the_shared_base_like_the_window(self):
+        # 1.6.1 never asked the base from the command line: a known game was discovered in full there.
+        import RetroRecomp
+        item = self.item('shared-cli', 1)
+        result = {'games': [{'status': 'success', 'system': 'sms', 'sha256': item.sha256,
+                             'executable': str(self.root / 'game'), 'imported_hints_rejected': True}],
+                  'succeeded': 1, 'requested': 1, 'failed': 0, 'current': 0, 'existing': 0, 'pending': 0}
+        key = f'sms:{item.sha256}'
+        outcome = {'paths': {key: {'level': 'standard'}}, 'summary': None, 'error': None,
+                   'base': {'version': 4, 'games': 1, 'asked': 1, 'error': None}}
+        for flag, preference, expected in ((None, {}, True), ('--no-shared-base', {}, False),
+                                           (None, {'use_shared_base': False}, False), ('--shared-base', {'use_shared_base': False}, True)):
+            argv = ['RetroRecomp.py', 'batch', str(item.path), '--output', str(self.root / 'out')]
+            with self.subTest(flag=flag, preference=preference), \
+                    patch('sys.argv', argv + ([flag] if flag else [])), \
+                    patch('RetroRecomp.load_preferences', return_value=preference), \
+                    patch('RetroRecomp.convert_batch', return_value=result) as convert, \
+                    patch('RetroRecomp.save_game_language'), \
+                    patch('retrorecomp.shared_batch.prepare', return_value=outcome) as prepare, \
+                    patch('retrorecomp.online.forget_shared') as forget, \
+                    patch('sys.stdout'), patch('sys.stderr'):
+                self.assertEqual(RetroRecomp.main(), 0)
+                prepare.assert_called_once_with([key], expected)
+                self.assertEqual(convert.call_args.kwargs['shared_paths'], outcome['paths'])
+                forget.assert_called_once_with([key])
+
     def test_branded_elf_ownership_requires_one_exact_identity(self):
         from retrorecomp.batch import _embedded_export_identity
         with tempfile.TemporaryDirectory() as folder:

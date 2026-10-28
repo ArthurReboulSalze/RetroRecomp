@@ -173,6 +173,9 @@ def main() -> int:
     batch.add_argument("--boxart-dir", type=Path)
     batch.add_argument("--no-cover", action="store_true")
     batch.add_argument("--no-online-cover", action="store_true")
+    batch.add_argument('--shared-base', action=argparse.BooleanOptionalAction, default=None,
+        help="Bring the shared base up to date before the batch (default: the option saved in Options). Its qualified "
+             "paths apply either way, so a known game takes the quick check instead of a discovery.")
     batch.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
     batch.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
     inspect = sub.add_parser("inspect", help="Identify a ROM without modifying it.")
@@ -307,21 +310,47 @@ def main() -> int:
                 paths = list(dict.fromkeys(p.resolve() for p in sets.paths))
                 if not paths:
                     parser.error("Add ROMs or a folder with --rom-dir.")
-                record = convert_batch([identify(p, None if args.system == 'auto' else args.system)
-                                        for p in paths], args.output,
-                    jobs=args.jobs, overwrite=not args.no_overwrite, force=args.force,
-                    passes=args.passes, frames=args.frames,
-                    backend=args.backend, language=args.language,
-                    boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
-                    icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
-                    md_advanced_scan=args.md_advanced_scan,
-                    nes_advanced_scan=args.nes_advanced_scan,
-                    scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
-                    ng_bios=args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios'),
-                    x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
-                    x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
-                    x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
-                    standard_override=None if args.video_standard == 'auto' else args.video_standard)
+                items = [identify(p, None if args.system == 'auto' else args.system) for p in paths]
+                ng_bios = args.ng_bios.expanduser().resolve() if args.ng_bios else load_preferences().get('ng_bios')
+                # The shared base, as the window applies it: its qualified paths let a known game take the
+                # quick check; with the option on it is first brought up to date (at most once a day).
+                from retrorecomp import shared_batch, online
+                use_shared = (args.shared_base if args.shared_base is not None
+                              else load_preferences().get('use_shared_base', True) is not False)
+                keys = shared_batch.rom_keys([(item.system, item.sha256, item.path) for item in items
+                                              if item.system and item.sha256 and not item.error], ng_bios)
+                outcome = shared_batch.prepare(keys, use_shared)
+                def problem(error):
+                    if isinstance(error, online.ServiceConnectionError):
+                        return tr('online_unreachable', args.language)
+                    return getattr(error, 'reason', '') or str(error) or type(error).__name__
+                say = lambda key, **values: tr(key, args.language, **values)
+                for kind, text in shared_batch.base_lines(outcome['base'], outcome['summary'], outcome['error'],
+                                                          say, problem):
+                    if kind == 'log':
+                        print(text, file=sys.stderr)
+                if outcome['error'] is not None:
+                    print(say('shared_unavailable', error=problem(outcome['error'])), file=sys.stderr)
+                shared_batch.start_source(lambda more: shared_batch.prepare(more, use_shared), keys,
+                                          {item.system for item in items})
+                try:
+                    record = convert_batch(items, args.output, shared_paths=outcome['paths'],
+                        jobs=args.jobs, overwrite=not args.no_overwrite, force=args.force,
+                        passes=args.passes, frames=args.frames,
+                        backend=args.backend, language=args.language,
+                        boxart_dir=args.boxart_dir, online_cover=not args.no_online_cover, use_cover=not args.no_cover,
+                        icon_tags=not args.no_icon_tags, gb_deep_validation=args.gb_deep_validation,
+                        md_advanced_scan=args.md_advanced_scan,
+                        nes_advanced_scan=args.nes_advanced_scan,
+                        scan_level=args.scan_level, console_scan=load_preferences().get('console_scan'),
+                        ng_bios=ng_bios,
+                        x68_ipl=args.x68_ipl.expanduser().resolve() if args.x68_ipl else load_preferences().get('x68_ipl'),
+                        x68_cgrom=args.x68_cgrom.expanduser().resolve() if args.x68_cgrom else load_preferences().get('x68_cgrom'),
+                        x68_ram=args.x68_ram or load_preferences().get('x68_ram',2),
+                        standard_override=None if args.video_standard == 'auto' else args.video_standard)
+                finally:
+                    shared_batch.stop_source()
+                shared_batch.forget_rejected(outcome['paths'], record['games'])
                 for game_output in {system_output(args.output, game['system']) for game in record['games']
                                     if game['status'] == 'success'}:
                     save_game_language(game_output, args.language)

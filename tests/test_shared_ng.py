@@ -558,14 +558,14 @@ class WindowTests(unittest.TestCase):
         neogeo_knowledge.remember_prepared(SET, CART)
         entries = [('ng', SET, Path('a.zip')), ('ng', 'e' * 64, Path('never-prepared.zip')), ('ng', CART, Path('b.neo')),
                    ('gb', 'f' * 64, Path('c.gb'))]
-        with patch_gui('selected_bios_path', return_value=Path('bios.zip')), \
+        with patch('retrorecomp.shared_batch.selected_bios_path', return_value=Path('bios.zip')), \
                 patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': BIOS}):
             keys = self.owner.shared_rom_keys(entries, {'ng_bios': 'bios.zip'})
             self.assertEqual(keys, [GAME_KEY, GAME_KEY, 'gb:' + 'f' * 64])
             self.assertEqual(self.owner.shared_rom_keys([('gb', 'f' * 64, Path('c.gb'))], {}), ['gb:' + 'f' * 64])
-        with patch_gui('selected_bios_path', return_value=None):
+        with patch('retrorecomp.shared_batch.selected_bios_path', return_value=None):
             self.assertEqual(self.owner.shared_rom_keys(entries, {}), ['gb:' + 'f' * 64], 'no BIOS: no Neo Geo game is asked for')
-        with patch_gui('selected_bios_path', return_value=Path('bios.zip')), \
+        with patch('retrorecomp.shared_batch.selected_bios_path', return_value=Path('bios.zip')), \
                 patch('retrorecomp.neogeo.validate_bios', side_effect=ValueError('wrong BIOS')):
             self.assertEqual(self.owner.shared_rom_keys(entries, {}), ['gb:' + 'f' * 64])
 
