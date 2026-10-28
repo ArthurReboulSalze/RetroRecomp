@@ -1,12 +1,12 @@
 """Backward compatibility is owed to the previous release only (decision of 28 October 2026).
 
 The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 listed the previous release, 1.6.0, and
-only it. The tree of 1.6.2 lists 1.6.1: its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega Drive, Super Nintendo,
-Neo Geo and CPS-1, Windows; the 1.6.0 keys are dropped), while the game stamps in `LEGACY_GAME_STAMPS` are still those of
-1.6.0 until the release procedure replaces them. The values below are frozen: they were computed from the `v1.6.0` and
-`v1.6.1` tags with Python 3.14.5 (docs/UPGRADES.md, "Exports of 1.6.0 in 1.6.1"; docs/GAME_STATES.md, "States written by
-release 1.6.0" and "States written by release 1.6.1"). The release that follows 1.6.2 replaces the state keys with
-those of 1.6.2; the mechanisms are driven here with synthetic values as well.
+only it. The tree of 1.6.2 lists 1.6.1 and only it: its game stamps in `LEGACY_GAME_STAMPS` (the eight consoles but the
+X68000; the 1.6.0 stamps are dropped) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega Drive, Super Nintendo,
+Neo Geo and CPS-1, Windows; the 1.6.0 keys are dropped). The values below are frozen: they were computed from the
+`v1.6.0` and `v1.6.1` tags with Python 3.14.5 (docs/UPGRADES.md, "Exports of 1.6.1 in 1.6.2"; docs/GAME_STATES.md,
+"States written by release 1.6.0" and "States written by release 1.6.1"). The release that follows 1.6.2 replaces the
+game stamps and the state keys with those of 1.6.2; the mechanisms are driven here with synthetic values as well.
 """
 import json
 import os
@@ -20,11 +20,23 @@ from unittest.mock import patch
 from retrorecomp import compilation_inputs as inputs
 from retrorecomp.paths import ASSETS
 
-# Game stamps of release 1.6.0, from the v1.6.0 tag (`git archive`, `role_stamps(system)['game']`). The Super Nintendo
-# has one too: between 1.6.0 and 1.6.1 nothing specific to it changed (its game stamp moves because the shared modules
-# that log the packing notice changed). The X68000 is not listed: its request carries an SDK stamp derived from the game
-# stamp that the mechanism does not recompute, so its 1.6.0 stamp (below) is recorded and must stay unlisted.
-GAME_STAMPS_160 = {
+# Game stamps of release 1.6.1, from the v1.6.1 tag (`git archive`, `role_stamps(system)['game']`; the same method
+# gives the 1.6.0 stamps again, byte for byte). Between 1.6.1 and 1.6.2 no listed input changed what a conversion
+# generates (docs/UPGRADES.md). The X68000 is not listed: its request carries an SDK stamp derived from the game stamp
+# that the mechanism does not recompute, so its 1.6.1 stamp (below) is recorded and must stay unlisted.
+GAME_STAMPS_161 = {
+    'cps1': 'fb7d9315c9637c103aa81f259712524d9bf29b33e6e9d920ce8f4b5ad83f92db',
+    'gb': 'e5fc74915974ec27ab05bc9c9ae5ecea03050316ed39d9842b11485d2ffe1e09',
+    'gg': 'f860d65789176fa85ad7c7880c766da1754ea98fedac4f50edcf77d664f799cd',
+    'md': '2effe9f498891007f54fadc029a8f55f625ed414c73894fe2cbde5684dcfd188',
+    'nes': 'a8b871f2ab08ffc44633cc562b942fdac9a3cc4d65a7706030b714abf96fa017',
+    'ng': '1d1a5224f6c89a58ff7f1f79d807918a1c4f1295e0ae3543a253a4d884d2959b',
+    'sms': 'c4589fe7b51645c8fc779fb2511d3dc9c793fa855b5c910089bbdf0cb3dea68d',
+    'snes': '463da5c5cf464363bbc887e524a1933288e9f94c7d748cae624748dc172b6ae4',
+}
+X68_GAME_STAMP_161_NOT_LISTED = '428f2fc57bfbd0d11cf3e1bbd7977a967628bc328728746dc784cea0c39241ca'
+# Game stamps of release 1.6.0 (the table of 1.6.1 listed them): owed to nobody any more.
+GAME_STAMPS_160_REMOVED = {
     'cps1': '699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95',
     'gb': 'c36134ebfc832440005280367b64225bc09b486c3fff560d0f8a1376110712da',
     'gg': '47c60b9a2034948c0f2c31e8e3a209a368f8ef45490cc6047f73cfb882c637be',
@@ -35,7 +47,7 @@ GAME_STAMPS_160 = {
     'snes': 'cccb132e2e23df78340770cd1c0c562d32645d732e97aa15c4e853e66c06af36',
 }
 X68_GAME_STAMP_160_NOT_LISTED = '7de0d3b5731e81f2df6a705a502e165d07349423641dcc2454ce1de9392a6f36'
-# Game stamps of release 1.5.6 (the table of 1.6.0 listed them): owed to nobody any more.
+# Game stamps of release 1.5.6 (the table of 1.6.0 listed them): owed to nobody for two releases now.
 GAME_STAMPS_156_REMOVED = {
     'cps1': '187c9db92db22e872d352e6c5895640c414849ba6e50b07db0b06c4e703738fb',
     'gb': 'c8a90b01e99b68da0f9796d109d7f161e9c848d2f8100651731c6dfe3f56f806',
@@ -66,30 +78,32 @@ STATE_ABI_156_REMOVED = ('9866fc8dcb7866bc38e7f3251b2469aa6933a46ae181f3a03ad5fa
 
 
 class LegacyStampTests(unittest.TestCase):
-    def test_the_table_lists_release_1_6_0_and_nothing_older(self):
-        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {system: (stamp,) for system, stamp in GAME_STAMPS_160.items()})
+    def test_the_table_lists_release_1_6_1_and_nothing_older(self):
+        self.assertEqual(inputs.LEGACY_GAME_STAMPS, {system: (stamp,) for system, stamp in GAME_STAMPS_161.items()})
         for system in sorted(inputs.SYSTEMS):
-            expected = (GAME_STAMPS_160[system],) if system in GAME_STAMPS_160 else ()
+            expected = (GAME_STAMPS_161[system],) if system in GAME_STAMPS_161 else ()
             self.assertEqual(inputs.legacy_game_stamps(system), expected, system)
         self.assertEqual(inputs.legacy_game_stamps('unknown'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
         self.assertFalse(listed & set(GAME_STAMPS_156_REMOVED.values()))
+        self.assertFalse(listed & set(GAME_STAMPS_160_REMOVED.values()))
 
-    def test_every_listed_stamp_moved_since_1_6_0_and_is_not_the_current_one(self):
-        # The stamp of 1.6.1 is another one on every console: a listed stamp is a receipt that is never current.
+    def test_every_listed_stamp_moved_since_1_6_1_and_is_not_the_current_one(self):
+        # The stamp of 1.6.2 is another one on every console: a listed stamp is a receipt that is never current.
         for system in sorted(inputs.SYSTEMS):
             self.assertNotIn(inputs.role_stamps(system)['game'], inputs.legacy_game_stamps(system), system)
-            self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_160.get(system), system)
+            self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_161.get(system), system)
 
     def test_the_x68000_is_converted_in_full_by_the_next_release(self):
         # Its request holds `x68_sdk`, hash of the game stamp of the tree that wrote it: not covered by the table.
         self.assertEqual(inputs.legacy_game_stamps('x68'), ())
         listed = {stamp for stamps in inputs.LEGACY_GAME_STAMPS.values() for stamp in stamps}
+        self.assertNotIn(X68_GAME_STAMP_161_NOT_LISTED, listed)
         self.assertNotIn(X68_GAME_STAMP_160_NOT_LISTED, listed)
 
-    def test_super_nintendo_exports_of_1_6_0_are_upgraded(self):
-        # Nothing Super Nintendo specific changed between 1.6.0 and 1.6.1 (docs/UPGRADES.md): the entry is listed.
-        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_160['snes'],))
+    def test_super_nintendo_exports_of_1_6_1_are_upgraded(self):
+        # Nothing Super Nintendo specific changed between 1.6.1 and 1.6.2 (docs/UPGRADES.md): the entry is listed.
+        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_161['snes'],))
 
 
     def test_entries_of_the_previous_release_are_wellformed_and_never_the_current_stamp(self):
@@ -146,7 +160,7 @@ class LegacyReceiptTests(unittest.TestCase):
                 patch('retrorecomp.compilation_inputs.role_stamps', side_effect=stamps):
             return item, freshness.request_parts(item, {'use_cover': False})
 
-    def receipt(self, folder, item, game, release='1.6.0', schema=3):
+    def receipt(self, folder, item, game, release='1.6.1', schema=3):
         from retrorecomp.freshness import digest
         target = Path(folder) / 'Game'
         target.write_bytes(f'export written by {release}'.encode())
@@ -174,51 +188,53 @@ class LegacyReceiptTests(unittest.TestCase):
                     target, path = self.receipt(folder, item, parts['legacy_games'][0])
                     self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
                     previous = freshness.upgradable(item, target, path, parts, print)
-                    self.assertEqual(previous['legacy_release'], '1.6.0')
-                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.0')
+                    self.assertEqual(previous['legacy_release'], '1.6.1')
+                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.1')
                     # Any other game part (an older release, other code) is converted in full.
                     target, path = self.receipt(folder, item, 'f' * 64)
                     self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
-    def test_the_game_part_of_a_1_6_0_receipt_is_what_the_table_makes_1_6_1_accept(self):
-        # A 1.6.0 receipt carries hash(request with engine = the game stamp of the tag): the request of 1.6.1, asked
+    def test_the_game_part_of_a_1_6_1_receipt_is_what_the_table_makes_1_6_2_accept(self):
+        # A 1.6.1 receipt carries hash(request with engine = the game stamp of the tag): the request of 1.6.2, asked
         # with that engine, gives the same hash on every listed console, and the table lists exactly that hash.
         from retrorecomp import freshness
-        for system in sorted(GAME_STAMPS_160):
+        for system in sorted(GAME_STAMPS_161):
             with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
                 item, parts = self.parts(system)
-                frozen = self.parts(system, GAME_STAMPS_160[system])[1]
+                frozen = self.parts(system, GAME_STAMPS_161[system])[1]
                 self.assertEqual(parts['legacy_games'], [frozen['game']])
                 self.assertNotEqual(parts['game'], frozen['game'])
                 with patch('retrorecomp.freshness._no_new_hints', return_value=True):
                     target, path = self.receipt(folder, item, frozen['game'])
                     self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
                     previous = freshness.upgradable(item, target, path, parts, print)
-                    self.assertEqual(previous['legacy_release'], '1.6.0')
-                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.0')
+                    self.assertEqual(previous['legacy_release'], '1.6.1')
+                    self.assertEqual(freshness.upgrade_record(previous)['from_release'], '1.6.1')
 
     def test_nothing_is_upgraded_from_a_release_the_table_does_not_list(self):
-        # 1.5.6 (listed by the table of 1.6.0, not by this one) and any other game part: converted in full.
+        # 1.5.6 and 1.6.0 (listed by the tables of 1.6.0 and 1.6.1, not by this one) and any other game part:
+        # converted in full.
         from retrorecomp import freshness
-        for system in sorted(GAME_STAMPS_156_REMOVED):
-            with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
-                item, parts = self.parts(system)
-                self.assertEqual(len(parts['legacy_games']), 1)
-                old = self.parts(system, GAME_STAMPS_156_REMOVED[system])[1]['game']
-                with patch('retrorecomp.freshness._no_new_hints', return_value=True):
-                    for game in (old, 'f' * 64):
-                        target, path = self.receipt(folder, item, game, '1.5.6')
-                        self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
+        for release, removed in (('1.5.6', GAME_STAMPS_156_REMOVED), ('1.6.0', GAME_STAMPS_160_REMOVED)):
+            for system in sorted(removed):
+                with self.subTest(release=release, system=system), tempfile.TemporaryDirectory() as folder:
+                    item, parts = self.parts(system)
+                    self.assertEqual(len(parts['legacy_games']), 1)
+                    old = self.parts(system, removed[system])[1]['game']
+                    with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                        for game in (old, 'f' * 64):
+                            target, path = self.receipt(folder, item, game, release)
+                            self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
-    def test_without_an_entry_a_1_6_0_receipt_is_converted_in_full(self):
+    def test_without_an_entry_a_1_6_1_receipt_is_converted_in_full(self):
         # What the X68000 gets (its request needs real disks and firmware, so a console with an entry stands for it).
         from retrorecomp import freshness
-        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_160)), ['x68'])
+        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_161)), ['x68'])
         with tempfile.TemporaryDirectory() as folder, patch.dict(inputs.LEGACY_GAME_STAMPS, {}, clear=True):
             item, parts = self.parts('sms')
             self.assertEqual(parts['legacy_games'], [])
             with patch('retrorecomp.freshness._no_new_hints', return_value=True):
-                target, path = self.receipt(folder, item, GAME_STAMPS_160['sms'])
+                target, path = self.receipt(folder, item, GAME_STAMPS_161['sms'])
                 self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
     def test_only_the_receipt_this_release_writes_is_current(self):
