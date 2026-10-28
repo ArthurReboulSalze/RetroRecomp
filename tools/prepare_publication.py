@@ -136,8 +136,6 @@ MEDIAS/RetroRecomp_Queue_en.png MEDIAS/RetroRecomp_Collection_fr.png MEDIAS/Retr
 MEDIAS/RetroRecomp_Credits_ja.png MEDIAS/RetroRecomp_Closing_it.gif
 MEDIAS/RetroRecomp_Help_fr.png MEDIAS/RetroRecomp_Leaderboard_fr.png
 MEDIAS/RetroRecomp_learning_cycle.png
-MEDIAS/RetroRecomp_Native_Games_web.mp4
-MEDIAS/RetroRecomp_Native_Games_poster.jpg
 MEDIAS/TAG_SHOOTING.png assets/tag-shooting.png
 profiles/example.sms.toml
 assets/Retro-Recomp-banner.png assets/Retro-Recomp.ico

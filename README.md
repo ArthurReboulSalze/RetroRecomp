@@ -22,6 +22,10 @@
   <a href="https://retro-recomp.com">Website</a>
 </p>
 
+https://github.com/user-attachments/assets/d08e5a5d-b05f-4175-97ac-9e4b362db101
+
+<p align="center"><sub><em>RetroRecomp in under two minutes: how your own game dumps become native Windows and Linux programs.</em></sub></p>
+
 <p align="center">
   <img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection" width="860">
 </p>
