@@ -27,8 +27,8 @@ def native_executable(project, output, harness, z80_source=None):
         excluded.add('md_z80_generated')
     resources=[]
     if os.name=='nt':
-        from retrorecomp import toolchain
-        if toolchain.active() != toolchain.MSVC:
+        from retrorecomp import toolchain as toolchain_module
+        if toolchain_module.active() != toolchain_module.MSVC:
             raise SystemExit('This check reads Visual Studio build files; run it with RETRO_RECOMP_TOOLCHAIN=msvc.')
         # Incremental MSBuild tlogs retain old input sets. The current project
         # is the authority; using its first historical tlog record omitted

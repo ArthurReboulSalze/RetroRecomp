@@ -138,6 +138,18 @@ the conversion log to the packer, so the interface shows the reason, and the Neo
 declaring one needs the real receipts of the released 1.6.0 converter (release procedure), so until it is added an export of
 1.6.0 is converted in full by 1.6.1.
 
+## Mega Drive exports of 1.6.0 in 1.6.1
+
+1.6.1 corrects the deferred sound-CPU payment of the Mega Drive runtime (`native/md_z80_bus.inc`, game-side, owned by
+`md` only): when the 68000 writes BUSREQ or RESET during the merged final catch-up of a payment that crosses a slice end,
+the host checkpoint no longer runs the 68000 a second time before answering the request (Super Street Fighter II
+answered a bus request one poll late, which shifted a few YM2612 and PSG writes by 18 68000 clocks). The Mega Drive
+game stamp moves; the learned paths do not, so the 1.6.0 entry the release adds lets Mega Drive exports of 1.6.0 be
+rebuilt with the corrected runtime and rechecked against the reference on the quick routes, like the other consoles. The other consoles do not own the file: their stamps do
+not move. The Mega Drive quick-state key (`RR16_STATE_ABI`) also moves, because it hashes the listed native files of the
+console; the serialized layout is unchanged, so the release adds the 1.6.0 key as a
+compatibility key ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+
 ## Host or game: the classification
 
 Every input that shapes an export is fingerprinted (`retrorecomp/compilation_inputs.py`).
