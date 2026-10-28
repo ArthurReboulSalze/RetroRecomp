@@ -115,8 +115,9 @@ typedef struct RrhkMachine {
     unsigned audio_rate;           /* ring: source rate of the mono 16-bit PCM */
     bool (*audio_enable)(unsigned rate);   /* ring: the machine starts producing sound; false closes the device */
 
-    /* behaviours the kit keeps per machine until HOST_KIT.md settles them */
-    bool capture_any_pad;          /* divergence 3 (pending): F2 pad capture takes any connected pad */
+    /* behaviours the kit keeps per machine until HOST_KIT.md settles them. Settled on 28 October 2026 and
+     * therefore no longer settings: F2 pad capture takes the selected player's pad only (divergence 3) and F6
+     * autofire shows one shared notice from the catalogue (divergence 11), both in the shell for every machine. */
     bool pointer_keeps_player2;    /* a pointer game still reads the second pad (Zapper) */
     const wchar_t *pointer_section;   /* preferences section of the pointer page, NULL: <ini_section>.Gun */
     int pointer_max;               /* largest reticle size of the page, 0: 12 */

@@ -189,7 +189,7 @@ libretro-shaped machines provide a core and a short action table only
 
 ## 3. Behaviour: one rule per divergence
 
-Decisions (project owner, 27 October 2026), each applied as contract behaviour:
+Decisions (project owner, 27 October 2026; D9 and D10 on 28 October 2026), each applied as contract behaviour:
 
 * **D1 — Stick dead zone 16000** for all families.
 * **D2 — Windowed scaling: integer scale, centred**, for all; stretch exists
@@ -206,6 +206,12 @@ Decisions (project owner, 27 October 2026), each applied as contract behaviour:
 * **D8 — One voice**: window title texts and the "physical latency unmeasured"
   honesty line identical for all families; fallback always shown per CPU and
   per cartridge device.
+* **D9 — F2 gamepad capture takes the selected player's pad only** (28 October
+  2026, Arthur), for every console: a press on another connected pad is ignored
+  while a row waits for a control.
+* **D10 — One autofire notice** (28 October 2026, Arthur), for every console:
+  F6 shows a short pop-up, "Autofire ON" / "Autofire OFF", about 1.8 s like the
+  shell's other notices, from the shared eight-language catalogue.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
@@ -216,7 +222,7 @@ section 8.
 | --- | --- | --- | --- |
 | 1 | Stick dead zone 12000 (SMS/GG, X68000) vs 16000 (NES, 16-bit); GB threshold upstream, unknown | 16000 for all (D1). The single kit threshold removes the GB fork | `host-divergences.md:12-22`; `hosts.md:127` |
 | 2 | `rr_autofire` (SMS/GG, GB, NES, 16-bit) vs unconditional parity pulse with global clears (X68000) | `rr_autofire` semantics on every FACE-group action, per button, each new press starts on, guest frames (D4). The X68000 pulse is removed; its keyboard/mouse aliases are a capability to settle with that migration (open question 5) | `host-divergences.md:24-34`; `hosts.md:128,230` |
-| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Pending**: one rule for all, chosen and A/B measured before the first shell moves | `host-divergences.md:36-46` |
+| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Decided on 28 October 2026 (Arthur, D9)**: the selected player's pad only, for every console. The kit shell applies one guard; the `capture_any_pad` setting is gone. Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES: the NES changes); SMS/GG, Game Boy and X68000 follow when they migrate | `host-divergences.md:36-46` |
 | 4 | Audio open flags and sample counts differ per family | One callback-ring output (D5) with one open-flag policy (format change allowed with retry, as SMS/GG/NES/GB today) and one requested period, fixed when the output is unified and re-measured before adoption; device negotiation changes land outside "unchanged" phases | `host-divergences.md:48-61`; `hosts.md:307-308,487-489` |
 | 5 | Callback ring (SMS, GB, NES, MD runtime) vs `SDL_QueueAudio` push (SNES, NG, CPS-1, X68000) | Callback ring for all (D5). Machine source rates and channel layouts stay machine-specific | `host-divergences.md:63-68`; `hosts.md:131,187-191` |
 | 6 | D3D11 driver hint, joystick thread, per-monitor DPI, renderer info line only on SMS/GG | The SMS/GG Windows set for every family (D3); POSIX keeps the vsync hint | `host-divergences.md:70-81`; `hosts.md:132` |
@@ -224,7 +230,7 @@ section 8.
 | 8 | Window position/size remembered only by SMS/GG, session-scope, not ini-persisted | Remembered for every family on Windows (D3), adopting the SMS/GG mechanism (restore at startup and when returning from fullscreen, save at shutdown). Persisting across runs is not claimed (open question 7) | `host-divergences.md:95-107`; `hosts.md:134,309` |
 | 9 | Windowed scaling: integer+centred (SMS/GG) vs stretch/fit (NES, 16-bit, X68000); GB integer path patched upstream | Integer scale, centred, for all in windowed mode (D2); stretch only in a declared fullscreen mode | `host-divergences.md:109-120`; `hosts.md:135` |
 | 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | Kit owns hotplug and slot assignment (`hosts.md:312`); the SMS swap and first-player preference stay declared machine capabilities (`hosts.md:175-178`). The base policy for the others is **pending** (open question 3) | `host-divergences.md:122-132` |
-| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | One shared notice through the catalogue when the autofire step lands; wording chosen with it (**pending**, open question 4) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
+| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit; SMS/GG, Game Boy and X68000 follow when they migrate (the "Rapid fire" and the GB status line retire with them) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
 | 12 | F8/F9: deferred to a safe CPU/state boundary (SMS/GG, 16-bit) vs executed from the event path (GB, NES, X68000 next frame) | Always deferred to a safe frame/CPU boundary (D6): the kit requests the operation and services it after `state_ready()` / the machine's safe boundary; GB, NES and X68000 stop executing it from the event path | `host-divergences.md:146-156`; `hosts.md:138,273-274` |
 | 13 | Gun pages: `[LightPhaser]` 1..5 default 1; `[NES.Zapper]` 1..8 default 3; `[<Console>.Gun]` 1..12 default 3 + SNES turbo | One gun/pointer page, one mapping and one reticle in the kit, with per-machine size ranges and rows; ranges stay as today; sections rename to `[<Console>.Pointer]` through the mapping | `host-divergences.md:158-168`; `hosts.md:139,172-174,331`; `ini-migration.md:208-212,302-306` |
 | 14 | Preference layouts: French sections/keys (SMS/GG), numeric English (NES, 16-bit), `[X68000] p0_key0`, flat GB file | English sections and keys for all (D7), per section 4; old keys read when the new one is absent; nothing deleted | `host-divergences.md:170-178`; `hosts.md:140`; `ini-migration.md:174-240` |
@@ -490,9 +496,10 @@ through `hostkit.stage(project, 'nes')`, called once from `nes_runtime.py` (the 
 stamp once, see [UPGRADES.md](UPGRADES.md#nes-exports-of-161-in-162-host-kit-phase-2)).
 
 Kit switches the NES needed, each one a named per-machine setting of `RrhkMachine`, not an `if` on the machine:
-`audio_model` / `audio_rate` / `audio_enable` (ring output), `capture_any_pad` (divergence 3), `pointer_section` and
+`audio_model` / `audio_rate` / `audio_enable` (ring output), `pointer_section` and
 `pointer_max` (the `[NES.Zapper]` section and its 1..8 size range, divergence 13), `pointer_keeps_player2` (the Zapper
-game still reads the second pad), `save_failed_*` (the F8 failure wording).
+game still reads the second pad), `save_failed_*` (the F8 failure wording). A `capture_any_pad` setting existed in phase 2
+for divergence 3; it was removed on 28 October 2026 when the rule was decided (see below).
 
 Divergences, for this family:
 
@@ -500,12 +507,12 @@ Divergences, for this family:
 | --- | --- |
 | 1 stick 16000 | decided (D1); the NES already used it, nothing changed |
 | 2 autofire | decided (D4); the NES already used `rr_autofire` on A and B per guest frame; nothing changed |
-| 3 F2 pad capture | **pending**: the NES keeps "any connected pad" (`capture_any_pad`) |
+| 3 F2 pad capture | decided 28 October 2026 (D9), applied after phase 2: the NES takes the selected player's pad only, like the 16-bit consoles (it took any connected pad in phase 2); the `capture_any_pad` setting is removed |
 | 4 audio open flags and period | **pending** with the unified output: the NES keeps its flags (format change allowed with retry) and its 256-sample request |
 | 5 callback ring | decided (D5); the NES already had it, and the kit now owns it (`rrhk_ring.c`); the 16-bit queue model is not moved in this phase |
 | 6, 7, 8, 9 Windows set, vsync, window rectangle, integer scaling | decided (D2, D3) but they need the SMS/GG mechanism: landing with phase 4, not applied. The NES keeps its fit/integer rule, except that Pixel mode in a window smaller than 256 x 240 now fits the picture instead of cropping it (the kit's rectangle function) |
 | 10 pad slots | **pending**: the NES keeps the first-free-slot policy (same as the kit's base) |
-| 11 autofire notice | **pending**: the NES stays silent (its F6 goes through the adapter's `key_event`) |
+| 11 autofire notice | decided 28 October 2026 (D10), applied after phase 2: F6 is no longer handled by the adapter's `key_event`, so the shell's own F6 runs on the NES (same toggle, same memory reset, same `[Manettes] autofire` write) and shows the shared notice "Autofire ON" / "Autofire OFF" (the NES was silent in phase 2) |
 | 12 F8/F9 deferred | decided (D6), applied: the kit services them at the top of the loop, after the events, instead of from the event path; the NES boundary is the frame boundary, so no observable change in the battery |
 | 13 gun page, mapping, reticle | decided, applied: the NES uses the kit's pointer page, mapping and reticle. Visible changes on Zapper games only: the F2 page has no `>` marker (the highlight stays), the reticle is the kit's (thin cross, 2 pixels; dot sized in picture pixels), the system cursor shows over the window outside the picture, the mouse must have input focus, a setting change writes only its own key |
 | 14, 15 preference layout, autofire key | decided (D7), **later** with the preferences phase: the NES still writes `[Manettes] autofire` and `[NES.Zapper]` |
@@ -544,6 +551,17 @@ every F2 page and the help in five languages, rebinding, quit/restart combinatio
   adapter's action table), all passing; a fresh conversion of Donkey Kong with the kit builds, validates and keeps the
   same quick-state key (`RR_NES_STATE_ABI`).
 
+Divergences 3 and 11 (28 October 2026), measured the same way (`tools/hostkit_ab.py`, Windows, MSVC, offscreen SDL, the
+kit of 1.6.2 before the change against after it, same generated project): Donkey Kong (NES) and Blockout (Mega Drive).
+The standard battery on the NES (3,707 iterations): the 36 captures, the state file, the preferences, the audio log and
+both controller words are identical; the only differing pictures are the 144 consecutive frames of the two F6 presses
+(429-572), which now carry the notice. A short script with two virtual pads (rebinding from the other player's pad, F6 in
+each language, F6 with the help open, 2,373 iterations): on the NES the old host bound a press of the other player's pad
+and the new one keeps "Press a control..." until the selected player's own pad is pressed (both preferences files differ
+by exactly that binding); the notice reads "Autofire ON / OFF", "Fuoco automatico ON", "Dauerfeuer AUS", and so on. On the
+Mega Drive both scripts are **identical** (pictures, states, preferences, logs): its guard and its notice text were
+already these. Not run: the consoles of the kit other than these two (same shell code), Linux.
+
 Not covered by this battery (as for phase 1): menus driven by a pad, hot unplug, mouse clicks on option rows, F9 with no
 state or a failed save, audio open failures, a NES game with PAL timing or an expansion-audio mapper, Linux.
 
@@ -552,12 +570,17 @@ state or a failed save, audio open failures, a NES game with PAL timing or an ex
 1. **Game Boy upstream rows**: the exact behaviour of divergences 1, 3, 5, 8
    and 9 needs the upstream `platform_sdl.cpp`, absent from the survey
    checkout (`host-divergences.md:285-286`; `hosts.md:538-540`).
-2. **F2 capture rule** for all families: selected-player guard or any pad
-   (`host-divergences.md:36-46`).
+2. ~~**F2 capture rule** for all families~~ **Settled on 28 October 2026
+   (Arthur): the selected player's pad only**, for every console (D9). On the
+   kit it is applied; SMS/GG, Game Boy and X68000 take it when they migrate.
 3. **Base pad-slot policy** (first free vs slot memory); the SMS swap and
    first-player preference stay machine capabilities (`hosts.md:175-178`).
-4. **Autofire notice wording and diagnostic tag**: one text and one tag for
-   all, or a fixed per-layer set (`host-divergences.md:134-144,214-225`).
+4. **Autofire notice wording and diagnostic tag**: the wording is **settled on
+   28 October 2026 (Arthur)**: one short shared pop-up on every console,
+   "Autofire ON" / "Autofire OFF" from the catalogue (D10), applied on the kit
+   consoles and taken by SMS/GG, Game Boy and X68000 when they migrate. The
+   diagnostic tag (one tag for all, or a fixed per-layer set,
+   `host-divergences.md:214-225`) is **still pending** (divergence 18).
 5. **X68000 autofire aliases**: what guest-keyboard keys and mouse buttons do
    once autofire follows `rr_autofire` semantics (`host-divergences.md:32`).
 6. **One requested audio period** (256 vs 512 today) and the Mega Drive final

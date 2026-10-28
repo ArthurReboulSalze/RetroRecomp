@@ -20,9 +20,9 @@ void rrhk_poll_events(RrhkRun *run) {
         if (event.type == SDL_QUIT) run->running = false;
         if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) rrhk_open_pads();
         if (event.type == SDL_CONTROLLERBUTTONDOWN && rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing && rrhk.gamepad_page == 1) {
-            /* Which pad may bind (divergence 3): the selected player's, or any one on machines that keep the older rule. */
-            if (m->capture_any_pad || (rrhk.pads[rrhk.player] &&
-                event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player])))) {
+            /* Which pad may bind (divergence 3, decided 28 October 2026): the selected player's pad only, on every console. */
+            if (rrhk.pads[rrhk.player] &&
+                event.cbutton.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[rrhk.player]))) {
                 rrhk.buttons[rrhk.player][rrhk.row] = (SDL_GameControllerButton)event.cbutton.button;
                 rrhk_store_binding(); rrhk.capturing = 0; rrhk.status[0] = 0;
             }
@@ -84,7 +84,8 @@ void rrhk_poll_events(RrhkRun *run) {
         } else if (key == SDL_SCANCODE_F6) {
             rrhk.autofire = !rrhk.autofire;
             rrhk_autofire_reset();
-            rrhk_notice(rrhk_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF", rrhk.autofire ? "Tir auto actif" : "Tir auto inactif"), 1800);
+            /* Divergence 11 (decided 28 October 2026): one short notice from the shared catalogue, on every console. */
+            rrhk_notice(rr_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF"), 1800);
             if (rrhk.ini_file[0]) { rr_mkdir(rrhk.data_dir);
                 rr_ini_set(L"Manettes", L"autofire", rrhk.autofire ? L"1" : L"0", rrhk.ini_file); }
         }
