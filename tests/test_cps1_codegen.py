@@ -1,5 +1,6 @@
 """CPS-1 native code generation inputs and pinned-source adaptations."""
 from pathlib import Path
+import re
 import unittest
 
 from retrorecomp import cps1_build, cps1_catalogue, cps1_codegen
@@ -97,11 +98,13 @@ class NativeRelocationTests(unittest.TestCase):
             'cmake_minimum_required(VERSION 3.20)\nproject(cps1_relocate C)\nadd_executable(relocate relocate.c)\n'
             f'target_include_directories(relocate PRIVATE "{(ROOT / "native").as_posix()}" "{decoder.as_posix()}"\n'
             f' "{(ROOT / ".deps/segagenesisrecomp/recompiler/src").as_posix()}")\n', encoding='utf-8')
-        for command in ([str(cmake), '-S', str(work), '-B', str(work / 'build'), '-G', generator, *cmake_target_args()],
-                        [str(cmake), '--build', str(work / 'build'), '--config', 'Release']):
+        # One build folder per generator: CMake refuses a folder configured by another one (Visual Studio, Ninja).
+        build = work / ('build-' + re.sub(r'\W+', '-', generator).strip('-').lower())
+        for command in ([str(cmake), '-S', str(work), '-B', str(build), '-G', generator, *cmake_target_args()],
+                        [str(cmake), '--build', str(build), '--config', 'Release']):
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        result = subprocess.run([str(build_executable(work / 'build', 'relocate'))], capture_output=True, text=True,
+        result = subprocess.run([str(build_executable(build, 'relocate'))], capture_output=True, text=True,
                                 timeout=60)
         self.assertEqual((result.returncode, result.stdout.strip()), (0, '0'), result.stdout + result.stderr)
 

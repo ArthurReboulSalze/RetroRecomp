@@ -1,6 +1,5 @@
 """Compile the actual C envelope; run save/load in distinct fresh processes."""
 import json
-import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -14,7 +13,7 @@ class StateStoreTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from retrorecomp.core import toolchain
-        from retrorecomp.platforms import cmake_target_args
+        from retrorecomp.platforms import build_executable, cmake_target_args
         cls.build_temp = tempfile.TemporaryDirectory(prefix='rr-x68000-state-')
         cls.project = Path(cls.build_temp.name)
         source = (ROOT / 'native/x68000_reference').as_posix()
@@ -29,6 +28,10 @@ class StateStoreTests(unittest.TestCase):
             'target_compile_definitions(state-test PRIVATE _CRT_SECURE_NO_WARNINGS)\n'
             'else()\n'
             'target_compile_options(state-test PRIVATE -Wall -Wextra -Werror)\n'
+            'endif()\n'
+            # The fixture's Windows entry point is wmain: MinGW (the portable llvm-mingw) links it with -municode.
+            'if(MINGW)\n'
+            'target_link_options(state-test PRIVATE -municode)\n'
             'endif()\n', encoding='utf-8')
         cmake, generator = toolchain()
         for command in (
@@ -40,7 +43,7 @@ class StateStoreTests(unittest.TestCase):
             if compiled.returncode:
                 cls.build_temp.cleanup()
                 raise RuntimeError(compiled.stdout + compiled.stderr)
-        cls.binary = cls.project / 'build' / ('Release/state-test.exe' if os.name == 'nt' else 'state-test')
+        cls.binary = build_executable(cls.project / 'build', 'state-test')
 
     @classmethod
     def tearDownClass(cls):
