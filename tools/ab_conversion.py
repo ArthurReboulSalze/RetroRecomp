@@ -54,7 +54,12 @@ EXECUTABLE_SECTIONS = {'packed', 'packing', 'export_receipt'}
 STAMP_DERIVED = {'game', 'request'}
 # Digests of things built inside the tree (the NES emitter binary, its log with its path): they differ between two trees
 # by construction, as a run of one tree against itself shows. The generated sources they produced are compared.
-BUILT_IN_TREE = {'generation.json': {'compiler', 'log'}}
+BUILT_IN_TREE = {'generation.json': {'compiler', 'log'},
+                 # The digests of the executables a Neo Geo build compared (reference, native, packed or unpacked).
+                 'native-validation.json': {'reference_sha256', 'native_sha256', 'packed_sha256', 'unpacked_sha256'}}
+# A quick state (.rrstate) holds the key of the code that wrote it at bytes 96 to 160 of its header (64 hex digits,
+# derived from the converter's code like the game stamp): masked, so that the rest of the state is compared.
+STATE_KEY = slice(96, 160)
 # A state key derived from the game stamp (so from the converter's code), written into a header.
 STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
@@ -138,12 +143,13 @@ def convert(tree: Path, rom: Path, side: Path, extra: list[str]) -> tuple[int, P
 def kept_builds(tree: Path) -> list[Path]:
     """The game folders the conversion kept under `.build` (they hold the ROM copy, or data made from it).
 
-    A folder with `rom.*` (Sega, Game Boy, NES, 16-bit), a Neo Geo project (`ng-*`, with its cartridge and BIOS copies)
-    and a CPS-1 project (`cps1/<set>-<sha>`)."""
+    A folder with `rom.*` (Sega, Game Boy, NES), a 16-bit project (`md-*`, `snes-*`), a Neo Geo project (`ng-*`, with
+    its cartridge and BIOS copies) and a CPS-1 project (`cps1/<set>-<sha>`)."""
     root = tree / '.build'
     if not root.is_dir():
         return []
-    found = [path for path in root.iterdir() if path.is_dir() and (any(path.glob('rom.*')) or path.name.startswith('ng-'))]
+    found = [path for path in root.iterdir()
+             if path.is_dir() and (any(path.glob('rom.*')) or path.name.startswith(('ng-', 'md-', 'snes-')))]
     if (root / 'cps1').is_dir():
         found += [path for path in (root / 'cps1').iterdir() if path.is_dir()]
     return sorted(found)
@@ -181,7 +187,8 @@ class Normaliser:
                     if not VOLATILE_KEY.search(key) and not (top and key in VOLATILE_TOP)
                     and not (binary and key in ('sha256', 'bytes'))
                     and not (context[-1:] == ('export_receipt',) and key in STAMP_DERIVED)
-                    and not key.endswith('executable_sha256') and key not in self.drop}
+                    and not key.endswith('executable_sha256') and not key.endswith('candidate_sha256')
+                    and key not in self.drop}
         if isinstance(value, list):
             return [self.json(item, False, context) for item in value]
         if isinstance(value, str):
@@ -203,6 +210,8 @@ def fingerprint(path: Path, normaliser: Normaliser) -> str:
                                      ensure_ascii=False).encode('utf-8'))
         except ValueError:
             pass
+    if path.suffix.lower() == '.rrstate' and len(data) >= STATE_KEY.stop:
+        data = data[:STATE_KEY.start] + b'\0' * (STATE_KEY.stop - STATE_KEY.start) + data[STATE_KEY.stop:]
     if path.suffix.lower() in TEXT_SUFFIXES and b'\0' not in data[:4096]:
         data = STAMP_TEXT.sub(rb'<stamp>', normaliser.data(data))
     return digest(data)

@@ -944,5 +944,54 @@ class AdoptionTests(unittest.TestCase):
         self.assertEqual(common, {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'})
 
 
+class AbToolTests(unittest.TestCase):
+    """`tools/ab_conversion.py` reads the layouts of the 16-bit, Neo Geo and CPS-1 builds and leaves out what differs
+    by construction there (the key of a quick state, the digest of an executable)."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
+
+    def test_the_kept_builds_of_every_console_layout_are_found(self):
+        from tools import ab_conversion as ab
+        for name in ('sms_game_AAAAAAAA_0123456789ab', 'md-rom-' + 'a' * 64, 'snes-rom-' + 'b' * 16, 'ng-' + 'c' * 20 + '-native',
+                     'cps1/1941-0123456789ab', 'megadrive-compiler', 'megadrive-step-decoder', 'cps1-reference'):
+            folder = self.root / '.build' / name
+            folder.mkdir(parents=True)
+            if name.startswith('sms_'):
+                (folder / 'rom.sms').write_bytes(b'x')
+        found = [path.relative_to(self.root / '.build').as_posix() for path in ab.kept_builds(self.root)]
+        self.assertEqual(sorted(found), sorted(['sms_game_AAAAAAAA_0123456789ab', 'md-rom-' + 'a' * 64, 'snes-rom-' + 'b' * 16,
+                                                'ng-' + 'c' * 20 + '-native', 'cps1/1941-0123456789ab']))
+
+    def test_a_state_is_compared_without_the_key_of_the_code_that_wrote_it(self):
+        from tools import ab_conversion as ab
+        normaliser = ab.Normaliser({})
+        header = bytes(range(96))
+        one, two, three = (self.root / name for name in ('one.rrstate', 'two.rrstate', 'three.rrstate'))
+        one.write_bytes(header + b'a' * 64 + b'payload')
+        two.write_bytes(header + b'b' * 64 + b'payload')
+        three.write_bytes(header + b'a' * 64 + b'payloae')
+        self.assertEqual(ab.fingerprint(one, normaliser), ab.fingerprint(two, normaliser))
+        self.assertNotEqual(ab.fingerprint(one, normaliser), ab.fingerprint(three, normaliser))
+
+    def test_the_digests_of_executables_a_report_carries_do_not_count(self):
+        from tools import ab_conversion as ab
+        normaliser = ab.Normaliser({})
+        report = lambda stamp: {'packed_candidate_sha256': stamp, 'packed': {'replay': {'candidate_sha256': stamp, 'frames': 3}},
+                                'cpu_hash': 'same'}
+        self.assertEqual(normaliser.json(report('1')), normaliser.json(report('2')))
+        changed = report('1')
+        changed['cpu_hash'] = 'other'
+        self.assertNotEqual(normaliser.json(report('1')), normaliser.json(changed))
+        for name, key in (('native-validation.json', 'native_sha256'), ('native-validation.json', 'packed_sha256')):
+            one, two = self.root / 'one' / name, self.root / 'two' / name
+            for path, value in ((one, '1'), (two, '2')):
+                path.parent.mkdir(exist_ok=True)
+                path.write_text(json.dumps({key: value, 'passed': True}), encoding='utf-8')
+            self.assertEqual(ab.fingerprint(one, normaliser), ab.fingerprint(two, normaliser))
+
+
 if __name__ == '__main__':
     unittest.main()
