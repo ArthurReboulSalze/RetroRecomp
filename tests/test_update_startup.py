@@ -19,6 +19,7 @@ from retrorecomp.gui import Application, UPDATE_CHECK_EVERY, base_is_newer
 from retrorecomp.i18n import tr
 from retrorecomp.languages import LANGUAGES
 from retrorecomp.updater import Update, UpdateConnectionError
+from tools.gui_patching import patch_gui
 
 NOW = 1_800_000_000.0
 UPDATE = Update('1.5.5', 'https://example.test/Retro-Recomp.exe', 'https://example.test/tag', 'a' * 64, 1000)
@@ -69,10 +70,10 @@ class StartupLookTests(unittest.TestCase):
         """Run the start-up look; the mocks it called, and the message it sent."""
         software_call = Mock(side_effect=software) if isinstance(software, BaseException) else Mock(return_value=software)
         base_call = Mock(side_effect=base) if isinstance(base, BaseException) else Mock(return_value=base)
-        with patch('retrorecomp.gui.threading.Thread', SameThread), \
+        with patch('threading.Thread', SameThread), \
                 patch('retrorecomp.updater.check_for_update', software_call), \
                 patch('retrorecomp.online.check_base', base_call, create=True), \
-                patch('retrorecomp.gui.time.time', return_value=now):
+                patch('time.time', return_value=now):
             window.startup_update_check()
         return software_call, base_call, queued(window)
 
@@ -96,7 +97,7 @@ class StartupLookTests(unittest.TestCase):
 
     def test_offline_is_silent_and_remembers_nothing(self):
         window = application()
-        with patch('retrorecomp.gui.messagebox') as boxes:
+        with patch_gui('messagebox') as boxes:
             software, base, events = self.look(window, software=UpdateConnectionError(), base=OSError('offline'))
             self.assertEqual(events, [('update_news', False, None, False, None)])
             window.apply_update_news(*events[0][1:])
@@ -110,7 +111,7 @@ class StartupLookTests(unittest.TestCase):
             _, _, events = self.look(application(), base=base)
             self.assertEqual(events[0][3:], (False, None), base)
         window = application()
-        with patch('retrorecomp.gui.online', SimpleNamespace()):        # before the base API exists
+        with patch_gui('online', SimpleNamespace()):        # before the base API exists
             self.assertIsNone(window.look_at_base())
 
     def test_the_software_half_alone_is_enough_to_space_the_next_look(self):
@@ -199,7 +200,7 @@ class ClickTests(unittest.TestCase):
 
     def test_with_nothing_known_it_checks_the_software_and_the_base_by_hand(self):
         window = application()
-        with patch('retrorecomp.gui.threading.Thread', SameThread), \
+        with patch('threading.Thread', SameThread), \
                 patch('retrorecomp.updater.check_for_update', return_value=UPDATE) as software, \
                 patch('retrorecomp.online.check_base', return_value=NEWER_BASE, create=True) as base:
             window.check_updates()
@@ -212,7 +213,7 @@ class ClickTests(unittest.TestCase):
     def test_a_software_check_that_fails_is_still_reported_as_before(self):
         window = application()
         error = UpdateConnectionError()
-        with patch('retrorecomp.gui.threading.Thread', SameThread), \
+        with patch('threading.Thread', SameThread), \
                 patch('retrorecomp.updater.check_for_update', side_effect=error), \
                 patch('retrorecomp.online.check_base', return_value=NEWER_BASE, create=True):
             window.check_updates()
@@ -221,7 +222,7 @@ class ClickTests(unittest.TestCase):
     def test_a_manual_check_that_finds_nothing_says_up_to_date_and_clears_the_dot(self):
         window = application()
         window.update_news.update(software=UPDATE, base=NEWER_BASE)
-        with patch('retrorecomp.gui.messagebox') as boxes, patch.object(Application, 'refresh_update_badge') as badge:
+        with patch_gui('messagebox') as boxes, patch.object(Application, 'refresh_update_badge') as badge:
             window.manual_check_done(None, CURRENT_BASE)
         boxes.showinfo.assert_called_once_with('Retro-Recomp', 'RetroRecomp is up to date.')
         self.assertEqual(window.update_news, {'software': None, 'base': None})
@@ -240,7 +241,7 @@ class ClickTests(unittest.TestCase):
 
     def test_a_manual_check_whose_base_cannot_be_reached_still_answers_for_the_software(self):
         window = application()
-        with patch('retrorecomp.gui.messagebox') as boxes, patch.object(Application, 'refresh_update_badge'):
+        with patch_gui('messagebox') as boxes, patch.object(Application, 'refresh_update_badge'):
             window.manual_check_done(None, None)
         boxes.showinfo.assert_called_once()
 
@@ -249,7 +250,7 @@ class BaseUpdateTests(unittest.TestCase):
     def test_the_worker_updates_the_base_and_reports_the_short_result(self):
         window = application()
         result = {'version': 414, 'previous': 413, 'downloaded_bytes': 2048, 'source': 'delta', 'error': None}
-        with patch('retrorecomp.gui.threading.Thread', SameThread), \
+        with patch('threading.Thread', SameThread), \
                 patch('retrorecomp.online.update_base', return_value=result, create=True) as update:
             window.update_base_now(then=UPDATE)
         update.assert_called_once_with()
@@ -260,10 +261,10 @@ class BaseUpdateTests(unittest.TestCase):
 
     def test_a_worker_that_raises_or_has_no_base_api_reports_an_error(self):
         window = application()
-        with patch('retrorecomp.gui.threading.Thread', SameThread), \
+        with patch('threading.Thread', SameThread), \
                 patch('retrorecomp.online.update_base', side_effect=OSError('refused'), create=True):
             window.update_base_now()
-        with patch('retrorecomp.gui.threading.Thread', SameThread), patch('retrorecomp.gui.online', SimpleNamespace()):
+        with patch('threading.Thread', SameThread), patch_gui('online', SimpleNamespace()):
             window.update_base_now()
         first, second = queued(window)
         self.assertEqual(first[1]['error'], 'refused')
@@ -273,9 +274,9 @@ class BaseUpdateTests(unittest.TestCase):
         window = application()
         window.update_news.update(software=then, base=NEWER_BASE)
         window.updating = True
-        with patch('retrorecomp.gui.messagebox') as boxes, patch.object(Application, 'download_update') as download, \
+        with patch_gui('messagebox') as boxes, patch.object(Application, 'download_update') as download, \
                 patch.object(Application, 'refresh_update_badge') as badge, \
-                patch('retrorecomp.gui.sys.frozen', frozen, create=True):
+                patch('sys.frozen', frozen, create=True):
             window.base_update_done(result, then)
         return window, boxes, download, badge
 
@@ -335,12 +336,12 @@ class RealWindowTests(unittest.TestCase):
     """The real widgets, in a window that is never shown."""
     def open(self, preferences=None):
         folder = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
-        for item in (patch('retrorecomp.gui.load_preferences', return_value=preferences or {}),
-                     patch('retrorecomp.gui.preferred_games_root', return_value=(folder / 'exports', False)),
-                     patch('retrorecomp.gui.data_directory', return_value=folder),
+        for item in (patch_gui('load_preferences', return_value=preferences or {}),
+                     patch_gui('preferred_games_root', return_value=(folder / 'exports', False)),
+                     patch_gui('data_directory', return_value=folder),
                      patch('retrorecomp.compiled_games.data_directory', return_value=folder),
-                     patch('retrorecomp.gui.save_preferences'),
-                     patch('retrorecomp.gui.save_cover_settings')):
+                     patch_gui('save_preferences'),
+                     patch_gui('save_cover_settings')):
             item.start()
             self.addCleanup(item.stop)
         try:
@@ -507,7 +508,7 @@ class RealWindowTests(unittest.TestCase):
 
     def test_the_startup_look_is_scheduled_only_by_launch(self):
         root, window = self.open({})
-        with patch('retrorecomp.gui.threading.Thread') as thread:
+        with patch('threading.Thread') as thread:
             root.update()
             time.sleep(0.05)
             root.update()

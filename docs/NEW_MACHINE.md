@@ -153,7 +153,7 @@ Roles: host (player shell), build (toolchain), game (everything else, the safe d
 the title regex) and a list in `tools/campaign-risk-cases.json` (empty is allowed while experimental). `tools/std_baseline.py`
 (`SYSTEMS`, `CONSOLE_OPTIONS`) and `tools/status_lint.py` (`CONSOLES`, `ALIASES`). Gates G9, G12.
 
-**11. Interface.** `retrorecomp/gui.py`: an options tab (`build_scan_options`, the firmware field and its `StringVar`, the preferences
+**11. Interface.** `retrorecomp/gui_options.py` (and `gui.py` for the assembly): an options tab (`build_scan_options`, the firmware field and its `StringVar`, the preferences
 dict); `retrorecomp/paths.py` firmware preference list; `RetroRecomp.py` (`--<id>-<firmware>` and its two `convert_batch` keywords);
 `random_routes.CONSOLES` (pad layout, bits, script writer, file suffix) unless declined with a reason in the registry test;
 `artwork.REPOSITORIES` and `memory_view.summaries` likewise.
@@ -196,7 +196,7 @@ Amiga 500 and Atari ST reuse the 68000 chain; the Amiga 1200, Game Boy Advance, 
 status and CPU declarations; `ROM_CANDIDATE_EXTENSIONS`; the derived lists (`scan_levels`, `feedback`, `compilation_inputs`); `path_profiles`
 (`SYSTEMS`, `SYSTEM_SECTIONS`, `PROFILES`, `SOURCE_BOUNDS`); `report_schema._SHAPES` equal to the profile's CPUs; the stamp manifest (profile
 module listed, stamps computable, kit adapter for `rr16`); the firmware options in the command line, preferences and window; the tab and scan
-note in `i18n` and in the six locale files; the tab in `gui.py`; `status_lint`, README, COMPATIBILITY, the QUALIFICATION column,
+note in `i18n` and in the six locale files; the tab in `gui_options.py`; `status_lint`, README, COMPATIBILITY, the QUALIFICATION column,
 `PUBLIC_FILES`; `release_check`, `campaign`, risk cases, `std_baseline`. Registries a machine may decline (random routes, artwork,
 memory view) are listed in `DECLINED` with the reason, in the same change. Only for `supported`: Linux witness, shared knowledge, four risk
 cases, no failed gate. Synthetic profiles prove each gap is found.
@@ -216,8 +216,8 @@ this is the list of follow-ups.
 | `systems`, `path_profiles`, `paths`, `random_routes` are game modules owned by all: a new machine moves nine game stamps | registration data in an interface module; per-machine path tables in their own modules |
 | `hostkit.ADAPTERS`, `HOST_NATIVE`, the kit entry in `INPUTS` (and `hostkit.py` is a host input of four consoles) | profile `host_adapter`; derive the other two |
 | `random_routes.CONSOLES`, `*_BITS`, `script_text`, `write_route` suffix (seven script formats) | profile `input_layout` and `route_writer`; the kit's one input-script format |
-| `paths.py` firmware tuple, `gui.py` firmware variables, `RetroRecomp.py` flags and keywords, `tools/campaign.py` flags | generate from `option_keys` and `firmware` (`OptionKey` gets a kind and a label) |
-| `gui.py` options tabs (one hand-written block per console), `scan_note_<id>`, `options_<id>`, the legacy tab keys | a generic tab from the profile; a string prefix on the profile |
+| `paths.py` firmware tuple, `gui.py` and `gui_options.py` firmware variables, `RetroRecomp.py` flags and keywords, `tools/campaign.py` flags | generate from `option_keys` and `firmware` (`OptionKey` gets a kind and a label) |
+| `gui_options.py` options tabs (one hand-written block per console), `scan_note_<id>`, `options_<id>`, the legacy tab keys | a generic tab from the profile; a string prefix on the profile |
 | `status_lint.CONSOLES/ALIASES`, `std_baseline.SYSTEMS/CONSOLE_OPTIONS`, `release_check.CONSOLES/READERS`, `campaign.DEFAULT_FOLDERS/EXTENSIONS` | derive from `ALL_PROFILES`; one reader (`read_report`) instead of eight shape readers |
 | `campaign.REQUIRE_PACKED/REQUIRE_STATES`, risk-case minimum, `select` exiting 2 without a folder | gates from `profile.status`; experimental machines opt in with `--consoles` |
 | `artwork.REPOSITORIES`, `cover_sources.SS_SYSTEMS/TGDB_SYSTEMS/IGDB_SLUGS`, `cover_references.SYSTEMS`, `game_metadata.PLATFORMS` | a `catalogues` mapping on the profile; a missing entry must be a decision, not a `KeyError` |

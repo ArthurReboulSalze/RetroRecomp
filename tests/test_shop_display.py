@@ -19,6 +19,7 @@ from retrorecomp import online
 from retrorecomp import gui
 from retrorecomp.gui import (Application, PORTRAIT_SIZE, PIN_SIZE, draw_styled_text, frame_side, header_theme,
                              name_colours, sparkle_frame, _portrait_picture)
+from tools.gui_patching import patch_gui
 
 TOKEN = 'rr1_' + 'c' * 43
 FRAME_URL = '/media/frames/frame_diamond.webp'
@@ -385,13 +386,13 @@ class Drawing(unittest.TestCase):
 class ShopButton(unittest.TestCase):
     def test_options_open_the_shop_of_the_account_page(self):
         app = Application.__new__(Application)
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.service_url', return_value='https://retro-recomp.com'), \
-                patch('retrorecomp.gui.webbrowser.open_new_tab') as opened:
+                patch('webbrowser.open_new_tab') as opened:
             app.open_account_shop()
         opened.assert_called_once_with('https://retro-recomp.com/account#shop')
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', False), \
-                patch('retrorecomp.gui.webbrowser.open_new_tab') as opened:
+        with patch_gui('SENDING_AVAILABLE', False), \
+                patch('webbrowser.open_new_tab') as opened:
             app.open_account_shop()
         opened.assert_not_called()
 

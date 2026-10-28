@@ -163,7 +163,11 @@ retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py retrorecomp/i18n.py retrorecomp/updater.py
+retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
+retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
+retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py
+retrorecomp/i18n.py retrorecomp/updater.py
 retrorecomp/nes_build.py tests/test_nes_build.py
 retrorecomp/library.py retrorecomp/knowledge.py retrorecomp/paths.py retrorecomp/publishing.py retrorecomp/packing.py tests/test_packing.py
 assets/compilation-knowledge.json.gz tools/build_compilation_knowledge.py tests/test_knowledge.py docs/COMPILATION_LIBRARY.md
@@ -362,7 +366,7 @@ tests/test_peripherals.py
 tests/test_updater_base.py tests/test_update_startup.py
 tools/banked_cpu_selftest.py tools/banked_selftest.py
 tools/banked_vector_selftest.py tools/banked_verify.py tools/cpu_selftest.py
-tools/data_selftest.py tools/fetch_z80_vectors.py tools/gui_smoke.py
+tools/data_selftest.py tools/fetch_z80_vectors.py tools/gui_smoke.py tools/gui_patching.py
 tools/host_selftest.py tools/icon_selftest.py tools/install_converter.py
 tools/learning_selftest.py tools/package.ps1 tools/player2_selftest.py
 tools/prepare_logo.py tools/publishing_selftest.py tools/prepare_publication.py

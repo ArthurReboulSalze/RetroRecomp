@@ -34,6 +34,7 @@ import campaign  # noqa: E402
 import release_check  # noqa: E402
 import status_lint  # noqa: E402
 import std_baseline  # noqa: E402
+from tools.gui_patching import gui_source  # noqa: E402
 
 # The first three consoles named their options tab by what it shows; every later machine uses `options_<id>`.
 LEGACY_TAB_KEYS = {'sms': 'options_master_system', 'gg': 'options_game_gear', 'gb': 'options_game_boy'}
@@ -159,7 +160,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
         if option not in profile.option_key_names:
             add(f'the profile declares the firmware {firmware!r} but no option_keys entry {option!r}')
         for where, source in (('RetroRecomp.py', _text('RetroRecomp.py')), ('retrorecomp/paths.py', _text('retrorecomp/paths.py')),
-                              ('retrorecomp/gui.py', _text('retrorecomp/gui.py'))):
+                              ('retrorecomp/gui.py', gui_source())):
             token = '--' + option.replace('_', '-') if where == 'RetroRecomp.py' else option
             if token not in source:
                 add(f'{where} does not carry {token!r} (firmware option of the console)')
@@ -173,7 +174,7 @@ def registry_problems(profile: SystemProfile) -> list[str]:
             for code in LANGUAGES[2:]:
                 if not catalog(code).get('ui', {}).get(key):
                     add(f'assets/locales/{code}.json has no {key!r}')
-    if not _gui_builds_the_tab(_text('retrorecomp/gui.py'), system):
+    if not _gui_builds_the_tab(gui_source(), system):
         add('gui.py builds no options tab for the console (build_scan_options)')
 
     # --- documents and lints -------------------------------------------------------------------

@@ -12,6 +12,7 @@ from pathlib import Path
 from queue import Queue
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -19,6 +20,7 @@ from retrorecomp import knowledge, knowledge_exchange, online
 from retrorecomp.batch import convert_batch, identify
 from retrorecomp.core import ConversionError
 from tests.test_online import OTHER, SHA, FakeService, collected
+from tools.gui_patching import patch_gui
 
 ENGINE = 'c' * 40
 EXT = '.exe' if os.name == 'nt' else ''
@@ -318,7 +320,7 @@ class SharedBaseTests(unittest.TestCase):
         owner = gui.Application.__new__(gui.Application)
         owner.messages, owner.language, owner.updating, owner.auto_sending = Queue(), 'en', False, False
         owner.send_after_batch = Mock(get=Mock(return_value=False))
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.prepare_batch') as prepare, patch('retrorecomp.online.send_after_batch') as send:
             # Without the option the local base still applies (its qualified paths), but nothing is fetched.
             prepare.return_value = {'paths': {}, 'summary': None, 'error': None, 'base': None}
@@ -349,7 +351,7 @@ class SharedBaseTests(unittest.TestCase):
         def send():
             sent.append(True)
             owner.auto_sending = True
-            owner.last_sent_at = gui.time.monotonic()
+            owner.last_sent_at = time.monotonic()
         owner.send_new_discoveries = send
         # The first batch end sends at once; one ending soon after waits for SEND_EVERY.
         owner.send_discoveries_soon()

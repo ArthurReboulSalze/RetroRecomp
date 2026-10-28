@@ -21,7 +21,7 @@ keep other terms ([THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
 | Path | What is there |
 |---|---|
 | `RetroRecomp.py` | Entry point: interface, `batch` command line, internal stamp commands |
-| `retrorecomp/` | The converter (Python): pipeline, interface, per-machine discovery and code generation |
+| `retrorecomp/` | The converter (Python): pipeline, interface, per-machine discovery and code generation; the window is `gui.py` plus the `gui_*.py` mixins ([ARCHITECTURE.md](ARCHITECTURE.md)) |
 | `retrorecomp/systems/` | One `SystemProfile` per machine: identity, status, CPUs, devices, options |
 | `retrorecomp/stamp_inputs.py`, `compilation_inputs.py` | What each stamp hashes and which role every file has |
 | `retrorecomp/path_profiles.py`, `report_schema.py` | CPU-keyed paths (schema 3) and the common conversion report (v2) |

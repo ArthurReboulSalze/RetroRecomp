@@ -193,7 +193,7 @@ class CardTests(TestCase):
         owner.preferences=Mock(return_value={'rom_paths':{'sms':str(source.parent)}})
         # The build tools of the test machine are not the subject here.
         owner.ensure_build_tools=Mock(return_value=True)
-        with patch('retrorecomp.gui.filedialog.askdirectory',side_effect=AssertionError('Should find the exact source before asking')):
+        with patch('tkinter.filedialog.askdirectory',side_effect=AssertionError('Should find the exact source before asking')):
             with patch('retrorecomp.rom_sources.data_directory',return_value=self.root/'converter'):
                 owner.reconvert_games([self.game])
                 kind,pairs,level,skip_missing=owner.messages.get(timeout=10)

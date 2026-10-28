@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 from retrorecomp import online
 from retrorecomp.batch import BatchItem
 from retrorecomp.gui import Application, compact_number
+from tools.gui_patching import patch_gui
 
 SHA = 'ab' * 32
 
@@ -84,18 +85,18 @@ class SameRom(unittest.TestCase):
 class Portrait(unittest.TestCase):
     def test_signed_in_the_portrait_opens_the_account_page_of_the_site(self):
         app = application(sign_in_dialog=Mock())
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.account', return_value={'token': 'rr1_x'}), \
                 patch('retrorecomp.online.service_url', return_value='https://retro-recomp.com'), \
-                patch('retrorecomp.gui.webbrowser.open_new_tab') as opened:
+                patch('webbrowser.open_new_tab') as opened:
             app.portrait_clicked()
         opened.assert_called_once_with('https://retro-recomp.com/account')
         app.sign_in_dialog.assert_not_called()
 
     def test_signed_out_it_offers_the_sign_in_and_opens_nothing(self):
         app = application(sign_in_dialog=Mock())
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=None), \
-                patch('retrorecomp.gui.webbrowser.open_new_tab') as opened:
+        with patch_gui('SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=None), \
+                patch('webbrowser.open_new_tab') as opened:
             app.portrait_clicked()
             app.busy = True   # not in the middle of a batch
             app.portrait_clicked()
@@ -104,7 +105,7 @@ class Portrait(unittest.TestCase):
 
     def test_without_the_service_the_portrait_does_nothing(self):
         app = application(sign_in_dialog=Mock())
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', False), patch('retrorecomp.gui.webbrowser.open_new_tab') as opened:
+        with patch_gui('SENDING_AVAILABLE', False), patch('webbrowser.open_new_tab') as opened:
             app.portrait_clicked()
         opened.assert_not_called()
         app.sign_in_dialog.assert_not_called()
@@ -151,7 +152,7 @@ class ReportFlow(unittest.TestCase):
 
     def test_signing_in_comes_first_and_cancelling_it_sends_nothing(self):
         app = application(sign_in_dialog=Mock(return_value=False), report_dialog=Mock())
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=None), \
+        with patch_gui('SENDING_AVAILABLE', True), patch('retrorecomp.online.account', return_value=None), \
                 patch('retrorecomp.online.send_report') as send:
             app.report_problem('manual')
         app.sign_in_dialog.assert_called_once()
@@ -160,7 +161,7 @@ class ReportFlow(unittest.TestCase):
 
     def test_cancelling_the_dialog_sends_nothing(self):
         app = application(report_dialog=Mock(return_value=None))
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.account', return_value={'token': 'rr1_x'}), \
                 patch('retrorecomp.online.send_report') as send:
             app.report_problem('manual')
@@ -172,7 +173,7 @@ class ReportFlow(unittest.TestCase):
         app = self.failed_row()
         app.report_dialog = Mock(return_value='It fails at once')
         context = app.queue_report_context('row')
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True), \
+        with patch_gui('SENDING_AVAILABLE', True), \
                 patch('retrorecomp.online.account', return_value={'token': 'rr1_x'}), \
                 patch('retrorecomp.online.send_report', return_value=7) as send:
             app.report_problem('conversion', context)
@@ -189,7 +190,7 @@ class ReportFlow(unittest.TestCase):
     def test_the_answer_ends_the_indicator_and_tells_the_player(self):
         app = application()
         app.reporting = True
-        with patch('retrorecomp.gui.messagebox.showinfo') as info, patch('retrorecomp.gui.messagebox.showerror') as error:
+        with patch('tkinter.messagebox.showinfo') as info, patch('tkinter.messagebox.showerror') as error:
             app.report_sent(7, None)
             info.assert_called_once()
             self.assertIn('7', info.call_args.args[1])
@@ -203,11 +204,11 @@ class ReportFlow(unittest.TestCase):
 
     def test_one_report_at_a_time_and_none_without_the_service(self):
         app = application()
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', True):
+        with patch_gui('SENDING_AVAILABLE', True):
             self.assertTrue(app.report_available())
             app.reporting = True
             self.assertFalse(app.report_available())
-        with patch('retrorecomp.gui.SENDING_AVAILABLE', False):
+        with patch_gui('SENDING_AVAILABLE', False):
             app.reporting = False
             self.assertFalse(app.report_available())
 
