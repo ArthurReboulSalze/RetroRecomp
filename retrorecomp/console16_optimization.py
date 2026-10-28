@@ -11,6 +11,7 @@ import shutil
 import tempfile
 import time
 
+from . import timings
 from .core import ConversionError, run
 from .platforms import build_executable, build_jobs, cmake_target_args
 
@@ -99,13 +100,14 @@ def build_game(project: Path, cmake: Path, generator: str, sdl: Path, emit, syst
         profile = Path(temporary)
 
         def build(mode):
-            run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
-                 f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}', f'-DRR16_PROFILE_MODE={mode}',
-                 f'-DRR16_PROFILE_DIR={profile.as_posix()}', f'-DRR16_CLANG_PGO={"ON" if clang else "OFF"}',
-                 f'-DRR16_PROFILE_DATA={profile_data.as_posix()}'],
-                log=project / 'build.log', timeout=600)
-            run([cmake, '--build', project / 'build', '--config', 'Release', '--target', 'game',
-                 '--parallel', build_jobs()], log=project / 'build.log', timeout=1800)
+            with timings.phase('compile'):
+                run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
+                     f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}', f'-DRR16_PROFILE_MODE={mode}',
+                     f'-DRR16_PROFILE_DIR={profile.as_posix()}', f'-DRR16_CLANG_PGO={"ON" if clang else "OFF"}',
+                     f'-DRR16_PROFILE_DATA={profile_data.as_posix()}'],
+                    log=project / 'build.log', timeout=600)
+                run([cmake, '--build', project / 'build', '--config', 'Release', '--target', 'game',
+                     '--parallel', build_jobs()], log=project / 'build.log', timeout=1800)
 
         def train():
             """The private training run; returns its counters. Any shortfall raises."""
@@ -138,7 +140,8 @@ def build_game(project: Path, cmake: Path, generator: str, sdl: Path, emit, syst
                   'Linux: optimizing hardware helpers on a short native run; full validation follows.'))
             start = time.perf_counter()
             try:
-                train()
+                with timings.phase('profile_training'):
+                    train()
             except ConversionError as error:
                 if not clang:
                     raise

@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import time
 
-from . import __version__
+from . import __version__, timings as stages
 from .core import executable_name, ConversionError, StopRequested, run_process
 from .library import atomic_json
 from .report_schema import write_report
@@ -117,6 +117,13 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
     scan=neogeo_budget(level)
     timings={}
+    # convert_reference runs the whole preparation in one call. Its steps are named from here, without editing
+    # neogeo_build, neogeo_codegen or neogeo_z80: the key of the quick states hashes their code.
+    from . import neogeo_build, neogeo_codegen, neogeo_z80
+    stages.instrument(neogeo_build, 'configure_build', 'compile')
+    stages.instrument(neogeo_build, 'compile_native', 'reference_runs')
+    stages.instrument(neogeo_codegen, 'generate', 'code_generation')
+    stages.instrument(neogeo_z80, 'generate', 'code_generation')
     firmware=selected_bios_path(ng_bios or bios)
     if firmware is None:
         raise ConversionError('Select your BIOS archive in Options → Neo Geo before converting.')
@@ -168,7 +175,8 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     notice=compact_executable(packed,emit)
     timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     emit('Neo Geo: comparing the '+('unpacked' if notice else 'compressed')+' executable with the fresh reference.')
-    checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
+    with stages.phase('packed_replays'):
+        checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
     # The delivered, compressed executable is the native candidate. Compare
     # every route once against the fresh reference; an earlier uncompressed
     # replay of identical CPU code adds no coverage. Until this gate passes,
@@ -186,7 +194,7 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     emit('Neo Geo: checking F8/F9 in fresh processes and rejecting invalid states.')
     from concurrent.futures import ThreadPoolExecutor
     mode_jobs=min(workers,2) if console_available else 1
-    with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
+    with stages.phase('state_checks'), ThreadPoolExecutor(max_workers=mode_jobs) as pool:
         mvs=pool.submit(check_states,packed,project/'state-checks',warmups=warmups,
             input_script=state_script,require_native=False,workers=max(1,workers//mode_jobs))
         aes=pool.submit(check_states,packed,project/'aes-state-checks',warmups=(30,4500),
@@ -197,7 +205,7 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     timings['state_checks']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
     from .neogeo_persistence_checks import check as check_memory
     emit('Neo Geo: checking ordinary scores/card persistence without F8/F9.')
-    with ThreadPoolExecutor(max_workers=mode_jobs) as pool:
+    with stages.phase('save_checks'), ThreadPoolExecutor(max_workers=mode_jobs) as pool:
         mvs=pool.submit(check_memory,packed,project,frames=13800 if game.set_name=='nam1975' else 7200,script=state_script)
         aes=pool.submit(check_memory,packed,project,frames=7200,
             script=project/'native-discovery/aes-play.inputs',mode='aes') if console_available else None

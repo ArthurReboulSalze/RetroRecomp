@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from . import __version__
+from . import __version__, timings
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, run_process, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
@@ -284,13 +284,14 @@ def run_routes(jobs, workers):
     """Replay independent routes side by side; results keep the input order
     and the first failure is raised as the sequential loop would have."""
     jobs=list(jobs)
-    if workers<=1 or len(jobs)<=1:
-        return [replay(binary,folder,frames,events,**options) for binary,folder,frames,events,options in jobs]
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=workers,thread_name_prefix='x68000-route') as pool:
-        futures=[pool.submit(replay,binary,folder,frames,events,**options)
-                 for binary,folder,frames,events,options in jobs]
-        return [future.result() for future in futures]
+    with timings.phase('reference_runs' if any(job[4].get('reference') for job in jobs) else 'native_runs'):
+        if workers<=1 or len(jobs)<=1:
+            return [replay(binary,folder,frames,events,**options) for binary,folder,frames,events,options in jobs]
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers,thread_name_prefix='x68000-route') as pool:
+            futures=[pool.submit(replay,binary,folder,frames,events,**options)
+                     for binary,folder,frames,events,options in jobs]
+            return [future.result() for future in futures]
 
 
 def replay(binary, folder, frames, events, *, reference=False, observe=False, extra=()):
@@ -351,9 +352,11 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         common=base/'discovery';ready=common/'ready.json'
         generic=Path(json.loads(ready.read_text())['executable']) if ready.exists() else None
         if not generic or not generic.is_file():
-            native.generate(common,[],ROOT/'.deps/px68k-reference')
-            generic=native.build(common,ROOT/'.deps/px68k-reference',sdl_install(),int(build_jobs()),
-                                 extra=machine_settings)
+            with timings.phase('code_generation'):
+                native.generate(common,[],ROOT/'.deps/px68k-reference')
+            with timings.phase('compile'):
+                generic=native.build(common,ROOT/'.deps/px68k-reference',sdl_install(),int(build_jobs()),
+                                     extra=machine_settings)
             atomic_json(ready,{'executable':str(generic),'sdk':stamp})
     work=base/manifest.sha256[:16]
     with entry_lock(work/'lock',timeout=1800):
@@ -378,7 +381,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         executable=reference.prepare_bundle(probe,list(source.disks),manifest.firmware.ipl.path,manifest.firmware.cgrom.path,generic,title=title,ram_mib=x68_ram)
         emit('X68000: fresh reference and discovery of RAM/IPL code.')
         rule_args=['--auto-disk'] if automatic_disk_changes(source) else []
-        expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
+        with timings.phase('reference_runs'):
+            expected=replay(executable,checks/'reference',count,event_file,reference=True,observe=True,extra=rule_args)
         observations=json.loads((checks/'reference/observations.json').read_text());observations['source_identity']=manifest.sha256
         from .x68000_scan import exploration_routes, long_routes
         summary=game_entry(source)/'compilation.json'
@@ -451,15 +455,19 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         metadata=payload(payload_dir,source,manifest,title,artwork,mouse_game)
         candidate=None;actual=None;generation=None
         for attempt in range(max(1,min(int(passes),10))):
-            generation=native.generate(project,_read_observations(native,[observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
-            candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
+            timings.begin_pass(attempt+1)
+            with timings.phase('code_generation'):
+                generation=native.generate(project,_read_observations(native,[observation],ipl),ROOT/'.deps/px68k-reference',native.source_receipts([observation]))
+            with timings.phase('compile'):
+                candidate=build_player(project,payload_dir,emit=emit,machine=machine_settings,sdk=sdk)
             # Run copied alone, with only its own embedded immutable inputs.
             run_dir=checks/f'native-{attempt+1}';run_dir.mkdir(parents=True,exist_ok=True)
             exported=run_dir/candidate.name;shutil.copy2(candidate,exported)
             if os.name!='nt':exported.chmod(0o755)
             emit('X68000: comparing the standalone export with the fresh reference.')
             state_frame=count-800
-            actual=replay(exported,run_dir,count,event_file,observe=True,extra=['--state-save-at',str(state_frame)])
+            with timings.phase('native_runs'):
+                actual=replay(exported,run_dir,count,event_file,observe=True,extra=['--state-save-at',str(state_frame)])
             if (run_dir/'trace.tsv').read_bytes()!=(checks/'reference/trace.tsv').read_bytes():
                 raise ConversionError('X68000 native/reference CPU, memory, image or PCM diverged; existing export preserved.')
             if not actual['nonzero_samples'] or not actual['nonblack_frames']:
@@ -490,23 +498,27 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 emit('X68000: no new guarded encodings; remaining interpreter use stays reported.')
                 break
             atomic_json(observation,observations)
+        timings.end_passes()
         # Snapshot loading is checked in a genuinely fresh standalone process.
         restart=checks/'restart';restart.mkdir(exist_ok=True);fresh=restart/candidate.name;shutil.copy2(candidate,fresh)
         if os.name!='nt':fresh.chmod(0o755)
-        resumed=replay(fresh,restart,400,event_file,extra=['--state-load-start','--state-slot',next((checks/f'native-{attempt+1}'/'datas/games').glob('x68-*'))/'quick.rrstate'])
+        with timings.phase('state_checks'):
+            resumed=replay(fresh,restart,400,event_file,extra=['--state-load-start','--state-slot',next((checks/f'native-{attempt+1}'/'datas/games').glob('x68-*'))/'quick.rrstate'])
         rows=(run_dir/'trace.tsv').read_text().splitlines();rest=(restart/'trace.tsv').read_text().splitlines()
         if any(a.split('\t')[1:]!=b.split('\t')[1:] for a,b in zip(rest[2:],rows[state_frame+2:state_frame+401])):
             raise ConversionError('X68000 F9 continuation differs from its saved timeline.')
         # Also exercise an early floppy DMA, before the game loop. A missing
         # CPU reset latch used to change one transfer byte after a cold F9.
         boot=checks/'boot';boot.mkdir();boot_exe=boot/candidate.name;shutil.copy2(candidate,boot_exe)
-        replay(boot_exe,boot,200,event_file,extra=['--state-save-at','120'])
+        with timings.phase('state_checks'):
+            replay(boot_exe,boot,200,event_file,extra=['--state-save-at','120'])
         boot_rows=(boot/'trace.tsv').read_text().splitlines()
         if boot_rows!=(checks/'reference/trace.tsv').read_text().splitlines()[:201]:
             raise ConversionError('X68000 early boot differs from the fresh reference.')
         boot_restart=checks/'boot-restart';boot_restart.mkdir();boot_exe=boot_restart/candidate.name;shutil.copy2(candidate,boot_exe)
         boot_slot=next((boot/'datas/games').glob('*/quick.rrstate'))
-        replay(boot_exe,boot_restart,40,event_file,extra=['--state-load-start','--state-slot',boot_slot])
+        with timings.phase('state_checks'):
+            replay(boot_exe,boot_restart,40,event_file,extra=['--state-load-start','--state-slot',boot_slot])
         boot_rest=(boot_restart/'trace.tsv').read_text().splitlines()
         if any(a.split('\t')[1:]!=b.split('\t')[1:] for a,b in zip(boot_rest[2:],boot_rows[122:161])):
             raise ConversionError('X68000 early floppy DMA changes after F9.')

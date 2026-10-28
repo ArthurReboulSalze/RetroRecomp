@@ -199,6 +199,20 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
+## Exports of 1.6.1 in 1.6.2 (to complete at the release)
+
+Step 0 of the faster known-game conversions adds the time of each phase to the
+report (`timings`, [ARCHITECTURE.md](ARCHITECTURE.md), "Report schema 2"). It
+generates nothing differently and checks nothing differently, but it edits
+game-side modules: `batch`, `core`, `console16`, `console16_optimization`,
+`nes`, `nes_optimization`, `gameboy`, `neogeo_conversion`, `cps1_conversion`
+and `x68000_conversion` (and `packing`, a build module), so the game and build
+stamps of the nine consoles move. `neogeo_build`, `neogeo_codegen`, `neogeo_z80`,
+`cps1_build`, `cps1_codegen`, `console16_state` and the Super Nintendo modules
+that the quick-state keys hash are not touched, so no state key moves. Like the
+entries for 1.6.0, the 1.6.1 game stamps go into `LEGACY_GAME_STAMPS` at the
+release, computed from the tag.
+
 ## Mega Drive exports of 1.6.0 in 1.6.1
 
 1.6.1 corrects the deferred sound-CPU payment of the Mega Drive runtime (`native/md_z80_bus.inc`, game-side, owned by

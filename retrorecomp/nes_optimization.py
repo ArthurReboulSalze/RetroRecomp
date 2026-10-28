@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import time
 
+from . import timings
 from .core import ConversionError, run
 from .platforms import build_executable, build_jobs, cmake_target_args
 
@@ -22,17 +23,19 @@ def build_game(project: Path, cmake: Path, generator: str, sdl: Path,
         def build(mode):
             nonlocal configure_seconds, build_seconds
             start = time.perf_counter()
-            run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
-                 f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}', f'-DRR_NES_PROFILE_MODE={mode}',
-                 f'-DRR_NES_PROFILE_DIR={profile.as_posix()}'], cwd=project,
-                log=project / 'build.log', timeout=600)
+            with timings.phase('compile'):
+                run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
+                     f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}', f'-DRR_NES_PROFILE_MODE={mode}',
+                     f'-DRR_NES_PROFILE_DIR={profile.as_posix()}'], cwd=project,
+                    log=project / 'build.log', timeout=600)
             configure_seconds += time.perf_counter() - start
             cache = (project / 'build/CMakeCache.txt').read_text(encoding='utf-8')
             training = mode == 'generate' and 'RR_NES_PGO_AVAILABLE:INTERNAL=TRUE' in cache
             start = time.perf_counter()
-            run([cmake, '--build', project / 'build', '--config', 'Release',
-                 '--target', 'nes_profile' if training else 'game', '--parallel', build_jobs()],
-                cwd=project, log=project / 'build.log', timeout=1800)
+            with timings.phase('compile'):
+                run([cmake, '--build', project / 'build', '--config', 'Release',
+                     '--target', 'nes_profile' if training else 'game', '--parallel', build_jobs()],
+                    cwd=project, log=project / 'build.log', timeout=1800)
             build_seconds += time.perf_counter() - start
 
         build('generate')
@@ -54,7 +57,8 @@ def build_game(project: Path, cmake: Path, generator: str, sdl: Path,
                            '--wav-out', training / 'samples.wav']
                 if script:
                     command += ['--input', script]
-                output = run(command, cwd=training, log=project / 'build.log', timeout=600)
+                with timings.phase('profile_training'):
+                    output = run(command, cwd=training, log=project / 'build.log', timeout=600)
                 if not re.search(rf'\bmode=native frames={frames}\b', output):
                     raise ConversionError('NES hardware profiling did not complete its bounded native run.')
             training_seconds = time.perf_counter() - start

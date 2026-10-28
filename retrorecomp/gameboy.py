@@ -12,7 +12,7 @@ import time
 import zlib
 from typing import Callable
 
-from . import __version__
+from . import __version__, timings
 from .artwork import ArtworkError, prepare_icon
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug
 from .gameboy_runtime import adapt_generated_project
@@ -383,6 +383,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     # only from here, never because they were offered.
     reached: set[tuple[int, int]] = set()
     for number in range(1, passes + 1):
+        timings.begin_pass(number)
         compilation_entries = observed_entries | static_entries
         write_entries(trace_input, compilation_entries)
         emit(f"Game Boy pass {number}/{passes}: static SM83 translation and build…")
@@ -392,7 +393,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         if compilation_entries:
             command += ["--use-trace", trace_input]
         stage_started = time.perf_counter()
-        with preserve_unchanged_sources(project):
+        with timings.phase('code_generation'), preserve_unchanged_sources(project):
             run(command, log=project / "build.log", timeout=1800)
             adapt_generated_project(project, storage_id, rom.sha256, title)
             boundary = adapt_bank_boundaries(project)
@@ -400,13 +401,14 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             compact_dispatch = compact_generated_dispatch(project)
         stage_seconds['translation'] += time.perf_counter() - stage_started
         stage_started = time.perf_counter()
-        run([cmake, "-S", project, "-B", project / "build", "-G", generator, *cmake_target_args(),
-             "-DGBRECOMP_GENERATED_OPT_LEVEL=2",
-             f"-DGBRECOMP_GENERATED_COMPILE_JOBS={compile_jobs}",
-             f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"],
-            log=project / "build.log", timeout=600)
-        run([cmake, "--build", project / "build", "--config", "Release", "--parallel", str(compile_jobs)],
-            log=project / "build.log", timeout=1800)
+        with timings.phase('compile'):
+            run([cmake, "-S", project, "-B", project / "build", "-G", generator, *cmake_target_args(),
+                 "-DGBRECOMP_GENERATED_OPT_LEVEL=2",
+                 f"-DGBRECOMP_GENERATED_COMPILE_JOBS={compile_jobs}",
+                 f"-DCMAKE_PREFIX_PATH={sdl.as_posix()}"],
+                log=project / "build.log", timeout=600)
+            run([cmake, "--build", project / "build", "--config", "Release", "--parallel", str(compile_jobs)],
+                log=project / "build.log", timeout=1800)
         if not executable.is_file():
             raise ConversionError("Game Boy generated project produced no executable.")
         stage_seconds['build'] += time.perf_counter() - stage_started
@@ -414,7 +416,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         for scenario in scenarios:
             scenario_trace = project / f'observed-{scenario.name}.trace'
             stage_started = time.perf_counter()
-            check = _probe(executable, project, scenario.frames or frames, scenario_trace, scenario)
+            with timings.phase('native_runs'):
+                check = _probe(executable, project, scenario.frames or frames, scenario_trace, scenario)
             check['wall_seconds'] = round(time.perf_counter() - stage_started, 6)
             stage_seconds['coverage_probes'] += check['wall_seconds']
             check['pass'] = number
@@ -436,6 +439,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             emit("No new ROM entries to compile; remaining fallback stays reported.")
             break
         emit(f"Game Boy: adding {len(new_entries)} observed ROM entries to the next pass.")
+    timings.end_passes()
     validation_mode = 'deep' if gb_deep_validation else 'standard'
     emit(f"Comparing generated execution with the reference CPU ({validation_mode})…")
     comparison_scenarios = cpu_validation_scenarios(frames, deep=gb_deep_validation)
@@ -452,11 +456,12 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                 'wall_seconds': round(time.perf_counter() - check_started, 6)}
 
     stage_started = time.perf_counter()
-    if gb_deep_validation and cpu_workers > 1 and len(comparison_scenarios) > 1:
-        with ThreadPoolExecutor(max_workers=cpu_workers) as executor:
-            cpu_checks = list(executor.map(compare_one, comparison_scenarios))
-    else:
-        cpu_checks = [compare_one(item) for item in comparison_scenarios]
+    with timings.phase('reference_runs'):
+        if gb_deep_validation and cpu_workers > 1 and len(comparison_scenarios) > 1:
+            with ThreadPoolExecutor(max_workers=cpu_workers) as executor:
+                cpu_checks = list(executor.map(compare_one, comparison_scenarios))
+        else:
+            cpu_checks = [compare_one(item) for item in comparison_scenarios]
     stage_seconds['cpu_validation'] += time.perf_counter() - stage_started
     for check in cpu_checks:
         emit(f"Game Boy CPU {check['scenario']}: matching for {check['frames']} frames.")

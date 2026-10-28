@@ -12,7 +12,7 @@ from .platforms import build_executable, cmake_target_args, build_jobs, sdl_inst
 from .toolchain import active as active_toolchain, describe as toolchain_description
 from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
-from . import __version__
+from . import __version__, timings
 from .library import atomic_json
 from .report_schema import write_report
 from .snes_chips import device_entry
@@ -426,18 +426,21 @@ def prepare16(path: Path, system_id: str, *, emit=print, title=None, resources=N
     if reuse:
         emit('Reusing native source analysis for this exact ROM and pinned engine.')
     elif system_id == 'md':
-        megadrive.generate(compiler, project, rom_file, instruction_map=True)
+        with timings.phase('code_generation'):
+            megadrive.generate(compiler, project, rom_file, instruction_map=True)
     atomic_json(cache, identity)
     if system_id == 'md':
         import re
         from .megadrive_codegen import generate_steps
         static_pcs = {int(value, 16) for value in re.findall(r'\{0x([0-9A-Fa-f]+)u,',
             (project / f'generated/{md_profile["prefix"]}_cycles.c').read_text(encoding='utf-8'))}
-        analysis = generate_steps(engine, project, rom, static_pcs | entries | set(megadrive.vectors(rom)['roots']),
-                                  megadrive.read_ram_variants(rom))
+        with timings.phase('code_generation'):
+            analysis = generate_steps(engine, project, rom, static_pcs | entries | set(megadrive.vectors(rom)['roots']),
+                                      megadrive.read_ram_variants(rom))
         emit(f'{analysis["translated_instructions"]} native instructions, '
              f'{analysis["guarded_ram_variants"]} guarded RAM variants; exact PC/stack control flow.')
-    _write_build(project, engine, system_id, title, rom)
+    with timings.phase('code_generation'):
+        _write_build(project, engine, system_id, title, rom)
     if system_id == 'md':
         audio_analysis = json.loads((project / 'z80-native-analysis.json').read_text(encoding='utf-8'))
         emit(f"Z80 sound: {audio_analysis['guarded_positions']} guarded positions, "
@@ -577,8 +580,9 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         env.pop('GENESIS_FORCE_INTERP', None)
         env.pop('SNESRECOMP_LLE_BOUNCE', None)
         env.pop('RR_SNES_FORCE_INTERP', None)
-    result = run_process([str(arg) for arg in command], cwd=directory, env=env,
-        capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+    with timings.phase('reference_runs' if reference else 'native_runs'):
+        result = run_process([str(arg) for arg in command], cwd=directory, env=env,
+            capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
         result.stdout + result.stderr, encoding='utf-8')
     if result.returncode:
@@ -831,6 +835,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
         return comparisons
 
     for attempt in range(passes):
+        timings.begin_pass(attempt + 1)
         executable = prepare16(rom_path, system_id, emit=emit, title=title, resources=resources,
                                standard_override=standard)
         checks_dir = executable.parents[2 if os.name == 'nt' and executable.parent.name == 'Release' else 1] / 'checks'
@@ -896,6 +901,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
             break
         observations = '68000 ROM/RAM entries and Z80 opcode variants' if system_id == 'md' else '65816 RAM and SPC700 opcode variants'
         emit(f'Pass {attempt + 1}/{passes}: {added} {observations} learned; regenerating native code.')
+    timings.end_passes()
     if not reference_before_learning:
         comparisons = compare(checks, checks_dir / 'reference', {})
     learn(rom, checks)
