@@ -1489,33 +1489,40 @@ module is touched, so no game stamp changes):
   written by `write_knowledge` is **version 2 unless asked otherwise**: a converter or a service older than 1.6.0
   refuses version 3 as "not a knowledge file". `version=3` writes schema 3, and writes version 2 instead when a
   record has no valid schema 3 form (schema 3 is stricter in a few places, `STRICTER_THAN_V2`; `fallback=False`
-  raises). An account upload asks the service first: `GET status` lists `knowledge_versions` and only a service that
-  lists 3 is sent version 3 (`online.upload_version`, asked at most once an hour, any failure means 2). A file
+  raises). Since 1.6.1 an account upload is always written as version 3 (1.6.0 asked `GET status` for
+  `knowledge_versions` first, for services that did not read 3; every service of 1.6.0 and later does, so the question
+  and `online.upload_version` are gone; a record schema 3 refuses still makes that one file version 2). A file
   exported by hand stays version 2, which every receiver reads.
-- **Shared base, format 3.** The base is published in **two lines** at one version number, from the same sources:
-  line 2 (format 2, `GET base`, unchanged, what 1.5.x converters read) and line 3 (format 3, `GET base3`). A format 3
-  entry has the shape of a format 2 entry (`qualified`, `parts`) with schema 3 records and `cores` in place of
-  `engine`: the engine identity of the whole record, the very string format 2 calls `engine` (a Neo Geo record:
-  `<core>:<loader>`); the word is the one a later per-CPU qualification will keep. A format 3 index and archive
-  (`manifest.json`, `index.json`, `entries/<sha>.json`, the entries named by the SHA-256 of their canonical text, as
-  before) say `"format": 3` in both, and a mismatch is refused. The converter reads **both**: `base_entry` returns a
-  format 3 entry in the shape of format 2 (`engine`, schema 1 records; an element whose schema 3 record is invalid or
-  has no schema 1 form is skipped like a malformed one, never the game), so the qualified bank is still written in
-  schema 1 and `base-use.json`, the claims and the rejections do not know two formats.
-- **The down-projection.** `knowledge_exchange.entry_to_v2` and `entry_to_v3` convert one entry, `project_base` a
-  whole base (entries and index, every game keeping its sources). The builder makes line 3 from line 2's hint sets
-  and refuses to publish unless line 3 projects back to line 2's very text, entry by entry; what has no form in the
-  other schema is left out of that line only and counted.
+- **Shared base, format 3 (its only format since 1.6.1).** The base is one line, format 3, `GET base3`. 1.6.0 published
+  a second one, line 2 (format 2, `GET base`), for the converters up to 1.5.x; 1.6.1 retired it (see *One line
+  (1.6.1)* below). A format 3 entry has the shape of a format 2 entry (`qualified`, `parts`) with schema 3 records and
+  `cores` in place of `engine`: the engine identity of the whole record, the very string format 2 called `engine` (a
+  Neo Geo record: `<core>:<loader>`); the word is the one a later per-CPU qualification will keep. A format 3 index
+  and archive (`manifest.json`, `index.json`, `entries/<sha>.json`, the entries named by the SHA-256 of their
+  canonical text, as before) say `"format": 3` in both, and a mismatch is refused, as is any other format. The
+  converter reads that format only: `base_entry` returns a format 3 entry with `engine` and schema 1 records (an
+  element whose schema 3 record is invalid or has no schema 1 form is skipped like a malformed one, never the game),
+  so the qualified bank is still written in schema 1 and `base-use.json`, the claims and the rejections do not know
+  the schema of the base.
+- **The up-projection.** `knowledge_exchange.entry_to_v3` converts one entry that the builder grouped from the
+  uploads' schema 1 records into a format 3 entry (every game keeping its sources); what has no schema 3 form is left
+  out and counted. The down-projection (`entry_to_v2`, `project_base`) went with line 2. The builder reads every
+  entry back with `base_entry` before it publishes.
 
-**Which line a converter follows.** `GET base` is still the entry point; when line 3 is published at that very version
-its manifest says `"lines": [2, 3]` (without it the manifest is what it always was, so an older service is never
-asked for a route it lacks). A converter **stays on the line its local base is in** (the installer's copy included)
-and goes to the other only when its own line gives no way to the latest version (no difference from its version and no
-newer complete base); with no base yet it starts with line 3 when the service has it, and falls back to line 2 when
-`GET base3` is a 404, not a manifest, or in a format it does not know. Differences are fetched from the route of
-their line (`base3/files/retro-recomp-base3-<A>-<N>.zip`), a complete base of line 3 from its registered address
-(`retro-recomp-base3-<N>.zip`), and an archive of the other line is refused whole. Revocations, the quarantine and
-the cursor are the same in both lines (one table of sources on the service) and are read from `GET base`.
+**One line (1.6.1).** A converter reads `GET base3` (its manifest, `GET base3/files/retro-recomp-base3-<A>-<N>.zip`
+for the differences, a complete base from its registered address, `retro-recomp-base3-<N>.zip`) and nothing else:
+`GET base` is not asked any more. The compatibility owed is to the release before (1.6.0): its local base, the
+installer's copy and the files it wrote are read as before; a downloaded base of format 2 left by a 1.5.x-era disk is
+set aside and the installer's copy (format 3) takes its place, and a manifest in another format ends in the "update
+Retro-Recomp" message. Revocations, the quarantine and the cursor come from the same manifest. The service keeps
+a small answer at `GET base` for the converters of 1.6.0 alone (they ask it first); this converter never does. The service names a difference from every version since its newest complete base, and that base (a release
+asset on GitHub) for every older player, so a base is always led to the latest version in one step or two: a
+difference from its own version, else the complete base and then the difference from that base's version. The
+converter takes a complete base older than the local one for that second case (the base goes back to it, then
+forward, in one update). Only when the service names neither (no difference from this version and no complete base
+that leads on from it, which the service's builder warns about before it happens) does the update say `no_path`
+and leave the base in use as it is: installing the program again does not change that, since a downloaded base that
+is not older than the installer's copy is the one in use.
 
 Measured on the 72 uploads in the maintainer's cache plus the 1,609 campaign records (1,723 games, 26 October
 2026, Hermes test service): the entries come to 128.8 MB of JSON in line 3 against 173.6 MB in line 2, the complete
@@ -1526,10 +1533,10 @@ the same games are smaller too.
 `tests/test_paths_exchange.py` checks version 3 files (written, read, refused: a schema 1 payload in a version 3
 file and the reverse, a record outside its source, a game under another key, a machine that shares nothing yet, a
 device, two cores), the fallback to version 2, the import of both versions into the same banks, the entry
-projections both ways (a skipped element never drops the game), the archives and indexes of both formats and their
-refusal across lines, and the update against a fake service: no base starts on line 3, a base stays on its line, the
-switch only when a line leads nowhere, a service without line 3 is never asked for it, a broken `GET base3` leaves
-line 2, and the version an upload is written in follows `knowledge_versions`.
+up-projection (a skipped element never drops the game), the archives and indexes (format 3 only; format 1 and 2 are
+refused), and the update against a fake service: the manifest and differences come from `GET base3` and the stub is
+never asked, the installer's copy follows by difference, a downloaded base of format 2 is set aside, `no_path` keeps
+the base, and an upload is a version 3 file whatever `GET status` lists.
 
 ### Stage B3: the conversions follow the module (27 October 2026)
 
@@ -1705,15 +1712,14 @@ the web limits and the builder (`BASE_SYSTEMS`) read the same list, so the servi
 stops listing its games, with no change to line 2, the other consoles or the banks. The label "experimental" is not read by
 any sharing code (tested) and stays in the report (`status`, `knowledge.machine_status`) and the interface.
 
-**Exchange and base.** CPS-1 has no schema 1 form, so it travels only in `.rrknowledge` **version 3** files and in **line 3** of
-the base (line 2 and 1.5.x converters never see it). In the converter a CPS-1 "record" is the schema 3 document wherever a
+**Exchange and base.** CPS-1 has no schema 1 form, so it travels only in `.rrknowledge` **version 3** files and in the
+base (which is format 3 only since 1.6.1; before, line 3 alone, and 1.5.x converters never saw it). In the converter a CPS-1 "record" is the schema 3 document wherever a
 record travels (`knowledge_exchange.split_payload`, `validate_mixed_payload`, `schema3_only`); **a file exported from the
 interface stays version 2** (`write_knowledge` with no version), because a version 3 file makes a 1.5.x converter refuse the
 whole file, the other consoles included: the CPS-1 games are left out of it, are not marked shared, and the end of the export
 says how many there are and that they travel through the online account (`knowledge_export_cps1`, eight languages;
 `schema3_only_left_out` in the answer, the discoveries counted for them taken off exactly as counted, never below zero).
-Version 3 is written only when asked for (`version=3`). An account upload sends version 3 only to a service that lists it
-(`online.upload_version`, unchanged), and the per-account route `POST knowledge/fetch` is never asked for CPS-1 (the base is
+Version 3 is written only when asked for (`version=3`). An account upload is always version 3 (1.6.1), and the per-account route `POST knowledge/fetch` is never asked for CPS-1 (the base is
 its only way in). Raw gameplay observations are never shared for CPS-1. A conversion that fails with
 the imported paths starts again without them and the paths leave the imported side bank (the batch's retry covers
 `imported_game`; `discard_imported` removes the game from `imported-v3.json.gz` and logs it in `imported-rejected.json`).
@@ -2038,12 +2044,10 @@ log, and a notice when the batch starts, say that every game is discovered in
 full and takes longer; with a local base and no connection they say the local
 base is used.
 
-**Two lines (1.6.0).** The service publishes each version in two formats from the same sources: line 2, the
-original, for converters up to 1.5.x, and line 3, the CPU-keyed schema 3 (*Schema 3 of the paths*). A 1.6.0 converter
-reads both and stays on the line of its local base (the installer's copy may be of either format). Whatever the
-line, the paths reach the banks as the same schema 1 records, and the qualified bank keeps its shape. Line 2 stays
-until the maintainer retires it (a decision taken from the converter versions that still upload, not a technical
-gate).
+**One line (1.6.1).** 1.6.0 published each version in two formats, line 2 (the original, for converters up to
+1.5.x) and line 3 (the CPU-keyed schema 3, *Schema 3 of the paths*). 1.6.1 reads line 3 only and the service builds
+and publishes it only; the older converters stop receiving base updates and their player updates the program. The
+paths reach the banks as the same schema 1 records, and the qualified bank keeps its shape.
 
 **Startup check.** *Check for updates at startup* (Options, on by default)
 looks, at most every six hours and in the background, at whether a newer
