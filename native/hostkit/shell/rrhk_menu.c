@@ -107,7 +107,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rrhk_combo_label(a - m->action_count), value);
             } else {
-                const char *bound = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) :
+                const char *button = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) : NULL;
+                const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr(m->actions[a].name),
                          rrhk.capturing && a == rrhk.row ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));

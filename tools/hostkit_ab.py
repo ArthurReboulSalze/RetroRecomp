@@ -426,6 +426,7 @@ def x68_script(kind: str) -> str:
     autofire   F6 and Ctrl+Alt+F, a held button, the bound key and the second player's pad (decision D4: the common rule).
     keyboard   the guest keyboard (Ctrl+Alt+K): keys, function keys and Escape reach the guest, the host keys do not.
     mouse      a click captures the mouse, Ctrl+Alt+M releases it, motion and buttons are handed on.
+    states     F9 with no state, F8, F9: the machine resumes what followed the save (read the trace).
     ui         help and its second page, every F2 page and the options in the five languages, pause, rebinding, clearing,
                the Pause binding, quit combinations, Ctrl+Alt chords: the pictures are read by eye."""
     s = Script()
@@ -457,6 +458,9 @@ def x68_script(kind: str) -> str:
         s.say('hold W', 0).say('button 0 a 1', 10).say('release W', 0).say('button 0 a 0', 4)
         s.tap('F6', 3).hold('W', 12)
         s.say('press F ctrlalt', 3).hold('W', 24).say('press F ctrlalt', 3).hold('W', 12)
+    elif kind == 'states':
+        # F8 at 100, F9 at 200, with no input: the machine after the load runs again what followed the save. F9 with no state first.
+        s.at(60).tap('F9', 4).at(100).tap('F8', 4).at(200).tap('F9', 4).at(300)
     elif kind == 'keyboard':
         s.say('press K ctrlalt', 4)
         for key in ('W', 'X', 'Return', 'Escape', 'F2', 'F5', 'F8', 'F9', 'F10', 'A', 'Space', 'Tab', 'Left_Shift'):
@@ -662,7 +666,7 @@ def main() -> int:
     p.add_argument('--ignore-files', nargs='*', default=[], metavar='NAME', help='files to leave out, e.g. f2-0-4.bmp')
     p = sub.add_parser('script', help='write the standard battery of the shell for one machine')
     p.add_argument('family', choices=('md', 'snes', 'ng', 'cps1', 'nes', 'x68')); p.add_argument('out', type=Path)
-    p.add_argument('--x68', choices=('play', 'autofire', 'keyboard', 'mouse', 'ui'), default='play', help='the X68000 script to write')
+    p.add_argument('--x68', choices=('play', 'autofire', 'keyboard', 'mouse', 'ui', 'states'), default='play', help='the X68000 script to write')
     p.add_argument('--shift', type=int, default=0, help='X68000: add this to every iteration (the former host presents nothing for its first frame, the kit does)')
     p.add_argument('--players', type=int, default=2); p.add_argument('--gun', action='store_true')
     p.add_argument('--no-options-page', action='store_true', help='leave the options page of F2 alone (for hosts built before the Linux fix of game_options.h)')

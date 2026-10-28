@@ -336,8 +336,7 @@ static void x_help_lines(int slot, const char **lines, int *count) {
 }
 static void x_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
-   rrhk_menu_line(ctx, y, rr_tr("Arrows + W/X; Enter: Start"));
-   rrhk_menu_line(ctx, y + RR_MENU_LINE, rr_tr("Tab: game / computer shortcuts"));
+   rrhk_menu_line(ctx, y, rr_tr("Tab: game / computer shortcuts"));
 }
 static bool x_help_page(RrhkUi *ui, const RrhkMenuCtx *ctx) {
    static const char *const lines[] = {"Ctrl+Alt+K: full guest keyboard", "Ctrl+Alt+M: mouse capture", "Ctrl+Alt+F: rapid fire",
