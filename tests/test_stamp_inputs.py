@@ -105,14 +105,15 @@ class ManifestTests(unittest.TestCase):
             owners = [system for system in CONSOLES if name in inputs.manifest_names(system)]
             self.assertTrue(owners, name)
 
-    def test_each_profile_module_is_owned_by_exactly_the_consoles_it_defines(self):
+    def test_each_profile_module_is_owned_by_at_least_the_consoles_it_defines(self):
         from retrorecomp.systems import ALL_PROFILES
         defined = {}
         for profile in ALL_PROFILES:
             defined.setdefault(type(profile).__module__, set()).add(profile.id)
         for module, systems in defined.items():
             owners = {system for system in CONSOLES if module in inputs.manifest_names(system)}
-            self.assertEqual(owners, systems, module)
+            # Possibly by more: other consoles share a profile module (Neo Geo and CPS-1 link the 16-bit family's).
+            self.assertLessEqual(systems, owners, module)
 
     def test_the_cpu_family_group_follows_the_profiles(self):
         from retrorecomp.systems import ALL_PROFILES
