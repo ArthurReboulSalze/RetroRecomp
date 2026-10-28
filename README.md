@@ -194,6 +194,26 @@ Linux package is built and checked on **Debian 13 / glibc 2.41**; other
 distributions and ARM64 remain to be qualified ([Linux guide](docs/LINUX.md)).
 All in-game shortcuts are listed in [controls](docs/CONTROLS.md).
 
+### Windows security warnings
+
+RetroRecomp is not signed with a paid code-signing certificate yet. On first
+launch Windows may show **"Windows protected your PC"**: it means *unknown
+publisher*, not *virus found*. To continue, choose **More info → Run anyway**.
+Everything can be checked: the full source code is public, every release lists
+the SHA-256 of each file (`SHA256SUMS.txt`), and the executables are built from
+the released source. Download RetroRecomp only from
+[retro-recomp.com](https://retro-recomp.com) or the project's
+[GitHub releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
+
+The games you convert are compiled on your own computer, so they cannot carry
+any publisher signature, ours included. On Windows 11 with **Smart App
+Control** turned on, Windows may refuse to start them without offering to run
+them anyway; Smart App Control has to be turned off (Windows Security → App &
+browser control) to play them.
+
+If your antivirus flags a file, please tell us: it is a false positive (often
+caused by executable compression) that we will report to the vendor.
+
 ## What comes next
 
 The groundwork for these machines has been reviewed; each would join in its
