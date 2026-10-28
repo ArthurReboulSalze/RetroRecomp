@@ -161,8 +161,8 @@ retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
-tests/test_conversion_common.py tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
+retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+tests/test_conversion_common.py tests/test_conversion_gates.py tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py

@@ -5,10 +5,12 @@ raised, which statuses count as a success, the keyword arguments handed on. A co
 result it had with its copy; `tests/test_conversion_common.py` pins that with values recorded before the copies were
 removed. Nothing here reads a ROM, knows a console or decides what a game is: only the shell around a conversion.
 
-Adopted by the Master System, Game Gear, Game Boy and NES converters. The other families (16-bit consoles, Neo Geo,
-CPS-1, X68000) still carry their copies and adopt these helpers in their own package: `spawn` and `check_exit` for the
-probes and replays, `replace_counted` for the pinned-source patches, `write_if_changed` for the staged files,
-`convert_single` for the single-ROM path, `resolve_scan_level` and `check_run_budget` for the checks.
+Adopted by the Master System, Game Gear, Game Boy and NES converters, then by the 16-bit consoles, Neo Geo and CPS-1
+(`spawn` and `check_exit` for the probes and replays, `replace_counted` for the pinned-source patches,
+`write_if_changed` for the staged files, `resolve_scan_level` and `check_run_budget` for the checks, `pinned_checkout`
+for the engines cloned at a pinned revision). The X68000 converter still carries its copies and adopts them in its own
+package. What compares a candidate with its reference (packed candidate, traces, saved-state continuation) is in
+`conversion_gates`.
 `core` imports this module, so the module imports `core` (for `ConversionError` and `run_process`) only inside
 functions.
 """
@@ -116,6 +118,40 @@ def check_exit(result: subprocess.CompletedProcess, error: Callable[[subprocess.
     """Raise `error(result)` when the process ended with a non-zero exit code."""
     if result.returncode:
         raise error(result)
+
+
+# --------------------------------------------------------------------------- engines cloned at a pinned revision
+
+def pinned_checkout(checkout: Path, revision: str, git: Callable[..., str], *, present: bool, clone: Callable[[], None],
+                    moved: Callable[[str], None], dirty: Callable[[], Exception], fill: Callable[[], None] | None = None,
+                    dirty_first: bool = False,
+                    status: tuple[str, ...] = ('status', '--porcelain', '--untracked-files=no')) -> None:
+    """Make sure `checkout` is a clean checkout of `revision`: clone it when absent, then verify it.
+
+    Which git commands run, in which order and with which options is each console's own (the cached engines were
+    cloned that way, and those commands are what a player's machine already ran), so they come in as parameters:
+    `git(*arguments, **options)` runs one git command against the checkout and returns its output; `present` says
+    whether it is cloned already and `clone()` clones (and checks out) it; `fill()`, when given, populates a clone
+    that holds no file (a `--no-checkout` clone) and runs whenever the folder is empty; `moved(head)` is called when
+    HEAD is not `revision` (it brings the checkout there or raises); `dirty()` builds the exception raised when
+    tracked files carry edits. The edit check runs before the revision check when `dirty_first`, else after it. An
+    existing checkout is never reset: only a missing or empty one is written.
+    """
+    if not present:
+        clone()
+    if fill is not None and not any(item.name != '.git' for item in checkout.iterdir()):
+        fill()
+
+    def clean() -> None:
+        if git(*status).strip():
+            raise dirty()
+
+    def at_revision() -> None:
+        head = git('rev-parse', 'HEAD').strip()
+        if head != revision:
+            moved(head)
+    for step in (clean, at_revision) if dirty_first else (at_revision, clean):
+        step()
 
 
 # --------------------------------------------------------------------------- patching pinned sources, writing files

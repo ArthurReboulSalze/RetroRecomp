@@ -669,8 +669,8 @@ INPUTS = {
         'retrorecomp.validation',
     ),
     # The shell every converter of these consoles shares: single-ROM path, checks, spawn layer of the probes, pinned
-    # source patching and file writes. Game role. P5b (the other families) extends the owners when they adopt it.
-    ('sms', 'gg', 'gb', 'nes'): (
+    # checkouts and source patching, file writes. Game role. The X68000 joins when its converter adopts it.
+    ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'): (
         'retrorecomp.conversion_common',
     ),
     ('md', 'snes'): (
@@ -687,6 +687,7 @@ INPUTS = {
         'native/neogeo_native.h',
     ),
     ('ng', 'cps1'): (
+        'retrorecomp.conversion_gates',
         'retrorecomp.neogeo_build',
         'retrorecomp.neogeo_z80',
         'retrorecomp.zip_sets',

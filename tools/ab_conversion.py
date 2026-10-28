@@ -12,7 +12,8 @@ cover, no shared base, so the two runs start from the same state. The pinned eng
 writes into the main checkout's `Export`.
 
 It compares, between A and B:
-  * every file of each kept build folder (`.build/<game>`) that is a source or a data file: SHA-256 of the bytes, with
+  * every file of each kept build folder (`.build/<game>`; for Neo Geo `.build/ng-*`, for CPS-1 `.build/cps1/<set>-*`)
+    that is a source or a data file: SHA-256 of the bytes, with
     the tree and output paths replaced by placeholders in text files (CMake files name their folder) - this covers
     every `generated/` folder and every adapted host source;
   * `conversion-report.json` without its volatile keys (creation time, timings, wall times, stamps, version) and with
@@ -53,7 +54,12 @@ EXECUTABLE_SECTIONS = {'packed', 'packing', 'export_receipt'}
 STAMP_DERIVED = {'game', 'request'}
 # Digests of things built inside the tree (the NES emitter binary, its log with its path): they differ between two trees
 # by construction, as a run of one tree against itself shows. The generated sources they produced are compared.
-BUILT_IN_TREE = {'generation.json': {'compiler', 'log'}}
+BUILT_IN_TREE = {'generation.json': {'compiler', 'log'},
+                 # The digests of the executables a Neo Geo build compared (reference, native, packed or unpacked).
+                 'native-validation.json': {'reference_sha256', 'native_sha256', 'packed_sha256', 'unpacked_sha256'}}
+# A quick state (.rrstate) holds the key of the code that wrote it at bytes 96 to 160 of its header (64 hex digits,
+# derived from the converter's code like the game stamp): masked, so that the rest of the state is compared.
+STATE_KEY = slice(96, 160)
 # A state key derived from the game stamp (so from the converter's code), written into a header.
 STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
@@ -135,11 +141,18 @@ def convert(tree: Path, rom: Path, side: Path, extra: list[str]) -> tuple[int, P
 
 
 def kept_builds(tree: Path) -> list[Path]:
-    """The game folders the conversion kept under `.build` (they hold the ROM copy)."""
+    """The game folders the conversion kept under `.build` (they hold the ROM copy, or data made from it).
+
+    A folder with `rom.*` (Sega, Game Boy, NES), a 16-bit project (`md-*`, `snes-*`), a Neo Geo project (`ng-*`, with
+    its cartridge and BIOS copies) and a CPS-1 project (`cps1/<set>-<sha>`)."""
     root = tree / '.build'
     if not root.is_dir():
         return []
-    return sorted(path for path in root.iterdir() if path.is_dir() and any(path.glob('rom.*')))
+    found = [path for path in root.iterdir()
+             if path.is_dir() and (any(path.glob('rom.*')) or path.name.startswith(('ng-', 'md-', 'snes-')))]
+    if (root / 'cps1').is_dir():
+        found += [path for path in (root / 'cps1').iterdir() if path.is_dir()]
+    return sorted(found)
 
 
 def variants(path: Path) -> list[str]:
@@ -174,7 +187,8 @@ class Normaliser:
                     if not VOLATILE_KEY.search(key) and not (top and key in VOLATILE_TOP)
                     and not (binary and key in ('sha256', 'bytes'))
                     and not (context[-1:] == ('export_receipt',) and key in STAMP_DERIVED)
-                    and not key.endswith('executable_sha256') and key not in self.drop}
+                    and not key.endswith('executable_sha256') and not key.endswith('candidate_sha256')
+                    and key not in self.drop}
         if isinstance(value, list):
             return [self.json(item, False, context) for item in value]
         if isinstance(value, str):
@@ -196,6 +210,8 @@ def fingerprint(path: Path, normaliser: Normaliser) -> str:
                                      ensure_ascii=False).encode('utf-8'))
         except ValueError:
             pass
+    if path.suffix.lower() == '.rrstate' and len(data) >= STATE_KEY.stop:
+        data = data[:STATE_KEY.start] + b'\0' * (STATE_KEY.stop - STATE_KEY.start) + data[STATE_KEY.stop:]
     if path.suffix.lower() in TEXT_SUFFIXES and b'\0' not in data[:4096]:
         data = STAMP_TEXT.sub(rb'<stamp>', normaliser.data(data))
     return digest(data)
@@ -218,7 +234,7 @@ def gather(tree: Path, side: Path, output: Path) -> dict:
     projects = {}
     for project in kept_builds(tree):
         # The folder name carries the game and revision, not the tree: it is the same on both sides.
-        projects[project.name] = project_files(project, normaliser)
+        projects[project.relative_to(tree / '.build').as_posix()] = project_files(project, normaliser)
     reports = {}
     for path in sorted(output.rglob(REPORT)):
         reports[path.relative_to(output).as_posix()] = normaliser.json(json.loads(path.read_text(encoding='utf-8')))
@@ -273,6 +289,7 @@ def main(argv=None) -> int:
                         help='the portable compiler folder to share (default: Export/datas/tools of the main checkout)')
     parser.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
                         help='default: the converter default')
+    parser.add_argument('--ng-bios', type=Path, help='the Neo Geo BIOS archive (read in place), for a Neo Geo game')
     parser.add_argument('--keep-work', action='store_true',
                         help='keep the working folder and the checked-out trees (they hold copies of the ROM in the '
                              'kept builds; remove a tree with `git worktree remove --force`)')
@@ -287,6 +304,8 @@ def main(argv=None) -> int:
     work = (options.work or Path(tempfile.mkdtemp(prefix='ab-conversion-'))).resolve()
     work.mkdir(parents=True, exist_ok=True)
     extra = ['--scan-level', options.scan_level] if options.scan_level else []
+    if options.ng_bios:
+        extra += ['--ng-bios', options.ng_bios.resolve()]
     results, trees, failed = {}, [], False
     try:
         for label, spec in (('a', options.a), ('b', options.b)):
