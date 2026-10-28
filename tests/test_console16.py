@@ -48,24 +48,27 @@ class Console16Tests(unittest.TestCase):
         path.write_bytes(payload)
         return path
 
-    def test_md_state_config_accepts_no_key_of_an_earlier_release(self):
-        # Only the previous release's key may ever be listed (docs/GAME_STATES.md); the tree of 1.6.0 lists none.
+    def test_md_state_config_accepts_the_key_of_the_previous_release_on_windows_only(self):
+        # Only the previous release's key may ever be listed (docs/GAME_STATES.md): 1.6.0's, written on Windows (the key
+        # of a Linux build also hashes its target, and no Linux 1.6.0 key was recorded).
         from retrorecomp.console16 import REPOSITORIES
-        from retrorecomp.console16_state import write_config
+        from retrorecomp.console16_state import MD_STATE_ABI_160, write_config
         rom = read_megadrive_rom(self.source('state.md', md()))
         (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
         import os
-        class WindowsOs:
-            name = 'nt'
+        class FakeOs:
+            def __init__(self, name):
+                self.name = name
             def __getattr__(self, attribute):
                 return getattr(os, attribute)
-        # Only this module sees 'nt': a global os.name would make pathlib build Windows paths.
-        for patched in (os, WindowsOs()):
-            with patch('retrorecomp.console16_state.os', patched):
+        # Only this module sees the fake name: a global os.name would make pathlib build the other system's paths.
+        for name, listed in (('nt', True), ('posix', False)):
+            with patch('retrorecomp.console16_state.os', FakeOs(name)):
                 write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
             text = (self.root/'retro16_state_config.h').read_text()
-            self.assertNotIn('RR16_STATE_COMPAT_ABI', text)
             self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"')
+            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{MD_STATE_ABI_160}"\n' in text, listed, name)
+            self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), int(listed), name)
 
     def test_bundled_compiler_fingerprint_needs_no_source_file(self):
         import sys

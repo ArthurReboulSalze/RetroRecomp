@@ -40,10 +40,11 @@ N it covers the exports, receipts, quick states and local files that release N-1
 
 - `LEGACY_GAME_STAMPS` (`retrorecomp/stamp_inputs.py`) lists the game stamps of release N-1, where its exports were
   shown to differ from release N only in how the game is built. The release procedure replaces the entries, it never
-  adds to those of an older release. The table is empty in the tree of 1.6.0; the release after it adds the entries
-  of 1.6.0.
+  adds to those of an older release. The table was empty in the tree of 1.6.0; the tree of 1.6.1 lists the stamps of 1.6.0
+  ([below](#exports-of-160-in-161)).
 - The quick-state keys of release N-1 are the only `RR16_STATE_COMPAT_ABI` lines a build writes
-  ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0.
+  ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0; the Mega Drive, Neo
+  Geo and CPS-1 keys of 1.6.0 (Windows) in the tree of 1.6.1.
 - A receipt of another schema than the current one (3) is never current, and a report is read in the places the current
   writers use (`scan_level`, `scan.level`), not in those of releases before 1.6.0.
 - Nothing migrates the files of a release older than N-1 (collection inventories without a recorded base, the X68000
@@ -134,9 +135,64 @@ stamps are bytecode digests of Python 3.14.5, the Linux converter is built with 
 pack and test is published unpacked): `packing.py` (build), `publishing.py` (host) and the callers `batch.py`, `core.py`,
 `systems/master_system.py` (game, all consoles), `neogeo_conversion.py`, `neogeo_build.py` and `cps1_conversion.py` now pass
 the conversion log to the packer, so the interface shows the reason, and the Neo Geo `native-validation.json` says
-`validated_candidate: unpacked` when it applies. Nothing a game generates changed. `LEGACY_GAME_STAMPS` has no 1.6.0 entry:
-declaring one needs the real receipts of the released 1.6.0 converter (release procedure), so until it is added an export of
-1.6.0 is converted in full by 1.6.1.
+`validated_candidate: unpacked` when it applies. Nothing a game generates changed, except the Mega Drive runtime
+([below](#mega-drive-exports-of-160-in-161)). The release procedure (the rule above) adds the entries of 1.6.0, and only
+those, to `LEGACY_GAME_STAMPS` (28 October 2026, the tree of this release):
+
+| Console | 1.6.0 export in 1.6.1 | Game stamp of 1.6.0 (computed from the `v1.6.0` tag) |
+| --- | --- | --- |
+| Master System | **upgraded**: rebuilt from its paths, rechecked on the quick routes, `upgrade.from_release` = `1.6.0` | `19b8bd2a33d49f8b2d08e2335e7ee5d96178347c941d3da73800b0bb61551732` |
+| Game Gear | upgraded | `47c60b9a2034948c0f2c31e8e3a209a368f8ef45490cc6047f73cfb882c637be` |
+| Game Boy | upgraded | `c36134ebfc832440005280367b64225bc09b486c3fff560d0f8a1376110712da` |
+| NES | upgraded | `511451fc62f41db3f8dee6f57e1d2b2d2623cf8a0171482bd73bcb2bb595432b` |
+| Mega Drive | upgraded, with the corrected runtime | `4db8a6f2397ab51d383166778c227e45cadcd3806bd7bf5aaf7e965267744b75` |
+| Super Nintendo | upgraded | `cccb132e2e23df78340770cd1c0c562d32645d732e97aa15c4e853e66c06af36` |
+| Neo Geo | upgraded (a 1.6.0 receipt hashes the game's own record in its knowledge part, so the stamp can match; the 1.5.6 one never could) | `41577b77c4e78dd15d8644092591e5852efc1c96e9fe5be1dde2bbca8b1fcb61` |
+| CPS-1 | upgraded | `699f824303f77ebbf4583bd7c9cc1ee1aa7c167391e247e0010f7fbc72ec5b95` |
+| Sharp X68000 | **converted in full once**: no entry | `7de0d3b5731e81f2df6a705a502e165d07349423641dcc2454ce1de9392a6f36` (recorded, not listed) |
+
+- *X68000.* Its request carries `x68_sdk`, a hash of the game stamp of the tree that wrote it and of the machine base. The
+  table replaces the `engine` field of the request and nothing else, so an X68000 receipt of 1.6.0 could never be
+  recognised: an entry would be dead weight. Do not add one without teaching `request_parts` to recompute `x68_sdk` for a
+  listed stamp.
+- *Super Nintendo.* An earlier release excluded it (1.5.2: the engine changed what games do). Between 1.6.0 and 1.6.1
+  nothing specific to it changed: below `native/` only two Mega Drive files differ from the tag, and the converter modules
+  that differ are the shared ones (the packer's notice in `batch`, `core`, `packing`, `publishing`, `artwork`; the removal
+  of readers of files older than 1.6.0 in `feedback`, `freshness` and `library`; `console16_state` loses the older
+  compatibility keys). None of them changes a Super Nintendo project, and its quick-state key is the same in 1.6.0 and 1.6.1
+  ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+
+**How the stamps were computed.** The `v1.6.0` tag (commit `84d5a9e`; no listed input differs from `15da7be`, the commit
+the packaged converter was built from) exported with `git archive`, then `compilation_inputs.role_stamps(system)['game']`
+under Python 3.14.5, the Python of the packaged 1.6.0 converter (`.build/release-1.6.0/package-windows.log`) and of this
+tree. The game parts of the tag and of 1.6.1 differ in these listed inputs only: `retrorecomp.batch`, `core`, `feedback`,
+`freshness`, `library` (every console); `systems.master_system` (Master System, Game Gear); `x68000_conversion`;
+`neogeo_conversion`, `neogeo_build` (Neo Geo; the latter also CPS-1); `cps1_build`, `cps1_conversion`, `cps1_knowledge`
+(CPS-1); `console16_state` (Mega Drive, Super Nintendo, Neo Geo, CPS-1); `native/md_z80_bus.inc` and
+`native/md_boundary_checks.c` (Mega Drive). The host part differs in `artwork`, `publishing` (and `gameboy_host` for the
+Game Boy), the build part in `packing`.
+
+**Evidence, and what is not proved.** The release procedure asks for real receipts written by the released converter (two
+games per console, as for 1.5.6). None was produced for 1.6.1: no game was converted for these entries. What exists:
+
+- *Mega Drive, 3 Ninjas Kick Back*
+  (`Export/Games/Mega Drive/datas/reports/Game_3_Ninjas_Kick_Back-8cfdc448d062/conversion-report.json`), the only schema 3
+  receipt of 1.6.0 in `Export/`, written on 28 October 2026 at 07:16 by the working tree that became `15da7be`. Its **host
+  part** equals the hash of the host settings (language `en`, icon tags, online cover, covers on, the title) with the host
+  and build stamps computed from the tag: the converter that wrote it had the tag's host and build inputs, hashed under the
+  same Python. Its **game part** could not be derived again: it hashes the knowledge stamp of the player's banks as they
+  stood before that conversion, and the banks have changed since. It does not confirm the game stamp by itself. The other
+  consoles of `Export/` hold receipts of earlier releases only.
+- The method is the one that gave the 1.5.6 entries; run on `v1.5.6`, the same computation gives the three 1.5.6 quick-state
+  keys that were read from real 1.5.6 exports (Mega Drive, Neo Geo, CPS-1: [GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+- An entry cannot accept a wrong export: a receipt matches only if its game part is the hash of the request with `engine`
+  equal to the listed stamp, so a stamp the 1.6.0 converter did not write matches nothing and the export is converted in
+  full as before. What the table cannot show without receipts is that a matching export is equivalent to a reconversion,
+  and that is the claim above (the list of inputs that differ).
+
+A real receipt per console (the 1.5.6 procedure: `tools/campaign.py upgrade` on copies of exports converted by the 1.6.0
+tree) remains to be done if "upgraded" is to be proved console by console. An export of 1.6.0 that is upgraded is rebuilt
+and rechecked on the quick routes like any upgrade, and the report says so.
 
 ## Mega Drive exports of 1.6.0 in 1.6.1
 
@@ -144,11 +200,14 @@ declaring one needs the real receipts of the released 1.6.0 converter (release p
 `md` only): when the 68000 writes BUSREQ or RESET during the merged final catch-up of a payment that crosses a slice end,
 the host checkpoint no longer runs the 68000 a second time before answering the request (Super Street Fighter II
 answered a bus request one poll late, which shifted a few YM2612 and PSG writes by 18 68000 clocks). The Mega Drive
-game stamp moves; the learned paths do not, so the 1.6.0 entry the release adds lets Mega Drive exports of 1.6.0 be
-rebuilt with the corrected runtime and rechecked against the reference on the quick routes, like the other consoles. The other consoles do not own the file: their stamps do
-not move. The Mega Drive quick-state key (`RR16_STATE_ABI`) also moves, because it hashes the listed native files of the
-console; the serialized layout is unchanged, so the release adds the 1.6.0 key as a
-compatibility key ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+game stamp moves for this reason too; the learned paths do not, so the 1.6.0 entry (table above) lets Mega Drive exports
+of 1.6.0 be rebuilt with the corrected runtime and rechecked against the reference on the quick routes, like the other
+consoles. A rebuilt export therefore runs this one change of timing that its 1.6.0 export did not: the upgrade
+rechecks it against the reference on the quick routes, which is not a replay of the long routes. The other consoles do
+not own the file, so this change moves none of their stamps (the stamps above move for the packer's notice). The Mega
+Drive quick-state key (`RR16_STATE_ABI`) also moves, because it hashes the listed native files of the console; the
+serialized layout is unchanged (the two variables the fix touches are read by no other native file, so by no state file), so the release adds the 1.6.0
+key as a compatibility key ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
 
 ## Host or game: the classification
 

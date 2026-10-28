@@ -17,6 +17,9 @@ from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
+# State key written by release 1.6.0 (Windows), computed from the v1.6.0 tag; the state files did not change since
+# (docs/GAME_STATES.md, "States written by release 1.6.0").
+STATE_ABI_160 = '6e0721d152aa17f6bec321b960177773b7e9eaf06c29cc350b39f3a4b91fc46a'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
 
 
@@ -582,9 +585,11 @@ def state_config(content: Path,bios: Path,title: str) -> str:
         from .platforms import target_id
         abi.update(target_id().encode())
     # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release that
-    # follows it (docs/GAME_STATES.md); the keys of older releases are never kept. None in the tree of 1.6.0.
+    # follows it (docs/GAME_STATES.md); the keys of older releases are never kept. Windows only: the key of a Linux
+    # build also hashes its target, and no Linux 1.6.0 key was recorded.
     return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
         '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
+        ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(STATE_ABI_160) if os.name=='nt' else '')+\
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 
