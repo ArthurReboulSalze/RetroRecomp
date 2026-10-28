@@ -298,8 +298,8 @@ class OldReadersOnNewReports(unittest.TestCase):
 
     def test_the_scan_level_is_read_from_every_place_a_report_keeps_it(self):
         level = compiled_games.report_level
-        # The 1.5.6 hotfix: Mega Drive, Super Nintendo and NES reports of 1.5.x held it under advanced_scan only.
-        self.assertEqual(level({'advanced_scan': {'level': 'thorough'}}), 'thorough')
+        # Reports of 1.5.x held it under advanced_scan only: not read any more (releases before 1.6.0).
+        self.assertEqual(level({'advanced_scan': {'level': 'thorough'}}), 'standard')
         self.assertEqual(level({'scan_level': 'thorough'}), 'thorough')
         # Schema 2 holds it in scan.level (this is what a report with no old key at all would carry).
         self.assertEqual(level({'scan': {'level': 'extended'}}), 'extended')
@@ -307,12 +307,10 @@ class OldReadersOnNewReports(unittest.TestCase):
         self.assertEqual(level({'scan_level': 'quick', 'scan': {'level': 'extended'},
                                 'upgrade': {'discovery': {'scan_level': 'thorough'}}}), 'thorough')
         self.assertEqual(level({'scan': 'broken', 'advanced_scan': 'broken'}), 'standard')
-        # Old exports (advanced_scan only) and new ones (scan_level at the top) are read the same.
+        # The report as written and its schema-2 form are read the same.
         for label in ('nes with fallback', 'md with fallback', 'snes superfx device'):
             with self.subTest(fixture=label):
                 new = FIXTURES[label]()
-                old = {k: v for k, v in new.items() if k != 'scan_level'}
-                self.assertEqual(level(old), level(new))
                 self.assertEqual(level(with_schema_v2(new)), level(new))
                 self.assertEqual(level(read_report(new)), level(new))
 

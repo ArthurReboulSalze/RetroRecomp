@@ -79,26 +79,6 @@ class FeedbackTests(unittest.TestCase):
         folder=self.root/'x68 games'
         self.assertEqual(feedback_search_paths({'feedback_paths':{'x68':str(folder)}}),{'x68':folder.resolve()})
 
-    def test_an_earlier_identity_of_the_same_game_is_merged_and_left_in_place(self):
-        # X68000 exports of 1.5 and earlier recorded under their machine's hash; the converter now asks
-        # for the game and names the machine as an alias. Both exports and the private bank are read.
-        game, machine, private = 'c'*64, 'd'*64, 'e'*64
-        old = feedback.Observation(13, 0x2000, 0, bytes.fromhex('4e71'))
-        new = feedback.Observation(13, 0x2100, 0, bytes.fromhex('4e75'))
-        kept = feedback.Observation(13, 0x2200, 0, bytes.fromhex('4e76'))
-        legacy = self.save('x68', [old], machine)
-        self.save('x68', [new], game)
-        feedback._retain('x68', machine, [kept])
-        report = feedback.ingest('x68', game, self.root/'games', aliases=(machine,))
-        self.assertEqual(report['unique_candidates'], 3)
-        self.assertEqual(report['identity'], game)
-        self.assertEqual(set(feedback.records('x68', game, 13)), {old, new, kept})
-        self.assertTrue(legacy.is_file())
-        self.assertTrue(feedback.private_file('x68', machine).is_file())
-        # Without the alias the machine's file is not the game's: nothing leaks the other way.
-        self.assertEqual(feedback.records('x68', private, 13), [])
-        self.assertEqual(feedback.ingest('x68', 'f'*64, self.root/'games')['unique_candidates'], 0)
-
     def test_saturated_import_keeps_newer_high_address_observations(self):
         old=[feedback.Observation(1,n,0,b'\x76') for n in range(feedback.LIMIT)]
         path=self.save('sms',old)

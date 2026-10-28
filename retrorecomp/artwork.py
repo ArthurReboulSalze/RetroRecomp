@@ -546,26 +546,6 @@ def resolve_cover(rom_path: Path, title: str, directory: Path, *, explicit: Path
                 cached = cover
         except ArtworkError:
             pass
-        # SMS downloads previously lived at BoxArt/Downloaded, beside the
-        # newer per-console folders. Import only that directory, never another
-        # console's artwork or the read-only ROM/boxart library.
-        legacy = cache_directory.parent / 'Downloaded'
-        if system_id == 'sms' and cache_directory.name == 'sms' and legacy.is_dir():
-            names = [p for p in legacy.rglob('*') if p.is_file() and p.suffix.lower() in FORMATS]
-            try:
-                match = choose_cover([str(p.relative_to(legacy)) for p in names], rom_path.stem, title,system_id=system_id)
-                if match:
-                    cover = _downloaded_cover(legacy / match)
-                    if fresh(cover):
-                        record = {k: cover.get(k) for k in ('style', 'url', 'source_page')}
-                        record['provider'] = cover['source'].removesuffix('_cache')
-                        try:
-                            cover['path'] = _store_download(storage, cover['path'].name, cover['data'], record)
-                        except (ArtworkError, OSError):
-                            return cover  # Still use the old download if migration cannot write.
-                        return remember(cover)
-            except (ArtworkError, OSError):
-                pass
     paths = sorted((p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in FORMATS),
         key=lambda p: ("Downloaded" in p.relative_to(directory).parts, str(p).casefold())) if directory.exists() else []
     # Explicit selections were handled above. Automatic local matches may be

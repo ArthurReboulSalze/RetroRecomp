@@ -108,8 +108,8 @@ hashes it, because the report does not change what a game is or does.
   `batch.py` adds its fields after the conversion (ROM hash, executable,
   packing, upgrade, shared paths, receipt) and writes again through
   `with_schema_v2`, which derives the sections anew, so they carry what was
-  added. Every report has `scan_level` at the top (Mega Drive, Super Nintendo
-  and NES kept it under `advanced_scan` only). Keys the old shapes share with
+  added. Every report has `scan_level` at the top (before 1.6.0 the Mega Drive, Super Nintendo
+  and NES kept it under `advanced_scan` only, which is no longer read for the collection or the upgrade record). Keys the old shapes share with
   schema 2 are never written as null (`upgrade`, `export_receipt`, `target`,
   `created_utc`: old readers take a null for a value), and `knowledge`, which
   Neo Geo already used, holds that writer's keys and the schema-2 keys

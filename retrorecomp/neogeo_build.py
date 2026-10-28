@@ -17,8 +17,6 @@ from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
-# State key written by release 1.5.6 (found in a real 1.5.6 export, reproduced from its tag); same field-by-field layout.
-STATE_ABI_156 = 'fa66982c49f9d86ebf38e555714601d7466bf43331de44eaf4093e6d759bea41'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
 
 
@@ -583,17 +581,10 @@ def state_config(content: Path,bios: Path,title: str) -> str:
     if os.name != 'nt':
         from .platforms import target_id
         abi.update(target_id().encode())
-    # Exact last shipped v2 ABI; unchanged core layout is replay-qualified before
-    # accepting its standard-mode snapshots. Unknown prior ABIs remain rejected.
-    legacy='03e931d337f39ff575d3567ea65bd40e9829e20f9f0d8c8fef6c9316fdf3707e'
+    # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release that
+    # follows it (docs/GAME_STATES.md); the keys of older releases are never kept. None in the tree of 1.6.0.
     return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
         '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
-        ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(legacy)+\
-        '\n#define RR16_STATE_COMPAT_ABI_2 "96977f427a996ff545097be31eca9e0aae85293d87d3a752864c6ea65f126f21"'
-        # Release 1.4.1 (Visual Studio). Same field-by-field layout in the portable build.
-        '\n#define RR16_STATE_COMPAT_ABI_3 "b3305fddf7b7c0b961d6abb04f401e0a7ca8d55974dd13c8b05f2fda60df7e5e"'
-        # Release 1.5.6: the key hashed the modules and native files of that release; the state files did not change.
-        '\n#define RR16_STATE_COMPAT_ABI_24 '+json.dumps(STATE_ABI_156) if os.name=='nt' else '')+\
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 

@@ -28,10 +28,10 @@ have converted every export in full. It is now in `BUILD_MODULES`, beside the to
 
 - a later change of packing (another UPX version, other flags, another console packed)
   rebuilds and rechecks the exports on the quick routes, like any build change;
-- release 1.4.1 receipts are still accepted through their frozen `LEGACY_GAME_STAMPS`:
+- receipts of the previous release are accepted through their frozen `LEGACY_GAME_STAMPS`:
   the legacy hash replaces today's game stamp with the listed one, so it does not depend
   on where packing is classified (`tests/test_legacy_compat.py`,
-  `LegacyReceiptTests.test_exports_of_release_141_are_upgraded_not_reconverted_on_each_listed_console`;
+  `LegacyReceiptTests.test_a_listed_game_part_is_upgraded_not_reconverted_and_an_unlisted_one_is_converted_in_full`;
   `PackingBuildRoleTests` checks that a packing change moves only the build stamp, for every
   console);
 - receipts written by unreleased 1.5.0 builds made before this change are converted in full:
@@ -74,6 +74,15 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 1.4.1 receipt).
 
 ### `LEGACY_GAME_STAMPS`
+
+**The rule (28 October 2026): the previous release only.** `compilation_inputs.LEGACY_GAME_STAMPS` lists the game
+stamps of the release before the one being built, never those of older releases, and the quick-state keys
+(`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
+table is empty in the tree of 1.6.0; the release after it adds the entries of 1.6.0, and replaces them at each release
+after, proving each one build-only with a real receipt of a real export. A player coming from an older release
+reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
+1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
+longer in the code.
 
 Release 1.5.0 changes game-side files only to build with the portable tools
 (llvm-mingw, CMake, Ninja) instead of Visual Studio: toolchain selection, Ninja build
@@ -289,9 +298,9 @@ were upgraded for real. The evidence, the list of files that differ and why, is 
 the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156). No entry for the Super Nintendo, the Neo
 Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
 
-**Release procedure.** Before each release: remove the `LEGACY_GAME_STAMPS` entries, or
-complete them, whenever the release really changes what a game does (translation,
-CPU, video, sound, learning, validation). Entries are only valid for a release whose
+**Release procedure.** Before each release: replace the `LEGACY_GAME_STAMPS` entries by those of the release being left
+(the previous release only; nothing older is kept), and list none for a console when the release really changes
+what a game does (translation, CPU, video, sound, learning, validation). Entries are only valid for a release whose
 game-side differences are build-only and were qualified as such.
 
 
@@ -399,16 +408,12 @@ is harmless (its IPL-window words simply do not match); the IPL stays a named so
 the future record (`ipl`, with the disks), not a part of its key. The font ROM never
 decides a code path.
 
-Migration (nothing is deleted): when the library has no observation pair for the
-machine and the earlier place (`<converter folder>/datas/x68000-development/<machine
-hash>/`) has one, the pair is copied (receipt last, content compared) and the old files
-stay; if the copy is impossible, the old folder is read. A summary found under the
-machine hash is merged into the game's (the remembered mouse use is kept) and the
-emptied folder is removed. Feedback files and the private bank entry of the machine
-hash are merged into the game's feedback; the old files stay. The development pair of
-the maintainer's stages (`observations.json` + `qualification.json`) is only read in
-place. Exports made before 1.6.0 are converted again in full (X68000 has no legacy game
-stamp); their feedback file is still found.
+Migration (decision of 28 October 2026: the previous release only, so none of this is kept after 1.6.0): 1.6.0 itself
+copied the observation pair of the earlier place (`<converter folder>/datas/x68000-development/<machine hash>/`) into
+the library, merged a summary found under the machine hash into the game's, and merged the feedback files and the private
+bank entry of the machine hash into the game's feedback, never deleting the old files. These readers are gone in the
+release that follows: a pair, a summary or a feedback file recorded under the machine hash is not read any more, and
+the exports made before 1.6.0 are converted again in full (X68000 has no legacy game stamp).
 
 **The IPL as a span (standardization 6b).** Every instruction variant observed in the IPL window
 (0xFC0000-0xFFFFFD) equals the bytes of the player's own IPL at that address: measured on all 31 local

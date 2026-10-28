@@ -18,12 +18,12 @@ column or enable Favorites only. Favorites survive rescans and regeneration.
 
 The inventory remembers the converter's base folder. Moving the app together
 with `Games` and `datas` rebases its own game/report paths and scan folders;
-external libraries and ROM folders keep their own locations. No scan
-of game contents is required on reopening. Older inventories are repaired in a
-background task when opening Compiled Games, using copied reports or matching
-exact console/cartridge entries. A matching name alone is insufficient. Stale
-aliases merge into the local entry, retaining favorites. A copy of the original
-inventory is kept as `datas/compiled-games.before-path-migration.json`.
+external libraries and ROM folders keep their own locations; the rebased
+inventory is saved once, in a background task, when Compiled Games opens. No scan
+of game contents is required on reopening. An inventory that records no base
+(written by a release before 1.6.0) is read as it is: its paths are not guessed
+and no copy of it is made (backward compatibility is owed to the previous release
+only, [UPGRADES.md](UPGRADES.md#the-rule-the-previous-release-only)).
 Two existing exports in separate folders remain separate collection entries.
 
 ## Keeping the list current

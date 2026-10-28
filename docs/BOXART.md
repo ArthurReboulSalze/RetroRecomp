@@ -120,9 +120,8 @@ Changing the box-style preference looks for the saved version of that style firs
 If it is missing, an online search can fetch it; switching back reuses the earlier
 version. Separate image-content directories prevent one download from overwriting
 another style or revision. Older named downloads remain readable and are indexed
-on first reuse. The former Master System cache at `datas/BoxArt/Downloaded` is
-imported into `datas/BoxArt/sms` without changing the old files or borrowing another
-console's artwork. The converter never writes to the source ROM/boxart library.
+on first reuse. The former Master System cache at `datas/BoxArt/Downloaded` (a release
+before 1.6.0) is no longer imported; the converter downloads the cover again. The converter never writes to the source ROM/boxart library.
 
 A cached 3D box can be replaced with a Libretro front even without API accounts.
 An online search in front-cover mode never reuses a known 3D box, even after a

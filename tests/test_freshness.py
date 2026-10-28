@@ -278,23 +278,22 @@ class FreshnessTests(unittest.TestCase):
 
 
 class UpgradeRecordLevelTests(unittest.TestCase):
-    """The original discovery keeps the level the export was converted at, wherever its writer put it."""
+    """The original discovery keeps the level the export was converted at: the top-level key or the scan section."""
 
     def record(self, report):
         from retrorecomp import freshness
         return freshness.upgrade_record({'version': '1.5.6', 'created_utc': 'then', 'final_checks': [], **report})
 
-    def test_advanced_scan_level_of_a_1_5_x_report_without_a_top_level_scan_level(self):
-        # Mega Drive, Super Nintendo and NES reports of 1.5.x: advanced_scan.level only.
+    def test_advanced_scan_alone_of_a_1_5_x_report_is_not_read(self):
         for level in ('quick', 'extended', 'thorough'):
             self.assertEqual(self.record({'advanced_scan': {'enabled': level != 'quick', 'level': level}})
-                             ['discovery']['scan_level'], level)
+                             ['discovery']['scan_level'], 'standard')
 
-    def test_the_other_places_and_their_order(self):
+    def test_the_places_and_their_order(self):
         self.assertEqual(self.record({'scan_level': 'quick'})['discovery']['scan_level'], 'quick')
         self.assertEqual(self.record({'scan': {'level': 'extended'}})['discovery']['scan_level'], 'extended')
-        self.assertEqual(self.record({'scan_level': 'thorough', 'scan': {'level': 'quick'},
-                                      'advanced_scan': {'level': 'extended'}})['discovery']['scan_level'], 'thorough')
+        self.assertEqual(self.record({'scan_level': 'thorough', 'scan': {'level': 'quick'}})
+                         ['discovery']['scan_level'], 'thorough')
         self.assertEqual(self.record({})['discovery']['scan_level'], 'standard')
         self.assertEqual(self.record({'advanced_scan': 'broken', 'scan': None})['discovery']['scan_level'], 'standard')
 

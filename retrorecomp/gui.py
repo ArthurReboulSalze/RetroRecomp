@@ -628,15 +628,9 @@ class Application:
         self.extended = tk.BooleanVar(value=extended_default(preferences))
         self.gb_deep_validation = tk.BooleanVar(value=game_boy_validation_default(preferences))
         # One discovery scan level per console, with optional pass and frame
-        # overrides. The former Mega Drive / NES switches become their levels.
-        from .scan_levels import CONSOLES as SCAN_CONSOLES, legacy_level, normalize as normalize_scan
+        # overrides. The Mega Drive / NES switches of releases before 1.6.0 are not read any more.
+        from .scan_levels import CONSOLES as SCAN_CONSOLES, normalize as normalize_scan
         saved_scan = normalize_scan(preferences.get('console_scan'))
-        if not saved_scan and 'console_scan' not in preferences:
-            for console in SCAN_CONSOLES:
-                level = legacy_level(console, md_advanced_scan=preferences.get('md_advanced_scan') is True,
-                                     nes_advanced_scan=preferences.get('nes_advanced_scan') is True)
-                if level != 'standard':
-                    saved_scan[console] = {'level': level}
         self.scan_level = {console: tk.StringVar(value=saved_scan.get(console, {}).get('level', 'standard'))
                            for console in SCAN_CONSOLES}
         self.scan_passes = {console: tk.StringVar(value=str(saved_scan.get(console, {}).get('passes') or ''))
@@ -3645,11 +3639,6 @@ class Application:
             # Discoveries saved since the last look count without a full scan.
             from .compiled_games import refresh_changed
             refresh_changed(self.compiled_inventory, options)
-            # Once per account (1.5.6): the deeper levels 1.5.2-1.5.5 sent as Standard.
-            try:
-                online.resend_deeper_levels(self.compiled_inventory.snapshot())
-            except (OSError, ValueError, TypeError):
-                pass
             # Cached results stay valid while the ROM folders stay the same.
             context = json.dumps(options.get('rom_paths', {}), sort_keys=True)
             return collect_knowledge(self.compiled_inventory.snapshot(), locate, context, progress)

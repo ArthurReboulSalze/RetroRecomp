@@ -224,28 +224,6 @@ class ArtworkTests(unittest.TestCase):
                 self.assertEqual(repaired['data'], original['data'])
                 self.assertEqual(repaired['path'].read_bytes(), original['data'])
 
-    def test_old_sms_downloads_are_imported_without_changing_them_or_using_other_consoles(self):
-        self.rom.write_bytes(b'authored ROM for legacy cover migration')
-        base = self.root / 'datas/BoxArt'
-        legacy = base / 'Downloaded/Game (Europe).png'
-        legacy.parent.mkdir(parents=True)
-        legacy.write_bytes(png())
-        sidecar = legacy.with_suffix('.png.json')
-        sidecar.write_text(json.dumps({'provider': 'libretro', 'style': 'front',
-                                      'sha256': hashlib.sha256(png()).hexdigest()}))
-        other = base / 'gg/Downloaded/Game (Europe).png'
-        other.parent.mkdir(parents=True)
-        other.write_bytes(b'not SMS artwork')
-        before = (legacy.read_bytes(), sidecar.read_bytes(), other.read_bytes())
-        with patch('retrorecomp.artwork._get', side_effect=AssertionError('old downloads stay usable')), \
-                patch('retrorecomp.artwork.fetch', side_effect=AssertionError('no API')):
-            cover = resolve_cover(self.rom, 'Game', self.art, cache_directory=base / 'sms',
-                                  settings=defaults(), emit=lambda _: None)
-        self.assertEqual(cover['source'], 'libretro_cache')
-        self.assertEqual(cover['data'], png())
-        self.assertTrue(cover['path'].is_relative_to(base / 'sms'))
-        self.assertEqual(before, (legacy.read_bytes(), sidecar.read_bytes(), other.read_bytes()))
-
     def test_empty_offline_cache_creates_no_files(self):
         self.rom.write_bytes(b'authored ROM without artwork')
         cache = self.root / 'absent-cache'

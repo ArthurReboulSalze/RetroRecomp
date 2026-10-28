@@ -197,21 +197,6 @@ class GameMemory:
                         # writers exceeded the current compiler's 4096 limit.
                         self._append_patterns(read_code_patterns(old_patterns, limit=None), limit=None)
                         old_patterns.unlink()
-        if root is None and not (os.environ.get("RETRO_RECOMP_LIBRARY_DIR") or os.environ.get("SMSRECOMP_LIBRARY_DIR")):
-            legacy_base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData/Local")
-            legacy = Path(legacy_base) / "SMSRecomp/library" / rom.sha256
-            if legacy.exists() and legacy.resolve() != self.directory.resolve():
-                self.import_manifest(legacy / "observations.log")
-                self.import_code_patterns(legacy / "native-patterns.txt")
-                if not self.record.exists():
-                    try:
-                        old = json.loads((legacy / "compilation.json").read_text(encoding="utf-8"))
-                        if old.get("schema") == SCHEMA and old.get("rom", {}).get("sha256") == rom.sha256:
-                            with entry_lock(self.directory):
-                                if not self.record.exists():
-                                    atomic_json(self.record, old)
-                    except (OSError, ValueError, AttributeError):
-                        pass
 
     def summary(self) -> dict:
         entries = read_observations(self.journal) | {tuple(e) for e in self.bundled.get('rom_entries', [])}

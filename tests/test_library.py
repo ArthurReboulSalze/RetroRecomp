@@ -142,20 +142,6 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(read_code_patterns(migrated.code_journal, limit=None), current | {bytes.fromhex('C3360000')})
         self.assertEqual(len(migrated.code_patterns()), 4096)
 
-    def test_legacy_appdata_is_copied_and_rom_entries_rechecked(self):
-        legacy_base = self.root / 'old-appdata'
-        legacy = legacy_base / 'SMSRecomp/library' / self.rom.sha256
-        legacy.mkdir(parents=True)
-        source = legacy / 'observations.log'
-        source.write_text('4100 00 03 02 %08X\n4100 00 03 02 00000000\n' % self.good[4])
-        original = source.read_bytes()
-        with patch.dict(os.environ, {'LOCALAPPDATA': str(legacy_base)}, clear=True), patch('retrorecomp.library.data_directory', return_value=self.root/'portable/datas'):
-            imported = GameMemory(self.rom)
-            self.assertEqual(imported.seeds(), {self.good})
-            self.assertTrue(imported.directory.name.startswith('Same_name-'))
-            self.assertEqual(GameMemory(self.rom).seeds(), {self.good})
-        self.assertEqual(source.read_bytes(), original)
-
     def test_recipe_integrity_engine_scope_and_generation_history(self):
         report = {"created_utc": "test", "version": "0.3.0", "engine_revision": "engine1", "executable": "game.exe",
                   "final_checks": [], "strict_checks": [], "learning": {}, "reference_vdp_trace_match": False}
