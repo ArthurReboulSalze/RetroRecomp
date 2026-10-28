@@ -21,29 +21,20 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CONSOLES = (
-    ("sms", "Master System"),
-    ("gg", "Game Gear"),
-    ("gb", "Game Boy"),
-    ("nes", "Nintendo NES"),
-    ("md", "Mega Drive"),
-    ("snes", "Super Nintendo"),
-    ("ng", "Neo Geo"),
-    ("cps1", "Capcom CPS-1"),
-    ("x68", "Sharp X68000"),
-)
+sys.path.insert(0, str(ROOT))
+from retrorecomp.systems import ALL_PROFILES  # noqa: E402
 
-ALIASES = {
-    "sms": ("Master System",),
-    "gg": ("Game Gear",),
-    "gb": ("Game Boy",),
-    "nes": ("Nintendo NES", "NES"),
-    "md": ("Mega Drive",),
-    "snes": ("Super Nintendo", "SNES"),
-    "ng": ("Neo Geo",),
+# The consoles and their names come from the profiles (retrorecomp/systems): a registered machine is linted at once.
+CONSOLES = tuple((profile.id, profile.name) for profile in ALL_PROFILES)
+
+# The short names the documents also use for a machine. A machine that is not listed is named by its profile.
+SHORT_NAMES = {
+    "nes": ("NES",),
+    "snes": ("SNES",),
     "cps1": ("CPS-1",),
     "x68": ("X68000",),
 }
+ALIASES = {profile.id: (profile.name, *SHORT_NAMES.get(profile.id, ())) for profile in ALL_PROFILES}
 
 # Interface keywords that say "experimental" in the shipped languages. Only
 # experimental statements are detected: a supported claim in the interface is
@@ -233,9 +224,10 @@ class LintResult:
 
 def lint(root: Path = ROOT) -> LintResult:
     sys.path.insert(0, str(root))
-    from retrorecomp.systems import PROFILES, X68000, EXPERIMENTAL_PROFILES
-    profiles = list(PROFILES) + [X68000]
-    attrs = {p.id: getattr(p, "experimental", None) for p in profiles}
+    from retrorecomp.systems import PROFILES, EXPERIMENTAL_PROFILES
+    profiles = list(ALL_PROFILES)
+    # The one source of the status is the profile's ``status``; the lint compares everything else with it.
+    attrs = {p.id: p.status == "experimental" for p in profiles}
     compatibility_text = (root / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
     readme_text = (root / "README.md").read_text(encoding="utf-8")
     notes_text = (root / "docs" / "RELEASE_NOTES.md").read_text(encoding="utf-8")

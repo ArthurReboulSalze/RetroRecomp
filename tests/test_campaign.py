@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from retrorecomp.systems import ALL_PROFILES
 from tools import campaign
 from tools.release_check import check_report
 
@@ -32,6 +33,40 @@ def ids(block: dict) -> list[str]:
 
 
 NAMES = [f'Game {letter} (USA).nes' for letter in 'ABCDEFGHIJKLMNOPQRST']
+
+
+class DerivedTablesTests(unittest.TestCase):
+    """The consoles, folders, extensions and gates of the campaign come from the profiles (1.6.3)."""
+
+    def test_the_tables_are_those_of_1_6_2(self):
+        # Pinned as literals: deriving them from the profiles must not move a single entry.
+        self.assertEqual(campaign.DEFAULT_FOLDERS, {
+            'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive', 'snes': 'snes',
+            'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'})
+        self.assertEqual(campaign.EXTENSIONS, {
+            'sms': ('.sms', '.zip'), 'gg': ('.gg', '.zip'), 'gb': ('.gb', '.zip'), 'nes': ('.nes', '.zip'),
+            'md': ('.md', '.gen', '.smd', '.bin', '.zip'), 'snes': ('.sfc', '.smc', '.zip'),
+            'ng': ('.zip',), 'cps1': ('.zip',), 'x68': ('.dim', '.xdf')})
+        self.assertEqual(set(campaign.REQUIRE_PACKED), {'ng', 'cps1'})
+        self.assertEqual(set(campaign.REQUIRE_STATES), {'ng', 'cps1', 'x68'})
+        self.assertEqual(set(campaign.ROMSET_CONSOLES), {'ng', 'cps1'})
+
+    def test_every_registered_machine_is_a_console_of_the_campaign(self):
+        ids = tuple(profile.id for profile in ALL_PROFILES)
+        self.assertEqual(campaign.CONSOLES, ids)
+        self.assertEqual(tuple(campaign.DEFAULT_FOLDERS), ids)
+        self.assertEqual(tuple(campaign.EXTENSIONS), ids)
+
+    def test_a_machine_the_share_does_not_name_is_looked_for_by_its_id_and_its_own_extensions(self):
+        from tests.test_registration_surface import SyntheticProfile
+
+        def profile(media, extensions):
+            return type('Synthetic', (SyntheticProfile,), {'media_kinds': media, 'extensions': extensions})()
+
+        self.assertEqual(campaign._share_extensions(profile(('cartridge',), ('.zzc',))), ('.zzc', '.zip'))
+        self.assertEqual(campaign._share_extensions(profile(('romset',), ('.zzr',))), ('.zip',))
+        self.assertEqual(campaign._share_extensions(profile(('disk',), ('.zzd', '.m3u'))), ('.zzd',))
+        self.assertNotIn('zz', campaign.SHARE_FOLDERS)
 
 
 class TitleTests(unittest.TestCase):
@@ -460,14 +495,16 @@ class RiskCaseFileTests(unittest.TestCase):
 
     def test_every_console_has_cases_with_a_reason_and_a_document_that_exists(self):
         self.assertEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
+        experimental = {profile.id for profile in ALL_PROFILES if profile.status == 'experimental'}
         for console, entries in self.cases['consoles'].items():
             # Arthur, 27 Oct 2026: about half of the first lists, five at most, plus two random games (7 a console).
-            self.assertTrue(4 <= len(entries) <= 5, console)
+            # A machine that has just joined the registry may have no case yet while it is experimental.
+            self.assertTrue(4 <= len(entries) <= 5 or (not entries and console in experimental), console)
             for entry in entries:
                 for key in ('title', 'category', 'reason', 'source'):
                     self.assertTrue(entry.get(key), (console, entry))
                 self.assertTrue((ROOT / entry['source']).is_file(), entry['source'])
-                if console in ('ng', 'cps1'):
+                if console in campaign.ROMSET_CONSOLES:
                     self.assertTrue(entry.get('set'), entry)
 
     def test_a_case_names_a_title_once_per_console_and_category_coverage_is_varied(self):

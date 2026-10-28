@@ -655,6 +655,49 @@ class Registration(unittest.TestCase):
         self.assertEqual(report_schema.SCHEMA_VERSION, 2)
         self.assertEqual(report_schema.SCHEMA_NAME, 'retro-recomp-report')
 
+    def test_the_shapes_are_read_from_the_profiles(self):
+        from retrorecomp.systems import ALL_PROFILES
+        shapes = report_schema._SHAPES
+        self.assertEqual(set(shapes), {profile.id for profile in ALL_PROFILES})
+        for profile in ALL_PROFILES:
+            shape = shapes[profile.id]
+            main = next(cpu for cpu in profile.cpus if cpu.role == 'main')
+            sound = next((cpu for cpu in profile.cpus if cpu.role == 'sound'), None)
+            with self.subTest(console=profile.id):
+                self.assertEqual((shape.writer, shape.marker), (profile.report_shape.writer, profile.report_shape.marker))
+                self.assertEqual((shape.main_arch, shape.main_unit), (main.arch, main.unit))
+                self.assertEqual(shape.audio_arch, sound.arch if sound else None)
+
+    def test_a_machine_registered_later_is_read_without_editing_the_module(self):
+        from retrorecomp.systems import registry
+        from retrorecomp.systems.specs import ReportShape
+        from tests.test_registration_surface import SyntheticProfile
+
+        class WithReport(SyntheticProfile):
+            report_shape = ReportShape('core', 'strict_checks')
+
+        self.assertNotIn('zz', report_schema._SHAPES)
+        registry.register(WithReport())
+        try:
+            self.assertEqual(report_schema._SHAPES['zz'].writer, 'core')
+            document = read_report(sms_report('zz'))
+            self.assertEqual(document['system']['id'], 'zz')
+            self.assertEqual(document['cpus'][0]['arch'], 'm68000')
+        finally:
+            registry.unregister('zz')
+        self.assertNotIn('zz', report_schema._SHAPES)
+        with self.assertRaises(ReportShapeError):
+            read_report(sms_report('zz'))
+
+    def test_a_machine_that_declines_a_report_has_no_shape(self):
+        from retrorecomp.systems import registry
+        from tests.test_registration_surface import SyntheticProfile
+        registry.register(SyntheticProfile())
+        try:
+            self.assertNotIn('zz', report_schema._SHAPES)
+        finally:
+            registry.unregister('zz')
+
 
 if __name__ == '__main__':
     unittest.main()
