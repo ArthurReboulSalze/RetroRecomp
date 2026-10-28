@@ -672,7 +672,6 @@ INPUTS = {
         'native/console16_main.c',
         'native/console16_state.c',
         'native/console16_state.h',
-        'native/console16_video.h',
         'native/gun16.c',
         'native/gun16.h',
         'native/gun16_checks.c',
@@ -683,8 +682,10 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell and its staging module: every console that links it (phases 1 and 2).
+    # The host kit's shell and its staging module: every console that links it (phases 1 and 2). console16_video.h
+    # (rr16_video_rect) is included by the kit's video shell, so NES exports compile it too; game role.
     ('md', 'snes', 'ng', 'cps1', 'nes'): (
+        'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
         'native/hostkit/shell/rrhk_audio.c',
