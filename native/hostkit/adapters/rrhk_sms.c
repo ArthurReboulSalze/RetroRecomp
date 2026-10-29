@@ -344,7 +344,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
             .page = sms_light_phaser ? &page : NULL,
-            .audio_reopen = host_audio_reopen,
+            .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event, .game_rect = game_rect, .pause_page = pause_page,
         };

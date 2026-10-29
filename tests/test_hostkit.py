@@ -192,6 +192,28 @@ class SoundAndSpeedTests(unittest.TestCase):
         body = adapter.split('static void rr_gb_reset(void) {', 1)[1].split('}', 1)[0]
         self.assertIn('rrhk_autofire_reset();', body)
 
+    def test_a_removed_output_device_is_replaced_on_every_console(self):
+        audio = (KIT / 'shell/rrhk_audio.c').read_text(encoding='utf-8')
+        # the machines that own their device say which one it is
+        self.assertIn('m->audio_device_id()', audio)
+        self.assertIn('.audio_device_id = host_audio_device_id', (KIT / 'adapters/rrhk_sms.c').read_text(encoding='utf-8'))
+        self.assertIn('.audio_device_id = audio_device_id', (KIT / 'adapters/rrhk_md.c').read_text(encoding='utf-8'))
+        self.assertIn('rr_md_audio_device_id', (ROOT / 'retrorecomp/megadrive_audio.py').read_text(encoding='utf-8'))
+        # a device that is gone is opened again through the opening path, not only replaced while it is open
+        body = audio.split('bool rrhk_audio_reopen(RrhkRun *run) {', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('rrhk_audio_open(run)', body)
+        self.assertNotIn('if (!run->audio) return false;', body)
+
+    def test_a_pad_plugged_or_unplugged_never_leaves_the_fast_forward_held(self):
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        speed = events.split('static void speed_event(', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('SDL_CONTROLLERDEVICEREMOVED', speed)
+        self.assertIn('rrhk.fast_hold &= ~HOLD_TRIGGER', speed)
+
+    def test_a_chord_of_the_quit_or_restart_combination_is_not_a_sound_key(self):
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        self.assertEqual(events.count('rrhk_options_component('), 4)     # Pause (two), the Tab hold, and M / backquote
+
     def test_the_new_strings_are_in_every_locale(self):
         import json
         for code in ('fr', 'it', 'es', 'de', 'ja', 'ru', 'zh'):

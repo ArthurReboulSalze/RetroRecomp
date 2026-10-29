@@ -228,13 +228,21 @@ static void sound_controls(void) {
     /* The device: without the audio subsystem the cycle has only the system default; a stored name shows (ASCII only). */
     unsigned serial=rr_sound_device_serial();
     rr_sound_set_device("Speakers \xc3\xa9");assert(rr_sound_device_serial()==serial+1);
-    char label[100];rr_sound_device_label(label,sizeof label);assert(!strcmp(label,"Speakers ??"));
+    char label[100];rr_sound_device_label(label,sizeof label);assert(!strcmp(label,"Speakers \xc3\xa9"));
     rr_options.row=4;assert(page_key(&d,SDL_SCANCODE_RETURN)==-1 && !rr_sound_device()[0]);
     rr_sound_device_label(label,sizeof label);assert(!strcmp(label,"System default"));
     rr_sound_set_device("Kept");rr_sound_set_volume(200);rr_options_init(L"Fixture");rr_sound_load(100,0,"");
     assert(rr_ini_int(rr_options.section,L"audio_volume",-1,rr_options.file)==200);
     wchar_t stored[300];rr_ini_get(rr_options.section,L"audio_device",L"?",stored,300,rr_options.file);assert(!wcscmp(stored,L"Kept"));
     rr_remove(rr_options.file);
+    /* A preferences file that cannot be written (a read-only install) never blocks a choice: it applies, and the page says so. */
+    rr_options.file[0]=0;
+    serial=rr_sound_device_serial();
+    rr_sound_set_device("Elsewhere");
+    assert(!strcmp(rr_sound_device(),"Elsewhere") && rr_sound_device_serial()==serial+1 && !strcmp(rr_options.status,rr_tr("Config unavailable")));
+    rr_options.status[0]=0;rr_sound_set_volume(40);
+    assert(rr_sound_volume()==40 && !strcmp(rr_options.status,rr_tr("Config unavailable")));
+    assert(rr_sound_toggle_mute() && rr_sound_muted());
 }
 /* F2 pages: control pages, an optional gun page, then the options. */
 static void pages(void) {

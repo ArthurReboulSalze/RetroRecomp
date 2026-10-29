@@ -89,6 +89,8 @@ int rr_md_audio_reopen(void) {
     audio_close();
     return audio_init(rr_md_psg_rate)==0;
 }
+/* The id SDL gave the device (0 without one): the host tells which device an SDL_AUDIODEVICEREMOVED is about. */
+unsigned rr_md_audio_device_id(void) { return (unsigned)s_dev; }
 void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,uint64_t *stretches) {
     if(s_dev)SDL_LockAudioDevice(s_dev);
     *wait=rr_md_audio_lock_ticks;*pull=rr_md_audio_pull_ticks;*calls=rr_md_audio_pulls;

@@ -126,7 +126,7 @@ static bool rr_options_store(const wchar_t *entry, int value) {
  * the device, empty for the system default). Every console's output goes through rr_options_audio below. */
 #define RR_VOLUME_MAX 200
 #define RR_VOLUME_STEP 10
-#define RR_DEVICE_MAX 16
+#define RR_DEVICE_MAX 32     /* the devices of the cycle; SDL's list is cut there */
 static bool rr_options_store_text(const wchar_t *entry, const char *utf8) {
     wchar_t text[300];
     bool ok = rr_from_utf8(utf8, text, 300) && rr_options.file[0] && rr_mkdir(rr_options.dir) &&
@@ -144,11 +144,13 @@ static int rr_sound_volume(void) {return SDL_AtomicGet(&rr_options.volume);}
 static bool rr_sound_muted(void) {return SDL_AtomicGet(&rr_options.muted) != 0;}
 static void rr_sound_set_volume(int volume) {
     volume = volume < 0 ? 0 : volume > RR_VOLUME_MAX ? RR_VOLUME_MAX : volume;
-    if (rr_options_store(L"audio_volume", volume)) SDL_AtomicSet(&rr_options.volume, volume);
+    SDL_AtomicSet(&rr_options.volume, volume);      /* applied first: a folder that cannot be written only loses the choice at the next start */
+    rr_options_store(L"audio_volume", volume);
 }
 static bool rr_sound_toggle_mute(void) {
     const int muted = !rr_sound_muted();
-    if (rr_options_store(L"audio_muted", muted)) SDL_AtomicSet(&rr_options.muted, muted);
+    SDL_AtomicSet(&rr_options.muted, muted);
+    rr_options_store(L"audio_muted", muted);
     return rr_sound_muted();
 }
 /* The output devices SDL lists now (none before the audio subsystem is started), at most RR_DEVICE_MAX. */
@@ -164,9 +166,9 @@ static int rr_sound_devices(char names[][256]) {
 static const char *rr_sound_device(void) {return rr_options.device;}
 static unsigned rr_sound_device_serial(void) {return (unsigned)SDL_AtomicGet(&rr_options.device_serial);}
 static void rr_sound_set_device(const char *name) {
-    if (!rr_options_store_text(L"audio_device", name)) return;
     snprintf(rr_options.device, sizeof rr_options.device, "%s", name);
     SDL_AtomicAdd(&rr_options.device_serial, 1);
+    rr_options_store_text(L"audio_device", name);   /* says "Config unavailable" when it cannot be kept */
 }
 /* The next (or previous) choice of the cycle: the system default, then each device SDL lists. */
 static void rr_sound_cycle_device(int step) {
@@ -177,11 +179,11 @@ static void rr_sound_cycle_device(int step) {
     position = ((position + step) % (count + 1) + count + 1) % (count + 1);
     rr_sound_set_device(position ? names[position - 1] : "");
 }
-/* The name on the options page: ASCII only, as the menu font has nothing else. */
+/* The name on the options page (the menu drops the accents itself). */
 static void rr_sound_device_label(char *out, size_t size) {
     const char *name = rr_options.device[0] ? rr_options.device : rr_tr("System default");
     size_t n = 0;
-    for (; *name && n + 1 < size; ++name) out[n++] = (unsigned char)*name >= 32 && (unsigned char)*name < 127 ? *name : '?';
+    for (; *name && n + 1 < size; ++name) out[n++] = (unsigned char)*name >= 32 ? *name : '?';
     out[n] = 0;
 }
 

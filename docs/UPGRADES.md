@@ -482,6 +482,10 @@ is not 100%.
 - *Preferences:* new keys `audio_volume`, `audio_muted` and `audio_device` under `[<Console>.Options]`. A Game Boy export of 1.6.2 keeps
   its volume, mute and output device: `audio.volume_percent`, `audio.muted` and `audio.device_name` of the flat
   `datas/Retro-Recomp-GameBoy.ini` are read where the new keys are absent (never written, never deleted).
+- *Behaviour notes of the sound stage:* a volume, mute or output-device choice applies even if `datas` cannot be written (the page says
+  "Config unavailable"); an unplugged output is replaced by the default on every console, the Master System, Game Gear and Mega Drive
+  included; at most 32 output devices are offered. Edited for this (host inputs): `audio_output.inc`, `rrhk_audio.c`, `rrhk_events.c`,
+  the adapters `rrhk_md.c` and `rrhk_sms.c`, `megadrive_audio.py`.
 - *Fixes of the review of phase 5, same release:* a menu or the Pause menu stops a guest that owns the loop (Game Boy, Master System,
   Game Gear) even while a quick-state request waits for its safe boundary (the Game Boy can wait many slices with the LCD off); the Game
   Boy's reset forgets the held autofire buttons as a state load does.

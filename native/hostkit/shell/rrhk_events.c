@@ -78,7 +78,13 @@ static void toggle_mute(void) {
 static void speed_event(const SDL_Event *event) {
     if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
     else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
-             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB)) rrhk.fast_hold |= HOLD_KEY;
+             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
+        rrhk.fast_hold |= HOLD_KEY;
+    /* A pad plugged or unplugged: the trigger it held is gone, and the slots are dealt again (the hold would stick). */
+    else if (event->type == SDL_CONTROLLERDEVICEADDED || event->type == SDL_CONTROLLERDEVICEREMOVED) {
+        rrhk.fast_hold &= ~HOLD_TRIGGER;
+        memset(trigger_down, 0, sizeof trigger_down);
+    }
     else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         rrhk.fast_hold = 0;
         memset(trigger_down, 0, sizeof trigger_down);
@@ -204,7 +210,7 @@ void rrhk_poll_events(RrhkRun *run) {
                 rr_ini_set(L"Interface", L"language", rr_language_wide(rrhk.language), rrhk.ini_file);
         } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
             run->pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
-        } else if ((key == SDL_SCANCODE_M || key == SDL_SCANCODE_GRAVE) && (from_row || (sound_keys_open() && !key_bound(key)))) {
+        } else if ((key == SDL_SCANCODE_M || key == SDL_SCANCODE_GRAVE) && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) {
             if (key == SDL_SCANCODE_M) toggle_mute(); else toggle_max_speed();
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
             if (m->page && m->page->key) m->page->key(&rrhk, key);

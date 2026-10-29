@@ -69,28 +69,26 @@ void rrhk_audio_idle(RrhkRun *run) {
 bool rrhk_audio_reopen(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     if (m->own_audio) return m->audio_reopen ? m->audio_reopen() : false;
+    if (run->video_clock_test) return false;      /* a run that tests the video clock plays no sound */
+    /* The device that is open is closed, then the sound is opened as at the start: from a device that is gone (the queue closed
+     * after a failed push, a ring that could not open, an unplugged output) it is the same path. */
     if (m->audio_model == RRHK_AUDIO_RING) {
-        if (!run->audio) return false;
-        run->audio = rrhk_ring_reopen() ? rrhk_ring_device() : 0;
-        rrhk_options_audio_reset();
-        return run->audio != 0;
+        if (run->audio && rrhk_ring_reopen()) run->audio = rrhk_ring_device();
+        else { run->audio = 0; rrhk_ring_close(); rrhk_audio_open(run); }
+    } else {
+        if (run->audio) SDL_CloseAudioDevice(run->audio);
+        run->audio = 0;
+        rrhk_audio_open(run);
     }
-    if (!run->audio) return false;
-    SDL_AudioSpec want = {0};
-    want.freq = m->audio_rate ? (int)m->audio_rate : 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 512;
-    SDL_CloseAudioDevice(run->audio);
-    memset(&run->have, 0, sizeof run->have);
-    run->audio = open_queue_device(&want, &run->have);
-    run->audio_preroll = ((Uint32)(run->have.freq * m->frame_seconds) + run->have.samples) * 4;
-    run->audio_playing = false;
-    memset(&run->cushion, 0, sizeof run->cushion);
     rrhk_options_audio_reset();
     return run->audio != 0;
 }
 
-/* The device SDL gave this loop for the sound, 0 when it has none (own_audio machines keep theirs). */
+/* The device SDL gave the sound of this machine, 0 when it has none (an own_audio machine says through audio_device_id). */
 SDL_AudioDeviceID rrhk_audio_device_id(const RrhkRun *run) {
-    return run->machine->audio_model == RRHK_AUDIO_RING ? rrhk_ring_device() : run->audio;
+    const RrhkMachine *m = run->machine;
+    if (m->own_audio) return m->audio_device_id ? m->audio_device_id() : 0;
+    return m->audio_model == RRHK_AUDIO_RING ? rrhk_ring_device() : run->audio;
 }
 
 /* Bytes waiting in the device queue; 0 without a device or on the ring model. */

@@ -63,11 +63,13 @@ static void timing_report(FILE *file, Uint64 frequency) {
 extern void (*rr_md_audio_stage)(void *pcm, unsigned frames, int channels, int floating, int rate);
 extern const char *rr_md_audio_device_name;
 extern int rr_md_audio_reopen(void);
+extern unsigned rr_md_audio_device_id(void);
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 static void sound_ready(void) {
     rr_md_audio_device_name = rrhk_audio_device();
     rr_md_audio_stage = rrhk_options_audio;
 }
+static SDL_AudioDeviceID audio_device_id(void) { return (SDL_AudioDeviceID)rr_md_audio_device_id(); }
 static bool audio_reopen(void) {
     rr_md_audio_device_name = rrhk_audio_device();
     return rr_md_audio_reopen() != 0;
@@ -119,7 +121,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .pointer_input = pointer_input,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
-            .sound_ready = sound_ready, .audio_reopen = audio_reopen,
+            .sound_ready = sound_ready, .audio_reopen = audio_reopen, .audio_device_id = audio_device_id,
         };
     }
     return &machine;

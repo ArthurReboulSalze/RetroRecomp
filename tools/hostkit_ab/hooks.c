@@ -25,6 +25,7 @@
  *   button <p> <Name> <0|1>   | axis <p> <Name> <value>
  *   mouse <x> <y> <mask>      window coordinates, SDL button mask; click: a left button press event
  *   capture <file.bmp>        save the next presented picture
+ *   audioremove               push SDL_AUDIODEVICEREMOVED for the harness's output device (id 2)
  *   quit                      push SDL_QUIT
  */
 #include <SDL.h>
@@ -161,6 +162,10 @@ static void run_command(const char *command) {
         e.button.x = mouse_x; e.button.y = mouse_y; SDL_PushEvent(&e);
     }
     else if (sscanf(command, "capture %127s", name) == 1) snprintf(capture_path, sizeof capture_path, "%s/%s", getenv("RRAB_OUT"), name);
+    else if (!strcmp(command, "audioremove")) {   /* SDL says the output device (the harness's one, id 2) was unplugged */
+        SDL_Event e; memset(&e, 0, sizeof e);
+        e.type = SDL_AUDIODEVICEREMOVED; e.adevice.which = 2; e.adevice.iscapture = 0; SDL_PushEvent(&e);
+    }
     else if (!strcmp(command, "quit")) { SDL_Event e; memset(&e, 0, sizeof e); e.type = SDL_QUIT; SDL_PushEvent(&e); }
     else { fprintf(stderr, "rrab: unknown command %s\n", command); exit(5); }
 }

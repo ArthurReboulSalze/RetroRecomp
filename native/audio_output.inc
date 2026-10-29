@@ -250,12 +250,17 @@ void host_audio_submit(const int16_t *samples, size_t count) {
     audio_push(output, pending);
 }
 
+/* The id SDL gave the device (0 without one): the host tells which device an SDL_AUDIODEVICEREMOVED is about. */
+SDL_AudioDeviceID host_audio_device_id(void) { return audio_device; }
+
 /* The player chose another output device: the same stream on the new one, from an empty ring. false: none could be opened. */
 bool host_audio_reopen(void) {
     if (!audio_device) return false;
     const uint32_t rate = rr_audio.source_rate;
     SDL_CloseAudioDevice(audio_device); audio_device = 0;
-    return host_audio_init(rate);
+    const bool opened = host_audio_init(rate);
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);      /* host_audio_init started the subsystem once more: the count stays what it was */
+    return opened;
 }
 
 void host_audio_shutdown(void) {

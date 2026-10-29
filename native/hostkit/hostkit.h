@@ -206,6 +206,7 @@ typedef struct RrhkMachine {
     /* Sound controls (1.6.3). A machine that opens its own sound device (own_audio: Mega Drive, Master System, Game Gear)
      * closes it and opens it again with rrhk_audio_device() when the player chooses another output; false: it could not. */
     bool (*audio_reopen)(void);
+    SDL_AudioDeviceID (*audio_device_id)(void);   /* the id SDL gave that device, 0 when it has none: an SDL_AUDIODEVICEREMOVED for it reopens it */
     /* Called once the preferences and the sound controls are read, after the kit opened its own sound output: a machine that
      * opened its device before that (Mega Drive) attaches the kit's sound stage (rrhk_options_audio) to it here. */
     void (*sound_ready)(void);

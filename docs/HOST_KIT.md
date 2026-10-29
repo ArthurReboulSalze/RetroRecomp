@@ -248,12 +248,18 @@ X68000 too, without asking again**.
     whatever still arrives; the output is cleared at each change of speed, so that it starts again clean at 100%.
   * **Mute**: **M** toggles, kept. **Volume**: 0 to 200% (100% is the machine's sound as it is), a row of the options page. **Output
     device**: a row of the options page, the system default or one of the devices SDL lists (the upstream panel's combo); a device
-    that cannot be opened falls back to the default with a line on stderr, and a device unplugged while in use is replaced by the
-    default. All of it acts on what reaches the device, never on the machine, so the guest's own sound state is unchanged.
+    that cannot be opened falls back to the default with a line on stderr, and a device unplugged while in use (SDL's
+    `SDL_AUDIODEVICEREMOVED`) is replaced by the default, **on every console**: the machines that own their device say which one it is
+    (`RrhkMachine.audio_device_id`: the Master System and Game Gear output, the Mega Drive engine's `rr_md_audio_device_id`). A kit
+    device that is gone (a queue closed after a failed push, a ring that could not open) is opened again through the opening path
+    when another device is chosen. The cycle lists at most 32 devices (the rest of SDL's list is not offered). A choice **applies even
+    when the preferences file cannot be written** (a read-only install): the page then says "Config unavailable", as F3 does, and the
+    choice lasts until the program ends. All of it acts on what reaches the device, never on the machine, so the guest's own sound state is unchanged.
   * **Keys**: Tab, backquote and M are in no machine's default controls (checked on the nine action tables) and in no kit key; a key a
     player has bound to a control keeps that control (the shortcut is then off), they are not offered while a binding is being
     captured, nor to a machine that has the keyboard (`keyboard_pad` false: the X68000 in full guest typing, where the options rows
-    remain), and a Tab pressed in a menu does not start a hold. The X68000 keeps its **F5** fast loading (unthrottled, silent, one
+    remain), and a Tab pressed in a menu does not start a hold. A key that is part of the Quit or Restart combination (keyboard) is not a sound key
+    either, as it is not the Pause key. Plugging or unplugging a pad ends a fast-forward held with a trigger (the slots are dealt again). The X68000 keeps its **F5** fast loading (unthrottled, silent, one
     picture in eight) as it is, and the Tab help page; in game-shortcut mode its keyboard is not passed to the guest, so the three
     keys are free there. Documented in the F1 help of every console (one line) and in [CONTROLS.md](CONTROLS.md#speed-and-sound).
   * **Where**: one sound stage, `rrhk_options_audio` (volume, mute, hold, then the audio filter), which every output already called
@@ -978,6 +984,12 @@ For the Mega Drive the engine's own audio callback is built against the harness 
 * ROM-free: `tools/game_options_selftest.py` (volume, mute, hold, F32, persistence, the rows and the device cycle, in C and C++),
   `nes_audio_selftest.py`, `autofire_selftest.py`, `start_select_selftest.py` (msvc), `gameboy_latency_selftest.py` and
   `gameboy_display_selftest.py` (the Game Boy's 1.6.2 `audio.*` keys reach the kit's controls), `tests/test_hostkit.py`.
+* **Review fixes** (Mega Drive Blockout, harness; a script commands `audioremove`, which pushes `SDL_AUDIODEVICEREMOVED` for the
+  harness's device): a pad whose right trigger is held and that is then unplugged slept 5 ms an iteration while held and 15 ms after the
+  unplug (the pace of a normal speed; before, the hold stayed); the removal of the device on the Mega Drive, which owns its device,
+  logged the close and the open of the engine's sound again in the same iteration. `game_options_checks.c` checks that a volume, a mute
+  and a device choice apply when the preferences file has no path; `audio_checks.c` that the Master System and Game Gear output reopens
+  on a new device several times and leaves the audio subsystem started once.
 * A Game Boy conversion made at a path of more than about 200 characters cannot write its battery file (`.sav.tmp-v1`, 260-character limit),
   which changes what the discovery plays see: keep the `--work` folder of `ab_conversion.py` short (the first Game Boy comparison of this
   work, in a deep folder, showed 8 more observed ROM entries on the side with the short path; both sides at a short path are identical).
