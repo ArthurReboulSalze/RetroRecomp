@@ -548,7 +548,8 @@ class Console16Tests(unittest.TestCase):
                 audio_native_opcodes=200, audio_interpreted_opcodes=0,
                 audio_native_cycles=800, audio_interpreted_cycles=0, audio_cpu='native',
                 cartridge_chip='superfx', coprocessor_mode='interpreted',
-                coprocessor_instructions=device, coprocessor_failed=0, coprocessor_commands=0)
+                coprocessor_instructions=device, coprocessor_failed=0, coprocessor_commands=0,
+                ram_observation_overflows=7 if play else 0)
             return data
 
         with patch('retrorecomp.console16.prepare16', return_value=executable), \
@@ -558,6 +559,10 @@ class Console16Tests(unittest.TestCase):
                 patch('retrorecomp.console16.reference_differences', return_value=[]):
             convert16(source, system_id='snes', output=self.root / 'reports', frames=30, passes=1,
                       emit=log.append)
+        # A run past the 16,384-variant limit says so in the log, only for the scenario that did.
+        overflow = [line for line in log if 'past the 16384-variant limit' in line]
+        self.assertEqual(len(overflow), 1)
+        self.assertIn('play: 7 RAM code observations', overflow[0])
         report = json.loads((self.root / 'reports/conversion-report.json').read_text())
         self.assert_written_in_schema_2(report)
         self.assertEqual(report['devices'][0]['id'], 'superfx')

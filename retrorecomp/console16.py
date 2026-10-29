@@ -866,6 +866,12 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
                  f"{check['audio_interpreted_opcodes']} interpreted {'Z80' if system_id == 'md' else 'SPC700'} opcodes.")
             if system_id=='snes' and check.get('coprocessor_instructions'):
                 emit(f"{check['cartridge_chip'].upper()}: {check['coprocessor_instructions']} counted interpreted device instructions.")
+            if system_id=='snes' and check.get('ram_observation_overflows'):
+                # The run met more distinct RAM instructions than a cartridge can keep (the limit is
+                # not raised silently): the ones past it are not learned and stay on the counted path.
+                emit(f"{name} {check['scenario']}: {check['ram_observation_overflows']} RAM code observations "
+                     f"were past the {supernintendo.RAM_VARIANT_LIMIT}-variant limit and were not recorded; "
+                     'those instructions stay on the counted interpreter.')
         history.append({'pass': attempt + 1, 'checks': [
             {key: check.get(key) for key in ('scenario', 'frames', 'native_entries', 'interpreted_opcodes',
              'rom_fallback_opcodes', 'ram_fallback_opcodes', 'audio_native_opcodes',
