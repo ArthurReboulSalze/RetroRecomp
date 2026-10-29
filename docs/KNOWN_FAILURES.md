@@ -21,15 +21,12 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Game Boy | The Ren & Stimpy Show: Veediots! | Failing | Same symptom: probes at the 600-second limit, game not qualified | Same attempts; not replayed since 1.6.4 | 10 October 2026 |
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
-| Mega Drive | Boxing Legends of the Ring (USA) | Failing | The game reaches the 68000 `RESET` instruction, whose board wiring is not modelled, and the conversion stops | Cause found in the 24 October campaign ([MEGADRIVE.md](MEGADRIVE.md), known limits); no `RESET` emulation tried. Not replayed on 1.6.5 | 24 October 2026 |
-| Mega Drive | Dragon's Revenge (USA) | Failing | Same cause: the `RESET` instruction is reached | Same; no `RESET` emulation tried. Not replayed on 1.6.5 | 24 October 2026 |
-| Mega Drive | Barkley Shut Up and Jam! (USA) | Failing | An opcode the decoder does not accept is reached in the cartridge header area, and the conversion stops | Located in the 24 October campaign; whether it is real code or data read as code is not checked. Not replayed on 1.6.5 | 24 October 2026 |
+| Mega Drive | Barkley Shut Up and Jam! (USA) | Failing (cause found) | After 42 frames the game jumps to `$0000`: at `$EB8` it requests the Z80 bus (`MOVE.W #$0100,$A11100`), tests the grant once (`BTST #0,$A11100`, `BNE.W` to `$0000`) and assumes it at once; our bus arbiter grants it one slice late (about 188 master clocks instead of at most about 90) | Real code, not data read as code; traced to the slice approximation of `native/md_z80_bus.inc` (not proven). A dedicated arbiter change is planned (authored reproducer first, then a 13-game A/B) | 24 October 2026, cause found 29 October 2026 |
 | NES | Famicom Disk System images | Refused by design | Disk images are not a supported medium ([NES.md](NES.md)) | Outside the machine's scope; the upstream's FDS work is deferred ([UPSTREAMS.md](UPSTREAMS.md#deferred)) | Always |
 | Super Nintendo | SA-1 cartridges, 15 (for example Super Mario RPG, Kirby Super Star, Kirby's Dream Land 3) | Refused by design | The SA-1 coprocessor is not handled; the converter names it and stops | Outside the current scope | Always |
 | Super Nintendo | S-DD1 cartridges, 3 (Star Ocean, Street Fighter Alpha 2) | Refused by design | S-DD1 decompression chip, not handled | Outside the current scope | Always |
 | Super Nintendo | SPC7110 (Super Power League 4) | Refused by design | SPC7110 chip, not handled | Outside the current scope | Always |
 | Super Nintendo | DSP-2 and DSP-4 (Dungeon Master, Top Gear 3000) | Refused by design | Only the DSP-1 is modelled | Outside the current scope | Always |
-| Super Nintendo | DSP-1 on HiROM boards other than Super Mario Kart's, 7 (for example Lock On, Super Air Diver 2, Suzuka 8 Hours) | Refused by design | Header `$31` with chip type `$03`: only the Super Mario Kart HiROM signature and the LoROM DSP-1 are recognised | Extending the recognised signatures is possible, not tried | 29 October 2026 |
 | Super Nintendo | Other chips, 4 (F1 ROC II, Metal Combat, Villgust) | Refused by design | Chip types `$F6` and `$25` and others, not handled | Outside the current scope | Always |
 | Super Nintendo | ExHiROM or more than 4 MiB, 4 (Dragon Quest III, Tales of Phantasia, Wizardry VI) | Refused by design | Map mode not handled | Outside the current scope | Always |
 | Super Nintendo | `.fig` copier dumps (4 seen) | Refused by design | The file type is not read (`.sfc`, `.smc`, `.bin` and `.rom` only) | Renaming to `.smc` after checking the dump is not interleaved should work; not tried | 29 October 2026 |
@@ -61,3 +58,9 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
   reprogrammed the CRTC during a machine line: a line made visible before it was drawn indexed the line tables with the
   "no line" marker. The line is now taken from the CRTC as it is then (`native/x68000_machine/glue_line.h`); both convert with
   zero interpreted opcodes.
+- **Mega Drive, Boxing Legends of the Ring and Dragon's Revenge** (29 October 2026). Both execute the 68000 `RESET` instruction
+  early; it is now executed natively in supervisor mode (PC + 2, 132 clocks; on the Mega Drive it only pulses the cartridge
+  reset line). Both convert with zero interpreted 68000 and Z80 instructions.
+- **Super Nintendo, the seven DSP-1 HiROM cartridges** (map mode `$31`, chip type `$03`: Lock On, Super Air Diver 2, Suzuka
+  8 Hours and others, 29 October 2026). They are recognised like Super Mario Kart's board; Lock On converts with zero
+  interpreted 65816 and SPC700 instructions.
