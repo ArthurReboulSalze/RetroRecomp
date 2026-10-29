@@ -128,7 +128,7 @@ very same folder (the generated files hold absolute paths), with the same option
   `upgrade.from_release` = `1.5.6`, `check_level` quick, and their final checks (scenario hashes, native and interpreted
   counters, frames) equal those of the 1.5.6 report. The two Mega Drive games keep the interpreter fallback they already had
   in 1.5.6 (Art Alive 11.4 million opcodes in the demo, Alex Kidd in the Enchanted Castle 26 and 96), which the campaign verdict
-  (limit 0) marks FAIL; the upgrade neither adds nor removes any. The upgrade report keeps the scan level of the export's own discovery, read from `scan_level`, `scan.level` or `advanced_scan.level` (the Mega Drive, Super Nintendo and NES reports of 1.5.x only have the last), so an Extended or Thorough export of 1.5.6 stays one after an upgrade. Quick states: the Mega Drive, Neo Geo (both added in this work) and CPS-1 exports upgraded from 1.5.6 load the quick states written by the 1.5.6 export on Windows, the Super Nintendo ones do not ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-156)).
+  (limit 0) marks FAIL; the upgrade neither adds nor removes any. The upgrade report keeps the scan level of the export's own discovery, read from `scan_level`, `scan.level` or `advanced_scan.level` (the Mega Drive, Super Nintendo and NES reports of 1.5.x only have the last), so an Extended or Thorough export of 1.5.6 stays one after an upgrade. Quick states: the Mega Drive, Neo Geo (both added in this work) and CPS-1 exports upgraded from 1.5.6 load the quick states written by the 1.5.6 export on Windows, the Super Nintendo ones do not ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-156-history)).
 
 Measurements stay separate: this is native code, CPU fidelity against the fresh reference on the quick routes and the identity
 of the generated game; it says nothing about hardware fidelity, gameplay or latency. A Linux 1.5.6 export is not covered (the
@@ -884,8 +884,10 @@ hardware fidelity, gameplay validation and latency are not measured by them.
   *Edited:* `retrorecomp/snes_codegen.py`, `console16.py` (game inputs). **The `snes` game stamp moves**: SNES exports of
   1.6.2 are converted in full, not upgraded, for the same reason as the 68000 consoles. This fix moves no host or build
   stamp, no quick-state key and not the base. Checked by `tools/snes_native_selftest.py` (BRK and COP in both modes, native against the reference, LoROM and HiROM)
-  and a Super Mario World conversion (0 interpreted opcodes on the tested routes). Not changed: hardware NMI and IRQ in
-  emulation mode, which behave as in native mode (rare: games switch to native mode at start).
+  and a Super Mario World conversion (0 interpreted opcodes on the tested routes). Hardware NMI and IRQ entry needed no
+  change: the adapter's own entry (`rr_snes_cpu_interrupt`, since 1.0.0) already follows the mode (bank stacked only in
+  native mode, 7 cycles in emulation mode and 8 in native, vectors `$FFFA/$FFFE` or `$FFEA/$FFEE`), checked in both modes
+  by `native/snes_bus_checks.c`.
 - **Master System and Game Gear, "functions" engine: no direct call to a paged address.** The generator no longer turns a
   call or jump to an address at or above $0400 into a direct C call when its static walk saw one bank variant only: the
   call goes through the dispatch, which checks the bank mapped at that moment. Only the fixed first KiB is called directly.

@@ -19,7 +19,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F2 | Settings pages: controls, gun, display & game, options |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
-| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode |
+| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear F5 is currently unavailable, because of a regression of 1.6.3 (the move to the common host kit) that is to be fixed |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
@@ -281,7 +281,8 @@ an optional display enhancement, not a recompilation coverage setting. It cannot
 restore sprites a game deliberately leaves out. Stabilization can change which
 overlapping character appears in front; ambiguous identities, raster rewrites
 and lasting priority changes retain cartridge ordering. Game Gear uses the same
-renderer and option, saved in `[GameGear.Video] reduce_sprite_flicker`.
+renderer and option, saved in `[GameGear.Video] reduce_sprite_flicker`; on the Game Gear, F5 is currently
+unavailable (the host answers "Config unavailable"), a regression of 1.6.3 that is to be fixed.
 
 On NES, **F5** draws objects 9 to 64 of a scanline where none of the eight
 original sprite units is opaque, in OAM order and with their own background

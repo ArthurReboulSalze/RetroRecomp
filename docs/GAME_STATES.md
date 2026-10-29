@@ -16,7 +16,7 @@ Successful F9 restores both memories and can persist those restored values on
 exit. The ordinary format survives runtime-ABI updates for identical cartridge,
 BIOS and system/region identities. The corrected quick-state format additionally
 preserves volatile PVC protection RAM: 520,517 bytes on tested PVC boards,
-512,325 on the other current tested boards. See [current Neo Geo qualification](NEOGEO.md#cartridge-protections-and-ordinary-saves--14-october-2026).
+512,325 on the other current tested boards. See [current Neo Geo qualification](NEOGEO_LOG.md#cartridge-protections-and-ordinary-saves--14-october-2026).
 
 The Neo Geo profile uses the shared atomic F8/F9 file
 envelope, with its own system id and exact cartridge/selected-BIOS/runtime
@@ -64,7 +64,7 @@ with the unchanged layout, including its retained queue contents.
 The first sections describe the Master System / Game Gear format. Game Boy has its own codec;
 NES now supports F8/F9 through a separate ABI-bound machine snapshot in
 `datas/states/<game-slug>-<rom-sha12>.rrstate`. See the
-[NES state format and validation](NES.md#controls-quick-states-and-zapper).
+[NES state format and validation](NES.md#6-states-and-saves).
 
 Starting with version 0.10.12, F8 saves one quick state and F9 loads it.
 Quit, restart the same executable, and press F9 to continue at the saved point.
@@ -168,7 +168,7 @@ register state; F9 restores both from the snapshot. A successful rewind also
 updates the ordinary battery file when its restored contents differ. Missing,
 invalid or rolled-back states cannot commit a partial battery change. Battery
 files themselves are bound to the ROM and geometry, independently of the state
-ABI. See [cartridge saves](CONSOLES_16BIT.md#mega-drive-cartridge-saves).
+ABI. See [cartridge saves](MEGADRIVE.md#states-and-saves).
 The compact SRAM layout changes the state ABI: older incompatible quick states
 are rejected, while cartridge saves survive compatible game regeneration.
 

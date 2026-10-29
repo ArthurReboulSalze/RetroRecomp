@@ -1,5 +1,53 @@
 # Install Retro-Recomp
 
+Retro-Recomp turns the game files you own (cartridge dumps, arcade romsets, disk
+images) into programs that start by themselves on your computer. This page
+tells you which file to download, how to install it, and how to make your first
+game. If you know nothing about it yet, read the first two sections and stop
+there.
+
+## Which file do I download?
+
+Open the [latest release](https://github.com/ArthurReboulSalze/RetroRecomp/releases/latest)
+and take the file that matches your computer:
+
+| Your computer | File to download |
+| --- | --- |
+| Windows 10 or 11, 64-bit | `Retro-Recomp-<version>-windows-x64-setup.exe` |
+| Debian, Ubuntu and derivatives | `retro-recomp_<version>_amd64.deb` (double-click it) |
+| Another 64-bit Linux | `Retro-Recomp-<version>-linux-x86_64-install.run` (see [Linux](#linux-x86-64)) |
+
+Portable downloads, which need no installation, are also on the release page.
+Download Retro-Recomp only from [retro-recomp.com](https://retro-recomp.com) or
+the project's GitHub releases. On Windows, the first launch may show a warning
+about an unknown publisher: it is explained in
+[Windows security warnings](#windows-security-warnings) and is not a virus
+alert.
+
+## Your first game
+
+1. Start Retro-Recomp.
+2. Add your ROMs or folders (you can drop them on the window), leave console
+   detection on **Automatic**, and press Convert. Some machines need one extra
+   file of your own: the Neo Geo a BIOS ZIP (**Options > Neo Geo**), the Sharp
+   X68000 an IPL ROM and a font ROM, and a split CPS-1 clone the ZIP of its
+   parent beside it. The machine pages say which ([Neo Geo](NEOGEO.md),
+   [CPS-1](CPS1.md), [X68000](X68000.md)).
+3. The first conversion offers to install the missing build tools itself (a
+   portable Git and a portable compiler on Windows, without administrator
+   rights; a few packages on Debian and Ubuntu), because every game is compiled
+   on your computer. Accept, and wait a few minutes once. See
+   [BUILDING.md](BUILDING.md).
+4. Open the finished games in their console folders under **Games**, beside the
+   application. The **Compiled Games** window lists them too
+   ([COMPILED_GAMES.md](COMPILED_GAMES.md)); the keys are in
+   [CONTROLS.md](CONTROLS.md).
+
+Playing a converted game needs no development tools. ROMs and downloaded box art
+are never included with Retro-Recomp: bring your own.
+
+## What the installers contain
+
 Installers and portable downloads contain the same converter. No ROM, BIOS,
 downloaded cover, save or personal compilation library is included. Installing
 the converter does not install the native development tools needed to compile
@@ -15,7 +63,27 @@ desktop shortcut. It requires no administrator password. Keep a directory your
 account can write to, so the in-app updater can replace the converter.
 
 The installer is not code-signed. Windows may show its usual downloaded-app
-warning. Release checksums are provided in `SHA256SUMS.txt`.
+warning (see below). Release checksums are provided in `SHA256SUMS.txt`.
+
+### Windows security warnings
+
+Retro-Recomp is not signed with a paid code-signing certificate yet. On first
+launch Windows may show **"Windows protected your PC"**: it means *unknown
+publisher*, not *virus found*. To continue, choose **More info > Run anyway**.
+Everything can be checked: the full source code is public, every release lists
+the SHA-256 of each file (`SHA256SUMS.txt`), and the executables are built from
+the released source. Download Retro-Recomp only from
+[retro-recomp.com](https://retro-recomp.com) or the project's
+[GitHub releases](https://github.com/ArthurReboulSalze/RetroRecomp/releases).
+
+The games you convert are compiled on your own computer, so they cannot carry
+any publisher signature, ours included. On Windows 11 with **Smart App
+Control** turned on, Windows may refuse to start them without offering to run
+them anyway; Smart App Control has to be turned off (Windows Security > App &
+browser control) to play them.
+
+If your antivirus flags a file, please tell us: it is a false positive (often
+caused by executable compression) that we will report to the vendor.
 
 Uninstall through Windows Settings or the Start menu entry. Games, `datas`
 (settings, library, discoveries, covers) are always kept. The uninstaller then

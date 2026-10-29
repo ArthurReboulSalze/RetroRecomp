@@ -300,8 +300,8 @@ batch`), not by the packaged `Retro-Recomp.exe`, which showed a start-up picture
 not run again. The packaged executable's `_compilation-stamps` equals the tag's `engine_stamp` for the seven consoles it lists
 (CPS-1 is not among them). All 12 receipts matched the listed stamps, the generated sources of the same 12 games are
 identical to 1.6.0's apart from the version text, the host shell and the state keys, and 1.5.6 exports of those consoles
-were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES.md](UPGRADES.md#exports-of-156-in-160);
-the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156). No entry for the Super Nintendo, the Neo
+were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES.md](UPGRADES.md#exports-of-156-in-160-history);
+the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156-history). No entry for the Super Nintendo, the Neo
 Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
 
 #### Release 1.6.2 entries (29 October 2026, Windows and Linux)
@@ -2006,7 +2006,7 @@ coins balance beside them and, under the pseudonym, the title chosen on the
 site. Options › Common › Retro-Recomp account shows the balance and a
 **Shop on the site** button (the account page's `#shop` section): titles and
 the other cosmetic items of the RR coin shop are bought and equipped on
-retro-recomp.com; the converter only draws them. The header shows the
+retro-recomp.com (the shop has a fitting room that tries an item on the player's own portrait first); the converter only draws them. The header shows the
 equipped name style (gold, gold to amber, sparkling gold with a slow shimmer
 that stops while the window is hidden), the pin beside the title, the
 portrait frame (drawn larger behind the 44 px portrait, which stays on top)

@@ -9,7 +9,7 @@ their tested paths, but do not establish complete rendering or hardware fidelity
 The latest eight-game Neo Geo expansion adds 49 packed/reference comparisons
 and eight enhanced-mode comparisons with zero observed fallback; its qualified
 numeric observations bring the shared Neo Geo bank to 42 exact identities.
-See [the latest campaign](NEOGEO.md#eight-game-expansion--15-october-2026).
+See [the latest campaign](NEOGEO_LOG.md#eight-game-expansion--15-october-2026).
 Twenty-four exact cartridge revisions pass 87 packed/reference routes,
 826,800 compared native frames, zero observed 68000/Z80 fallback, 72 fresh
 snapshot replays and 624 invalid-state rejections. Six paths run 54,000 frames
@@ -30,8 +30,8 @@ DSP-1, CX4 and Super FX boards are also qualified within [their circuit scope](S
 ([Super FX](SNES_SUPERFX.md)). CX4 and GSU instruction interpretation stays visible. Other enhancement circuits,
 extended maps and DSP-1 firmware-dump commands remain unsupported.
 
-The bundled ROM-free bank includes **1,069 exact revisions**, including
-**82 Mega Drive and 44 Super Nintendo records**. Unknown eligible cartridges
+The bundled ROM-free bank includes **1,609 exact revisions**, including
+**227 Mega Drive and 314 Super Nintendo records** (counted in `assets/compilation-knowledge.json.gz` on 29 October 2026). Unknown eligible cartridges
 are analyzed from their own ROM; this is not a game allowlist. Shared hints do
 not bypass native/reference comparisons. Native code, internal CPU/state/frame/
 PCM comparisons, independent hardware checks, sampled gameplay and physical
@@ -127,7 +127,7 @@ fallback on the longer probes; Donkey Kong Land and Wario Land II retain reporte
 RAM fallback. Common fixes add guarded native RAM helpers and bounded host-stack
 dispatch. This broadens the evidence to MBC3/MBC5 without certifying RTC or complete
 gameplay. Large cold C builds can still take much longer than the earlier Mario
-benchmark. See [the expanded Game Boy checks](GAME_BOY.md#broader-cartridge-cases--9-october-2026).
+benchmark. See [the expanded Game Boy checks](GAME_BOY_LOG.md#broader-cartridge-cases--9-october-2026).
 
 The subsequent collection campaign qualified 606 exact Game Boy cartridges:
 500 with zero fallback on the tested scenarios and 106 retaining reported

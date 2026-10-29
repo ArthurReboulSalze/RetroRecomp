@@ -128,6 +128,8 @@ docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tools/status_lint.py tests/test_doc_links.py tests/test_status_lint.py
 docs/UPSTREAMS.md retrorecomp/upstreams.py tools/check_upstreams.py tests/test_upstreams.py
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
+docs/MASTER_SYSTEM.md docs/MEGADRIVE.md docs/CPU_68000.md docs/CPU_Z80.md docs/CPU_6502.md docs/CPU_SM83.md docs/CPU_65816_SPC700.md
+docs/NES_LOG.md docs/GAME_BOY_LOG.md docs/NEOGEO_LOG.md docs/SNES_LOG.md docs/MEGADRIVE_LOG.md docs/CPS1_LOG.md docs/SCREENSHOTS.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_cartridge_rr.png MEDIAS/RetroRecomp_consoles.png
 MEDIAS/RetroRecomp_UI_1.1.3.png

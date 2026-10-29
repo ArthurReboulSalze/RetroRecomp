@@ -106,6 +106,20 @@ docs/*
 !docs/RELEASE_NOTES.md
 !docs/X68000.md
 !docs/INDEX.md
+!docs/MASTER_SYSTEM.md
+!docs/MEGADRIVE.md
+!docs/CPU_68000.md
+!docs/CPU_Z80.md
+!docs/CPU_6502.md
+!docs/CPU_SM83.md
+!docs/CPU_65816_SPC700.md
+!docs/NES_LOG.md
+!docs/GAME_BOY_LOG.md
+!docs/NEOGEO_LOG.md
+!docs/SNES_LOG.md
+!docs/MEGADRIVE_LOG.md
+!docs/CPS1_LOG.md
+!docs/SCREENSHOTS.md
 profiles/*
 !profiles/example.sms.toml
 
