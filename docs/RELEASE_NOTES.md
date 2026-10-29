@@ -1,3 +1,73 @@
+# RetroRecomp v1.6.3 — Every console on the common host kit, fast-forward and sound controls everywhere, three CPU fixes
+
+- **Every console on the common host kit.** The Sharp X68000, the Master
+  System, the Game Gear and the Game Boy now open their window, menus, options,
+  sound output and gamepad pages from the same host kit as the other consoles,
+  each with one small adapter. The same rules apply everywhere: the Gamepad row
+  per player (Automatic, a chosen controller, or None), "Press a control" taking
+  the selected player's pad only, the Quit and Restart pad combinations captured
+  the same way, and the short "Autofire ON/OFF" notice. What the games run is
+  unchanged: A/B comparisons on Columns, Bank Panic, Kirby's Block Ball and
+  Super Mario Land gave identical results except the decided differences.
+- **Fast-forward and sound controls on every console.** What only the Game Boy
+  had is now offered by every export: hold **Tab** (or the right trigger) to
+  play at 250%, press **`** (or the left trigger) to toggle the maximum speed
+  (500%), press **M** to mute. F2 gains **Volume** (0 to 200%), **Sound** and
+  **Output device** rows. An unplugged output device is replaced by the default
+  one. A key you bound to a game control keeps that control. Only the pacing
+  changes, never the game: quick states and autofire count game frames. On the
+  Mega Drive, the F2 **Audio filter** row now really filters (it was offered
+  but did nothing).
+- **Three CPU fixes, written from the processor manuals.** A review of the
+  projects RetroRecomp builds on found three defects, now repaired as our own
+  patches on the same pinned revisions, so the shared base of paths stays
+  valid:
+  - 68000 (Mega Drive, Neo Geo, CPS-1, Sharp X68000): ROXL and ROXR with a
+    register count of zero now load the carry from X, and ASL.L by 31 no longer
+    sets the overflow flag wrongly; checked against Musashi and against 834
+    independent test vectors.
+  - 65816 (Super Nintendo): BRK takes 8 cycles in native mode, and COP follows
+    the processor mode (stack, cycles, vector).
+  - Z80 (Master System, Game Gear, "functions" engine only): a call into a
+    banked area always checks which bank is mapped. The default engine was not
+    affected and generates the same code.
+  These are CPU fidelity fixes; they say nothing new about hardware fidelity,
+  gameplay validation or latency.
+- **Sharp X68000 quick states are deterministic.** A state written twice from
+  the same moment is now byte for byte the same (a sound chip's memory was
+  left uninitialised).
+- **Under the hood.** The tables of every machine (paths, routes, reports,
+  options, command-line flags, catalogues) are derived from one profile per
+  machine, and the converters share their common steps instead of keeping
+  copies, with identical results on real conversions. The upstream projects
+  are tracked in a new document, [UPSTREAMS.md](UPSTREAMS.md), with a tool that
+  shows how far each pinned revision is behind.
+
+**Your exports and quick states.** 1.6.3 moves the game stamp of every console.
+Master System, Game Gear, Game Boy and NES exports of 1.6.2, on Windows and on
+Linux, are upgraded: rebuilt from their learned paths and rechecked on the
+quick routes, without a new discovery; an upgrade is not a replay of the long
+routes. Mega Drive, Super Nintendo, Neo Geo and CPS-1 exports are converted in
+full once, because the CPU fixes change what a game does there; a game the
+shared base knows still starts from its qualified paths with the quick check.
+Sharp X68000 exports are converted in full once, as always. F8/F9 quick states
+written by a 1.6.2 Mega Drive, Super Nintendo, Neo Geo or CPS-1 export on
+Windows are accepted by the 1.6.3 export (their keys are listed); Master
+System, Game Gear and Game Boy states load as before; Sharp X68000 states of
+1.6.2 and states written by a Linux 1.6.2 export are refused cleanly. Exports
+older than 1.6.2 are converted in full. The details and the evidence are in
+[UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+
+---
+
 # RetroRecomp v1.6.2 — A gamepad choice per player, the NES on the common host kit, UPX 5.3.0
 
 - **A gamepad choice per player (Mega Drive, Super Nintendo, Neo Geo, CPS-1
