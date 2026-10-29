@@ -144,6 +144,68 @@ class SnesNativeTests(unittest.TestCase):
         self.assertIn('if (!mapped) return NULL;', plain)
 
 
+class SnesCopierFileTests(unittest.TestCase):
+    """The Pro Fighter .fig format: a 512-byte copier header before whole 32 KiB blocks, like .smc."""
+    def setUp(self):
+        from tools.snes_scheduler_selftest import cartridge
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.plain = bytes(cartridge(bytes.fromhex('40')))
+        hirom = bytearray(0x10000)
+        hirom[0xffc0:0x10000] = self.plain[0x7fc0:0x8000]
+        hirom[0xffc0 + 21] = 0x31
+        self.hirom = bytes(hirom)
+        interleaved = bytearray(0x10000)
+        interleaved[0x7fc0:0x8000] = self.plain[0x7fc0:0x8000]
+        interleaved[0x7fc0 + 21] = 0x31
+        self.interleaved = bytes(interleaved)
+
+    def write(self, name, data):
+        path = self.root / name
+        path.write_bytes(data)
+        return path
+
+    def test_a_fig_file_reads_like_the_same_image_in_a_smc_and_leaves_the_file_alone(self):
+        from retrorecomp.cartridge16 import read_snes_rom
+        header = bytes(range(256)) * 2
+        fig = self.write('game.fig', header + self.plain)
+        smc = self.write('game.smc', header + self.plain)
+        before = fig.read_bytes()
+        rom = read_snes_rom(fig)
+        self.assertEqual((rom.mapping, rom.copier_header, rom.data), ('lorom', True, self.plain))
+        self.assertEqual(rom.sha256, read_snes_rom(smc).sha256)
+        self.assertEqual(fig.read_bytes(), before)
+        zipped = self.root / 'game.zip'
+        import zipfile
+        with zipfile.ZipFile(zipped, 'w') as archive:
+            archive.writestr('Game (J).fig', header + self.hirom)
+        self.assertEqual(read_snes_rom(zipped).mapping, 'hirom')
+
+    def test_a_fig_file_that_is_not_blocks_of_32_kib_after_512_bytes_is_refused(self):
+        from retrorecomp.cartridge16 import read_snes_rom
+        for name, data in (('bare.fig', self.plain), ('short.fig', bytes(512) + self.plain[:-1]),
+                           ('long.fig', bytes(513) + self.plain)):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ConversionError, '32 KiB'):
+                    read_snes_rom(self.write(name, data))
+        # The other extensions keep their own rule: a bare image is fine.
+        self.assertEqual(read_snes_rom(self.write('bare.sfc', self.plain)).copier_header, False)
+
+    def test_an_interleaved_hirom_image_is_refused_with_its_own_message(self):
+        from retrorecomp.cartridge16 import read_snes_rom, interleaved_hirom
+        self.assertTrue(interleaved_hirom(self.interleaved))
+        self.assertFalse(interleaved_hirom(self.plain))
+        self.assertFalse(interleaved_hirom(self.hirom))
+        for name, data in (('swapped.fig', bytes(512) + self.interleaved), ('swapped.sfc', self.interleaved)):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ConversionError, 'interleaved'):
+                    read_snes_rom(self.write(name, data))
+        # An image with no credible header keeps the generic message.
+        with self.assertRaisesRegex(ConversionError, 'header could not be validated'):
+            read_snes_rom(self.write('blank.fig', bytes(512) + bytes(0x8000)))
+
+
 class SnesMemoryTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()

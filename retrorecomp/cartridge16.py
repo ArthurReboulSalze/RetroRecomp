@@ -33,19 +33,26 @@ class Cartridge16:
                 "copier_header_removed": self.copier_header}
 
 
-def cartridge_bytes(path: Path, extensions: tuple[str, ...]) -> bytes:
+def cartridge_bytes(path: Path, extensions: tuple[str, ...], copier_only: tuple[str, ...] = ()) -> bytes:
+    """The cartridge image of a file or of the one cartridge in a ZIP. An extension in `copier_only` names a
+    format that always carries a 512-byte copier header before whole 32 KiB blocks: any other size is refused."""
     from .systems import archive_rom
     from .core import ConversionError
     if path.suffix.casefold() == '.zip':
         suffix, data = archive_rom(path)
         if suffix not in extensions:
             raise ConversionError('The ZIP contains a cartridge for another console.')
-        return data
-    if path.suffix.casefold() not in extensions:
-        raise ConversionError('Unsupported cartridge format.')
-    if path.stat().st_size > 8 * 1024 * 1024 + 512:
-        raise ConversionError('Cartridge exceeds the 8 MiB input limit.')
-    return path.read_bytes()
+    else:
+        suffix = path.suffix.casefold()
+        if suffix not in extensions:
+            raise ConversionError('Unsupported cartridge format.')
+        if path.stat().st_size > 8 * 1024 * 1024 + 512:
+            raise ConversionError('Cartridge exceeds the 8 MiB input limit.')
+        data = path.read_bytes()
+    if suffix in copier_only and len(data) % 0x8000 != 512:
+        raise ConversionError(f'A {suffix} cartridge must be a whole number of 32 KiB blocks after a 512-byte '
+                              'copier header; this file is not (damaged, or another format).')
+    return data
 
 
 def is_megadrive(data: bytes) -> bool:
@@ -129,14 +136,34 @@ def snes_header(data: bytes) -> tuple[int, str] | None:
     return matches[0] if len(matches) == 1 else None
 
 
+def interleaved_hirom(data: bytes) -> bool:
+    """A HiROM image in the interleaved order some copiers write shows its HiROM header at the LoROM position.
+
+    Only the header is looked at: a credible title and checksum pair at $7FC0 whose map mode says HiROM ($21,
+    $25, $2A and their FastROM forms). The converter does not de-interleave images.
+    """
+    offset = 0x7fc0
+    if offset + 64 > len(data):
+        return False
+    complement = int.from_bytes(data[offset + 28:offset + 30], 'little')
+    checksum = int.from_bytes(data[offset + 30:offset + 32], 'little')
+    return (snes_title(data[offset:offset + 21]) is not None and data[offset + 21] & 0x2f in (0x21, 0x25, 0x2a)
+            and checksum ^ complement == 0xffff and checksum != 0
+            and int.from_bytes(data[offset + 60:offset + 62], 'little') >= 0x8000)
+
+
 def read_snes_rom(path: Path) -> Cartridge16:
     from .core import ConversionError
     path = path.resolve()
-    data = cartridge_bytes(path, ('.sfc', '.smc', '.bin', '.rom'))
+    data = cartridge_bytes(path, ('.sfc', '.smc', '.fig', '.bin', '.rom'), ('.fig',))
     copier = len(data) % 0x8000 == 512
     if copier:
         data = data[512:]
     header = snes_header(data)
+    if not header and interleaved_hirom(data):
+        raise ConversionError('This SNES image is stored in the interleaved order some copiers write (its HiROM '
+                              'header sits at the LoROM position); interleaved dumps are not supported. '
+                              'Use a plain dump.')
     if not header or len(data) % 0x8000 or len(data) > 8 * 1024 * 1024:
         raise ConversionError('SNES cartridge header could not be validated.')
     offset, mapping = header

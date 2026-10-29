@@ -53,7 +53,9 @@ class DerivedTablesTests(unittest.TestCase):
             'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'})
         self.assertEqual(nine(campaign.EXTENSIONS), {
             'sms': ('.sms', '.zip'), 'gg': ('.gg', '.zip'), 'gb': ('.gb', '.zip'), 'nes': ('.nes', '.zip'),
-            'md': ('.md', '.gen', '.smd', '.bin', '.zip'), 'snes': ('.sfc', '.smc', '.zip'),
+            'md': ('.md', '.gen', '.smd', '.bin', '.zip'),
+            # 1.6.5: the Super Nintendo reads the Pro Fighter copier's .fig (the only entry that moved since 1.6.2).
+            'snes': ('.sfc', '.smc', '.fig', '.zip'),
             'ng': ('.zip',), 'cps1': ('.zip',), 'x68': ('.dim', '.xdf')})
         self.assertEqual(set(campaign.REQUIRE_PACKED) & set(NINE), {'ng', 'cps1'})
         self.assertEqual(set(campaign.REQUIRE_STATES) & set(NINE), {'ng', 'cps1', 'x68'})
