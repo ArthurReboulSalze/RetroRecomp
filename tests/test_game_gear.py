@@ -122,6 +122,16 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertEqual(text.count('RR_TAIL(call_by_address(0x%04X))'), 2)
         self.assertEqual(text.count('RR_TAIL(call_by_address(%s))'), 1)
 
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_a_jump_across_a_slot_is_dispatched_not_a_goto(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        function = text.index('static void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){')
+        body = text[function:text.index('/* ---- call target', function)]
+        # The address of the jump is recorded by emit_cf; only a target in the same 16 KiB slot stays a goto.
+        self.assertEqual(text.count('rr_cf_addr = addr;'), 1)
+        self.assertEqual(body.count('if (tr_has(T) && ((rr_cf_addr ^ T) & 0xC000) == 0){'), 1)
+        self.assertLess(text.index('static uint16_t rr_cf_addr;'), function)
+
 
 class FunctionsInterruptContractTests(unittest.TestCase):
     """Only the "functions" runner samples /INT at one boundary and accepts it at the next."""

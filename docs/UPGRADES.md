@@ -242,6 +242,11 @@ nothing per ordinary instruction. The route "play" of three passing games (High-
 part of the gate and already differs from the reference in a clean learning state (from frame 3032 for Shinobi World, with or without
 this change); it differs from the earlier run after that frame.
 
+A third change: a jump that crosses a 16 KiB slot inside one generated function now goes through the bank-checking dispatch instead of a
+`goto` (Sonic Triple Trouble passes the comparison with it; every other game gives the same demo and play trace as before, except Sonic
+Spinball, which fails later). From an empty learning state 12 of the 15 games tried pass; Alex Kidd: The Lost Stars, Sonic Spinball
+(Game Gear) and Aladdin do not. Cost, functions engine only: a direct jump across slots becomes a dispatch call.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

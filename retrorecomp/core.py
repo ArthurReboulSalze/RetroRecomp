@@ -453,6 +453,17 @@ def patched_generator_source(generator_source: str) -> str:
     generator_source = replace_once(generator_source,
         '                    fprintf(o,"        call_by_address(%s); return;\\n", idx);            /* tail jump */',
         '                    fprintf(o,"        RR_TAIL(call_by_address(%s));\\n", idx);            /* tail jump */')
+    # A jump that crosses a 16 KiB slot (a function that starts in one slot and continues in another) must not become a goto: the
+    # bank of the other slot may have changed since the static walk decoded it (Sonic Triple Trouble: `call $349A` pages slot 2, then
+    # `jp $B811`). It goes through the bank-checking dispatch, like the calls to paged addresses since 1.6.3. Jumps inside one slot
+    # stay direct.
+    generator_source = replace_once(generator_source,
+        "static void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){\n    if (tr_has(T)){",
+        "static uint16_t rr_cf_addr;\nstatic void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){\n"
+        "    if (tr_has(T) && ((rr_cf_addr ^ T) & 0xC000) == 0){")
+    generator_source = replace_once(generator_source,
+        "static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){\n    uint16_t next = (uint16_t)(addr + in->length);",
+        "static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){\n    uint16_t next = (uint16_t)(addr + in->length);\n    rr_cf_addr = addr;")
     generator_source = replace_once(generator_source,
         '    fprintf(o,"    sms_enter(0x%04X);\\n", fe->addr);',
         '    fprintf(o,"    sms_enter(0x%04X);\\n    uint16_t _esp = s->sp; (void)_esp;\\n", fe->addr);')
