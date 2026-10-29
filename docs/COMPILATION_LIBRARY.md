@@ -415,9 +415,10 @@ reference.
 The first wide qualification (26 parent sets of the NAS, standard scan level,
 eight concurrent conversions) needed no learned RAM code at all: zero 68000
 and zero Z80 RAM variants for every set, and zero fallback for 25 of them.
-Street Fighter II': Champion Edition interprets 0.06% of its 68000
-instructions, run from graphics RAM, which native code does not cover yet (and
-which therefore cannot be expressed as a path). Per-set results:
+Street Fighter II': Champion Edition interpreted 0.06% of its 68000
+instructions, run from graphics RAM, which native code did not cover (1.6.4
+guards that code from the library's private `m68k_gfx` observations; it
+cannot be expressed as a path). Per-set results:
 [CPS-1 guide](CPS1.md#qualified-sets-24-october-2026-windows).
 
 ## X68000: one game key, observations in the library (standardization 6a, 27 October 2026; part of the 1.6.0 stamp break)
@@ -1676,8 +1677,9 @@ see all of it. The rule that turns their words into numbers, as Neo Geo does (`n
   `0xD000` to `0xD7FF`, mask 1 to 15 with bit 0 set).
 - **What stays private, counted and never shared**: any observation whose bytes are not in those images (built or
   unpacked at run time), one the decoder cannot translate, one that is malformed. Code run from **graphics RAM** (Street
-  Fighter II': Champion Edition) is not even observed: the board reports work-RAM and sound-RAM variants only, so there is
-  nothing to tie and the report keeps counting those instructions as interpreted. The conversion report's `knowledge`
+  Fighter II': Champion Edition) is observed since 1.6.4 (`m68k_gfx`, in the library's `observations.json` only): it guards
+  native code in the player's own build, but there is nothing in the ROM images to tie it to, so it is counted as private
+  and never shared. The conversion report's `knowledge`
   block says, per CPU, how many were observed, tied and kept private (and why).
 - **Promotion only from fresh reference runs** (`cps1_knowledge.promote`, called by `cps1_conversion` after every check
   passed): never from feedback rows, never from the paths the conversion was offered. The library's `compilation.json`

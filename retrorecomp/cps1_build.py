@@ -326,7 +326,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
                  presentation: dict | None = None, hints=None) -> dict:
     """A playable game project: native board, shared 16-bit host and embedded regions.
 
-    `hints(board)`, when given, answers more observation rows ({'m68k_ram', 'z80_ram'}) rebuilt from the
+    `hints(board)`, when given, answers more observation rows ({'m68k_ram', 'm68k_gfx', 'z80_ram'}) rebuilt from the
     assembled images of the board folder (shared and library paths): build input beside `observations`, which
     stay the player's private ones."""
     import hashlib, json
@@ -336,7 +336,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     write_board(board, game_set, game)
     if hints is not None:
         extra = hints(board)
-        observations = {name: [*(observations or {}).get(name, ()), *extra.get(name, ())] for name in ('m68k_ram', 'z80_ram')}
+        observations = {name: [*(observations or {}).get(name, ()), *extra.get(name, ())] for name in ('m68k_ram', 'm68k_gfx', 'z80_ram')}
     analysis = prepare_native(project, board, game, observations)
     for name in HOST_FILES:
         _write(project / name, (ASSETS / 'native' / name).read_text(encoding='utf-8'))

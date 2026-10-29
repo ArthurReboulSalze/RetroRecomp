@@ -61,6 +61,7 @@ static const RrCps1NativeStep *guarded_step(uint32_t pc) {
     const uint8_t *code=rr_cps1_code_bytes(pc,&region,&offset,&available);
     if(!code)return NULL;
     const RrCps1NativeStep *op=region==RR_CPS1_CODE_RAM?rr_cps1_ram_native_lookup(pc,offset,available):
+                               region==RR_CPS1_CODE_GFX?rr_cps1_gfx_native_lookup(pc,offset,available):
                                                        rr_cps1_native_lookup(region,offset);
     if(!op || op->instruction.byte_length>available)return NULL;
     for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n)

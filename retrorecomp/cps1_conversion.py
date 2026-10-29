@@ -66,7 +66,8 @@ def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *e
 def merge(observations: dict, fallback: dict) -> bool:
     """Add newly observed work-RAM/Z80-RAM code; True when anything was new."""
     changed = False
-    for key, fields in (('m68k_ram', ('offset', 'words')), ('z80_ram', ('address', 'bytes'))):
+    for key, fields in (('m68k_ram', ('offset', 'words')), ('m68k_gfx', ('offset', 'words')),
+                       ('z80_ram', ('address', 'bytes'))):
         known = {tuple(row[f] for f in fields) for row in observations.setdefault(key, [])}
         for row in fallback.get(key, ()):
             item = tuple(row[f] for f in fields)
@@ -79,7 +80,7 @@ def learned(identity: str, memory: Path) -> dict:
     """The private observations of earlier conversions of this exact set: work-RAM and sound-RAM code that
     this player's native runs met and could not cover. Raw words, so they never leave the library; the shared
     paths are numbers made apart (`cps1_knowledge`, from the fresh reference runs)."""
-    observations = {'m68k_ram': [], 'z80_ram': []}
+    observations = {'m68k_ram': [], 'm68k_gfx': [], 'z80_ram': []}
     previous = memory / 'observations.json'
     if previous.is_file():
         try:
@@ -104,7 +105,7 @@ def feedback_rows(identity: str) -> dict:
 def fresh_observations(reference: dict) -> dict:
     """The work-RAM and sound-RAM code the fresh reference runs of this conversion executed (every instruction
     interpreted, before anything was learned): the one source of what is promoted to a shared path."""
-    rows = {'m68k_ram': [], 'z80_ram': []}
+    rows = {'m68k_ram': [], 'm68k_gfx': [], 'z80_ram': []}
     for result in reference.values():
         merge(rows, result.get('fallback') or {})
     return rows
@@ -138,7 +139,7 @@ def knowledge_block(record: dict, promotion: dict, hints_used: dict) -> dict:
         'machine_status': CPS1.status, 'shared': 'cps1' in path_profiles.SHARED_SYSTEMS,
         'record_format': cps1_knowledge.FORMAT,
         'cores': cps1_knowledge.engine(), 'record_sha256': cps1_knowledge.record_digest(record),
-        'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'z80_ram', 'truncated')},
+        'paths': promotion['paths'], 'promotion': {key: promotion[key] for key in ('m68k_ram', 'm68k_gfx', 'z80_ram', 'truncated')},
         'source': 'fresh reference runs of this conversion', 'use': dict(hints_used),
         'raw_ram_words_stored': False, 'fresh_validation_required': True}
 
@@ -285,7 +286,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         atomic_json(memory / 'observations.json', observations)
         atomic_json(memory / 'compilation.json', {
             'schema': 1, 'system': 'cps1', 'title': title, 'set': game_set.set_name, 'source_identity': game_set.sha256,
-            'guarded_ram_variants': len(observations['m68k_ram']), 'guarded_z80_ram_variants': len(observations['z80_ram']),
+            'guarded_ram_variants': len(observations['m68k_ram']), 'guarded_gfx_variants': len(observations['m68k_gfx']),
+            'guarded_z80_ram_variants': len(observations['z80_ram']),
             'fresh_reference_passed': True, 'version': __version__,
             # The schema 3 record the base shares (numbers only), and where it came from.
             'record': record, 'record_format': cps1_knowledge.FORMAT, 'cores': cps1_knowledge.engine(),

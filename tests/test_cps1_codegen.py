@@ -31,6 +31,13 @@ class RamVariantTests(unittest.TestCase):
                    {'offset': 0x20, 'words': 'zz'}, {'offset': -2, 'words': '4e75'}]
         self.assertEqual(cps1_codegen.ram_variants(records), [(0x10, bytes.fromhex('4e75'))])
 
+    def test_graphics_ram_offsets_have_their_own_bound(self):
+        records = [{'offset': 0x18900, 'words': '4e75'}, {'offset': 0x2fffe, 'words': '4e75'},
+                   {'offset': 0x2fffe, 'words': '4e754e75'}, {'offset': 0x30000, 'words': '4e75'}]
+        self.assertEqual(cps1_codegen.ram_variants(records), [])
+        self.assertEqual(cps1_codegen.ram_variants(records, cps1_codegen.GFX_BYTES),
+                         [(0x18900, bytes.fromhex('4e75')), (0x2fffe, bytes.fromhex('4e75'))])
+
 
 @unittest.skipUnless((GEOLITH / 'src/m68k/m68kcpu.c').is_file(), 'pinned Geolith sources are not cached')
 class PinnedAdaptationTests(unittest.TestCase):

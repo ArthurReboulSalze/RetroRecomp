@@ -848,7 +848,7 @@ class ReportTests(unittest.TestCase):
     def test_the_report_says_whether_cps1_is_in_the_sharing_not_always_yes(self):
         from retrorecomp import cps1_conversion
         record = a_record()
-        promotion = {'paths': {'m68k_ram': 1, 'z80_ram': 1}, 'm68k_ram': {}, 'z80_ram': {}, 'truncated': False}
+        promotion = {'paths': {'m68k_ram': 1, 'z80_ram': 1}, 'm68k_ram': {}, 'm68k_gfx': {}, 'z80_ram': {}, 'truncated': False}
         shared = cps1_conversion.knowledge_block(record, promotion, {})
         self.assertIs(shared['shared'], True)
         self.assertEqual(shared['cores'], cps1_knowledge.engine())

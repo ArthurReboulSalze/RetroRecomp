@@ -24,6 +24,7 @@ from .megadrive_z80 import opcode_key
 PREFIX = 'rr_cps1'
 CHUNKS = 16
 RAM_BYTES = 0x10000
+GFX_BASE, GFX_BYTES = 0x900000, 0x30000    # graphics RAM: code the game runs from there is guarded like work RAM code
 Z80_FIXED, Z80_BANKS = 0x8000, (0x10000, 0x18000)
 
 
@@ -45,17 +46,17 @@ def program_size(game: dict) -> int:
     return min((end + 1) & ~1, 0x400000)
 
 
-def ram_variants(records) -> list[tuple[int, bytes]]:
-    """Bounded observed work-RAM code: (offset, up to eight words)."""
+def ram_variants(records, size: int = RAM_BYTES) -> list[tuple[int, bytes]]:
+    """Bounded observed RAM code: (offset, up to eight words), in work RAM (`size` 0x10000) or graphics RAM."""
     unique = set()
     for record in records or ():
         offset, words = record.get('offset'), record.get('words')
-        if type(offset) is not int or not 0 <= offset < RAM_BYTES or offset & 1:
+        if type(offset) is not int or not 0 <= offset < size or offset & 1:
             continue
         if not isinstance(words, str) or len(words) % 4 or not re.fullmatch(r'[0-9a-fA-F]{4,32}', words):
             continue
         data = bytes.fromhex(words)
-        if offset + len(data) <= RAM_BYTES:
+        if offset + len(data) <= size:
             unique.add((offset, data))
         if len(unique) > 4096:
             raise ValueError('CPS-1 RAM code observation bound exceeded.')
@@ -108,10 +109,12 @@ def _translator(project: Path):
     return engine, source, names, bodies, decoder_tool(engine)
 
 
-def _decode_ram_instruction(project: Path, work: Path, decoder, names: dict, bodies: dict, offset: int, data: bytes):
-    """The first instruction of `data` as the generator decodes it at work-RAM `offset`, or None when it
-    cannot be translated (the one decision `generate_m68k` and `ram_instruction_lengths` share)."""
-    base = 0xff0000 + offset
+def _decode_ram_instruction(project: Path, work: Path, decoder, names: dict, bodies: dict, offset: int, data: bytes,
+                            origin: int = 0xff0000):
+    """The first instruction of `data` as the generator decodes it at RAM `offset` (work RAM at 0xFF0000, or
+    graphics RAM at 0x900000 with `origin`), or None when it cannot be translated (the one decision
+    `generate_m68k` and `ram_instruction_lengths` share)."""
+    base = origin + offset
     (work / 'ram.bin').write_bytes(data)
     (work / 'ram-pcs.txt').write_text(f'{base:06x}\n', encoding='ascii')
     run([decoder, work / 'ram.bin', f'{base:x}', work / 'ram-pcs.txt', work / 'ram.json'], log=project / 'decode.log')
@@ -136,7 +139,7 @@ def ram_instruction_lengths(project: Path, variants) -> dict:
     return lengths
 
 
-def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
+def generate_m68k(project: Path, program: bytes, ram_records=(), gfx_records=()) -> dict:
     engine, source, names, bodies, decoder = _translator(project)
     work = project / 'decode'
     work.mkdir(exist_ok=True)
@@ -161,13 +164,22 @@ def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
         if key not in ram_keys:
             ram_keys.add(key)
             instructions.append(dict(ins, region=3, offset=offset))
+    gfx_keys = set()
+    for offset, data in ram_variants(gfx_records, GFX_BYTES):
+        ins = _decode_ram_instruction(project, work, decoder, names, bodies, offset, data, GFX_BASE)
+        if ins is None:
+            continue
+        key = (offset, tuple(ins['words'][:ins['word_count']]))
+        if key not in gfx_keys:
+            gfx_keys.add(key)
+            instructions.append(dict(ins, region=4, offset=offset))
     instructions.sort(key=lambda ins: (ins['region'], ins['offset'], tuple(ins['words'])))
     chunks = [[] for _ in range(CHUNKS)]
     declarations, table, descriptors, forms, positions, records = [], [], {}, {}, [], []
     for ins in instructions:
         name = names[ins['mnemonic']]
         literal = instruction_literal(canonical_instruction(ins, name), name)
-        key = (literal, ins['offset'] if ins['region'] == 3 else None)
+        key = (literal, ins['offset'] if ins['region'] != 1 else None, ins['region'])
         if key not in descriptors:
             form = structural_key(ins)
             if form not in forms:
@@ -188,17 +200,21 @@ def generate_m68k(project: Path, program: bytes, ram_records=()) -> dict:
                       '#include "cps1_step_semantics.h"\n' + shared_registers('\n'.join(chunk)))
     words = len(program) // 2
     rom_map = {ins['offset'] >> 1: positions[i] for i, ins in enumerate(instructions) if ins['region'] == 1}
-    ram_heads, ram_next = {}, [0] * len(records)
+    ram_heads, gfx_heads, ram_next = {}, {}, [0] * len(records)
     for index in range(len(records) - 1, -1, -1):
-        if records[index]['region'] == 3:
-            ram_next[index] = ram_heads.get(records[index]['offset'] >> 1, 0)
-            ram_heads[records[index]['offset'] >> 1] = index + 1
+        heads = {3: ram_heads, 4: gfx_heads}.get(records[index]['region'])
+        if heads is not None:
+            ram_next[index] = heads.get(records[index]['offset'] >> 1, 0)
+            heads[records[index]['offset'] >> 1] = index + 1
+    gfx_offsets = sorted(gfx_heads)
     write_changed(steps / 'cps1_step_index.c',
         '#include "cps1_native.h"\n#include <stddef.h>\n' + ''.join(declarations) +
         'static const RrCps1NativeStep entries[]={\n' + ',\n'.join(table) + '\n};\n' +
         f'static const uint32_t rom_map[{words}]={{' + ','.join(str(rom_map.get(i, 0)) for i in range(words)) + '};\n' +
         'static const uint32_t ram_map[32768]={' + ','.join(str(ram_heads.get(i, 0)) for i in range(32768)) + '};\n' +
         'static const uint32_t ram_next[]={' + (','.join(map(str, ram_next)) or '0') + '};\n' +
+        'static const uint32_t gfx_keys[]={' + (','.join(str(key) for key in gfx_offsets) or '0') + '};\n' +
+        'static const uint32_t gfx_heads[]={' + (','.join(str(gfx_heads[key]) for key in gfx_offsets) or '0') + '};\n' +
         f'''const RrCps1NativeStep *{PREFIX}_native_lookup(uint32_t region,uint32_t offset) {{
     if(region!=RR_CPS1_CODE_ROM || (offset&1u) || offset>={words * 2}u)return NULL;
     unsigned index=rom_map[offset>>1];return index?&entries[index-1]:NULL;
@@ -217,10 +233,30 @@ const RrCps1NativeStep *{PREFIX}_ram_native_lookup(uint32_t pc,uint32_t offset,u
     }}
     return NULL;
 }}
+const RrCps1NativeStep *{PREFIX}_gfx_native_lookup(uint32_t pc,uint32_t offset,unsigned available) {{
+    if(offset>={GFX_BYTES}u || (offset&1u))return NULL;
+    unsigned low=0,high={len(gfx_offsets)}u;
+    while(low<high) {{
+        unsigned middle=low+(high-low)/2;
+        if(gfx_keys[middle]<(offset>>1))low=middle+1;else high=middle;
+    }}
+    if(low=={len(gfx_offsets)}u || gfx_keys[low]!=(offset>>1))return NULL;
+    for(unsigned index=gfx_heads[low];index;index=ram_next[index-1]) {{
+        const RrCps1NativeStep *op=&entries[index-1];
+        if(op->instruction.byte_length>available)continue;
+        int match=1;
+        for(unsigned n=0;n<(unsigned)op->instruction.word_count;++n) {{
+            uint16_t actual;
+            if(!{PREFIX}_code_word(pc+n*2u,&actual) || actual!=op->instruction.words[n]) {{match=0;break;}}
+        }}
+        if(match)return op;
+    }}
+    return NULL;
+}}
 ''')
     return {'program_bytes': len(program), 'program_sha256': hashlib.sha256(program).hexdigest(),
             'decoded': len(decoded), 'translated_rom_positions': translated_rom,
-            'guarded_ram_variants': len(ram_keys), 'unique_descriptors': len(table),
+            'guarded_ram_variants': len(ram_keys), 'guarded_gfx_variants': len(gfx_keys), 'unique_descriptors': len(table),
             'structural_bodies': len(forms), 'semantics_sha256': hashlib.sha256(source.encode()).hexdigest()}
 
 
@@ -284,7 +320,7 @@ def generate(project: Path, board: Path, game: dict, z80_source: str, observatio
     program = (board / 'maincpu.bin').read_bytes()[:program_size(game)]
     audio = (board / 'audiocpu.bin').read_bytes()
     result = {'schema': 1, 'set': game['set'],
-              'm68000': generate_m68k(project, program, observations.get('m68k_ram', ())),
+              'm68000': generate_m68k(project, program, observations.get('m68k_ram', ()), observations.get('m68k_gfx', ())),
               'z80': generate_z80(project, z80_source, audio, observations.get('z80_ram', ())),
               'knowledge_promoted': False}
     atomic_json(project / 'native-analysis.json', result)

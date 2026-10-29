@@ -652,6 +652,20 @@ Found by the Linux check of 1.6.3 on the same day, no player-visible change on W
 - **Super Nintendo:** the MSVC spelling of the `PpuPixelPrioBufs` alignment is applied by one function,
   `console16.snes_ppu_header`, for the converter and the self-tests; the converter's output is unchanged.
 
+## CPS-1: code run from graphics RAM is guarded natively (1.6.4, lot H)
+
+`native/cps1_machine.c`, `native/cps1_native.c`, `native/cps1_native.h`, `retrorecomp/cps1_codegen.py`,
+`retrorecomp/cps1_build.py` and `retrorecomp/cps1_conversion.py` change, so the CPS-1 game stamp moves (every CPS-1
+file is a game file; the host stamp is not touched). Street Fighter II': Champion Edition ran a short routine copied into
+graphics RAM and interpreted it (75,546 instructions in the play route); the 68000 native code now also looks up and
+guards instructions at 0x900000 to 0x92FFFF, from the library's private `m68k_gfx` observations (learned in pass 1 of the
+conversion, translated in pass 2, each instruction still checked against its live words). For every other CPS-1 set
+the generated code differs only by one added lookup function (`cps1_step_index.c`) and the native analysis reports
+`guarded_gfx_variants` = 0; their traces and behaviour are the same as before (A/B on real conversions). A CPS-1 export of
+1.6.3 is not byte-identical to a 1.6.4 conversion, so the legacy list decision of the release applies to it as to the
+other consoles. `cps1_knowledge.GENERATOR_REVISION` goes from 6 to 7: no CPS-1 path was qualified yet, so nothing is lost.
+`retrorecomp/m68000.py` is not touched: the Mega Drive, Neo Geo and X68000 generated code does not move.
+
 ## UPX 5.3.0 (packing, a build input)
 
 1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
