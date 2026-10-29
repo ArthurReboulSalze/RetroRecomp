@@ -465,9 +465,9 @@ Two changes of the Neo Geo converter, both in the game stamp of the Neo Geo.
 
 **What moves.** The Neo Geo game stamp (`neogeo`, `neogeo_build` and `neogeo_optimization` are converter modules of its stamp
 groups): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry. The CPS-1 game stamp moves too, because it
-shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build` is edited and its fingerprint is hashed): the
-release carries the 1.6.4 key as the compatibility key (it replaces `STATE_ABI_163`), so the quick states of 1.6.4 on Windows keep
-loading once the game is converted again; the state files themselves are unchanged. The host stamp does not move for these two changes.
+shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build` is edited and its fingerprint is hashed): from
+1.6.5 no compatibility key is carried, so a quick state of 1.6.4 is refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge
+saves are kept. The host stamp does not move for these two changes.
 
 ## X68000: exact redraw marks for the background and the sprites (1.6.5)
 
@@ -541,8 +541,9 @@ every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_
   through a direct table; outputs identical on Secret of Mana, Super Mario World, Chrono Trigger and Star Fox. The conversion log
   says when a run went past the 16,384-variant limit of RAM code observations (`retrorecomp/console16.py`, shared with the Mega
   Drive).
-- **Neo Geo.** On Windows the native game is built with ThinLTO and a clang profile, like the Super Nintendo; outputs identical,
-  gain not measured yet.
+- **Neo Geo.** See its own section above (a 64 KiB fixed-graphics ROM repeated, and the clang profile on Windows).
+- **Super Nintendo, identification.** A LoROM header whose map mode is `$32` with no chip (type 0, 1 or 2) is an ordinary
+  LoROM (Duel/Test Drive II, the Popeye translation); every other `$32` header stays refused (`supernintendo.validate_cartridge`).
 - **CPS-1.** `IM 0` on the sound Z80 is counted (generator revision 8); independent 68000 vectors are replayed through the CPS-1
   generator and each route's liveness is recorded, a frozen route being refused.
 
