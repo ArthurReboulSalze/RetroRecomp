@@ -199,12 +199,29 @@ local dependency folder and never shipped.
 | Generator patches | the patched generator text contains each fix once; a changed pin fails | `tests/test_game_gear.py` |
 | Mega Drive sound | authored opcode, RAM, bank and interrupt bodies; mutation of code under suspended Z80 fibers; guards and escapes | `tools/megadrive_z80_selftest.py`, `tools/megadrive_z80_resume_selftest.py`, `tests/test_megadrive_z80.py` |
 | Neo Geo sound | ROM-free native ABI, cycle, memory, full-port and guard checks | `tools/neogeo_z80_selftest.py` |
-| CPS-1 sound | native dispatch present in native builds only; board tests | `tests/test_cps1_codegen.py` |
+| CPS-1 sound | native dispatch present in native builds only; board tests; the same 51,328 independent vectors replayed through the CPS-1 Z80 generator and its patched Geolith core, native and interpreted, results below | `tests/test_cps1_codegen.py`; `tools/cps1_z80_vector_selftest.py` (builds C, a few seconds once the corpus is cached), `tests/test_cps1_z80_vectors.py` |
 
 The counts recorded for these runs (51,328 independent vectors over 1,604 family files; 28,544 Mega Drive comparisons plus
 26,624 mutations; 14,352 Neo Geo comparisons) are those of [MASTER_SYSTEM.md](MASTER_SYSTEM.md),
 [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md) and [NEOGEO_LOG.md](NEOGEO_LOG.md) (and of the local maintainer notes
 `NATIVE_COVERAGE.md`) on their dates; rerun the tools for today's.
+
+**CPS-1 replay (30 October 2026, Windows).** `native/cps1_z80_vector_checks.c` runs each vector of the cached sample (51,328 vectors,
+1,604 families, 32 each, corpus `ebe1875`) once through the CPS-1 translated Z80 bodies, dispatched by the patched Geolith core
+exactly as in a CPS-1 game (with its byte guard), and once through the same core with every instruction interpreted, on a flat
+64 KiB bus whose ports answer from the vector. It compares registers (WZ and the alternate set included), written bytes, ports and
+the clock count with the vector, and the two paths with each other. P and Q are not compared (the core has neither).
+
+- 38,433 vectors lie in the sound ROM windows and 1,615 in sound RAM: each ran as exactly one native step. 11,280 lie where the
+  board has no native step (program counter from `0xC000`, outside sound RAM): each ran interpreted and was counted once.
+- The native and the interpreted path agree with each other on all 51,328 vectors, state and clock. Against the vectors, both
+  agree on 50,429 (98.2 percent) for the state and on 51,200 (99.7 percent) for the clock. The differences are the Geolith core's,
+  shared by both paths, and are pinned in the tool (any change fails it until this page is updated): flags (535 vectors: `SCF` and `CCF`,
+  the block instructions, `LD A,I` and `LD A,R`, the flags after `IN r,(C)`), WZ (480: `IN r,(C)`, `LD (nn),IX/IY`, `LD IX/IY,(nn)`,
+  `JP (IX/IY)`), the port address of `OUTI`, `OUTD`, `OTIR` and `OTDR` (128), IM of the undocumented `ED 4E` and `ED 6E` (38), IFF1
+  after `RETI` (16), and the clock of the undocumented `ED 4E`, `ED 6E`, `ED 77` and `ED 7F`. The table per family is in
+  [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness). Interrupt acceptance, the
+  YM2151 and OKI lines and the board are not covered. The oracle is JSMoo, not silicon.
 
 **Differential checks in every conversion.** Each conversion also runs its routes twice and compares the native run with a
 reference that interprets every Z80 instruction: the corrected SuperZazu in lockstep on the Master System and the Game Gear

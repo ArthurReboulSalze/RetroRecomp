@@ -57,7 +57,8 @@ x68 = Sharp X68000.
 ### Caveats
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
-  rests on captures inspected by the specialist agent, not by the owner. G10 stays `P` (68000 vectors only, no Z80 corpus).
+  rests on captures inspected by the specialist agent, not by the owner. G10 stays `P` (both CPUs now replay independent vectors; the
+  Geolith Z80 core differs from the oracle on named behaviours). G11 and G13 stay `P` with fresher evidence (30 October).
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
@@ -132,10 +133,10 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 | G7 | - | No non-volatile memory on the standard boards | |
 | G8 | Y | `final_checks[].liveness` per route (pictures, last picture change, audible frames, last audible frame) for the 26 sets; a route whose picture never changes is refused | Four attract routes are silent (`dynwar`, `ghouls`, `mtwins`, `unsquad`); every set is audible on its play route |
 | G9 | Y | The credited play route of each of the 26 sets reaches play (six captures per set, replayed on the delivered file, inspected); the 18,000-frame route ran on `sf2ce`, `ffight` and `1941` | Inspected by the specialist agent, not by the owner; not full games |
-| G10 | P | The three SingleStepTests 68000 fixtures replayed through the CPS-1 generator: the native steps agree with 3,787 of 3,787 vectors and with 80 of 82 authored cases (`tools/cps1_vector_selftest.py`) | No independent Z80 vectors (the corpus has to be downloaded); the CPS-1 Musashi reference differs from the vectors in a few named groups |
-| G11 | P | MAME 0.289 comparison of 24 sets and of the sound of three (24 and 27 October) | Measured before 1.6.4 and not repeated; the harness of the 27 October run was not kept |
+| G10 | P | 68000: the three SingleStepTests fixtures through the CPS-1 generator, the native steps agree with 3,787 of 3,787 vectors and 80 of 82 authored cases (`tools/cps1_vector_selftest.py`). Z80: 51,328 vectors through the CPS-1 Z80 bodies and the patched Geolith core, native and interpreted identical, 98.2 percent of the state and 99.7 percent of the clock agree with the oracle (`tools/cps1_z80_vector_selftest.py`) | The Geolith Z80 differs from the oracle on flags, WZ, the port address of `OUTI/OUTD/OTIR/OTDR`, IM and IFF1 of a few opcodes (named in [CPU_Z80.md](CPU_Z80.md#tests-and-vectors)); the CPS-1 Musashi reference differs from the 68000 vectors in a few groups; no corrections carried yet |
+| G11 | P | MAME 0.289, picture, repeated on the 1.6.5 tree on 26 sets (`tools/cps1_mame_compare.py`, 30 October): 24 comparable, the attract route identical on all of them, the credited play route identical on 23 | `sf2hf` slips by a frame; two sets need PAL dumps the romsets lack; sound not repeated since 27 October (three sets); MAME is not hardware |
 | G12 | P | 26 sets, all measured on one tree | The panel size policy is not decided |
-| G13 | P | Final Fight gives the same route hashes on Windows and Debian 13 (27 October) | One set; not repeated on the 1.6.5 tree |
+| G13 | P | Final Fight (27 October) and Street Fighter II' Champion Edition (30 October, 1.6.5 tree) give the same CPU, RAM, image, sound and trace hashes on Windows and Debian 13 | Two sets of 26 |
 | G14 | ? | No recorded owner decision (draft row below) | Arthur's play test |
 | G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
 | G16 | - | No CPS-1 path is qualified; the sharing can be withdrawn | |
