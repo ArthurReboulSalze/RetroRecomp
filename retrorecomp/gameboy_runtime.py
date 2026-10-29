@@ -229,7 +229,9 @@ static void rr_gb_feedback(GBContext *ctx) {
     ${GBRT_DIR}/src/platform_io.c
 )''')
     source += '\nif(WIN32)\n    target_link_libraries(gbrt PUBLIC gdi32)\nendif()\n'
-    source += '\nif(NOT WIN32)\n    enable_language(ASM)\n    target_sources(game PRIVATE embedded_resources.c embedded_resources.S)\nendif()\n'
+    # The kit's shell in gbrt reads the resources (rrhk_main.c): they go with it, so that every program that links
+    # gbrt (the game, the self-tests' checks) finds rr_resource.
+    source += '\nif(NOT WIN32)\n    enable_language(ASM)\n    target_sources(gbrt PRIVATE embedded_resources.c embedded_resources.S)\nendif()\n'
     source += f'target_compile_definitions(gbrt PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])\n'
     source += '\n# RetroRecomp Windows identity and box-art icon.\n'
     source += 'if(WIN32)\n    target_sources(game PRIVATE game_resources.rc)\nendif()\n'
@@ -239,11 +241,10 @@ static void rr_gb_feedback(GBContext *ctx) {
     source += ('if(MSVC AND GBRECOMP_GENERATED_COMPILE_JOBS GREATER 1)\n'
                '    target_compile_options(game PRIVATE "/MP${GBRECOMP_GENERATED_COMPILE_JOBS}")\n'
                'endif()\n')
-    cmake.write_text(source, encoding="utf-8")
+    from .gameboy_host import kit_cmake
+    cmake.write_text(kit_cmake(source), encoding="utf-8")   # the host kit's shell, beside the platform layer
     from .feedback import stage
     stage(project, 'gb', rom_sha256, target='gbrt')
-    from .gameboy_timing import adapt_timing
-    adapt_timing(project)
     adapt_input_refresh_hook(project)
     from .gameboy_hardware import adapt_hardware
     adapt_hardware(project)
@@ -252,7 +253,7 @@ static void rr_gb_feedback(GBContext *ctx) {
 
 
 def adapt_input_refresh_hook(project: Path) -> None:
-    """Guest side of the host's low-latency input refresh (gameboy_timing):
+    """Guest side of the host's low-latency input refresh (the Game Boy adapter, rrhk_gb.inc):
     a JOYP read with no scripted pad asks the host for fresh input."""
     path = project / 'runtime/include/gbrt.h'
     source = path.read_text(encoding='utf-8')

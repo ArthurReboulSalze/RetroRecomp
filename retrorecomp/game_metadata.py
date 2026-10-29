@@ -8,13 +8,14 @@ import re
 import urllib.parse
 
 from . import cover_sources as api
+from .systems import ALL_PROFILES
 from .cover_settings import load_settings, configured
 from .cover_titles import clean_title, matching_indices
 from .game_details import public_url, _text, synopsis
 
-PLATFORMS = {'sms':{'Q209868'}, 'gg':{'Q751719'}, 'gb':{'Q186437'},
-             'nes':{'Q172742'}, 'md':{'Q10676'}, 'snes':{'Q183259'},
-             'ng':{'Q1054350','Q64428080','Q3338058'}}
+# Wikidata items of each machine's platform, from the profiles' catalogues.
+PLATFORMS = {profile.id: set(profile.catalogues.wikidata) for profile in ALL_PROFILES
+             if profile.catalogues and profile.catalogues.wikidata}
 
 
 def _json(url):

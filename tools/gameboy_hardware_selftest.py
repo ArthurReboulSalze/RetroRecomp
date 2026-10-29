@@ -11,6 +11,7 @@ from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.resources import embed_resources
 
 
 def main():
@@ -25,6 +26,7 @@ def main():
          '--output-prefix', 'game', '--no-comments'], log=log, timeout=600)
     adapt_generated_project(project, 'hardware-fixture', '0' * 64, 'Authored hardware fixture')
     (project / 'game_resources.rc').write_text('1 RCDATA { 0 }\n', encoding='utf-8')
+    embed_resources(project, {})   # the ELF counterpart of the .rc on Linux; nothing on Windows
     checks = {'rr_gb_audio': ROOT / 'native/gb_audio_checks.c',
               'rr_gb_ppu': engine / 'tests/test_ppu_dot_timing.c',
               'rr_gb_audio_chunks': engine / 'tests/test_audio_chunk_invariance.c',

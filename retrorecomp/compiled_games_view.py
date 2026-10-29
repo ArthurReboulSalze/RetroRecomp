@@ -12,6 +12,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from .branding import COLORS
 from .compiled_games import LEVEL_STARS, Game, default_roots, scan, refresh
+from .path_profiles import STABLE_SHARED
 from .paths import APP_NAME
 from .platforms import open_local, target_id
 from .systems import available_profiles, get_profile
@@ -19,8 +20,9 @@ PROFILES = available_profiles()
 import subprocess
 
 ATTENTION = {'new_hints', 'fallback', 'changed', 'unreadable'}
-# The consoles whose games the online service takes (conversion rewards).
-SHARED_CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng')
+# The consoles whose games the online service takes (conversion rewards): the stable tier of the shared
+# knowledge, read from the profiles (path_profiles.STABLE_SHARED).
+SHARED_CONSOLES = STABLE_SHARED
 
 
 def base_key(game) -> str:

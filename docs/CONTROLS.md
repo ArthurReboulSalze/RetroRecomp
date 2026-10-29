@@ -28,6 +28,9 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F11 | Neo Geo: switch arcade MVS / console AES and restart (compatible cartridge and AES BIOS required); arcade-only cartridges show "Arcade Only" without restarting |
 | F12 | Toggle shutdown-only fallback recording; on by default, remembered for this exact game |
 | Enter / keypad Enter / P | Pause/resume: the Master System uses Enter, its default Start/Menu key (its Pause button is on the console). Game Gear and Game Boy use P. On Mega Drive, SNES, NES, Neo Geo and CPS-1, P is free: Enter (the cartridge Start) pauses the game itself |
+| Tab (held) / right trigger | Fast-forward at 2.5 times the speed, on every console since 1.6.3 (see [Speed and sound](#speed-and-sound)) |
+| ` (backquote) / left trigger | Toggle the maximum speed, 5 times (see below) |
+| M | Mute or unmute the sound |
 | Esc | Close a menu or quit |
 
 On every console whose controller has a **Start** button (Game Gear, Game Boy,
@@ -66,21 +69,45 @@ chosen. Most boards read their switches at power-on: restart with Shift+F1.
 The choice is kept per game; conversions always check the default settings.
 Captain Commando needs **Play Mode: 4 Players** for four players.
 
+## Speed and sound
+
+Since 1.6.3 every console has the speed and sound controls that only the Game Boy player had before 1.6.3 (the keys are
+the Game Boy's own):
+
+- **Tab, held**, or the **right trigger** of a pad a player holds: fast-forward at 250% of the machine's speed. It lasts as long
+  as the key is down.
+- **` (the backquote key, left of 1 on a US keyboard, below Esc on many others)**, or the **left trigger**: toggles the maximum
+  speed, 500%, until pressed again (shown in the options page and by a short notice). If both are active the maximum speed wins.
+- **M**: mutes and unmutes the sound (a short notice); the choice is kept for this console.
+- Options page of F2: **Volume** (0 to 200%, steps of 10, 100% leaves the sound as the machine made it), **M Sound** (ON, OFF
+  when muted), **Output device** (the system default, then each output device SDL lists; the sound moves to the new device at
+  once) and **` Max speed**.
+
+Only the pacing changes: the machine runs the same frames in the same order, faster, and the sound is dropped while the speed is
+not 100% (as the Game Boy player did; mute and volume only touch what reaches the device, never the machine's sound).
+Autofire counts guest frames, quick states are taken at the same safe boundary, and a menu stops the machine whatever the speed.
+A key you have bound to a control of the game keeps that control: Tab, ` and M then do nothing as shortcuts. They are meant for the
+keys' default roles; no default control uses them. On the **X68000** they work in game-shortcut mode (the default); in full guest
+typing (Ctrl+Alt+K) the keyboard belongs to the computer, and the options page still has the rows. The X68000's own **F5** (fast
+loading, held; unthrottled and silent) is unchanged. On a computer in the Tab help page, Tab still switches between its two help pages.
+The preferences are `audio_volume`, `audio_muted` and `audio_device` under `[<Console>.Options]` of `datas/Retro-Recomp.ini`.
+
 ## F2 settings pages
 
 F2 gathers every setting in one place, on every console, as pages:
 
 1. the control pages: keyboard then gamepad for each player (Game Gear and
-   Game Boy: keyboard, gamepad; X68000: one page per player, keys and buttons
-   side by side). Player 1's pages end with the **Quit** and **Restart**
-   combinations: keyboard ones on the keyboard page, controller ones on the
-   gamepad page (the X68000 shows both in its two columns);
+   Game Boy: keyboard, gamepad). Player 1's pages end with the **Quit** and
+   **Restart** combinations: keyboard ones on the keyboard page, controller
+   ones on the gamepad page; the X68000 has the same pages since 1.6.3 (it
+   used one page per player, keys and buttons side by side);
 2. on recognised gun games, the gun page (Light Phaser, Zapper, Menacer,
    Justifier or Super Scope): cross or dot, size, colour, and Super Scope turbo;
 3. **Options**: the function-key settings with their current value (F3
    filter, F4 display mode, F5 sprite reduction, Game Boy palette or Neo Geo
    enhanced mode where they exist, F6 autofire, F7 language, F11 Neo Geo
-   MVS/AES, F12 fallback recording), then the **audio filter** and, on
+   MVS/AES, F12 fallback recording), then the **audio filter**, the **volume**,
+   the **mute**, the **output device**, the **maximum speed** and, on
    computers, the function-key row below. Enter/A on a function-key row does
    exactly what its shortcut does; the shortcuts keep working outside the menu.
 
@@ -129,8 +156,7 @@ pages.
   combination belongs to one controller, not buttons split between players.
   The keyboard row is unassigned by default; the gamepad default is
   **L3+R3**. Delete/Backspace or controller X clears the selected
-  combination; Esc cancels capture. On the X68000 page, Enter captures the
-  keyboard combination and A the controller one.
+  combination; Esc cancels capture.
 - **Restart (keyboard page / gamepad page):** assigned the same way. The keyboard row is
   unassigned by default (Shift+F1 always restarts); the gamepad default is
   **Start+Select (Back)**. A held restart fires once, then waits for release.
@@ -159,8 +185,9 @@ In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
 the pages: player 1 keyboard, player 1 gamepad, player 2 keyboard, player 2
 gamepad. Up/Down selects a row, and Enter begins capture. Press the desired key
 or the selected player's controller button. Esc cancels capture; D restores
-that player's defaults for the input type. C on a Master System gamepad page
-swaps controller assignments.
+that player's defaults for the input type. On each gamepad page the last row,
+Gamepad, chooses the controller of that player ([pad slots](HOST_KIT.md): Automatic
+by default, a connected controller, or None).
 
 Game Gear has one player and no gun. Arrows and W/X control the game; **Enter**
 is the cartridge Start button (S before 1.5.0). On a gamepad, A/B are the two
@@ -196,17 +223,22 @@ Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
 **Enter** is cartridge Start and either **Shift** is cartridge Select.
 These letter bindings follow the active keyboard layout. On a controller, the
 D-pad/left stick moves, the two primary face buttons are A/B, Start and
-Back are cartridge Start/Select, and the Guide button opens pause. Game Boy
-uses the same RetroRecomp menu layout as the Sega profiles. F3 cycles all four
+Back are cartridge Start/Select, and the Guide button opens pause. Since
+1.6.3 Game Boy runs the same player shell as every other console (the host kit):
+F2 has the keyboard and gamepad pages of player 1 with the Quit and Restart
+combinations and the Gamepad row, then the options; the Pause/Menu action
+(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles all four
 filters, including Scale2x and scanlines; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.
-F6 toggles autofire for held keyboard/gamepad A/B, F7 changes menu language,
-and F8/F9 use one quick state. P pauses, F2 maps controls, F1 opens help
+F6 toggles autofire for held keyboard/gamepad A/B (with the shared "Autofire ON/OFF" notice), F7 changes menu language,
+and F8/F9 use one quick state, taken between two frames. P pauses, F2 maps controls, F1 opens help
 and Shift+F1 restarts. Enter selects a binding inside F2. Escape closes a menu or quits.
 Fallback stays visible in the window title and pause menu, with no overlay
-in fullscreen. Game Boy settings use a separate shared INI file.
+in fullscreen. Tab, the backquote key, M, the triggers, the volume and the output device
+are the shell's, as on every console (see [Speed and sound](#speed-and-sound));
+the second binding of each button (the shoulders) no longer exists.
 
 Master System defaults:
 
@@ -223,12 +255,20 @@ combination (Start+Select by default); it has no separate Select/Reset row.
 Earlier `select` entries for either player are ignored without rewriting the
 INI. J2 binding details appear only on its mapping page.
 
-The first controller is J1 and the next J2; swapping supports one gamepad for
-J2 while J1 uses the keyboard. Settings are shared in `datas/Retro-Recomp.ini`.
-Disconnecting one controller keeps the other assigned to its player.
+Since 1.6.3 the Master System and the Game Gear run on the common host kit, with the same pad rules as the other
+consoles: controllers go to players in plug order (Automatic), and each player's Gamepad row in F2 can pin a
+controller to that player or leave the player on the keyboard (None); the first-player preference and the C swap of earlier
+releases are gone. The stick threshold is 16000 like everywhere else, opposite directions cancel, autofire
+(F6) follows the common rule and shows the common "Autofire ON / OFF" notice, and F2 captures a pad press only from the
+selected player's own controller. The Start/Menu key (Enter by default) or button of any player opens the Pause menu; F1 and F2
+opened from it come back to it. Settings are shared in `datas/Retro-Recomp.ini` under
+`[MasterSystem.*]` and `[GameGear.*]` sections (keyboard and gamepad bindings per player, `[MasterSystem.Pointer]`
+for the Light Phaser reticle, `device` and `name` of each pinned controller); the French sections of earlier
+releases (`[Clavier]`, `[Manette]`, `[Video]`, `[LightPhaser]`, and `SMSRecomp.ini` while no `Retro-Recomp.ini` exists)
+are still read where the new key is absent and never deleted or rewritten.
 Defaults live in memory. Starting a game, opening a menu or reading an INI
-creates no files; only a changed setting creates/updates the shared INI.
-Legacy settings can be read in place and are copied only on an explicit edit.
+creates no files; only a changed setting creates/updates the shared INI
+(a legacy `SMSRecomp.ini` is copied first, on the first write).
 
 On Master System, **F5** switches sprite flicker reduction on/off immediately.
 The initial default retains the console's eight sprites per scanline. When
@@ -272,8 +312,8 @@ the automatically cropped left hardware border.
 The last F4 mode and F3 filter are saved when changed and restored on the next
 launch. Settings are shared by games of the same console. Master System,
 Game Gear, NES, Mega Drive and SNES use distinct video sections in their shared
-`datas/Retro-Recomp.ini`; Game Boy uses `datas/Retro-Recomp-GameBoy.ini`, including
-its monochrome/green palette. Reading settings creates no folders or files.
+`datas/Retro-Recomp.ini` (Game Boy since 1.6.3, `[GameBoy.Video]`, with its
+monochrome/green palette; the `datas/Retro-Recomp-GameBoy.ini` of earlier releases is only read). Reading settings creates no folders or files.
 Older Sega `[Video] filtre` entries remain readable until an explicit change.
 
 Scanlines use one gap per original console raster row. Fractional fullscreen
@@ -287,7 +327,9 @@ Each quick state uses the game's name and exact ROM identity in `datas/states`.
 See [state formats and compatibility](GAME_STATES.md#mega-drive-and-super-nintendo).
 
 F6 autofire is off by default. It pulses held, mapped fire/face buttons from
-**both keyboard and gamepad**, independently for each player and button. A new
+**both keyboard and gamepad**, independently for each player and button; on the
+X68000 (since 1.6.3) both game buttons pulse, a key or a mouse button bound to
+one of them is that button, and Ctrl+Alt+F is the same switch as F6. A new
 press fires immediately. Each pulse is one guest frame pressed and one released:
 about 30 pulses per second on 60 Hz consoles, 25 in PAL, and 29.6 on Neo Geo.
 This replaces the earlier 40 Hz timer, whose pulses could be missed by games
@@ -300,8 +342,9 @@ actions through F2. Together, held for one second, they quit by default (game
 options). Existing explicitly saved bindings remain in effect. Use P to pause
 and Shift+F1 to restart.
 
-The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`;
-Game Boy keeps its own persistent `input.autofire` setting. Existing games need
+The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`
+(the X68000 keeps `X68000/autofire`);
+since 1.6.3 the Game Boy writes it there too and reads its former `input.autofire` setting while that key is absent. Existing games need
 regeneration to receive these input changes.
 
 Starting with 0.10.6, catalogue-selected Light Phaser games use the mouse on

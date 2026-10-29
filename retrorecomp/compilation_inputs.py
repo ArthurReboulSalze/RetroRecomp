@@ -45,44 +45,6 @@ def role(name):
     return 'game'
 
 
-def owners(name):
-    """Return the narrowest known scope, keeping unclassified inputs shared."""
-    name = Path(name).name.lower()
-    if name.startswith(('x68000', 'x68k_')):
-        return frozenset(('x68',))
-    if name.startswith(('gameboy', 'game_boy', 'gb_', 'retro_gb')):
-        return frozenset(('gb',))
-    # CPS-1 code generation reuses these Neo Geo and Mega Drive modules; both
-    # arcade consoles read their set ZIPs through the shared zip_sets reader.
-    if name.split('.')[0] in ('neogeo_codegen', 'neogeo_z80', 'neogeo_build', 'zip_sets'):
-        return frozenset(('ng', 'cps1'))
-    if name.split('.')[0] in ('megadrive_codegen', 'megadrive_z80'):
-        return frozenset(('md', 'cps1'))
-    if name.startswith(('neogeo', 'ng_')):
-        return frozenset(('ng',))
-    if name.startswith('cps1'):
-        return frozenset(('cps1',))
-    if name.startswith(('supernintendo', 'snes_', 'retro_snes')):
-        return frozenset(('snes',))
-    if name.startswith(('megadrive', 'md_', 'retro_md')):
-        return frozenset(('md',))
-    if name.startswith(('nes_', 'retro_nes')) or name in ('nes', 'nes.py'):
-        return frozenset(('nes',))
-    if name.startswith('m68000'):
-        return frozenset(('md', 'ng', 'x68', 'cps1'))
-    # The shared 16-bit host is linked into Neo Geo and CPS-1 games too; 'hostkit' matches retrorecomp/hostkit.py
-    # only (the kit's own C files are scoped by the explicit manifest in stamp_inputs.py). The NES links the kit too.
-    if name.startswith('hostkit'):
-        return frozenset(('md', 'snes', 'ng', 'cps1', 'nes'))
-    if name.startswith(('console16', 'retro_console16', 'gun16')):
-        return frozenset(('md', 'snes', 'ng', 'cps1'))
-    if name.startswith('guns16'):
-        return frozenset(('md', 'snes'))
-    if name.startswith(('master_system', 'game_gear')) or name in ('cpu', 'cpu.py', 'validation', 'validation.py'):
-        return frozenset(('sms', 'gg'))
-    return SYSTEMS
-
-
 def _portable_code(value):
     if isinstance(value, CodeType):
         return value.replace(co_filename='', co_consts=tuple(_portable_code(c) for c in value.co_consts))

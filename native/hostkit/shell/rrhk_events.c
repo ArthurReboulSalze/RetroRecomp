@@ -12,10 +12,120 @@
 #include "runtime_feedback.h"
 #include "hostkit/hostkit_internal.h"
 
+void rrhk_toggle_autofire(void) {
+    rrhk.autofire = !rrhk.autofire;
+    rrhk_autofire_reset();
+    /* Divergence 11 (decided 28 October 2026): one short notice from the shared catalogue, on every console. */
+    rrhk_notice(rr_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF"), 1800);
+    if (rrhk_write_ready())
+        rr_ini_set(rrhk_autofire_section(), L"autofire", rrhk.autofire ? L"1" : L"0", rrhk.ini_file);
+}
+
+/* The player whose gamepad this event came from, -1 for a gamepad no player holds. */
+static int event_player(SDL_JoystickID which) {
+    for (int p = 0; p < rrhk.machine->table_players; ++p)
+        if (rrhk.pads[p] && which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rrhk.pads[p]))) return p;
+    return -1;
+}
+
+/* The Pause/Menu action of a machine that has one (Master System, Game Gear): the key or the button bound to it, of any player. */
+static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) {
+    const RrhkMachine *m = rrhk.machine;
+    if (!m->host_pause) return false;
+    const int action = m->host_pause - 1;
+    if (event->type == SDL_CONTROLLERBUTTONDOWN) {
+        int p = event_player(event->cbutton.which);
+        return p >= 0 && p < m->players() && rrhk.buttons[p][action] == (SDL_GameControllerButton)event->cbutton.button;
+    }
+    if (key == SDL_SCANCODE_UNKNOWN) return false;
+    /* Enter binds rows on an F2 page: it does not pause there. */
+    if (rrhk_pages_open(rrhk.menu) && (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER)) return false;
+    for (int p = 0; p < m->players(); ++p) if (rrhk.keys[p][action] == key) return true;
+    return false;
+}
+
+/* The sound and speed keys of every console (decision D12), the Game Boy host's former keys: Tab held is the fast-forward,
+ * the backquote key toggles the maximum speed, M mutes. A key a player has bound to a control stays that control; the
+ * keys are not offered to a machine that has the keyboard (the X68000's full guest typing), and a menu with text entry
+ * never gets them. The same holds for the triggers: the right one held is the fast-forward, the left one toggles the maximum
+ * speed (a trigger is no button of any control). */
+enum { HOLD_KEY = 1, HOLD_TRIGGER = 2 };
+static bool trigger_down[2][RRHK_MAX_PLAYERS];     /* [0] right, [1] left: past the threshold since the last event */
+
+static bool key_bound(SDL_Scancode key) {
+    const RrhkMachine *m = rrhk.machine;
+    for (int p = 0; p < m->table_players; ++p) for (int a = 0; a < m->action_count; ++a) if (rrhk.keys[p][a] == key) return true;
+    return false;
+}
+
+static bool sound_keys_open(void) {
+    const RrhkMachine *m = rrhk.machine;
+    if (rrhk.capturing || (m->keyboard_pad && !m->keyboard_pad())) return false;
+    return !rrhk.menu || rrhk.menu == RRHK_MENU_HELP || rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS;
+}
+
+static void toggle_max_speed(void) {
+    rrhk.max_speed = !rrhk.max_speed;
+    rrhk_notice(rr_tr(rrhk.max_speed ? "Maximum speed ON" : "Maximum speed OFF"), 1800);
+}
+
+static void toggle_mute(void) {
+    const bool muted = rrhk_sound_toggle_mute();
+    rrhk_notice(rr_tr(muted ? "Sound muted" : "Sound on"), 1800);
+}
+
+/* The speed events that come before everything else, so that a key released in a menu or a lost window never stays held. */
+static void speed_event(const SDL_Event *event) {
+    if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
+    else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
+             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB) && !rrhk_options_component(SDL_SCANCODE_TAB, -1))
+        rrhk.fast_hold |= HOLD_KEY;
+    /* A pad plugged or unplugged: the trigger it held is gone, and the slots are dealt again (the hold would stick). */
+    else if (event->type == SDL_CONTROLLERDEVICEADDED || event->type == SDL_CONTROLLERDEVICEREMOVED) {
+        rrhk.fast_hold &= ~HOLD_TRIGGER;
+        memset(trigger_down, 0, sizeof trigger_down);
+    }
+    else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        rrhk.fast_hold = 0;
+        memset(trigger_down, 0, sizeof trigger_down);
+    } else if (event->type == SDL_CONTROLLERAXISMOTION &&
+               (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
+        const int p = event_player(event->caxis.which), side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
+        if (p < 0) return;
+        const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
+        const bool pressed = down && !trigger_down[side][p];
+        trigger_down[side][p] = down;
+        if (!side) {
+            bool any = false;
+            for (int q = 0; q < RRHK_MAX_PLAYERS; ++q) any = any || trigger_down[0][q];
+            if (!any) rrhk.fast_hold &= ~HOLD_TRIGGER;
+            else if (!rrhk.menu && sound_keys_open()) rrhk.fast_hold |= HOLD_TRIGGER;
+        } else if (pressed && !rrhk.menu && sound_keys_open()) toggle_max_speed();
+    }
+}
+
+/* Help (F1) and Pause: open it, or go back to the menu it was opened from. Opening one while the Pause menu is up remembers it. */
+void rrhk_toggle_menu(int kind) {
+    rrhk.capturing = 0;
+    if (rrhk.menu == kind) rrhk_close_menu();
+    else { if (rrhk.menu == RRHK_MENU_PAUSE) rrhk.parent_menu = RRHK_MENU_PAUSE; rrhk.menu = kind; }
+}
+
+void rrhk_close_menu(void) {
+    rrhk.menu = rrhk.parent_menu;
+    rrhk.parent_menu = 0;
+}
+
 void rrhk_poll_events(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        speed_event(&event);
+        /* The output device the sound plays on went away: the loop opens the one asked for again (or the default). */
+        if (event.type == SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture && event.adevice.which &&
+            event.adevice.which == rrhk_audio_device_id(run)) run->device_lost = true;
+        /* A computer's own shortcuts and the guest keyboard come first (X68000). */
+        if (m->event && m->event(&event, &run->running)) continue;
         if (rrhk_options_event(&event, &rrhk.menu, rrhk.capturing != 0)) continue;
         if (event.type == SDL_QUIT) run->running = false;
         if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED) rrhk_open_pads();
@@ -29,11 +139,12 @@ void rrhk_poll_events(RrhkRun *run) {
             continue;
         }
         SDL_Scancode key = event.type == SDL_KEYDOWN && !event.key.repeat ? event.key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
+        bool from_row = false;
         /* An option row behaves as its function key. */
         if (rrhk.menu == RRHK_MENU_OPTIONS) {
             int chosen = rrhk_option_page_event(&event);
             if (chosen < 0) continue;
-            if (chosen > 0) key = (SDL_Scancode)chosen;
+            if (chosen > 0) { key = (SDL_Scancode)chosen; from_row = true; }
         }
         /* Left/Right, Tab, LB/RB or the D-pad turn the F2 pages and B
          * closes them; on a page the D-pad and A choose rows. */
@@ -42,11 +153,17 @@ void rrhk_poll_events(RrhkRun *run) {
             if (step) { rrhk_turn_page(step); continue; }
             if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN) {
                 int b = event.cbutton.button;
-                if (b == SDL_CONTROLLER_BUTTON_B) { rrhk.menu = 0; continue; }
+                if (b == SDL_CONTROLLER_BUTTON_B) { rrhk_close_menu(); continue; }
                 key = b == SDL_CONTROLLER_BUTTON_DPAD_UP ? SDL_SCANCODE_UP : b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ? SDL_SCANCODE_DOWN :
                     b == SDL_CONTROLLER_BUTTON_A ? SDL_SCANCODE_RETURN : b == SDL_CONTROLLER_BUTTON_X ? SDL_SCANCODE_DELETE :
                     SDL_SCANCODE_UNKNOWN;
             }
+        }
+        /* A gamepad button bound to Pause/Menu opens or closes the Pause menu (a key does after the binding capture below). */
+        if (event.type == SDL_CONTROLLERBUTTONDOWN && key == SDL_SCANCODE_UNKNOWN &&
+            pause_pressed(&event, key) && !rrhk_options_component(0, event.cbutton.button)) {
+            rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+            continue;
         }
         if (key == SDL_SCANCODE_UNKNOWN) continue;
         if (rrhk.menu == RRHK_MENU_CONTROLS && rrhk.capturing) {
@@ -57,11 +174,14 @@ void rrhk_poll_events(RrhkRun *run) {
             }
             continue;
         }
-        if (key == SDL_SCANCODE_ESCAPE) { if (rrhk.menu) rrhk.menu = 0; else run->running = false; }
-        /* F1 opens help; Shift+F1 restarts at once, without a confirmation. */
-        else if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
+        if (key == SDL_SCANCODE_F1 && (event.key.keysym.mod & KMOD_SHIFT)) {
+            /* Shift+F1 restarts at once, without a confirmation. */
             m->reset(); rrhk_audio_pause_output(run);
-        } else if (key == SDL_SCANCODE_F1) rrhk.menu = rrhk.menu == RRHK_MENU_HELP ? 0 : RRHK_MENU_HELP;
+        } else if (pause_pressed(&event, key) && !rrhk_options_component(key, -1)) {
+            rrhk.menu = rrhk.menu == RRHK_MENU_PAUSE ? 0 : RRHK_MENU_PAUSE; rrhk.parent_menu = 0; rrhk.capturing = 0;
+        } else if (key == SDL_SCANCODE_ESCAPE) { if (rrhk.menu) rrhk_close_menu(); else run->running = false; }
+        /* F1 opens help. */
+        else if (key == SDL_SCANCODE_F1) rrhk_toggle_menu(RRHK_MENU_HELP);
         else if (key == SDL_SCANCODE_F2) rrhk_toggle_settings();
         else if (key == SDL_SCANCODE_F12) {
             rr_feedback_toggle(); rrhk_notice(rr_feedback_label(), 1800);
@@ -74,28 +194,24 @@ void rrhk_poll_events(RrhkRun *run) {
             SDL_SetTextureScaleMode(run->tex, SDL_ScaleModeNearest);
             const char *labels[] = {rrhk_tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
             rrhk_notice(labels[rrhk.filter], 1800);
-            if (!rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"filter", rrhk.filter))
+            if (!rrhk_write_ready() || !rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, L"filter", rrhk.filter))
                 snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
         } else if (key == SDL_SCANCODE_F4) {
-            int changed = rr_display_cycle(run->win, &rrhk.fullscreen, rrhk.ini_file, rrhk.data_dir, rrhk.video_section);
-            if (changed < 0) snprintf(rrhk.status, sizeof(rrhk.status), "%s", rrhk_tr("Config unavailable", "Config inaccessible"));
+            rrhk_cycle_display();
         } else if (m->key_event && m->key_event(&rrhk, key, &run->running)) {
             /* a machine key (Neo Geo F5, F11) */
         } else if (key == SDL_SCANCODE_F6) {
-            rrhk.autofire = !rrhk.autofire;
-            rrhk_autofire_reset();
-            /* Divergence 11 (decided 28 October 2026): one short notice from the shared catalogue, on every console. */
-            rrhk_notice(rr_tr(rrhk.autofire ? "Autofire ON" : "Autofire OFF"), 1800);
-            if (rrhk.ini_file[0]) { rr_mkdir(rrhk.data_dir);
-                rr_ini_set(L"Manettes", L"autofire", rrhk.autofire ? L"1" : L"0", rrhk.ini_file); }
+            rrhk_toggle_autofire();
         }
         else if (key == SDL_SCANCODE_F7) {
             rrhk.language = rr_language_next(rrhk.language); rr_language_set(rrhk.language);
             rrhk_notice(rr_language_name(rrhk.language), 2200);
-            if (rrhk.ini_file[0]) { rr_mkdir(rrhk.data_dir);
-                rr_ini_set(L"Interface", L"language", rr_language_wide(rrhk.language), rrhk.ini_file); }
+            if (rrhk_write_ready())
+                rr_ini_set(L"Interface", L"language", rr_language_wide(rrhk.language), rrhk.ini_file);
         } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
             run->pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
+        } else if ((key == SDL_SCANCODE_M || key == SDL_SCANCODE_GRAVE) && (from_row || (sound_keys_open() && !key_bound(key) && !rrhk_options_component(key, -1)))) {
+            if (key == SDL_SCANCODE_M) toggle_mute(); else toggle_max_speed();
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
             if (m->page && m->page->key) m->page->key(&rrhk, key);
         } else if (rrhk.menu == RRHK_MENU_CONTROLS) {
@@ -110,7 +226,8 @@ void rrhk_poll_events(RrhkRun *run) {
                 /* Quit and restart combinations: hold them one second in play. */
                 if (enter) rrhk_combo_start(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
                 else if (key == SDL_SCANCODE_DELETE || key == SDL_SCANCODE_BACKSPACE) rrhk_combo_clear(rrhk.row - m->action_count, rrhk.gamepad_page != 0);
-            } else if (enter) rrhk.capturing = 1;
+            } else if (m->bindings_clearable && key == SDL_SCANCODE_DELETE) rrhk_clear_binding();
+            else if (enter) rrhk.capturing = 1;
         }
     }
 }

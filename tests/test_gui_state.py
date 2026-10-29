@@ -466,7 +466,12 @@ class InterfacePreferences(unittest.TestCase):
                       if isinstance(node, ast.FunctionDef) and node.name == 'preferences')
         call = next(node for node in ast.walk(method) if isinstance(node, ast.Call)
                     and getattr(node.func, 'id', '') == 'dict')
-        return {keyword.arg for keyword in call.keywords}
+        # The firmware paths, the machine choices and the labelled on/off options are saved from the profiles'
+        # option keys (`**{...}` in the call): they count as written here.
+        from retrorecomp.paths import console_options
+        generated = ({key.name for _, key in console_options('path', 'choice')}
+                     | {key.name for _, key in console_options('flag') if key.label})
+        return {keyword.arg for keyword in call.keywords if keyword.arg} | generated
 
     def test_the_neo_geo_converter_accepts_every_preference_that_reaches_it(self):
         import inspect
@@ -686,3 +691,112 @@ class MissingRomFolder(unittest.TestCase):
         with patch('tkinter.filedialog.askdirectory', return_value='') as asked:
             self.app.finish_source_lookup([(self.games[0], None)])
         self.assertNotIn('initialdir', asked.call_args.kwargs)
+
+
+class OptionsFromProfiles(unittest.TestCase):
+    """The firmware paths, the options pages, the command line and the catalogue tables are read from the
+    profiles (1.6.3, package P4): the values below are the literals of 1.6.2 and must not move silently."""
+
+    def test_the_catalogue_tables_equal_the_ones_1_6_2_listed(self):
+        from retrorecomp import artwork, cover_references, cover_sources, game_metadata
+        self.assertEqual(artwork.REPOSITORIES, {
+            'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
+            'gg': 'libretro-thumbnails/Sega_-_Game_Gear',
+            'gb': 'libretro-thumbnails/Nintendo_-_Game_Boy',
+            'nes': 'libretro-thumbnails/Nintendo_-_Nintendo_Entertainment_System',
+            'md': 'libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis',
+            'snes': 'libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
+            'ng': 'libretro-thumbnails/SNK_-_Neo_Geo', 'x68': 'libretro-thumbnails/Sharp_-_X68000'})
+        self.assertEqual(list(artwork.REPOSITORIES), ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'])
+        self.assertEqual(cover_sources.SS_SYSTEMS, {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4})
+        self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6})
+        self.assertEqual(game_metadata.PLATFORMS, {
+            'sms': {'Q209868'}, 'gg': {'Q751719'}, 'gb': {'Q186437'}, 'nes': {'Q172742'}, 'md': {'Q10676'},
+            'snes': {'Q183259'}, 'ng': {'Q1054350', 'Q64428080', 'Q3338058'}})
+        self.assertEqual(cover_references.SYSTEMS, frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68')))
+
+    def test_the_machines_options_come_from_their_profiles(self):
+        from retrorecomp.paths import console_options, path_option_names
+        self.assertEqual(path_option_names(), ('ng_bios', 'x68_ipl', 'x68_cgrom'))
+        self.assertEqual([key.name for _, key in console_options('path', 'choice')],
+                         ['ng_bios', 'x68_ipl', 'x68_cgrom', 'x68_ram'])
+        # Two machines declare the advanced scan; it is one option.
+        self.assertEqual(sorted(key.name for _, key in console_options('flag')),
+                         ['gb_deep_validation', 'md_advanced_scan', 'nes_advanced_scan'])
+
+    def test_a_new_machines_options_reach_the_command_line_and_the_preferences(self):
+        import argparse
+        import RetroRecomp
+        from retrorecomp.paths import path_option_names
+        from retrorecomp.systems import OptionKey, SystemProfile, registry
+        from retrorecomp.systems.specs import Identify
+
+        class Tenth(SystemProfile):
+            id, name, extensions, export_folder, video_modes = 'zz', 'Tenth', ('.zzd',), 'Tenth', ('pal',)
+            option_keys = (OptionKey('zz_rom', kind='path', label='zz_rom'),
+                           OptionKey('zz_turbo', kind='flag', default=True),
+                           OptionKey('zz_mode', kind='choice', label='Mode', choices=('a', 'b'), default='a'))
+            identify = Identify(path_order=41)
+
+            def read_rom(self, path):
+                raise NotImplementedError
+
+            def default_video_mode(self, path):
+                raise NotImplementedError
+
+            def convert(self, path, **options):
+                raise NotImplementedError
+
+        registry.register(Tenth())
+        try:
+            parser = argparse.ArgumentParser()
+            RetroRecomp.add_machine_options(parser)
+            RetroRecomp.add_machine_switches(parser, 'batch')
+            args = parser.parse_args(['--zz-rom', 'f.bin', '--no-zz-turbo', '--zz-mode', 'b', '--x68-ram', '4'])
+            with patch('RetroRecomp.load_preferences', return_value={'x68_ipl': 'saved.dat'}):
+                machine = RetroRecomp.machine_keywords(args)
+            self.assertEqual(machine['zz_rom'], Path('f.bin').resolve())
+            self.assertEqual((machine['zz_mode'], machine['x68_ram'], machine['x68_ipl'], machine['ng_bios']),
+                             ('b', 4, 'saved.dat', None))
+            self.assertIs(RetroRecomp.switch_keywords(args)['zz_turbo'], False)
+            self.assertIs(RetroRecomp.switch_keywords(parser.parse_args([]))['zz_turbo'], True)
+            self.assertIn('zz_rom', path_option_names())
+        finally:
+            registry.unregister('zz')
+        self.assertNotIn('zz_rom', path_option_names())
+
+    def test_the_options_page_of_every_machine_has_its_note_and_labels(self):
+        """Every string the generic page asks for exists, for every machine and option."""
+        from retrorecomp.gui_options import FIRMWARE_ROWS, PAGE_LAYOUT
+        from retrorecomp.systems import ALL_PROFILES
+        for profile in ALL_PROFILES:
+            self.assertIn(PAGE_LAYOUT.get(profile.id, {}).get('note', 'options_' + profile.id + '_note'), STRINGS)
+            self.assertIn(profile.options_tab, STRINGS)
+            for key in profile.option_keys:
+                if key.kind == 'flag' and key.label:
+                    self.assertIn(key.label, STRINGS)
+                    self.assertIn(key.hint, STRINGS)
+                if key.kind == 'path':
+                    self.assertIn(key.label or key.name, STRINGS)
+        for name, row in FIRMWARE_ROWS.items():
+            if row.get('check'):
+                for suffix in ('_check', '_missing', '_not_checked', '_valid', '_invalid'):
+                    self.assertIn(name + suffix, STRINGS)
+
+    def test_the_firmware_check_names_its_strings_after_the_option(self):
+        from retrorecomp.gui_options import OptionsMixin
+        app = Mock()
+        app.tr = lambda key, **values: key
+        app.ng_bios, app.ng_bios_status = Mock(get=Mock(return_value='')), Mock()
+        self.assertFalse(OptionsMixin.check_firmware(app, 'ng_bios'))
+        app.ng_bios_status.set.assert_called_with('ng_bios_missing')
+        app.ng_bios.get.return_value = 'bios.zip'
+        with patch('retrorecomp.neogeo.validate_bios', return_value={'aes': 1}):
+            self.assertTrue(OptionsMixin.check_firmware(app, 'ng_bios'))
+        app.ng_bios_status.set.assert_called_with('ng_bios_dual')
+        with patch('retrorecomp.neogeo.validate_bios', return_value={}):
+            self.assertTrue(OptionsMixin.check_firmware(app, 'ng_bios'))
+        app.ng_bios_status.set.assert_called_with('ng_bios_valid')
+        with patch('retrorecomp.neogeo.validate_bios', side_effect=ValueError('bad')):
+            self.assertFalse(OptionsMixin.check_firmware(app, 'ng_bios'))
+        app.ng_bios_status.set.assert_called_with('ng_bios_invalid')

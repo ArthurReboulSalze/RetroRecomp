@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
-import shutil
-import subprocess
 import time
 
 from . import __version__, timings as stages
-from .core import executable_name, ConversionError, StopRequested, run_process
+from .conversion_common import check_exit, resolve_scan_level, spawn
+from .conversion_gates import comparison_notice, pack_candidate
+from .core import executable_name, ConversionError, StopRequested
 from .library import atomic_json
 from .report_schema import write_report
 from .neogeo import read_set, validate_bios
@@ -31,11 +31,10 @@ def check_routes(executable: Path, project: Path, set_name: str, qualification=N
         name, (frames, _) = row
         report = directory / (name + '.json')
         script = project / 'native-discovery' / (name + '.inputs')
-        run = run_process([str(executable), '--headless', *route_arguments(name), '--frames', str(frames),
+        run = spawn([str(executable), '--headless', *route_arguments(name), '--frames', str(frames),
             '--script', str(script), '--rtc-seed', '1760000000', '--report', str(report)],
-            capture_output=True, timeout=max(240,frames/60*4))
-        if run.returncode:
-            raise ConversionError(str(probe_failure('packed '+name, run)))
+            cwd=directory, timeout=max(240,frames/60*4), capture_output=True)
+        check_exit(run, lambda result: ConversionError(str(probe_failure('packed '+name, result))))
         native = json.loads(report.read_text(encoding='utf-8'))
         reference = json.loads((project / 'native-discovery' / (name + '-reference.json')).read_text(encoding='utf-8'))
         compare(native, reference, require_native=False)
@@ -112,9 +111,8 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
              scan_level=None, emit=print, _rejected=None) -> Path:
     started=time.perf_counter()
     workers=max(1,min(4,8//max(1,ng_parallel_games)))
-    from .scan_levels import LEVELS, neogeo_budget
-    level=scan_level or 'standard'
-    if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import neogeo_budget
+    level=resolve_scan_level(scan_level)
     scan=neogeo_budget(level)
     timings={}
     # convert_reference runs the whole preparation in one call. Its steps are named from here, without editing
@@ -169,12 +167,10 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     console_capable=aes_compatible(project/'cartridge.neo')
     console_available='aes' in bios_info and console_capable
     if not console_capable:emit('Neo Geo: Arcade Only; AES is not a supported machine for this cartridge.')
-    from .packing import compact_executable
     packed=project/'packed-game.exe'
-    shutil.copy2(executable,packed)
-    notice=compact_executable(packed,emit)
+    notice=pack_candidate(executable,packed,emit)
     timings['executable_compression']=round(time.perf_counter()-phase,3);phase=time.perf_counter()
-    emit('Neo Geo: comparing the '+('unpacked' if notice else 'compressed')+' executable with the fresh reference.')
+    emit(comparison_notice('Neo Geo',notice))
     with stages.phase('packed_replays'):
         checks=check_routes(packed,project,game.set_name,ng_qualification_routes,workers=workers)
     # The delivered, compressed executable is the native candidate. Compare

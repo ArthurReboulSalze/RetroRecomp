@@ -223,6 +223,43 @@ class DualWrite(unittest.TestCase):
                         write_report(path, bad)
                     self.assertFalse(path.exists())
 
+    def test_write_report_fills_the_status_from_the_profile_and_keeps_a_writer_s_own(self):
+        from retrorecomp.systems import ALL_PROFILES
+        status_of = {profile.id: profile.status for profile in ALL_PROFILES}
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'conversion-report.json'
+            for label, make in FIXTURES.items():
+                with self.subTest(fixture=label):
+                    report = make()
+                    system_id = report['system']['id']
+                    document = write_report(path, report)
+                    if report.get('status') is None:
+                        # sms, gg, gb, nes: the writers store none, the profile says it.
+                        self.assertNotIn('status', report)
+                        self.assertEqual(document['status'], status_of[system_id])
+                    else:
+                        self.assertEqual(document['status'], report['status'])
+                    self.assertEqual(document['system']['status'], document['status'])
+                    self.assertEqual(json.loads(path.read_text(encoding='utf-8')), document)
+                    # Written again by the batch after its own fields: the status stays.
+                    self.assertEqual(with_schema_v2(document)['status'], document['status'])
+                    self.assertEqual(legacy_view(document)['status'], document['status'])
+
+    def test_the_status_the_profile_gives_is_the_one_of_the_four_writers_without_one(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'conversion-report.json'
+            for make, expected in ((sms_report, 'supported'), (gb_report, 'supported'), (nes_report, 'supported')):
+                self.assertEqual(write_report(path, make())['status'], expected)
+            self.assertEqual(write_report(path, sms_report('gg'))['status'], 'supported')
+            # A report whose status is null is unset too; a stage the writer states is kept as written.
+            self.assertEqual(write_report(path, {**gb_report(), 'status': None})['status'], 'supported')
+            self.assertEqual(write_report(path, {**neogeo_report(), 'status': 'experimental'})['status'],
+                             'experimental')
+            # The experimental machines say so even when their writer left it out.
+            cps1 = FIXTURES['cps1 completed']()
+            cps1.pop('status', None)
+            self.assertEqual(write_report(path, cps1)['status'], 'experimental')
+
     def test_write_report_fills_the_target_and_the_time_and_replaces_the_file_atomically(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'conversion-report.json'

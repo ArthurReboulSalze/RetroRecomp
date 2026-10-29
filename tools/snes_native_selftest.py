@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.snes_codegen import native_source, adapt_core, mirrored_rom
+from retrorecomp.console16 import snes_ppu_header
 
 
 def main():
@@ -18,11 +19,7 @@ def main():
     staged = project / 'engine/runner'
     shutil.copytree(engine / 'runner', staged, dirs_exist_ok=True)
     ppu = staged / 'src/snes/ppu.h'
-    ppu.write_text(ppu.read_text(encoding='utf-8').replace(
-        'typedef struct PpuPixelPrioBufs {',
-        'typedef struct __declspec(align(8)) PpuPixelPrioBufs {').replace(
-        '} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;'),
-        encoding='utf-8')
+    ppu.write_text(snes_ppu_header(ppu.read_text(encoding='utf-8')), encoding='utf-8')
     # Three authored 32 KiB blocks also exercise the loader's non-power-of-two
     # storage. Put the opcode grid in each mapping's first visible CPU window.
     rom = bytearray([0xea] * 0x18000)

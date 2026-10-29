@@ -10,8 +10,10 @@ Targets: cps1_probe (reference), cps1_trace_probe (per-instruction trace),
 and, in a game's native project, cps1_native_probe (translated 68000/Z80).
 """
 from __future__ import annotations
+import os
 from pathlib import Path
 
+from .conversion_common import replace_counted, write_if_changed
 from .paths import ROOT, ASSETS
 from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
@@ -36,15 +38,13 @@ def sources() -> tuple[Path, Path]:
 
 
 def _write(target: Path, text: str) -> None:
-    from .megadrive_codegen import write_changed
-    target.parent.mkdir(parents=True, exist_ok=True)
-    write_changed(target, text)
+    """Write a text file with the platform's line ends, unless it already holds exactly this text."""
+    write_if_changed(target, text.replace('\n', os.linesep).encode('utf-8'))
 
 
 def _replace_once(text: str, old: str, new: str, what: str) -> str:
-    if text.count(old) != 1:
-        raise ValueError(f'Pinned {what} changed; CPS-1 adaptation refused.')
-    return text.replace(old, new)
+    return replace_counted(text, old, new, count=1,
+                           error=lambda missing: ValueError(f'Pinned {what} changed; CPS-1 adaptation refused.'))
 
 
 def musashi_core(geolith: Path, *, native: bool) -> str:
@@ -330,7 +330,6 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     import hashlib, json
     from . import __version__
     from .cps1_board import write_board
-    from .megadrive_codegen import write_changed
     board = project / 'board'
     write_board(board, game_set, game)
     if hints is not None:
@@ -348,7 +347,7 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
             notices.append(file.read_text(encoding='utf-8'))
     for file in (geolith / 'src/z80/z80.c', geolith / 'deps/miniz/miniz.c'):
         notices.append(file.read_text(encoding='utf-8').split('*/', 1)[0] + '*/')
-    write_changed(project / 'notices.txt', '\n\n'.join(notices))
+    _write(project / 'notices.txt', '\n\n'.join(notices))
     packed = project / 'board.pack'
     payload = pack(board)
     if not packed.is_file() or packed.read_bytes() != payload:
@@ -368,21 +367,21 @@ def prepare_game(project: Path, game_set, game: dict, *, title: str, observation
     metadata = write_game_metadata(project, title, executable_name(title), light_phaser=False, icon=icon,
                                    standard='arcade', system_id='cps1')
     (project / 'export-identity.bin').write_bytes(b'[Retro-Recomp]\0' + game_set.sha256.encode('ascii') + b'\0')
-    write_changed(project / 'content.rc', '#pragma code_page(65001)\n'
+    _write(project / 'content.rc', '#pragma code_page(65001)\n'
                   f'201 RCDATA "{packed.as_posix()}"\n203 RCDATA "notices.txt"\n'
                   '205 RCDATA "export-identity.bin"\n#include "game_resources.rc"\n')
     from .resources import embed_resources
     embed_resources(project, {201: packed, 203: project / 'notices.txt', 205: project / 'export-identity.bin'})
     table = ','.join('{%d,%d,%d,%d}' % row for row in input_table(game))
     dip_count, dip_rows = dip_table(game)
-    write_changed(project / 'cps1_game.h', '#pragma once\n#define RR_CPS1_TITLE ' + json.dumps(title) +
+    _write(project / 'cps1_game.h', '#pragma once\n#define RR_CPS1_TITLE ' + json.dumps(title) +
                   '\n#define RR_CPS1_SET ' + json.dumps(game['set']) +
                   '\n#define RR_CPS1_VERSION ' + json.dumps(__version__) +
                   f'\n#define RR_CPS1_ROTATION {int(game["rotation"])}\n#define RR_CPS1_PLAYERS {player_count(game)}'
                   f'\n#define RR_CPS1_INPUT_TABLE {table}\n#define RR_CPS1_DIP_COUNT {dip_count}'
                   f'\n#define RR_CPS1_DIP_TABLE {dip_rows}\n')
-    write_changed(project / 'retro_gun_game.h', '#pragma once\n#define RR16_GUN 0\n')
-    write_changed(project / 'retro16_state_config.h', state_config(game_set, title))
+    _write(project / 'retro_gun_game.h', '#pragma once\n#define RR16_GUN 0\n')
+    _write(project / 'retro16_state_config.h', state_config(game_set, title))
     cmake = (project / 'CMakeLists.txt').read_text(encoding='utf-8')
     cmake = cmake[:cmake.index('add_executable(cps1_native_probe')] + f'''if(WIN32)
   enable_language(RC)
@@ -412,7 +411,7 @@ if(WIN32 AND NOT MSVC)
   target_link_options(game PRIVATE -Wl,--subsystem,windows -Wl,--entry,mainCRTStartup)
 endif()
 '''
-    write_changed(project / 'CMakeLists.txt', cmake)
+    _write(project / 'CMakeLists.txt', cmake)
     from .feedback import stage
     stage(project, 'cps1', game_set.sha256)
     return {'analysis': analysis, 'artwork': artwork, 'windows_metadata': metadata,

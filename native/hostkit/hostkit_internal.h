@@ -6,14 +6,15 @@
 #include "scanline_sdl.h"
 #include "xbr_sdl.h"
 
-/* Menu numbers (options.c checks them against game_options.h). */
-#define RRHK_MENU_HELP 1
-#define RRHK_MENU_CONTROLS 2
-#define RRHK_MENU_PAGE 4
-#define RRHK_MENU_OPTIONS 5
 #define RRHK_COMBO_ROWS 2
 
 extern RrhkUi rrhk;
+
+/* timing.c: explicit diagnostic only; accumulated in memory, written once. */
+typedef struct {
+    uint64_t frames;
+    double total[6], maximum[6], thread_cpu;
+} RrhkTiming;
 
 /* Everything the windowed loop keeps between its steps. One instance, in main.c. */
 typedef struct RrhkRun {
@@ -37,15 +38,24 @@ typedef struct RrhkRun {
     uint64_t frame;
     int title_state;
     bool running;
+    bool fast;                     /* the machine's fast-forward hook was true at the start of this iteration */
+    int speed;                     /* percent of the machine's speed this iteration runs at: 100, 250 (Tab held) or 500 (max speed) */
+    unsigned device_serial;        /* the output device asked for, as the loop last opened it */
+    bool device_lost;              /* the device the sound plays on was removed */
     RrScanlineMask scanlines;
     RrXbr xbr;
+    /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
+     * that owns the loop runs between the end of one and the begin of the next. What the two halves share: */
+    bool ran;                      /* this iteration ran the machine (no menu, no pause) */
+    bool driven;                   /* the guest owns the loop */
+    bool timing_enabled;
+    RrhkTiming timing;
+    Uint64 work_started, ticks[7];
+    double cpu_started;
+    bool ran_frame;                /* timing: a frame was run in this iteration */
+    const char *timing_path;
 } RrhkRun;
 
-/* timing.c: explicit diagnostic only; accumulated in memory, written once. */
-typedef struct {
-    uint64_t frames;
-    double total[6], maximum[6], thread_cpu;
-} RrhkTiming;
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
                        SDL_Renderer *renderer, Uint64 frequency);
@@ -53,6 +63,8 @@ void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkT
 /* input.c */
 void rrhk_settings_path(void);
 void rrhk_store_binding(void);
+void rrhk_clear_binding(void);
+const wchar_t *rrhk_autofire_section(void);
 void rrhk_open_pads(void);
 void rrhk_close_pads(void);
 /* The Gamepad row of each player's gamepad page (divergence 10): which pad the player uses. */
@@ -75,16 +87,24 @@ int rrhk_page_rows(void);
 bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
+void rrhk_toggle_menu(int kind);     /* Help or Pause: open it, or return to the menu it was opened from */
+void rrhk_close_menu(void);          /* Esc, B: back to the menu this one was opened from, or to the game */
 void rrhk_menu_draw(SDL_Renderer *renderer);
 
 /* options.c: the only file that includes game_options.h, whose settings are
  * one set of statics per translation unit. */
 void rrhk_options_init(const wchar_t *console);
+void rrhk_options_keyboard(const char *machine, int count);
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture);
 bool rrhk_options_quit(int menu);
 bool rrhk_options_restart(int menu);
+bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
+bool rrhk_sound_toggle_mute(void);   /* M: flip, keep in the preferences, true when muted */
+bool rrhk_sound_muted(void);
+void rrhk_sound_hold(bool held);     /* the speed is not 100%: the output is silent */
+unsigned rrhk_audio_device_serial(void);   /* moves when the output device asked for changes */
 int rrhk_pages_count(void);
 int rrhk_pages_index(void);
 int rrhk_pages_goto(int page, int *control);
@@ -94,6 +114,7 @@ int rrhk_option_page_event(const SDL_Event *event);
 void rrhk_option_page_draw(SDL_Renderer *renderer);
 int rrhk_combo_rows(void);
 void rrhk_combo_start(int index, bool gamepad);
+bool rrhk_combo_capturing_pad(void);     /* a gamepad combination waits for its buttons */
 void rrhk_combo_clear(int index, bool gamepad);
 void rrhk_combo_value(char *out, size_t size, int index, bool gamepad);
 const char *rrhk_combo_label(int index);
@@ -108,12 +129,15 @@ void rrhk_audio_wait_room(RrhkRun *run);
 void rrhk_audio_push(RrhkRun *run, int16_t *pcm, size_t samples);
 void rrhk_audio_frame(RrhkRun *run);
 unsigned rrhk_audio_queued(const RrhkRun *run);
+bool rrhk_audio_reopen(RrhkRun *run);
+SDL_AudioDeviceID rrhk_audio_device_id(const RrhkRun *run);
 void rrhk_audio_pace(RrhkRun *run, Uint64 now);
 void rrhk_audio_close(RrhkRun *run);
 
 /* ring.c: the callback-ring output (RRHK_AUDIO_RING). */
-bool rrhk_ring_open(unsigned rate);
+bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms);
 void rrhk_ring_start(void);
+bool rrhk_ring_reopen(void);     /* another output device: same ring, same reserve */
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count);
 void rrhk_ring_clear(void);
 void rrhk_ring_close(void);

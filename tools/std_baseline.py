@@ -120,16 +120,28 @@ def _requests(fixture: Path) -> dict:
     return section
 
 
+def _manifest_name(path: str) -> str:
+    """The name a stamp manifest uses for one tracked file: 'retrorecomp.x' for a converter module, else its path."""
+    if path.startswith('retrorecomp/') and path.endswith('.py'):
+        name = path[:-3].replace('/', '.')
+        return name[:-len('.__init__')] if name.endswith('.__init__') else name
+    return path
+
+
 def _owners_section() -> dict:
+    """Which consoles' stamps each tracked file enters: read from the one manifest (`stamp_inputs.INPUTS`).
+    A file no console owns is not an input of any stamp (its owners are empty and it has no role)."""
     tracked = subprocess.run(['git', 'ls-files', '-z'], cwd=REPO_ROOT, check=True,
                              capture_output=True).stdout.decode('utf-8').split('\0')
-    role = getattr(compilation_inputs, 'role', None)
+    owners = {}
+    for system in SYSTEMS:
+        for name in compilation_inputs.manifest_names(system):
+            owners.setdefault(name, []).append(system)
     section = {}
-    for name in sorted(name for name in tracked if name):
-        entry = {'owners': sorted(compilation_inputs.owners(name))}
-        if role is not None:
-            entry['role'] = role(name)
-        section[name] = entry
+    for path in sorted(name for name in tracked if name):
+        name = _manifest_name(path)
+        listed = sorted(owners.get(name, ()))
+        section[path] = {'owners': listed, 'role': compilation_inputs.role(name) if listed else None}
     return section
 
 

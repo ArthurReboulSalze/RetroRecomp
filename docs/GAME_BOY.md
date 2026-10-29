@@ -63,31 +63,37 @@ the same keyboard/gamepad mapping layout; F1 opens help; P pauses.
 Defaults: arrows, **W/X** for A/B (using the current keyboard layout),
 **Enter** for cartridge Start, either **Shift** for cartridge Select;
 gamepad D-pad/left stick, face buttons, Start and Back for
-the cartridge, and left-stick click for the pause menu. Shared Game Boy
+the cartridge, and the Guide button for the pause menu. Shared Game Boy
 settings written with the old default keys by a release before 1.6.0 keep them
-(they are no longer migrated). Custom mappings remain available.
+(they are no longer migrated). Custom mappings remain available. Since 1.6.3 the whole
+shell is the host kit's ([HOST_KIT.md](HOST_KIT.md)): one binding per action (the shoulders are not a second A/B),
+the Gamepad row of F2. The fast-forward (Tab held, right trigger), maximum-speed (backquote, left trigger) and mute (M) keys, the volume
+and the output-device choice of the former player came back in 1.6.3 as features of the shell, with their former keys, on every console
+([CONTROLS.md](CONTROLS.md#speed-and-sound)); the settings of a 1.6.2 export (`audio.muted`, `audio.volume_percent`, `audio.device_name`
+of `Retro-Recomp-GameBoy.ini`) are read where the new keys are absent.
 
 Shift+F1 resets; F3 cycles sharp pixels, Scale2x, scanlines and xBR smooth;
 F4 cycles window, integer pixel-perfect fullscreen and aspect-fit fullscreen.
 F5 immediately switches between pseudo black-and-white monochrome (the
 default) and classic green, without a menu or a pause. The choice is persistent;
 holding F5 does not repeatedly toggle it. F6 toggles fast autofire for held
-gamepad A/B, F7 switches the menu language, and F8/F9 save/load one quick state.
+gamepad A/B, F7 switches the menu language, and F8/F9 save/load one quick state
+(taken between two frames).
 Game Boy has no second player or Light Phaser options. Game Boy Color-only
 cartridges are still rejected, so the palette choice applies to DMG games.
 
 Launching and closing without any settings, state or cartridge-RAM write
 creates no `datas` folder. An explicit settings change creates
-`datas/Retro-Recomp-GameBoy.ini` beside the EXEs. Battery RAM and states use
+`datas/Retro-Recomp.ini` beside the EXEs (since 1.6.3, `[GameBoy.*]` sections; the `datas/Retro-Recomp-GameBoy.ini` of earlier
+releases is still read and never written). Battery RAM and states use
 `datas/games/<game-title>-<ROM-SHA-prefix>/` only when written. Battery RAM
 is flushed on exit only after a changed RAM value; a game's own automatic
 save can therefore create this folder without a manual state save. Games in the
 Game Boy folder share settings, while per-game saves are identified by ROM.
 Converter observations are separate, in `Export/datas/library/gb`.
 
-The imported ImGui debug layout is not saved: generated games never create an
-`imgui.ini` in the executable folder or the working directory. Actual settings
-remain shared in the console's `datas` folder and are created only on change.
+Generated games never create an `imgui.ini` in the executable folder or the working directory (the imported ImGui panel is no
+longer used since 1.6.3). Actual settings remain shared in the console's `datas` folder and are created only on change.
 
 ## Audio and input scheduling
 

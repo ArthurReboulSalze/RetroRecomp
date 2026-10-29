@@ -19,9 +19,10 @@ from pathlib import Path
 from typing import Callable
 from .library import GameMemory, entry_lock, library_root, read_observations, write_manifest, write_code_patterns
 from .report_schema import write_report
-from .artwork import ArtworkError, prepare_icon
+from .conversion_common import (check_run_budget, convert_single, prepare_game_icon, probe_environment, replace_counted,
+                                resolve_scan_level, spawn)
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
-from . import __version__, timings
+from . import __version__, hostkit, timings
 from .i18n import log_text
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
@@ -342,30 +343,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
     parser_source = replace_once(parser_source,
         "size_t off = (size_t)bank * SMS_BANK_SIZE + slot_off;",
         "size_t off = ((size_t)bank * SMS_BANK_SIZE + slot_off) % rom->size;")
-    generator_source = (engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8")
-    generator_source = replace_once(generator_source,
-        '    fprintf(o,"        do {\\n");',
-        '''    fprintf(o,"        int sms_block_first = 1;\\n        do {\\n");
-    fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
-    fprintf(o,"            sms_block_first = 0;\\n");''')
-    generator_source = replace_once(generator_source,
-        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
-        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
-    generator_source = replace_once(generator_source, "write_dispatch(path, pfx, fl);", "write_dispatch(path, pfx, fl, rom);")
-    generator_source = replace_once(generator_source,
-        '            fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);',
-        '''            int bank = fl->items[vidx[0]].bank;
-            int physical = ((bank >= 0) ? bank : (a >> 14)) % rom->num_banks;
-            if (a < 0x0400)
-                fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);
-            else
-                fprintf(d,"    case 0x%04X: if ((sms_slot_bank(addr) %% %d) == %d) { %s(); return; } break;\\n", a, rom->num_banks, physical, fl->items[vidx[0]].name);''')
-    generator_source = replace_once(generator_source,
-        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X)){\\n", a, a);',
-        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X) %% %d){\\n", a, a, rom->num_banks);')
-    generator_source = replace_once(generator_source, "int rb = (b >= 0) ? b : (a >> 14);",
-        "int rb = ((b >= 0) ? b : (a >> 14)) % rom->num_banks;")
-    generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
+    generator_source = patched_generator_source((engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8"))
     main_source = (engine / "recompiler/src/main_sms.c").read_text(encoding="utf-8")
     main_source = replace_once(main_source, '    bool flat_step = false;', '''    bool flat_step = false;
     bool banked_step = false;''')
@@ -420,13 +398,53 @@ def prepare_native_source() -> Path:
         target = native_source / source.name
         if not target.exists() or target.read_bytes() != source.read_bytes():
             shutil.copy2(source, target)
+    # The player shell of the Master System and the Game Gear is the host kit (one adapter for both).
+    hostkit.stage(native_source, "sms")
     return native_source
 
 
 def replace_once(source: str, old: str, new: str) -> str:
-    if source.count(old) != 1:
-        raise ConversionError(f"L'interface du moteur a changé ; adaptation nécessaire : {old[:90]!r}")
-    return source.replace(old, new, 1)
+    return replace_counted(source, old, new, error=lambda old: ConversionError(
+        f"L'interface du moteur a changé ; adaptation nécessaire : {old[:90]!r}"))
+
+
+def patched_generator_source(generator_source: str) -> str:
+    """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
+    generator_source = replace_once(generator_source,
+        '    fprintf(o,"        do {\\n");',
+        '''    fprintf(o,"        int sms_block_first = 1;\\n        do {\\n");
+    fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
+    fprintf(o,"            sms_block_first = 0;\\n");''')
+    generator_source = replace_once(generator_source,
+        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
+        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
+    generator_source = replace_once(generator_source, "write_dispatch(path, pfx, fl);", "write_dispatch(path, pfx, fl, rom);")
+    generator_source = replace_once(generator_source,
+        '            fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);',
+        '''            int bank = fl->items[vidx[0]].bank;
+            int physical = ((bank >= 0) ? bank : (a >> 14)) % rom->num_banks;
+            if (a < 0x0400)
+                fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);
+            else
+                fprintf(d,"    case 0x%04X: if ((sms_slot_bank(addr) %% %d) == %d) { %s(); return; } break;\\n", a, rom->num_banks, physical, fl->items[vidx[0]].name);''')
+    generator_source = replace_once(generator_source,
+        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X)){\\n", a, a);',
+        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X) %% %d){\\n", a, a, rom->num_banks);')
+    generator_source = replace_once(generator_source, "int rb = (b >= 0) ? b : (a >> 14);",
+        "int rb = ((b >= 0) ? b : (a >> 14)) % rom->num_banks;")
+    # A call or jump to a paged address (>= $0400) must never become a direct C
+    # call: one bank variant seen by the static walk does not prove which bank
+    # is mapped when the code runs. Only the fixed first KiB may be called
+    # directly; every other target goes through call_by_address, whose dispatch
+    # checks the bank mapped in the slot (sms_slot_bank).
+    generator_source = replace_once(generator_source,
+        "static const char *name_for_target(uint16_t T){",
+        """static const char *name_for_target(uint16_t T){
+    /* Retro-Recomp: only the fixed first KiB may be called directly; the rest
+     * dispatches on the bank mapped at run time (call_by_address). */
+    if (T >= 0x0400) return NULL;""")
+    generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
+    return generator_source
 
 
 def prepare_reference_irq(glue: str) -> str:
@@ -827,7 +845,6 @@ blacklist = []
 def probe(executable: Path, directory: Path, frames: int, *, strict: bool = False,
           press: list[str] | None = None, reference: bool = False) -> dict:
     executable, directory = executable.resolve(), directory.resolve()
-    directory.mkdir(parents=True, exist_ok=True)
     log = directory / "runtime.log"
     args = [str(executable), "--headless", "--frames", str(frames), "--log", str(log),
             "--vdp-trace", str(directory / "vdp.csv"), "--dump-frame", str(frames),
@@ -838,18 +855,14 @@ def probe(executable: Path, directory: Path, frames: int, *, strict: bool = Fals
         args.append("--interp")
     for value in press or []:
         args.extend(["--press", value])
-    env = os.environ.copy()
-    env.pop("SMSRECOMP_STRICT", None)
     # Automated/reference probes stay isolated from the user's library. Their
     # verified observations are imported deliberately by convert(), not by the
     # reference interpreter or diagnostic launches.
-    env["SMSRECOMP_LIBRARY_DIR"] = str(directory / "learning")
-    env["RETRO_RECOMP_LIBRARY_DIR"] = str(directory / "learning")
-    env["RETRO_RECOMP_LEARNING"] = "1"
+    env = probe_environment(("SMSRECOMP_STRICT",), SMSRECOMP_LIBRARY_DIR=str(directory / "learning"),
+        RETRO_RECOMP_LIBRARY_DIR=str(directory / "learning"), RETRO_RECOMP_LEARNING="1")
     started = time.perf_counter()
-    with timings.phase('reference_runs' if reference else 'native_runs'):
-        result = subprocess.run(args, cwd=directory, env=env, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, timeout=max(60, frames // 15), creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    result = spawn(args, cwd=directory, env=env, timeout=max(60, frames // 15), stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, phase='reference_runs' if reference else 'native_runs')
     text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
     completed = re.search(r"stopped after (\d+) frames; dispatch misses: (\d+)", text)
     percent = re.search(r"([\d.]+)% interp / ([\d.]+)% static", text)
@@ -963,30 +976,19 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
         # Single-ROM exports use the same names, reports and replacement policy
         # as the GUI/batch. The batch invokes this compiler with an explicit
         # report directory, so compilation itself is unchanged.
-        from .batch import identify, convert_batch
-        item = identify(rom_path)
-        if title:
-            item.title = title
-        item.cover = cover
-        result = convert_batch([item], games_root(), profile=profile,
+        return convert_single(rom_path, games_root(), title=title, cover=cover, success_only=True, profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags,
             standard_override=standard_override, scan_level=scan_level,
-            emit=emit)['games'][0]
-        if result['status'] != 'success':
-            raise ConversionError(result['message'])
-        return Path(result['executable'])
+            emit=emit)
     original_emit = emit
     emit = lambda text: original_emit(log_text(text, language))
     if backend not in ("functions", "banked"):
         raise ConversionError("Backend inconnu : functions ou banked attendu.")
-    if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
-        raise ConversionError("Choisis 1 à 10 passes et 1 à 10000 images par test.")
+    check_run_budget(passes, frames, "Choisis 1 à 10 passes et 1 à 10000 images par test.")
     banked = backend == "banked"
-    from .scan_levels import LEVELS, sega_budget
-    level = scan_level or 'standard'
-    if level not in LEVELS:
-        raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import sega_budget
+    level = resolve_scan_level(scan_level)
     scan = sega_budget(level)
     rom = system.read_rom(rom_path)
     title = title or re.sub(r"\s*\([^)]*\)", "", rom.path.stem).strip()
@@ -997,16 +999,12 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     destination.mkdir(parents=True, exist_ok=True)
     log = game / "build.log"
     emit(f"ROM : {title}, {len(rom.data) // 1024} Ko, CRC32 {rom.crc32:08X}")
-    try:
-        default_art = ROOT / 'BoxArt' / ('Game Gear' if system.id == 'gg' else '')
-        from .paths import boxart_cache_directory
-        cache_art = boxart_cache_directory(system.id)
-        artwork = prepare_icon(game, rom.path, title, (boxart_dir or default_art).resolve(),
-            explicit=cover, online=online_cover, enabled=use_cover, cache_directory=cache_art,
-            tags=game_tags(rom.crc32, rom.path.name) if icon_tags and system.id == "sms" else (),
-            system_id=system.id, emit=emit)
-    except (ArtworkError, OSError) as exc:
-        raise ConversionError(str(exc)) from exc
+    default_art = ROOT / 'BoxArt' / ('Game Gear' if system.id == 'gg' else '')
+    from .paths import boxart_cache_directory
+    artwork = prepare_game_icon(game, rom.path, title, boxart_dir or default_art,
+        explicit=cover, online=online_cover, enabled=use_cover, cache_directory=boxart_cache_directory(system.id),
+        tags=game_tags(rom.crc32, rom.path.name) if icon_tags and system.id == "sms" else (),
+        system_id=system.id, emit=emit)
     engine, sdl, cmake, generator = dependencies(emit)
     from .feedback import ingest
     gameplay_feedback = ingest(system.id, rom.sha256, destination, emit=emit)

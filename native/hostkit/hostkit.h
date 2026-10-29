@@ -9,11 +9,11 @@
  * is the only file that sees both sides. MIT, like the other shells.
  *
  * This is the first realisation of docs/HOST_KIT.md section 2 (phase 1: Mega
- * Drive, Super Nintendo, Neo Geo, CPS-1; phase 2: NES). The machine functions
- * of the 16-bit consoles are still the rr16_* link-time symbols of the 16-bit
- * contract (retro_console16.h) and those of the NES are the cyc_* functions of
- * its runner; the adapter wraps them in the table below, and nothing in the
- * kit looks at a machine macro. */
+ * Drive, Super Nintendo, Neo Geo, CPS-1; phase 2: NES; phase 3: X68000; phase 4:
+ * Master System and Game Gear). The machine functions of the 16-bit consoles are
+ * still the rr16_* link-time symbols of the 16-bit contract (retro_console16.h) and
+ * those of the NES are the cyc_* functions of its runner; the adapter wraps them
+ * in the table below, and nothing in the kit looks at a machine macro. */
 #ifndef RR_HOSTKIT_H
 #define RR_HOSTKIT_H
 #include <SDL.h>
@@ -30,9 +30,17 @@ extern "C" {
 #define RRHK_MAX_PLAYERS 4
 #define RRHK_MAX_ACTIONS 12
 
+/* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
+#define RRHK_MENU_HELP 1
+#define RRHK_MENU_CONTROLS 2
+#define RRHK_MENU_PAUSE 3          /* a machine with a host-side Pause/Menu action (Master System, Game Gear) */
+#define RRHK_MENU_PAGE 4
+#define RRHK_MENU_OPTIONS 5
+
 /* Kinds of pointing device; the numbers are those of the guns in gun16.h
  * (the adapters check it). */
-enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER };
+enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER,
+       RRHK_POINTER_PHASER };
 
 /* How the machine's sound reaches the device: pushed into a device queue as 48 kHz stereo (the
  * 16-bit consoles), or kept in a ring that the device callback drains, the machine's own mono rate
@@ -66,8 +74,16 @@ typedef struct {
 typedef struct RrhkUi {
     const struct RrhkMachine *machine;
     wchar_t ini_file[32768], data_dir[32768];
+    wchar_t read_file[32768];  /* where the preferences are read from: ini_file, or the machine's former file until the first write */
     wchar_t video_section[64], pointer_section[64];
-    int menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    int menu, parent_menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    /* parent_menu: the menu a menu opened from the Pause menu returns to (Help or F2 from Pause, then back to Pause) */
+    int paused;                /* F11 (X68000): the machine does not run, the picture stays, "Paused" is drawn */
+    /* The sound and speed controls of every console (decision D12). The sound values are those read at start, from the
+     * preferences or from the machine's former file; after the start they live in the options (the audio callback reads
+     * them). max_speed is the toggle of the backquote key (5x), fast_hold the Tab key or the right trigger (2.5x) held. */
+    int audio_volume, audio_muted, max_speed, fast_hold;
+    char audio_device[256];
     char status[80];
     Uint64 status_until;
     int pointer_shape, pointer_size, pointer_color, pointer_turbo;
@@ -114,6 +130,8 @@ typedef struct RrhkMachine {
     int audio_model;               /* RRHK_AUDIO_QUEUE (default) or RRHK_AUDIO_RING */
     unsigned audio_rate;           /* ring: source rate of the mono 16-bit PCM */
     bool (*audio_enable)(unsigned rate);   /* ring: the machine starts producing sound; false closes the device */
+    unsigned audio_channels;       /* ring: 1 (default, mono) or 2 (interleaved stereo; `audio` and the ring count frames) */
+    unsigned audio_margin_ms;      /* ring: margin before a period may start, on top of the adaptive reserve; 0: 30 ms (the NES) */
 
     /* behaviours the kit keeps per machine until HOST_KIT.md settles them. Settled on 28 October 2026 and
      * therefore no longer settings: F2 pad capture takes the selected player's pad only (divergence 3) and F6
@@ -122,6 +140,25 @@ typedef struct RrhkMachine {
     const wchar_t *pointer_section;   /* preferences section of the pointer page, NULL: <ini_section>.Gun */
     int pointer_max;               /* largest reticle size of the page, 0: 12 */
     const char *save_failed_en, *save_failed_fr;   /* F8 failure notice, NULL: the kit's */
+    /* Where the machine keeps settings its own way (X68000, phase 3: preferences layout is divergence 14/15, still the
+     * legacy one there). NULL / false: the kit's layout. */
+    const wchar_t *video_section;     /* section of filter and display mode, NULL: <ini_section>.Video */
+    const wchar_t *autofire_section;  /* section of the autofire key, NULL: Manettes */
+    bool indexed_bindings;            /* bindings are [<ini_section>] p<player>_key<action index> / p<player>_pad<action index> */
+    bool bindings_clearable;          /* Delete / X on a binding row clears it (key 0, button -1) */
+    int machine_fkeys;                /* a computer's own F1..Fn: the options page offers to hand them to the guest, 0: none */
+    bool audio_chunked;               /* queue model: the machine may hold more than one buffer of sound per frame */
+    /* The guest owns the loop (Master System, Game Gear: the recompiled code calls the host once per frame). The adapter
+     * does not call rrhk_main: it calls rrhk_open, then rrhk_frame_done from the guest's frame callback, then rrhk_close.
+     * `run_frame` then only hands the pad words over (the guest runs after the callback returns) and `audio` is not used
+     * when `own_audio` is set. The kit starts SDL without the audio subsystem: the machine opens its own device. */
+    bool driven;
+    int host_pause;                   /* 1 + the index of a host-side Pause/Menu action (its `bit` is 0), 0: none */
+    bool minimum_window;              /* the window cannot be made smaller than the picture it opened with */
+    int open_width, open_height;      /* the machine's usual picture when it only reports it after its first frame (Mega Drive: 320 x 240); 0: what it reports at open */
+    bool state_deferred;              /* state_file only requests; the machine reports the outcome with rrhk_state_done */
+    const wchar_t *legacy_ini;        /* the machine's former preferences file name, beside the executable (read until the first write) */
+    void (*window_icon)(SDL_Window *window);   /* NULL: the shared embedded icon */
 
     /* the machine (still the rr16_* functions) */
     void (*reset)(void);
@@ -157,12 +194,44 @@ typedef struct RrhkMachine {
     void (*cost)(double busy_ms, double present_ms);
     void (*before_present)(SDL_Renderer *renderer);
     void (*finished)(double elapsed_seconds);
+    /* Computers (X68000, phase 3). */
+    bool (*event)(const SDL_Event *event, bool *running);   /* first look at every event; true: consumed */
+    bool (*keyboard_pad)(void);             /* false: the keyboard bindings are not read (the guest has the keyboard) */
+    bool (*action_held)(int player, int action);   /* a device of the machine (a captured mouse) also holds this action */
+    bool (*fast_forward)(void);             /* true: no pacing, no sound, a picture every eighth frame */
+    bool (*game_rect)(int canvas_w, int canvas_h, int display_mode, SDL_Rect *rect);   /* the machine's own placement */
+    bool (*help_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* true: drew the whole help page */
+    /* Master System, Game Gear (phase 4). */
+    void (*pause_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* the body of the Pause menu (RRHK_MENU_PAUSE) */
+    /* Sound controls (1.6.3). A machine that opens its own sound device (own_audio: Mega Drive, Master System, Game Gear)
+     * closes it and opens it again with rrhk_audio_device() when the player chooses another output; false: it could not. */
+    bool (*audio_reopen)(void);
+    SDL_AudioDeviceID (*audio_device_id)(void);   /* the id SDL gave that device, 0 when it has none: an SDL_AUDIODEVICEREMOVED for it reopens it */
+    /* Called once the preferences and the sound controls are read, after the kit opened its own sound output: a machine that
+     * opened its device before that (Mega Drive) attaches the kit's sound stage (rrhk_options_audio) to it here. */
+    void (*sound_ready)(void);
+    /* Game Boy (phase 5). */
+    bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
 int rrhk_main(const RrhkMachine *machine, const char *title, int scale);
 
+/* The same loop for a machine whose guest owns it (RrhkMachine.driven): open the window, then call rrhk_frame_done at the end
+ * of every guest frame (it presents the picture, paces, handles the events and the menus, and returns false when the guest must
+ * stop: quit, reset), then close. A menu is a loop inside rrhk_frame_done: the guest does not run meanwhile. */
+bool rrhk_open(const RrhkMachine *machine, const char *title, int scale);
+bool rrhk_frame_done(void);
+void rrhk_stop(void);          /* the next rrhk_frame_done returns false (a reset the guest must unwind) */
+void rrhk_close(void);
+/* The pad words are sampled again in the middle of a guest frame (a guest that polls its ports): the pointer too. */
+void rrhk_pointer_poll(uint16_t pad1);
+/* The outcome of a deferred quick-state request: 0 done, 1 nothing saved, 2 incompatible, 3 invalid, 4 input/output error. */
+void rrhk_state_done(bool load, int result);
+
 /* Services for machine adapters. */
+const char *rrhk_audio_device(void);               /* the output device asked for (the name SDL lists), NULL for the system default */
+bool rrhk_audio_held(void);                        /* the speed is not 100%: the machine's sound is dropped, not played */
 RrhkUi *rrhk_ui(void);
 void rrhk_bind(const RrhkMachine *machine);        /* default bindings; rrhk_main does it */
 void rrhk_load_bindings(void);                     /* preferences, after SDL video init */
@@ -170,6 +239,12 @@ uint16_t rrhk_pad_word(int player, uint64_t frame);
 void rrhk_autofire_reset(void);
 void rrhk_notice(const char *text, Uint64 milliseconds);
 const char *rrhk_tr(const char *english, const char *french);
+SDL_Window *rrhk_window(void);
+void rrhk_cycle_display(void);                     /* F4 */
+bool rrhk_write_ready(void);                       /* before a write to the preferences: the folder exists, and the machine's former file is copied if it was the only one */
+void rrhk_toggle_autofire(void);                   /* F6: flip, forget held buttons, shared notice, keep in the preferences */
+void rrhk_options_observe(const SDL_Event *event); /* keys and buttons held, for the quit/restart combinations */
+bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu);
 void rrhk_menu_line(const RrhkMenuCtx *ctx, int y, const char *text);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);

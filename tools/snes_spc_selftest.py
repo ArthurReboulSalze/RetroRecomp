@@ -10,6 +10,8 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp import snes_spc
+from retrorecomp.feedback import stage
+from retrorecomp.console16 import snes_ppu_header
 
 
 def main():
@@ -19,10 +21,7 @@ def main():
     staged = project / 'engine/runner'
     shutil.copytree(engine / 'runner', staged, dirs_exist_ok=True)
     ppu = staged / 'src/snes/ppu.h'
-    ppu.write_text(ppu.read_text(encoding='utf-8').replace(
-        'typedef struct PpuPixelPrioBufs {',
-        'typedef struct __declspec(align(8)) PpuPixelPrioBufs {').replace(
-        '} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;'), encoding='utf-8')
+    ppu.write_text(snes_ppu_header(ppu.read_text(encoding='utf-8')), encoding='utf-8')
     source = (engine / 'runner/src/snes/spc.c').read_text(encoding='utf-8')
     masks = bytearray(snes_spc.MASK_BYTES)
     for opcode in range(256):
@@ -46,6 +45,7 @@ add_executable(checks "{ROOT.as_posix()}/native/snes_spc_checks.c" spc.c snes_sp
 target_include_directories(checks PRIVATE . "{staged.as_posix()}/src" "{staged.as_posix()}/src/snes")
 target_compile_options(checks PRIVATE "$<$<C_COMPILER_ID:MSVC>:/utf-8;/wd4996>")
 ''', encoding='utf-8')
+    stage(project, 'snes', '0' * 64, target='checks')   # snes_spc_runtime.c notes its fallbacks for the player's feedback
     cmake, generator = toolchain()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args()], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--parallel', '4'], log=project / 'build.log')

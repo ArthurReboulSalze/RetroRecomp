@@ -22,9 +22,9 @@ it waits for a release that changes them anyway.
 The choice is saved in each console folder's `datas/Retro-Recomp.ini`, under
 `[Interface] language`, using the stable IDs `en/fr/it/es/de` (`zh/ja/ru`
 remain converter-only IDs; a game reading one falls back to English).
-Game Boy also retains its runtime preferences in
-`datas/Retro-Recomp-GameBoy.ini`; the common language setting takes precedence
-and F7 updates both. Display settings, bindings and other entries are preserved.
+Game Boy exports of 1.6.2 and before also retained their runtime preferences in
+`datas/Retro-Recomp-GameBoy.ini`; since 1.6.3 that file is only read (its language applies until the common setting exists)
+and F7 writes the common one. Display settings, bindings and other entries are preserved.
 These options translate Retro-Recomp's menus, not a cartridge's dialogue.
 Window execution labels remain English (`Native code` / `Interpreter fallback`).
 

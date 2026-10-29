@@ -49,7 +49,7 @@ native/x68000_reference/hardware_clock.c native/x68000_reference/hardware_clock.
 native/x68000_reference/loading.h native/x68000_reference/media_probe.c
 native/x68000_reference/media_session.c native/x68000_reference/media_session.h native/x68000_reference/mouse_games.json
 native/x68000_reference/payload.c native/x68000_reference/payload.h
-native/x68000_reference/player_ui.inc native/x68000_reference/probe.c
+native/x68000_reference/probe.c
 native/x68000_reference/probe.h native/x68000_reference/reference_host.c
 native/x68000_reference/rtc_clock_shim.h native/x68000_reference/session_bridge.c
 native/x68000_reference/session_checks.c native/x68000_reference/session_checks.h
@@ -162,7 +162,8 @@ retrorecomp/build_cleanup.py tests/test_build_cleanup.py
 retrorecomp/cover_settings.py retrorecomp/cover_sources.py tests/test_cover_sources.py
 retrorecomp/cover_titles.py tests/test_cover_titles.py
 retrorecomp/cover_references.py assets/cover-references.json tests/test_cover_references.py
-retrorecomp/core.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+retrorecomp/core.py retrorecomp/conversion_common.py retrorecomp/conversion_gates.py retrorecomp/cpu.py retrorecomp/gui.py retrorecomp/branding.py
+tests/test_conversion_common.py tests/test_conversion_gates.py tests/test_x68000_common.py tests/x68000_common_golden.json tests/conversion_gates_golden.json tests/test_path_tables_snapshot.py tests/conversion_common_golden.json tools/ab_conversion.py
 retrorecomp/gui_common.py retrorecomp/gui_drawing.py retrorecomp/gui_window.py retrorecomp/gui_queue.py
 retrorecomp/gui_conversion.py retrorecomp/gui_collection.py retrorecomp/gui_updates.py retrorecomp/gui_options.py
 retrorecomp/gui_sharing.py retrorecomp/gui_reports.py retrorecomp/gui_account.py retrorecomp/gui_leaderboard.py
@@ -186,28 +187,29 @@ tools/snes_hdma_selftest.py
 retrorecomp/peripherals.py
 retrorecomp/metadata.py tests/test_metadata.py
 retrorecomp/systems/__init__.py retrorecomp/systems/master_system.py
+retrorecomp/systems/registry.py retrorecomp/systems/specs.py tests/test_registration_surface.py
 retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-retrorecomp/gameboy_timing.py retrorecomp/gameboy_hardware.py
+retrorecomp/gameboy_hardware.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/systems/nes.py tests/test_nes.py
 tests/test_nes_ram.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
-native/controls.c native/controls.h native/host.c native/host_checks.c
+native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
-native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
+native/manifest.inc native/paths.c native/paths.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/scale2x.h native/planar_rows.h native/stereo_fir.h
 native/nes_sprite_shift.h native/nes_sprite_extra.inc
 native/pixel_optimization_checks.c tools/pixel_optimization_selftest.py
 tests/fixtures/presentation/mode4_reference.inc
 docs/RUNTIME_PERFORMANCE.md
-native/retro_menu.c native/retro_menu.h native/retro_keyboard.h native/gb_menu.inc
+native/retro_menu.c native/retro_menu.h native/retro_keyboard.h
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
 native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
 native/nes_audio_checks.c tools/nes_audio_selftest.py
@@ -266,7 +268,7 @@ native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit
 native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
-native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
+native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_sms.c native/hostkit/adapters/rrhk_gb.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py
@@ -346,7 +348,6 @@ retrorecomp/megadrive_hardware.py tools/megadrive_progression_selftest.py tests/
 native/gun16.h native/gun16.c native/gun16_checks.c
 tools/gun16_selftest.py tests/test_guns16.py docs/GUNS_16BIT.md
   tools/snes_native_selftest.py tools/snes_scheduler_selftest.py tests/test_snes.py tests/test_console16.py docs/CONSOLES_16BIT.md retrorecomp/random_routes.py tests/test_random_routes.py retrorecomp/scan_levels.py tests/test_scan_levels.py
-native/gb_input_refresh.inc native/gb_audio_output.inc
 native/gb_latency_checks.cpp tools/gameboy_latency_selftest.py
 native/video_frame.h native/video_mode4.inc native/video_checks.c native/video_probe.c
 native/lightphaser.c native/lightphaser.h native/lightphaser_checks.c

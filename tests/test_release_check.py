@@ -3,6 +3,10 @@ from __future__ import annotations
 
 import unittest
 
+from retrorecomp.report_schema import REQUIRED_KEYS, with_schema_v2
+from retrorecomp.systems import ALL_PROFILES
+from tests.test_report_schema import FIXTURES
+from tools import release_check
 from tools.release_check import batch_problems, check_report, report_problems
 
 
@@ -34,10 +38,21 @@ def nes_report() -> dict:
     return {'system': {'id': 'nes', 'name': 'Nintendo Entertainment System'},
             'advanced_scan': {'level': 'standard'},
             'native_validation': {'passed': True,
-                                  'scenarios': [{'scenario': 'boot', 'internal_differential': True},
-                                                {'scenario': 'play', 'internal_differential': True}]},
+                                  'scenarios': [{'scenario': 'boot', 'internal_differential': True,
+                                                 'audio_pcm_match': True},
+                                                {'scenario': 'play', 'internal_differential': True,
+                                                 'audio_pcm_match': True}]},
             'final_checks': [{'scenario': 'boot', 'interpreter_cycles': 0, 'interpreter_rom_cycles': 0},
                              {'scenario': 'play', 'interpreter_cycles': 0, 'interpreter_rom_cycles': 0}]}
+
+
+def core_report() -> dict:
+    return {'system': {'id': 'sms', 'name': 'Master System'}, 'scan_level': 'standard', 'strict_checks': [],
+            'native_validation': {'passed': True,
+                                  'scenarios': [{'scenario': 'boot', 'passed': True, 'checks': {},
+                                                 'missing_or_invalid_evidence': []}]},
+            'final_checks': [{'scenario': 'boot', 'requested_frames': 600, 'interpreter_cycles': 0,
+                              'total_cycles': 1000}]}
 
 
 def gameboy_report() -> dict:
@@ -65,7 +80,7 @@ class ArcadeTests(unittest.TestCase):
     def test_a_complete_standard_report_passes_every_gate(self):
         checked = self.check(arcade_report())
         self.assertEqual(checked['problems'], [])
-        self.assertEqual(checked['shape'], 'arcade')
+        self.assertEqual(checked['shape'], 'cps1_conversion')
         self.assertEqual([checked['gates'][name]['status'] for name in
                           ('conversion', 'native_reference', 'fallback', 'device', 'packed', 'states')],
                          ['pass', 'pass', 'pass', 'absent', 'pass', 'pass'])
@@ -126,7 +141,7 @@ class ArcadeTests(unittest.TestCase):
         report['system'] = {'id': 'ng', 'name': 'Neo Geo'}
         checked = check_report(report, 'ng', 'standard', 0)
         self.assertEqual(checked['problems'], [])
-        self.assertEqual(checked['shape'], 'arcade')
+        self.assertEqual(checked['shape'], 'neogeo_conversion')
 
 
 class Console16Tests(unittest.TestCase):
@@ -174,15 +189,19 @@ class Console16Tests(unittest.TestCase):
         self.assertEqual(self.check(console16_report(), require_packed=True)['gates']['packed']['status'], 'fail')
         self.assertEqual(self.check(console16_report(), require_states=True)['gates']['states']['status'], 'fail')
 
-    def test_a_console_without_a_sound_cpu_reports_zero_audio(self):
+    def test_a_sound_cpu_without_counts_in_the_report_reports_zero_audio(self):
         report = console16_report()
-        report['system'] = {'id': 'sms', 'name': 'Master System'}
-        del report['cartridge_device']
         for check in report['final_checks']:
             del check['audio_interpreted_opcodes']
-        checked = check_report(report, 'sms', 'standard', 0)
+        checked = self.check(report)
         self.assertEqual(checked['problems'], [])
         self.assertEqual([row['audio_interpreted'] for row in checked['counts']['scenarios']], [0, 0])
+
+    def test_a_console_without_a_sound_cpu_has_no_audio_count(self):
+        checked = check_report(core_report(), 'sms', 'standard', 0)
+        self.assertEqual(checked['problems'], [])
+        self.assertEqual(checked['shape'], 'core')
+        self.assertEqual([row['audio_interpreted'] for row in checked['counts']['scenarios']], [None])
 
 
 class NesTests(unittest.TestCase):
@@ -205,7 +224,13 @@ class NesTests(unittest.TestCase):
         report = nes_report()
         report['native_validation']['scenarios'] = [{'scenario': 'boot', 'internal_differential': True}]
         checked = self.check(report)
-        self.assertIn('play: no native/reference differential in the report', checked['problems'])
+        self.assertIn('play: no native/reference comparison in the report', checked['problems'])
+
+    def test_a_differential_without_the_audio_comparison_is_not_a_match(self):
+        report = nes_report()
+        del report['native_validation']['scenarios'][1]['audio_pcm_match']
+        checked = self.check(report)
+        self.assertIn('play: native and reference differ', checked['problems'])
 
 
 class GameBoyTests(unittest.TestCase):
@@ -232,7 +257,7 @@ class X68000Tests(unittest.TestCase):
         checked = check_report(x68000_report(), 'x68', 'standard', 0)
         self.assertEqual(checked['problems'], [])
         self.assertEqual(checked['gates']['states']['status'], 'pass')
-        self.assertEqual(checked['shape'], 'x68000')
+        self.assertEqual(checked['shape'], 'x68000_conversion')
 
     def test_a_route_over_the_limit_is_named(self):
         report = x68000_report()
@@ -262,6 +287,54 @@ class UnknownShapeTests(unittest.TestCase):
     def test_an_unknown_console_is_reported(self):
         checked = check_report(arcade_report(), 'gamecube', 'standard', 0)
         self.assertIn('unknown console', checked['problems'])
+
+
+class DerivedFromTheProfilesTests(unittest.TestCase):
+    def test_the_consoles_and_readers_are_the_registered_profiles(self):
+        ids = tuple(profile.id for profile in ALL_PROFILES)
+        self.assertEqual(release_check.CONSOLES, ids)
+        self.assertEqual(tuple(release_check.READERS), ids)
+        self.assertTrue(all(callable(reader) for reader in release_check.READERS.values()))
+
+    def test_a_fallback_count_is_named_as_it_always_was(self):
+        labels = {profile.id: release_check._unit_label(profile) for profile in ALL_PROFILES}
+        self.assertEqual(labels, {
+            'sms': 'CPU cycles', 'gg': 'CPU cycles', 'gb': 'CPU cycles', 'nes': 'CPU cycles',
+            'md': 'main/audio CPU opcodes', 'snes': 'main/audio CPU opcodes', 'ng': '68000/Z80 opcodes',
+            'cps1': '68000/Z80 opcodes', 'x68': 'opcodes'})
+
+    def test_a_writer_without_wording_is_named_from_the_profile(self):
+        from tests.test_registration_surface import SyntheticProfile
+        from retrorecomp.systems.specs import ReportShape
+
+        def label(display):
+            profile = type('Synthetic', (SyntheticProfile,), {'fallback_display': display,
+                                                              'report_shape': ReportShape('zz_conversion', 'marker')})()
+            return release_check._unit_label(profile)
+
+        self.assertEqual((label('cycles'), label('opcodes')), ('CPU cycles', 'opcodes'))
+
+    def test_every_shape_is_read_the_same_whether_old_keys_are_there_or_not(self):
+        # The report the writers write (schema 2 beside their keys), the writer's own keys, and schema 2 alone.
+        for label, make in FIXTURES.items():
+            legacy = make()
+            console = legacy['system']['id']
+            written = with_schema_v2(legacy)
+            only_v2 = {key: written[key] for key in REQUIRED_KEYS if key in written}
+            profile = next(profile for profile in ALL_PROFILES if profile.id == console)
+            forms = {'legacy': legacy, 'written': written, 'schema 2 only': only_v2}
+            checked = {name: check_report(form, console, 'standard', 10 ** 9, 10 ** 9)
+                       for name, form in forms.items()}
+            with self.subTest(fixture=label):
+                self.assertEqual(checked['legacy']['shape'], profile.report_shape.writer)
+                self.assertEqual(checked['written'], checked['legacy'])
+                self.assertEqual(checked['schema 2 only'], checked['legacy'])
+
+    def test_a_report_of_another_writer_is_not_read_as_the_console_s(self):
+        # The Game Boy shape under the Master System reader: a different writer, so no shape.
+        checked = check_report(gameboy_report(), 'sms', 'standard', 0)
+        self.assertIsNone(checked['shape'])
+        self.assertIn('unknown report shape', checked['problems'])
 
 
 class BatchTests(unittest.TestCase):
