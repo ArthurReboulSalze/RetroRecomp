@@ -99,16 +99,19 @@ static void state_checks(void) {
     rr_nes_zapper_aim(150,120,true,false); rr_nes_zapper_pixel(150,120,0x30);
     size_t size=rr_nes_state_size(); uint8_t *saved=malloc(size), *bad=malloc(size);
     CHECK(saved && bad); CHECK(rr_nes_state_save(saved,size));
-    /* Every byte of a state is defined: the header's two padding bytes are zero, and
-     * a second save over a buffer of other bytes is identical to the first. */
-    CHECK(saved[138]==0 && saved[139]==0);
+    /* Every byte of a state is written by a field serialiser (no padding, no zero fill first):
+     * a save over a buffer of other bytes is identical to the first, and so is a save made
+     * after loading it back. */
     memset(bad,0xA5,size); CHECK(rr_nes_state_save(bad,size)); CHECK(!memcmp(saved,bad,size));
+    memset(bad,0x5A,size); CHECK(rr_nes_state_save(bad,size)); CHECK(!memcmp(saved,bad,size));
+    CHECK(!memcmp(saved,"RRNESST2",8));
     uint64_t before=cyc_hw_state_hash(), mem=cyc_mem_state_hash(); Cpu6502 c=cpu;
     uint8_t gun=rr_nes_zapper_read(1);
     cyc_run_frame(); uint64_t after=cyc_hw_state_hash(), mem_after=cyc_mem_state_hash(), pcm=audio_hash();
     Cpu6502 final_cpu=cpu;
     uint64_t interpreted=cyc_run_interp_rom_cycles;
     CHECK(rr_nes_state_load(saved,size));
+    memset(bad,0xA5,size); CHECK(rr_nes_state_save(bad,size)); CHECK(!memcmp(saved,bad,size));
     CHECK(cyc_run_interp_rom_cycles==interpreted);
     CHECK(cyc_hw_state_hash()==before && cyc_mem_state_hash()==mem && !memcmp(&c,&cpu,sizeof(c)));
     CHECK(rr_nes_zapper_read(1)==gun);

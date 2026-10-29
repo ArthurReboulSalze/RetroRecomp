@@ -19,7 +19,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F2 | Settings pages: controls, gun, display & game, options |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → window |
-| F5 | Master System and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear F5 answers "Config unavailable" (the option has been off there since 0.25.0) |
+| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
@@ -270,18 +270,19 @@ Defaults live in memory. Starting a game, opening a menu or reading an INI
 creates no files; only a changed setting creates/updates the shared INI
 (a legacy `SMSRecomp.ini` is copied first, on the first write).
 
-On Master System, **F5** switches sprite flicker reduction on/off immediately.
+On Master System and Game Gear, **F5** switches sprite flicker reduction on/off immediately.
 The initial default retains the console's eight sprites per scanline. When
 enabled, extra sprites submitted by the game can also be drawn, and confirmed
 rapid sprite-list reversals are stabilized to reduce overlap flicker. Current
 positions/animation pixels are used without frame blending. Collision and overflow flags still use the
 original eight slots. The choice is shared by Master System games in
-`[MasterSystem.Video] reduce_sprite_flicker`, saved only when changed. This is
+`[MasterSystem.Video] reduce_sprite_flicker` and by Game Gear games in `[GameGear.Video] reduce_sprite_flicker`, saved only when changed. This is
 an optional display enhancement, not a recompilation coverage setting. It cannot
 restore sprites a game deliberately leaves out. Stabilization can change which
 overlapping character appears in front; ambiguous identities, raster rewrites
-and lasting priority changes retain cartridge ordering. The Game Gear uses the same
-renderer, but the option is not offered there: since 0.25.0 F5 answers "Config unavailable" on the Game Gear.
+and lasting priority changes retain cartridge ordering. The Game Gear VDP has the same eight-sprite line limit and uses
+the same renderer, so the option works the same way there (new in 1.6.5, off by default; exports of 1.6.4 and before answer
+"Config unavailable" to F5 on the Game Gear until they are rebuilt). Sprites outside the 160 × 144 window are never shown.
 
 On NES, **F5** draws objects 9 to 64 of a scanline where none of the eight
 original sprite units is opaque, in OAM order and with their own background

@@ -207,6 +207,22 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
+## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5, in preparation)
+
+Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
+`[GameGear.Video] reduce_sprite_flicker`; the Game Gear VDP has the same eight-sprite line limit). The renderer change is in
+`native/video_mode4.inc` (the three Game Gear guards are gone: with the option off the code does less, not more) and the key, the
+F2 row and the setting are in the shared adapter `native/hostkit/adapters/rrhk_sms.c`. The option changes the presentation only: no
+ROM patch, collision and overflow flags keep using the original eight sprites, and the checks of the native and the reference
+renderer still agree on every scene (`tools/pixel_optimization_selftest.py`, `tools/video_selftest.py`).
+
+Stamps (computed with the tree of 1.6.4 and the tree of this change): the **game stamp of the Master System and the Game Gear moves**
+(renderer) and so does their **host stamp** (adapter), so their exports are rebuilt with the upgrade path. In the same change
+`native/video_mode4.inc` and `native/video_checks.c`, which only the Master System and the Game Gear use, move from the group
+owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`): the manifest of the seven other consoles loses
+two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
+two Sega consoles. A Game Gear export of 1.6.4 or before keeps answering "Config unavailable" to F5 until it is rebuilt.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It
@@ -390,6 +406,58 @@ fails on the previous code. The X68000 **game stamp** moves (`payload.c` is a ga
 stamp `x68_sdk` that its request carries, so a receipt of 1.6.3 is never recognised, with or without a table; the host and build
 stamps do not move. Nothing the CPU executes changes: this is a Windows file-system fix.
 
+## X68000: DMA channel restart and moved-sprite redraw (1.6.5)
+
+Two defects of the machine base (`tools/x68000_base74.py` adapts the pinned hissorii/px68k files at build time), both found while
+checking the deferred px68k-libretro fixes of [UPSTREAMS.md](UPSTREAMS.md#deferred) against our own base.
+
+- **DMA start on a busy channel.** A CCR START on a channel that was still active, or whose completion or error flags the game had
+  not acknowledged, ended in an operation timing error (CER `0x02`, ERR and COC set, ACT cleared). It now restarts the channel with
+  ACT, COC, BTC, NDT and ERR cleared, as MAME's HD63450 does. Count errors, software abort and the other error codes are unchanged.
+  Games that re-arm their ADPCM channel early are the ones that notice (the libretro fork reports one such game).
+  `tests/test_x68000_dmac.py` (with `tests/x68000_dmac_harness.c`) runs the adapted `dmac.c` on authored bus bytes and fails on the
+  previous code.
+- **Redraw lines of a moved sprite.** Lines of the picture are redrawn only when marked, and a write to a sprite register marked
+  sixteen lines from `Y + BG_VLINE - 16 - v`. The line drawing selects a sprite row for the lines whose background row,
+  `((line << s1) >> s2) - v`, lies in `[Y + BG_VLINE - 16, Y + BG_VLINE - 1]`: the marks sat two `v` lines too high or too low
+  whenever the background's vertical start differs from the display's, and covered too few or too many lines when their line counts
+  differ, so a part of a moved sprite stayed on screen. The marks now come from the same mapping.
+  `tests/test_x68000_sprite_dirty.py` (with `tests/x68000_sprite_dirty_harness.c`) asks the real `BG_DrawLine` which lines show an
+  authored sprite and checks that the register write marked them; the previous code left 2 of 16 lines unmarked at a 2-line start
+  offset and 32 of 64 with a 256-line background on a 512-line display.
+
+Both changes live in `tools/x68000_base74.py`, a game input of the X68000 (`stamp_inputs.py`) that `RR_X68K_STATE_ABI` also hashes: the
+X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier builds are refused (as at every release), and an
+X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
+says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
+
+## X68000: exact redraw marks for the background and the sprites (1.6.5)
+
+The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background
+map or pattern, and sixteen lines for any write to a sprite register, drawn or not. The marks now cover exactly the lines whose
+picture can have changed, using the mapping of the line drawing (the previous section):
+
+- a write to a background **map entry** marks the lines of its tile row (8 or 16 lines, on the ring of 512 or 1024 lines, with the
+  plane's scroll and the vertical offset of the background);
+- a write to a **pattern** is noted by pattern number; the next line drawn (`rr_bg_resolve`, called by `WinDraw_DrawLine`) marks the
+  lines of the sprites and map entries that use a noted pattern, once for all the patterns written since the last line;
+- a write to a **sprite register** marks nothing for a sprite that is not drawn before and after (priority 0, or off screen);
+- a change of the screen-resolution register of the background redraws everything, as the other registers that move the picture
+  already did; a saved state resolves the noted patterns first, and a loaded state starts with none.
+
+This is a speed change, not a behaviour change: the picture is meant to be the same as a full redraw. `tests/test_x68000_redraw_marks.py`
+(with `tests/x68000_redraw_marks_harness.c`) draws random authored scenes line after line with the real `BG_DrawLine`, once redrawing
+only the marked lines and once every line, with random map, pattern, sprite and scroll writes between the lines, and requires the two
+to be identical after every line; it redraws 3 to 4 times fewer lines when few things change, and it catches two deliberately broken
+variants of the marks. The same bookkeeping applies to the native player and to the reference, so their comparison is unchanged.
+`tools/ab_conversion.py` on two games (R-Type, which scrolls, and Puyo Puyo, which hardly does), before and after, compared 314 files
+each (CPU, memory, picture, PCM and clock traces, frame images, hashes, quick states, reports): the only differences are the three
+adapted sources that changed (`bg.c`, `windraw_compose.c` and the generation record). No timing was taken here; the gain is the number of lines no longer redrawn and is
+measured on a quiet machine. The only extra work is one call per drawn line (`rr_bg_resolve`, a test of one flag) and, after pattern
+writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line drawn, instead of the redraw of every line.
+
+The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
@@ -456,6 +524,30 @@ Geo quick-state key moves again only because `neogeo_build` is hashed; the state
 compatibility key above still applies. Verified with a ROM-free check of the detector and the latch
 (`tools/neogeo_fixmask_selftest.py`) and with real conversions; the rule is a display heuristic judged on the maintainer's
 dumps, not a hardware fact.
+
+## Mega Drive: the clocks of register-count shifts (1.6.5)
+
+A Mega Drive shift or rotate with its count in a register (`LSL.W D1,D0` and the seven other mnemonics) was charged the pinned
+core's estimate for a count of four, whatever the count. It is now charged what the MC68000 manual gives: `6 + 2n` clocks for a
+byte or a word, `8 + 2n` for a long, `n` being the count modulo 64 read before the shift. The immediate-count and memory forms
+keep their figures. The time is set in `retrorecomp/megadrive_codegen.py` (`adapt_shift_timing`), for the native bodies and for
+the reference path alike, through the bus hook that `MULU` uses (the prefetch read first, then the internal clocks); the
+shared `m68000.py` is not touched, and Neo Geo, CPS-1 and X68000 already charged this time. It is a **CPU
+fidelity** fix about clocks; the other four measures are not moved by it. *Edited:* `retrorecomp/megadrive_codegen.py` (a game
+input). **The `md`, `cps1` and `x68` game stamps move**, because `megadrive_codegen` is in the stamp groups of the CPS-1 and
+the X68000 profiles (they import its `write_changed` and the decoder tool); the CPS-1 and X68000 output is unchanged, as the
+hook is applied only by `megadrive_codegen`'s `generate_steps` and `adapt_interpreter`. No host or build stamp, no native file,
+no quick-state key, not the base. Because it changes the clocks a Mega Drive game runs on, the Mega Drive exports of 1.6.4 are
+converted in full, not upgraded (`LEGACY_GAME_STAMPS` must list no 1.6.4 entry for the Mega Drive; it is empty today); the
+CPS-1 and X68000 exports have the same code and only a moved stamp, so the release procedure decides for them as for any
+stamp-only move. **Cost:** one out-of-line hook call per register-count shift executed, as `MULU` and `DIVU` already pay (the
+`reg_count` test is a compile-time constant in the native steps); not timed. Checked with the 834 SingleStepTests shift vectors replayed with their clocks on the
+native and the reference paths (they cover `ROXL`, `ROXR` and `ASL.L`; the other mnemonics share the line but have no vector of
+their own yet), and by one conversion of Blockout compared with the tree before the change (`tools/ab_conversion.py`): both
+succeed, 0 interpreted 68000 instructions and 0 interpreted Z80 cycles on the demo and the play routes in both, native and
+reference runs equal. The frame, RAM, VRAM, FM, Z80 and sequence hashes, the instruction set learned in the first pass and the
+generated step sources differ, as expected, because a different count of clocks moves where the interrupts fall (Blockout
+has seven register-count shifts); that is a change of clocks, not a regression, and no measure of play, latency or speed is made by it.
 
 ## Exports of 1.6.2 in 1.6.3
 

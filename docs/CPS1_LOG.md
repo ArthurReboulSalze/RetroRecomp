@@ -9,8 +9,9 @@ measures (native code, CPU fidelity, hardware fidelity, gameplay validation,
 physical latency) stay separate in every entry.
 
 Entries before the 1.6.4 tree were measured on earlier engines; the figures are
-**not repeated** on 1.6.4 until the standard sets are requalified (see
-[Known limits](CPS1.md#known-limits) on the machine page).
+**not repeated** on 1.6.4 or later, except for the eleven sets measured again on
+29 October 2026 (see the last entry and [Known limits](CPS1.md#known-limits) on
+the machine page).
 
 ## Contents
 
@@ -18,6 +19,7 @@ Entries before the 1.6.4 tree were measured on earlier engines; the figures are
 - [27 October 2026: shared paths](#27-october-2026-shared-paths)
 - [27 October 2026: credited play and sound compared with MAME](#27-october-2026-credited-play-and-sound-compared-with-mame)
 - [29 October 2026 (1.6.4): graphics RAM and quick states](#29-october-2026-164-graphics-ram-and-quick-states)
+- [29 October 2026 (1.6.5 tree): selective requalification](#29-october-2026-165-tree-selective-requalification)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -115,3 +117,52 @@ at 55,930.4 Hz), so waveform correlation is lower than the spectra suggest
   search. Before 1.6.4, every CPS-1 conversion with online covers failed.
 - Not repeated yet: the qualified table, the MAME comparisons and the sound
   comparison above, all measured on earlier engines.
+
+## 29 October 2026 (1.6.5 tree): selective requalification
+
+A campaign of twelve sets after the generator revision went from 6 to 7 (1.6.4)
+and 8 (1.6.5). Tree: local `main` at `98debbb` (branch `spec/cps1-165b`), Windows,
+standard scan level (attract and credited play routes of 3,600 frames each),
+default DIP switches, players 1 and 2 driven, one conversion at a time, an empty
+library per set, no shared base, FBNeo romsets read in place. The set list: the
+five risk cases of the qualification campaign (`sf2ce`, `ffight`, `captcomm`,
+`strider`, `wof`), the release check `1941`, and `kod`, `mtwins` and `sf2hf` (one
+frame of slip against MAME in the 27 October comparison), `pokonyan`
+(unverified graphics mapper), `mercs` (vertical, three players, not comparable
+with MAME) and `cworld2j` (quiz board, not comparable with MAME).
+
+Every conversion of the eleven supported sets passed on all its checks: the
+reference comparison on both routes (CPU registers and clocks, RAM, image and
+sound hashes), the packed executable replay, and the fresh-process F8/F9 state
+check with the truncated state rejected. Counts over the two routes (7,200
+frames), in instructions retired:
+
+| Set | Native 68000 | Interpreted 68000 | Native Z80 | Interpreted Z80 | Graphics-RAM instructions observed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `1941` | 101,209,464 | 0 | 44,659,319 | 0 | 0 |
+| `sf2ce` | 129,196,735 | 0 | 40,478,778 | 0 | 33 |
+| `ffight` | 97,414,101 | 0 | 44,637,833 | 0 | 0 |
+| `captcomm` | 97,686,875 | 0 | 40,357,633 | 0 | 0 |
+| `strider` | 100,806,294 | 0 | 50,621,232 | 0 | 0 |
+| `kod` | 99,225,388 | 0 | 40,521,586 | 0 | 0 |
+| `mtwins` | 99,132,420 | 0 | 40,248,589 | 0 | 0 |
+| `sf2hf` | 126,323,470 | 0 | 40,448,751 | 0 | 0 |
+| `pokonyan` | 95,411,855 | 0 | 40,430,657 | 0 | 0 |
+| `mercs` | 102,583,926 | 0 | 44,359,963 | 0 | 0 |
+| `cworld2j` | 120,027,456 | 0 | 40,267,838 | 0 | 0 |
+
+- `sf2ce` goes from 75,546 interpreted 68000 instructions (24 October engine,
+  0.06 percent) to **zero**: 33 instructions run from graphics RAM were observed
+  and translated, as private build hints that are counted and never shared.
+- `wof` (Warriors of Fate, QSound) was refused as expected, with the named reason
+  "CPS-1 set wof is not supported yet: qsound".
+- No regression against the 24 October table: every set that had zero
+  interpreted instructions still has zero. The Z80 interrupt mode 0 path is
+  counted in this tree (1.6.5); no route of these sets met it.
+- No shared path was produced or qualified (the work-RAM and sound-RAM code
+  counts are zero for the eleven sets), so no CPS-1 path is qualified yet, and
+  the report stays `experimental`.
+- Not measured: the other fifteen sets of the table, the comparison with MAME
+  (not repeated on this tree), hardware fidelity, complete playthroughs,
+  physical latency and any speed. "Zero" means that the routes run met no
+  interpreted instruction.

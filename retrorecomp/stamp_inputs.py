@@ -346,9 +346,7 @@ INPUTS = _resolve({
         'native/sms_sprite_probe.c',
         'native/state_io.h',
         'native/stereo_fir.h',
-        'native/video_checks.c',
         'native/video_frame.h',
-        'native/video_mode4.inc',
         'native/video_probe.c',
         'native/xbr_checks.c',
         'native/xbr_filter.h',
@@ -425,6 +423,7 @@ INPUTS = _resolve({
         'retrorecomp.nes_optimization',
         'retrorecomp.nes_ram',
         'retrorecomp.nes_runtime',
+        'retrorecomp.nes_state_layout',
     ),
     ('md',): (
         'native/md_audio_bridge_checks.c',
@@ -691,6 +690,8 @@ INPUTS = _resolve({
         'retrorecomp.cps1_knowledge',
     ),
     ('sms', 'gg'): (
+        'native/video_checks.c',
+        'native/video_mode4.inc',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
         'retrorecomp.systems.game_gear',

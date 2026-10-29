@@ -224,13 +224,29 @@ def prefetch_plan(ins: dict, name: str) -> str:
     return '{' + ','.join(str(value) for value in values) + '}'
 
 
+def adapt_shift_timing(source: str) -> str:
+    """Charge a Dx,Dy shift or rotate its manual time, by the live count.
+
+    The pinned estimate prices every register count as four. The MC68000 takes
+    6 + 2n clocks (byte, word) or 8 + 2n (long), n being the count modulo 64
+    read before the shift. The bus hook is the one of MULU/DIVU: the prefetch
+    read comes first, then the internal clocks. Immediate counts and the
+    memory form keep the pinned figures, which are the manual's.
+    """
+    from .gun16_runtime import replace
+    return replace(source, '        int reg_count = (ins->src_ea >= 0);\n',
+        '        int reg_count = (ins->src_ea >= 0);\n'
+        '        if (reg_count)\n'
+        '            rr_md_arithmetic_phase((sz == M68K_SIZE_L ? 8u : 6u) + 2u * (g_cpu.D[ins->src_ea] & 63u), 0, 1);\n')
+
+
 def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=(),
                    *, follow_flow=True) -> dict:
     write_changed(project / 'm68000_state_helpers.h',
                   (ASSETS / 'native/m68000_state_helpers.h').read_text(encoding='utf-8'))
     from .megadrive_hardware import bank_mapper
     mapper = bank_mapper(rom) is not None
-    source = adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))
+    source = adapt_shift_timing(adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]  # remove coverage section heading
@@ -373,7 +389,7 @@ def write_changed(path: Path, source: str) -> None:
 def adapt_interpreter(source: str) -> str:
     from .megadrive_memory import runtime_source
     source = runtime_source(source, 'interpreter')
-    source = adapt_semantics(source)
+    source = adapt_shift_timing(adapt_semantics(source))
     source = source.replace('#include "m68k_interp.h"',
         '#include "m68k_interp.h"\n#include "retro_md_game.h"\n#include "md_native_steps.h"\n'
         '#include "md_exception_decode.h"\n#include "md_bus_scheduler.h"\nunsigned rr_md_exception_cycles, rr_md_trace_suppressed;\n'

@@ -203,51 +203,62 @@ and not claimed.
 
 ### Qualified sets (24 October 2026, Windows)
 
-**Measured before 1.6.4: these figures are stale and are not repeated yet.**
-Standard scan level: attract and credited play routes of 3,600 frames each,
-every set against the fresh interpreted reference on each route, the
-compressed executable comparison and the fresh-process F8/F9 check, with the
-default DIP switches; validation routes drive players 1 and 2. 1.6.4 changed
-the generator (revision 7), the quick-state format and the handling of graphics
-RAM, so this table is to be remade on 1.6.4.
+The 26 sets below passed the standard scan level on 24 October 2026 (1.6.3
+engine). **Eleven of them were measured again on 29 October 2026** on the 1.6.5
+tree (converter commit `98debbb`, generator revision 8); the others keep their
+24 October figures until they are measured again. Standard scan level: attract
+and credited play routes of 3,600 frames each, every set against the fresh
+interpreted reference on each route, the compressed executable comparison and
+the fresh-process F8/F9 check, with the default DIP switches; validation routes
+drive players 1 and 2. A campaign of twelve sets: the five risk cases (`wof`
+is refused, see below), the release
+check and six sets chosen by board and by known behaviour (`kod`, `mtwins` and
+`sf2hf`, which slip a frame against MAME; `pokonyan`, an unverified graphics
+mapper; `mercs`, vertical and three players; `cworld2j`, a quiz board). The
+per-set counts are in [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-selective-requalification).
 
-| Game | Set | 68000 fallback | Z80 fallback | Notes |
-| --- | --- | --- | --- | --- |
-| 1941: Counter Attack | `1941` | 0 | 0 | vertical |
-| Adventure Quiz Capcom World 2 | `cworld2j` | 0 | 0 |  |
-| Captain Commando | `captcomm` | 0 | 0 | 4 players |
-| Carrier Air Wing | `cawing` | 0 | 0 |  |
-| Dynasty Wars | `dynwar` | 0 | 0 |  |
-| Final Fight | `ffight` | 0 | 0 |  |
-| Ghouls'n Ghosts | `ghouls` | 0 | 0 |  |
-| Knights of the Round | `knights` | 0 | 0 | 3 players |
-| Magic Sword: Heroic Fantasy | `msword` | 0 | 0 |  |
-| Mega Man: The Power Battle | `megaman` | 0 | 0 |  |
-| Mega Twins | `mtwins` | 0 | 0 |  |
-| Mercs | `mercs` | 0 | 0 | vertical, 3 players |
-| Nemo | `nemo` | 0 | 0 |  |
-| Pnickies | `pnickj` | 0 | 0 | graphics mapper unverified by MAME |
-| Pokonyan! Balloon | `pokonyan` | 0 | 0 | graphics mapper unverified by MAME |
-| Quiz & Dragons: Capcom Quiz Game | `qad` | 0 | 0 |  |
-| Quiz Tonosama no Yabou 2: Zenkoku-ban | `qtono2j` | 0 | 0 |  |
-| Street Fighter II': Champion Edition | `sf2ce` | 75,546 (0.06%), **stale: 0 since 1.6.4** | 0 | see below |
-| Street Fighter II': Hyper Fighting | `sf2hf` | 0 | 0 |  |
-| Street Fighter II: The World Warrior | `sf2` | 0 | 0 |  |
-| Strider | `strider` | 0 | 0 |  |
-| The King of Dragons | `kod` | 0 | 0 | 3 players |
-| Three Wonders | `3wonders` | 0 | 0 |  |
-| U.N. Squadron | `unsquad` | 0 | 0 |  |
-| Varth: Operation Thunderstorm | `varth` | 0 | 0 | vertical |
-| Willow | `willow` | 0 | 0 |  |
+| Game | Set | 68000 fallback | Z80 fallback | Measured | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 1941: Counter Attack | `1941` | 0 | 0 | 29 Oct 2026 | vertical |
+| Adventure Quiz Capcom World 2 | `cworld2j` | 0 | 0 | 29 Oct 2026 |  |
+| Captain Commando | `captcomm` | 0 | 0 | 29 Oct 2026 | 4 players |
+| Carrier Air Wing | `cawing` | 0 | 0 | 24 Oct 2026 |  |
+| Dynasty Wars | `dynwar` | 0 | 0 | 24 Oct 2026 |  |
+| Final Fight | `ffight` | 0 | 0 | 29 Oct 2026 |  |
+| Ghouls'n Ghosts | `ghouls` | 0 | 0 | 24 Oct 2026 |  |
+| Knights of the Round | `knights` | 0 | 0 | 24 Oct 2026 | 3 players |
+| Magic Sword: Heroic Fantasy | `msword` | 0 | 0 | 24 Oct 2026 |  |
+| Mega Man: The Power Battle | `megaman` | 0 | 0 | 24 Oct 2026 |  |
+| Mega Twins | `mtwins` | 0 | 0 | 29 Oct 2026 |  |
+| Mercs | `mercs` | 0 | 0 | 29 Oct 2026 | vertical, 3 players |
+| Nemo | `nemo` | 0 | 0 | 24 Oct 2026 |  |
+| Pnickies | `pnickj` | 0 | 0 | 24 Oct 2026 | graphics mapper unverified by MAME |
+| Pokonyan! Balloon | `pokonyan` | 0 | 0 | 29 Oct 2026 | graphics mapper unverified by MAME |
+| Quiz & Dragons: Capcom Quiz Game | `qad` | 0 | 0 | 24 Oct 2026 |  |
+| Quiz Tonosama no Yabou 2: Zenkoku-ban | `qtono2j` | 0 | 0 | 24 Oct 2026 |  |
+| Street Fighter II': Champion Edition | `sf2ce` | 0 | 0 | 29 Oct 2026 | code run from graphics RAM: see below |
+| Street Fighter II': Hyper Fighting | `sf2hf` | 0 | 0 | 29 Oct 2026 |  |
+| Street Fighter II: The World Warrior | `sf2` | 0 | 0 | 24 Oct 2026 |  |
+| Strider | `strider` | 0 | 0 | 29 Oct 2026 |  |
+| The King of Dragons | `kod` | 0 | 0 | 29 Oct 2026 | 3 players |
+| Three Wonders | `3wonders` | 0 | 0 | 24 Oct 2026 |  |
+| U.N. Squadron | `unsquad` | 0 | 0 | 24 Oct 2026 |  |
+| Varth: Operation Thunderstorm | `varth` | 0 | 0 | 24 Oct 2026 | vertical |
+| Willow | `willow` | 0 | 0 | 24 Oct 2026 |  |
 
 `sf2ce` runs a short routine from graphics RAM (a loop that fills and compares
-the graphics memory, copied there by the game). The 75,546 interpreted 68000
-instructions are the figure **before the graphics-RAM translation of 1.6.4**:
-since 1.6.4 the standard-level routes report zero interpreted instructions for
-the set (native code only), but the table row has not been remade on a full
-requalification. The other 25 rows were also measured before 1.6.4 and keep 0
-interpreted instructions until they are measured again. The same measures stay
-separate: this is native code, not CPU, hardware or gameplay validation.
+the graphics memory, copied there by the game). On the 24 October engine the
+play route left 75,546 interpreted 68000 instructions (0.06 percent); since
+1.6.4 the native code guards instructions run from graphics RAM, and the
+29 October conversion reports **zero interpreted instructions** on both routes
+(33 graphics-RAM instructions observed, kept as private build hints and never
+shared). The eleven sets converted with no 68000 or Z80 instruction interpreted
+on the routes run (the build counts the Z80 interrupt mode 0 path since 1.6.5,
+but no route met it); `wof` (QSound) was refused with the named reason
+("not supported yet: qsound"). These
+are agreement of the native code with the board model's own interpreted
+reference: they are not CPU, hardware or gameplay validation, and "zero" means
+that the routes run met no interpreted instruction, not that none exists.
 
 ### Reference games and risk cases
 
@@ -279,8 +290,8 @@ MAME 0.289, not with the original boards. Results of 24 and 27 October 2026,
 ## Known limits
 
 - **Experimental**: the report says `experimental`; no CPS-1 path is qualified
-  yet, and the standard sets are to be requalified on 1.6.4 (the table above is
-  stale).
+  yet. Eleven sets were requalified on the 1.6.5 tree (29 October 2026); the
+  other fifteen rows of the table keep their 24 October figures.
 - **Out of scope**: QSound boards, CPS-1.5/CPS-2, rotary-dial, serial-EEPROM and
   timekeeper boards, CPS Changer cartridges, bootlegs and hacks, sets that
   need board-specific start-up, and sets with a never-dumped part.

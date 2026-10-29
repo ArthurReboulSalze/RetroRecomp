@@ -35,7 +35,7 @@ void smsrecomp_video_set_sprite_flicker_reduction(int enabled) {
 }
 
 static void sprite_tracking_begin_frame(void) {
-    if (!reduce_sprite_flicker || g_vdp.is_gg || !(g_vdp.reg[1] & 0x40)) {
+    if (!reduce_sprite_flicker || !(g_vdp.reg[1] & 0x40)) {
         sprite_tracking_reset();
         return;
     }
@@ -108,7 +108,7 @@ static void sprite_tracking_begin_frame(void) {
 static int sprite_tracking_reverse_valid(int sat) {
     /* A raster SAT rewrite must immediately use the current cartridge order. */
     int mode = (g_vdp.reg[0] & 8) | (g_vdp.reg[1] & 3) | ((g_vdp.reg[6] & 4) << 4);
-    return sprite_stable_reverse && reduce_sprite_flicker && !g_vdp.is_gg
+    return sprite_stable_reverse && reduce_sprite_flicker
         && sat == sprite_tracking_sat && mode == sprite_tracking_mode
         && !memcmp(sprite_tracking_attributes, g_vdp.vram + sat, 64)
         && !memcmp(sprite_tracking_attributes + 64, g_vdp.vram + sat + 128, 128);
@@ -240,7 +240,7 @@ static void mode4_line(uint32_t *pixels, int y, int hs, int vs, bool status) {
         }
         if (++count > 8) {
             if (status) g_vdp.status |= 0x40;
-            if (!reduce_sprite_flicker || g_vdp.is_gg) break;
+            if (!reduce_sprite_flicker) break;
         }
         int sx = g_vdp.vram[(sat + 128 + i * 2) & 0x3FFF] - ((r0 & 8) ? 8 : 0);
         int tile = g_vdp.vram[(sat + 129 + i * 2) & 0x3FFF];

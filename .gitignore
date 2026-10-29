@@ -78,6 +78,7 @@ docs/*
 !docs/RUNTIME_PERFORMANCE.md
 !docs/LANGUAGES.md
 !docs/COMPATIBILITY.md
+!docs/KNOWN_FAILURES.md
 !docs/BOXART.md
 !docs/AUDIO.md
 !docs/CONTROLS.md

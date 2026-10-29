@@ -181,6 +181,8 @@ The Neo Geo shares the common menus, the four filters and the F2 pages
 - **Coin and AES.** In arcade MVS, Back is Coin. In console AES the host does not
   drive the firmware Select lines from the Coin action, so Back never opens the
   BIOS menu by accident; explicit hardware-test scripts keep the raw switch lines.
+  The F1 help in AES lists only Start (from 1.6.5; before, it wrongly said
+  "Shift/Back: Select").
 - **Pause and reset.** Enter (Start) pauses the game itself, P is free; F1 opens
   help, Shift+F1 restarts.
 - **F5** toggles enhanced mode (F1 help shows ON/OFF). **F11** switches MVS/AES and
@@ -283,8 +285,11 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   experimental at cartridge level. A pointer with a flagged high byte keeps its full
   PC (the reference CPU does too, so `BSR` pushes `0x8004e806` on Gowcaizer); this is
   reference agreement, not proof of real 68000 behaviour, and CPS-1 shares the pattern.
-- **Edge mask**: not yet checked on converted exports of Joy Joy Kid, Puzzle Bobble 2
-  and Ghostlop; 2020 Super Baseball and Puzzle De Pon! were checked.
+- **Edge mask**: a display heuristic, checked on converted exports of 2020 Super
+  Baseball, Puzzle De Pon!, Joy Joy Kid, Puzzle Bobble 2 and Ghostlop (only the
+  outer 8 columns of a latched side change; the 304 between stay identical), on
+  attract and scripted screens, not on a played game. A band that has just appeared
+  stays visible for the 30 frames the latch needs.
 - **Not covered**: Neo Geo CD, physical cabinet linking, the trackball of Irritating
   Maze, mahjong panels and quiz/board sets needing other hardware, other BIOS
   revisions and regions, a distributable free BIOS.
@@ -301,6 +306,6 @@ decisions behind them) is [NEOGEO_LOG.md](NEOGEO_LOG.md). Milestones:
 | 13-15 Oct 2026 | Private prototype, converter integration, protected boards, ordinary saves, 24-game MVS qualification, enhanced mode; supported scope from release 1.0.2 (AES firmware support) |
 | 20 Oct 2026 | Release 1.1.8: arcade-only notice, native link-board code view, startup cover, AES Select |
 | 24 Oct 2026 | Library campaign: 134 of 135 identities qualified; 32-bit PC fix |
-| 29 Oct 2026 | Lot NGE of 1.6.4: edge mask, BIOS messages |
+| 29 Oct 2026 | Lot NGE of 1.6.4: edge mask, BIOS messages; then the mask checked on Joy Joy Kid, Puzzle Bobble 2 and Ghostlop, AES help line (1.6.5) |
 
 The original plan and choices (French) are in the local maintainer document `NEOGEO_PLAN.md`.

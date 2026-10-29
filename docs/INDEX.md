@@ -9,7 +9,7 @@ Geo, Capcom CPS-1 and Sharp X68000 (the last two are experimental).
 **Where to start**
 
 - *I want to install it and play:* [INSTALLING.md](INSTALLING.md), then [CONTROLS.md](CONTROLS.md).
-- *I want to know whether my game works:* [COMPATIBILITY.md](COMPATIBILITY.md) and the page of your machine below.
+- *I want to know whether my game works:* [COMPATIBILITY.md](COMPATIBILITY.md) and the page of your machine below; games known not to convert are in [KNOWN_FAILURES.md](KNOWN_FAILURES.md).
 - *I want to understand how it works:* [ARCHITECTURE.md](ARCHITECTURE.md), then the page of a processor.
 - *I want to change the code or add a machine:* [AGENTS_GUIDE.md](AGENTS_GUIDE.md), [STANDARDS.md](STANDARDS.md),
   [BUILDING.md](BUILDING.md) and [NEW_MACHINE.md](NEW_MACHINE.md).

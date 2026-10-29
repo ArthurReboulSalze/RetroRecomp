@@ -418,16 +418,13 @@ class StateCompatibilityTests(unittest.TestCase):
         self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_163}"\n', text)
         self.assertNotEqual(self.own_key(text), NEO_GEO_STATE_ABI_163)
 
-    def test_the_mega_drive_and_super_nintendo_keys_did_not_move_since_1_6_3_so_nothing_is_listed(self):
-        # The key is the hash of everything that decides the serialized bytes (their listed native files, the layout
-        # versions, the pinned revisions and, for the Super Nintendo, the snes_* modules). It is the very value of the
-        # v1.6.3 tag, so a state of 1.6.3 matches the build's own key. If this fails, something the key hashes moved:
-        # check that the serialized bytes did not change and add the 1.6.3 key as `RR16_STATE_COMPAT_ABI`
-        # (console16_state.write_config), or accept that the states of 1.6.3 are refused, and say so in
-        # docs/GAME_STATES.md and docs/UPGRADES.md.
+    def test_the_mega_drive_and_super_nintendo_list_no_compatibility_key(self):
+        # Decision of 29 October 2026 (from 1.6.5): quick states need not survive an update. 1.6.5 moved
+        # native/video_mode4.inc and native/video_checks.c out of the all-consoles group, which changes what these keys
+        # hash (the serialized bytes did not change); no compatibility key is listed, so a quick state of an earlier
+        # release is refused cleanly (docs/GAME_STATES.md). Cartridge saves are not quick states and are unaffected.
         texts = self.configs()
-        self.assertEqual(self.own_key(texts['md']), MD_STATE_ABI_163)
-        self.assertEqual(self.own_key(texts['snes']), SNES_STATE_ABI_163)
+        self.assertNotEqual(self.own_key(texts['md']), MD_STATE_ABI_163)
         for system in ('md', 'snes'):
             self.assertNotIn('RR16_STATE_COMPAT_ABI', texts[system], system)
 

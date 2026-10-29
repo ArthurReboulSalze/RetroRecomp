@@ -73,7 +73,7 @@ Licence summaries are those of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.m
 | [aaronsgiles/ymfm](https://github.com/aaronsgiles/ymfm) | YM2151 emulation for CPS-1 | BSD-3-Clause | `ymfm.h`, `ymfm_fm.h`, `ymfm_fm.ipp`, `ymfm_opm.h`, `ymfm_opm.cpp` | Identical. Keep. |
 | [mamedev/mame](https://github.com/mamedev/mame) | CPS-1 board data and OKI MSM6295 reference | BSD-3-Clause | No code is built from a checkout: the ROM-free catalogue and the OKI model are adapted from the driver | No change to the CPS-1 driver files, `cps1_v.cpp`, `cps1.h` or the OKI model since the pin (the rest of the repository moves daily and is not followed). Keep. |
 | [hissorii/px68k](https://github.com/hissorii/px68k) | X68000 machine base, inactive since 2014 | Kenjo noncommercial terms, BSD-2-Clause (NONAKA), FMGEN freeware terms | Device sources (`x68k/`, `fmgen/`, line composition) adapted by `tools/x68000_base74.py` | Identical. Keep. |
-| [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | X68000 libretro port, private comparison mode only | GPL-2.0 | Nothing is compiled or shipped | 23 ahead, three candidate fixes noted in "Deferred". Keep. |
+| [libretro/px68k-libretro](https://github.com/libretro/px68k-libretro) | X68000 libretro port, private comparison mode only | GPL-2.0 | Nothing is compiled or shipped | 23 ahead. Reviewed on 29 October 2026 from the public pull-request texts only (no code read): two fixes carried as our own patches in 1.6.5, one not adopted ("Deferred"). Keep. |
 | [libsdl-org/SDL](https://github.com/libsdl-org/SDL) | Window, audio and input library | zlib | The SDL2 library built from source and linked into the games | Moved from release 2.32.8 to the release 2.32.10 commit in 1.6.4 (36 commits, modest fixes: Switch Pro stick calibration and sensor coefficients, Pipewire device formats on Linux). Moves every console's game stamp. The newest SDL2 release; the branch is 88 commits ahead with unreleased work, not followed. Keep. |
 | [mstorsjo/llvm-mingw](https://github.com/mstorsjo/llvm-mingw) | Portable Windows C toolchain | Apache-2.0 with LLVM exceptions; permissive runtime licences | Release archive checked by SHA-256 | `20261020` (LLVM 23.1.4) exists. Corrective. Keep. |
 | [Kitware/CMake](https://github.com/Kitware/CMake) | Build generator | BSD-3-Clause | Release archive checked by SHA-256 | 4.4.5 exists. Corrective. Keep. |
@@ -217,8 +217,15 @@ for code a game runs from its RAM, described after the table.
 
 The two Z80 fixes are described in [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-164-lot-f). The second one is not a defect of the pin: it makes our
 two engines agree on a convention that was ours to choose (the reference CPU follows it since the sampling change of 1.6.x,
-`prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons (Action Fighter: a
-`RET` goes to an address other than the one the generated call stack expects) keep failing it; the banked engine converts them.
+`prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons keep failing it; the banked
+engine converts them. **Causes found on 29 October 2026** (first divergent write of the native run against its own interpreter twin, same
+VDP, audio and memory; CPU fidelity against the project's reference only):
+
+| Cause | Games | Status |
+|---|---|---|
+| A `RET` pops an address other than the one the generated C call stack expects: Action Fighter pushes `$0677`, jumps into a shared tail that ends in `ret nz` (`$0693`), and the Z80 continues at `$0677` while the generated function returns to its caller (frame 2530) | Action Fighter | proved; a general fix would compare the popped address with the one the caller pushed and dispatch to it, which is a change of the call model, not a patch |
+| A repeating block instruction (`LDIR` at `$087B`) interrupted before it ends: the generated body sets the X and Y flags from the last byte copied, the Z80 and our corrected reference set them from the high byte of the PC while it repeats, so the AF pushed by the interrupt differs (`$64` against `$4C`) | Alex Kidd: High-Tech World (frame 69), Alex Kidd: The Lost Stars (frame 64, same bit pattern) | proved on the first divergent write; a general, small CPU-fidelity patch of the block instructions of the generator is possible |
+| The interrupt is accepted at another instruction boundary than in the reference (one to a few instructions earlier or later): Sonic Spinball (Game Gear) pushes `$0562` instead of `$0566` in an `ei; ld a,(nn); cp b; jr nz` wait loop, Super Columns breaks a clear loop one iteration earlier, Sonic Triple Trouble takes it before a write the reference makes first | Sonic Spinball (Game Gear; the Master System edition passes), Super Columns, Sonic Triple Trouble | first divergence located, boundary rule not yet isolated (the tick placement around `EI` and the sampling patch of 1.6.4 are the places to read) |
 
 The pinned compiler and runtime are untouched (the cached checkout must stay clean); every hook is a `replace_once` on the generated
 project. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
@@ -242,6 +249,35 @@ statement about CPU fidelity of writable-memory code only; it says nothing about
 latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST` outside the 0xFF00-0xFF7F stub, which
 executes `RST 00` to `RST 38`, illegal opcodes, code spanning two memory regions) stay counted as interpreter use. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
+## Fixes carried as our own patches in 1.6.5
+
+Two of the three px68k-libretro fixes that were deferred are carried as patches of the machine base (`tools/x68000_base74.py`, which
+adapts the pinned hissorii/px68k files at build time). The pin does not move. They were written from the public pull-request texts
+(libretro/px68k-libretro pull requests 225 and 226), from the behaviour of MAME's HD63450 (BSD-3-Clause) and from our own reading of
+the pinned line drawing; no libretro code was read, and both are listed in `reimplement_from_documentation` of
+[`provenance.json`](../native/x68000_machine/provenance.json). Each has an authored reproducer in the suite that fails on the previous
+code. They change what the machine does in two cases and say nothing about hardware fidelity.
+
+| Fix | Our file | Reproducer | Game stamp that moves |
+|---|---|---|---|
+| A DMA START on a channel that is still active, or whose completion or error flags were not acknowledged, restarts the channel with those flags cleared instead of ending in an operation timing error (CER `0x02`). | `tools/x68000_base74.py` (`adapt_dmac`) | `tests/test_x68000_dmac.py` | x68 |
+| A write to a sprite register marks the screen lines the sprite covers by the mapping the line drawing uses, not sixteen lines at an offset that ignores the background's vertical start and the line counts of the background and the display. | `tools/x68000_base74.py` (`adapt_bg`) | `tests/test_x68000_sprite_dirty.py` | x68 |
+
+The first fix agrees with MAME (the `hd63450.cpp` read on 29 October 2026 never raises the timing error on a start); the pinned base
+ended the channel with that error. The libretro fork reports a game whose ADPCM stopped for that reason; we have not looked for a game of our collection
+that depends on it. The second is a defect of the pinned base itself, found with its reproducer; the pull request names frozen sprites
+in Gardis Light 2.10, which is in our test collection and has not been converted again for this change. The reproducer shows 2 of 16 lines left unmarked at a 2-line start offset, and 32 of 64 with a 256-line background on a 512-line display.
+Both are described in [UPGRADES.md](UPGRADES.md#x68000-dma-channel-restart-and-moved-sprite-redraw-165).
+
+And one 68000 fix for the Mega Drive:
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
+
+It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
+and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
@@ -257,8 +293,7 @@ quiet machine, so anything that has to be timed waits for that.
 | NES: Famicom Disk System | nesrecomp, about thirty commits | Needs a bump (18 anchors break), a player-supplied BIOS, a Disk action in the host kit and a full NES requalification. Upstream excluded the FDS from its own validation. | A decision to support the FDS. |
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |
 | Mega-CD | segagenesisrecomp (`runner/cd/`) | Per-disc recipes; strict native execution with no counted fallback, against our rule; BIOS and disc images required. | A "new machine" decision ([NEW_MACHINE.md](NEW_MACHINE.md)). |
-| X68000: three px68k-libretro fixes (GPL, rewrite from description only) | px68k-libretro | A DMA channel START on an active channel restarts it and clears its completion and error bits; a text line should refresh only when a sprite covers it; paired-bit OR and text transparency with a given flag. Not yet checked against our base. | The next X68000 session: check each case against our base, then rewrite and list it in `provenance.json`. |
-| 68000: timing of register-count shifts | segagenesisrecomp (`m68k_interp.c`) | The pinned core charges a fixed estimate to every shift with a register count; results and flags are right, the clocks are approximate (the shift vectors are replayed with `timing_unchecked`). | A Mega Drive timing pass, or a game whose timing depends on long shifts. |
+| X68000: paired-bit OR in the graphic layer, and text transparency tested at one priority (px68k-libretro pull request 228, GPL, rewrite from description only) | px68k-libretro | The first part changes a behaviour the pull request itself calls unsure in other emulators (it picks one of the two likeliest readings of the documents); the second turns the text transparency test on at one priority so that a game's water composites. Neither has a reference here: the two games it names are not in our test collection, and no document of the machine settles the first. Not adopted. | A game of the collection that shows the problem, or a document of the machine that gives the behaviour; then write it from that, list it in `provenance.json`, and add a reproducer like `tests/test_x68000_sprite_dirty.py`. |
 | llvm-mingw `20261020`, CMake 4.4.5 | toolchain | Corrective versions; nothing needed. | The next toolchain change. |
 
 ## How to record a review

@@ -38,7 +38,7 @@ The project's own checks do not establish hardware fidelity, complete gameplay o
 | **PSG** with stereo port | `native/psg_runs.inc`, `audio_output.inc` | Port `$06` is the Game Gear stereo register (the PSG catches up to the guest clock before it is written); the host output is stereo |
 | **Start button** | port `$00` | Read through the guest-driven pad refresh like the other ports |
 | **Light Phaser** | none | Not on this console |
-| **Sprite flicker reduction (F5)** | `native/hostkit/adapters/rrhk_sms.c` | Master System only: on the Game Gear F5 answers "Config unavailable" (since 0.25.0; the renderer could support it, the option was never offered here) |
+| **Sprite flicker reduction (F5)** | `native/hostkit/adapters/rrhk_sms.c` | Both Sega consoles since 1.6.5, off by default, saved in `[GameGear.Video] reduce_sprite_flicker`, F2 row, help line and pause page. Before 1.6.5 the option was never offered here: F5 answered "Config unavailable" (since 0.25.0, not a 1.6.3 regression) |
 
 The wider internal raster is never revealed in this version, and games are not patched. That avoids incomplete graphics
 at the borders and keeps the result faithful to the handheld's visible area. See the
@@ -77,8 +77,10 @@ moves the game stamps of both consoles.
   saved Enter there wins over the cartridge Start.
 - **Display.** The 160 × 144 picture, whole-pixel scaling, F3 filters, F4 display modes as on the other consoles
   ([CONTROLS.md](CONTROLS.md), [VIDEO.md](VIDEO.md)). Audio: [AUDIO.md](AUDIO.md).
-- **F5** (sprite flicker reduction) is a Master System option: on the Game Gear the host answers "Config unavailable"
-  (since 0.25.0) and shows no F2 row, although the help line and the pause page still list it.
+- **F5** (sprite flicker reduction), new in 1.6.5 and off by default: it draws the sprites beyond the eighth of a line (the Game Gear
+  VDP has the same limit) and stabilises confirmed rapid sprite-list reversals, exactly as on the
+  [Master System](MASTER_SYSTEM.md#controls-and-options); collision and overflow flags keep using the original eight. It changes
+  the presentation only, never the ROM. Exports of 1.6.4 and before answered "Config unavailable" and show no F2 row until rebuilt.
 
 ## States and saves
 
@@ -128,3 +130,4 @@ agreement, hardware fidelity, gameplay and physical latency remain separate meas
 | 1.5.0 | Cartridge Start on Enter, menu on P |
 | 1.6.3 | Host kit move (phase 4), see [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4) |
 | 1.6.4 | "Functions" engine fixes; Factory Panic converts with it |
+| 1.6.5 (in preparation) | F5 sprite flicker reduction on the Game Gear, off by default |

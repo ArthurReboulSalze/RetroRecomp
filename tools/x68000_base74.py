@@ -129,17 +129,39 @@ def adapt_gvram(d: bytes) -> bytes:
 def adapt_tvram(d: bytes) -> bytes:
     start = d.index(b'\tif (opaq) {\n\t\tfor (i = 0; (i < TextDotX) && (x > 0)')
     end = d.index(b'#endif\t/* USE_ASM */\n}', start)
+    # The text plane wraps at 1024 dots (10-bit scroll). The line is copied in runs that stay inside the plane's row, so
+    # that the inner loop has no per-dot wrap mask and no test of the opaque mode (the same dots, in the same order).
     body = (b'\t(void)addr;\n'
-            b'\t/* The text plane wraps at 1024 dots (10-bit scroll). */\n'
-            b'\tfor (i = 0; i < TextDotX; ++i, ++off) {\n'
-            b'\t\tt = TextDrawWork[y + ((TextScrollX + i) & 0x3ff)] & 0xf;\n'
-            b'\t\tif (opaq) {\n\t\t\tText_TrFlag[off] = t ? 1 : 0;\n\t\t\tBG_LineBuf[off] = TextPal[t];\n'
-            b'\t\t} else if (t) {\n\t\t\tText_TrFlag[off] |= 1;\n\t\t\tBG_LineBuf[off] = TextPal[t];\n\t\t}\n\t}\n')
+            b'\ti = 0;\n'
+            b'\twhile (i < TextDotX) {\n'
+            b'\t\tDWORD k, run = TextDotX - i, first = (TextScrollX + i) & 0x3ff;\n'
+            b'\t\tconst BYTE *dots = &TextDrawWork[y + first];\n'
+            b'\t\tif (run > 1024 - first) run = 1024 - first;\n'
+            b'\t\tif (opaq) {\n'
+            b'\t\t\tfor (k = 0; k < run; ++k) {\n'
+            b'\t\t\t\tt = dots[k] & 0xf;\n\t\t\t\tText_TrFlag[off + k] = t ? 1 : 0;\n\t\t\t\tBG_LineBuf[off + k] = TextPal[t];\n'
+            b'\t\t\t}\n'
+            b'\t\t} else {\n'
+            b'\t\t\tfor (k = 0; k < run; ++k) {\n'
+            b'\t\t\t\tt = dots[k] & 0xf;\n'
+            b'\t\t\t\tif (t) {\n\t\t\t\t\tText_TrFlag[off + k] |= 1;\n\t\t\t\t\tBG_LineBuf[off + k] = TextPal[t];\n\t\t\t\t}\n'
+            b'\t\t\t}\n'
+            b'\t\t}\n'
+            b'\t\ti += run;\n\t\toff += run;\n\t}\n')
     return d[:start] + body + d[end:]
 
 
 def adapt_dmac(d: bytes) -> bytes:
     d = replace(d, 'DMA[ch].CSR |= 0x10;', 'DMA[ch].CSR |= 0x90;')
+    # A start (CCR START) on a channel that is still active, or whose completion or error flags were not
+    # acknowledged, restarts the channel with those flags cleared. The pinned base ended it with an operation
+    # timing error (CER 0x02), which stops a game that re-arms its ADPCM channel before the previous transfer
+    # was acknowledged. MAME's HD63450 (BSD) also restarts and clears the completion and error flags; the
+    # change was written from that behaviour and from the published description of the libretro fix (docs/UPSTREAMS.md).
+    start_error = re.compile(rb'if \( DMA\[ch\]\.CSR&0xf8 \) \{[^\n]*\n\t*DMAERR\(ch,0x02\)\n\t*break;\n\t*\}\n')
+    d, count = start_error.subn(b'DMA[ch].CSR &= 0x07;\t/* restart: clear ACT, COC, BTC, NDT and ERR */\n', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: DMA start timing error')
     return replace(d, '\t\tBusErrFlag = 0;\n\t\tswitch ( ((DMA[ch].OCR>>4)&3)+((DMA[ch].DCR>>1)&4) ) {',
                    '\t\tBusErrFlag = 0;\n'
                    '\t\t/* Word/long operands on a 16-bit port must be even. */\n'
@@ -148,6 +170,149 @@ def adapt_dmac(d: bytes) -> bytes:
                    '\t\t\t\tif (DMA[ch].MAR & 1) { DMAERR(ch, 0x05) break; }\n'
                    '\t\t\t\tif (DMA[ch].DAR & 1) { DMAERR(ch, 0x06) break; }\n\t\t\t}\n\t\t}\n'
                    '\t\tswitch ( ((DMA[ch].OCR>>4)&3)+((DMA[ch].DCR>>1)&4) ) {')
+
+
+REDRAW_MARKS = b'''
+/* Retro-Recomp: which screen lines must be redrawn after a sprite or a background change. A line is redrawn only when
+ * TextDirtyLine marks it (WinDraw_DrawLine), so the marks must cover every line whose picture can have changed.
+ * The line drawing selects the background row of a screen line as ((line << s1) >> s2) - v, with v the vertical start
+ * difference between the background and the display, and then
+ *  - a sprite draws a row on the lines whose row lies in [y + BG_VLINE - 16, y + BG_VLINE - 1];
+ *  - a background plane with scroll S shows the tile row r (h = 8 or 16 lines, a ring of 512 or 1024) on the lines whose
+ *    row, plus S - v - BG_VLINE, lies in [r * h, r * h + h - 1] modulo the ring.
+ * The pinned base marked sixteen lines from y + BG_VLINE - 16 - v for a moved sprite (wrong lines when v is not zero,
+ * too few or too many when the background and the display have different line counts), for sprites that are not drawn
+ * at all, and every line for any write to a background map or pattern. The marks now come from the same mapping:
+ *  - a sprite register write marks the old and the new lines of a sprite that is drawn (priority not 0, on screen);
+ *  - a map entry write marks the lines of its tile row;
+ *  - a pattern write is only noted (pattern numbers); the next line drawn, rr_bg_resolve, marks the lines of the
+ *    sprites and of the map entries that use a noted pattern. Maps, sprites and scroll changed in between mark their
+ *    own lines when they change, so the result is the set of lines that the full redraw would change. */
+static BYTE rr_pending8[256], rr_pending16[256];
+static int rr_pending;
+
+static void rr_bg_geometry(int *s1, int *s2, long *v)
+{
+	*s1 = ((BG_Regs[0x11] & 4) ? 2 : 1) - ((BG_Regs[0x11] & 16) ? 1 : 0);
+	*s2 = ((CRTC_Regs[0x29] & 4) ? 2 : 1) - ((CRTC_Regs[0x29] & 16) ? 1 : 0);
+	*v = (BG_Regs[0x11] & 16) ? 0 : (BG_Regs[0x0f] >> *s1) - (CRTC_Regs[0x0d] >> *s2);
+}
+
+/* The screen lines whose background row ((line << s1) >> s2) lies in [low, high]. */
+static void rr_dirty_lines(long low, long high, int s1, int s2)
+{
+	long first, last, line;
+	if (high < 0) return;
+	if (low < 0) low = 0;
+	if (s1 >= s2) {
+		first = (low + (1L << (s1 - s2)) - 1) >> (s1 - s2);
+		last = high >> (s1 - s2);
+	} else {
+		first = low << (s2 - s1);
+		last = ((high + 1) << (s2 - s1)) - 1;
+	}
+	for (line = first; line <= last && line < 1024; ++line)
+		TextDirtyLine[line] = 1;
+}
+
+static void rr_sprite_dirty(unsigned y, int s1, int s2, long v)
+{
+	long low = (long)(y & 0x3ff) + BG_VLINE - 16 + v;
+	rr_dirty_lines(low, low + 15, s1, s2);
+}
+
+/* A sprite entry (posx, posy, ctrl: words, priority: byte) is drawn when its priority is not 0 and it is on screen. */
+static int rr_sprite_visible(const BYTE *entry)
+{
+	return (entry[6] & 3) && (DWORD)(((long)*(const WORD *)entry + BG_HAdjust) & 0x3ff) < TextDotX + 16;
+}
+
+static void rr_bg_row_dirty(unsigned row, DWORD scroll, int s1, int s2, long v)
+{
+	long h = BG_CHRSIZE, ring = (h == 8) ? 512 : 1024, last = (1023L << s1) >> s2, low;
+	long start = (long)row * h - (long)scroll + v + BG_VLINE;
+	start %= ring;
+	if (start < 0) start += ring;
+	for (low = start - ring; low <= last; low += ring)
+		rr_dirty_lines(low, low + h - 1, s1, s2);
+}
+
+static void rr_bg_pattern_written(DWORD adr)
+{
+	if (adr < 0x2000) rr_pending8[adr >> 5] = 1;
+	rr_pending16[adr >> 7] = 1;
+	rr_pending = 1;
+}
+
+void rr_bg_resolve(void)
+{
+	int s1, s2, n, plane, row, col;
+	long v;
+	if (!rr_pending) return;
+	rr_pending = 0;
+	rr_bg_geometry(&s1, &s2, &v);
+	for (n = 0; n < 128; n++) {
+		const BYTE *entry = Sprite_Regs + n * 8;
+		if (rr_pending16[entry[4]] && rr_sprite_visible(entry))
+			rr_sprite_dirty(*(const WORD *)(entry + 2), s1, s2, v);
+	}
+	for (plane = 0; plane < 2; plane++) {
+		WORD top = plane ? BG_BG0TOP : BG_BG1TOP, end = plane ? BG_BG0END : BG_BG1END;
+		DWORD scroll = plane ? BG0ScrollY : BG1ScrollY;
+		const BYTE *used = (BG_CHRSIZE == 8) ? rr_pending8 : rr_pending16;
+		if (end <= top) continue;
+		for (row = 0; row < 64; row++)
+			for (col = 0; col < 64; col++)
+				if (used[BG[top + row * 128 + col * 2 + 1]]) {
+					rr_bg_row_dirty(row, scroll, s1, s2, v);
+					break;
+				}
+	}
+	memset(rr_pending8, 0, sizeof rr_pending8);
+	memset(rr_pending16, 0, sizeof rr_pending16);
+}
+
+/* Called by the snapshot code: a saved state carries the resolved marks (the pending set is not part of it), and a
+ * loaded one starts with nothing pending. */
+void rr_bg_state_sync(int loading)
+{
+	if (!loading) {
+		rr_bg_resolve();
+		return;
+	}
+	rr_pending = 0;
+	memset(rr_pending8, 0, sizeof rr_pending8);
+	memset(rr_pending16, 0, sizeof rr_pending16);
+}
+'''
+
+
+def adapt_bg(d: bytes) -> bytes:
+    d = replace(d, '\tDWORD\tVLINEBG = 0;\n', '\tDWORD\tVLINEBG = 0;\n' + REDRAW_MARKS.decode('ascii'))
+    d = replace(d, 'void BG_Init(void)\n{\n\tDWORD i;\n', 'void BG_Init(void)\n{\n\tDWORD i;\n\trr_bg_state_sync(1);\n')
+    portable = re.compile(rb'\t\t\tWORD t0, t, \*pw;\n.*?\t\t\tif \(t != t0\) \{\n\t\t\t\tUPDATE_TDL\(t\);\n\t\t\t\}\n', re.DOTALL)
+    d, count = portable.subn(b'\t\t\tBYTE *entry = Sprite_Regs + (adr & 0x3f8);\n'
+                             b'\t\t\tWORD *pw = (WORD *)(entry + 2), old = *pw;\n'
+                             b'\t\t\tint was = rr_sprite_visible(entry);\n'
+                             b'\t\t\tSprite_Regs[adr] = data;\n'
+                             b'\t\t\tif (was) rr_sprite_dirty(old, s1, s2, v);\n'
+                             b'\t\t\tif (rr_sprite_visible(entry)) rr_sprite_dirty(*pw, s1, s2, v);\n', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: sprite dirty-line marking')
+    marks = re.compile(rb'\t\tif \(adr<BG_CHREND\)[^\n]*\n\t\t\{\n\t\t\tTVRAM_SetAllDirty\(\);\n\t\t\}\n'
+                       rb'\t\tif \(\(adr>=BG_BG1TOP\)&&\(adr<BG_BG1END\)\)[^\n]*\n\t\t\{\n\t\t\tTVRAM_SetAllDirty\(\);\n\t\t\}\n'
+                       rb'\t\tif \(\(adr>=BG_BG0TOP\)&&\(adr<BG_BG0END\)\)[^\n]*\n\t\t\{\n\t\t\tTVRAM_SetAllDirty\(\);\n\t\t\}\n')
+    d, count = marks.subn(b'\t\tif (adr<BG_CHREND) rr_bg_pattern_written(adr);\n'
+                          b'\t\tif ((adr>=BG_BG1TOP)&&(adr<BG_BG1END)) rr_bg_row_dirty((adr-BG_BG1TOP)>>7, BG1ScrollY, s1, s2, v);\n'
+                          b'\t\tif ((adr>=BG_BG0TOP)&&(adr<BG_BG0END)) rr_bg_row_dirty((adr-BG_BG0TOP)>>7, BG0ScrollY, s1, s2, v);\n', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: background map and pattern marking')
+    # A change of the screen resolution changes the tile size, the ring and the line mapping: redraw everything.
+    resolution = re.compile(rb'(\t\tcase 0x11:[^\n]*\n)(\t\t\tif \(data&3\)\n)')
+    d, count = resolution.subn(rb'\1\t\t\tTVRAM_SetAllDirty();\n\2', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: background resolution register')
+    return d
 
 
 def adapt_adpcm(d: bytes) -> bytes:
@@ -327,7 +492,7 @@ def adapt_crtc_h(d: bytes) -> bytes:
 ADAPT = {
     'x68k/mem_wrap.c': adapt_mem_wrap, 'x68k/crtc.h': adapt_crtc_h, 'x68k/disk_d88.c': adapt_d88,
     'x68k/crtc.c': adapt_crtc, 'x68k/mfp.c': adapt_mfp, 'x68k/gvram.c': adapt_gvram,
-    'x68k/tvram.c': adapt_tvram, 'x68k/dmac.c': adapt_dmac, 'x68k/adpcm.c': adapt_adpcm,
+    'x68k/tvram.c': adapt_tvram, 'x68k/dmac.c': adapt_dmac, 'x68k/adpcm.c': adapt_adpcm, 'x68k/bg.c': adapt_bg,
     'x68k/irqh.c': adapt_irqh, 'x68k/fdd.c': adapt_fdd, 'x68k/fdc.c': adapt_fdc, 'x68k/disk_dim.c': adapt_dim,
     'x68k/disk_xdf.c': adapt_xdf, 'x68k/disk_d88.h': adapt_d88_header,
     'fmgen/fmg_wrap.cpp': adapt_fmg_wrap, 'fmgen/opm.h': adapt_opm_h, 'fmgen/opm.cpp': adapt_opm,
@@ -447,8 +612,11 @@ def windraw_compose(src: bytes) -> bytes:
 #include "windraw.h"
 
 extern WORD *ScrBuf;
+extern void rr_bg_resolve(void);
 
-''' + body
+''' + replace(body, '\tif (!TextDirtyLine[VLINE]) return;\n',
+              '\trr_bg_resolve();\t/* marks the lines of the background patterns changed since the last line */\n'
+              '\tif (!TextDirtyLine[VLINE]) return;\n')
 
 
 def keyboard_machine(src: bytes) -> bytes:
