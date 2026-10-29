@@ -402,6 +402,10 @@ def _catalog_names(names) -> list[str]:
 def _download(rom_name: str, title: str, directory: Path, emit, system_id: str = 'sms',
               category: str = 'Named_Boxarts', unavailable: set[str] | None = None) -> tuple[Path, str]:
     unavailable = unavailable if unavailable is not None else set()
+    # A machine whose profile names no libretro-thumbnails repository (CPS-1) has nothing to search here: the
+    # caller moves on to its other sources instead of the conversion stopping on a missing key.
+    if system_id not in REPOSITORIES:
+        raise ArtworkError('No libretro thumbnails catalogue for this machine.')
     repository = REPOSITORIES[system_id]
     raw_base = f'https://raw.githubusercontent.com/{repository}/master/{category}/'
     bases = (raw_base, _public_base(system_id, category))

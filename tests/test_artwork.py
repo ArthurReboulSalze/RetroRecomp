@@ -51,6 +51,16 @@ class ArtworkTests(unittest.TestCase):
         self.assertEqual(bbox[3] - bbox[1], 256)
         self.assertLess(abs((bbox[2]-bbox[0]) / 256 - 1/3), .015)
 
+    def test_a_machine_without_libretro_catalogue_converts_without_a_cover(self):
+        # CPS-1 names no libretro-thumbnails repository: an online lookup must leave the icon missing, never stop the
+        # conversion on a missing key (1.6.4 pre-release: every CPS-1 reconversion with online covers failed).
+        self.assertNotIn('cps1', REPOSITORIES)
+        with patch("retrorecomp.artwork._get", side_effect=AssertionError("no libretro request for this machine")):
+            report = prepare_icon(self.game, self.root / "1941.zip", "1941: Counter Attack", self.art,
+                                  system_id='cps1', settings=defaults())
+        self.assertFalse(report["embedded"])
+        self.assertEqual(report["source"], "missing")
+
     def test_no_fuzzy_matching_between_sequels_and_ambiguous_editions(self):
         names = ["Sonic (USA).png", "Sonic 2 (Europe).png"]
         self.assertEqual(choose_cover(names, "Sonic 2 (Europe)", "Sonic 2"), names[1])
