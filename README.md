@@ -26,6 +26,10 @@ https://github.com/user-attachments/assets/818d3278-d698-491e-a58b-e11edc602923
 
 <p align="center"><sub><em>RetroRecomp in under two minutes: how your own game dumps become native Windows and Linux programs.</em></sub></p>
 
+https://github.com/user-attachments/assets/b6b677e2-8165-4cd6-945c-6a0fd57c232e
+
+<p align="center"><sub><em>Under the hood, in under three minutes: how RetroRecomp is built and how it works.</em></sub></p>
+
 <p align="center">
   <img src="MEDIAS/RetroRecomp_Collection_fr.png" alt="Compiled Games collection in French, with scan-level stars, box art and a game summary, demo collection" width="860">
 </p>
