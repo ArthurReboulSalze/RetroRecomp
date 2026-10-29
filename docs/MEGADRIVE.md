@@ -84,8 +84,8 @@ text changes); the generated project then compiles those copies with the native 
 X68000 share: since 1.6.3, `ROXL`/`ROXR` with a register count of zero (X copied to C) and `ASL.L` by 31 (overflow
 mask). There is no Mega Drive-only patch in 1.6.4. Since 1.6.5 there is one: a register-count shift or rotate
 (`Dx,Dy`) is charged its manual time (`6 + 2n` clocks for a byte or word, `8 + 2n` for a long, `n` the count modulo 64),
-by `megadrive_codegen.adapt_shift_timing`, in the native bodies and in the reference path, through the bus hook of
-`MULU`/`DIVU`; the shared `m68000.py` is untouched and the other machines already charged this time.
+by `megadrive_codegen.adapt_shift_timing`, in the native bodies and in the reference path, through the `MULU`
+order (prefetch read first, then the internal clocks); the shared `m68000.py` is untouched and the other machines already charged this time.
 
 **Open at the upstream.** A revision bump of the engine (106 commits ahead at the review of 29 October 2026) breaks six
 anchors, including helpers shared with Neo Geo and CPS-1, and waits for the decision about Mega-CD. See the "Deferred"
@@ -197,9 +197,9 @@ observations, not a compatibility score of the catalogue.
 ## Known limits
 
 - **Hardware**: 68000 address and bus errors, electrical interrupt acknowledge (VPA/E-clock), BR/BG/BGACK phases,
-  refresh and blanking slots, VDP port collisions, physical interlace field timing are not qualified; the
-  shift clocks follow the manual (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`, see [CPU_68000.md](CPU_68000.md)). Supervisor `RESET` with external devices
-  is unsupported; unknown decoder patterns and later-CPU operations remain explicit limitations.
+  refresh and blanking slots, VDP port collisions and physical interlace field timing are not qualified. The shift clocks
+  follow the manual (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`, see [CPU_68000.md](CPU_68000.md)).
+  Supervisor `RESET` with external devices is unsupported; unknown decoder patterns and later-CPU operations remain explicit limitations.
 - **Sound**: no complete YM2612 fidelity is claimed (BUSY and timer-driven CSM are missing); the checks inspect digital
   samples, not loudspeakers or listening quality.
 - **Cartridges**: SVP, 32X, Pico, lock-on and unrelated licensed or unlicensed mappers are refused; serial EEPROM boards

@@ -246,7 +246,7 @@ executes `RST 00` to `RST 38`, illegal opcodes, code spanning two memory regions
 
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
-| 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md |
+| 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
 
 It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
 and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).

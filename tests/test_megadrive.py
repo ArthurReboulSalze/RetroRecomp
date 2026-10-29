@@ -256,6 +256,18 @@ class ShiftTimingAdaptationTests(unittest.TestCase):
             self.assertNotIn('2u * (g_cpu.D[ins->src_ea] & 63u)',
                              m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'), hook_prefix=prefix))
 
+    def test_the_neogeo_cps1_and_x68000_generators_never_get_the_hook(self):
+        # Their stamp groups include megadrive_codegen, but they only import write_changed / the decoder tool: the hook is
+        # applied by megadrive_codegen's generate_steps and adapt_interpreter alone.
+        hook = 'rr_md_arithmetic_phase((sz == M68K_SIZE_L'
+        for name in ('retrorecomp/neogeo_codegen.py', 'retrorecomp/cps1_codegen.py', 'tools/x68000_native.py'):
+            text = (ROOT / name).read_text(encoding='utf-8')
+            self.assertNotIn('adapt_shift_timing', text, name)
+            self.assertNotIn(hook, text, name)
+        for prefix in ('rr_ng', 'rr_cps1', 'rr_x68k'):
+            self.assertNotIn(hook, m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'), hook_prefix=prefix), prefix)
+        self.assertIn(hook, megadrive_codegen.adapt_shift_timing(self.source))
+
     def test_a_changed_upstream_fails_loudly(self):
         with self.assertRaises(ConversionError):
             megadrive_codegen.adapt_shift_timing(self.source.replace(ANCHOR, ANCHOR.replace('>= 0', '> 0'), 1))
