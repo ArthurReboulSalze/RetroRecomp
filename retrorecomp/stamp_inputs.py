@@ -570,6 +570,7 @@ INPUTS = _resolve({
         'retrorecomp.neogeo_catalogue',
         'retrorecomp.neogeo_conversion',
         'retrorecomp.neogeo_knowledge',
+        'retrorecomp.neogeo_optimization',
         'retrorecomp.neogeo_persistence_checks',
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',

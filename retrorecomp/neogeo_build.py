@@ -545,6 +545,8 @@ endif()
 '''
         if native:
             cmake+='set_property(TARGET ng_hardware game PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)\n'
+            from .neogeo_optimization import CMAKE as PROFILE_CMAKE
+            cmake+=PROFILE_CMAKE
     write_changed(project / 'CMakeLists.txt', cmake)
     if content is not None:
         from .feedback import stage
@@ -605,7 +607,7 @@ def state_config(content: Path,bios: Path,title: str) -> str:
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 
-def configure_build(project: Path, target: str) -> Path:
+def configure_build(project: Path, target: str, extra=()) -> Path:
     from .core import run, toolchain
     cmake, generator = toolchain()
     sdl = sdl_install()
@@ -613,7 +615,7 @@ def configure_build(project: Path, target: str) -> Path:
         from .core import dependencies
         _, sdl, _, _ = dependencies()
     run([cmake, '-S', project, '-B', project / 'build', '-G', generator, *cmake_target_args(),
-         f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}'], log=project / 'build.log')
+         f'-DCMAKE_PREFIX_PATH={sdl.as_posix()}', *extra], log=project / 'build.log')
     run([cmake, '--build', project / 'build', '--config', 'Release', '--target', target,
          '--parallel', build_jobs()], log=project / 'build.log')
     return build_executable(project / 'build',target)
@@ -784,7 +786,9 @@ def compile_native(project: Path,reference_executable: Path,*,title='Neo Geo pro
                     presentation=presentation)
     main=generate(project,seeds,physical,main_ram);sound=generate_sound(project,ROOT/'.deps/geolith-libretro',ram)
     emit(f'Neo Geo: translating {main["translated_instructions"]} P/BIOS instructions and {sound["structural_bodies"]} sound bodies.')
-    binary=configure_build(project,'game');checks=[]
+    from .neogeo_optimization import TRAINING_ROUTE,build_game
+    training=(routes[TRAINING_ROUTE][0],observations/(TRAINING_ROUTE+'.inputs'),route_arguments(TRAINING_ROUTE)) if TRAINING_ROUTE in routes else None
+    binary=build_game(project,configure_build,training,emit);checks=[]
     def verify(row):
         name,(frames,_)=row
         native=probe(binary,name+'-native',frames,observations/(name+'.inputs'))
