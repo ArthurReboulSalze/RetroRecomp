@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/818d3278-d698-491e-a58b-e11edc602923
 
 <p align="center"><sub><em>RetroRecomp in under two minutes: how your own game dumps become native Windows and Linux programs.</em></sub></p>
 
-https://github.com/user-attachments/assets/b6b677e2-8165-4cd6-945c-6a0fd57c232e
+https://github.com/user-attachments/assets/ac2dff32-b23c-44a4-ab81-ef962833251d
 
 <p align="center"><sub><em>Under the hood, in under three minutes: how RetroRecomp is built and how it works.</em></sub></p>
 
