@@ -207,6 +207,22 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
+## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5, in preparation)
+
+Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
+`[GameGear.Video] reduce_sprite_flicker`; the Game Gear VDP has the same eight-sprite line limit). The renderer change is in
+`native/video_mode4.inc` (the three Game Gear guards are gone: with the option off the code does less, not more) and the key, the
+F2 row and the setting are in the shared adapter `native/hostkit/adapters/rrhk_sms.c`. The option changes the presentation only: no
+ROM patch, collision and overflow flags keep using the original eight sprites, and the checks of the native and the reference
+renderer still agree on every scene (`tools/pixel_optimization_selftest.py`, `tools/video_selftest.py`).
+
+Stamps (computed with the tree of 1.6.4 and the tree of this change): the **game stamp of the Master System and the Game Gear moves**
+(renderer) and so does their **host stamp** (adapter), so their exports are rebuilt with the upgrade path. In the same change
+`native/video_mode4.inc` and `native/video_checks.c`, which only the Master System and the Game Gear use, move from the group
+owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`): the manifest of the seven other consoles loses
+two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
+two Sega consoles. A Game Gear export of 1.6.4 or before keeps answering "Config unavailable" to F5 until it is rebuilt.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

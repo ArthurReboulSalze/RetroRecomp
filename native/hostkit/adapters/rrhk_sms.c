@@ -201,29 +201,21 @@ static bool game_rect(int out_w, int out_h, int mode, SDL_Rect *rect) {
     return true;
 }
 
-/* ---- the sprite-flicker option (F5): the Master System only, the Game Gear has none ---- */
+/* ---- the sprite-flicker option (F5): both consoles, off by default, saved in [<Console>.Video] ---- */
 static bool key_event(RrhkUi *ui, SDL_Scancode key, bool *running) {
     (void)running;
     if (key != SDL_SCANCODE_F5) return false;
-#ifdef RETRO_GAME_GEAR
-    rrhk_notice(rrhk_tr("Config unavailable", "Config inaccessible"), 1800);
-#else
     if (rrhk_write_ready() && rr_display_save(ui->ini_file, ui->data_dir, SECTION L".Video", L"reduce_sprite_flicker", !reduce_sprites)) {
         reduce_sprites = !reduce_sprites;
         smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
         rrhk_notice(reduce_sprites ? rrhk_tr("Sprite flicker reduction ON", "Reduction du scintillement ON") :
                                      rrhk_tr("Original console sprite limit", "Limite de sprites de la console"), 1800);
     } else rrhk_notice(rrhk_tr("Config unavailable", "Config inaccessible"), 1800);
-#endif
     return true;
 }
 
 static void option_rows(int slot, RrhkOptionRows *rows) {
-#ifndef RETRO_GAME_GEAR
     if (slot == 0) rrhk_option_row(rows, SDL_SCANCODE_F5, "F5 Sprite flicker reduction: %s", rr_tr(reduce_sprites ? "ON" : "OFF"));
-#else
-    (void)slot; (void)rows;
-#endif
 }
 
 static void help_lines(int slot, const char **lines, int *count) {
@@ -309,11 +301,7 @@ static void settings_loaded(RrhkUi *ui) {
     ui->pointer_shape = !strcmp(value, "dot");
     read_text(file, L"LightPhaser", L"color", value, sizeof value);
     ui->pointer_color = !strcmp(value, "white") ? 1 : !strcmp(value, "green") ? 2 : 0;
-#ifndef RETRO_GAME_GEAR
     reduce_sprites = rr_ini_int(ui->video_section, L"reduce_sprite_flicker", 0, file) == 1;
-#else
-    reduce_sprites = false;
-#endif
     smsrecomp_video_set_sprite_flicker_reduction(reduce_sprites);
 }
 

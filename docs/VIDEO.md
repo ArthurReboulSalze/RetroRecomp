@@ -126,7 +126,7 @@ actual raster buffers before/after stabilization removed all 3,998 changed pixel
 positions in those 34 pairs. These are finite scripted observations, not
 whole-game qualification or visual acceptance.
 
-New Master System exports offer **F5: sprite flicker reduction**. The initial
+New Master System exports offer **F5: sprite flicker reduction**, and Game Gear exports from 1.6.5 on (the Game Gear VDP has the same eight-sprite line limit). The initial
 default retains the original limit; the choice is saved in the console's shared
 video settings. When enabled, the renderer draws sprites beyond slot eight and
 stabilizes confirmed rapidly reversing lists. At least 75% of the sprite
