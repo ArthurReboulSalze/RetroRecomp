@@ -230,8 +230,8 @@ that goes on after an iteration now leaves the flags of the NMOS repeat cycle, a
 already did (X and Y from the high byte of the instruction's address, H and P from B for the input and output groups). It
 shows when an interrupt is accepted between two iterations and pushes AF; Alex Kidd: High-Tech World passes the comparison with the
 reference CPU with it (CPU fidelity on the project's own tested routes, nothing about hardware, gameplay or latency). The default banked engine
-generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 14 of the 15 games tried give the same video trace
-with and without the change, from an empty learning state. The game stamp of both consoles moves with `core`.
+generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
+with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of both consoles moves with `core`.
 
 ## Exports of 1.6.3 in 1.6.4
 
