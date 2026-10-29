@@ -97,6 +97,16 @@ A cold queue's startup fetches consume time once, separately from the
 next instruction's steady-state budget. Retirement still rejects impossible
 bus budgets even when the internal reference shares the same error.
 
+### Shift and rotate vectors
+
+`python tools/megadrive_prefetch_selftest.py m68k-shifts` replays 834 more vectors from the same pinned revision
+(`tests/fixtures/m68k-shifts`, built by `tools/build_m68000_shift_fixture.py`): the register forms of ROXL and ROXR
+(byte, word, long) and ASL.L, chosen from their inputs only, with every count of 0, 31, 32, 63 or a multiple of the
+ROX period. Memory shifts and vectors with the trace bit set are left out. The pinned core charges a fixed estimate
+to a register count, so for a register-count vector the results, flags, queue and bus addresses are compared and the
+clocks are not (the fixture marks them `timing_unchecked`; immediate counts keep their clocks). This is a CPU
+fidelity check of the result and the flags; it says nothing about the other four measures.
+
 ## Host preparation cost
 
 Translated entries also carry an eight-byte preparation plan computed by the

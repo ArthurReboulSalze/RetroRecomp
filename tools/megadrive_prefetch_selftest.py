@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from retrorecomp.core import run, toolchain
+from retrorecomp.core import replace_once, run, toolchain
 from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 from retrorecomp.megadrive_codegen import adapt_interpreter, generate_steps
 
@@ -29,6 +29,7 @@ def main(fixture_name='md-prefetch'):
     project = ROOT / ('.build/megadrive-prefetch-selftest' if fixture_name == 'md-prefetch'
                       else f'.build/megadrive-prefetch-selftest-{fixture_name}')
     project.mkdir(parents=True, exist_ok=True)
+    shifts = fixture_name != 'md-prefetch'
     engine = ROOT / '.deps/segagenesisrecomp'
     fixture = json.loads((ROOT / 'tests/fixtures' / fixture_name / 'cases.json').read_text())
     external_count = len(fixture['tests'])
@@ -63,7 +64,7 @@ def main(fixture_name='md-prefetch'):
         cases.append('{'+json.dumps(test['group']+': '+test['name'])+','+
             state_literal(test['initial'])+','+state_literal(test['final'])+','+
             f'initial_{index},{len(test["initial"]["ram"])},final_{index},{len(test["final"]["ram"])},{test["length"]},'+
-            f'pf_initial_{index},pf_final_{index},tx_{index},{len(trace)},{test.get("sr_mask",65535)},{int(test.get("timing_unchecked",0))}'+'}')
+            f'pf_initial_{index},pf_final_{index},tx_{index},{len(trace)},{test.get("sr_mask",65535)}'+(f',{int(test.get("timing_unchecked",0))}' if shifts else '')+'}')
     (project / 'cartridge.bin').write_bytes(payload)
     rom = SimpleNamespace(data=payload, sha256=hashlib.sha256(payload).hexdigest())
     variants=[{'address':pc,'bytes':raw} for pc,raw in (
@@ -85,12 +86,30 @@ def main(fixture_name='md-prefetch'):
     for name in ('md_prefetch.h', 'md_prefetch.inc'):
         shutil.copy2(ROOT / 'native' / name, project / name)
     prefix = engine.as_posix()
+    harness = (ROOT / 'native/md_prefetch_checks.c').as_posix()
+    if shifts:
+        # native/md_prefetch_checks.c is a Mega Drive state-key input and stays untouched: the shift corpus
+        # builds a patched copy. A register count is charged a fixed estimate by the pinned core, so for those
+        # vectors the results, flags, queue and bus addresses are compared, the clocks are not.
+        source = (ROOT / 'native/md_prefetch_checks.c').read_text(encoding='utf-8')
+        for old, new in (
+            ('const Transaction *transactions;unsigned transaction_count,sr_mask;',
+             'const Transaction *transactions;unsigned transaction_count,sr_mask,timing_unchecked;'),
+            ('    if (g_audio_cycle_counter != test->cycles) fail(test, "audio cycles", test->cycles, g_audio_cycle_counter);\n'
+             '    if (g_cycle_accumulator != test->cycles) fail(test, "CPU cycles", test->cycles, g_cycle_accumulator);',
+             '    if (!test->timing_unchecked && g_audio_cycle_counter != test->cycles) fail(test, "audio cycles", test->cycles, g_audio_cycle_counter);\n'
+             '    if (!test->timing_unchecked && g_cycle_accumulator != test->cycles) fail(test, "CPU cycles", test->cycles, g_cycle_accumulator);'),
+            ('for(unsigned field=0;field<7;++field)if(field!=2 && a[field]!=e[field]) {',
+             'for(unsigned field=0;field<7;++field)if(field!=2 && !(field==1 && test->timing_unchecked) && a[field]!=e[field]) {')):
+            source = replace_once(source, old, new)
+        (project / 'prefetch_checks.c').write_text(source, encoding='utf-8')
+        harness = (project / 'prefetch_checks.c').as_posix()
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(RetroMdExceptions C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 file(GLOB STEPS "steps/*.c")
-add_executable(checks "{ROOT.as_posix()}/native/md_prefetch_checks.c" reference.c ${{STEPS}}
+add_executable(checks "{harness}" reference.c ${{STEPS}}
   "{prefix}/recompiler/src/m68k_decoder.c" "{prefix}/recompiler/src/rom_parser.c")
 target_include_directories(checks PRIVATE . "{prefix}/runner" "{prefix}/runner/include" "{prefix}/recompiler/src")
 if(MSVC)
