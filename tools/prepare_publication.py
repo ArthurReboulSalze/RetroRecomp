@@ -124,7 +124,7 @@ site/index.html site/styles.css site/404.html
 README.md LICENSE CONTRIBUTING.md CLAUDE.md THIRD_PARTY_NOTICES.md
 RetroRecomp.py requirements.txt
 docs/ARCHITECTURE.md docs/STANDARDS.md docs/AGENTS_GUIDE.md docs/HOST_KIT.md docs/QUALIFICATION.md docs/NEW_MACHINE.md
-tests/test_machine_registry.py docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
+tests/test_machine_registry.py docs/BUILDING.md docs/COMPATIBILITY.md docs/KNOWN_FAILURES.md docs/BOXART.md docs/AUDIO.md
 docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tools/status_lint.py tests/test_doc_links.py tests/test_status_lint.py
 docs/UPSTREAMS.md retrorecomp/upstreams.py tools/check_upstreams.py tests/test_upstreams.py
