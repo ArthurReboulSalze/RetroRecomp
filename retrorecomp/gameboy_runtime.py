@@ -74,7 +74,9 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
         '    uint64_t rr_ram_stub_instructions; /**< WRAM/HRAM instructions run one by one by the upstream RAM stub (host-only) */\n'
         '    uint64_t rr_ram_stub_cycles; /**< Guest cycles of those instructions */\n'
         '    uint64_t rr_ram_single_step_instructions; /**< WRAM/HRAM instructions run one by one by rr_gb_try_ram_instruction (host-only) */\n'
-        '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */')
+        '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */\n'
+        '    uint64_t rr_highmem_stub_instructions; /**< 0xFF00-0xFF7F instructions run one by one by the upstream high-memory stub (host-only) */\n'
+        '    uint64_t rr_highmem_stub_cycles; /**< Guest cycles of those instructions */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -178,6 +180,12 @@ static void rr_gb_feedback(GBContext *ctx) {
     # report shows them apart from the interpreter.
     source = replace_once(source, 'if (gbrt_try_execute_ram_stub(ctx, addr)) {',
                           'if (rr_gb_try_ram_dispatch(ctx, addr)) {')
+    # The generated dispatch also calls the upstream stub for code run from 0xFF00-0xFF7F (a per-opcode executor)
+    # before that line; it is counted the same way. The HRAM stub (signature-matched OAM-DMA wait routine) is a
+    # guarded helper like ours and stays uncounted. Inside an interpreter session the pinned interpreter calls the
+    # stubs itself: those instructions are part of the session (one counted instruction per loop iteration).
+    source = replace_once(source, 'if (gbrt_try_execute_highmem_stub(ctx, addr)) {',
+                          'if (rr_gb_try_highmem_dispatch(ctx, addr)) {')
     source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
                           '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
     game.write_text(source, encoding='utf-8')
@@ -207,9 +215,11 @@ static void rr_gb_feedback(GBContext *ctx) {
     # no interpreter session happened (the probe reads this line in every case).
     source = replace_once(source, '''    fprintf(stderr,
             "[INTERP] Fallback inventory: sites=%u''', '''    fprintf(stderr,
-            "[RR-RAM] ram_stub_instructions=%llu ram_stub_cycles=%llu ram_single_step_instructions=%llu ram_single_step_cycles=%llu\\n",
+            "[RR-RAM] ram_stub_instructions=%llu ram_stub_cycles=%llu ram_single_step_instructions=%llu ram_single_step_cycles=%llu "
+            "highmem_stub_instructions=%llu highmem_stub_cycles=%llu\\n",
             (unsigned long long)ctx->rr_ram_stub_instructions, (unsigned long long)ctx->rr_ram_stub_cycles,
-            (unsigned long long)ctx->rr_ram_single_step_instructions, (unsigned long long)ctx->rr_ram_single_step_cycles);
+            (unsigned long long)ctx->rr_ram_single_step_instructions, (unsigned long long)ctx->rr_ram_single_step_cycles,
+            (unsigned long long)ctx->rr_highmem_stub_instructions, (unsigned long long)ctx->rr_highmem_stub_cycles);
     fprintf(stderr,
             "[INTERP] Fallback inventory: sites=%u''')
     source = replace_once(source, '''        while (!ctx->frame_done) {

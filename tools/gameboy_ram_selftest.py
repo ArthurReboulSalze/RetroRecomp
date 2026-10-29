@@ -38,18 +38,26 @@ target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)
     output = run([build_executable(project / 'build', 'retro_gb_ram_checks')], timeout=180)
     (project / 'checks.log').write_text(output, encoding='utf-8')
     result = json.loads(next(line for line in output.splitlines() if line.startswith('{')))
-    from retrorecomp.gameboy import CPU_MATCH
+    from retrorecomp.gameboy import CPU_MATCH, RAM_STEPS
     executable = build_executable(project / 'build', 'game')
     cpu = run([executable, '--differential', '--differential-frames', '1'], timeout=180)
     assert CPU_MATCH.search(cpu), cpu
     native = run([executable, '--headless', '--limit-frames', '1',
                   '--dump-state', project / 'trampoline-state.json'], timeout=180)
     assert '[LIMIT] Reached frame limit 1' in native, native
+    # The summary line the probe reads carries all three counted pairs (stub, single instruction, high-memory stub);
+    # the fixture runs ROM code only, so every one is zero.
+    probe = run([executable, '--headless', '--limit-frames', '1', '--report-interpreter-hotspots'], timeout=180)
+    steps = RAM_STEPS.search(probe)
+    assert steps and not any(map(int, steps.groups())), probe
     state = json.loads((project / 'trampoline-state.json').read_text(encoding='utf-8'))
     expected = {'d': 0, 'e': 0, 'sp': 65534, 'pc': 276,
                 'cycles': 4522088, 'dispatch_fallbacks': 0}
     assert all(state.get(key) == value for key, value in expected.items()), {
         key: state.get(key) for key in expected}
+    result['counted_one_by_one_in_fixture'] = dict(zip(
+        ('ram_stub_instructions', 'ram_stub_cycles', 'ram_single_step_instructions', 'ram_single_step_cycles',
+         'highmem_stub_instructions', 'highmem_stub_cycles'), map(int, steps.groups())))
     result['long_guest_loop'] = {'guest_calls': 65535, 'host_stack_bounded': True,
                                 'final_native_state': expected,
                                 'cpu_comparison': CPU_MATCH.search(cpu).group(0)}

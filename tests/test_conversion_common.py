@@ -172,7 +172,8 @@ def collect_run_probes(root):
     exe.write_bytes(b'authored')
     trace = work / 'entries.trace'
     gb_output = ('[LIMIT] Reached frame limit 30\n'
-                 '[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0\n'
+                 '[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0 '
+                 'highmem_stub_instructions=0 highmem_stub_cycles=0\n'
                  '[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n'
                  '[INTERP] No interpreter fallback recorded.\n')
     runner = FakeRun(gb_output)

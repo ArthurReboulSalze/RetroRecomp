@@ -368,8 +368,73 @@ static void counter_checks(void) {
     gb_context_destroy(helper); gb_context_destroy(ctx); checks += 12;
 }
 
+/* The upstream stub for code run from 0xFF00-0xFF7F is counted in its own pair, apart from the other two. The
+ * serial data register (0xFF01) reads back what was written, which gives an authored opcode in that range. */
+static void highmem_counter_checks(void) {
+    GBContext* ctx = gb_context_create(NULL); assert(ctx);
+    assert(ctx->rr_highmem_stub_instructions == 0 && ctx->rr_highmem_stub_cycles == 0);
+    uint64_t instructions = 0, cycles = 0;
+    static const uint8_t opcodes[] = {0x00, 0xF3, 0xFB, 0x00};   /* NOP, DI, EI, NOP: 4 guest cycles each */
+    for (unsigned i = 0; i < sizeof(opcodes); ++i) {
+        gb_write8(ctx, 0xFF01, opcodes[i]);
+        assert(gb_read8(ctx, 0xFF01) == opcodes[i]);
+        ctx->pc = 0xFF01;
+        const uint64_t before = ctx->total_cycles;
+        assert(rr_gb_try_highmem_dispatch(ctx, 0xFF01));
+        assert(ctx->pc == 0xFF02 && ctx->total_cycles - before == 4);
+        ++instructions; cycles += 4;
+        assert(ctx->rr_highmem_stub_instructions == instructions && ctx->rr_highmem_stub_cycles == cycles);
+    }
+    /* Declined: an opcode the stub does not run, an address outside 0xFF00-0xFF7F, a missing context. */
+    gb_write8(ctx, 0xFF01, 0x41);
+    ctx->pc = 0xFF01;
+    assert(!rr_gb_try_highmem_dispatch(ctx, 0xFF01));
+    gb_write8(ctx, 0xC300, 0x00);
+    ctx->pc = 0xC300;
+    assert(!rr_gb_try_highmem_dispatch(ctx, 0xC300));
+    assert(!rr_gb_try_highmem_dispatch(ctx, 0xFF80));
+    assert(!rr_gb_try_highmem_dispatch(NULL, 0xFF01));
+    assert(ctx->rr_highmem_stub_instructions == instructions && ctx->rr_highmem_stub_cycles == cycles);
+    /* The other pairs are not touched by it, and it is not touched by theirs. */
+    assert(ctx->rr_ram_stub_instructions == 0 && ctx->rr_ram_single_step_instructions == 0);
+    ctx->pc = 0xC300;
+    assert(rr_gb_try_ram_dispatch(ctx, 0xC300));
+    assert(ctx->rr_ram_stub_instructions == 1 && ctx->rr_highmem_stub_instructions == instructions);
+    gb_context_destroy(ctx); checks += 22;
+}
+
+/* The same stubs called by the pinned interpreter inside a session are part of the session: its instruction and
+ * cycle counts hold them, and the counters of the generated dispatch (which would count them twice) stay at zero. */
+static void interpreter_session_checks(void) {
+    static const struct { uint16_t address; uint8_t opcode; uint8_t operand; uint32_t cycles; const char* name; } cases[] = {
+        {0xC300, 0x3E, 0x05, 8, "RAM stub: LD A,n"},
+        {0xC300, 0x00, 0x00, 4, "RAM stub: NOP"},
+        {0xFF01, 0x00, 0x00, 4, "high-memory stub: NOP"},
+        {0xFF01, 0xF3, 0x00, 4, "high-memory stub: DI"},
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        GBContext* ctx = gb_context_create(NULL); assert(ctx);
+        gb_write8(ctx, cases[i].address, cases[i].opcode);
+        if (cases[i].address < 0xFF00) gb_write8(ctx, (uint16_t)(cases[i].address + 1), cases[i].operand);
+        ctx->single_step_mode = 1;   /* one instruction, then the session ends */
+        const uint64_t before = ctx->total_cycles;
+        gb_interpret(ctx, cases[i].address);
+        if (ctx->total_interpreter_entries != 1 || ctx->total_interpreter_instructions != 1 ||
+            ctx->total_interpreter_cycles != cases[i].cycles || ctx->total_cycles - before != cases[i].cycles) {
+            fprintf(stderr, "interpreter session %s: entries=%llu instructions=%llu cycles=%llu\n", cases[i].name,
+                    (unsigned long long)ctx->total_interpreter_entries,
+                    (unsigned long long)ctx->total_interpreter_instructions,
+                    (unsigned long long)ctx->total_interpreter_cycles);
+            assert(0);
+        }
+        assert(ctx->rr_ram_stub_instructions == 0 && ctx->rr_ram_single_step_instructions == 0 &&
+               ctx->rr_highmem_stub_instructions == 0);
+        gb_context_destroy(ctx); checks += 4;
+    }
+}
+
 int main(void) {
-    counter_checks();
+    counter_checks(); highmem_counter_checks(); interpreter_session_checks();
     guard_checks(); differential_checks(); dma_guard_checks(); dma_differential_checks();
     dma_sequence_checks(); copy_differential_checks(); dma_page_checks();
     instruction_guard_checks(); instruction_differential_checks();

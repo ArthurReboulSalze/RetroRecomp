@@ -10,7 +10,10 @@
  * translation: it is a one-instruction-at-a-time executor of writable code,
  * cheaper than an interpreter session and returning to native ROM code at
  * once, and it is counted (rr_gb_try_ram_dispatch) and reported as such, like
- * the upstream stub. It is checked opcode by opcode against the interpreter
+ * the upstream stubs (RAM stub and the 0xFF00-0xFF7F stub, rr_gb_try_highmem_dispatch).
+ * The upstream HRAM stub (gbrt_try_execute_hram_stub) is a different kind of
+ * thing: it matches the complete OAM-DMA wait routine by signature and runs it
+ * as one helper, like the guarded helpers above, and stays uncounted. It is checked opcode by opcode against the interpreter
  * (native/gb_ram_checks.c).
  */
 #ifndef RETRO_GB_RAM_HELPERS_H
@@ -314,7 +317,11 @@ static inline uint8_t rr_gb_try_store_helper(GBContext* ctx, uint16_t addr) {
  * instruction of writable code per call from a per-opcode switch: that is not native code, so every
  * instruction they run is counted, each in its own pair of counters (instructions and guest cycles), and the
  * conversion report shows them beside the interpreter figures (never added to them, never hidden). The counters
- * are host-only fields of the context, outside every saved state. */
+ * are host-only fields of the context, outside every saved state.
+ *
+ * Counting covers the generated dispatch only. Inside an interpreter session the pinned interpreter calls the
+ * same stubs itself; those instructions belong to the session and are already in its instruction and cycle counts
+ * (the session loop counts one instruction per iteration, whether a stub or its own switch ran it). */
 static inline uint8_t rr_gb_try_ram_dispatch(GBContext* ctx, uint16_t addr) {
     if (rr_gb_try_store_helper(ctx, addr)) return 1;
     const uint64_t before = ctx ? ctx->total_cycles : 0;
@@ -329,5 +336,16 @@ static inline uint8_t rr_gb_try_ram_dispatch(GBContext* ctx, uint16_t addr) {
         return 1;
     }
     return 0;
+}
+
+/* The upstream stub for code executed from 0xFF00-0xFF7F, called by the generated dispatch before the RAM
+ * dispatch above. Like the RAM stub it executes one instruction per call from a per-opcode switch (NOP, JR, JP,
+ * CALL, RET, RST, DI, EI), so it is not native code either and is counted in its own pair. */
+static inline uint8_t rr_gb_try_highmem_dispatch(GBContext* ctx, uint16_t addr) {
+    const uint64_t before = ctx ? ctx->total_cycles : 0;
+    if (!gbrt_try_execute_highmem_stub(ctx, addr)) return 0;
+    ctx->rr_highmem_stub_instructions++;
+    ctx->rr_highmem_stub_cycles += ctx->total_cycles - before;
+    return 1;
 }
 #endif
