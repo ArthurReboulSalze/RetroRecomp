@@ -66,6 +66,13 @@ int main(int argc,char **argv){
     if(!cyc_load_ines(rom,size))return 3;free(rom);cyc_run_native=false;
 #if RR_NES_FAST_PPU
     if(argc>2&&!strcmp(argv[2],"extra"))return extra_sprites_check();
+    if(argc>2&&!strcmp(argv[2],"engaged")){ /* whether this board runs the deferred clock, and does defer edges */
+        extern bool rr_ppu_lazy;extern unsigned rr_ppu_room;
+        cyc_power_on(0);cyc_run_power_on();
+        bool lazy=rr_ppu_lazy&&rr_ppu_room>1;
+        for(unsigned k=0;k<2000;k++)(void)cpu_read(0,0);
+        puts(lazy&&rr_ppu_lazy?"deferred":"eager");return 0;
+    }
 #endif
     uint8_t *audio_state=malloc(rr_nes_apu_size());if(!audio_state)return 4;
     static const uint16_t audio_regs[]={
