@@ -73,12 +73,38 @@ static int safe_path(const wchar_t *given) {
     return S_ISDIR(st.st_mode)||(S_ISREG(st.st_mode)&&st.st_nlink==1);
 #endif
 }
+/* Something is there (a file, a folder, anything) that fopen could not open for reading. */
+static int path_exists(const wchar_t *given) {
+#ifdef _WIN32
+    wchar_t long_path[OS_PATH_CAPACITY];const wchar_t *path=os_path(given,long_path);
+    return path&&GetFileAttributesW(path)!=INVALID_FILE_ATTRIBUTES;
+#else
+    char name[8192];struct stat st;
+    return rr_to_utf8(given,name,sizeof(name))&&!lstat(name,&st);
+#endif
+}
 static int directories(wchar_t *path) {
     for(wchar_t *p=path;*p;p++)if(*p=='/'||*p=='\\'){
         wchar_t old=*p;if(p==path||(p==path+2&&path[1]==':'))continue;
         *p=0;int ok=safe_path(path);*p=old;if(!ok)return 0;
     }
     return safe_path(path)&&os_mkdir(path);
+}
+/* Moves an unusable file to "<file>.unusable-N" (the first N from 1 to 99 that is free; the last one is replaced when all
+ * are taken). Returns 0 only when the file cannot be moved. */
+static int set_aside(const wchar_t *file) {
+    wchar_t aside[4096];
+    for(unsigned n=1;n<=99;n++){
+        wchar_t suffix[16]=L".unusable-";size_t at=wcslen(suffix);
+        if(n>=10)suffix[at++]=(wchar_t)(L'0'+n/10);
+        suffix[at++]=(wchar_t)(L'0'+n%10);suffix[at]=0;
+        rr_wide_copy(aside,4096,file);if(rr_wide_append(aside,4096,suffix))return 0;
+        if(!safe_path(aside))return 0;
+        FILE *taken=os_fopen(aside,L"rb");
+        if(taken){fclose(taken);if(n<99)continue;}
+        return os_replace(file,aside);
+    }
+    return 0;
 }
 int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
     char value[4096];wchar_t root[4096],file[4096],lock[4096];
@@ -109,11 +135,21 @@ int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
         if(!safe_path(file))return 0;
         FILE *f=os_fopen(file,L"rb");
         if(f){
-            if(item->writable){fclose(f);continue;}
-            size_t at=0;unsigned char chunk[65536];int ok=1;
-            while(at<size){size_t n=size-at;if(n>sizeof(chunk))n=sizeof(chunk);if(fread(chunk,1,n,f)!=n||memcmp(chunk,bytes+at,n)){ok=0;break;}at+=n;}
-            if(fgetc(f)!=EOF||ferror(f))ok=0;fclose(f);if(!ok)return 0;continue;
-        }
+            int ok=1;
+            if(item->writable){
+                /* A floppy image keeps its size whatever the game writes: any other size is not this disk. */
+                ok=!fseek(f,0,SEEK_END)&&(size_t)ftell(f)==size;
+            }else{
+                size_t at=0;unsigned char chunk[65536];
+                while(at<size){size_t n=size-at;if(n>sizeof(chunk))n=sizeof(chunk);if(fread(chunk,1,n,f)!=n||memcmp(chunk,bytes+at,n)){ok=0;break;}at+=n;}
+                if(ok&&(fgetc(f)!=EOF||ferror(f)))ok=0;
+            }
+            fclose(f);
+            if(ok)continue;
+            /* An unusable copy never blocks the game and is never deleted: it is kept under another name and the
+             * original embedded in the executable is written again. */
+            if(!set_aside(file))return 0;
+        }else if(path_exists(file)&&!set_aside(file))return 0;
         wchar_t temporary[4096];rr_wide_copy(temporary,4096,file);rr_wide_append(temporary,4096,L".new");
         if(!safe_path(temporary))return 0;
         f=os_fopen(temporary,L"wb");if(!f)return 0;
