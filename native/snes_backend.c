@@ -113,6 +113,7 @@ bool rr16_init(bool headless) {
     if(!rom || resource_size!=RR_SN_ROM_BYTES)return false;
     RtlRegisterGame(&game_info);
     if (!SnesInit(rom, RR_SN_ROM_BYTES)) return false;
+    rr_snes_native_bind();
     if (g_snes->cart->ramSize != RR_SN_RAM_BYTES) return false;
     wchar_t battery_path[32768];
     if (!headless && (!rr_snes_battery_path(battery_path,32768) ||
@@ -341,6 +342,7 @@ void rr16_shutdown(void) {
     if (!g_snes) return;
     if (!rr_snes_battery_flush(g_snes->cart,SDL_GetTicks64(),true))
         fputs("Cartridge save could not be written.\n",stderr);
+    rr_snes_native_set_enabled(false);
     snes_free(g_snes);g_snes=NULL;
 }
 extern void rr_snes_save_delivery(SaveLoadInfo *sli);

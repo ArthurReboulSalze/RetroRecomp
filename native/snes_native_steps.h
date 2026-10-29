@@ -10,6 +10,8 @@ typedef struct RrSnesNativeOp {
 const RrSnesNativeOp *rr_snes_native_lookup(Interp816 *cpu);
 const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc, uint8_t opcode);
 void rr_snes_native_set_enabled(bool enabled);
+/* Checks the loaded cartridge against the generated map once; call after the cartridge is loaded. */
+bool rr_snes_native_bind(void);
 void rr16_snes_note_native(void);
 void rr16_snes_note_interpreted(uint32_t pc);
 void rr16_snes_observe_fallback(uint32_t pc);

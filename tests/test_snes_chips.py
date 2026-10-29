@@ -43,10 +43,11 @@ class ChipTests(unittest.TestCase):
         for mode,kind,sub,cart in ((0x20,3,0,'CART_DSP1'),(0x31,5,0,'CART_DSP1_HIROM'),(0x20,0xf3,0x10,'CART_CX4')):
             rom=self.rom(mode,kind,sub)
             source=native_source(source_fixture(),rom.data,mapping=rom.mapping)
-            self.assertIn('g_snes->cart->type != '+cart,source)
-            self.assertIn('g_snes->cart->romImageSize != 65536u',source)
+            self.assertIn('cart->type == '+cart,source)
+            self.assertIn('cart->romImageSize == 65536u',source)
             self.assertIn('fetched==operation->opcode',source)
             self.assertIn('cart_getRomPtr',source)
+            self.assertNotIn('CART_SUPERFX',source)
     def test_superfx_boards_are_supported_with_their_game_pak_ram(self):
         for kind,battery in ((0x13,False),(0x14,False),(0x15,True),(0x1a,True)):
             with self.subTest(kind=kind):
@@ -61,8 +62,9 @@ class ChipTests(unittest.TestCase):
         data=bytearray(self.rom(0x20,0x15).data);data[0x7fda]=0x33;data[0x7fbd]=5
         self.assertEqual(layout_bytes(bytes(data),'lorom')['bytes'],0x8000)
         source=native_source(source_fixture(),self.rom(0x20,0x14).data,mapping='lorom')
-        self.assertIn('g_snes->cart->type != CART_SUPERFX',source)
+        self.assertIn('cart->type == CART_SUPERFX',source)
         self.assertIn('rr_sn_rom_ptr',source)
+        self.assertNotIn('cart_getRomPtr',source)
         self.assertIn('fetched==operation->opcode',source)
     def test_sa1_header_is_identified_before_explicit_hardware_refusal(self):
         rom=self.rom(0x23,0x35)

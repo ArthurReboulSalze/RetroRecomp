@@ -10,7 +10,7 @@ def main():
     for pal in (False,True):
         tag='pal' if pal else 'ntsc';p=w/(tag+'.sfc');rom=cartridge(bytes.fromhex('40'),pal)
         rom[0x7fc0:0x7fd5]=b'RR PPU BUS CHECKS'.ljust(21,b' ');p.write_bytes(rom)
-        exe=prepare16(p,'snes',emit=lambda _:None);project=exe.parents[2]
+        exe=prepare16(p,'snes',emit=lambda _:None);project=next(parent for parent in exe.parents if (parent/'CMakeLists.txt').is_file())
         (project/'console16_main.c').write_text((ROOT/'native/snes_ppu_bus_checks.c').read_text(),encoding='utf-8')
         run([toolchain()[0],'--build',project/'build','--config','Release','--parallel','4'],log=w/(tag+'-build.log'))
         cases.append(json.loads(run([exe],cwd=w).strip().splitlines()[-1])|dict(standard=tag))
