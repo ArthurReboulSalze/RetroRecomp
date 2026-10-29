@@ -10,6 +10,12 @@
 
 extern RrhkUi rrhk;
 
+/* timing.c: explicit diagnostic only; accumulated in memory, written once. */
+typedef struct {
+    uint64_t frames;
+    double total[6], maximum[6], thread_cpu;
+} RrhkTiming;
+
 /* Everything the windowed loop keeps between its steps. One instance, in main.c. */
 typedef struct RrhkRun {
     const RrhkMachine *machine;
@@ -35,13 +41,18 @@ typedef struct RrhkRun {
     bool fast;                     /* the machine's fast-forward hook was true at the start of this iteration */
     RrScanlineMask scanlines;
     RrXbr xbr;
+    /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
+     * that owns the loop runs between the end of one and the begin of the next. What the two halves share: */
+    bool ran;                      /* this iteration ran the machine (no menu, no pause) */
+    bool driven;                   /* the guest owns the loop */
+    bool timing_enabled;
+    RrhkTiming timing;
+    Uint64 work_started, ticks[7];
+    double cpu_started;
+    bool ran_frame;                /* timing: a frame was run in this iteration */
+    const char *timing_path;
 } RrhkRun;
 
-/* timing.c: explicit diagnostic only; accumulated in memory, written once. */
-typedef struct {
-    uint64_t frames;
-    double total[6], maximum[6], thread_cpu;
-} RrhkTiming;
 double rrhk_thread_cpu(void);
 void rrhk_timing_write(const RrhkMachine *machine, const char *path, const RrhkTiming *timing,
                        SDL_Renderer *renderer, Uint64 frequency);
@@ -73,6 +84,8 @@ int rrhk_page_rows(void);
 bool rrhk_device_row(void);          /* the selected row is the Gamepad row of a gamepad page */
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);
+void rrhk_toggle_menu(int kind);     /* Help or Pause: open it, or return to the menu it was opened from */
+void rrhk_close_menu(void);          /* Esc, B: back to the menu this one was opened from, or to the game */
 void rrhk_menu_draw(SDL_Renderer *renderer);
 
 /* options.c: the only file that includes game_options.h, whose settings are
@@ -82,6 +95,7 @@ void rrhk_options_keyboard(const char *machine, int count);
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture);
 bool rrhk_options_quit(int menu);
 bool rrhk_options_restart(int menu);
+bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
 int rrhk_pages_count(void);

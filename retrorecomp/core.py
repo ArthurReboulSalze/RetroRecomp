@@ -22,7 +22,7 @@ from .report_schema import write_report
 from .conversion_common import (check_run_budget, convert_single, prepare_game_icon, probe_environment, replace_counted,
                                 resolve_scan_level, spawn)
 from .paths import ROOT, ASSETS, games_directory, games_root, data_directory
-from . import __version__, timings
+from . import __version__, hostkit, timings
 from .i18n import log_text
 from .publishing import publish_executable
 from .cpu import prepare_cpu_headers, prepare_reference
@@ -421,6 +421,8 @@ def prepare_native_source() -> Path:
         target = native_source / source.name
         if not target.exists() or target.read_bytes() != source.read_bytes():
             shutil.copy2(source, target)
+    # The player shell of the Master System and the Game Gear is the host kit (one adapter for both).
+    hostkit.stage(native_source, "sms")
     return native_source
 
 

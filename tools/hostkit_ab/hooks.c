@@ -300,6 +300,33 @@ int rrab_SetRelativeMouseMode(SDL_bool enabled) {
     init(); fprintf(events_log, "R %u %d\n", iteration, enabled == SDL_TRUE);
     return 0;
 }
+#elif defined(RRAB_SMS)
+/* The Master System and Game Gear: the guest owns the loop. What the host hands to the machine is the pad byte of each player,
+ * through glue_set_pad1/2 (the runner's frame callback and the host's refresh in the middle of a frame call them): logged
+ * when it changes. The window is the only one the process has. */
+#include "glue.h"
+static unsigned pad_state[2];
+static void log_pad(int which, uint8_t value, void (*real)(uint8_t)) {
+    init();
+    if (pad_state[which] != value) { pad_state[which] = value; fprintf(events_log, "G %u %d %02x\n", iteration, which + 1, value); }
+    real(value);
+}
+void rrab_set_pad1(uint8_t value) { log_pad(0, value, glue_set_pad1); }
+void rrab_set_pad2(uint8_t value) { log_pad(1, value, glue_set_pad2); }
+SDL_Window *rrab_GetKeyboardFocus(void) { return SDL_GetWindowFromID(1); }
+SDL_Window *rrab_GetMouseFocus(void) { return SDL_GetWindowFromID(1); }
+/* A menu that waits for an event: the script of this iteration runs, then one event or sixteen virtual milliseconds. */
+int rrab_WaitEventTimeout(SDL_Event *event, int timeout) {
+    if (rrab_PollEvent(event)) return 1;
+    rrab_Delay((Uint32)timeout);
+    return 0;
+}
+/* The Light Phaser: the position and the trigger the host hands to the machine. */
+void lightphaser_pointer(int x, int y, bool trigger);
+void rrab_phaser(int x, int y, bool trigger) {
+    init(); fprintf(events_log, "X %u %d %d %d\n", iteration, x, y, trigger);
+    lightphaser_pointer(x, y, trigger);
+}
 #elif !defined(RRAB_NES)
 extern bool rr16_frame(uint16_t p1, uint16_t p2);
 bool rrab_frame(uint16_t p1, uint16_t p2) {

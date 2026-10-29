@@ -36,15 +36,35 @@ void rrhk_bind(const RrhkMachine *machine) {
     else swprintf(rrhk.video_section, 64, L"%ls.Video", machine->ini_section);
     if (machine->pointer_section) swprintf(rrhk.pointer_section, 64, L"%ls", machine->pointer_section);
     else swprintf(rrhk.pointer_section, 64, L"%ls.Gun", machine->ini_section);
+    rrhk.pointer_shape = rrhk.pointer_color = 0;
     rrhk.pointer_size = 3;
     rrhk.pointer_turbo = 1;
 }
 
+/* The machine's former preferences file (RrhkMachine.legacy_ini), beside the executable. It is read only while datas holds
+ * no Retro-Recomp.ini, and copied to it before the first write (the copy-before-first-write rule of the Master System host). */
+static wchar_t legacy_file[32768];
+
 void rrhk_settings_path(void) {
-    if (!rr_executable_directory(rrhk.data_dir, 32600)) { rrhk.ini_file[0] = 0; return; }
+    legacy_file[0] = 0;
+    if (!rr_executable_directory(rrhk.data_dir, 32600)) { rrhk.ini_file[0] = rrhk.read_file[0] = 0; return; }
     rr_wide_copy(rrhk.ini_file, 32768, rrhk.data_dir);
+    if (rrhk.machine->legacy_ini) {
+        rr_wide_copy(legacy_file, 32768, rrhk.data_dir);
+        rr_wide_append(legacy_file, 32768, RR_SLASH_W);
+        rr_wide_append(legacy_file, 32768, rrhk.machine->legacy_ini);
+    }
     rr_wide_append(rrhk.data_dir, 32768, RR_SLASH_W L"datas");
     rr_wide_append(rrhk.ini_file, 32768, RR_SLASH_W L"datas" RR_SLASH_W L"Retro-Recomp.ini");
+    rr_wide_copy(rrhk.read_file, 32768, legacy_file[0] && !rr_exists(rrhk.ini_file) && rr_exists(legacy_file) ? legacy_file : rrhk.ini_file);
+}
+
+/* Before any write: the folder exists, and a machine's former file becomes the file that is written. false: it cannot be written. */
+bool rrhk_write_ready(void) {
+    if (!rrhk.ini_file[0]) return false;
+    if (!rr_mkdir(rrhk.data_dir) && !rr_exists(rrhk.data_dir)) return false;
+    if (legacy_file[0] && !rr_exists(rrhk.ini_file) && rr_exists(legacy_file) && !rr_copy_new(legacy_file, rrhk.ini_file)) return false;
+    return true;
 }
 
 static void section(wchar_t *out, int p, bool pad) {
@@ -74,7 +94,7 @@ void rrhk_load_bindings(void) {
         if (m->actions[a].letter) rrhk.keys[0][a] = rr_keyboard_letter(m->actions[a].letter, m->actions[a].key[0]);
     rrhk_settings_path();
     if (!rrhk.ini_file[0]) return;
-    rr_display_load(rrhk.ini_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
+    rr_display_load(rrhk.read_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
     if (m->settings_loaded) m->settings_loaded(&rrhk);
     wchar_t sec[64], entry[48];
     const int lowest_button = m->bindings_clearable ? -1 : 0, lowest_key = m->bindings_clearable ? 0 : 1;
@@ -82,27 +102,27 @@ void rrhk_load_bindings(void) {
         for (int a = 0; a < m->action_count; ++a) {
             int old = mode ? rrhk.buttons[p][a] : rrhk.keys[p][a];
             binding_entry(sec, entry, p, a, mode != 0);
-            int value = rr_ini_int(sec, entry, old, rrhk.ini_file);
+            int value = rr_ini_int(sec, entry, old, rrhk.read_file);
             if (mode && value >= lowest_button && value < SDL_CONTROLLER_BUTTON_MAX) rrhk.buttons[p][a] = (SDL_GameControllerButton)value;
             if (!mode && value >= lowest_key && value < SDL_NUM_SCANCODES) rrhk.keys[p][a] = (SDL_Scancode)value;
         }
     }
     for (int p = 0; p < m->players(); ++p) load_choice(p);
     wchar_t language[12];
-    rr_ini_get(L"Interface", L"language", L"en", language, 12, rrhk.ini_file);
+    rr_ini_get(L"Interface", L"language", L"en", language, 12, rrhk.read_file);
     rrhk.language = rr_language_from_wide(language); rr_language_set(rrhk.language);
-    rrhk.autofire = rr_ini_int(autofire_section(), L"autofire", 0, rrhk.ini_file) != 0;
-    rrhk.pointer_shape = rr_ini_int(rrhk.pointer_section, L"shape", 0, rrhk.ini_file) == 1;
-    rrhk.pointer_size = rr_ini_int(rrhk.pointer_section, L"size", 3, rrhk.ini_file);
+    rrhk.autofire = rr_ini_int(autofire_section(), L"autofire", 0, rrhk.read_file) != 0;
+    /* A machine that read its former keys in settings_loaded has set the values these start from; the kit's keys win when present. */
+    rrhk.pointer_shape = rr_ini_int(rrhk.pointer_section, L"shape", rrhk.pointer_shape, rrhk.read_file) == 1;
+    rrhk.pointer_size = rr_ini_int(rrhk.pointer_section, L"size", rrhk.pointer_size, rrhk.read_file);
     if (rrhk.pointer_size < 1 || rrhk.pointer_size > (m->pointer_max ? m->pointer_max : 12)) rrhk.pointer_size = 3;
-    rrhk.pointer_color = rr_ini_int(rrhk.pointer_section, L"color", 0, rrhk.ini_file);
+    rrhk.pointer_color = rr_ini_int(rrhk.pointer_section, L"color", rrhk.pointer_color, rrhk.read_file);
     if (rrhk.pointer_color < 0 || rrhk.pointer_color > 2) rrhk.pointer_color = 0;
-    rrhk.pointer_turbo = rr_ini_int(rrhk.pointer_section, L"turbo", 1, rrhk.ini_file) != 0;
+    rrhk.pointer_turbo = rr_ini_int(rrhk.pointer_section, L"turbo", rrhk.pointer_turbo, rrhk.read_file) != 0;
 }
 
 void rrhk_store_binding(void) {
-    if (!rrhk.ini_file[0]) return;
-    rr_mkdir(rrhk.data_dir);
+    if (!rrhk_write_ready()) return;
     wchar_t sec[64], entry[48], value[16];
     binding_entry(sec, entry, rrhk.player, rrhk.row, rrhk.gamepad_page != 0);
     swprintf(value, 16, L"%d", rrhk.gamepad_page ? rrhk.buttons[rrhk.player][rrhk.row] : rrhk.keys[rrhk.player][rrhk.row]);
@@ -213,8 +233,7 @@ void rrhk_close_pads(void) {
 
 /* Only a change made on the Gamepad row is written; the default (automatic) leaves the file as it was. */
 static void store_choice(int p) {
-    if (!rrhk.ini_file[0]) return;
-    rr_mkdir(rrhk.data_dir);
+    if (!rrhk_write_ready()) return;
     wchar_t sec[64], wide[CHOICE_TEXT];
     section(sec, p, true);
     const char *device = choice[p].mode == PAD_AUTO ? "auto" : choice[p].mode == PAD_NONE ? "none" : choice[p].guid;
@@ -228,13 +247,13 @@ static void load_choice(int p) {
     PadChoice *c = &choice[p];
     memset(c, 0, sizeof *c);
     section(sec, p, true);
-    rr_ini_get(sec, L"device", L"auto", wide, CHOICE_TEXT, rrhk.ini_file);
+    rr_ini_get(sec, L"device", L"auto", wide, CHOICE_TEXT, rrhk.read_file);
     if (!rr_to_utf8(wide, text, sizeof text)) return;
     if (!strcmp(text, "none")) c->mode = PAD_NONE;
     else if (strlen(text) == 32 && strspn(text, "0123456789abcdefABCDEF") == 32) {
         c->mode = PAD_PINNED;
         for (int i = 0; i < 32; ++i) c->guid[i] = (char)(text[i] >= 'A' && text[i] <= 'F' ? text[i] + 32 : text[i]);
-        rr_ini_get(sec, L"name", L"", wide, CHOICE_TEXT, rrhk.ini_file);
+        rr_ini_get(sec, L"name", L"", wide, CHOICE_TEXT, rrhk.read_file);
         if (!rr_to_utf8(wide, text, sizeof text)) text[0] = 0;
         plain_name(text, c->name, sizeof c->name);
     }

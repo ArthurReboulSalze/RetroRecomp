@@ -9,7 +9,7 @@ from retrorecomp import hostkit
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / 'native/hostkit'
-FAMILIES = ('md', 'snes', 'ng', 'cps1', 'nes')
+FAMILIES = ('md', 'snes', 'ng', 'cps1', 'nes', 'sms')
 
 
 class StagingTests(unittest.TestCase):
@@ -68,7 +68,9 @@ class ContentTests(unittest.TestCase):
     def test_every_adapter_defines_the_entry_the_game_calls(self):
         for family in FAMILIES:
             text = (KIT / f'adapters/rrhk_{family}.c').read_text(encoding='utf-8')
-            entry = 'int cyc_sdl_main(const char *title, int scale)' if family == 'nes' else 'int rr16_sdl_main(const char *title, int scale)'
+            entry = {'nes': 'int cyc_sdl_main(const char *title, int scale)',
+                     'sms': 'bool host_init(int width, int height, int x, int y, int crop_w, int crop_h, int scale'}.get(
+                family, 'int rr16_sdl_main(const char *title, int scale)')
             self.assertIn(entry, text)
             self.assertIn('const RrhkMachine *rrhk_adapter(void)', text)
 
@@ -79,6 +81,17 @@ class ContentTests(unittest.TestCase):
             self.assertIn('hostkit.stage(', text, module)
             self.assertIn('hostkit.sources(', text, module)
         self.assertFalse((ROOT / 'native/console16_host_ui.c').exists())
+
+    def test_the_master_system_and_game_gear_share_one_adapter_staged_beside_the_common_runtime(self):
+        self.assertEqual(hostkit.sources('sms'), hostkit.sources('gg'))
+        core = (ROOT / 'retrorecomp/core.py').read_text(encoding='utf-8')
+        self.assertIn('hostkit.stage(native_source, "sms")', core)
+        cmake = (ROOT / 'native/CMakeLists.txt').read_text(encoding='utf-8')
+        for name in hostkit.sources('sms'):
+            self.assertIn(name, cmake, name)
+        for name in ('host.c', 'controls.c', 'ui.c', 'ui.h', 'controls.h'):
+            self.assertFalse((ROOT / 'native' / name).exists(), name)
+            self.assertNotIn(f' {name} ', cmake, name)
 
     def test_the_nes_build_stages_the_kit_and_not_its_old_host(self):
         text = (ROOT / 'retrorecomp/nes_runtime.py').read_text(encoding='utf-8')

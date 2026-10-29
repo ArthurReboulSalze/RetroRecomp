@@ -9,11 +9,11 @@
  * is the only file that sees both sides. MIT, like the other shells.
  *
  * This is the first realisation of docs/HOST_KIT.md section 2 (phase 1: Mega
- * Drive, Super Nintendo, Neo Geo, CPS-1; phase 2: NES). The machine functions
- * of the 16-bit consoles are still the rr16_* link-time symbols of the 16-bit
- * contract (retro_console16.h) and those of the NES are the cyc_* functions of
- * its runner; the adapter wraps them in the table below, and nothing in the
- * kit looks at a machine macro. */
+ * Drive, Super Nintendo, Neo Geo, CPS-1; phase 2: NES; phase 3: X68000; phase 4:
+ * Master System and Game Gear). The machine functions of the 16-bit consoles are
+ * still the rr16_* link-time symbols of the 16-bit contract (retro_console16.h) and
+ * those of the NES are the cyc_* functions of its runner; the adapter wraps them
+ * in the table below, and nothing in the kit looks at a machine macro. */
 #ifndef RR_HOSTKIT_H
 #define RR_HOSTKIT_H
 #include <SDL.h>
@@ -33,12 +33,14 @@ extern "C" {
 /* Menu numbers of RrhkUi.menu (options.c checks them against game_options.h). */
 #define RRHK_MENU_HELP 1
 #define RRHK_MENU_CONTROLS 2
+#define RRHK_MENU_PAUSE 3          /* a machine with a host-side Pause/Menu action (Master System, Game Gear) */
 #define RRHK_MENU_PAGE 4
 #define RRHK_MENU_OPTIONS 5
 
 /* Kinds of pointing device; the numbers are those of the guns in gun16.h
  * (the adapters check it). */
-enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER };
+enum { RRHK_POINTER_NONE, RRHK_POINTER_MENACER, RRHK_POINTER_JUSTIFIER, RRHK_POINTER_SCOPE, RRHK_POINTER_ZAPPER,
+       RRHK_POINTER_PHASER };
 
 /* How the machine's sound reaches the device: pushed into a device queue as 48 kHz stereo (the
  * 16-bit consoles), or kept in a ring that the device callback drains, the machine's own mono rate
@@ -72,8 +74,10 @@ typedef struct {
 typedef struct RrhkUi {
     const struct RrhkMachine *machine;
     wchar_t ini_file[32768], data_dir[32768];
+    wchar_t read_file[32768];  /* where the preferences are read from: ini_file, or the machine's former file until the first write */
     wchar_t video_section[64], pointer_section[64];
-    int menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    int menu, parent_menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
+    /* parent_menu: the menu a menu opened from the Pause menu returns to (Help or F2 from Pause, then back to Pause) */
     int paused;                /* F11 (X68000): the machine does not run, the picture stays, "Paused" is drawn */
     char status[80];
     Uint64 status_until;
@@ -137,6 +141,16 @@ typedef struct RrhkMachine {
     bool bindings_clearable;          /* Delete / X on a binding row clears it (key 0, button -1) */
     int machine_fkeys;                /* a computer's own F1..Fn: the options page offers to hand them to the guest, 0: none */
     bool audio_chunked;               /* queue model: the machine may hold more than one buffer of sound per frame */
+    /* The guest owns the loop (Master System, Game Gear: the recompiled code calls the host once per frame). The adapter
+     * does not call rrhk_main: it calls rrhk_open, then rrhk_frame_done from the guest's frame callback, then rrhk_close.
+     * `run_frame` then only hands the pad words over (the guest runs after the callback returns) and `audio` is not used
+     * when `own_audio` is set. The kit starts SDL without the audio subsystem: the machine opens its own device. */
+    bool driven;
+    int host_pause;                   /* 1 + the index of a host-side Pause/Menu action (its `bit` is 0), 0: none */
+    bool minimum_window;              /* the window cannot be made smaller than the picture it opened with */
+    bool state_deferred;              /* state_file only requests; the machine reports the outcome with rrhk_state_done */
+    const wchar_t *legacy_ini;        /* the machine's former preferences file name, beside the executable (read until the first write) */
+    void (*window_icon)(SDL_Window *window);   /* NULL: the shared embedded icon */
 
     /* the machine (still the rr16_* functions) */
     void (*reset)(void);
@@ -179,10 +193,24 @@ typedef struct RrhkMachine {
     bool (*fast_forward)(void);             /* true: no pacing, no sound, a picture every eighth frame */
     bool (*game_rect)(int canvas_w, int canvas_h, int display_mode, SDL_Rect *rect);   /* the machine's own placement */
     bool (*help_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* true: drew the whole help page */
+    /* Master System, Game Gear (phase 4). */
+    void (*pause_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* the body of the Pause menu (RRHK_MENU_PAUSE) */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
 int rrhk_main(const RrhkMachine *machine, const char *title, int scale);
+
+/* The same loop for a machine whose guest owns it (RrhkMachine.driven): open the window, then call rrhk_frame_done at the end
+ * of every guest frame (it presents the picture, paces, handles the events and the menus, and returns false when the guest must
+ * stop: quit, reset), then close. A menu is a loop inside rrhk_frame_done: the guest does not run meanwhile. */
+bool rrhk_open(const RrhkMachine *machine, const char *title, int scale);
+bool rrhk_frame_done(void);
+void rrhk_stop(void);          /* the next rrhk_frame_done returns false (a reset the guest must unwind) */
+void rrhk_close(void);
+/* The pad words are sampled again in the middle of a guest frame (a guest that polls its ports): the pointer too. */
+void rrhk_pointer_poll(uint16_t pad1);
+/* The outcome of a deferred quick-state request: 0 done, 1 nothing saved, 2 incompatible, 3 invalid, 4 input/output error. */
+void rrhk_state_done(bool load, int result);
 
 /* Services for machine adapters. */
 RrhkUi *rrhk_ui(void);
@@ -194,6 +222,7 @@ void rrhk_notice(const char *text, Uint64 milliseconds);
 const char *rrhk_tr(const char *english, const char *french);
 SDL_Window *rrhk_window(void);
 void rrhk_cycle_display(void);                     /* F4 */
+bool rrhk_write_ready(void);                       /* before a write to the preferences: the folder exists, and the machine's former file is copied if it was the only one */
 void rrhk_toggle_autofire(void);                   /* F6: flip, forget held buttons, shared notice, keep in the preferences */
 void rrhk_options_observe(const SDL_Event *event); /* keys and buttons held, for the quit/restart combinations */
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu);

@@ -108,9 +108,11 @@ void rr_language_set(int language) {(void)language;}
 #define buttons rrhk.buttons
 #define pads rrhk.pads
 #define autofire rrhk.autofire
+#ifndef PLAYERS
 #define PLAYERS 2
-#define FIRST_FIRE A
-#define FIRST_MASK bits[A]
+#endif
+#define FIRST_FIRE @FIRST@
+#define FIRST_MASK bits[@FIRST@]
 #define FIRE_MASK fire_mask()
 static uint16_t bits[ACTIONS];
 static uint16_t fire_mask(void) {uint16_t n=0;for(int a=0;a<ACTIONS;++a)if(actions[a].group==RRHK_FACE)n|=bits[a];return n;}
@@ -139,46 +141,27 @@ def sixteen_bit(system, test):
 
     The table is cut from the adapter's source (the Mega Drive one in its six-button form) and the kit's
     rrhk_input.c is compiled as it is; the names keep the vocabulary of the other fixtures."""
-    text=(ASSETS/'native/hostkit/adapters'/f'rrhk_{system}.c').read_text()
-    first={'md':'#define DIRECTIONS','cps1':'#define PADS'}.get(system,'enum {')
+    text=(ASSETS/'native/hostkit/adapters'/f'rrhk_{"sms" if system=="gg" else system}.c').read_text()
+    first={'md':'#define DIRECTIONS','cps1':'#define PADS','sms':'#ifdef RETRO_GAME_GEAR\nenum','gg':'#ifdef RETRO_GAME_GEAR\nenum'}.get(system,'enum {')
     start=text.index(first)
-    if system=='md':
+    if system in ('sms','gg'):
+        # The Master System / Game Gear table builds on the runner's pad byte and chooses the console with RETRO_GAME_GEAR.
+        table=('#define RETRO_GAME_GEAR 1\n' if system=='gg' else '')+'enum {SMS_PAD_UP=1,SMS_PAD_DOWN=2,SMS_PAD_LEFT=4,SMS_PAD_RIGHT=8,SMS_PAD_B1=16,SMS_PAD_B2=32,SMS_PAD_START=64};\n'+\
+            text[start:text.index('\n};',text.index('actions[ACTIONS]'))+3]
+    elif system=='md':
         end=text.index('#endif',text.index('actions[',start))+len('#endif')
         table='#define RR_MD_SIX_BUTTONS 1\n'+text[start:end]
     else:
         table=text[start:text.index('};',text.index('actions[',start))+2]
-    setup=SIXTEEN_BIT_SETUP.replace('@TABLE@',table).replace('@PLAYERS@','4' if system=='cps1' else '2')
+    setup=SIXTEEN_BIT_SETUP.replace('@TABLE@',table).replace('@PLAYERS@','PLAYERS' if system in ('sms','gg') else '4' if system=='cps1' else '2')
+    setup=setup.replace('@FIRST@','BUTTON1' if system in ('sms','gg') else 'A')
     return PREAMBLE+setup+test
 
 
 def source(system, test=TEST):
     """The fixture's C source: the console's real declarations and reader, then `test`."""
-    if system in ('md','snes','ng','cps1','nes'):
+    if system in ('md','snes','ng','cps1','nes','sms','gg'):
         return sixteen_bit(system, test)
-    if system in ('sms','gg'):
-        text=(ASSETS/'native/controls.c').read_text()
-        declarations=text[text.index('static SDL_Scancode default_keys'):text.index('const char *controls_text')]
-        setup='''
-static SDL_GameController *pads[2];
-#define PLAYERS 2
-#define FIRST_FIRE 4
-#define FIRST_MASK SMS_PAD_B1
-#define FIRE_MASK (SMS_PAD_B1|SMS_PAD_B2)
-#define ACTIONS 6
-#define autofire controls.autofire
-uint64_t glue_frame_count(void) {return fixture_frame;}
-static void setup(void) {memcpy(controls.keys,default_keys,sizeof default_keys);memcpy(controls.buttons,default_buttons,sizeof default_buttons);}
-static void clear_fire(void) {controls_reset_autofire();}
-static int binding(int p,int a) {return controls.buttons[p][a];}
-static void remap(int p,int a,int b) {controls.buttons[p][a]=(SDL_GameControllerButton)b;}
-static void keyboard(int p,int a,int down) {held_keys[controls.keys[p][a]]=(Uint8)down;}
-static uint16_t sample(int p,uint64_t frame) {fixture_frame=frame;return read_controls(p,pads[p],true,held_keys);}
-'''
-        return PREAMBLE+('#define RETRO_GAME_GEAR 1\n' if system=='gg' else '')+'''#include "controls.h"
-enum {SMS_PAD_UP=1,SMS_PAD_DOWN=2,SMS_PAD_LEFT=4,SMS_PAD_RIGHT=8,SMS_PAD_B1=16,SMS_PAD_B2=32,SMS_PAD_START=64};
-Controls controls;
-uint64_t glue_frame_count(void);
-'''+declarations+function(text,'read_controls')+setup+test
     # Exercise the exact checked replacement emitted into the GB SDL runtime.
     code=(ROOT/'retrorecomp/gameboy_host.py').read_text()
     tree=ast.parse(code)

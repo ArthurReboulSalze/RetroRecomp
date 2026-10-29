@@ -151,20 +151,20 @@ HOST_NATIVE = frozenset((
     'md_audio_loop.inc', 'md_audio_resample.inc',
     # Converter-only controller bridge (never linked into games).
     'player_gamepad.c',
-    # Each machine family's shell: Master System / Game Gear and Game Boy (the 16-bit consoles, the NES
-    # and the X68000 are on the host kit below).
-    'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
+    # Each machine family's shell: Game Boy (every other console is on the host kit below).
     'gb_menu.inc', 'gb_input_refresh.inc',
     'neogeo_ui_test.c',
-    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo, CPS-1 and
-    # the NES, and the adapter of each. Every file below native/hostkit is host-side.
+    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo, CPS-1, the NES, the
+    # X68000, the Master System and the Game Gear, and the adapter of each. Every file below native/hostkit
+    # is host-side.
     'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
-    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc'))
+    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc',
+    'hostkit/adapters/rrhk_sms.c'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
@@ -249,8 +249,6 @@ INPUTS = {
         'native/banked_emitter.inc',
         'native/banked_runtime.inc',
         'native/banked_vectors.c',
-        'native/controls.c',
-        'native/controls.h',
         'native/display_settings.h',
         'native/display_settings_checks.c',
         'native/embedded_resources.h',
@@ -262,7 +260,6 @@ INPUTS = {
         'native/gamestate.h',
         'native/gamestate.inc',
         'native/gamestate_checks.c',
-        'native/host.c',
         'native/host_checks.c',
         'native/host_control.h',
         'native/icon.c',
@@ -306,8 +303,6 @@ INPUTS = {
         'native/sms_sprite_probe.c',
         'native/state_io.h',
         'native/stereo_fir.h',
-        'native/ui.c',
-        'native/ui.h',
         'native/video_checks.c',
         'native/video_frame.h',
         'native/video_mode4.inc',
@@ -662,6 +657,7 @@ INPUTS = {
         'retrorecomp.systems.cps1',
     ),
     ('sms', 'gg'): (
+        'native/hostkit/adapters/rrhk_sms.c',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
         'retrorecomp.systems.game_gear',
@@ -711,9 +707,9 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell: every console that links it (phases 1 to 3). console16_video.h (rr16_video_rect) is
-    # included by the kit's video shell, so NES and X68000 exports compile it too; game role.
-    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68'): (
+    # The host kit's shell: every console that links it (phases 1 to 4). console16_video.h (rr16_video_rect) is
+    # included by the kit's video shell, so every export compiles it; game role.
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg'): (
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
@@ -729,7 +725,8 @@ INPUTS = {
         'native/hostkit/shell/rrhk_video.c',
     ),
     # Its staging module: the consoles whose projects get a copy of the kit (the X68000 compiles it from the tree).
-    ('md', 'snes', 'ng', 'cps1', 'nes'): (
+    # The Master System and the Game Gear get it beside the common runtime (prepare_native_source).
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg'): (
         'retrorecomp.hostkit',
     ),
     M68000_FAMILY: (

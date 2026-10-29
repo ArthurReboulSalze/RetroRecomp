@@ -48,6 +48,7 @@ class MasterSystemProfile(SystemProfile):
     feedback_kinds = frozenset({1})
     converter_publishes = True
     options_tab = "options_master_system"
+    host_adapter = "adapters/rrhk_sms.c"
     path_spec = PathSpec(order=0, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
                          required_sources=("rom",))
     report_shape = ReportShape("core", "strict_checks")

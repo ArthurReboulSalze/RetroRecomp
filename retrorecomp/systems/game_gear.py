@@ -29,6 +29,7 @@ class GameGearProfile(SystemProfile):
     library_layout = LibraryLayout(folder="gg", summary_glob="*/compilation.json", companion="observations.log")
     input_layout = InputLayout(("a", "b"), (), None, 240, script_format="sega")
     shared_knowledge = SharedKnowledge("stable", site_builder=True)
+    host_adapter = "adapters/rrhk_sms.c"
 
     def refine_match(self, path: Path, data: bytes | None):
         return refine_by_header(self, path, data)

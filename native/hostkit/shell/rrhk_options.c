@@ -28,6 +28,7 @@ bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_opti
 bool rrhk_options_event(const SDL_Event *event, int *menu, bool binding_capture) {
     return rr_options_event(event, menu, binding_capture);
 }
+bool rrhk_options_component(int key, int button) { return rr_options_component(key, button); }
 bool rrhk_options_quit(int menu) { return rr_options_quit(menu); }
 bool rrhk_options_restart(int menu) { return rr_options_restart(menu); }
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {

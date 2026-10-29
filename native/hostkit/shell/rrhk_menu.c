@@ -36,8 +36,11 @@ void rrhk_turn_page(int step) {
 
 /* F2 opens on the first page from the game, help or pause, and closes F2 from any page. */
 void rrhk_toggle_settings(void) {
-    if (rrhk_pages_open(rrhk.menu)) rrhk.menu = 0;
-    else { rrhk.menu = RRHK_MENU_CONTROLS; rrhk.player = rrhk.gamepad_page = rrhk.row = 0; }
+    if (rrhk_pages_open(rrhk.menu)) rrhk_close_menu();
+    else {
+        if (rrhk.menu == RRHK_MENU_PAUSE) rrhk.parent_menu = RRHK_MENU_PAUSE;
+        rrhk.menu = RRHK_MENU_CONTROLS; rrhk.player = rrhk.gamepad_page = rrhk.row = 0;
+    }
     rrhk.capturing = 0;
 }
 
@@ -65,8 +68,11 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     snprintf(heading, sizeof(heading), rr_tr(rrhk.gamepad_page ? "Player %d - Gamepad" : "Player %d - Keyboard"), rrhk.player + 1);
     if (rrhk.menu == RRHK_MENU_CONTROLS || rrhk.menu == RRHK_MENU_PAGE)
         rrhk_menu_page_header(&ctx, rrhk.menu == RRHK_MENU_CONTROLS ? heading : rr_tr(m->page->title));
+    else if (rrhk.menu == RRHK_MENU_PAUSE) rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_TITLE_LINE, "Retro-Recomp - Pause", RR_MENU_ACCENT);
     else rrhk_menu_line(&ctx, RR_MENU_TITLE_LINE, rrhk_tr("RetroRecomp - Help", "RetroRecomp - Aide"));
-    if (rrhk.menu == RRHK_MENU_HELP && m->help_page && m->help_page(&rrhk, &ctx)) {
+    if (rrhk.menu == RRHK_MENU_PAUSE) {
+        if (m->pause_page) m->pause_page(&rrhk, &ctx);
+    } else if (rrhk.menu == RRHK_MENU_HELP && m->help_page && m->help_page(&rrhk, &ctx)) {
         /* the machine drew a whole page of its own (X68000: Tab) */
     } else if (rrhk.menu == RRHK_MENU_HELP) {
         /* One line per function key, then the console's own controls. */

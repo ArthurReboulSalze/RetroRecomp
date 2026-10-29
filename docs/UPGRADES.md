@@ -314,8 +314,8 @@ pad; the `capture_any_pad` setting is gone), and F6 shows one shared notice, "Au
 eight-language catalogue on every console (the NES was silent; its F6 is now the shell's own key, with the same toggle and
 the same `[Manettes] autofire` write). Edited files: `hostkit/hostkit.h`, `hostkit/shell/rrhk_events.c` and
 `hostkit/adapters/rrhk_nes.c`, all host inputs. The host stamps of the Mega Drive, Super Nintendo, Neo Geo, CPS-1 and NES
-move; no game stamp, learned path or quick-state key does. Master System, Game Gear, Game Boy and X68000 are not on the kit
-yet and keep their own behaviour until they migrate.
+move; no game stamp, learned path or quick-state key does. Master System, Game Gear, Game Boy and X68000 were not on the kit
+then and kept their own behaviour until they migrated (the X68000 in 1.6.3, the Master System and the Game Gear in 1.6.3 too).
 
 A third decision of the same day, the pad slot policy (divergence 10, D11), lands in the same shell. Pads still go to the
 players in plug order by default (Automatic), so an export that is never touched plays exactly as before and writes
@@ -368,6 +368,44 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
   a safe boundary, one set of window titles). Its preferences keep their layout, and the files written by the old and the new
   host are identical on the measured script.
 
+## Master System and Game Gear exports in 1.6.3 (host kit phase 4)
+
+1.6.3 moves the player shell of the Master System and the Game Gear onto the host kit ([HOST_KIT.md](HOST_KIT.md#phase-4-the-master-system-and-the-game-gear-163)):
+`host.c`, `controls.c/.h` and `ui.c/.h` are replaced by the shared shell and the one adapter `native/hostkit/adapters/rrhk_sms.c`.
+`native/CMakeLists.txt` compiles them from the folder `core.prepare_native_source` fills (`hostkit.stage(native_source, "sms")`).
+
+*Stamps* (from the tree of the tag `v1.6.2`, from the tree this phase started on (`af0716c`) and from this tree, `compilation_inputs.role_stamps`, Python 3.14):
+
+| | game | host | build |
+| --- | --- | --- | --- |
+| Master System, 1.6.2 | `b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2` | `2850d1e1d883a22316cf339392391901ccf186315f0b9bd170cff80b32f5521f` | `61b3ff1284fcf75b79309f140d5c68ed04fb0cc038c443a9176606d9bfd96b9e` |
+| Master System, before phase 4 | `6f6624c302d304e014d4c39594c5d6052d12d48a1403b1b995404768462829ad` | `b5eb5b92abbcffc3b6f9bc4947732b32100a7335cfb1d01f890dea7076698149` | unchanged |
+| Master System, 1.6.3 | `1b4765ba8c29a21f45c9307aff566854be012fb2bb77adbddbd4c4e20dcb65d0` | `09079160b8f64ea2c6f65a35cac01000dba1a44144a275f8e8588fb271c0a3e8` | unchanged |
+| Game Gear, 1.6.2 | `14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743` | `65142a4a567014d54340db35ddd33a96abe3028d36a352f137908fce31ddb696` | `99adc3982e7e8255bc3ebcb7fad103a94814dd218893a78549f2c5e0a72d5fbb` |
+| Game Gear, before phase 4 | `23ab9843540311e258ebaebf69676f26170147ed142bab4a018254a4c776068d` | `f3e2d3f7644ddeaa7e0049f111b4d74d9e4dad48a50096fc52afce237d1c9558` | unchanged |
+| Game Gear, 1.6.3 | `420edf15cd4e548cffe07cf662e3675346006d838a95ce1a805490e9e4e4f90e` | `4afc2bc461e534fc4e0553e4b55c813b952031f1e5dfc26fe9815fafb7a3f6d7` | unchanged |
+
+- *Game stamp: moves, as it already had since the tag (for every console).* This phase edits `retrorecomp/core.py` (the staging call;
+  owned by every console), `native/CMakeLists.txt` (the source list; owned by every console, used by these two), the two profiles
+  (`host_adapter`) and the kit's shared game-role header; the game stamp of every console moves with them. **What a conversion
+  generates for these two consoles did not change**: the generated sources, the learned paths and the guest runtime are produced by code
+  this phase did not touch, and two conversions (Bank Panic, Pac-Attack) with the tree before and after it ran the same guest. The 1.6.2
+  game stamps above are the candidates for `LEGACY_GAME_STAMPS` at the release, the procedure being the one of the other consoles
+  (build-only evidence: not entered in this phase).
+- *Quick-state key: none.* These two consoles have no key of this kind: the state header carries the ROM's SHA-256, the state schema and
+  the hardware model, and `gamestate.inc` and the state path are untouched. The state file written by the new host is byte for byte the one the
+  old host writes (Bank Panic and Pac-Attack, same script), and each host loads the other's. A quick state of an export of 1.6.2
+  therefore loads in an export of 1.6.3 and the reverse.
+- *Host stamps: move* for every console (the shell gained the driven mode, the Pause menu, the window set and the other fields; `host.c`,
+  `controls.c/.h` and `ui.c/.h` left every host stamp). *Build stamps: unchanged.* Learned paths do not move.
+- *Behaviour.* The Master System and the Game Gear follow every rule decided for the other consoles (stick 16000, one autofire behaviour
+  with the shared notice, F2 capture from the selected player's pad, the Gamepad row instead of the first-player toggle and the C swap,
+  deferred states, the Windows hint set, whole-pixel placement, one set of window titles). *Preferences:* the new English keys are
+  written; the French keys of earlier releases (and `SMSRecomp.ini` while `Retro-Recomp.ini` does not exist) are still read where the new
+  key is absent and are never deleted, so settings of 1.6.2 keep their meaning. A game of 1.6.2 does not see a binding changed afterwards in
+  1.6.3 (it reads its own keys). Every window now keeps whole pixels in the window mode too ([HOST_KIT.md](HOST_KIT.md), divergence 9): a Mega Drive,
+  Super Nintendo, Neo Geo, CPS-1, NES or X68000 export no longer stretches its picture to the window.
+
 ## UPX 5.3.0 (packing, a build input)
 
 1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
@@ -406,7 +444,7 @@ Each machine family has one shell for its window, menus and input:
 
 | Machine | Shell (host) | Entry used by discovery and validation (game) |
 | --- | --- | --- |
-| Master System, Game Gear | `host.c`, `ui.c/.h`, `controls.c/.h` | `launcher.c` and the Z80 runtime |
+| Master System, Game Gear | the host kit, staged beside the common runtime: the shell and `hostkit/adapters/rrhk_sms.c` (with `audio_output.inc`) | `launcher.c` and the Z80 runtime |
 | Game Boy | `gb_menu.inc`, `gb_input_refresh.inc`, `gameboy_host.py`, `gameboy_timing.py` | `game_main.c`, `gameboy_runtime.py` |
 | Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
 | Sharp X68000 | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_x68k.inc`, included by the frontend | `x68000_reference/reference_host.c` (frame loop, reports, states, disks) and the SDK |
