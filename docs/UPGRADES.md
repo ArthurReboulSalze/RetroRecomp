@@ -596,6 +596,8 @@ every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_
 - **Neo Geo.** See its own section above (a 64 KiB fixed-graphics ROM repeated, and the clang profile on Windows).
 - **Super Nintendo, identification.** A LoROM header whose map mode is `$32` with no chip (type 0, 1 or 2) is an ordinary
   LoROM (Duel/Test Drive II, the Popeye translation); every other `$32` header stays refused (`supernintendo.validate_cartridge`).
+- **Super Nintendo, DSP-1 on HiROM.** A HiROM header (map mode `$31`) with chip type `$03` is recognised as a DSP-1 board like
+  Super Mario Kart's (`retrorecomp/snes_chips.py`): seven cartridges of the test library, Lock On converted as proof.
 - **CPS-1.** `IM 0` on the sound Z80 is counted (generator revision 8); independent 68000 vectors are replayed through the CPS-1
   generator and each route's liveness is recorded, a frozen route being refused.
 
