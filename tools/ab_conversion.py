@@ -1,6 +1,7 @@
 """A/B proof of a converter refactor: one real conversion with two trees, compared byte for byte.
 
     python tools/ab_conversion.py ROM --a REF_OR_DIR [--b REF_OR_DIR] [--work DIR] [--keep-work]
+                                  [--backend functions|banked]
                                   [--ng-bios ARCHIVE] [--x68-ipl FILE --x68-cgrom FILE]
 
 A is the tree before the change (a git ref such as `v1.6.2`, checked out as a detached worktree, or an existing
@@ -324,6 +325,8 @@ def main(argv=None) -> int:
                         help='the portable compiler folder to share (default: Export/datas/tools of the main checkout)')
     parser.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
                         help='default: the converter default')
+    parser.add_argument('--backend', choices=('functions', 'banked'),
+                        help='the Master System / Game Gear engine, passed to the batch (default: the converter default)')
     parser.add_argument('--ng-bios', type=Path, help='the Neo Geo BIOS archive (read in place), for a Neo Geo game')
     parser.add_argument('--x68-ipl', type=Path, help='the X68000 IPL ROM (read in place), for an X68000 game')
     parser.add_argument('--x68-cgrom', type=Path, help='the X68000 font ROM (read in place), for an X68000 game')
@@ -341,6 +344,8 @@ def main(argv=None) -> int:
     work = (options.work or Path(tempfile.mkdtemp(prefix='ab-conversion-'))).resolve()
     work.mkdir(parents=True, exist_ok=True)
     extra = ['--scan-level', options.scan_level] if options.scan_level else []
+    if options.backend:
+        extra += ['--backend', options.backend]
     if options.ng_bios:
         extra += ['--ng-bios', options.ng_bios.resolve()]
     if options.x68_ipl and options.x68_cgrom:

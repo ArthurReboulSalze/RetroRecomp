@@ -200,6 +200,24 @@ Each is described in the section "CPU fixes carried from the upstream review in 
 because existing exports of 1.6.2 are rebuilt from their learned paths. The `COP` correction in emulation mode goes beyond
 upstream, which does not handle it either.
 
+## Fixes carried as our own patches in 1.6.4
+
+Defects of the Z80 "functions" engine (Master System and Game Gear), found on Alex Kidd in Miracle World and Factory Panic,
+which that engine could not convert: the run ended early or the conversion stopped at the comparison with the reference
+CPU. Both convert with the default "banked" engine, which is not affected. The pin does not move. They are CPU fidelity
+fixes only; they change the share of native code only where a game stopped at the first affected frame and now goes on,
+so that more of it is reached and compiled. Interpreter fallback stays counted per CPU.
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| Z80 HALT in the generated function: the interrupt that ends it pushes the address after the HALT (the runner pushed the HALT's own address), and a handler that drops the halted frame (SP above its value at the HALT) now ends the function, as a call site already does, instead of letting the next `RET` unwind the whole C stack and end the run | sms, gg ("functions" engine only) | `core.py` (`patched_generator_source`) | sms, gg |
+| Z80 interrupt acceptance in the runner of the "functions" engine: /INT is sampled at one instruction boundary and accepted at the next (including the boundary after the handler's own `RET`), as the reference CPU and the banked engine do, instead of at the boundary where the VDP made it visible, one instruction earlier (another pushed address, other registers seen by the handler, another cycle count in a polling loop); a VDP port access that raises or clears /INT brings the next sync to the next instruction instead of the next scanline; and a `RET` that unwinds every generated frame (a game that reloads SP and returns into its main code) continues at the address it popped instead of ending the run | sms, gg ("functions" engine only) | `core.py` (`prepare_functions_irq`, applied to the pinned `runner/glue.c`) | sms, gg |
+
+Both are described in the 1.6.4 notes of [UPGRADES.md](UPGRADES.md). The second one is not a defect of the pin: it makes our
+two engines agree on a convention that was ours to choose (the reference CPU follows it since the sampling change of 1.6.x,
+`prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons (Action Fighter: a
+`RET` goes to an address other than the one the generated call stack expects) keep failing it; the banked engine converts them.
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a

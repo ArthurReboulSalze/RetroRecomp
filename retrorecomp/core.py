@@ -443,6 +443,24 @@ def patched_generator_source(generator_source: str) -> str:
     /* Retro-Recomp: only the fixed first KiB may be called directly; the rest
      * dispatches on the bank mapped at run time (call_by_address). */
     if (T >= 0x0400) return NULL;""")
+    # HALT (functions engine only; the banked emitter handles HALT before it reaches emit_op).
+    # Two defects of the pinned generator, both met on the Master System and the Game Gear:
+    # 1. The interrupt that ends a HALT pushes the address AFTER the HALT, as the interpreter does.
+    #    The runner pushes its breadcrumb, which is the HALT's own address, one byte lower: a
+    #    different return address stayed in the stale stack bytes (Alex Kidd in Miracle World).
+    # 2. An interrupt handler may drop the interrupted context (pop the saved return and the callers
+    #    above it, then RET to an ancestor): the "abort N frames" idiom that the call sites already
+    #    propagate. A HALT is where the interrupt arrives in a wait loop, and it is not a call site:
+    #    execution went on after it with SP above its frame, the next RET unwound the whole C stack
+    #    and the run ended (Factory Panic). SP above its value at the HALT now ends the function.
+    generator_source = replace_once(generator_source,
+        '    if (in->is_halt){ fprintf(o,"        sms_halt();\\n"); return; }',
+        '''    if (in->is_halt){
+        /* Retro-Recomp: the interrupt that ends a HALT pushes the address after it, and a handler
+         * that dropped the halted frame (SP above its value here) ends this function. */
+        fprintf(o,"        { uint16_t _hsp = s->sp; g_dbg_pc = (uint16_t)(g_dbg_pc + 1); sms_halt(); if ((int16_t)(s->sp - _hsp) > 0) return; }\\n");
+        return;
+    }''')
     generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
     return generator_source
 
@@ -471,7 +489,89 @@ static bool reference_sample_irq(void) {
     return glue
 
 
-def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: str = "ntsc") -> None:
+def prepare_functions_irq(glue: str) -> str:
+    """The functions engine accepts an interrupt where the reference CPU and the banked engine do.
+
+    Those two sample /INT before an instruction and accept it after that instruction, with the
+    return address of the one that follows. The runner of the functions engine accepted it at the
+    boundary where the VDP made it visible, one instruction earlier: the pushed address, the
+    register values the handler saw and the cycle count moved by one instruction in polling
+    loops, so the reference comparison failed on Alex Kidd in Miracle World and Factory Panic.
+    The line is now sampled at one boundary and accepted at the next. Also, a VDP port access that
+    raises or clears /INT now brings the next sync to the next instruction instead of the next
+    scanline (functions engine only)."""
+    # A VDP port access can raise /INT (enabling the frame interrupt while its flag is pending) or
+    # clear it (a status read) between two line boundaries. The next sync must come at the next
+    # instruction, not at the next scanline, or the interrupt is accepted up to a line late.
+    glue = replace_once(glue, 'uint8_t sms_io_in(uint8_t p){\n    if (p >= 0x40 && p < 0xC0) sync_vdp_for_io(g_z80.cyc);',
+        'static uint8_t sms_io_in_body(uint8_t p){\n    if (p >= 0x40 && p < 0xC0) sync_vdp_for_io(g_z80.cyc);')
+    glue = replace_once(glue, 'void sms_io_out(uint8_t p, uint8_t v){\n    if (lightphaser_enabled() && p < 0x40 && (p & 1)) {',
+        'static void sms_io_out_body(uint8_t p, uint8_t v){\n    if (lightphaser_enabled() && p < 0x40 && (p & 1)) {')
+    glue = replace_once(glue, '''void sms_set_sync_deadline(void){
+    g_sync_deadline = vdp_irq_asserted() ? g_z80.cyc + 1 : g_next_line_cyc;
+}''', '''static bool g_irq_armed;   /* /INT was sampled at the previous boundary: accepted at this one */
+static void sms_io_deadline(void){
+    /* The instruction is already charged: the next tick must sync, not the one after it. */
+    g_sync_deadline = (vdp_irq_asserted() || g_irq_armed) ? g_z80.cyc : g_next_line_cyc;
+}
+uint8_t sms_io_in(uint8_t p){
+    uint8_t value = sms_io_in_body(p);
+    if (p >= 0x80 && p < 0xC0) sms_io_deadline();   /* VDP data/control port */
+    return value;
+}
+void sms_io_out(uint8_t p, uint8_t v){
+    sms_io_out_body(p, v);
+    if (p >= 0x80 && p < 0xC0) sms_io_deadline();
+}
+void sms_set_sync_deadline(void){
+    g_sync_deadline = (vdp_irq_asserted() || g_irq_armed) ? g_z80.cyc + 1 : g_next_line_cyc;
+}''')
+    glue = replace_once(glue, '''    advance_vdp(g_z80.cyc);
+    if (vdp_irq_asserted() && g_z80.iff1 && !g_z80.ei_block)
+        take_irq();
+    sms_set_sync_deadline();''', '''    advance_vdp(g_z80.cyc);
+    {
+        /* Same contract as the reference CPU: sample, execute one instruction, then accept. The
+         * handler's own RET ends inside this call, so the boundary after it is checked here too
+         * (the last instruction of a handler is often followed by a second interrupt), with the
+         * address of the interrupted instruction as the one pushed. */
+        const uint16_t interrupted = g_dbg_pc;
+        while (g_irq_armed && g_z80.iff1 && !g_z80.ei_block) {
+            g_irq_armed = false;
+            g_dbg_pc = interrupted;
+            take_irq();
+        }
+        g_dbg_pc = interrupted;
+        g_irq_armed = vdp_irq_asserted() && g_z80.iff1;
+    }
+    sms_set_sync_deadline();''')
+    glue = replace_once(glue, '''    state_to_hz();
+    g_hz.pc = addr;''', '''    g_irq_armed = false;    /* the interpreter samples from its first instruction */
+    state_to_hz();
+    g_hz.pc = addr;''')
+    # A RET that unwinds every generated frame is the end of the C call chain, not of the program:
+    # a game that reloads SP and returns into its main code ("ld sp,nn ... ret", seen on Alex Kidd:
+    # The Lost Stars) continues where the Z80 does, at the address that RET popped.
+    glue = replace_once(glue, '''#else
+        call_by_address(0x0000);         /* reset entry; runs the game */
+#endif''', '''#else
+        {
+            uint16_t next = 0x0000;
+            uint64_t seen = g_frame;
+            long idle = 0;
+            for (;;) {
+                call_by_address(next);
+                next = sms_read16((uint16_t)(g_z80.sp - 2));
+                if (g_frame != seen) { seen = g_frame; idle = 0; }
+                else if (++idle > 100000) break;     /* no frame in 100000 returns: stop as before */
+            }
+        }
+#endif''')
+    return replace_once(glue, '    g_enter_pos = 0; g_dbg_pc = 0;', '    g_enter_pos = 0; g_dbg_pc = 0; g_irq_armed = false;')
+
+
+def prepare_runtime(game: Path, rom: Rom, title: str, engine: Path, standard: str = "ntsc",
+                    functions: bool = False) -> None:
     if standard not in ("ntsc", "pal"):
         raise ConversionError("Video standard must be 'ntsc' or 'pal'.")
     # Linux window icons use SDL, independently of PE resources or loose files.
@@ -743,6 +843,8 @@ void sms_io_out(uint8_t p, uint8_t v){''')
     glue = replace_once(glue, 'if (g_is_gg && p == 0x06) psg_write_stereo(v);',
                         'if (g_is_gg && p == 0x06) { psg_catch_up(); psg_write_stereo(v); }')
     glue = replace_once(glue, '        psg_write(v); return;', '        psg_catch_up(); psg_write(v); return;')
+    if functions:
+        glue = prepare_functions_irq(glue)
     (game / "runtime_glue.c").write_text(glue, encoding="utf-8")
     video = (engine / "runner/video/sms_vdp.c").read_text(encoding="utf-8")
     # Keep the pinned port/IRQ core. Replace its end-of-frame snapshot renderer
@@ -1075,7 +1177,7 @@ def convert(rom_path: Path, *, title: str | None = None, output: Path | None = N
     (game / "game.toml").write_text(config, encoding="utf-8")
     # Rebuild seeds from byte-verified facts, never from stale .build contents.
     write_manifest(game / "dispatch_manifest.txt", memory.seeds())
-    prepare_runtime(game, rom, title, engine, standard)
+    prepare_runtime(game, rom, title, engine, standard, functions=not banked)
     # A onefile GUI extracts ASSETS to a different temporary directory on every
     # launch. CMake must always see a stable source path, also when switching
     # between Python source and the packaged converter.
