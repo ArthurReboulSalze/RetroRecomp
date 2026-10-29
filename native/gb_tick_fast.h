@@ -8,8 +8,9 @@
  * operation streams, field by field.
  *
  * It is included by gbrt.c (adapted in gameboy_runtime.py, which keeps the definition of gb_tick itself out of the macro).
- * The generated sources keep calling the real gb_tick: measured on three games, inlining it into every generated body
- * reached only about a tenth of the ticks and raised the C build time by 5 to 24 percent.
+ * The generated sources keep calling the real gb_tick: they issue about a tenth of the ticks (Super Mario Land, 3,600 frames:
+ * 6.7 million calls from generated bodies, 52.7 million in all), and forcing the inline there would add about 400 bytes
+ * (the size of one inlined copy in gbrt.c) at each of the thousands of call sites of every generated source file.
  *
  * The ordinary case (DMG, which is the only model these exports run):
  *   - not CGB double speed, no instruction limit, no trace, none of the test switches that change how the runtime ticks
@@ -45,7 +46,13 @@ static inline uint32_t rr_gb_tick_timer_period(uint8_t tac) {
     return period[tac & 3u];
 }
 
+/* Forced into its callers: measured on a generated source, the compiler leaves a plain static inline as a local call, which
+ * saves nothing. This header is only included where the number of call sites is small (gbrt.c). */
+#if defined(__GNUC__) || defined(__clang__)
+static inline __attribute__((always_inline)) void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
+#else
 static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
+#endif
     const uint8_t tac = ctx->io[0x07];
     if (RR_GB_TICK_UNLIKELY(
             cycles == 0u || ctx->cgb_double_speed ||

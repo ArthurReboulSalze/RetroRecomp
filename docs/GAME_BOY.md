@@ -98,9 +98,10 @@ Adaptations we carry on the generated project:
   sequence. `native/gb_tick_fast.h`, included by the runtime file `gbrt.c`, runs the ordinary case in the caller (single speed, no OAM DMA,
   serial transfer, ticking real-time clock, TIMA reload or timer edge in these cycles, none of the test switches) with the same effects in the
   same order, and calls the real `gb_tick` for every other case before changing anything. It reaches the ticks issued by the runtime's own
-  functions (timed jumps, calls, returns, stack and bus accesses), measured as about nine tenths of all calls on Super Mario Land; the
-  generated bodies keep calling the real `gb_tick` (inlining it there reached about a tenth of the calls and raised the C build time by 5 to
-  24 percent). It is a speed change only: `tools/gameboy_tick_selftest.py` compares both on random operation streams, field by field. The speed
+  functions (timed jumps, calls, returns, stack and bus accesses), about nine tenths of all calls on Super Mario Land (52.7 million calls in
+  3,600 frames, 6.7 million of them from generated bodies); the generated bodies keep calling the real `gb_tick`, since forcing the inline
+  there would add about 400 bytes at each of thousands of call sites per source file. The code of `gbrt.c` grows from 41,728 to 85,810
+  bytes. It is a speed change only: `tools/gameboy_tick_selftest.py` compares both on random operation streams, field by field. The speed
   gain is not measured here.
 - **Input refresh.** A JOYP read with no scripted pad asks the host for fresh input (`adapt_input_refresh_hook`).
 - **Build reductions** (`gameboy_build.py`; the generated instruction bodies and `/O2` are kept): regular dispatch pages use immutable
