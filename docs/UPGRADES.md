@@ -490,6 +490,39 @@ is not 100%.
   Game Gear) even while a quick-state request waits for its safe boundary (the Game Boy can wait many slices with the LCD off); the Game
   Boy's reset forgets the held autofire buttons as a state load does.
 
+## CPU fixes carried from the upstream review in 1.6.3
+
+The review of the pinned upstreams of 29 October 2026 ([UPSTREAMS.md](UPSTREAMS.md)) brought fixes that 1.6.3 carries as our
+own patches on the **same pinned revisions**: the base of qualified paths, keyed by those revisions, stays valid. Each fix is
+written from the processor's manual, not copied from the upstream change. They are **CPU fidelity** fixes only: native code,
+hardware fidelity, gameplay validation and latency are not measured by them.
+
+- **Super Nintendo: BRK and COP.** A BRK in native mode now costs 8 cycles (the bank register K is stacked), 7 in emulation
+  mode; COP follows the mode (in emulation mode: no K stacked, 7 cycles, vector $FFF4). One corrected source
+  (`snes_codegen.read_core`) feeds both the operation bodies compiled natively and the interpreter copy of the project.
+  *Edited:* `retrorecomp/snes_codegen.py`, `console16.py` (game inputs). **The `snes` game stamp moves**: SNES exports are
+  rebuilt from their learned paths, without rediscovery. Host and build stamps, the SNES quick-state key and the base do not
+  move. Checked by `tools/snes_native_selftest.py` (BRK and COP in both modes, native against the reference, LoROM and HiROM)
+  and a Super Mario World conversion (0 interpreted opcodes on the tested routes). Not changed: hardware NMI and IRQ in
+  emulation mode, which behave as in native mode (rare: games switch to native mode at start).
+- **Master System and Game Gear, "functions" engine: no direct call to a paged address.** The generator no longer turns a
+  call or jump to an address at or above $0400 into a direct C call when its static walk saw one bank variant only: the
+  call goes through the dispatch, which checks the bank mapped at that moment. Only the fixed first KiB is called directly.
+  *Edited:* `retrorecomp/core.py` (`patched_generator_source`; the translator rebuilds itself, its patch marker changes).
+  **The `sms` and `gg` game stamps move.** The default "banked" engine generates byte-identical sources (checked on Bank
+  Panic); "functions" exports are rebuilt. Bank Panic converts and validates as before; Alex Kidd in Miracle World and
+  Factory Panic fail with the "functions" engine exactly as before the fix.
+
+Found by the Linux check of 1.6.3 on the same day, no player-visible change on Windows:
+
+- **Game Boy on Linux:** the embedded resources (`embedded_resources.c/.S`) are linked into the `gbrt` library, whose shell
+  reads them, instead of the game target (`retrorecomp/gameboy_runtime.py`, a game input: **the `gb` game stamp moves**, on
+  both systems). The program is the same.
+- **X68000:** a failed validation replay's error output is read as UTF-8 instead of the system's code page
+  (`retrorecomp/x68000_conversion.py`): only the text of that error message changes.
+- **Super Nintendo:** the MSVC spelling of the `PpuPixelPrioBufs` alignment is applied by one function,
+  `console16.snes_ppu_header`, for the converter and the self-tests; the converter's output is unchanged.
+
 ## UPX 5.3.0 (packing, a build input)
 
 1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
