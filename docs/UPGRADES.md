@@ -39,15 +39,17 @@ Backward compatibility is owed to the previous release and to nothing older (dec
 N it covers the exports, receipts, quick states and local files that release N-1 wrote, and nothing else:
 
 - `LEGACY_GAME_STAMPS` (`retrorecomp/stamp_inputs.py`) lists the game stamps of release N-1, where its exports were
-  shown to differ from release N only in how the game is built. The release procedure replaces the entries, it never
-  adds to those of an older release. The table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the stamps of
-  1.6.0 ([history](#exports-of-160-in-161)); the tree of 1.6.2 listed those of 1.6.1
-  ([history](#exports-of-161-in-162)); the tree of 1.6.3 lists those of 1.6.2 ([below](#exports-of-162-in-163)).
+  shown to differ from release N only in how the game is built (none when the release changes what a game does). The
+  release procedure replaces the entries, it never adds to those of an older release. The table was empty in the tree of
+  1.6.0; the tree of 1.6.1 listed the stamps of 1.6.0 ([history](#exports-of-160-in-161)); the tree of 1.6.2 listed those of
+  1.6.1 ([history](#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2 ([history](#exports-of-162-in-163)); the
+  tree of 1.6.4 lists none, a full reconversion of every console ([below](#exports-of-163-in-164)).
 - The quick-state keys of release N-1 are the only `RR16_STATE_COMPAT_ABI` lines a build writes
   ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0; the Mega Drive, Neo
   Geo and CPS-1 keys of 1.6.0 (Windows) in the tree of 1.6.1. The Mega Drive, Super Nintendo, Neo
   Geo and CPS-1 keys of 1.6.1 (Windows) in the tree of 1.6.2. The same four consoles' keys of 1.6.2 (Windows) in the
-  tree of 1.6.3.
+  tree of 1.6.3. The Neo Geo key of 1.6.3 (Windows) alone in the tree of 1.6.4: the Mega Drive and Super Nintendo keys did
+  not move, and the CPS-1 and NES states changed ([below](#exports-of-163-in-164)).
 - A receipt of another schema than the current one (3) is never current, and a report is read in the places the current
   writers use (`scan_level`, `scan.level`), not in those of releases before 1.6.0.
 - Nothing migrates the files of a release older than N-1 (collection inventories without a recorded base, the X68000
@@ -204,6 +206,234 @@ and rechecked on the quick routes like any upgrade, and the report says so.
 in memory and wrote it back only when **Compiled games** saved the collection. A 1.6.0 player who never opened it may
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
+
+## Exports of 1.6.3 in 1.6.4
+
+1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It
+moves the game stamp of all nine consoles and the host stamp of eight (every console but the X68000), and the build stamp
+of none (the packer is still the UPX 5.3.0 of 1.6.2). Every export links a new SDL, and six of the nine consoles also change
+in their own way (a conversion, a counter, a saved state, a path; the Mega Drive, the Super Nintendo and the Neo Geo change only
+through SDL and the registry), so the decision is to reconvert everything, and the written release procedure
+([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#legacy_game_stamps): list no console whose game the release really changes)
+leaves `LEGACY_GAME_STAMPS` **empty**: the entries of 1.6.2 are removed (the previous release only) and none of 1.6.3 is
+added. **Every export of 1.6.3 is converted in full once**, on all nine consoles, Windows and Linux; no export is
+upgraded, so no report carries an `upgrade` block with `from_release` = `1.6.3`. A ROM the shared base knows starts from its
+qualified paths with the quick check, not from scratch (the base note below). The later sections of this file list each
+change of the release; what follows is what each console's stamps do.
+
+| Console | Game stamp moves because (besides SDL and the registry, below the table) | Host stamp | 1.6.3 export in 1.6.4 |
+| --- | --- | --- | --- |
+| Master System | the "functions" engine samples the interrupt line at one boundary and accepts it at the next, HALT and a RET that unwinds the generated frames ([lot F](#master-system-and-game-gear-the-functions-engine-164-lot-f)): `core` (`patched_generator_source`, `prepare_functions_irq`); the default banked engine generates the same sources | moves | **converted in full once**; no entry |
+| Game Gear | the same | moves | converted in full once |
+| Game Boy | WRAM and HRAM instructions run one at a time by a counted executor, and counted ([below](#game-boy-exports-in-164-writable-memory-code)): `native/gb_ram_helpers.h`, `native/gb_ram_checks.c`, `gameboy`, `gameboy_runtime` | moves | converted in full once |
+| NES | quick-state writer: header and members zeroed and copied ([lot B](#quick-states-of-the-nes-and-cps-1-164-lot-b)): `native/nes_machine_state.inc`, `native/nes_mapper_state.inc`, `native/nes_machine_checks.c` | moves | converted in full once; its states of 1.6.3 are refused |
+| Mega Drive | nothing of its own: `systems/console16` (the shared profile module of the Mega Drive and the Super Nintendo) | moves | converted in full once |
+| Super Nintendo | nothing of its own: `systems/console16` | moves | converted in full once |
+| Neo Geo | `systems/neogeo`, and `neogeo_build` (this rollover's key line) | moves | converted in full once |
+| CPS-1 | code run from graphics RAM guarded natively ([below](#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h), `GENERATOR_REVISION` 7), quick-state writer ([lot B](#quick-states-of-the-nes-and-cps-1-164-lot-b), magic `CPS1S002`): `native/cps1_machine.c`, `cps1_native.c/.h`, `cps1_codegen`, `cps1_build`, `cps1_conversion`, `cps1_knowledge` | moves | converted in full once; its states of 1.6.3 are refused |
+| Sharp X68000 | the payload opens extended-length paths on Windows ([lot C](#x68000-payload-paths-deeper-than-260-characters-164-lot-c)): `native/x68000_reference/payload.c`; `systems/x68000` (the shape of its paths) | unchanged | converted in full once; no entry (its request carries `x68_sdk`) |
+
+Two changes move every game stamp, whatever the console: the SDL pin ([lot E](#sdl-23210-a-game-input-of-every-console-164-lot-e):
+`core.SDL_REV`, a game input of all nine consoles, linked statically into every export) and the profile registry
+([lot A](#the-profile-registry-stamps-of-the-nine-games-and-eight-hosts-move-164-lot-a): `path_profiles`, `hostkit`, `systems`,
+`systems.specs` and the profile modules). Neither changes what a game does; both change the stamp, and the decision above
+means they need no further argument. The tests that pin these refactors against values taken before they existed are
+`tests/test_path_tables_snapshot.py`, `test_registration_surface.py`, `test_conversion_common.py`, `test_conversion_gates.py`
+and `test_stamp_inputs.py`.
+
+**The base is intact.** Of the 23 upstreams that `retrorecomp/upstreams.py` declares (three of them have no pin of their own;
+each pin was read with `upstreams.pin_of` in the archive of `v1.6.3` and in this tree), exactly one pin moved: SDL
+(`core.SDL_REV`, release 2.32.8 to 2.32.10). The engine revisions of the Master
+System and Game Gear, Game Boy, NES, Neo Geo (Geolith and Lithogen), CPS-1 (ymfm and the MAME revision of the catalogue), the
+Mega Drive and Super Nintendo repositories (`console16.REPOSITORIES`) and the X68000 pins are the same values in both
+trees. The base of qualified paths is keyed by those recompiler and engine revisions (`knowledge_build.engines()` for the
+Master System, Game Gear, Game Boy, NES, Mega Drive and Super Nintendo), not by SDL, so it stays valid: a ROM the shared base
+knows starts from its qualified paths when its export of 1.6.3 is converted in full, with the quick check. The CPS-1 section
+cores also hash `GENERATOR_REVISION` and the native files that guard and run a RAM path, which this release changes (revision
+7): a CPS-1 path qualified by the code of 1.6.3 would wait for it, and the shipped snapshot holds no qualified CPS-1 path, so
+nothing is lost.
+
+**The stamps of 1.6.3, recorded as evidence and not listed.** The `v1.6.3` tag (commit `bb2aa95`) exported with an archive of
+the tag into an empty folder, then `compilation_inputs.role_stamps(system)` for each console, under Python 3.14.5 on the
+Windows PC and under Python 3.13.5 (the build virtual environment) in a new temporary folder on the Linux build host,
+deleted afterwards. Code is fingerprinted as bytecode, so the Windows converter of 1.6.3 (Python 3.14) and the Linux one
+(Python 3.13) stamp differently. `tests/test_legacy_compat.py` pins all of them, unlisted
+([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#release-163-entries-29-october-2026-windows-and-linux)).
+
+| Console | Game stamp of 1.6.3, Windows (Python 3.14) | Game stamp of 1.6.3, Linux (Python 3.13) |
+| --- | --- | --- |
+| Master System | `63e727d52b1b7af0ce1c6544bac62c1362e73132efdad799347c49bf07ed7257` | `8efac42db9fee6c3094e9cafc007c87ed7387e736fc4405d7d422e03472a702a` |
+| Game Gear | `67487dfd4d724db4f7be9052fd57cafea77f810a9b5a7cf74d7cfdb121b74a4f` | `d5fa178b743638d1e49ed06ad9fbda597dfeb53664decb4f0076acd1a5949561` |
+| Game Boy | `20d990464af935b2ea058208029ec0a7f0fdadb955e46275f4ad6dcd33749b28` | `e2a69eded159057ecfeade0d66091bb9248e9ba9a3bc63233b5bfcbcfffb344e` |
+| NES | `21c183e6df50d5048ada8f5dfb3596633f4bffcdc6d1fc088d21a5e96a33104c` | `08df3e3cb280c7728d0a9af21d8c3fdf9b527dd2c5bf3b60e13fd80c4d46d3ff` |
+| Mega Drive | `c8c3a33789a92f80d41df0c43e546c581e94884055bb07a31ef04ebae583ba9d` | `d4a0f9676a97e96051cc531e95742e19d4311d137127fda088f9476b5282a3b3` |
+| Super Nintendo | `6825afd89679334b3aee85318a31b1ad2ad381654be1d7d6951552cedb5950ff` | `d7987cb30048be3cea669466ebfd9f1bbb96cfb8b949afb98fd3c8e78535e586` |
+| Neo Geo | `4637299cdbf17baea508a7046e4576ca59acc8dd994c2a51c70558adfb76b360` | `107d2a2b96b83614fec0b941555a280036e08edf32d62145b916f0d8331cc0ba` |
+| CPS-1 | `cdfe0c2944e41813548f3847e1742d7d9f395463f7966dddd6ea573518628e43` | `490167ff02e59d7a17f19e863e527589f1d5dbe1a995fb8d016338c1a05148c4` |
+| Sharp X68000 | `a58d873ff98ca9a16f973a2621ffa672a1f0dc464f7694ff36f7ebbf4645e84e` | `d85456f6c6e16301deb53ab14699812dae766470b4b88d35192f5e05fd5f4524` |
+
+| Console | Host stamp of 1.6.3, Windows | Host stamp of 1.6.3, Linux |
+| --- | --- | --- |
+| Master System | `53d443aa47fe5fe20d75f37d8bfeb06bc992af3e938555fbb27c0251180d9f0a` | `81b76644c91e662d3e03c98735e8b99942043fd0be6319aec33e3cc52cd5be6e` |
+| Game Gear | `5b99931159ed13039b62ee63a4aa9684eb8998856e8dac85664ef5d74c9c8458` | `a499021dcbad428be4ce18815449a40d782bed6e5fd438dcf79a382d38c094d2` |
+| Game Boy | `1efc1dbb44cfb596d6fcc823ba67862594dd552e1a8f52d825c9e4b5c26b1f48` | `56862d16ce57f92894964b8e30ec6b1acd99668b559009bc2df170a78b4ee993` |
+| NES | `a722d03bfb4d5059045447f7cd27e93782c704bc76f648f3bf74286f2ff1387a` | `98b830d30a4ee79da2c35f7215346084c140b8dbf8149fe758dc1789736db842` |
+| Mega Drive | `c398363d34c83ec7821abdafe71f4e3898d09292c6a7c099e0dacfeae0af980e` | `6dff1958e9e78d15f11326c72d339e214d448af4b655dae68dde830e591a0302` |
+| Super Nintendo | `98a5ef5dbefc559d9e1f4df429bde71618db12af86f2644d0a4205f201f85733` | `26f8011512446037c117b68cb683c60778afd91e358a15f65aa218022afe69a2` |
+| Neo Geo | `d83c902b3ebda289e120f4fcbdb0cfe29f2d6c42a0e394a3ac802797d7c6973c` | `29890feb1e893aa4cd2b8a36dd967485bd9dc8db8ed0eb0015a7644da04dbeaf` |
+| CPS-1 | `7e3b53b34bd2508f49cde41ad692d743c3d14e5f1c6a47b4c8755466503872d0` | `4d5e0e263913a4d6c78ad8b9d191ec4f1f8811ef144bfc2131492a29d2d0c4a3` |
+| Sharp X68000 | `b1e94a492351899e885aded7e77486a607c8518ed8e1aa86709753f5efbf7640` | `e4b9192c471a04b521644f79d30a3667b6c00ff379b32016cacce63735d4728c` |
+
+| Console | Build stamp of 1.6.3, Windows | Build stamp of 1.6.3, Linux |
+| --- | --- | --- |
+| Master System | `61b3ff1284fcf75b79309f140d5c68ed04fb0cc038c443a9176606d9bfd96b9e` | `844581a4aee67b01c2b64819e7d4328c6a0eb920ff65fc67f459734df36abf40` |
+| Game Gear | `99adc3982e7e8255bc3ebcb7fad103a94814dd218893a78549f2c5e0a72d5fbb` | `35fd32cf151d92623789c9993895f73d7a6dc706d7a55629abcfe7748750347e` |
+| Game Boy | `a95276b71c11e78625c3d29ba0d915c131f6c40e5da9d093093212e6acf21e78` | `fdf983cbb2cf9f658ca6b4ae0e877ac67fa8b594b8a01141bc40744fbc971b64` |
+| NES | `daf686c3aacfb39673019978ab0aac5b00fe46e580b55e532254bb2ddde5cd3d` | `0924450ada99b439fc7bd374df29b679b48366e88234b31b7f02b2d19132de8e` |
+| Mega Drive | `04d0d103866e5c07fe1867b51182039c13eec54918ad57397effdf9e9cfae061` | `a2e3f1d84f568da91d943cd6a8c66a847c2eb9196214d0a6374668f8669c5920` |
+| Super Nintendo | `b2fec61a9627103484912da9782e7371ba4987a726b6dcd173da2ceff6fc9f2f` | `a801be2aa12c5efc034a1211ed47e81e0d3821a8ec47859e42a7c19ff116e255` |
+| Neo Geo | `6c23ad79d979182db3455217c001ee583fd0a6cb4df5bc52deabb0ac76b9103c` | `735812b24a5d4b06f7ca72447e8b7b158a7b83c37a81813d25c8d2b24164e693` |
+| CPS-1 | `5022eedca09f8a0fffd8cfae1bd0e6c823f277ffe0dd9f3f2f5c27c3e3247a63` | `1710a97d399b07eb651c4982cb4a03ec500d401706920576402ab9b08ff2516e` |
+| Sharp X68000 | `e84c6e39d05d7f47ac5e0a51a2b676351cef673e855923b3bbb276597279a255` | `47712564c3a7d72667d0a764f2186a4d23ea492100e73cedd4cc44cc9763c098` |
+
+*Compared with the tree of this release (Windows, Python 3.14, the commit of this rollover): the nine game stamps differ from those
+above, eight host stamps differ (the X68000 host stamp is the same), no build stamp differs. The stamps of the tree move again
+with every later edit of a hashed file; the release procedure recomputes them for the next release from the tag of this one.*
+**Not proved here:** unlike the stamps of 1.6.2, these were not compared with the stamps that the published converters of 1.6.3
+give with their own `_compilation-inputs` (the assets of the v1.6.3 release were not downloaded for this record). Nothing
+depends on it: no entry is listed, so no receipt can be accepted on the strength of a stamp in this table, and a receipt of
+1.6.3 is converted in full whatever it carries. No game was converted for these records and the claim of "converted in
+full" rests on the list of changes above, not on a receipt per console.
+
+**Quick states** ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-163)), a separate question from the export
+upgrade; the key of each console, computed from the `v1.6.3` tag and from this tree on Windows with the console's own
+`write_config` or `state_config`:
+
+| Console | Key of 1.6.3 to 1.6.4 | States of 1.6.3 in 1.6.4 |
+| --- | --- | --- |
+| Mega Drive | unchanged | load: the key is the build's own, nothing to list |
+| Super Nintendo | unchanged | load, as the Mega Drive |
+| Neo Geo | moves, only because this rollover edits `neogeo_build` (its fingerprint is hashed); the state files are byte for byte those of 1.6.3 | load (Windows): the 1.6.3 key is the compatibility key `neogeo_build.STATE_ABI_163` |
+| CPS-1 | moves: the state changed (`CPS1S002`, [lot B](#quick-states-of-the-nes-and-cps-1-164-lot-b)) | **refused** |
+| NES | moves: the state writer changed ([lot B](#quick-states-of-the-nes-and-cps-1-164-lot-b)) | **refused** (no compatibility mechanism) |
+| Master System, Game Gear, Game Boy | no key of this kind | not run; none of the changes of this release touches a saved state |
+| X68000 | by design a key of the build | not guaranteed; see GAME_STATES.md |
+
+The 1.6.2 keys are removed from `console16_state`, `neogeo_build` and `cps1_build` (the previous release only).
+`cps1_build.py` is a pinned CPS-1 generator source and this rollover edits it: `cps1_knowledge.GENERATOR_REVISION` stays 7 (the
+revision of lot H, not shipped yet), `tests/cps1_generator_pins.json` follows, and the comment of the revision says so.
+
+## SDL 2.32.10 (a game input of every console, 1.6.4, lot E)
+
+1.6.4 moves SDL2 from release 2.32.8 to release 2.32.10 (`core.SDL_REV`, commit `5d24957`; 36 upstream commits: Nintendo
+Switch Pro stick calibration and sensor coefficients, Pipewire device default formats and ALSA default-device information
+on Linux, build and platform fixes). SDL is linked statically into every export and the pin is read by `retrorecomp.core`,
+a game-role input of all nine consoles, so the game stamp (and the engine stamp) of every console moves; host and build
+stamps do not. An export of 1.6.3 is therefore never current, and with the decision of the release (no legacy stamp) it is
+converted in full. The base of qualified paths is keyed by the pinned upstream recompiler revisions, not by SDL, so it stays
+valid. The SDL static libraries of an existing workspace (`.deps/SDL/install`, `install-llvm`) are rebuilt from the new tag
+on the first conversion. Checked here: the ROM-free self-tests of the shared host and a Master System and a Mega Drive
+conversion on Windows. This says nothing about audio or controller behaviour on physical devices (hardware fidelity and
+latency stay unmeasured).
+
+## Master System and Game Gear: the functions engine (1.6.4, lot F)
+
+Master System and Game Gear exports made with the "functions" engine are reconverted. The engine now samples the interrupt line
+at one instruction boundary and accepts it at the next (like the reference CPU and the banked engine), HALT pushes the next
+address and ends when the handler dropped its frame, and a RET that unwinds the generated frames continues. The default banked
+engine generates the same sources. These are CPU-fidelity corrections of our own patch on the pinned generator and runner
+(`core.patched_generator_source`, `core.prepare_functions_irq`, [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164));
+the pin does not move. Alex Kidd in Miracle World, Factory Panic and seven more games now pass the comparison with the reference CPU
+with that engine; they converted with the banked engine before. That is an agreement with the project's own reference on the tested
+routes, not a statement about hardware fidelity, gameplay or physical latency, and the share of native code changes only where a game
+stopped at the first affected frame and goes on now. Interpreter fallback stays counted per CPU. The game stamp of both consoles
+moves with `core`; the host stamp moves with the registry. Their quick states have no key of this kind, and none of these
+changes adds a field to a saved state.
+
+## The profile registry: stamps of the nine games and eight hosts move (1.6.4, lot A)
+
+A tenth machine no longer moves the stamp of any existing console ([NEW_MACHINE.md](NEW_MACHINE.md): the acceptance dry run of
+29 October 2026, an Atari ST added on a throwaway branch, 41 files and 70 places on 1.6.3 down to 26 and 30, no existing stamp
+moved). To get there, `path_profiles.PROFILES` is built from each profile's `PathSpec.shapes`, `hostkit.ADAPTERS` from
+`host_adapter`, and the manifest of `stamp_inputs.py` takes the CPU families and the shared groups (`SystemProfile.stamp_groups`)
+from the profiles. Those edits touch stamped files (`path_profiles`, `hostkit`, `systems`, `systems.specs` and the profile
+modules), so the **game stamp of all nine consoles and the host stamp of eight move once** between 1.6.3 and 1.6.4; the build
+stamps and the manifest (names and roles of the inputs of the nine consoles) do not. It changes no game and no host behaviour
+(`std_baseline` equals the one of 1.6.3 except for the values that hold a stamp). Learned paths, receipts' schema (3) and the
+quick-state keys do not move for this reason.
+
+## Quick states of the NES and CPS-1 (1.6.4, lot B)
+
+Both writers now write only defined bytes ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-163)). **NES:** the header's two
+padding bytes are zeroed explicitly and the machine members (processor, machine, cartridge, video, light gun) are copied byte for
+byte into a zeroed record (`native/nes_machine_state.inc`; the VRC7 block in `native/nes_mapper_state.inc`); the structures nested
+inside those members are still copied as they are, with the padding they have (zero in practice, not by guarantee). The file layout
+and size are the same, and the file begins with the same magic. `RR_NES_STATE_ABI` hashes these files, so it moves, and the NES has no
+compatibility key mechanism (the loader compares the header's `abi` field with the build's own): a NES state of 1.6.3 is refused
+cleanly. **CPS-1:** magic `CPS1S001` becomes `CPS1S002`; the Z80 registers (34 bytes), the sound-latch queue and the OKI voices are
+written field by field in little-endian order, and the 68000 block ends at its last integer field (`mmu_sr`) instead of at the first
+pointer; the size of a state changes. The key moves with the files and a state of 1.6.3 is refused cleanly. Neither change touches
+what a game does: it is about the bytes of the saved file (two saves of one moment are identical), not about CPU fidelity or
+hardware fidelity. Checked by the authors of the change: `native/nes_machine_checks.c` (header padding zero, a second save over another
+buffer identical) and `tools/nes_state_selftest.py` (two saves of one run identical) for the NES. The CPS-1 writer has no test of its
+own in the suite beyond the magic pinned by `tests/test_legacy_compat.py`, and no state was resumed across releases for either console.
+
+## X68000: payload paths deeper than 260 characters (1.6.4, lot C)
+
+`native/x68000_reference/payload.c` prepares a game's private data in its folder. On Windows its wide-character calls stopped at
+`MAX_PATH` (260 characters, 248 for a folder), so a game placed deep in a folder tree could not prepare its payload. Every path
+now goes through `GetFullPathNameW` (".", "..", "/", trailing dots and spaces are resolved as Win32 does for the short form) and
+only the operating-system calls see the extended-length prefixed copy (`\\?\` or `\\?\UNC\`) of a path of 240 characters or more,
+including a short relative path that grows past `MAX_PATH` once made absolute; every path kept or returned stays as given, and a
+short path is used as it is. `tests/test_x68000_payload.py` (with `tests/x68000_payload_harness.c`) builds the payload code and
+fails on the previous code. The X68000 **game stamp** moves (`payload.c` is a game file, `systems/x68000` too) and with it the SDK
+stamp `x68_sdk` that its request carries, so a receipt of 1.6.3 is never recognised, with or without a table; the host and build
+stamps do not move. Nothing the CPU executes changes: this is a Windows file-system fix.
+
+## Game Boy exports in 1.6.4 (writable-memory code)
+
+The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
+their live bytes, with a counted executor** (`native/gb_ram_helpers.h`, `rr_gb_try_ram_instruction`;
+[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164)). That is not native code and not ahead-of-time translation: it is
+a per-opcode switch, cheaper than an interpreter session. What changes for a game that runs such code (Donkey Kong Land: a trampoline
+block copied from the cartridge into WRAM, operands patched at run time) is that the ROM routine the trampoline jumps to runs as native
+code again instead of staying inside an interpreter session. What a conversion generates is unchanged (the generated C files are the
+same); the adapted runtime header, the dispatch of `game.c` and three context counters change.
+
+*Counted, apart from the interpreter.* The executor and the upstream RAM stub (which was never counted) each count their instructions and
+guest cycles in every probe: `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`,
+`ram_single_step_instructions`, `ram_single_step_cycles`; the schema-2 report shows them as `cpus[].scenarios[].ram_single_step`, with
+`ram_single_step_present`. While they are not zero the report's `native_code.zero_fallback_on_tested_scenarios` is false and its claim
+reads "native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by counted executors (not native code)"; the
+window appends "N RAM instructions executed one by one (not native)" in the eight languages, and the library marks the game as one with
+fallback. The interpreter figures keep their meaning (sessions, instructions, cycles of the interpreter). The guarded multi-instruction
+helpers (named routines checked by a live signature) are not counted, as before. A report of 1.6.3 has no such counts: the flag reads
+"not measured", never "zero".
+
+*Stamps* (`compilation_inputs.role_stamps('gb')`, Python 3.14, from the tree of the tag `v1.6.3` and from this tree; to be recomputed at the
+release): the game stamp moves; host and build stamps of the Game Boy and every stamp of the other eight consoles are unchanged. Learned
+paths do not move, and no quick-state key exists for the Game Boy (the counters are host-only context fields, outside every saved state).
+
+An export of 1.6.3 is therefore rebuilt from its learned paths and rechecked on the quick routes. Donkey Kong Land goes, in the
+6,000-frame probes, from 3,160,836 interpreter cycles in the boot probe and 141,688 in the varied probe to zero interpreter cycles in all
+four, and its deep CPU comparisons still match; the RAM instructions run one at a time are reported beside that figure (see the
+conversion report of a game of this release). That is native ROM code plus counted one-by-one execution on the tested scenarios, a
+CPU-fidelity agreement with the project's own reference on 240 frames per scenario, and nothing about hardware fidelity, gameplay or
+latency.
+
+## CPS-1: code run from graphics RAM is guarded natively (1.6.4, lot H)
+
+`native/cps1_machine.c`, `native/cps1_native.c`, `native/cps1_native.h`, `retrorecomp/cps1_codegen.py`,
+`retrorecomp/cps1_build.py` and `retrorecomp/cps1_conversion.py` change, so the CPS-1 game stamp moves (every CPS-1
+file is a game file; the host stamp is not touched). Street Fighter II': Champion Edition ran a short routine copied into
+graphics RAM and interpreted it (75,546 instructions in the play route); the 68000 native code now also looks up and
+guards instructions at 0x900000 to 0x92FFFF, from the library's private `m68k_gfx` observations (learned in pass 1 of the
+conversion, translated in pass 2, each instruction still checked against its live words). For every other CPS-1 set
+the generated code differs only by one added lookup function (`cps1_step_index.c`) and the native analysis reports
+`guarded_gfx_variants` = 0; their traces and behaviour are the same as before (A/B on real conversions). A CPS-1 export of
+1.6.3 is not byte-identical to a 1.6.4 conversion, so the legacy list decision of the release applies to it as to the
+other consoles. `cps1_knowledge.GENERATOR_REVISION` goes from 6 to 7: no CPS-1 path was qualified yet, so nothing is lost.
+`retrorecomp/m68000.py` is not touched: the Mega Drive, Neo Geo and X68000 generated code does not move.
 
 ## Exports of 1.6.2 in 1.6.3
 
@@ -535,37 +765,6 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
   1.6.3 (it reads its own keys). Every window now keeps whole pixels in the window mode too ([HOST_KIT.md](HOST_KIT.md), divergence 9): a Mega Drive,
   Super Nintendo, Neo Geo, CPS-1, NES or X68000 export no longer stretches its picture to the window.
 
-## Game Boy exports in 1.6.4 (writable-memory code)
-
-The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
-their live bytes, with a counted executor** (`native/gb_ram_helpers.h`, `rr_gb_try_ram_instruction`;
-[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164)). That is not native code and not ahead-of-time translation: it is
-a per-opcode switch, cheaper than an interpreter session. What changes for a game that runs such code (Donkey Kong Land: a trampoline
-block copied from the cartridge into WRAM, operands patched at run time) is that the ROM routine the trampoline jumps to runs as native
-code again instead of staying inside an interpreter session. What a conversion generates is unchanged (the generated C files are the
-same); the adapted runtime header, the dispatch of `game.c` and three context counters change.
-
-*Counted, apart from the interpreter.* The executor and the upstream RAM stub (which was never counted) each count their instructions and
-guest cycles in every probe: `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`,
-`ram_single_step_instructions`, `ram_single_step_cycles`; the schema-2 report shows them as `cpus[].scenarios[].ram_single_step`, with
-`ram_single_step_present`. While they are not zero the report's `native_code.zero_fallback_on_tested_scenarios` is false and its claim
-reads "native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by counted executors (not native code)"; the
-window appends "N RAM instructions executed one by one (not native)" in the eight languages, and the library marks the game as one with
-fallback. The interpreter figures keep their meaning (sessions, instructions, cycles of the interpreter). The guarded multi-instruction
-helpers (named routines checked by a live signature) are not counted, as before. A report of 1.6.3 has no such counts: the flag reads
-"not measured", never "zero".
-
-*Stamps* (`compilation_inputs.role_stamps('gb')`, Python 3.14, from the tree of the tag `v1.6.3` and from this tree; to be recomputed at the
-release): the game stamp moves; host and build stamps of the Game Boy and every stamp of the other eight consoles are unchanged. Learned
-paths do not move, and no quick-state key exists for the Game Boy (the counters are host-only context fields, outside every saved state).
-
-An export of 1.6.3 is therefore rebuilt from its learned paths and rechecked on the quick routes. Donkey Kong Land goes, in the
-6,000-frame probes, from 3,160,836 interpreter cycles in the boot probe and 141,688 in the varied probe to zero interpreter cycles in all
-four, and its deep CPU comparisons still match; the RAM instructions run one at a time are reported beside that figure (see the
-conversion report of a game of this release). That is native ROM code plus counted one-by-one execution on the tested scenarios, a
-CPU-fidelity agreement with the project's own reference on 240 frames per scenario, and nothing about hardware fidelity, gameplay or
-latency.
-
 ## Game Boy exports in 1.6.3 (host kit phase 5)
 
 1.6.3 moves the player shell of the Game Boy onto the host kit, the last console to move ([HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163)):
@@ -682,20 +881,6 @@ Found by the Linux check of 1.6.3 on the same day, no player-visible change on W
   (`retrorecomp/x68000_conversion.py`): only the text of that error message changes.
 - **Super Nintendo:** the MSVC spelling of the `PpuPixelPrioBufs` alignment is applied by one function,
   `console16.snes_ppu_header`, for the converter and the self-tests; the converter's output is unchanged.
-
-## CPS-1: code run from graphics RAM is guarded natively (1.6.4, lot H)
-
-`native/cps1_machine.c`, `native/cps1_native.c`, `native/cps1_native.h`, `retrorecomp/cps1_codegen.py`,
-`retrorecomp/cps1_build.py` and `retrorecomp/cps1_conversion.py` change, so the CPS-1 game stamp moves (every CPS-1
-file is a game file; the host stamp is not touched). Street Fighter II': Champion Edition ran a short routine copied into
-graphics RAM and interpreted it (75,546 instructions in the play route); the 68000 native code now also looks up and
-guards instructions at 0x900000 to 0x92FFFF, from the library's private `m68k_gfx` observations (learned in pass 1 of the
-conversion, translated in pass 2, each instruction still checked against its live words). For every other CPS-1 set
-the generated code differs only by one added lookup function (`cps1_step_index.c`) and the native analysis reports
-`guarded_gfx_variants` = 0; their traces and behaviour are the same as before (A/B on real conversions). A CPS-1 export of
-1.6.3 is not byte-identical to a 1.6.4 conversion, so the legacy list decision of the release applies to it as to the
-other consoles. `cps1_knowledge.GENERATOR_REVISION` goes from 6 to 7: no CPS-1 path was qualified yet, so nothing is lost.
-`retrorecomp/m68000.py` is not touched: the Mega Drive, Neo Geo and X68000 generated code does not move.
 
 ## UPX 5.3.0 (packing, a build input)
 
