@@ -25,6 +25,9 @@
 - **Deterministic quick states on NES and CPS-1.** Every byte of an F8 state
   is now defined (some padding bytes were zero only by chance). A state saved
   twice from the same moment is byte for byte the same.
+- **CPS-1 games reconvert again.** A CPS-1 conversion that looked for box art
+  online, with no saved image yet, stopped with an internal error, so older
+  CPS-1 exports could not be reconverted. It now goes on without a cover.
 - **Long folders on Windows.** A Sharp X68000 game placed in a folder deeper
   than 260 characters now prepares its data instead of failing.
 - **SDL 2.32.10.** The window, sound and controller library linked into every
