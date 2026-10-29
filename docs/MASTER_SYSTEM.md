@@ -71,9 +71,10 @@ Both engines read the same ROM and share the VDP, PSG, memory and input runtime.
 
 In the converter, the checkbox **Extended native coverage - Sega profiles** (options page of the Master System and the Game
 Gear, on by default) selects the banked engine; unchecked selects functions. On the command line `--backend banked` is the
-default. Functions still fails the reference check on Action Fighter, Alex Kidd: High-Tech World, Alex Kidd: The Lost
+default. Functions still fails the reference check on Action Fighter, Alex Kidd: The Lost
 Stars, Super Columns, Sonic Spinball and Sonic Triple Trouble (1.6.4 work); the banked engine converts them. Alex Kidd in
-Miracle World and Factory Panic now convert with functions; 9 of 15 games tried pass its reference check.
+Miracle World and Factory Panic now convert with functions; 9 of 15 games tried pass its reference check from an empty learning state
+(1.6.5; Aladdin, which passed after earlier conversions in 1.6.4, does not from an empty state, with or without the 1.6.5 patch).
 
 ## Engine and upstream
 
@@ -96,6 +97,7 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | No direct C call to an address at or above `$0400`: the call goes through the dispatch that checks the mapped bank | 1.6.3 | `core.patched_generator_source` | functions engine only |
 | HALT: the interrupt that ends it pushes the address after the HALT, and a handler that drops the halted frame ends the function | 1.6.4 | `core.patched_generator_source` | functions engine only |
 | Interrupt acceptance: /INT sampled at one instruction boundary and accepted at the next; a VDP port access that changes /INT brings the next sync to the next instruction; a `RET` that unwinds every generated frame continues at the popped address | 1.6.4 | `core.prepare_functions_irq` on the pinned `runner/glue.c` | functions engine only |
+| Repeating block instructions that go on: X and Y from the high byte of the instruction address, H and P from B for the input and output groups (the flags an interrupt between two iterations pushes) | 1.6.5 | `core.patched_generator_source` | functions engine only |
 | Local copies of the reference CPU and the shared headers: WZ and Q latches, SCF/CCF X/Y flags, `BIT (HL)` without write-back, IM/RETI aliases, OTDR timing, IM0 IRQ, H-counter reads at CPU time | 0.10.0 and later | `retrorecomp/cpu.py` (`prepare_cpu_headers`, `prepare_reference`) | both engines |
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 

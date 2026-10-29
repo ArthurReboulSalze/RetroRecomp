@@ -88,6 +88,21 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertLess(body.index('_hsp = s->sp'), body.index('sms_halt();'))
         self.assertLess(body.index('sms_halt();'), body.index('(int16_t)(s->sp - _hsp)'))
 
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_a_repeating_block_instruction_leaves_the_repeat_cycle_flags_before_the_interrupt_check(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        block = text.index('static void emit_block(FILE *o, uint8_t op){')
+        body = text[block:text.index('/* ---- ED group ---- */', block)]
+        # The address is recorded before the loop (the handler of an accepted interrupt changes g_dbg_pc).
+        self.assertEqual(body.count('uint16_t sms_block_pc = g_dbg_pc;'), 1)
+        self.assertEqual(body.count('((sms_block_pc >> 8) & 0x28)'), 1)
+        # INIR/INDR/OTIR/OTDR also adjust H and P; the load and compare groups do not.
+        self.assertEqual(body.count('z80f_set(s, Z80_FLAG_H, (b & 15) == (neg ? 0 : 15))'), 1)
+        self.assertIn('if (grp >= 2) fprintf', body)
+        # Only while the loop goes on, and before the tick that may accept the interrupt.
+        self.assertLess(body.index('sms_block_pc >> 8'), body.index('sms_tick_post'))
+        self.assertLess(body.index('emit_block_body(o, op, "            ");'), body.index('sms_block_pc >> 8'))
+
 
 class FunctionsInterruptContractTests(unittest.TestCase):
     """Only the "functions" runner samples /INT at one boundary and accepts it at the next."""
