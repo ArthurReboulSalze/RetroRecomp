@@ -296,7 +296,7 @@
     "size": "{value} KB",
     "fallback": "备用解释器：测试周期的 {percent:g}% · {comparison}",
     "fallback_cycles": "备用解释器：每个测试场景最多 {cycles} 个周期 · 硬件尚未验证",
-    "ram_one_by_one": "{count} 条RAM指令逐条执行（非原生）",
+    "ram_one_by_one": "{count} 条RAM和高位内存指令逐条执行（非原生）",
     "vdp_equal": "VDP 比较一致",
     "vdp_different": "存在待检查的 VDP 差异",
     "pick_roms": "添加任意主机的 ROM",
