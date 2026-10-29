@@ -348,7 +348,6 @@ INPUTS = _resolve({
         'native/stereo_fir.h',
         'native/video_checks.c',
         'native/video_frame.h',
-        'native/video_mode4.inc',
         'native/video_probe.c',
         'native/xbr_checks.c',
         'native/xbr_filter.h',
@@ -691,6 +690,7 @@ INPUTS = _resolve({
         'retrorecomp.cps1_knowledge',
     ),
     ('sms', 'gg'): (
+        'native/video_mode4.inc',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
         'retrorecomp.systems.game_gear',
