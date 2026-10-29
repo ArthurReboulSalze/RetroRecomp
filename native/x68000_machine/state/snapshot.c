@@ -37,6 +37,7 @@ void rr_state_tvram(RRState *s);
 void rr_state_crtc(RRState *s);
 void rr_state_palette(RRState *s);
 void rr_state_bg(RRState *s);
+void rr_bg_state_sync(int loading);
 void rr_state_dmac(RRState *s);
 void rr_state_mfp(RRState *s);
 void rr_state_irqh(RRState *s);
@@ -165,6 +166,8 @@ static int visit(RRState *s)
       else if (stored_count != count)
          rr_state_fail(s, "snapshot section count differs");
    }
+   /* The marks of the background patterns changed since the last line drawn are part of the saved picture state. */
+   rr_bg_state_sync(s->loading);
    for (i = 0; i < count && !s->error; i++) {
       size_t mark = rr_state_begin(s, sections[i].tag, 1);
       sections[i].visit(s);
