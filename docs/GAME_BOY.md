@@ -126,7 +126,8 @@ high-memory stub (`rr_gb_try_highmem_dispatch`). The executor runs one instructi
 opcode by opcode against the interpreter by `tools/gameboy_ram_selftest.py` (177 opcodes, 24 random states, four placements in WRAM
 and HRAM). **That is not native code and not ahead-of-time translation**: it is a per-opcode switch, cheaper than an interpreter
 session, and the ROM routine a trampoline jumps to is native again. `CB`-prefixed opcodes, `HALT`, `STOP`, `RST`, illegal opcodes and
-code spanning two regions still reach the interpreter.
+code spanning two regions still reach the interpreter, except `RST 00` to `RST 38` run from `0xFF00-0xFF7F`, which the pinned
+high-memory stub executes itself (counted in its own pair).
 
 Counting. The executor, the RAM stub and the high-memory stub each count instructions and guest cycles per probe
 (`ram_stub_*`, `ram_single_step_*`, `highmem_stub_*`); the report (schema 2) lists them in
@@ -297,8 +298,8 @@ all gameplay, certify hardware fidelity or measure physical latency.
   corrected cold conversion about 23, mostly compiling large generated C files over two passes. Bundled observations avoid
   rediscovery and another pass but not the first C build. Wario Land II still reports RAM fallback and was not re-run for 1.6.4.
 - **Existing exports** are not replaced; regenerating a cartridge uses the new compiler and runtime adaptations.
-- **Window string.** The window says "RAM instructions executed one by one" although the count also includes `0xFF00-0xFF7F`
-  high-memory instructions; the wording is open.
+- **Window string.** The window says "RAM and high-memory instructions executed one by one (not native)" (in the eight languages
+  since 1.6.5): the count is the sum of the one-by-one executor, the RAM stub and the `0xFF00-0xFF7F` stub, as a maximum over the scenarios.
 
 ## History
 
