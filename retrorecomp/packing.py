@@ -48,14 +48,16 @@ def file_identity(path: Path) -> dict:
     return {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
 
 
-def packing_record(unpacked: dict, published: Path) -> dict:
+def packing_record(unpacked: dict, published: Path, packed_replayed: bool = False) -> dict:
     """What a conversion report says about the published executable's packing.
 
     The conversion compares native and reference runs on the *unpacked* build
     executable; the published one is that file packed by UPX. This records both
     identities and whether the published file really carries the UPX header, so
     a packed validation (tools/snes_packed_check.py) can name the exact file it
-    checked. It never claims the packed file was itself replayed. A Linux game that UPX
+    checked. It claims a packed replay only when the conversion says it did one
+    (`packed_replayed`: Neo Geo, CPS-1 and X68000 replay a packed copy against the
+    reference, `native_validation.packed_reference_match`). A Linux game that UPX
     could not pack and test is published unpacked (`packed` false) and `unpacked_reason`
     says why.
     """
@@ -67,6 +69,9 @@ def packing_record(unpacked: dict, published: Path) -> dict:
               'size_ratio': round(len(data) / max(1, unpacked['bytes']), 4),
               'compared_on': 'unpacked build executable',
               'packed_validation': 'tools/snes_packed_check.py (developer qualification, not run during conversion)'}
+    if packed_replayed:
+        record['compared_on'] = 'unpacked build executable and a packed copy replayed against the reference'
+        record['packed_validation'] = 'packed copy replayed during conversion (native_validation.packed_reference_match)'
     reason = _UNPACKED_REASONS.get(unpacked.get('sha256'))
     if reason and not packed:
         record['unpacked_reason'] = reason

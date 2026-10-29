@@ -182,6 +182,10 @@ class LinuxPackingTests(unittest.TestCase):
         packed = packing.packing_record(identity, self.game)
         self.assertNotIn('unpacked_reason', packed)
         self.assertEqual(packed['level'], '-9')
+        self.assertEqual(packed['compared_on'], 'unpacked build executable')
+        # A conversion that replayed a packed copy (Neo Geo, CPS-1, X68000) says so.
+        replayed = packing.packing_record(identity, self.game, packed_replayed=True)
+        self.assertIn('packed copy replayed', replayed['compared_on'])
         # Published as built: the same unpacked bytes, with the reason.
         self.game.write_bytes(ELF_X86_64 + bytes(64) + b'native game')
         outcome, _ = self.scripted({'test': (1, 'upx: Game: Exception: compressed data violation')})

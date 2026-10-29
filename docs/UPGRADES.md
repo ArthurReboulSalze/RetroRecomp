@@ -478,6 +478,10 @@ Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.m
 `payload.c` and `retrorecomp/x68000_conversion.py` are game inputs of the X68000: the X68000 game stamp and `x68_sdk` move; nothing
 the CPU executes changes. An export of 1.6.4 is converted in full once, as at every release.
 
+The report's `packing.compared_on` now says when a packed copy was replayed (Neo Geo, CPS-1 and X68000:
+`unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
+executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from

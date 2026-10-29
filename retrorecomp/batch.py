@@ -506,7 +506,8 @@ def _convert_one(index: int, item: BatchItem, count: int, system, game_output: P
         try:
             from .publishing import job_path
             staged = Path(json.loads(job_path(target).read_text(encoding='utf-8'))['staged']) if pending else target
-            report['packing'] = packing_record(unpacked_identity, staged)
+            replayed = (report.get('native_validation') or {}).get('packed_reference_match') is True
+            report['packing'] = packing_record(unpacked_identity, staged, packed_replayed=replayed)
         except (OSError, ValueError, KeyError):
             report['packing'] = {'recorded': False}
         report = _write_report(report_path, report)
