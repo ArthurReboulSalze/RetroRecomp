@@ -274,7 +274,7 @@ And two 68000 fixes for the Mega Drive:
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
 | 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
-| 68000: the supervisor `RESET` instruction is executed (program counter and 132 clocks) instead of halting as unimplemented; on the Mega Drive its output reaches only the cartridge port | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) | `megadrive_codegen.py` (`adapt_reset`; `m68000.py` untouched) | md, cps1, x68 |
+| 68000: the supervisor `RESET` instruction is executed (program counter and 132 clocks) instead of halting as unimplemented; on the Mega Drive its output reaches only the cartridge port | md | `megadrive_codegen.py` (`adapt_reset`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
 
 Both are CPU fidelity fixes. The shift clocks are checked by the 834 SingleStepTests shift vectors replayed with their clocks on the
 native and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). `RESET` is checked by its manual total

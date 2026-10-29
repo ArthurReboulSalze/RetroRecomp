@@ -435,11 +435,14 @@ says nothing about hardware fidelity: neither case was compared with a real mach
 
 A cartridge that executes the 68000 `RESET` instruction (opcode `$4E70`, supervisor mode) used to stop the conversion: the pinned
 core halted on it as unimplemented, and the demo probe failed. Boxing Legends of the Ring runs it at boot (at `$30C`, in its second
-frame). On the Mega Drive the 68000's RESET output reaches no part of the console (the processor is not reset by it); it pulses the
-cartridge port's reset line, which only some cartridges' own mapping circuits use. The instruction is therefore executed as a
-native instruction that changes nothing but the program counter and takes its 132 clocks (the manual's figure, one prefetch read).
-The pulse itself is not modelled, and no cartridge circuit of this converter reacts to it; a user-mode `RESET` still takes the
-privilege violation. *Edited:* `retrorecomp/megadrive_codegen.py` (`adapt_reset`, applied to the native bodies and to the reference
+frame). According to the hardware notes (C. MacDonald, "Fun with reset signals", SpritesMind, 2012) the instruction pulses only the
+VRES# line, which goes to the 68000 and to the cartridge port; no other reset is driven. Genesis Plus GX, BlastEm and Musashi
+likewise do nothing but spend the clocks (none resets the YM2612). This was not measured here. The instruction is therefore executed
+as a native instruction that changes nothing but the program counter and takes its 132 clocks (the manual's figure, one prefetch
+read). The pulse itself is not modelled, and no cartridge circuit of this converter reacts to it. **Open case:** a cartridge mapper
+that resets on VRES# (the Sega 512 KiB bank mapper, `physical_rom_mapper` `sega_512k`, is the plausible candidate) would return to its
+starting banks on a console, whereas here nothing happens; neither Boxing Legends nor Dragon's Revenge uses it. A user-mode `RESET`
+still takes the privilege violation (vector 8), checked natively and on the reference path in `tools/megadrive_native_selftest.py`. *Edited:* `retrorecomp/megadrive_codegen.py` (`adapt_reset`, applied to the native bodies and to the reference
 path; `m68000.py` is untouched, so Neo Geo, CPS-1 and X68000 keep their own handling). It is a **CPU fidelity** fix; the other four
 measures are not moved. **The `md`, `cps1` and `x68` game stamps move** (the module is in their stamp groups; their output is
 unchanged), together with the shift-clock change above, and a Mega Drive game that never executes `RESET` generates the same code:
