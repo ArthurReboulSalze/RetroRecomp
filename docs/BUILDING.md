@@ -364,7 +364,7 @@ the folder for the developer checks below.
 | Dependency | Revision |
 | --- | --- |
 | smsggrecomp | `224d5bb2c150a2c295033d35dec629ef9ee42940` |
-| SDL2 | `98d1f3a45aae568ccd6ed5fec179330f47d4d356` |
+| SDL2 | `5d249570393f7a37e037abf22cd6012a4cc56a71` |
 | gb-recompiled (original Game Boy) | `9150f87d82fa98abcb6ea22329170463f9702eb8` |
 | nesrecomp (NES; noncommercial license) | `1b0c621a927db17afa9723bf456a89ad15809907` |
 | Independent SingleStepTests/Z80 corpus | `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7` |

@@ -33,7 +33,7 @@ from .platforms import build_executable, cmake_target_args, build_jobs, target_i
 from .toolchain import active as active_toolchain, suffix, describe as toolchain_description
 
 ENGINE_REV = "224d5bb2c150a2c295033d35dec629ef9ee42940"
-SDL_REV = "98d1f3a45aae568ccd6ed5fec179330f47d4d356"
+SDL_REV = "5d249570393f7a37e037abf22cd6012a4cc56a71"
 _SHARED_SETUP_LOCK = RLock()
 _SHARED_SETUP_DEPTH = 0
 
