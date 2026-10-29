@@ -82,14 +82,18 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
 
     runtime_cpu = project / "runtime/src/gbrt.c"
     source = runtime_cpu.read_text(encoding="utf-8")
-    # The runtime's own functions (timed jumps, calls, returns, stack and bus accesses) call gb_tick for most of the
-    # ticks of a running game. gb_tick_fast.h runs the ordinary case of gb_tick inline in those callers, with the same
-    # effects in the same order, and hands every other case to the real gb_tick; the definition of gb_tick below keeps
-    # its own name. The generated sources keep calling the real gb_tick: inlining it into every body costs build time.
+    # The runtime's own functions (timed jumps, calls, returns, stack and bus accesses, the interrupt dispatch and the
+    # HALT loop of gb_run_cycles, which issues most of the calls while a game waits for vblank) call gb_tick.
+    # gb_tick_fast.h runs the ordinary case of gb_tick inline in those callers, with the same effects in the same order,
+    # and hands every other case to the real gb_tick; the definition of gb_tick keeps its own name (the macro is off
+    # around it). The generated sources keep calling the real gb_tick: inlining it into every body adds about 400 bytes
+    # at each of thousands of call sites.
     source = replace_once(source, '#include "gbrt.h"\n#include "gbrt_data_mod.h"',
         '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gbrt_data_mod.h"')
     source = replace_once(source, 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;',
         '#undef gb_tick\nvoid gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;')
+    source = replace_once(source, 'void gb_handle_interrupts(GBContext* ctx) {',
+        '#define gb_tick(ctx, cycles) rr_gb_tick((ctx), (cycles))\nvoid gb_handle_interrupts(GBContext* ctx) {')
     source = replace_once(source,
         '''    /* Save RAM before destroying if available */
     if (ctx->eram && ctx->callbacks.save_battery_ram && !ctx->persistence_load_failed) {

@@ -1,16 +1,18 @@
 /* Inline "idle" path of gb_tick for the Game Boy runtime.
  *
- * Most ticks of a running game are issued by the runtime's own functions (timed jumps, calls, returns, stack and bus
- * accesses in gbrt.c), the rest by the generated bodies. gb_tick is a large general function (double speed, RTC, OAM DMA,
+ * Most ticks are issued by the runtime's own functions in gbrt.c: the HALT loop of gb_run_cycles (a game waiting for
+ * vblank steps in a few cycles at a time), the timed jumps, calls, returns, stack and bus accesses and the interrupt
+ * dispatch. The rest come from the generated bodies. gb_tick is a large general function (double speed, RTC, OAM DMA,
  * serial, timer, PPU, interrupts, audio). This header does exactly what gb_tick does for the ordinary case, in the caller,
  * and hands every other case to the real gb_tick before touching anything. It is a speed change only: the same state, the
  * same order of effects, the same cycles. tools/gameboy_tick_selftest.py checks it against the real gb_tick on random
  * operation streams, field by field.
  *
  * It is included by gbrt.c (adapted in gameboy_runtime.py, which keeps the definition of gb_tick itself out of the macro).
- * The generated sources keep calling the real gb_tick: they issue about a tenth of the ticks (Super Mario Land, 3,600 frames:
- * 6.7 million calls from generated bodies, 52.7 million in all), and forcing the inline there would add about 400 bytes
- * (the size of one inlined copy in gbrt.c) at each of the thousands of call sites of every generated source file.
+ * The generated sources keep calling the real gb_tick: on Super Mario Land (3,600 frames, 54.0 million calls) they issue
+ * 11.7 percent of them, and forcing the inline there would add about 400 bytes (the size of one inlined copy in gbrt.c)
+ * at each of the thousands of call sites of every generated source file. In the same run 87.0 percent of all calls take
+ * the inline path and 1.3 percent are handed to the real gb_tick.
  *
  * The ordinary case (DMG, which is the only model these exports run):
  *   - not CGB double speed, no instruction limit, no trace, none of the test switches that change how the runtime ticks
