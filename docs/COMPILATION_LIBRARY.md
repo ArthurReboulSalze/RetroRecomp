@@ -456,7 +456,7 @@ Street Fighter II': Champion Edition interpreted 0.06% of its 68000
 instructions, run from graphics RAM, which native code did not cover (1.6.4
 guards that code from the library's private `m68k_gfx` observations; it
 cannot be expressed as a path). Per-set results:
-[CPS-1 guide](CPS1.md#qualified-sets-24-october-2026-windows).
+[CPS-1 guide](CPS1.md#qualified-sets-29-october-2026-windows).
 
 ## X68000: one game key, observations in the library (standardization 6a, 27 October 2026; part of the 1.6.0 stamp break)
 

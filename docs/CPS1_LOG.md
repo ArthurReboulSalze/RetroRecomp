@@ -9,7 +9,7 @@ measures (native code, CPU fidelity, hardware fidelity, gameplay validation,
 physical latency) stay separate in every entry.
 
 Entries before the 1.6.4 tree were measured on earlier engines; the figures are
-**not repeated** on 1.6.4 or later, except for the eleven sets measured again on
+**not repeated** on 1.6.4 or later, except for the 26 sets measured again on
 29 October 2026 (see the last entry and [Known limits](CPS1.md#known-limits) on
 the machine page).
 
@@ -21,6 +21,7 @@ the machine page).
 - [29 October 2026 (1.6.4): graphics RAM and quick states](#29-october-2026-164-graphics-ram-and-quick-states)
 - [29 October 2026 (1.6.5 tree): selective requalification](#29-october-2026-165-tree-selective-requalification)
 - [29 October 2026 (1.6.5 tree): independent vectors and route liveness](#29-october-2026-165-tree-independent-vectors-and-route-liveness)
+- [29 October 2026 (1.6.5 tree): the whole panel, routes, captures and long routes](#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -188,3 +189,56 @@ plus the changes of that branch). Both are CPU or activity evidence; hardware fi
   silent for its 3,600 frames; its play route is audible.
 - Not done: the Z80 vector replay (the SingleStepTests/z80 corpus is not cached on this machine and has to be downloaded);
   the fifteen other sets of the table were not converted with the liveness fields.
+
+## 29 October 2026 (1.6.5 tree): the whole panel, routes captures and long routes
+
+Branch `spec/cps1-165d`, tree of local `main` at `cd5b69d`, Windows. The 26 sets of the qualification table were converted
+again, one at a time, at the standard level (attract and credited play routes of 3,600 frames each), with an empty library
+per set, no shared base, FBNeo romsets read in place. Every conversion passed: the reference comparison on both routes, the
+packed replay (the report now says "unpacked build executable and a packed copy replayed against the reference"), and the
+fresh-process F8/F9 check with the truncated state rejected. Instructions retired over the two routes:
+
+| Set | Native 68000 | Interpreted 68000 | Native Z80 | Interpreted Z80 |
+| --- | ---: | ---: | ---: | ---: |
+| `1941` | 101,209,464 | 0 | 44,659,319 | 0 |
+| `cworld2j` | 120,027,456 | 0 | 40,267,838 | 0 |
+| `captcomm` | 97,686,875 | 0 | 40,357,633 | 0 |
+| `cawing` | 106,243,502 | 0 | 40,170,109 | 0 |
+| `dynwar` | 97,289,335 | 0 | 50,879,433 | 0 |
+| `ffight` | 97,414,101 | 0 | 44,637,833 | 0 |
+| `ghouls` | 122,624,131 | 0 | 51,237,798 | 0 |
+| `knights` | 99,099,182 | 0 | 40,399,194 | 0 |
+| `msword` | 95,478,386 | 0 | 41,419,080 | 0 |
+| `megaman` | 132,672,499 | 0 | 48,756,407 | 0 |
+| `mtwins` | 99,132,420 | 0 | 40,248,589 | 0 |
+| `mercs` | 102,583,926 | 0 | 44,359,963 | 0 |
+| `nemo` | 107,829,046 | 0 | 40,393,052 | 0 |
+| `pnickj` | 130,710,167 | 0 | 40,189,358 | 0 |
+| `pokonyan` | 95,411,855 | 0 | 40,430,657 | 0 |
+| `qad` | 113,998,824 | 0 | 40,270,604 | 0 |
+| `qtono2j` | 122,125,976 | 0 | 48,258,913 | 0 |
+| `sf2ce` | 129,196,735 | 0 | 40,478,778 | 0 |
+| `sf2hf` | 126,323,470 | 0 | 40,448,751 | 0 |
+| `sf2` | 106,081,054 | 0 | 40,452,851 | 0 |
+| `strider` | 100,806,294 | 0 | 50,621,232 | 0 |
+| `kod` | 99,225,388 | 0 | 40,521,586 | 0 |
+| `3wonders` | 98,099,080 | 0 | 40,272,835 | 0 |
+| `unsquad` | 111,390,795 | 0 | 50,763,574 | 0 |
+| `varth` | 127,483,058 | 0 | 40,320,115 | 0 |
+| `willow` | 106,438,658 | 0 | 50,813,792 | 0 |
+
+- No regression against the 24 October table, and none against the eleven sets of the earlier campaign of this day.
+- Liveness (pictures and sound per route) for the 26 sets is in the table of
+  [CPS1.md](CPS1.md#independent-evidence-and-liveness-29-october-2026). Attract routes with no audible frame: `dynwar`,
+  `ghouls`, `mtwins`, `unsquad`; `willow` has 53.
+- **Captures**: the credited play route of each set was replayed headless on its delivered executable (the script rebuilt and
+  its hash checked against the report) with a capture every 600 frames; the six captures of each set were put on a contact
+  sheet and inspected by the specialist agent. All 26 sets reach play. The sheets stay in the maintainer's build folder
+  (`.build/cps1-165d/captures`): they show commercial games.
+- **Extended level** (a third route of 18,000 pseudo-random frames) on `sf2ce`, `ffight` and `1941`: 0 interpreted 68000 and
+  Z80 instructions, 451,738,928, 343,094,818 and 349,448,315 native 68000 instructions over the three routes, every check
+  passed; the picture changes up to the last frame of the long route (17,997 for `ffight`). The captures every 3,000 frames
+  show `sf2ce` fighting, game over, title and a new game, `ffight` deep in its first stage, `1941` looping through play and
+  title.
+- Not measured: the comparison with MAME (still the 24 and 27 October figures), the Z80 vectors, Linux, hardware fidelity,
+  complete playthroughs, physical latency and speed. The wall times of the conversions (50 to 260 s) are not timings.

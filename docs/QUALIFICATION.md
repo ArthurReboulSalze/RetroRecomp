@@ -39,13 +39,13 @@ x68 = Sharp X68000.
 |---|---|---|---|---|---|---|---|---|---|
 | G1 | P | P | P | Y | Y | P | Y | Y | Y |
 | G2 | P | P | P | P | P | Y | Y | Y | P |
-| G3 | Y | Y | P | P | Y | Y | Y | P | Y |
+| G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | P |
-| G8 | ? | ? | ? | P | P | Y | Y | P | P |
-| G9 | P | P | P | P | Y | P | Y | P | P |
+| G8 | ? | ? | ? | P | P | Y | Y | Y | P |
+| G9 | P | P | P | P | Y | P | Y | Y | P |
 | G10 | Y | Y | P | Y | P | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | P | P |
@@ -56,9 +56,8 @@ x68 = Sharp X68000.
 
 ### Caveats
 
-- CPS-1, G8 and G10 (29 October 2026): G8 is partial because the route liveness fields (pictures and sound moving on each
-  route) were measured on 11 of the 26 sets; G10 is partial because the 68000 vectors are replayed through the CPS-1 generator
-  and the Z80 corpus is not. Evidence: [CPS1.md](CPS1.md#independent-evidence-and-liveness-29-october-2026).
+- CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
+  rests on captures inspected by the specialist agent, not by the owner. G10 stays `P` (68000 vectors only, no Z80 corpus).
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
@@ -106,6 +105,31 @@ The four risk cases, converted one at a time with the 1.6.5 tree (standard scan 
 A conversion took 133 to 186 seconds on the Windows build PC with these three routes (the compressed replays are 28 to 39 of
 them). Picture and sound changing is not gameplay validation, and a route that stays on a title screen proves only that the
 machine runs.
+
+## Capcom CPS-1: evidence behind its column (29 October 2026)
+
+CPS-1 stays **experimental**. Each gate with the file or measure that shows it and what is still missing; nothing here says
+hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](CPS1.md#qualification), dated measurements in
+[CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes).
+
+| Gate | CPS-1 | Evidence | What is missing |
+|---|---|---|---|
+| G1 | Y | `retrorecomp/systems/cps1.py` (status `experimental`), README, COMPATIBILITY, the interface | |
+| G2 | Y | Common report v2 with separate 68000 and Z80 counters (`report_schema.py`) | |
+| G3 | Y | `final_checks[].interpreted_opcodes` and `audio_interpreted_opcodes` are 0 on both routes of the 26 sets of the table (29 October, one tree) | Only on the routes run |
+| G4 | Y | A fresh interpreted reference per route in every conversion (`final_checks[].reference_match`) | |
+| G5 | Y | The compressed copy replayed against the reference (`packed.replay.match`, `packing.compared_on`) | |
+| G6 | Y | F8/F9 in a fresh process, damaged state refused (`game_states.validation`) | |
+| G7 | - | No non-volatile memory on the standard boards | |
+| G8 | Y | `final_checks[].liveness` per route (pictures, last picture change, audible frames, last audible frame) for the 26 sets; a route whose picture never changes is refused | Four attract routes are silent (`dynwar`, `ghouls`, `mtwins`, `unsquad`); every set is audible on its play route |
+| G9 | Y | The credited play route of each of the 26 sets reaches play (six captures per set, replayed on the delivered file, inspected); the 18,000-frame route ran on `sf2ce`, `ffight` and `1941` | Inspected by the specialist agent, not by the owner; not full games |
+| G10 | P | The three SingleStepTests 68000 fixtures replayed through the CPS-1 generator: the native steps agree with 3,787 of 3,787 vectors and with 80 of 82 authored cases (`tools/cps1_vector_selftest.py`) | No independent Z80 vectors (the corpus has to be downloaded); the CPS-1 Musashi reference differs from the vectors in a few named groups |
+| G11 | P | MAME 0.289 comparison of 24 sets and of the sound of three (24 and 27 October) | Measured before 1.6.4 and not repeated; the harness of the 27 October run was not kept |
+| G12 | P | 26 sets, all measured on one tree | The panel size policy is not decided |
+| G13 | P | Final Fight gives the same route hashes on Windows and Debian 13 (27 October) | One set; not repeated on the 1.6.5 tree |
+| G14 | ? | No recorded owner decision (draft row below) | Arthur's play test |
+| G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
+| G16 | - | No CPS-1 path is qualified; the sharing can be withdrawn | |
 
 ## Panel sizes
 
