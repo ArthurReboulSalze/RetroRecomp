@@ -180,6 +180,9 @@ class SystemProfile(ABC):
     identify: Identify = Identify()
     # The machine is only convertible when the installation carries its files (``available``).
     developer_only: bool = False
+    # The shared groups of source files (stamp_inputs.py, keys ``shares:<name>``) this machine's game is built from:
+    # a machine that reuses the Mega Drive code generator names it here instead of editing a list of consoles.
+    stamp_groups: tuple[str, ...] = ()
 
     @property
     def options_tab(self) -> str:

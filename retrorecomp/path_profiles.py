@@ -311,54 +311,23 @@ def _p(**fields) -> Profile:
     return Profile(systems=tuple(system for system in SYSTEMS if section in SYSTEM_SECTIONS[system]), **fields)
 
 
-PROFILES = {
-    ('m68k', 'md'): _p(cpu='m68k', map='md', roles=('rom',),
-                       caps={'phys': 65536, 'insn': 2048},
-                       entry_align=2, entry_min=0x200, entry_tail=8,
-                       windows=((0xe00000, 0x1000000),), contained=True,
-                       length=(2, 16), length_align=2, address_align=2),
-    ('m68k', 'ng'): _p(cpu='m68k', map='ng', roles=('p', 'bios'),
-                       caps={'phys': 262144, 'phys_deltas': 2, 'insn': 4096},
-                       entry_align=2, entry_tail=2,
-                       windows=((0x100000, 0x110000),), contained=True, address_base=0x100000,
-                       length=(2, 16), length_align=2, offset_align=2, address_align=2),
-    ('m68k', 'cps1'): _p(cpu='m68k', map='cps1', roles=('maincpu',),
-                         caps={'insn': 4096},
-                         windows=((0xff0000, 0x1000000),), contained=True,
-                         length=(2, 16), length_align=2, offset_align=2, address_align=2),
-    ('m68k', 'x68'): _p(cpu='m68k', map='x68', roles=('ipl', 'disk'),
-                        caps={'insn': 65536, 'span': 4096},
-                        windows=((0, 0xc00000), (0xe00000, 0xe80000), (0xea0000, 0xea2000),
-                                 (0xfc0000, 0xfffffe)),
-                        contained=True, length=(2, 16), length_align=2, offset_align=2, address_align=2,
-                        span_max=131072),
-    ('z80', 'sms'): _p(cpu='z80', map='sms', roles=('rom',),
-                       caps={'sega5': 65536, 'window4': 4096}, pc_below=0xbf01),
-    ('z80', 'md-sound'): _p(cpu='z80', map='md-sound', roles=('rom',),
-                            caps={'insn': 32768},
-                            windows=((0, 0x4000), (0x8000, 0x10000)),
-                            length=(4, 4), guard='derived'),
-    ('z80', 'ng-sound'): _p(cpu='z80', map='ng-sound', roles=('m1', 'sm1'),
-                            caps={'insn_masked': 32768},
-                            windows=((0xf800, 0x10000),), length=(4, 4), guard='mask'),
-    ('z80', 'cps1-sound'): _p(cpu='z80', map='cps1-sound', roles=('audiocpu',),
-                              caps={'insn_masked': 4096},
-                              windows=((0xd000, 0xd800),), length=(4, 4), guard='mask'),
-    ('sm83', 'gb'): _p(cpu='sm83', map='gb', roles=('rom',),
-                       caps={'gb_offsets': 65536, 'gb_rows': 65536},
-                       unit=0x4000, pc_window=(0, 0x7fff)),
-    ('mos6502', 'nes'): _p(cpu='mos6502', map='nes', roles=('rom',),
-                           caps={'nes_rows': 65536, 'opcode_ptr': 65536},
-                           unit=0x1000, pc_window=(0x8000, 0xffff),
-                           windows=((0, 0x2000), (0x6000, 0x10000)), guard='first'),
-    ('w65c816', 'snes'): _p(cpu='w65c816', map='snes', roles=('rom',),
-                            caps={'insn': 16384, 'opcode_ptr': 16384},
-                            windows=((0, 0x1000000),), length=(4, 4), guard='first'),
-    ('spc700', 'snes'): _p(cpu='spc700', map='snes', roles=('rom',),
-                           caps={'spc_refs': 262144, 'spc_ranges': 262144, 'spc_bitmaps': 262144,
-                                 'spc_deltas': 262144},
-                           windows=((0, 0xf0), (0x100, 0x10000)), guard='first', budget=262144),
-}
+def _shape_profiles() -> dict:
+    """Bounds of every (CPU family, memory map): each machine's profile declares the maps it introduces
+    (`PathSpec.shapes`), so a new machine adds none here."""
+    built = {}
+    for system, profile in _SPECS:
+        for cpu, name, fields in profile.path_spec.shapes:
+            if (cpu, name) in built:
+                raise ValueError(f'{system} declares the map {cpu}/{name} a second time')
+            built[(cpu, name)] = _p(cpu=cpu, map=name, **fields)
+    for system, sections in SYSTEM_SECTIONS.items():
+        for section in sections:
+            if section not in built:
+                raise ValueError(f'{system} uses the map {section[0]}/{section[1]}, which no machine declares')
+    return built
+
+
+PROFILES = _shape_profiles()
 
 # Every shape: (kind, row columns). A block that lists several sources has a
 # leading `src` column (an index into its `srcs`).

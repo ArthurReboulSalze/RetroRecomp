@@ -328,7 +328,8 @@ class LegacyReceiptTests(unittest.TestCase):
     def test_without_an_entry_a_1_6_2_receipt_is_converted_in_full(self):
         # What the X68000 gets (its request needs real disks and firmware, so a console with an entry stands for it).
         from retrorecomp import freshness
-        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_162)), ['cps1', 'md', 'ng', 'snes', 'x68'])
+        nine = {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1'}
+        self.assertEqual(sorted((inputs.SYSTEMS & nine) - set(GAME_STAMPS_162)), ['cps1', 'md', 'ng', 'snes', 'x68'])
         with tempfile.TemporaryDirectory() as folder, patch.dict(inputs.LEGACY_GAME_STAMPS, {}, clear=True):
             item, parts = self.parts('sms')
             self.assertEqual(parts['legacy_games'], [])

@@ -35,21 +35,29 @@ def ids(block: dict) -> list[str]:
 NAMES = [f'Game {letter} (USA).nes' for letter in 'ABCDEFGHIJKLMNOPQRST']
 
 
+NINE = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
+
+
+def nine(table):
+    """The rows of the nine consoles of 1.6.2 (a machine registered later is not pinned here)."""
+    return {key: value for key, value in table.items() if key in NINE}
+
+
 class DerivedTablesTests(unittest.TestCase):
     """The consoles, folders, extensions and gates of the campaign come from the profiles (1.6.3)."""
 
     def test_the_tables_are_those_of_1_6_2(self):
         # Pinned as literals: deriving them from the profiles must not move a single entry.
-        self.assertEqual(campaign.DEFAULT_FOLDERS, {
+        self.assertEqual(nine(campaign.DEFAULT_FOLDERS), {
             'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive', 'snes': 'snes',
             'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'})
-        self.assertEqual(campaign.EXTENSIONS, {
+        self.assertEqual(nine(campaign.EXTENSIONS), {
             'sms': ('.sms', '.zip'), 'gg': ('.gg', '.zip'), 'gb': ('.gb', '.zip'), 'nes': ('.nes', '.zip'),
             'md': ('.md', '.gen', '.smd', '.bin', '.zip'), 'snes': ('.sfc', '.smc', '.zip'),
             'ng': ('.zip',), 'cps1': ('.zip',), 'x68': ('.dim', '.xdf')})
-        self.assertEqual(set(campaign.REQUIRE_PACKED), {'ng', 'cps1'})
-        self.assertEqual(set(campaign.REQUIRE_STATES), {'ng', 'cps1', 'x68'})
-        self.assertEqual(set(campaign.ROMSET_CONSOLES), {'ng', 'cps1'})
+        self.assertEqual(set(campaign.REQUIRE_PACKED) & set(NINE), {'ng', 'cps1'})
+        self.assertEqual(set(campaign.REQUIRE_STATES) & set(NINE), {'ng', 'cps1', 'x68'})
+        self.assertEqual(set(campaign.ROMSET_CONSOLES) & set(NINE), {'ng', 'cps1'})
 
     def test_every_registered_machine_is_a_console_of_the_campaign(self):
         ids = tuple(profile.id for profile in ALL_PROFILES)
@@ -494,8 +502,10 @@ class RiskCaseFileTests(unittest.TestCase):
         self.cases = json.loads((ROOT / 'tools' / 'campaign-risk-cases.json').read_text(encoding='utf-8'))
 
     def test_every_console_has_cases_with_a_reason_and_a_document_that_exists(self):
-        self.assertEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
         experimental = {profile.id for profile in ALL_PROFILES if profile.status == 'experimental'}
+        # Every console has a list, but an experimental machine just registered may have none at all yet.
+        self.assertLessEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
+        self.assertLessEqual(set(campaign.CONSOLES) - set(self.cases['consoles']), experimental)
         for console, entries in self.cases['consoles'].items():
             # Arthur, 27 Oct 2026: about half of the first lists, five at most, plus two random games (7 a console).
             # A machine that has just joined the registry may have no case yet while it is experimental.
@@ -511,7 +521,8 @@ class RiskCaseFileTests(unittest.TestCase):
         for console, entries in self.cases['consoles'].items():
             titles = [entry['title'] for entry in entries]
             self.assertEqual(len(titles), len(set(titles)), console)
-            self.assertGreaterEqual(len({entry['category'] for entry in entries}), 3, console)
+            if entries:  # an experimental machine may have no case yet
+                self.assertGreaterEqual(len({entry['category'] for entry in entries}), 3, console)
 
     def test_arcade_cases_name_sets_the_converter_catalogue_knows(self):
         for console in ('ng', 'cps1'):

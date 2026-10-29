@@ -20,7 +20,14 @@ class MegaDriveProfile(SystemProfile):
     quick_frames = 1200
     option_keys = (OptionKey('md_advanced_scan'),)
     path_spec = PathSpec(order=4, sections=(('m68k', 'md'), ('z80', 'md-sound')),
-                         source_bounds=(('rom', CARTRIDGE_BOUNDS),), required_sources=('rom',))
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS),), required_sources=('rom',),
+                         shapes=(('m68k', 'md', dict(roles=('rom',), caps={'phys': 65536, 'insn': 2048},
+                                                     entry_align=2, entry_min=0x200, entry_tail=8,
+                                                     windows=((0xe00000, 0x1000000),), contained=True,
+                                                     length=(2, 16), length_align=2, address_align=2)),
+                                 ('z80', 'md-sound', dict(roles=('rom',), caps={'insn': 32768},
+                                                          windows=((0, 0x4000), (0x8000, 0x10000)),
+                                                          length=(4, 4), guard='derived'))))
     report_shape = ReportShape('console16', 'native_percentage')
     catalogues = Catalogues(libretro='libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis', screenscraper=1,
                             thegamesdb=18, wikidata=('Q10676',), cover_references=True)
@@ -28,6 +35,7 @@ class MegaDriveProfile(SystemProfile):
     input_layout = InputLayout(('a', 'b', 'c'), ('x', 'y', 'z'), None, 240, script_format='console16')
     shared_knowledge = SharedKnowledge('stable', site_builder=True)
     host_adapter = 'adapters/rrhk_md.c'
+    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'md_prefetch', 'guns16')
     identify = Identify(content_order=2)
 
     def identify_content(self, data: bytes):
@@ -70,7 +78,14 @@ class SnesProfile(SystemProfile):
     quick_frames = 1200
     option_keys = (OptionKey('md_advanced_scan'),)
     path_spec = PathSpec(order=5, sections=(('w65c816', 'snes'), ('spc700', 'snes')),
-                         source_bounds=(('rom', CARTRIDGE_BOUNDS),), required_sources=('rom',))
+                         source_bounds=(('rom', CARTRIDGE_BOUNDS),), required_sources=('rom',),
+                         shapes=(('w65c816', 'snes', dict(roles=('rom',), caps={'insn': 16384, 'opcode_ptr': 16384},
+                                                          windows=((0, 0x1000000),), length=(4, 4), guard='first')),
+                                 ('spc700', 'snes', dict(roles=('rom',),
+                                                         caps={'spc_refs': 262144, 'spc_ranges': 262144,
+                                                               'spc_bitmaps': 262144, 'spc_deltas': 262144},
+                                                         windows=((0, 0xf0), (0x100, 0x10000)), guard='first',
+                                                         budget=262144))))
     report_shape = ReportShape('console16', 'native_percentage')
     catalogues = Catalogues(libretro='libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
                             screenscraper=4, thegamesdb=6, wikidata=('Q183259',), cover_references=True)
@@ -78,6 +93,7 @@ class SnesProfile(SystemProfile):
     input_layout = InputLayout(('a', 'b', 'x', 'y'), ('l', 'r'), 'select', 240, script_format='console16')
     shared_knowledge = SharedKnowledge('stable', site_builder=True)
     host_adapter = 'adapters/rrhk_snes.c'
+    stamp_groups = ('guns16',)
     identify = Identify(content_order=4)
 
     def identify_content(self, data: bytes):

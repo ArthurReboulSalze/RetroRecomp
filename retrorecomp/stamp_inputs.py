@@ -38,6 +38,14 @@ ALL = '*'
 # The consoles that own the files of one CPU family: those whose profile declares the CPU. A machine with that CPU
 # joins the family by being registered (systems/registry.py), not by an edit here.
 M68000_FAMILY = tuple(profile.id for profile in ALL_PROFILES if any(cpu.arch == 'm68000' for cpu in profile.cpus))
+# The machines on the 16-bit host family (quick-state ABI 'rr16') and those on the host kit (they name an adapter).
+RR16_FAMILY = tuple(profile.id for profile in ALL_PROFILES if profile.quick_state_family == 'rr16')
+HOST_KIT_FAMILY = tuple(profile.id for profile in ALL_PROFILES if profile.host_adapter)
+
+
+def sharing(group: str) -> tuple:
+    """The machines whose profile reuses one shared group of files (`SystemProfile.stamp_groups`)."""
+    return tuple(profile.id for profile in ALL_PROFILES if group in profile.stamp_groups)
 
 
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
@@ -157,9 +165,9 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
-    'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
-    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc',
-    'hostkit/adapters/rrhk_sms.c', 'hostkit/adapters/rrhk_gb.inc'))
+    # (the adapters of the machines on the kit are added from their profiles below)
+    'hostkit/adapters/rrhk_x68k.inc')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
+                                                    if profile.host_adapter)
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
@@ -188,9 +196,52 @@ NOT_INPUTS = (
     'licenses/upx-5.3.0-src.tar.xz')
 
 # The manifest: module names ('retrorecomp.x') and file paths below the bundle root,
-# with the consoles that own each.
+# with the consoles that own each. A key is ALL, a tuple of console ids, or a name resolved from the profiles:
+# 'family:rr16', 'family:host_kit', 'family:m68000' (what the profiles declare: quick-state family, host-kit adapter,
+# CPUs) and 'shares:<group>' (the machines whose profile lists the group in `stamp_groups`). A machine joins a
+# shared group by saying so in its profile, not by an edit here; its own files are one more tuple key.
+_FAMILIES = {'family:rr16': RR16_FAMILY, 'family:host_kit': HOST_KIT_FAMILY, 'family:m68000': M68000_FAMILY}
+# The names of the shared groups the manifest defines (a profile's `stamp_groups` must name some of them).
+SHARED_GROUPS = set()
 
-INPUTS = {
+
+def _resolve(entries: dict) -> dict:
+    """The manifest with every key an owner tuple. Groups with the same owners are merged, and what the profiles
+    state alone is added: each machine's host-kit adapter file and (unless listed) its profile module."""
+    resolved: dict = {}
+
+    def add(owners, names):
+        if owners:
+            resolved[owners] = tuple(sorted({*resolved.get(owners, ()), *names}))
+
+    for key, names in entries.items():
+        if key == ALL or isinstance(key, tuple):
+            owners = key
+        elif key in _FAMILIES:
+            owners = _FAMILIES[key]
+        elif key.startswith('shares:'):
+            SHARED_GROUPS.add(key.partition(':')[2])
+            owners = sharing(key.partition(':')[2])
+        else:
+            raise ValueError('Unknown manifest key: ' + repr(key))
+        resolved[owners] = tuple(sorted({*resolved.get(owners, ()), *names}))
+    listed = {name for names in resolved.values() for name in names}
+    adapters: dict = {}
+    modules: dict = {}
+    for profile in ALL_PROFILES:
+        if profile.host_adapter:
+            adapters.setdefault('native/hostkit/' + profile.host_adapter, []).append(profile.id)
+        module = type(profile).__module__
+        if module.startswith('retrorecomp.') and module not in listed:
+            modules.setdefault(module, []).append(profile.id)
+    for name, owners in (*adapters.items(), *modules.items()):
+        if name not in listed:
+            add(tuple(owners), (name,))
+    return resolved
+
+
+
+INPUTS = _resolve({
     ALL: (
         'THIRD_PARTY_NOTICES.md',
         'assets/Retro-Recomp-icon-128.png',
@@ -234,6 +285,19 @@ INPUTS = {
         'licenses/zlib-ng.md',
         'licenses/zlib.md',
         'native/CMakeLists.txt',
+        'native/console16_video.h',
+        'native/hostkit/hostkit.h',
+        'native/hostkit/hostkit_internal.h',
+        'native/hostkit/shell/rrhk_audio.c',
+        'native/hostkit/shell/rrhk_events.c',
+        'native/hostkit/shell/rrhk_input.c',
+        'native/hostkit/shell/rrhk_main.c',
+        'native/hostkit/shell/rrhk_menu.c',
+        'native/hostkit/shell/rrhk_options.c',
+        'native/hostkit/shell/rrhk_pointer.c',
+        'native/hostkit/shell/rrhk_ring.c',
+        'native/hostkit/shell/rrhk_timing.c',
+        'native/hostkit/shell/rrhk_video.c',
         'native/audio_checks.c',
         'native/audio_cushion.h',
         'native/audio_filter.h',
@@ -309,6 +373,7 @@ INPUTS = {
         'retrorecomp.batch',
         'retrorecomp.branding',
         'retrorecomp.cartridge16',
+        'retrorecomp.conversion_common',
         'retrorecomp.core',
         'retrorecomp.cover_keyring',
         'retrorecomp.cover_references',
@@ -342,7 +407,6 @@ INPUTS = {
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
-        'native/hostkit/adapters/rrhk_gb.inc',
         'retrorecomp.gameboy',
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',
@@ -350,10 +414,8 @@ INPUTS = {
         'retrorecomp.gameboy_hardware',
         'retrorecomp.gameboy_host',
         'retrorecomp.gameboy_runtime',
-        'retrorecomp.systems.game_boy',
     ),
     ('nes',): (
-        'native/hostkit/adapters/rrhk_nes.c',
         'native/nes_audio_checks.c',
         'native/nes_dense_checks.c',
         'native/nes_dense_codegen.inc',
@@ -379,11 +441,9 @@ INPUTS = {
         'retrorecomp.nes_optimization',
         'retrorecomp.nes_ram',
         'retrorecomp.nes_runtime',
-        'retrorecomp.systems.nes',
     ),
     ('md',): (
         'native/md_audio_bridge_checks.c',
-        'native/hostkit/adapters/rrhk_md.c',
         'native/md_audio_loop.inc',
         'native/md_audio_mix.h',
         'native/md_audio_mix_checks.c',
@@ -449,7 +509,6 @@ INPUTS = {
     ),
     ('snes',): (
         'native/snes_backend.c',
-        'native/hostkit/adapters/rrhk_snes.c',
         # Below native/ in a folder of its own: the save-state key hashes the files directly below native/.
         'native/snes_cpu/interrupt_checks.c',
         'native/snes_battery.c',
@@ -494,7 +553,6 @@ INPUTS = {
     ),
     ('ng',): (
         'assets/neogeo-catalogue.json',
-        'native/hostkit/adapters/rrhk_ng.c',
         'native/neogeo_board_checks.c',
         'native/neogeo_code_view.inc',
         'native/neogeo_controls_checks.c',
@@ -530,7 +588,6 @@ INPUTS = {
         'retrorecomp.neogeo_persistence_checks',
         'retrorecomp.neogeo_state_checks',
         'retrorecomp.neogeo_validation',
-        'retrorecomp.systems.neogeo',
     ),
     ('x68',): (
         'native/hostkit/adapters/rrhk_x68k.inc',
@@ -610,7 +667,6 @@ INPUTS = {
         'native/x68000_reference/timing_checks.h',
         'native/x68000_reference/video_checks.c',
         'native/x68000_reference/video_checks.h',
-        'retrorecomp.systems.x68000',
         'retrorecomp.x68000',
         'retrorecomp.x68000_conversion',
         'retrorecomp.x68000_media',
@@ -624,7 +680,6 @@ INPUTS = {
     ),
     ('cps1',): (
         'assets/cps1-catalogue.json',
-        'native/hostkit/adapters/rrhk_cps1.c',
         'licenses/cps1-machine.md',
         'licenses/cps1-ymfm.md',
         'native/cps1_host.c',
@@ -648,47 +703,44 @@ INPUTS = {
         'retrorecomp.cps1_codegen',
         'retrorecomp.cps1_conversion',
         'retrorecomp.cps1_knowledge',
-        'retrorecomp.systems.cps1',
     ),
     ('sms', 'gg'): (
-        'native/hostkit/adapters/rrhk_sms.c',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
         'retrorecomp.systems.game_gear',
         'retrorecomp.systems.master_system',
         'retrorecomp.validation',
     ),
-    # The shell every converter of these consoles shares: single-ROM path, checks, spawn layer of the probes, pinned
-    # checkouts and source patching, file writes. Game role. The X68000 converter adopted it with the gates below.
-    ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'): (
-        'retrorecomp.conversion_common',
-    ),
-    ('md', 'snes'): (
+    # The shell every converter shares (conversion_common) is under ALL above, with the host kit's shell (every console
+    # links it; console16_video.h is included by the kit's video shell). Game role.
+    'shares:guns16': (
         'retrorecomp.guns16',
     ),
-    ('md', 'x68'): (
+    'shares:md_prefetch': (
         'native/md_prefetch.inc',
     ),
-    ('md', 'cps1'): (
+    'shares:megadrive_z80': (
         'retrorecomp.megadrive_z80',
     ),
-    ('ng', 'x68'): (
+    'shares:neogeo_native': (
         'native/neogeo_native.c',
         'native/neogeo_native.h',
     ),
-    ('ng', 'cps1'): (
+    'shares:neogeo_build': (
         'retrorecomp.neogeo_build',
         'retrorecomp.neogeo_z80',
         'retrorecomp.zip_sets',
     ),
-    ('md', 'x68', 'cps1'): (
+    'shares:megadrive_codegen': (
         'retrorecomp.megadrive_codegen',
     ),
-    ('ng', 'x68', 'cps1'): (
+    'shares:conversion_gates': (
         'retrorecomp.conversion_gates',
+    ),
+    'shares:neogeo_codegen': (
         'retrorecomp.neogeo_codegen',
     ),
-    ('md', 'snes', 'ng', 'cps1'): (
+    'family:rr16': (
         'native/console16_main.c',
         'native/console16_state.c',
         'native/console16_state.h',
@@ -702,34 +754,17 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell: every console links it (phases 1 to 5). console16_video.h (rr16_video_rect) is
-    # included by the kit's video shell, so every export compiles it; game role.
-    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb'): (
-        'native/console16_video.h',
-        'native/hostkit/hostkit.h',
-        'native/hostkit/hostkit_internal.h',
-        'native/hostkit/shell/rrhk_audio.c',
-        'native/hostkit/shell/rrhk_events.c',
-        'native/hostkit/shell/rrhk_input.c',
-        'native/hostkit/shell/rrhk_main.c',
-        'native/hostkit/shell/rrhk_menu.c',
-        'native/hostkit/shell/rrhk_options.c',
-        'native/hostkit/shell/rrhk_pointer.c',
-        'native/hostkit/shell/rrhk_ring.c',
-        'native/hostkit/shell/rrhk_timing.c',
-        'native/hostkit/shell/rrhk_video.c',
-    ),
-    # Its staging module: the consoles whose projects get a copy of the kit (the X68000 compiles it from the tree).
+    # Its staging module: the machines on the kit get a copy of it in their project (the X68000 compiles it from the tree).
     # The Master System and the Game Gear get it beside the common runtime (prepare_native_source); the Game Boy gets it
     # in the runtime folder of its project (gameboy_host).
-    ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg', 'gb'): (
+    'family:host_kit': (
         'retrorecomp.hostkit',
     ),
-    M68000_FAMILY: (
+    'family:m68000': (
         'native/m68000_backend.c',
         'native/m68000_backend.h',
         'native/m68000_backend_checks.c',
         'native/m68000_state_helpers.h',
         'retrorecomp.m68000',
     ),
-}
+})

@@ -34,7 +34,13 @@ class NeoGeoProfile(SystemProfile):
         order=6, sections=(('m68k', 'ng'), ('z80', 'ng-sound')),
         source_bounds=(('cart', (4096, 512 << 20)), ('p', (512, 16 << 20)), ('bios', (0x20000, 0x20000)),
                        ('m1', (0x10000, 512 << 10)), ('sm1', (0x20000, 0x20000))),
-        required_sources=('cart', 'p', 'bios', 'm1', 'sm1'), hashed_sources=('cart', 'bios'))
+        required_sources=('cart', 'p', 'bios', 'm1', 'sm1'), hashed_sources=('cart', 'bios'),
+        shapes=(('m68k', 'ng', dict(roles=('p', 'bios'), caps={'phys': 262144, 'phys_deltas': 2, 'insn': 4096},
+                                    entry_align=2, entry_tail=2, windows=((0x100000, 0x110000),), contained=True,
+                                    address_base=0x100000, length=(2, 16), length_align=2, offset_align=2,
+                                    address_align=2)),
+                ('z80', 'ng-sound', dict(roles=('m1', 'sm1'), caps={'insn_masked': 32768},
+                                         windows=((0xf800, 0x10000),), length=(4, 4), guard='mask'))))
     report_shape = ReportShape('neogeo_conversion', 'prepared_cartridge')
     catalogues = Catalogues(libretro='libretro-thumbnails/SNK_-_Neo_Geo',
                             wikidata=('Q1054350', 'Q3338058', 'Q64428080'), cover_references=True,
@@ -44,6 +50,7 @@ class NeoGeoProfile(SystemProfile):
                                script_suffix='.inputs')
     shared_knowledge = SharedKnowledge('stable')
     host_adapter = 'adapters/rrhk_ng.c'
+    stamp_groups = ('conversion_gates', 'neogeo_codegen', 'neogeo_build', 'neogeo_native')
     # A .neo container, or a ZIP whose members are named like a cartridge set (program, sprites, sound).
     identify = Identify(path_order=30)
 

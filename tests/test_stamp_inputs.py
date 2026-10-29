@@ -91,8 +91,9 @@ class ManifestTests(unittest.TestCase):
             self.assertTrue(any(name.endswith('.' + module) for name in listed), module)
         for name in stamp_inputs.HOST_NATIVE:
             self.assertIn('native/' + name, listed)
+        from retrorecomp.systems import system_ids
         for key in stamp_inputs.INPUTS:
-            self.assertTrue(key == stamp_inputs.ALL or set(key) <= set(CONSOLES), key)
+            self.assertTrue(key == stamp_inputs.ALL or set(key) <= set(system_ids()), key)
         for name in listed:
             if not name.startswith('retrorecomp'):
                 inputs._file_kind(name)  # every listed type is classified as text or binary
@@ -101,8 +102,9 @@ class ManifestTests(unittest.TestCase):
         # There is no default scope by file name any more (the old `owners()` rules): a name's owners are the
         # consoles whose list holds it, and every listed name has at least one.
         self.assertFalse(hasattr(inputs, 'owners'))
+        from retrorecomp.systems import system_ids
         for name in inputs.manifest_names():
-            owners = [system for system in CONSOLES if name in inputs.manifest_names(system)]
+            owners = [system for system in system_ids() if name in inputs.manifest_names(system)]
             self.assertTrue(owners, name)
 
     def test_each_profile_module_is_owned_by_at_least_the_consoles_it_defines(self):
@@ -111,7 +113,7 @@ class ManifestTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             defined.setdefault(type(profile).__module__, set()).add(profile.id)
         for module, systems in defined.items():
-            owners = {system for system in CONSOLES if module in inputs.manifest_names(system)}
+            owners = {profile.id for profile in ALL_PROFILES if module in inputs.manifest_names(profile.id)}
             # Possibly by more: other consoles share a profile module (Neo Geo and CPS-1 link the 16-bit family's).
             self.assertLessEqual(systems, owners, module)
 
@@ -119,11 +121,31 @@ class ManifestTests(unittest.TestCase):
         from retrorecomp.systems import ALL_PROFILES
         family = tuple(profile.id for profile in ALL_PROFILES if any(cpu.arch == 'm68000' for cpu in profile.cpus))
         self.assertEqual(family, stamp_inputs.M68000_FAMILY)
-        self.assertEqual(family, ('md', 'ng', 'x68', 'cps1'))
+        self.assertEqual(tuple(system for system in family if system in CONSOLES), ('md', 'ng', 'x68', 'cps1'))
         self.assertIn(family, stamp_inputs.INPUTS)
         for name in stamp_inputs.INPUTS[family]:
-            for system in CONSOLES:
+            for system in (profile.id for profile in ALL_PROFILES):
                 self.assertEqual(system in family, name in inputs.manifest_names(system), (name, system))
+
+    def test_the_shared_groups_are_the_ones_the_profiles_name(self):
+        from retrorecomp.systems import ALL_PROFILES
+        used = {group for profile in ALL_PROFILES for group in profile.stamp_groups}
+        self.assertEqual(used, stamp_inputs.SHARED_GROUPS, 'a profile names a group nobody defines, or a group has no machine')
+        # The reuse chains of the nine consoles of 1.6.2, now stated by the profiles.
+        self.assertEqual(stamp_inputs.sharing('megadrive_codegen')[:3], ('md', 'x68', 'cps1'))
+        self.assertEqual(stamp_inputs.sharing('conversion_gates')[:3], ('ng', 'x68', 'cps1'))
+        self.assertEqual(stamp_inputs.sharing('guns16')[:2], ('md', 'snes'))
+        self.assertEqual(stamp_inputs.RR16_FAMILY[:4], ('md', 'snes', 'ng', 'cps1'))
+        self.assertEqual(stamp_inputs.HOST_KIT_FAMILY[:8], ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'))
+
+    def test_the_host_adapters_and_profile_modules_come_from_the_profiles(self):
+        from retrorecomp.systems import ALL_PROFILES
+        for profile in ALL_PROFILES:
+            names = inputs.manifest_names(profile.id)
+            self.assertIn('retrorecomp.systems.' + type(profile).__module__.rsplit('.', 1)[-1], names, profile.id)
+            if profile.host_adapter:
+                self.assertIn('native/hostkit/' + profile.host_adapter, names, profile.id)
+                self.assertEqual(inputs.role('native/hostkit/' + profile.host_adapter), 'host')
 
     def test_the_registration_list_is_an_interface_module_and_the_profile_data_is_game_side(self):
         self.assertIn('registry', stamp_inputs.INTERFACE_MODULES)
@@ -161,8 +183,9 @@ class ManifestTests(unittest.TestCase):
                 out = Path(folder) / (command + '.json')
                 subprocess.run([sys.executable, '-B', str(ROOT / 'RetroRecomp.py'), command, str(out)], cwd=ROOT, check=True)
                 written = json.loads(out.read_text(encoding='utf-8'))
-                self.assertEqual(sorted(written), sorted(CONSOLES))
-                self.assertEqual(written, {system: expected(system) for system in CONSOLES})
+                from retrorecomp.systems import system_ids
+                self.assertEqual(sorted(written), sorted(system_ids()))
+                self.assertEqual(written, {system: expected(system) for system in system_ids()})
 
     def test_stamps_do_not_enumerate_the_disk(self):
         with patch('pkgutil.iter_modules', side_effect=AssertionError('modules are listed, not discovered')):

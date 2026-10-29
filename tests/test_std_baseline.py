@@ -25,8 +25,9 @@ class StdBaselineTests(unittest.TestCase):
         second = self.run_baseline()
         self.assertEqual(first, second)
         document = json.loads(first)
-        self.assertEqual(sorted(document['consoles']), sorted(CONSOLES))
-        for system in CONSOLES:
+        from retrorecomp.systems import system_ids
+        self.assertEqual(sorted(document['consoles']), sorted(system_ids()))  # every registered machine
+        for system in document['consoles']:
             with self.subTest(system=system):
                 entry = document['consoles'][system]
                 self.assertEqual(len(entry['role_stamps']), 3)

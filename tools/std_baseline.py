@@ -24,8 +24,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from retrorecomp import compilation_inputs, freshness  # noqa: E402
+from retrorecomp.systems import ALL_PROFILES, system_ids  # noqa: E402
 
-SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
+# Every registered machine, in registration order: a new machine is photographed with no edit here.
+SYSTEMS = system_ids()
 
 # One tiny fixed fixture stands in for cartridge paths that request_parts
 # hashes (never a ROM: constant non-ROM bytes, deleted when the script ends).
@@ -39,24 +41,27 @@ ITEMS = (
 )
 
 # Three option sets per console: defaults, one non-standard scan level and
-# console-specific options (ng_bios/x68_ipl deliberately point at the fixture
-# so the calls stay ROM-free and fail deterministically). Every set disables
+# console-specific options. The first firmware a machine asks for (ng_bios, x68_ipl...) deliberately points at the
+# fixture so the calls stay ROM-free and fail deterministically (read from the profile). Every set disables
 # the cover lookup: the artwork import needs Pillow, and this photograph must
 # stay standard-library-only; the ng/x68 calls that require real BIOS/disk
 # data raise and are recorded as exceptions instead.
 DEFAULT_OPTIONS = {'use_cover': False}
 SCAN_OPTIONS = {'use_cover': False, 'scan_level': 'thorough'}
-CONSOLE_OPTIONS = {
-    'sms': {'use_cover': False, 'frames': 18000},
-    'gg': {'use_cover': False, 'frames': 9000},
-    'gb': {'use_cover': False, 'passes': 2},
-    'nes': {'use_cover': False, 'nes_advanced_scan': True},
-    'md': {'use_cover': False, 'md_advanced_scan': True},
-    'snes': {'use_cover': False, 'md_advanced_scan': True},
-    'ng': {'use_cover': False, 'ng_bios': 'fixture'},
-    'x68': {'use_cover': False, 'x68_ipl': 'fixture'},
-    'cps1': {'use_cover': False, 'passes': 3},
+# What tunes a console's conversion beyond its firmware; a machine that needs none is not listed.
+TUNING = {
+    'sms': {'frames': 18000},
+    'gg': {'frames': 9000},
+    'gb': {'passes': 2},
+    'nes': {'nes_advanced_scan': True},
+    'md': {'md_advanced_scan': True},
+    'snes': {'md_advanced_scan': True},
+    'cps1': {'passes': 3},
 }
+CONSOLE_OPTIONS = {
+    profile.id: {'use_cover': False, **TUNING.get(profile.id, {}),
+                 **({f'{profile.id}_{profile.firmware[0]}': 'fixture'} if profile.firmware else {})}
+    for profile in ALL_PROFILES}
 
 
 @dataclass

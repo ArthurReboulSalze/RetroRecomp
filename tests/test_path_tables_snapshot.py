@@ -7,13 +7,15 @@ HASHED_SOURCES, the shared-knowledge lists), `random_routes` (CONSOLES and the s
 holds those tables as they were then (taken on the 1.6.2 tree with the P1 profile fields, before the change) and
 the digest of the random routes that every console generates for fixed seeds, so the derivation from the
 `SystemProfile` fields is proved to give identical results. Only numbers and names are stored, no ROM byte.
-A new machine changes these tables on purpose: it then adds its rows here (docs/NEW_MACHINE.md).
+The tables are pinned for these nine consoles only: a machine registered later brings its own rows through its profile
+and adds nothing here (docs/NEW_MACHINE.md); `only` leaves its rows out of the comparison.
 """
 import hashlib
 import json
 import tempfile
 import unittest
-from dataclasses import asdict, is_dataclass
+import re
+from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
 
 from retrorecomp import compiled_games_view, knowledge_build, path_profiles as pp, random_routes as rr
@@ -21,6 +23,7 @@ from retrorecomp.systems import ALL_PROFILES
 
 # --- Expected data, as the literal tables of 1.6.2 held them ------------------------------------------------
 
+NINE = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68')
 SYSTEMS = ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68']
 SYSTEM_SECTIONS = {'sms': [['z80', 'sms']],
  'gg': [['z80', 'sms']],
@@ -132,6 +135,24 @@ def plain(value):
     return value
 
 
+def only(value):
+    """The rows of the nine consoles of 1.6.2: a table keyed by console or a list of consoles, without the machines
+    registered since."""
+    if isinstance(value, dict):
+        return {key: item for key, item in value.items() if key in NINE}
+    return [item for item in value if item in NINE]
+
+
+def nine_profiles() -> dict:
+    """The CPU profiles the nine consoles use, each naming only those of them."""
+    shown = {}
+    for key, profile in pp.PROFILES.items():
+        systems = tuple(system for system in profile.systems if system in NINE)
+        if systems:
+            shown[key] = replace(profile, systems=systems)
+    return shown
+
+
 def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
@@ -161,7 +182,7 @@ def route_digests() -> tuple[dict, dict]:
                         items.append((key, type(error).__name__ + ':' + str(error)))
         if console in ('x68', 'zx'):
             errors[console] = sorted({value for _, value in items})
-        else:
+        elif console in NINE:
             digests[console] = hashlib.sha256(json.dumps(items).encode()).hexdigest()
     return digests, errors
 
@@ -173,29 +194,34 @@ class PathTablesTests(unittest.TestCase):
                                ('HASHED_SOURCES', HASHED_SOURCES), ('LEGACY_FIELDS', LEGACY_FIELDS),
                                ('ROM_BOUNDS', ROM_BOUNDS)):
             with self.subTest(name):
-                self.assertEqual(plain(getattr(pp, name)), expected)
+                live = plain(getattr(pp, name))
+                self.assertEqual(only(live) if name != 'ROM_BOUNDS' else live, expected)
 
     def test_the_order_of_the_schema_is_kept(self):
         # The schema lists CPS-1 before the X68000; the documents and the registration list do it the other way.
-        self.assertEqual(list(pp.SYSTEMS), SYSTEMS)
-        self.assertEqual(list(pp.SYSTEM_SECTIONS), SYSTEMS)
-        self.assertEqual(list(pp.SOURCE_BOUNDS), SYSTEMS)
-        self.assertEqual([profile.id for profile in ALL_PROFILES][-2:], ['x68', 'cps1'])
-        self.assertEqual(pp.GAME_KEY.pattern, GAME_KEY)
+        self.assertEqual(only(list(pp.SYSTEMS)), SYSTEMS)
+        self.assertEqual(only(list(pp.SYSTEM_SECTIONS)), SYSTEMS)
+        self.assertEqual(only(list(pp.SOURCE_BOUNDS)), SYSTEMS)
+        self.assertEqual([profile.id for profile in ALL_PROFILES if profile.id in NINE][-2:], ['x68', 'cps1'])
+        alternatives = re.fullmatch(r'\(\?:(.*)\):\[0-9a-f\]\{64\}', pp.GAME_KEY.pattern).group(1).split('|')
+        self.assertEqual(only(alternatives), SYSTEMS)
+        self.assertEqual(GAME_KEY, '(?:' + '|'.join(SYSTEMS) + '):[0-9a-f]{64}')
 
     def test_the_cpu_profiles_are_unchanged_and_the_two_sega_machines_share_the_z80(self):
-        self.assertEqual(['/'.join(key) for key in pp.PROFILES], PROFILE_ORDER)
-        self.assertEqual({'/'.join(key): list(profile.systems) for key, profile in pp.PROFILES.items()},
-                         PROFILE_SYSTEMS)
+        # The profiles are built from the machines' `PathSpec.shapes` (registration order): the dictionary's own order
+        # was never read, so it is compared as a set.
+        shown = nine_profiles()
+        self.assertEqual(sorted('/'.join(key) for key in shown), sorted(PROFILE_ORDER))
+        self.assertEqual({'/'.join(key): list(profile.systems) for key, profile in shown.items()}, PROFILE_SYSTEMS)
         self.assertEqual(pp.PROFILES[('z80', 'sms')].systems, ('sms', 'gg'))
-        self.assertEqual(digest(plain(pp.PROFILES)), PROFILES_SHA256)
+        self.assertEqual(digest(plain(shown)), PROFILES_SHA256)
 
     def test_the_shared_knowledge_lists_are_unchanged(self):
         for name, expected in (('STABLE_SHARED', STABLE_SHARED), ('EXPERIMENTAL_SHARED', EXPERIMENTAL_SHARED),
                                ('SHARED_SYSTEMS', SHARED_SYSTEMS), ('WITHDRAWABLE', WITHDRAWABLE),
                                ('WITHDRAWN', WITHDRAWN), ('SCHEMA3_ONLY', SCHEMA3_ONLY)):
             with self.subTest(name):
-                self.assertEqual(list(getattr(pp, name)), expected)
+                self.assertEqual(only(list(getattr(pp, name))), expected)
 
     def test_the_names_that_stay_written_out_are_unchanged(self):
         public = sorted(name for name in dir(pp) if name.isupper() and not name.startswith('_'))
@@ -205,8 +231,20 @@ class PathTablesTests(unittest.TestCase):
         self.assertEqual(digest(rest), OTHER_SHA256)
 
     def test_the_knowledge_lists_are_unchanged(self):
-        self.assertEqual(list(knowledge_build.SYSTEMS), KNOWLEDGE_BUILD_SYSTEMS)
-        self.assertEqual(list(compiled_games_view.SHARED_CONSOLES), SHARED_CONSOLES)
+        self.assertEqual(only(list(knowledge_build.SYSTEMS)), KNOWLEDGE_BUILD_SYSTEMS)
+        self.assertEqual(only(list(compiled_games_view.SHARED_CONSOLES)), SHARED_CONSOLES)
+
+    def test_each_map_is_declared_by_exactly_one_machine(self):
+        # `PathSpec.shapes`: a new machine declares the maps it introduces and edits no table of path_profiles.
+        declared = [(cpu, name) for profile in ALL_PROFILES if profile.path_spec is not None
+                    for cpu, name, _ in profile.path_spec.shapes]
+        self.assertEqual(len(declared), len(set(declared)))
+        self.assertEqual(set(declared), set(pp.PROFILES))
+        for profile in ALL_PROFILES:
+            if profile.path_spec is not None:
+                for section in profile.path_spec.sections:
+                    self.assertIn(section, pp.PROFILES, profile.id)
+                    self.assertIn(profile.id, pp.PROFILES[section].systems)
 
     def test_the_tables_follow_the_profiles(self):
         # Where each table now comes from: nothing is listed twice.
@@ -226,7 +264,7 @@ class PathTablesTests(unittest.TestCase):
 
 class RouteTablesTests(unittest.TestCase):
     def test_the_pad_tables_are_unchanged(self):
-        self.assertEqual(plain(rr.CONSOLES), ROUTE_CONSOLES)
+        self.assertEqual(only(plain(rr.CONSOLES)), ROUTE_CONSOLES)
 
     def test_every_console_generates_the_same_routes(self):
         digests, errors = route_digests()
