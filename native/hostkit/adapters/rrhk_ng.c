@@ -55,7 +55,8 @@ static void help_lines(int slot, const char **lines, int *count) {
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
     rrhk_menu_line(ctx, y, rrhk_tr("Arrows + W/X/C/V: A/B/C/D", "Fleches + W/X/C/V : A/B/C/D"));
-    rrhk_menu_line(ctx, y + RR_MENU_LINE, rr_ng_aes() ? "Enter: Start; Shift/Back: Select" :
+    /* In AES the Coin action drives nothing (rr_ng_host_coin_bits), so only Start is listed. */
+    rrhk_menu_line(ctx, y + RR_MENU_LINE, rr_ng_aes() ? rrhk_tr("Enter / pad Start: cartridge Start", "Entree / Start manette : Start jeu") :
                                                        rrhk_tr("Enter: Start; Shift/Back: coin", "Entree : Start; Maj/Back : credit"));
 }
 
