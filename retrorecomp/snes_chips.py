@@ -81,7 +81,8 @@ def identify(data):
     if kind in (0,1,2):return 'none'
     if mode==0x20 and kind==0xf3 and offset>=16 and data[offset-1]==0x10:return 'cx4'
     if mode==0x20 and kind==3:return 'dsp1-lo'
-    if mode==0x31 and kind==5 and mapping=='hirom':return 'dsp1-hi'
+    # HiROM DSP-1 boards: the DSP-1 sits at $00-$1F:$6000-$7FFF; type $05 adds battery RAM at $20-$3F:$6000-$7FFF, type $03 has none.
+    if mode==0x31 and kind in (3,5) and mapping=='hirom':return 'dsp1-hi'
     if mode==0x20 and kind in SUPERFX_TYPES and mapping=='lorom':return 'superfx'
     family=({1:'Super FX',3:'SA-1',4:'S-DD1'}.get(kind>>4) or
             ('DSP-4' if mode==0x30 and kind==3 else
@@ -112,7 +113,7 @@ def loader(source):
     start=source.index('  bool has_smk_title =')
     end=source.index('  if (has_smk_dsp1_map)',start)
     return source[:start]+'''  bool has_smk_dsp1_hirom = has_nec_dsp && headers[used].speed==3 &&
-      headers[used].type==1 && headers[used].chips==5;
+      headers[used].type==1 && (headers[used].chips==3 || headers[used].chips==5);
 '''+source[end:]
 
 

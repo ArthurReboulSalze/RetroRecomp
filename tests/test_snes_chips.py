@@ -18,10 +18,10 @@ class ChipTests(unittest.TestCase):
         data[offset+21:offset+25]=bytes((mode,kind,6,ram));data[offset-1]=sub
         return SimpleNamespace(data=bytes(data),mapping=mapping)
     def test_header_support_is_circuit_scoped_and_not_title_scoped(self):
-        for mode,kind,sub,want in ((0x20,3,0,'dsp1-lo'),(0x31,5,0,'dsp1-hi'),(0x20,0xf3,0x10,'cx4')):
+        for mode,kind,sub,want in ((0x20,3,0,'dsp1-lo'),(0x31,5,0,'dsp1-hi'),(0x31,3,0,'dsp1-hi'),(0x20,0xf3,0x10,'cx4')):
             rom=self.rom(mode,kind,sub);self.assertEqual(identify(rom.data),want)
             validate_cartridge(rom)
-        for mode,kind,sub in ((0x30,3,0),(0x20,5,0),(0x30,5,0),(0x20,0xf3,0),(0x20,0x16,0),(0x21,0x13,0),(0x20,0x43,0)):
+        for mode,kind,sub in ((0x30,3,0),(0x20,5,0),(0x30,5,0),(0x20,0xf3,0),(0x20,0x16,0),(0x21,0x13,0),(0x20,0x43,0),(0x21,3,0),(0x21,5,0),(0x30,5,0)):
             with self.subTest(mode=mode,kind=kind):
                 with self.assertRaises(ConversionError):identify(self.rom(mode,kind,sub).data)
     def test_support_remains_scoped_to_qualified_circuits(self):
@@ -29,7 +29,7 @@ class ChipTests(unittest.TestCase):
             for kind in (0,1,2):
                 with self.subTest(mode=mode,kind=kind):
                     self.assertEqual(support_stage(self.rom(mode,kind,ram=int(kind!=0))),'supported')
-        for mode,kind,sub in ((0x20,3,0),(0x31,5,0),(0x20,0xf3,0x10)):
+        for mode,kind,sub in ((0x20,3,0),(0x31,5,0),(0x31,3,0),(0x20,0xf3,0x10)):
             self.assertEqual(support_stage(self.rom(mode,kind,sub)),'supported')
         for mode,kind in ((0x23,0x35),(0x20,0x16),(0x20,0x43)):
             with self.assertRaises(ConversionError):support_stage(self.rom(mode,kind))
@@ -55,6 +55,13 @@ class ChipTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 with self.assertRaises(ConversionError):
                     support_stage(self.rom(mode, 0))
+    def test_hirom_dsp1_board_without_ram_has_the_dsp_window_and_no_battery_window(self):
+        # Lock On, Suzuka 8 Hours, Super Air Diver 2... carry $31 / $03: the HiROM DSP-1 board of Super Mario Kart
+        # ($31 / $05) without its battery RAM.
+        rom=self.rom(0x31,3);memory=layout_bytes(rom.data,rom.mapping)
+        self.assertEqual((memory['bytes'],memory['battery'],memory['chip']),(0,False,'dsp1-hi'))
+        for addr in (0x206000,0x207fff,0x006000,0x007000):self.assertIsNone(ram_offset(memory,addr))
+        self.assertEqual(support_stage(rom),'supported')
     def test_dsp1_battery_window_does_not_become_code_or_overlap_ports(self):
         rom=self.rom(0x31,5,ram=1);memory=layout_bytes(rom.data,rom.mapping)
         self.assertEqual((memory['bytes'],memory['battery']),(2048,True))
@@ -62,7 +69,7 @@ class ChipTests(unittest.TestCase):
         for addr in (0x006000,0x007000,0x708000,0x700000):self.assertIsNone(ram_offset(memory,addr))
         self.assertEqual(ram_offset(memory,0xa067ff),2047)
     def test_native_lookup_still_guards_exact_chip_size_and_fetched_opcode(self):
-        for mode,kind,sub,cart in ((0x20,3,0,'CART_DSP1'),(0x31,5,0,'CART_DSP1_HIROM'),(0x20,0xf3,0x10,'CART_CX4')):
+        for mode,kind,sub,cart in ((0x20,3,0,'CART_DSP1'),(0x31,5,0,'CART_DSP1_HIROM'),(0x31,3,0,'CART_DSP1_HIROM'),(0x20,0xf3,0x10,'CART_CX4')):
             rom=self.rom(mode,kind,sub)
             source=native_source(source_fixture(),rom.data,mapping=rom.mapping)
             self.assertIn('cart->type == '+cart,source)

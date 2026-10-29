@@ -39,7 +39,7 @@ being mistaken for an invalid ROM.
 | Video | PPU 1 and PPU 2: modes 0-7, 224 or 239 lines, hires modes 5/6 and pseudo-hires, interlace, OBJ evaluation and fetch, window and colour math | Hardware model of the pinned engine, with our adaptations: PAL/NTSC geometry, persistent OBJ cursor, PPU port collisions, both hires dots and both interlace fields, register journal replay. Rendered by the host kit |
 | DMA and HDMA | Eight channels, HDMA from line 0 | Run on the guest bus timeline (byte-level arbitration, refresh holds, parked-CPU handling). The renderer replays recorded PPU writes and never charges that replay as CPU time |
 | Memory | 128 KiB work RAM; cartridge ROM (mirrored like the loader's power-of-two storage); cartridge RAM, battery or volatile (ordinary boards up to 128 KiB; Super FX Game Pak RAM from the extended header, 64 KiB by default) | Decoded by one checked cartridge decoder shared by the CPU fast path and the bus; holes return the CPU data latch (open bus) |
-| DSP-1 | Maths coprocessor on LoROM or HiROM boards | Firmware-free command model (alias decode, camera and raster projection); each command is counted. Commands that dump firmware stop validation. Timing is command modelling, not electrical timing |
+| DSP-1 | Maths coprocessor on LoROM or HiROM boards (HiROM: map `$31`, cartridge type `$05` with battery RAM or `$03` without; the DSP-1 window is `$00-$1F:$6000-$7FFF`) | Firmware-free command model (alias decode, camera and raster projection); each command is counted. Commands that dump firmware stop validation. Timing is command modelling, not electrical timing |
 | CX4 | HG51B-based coprocessor (Mega Man X2 is the reference board) | Existing instruction core with synthesised constants. Its instructions stay interpreted and are counted on their own device line |
 | Super FX (GSU) | MARIO chip, GSU-1 and GSU-2 boards, map `$20`, types `$13`-`$15` and `$1A` | Instruction-level core of the pinned engine, a counted interpreted device. Static recompilation of GSU code is not done: see [SNES_SUPERFX.md](SNES_SUPERFX.md) |
 | Controllers | Two pads (auto-read and manual `$4016` strobe), Super Scope on port 2 | Host kit adapter. Super Scope: [GUNS_16BIT.md](GUNS_16BIT.md). The Justifier uses another serial protocol and is catalogued only |
@@ -214,6 +214,19 @@ one reconversion with the 1.6.4 tree found **no unexplained interpreted 65816 or
   native table uses only address and opcode (Earthworm Jim: 81 variants at 2 addresses; Secret of Mana: 9,208 variants at
   8,725 address and opcode pairs in the maintainer's library). Past the cap, the highest addresses are dropped when the
   library is read, and the overflow counter is only in the scenario reports, not in the conversion log.
+
+### HiROM DSP-1 boards without RAM (29 October 2026)
+
+Seven cartridges of the maintainer's library carry map `$31` and cartridge type `$03` (a DSP-1, no RAM): Lock On, Super Air Diver 2,
+Suzuka 8 Hours, Michael Andretti's IndyCar Challenge, Ballz 3D, Soukou Kihei Votoms and a translation of Ace o Nerae!. They were
+refused as "custom circuitry" although the pinned engine already maps the HiROM DSP-1 (window `$00-$1F:$6000-$7FFF`, status
+register at `$7000`, battery RAM at `$20-$3F:$6000-$7FFF` only when the board has RAM): the loader only took type `$05`
+(Super Mario Kart and five other HiROM DSP-1 games). Type `$03` is now recognised on map `$31`; DSP-2 (`$20/$05`), DSP-4
+(`$30/$03`) and the slow-ROM `$21` variants stay refused. Lock On converts with zero interpreted 65816 and SPC700 opcodes after one
+learning pass; its standard scenarios send no command to the DSP-1, so the exported game was replayed on two 9,000-frame
+pseudo-random routes (no scan level has run them): 109,558 and 60,081 DSP-1 commands, none failed, still zero interpreted
+65816 and SPC700 opcodes. The device is counted apart (`command_model`); this is no hardware-fidelity, gameplay or latency claim,
+and the six other cartridges were recognised but not converted here.
 
 Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](SNES_SUPERFX.md); the DSP-1/CX4 release
 1.0.0 campaign, the live-RAM guards, bus, DMA/HDMA, PPU and cartridge-decoder work in [SNES_LOG.md](SNES_LOG.md).
