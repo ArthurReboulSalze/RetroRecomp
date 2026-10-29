@@ -45,7 +45,7 @@ def exercise(pal):
                            0xa9,0x78,0x56,0x8d,(base+2)&255,(base+2)>>8)))
     code.extend(bytes.fromhex('cb 80 fd'))
     data[:len(code)]=code;path=work/'authored.sfc';path.write_bytes(data)
-    exe=prepare16(path,'snes',emit=lambda _:None);project=exe.parents[2]
+    exe=prepare16(path,'snes',emit=lambda _:None);project=next(parent for parent in exe.parents if (parent/'CMakeLists.txt').is_file())
     (project/'console16_main.c').write_text((ROOT/'native/snes_video_checks.c').read_text(),encoding='utf-8')
     cmake,_=toolchain();run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=work/'build.log')
     result=json.loads(run([exe],cwd=work).strip().splitlines()[-1]);(work/'results.json').write_text(json.dumps(result,indent=2)+'\n');return result

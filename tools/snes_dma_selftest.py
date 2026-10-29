@@ -11,7 +11,7 @@ def main():
     for pal in (False,True):
         standard='pal' if pal else 'ntsc';path=work/(standard+'.sfc');data=cartridge(bytes.fromhex('40'),pal)
         data[0x7fc0:0x7fd5]=b'RR DMA PPU CHECKS'.ljust(21,b' ');path.write_bytes(data)
-        exe=prepare16(path,'snes',emit=lambda _:None);project=exe.parents[2]
+        exe=prepare16(path,'snes',emit=lambda _:None);project=next(parent for parent in exe.parents if (parent/'CMakeLists.txt').is_file())
         (project/'console16_main.c').write_text((ROOT/'native/snes_dma_checks.c').read_text(),encoding='utf-8')
         cmake,_=toolchain();run([cmake,'--build',project/'build','--config','Release','--parallel','4'],log=work/(standard+'-build.log'))
         cases.append(json.loads(run([exe],cwd=work).strip().splitlines()[-1])|{'standard':standard})
