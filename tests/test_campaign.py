@@ -502,8 +502,10 @@ class RiskCaseFileTests(unittest.TestCase):
         self.cases = json.loads((ROOT / 'tools' / 'campaign-risk-cases.json').read_text(encoding='utf-8'))
 
     def test_every_console_has_cases_with_a_reason_and_a_document_that_exists(self):
-        self.assertEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
         experimental = {profile.id for profile in ALL_PROFILES if profile.status == 'experimental'}
+        # Every console has a list, but an experimental machine just registered may have none at all yet.
+        self.assertLessEqual(set(self.cases['consoles']), set(campaign.CONSOLES))
+        self.assertLessEqual(set(campaign.CONSOLES) - set(self.cases['consoles']), experimental)
         for console, entries in self.cases['consoles'].items():
             # Arthur, 27 Oct 2026: about half of the first lists, five at most, plus two random games (7 a console).
             # A machine that has just joined the registry may have no case yet while it is experimental.
