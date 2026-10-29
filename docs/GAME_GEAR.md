@@ -38,7 +38,7 @@ The project's own checks do not establish hardware fidelity, complete gameplay o
 | **PSG** with stereo port | `native/psg_runs.inc`, `audio_output.inc` | Port `$06` is the Game Gear stereo register (the PSG catches up to the guest clock before it is written); the host output is stereo |
 | **Start button** | port `$00` | Read through the guest-driven pad refresh like the other ports |
 | **Light Phaser** | none | Not on this console |
-| **Sprite flicker reduction (F5)** | `native/hostkit/adapters/rrhk_sms.c` | The option exists on the Master System and the Game Gear, but it is currently unavailable on the Game Gear: a regression of 1.6.3 (the move to the common host kit) makes the host answer "Config unavailable" to F5, and it is to be fixed |
+| **Sprite flicker reduction (F5)** | `native/hostkit/adapters/rrhk_sms.c` | Master System only: on the Game Gear F5 answers "Config unavailable" (since 0.25.0; the renderer could support it, the option was never offered here) |
 
 The wider internal raster is never revealed in this version, and games are not patched. That avoids incomplete graphics
 at the borders and keeps the result faithful to the handheld's visible area. See the
@@ -77,9 +77,8 @@ moves the game stamps of both consoles.
   saved Enter there wins over the cartridge Start.
 - **Display.** The 160 × 144 picture, whole-pixel scaling, F3 filters, F4 display modes as on the other consoles
   ([CONTROLS.md](CONTROLS.md), [VIDEO.md](VIDEO.md)). Audio: [AUDIO.md](AUDIO.md).
-- **F5** (sprite flicker reduction) exists on the Master System and the Game Gear, but is currently unavailable on the Game Gear:
-  a regression of 1.6.3 (the move to the common host kit) makes the host answer "Config unavailable" and hides the F2 row,
-  and it is to be fixed. Until then F5 has no effect here, although the help line and the pause page still list it.
+- **F5** (sprite flicker reduction) is a Master System option: on the Game Gear the host answers "Config unavailable"
+  (since 0.25.0) and shows no F2 row, although the help line and the pause page still list it.
 
 ## States and saves
 
