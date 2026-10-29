@@ -6,7 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from retrorecomp.core import run, toolchain
+from retrorecomp.core import ConversionError, run, toolchain
 from retrorecomp.nes_machine import prepare_machine
 from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args
 
@@ -55,6 +55,14 @@ target_link_libraries({target} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
             result = dict(pal=pal, zapper=zapper, mapper=mapper, checkpoints=2800, identical=True)
             print(json.dumps(result), flush=True)
             results.append(result)
+    # A constant-mapper build must refuse another cartridge: that refusal is what makes the constant exact.
+    other = next(m for m in MAPPERS if m != 0)
+    try:
+        run([build_executable(project / 'build', 'static0_00'), str(other)], timeout=240)
+    except ConversionError:
+        print(json.dumps(dict(static_mapper=0, refused_mapper=other, refused=True)), flush=True)
+    else:
+        raise RuntimeError('A build with a constant mapper accepted another mapper')
     (project / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
 
 
