@@ -15,8 +15,50 @@ static HANDLE game_lock=INVALID_HANDLE_VALUE;
 #include <unistd.h>
 static int game_lock=-1;
 #endif
-static int safe_path(const wchar_t *path) {
 #ifdef _WIN32
+/* Wide Win32 calls stop at MAX_PATH (260 characters, 248 for a folder) unless the path carries the extended-length
+ * prefix, so a game placed deep in a folder tree could not prepare its private data. Only the operating-system calls
+ * see the prefixed copy; every path kept or returned stays as given, and a short path is used as it is. */
+#define OS_PATH_LONG 240
+#define OS_PATH_CAPACITY 4112
+static int is_separator(wchar_t c) {return c==L'\\'||c==L'/';}
+static const wchar_t *os_path(const wchar_t *path,wchar_t *out) {
+    wchar_t full[4096];size_t at=0;
+    if(wcslen(path)<OS_PATH_LONG||!wcsncmp(path,L"\\\\?\\",4)||!wcsncmp(path,L"\\\\.\\",4))return path;
+    int unc=is_separator(path[0])&&is_separator(path[1]);
+    if(!unc&&!(path[0]&&path[1]==L':'&&is_separator(path[2]))){
+        DWORD n=GetFullPathNameW(path,4096,full,NULL);if(!n||n>=4096)return NULL;path=full;
+        unc=is_separator(path[0])&&is_separator(path[1]);
+    }
+    if(unc){wmemcpy(out,L"\\\\?\\UNC\\",8);at=8;path+=2;}
+    else{wmemcpy(out,L"\\\\?\\",4);at=4;}
+    size_t length=wcslen(path);if(length>=4096)return NULL;
+    for(size_t i=0;i<=length;i++)out[at+i]=path[i]==L'/'?L'\\':path[i];
+    return out;
+}
+static FILE *os_fopen(const wchar_t *path,const wchar_t *mode) {
+    wchar_t long_path[OS_PATH_CAPACITY];const wchar_t *p=os_path(path,long_path);return p?rr_fopen(p,mode):NULL;
+}
+static int os_mkdir(const wchar_t *path) {
+    wchar_t long_path[OS_PATH_CAPACITY];const wchar_t *p=os_path(path,long_path);return p&&rr_mkdir(p);
+}
+static int os_replace(const wchar_t *from,const wchar_t *to) {
+    wchar_t long_from[OS_PATH_CAPACITY],long_to[OS_PATH_CAPACITY];
+    const wchar_t *a=os_path(from,long_from),*b=os_path(to,long_to);return a&&b&&rr_replace(a,b);
+}
+static void os_remove(const wchar_t *path) {
+    wchar_t long_path[OS_PATH_CAPACITY];const wchar_t *p=os_path(path,long_path);if(p)rr_remove(p);
+}
+#else
+#define os_fopen rr_fopen
+#define os_mkdir rr_mkdir
+#define os_replace rr_replace
+#define os_remove rr_remove
+#endif
+static int safe_path(const wchar_t *given) {
+#ifdef _WIN32
+    wchar_t long_path[OS_PATH_CAPACITY];const wchar_t *path=os_path(given,long_path);
+    if(!path)return 0;
     DWORD attr=GetFileAttributesW(path);
     if(attr==INVALID_FILE_ATTRIBUTES)return GetLastError()==ERROR_FILE_NOT_FOUND||GetLastError()==ERROR_PATH_NOT_FOUND;
     if(attr&FILE_ATTRIBUTE_REPARSE_POINT)return 0;
@@ -27,6 +69,7 @@ static int safe_path(const wchar_t *path) {
     }
     return 1;
 #else
+    const wchar_t *path=given;
     char name[8192];struct stat st;if(!rr_to_utf8(path,name,sizeof(name)))return 0;
     if(lstat(name,&st))return errno==ENOENT;
     return S_ISDIR(st.st_mode)||(S_ISREG(st.st_mode)&&st.st_nlink==1);
@@ -37,7 +80,7 @@ static int directories(wchar_t *path) {
         wchar_t old=*p;if(p==path||(p==path+2&&path[1]==':'))continue;
         *p=0;int ok=safe_path(path);*p=old;if(!ok)return 0;
     }
-    return safe_path(path)&&rr_mkdir(path);
+    return safe_path(path)&&os_mkdir(path);
 }
 int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
     char value[4096];wchar_t root[4096],file[4096],lock[4096];
@@ -47,7 +90,8 @@ int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
     if(!rr_from_utf8(value,file,4096)||rr_wide_append(root,4096,file)||!directories(root)||!rr_to_utf8(root,directory,capacity))return 0;
     rr_wide_copy(lock,4096,root);rr_wide_append(lock,4096,RR_SLASH_W L"session.lock");if(!safe_path(lock))return 0;
 #ifdef _WIN32
-    game_lock=CreateFileW(lock,GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+    {wchar_t long_lock[OS_PATH_CAPACITY];const wchar_t *lock_path=os_path(lock,long_lock);
+    game_lock=lock_path?CreateFileW(lock_path,GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL):INVALID_HANDLE_VALUE;}
     if(game_lock==INVALID_HANDLE_VALUE)return 0;
 #else
     if(!rr_to_utf8(lock,value,sizeof(value)))return 0;
@@ -65,7 +109,7 @@ int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
         if(!bytes||!size||!rr_from_utf8(item->path,tail,256))return 0;
         rr_wide_copy(file,4096,root);rr_wide_append(file,4096,RR_SLASH_W);rr_wide_append(file,4096,tail);
         if(!safe_path(file))return 0;
-        FILE *f=rr_fopen(file,L"rb");
+        FILE *f=os_fopen(file,L"rb");
         if(f){
             if(item->writable){fclose(f);continue;}
             size_t at=0;unsigned char chunk[65536];int ok=1;
@@ -74,9 +118,9 @@ int rr_x68k_payload_prepare(const char *base,char *directory,size_t capacity) {
         }
         wchar_t temporary[4096];rr_wide_copy(temporary,4096,file);rr_wide_append(temporary,4096,L".new");
         if(!safe_path(temporary))return 0;
-        f=rr_fopen(temporary,L"wb");if(!f)return 0;
+        f=os_fopen(temporary,L"wb");if(!f)return 0;
         int ok=fwrite(bytes,1,size,f)==size&&rr_flush_file(f);if(fclose(f))ok=0;
-        if(!ok||!rr_replace(temporary,file)){rr_remove(temporary);return 0;}
+        if(!ok||!os_replace(temporary,file)){os_remove(temporary);return 0;}
     }
     return 1;
 }
