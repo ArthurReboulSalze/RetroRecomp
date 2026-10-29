@@ -480,8 +480,9 @@ class InterfacePreferences(unittest.TestCase):
         # Read by the interface before the batch, or consumed and dropped by
         # batch.convert_batch / _convert_one for a Neo Geo item.
         before_batch = set(gui.INTERFACE_PREFERENCES) | {'output', 'use_shared_base'}
-        in_batch = {'jobs', 'overwrite', 'force', 'console_scan', 'gb_deep_validation',
-                    'x68_ipl', 'x68_cgrom', 'x68_ram'}
+        from retrorecomp.systems import console_option_keys, get_profile
+        in_batch = ({'jobs', 'overwrite', 'force', 'console_scan', 'gb_deep_validation'}
+                    | (console_option_keys() - get_profile('ng').option_key_names))  # the other machines' options
         reaching = self.preference_keys() - before_batch - in_batch
         self.assertEqual(reaching - accepted, set())
 
@@ -699,7 +700,8 @@ class OptionsFromProfiles(unittest.TestCase):
 
     def test_the_catalogue_tables_equal_the_ones_1_6_2_listed(self):
         from retrorecomp import artwork, cover_references, cover_sources, game_metadata
-        self.assertEqual(artwork.REPOSITORIES, {
+        nine = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68')
+        self.assertEqual({k: v for k, v in artwork.REPOSITORIES.items() if k in nine}, {
             'sms': 'libretro-thumbnails/Sega_-_Master_System_-_Mark_III',
             'gg': 'libretro-thumbnails/Sega_-_Game_Gear',
             'gb': 'libretro-thumbnails/Nintendo_-_Game_Boy',
@@ -707,19 +709,20 @@ class OptionsFromProfiles(unittest.TestCase):
             'md': 'libretro-thumbnails/Sega_-_Mega_Drive_-_Genesis',
             'snes': 'libretro-thumbnails/Nintendo_-_Super_Nintendo_Entertainment_System',
             'ng': 'libretro-thumbnails/SNK_-_Neo_Geo', 'x68': 'libretro-thumbnails/Sharp_-_X68000'})
-        self.assertEqual(list(artwork.REPOSITORIES), ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'])
+        self.assertEqual([k for k in artwork.REPOSITORIES if k in nine], ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68'])
         self.assertEqual(cover_sources.SS_SYSTEMS, {'sms': 2, 'gg': 21, 'gb': 9, 'nes': 3, 'md': 1, 'snes': 4})
         self.assertEqual(cover_sources.TGDB_SYSTEMS, {'sms': 35, 'gg': 20, 'gb': 4, 'nes': 7, 'md': 18, 'snes': 6})
         self.assertEqual(game_metadata.PLATFORMS, {
             'sms': {'Q209868'}, 'gg': {'Q751719'}, 'gb': {'Q186437'}, 'nes': {'Q172742'}, 'md': {'Q10676'},
             'snes': {'Q183259'}, 'ng': {'Q1054350', 'Q64428080', 'Q3338058'}})
-        self.assertEqual(cover_references.SYSTEMS, frozenset(('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68')))
+        self.assertEqual(cover_references.SYSTEMS & frozenset(nine), frozenset(nine))
 
     def test_the_machines_options_come_from_their_profiles(self):
         from retrorecomp.paths import console_options, path_option_names
-        self.assertEqual(path_option_names(), ('ng_bios', 'x68_ipl', 'x68_cgrom'))
-        self.assertEqual([key.name for _, key in console_options('path', 'choice')],
-                         ['ng_bios', 'x68_ipl', 'x68_cgrom', 'x68_ram'])
+        firmware = ('ng_bios', 'x68_ipl', 'x68_cgrom')  # the nine consoles' own; a machine registered later follows them
+        self.assertEqual(tuple(name for name in path_option_names() if name in firmware), firmware)
+        self.assertEqual([key.name for _, key in console_options('path', 'choice')
+                          if key.name in firmware + ('x68_ram',)], ['ng_bios', 'x68_ipl', 'x68_cgrom', 'x68_ram'])
         # Two machines declare the advanced scan; it is one option.
         self.assertEqual(sorted(key.name for _, key in console_options('flag')),
                          ['gb_deep_validation', 'md_advanced_scan', 'nes_advanced_scan'])

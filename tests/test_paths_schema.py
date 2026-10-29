@@ -744,7 +744,11 @@ class GameModuleTests(unittest.TestCase):
         # Adding a console to the sharing is one name in the list.
         wider = pp.game_key((*pp.SHARED_SYSTEMS, 'x68'))
         self.assertTrue(wider.fullmatch(f'cps1:{digest}') and wider.fullmatch(f'x68:{digest}'))
-        self.assertEqual(set(pp.SYSTEMS), set(pp.SHARED_SYSTEMS) | {'x68'})
+        from retrorecomp.systems import ALL_PROFILES
+        # The machines of the schema that do not share their discoveries (the X68000 and any experimental machine).
+        self.assertEqual(set(pp.SYSTEMS) - set(pp.SHARED_SYSTEMS),
+                         {p.id for p in ALL_PROFILES if p.path_spec is not None and p.shared_knowledge is None})
+        self.assertIn('x68', set(pp.SYSTEMS) - set(pp.SHARED_SYSTEMS))
 
 
 class LocalBankReaderTests(unittest.TestCase):

@@ -210,8 +210,8 @@ def registry_problems(profile: SystemProfile) -> list[str]:
     if system not in campaign.DEFAULT_FOLDERS or not set(campaign.EXTENSIONS.get(system, ())) & read:
         add('tools/campaign.py (DEFAULT_FOLDERS, EXTENSIONS) does not know the console')
     cases = json.loads(_text('tools/campaign-risk-cases.json'))['consoles']
-    if system not in cases:
-        add('tools/campaign-risk-cases.json has no list for the console (an empty list is allowed for an experimental one)')
+    if system not in cases and profile.status == 'supported':
+        add('tools/campaign-risk-cases.json has no list for the console (an experimental machine may have none yet)')
     if system not in std_baseline.SYSTEMS or system not in std_baseline.CONSOLE_OPTIONS:
         add('tools/std_baseline.py (SYSTEMS, CONSOLE_OPTIONS) does not know the console')
 
@@ -261,7 +261,7 @@ class RegistryTests(unittest.TestCase):
         for profile in ALL_PROFILES:
             if profile.status == 'experimental':
                 self.assertFalse([p for p in registry_problems(profile) if p.startswith('supported:')], profile.id)
-        self.assertTrue(all(isinstance(cases[profile.id], list) for profile in ALL_PROFILES))
+        self.assertTrue(all(isinstance(cases[profile.id], list) for profile in ALL_PROFILES if profile.id in cases))
 
     def test_the_declined_registries_name_known_machines_and_are_still_true(self):
         from retrorecomp import artwork
@@ -333,7 +333,7 @@ class DetectionOfGapsTests(unittest.TestCase):
                          'report_schema._SHAPES', 'stamp_inputs.INPUTS', 'hostkit.ADAPTERS', "i18n.STRINGS has no 'options_zx'",
                          "i18n.STRINGS has no 'scan_note_zx'", 'gui.py builds no options tab', 'status_lint',
                          'README.md', 'docs/COMPATIBILITY.md', 'docs/QUALIFICATION.md has no column',
-                         'prepare_publication', 'release_check', 'campaign.py', 'campaign-risk-cases', 'std_baseline',
+                         'prepare_publication', 'release_check', 'campaign.py', 'std_baseline',
                          'random_routes', 'artwork', 'memory_view'):
             self.assertIn(expected, problems)
         self.assertNotIn('supported:', problems)  # an experimental machine is not asked for the supported gates

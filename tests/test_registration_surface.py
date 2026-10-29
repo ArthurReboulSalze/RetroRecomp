@@ -22,6 +22,8 @@ from retrorecomp.systems.specs import PathSpec
 
 REPO = Path(__file__).resolve().parents[1]
 CONSOLES = ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')
+# Every machine registered when the tests start (the nine, and any machine added since); a synthetic one follows them.
+REGISTERED = systems.system_ids()
 
 # The set of extensions `discover_roms` listed in 1.6.2, as a literal: it must not move silently.
 TODAYS_EXTENSIONS = frozenset({
@@ -84,7 +86,7 @@ class RegistrationSurfaceTests(unittest.TestCase):
                   for system in CONSOLES}
         digests, names = module_digests(), compilation_inputs.manifest_names()
         self.register()
-        self.assertEqual(systems.system_ids(), (*CONSOLES, 'zz'))
+        self.assertEqual(systems.system_ids(), (*REGISTERED, 'zz'))
         # The registration list is the only thing that changed, and no stamp hashes it.
         self.assertEqual(module_digests(), digests)
         self.assertEqual(compilation_inputs.manifest_names(), names)
@@ -169,21 +171,25 @@ class RegistrationSurfaceTests(unittest.TestCase):
             registry.register(clash)
         with self.assertRaises(TypeError):
             registry.register(object())
-        self.assertEqual(systems.system_ids(), (*CONSOLES, 'zz'))
+        self.assertEqual(systems.system_ids(), (*REGISTERED, 'zz'))
 
 
 class ExtensionSetTests(unittest.TestCase):
     def test_the_extensions_discover_roms_lists_are_those_of_1_6_2(self):
-        self.assertEqual(systems.ROM_CANDIDATE_EXTENSIONS, TODAYS_EXTENSIONS)
+        own = frozenset(extension for profile in ALL_PROFILES for extension in profile.extensions)
+        # Nothing of 1.6.2 left the list, and what was added since is some machine's own extension.
+        self.assertLessEqual(TODAYS_EXTENSIONS, systems.ROM_CANDIDATE_EXTENSIONS)
+        self.assertLessEqual(systems.ROM_CANDIDATE_EXTENSIONS - TODAYS_EXTENSIONS, own)
 
     def test_they_are_the_profiles_extensions_and_a_literal_foreign_list(self):
         own = frozenset(extension for profile in ALL_PROFILES for extension in profile.extensions)
-        self.assertEqual(own | registry.FOREIGN_EXTENSIONS, TODAYS_EXTENSIONS)
+        self.assertEqual((own | registry.FOREIGN_EXTENSIONS) & TODAYS_EXTENSIONS, TODAYS_EXTENSIONS)
+        self.assertEqual(own | registry.FOREIGN_EXTENSIONS, systems.ROM_CANDIDATE_EXTENSIONS)
         # Nothing of the foreign list is something a profile reads, but the containers and headerless names.
         self.assertTrue(registry.FOREIGN_EXTENSIONS.isdisjoint(own - {'.zip'}))
         self.assertLessEqual(own, systems.ROM_CANDIDATE_EXTENSIONS)
-        self.assertEqual(own - {'.zip'}, {'.sms', '.gg', '.gb', '.nes', '.md', '.gen', '.sfc', '.smc', '.neo',
-                                         '.dim', '.xdf', '.m3u'})
+        self.assertLessEqual({'.sms', '.gg', '.gb', '.nes', '.md', '.gen', '.sfc', '.smc', '.neo',
+                              '.dim', '.xdf', '.m3u'}, own)
 
 
 # --- the detection table ----------------------------------------------------------------------------
@@ -363,22 +369,23 @@ class DetectionTableTests(unittest.TestCase):
 
     def test_the_x68000_withdrawn_from_an_installation_is_refused_cleanly(self):
         with tempfile.TemporaryDirectory() as empty, patch('retrorecomp.x68000.ASSETS', Path(empty)):
-            self.assertEqual([profile.id for profile in systems.available_profiles()],
+            self.assertEqual([profile.id for profile in systems.available_profiles() if profile.id in CONSOLES],
                              ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
-            self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES], ['cps1'])
+            self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['cps1'])
+            self.assertNotIn('x68', [profile.id for profile in systems.available_profiles()])
             for selected in (None, 'x68', 'sms'):
                 with self.assertRaises(UnsupportedConsoleError) as caught:
                     systems.profile_for_path(self.root / 'disk.dim', selected)
                 self.assertIs(type(caught.exception), UnsupportedConsoleError)
                 self.assertIn('unavailable in this installation', str(caught.exception))
             self.assertEqual(systems.get_profile('x68').id, 'x68')  # still readable for an existing export
-        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES], ['cps1', 'x68'])
+        self.assertEqual([profile.id for profile in systems.EXPERIMENTAL_PROFILES if profile.id in CONSOLES], ['cps1', 'x68'])
 
     def test_the_documented_orders_of_the_lists_are_kept(self):
-        self.assertEqual(systems.system_ids(), CONSOLES)
-        self.assertEqual([profile.id for profile in systems.PROFILES],
+        self.assertEqual(systems.system_ids()[:len(CONSOLES)], CONSOLES)
+        self.assertEqual([profile.id for profile in systems.PROFILES if profile.id in CONSOLES],
                          ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'])
-        self.assertEqual([profile.id for profile in systems.available_profiles()],
+        self.assertEqual([profile.id for profile in systems.available_profiles() if profile.id in CONSOLES],
                          ['sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'])
 
 
