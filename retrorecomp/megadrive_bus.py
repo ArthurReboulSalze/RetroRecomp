@@ -303,6 +303,7 @@ def machine(source):
         '        rr_lazy_close();\n'
         '        rr_z80_time-=MASTER_PER_LINE;rr_z80_limit-=MASTER_PER_LINE;rr_z80_grant-=MASTER_PER_LINE;\n'
         '        rr_local_request_time-=MASTER_PER_LINE;rr_local_ack_time-=MASTER_PER_LINE;\n'
+        '        rr_md_z80_cycle_shift(MASTER_PER_LINE);\n'
         '        m->master_cycle += MASTER_PER_LINE;')
     # Keep divider phase and instruction overrun independent of the legacy
     # 32-bit diagnostic clock. Pack them in the old tail's zeroed alignment

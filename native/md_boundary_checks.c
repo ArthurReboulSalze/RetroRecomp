@@ -225,8 +225,97 @@ static Result run(unsigned test,int mode) {
     r.z80_trace=events_hash(z80_events,z80_count);r.main_trace=events_hash(main_events,main_count);
     r.z80_events=z80_count;r.main_events=main_count;return r;
 }
+/* BUSACK after a line end (Barkley Shut Up and Jam! waits for the Z80 bus
+ * with MOVE.W #$100,$A11100; BTST #0,$A11100; BNE and no retry loop). The
+ * last sound-CPU instruction of a line may retire beyond the line while the
+ * 68000 stops at it, so at the next line the sound CPU can stand several
+ * machine cycles ahead. A request written early in that line must be granted
+ * at the end of the machine cycle in progress then (cycles end where the next
+ * access or instruction starts, the convention of md_bus_checks.c), not where
+ * the sound CPU now stands. The Z80 loop is LD A,($1000); JP 0 (cycles of at
+ * most 4 T, 60 master clocks), behind 0 to 22 NOPs so that its instruction
+ * straddles the line end at every phase. The 68000 runs from the start of
+ * the first line behind 112 to 124 NOPs, so that its write lands from about
+ * 140 master clocks before the line change to 190 after it, as in the game,
+ * whose MOVE.W began before the line change. Every BTST (about 112 master clocks after the write)
+ * must see the grant, and BUSACK may follow the request by at most one cycle
+ * plus the wait for the next Z80 clock (75 master clocks). Authored. */
+#define ACK_Z80_PAD 23u
+#define ACK_PAD_FIRST 112u
+#define ACK_PAD 13u
+#define ACK_BOUND 75
+static void busack_latency(void) {
+    unsigned cases=0,late=0,unseen=0,ahead=0;int64_t worst=0;char first[200]="";
+    for(unsigned z80_pad=0;z80_pad<ACK_Z80_PAD;++z80_pad)
+    for(unsigned pad=0;pad<ACK_PAD;++pad)
+    for(int mode=0;mode<4;++mode) {
+        repeat_boundaries=mode==1;host_only_boundaries=mode==2;lazy_boundaries=mode==3;
+        rr16_reset();GenesisMachine *m=&g_machine;
+        g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
+        rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
+        m->bus.z80_reset_off=1;m->bus.z80_busreq=m->bus.z80_reset_pending=0;
+        rr_md_z80_bus_reset();z80_own_reset(&m->z80);
+        m->z80.read_byte=read_byte;m->z80.write_byte=write_byte;
+        m->z80.sp=0x1ff0;m->z80.ix=0x1100;m->z80.iy=0x1200;
+        memset(m->bus.z80_ram,0,sizeof m->bus.z80_ram);memset(g_ram,0,sizeof g_ram);
+        unsigned z=z80_pad;                                    /* NOPs, then the loop */
+        m->bus.z80_ram[z]=0x3a;m->bus.z80_ram[z+1]=0x00;m->bus.z80_ram[z+2]=0x10;   /* LD A,($1000) */
+        m->bus.z80_ram[z+3]=0xc3;m->bus.z80_ram[z+4]=(uint8_t)z;m->bus.z80_ram[z+5]=0; /* JP loop */
+        uint16_t code[160];unsigned n=0;
+        for(unsigned i=0;i<ACK_PAD_FIRST+pad;++i)code[n++]=0x4e71;
+        code[n++]=0x33fc;code[n++]=0x0100;code[n++]=0x00a1;code[n++]=0x1100; /* MOVE.W #$100,$A11100 */
+        code[n++]=0x0839;code[n++]=0x0000;code[n++]=0x00a1;code[n++]=0x1100; /* BTST #0,$A11100 */
+        code[n++]=0x56c2;                                                    /* SNE D2: $FF if not granted */
+        code[n++]=0x60fe;                                                    /* BRA * */
+        for(unsigned i=0;i<n;++i)gbus_write16(&m->bus,0xff0100+i*2,code[i]);
+        g_cpu.D[2]=0x55;
+        m->bus.z80_ram[0x38]=0xed;m->bus.z80_ram[0x39]=0x4d;
+        m->bus.z80_bank=0x1c0;g_audio_cycle_counter=rr_vdp_cpu_origin=0;
+        switches=events=z80_count=main_count=0;g_mem_write_trace_fn=NULL;rr_md_lazy_rollback_trace=rollback;
+        direct_step=1;
+        /* Line one, sixteen host slices; both CPUs run. */
+        rr_md_cpu_stopped=0;
+        for(unsigned part=0;part<16;++part)
+            rr_bus_slice(m,part*3420u/16u,(part+1u)*3420u/16u,0,0);
+        /* The line change of machine_run_frame: line-relative clocks move by a line. */
+        rr_lazy_close();
+        rr_z80_time-=3420;rr_z80_limit-=3420;rr_z80_grant-=3420;
+        rr_local_request_time-=3420;rr_local_ack_time-=3420;
+#ifdef RR_Z80_CYCLE_ENDS
+        rr_md_z80_cycle_shift(3420);
+#endif
+        int64_t overrun=rr_z80_time;
+        /* Line two: the 68000's line origin moves; its clock runs on. */
+        unsigned before=3420u/7u,fraction=3420u%7u;
+        rr_vdp_cpu_origin=before;
+        for(unsigned part=0;part<16;++part)
+            rr_bus_slice(m,part*3420u/16u,(part+1u)*3420u/16u,before,fraction);
+        ++cases;if(overrun>0)++ahead;
+        int64_t latency=rr_local_ack_time-rr_local_request_time;
+        int seen=(g_cpu.D[2]&0xffu)==0;
+        if(!m->bus.z80_busreq || !rr_local_ack)latency=INT64_MAX;
+        if(latency>worst)worst=latency;
+        if(latency>ACK_BOUND)++late;
+        if(!seen)++unseen;
+        if(latency>ACK_BOUND || !seen) {
+            char line[200];
+            snprintf(line,sizeof line,"z80 pad %u, 68000 pad %u, mode %d: sound CPU ahead by %lld, request %lld, ack %lld, BTST %s",
+                     z80_pad,ACK_PAD_FIRST+pad,mode,(long long)overrun,(long long)rr_local_request_time,(long long)rr_local_ack_time,
+                     seen?"granted":"not granted");
+            fprintf(stderr,"busack case: %s\n",line);
+            if(!first[0])snprintf(first,sizeof first,"%s",line);
+        }
+    }
+    fprintf(stderr,"busack: %u cases (%u with the sound CPU ahead at the line start), %u late (> %d master), %u BTST without grant, worst %lld%s%s\n",
+            cases,ahead,late,ACK_BOUND,unseen,(long long)worst,first[0]?"; first: ":"",first);
+    printf("{\"busack_cases\":%u,\"busack_sound_cpu_ahead\":%u,\"busack_late\":%u,\"busack_btst_not_granted\":%u,\"busack_worst_master\":%lld}\n",
+           cases,ahead,late,unseen,(long long)worst);
+    CHECK(ahead && !late && !unseen);
+}
 int main(int argc,char **argv) {
     CHECK(rr16_init(true));nested_fibers();unsigned original_switches=0,reduced_switches=0;
+    if(argc>1 && !strcmp(argv[1],"--busack")) { busack_latency();rr16_shutdown();return 0; }
+    if(!(argc>1 && !strcmp(argv[1],"--sweep")))busack_latency();
     unsigned iterations=argc>1 && !strcmp(argv[1],"--benchmark")?16u:1u;
     uint64_t original_ticks=0,previous_ticks=0,reduced_ticks=0,deferred_ticks=0;
     unsigned previous_switches=0,deferred_switches=0;uint64_t rollbacks=rr_md_lazy_rollbacks;
