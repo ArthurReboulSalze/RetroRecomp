@@ -223,7 +223,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
             text=self.tr('brand_tagline'),
             anchor='nw', fill=COLORS['text'], font=(self.ui_font, 8), tags='brand_tagline')
         if os.name != 'nt':
-            self.app_icon = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
+            self.app_icon = tk.PhotoImage(master=app, file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
             app.iconphoto(True, self.app_icon)
         try:
             icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')

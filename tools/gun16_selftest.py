@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run, toolchain
 from retrorecomp.gun16_runtime import snes_joypad
+from retrorecomp.console16 import snes_ppu_header
 
 
 def main():
@@ -35,9 +36,7 @@ def main():
             shutil.copytree(engine / 'runner/src/snes', project / 'snes', dirs_exist_ok=True)
             shutil.copy2(engine / 'runner/src/types.h', project / 'types.h')
             ppu = project / 'snes/ppu.h'
-            ppu.write_text(ppu.read_text(encoding='utf-8').replace('typedef struct PpuPixelPrioBufs {',
-                'typedef struct __declspec(align(8)) PpuPixelPrioBufs {').replace(
-                '} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;'), encoding='utf-8')
+            ppu.write_text(snes_ppu_header(ppu.read_text(encoding='utf-8')), encoding='utf-8')
             joypad = project / 'snes/joypad.c'
             joypad.write_text(snes_joypad(joypad.read_text(encoding='utf-8')), encoding='utf-8')
             includes = f'"{prefix}/runner/src"'

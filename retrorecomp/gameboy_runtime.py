@@ -229,7 +229,9 @@ static void rr_gb_feedback(GBContext *ctx) {
     ${GBRT_DIR}/src/platform_io.c
 )''')
     source += '\nif(WIN32)\n    target_link_libraries(gbrt PUBLIC gdi32)\nendif()\n'
-    source += '\nif(NOT WIN32)\n    enable_language(ASM)\n    target_sources(game PRIVATE embedded_resources.c embedded_resources.S)\nendif()\n'
+    # The kit's shell in gbrt reads the resources (rrhk_main.c): they go with it, so that every program that links
+    # gbrt (the game, the self-tests' checks) finds rr_resource.
+    source += '\nif(NOT WIN32)\n    enable_language(ASM)\n    target_sources(gbrt PRIVATE embedded_resources.c embedded_resources.S)\nendif()\n'
     source += f'target_compile_definitions(gbrt PRIVATE [[RR_RECOMP_VERSION="{__version__}"]])\n'
     source += '\n# RetroRecomp Windows identity and box-art icon.\n'
     source += 'if(WIN32)\n    target_sources(game PRIVATE game_resources.rc)\nendif()\n'

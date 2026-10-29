@@ -195,7 +195,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -238,11 +238,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s26/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s26/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -277,7 +277,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -402,7 +402,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -451,11 +451,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s4/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s4/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -535,7 +535,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
     "system": {
@@ -599,7 +599,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -648,11 +648,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s30/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s30/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -732,7 +732,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
     "system": {
@@ -797,7 +797,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -849,11 +849,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s5/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s5/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -955,7 +955,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "extended",
     "status": "experimental",
     "system": {
@@ -1105,7 +1105,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1148,11 +1148,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s21/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s21/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -1187,7 +1187,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -1300,7 +1300,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "ca4f9ede8c7972fc9601a33b53f6440bd6f49b706ec7af903fadd5700b4e8779",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1354,11 +1354,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s7/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s7/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -1393,7 +1393,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -1469,7 +1469,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "c9a86d376aba8699ddfaf927ce6bc92b1436ae12ed7f729dc7e2600b1211ec33",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1534,11 +1534,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s8/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s8/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -1573,7 +1573,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -1637,7 +1637,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1680,11 +1680,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s9/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s9/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -1719,7 +1719,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -1781,7 +1781,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1824,11 +1824,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s16/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s16/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -1863,7 +1863,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -1925,7 +1925,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1968,11 +1968,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s15/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s15/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2007,7 +2007,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -2069,7 +2069,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2112,11 +2112,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s14/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s14/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2151,7 +2151,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -2285,7 +2285,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "c9a86d376aba8699ddfaf927ce6bc92b1436ae12ed7f729dc7e2600b1211ec33",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2339,11 +2339,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s13/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s13/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2378,7 +2378,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -2509,7 +2509,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "52747d7e3455e3393a85428e813ea57c4b83afaef51b5823a8c707540a725ecd",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2651,11 +2651,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s12/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s12/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2690,7 +2690,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -2758,7 +2758,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "ca4f9ede8c7972fc9601a33b53f6440bd6f49b706ec7af903fadd5700b4e8779",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2801,11 +2801,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s11/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s11/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2840,7 +2840,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -2902,7 +2902,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -2945,11 +2945,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s40/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s40/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -2984,7 +2984,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "043f35393b96fbca6648f2299de1306f707b761659820c74be73213ce650d94c",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -3066,7 +3066,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -3109,11 +3109,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s1/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s1/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -3148,7 +3148,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -3262,7 +3262,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "e0d622d90ad42b44e9659f3e6b1ee1fa3c40344995ba9caeb18f0235b509547c",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -3337,11 +3337,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s10/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s10/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -3421,7 +3421,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
     "system": {
@@ -3585,7 +3585,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -3634,11 +3634,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s3/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s3/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -3718,7 +3718,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
     "system": {
@@ -3782,7 +3782,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -3831,11 +3831,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s2/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s2/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -3915,7 +3915,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
     "status": "experimental",
     "system": {
@@ -3977,7 +3977,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -4020,11 +4020,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s32/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s32/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -4059,7 +4059,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -4137,7 +4137,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -4195,11 +4195,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s6/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s6/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Fake Game.exe",
+    "executable": "Fake Game",
     "exploration_checks": [
      {
       "automatic_disk_changes": 0,
@@ -4345,7 +4345,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "thorough",
     "status": "experimental",
     "system": {
@@ -4407,7 +4407,7 @@
       "state_restart_match": true
      },
      "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
-     "observations_sha256": "8ddefd865ae97872f0cc7f52261281b24e5b554f4dc29f45f0e4ea371e381663",
+     "observations_sha256": "<sha256>",
      "private_only": true,
      "schema": 1,
      "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -4450,11 +4450,11 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s37/tree/.build/x68/win/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s37/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
-    "executable": "Given title.exe",
+    "executable": "Given title",
     "exploration_checks": [],
     "final_checks": [
      {
@@ -4489,7 +4489,7 @@
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
-    "qualification_inputs_sha256": "9cf5322cd831c5248438f6dba2be7cbf850ebc406620b3421cbe8f4cf91bb0a4",
+    "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
     "status": "experimental",
     "system": {
@@ -4662,7 +4662,7 @@
     "stdout.log": ""
    },
    "outcome": {
-    "message": "X68000 replay failed: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxtail ÿ end",
+    "message": "X68000 replay failed: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxtail � end",
     "raised": "ConversionError"
    },
    "phases": [],

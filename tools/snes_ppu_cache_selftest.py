@@ -1,7 +1,6 @@
 """Compare exact decoded tile rows against the pinned scalar sampler."""
 from pathlib import Path
 import json
-import os
 import shutil
 import sys
 
@@ -10,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 from retrorecomp.core import run, toolchain
 from retrorecomp.platforms import build_executable, cmake_target_args, build_jobs
 from retrorecomp.snes_video import legacy
+from retrorecomp.console16 import snes_ppu_header
 
 
 def main():
@@ -22,11 +22,7 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(header_path, target)
     (staged / 'ppu_legacy.c').write_text(legacy((source / 'snes/ppu_legacy.c').read_text(), checks=True), encoding='utf-8')
-    header = (source / 'snes/ppu.h').read_text()
-    if os.name == 'nt':
-        header = header.replace('typedef struct PpuPixelPrioBufs {', 'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
-        header = header.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
-    (staged / 'ppu.h').write_text(header, encoding='utf-8')
+    (staged / 'ppu.h').write_text(snes_ppu_header((source / 'snes/ppu.h').read_text()), encoding='utf-8')
     for name in ('snes_ppu_cache.inc', 'snes_ppu_cache_checks.c', 'planar_rows.h'):
         shutil.copy2(ROOT / 'native' / name, project / name)
     (project / 'CMakeLists.txt').write_text(f'''cmake_minimum_required(VERSION 3.20)

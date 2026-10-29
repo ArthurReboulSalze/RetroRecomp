@@ -38,16 +38,25 @@ from tools.x68000_reference_check import HARDWARE_COLUMNS, TRACE_COLUMNS  # noqa
 GOLDEN_FILE = Path(__file__).with_name('x68000_common_golden.json')
 
 
-def scrub(value):
-    """Temporary folder names made by `tempfile` differ from run to run."""
+PER_SYSTEM_DIGESTS = ('qualification_inputs_sha256', 'observations_sha256')
+
+
+def scrub(value, key=None):
+    """Temporary folder names made by `tempfile` differ from run to run, and some values from one system to the other:
+    the workspace folder, the executable's suffix and the digests of text files written with the system's line ends
+    (both digests are only compared on the machine that wrote them)."""
     if isinstance(value, dict):
-        return {key: scrub(item) for key, item in value.items()}
+        return {name: scrub(item, name) for name, item in value.items()}
     if isinstance(value, list):
         return [scrub(item) for item in value]
     if isinstance(value, str):
+        if key in PER_SYSTEM_DIGESTS and re.fullmatch(r'[0-9a-f]{64}', value):
+            return '<sha256>'
+        if key == 'executable':
+            value = re.sub(r'\.exe$', '', value)
         value = re.sub(r'(qa|reference)-[a-z0-9_]{8}', r'\1-<X>', value)
         value = re.sub(r"No such file or directory: '.*'", "No such file or directory: '<path>'", value)
-        return re.sub(r'/x68/(win|linux)(-llvm)?/', '/x68/<os>/', value)
+        return re.sub(r'[/\\]x68[/\\](win|linux)(-llvm)?[/\\]', '/x68/<os>/', value)
     return value
 
 

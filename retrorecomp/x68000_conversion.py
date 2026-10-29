@@ -314,7 +314,7 @@ def replay(binary, folder, frames, events, *, reference=False, observe=False, ex
     with (folder/'stdout.log').open('wb') as out,(folder/'stderr.log').open('wb') as err:
         # No console window per validation run in the windowed converter (spawn).
         result=spawn(args,cwd=folder,timeout=max(360,frames//3),stdout=out,stderr=err)
-    check_exit(result,lambda _:ConversionError('X68000 replay failed: '+(folder/'stderr.log').read_text(errors='replace')[-2000:]))
+    check_exit(result,lambda _:ConversionError('X68000 replay failed: '+(folder/'stderr.log').read_text(encoding='utf-8',errors='replace')[-2000:]))
     report=json.loads((folder/'result.json').read_text());validate_trace(folder/'trace.tsv',frames)
     if report.get('core_error') or report['frames']!=frames or report['hardware']['audio_errors']:
         raise ConversionError('X68000 validation returned an incomplete/error run.')

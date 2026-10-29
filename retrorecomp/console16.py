@@ -91,6 +91,16 @@ def dependencies16(system_id: str, emit):
     return engine, compiler, sdl, cmake, generator
 
 
+def snes_ppu_header(text: str) -> str:
+    """snesrecomp's ppu.h aligns PpuPixelPrioBufs with a GNU attribute, which MSVC spells `__declspec(align(8))`.
+    The converter and the SNES self-tests stage the header through this one function, so gcc and clang keep it as it is."""
+    if os.name == 'nt' and active_toolchain() == 'msvc':
+        text = text.replace('typedef struct PpuPixelPrioBufs {',
+                            'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
+        text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
+    return text
+
+
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
     shutil.copy2(ASSETS / 'native/console16_video.h', project / 'console16_video.h')
     for name in ('retro_console16.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'console16_main.c', 'console16_state.c', 'console16_state.h', 'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h', 'scanlines.h', 'scanline_sdl.h', 'xbr_filter.h', 'xbr_sdl.h', 'scale2x.h', 'planar_rows.h', 'display_settings.h', 'gun16.h', 'gun16.c', f'{system_id}_backend.c'):
@@ -345,12 +355,7 @@ endif()
             state_source = staged / 'runner/src' / name
             state_source.write_text(adapt(state_source.read_text(encoding='utf-8')), encoding='utf-8')
         ppu = staged / 'runner/src/snes/ppu.h'
-        text = ppu.read_text(encoding='utf-8')
-        if os.name == 'nt' and active_toolchain() == 'msvc':
-            text = text.replace('typedef struct PpuPixelPrioBufs {',
-                                'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
-            text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
-        ppu.write_text(text, encoding='utf-8')
+        ppu.write_text(snes_ppu_header(ppu.read_text(encoding='utf-8')), encoding='utf-8')
         prefix = staged.as_posix()
         common += f'''set(SNESRECOMP_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
 set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
