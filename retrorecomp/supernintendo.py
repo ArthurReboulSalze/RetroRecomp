@@ -93,7 +93,11 @@ def validate_cartridge(rom):
     if mapping not in ('lorom', 'hirom') or len(rom.data) > 0x400000:
         raise ConversionError(f'SNES {mapping} cartridges above 4 MiB or extended mappings '
                               'are not supported by the native runtime yet.')
-    if mode not in (0x20, 0x21, 0x30, 0x31) and not (mode>>4 not in (2,3) and chip in (0,1,2)):
+    # Mode $32 is the ExLoROM byte of the S-DD1 boards (chip type $43/$45, refused by `identify` above). On a
+    # LoROM header with no chip (type 0, 1 or 2: nothing, RAM, RAM and battery) it is a mastering quirk of an ordinary
+    # LoROM cartridge, which the pinned loader maps as LoROM (Duel: Test Drive II, 1 MiB).
+    ordinary_exlorom = mode == 0x32 and mapping == 'lorom' and chip in (0, 1, 2)
+    if mode not in (0x20, 0x21, 0x30, 0x31) and not ordinary_exlorom and not (mode>>4 not in (2,3) and chip in (0,1,2)):
         raise ConversionError(f'This SNES cartridge uses an unsupported enhancement chip or mapping '
                               f'(map ${mode:02X}, cartridge type ${chip:02X}). '
                               'The native runtime currently supports ordinary LoROM/HiROM cartridges, '
