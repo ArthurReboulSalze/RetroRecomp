@@ -26,6 +26,16 @@ class CompilerBudgetTests(unittest.TestCase):
                 self.assertEqual(build_jobs(),'4')
             self.assertEqual(build_jobs(),'8')
 
+    def test_a_game_converted_alone_on_windows_uses_its_cpu_share_up_to_eight_jobs(self):
+        import os
+        environment = {key: value for key, value in os.environ.items() if key != 'RETRO_RECOMP_BUILD_JOBS'}
+        with patch('retrorecomp.platforms.os.name', 'nt'), patch.dict('os.environ', environment, clear=True):
+            for cpus, alone in ((24, '8'), (6, '6'), (1, '1')):
+                with self.subTest(cpus=cpus), patch('retrorecomp.platforms.available_cpus', return_value=cpus):
+                    self.assertEqual(build_jobs(), alone)
+            with patch('retrorecomp.platforms.available_cpus', return_value=24), compilation_budget(8):
+                self.assertEqual(build_jobs(), '3')
+
     def test_simultaneous_workers_do_not_change_each_others_budget(self):
         barrier=Barrier(2)
         def work(games):

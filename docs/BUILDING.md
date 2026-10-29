@@ -58,7 +58,8 @@ included, are packed with the bundled UPX 5.3.0, like Windows games (below).
 The converter supports manual GitHub updates. `--credits` prints the game notices. Settings,
 quick states and shutdown-only fallback hints use `datas` beside the game.
 Source usage exports to `Export/Games/<console>`. Batch/GUI defaults are one
-game and two compiler tasks on Linux; `RETRO_RECOMP_BUILD_JOBS` adjusts the latter.
+game and two compiler tasks on Linux; on Windows a game converted alone uses up to eight compiler tasks (its share
+of the CPUs, since 1.6.5). `RETRO_RECOMP_BUILD_JOBS` adjusts the latter.
 
 During concurrent conversions, each game's compiler tasks are also capped by
 its share of the CPUs available to the converter process. This includes Game

@@ -67,7 +67,10 @@ def sdl_library() -> str:
 
 
 def build_jobs() -> str:
-    default = 4 if os.name == 'nt' else 2
+    # Windows: a game converted alone may use up to eight compiler jobs (its CPU share), a game of a batch its share
+    # under compilation_budget. 1.6.4 used four even alone, which left most of the CPUs idle during a large Neo Geo
+    # compilation. Linux keeps two: the build hosts there are small machines.
+    default = min(8, game_cpu_share()) if os.name == 'nt' else 2
     requested = max(1, min(8, int(os.environ.get('RETRO_RECOMP_BUILD_JOBS', default))))
     budget = _BUILD_BUDGET.get()
     return str(min(requested, budget) if budget is not None else requested)
