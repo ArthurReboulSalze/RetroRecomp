@@ -1,3 +1,62 @@
+# RetroRecomp v1.6.4 — Less interpreter on four games, a new machine no longer touches the others, SDL 2.32.10
+
+- **Less interpreter use, and every bit of it counted.**
+  - Street Fighter II' Champion Edition (CPS-1): a routine the game copies
+    into graphics memory used to run in the interpreter (75,546 68000
+    instructions on the play route). It is now observed on the first pass and
+    translated on the second, guarded against its live words: 0 interpreted
+    instructions on both processors, traces equal to the reference.
+  - Donkey Kong Land (Game Boy): small routines the game copies into RAM
+    opened an interpreter session that went on interpreting the cartridge code
+    behind them. Those RAM instructions now run one at a time and the
+    cartridge code goes back to native code: the interpreter is no longer
+    used on the tested routes. The one-by-one RAM instructions are **not**
+    native code and are counted as such, as is the small RAM executor of the
+    Game Boy recompiler, which was never counted before: some Game Boy games
+    that read "native code only" will now show a small count of RAM
+    instructions run one by one.
+  - Alex Kidd in Miracle World and Factory Panic (Master System, Game Gear):
+    the optional "functions" engine converts them now (interrupts accepted at
+    the same instruction boundary as the reference CPU, HALT and stack
+    unwinding fixed); 9 of 15 games tried pass its reference check, none did
+    before. The default engine generates the same code as before.
+  These are native-code and CPU-fidelity changes; they say nothing new about
+  hardware fidelity, gameplay validation or latency.
+- **Deterministic quick states on NES and CPS-1.** Every byte of an F8 state
+  is now defined (some padding bytes were zero only by chance). A state saved
+  twice from the same moment is byte for byte the same.
+- **Long folders on Windows.** A Sharp X68000 game placed in a folder deeper
+  than 260 characters now prepares its data instead of failing.
+- **SDL 2.32.10.** The window, sound and controller library linked into every
+  game moves from 2.32.8 to 2.32.10 (Switch Pro stick calibration, PipeWire
+  device formats on Linux, platform fixes). Not measured on physical devices.
+- **Under the hood: adding a machine no longer touches the others.** The
+  stamp lists, host adapters and path shapes are read from each machine's
+  profile. A trial tenth machine (Atari ST) now needs 26 files instead of 41,
+  no test edit, and moves no stamp of the nine existing consoles.
+
+**Your exports and quick states.** 1.6.4 moves the game stamp of every
+console, so every export of 1.6.3, on Windows and on Linux, is converted in
+full once; a game the shared base knows still starts from its qualified paths
+with the quick check (the base is keyed by the recompiler revisions, which did
+not move). F8/F9 quick states of 1.6.3 load as before on the Mega Drive and
+Super Nintendo, and on the Neo Geo on Windows (its 1.6.3 key is listed);
+Master System, Game Gear and Game Boy states load as before; NES and CPS-1
+states of 1.6.3, and Neo Geo states written by a Linux 1.6.3 export, are
+refused cleanly; no compatibility is promised for Sharp X68000 states. Exports
+older than 1.6.3 are converted in full.
+The details and the evidence are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+
+---
+
 # RetroRecomp v1.6.3 — Every console on the common host kit, fast-forward and sound controls everywhere, three CPU fixes
 
 - **Every console on the common host kit.** The Sharp X68000, the Master
