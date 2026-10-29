@@ -247,8 +247,9 @@ class WritableCodeHookTests(unittest.TestCase):
         self.assertEqual(header.count('static inline uint8_t rr_gb_try_highmem_dispatch('), 1)
         self.assertEqual(header.count('static inline uint8_t rr_gb_try_ram_instruction('), 1)
         self.assertEqual(header.count('static inline unsigned rr_gb_ram_length('), 1)
-        # What the executor declines (prefix, HALT, STOP, RST, branches) stays with the reference.
-        self.assertIn('HALT,\n * STOP, the CB prefix, RST and the illegal opcodes stay with the reference', header)
+        # What the executor declines (HALT, STOP, RST, illegal opcodes, branches) stays with the reference; the CB prefix is run.
+        self.assertIn('HALT, STOP, RST and the illegal opcodes stay with the reference', header)
+        self.assertIn('The CB prefix (rotates and\n * shifts, BIT, RES, SET on a register or (HL))', header)
 
 
 if __name__ == '__main__':
