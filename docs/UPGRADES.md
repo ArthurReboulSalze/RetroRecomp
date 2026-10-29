@@ -502,6 +502,28 @@ The time allowed to one UPX pass on Windows was a fixed 120 seconds. It stopped 
 executable) after every check had passed, while other conversions shared the CPUs. The limit now grows with the file on Windows and
 Linux alike (`packing.upx_timeout`: 10 seconds per MB, never below 300); it only exists to stop a packer that hangs.
 
+## Other machines whose game stamp moves in 1.6.5
+
+Each of these changes a game input of its machine, so the game stamp moves and an export of 1.6.4 is converted again once, as at
+every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge saves are kept.
+
+- **Game Boy.** The one-by-one executor of writable-memory code (`native/gb_ram_helpers.h`) now runs the `CB` prefix (rotates,
+  shifts, `BIT`, `RES`, `SET`, on a register or `(HL)`) with the interpreter's own helpers and cycle split (8, 12 for `BIT n,(HL)`,
+  16 for the other `(HL)` forms). Wario Land II's interpreter sessions fall to zero; those instructions are counted as one-by-one
+  executor instructions, not native code. `retrorecomp/gameboy.py` changes its scope text. Reviewed against the pinned interpreter;
+  `tools/gameboy_ram_selftest.py` compares all 256 second bytes at four placements.
+- **NES.** The MMC1 bank tables are rebuilt on a PPU A12 change only when that change can alter them
+  ([UPSTREAMS.md](UPSTREAMS.md)); generated sources and evidence are identical. The quick-state key is now independent of the build
+  folder (`RRNESST2`).
+- **Super Nintendo.** The cartridge is checked once when it is bound instead of at every instruction, and code in work RAM is found
+  through a direct table; outputs identical on Secret of Mana, Super Mario World, Chrono Trigger and Star Fox. The conversion log
+  says when a run went past the 16,384-variant limit of RAM code observations (`retrorecomp/console16.py`, shared with the Mega
+  Drive).
+- **Neo Geo.** On Windows the native game is built with ThinLTO and a clang profile, like the Super Nintendo; outputs identical,
+  gain not measured yet.
+- **CPS-1.** `IM 0` on the sound Z80 is counted (generator revision 8); independent 68000 vectors are replayed through the CPS-1
+  generator and each route's liveness is recorded, a frozen route being refused.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
