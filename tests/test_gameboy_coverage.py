@@ -203,5 +203,24 @@ class CoverageTests(unittest.TestCase):
                     self.assertEqual(document['cpus'][0]['arch'], 'sm83')
 
 
+class WritableCodeHookTests(unittest.TestCase):
+    """The single-instruction executor of writable code (1.6.4) is wired once, in the right order."""
+
+    def test_hook_and_executor_are_present_exactly_once(self):
+        from retrorecomp import gameboy_runtime
+        from retrorecomp.paths import ASSETS
+        runtime = Path(gameboy_runtime.__file__).read_text(encoding='utf-8')
+        header = (ASSETS / 'native/gb_ram_helpers.h').read_text(encoding='utf-8')
+        # Guarded helpers first, then the pinned stub, then the remaining single opcodes.
+        self.assertEqual(runtime.count('rr_gb_try_ram_instruction(ctx, addr)'), 1)
+        self.assertIn('rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||', runtime)
+        self.assertLess(runtime.index('rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||'),
+                        runtime.index('rr_gb_try_ram_instruction(ctx, addr)'))
+        self.assertEqual(header.count('static inline uint8_t rr_gb_try_ram_instruction('), 1)
+        self.assertEqual(header.count('static inline unsigned rr_gb_ram_length('), 1)
+        # What the executor declines (prefix, HALT, STOP, RST, branches) stays with the reference.
+        self.assertIn('HALT,\n * STOP, the CB prefix, RST and the illegal opcodes stay with the reference', header)
+
+
 if __name__ == '__main__':
     unittest.main()

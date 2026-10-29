@@ -535,6 +535,25 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
   1.6.3 (it reads its own keys). Every window now keeps whole pixels in the window mode too ([HOST_KIT.md](HOST_KIT.md), divergence 9): a Mega Drive,
   Super Nintendo, Neo Geo, CPS-1, NES or X68000 export no longer stretches its picture to the window.
 
+## Game Boy exports in 1.6.4 (writable-memory code)
+
+The Game Boy runtime now executes single WRAM/HRAM instructions that the pinned RAM stub does not cover natively
+(`native/gb_ram_helpers.h`, `rr_gb_try_ram_instruction`; [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164)).
+What a conversion generates is unchanged (the generated C files are the same); the adapted runtime header and the dispatch of `game.c`
+change.
+
+*Stamps* (`compilation_inputs.role_stamps('gb')`, Python 3.14, from the tree of the tag `v1.6.3` and from this tree): game
+`20d990464af935b2ea058208029ec0a7f0fdadb955e46275f4ad6dcd33749b28` becomes
+`6f192d207babe5c05120ac978a144ef3acdd053ead3aff0ba44a35398e94e9ae`; host and build stamps of the Game Boy and every stamp of the other
+eight consoles are unchanged. Learned paths do not move, and no quick-state key exists for the Game Boy.
+
+An export of 1.6.3 is therefore rebuilt from its learned paths and rechecked on the quick routes; it behaves the same except for
+games that run WRAM/HRAM code with such opcodes: those no longer start interpreter sessions there. Donkey Kong Land (a trampoline block
+copied from the cartridge into WRAM, operands patched at run time) goes from 3,160,836 interpreted cycles in the 6,000-frame boot probe
+and 141,688 in the varied probe to zero in all four probes, and its deep CPU comparisons still match. That is native code on the tested
+scenarios, a CPU-fidelity agreement with the project's own reference on 240 frames per scenario, and nothing about hardware fidelity,
+gameplay or latency.
+
 ## Game Boy exports in 1.6.3 (host kit phase 5)
 
 1.6.3 moves the player shell of the Game Boy onto the host kit, the last console to move ([HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163)):

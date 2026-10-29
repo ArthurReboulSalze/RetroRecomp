@@ -200,6 +200,19 @@ Each is described in the section "CPU fixes carried from the upstream review in 
 because existing exports of 1.6.2 are rebuilt from their learned paths. The `COP` correction in emulation mode goes beyond
 upstream, which does not handle it either.
 
+## Fixes carried as our own patches in 1.6.4
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| Game Boy: the pinned runtime's RAM stub (`gbrt_try_execute_ram_stub`) covers only part of the SM83 opcodes. Any other opcode executed from WRAM or HRAM (for example `LD HL,nn`, `LD A,(DE)`, `INC BC`, `ADD A,n` in a routine a game copies from its cartridge and patches) started an interpreter session that went on interpreting the ROM code the routine jumped to (Donkey Kong Land: 6,350 sessions, 3,160,836 interpreted cycles in 6,000 frames). The remaining non-prefixed, non-branch opcodes now run natively from their live bytes, one instruction at a time, after the helpers and the stub have declined. Written from the interpreter's own cases (same helpers, operand reads and cycle split), not copied from another project | gb | `native/gb_ram_helpers.h` (`rr_gb_try_ram_instruction`), hooked by `gameboy_runtime.py` (`adapt_generated_project`, the `game.c` dispatch) | gb |
+
+The pinned compiler and runtime are untouched (the cached checkout must stay clean); the hook is a `replace_once` on the generated
+`game.c`. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
+(177 opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects). The change is a
+statement about CPU fidelity of writable-memory code only; it says nothing about hardware fidelity, gameplay validation or physical
+latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST`, illegal opcodes, code spanning
+two memory regions) stay counted as before. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
