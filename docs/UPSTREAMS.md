@@ -229,7 +229,7 @@ VDP, audio and memory; CPU fidelity against the project's reference only):
 
 The pinned compiler and runtime are untouched (the cached checkout must stay clean); every hook is a `replace_once` on the generated
 project. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
-(177 opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects), and checks the
+(177 plain opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects; 1.6.5 adds the `CB` prefix, each of its 256 second bytes at 8 random states and four placements), and checks the
 counters (and, on the fixture of the trampoline test, that an interpreter session counts the stub instructions it runs itself as its own
 instructions and cycles, with the dispatch counters left at zero). **Counting.** `final_checks` and `history` carry `ram_stub_instructions`,
 `ram_stub_cycles`, `ram_single_step_instructions`, `ram_single_step_cycles`, `highmem_stub_instructions` and `highmem_stub_cycles` for each
@@ -246,7 +246,7 @@ the same category as our guarded multi-instruction helpers, and is not counted. 
 to the line of a finished conversion, and the library lists such a game as a game with fallback. The guarded multi-instruction helpers
 (named routines checked by a live signature: store-and-increment, copies, DMA page selection) are not counted, as before. The change is a
 statement about CPU fidelity of writable-memory code only; it says nothing about hardware fidelity, gameplay validation or physical
-latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST` outside the 0xFF00-0xFF7F stub, which
+latency. Instructions that still reach the interpreter (`HALT`, `STOP`, `RST` outside the 0xFF00-0xFF7F stub, which
 executes `RST 00` to `RST 38`, illegal opcodes, code spanning two memory regions) stay counted as interpreter use. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
 ## Fixes carried as our own patches in 1.6.5
