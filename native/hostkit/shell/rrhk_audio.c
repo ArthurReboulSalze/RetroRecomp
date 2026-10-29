@@ -10,6 +10,15 @@
 #include <string.h>
 #include "hostkit/hostkit_internal.h"
 
+/* The queue device: the output the player asked for (rrhk_audio_device()), or the system default when there is none or it
+ * cannot be opened. */
+static SDL_AudioDeviceID open_queue_device(const SDL_AudioSpec *want, SDL_AudioSpec *have) {
+    const char *name = rrhk_audio_device();
+    SDL_AudioDeviceID id = name ? SDL_OpenAudioDevice(name, 0, want, have, 0) : 0;
+    if (name && !id) fprintf(stderr, "[host] audio device '%s' cannot be opened: %s; using the system default\n", name, SDL_GetError());
+    return id ? id : SDL_OpenAudioDevice(NULL, 0, want, have, 0);
+}
+
 void rrhk_audio_open(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_AudioSpec want = {0};
@@ -28,7 +37,7 @@ void rrhk_audio_open(RrhkRun *run) {
     /* A dummy audio device's callback timer is not a calibrated 48 kHz
      * oscillator. The explicit test-only mode isolates the video deadline;
      * guest APU/DSP execution and PCM consumption still run normally. */
-    if (!m->own_audio && !run->video_clock_test) run->audio = SDL_OpenAudioDevice(NULL, 0, &want, &run->have, 0);
+    if (!m->own_audio && !run->video_clock_test) run->audio = open_queue_device(&want, &run->have);
     /* One guest frame is shorter than two device callbacks. Start with a
      * frame plus one device period, so a callback at an unlucky phase does
      * not exhaust the queue before the next frame can provide its sound.
@@ -54,6 +63,34 @@ void rrhk_audio_idle(RrhkRun *run) {
     else if (run->audio_playing) rrhk_audio_pause_output(run);
 }
 
+/* The player chose another output device (decision D12), or the device went away: the sound starts again on the device now
+ * asked for, from a clean reserve. The machines that own their sound device (own_audio) do it themselves through their
+ * audio_reopen hook. false: no device could be opened, the game goes on without sound. */
+bool rrhk_audio_reopen(RrhkRun *run) {
+    const RrhkMachine *m = run->machine;
+    if (m->own_audio) return m->audio_reopen ? m->audio_reopen() : false;
+    if (run->video_clock_test) return false;      /* a run that tests the video clock plays no sound */
+    /* The device that is open is closed, then the sound is opened as at the start: from a device that is gone (the queue closed
+     * after a failed push, a ring that could not open, an unplugged output) it is the same path. */
+    if (m->audio_model == RRHK_AUDIO_RING) {
+        if (run->audio && rrhk_ring_reopen()) run->audio = rrhk_ring_device();
+        else { run->audio = 0; rrhk_ring_close(); rrhk_audio_open(run); }
+    } else {
+        if (run->audio) SDL_CloseAudioDevice(run->audio);
+        run->audio = 0;
+        rrhk_audio_open(run);
+    }
+    rrhk_options_audio_reset();
+    return run->audio != 0;
+}
+
+/* The device SDL gave the sound of this machine, 0 when it has none (an own_audio machine says through audio_device_id). */
+SDL_AudioDeviceID rrhk_audio_device_id(const RrhkRun *run) {
+    const RrhkMachine *m = run->machine;
+    if (m->own_audio) return m->audio_device_id ? m->audio_device_id() : 0;
+    return m->audio_model == RRHK_AUDIO_RING ? rrhk_ring_device() : run->audio;
+}
+
 /* Bytes waiting in the device queue; 0 without a device or on the ring model. */
 unsigned rrhk_audio_queued(const RrhkRun *run) {
     return run->audio && run->machine->audio_model == RRHK_AUDIO_QUEUE ? SDL_GetQueuedAudioSize(run->audio) : 0;
@@ -64,6 +101,13 @@ unsigned rrhk_audio_queued(const RrhkRun *run) {
 void rrhk_audio_frame(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     int16_t pcm[4096]; size_t n;
+    /* The speed is not 100% (hold or max speed, decision D12): the machine's sound is taken and dropped, never played, as the
+     * Game Boy host did; the machine's own state is untouched. */
+    if (rrhk_audio_held()) {
+        if (m->audio_model == RRHK_AUDIO_RING) while (m->audio(pcm, 4096) > 0) {}
+        else { n = m->audio(pcm, 4096); while (m->audio_chunked && n == 4096 && (n = m->audio(pcm, 4096)) > 0) {} }
+        return;
+    }
     if (m->audio_model == RRHK_AUDIO_RING) {
         while ((n = m->audio(pcm, 4096)) > 0)
             if (run->audio) rrhk_ring_submit(pcm, (uint32_t)n);

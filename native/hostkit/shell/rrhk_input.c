@@ -39,6 +39,8 @@ void rrhk_bind(const RrhkMachine *machine) {
     rrhk.pointer_shape = rrhk.pointer_color = 0;
     rrhk.pointer_size = 3;
     rrhk.pointer_turbo = 1;
+    rrhk.audio_volume = 100; rrhk.audio_muted = 0; rrhk.audio_device[0] = 0;
+    rrhk.max_speed = rrhk.fast_hold = 0;
 }
 
 /* The machine's former preferences file (RrhkMachine.legacy_ini), beside the executable. It is read only while datas holds
@@ -121,6 +123,17 @@ void rrhk_load_bindings(void) {
     rrhk.pointer_color = rr_ini_int(rrhk.pointer_section, L"color", rrhk.pointer_color, rrhk.read_file);
     if (rrhk.pointer_color < 0 || rrhk.pointer_color > 2) rrhk.pointer_color = 0;
     rrhk.pointer_turbo = rr_ini_int(rrhk.pointer_section, L"turbo", rrhk.pointer_turbo, rrhk.read_file) != 0;
+    /* The sound controls (decision D12). A machine that read its former keys in settings_loaded (Game Boy) has set the values
+     * these start from. They are kept in [<Console>.Options] beside the audio filter. */
+    wchar_t options[64], fallback[300], device[300];
+    char text[sizeof rrhk.audio_device];
+    swprintf(options, 64, L"%ls.Options", m->ini_section);
+    rrhk.audio_volume = rr_ini_int(options, L"audio_volume", rrhk.audio_volume, rrhk.read_file);
+    if (rrhk.audio_volume < 0 || rrhk.audio_volume > 200) rrhk.audio_volume = 100;
+    rrhk.audio_muted = rr_ini_int(options, L"audio_muted", rrhk.audio_muted, rrhk.read_file) != 0;
+    if (!rr_from_utf8(rrhk.audio_device, fallback, 300)) fallback[0] = 0;
+    rr_ini_get(options, L"audio_device", fallback, device, 300, rrhk.read_file);
+    if (rr_to_utf8(device, text, sizeof text)) snprintf(rrhk.audio_device, sizeof rrhk.audio_device, "%s", text);
 }
 
 void rrhk_store_binding(void) {

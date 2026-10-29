@@ -91,6 +91,9 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     rrhk_bind(m);
     rrhk_load_bindings();
     rrhk_options_init(m->ini_section);
+    r->speed = 100;
+    r->device_serial = rrhk_audio_device_serial();
+    rrhk_sound_hold(false);
     if (m->machine_fkeys) rrhk_options_keyboard(m->console_name, m->machine_fkeys);
     const char *test_limit = getenv("RETRORECOMP_HOST_TEST_FRAMES");
     r->test_frames = test_limit ? (unsigned)atoi(test_limit) : 0;
@@ -129,6 +132,10 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     SDL_SetTextureScaleMode(r->tex, SDL_ScaleModeNearest);
     rr_menu_init(r->ren);
     rrhk_audio_open(r);
+    /* A machine that opened its own sound device before the preferences were read (Mega Drive) opens it again on the output
+     * the player chose; one that opens it later (Master System, Game Gear) asks rrhk_audio_device() itself. */
+    if (m->sound_ready) m->sound_ready();
+    if (m->own_audio && !m->driven && m->audio_reopen && rrhk_audio_device()) m->audio_reopen();
     rrhk_open_pads();
     r->frequency = SDL_GetPerformanceFrequency();
     r->next = SDL_GetPerformanceCounter();
@@ -179,8 +186,26 @@ static bool begin_frame(RrhkRun *r) {
             if (ok && load) { rrhk_audio_pause_output(r); r->next = now_ticks(); }
         }
     }
-    bool idle = (rrhk.menu != 0 || rrhk.paused) && !r->pending_state;
-    m->pause(idle);
+    /* The speed (decision D12): Tab held 2.5x, max speed 5x, as the Game Boy host ran them. Only the pacing changes, and the
+     * output stays silent meanwhile: the machine's sound is dropped by rrhk_audio_frame, the machine told to hold its own
+     * output like a pause (its pause hook), the ring cleared at each change. */
+    const int speed = rrhk.menu || rrhk.paused ? 100 : rrhk.max_speed ? 500 : rrhk.fast_hold ? 250 : 100;
+    if (speed != r->speed) {
+        r->speed = speed; r->next = now_ticks();
+        rrhk_sound_hold(speed != 100);
+        rrhk_audio_pause_output(r);
+    }
+    /* The player chose another output device, or the one in use was unplugged. */
+    if (rrhk_audio_device_serial() != r->device_serial || r->device_lost) {
+        r->device_serial = rrhk_audio_device_serial(); r->device_lost = false;
+        if (!rrhk_audio_reopen(r)) fprintf(stderr, "[host] no sound output could be opened; physical latency unmeasured\n");
+        r->next = now_ticks();
+    }
+    /* A quick-state request waits for the machine's safe boundary, so a menu lets a machine that the kit drives frame by frame run
+     * on until then. A machine whose guest owns the loop (Game Boy, Master System, Game Gear) never does: its guest would keep
+     * running, and receive the pad, behind the menu; the request stays pending until the menu is closed and a boundary comes. */
+    bool idle = (rrhk.menu != 0 || rrhk.paused) && (!r->pending_state || r->driven);
+    m->pause(idle || speed != 100);
     /* Explicit performance reports only; include CPU, audio preparation,
      * drawing and Present, but exclude intentional pacing/menu waits. */
     r->work_started = m->cost_enabled && m->cost_enabled() && !rrhk.menu && !rrhk.paused ? now_ticks() : 0;
@@ -240,7 +265,9 @@ static void end_frame(RrhkRun *r) {
                                            1000.0 * (now - present_started) / r->frequency);
     if (rrhk.menu || rrhk.paused) { r->next = now; SDL_Delay(16); return; }
     if (r->fast) { r->next = now; return; }
-    r->next += (Uint64)(m->frame_seconds * r->frequency);
+    Uint64 period = (Uint64)(m->frame_seconds * r->frequency);
+    if (r->speed != 100) period = period * 100 / (Uint64)r->speed;
+    r->next += period;
     rrhk_audio_pace(r, now);
     if (r->next > now) {
         Uint32 ms = (Uint32)((r->next - now) * 1000 / r->frequency);

@@ -67,6 +67,11 @@ static void rr_gb_read_old(RrhkUi *ui, int *palette) {
         else if (!strcmp(key, "video.palette")) *palette = !strcmp(value, "green") ? 0 : 1;
         else if (!strcmp(key, "ui.language")) { ui->language = rr_language_from_code(value); }
         else if (!strcmp(key, "input.autofire")) ui->autofire = !strcmp(value, "1");
+        /* The upstream shell's sound settings, which the kit offers to every console (decision D12): the volume (0..200),
+         * the mute and the output device by name. */
+        else if (!strcmp(key, "audio.muted")) ui->audio_muted = strcmp(value, "0") != 0;
+        else if (!strcmp(key, "audio.volume_percent")) { long v = strtol(value, NULL, 10); if (v >= 0 && v <= 200) ui->audio_volume = (int)v; }
+        else if (!strcmp(key, "audio.device_name")) snprintf(ui->audio_device, sizeof ui->audio_device, "%s", value);
         else if (!strncmp(key, "keyboard.", 9) || !strncmp(key, "controller.", 11)) {
             /* keyboard.<action>.<slot>=key:<scancode> | controller.<action>.<slot>=button:<button>; the first slot only */
             const bool pad = key[0] == 'c';
@@ -149,6 +154,7 @@ static bool rr_gb_run_frame(uint16_t p1, uint16_t p2) {
 static void rr_gb_reset(void) {
     if (g_registered_ctx) gb_context_reset(g_registered_ctx, true);
     g_rr_pcm.clear();
+    rrhk_autofire_reset();
 }
 static void rr_gb_pause(bool paused) { (void)paused; }
 

@@ -39,6 +39,9 @@ typedef struct RrhkRun {
     int title_state;
     bool running;
     bool fast;                     /* the machine's fast-forward hook was true at the start of this iteration */
+    int speed;                     /* percent of the machine's speed this iteration runs at: 100, 250 (Tab held) or 500 (max speed) */
+    unsigned device_serial;        /* the output device asked for, as the loop last opened it */
+    bool device_lost;              /* the device the sound plays on was removed */
     RrScanlineMask scanlines;
     RrXbr xbr;
     /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
@@ -98,6 +101,10 @@ bool rrhk_options_restart(int menu);
 bool rrhk_options_component(int key, int button);   /* a key or button that belongs to a quit/restart combination being captured or held */
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
+bool rrhk_sound_toggle_mute(void);   /* M: flip, keep in the preferences, true when muted */
+bool rrhk_sound_muted(void);
+void rrhk_sound_hold(bool held);     /* the speed is not 100%: the output is silent */
+unsigned rrhk_audio_device_serial(void);   /* moves when the output device asked for changes */
 int rrhk_pages_count(void);
 int rrhk_pages_index(void);
 int rrhk_pages_goto(int page, int *control);
@@ -122,12 +129,15 @@ void rrhk_audio_wait_room(RrhkRun *run);
 void rrhk_audio_push(RrhkRun *run, int16_t *pcm, size_t samples);
 void rrhk_audio_frame(RrhkRun *run);
 unsigned rrhk_audio_queued(const RrhkRun *run);
+bool rrhk_audio_reopen(RrhkRun *run);
+SDL_AudioDeviceID rrhk_audio_device_id(const RrhkRun *run);
 void rrhk_audio_pace(RrhkRun *run, Uint64 now);
 void rrhk_audio_close(RrhkRun *run);
 
 /* ring.c: the callback-ring output (RRHK_AUDIO_RING). */
 bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms);
 void rrhk_ring_start(void);
+bool rrhk_ring_reopen(void);     /* another output device: same ring, same reserve */
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count);
 void rrhk_ring_clear(void);
 void rrhk_ring_close(void);

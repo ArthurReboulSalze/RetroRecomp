@@ -22,6 +22,9 @@ It compares, between A and B:
   * the evidence under `checks/` and the other probe folders: frame images, traces, hashes, audio and state files by
     their bytes, and the JSON results without their volatile keys.
 It leaves out what differs by construction: compiled objects and executables, logs and the build tree.
+Keep `--work` SHORT (a few characters under the drive root, not a deep folder): a Game Boy export writes its battery file
+through a temporary name that must stay under the 260 characters of a Windows path, and a failed save changes what the later probes of
+the same conversion play.
 Exit 0 only when everything is identical (and both conversions succeeded and kept the same set of files).
 
 The kept build folders hold a copy of the ROM: they are deleted at the end unless `--keep-work`. The ROM is read in

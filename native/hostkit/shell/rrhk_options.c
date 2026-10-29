@@ -21,7 +21,10 @@ void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const ch
     rr_option_row(&rows->rows, key, format, value);
 }
 
-void rrhk_options_init(const wchar_t *console) { rr_options_init(console); }
+void rrhk_options_init(const wchar_t *console) {
+    rr_options_init(console);
+    rr_sound_load(rrhk.audio_volume, rrhk.audio_muted, rrhk.audio_device);
+}
 void rrhk_options_keyboard(const char *machine, int count) { rr_options_keyboard(machine, count); }
 void rrhk_options_observe(const SDL_Event *event) { rr_options_observe(event); }
 bool rrhk_options_host_fkey(int key, SDL_Keymod mod, bool menu) { return rr_options_host_fkey(key, mod, menu); }
@@ -35,6 +38,15 @@ void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, 
     rr_options_audio(pcm, frames, channels, floating, rate);
 }
 void rrhk_options_audio_reset(void) { rr_options_audio_reset(); }
+
+/* The sound controls of every console (decision D12): volume and mute are applied by rrhk_options_audio to whatever the
+ * machine plays, the hold silences the output while the speed is not 100%, the device is the one asked for. */
+bool rrhk_sound_toggle_mute(void) { return rr_sound_toggle_mute(); }
+bool rrhk_sound_muted(void) { return rr_sound_muted(); }
+void rrhk_sound_hold(bool held) { SDL_AtomicSet(&rr_options.speed_held, held ? 1 : 0); }
+bool rrhk_audio_held(void) { return SDL_AtomicGet(&rr_options.speed_held) != 0; }
+const char *rrhk_audio_device(void) { return rr_sound_device()[0] ? rr_sound_device() : NULL; }
+unsigned rrhk_audio_device_serial(void) { return rr_sound_device_serial(); }
 
 /* F2 pages: each player's keyboard then gamepad, the machine's own page, then
  * the options. */
@@ -63,6 +75,7 @@ static RrhkOptionRows option_rows(void) {
     if (m->option_rows) m->option_rows(1, &d);
     rr_option_row(&d.rows, SDL_SCANCODE_F12, "%s", rr_tr(rr_feedback_label()));
     rr_option_shared_rows(&d.rows);
+    rr_option_row(&d.rows, SDL_SCANCODE_GRAVE, "` Max speed: %s", rr_tr(rrhk.max_speed ? "ON" : "OFF"));
     return d;
 }
 int rrhk_option_page_event(const SDL_Event *event) {

@@ -79,6 +79,11 @@ typedef struct RrhkUi {
     int menu, parent_menu, player, row, gamepad_page, capturing, filter, fullscreen, language, autofire;
     /* parent_menu: the menu a menu opened from the Pause menu returns to (Help or F2 from Pause, then back to Pause) */
     int paused;                /* F11 (X68000): the machine does not run, the picture stays, "Paused" is drawn */
+    /* The sound and speed controls of every console (decision D12). The sound values are those read at start, from the
+     * preferences or from the machine's former file; after the start they live in the options (the audio callback reads
+     * them). max_speed is the toggle of the backquote key (5x), fast_hold the Tab key or the right trigger (2.5x) held. */
+    int audio_volume, audio_muted, max_speed, fast_hold;
+    char audio_device[256];
     char status[80];
     Uint64 status_until;
     int pointer_shape, pointer_size, pointer_color, pointer_turbo;
@@ -198,8 +203,15 @@ typedef struct RrhkMachine {
     bool (*help_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* true: drew the whole help page */
     /* Master System, Game Gear (phase 4). */
     void (*pause_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* the body of the Pause menu (RRHK_MENU_PAUSE) */
+    /* Sound controls (1.6.3). A machine that opens its own sound device (own_audio: Mega Drive, Master System, Game Gear)
+     * closes it and opens it again with rrhk_audio_device() when the player chooses another output; false: it could not. */
+    bool (*audio_reopen)(void);
+    SDL_AudioDeviceID (*audio_device_id)(void);   /* the id SDL gave that device, 0 when it has none: an SDL_AUDIODEVICEREMOVED for it reopens it */
+    /* Called once the preferences and the sound controls are read, after the kit opened its own sound output: a machine that
+     * opened its device before that (Mega Drive) attaches the kit's sound stage (rrhk_options_audio) to it here. */
+    void (*sound_ready)(void);
     /* Game Boy (phase 5). */
-    bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Master System, Game Gear and Game Boy rule) */
+    bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */
@@ -218,6 +230,8 @@ void rrhk_pointer_poll(uint16_t pad1);
 void rrhk_state_done(bool load, int result);
 
 /* Services for machine adapters. */
+const char *rrhk_audio_device(void);               /* the output device asked for (the name SDL lists), NULL for the system default */
+bool rrhk_audio_held(void);                        /* the speed is not 100%: the machine's sound is dropped, not played */
 RrhkUi *rrhk_ui(void);
 void rrhk_bind(const RrhkMachine *machine);        /* default bindings; rrhk_main does it */
 void rrhk_load_bindings(void);                     /* preferences, after SDL video init */

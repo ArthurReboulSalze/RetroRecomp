@@ -94,7 +94,7 @@ def rehome(work: Path, project: Path) -> None:
 
 
 def build(project: Path, work: Path, plain: bool, state_config: Path | None, refresh_kit: Path | bool = False,
-          patches=(), legacy_host: Path | None = None, kit: str | None = None) -> Path:
+          patches=(), legacy_host: Path | None = None, kit: str | None = None, also=()) -> Path:
     from retrorecomp.core import run, toolchain
     from retrorecomp.platforms import build_executable, build_jobs, cmake_target_args, sdl_install
     if work.exists():
@@ -129,7 +129,7 @@ def build(project: Path, work: Path, plain: bool, state_config: Path | None, ref
         shutil.copyfile(legacy_host, work / 'console16_host_ui.c')
         text = re.sub(r'(?:hostkit/(?:shell|adapters)/rrhk_\w+\.c\s*)+', 'console16_host_ui.c ', text)
     if not plain:
-        hosts = sorted(set(HOST_SOURCE.findall(text)))
+        hosts = [*sorted(set(HOST_SOURCE.findall(text))), *also]   # `also`: other files of the project that talk to the sound device (the Mega Drive engine's audio.c)
         if not hosts:
             raise SystemExit('no host source in CMakeLists.txt')
         shutil.copyfile(ROOT / 'tools/hostkit_ab/hooks.c', work / 'rrab_hooks.c')
@@ -957,6 +957,7 @@ def main() -> int:
     p.add_argument('--legacy-host', type=Path, help='build the old console16_host_ui.c over this project instead of the kit')
     p.add_argument('--refresh-kit', nargs='?', const=True, default=False, type=Path, metavar='TREE',
                    help="copy native/hostkit (and the runtime catalogue) of this tree, or of TREE, over the kit of the project")
+    p.add_argument('--also', action='append', default=[], metavar='FILE', help='another source of the project to build against the harness (native/audio.c: the Mega Drive engine plays through its own device)')
     p.add_argument('--kit', choices=('nes',), help="build the host kit's adapter of this machine over a project converted before the kit")
     p = sub.add_parser('build-x68', help='the X68000 export of a kept build, host sources of TREE, against the harness')
     p.add_argument('kept', type=Path, help='the kept build folder holding CMakeCache.txt (.build/x68/win/<hash>/<hash>/native/build)')
@@ -1029,7 +1030,7 @@ def main() -> int:
         return 0
     if args.command == 'build':
         print(build(args.project.resolve(), args.work.resolve(), args.plain, args.state_config,
-                     args.refresh_kit if args.refresh_kit is True or not args.refresh_kit else args.refresh_kit.resolve(), args.patch, args.legacy_host, args.kit))
+                     args.refresh_kit if args.refresh_kit is True or not args.refresh_kit else args.refresh_kit.resolve(), args.patch, args.legacy_host, args.kit, args.also))
         return 0
     if args.command == 'run':
         code = play(args.exe.resolve(), args.script.resolve(), args.out.resolve(), args.timeout, args.env, args.seed_states, args.seed_datas, args.arg)

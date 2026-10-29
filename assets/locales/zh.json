@@ -880,6 +880,16 @@
     "None": "无",
     "%s (disconnected)": "%s (未连接)",
     "No gamepad for player %d": "玩家%d没有手柄",
-    "Enter: change gamepad | Delete: Automatic": "Enter：更换手柄 | Delete：自动"
+    "Enter: change gamepad | Delete: Automatic": "Enter：更换手柄 | Delete：自动",
+    "Maximum speed ON": "最高速度已开启",
+    "Maximum speed OFF": "最高速度已关闭",
+    "Sound muted": "已静音",
+    "Sound on": "已取消静音",
+    "Volume: %s": "音量：%s",
+    "M Sound: %s": "M 声音：%s",
+    "Output device: %s": "输出设备：%s",
+    "System default": "系统默认",
+    "` Max speed: %s": "` 最高速度：%s",
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  快进 | `  最高速度 | M  静音"
   }
 }

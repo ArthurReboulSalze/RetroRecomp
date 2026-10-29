@@ -145,29 +145,54 @@ void rrhk_ring_close(void) {
     rrhk_ring.id = 0;
 }
 
-/* Opens the device paused at the machine's rate. `channels` is 1 or 2 (0: mono), `margin_ms` the start margin
- * (0: 30 ms). The caller starts it with rrhk_ring_start() once the machine produces sound. */
-bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms) {
+/* Opens the output device the player asked for (rrhk_audio_device(); the system default when it is none or cannot be opened),
+ * paused, in the machine's rate. */
+static SDL_AudioDeviceID open_device(const SDL_AudioSpec *want, SDL_AudioSpec *have, int flags) {
+    const char *name = rrhk_audio_device();
+    SDL_AudioDeviceID id = name ? SDL_OpenAudioDevice(name, 0, want, have, flags) : 0;
+    if (name && !id) fprintf(stderr, "[host] audio device '%s' cannot be opened: %s; using the system default\n", name, SDL_GetError());
+    return id ? id : SDL_OpenAudioDevice(NULL, 0, want, have, flags);
+}
+
+static bool open_ring_device(void) {
     SDL_AudioSpec want = {0}, have = {0};
-    memset(&rrhk_ring, 0, sizeof(rrhk_ring));
-    rrhk_ring.rate = rate;
-    rrhk_ring.source = channels == 2 ? 2 : 1;
-    rrhk_ring.margin = margin_ms ? margin_ms : RRHK_RING_MARGIN_MS;
-    want.freq = (int)rate; want.format = AUDIO_S16SYS;
+    want.freq = (int)rrhk_ring.rate; want.format = AUDIO_S16SYS;
     want.channels = 2; want.samples = 256; want.callback = rrhk_ring_callback;
-    rrhk_ring.id = SDL_OpenAudioDevice(NULL, 0, &want, &have,
-        SDL_AUDIO_ALLOW_FORMAT_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+    rrhk_ring.id = open_device(&want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     if (rrhk_ring.id && have.format != AUDIO_S16SYS && have.format != AUDIO_F32SYS) {
-        rrhk_ring_close();
-        rrhk_ring.id = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+        SDL_CloseAudioDevice(rrhk_ring.id);
+        rrhk_ring.id = open_device(&want, &have, SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     }
     if (!rrhk_ring.id) return false;
     rrhk_ring.spec = have;
     /* One PAL frame + output period + reserve, plus one catch-up frame.
      * The callback deadline, not this exceptional limit, controls startup. */
-    rrhk_ring.keep = rate * (21u + rrhk_ring.margin) / 1000u + have.samples;
-    rrhk_ring.limit = SDL_min(RRHK_RING_FRAMES, rrhk_ring.keep + rate * 21u / 1000u);
+    rrhk_ring.keep = rrhk_ring.rate * (21u + rrhk_ring.margin) / 1000u + have.samples;
+    rrhk_ring.limit = SDL_min(RRHK_RING_FRAMES, rrhk_ring.keep + rrhk_ring.rate * 21u / 1000u);
     rrhk_ring.keep = SDL_min(rrhk_ring.keep, rrhk_ring.limit);
+    return true;
+}
+
+/* Opens the device paused at the machine's rate. `channels` is 1 or 2 (0: mono), `margin_ms` the start margin
+ * (0: 30 ms). The caller starts it with rrhk_ring_start() once the machine produces sound. */
+bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms) {
+    memset(&rrhk_ring, 0, sizeof(rrhk_ring));
+    rrhk_ring.rate = rate;
+    rrhk_ring.source = channels == 2 ? 2 : 1;
+    rrhk_ring.margin = margin_ms ? margin_ms : RRHK_RING_MARGIN_MS;
+    return open_ring_device();
+}
+
+/* The player chose another output (decision D12): the same ring, the same reserve, on the new device. The sound that was
+ * waiting is dropped. false: no device could be opened (the ring is closed). */
+bool rrhk_ring_reopen(void) {
+    if (!rrhk_ring.id) return false;
+    SDL_CloseAudioDevice(rrhk_ring.id);
+    rrhk_ring.id = 0;
+    rrhk_ring.read = rrhk_ring.write = rrhk_ring.fill = 0;
+    rrhk_ring.started = false; rrhk_ring.deadline = 0;
+    if (!open_ring_device()) return false;
+    SDL_PauseAudioDevice(rrhk_ring.id, 0);
     return true;
 }
 

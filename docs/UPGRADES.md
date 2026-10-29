@@ -454,9 +454,41 @@ and the adapter `native/hostkit/adapters/rrhk_gb.inc`, which the patched platfor
   `datas/Retro-Recomp-GameBoy.ini` of 1.6.2 and before is read where the kit's key is absent (display mode, filter, palette, language,
   autofire, the first binding of the eight buttons) and is never written or deleted, so settings of 1.6.2 keep their meaning; a game of
   1.6.2 does not see a binding changed afterwards in 1.6.3 (it reads its own file). **Retired** (they had no page and no mention in the
-  documents): the fast-forward and maximum-speed keys, the mute key, the second binding of each action (the shoulders were also A and
-  B), the volume and output-device choice. Opposite directions cancel in the pad word instead of both reaching the cartridge. The
+  documents): the second binding of each action (the shoulders were also A and B). The fast-forward and maximum-speed keys, the mute
+  key, the volume and the output-device choice, retired by the first version of this phase, are back as features of every console (the
+  next section). Opposite directions cancel in the pad word instead of both reaching the cartridge. The
   start-up reserve, the 256-sample period and the 10 ms margin of the sound are the Game Boy's own, as before.
+
+## Sound and speed controls of every console in 1.6.3 (host kit decision D12)
+
+The fast-forward (Tab held, right trigger, 250%), the maximum-speed toggle (backquote, left trigger, 500%), the mute (M), the volume
+(0 to 200%) and the output-device choice that only the Game Boy had before 1.6.3 are now features of the shell, on all nine consoles
+([HOST_KIT.md](HOST_KIT.md#d12), [CONTROLS.md](CONTROLS.md#speed-and-sound)). Only the pacing changes; the sound is dropped while the speed
+is not 100%.
+
+- *Edited, all host inputs:* `native/game_options.h` (the sound stage, the options rows, the device cycle), `native/hostkit/hostkit.h`,
+  `hostkit_internal.h`, `shell/rrhk_audio.c`, `rrhk_events.c`, `rrhk_input.c`, `rrhk_main.c`, `rrhk_menu.c`, `rrhk_options.c`,
+  `rrhk_ring.c`, the adapters `rrhk_md.c`, `rrhk_sms.c`, `rrhk_gb.inc`, `native/audio_output.inc` (Master System and Game Gear output)
+  and `retrorecomp/megadrive_audio.py` (the Mega Drive engine's sound callback), `native/runtime_catalog.inc` (ten new strings in
+  every language, from `assets/locales`). **Host stamps: move** for every console. **Game stamps and build stamps: unchanged**; the learned
+  paths do not move. **Quick-state keys of the 16-bit consoles: move**, because they hash `runtime_catalog.inc`; they already move
+  in 1.6.3 (the catalogue of this release), so no further break. The Game Boy has no such key.
+- *Behaviour with the new keys untouched:* the same. The volume is 100%, the mute off, the device the system default, the speed 100%;
+  at those values the sound stage leaves the samples as they are, byte for byte, and the pacing is the expression it was. Checked on Mega
+  Drive Blockout, Master System Bank Panic and Game Boy Kirby's Block Ball with `tools/hostkit_ab.py` (HOST_KIT.md, "D12").
+- *Mega Drive:* the engine's own sound callback now calls the shell's stage, which also makes the **audio filter** row of F2 work there
+  (it was offered on the Mega Drive, but its callback never applied the filter). An export of 1.6.2 with `audio_filter` set in
+  `[MegaDrive.Options]` therefore sounds filtered after the upgrade, as the row says.
+- *Preferences:* new keys `audio_volume`, `audio_muted` and `audio_device` under `[<Console>.Options]`. A Game Boy export of 1.6.2 keeps
+  its volume, mute and output device: `audio.volume_percent`, `audio.muted` and `audio.device_name` of the flat
+  `datas/Retro-Recomp-GameBoy.ini` are read where the new keys are absent (never written, never deleted).
+- *Behaviour notes of the sound stage:* a volume, mute or output-device choice applies even if `datas` cannot be written (the page says
+  "Config unavailable"); an unplugged output is replaced by the default on every console, the Master System, Game Gear and Mega Drive
+  included; at most 32 output devices are offered. Edited for this (host inputs): `audio_output.inc`, `rrhk_audio.c`, `rrhk_events.c`,
+  the adapters `rrhk_md.c` and `rrhk_sms.c`, `megadrive_audio.py`.
+- *Fixes of the review of phase 5, same release:* a menu or the Pause menu stops a guest that owns the loop (Game Boy, Master System,
+  Game Gear) even while a quick-state request waits for its safe boundary (the Game Boy can wait many slices with the LCD off); the Game
+  Boy's reset forgets the held autofire buttons as a state load does.
 
 ## UPX 5.3.0 (packing, a build input)
 

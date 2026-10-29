@@ -880,6 +880,16 @@
     "None": "Nessuno",
     "%s (disconnected)": "%s (scollegato)",
     "No gamepad for player %d": "Nessun pad per il giocatore %d",
-    "Enter: change gamepad | Delete: Automatic": "Invio: cambia pad | Canc: Automatico"
+    "Enter: change gamepad | Delete: Automatic": "Invio: cambia pad | Canc: Automatico",
+    "Maximum speed ON": "Velocità massima ON",
+    "Maximum speed OFF": "Velocità massima OFF",
+    "Sound muted": "Audio disattivato",
+    "Sound on": "Audio attivo",
+    "Volume: %s": "Volume: %s",
+    "M Sound: %s": "M Audio: %s",
+    "Output device: %s": "Uscita audio: %s",
+    "System default": "Predefinito di sistema",
+    "` Max speed: %s": "` Velocità max: %s",
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Avanti veloce | `  Velocità max | M  Muto"
   }
 }

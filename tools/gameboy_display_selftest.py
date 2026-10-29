@@ -53,8 +53,11 @@ int main() {
     fs::remove_all(datas);
     write_file(datas / "Retro-Recomp-GameBoy.ini",
         "video.filter=3\\nvideo.display_mode=2\\nvideo.palette=green\\nui.language=fr\\ninput.autofire=1\\n"
-        "keyboard.a.0=key:4\\nkeyboard.a.1=none\\nkeyboard.up.0=none\\ncontroller.b.0=button:3\\naudio.volume_percent=30\\n");
+        "keyboard.a.0=key:4\\nkeyboard.a.1=none\\nkeyboard.up.0=none\\ncontroller.b.0=button:3\\naudio.volume_percent=30\\naudio.muted=1\\naudio.device_name=Old Speakers\\n");
     assert(gb_platform_init(1));
+    /* The sound settings of the upstream shell survive into the shell's controls (decision D12). */
+    assert(ui->audio_volume == 30 && ui->audio_muted == 1 && !strcmp(ui->audio_device, "Old Speakers"));
+    assert(rrhk_audio_device() && !strcmp(rrhk_audio_device(), "Old Speakers"));
     assert(ui->filter == 3 && ui->fullscreen == 2 && g_palette_idx == 0 && ui->language == 1 && ui->autofire == 1);
     assert(ui->keys[0][RR_GB_A] == SDL_SCANCODE_A && ui->keys[0][RR_GB_UP] == SDL_SCANCODE_UNKNOWN);
     assert(ui->keys[0][RR_GB_B] == SDL_SCANCODE_X && ui->buttons[0][RR_GB_B] == SDL_CONTROLLER_BUTTON_Y);

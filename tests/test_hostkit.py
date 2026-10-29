@@ -153,6 +153,76 @@ class GameBoyTests(unittest.TestCase):
             self.assertIn(setting, text)
 
 
+class SoundAndSpeedTests(unittest.TestCase):
+    """Decision D12 (1.6.3): the Game Boy's former Tab, backquote and M keys, the volume and the output device, on every console."""
+
+    def test_every_console_goes_through_the_one_sound_stage(self):
+        options = (ROOT / 'native/game_options.h').read_text(encoding='utf-8')
+        for name in ('volume', 'muted', 'speed_held'):
+            self.assertIn(name, options)
+        # the ring and the queue of the kit, the Master System / Game Gear output and the Mega Drive engine all call it
+        self.assertIn('rrhk_options_audio(', (KIT / 'shell/rrhk_ring.c').read_text(encoding='utf-8'))
+        self.assertIn('rrhk_options_audio(', (KIT / 'shell/rrhk_audio.c').read_text(encoding='utf-8'))
+        self.assertIn('RR_HOST_AUDIO_FILTER', (ROOT / 'native/audio_output.inc').read_text(encoding='utf-8'))
+        self.assertIn('rr_md_audio_stage(', (ROOT / 'retrorecomp/megadrive_audio.py').read_text(encoding='utf-8'))
+        self.assertIn('rr_md_audio_stage = rrhk_options_audio', (KIT / 'adapters/rrhk_md.c').read_text(encoding='utf-8'))
+
+    def test_the_keys_are_the_game_boys_former_ones(self):
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        for key in ('SDL_SCANCODE_TAB', 'SDL_SCANCODE_GRAVE', 'SDL_SCANCODE_M', 'SDL_CONTROLLER_AXIS_TRIGGERRIGHT',
+                    'SDL_CONTROLLER_AXIS_TRIGGERLEFT'):
+            self.assertIn(key, events)
+        main = (KIT / 'shell/rrhk_main.c').read_text(encoding='utf-8')
+        self.assertIn('rrhk.max_speed ? 500 : rrhk.fast_hold ? 250 : 100', main)
+        # the pacing of a normal speed is the expression it always was
+        self.assertIn('if (r->speed != 100) period = period * 100 / (Uint64)r->speed;', main)
+        self.assertIn('Tab  Fast-forward', (KIT / 'shell/rrhk_menu.c').read_text(encoding='utf-8'))
+
+    def test_the_game_boy_preferences_of_1_6_2_are_read(self):
+        adapter = (KIT / 'adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+        for key in ('audio.muted', 'audio.volume_percent', 'audio.device_name'):
+            self.assertIn(key, adapter)
+
+    def test_a_menu_stops_a_guest_that_owns_the_loop_even_with_a_state_pending(self):
+        main = (KIT / 'shell/rrhk_main.c').read_text(encoding='utf-8')
+        self.assertIn('(!r->pending_state || r->driven)', main)
+
+    def test_the_game_boy_reset_forgets_the_held_buttons_like_a_state_load(self):
+        adapter = (KIT / 'adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+        body = adapter.split('static void rr_gb_reset(void) {', 1)[1].split('}', 1)[0]
+        self.assertIn('rrhk_autofire_reset();', body)
+
+    def test_a_removed_output_device_is_replaced_on_every_console(self):
+        audio = (KIT / 'shell/rrhk_audio.c').read_text(encoding='utf-8')
+        # the machines that own their device say which one it is
+        self.assertIn('m->audio_device_id()', audio)
+        self.assertIn('.audio_device_id = host_audio_device_id', (KIT / 'adapters/rrhk_sms.c').read_text(encoding='utf-8'))
+        self.assertIn('.audio_device_id = audio_device_id', (KIT / 'adapters/rrhk_md.c').read_text(encoding='utf-8'))
+        self.assertIn('rr_md_audio_device_id', (ROOT / 'retrorecomp/megadrive_audio.py').read_text(encoding='utf-8'))
+        # a device that is gone is opened again through the opening path, not only replaced while it is open
+        body = audio.split('bool rrhk_audio_reopen(RrhkRun *run) {', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('rrhk_audio_open(run)', body)
+        self.assertNotIn('if (!run->audio) return false;', body)
+
+    def test_a_pad_plugged_or_unplugged_never_leaves_the_fast_forward_held(self):
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        speed = events.split('static void speed_event(', 1)[1].split('\n}\n', 1)[0]
+        self.assertIn('SDL_CONTROLLERDEVICEREMOVED', speed)
+        self.assertIn('rrhk.fast_hold &= ~HOLD_TRIGGER', speed)
+
+    def test_a_chord_of_the_quit_or_restart_combination_is_not_a_sound_key(self):
+        events = (KIT / 'shell/rrhk_events.c').read_text(encoding='utf-8')
+        self.assertEqual(events.count('rrhk_options_component('), 4)     # Pause (two), the Tab hold, and M / backquote
+
+    def test_the_new_strings_are_in_every_locale(self):
+        import json
+        for code in ('fr', 'it', 'es', 'de', 'ja', 'ru', 'zh'):
+            runtime = json.loads((ROOT / f'assets/locales/{code}.json').read_text(encoding='utf-8'))['runtime']
+            for key in ('Maximum speed ON', 'Maximum speed OFF', 'Sound muted', 'Sound on', 'Volume: %s', 'M Sound: %s',
+                        'Output device: %s', 'System default', '` Max speed: %s', 'Tab  Fast-forward | `  Max speed | M  Mute'):
+                self.assertIn(key, runtime, code)
+
+
 if __name__ == '__main__':
     unittest.main()
 

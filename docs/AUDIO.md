@@ -14,7 +14,8 @@ Since 1.6.3 the Game Boy's sound output is the host kit's callback ring (`native
 interleaved stereo and a 10 ms start margin); the adapter `rrhk_gb.inc` hands it the samples the APU produced during each frame.
 Before, `native/gb_audio_output.inc` held the same design (a deadline start, the adaptive reserve, 256-sample periods) for this
 console alone. The APU, its 44.1 kHz PCM, saved state layout, CPU clock and input handling remain unchanged. The volume, mute
-and output-device choice of the upstream settings panel are gone with the panel. This is a host output change
+and output-device choice of the upstream settings panel are the kit's, on every console, since 1.6.3
+([HOST_KIT.md](HOST_KIT.md#d12): one stage `rrhk_options_audio`, before the audio filter). This is a host output change
 for all newly generated Game Boy games, not a cartridge-specific patch; the measurements below were taken on the former
 output, and the A/B run of the kit's ring is in [HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163).
 

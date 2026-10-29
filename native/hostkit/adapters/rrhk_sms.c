@@ -108,6 +108,8 @@ int smsrecomp_take_reset_request(void) {
 static void audio_output_clear(void);
 #define RR_HOST_AUDIO_FILTER rrhk_options_audio
 #define RR_HOST_AUDIO_RESET rrhk_options_audio_reset
+#define RR_HOST_AUDIO_DEVICE rrhk_audio_device
+#define RR_HOST_AUDIO_HELD rrhk_audio_held
 void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
 void rrhk_options_audio_reset(void);
 #include "audio_output.inc"
@@ -342,6 +344,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .state_ready = state_ready, .state_file = state_file, .input_frame = input_frame,
             .pointer_input = pointer_input,
             .page = sms_light_phaser ? &page : NULL,
+            .audio_reopen = host_audio_reopen, .audio_device_id = host_audio_device_id,
             .settings_loaded = settings_loaded, .option_rows = option_rows, .help_lines = help_lines,
             .help_controls = help_controls, .key_event = key_event, .game_rect = game_rect, .pause_page = pause_page,
         };
