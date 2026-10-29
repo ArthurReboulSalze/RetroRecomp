@@ -7,6 +7,7 @@ import re
 
 from .core import replace_once, ConversionError
 from .paths import ASSETS
+from . import nes_state_layout
 
 
 def _write(path: Path, data: bytes) -> None:
@@ -232,13 +233,17 @@ def _apu(source: str, *, fast_audio: bool = True) -> str:
     source = replace_once(source, '    hw_bus_read(hw.cpu_addr);',
         '    if (!RR_NES_PAL || hw.cpu_addr < 0x4016 || hw.cpu_addr > 0x4017 || apu.oam_dma)\n'
         '        hw_bus_read(hw.cpu_addr);')
+    # The audio state becomes a named type so that its serialiser can be written from its definition.
+    source = replace_once(source, 'static struct {\n    bool     on;', 'typedef struct {\n    bool     on;')
+    source = replace_once(source, '} audio;', '} RrAudio;\nstatic RrAudio audio;')
     source += '''
-size_t rr_nes_apu_size(void) { return sizeof(apu) + sizeof(audio); }
+#include "nes_state_apu.inc"
+size_t rr_nes_apu_size(void) { return rr_size_HwApu() + rr_size_RrAudio(); }
 void rr_nes_apu_save(uint8_t *b) {
-    memcpy(b, &apu, sizeof(apu)); memcpy(b + sizeof(apu), &audio, sizeof(audio));
+    b = rr_ser_HwApu(b, &apu); rr_ser_RrAudio(b, &audio);
 }
 void rr_nes_apu_load(const uint8_t *b) {
-    memcpy(&apu, b, sizeof(apu)); memcpy(&audio, b + sizeof(apu), sizeof(audio));
+    b = rr_de_HwApu(b, &apu); rr_de_RrAudio(b, &audio);
     /* Queued host audio belongs to the discarded timeline. */
     audio.head = audio.tail = 0;
 }
@@ -336,6 +341,30 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
 '''
 
 
+_MACHINE_STRUCTS = {'Cpu6502', 'HwMachine', 'HwCart', 'HwPpu', 'HwVrc6Audio', 'HwNamco', 'HwRambo', 'HwJaleco',
+                    'HwFme7', 'Hw5B', 'NesCartInfo', 'NesEeprom', 'NesBarcode', 'Mmc5State', 'Mmc5Pulse',
+                    'RrZapper', 'RrStateHeader', 'RrMachineState'}
+_APU_STRUCTS = {'LengthCounter', 'Envelope', 'Pulse', 'HwApu', 'RrAudio'}
+_VRC7_STRUCTS = {'OPLL_PATCH', 'OPLL_SLOT', 'OPLL'}
+
+
+def _state_layouts(transformed: dict[str, bytes]) -> dict[str, str]:
+    """The quick-state serialisers, written from the struct definitions of the staged sources."""
+    def text(name: str) -> str:
+        return transformed[name].decode('utf-8')
+    machine, apu, vrc7 = {}, {}, {}
+    for name in ('runner/cyc/hw_internal.h', 'runner/cyc/cpu6502.h', 'runner/cyc/mmc5_state.h', 'common/nes_cart.h',
+                 'common/nes_eeprom.h', 'common/nes_barcode.h'):
+        machine.update(nes_state_layout.parse(text(name), _MACHINE_STRUCTS))
+    machine.update(nes_state_layout.parse((ASSETS / 'native/nes_machine_state.inc').read_text(encoding='utf-8'),
+                                          _MACHINE_STRUCTS))
+    apu.update(nes_state_layout.parse(text('runner/cyc/hw_apu.c'), _APU_STRUCTS))
+    vrc7.update(nes_state_layout.parse(text('runner/cyc/vendor/emu2413/emu2413.h'), _VRC7_STRUCTS))
+    return {'runner/cyc/nes_state_main.inc': nes_state_layout.generate(machine, ['RrStateHeader', 'RrMachineState']),
+            'runner/cyc/nes_state_apu.inc': nes_state_layout.generate(apu, ['HwApu', 'RrAudio']),
+            'runner/cyc/nes_state_vrc7.inc': nes_state_layout.generate(vrc7, ['OPLL'])}
+
+
 def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
                     fast_audio: bool = True) -> Path:
     from .feedback import stage
@@ -343,6 +372,7 @@ def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
     stage(project, 'nes', '0'*64, cmake=False)
     root = project / 'machine'
     transformed = {}
+    identity_inputs = {}
     for relative in ('runner/cyc', 'common'):
         for path in (engine / relative).rglob('*'):
             if not path.is_file():
@@ -416,6 +446,8 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
 }
 '''
             if name == 'runner/cyc/cyc.cmake':
+                # The key must not depend on where the project is: hash the engine's own file.
+                identity_inputs[name] = data
                 data += ('\nlist(APPEND NESRECOMP_CYC_SOURCES "' + (project/'runtime_feedback.c').as_posix() + '")\n'
                          'list(APPEND NESRECOMP_CYC_INCLUDE_DIRS "' + project.as_posix() + '")\n').encode('utf-8')
             if path.suffix in ('.c', '.h', '.inc'):
@@ -429,9 +461,15 @@ void rr_opll_restore_wave(OPLL_SLOT *slot, unsigned index) {
                         'HW_ALWAYS_INLINE uint8_t hw_cart_prg_read')
                 data = text.encode('utf-8')
             transformed[name] = data
+            identity_inputs.setdefault(name, data)
             _write(root / name, data)
+    layouts = _state_layouts(transformed)
+    for name, text in layouts.items():
+        data = text.encode('utf-8')
+        identity_inputs[name] = data
+        _write(root / name, data)
     identity = hashlib.sha256()
-    for name, data in sorted(transformed.items()):
+    for name, data in sorted(identity_inputs.items()):
         identity.update(name.encode('utf-8')); identity.update(data)
     for name in ('retro_nes.h', 'nes_machine_state.inc', 'nes_mapper_state.inc', 'nes_state.c', 'nes_ppu_fast.inc', 'nes_ppu_lazy.inc', 'nes_sprite_extra.inc', 'nes_sprite_shift.h'):
         identity.update((ASSETS / 'native' / name).read_bytes())

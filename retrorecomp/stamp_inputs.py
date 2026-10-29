@@ -425,6 +425,7 @@ INPUTS = _resolve({
         'retrorecomp.nes_optimization',
         'retrorecomp.nes_ram',
         'retrorecomp.nes_runtime',
+        'retrorecomp.nes_state_layout',
     ),
     ('md',): (
         'native/md_audio_bridge_checks.c',
