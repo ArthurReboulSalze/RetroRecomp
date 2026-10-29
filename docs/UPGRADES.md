@@ -223,6 +223,16 @@ owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`)
 two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
 two Sega consoles. A Game Gear export of 1.6.4 or before keeps answering "Config unavailable" to F5 until it is rebuilt.
 
+## Master System and Game Gear: repeating block instructions in the functions engine (1.6.5)
+
+Exports made with the "functions" engine are reconverted: a repeating block instruction (`LDIR`, `CPIR`, `OTIR` and the others)
+that goes on after an iteration now leaves the flags of the NMOS repeat cycle, as the banked engine and the reference CPU
+already did (X and Y from the high byte of the instruction's address, H and P from B for the input and output groups). It
+shows when an interrupt is accepted between two iterations and pushes AF; Alex Kidd: High-Tech World passes the comparison with the
+reference CPU with it (CPU fidelity on the project's own tested routes, nothing about hardware, gameplay or latency). The default banked engine
+generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
+with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of both consoles moves with `core`.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

@@ -412,9 +412,24 @@ def patched_generator_source(generator_source: str) -> str:
     """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
     generator_source = replace_once(generator_source,
         '    fprintf(o,"        do {\\n");',
-        '''    fprintf(o,"        int sms_block_first = 1;\\n        do {\\n");
+        '''    fprintf(o,"        int sms_block_first = 1;\\n        uint16_t sms_block_pc = g_dbg_pc;\\n        do {\\n");
     fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
     fprintf(o,"            sms_block_first = 0;\\n");''')
+    # A repeating block instruction that goes on (BC or B not exhausted, no CPIR/CPDR match) leaves the flags of the NMOS repeat
+    # cycle: X and Y from the high byte of the instruction's address (the PC is wound back to it) and, for INIR/INDR/OTIR/OTDR, H
+    # and P adjusted from B. An interrupt accepted between two iterations pushes AF with them. The banked emitter and the corrected
+    # reference (retrorecomp/cpu.py) already follow this rule, checked against independent vectors; the address is the one the
+    # generated function recorded before the loop, because the handler of an accepted interrupt changes g_dbg_pc.
+    generator_source = replace_once(generator_source,
+        "    /* post-body tick: this iteration's effect already ran (see sms_tick_post) */\n",
+        '''    fprintf(o,"            if (%s) {\\n", contc);
+    fprintf(o,"                s->f = (uint8_t)((s->f & ~0x28) | ((sms_block_pc >> 8) & 0x28));\\n");
+    if (grp >= 2) fprintf(o,"                { uint8_t b = s->b; if (s->f & Z80_FLAG_C) { int neg = (s->f & Z80_FLAG_N) != 0; "
+        "z80f_set(s, Z80_FLAG_H, (b & 15) == (neg ? 0 : 15)); b = (uint8_t)(b + (neg ? -1 : 1)); } "
+        "if (!z80_parity8(b & 7)) s->f ^= Z80_FLAG_P; }\\n");
+    fprintf(o,"            }\\n");
+    /* post-body tick: this iteration's effect already ran (see sms_tick_post) */
+''')
     generator_source = replace_once(generator_source,
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
