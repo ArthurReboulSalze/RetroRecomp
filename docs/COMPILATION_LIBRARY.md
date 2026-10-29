@@ -79,11 +79,13 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 stamps of the release before the one being built, never those of older releases, and the quick-state keys
 (`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
 table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES.md](UPGRADES.md#exports-of-160-in-161)); the
-tree of 1.6.2 listed those of 1.6.1 ([UPGRADES.md](UPGRADES.md#exports-of-161-in-162)); the tree of 1.6.3 lists those of 1.6.2,
+tree of 1.6.2 listed those of 1.6.1 ([UPGRADES.md](UPGRADES.md#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2,
 two per console (the Windows converter's and the Linux converter's), for the Master System, Game Gear, Game Boy and NES
-only, because 1.6.3 changes what a game does on the 68000 and 65816 of the other consoles ([below](#release-162-entries-29-october-2026-windows-and-linux);
-[UPGRADES.md](UPGRADES.md#exports-of-162-in-163), with the evidence and what it does not prove), and each release after
-replaces them, proving each one build-only with a real receipt of a real export. A player coming from an older release
+only ([below](#release-162-entries-29-october-2026-windows-and-linux);
+[UPGRADES.md](UPGRADES.md#exports-of-162-in-163), with the evidence and what it does not prove); the tree of 1.6.4 lists none,
+because 1.6.4 is a structural release that reconverts every console ([below](#release-163-entries-29-october-2026-windows-and-linux);
+[UPGRADES.md](UPGRADES.md#exports-of-163-in-164)); and each release after replaces the entries, proving each one build-only with a
+real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
 longer in the code.
@@ -304,6 +306,9 @@ Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
 
 #### Release 1.6.2 entries (29 October 2026, Windows and Linux)
 
+*History: since 1.6.4 these entries are no longer in the code (see the rule above): an export of 1.6.2 is two releases
+old for 1.6.4 and is converted in full.*
+
 The rule applied to the release after 1.6.2: the stamps below were computed for all nine consoles and verified, then the
 release procedure (below) decided which are listed. The game stamp of `v1.6.2` (commit `5bbfe12`) is the one of an archive of
 the tag under Python 3.14.5 (Windows) and 3.13.5 (the Linux build host, Hermès), and equals, on all nine consoles, the stamp
@@ -334,6 +339,38 @@ knows still starts from its qualified paths with the quick check (the base is ke
 which did not move). No receipt of 1.6.2 was produced for any of these entries. The quick-state keys follow another rule
 ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-162)): the 1.6.2 keys of the Mega Drive, Super Nintendo, Neo
 Geo and CPS-1 are accepted by every 1.6.3 build of those consoles, upgraded or reconverted.
+
+#### Release 1.6.3 entries (29 October 2026, Windows and Linux)
+
+The rule applied to the release after 1.6.3, which is a structural release with a full reconversion of every console (decision
+of the maintainer, 29 October 2026): the stamps below were computed for all nine consoles, then the release procedure (below)
+decided which are listed, and **none is**. The game stamp of `v1.6.3` (commit `bb2aa95`) is the one of an archive of the tag
+exported into an empty folder, then `compilation_inputs.role_stamps(system)`, under Python 3.14.5 (Windows) and 3.13.5 (the
+Linux build host, in a temporary folder deleted afterwards). The host and build stamps, recorded the same way, are in
+[UPGRADES.md](UPGRADES.md#exports-of-163-in-164) and in `tests/test_legacy_compat.py`.
+
+| Console | Windows | Linux | Listed in 1.6.4 |
+| --- | --- | --- | --- |
+| Master System | `63e727d52b1b7af0ce1c6544bac62c1362e73132efdad799347c49bf07ed7257` | `8efac42db9fee6c3094e9cafc007c87ed7387e736fc4405d7d422e03472a702a` | no: the "functions" engine (HALT, interrupt acceptance, top-level return), SDL, the registry |
+| Game Gear | `67487dfd4d724db4f7be9052fd57cafea77f810a9b5a7cf74d7cfdb121b74a4f` | `d5fa178b743638d1e49ed06ad9fbda597dfeb53664decb4f0076acd1a5949561` | no: the same |
+| Game Boy | `20d990464af935b2ea058208029ec0a7f0fdadb955e46275f4ad6dcd33749b28` | `e2a69eded159057ecfeade0d66091bb9248e9ba9a3bc63233b5bfcbcfffb344e` | no: the counted executor of WRAM and HRAM instructions, SDL, the registry |
+| NES | `21c183e6df50d5048ada8f5dfb3596633f4bffcdc6d1fc088d21a5e96a33104c` | `08df3e3cb280c7728d0a9af21d8c3fdf9b527dd2c5bf3b60e13fd80c4d46d3ff` | no: the quick-state writer (header and members zeroed), SDL, the registry |
+| Mega Drive | `c8c3a33789a92f80d41df0c43e546c581e94884055bb07a31ef04ebae583ba9d` | `d4a0f9676a97e96051cc531e95742e19d4311d137127fda088f9476b5282a3b3` | no: SDL and the registry |
+| Super Nintendo | `6825afd89679334b3aee85318a31b1ad2ad381654be1d7d6951552cedb5950ff` | `d7987cb30048be3cea669466ebfd9f1bbb96cfb8b949afb98fd3c8e78535e586` | no: SDL and the registry |
+| Neo Geo | `4637299cdbf17baea508a7046e4576ca59acc8dd994c2a51c70558adfb76b360` | `107d2a2b96b83614fec0b941555a280036e08edf32d62145b916f0d8331cc0ba` | no: SDL, the registry and the rollover's own key edit |
+| CPS-1 | `cdfe0c2944e41813548f3847e1742d7d9f395463f7966dddd6ea573518628e43` | `490167ff02e59d7a17f19e863e527589f1d5dbe1a995fb8d016338c1a05148c4` | no: code run from graphics RAM (`GENERATOR_REVISION` 7), the `CPS1S002` quick state, SDL, the registry |
+| Sharp X68000 | `a58d873ff98ca9a16f973a2621ffa672a1f0dc464f7694ff36f7ebbf4645e84e` | `d85456f6c6e16301deb53ab14699812dae766470b4b88d35192f5e05fd5f4524` | no: the payload's extended-length paths, SDL, the registry (its request carries `x68_sdk`) |
+
+*Not listed.* SDL 2.32.10 is linked into every game and the profile registry moves every game stamp, so no export of 1.6.3 is
+current on any console; and six consoles also change in their own way (the SMS and GG "functions" engine, the Game Boy counting
+and executor, the NES and CPS-1 quick-state writers, CPS-1 graphics-RAM code, the X68000 payload paths), which the procedure counts
+as changing what a game does. Their exports of 1.6.3 are converted in full, and a ROM the shared base
+knows starts from its qualified paths with the quick check (of the 23 upstreams that `upstreams.py` declares, only SDL moved, and the
+base is keyed by the recompiler and engine revisions, not by SDL). Unlike the entries of 1.6.2, these stamps were not compared with
+the stamps that the published converters of 1.6.3 give with their own `_compilation-inputs`; since nothing is listed, no receipt can
+be accepted on the strength of them. No receipt of 1.6.3 was produced for any of these records. The quick-state keys follow another rule
+([GAME_STATES.md](GAME_STATES.md#states-written-by-release-163)): the Neo Geo key of 1.6.3 is accepted by every 1.6.4 build of that
+console on Windows; the Mega Drive and Super Nintendo keys did not move; the CPS-1 and NES states of 1.6.3 are refused.
 
 **Release procedure.** Before each release: replace the `LEGACY_GAME_STAMPS` entries by those of the release being left
 (the previous release only; nothing older is kept), and list none for a console when the release really changes
