@@ -270,14 +270,17 @@ that depends on it. The second is a defect of the pinned base itself, found with
 in Gardis Light 2.10, which is in our test collection and has not been converted again for this change. The reproducer shows 2 of 16 lines left unmarked at a 2-line start offset, and 32 of 64 with a 256-line background on a 512-line display.
 Both are described in [UPGRADES.md](UPGRADES.md#x68000-dma-channel-restart-and-moved-sprite-redraw-165).
 
-And one 68000 fix for the Mega Drive:
+And two 68000 fixes for the Mega Drive:
 
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
 | 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
+| 68000: the supervisor `RESET` instruction is executed (program counter and 132 clocks) instead of halting as unimplemented; on the Mega Drive its output reaches only the cartridge port | md | `megadrive_codegen.py` (`adapt_reset`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
 
-It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
-and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).
+Both are CPU fidelity fixes. The shift clocks are checked by the 834 SingleStepTests shift vectors replayed with their clocks on the
+native and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). `RESET` is checked by its manual total
+(132 clocks, program counter advanced by two) on both paths in `tools/megadrive_cycles_selftest.py`, and by a conversion of Boxing
+Legends of the Ring, which executes it at boot. Described in [UPGRADES.md](UPGRADES.md).
 
 One more patch of 1.6.5 is a speed change with no change of result, on the NES. The pinned `hw_mapper.c` rebuilds the MMC1 bank tables
 (`mmc1_apply`) at every change of PPU address line A12, which happens several times per scanline. A12 only chooses between CHR register 0
