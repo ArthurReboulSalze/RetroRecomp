@@ -154,6 +154,48 @@ def canonical_archive(source: Path, destination: Path, descriptor: dict) -> None
             staged.writestr(entry,data)
 
 
+def mirror_short_fixed_rom(container: Path) -> bool:
+    """Repeat a fixed-graphics ROM smaller than 128 KiB (a 64 KiB chip) up to 128 KiB in the staged container.
+
+    The video chip numbers fix tiles with 12 bits and the chip's unused address lines repeat its contents, so tile n of a
+    64 KiB ROM is tile n - 2048 above 2048 (MAME wraps the tile code the same way). The reference engine indexes the
+    region without a mask, and the layout check below wants at least 128 KiB: a 64 KiB region would be read past its end.
+    Only the container staged for this conversion is rewritten (never a caller's file); returns whether it changed."""
+    size = container.stat().st_size
+    if not 4096 <= size <= MAX_SET_BYTES:
+        return False
+    with container.open('rb') as source:
+        header = bytearray(source.read(4096))
+        if header[:4] != b'NEO':
+            return False
+        lengths = list(struct.unpack_from('<6I', header, 4))
+        fixed = lengths[1]
+        if fixed >= 0x20000 or fixed < 0x4000 or fixed & (fixed - 1) or 4096 + sum(lengths) != size:
+            return False
+        target = container.with_name(container.name + '.mirror')
+        copies = 0x20000 // fixed
+        with target.open('wb') as out:
+            lengths[1] = 0x20000
+            struct.pack_into('<6I', header, 4, *lengths)
+            out.write(header)
+            for index, length in enumerate((lengths[0], fixed, *lengths[2:])):
+                left = length
+                data = b''
+                while left:
+                    chunk = source.read(min(left, 1 << 20))
+                    if not chunk:
+                        raise ValueError('Truncated NEO region.')
+                    if index == 1:
+                        data += chunk
+                    else:
+                        out.write(chunk)
+                    left -= len(chunk)
+                if index == 1:
+                    out.write(data * copies)
+    target.replace(container)
+    return True
+
+
 def parse_neo(path: Path) -> NeoGeoSet:
     size = path.stat().st_size
     if not 4096 <= size <= MAX_SET_BYTES:
