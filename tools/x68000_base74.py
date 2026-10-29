@@ -129,12 +129,25 @@ def adapt_gvram(d: bytes) -> bytes:
 def adapt_tvram(d: bytes) -> bytes:
     start = d.index(b'\tif (opaq) {\n\t\tfor (i = 0; (i < TextDotX) && (x > 0)')
     end = d.index(b'#endif\t/* USE_ASM */\n}', start)
+    # The text plane wraps at 1024 dots (10-bit scroll). The line is copied in runs that stay inside the plane's row, so
+    # that the inner loop has no per-dot wrap mask and no test of the opaque mode (the same dots, in the same order).
     body = (b'\t(void)addr;\n'
-            b'\t/* The text plane wraps at 1024 dots (10-bit scroll). */\n'
-            b'\tfor (i = 0; i < TextDotX; ++i, ++off) {\n'
-            b'\t\tt = TextDrawWork[y + ((TextScrollX + i) & 0x3ff)] & 0xf;\n'
-            b'\t\tif (opaq) {\n\t\t\tText_TrFlag[off] = t ? 1 : 0;\n\t\t\tBG_LineBuf[off] = TextPal[t];\n'
-            b'\t\t} else if (t) {\n\t\t\tText_TrFlag[off] |= 1;\n\t\t\tBG_LineBuf[off] = TextPal[t];\n\t\t}\n\t}\n')
+            b'\ti = 0;\n'
+            b'\twhile (i < TextDotX) {\n'
+            b'\t\tDWORD k, run = TextDotX - i, first = (TextScrollX + i) & 0x3ff;\n'
+            b'\t\tconst BYTE *dots = &TextDrawWork[y + first];\n'
+            b'\t\tif (run > 1024 - first) run = 1024 - first;\n'
+            b'\t\tif (opaq) {\n'
+            b'\t\t\tfor (k = 0; k < run; ++k) {\n'
+            b'\t\t\t\tt = dots[k] & 0xf;\n\t\t\t\tText_TrFlag[off + k] = t ? 1 : 0;\n\t\t\t\tBG_LineBuf[off + k] = TextPal[t];\n'
+            b'\t\t\t}\n'
+            b'\t\t} else {\n'
+            b'\t\t\tfor (k = 0; k < run; ++k) {\n'
+            b'\t\t\t\tt = dots[k] & 0xf;\n'
+            b'\t\t\t\tif (t) {\n\t\t\t\t\tText_TrFlag[off + k] |= 1;\n\t\t\t\t\tBG_LineBuf[off + k] = TextPal[t];\n\t\t\t\t}\n'
+            b'\t\t\t}\n'
+            b'\t\t}\n'
+            b'\t\ti += run;\n\t\toff += run;\n\t}\n')
     return d[:start] + body + d[end:]
 
 
