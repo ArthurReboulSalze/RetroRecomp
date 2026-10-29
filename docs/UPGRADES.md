@@ -415,6 +415,33 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## X68000: exact redraw marks for the background and the sprites (1.6.5)
+
+The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background
+map or pattern, and sixteen lines for any write to a sprite register, drawn or not. The marks now cover exactly the lines whose
+picture can have changed, using the mapping of the line drawing (the previous section):
+
+- a write to a background **map entry** marks the lines of its tile row (8 or 16 lines, on the ring of 512 or 1024 lines, with the
+  plane's scroll and the vertical offset of the background);
+- a write to a **pattern** is noted by pattern number; the next line drawn (`rr_bg_resolve`, called by `WinDraw_DrawLine`) marks the
+  lines of the sprites and map entries that use a noted pattern, once for all the patterns written since the last line;
+- a write to a **sprite register** marks nothing for a sprite that is not drawn before and after (priority 0, or off screen);
+- a change of the screen-resolution register of the background redraws everything, as the other registers that move the picture
+  already did; a saved state resolves the noted patterns first, and a loaded state starts with none.
+
+This is a speed change, not a behaviour change: the picture is meant to be the same as a full redraw. `tests/test_x68000_redraw_marks.py`
+(with `tests/x68000_redraw_marks_harness.c`) draws random authored scenes line after line with the real `BG_DrawLine`, once redrawing
+only the marked lines and once every line, with random map, pattern, sprite and scroll writes between the lines, and requires the two
+to be identical after every line; it redraws 3 to 4 times fewer lines when few things change, and it catches two deliberately broken
+variants of the marks. The same bookkeeping applies to the native player and to the reference, so their comparison is unchanged.
+`tools/ab_conversion.py` on two games (R-Type, which scrolls, and Puyo Puyo, which hardly does), before and after, compared 314 files
+each (CPU, memory, picture, PCM and clock traces, frame images, hashes, quick states, reports): the only differences are the three
+adapted sources that changed (`bg.c`, `windraw_compose.c` and the generation record). No timing was taken here; the gain is the number of lines no longer redrawn and is
+measured on a quiet machine. The only extra work is one call per drawn line (`rr_bg_resolve`, a test of one flag) and, after pattern
+writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line drawn, instead of the redraw of every line.
+
+The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
