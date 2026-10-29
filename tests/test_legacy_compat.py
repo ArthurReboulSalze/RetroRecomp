@@ -2,8 +2,10 @@
 
 The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 listed the previous release, 1.6.0, and
 only it. The tree of 1.6.2 listed 1.6.1 and only it. The tree of 1.6.3 lists 1.6.2 and only it: its game stamps in
-`LEGACY_GAME_STAMPS` (the eight consoles but the X68000; the 1.6.1 stamps are dropped) and its quick-state keys as
-`RR16_STATE_COMPAT_ABI` (Mega Drive, Super Nintendo, Neo Geo and CPS-1, Windows; the 1.6.1 keys are dropped). The values
+`LEGACY_GAME_STAMPS` (the Master System, Game Gear, Game Boy and NES; the Mega Drive, Neo Geo, CPS-1, Super Nintendo and
+X68000 have none, because 1.6.3 changes what a game does on their CPUs: the release procedure of
+docs/COMPILATION_LIBRARY.md; the 1.6.1 stamps are dropped) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega
+Drive, Super Nintendo, Neo Geo and CPS-1, Windows, whether or not the export is upgraded; the 1.6.1 keys are dropped). The values
 below are frozen: they were computed from the `v1.6.0`, `v1.6.1` and `v1.6.2` tags (docs/UPGRADES.md, "Exports of 1.6.2
 in 1.6.3"; docs/GAME_STATES.md, "States written by release 1.6.2"), the game stamps with Python 3.14.5 (Windows) and
 3.13.5 (Linux), the state keys with Python 3.14.5. The release that follows 1.6.3 replaces the game stamps and the state
@@ -22,31 +24,39 @@ from retrorecomp import compilation_inputs as inputs
 from retrorecomp.paths import ASSETS
 
 # Game stamps of release 1.6.2, from the v1.6.2 tag (archive of the tag, `role_stamps(system)['game']`), equal on every
-# console to the stamp the published Windows converter gives with its own `_compilation-inputs`. Between 1.6.2 and 1.6.3
-# what a conversion generates is the same but for the corrections exports receive through an upgrade (docs/UPGRADES.md).
-# The X68000 is not listed: its request carries an SDK stamp derived from the game stamp that the mechanism does not
-# recompute, so its 1.6.2 stamp (below) is recorded and must stay unlisted.
+# console to the stamp the published Windows converter gives with its own `_compilation-inputs`. Four consoles are listed:
+# between 1.6.2 and 1.6.3 the Master System and Game Gear change only the "functions" engine (a functions export that
+# diverges fails the upgrade recheck and is converted again), the Game Boy and the NES no game behaviour.
 GAME_STAMPS_162 = {
-    'cps1': 'd4e10fc37d4974cd495d666ac35bb11a29be5a79df2ed3fa8167263f044b54fb',
     'gb': '831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a',
     'gg': '14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743',
-    'md': 'ad4dee96cbceb46be2c7cdf200d917586451d53c8abbca0d24c4b6e95a500b85',
     'nes': 'fa98f9dd4c480eb16ab7e66c491cb52b02100f88631c5f398112a896e79f5ce4',
-    'ng': 'aff15893e4d95019cab57539ab28f5438f74613b07e780f2f9412f19b054b838',
     'sms': 'b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2',
+}
+# Verified like the others and NOT listed: 1.6.3 changes what a game does on these CPUs (the 68000 shifts for the Mega
+# Drive, Neo Geo and CPS-1, the 65816 BRK and COP for the Super Nintendo), so their exports of 1.6.2 are converted in full.
+# The release procedure of docs/COMPILATION_LIBRARY.md lists no console whose game the release really changes.
+GAME_STAMPS_162_NOT_LISTED = {
+    'cps1': 'd4e10fc37d4974cd495d666ac35bb11a29be5a79df2ed3fa8167263f044b54fb',
+    'md': 'ad4dee96cbceb46be2c7cdf200d917586451d53c8abbca0d24c4b6e95a500b85',
+    'ng': 'aff15893e4d95019cab57539ab28f5438f74613b07e780f2f9412f19b054b838',
     'snes': 'b6a7c7fd16250e9512258d961d7f2069d8bf6f0988a0be611530219577556d18',
 }
+# The X68000 is not listed either: its request carries an SDK stamp derived from the game stamp that the mechanism does
+# not recompute, so its 1.6.2 stamp (below) is recorded and must stay unlisted.
 X68_GAME_STAMP_162_NOT_LISTED = '699f09265a9fe722e1cedabd80d711961f8edd8e06385366eb1aa7cc1befab39'
 # The same release's Linux converter, built with Python 3.13 (code is fingerprinted as bytecode): the stamps the published
 # Linux 1.6.2 converter gives with its own `_compilation-inputs`, equal to the archive of v1.6.2 under Python 3.13.
 GAME_STAMPS_162_LINUX = {
-    'cps1': '4a0de40695a4b51350cf43eb36450211cdff13f785730f1ead61bffc4ae6ea43',
     'gb': 'dde2e590f43d5efc0dea2d34ceedee54ee908cdba37d1a1ea6535cde1d6bc1b4',
     'gg': '0d63e09321860ce6e161b49a24535d13ddc10b5e6d281b91b195ad9472710a6d',
-    'md': '0de9eed2964d4261237a9099334e7bbcad2dead0dab99258674dd0c306b220b0',
     'nes': '6618f7f293fd864e5cc6e3fec4aa89b020e2795593ba924ab30b4e13990b921a',
-    'ng': 'b6d6f5a7ae69485b8b86913241a865b171dcad8cb30ab38ada9dc381b3e62142',
     'sms': '58d4d6ee6bd59653e4815b303a8c332d593b3755419970732171e914d6b0af73',
+}
+GAME_STAMPS_162_LINUX_NOT_LISTED = {
+    'cps1': '4a0de40695a4b51350cf43eb36450211cdff13f785730f1ead61bffc4ae6ea43',
+    'md': '0de9eed2964d4261237a9099334e7bbcad2dead0dab99258674dd0c306b220b0',
+    'ng': 'b6d6f5a7ae69485b8b86913241a865b171dcad8cb30ab38ada9dc381b3e62142',
     'snes': 'fa81323602399f6e839ec9a3ee3ba1e0443fe313b5916c46b8a26742bdd55452',
 }
 X68_GAME_STAMP_162_LINUX_NOT_LISTED = '35980145fc8de1a9afb1b4722831bdbeafb38b097f963532579c412d5f2b2bc2'
@@ -136,6 +146,8 @@ class LegacyStampTests(unittest.TestCase):
         self.assertFalse(listed & set(GAME_STAMPS_160_REMOVED.values()))
         self.assertFalse(listed & set(GAME_STAMPS_161_REMOVED.values()))
         self.assertFalse(listed & set(GAME_STAMPS_161_LINUX_REMOVED.values()))
+        self.assertFalse(listed & set(GAME_STAMPS_162_NOT_LISTED.values()))
+        self.assertFalse(listed & set(GAME_STAMPS_162_LINUX_NOT_LISTED.values()))
 
     def test_every_listed_stamp_moved_since_1_6_2_and_is_not_the_current_one(self):
         # The stamp of 1.6.3 is another one on every console: a listed stamp is a receipt that is never current.
@@ -143,6 +155,7 @@ class LegacyStampTests(unittest.TestCase):
             self.assertNotIn(inputs.role_stamps(system)['game'], inputs.legacy_game_stamps(system), system)
             self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_162.get(system), system)
             self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_162_LINUX.get(system), system)
+            self.assertNotEqual(inputs.role_stamps(system)['game'], GAME_STAMPS_162_NOT_LISTED.get(system), system)
 
     def test_the_x68000_is_converted_in_full_by_the_next_release(self):
         # Its request holds `x68_sdk`, hash of the game stamp of the tree that wrote it: not covered by the table.
@@ -154,10 +167,22 @@ class LegacyStampTests(unittest.TestCase):
         self.assertNotIn(X68_GAME_STAMP_161_LINUX_NOT_LISTED, listed)
         self.assertNotIn(X68_GAME_STAMP_160_NOT_LISTED, listed)
 
-    def test_super_nintendo_exports_of_1_6_2_are_upgraded(self):
-        # The BRK and COP correction is why the Super Nintendo stamp moved: exports of 1.6.2 are rebuilt from their
-        # paths with it, which is what the entry is for (docs/UPGRADES.md).
-        self.assertEqual(inputs.legacy_game_stamps('snes'), (GAME_STAMPS_162['snes'], GAME_STAMPS_162_LINUX['snes']))
+    def test_the_consoles_whose_game_changes_on_their_cpu_have_no_entry(self):
+        # The release procedure (docs/COMPILATION_LIBRARY.md): no entry for a console when the release really changes what
+        # a game does. 1.6.3 changes the 68000 shifts (Mega Drive, Neo Geo, CPS-1) and the 65816 BRK and COP (Super
+        # Nintendo): their exports of 1.6.2 are converted in full, whatever the stamps verified for 1.6.2 are.
+        self.assertEqual(sorted(GAME_STAMPS_162_NOT_LISTED), ['cps1', 'md', 'ng', 'snes'])
+        self.assertEqual(sorted(GAME_STAMPS_162_LINUX_NOT_LISTED), ['cps1', 'md', 'ng', 'snes'])
+        for system in GAME_STAMPS_162_NOT_LISTED:
+            self.assertEqual(inputs.legacy_game_stamps(system), (), system)
+            self.assertNotIn(system, inputs.LEGACY_GAME_STAMPS)
+
+    def test_the_consoles_that_change_no_game_behaviour_are_upgraded(self):
+        # Master System and Game Gear: only the "functions" engine changes (the default banked engine generates the same
+        # sources; a functions export that diverges fails the upgrade recheck). Game Boy and NES: nothing a game does.
+        self.assertEqual(sorted(GAME_STAMPS_162), ['gb', 'gg', 'nes', 'sms'])
+        for system in GAME_STAMPS_162:
+            self.assertEqual(inputs.legacy_game_stamps(system), (GAME_STAMPS_162[system], GAME_STAMPS_162_LINUX[system]))
 
 
     def test_entries_of_the_previous_release_are_wellformed_and_never_the_current_stamp(self):
@@ -276,17 +301,33 @@ class LegacyReceiptTests(unittest.TestCase):
             for system in sorted(removed):
                 with self.subTest(release=release, system=system), tempfile.TemporaryDirectory() as folder:
                     item, parts = self.parts(system)
-                    self.assertEqual(len(parts['legacy_games']), 2)     # 1.6.2 on Windows and on Linux
+                    # 1.6.2 on Windows and on Linux, for the four consoles that list it
+                    self.assertEqual(len(parts['legacy_games']), 2 if system in GAME_STAMPS_162 else 0)
                     old = self.parts(system, removed[system])[1]['game']
                     with patch('retrorecomp.freshness._no_new_hints', return_value=True):
                         for game in (old, 'f' * 64):
                             target, path = self.receipt(folder, item, game, release)
                             self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
 
+    def test_a_1_6_2_receipt_of_a_console_without_an_entry_is_converted_in_full(self):
+        # Mega Drive, Neo Geo, CPS-1 and Super Nintendo: their 1.6.2 game stamp (the one a real 1.6.2 receipt carries) is
+        # not listed, so the receipt is not recognised and the export is converted in full.
+        from retrorecomp import freshness
+        for system in sorted(GAME_STAMPS_162_NOT_LISTED):
+            with self.subTest(system=system), tempfile.TemporaryDirectory() as folder:
+                item, parts = self.parts(system)
+                self.assertEqual(parts['legacy_games'], [])
+                for stamps in (GAME_STAMPS_162_NOT_LISTED, GAME_STAMPS_162_LINUX_NOT_LISTED):
+                    game = self.parts(system, stamps[system])[1]['game']
+                    with patch('retrorecomp.freshness._no_new_hints', return_value=True):
+                        target, path = self.receipt(folder, item, game)
+                        self.assertIsNone(freshness.current(item, target, path, parts['request'], print))
+                        self.assertIsNone(freshness.upgradable(item, target, path, parts, print))
+
     def test_without_an_entry_a_1_6_2_receipt_is_converted_in_full(self):
         # What the X68000 gets (its request needs real disks and firmware, so a console with an entry stands for it).
         from retrorecomp import freshness
-        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_162)), ['x68'])
+        self.assertEqual(sorted(inputs.SYSTEMS - set(GAME_STAMPS_162)), ['cps1', 'md', 'ng', 'snes', 'x68'])
         with tempfile.TemporaryDirectory() as folder, patch.dict(inputs.LEGACY_GAME_STAMPS, {}, clear=True):
             item, parts = self.parts('sms')
             self.assertEqual(parts['legacy_games'], [])

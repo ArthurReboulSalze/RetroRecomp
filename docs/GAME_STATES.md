@@ -398,6 +398,12 @@ trees). The tree of 1.6.3 therefore adds the 1.6.2 key of each console as a comp
 previous release keep loading (the rule: the previous release only), and drops the 1.6.1 keys: a state written by a
 1.6.1 export is refused cleanly. The Super Nintendo key of 1.6.1, which was also the key of 1.6.0, is gone for good.
 
+The states and the export upgrade are two questions. The compatibility line is written by the build of the console
+(`write_config`, `state_config`), so every 1.6.3 export of the Mega Drive, Super Nintendo, Neo Geo and CPS-1 accepts the
+quick states of 1.6.2, whether the export was upgraded or converted in full: the Mega Drive, Super Nintendo, Neo Geo and
+CPS-1 exports of 1.6.2 are converted in full ([UPGRADES.md](UPGRADES.md#exports-of-162-in-163): the release changes what a game
+does on their CPUs), and the states of the games they played still resume in the new exports.
+
 | Console | Key written by 1.6.2 (Windows) | Moved in 1.6.3 | Where it is listed |
 | --- | --- | --- | --- |
 | Mega Drive | `7943c469d11b059b7cf2a6ff4597dc2809d25cd5b093752d837c2a4d8c661948` | yes | `console16_state.MD_STATE_ABI_162`, written by `write_config` as `RR16_STATE_COMPAT_ABI` |

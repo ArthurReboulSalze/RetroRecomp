@@ -88,35 +88,30 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # older ones. The table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the stamps of 1.6.0; the tree of 1.6.2
 # listed those of 1.6.1; the entries of 1.6.2 are the ones below.
 # Release 1.6.2 (tag v1.6.2, commit 5bbfe12; Python 3.14.5 for the Windows converter and 3.13.5 for the Linux one, the
-# Pythons of the packaged converters), declared on 29 October 2026 for the Master System, Game Gear, Game Boy, NES, Mega
-# Drive, Super Nintendo, Neo Geo and CPS-1. Each value is the game stamp computed from the tag (archive of the tag, then
-# `compilation_inputs.role_stamps`) and checked against the published 1.6.2 converters: each one's own
-# `_compilation-inputs` gives, on every console, the very same stamp. Between the tag and 1.6.3 what a conversion
-# generates is the same, except the corrections that exports are meant to receive through an upgrade (the 68000 shifts
-# of the Mega Drive, Neo Geo and CPS-1, the Super Nintendo BRK and COP, the "functions" engine of the Master System and
-# Game Gear); the other game-side edits are the host kit shells, the registration refactors and the shared conversion
-# helpers. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.2 in 1.6.3". The X68000 has no entry: its request
-# carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
+# Pythons of the packaged converters), declared on 29 October 2026 for the Master System, Game Gear, Game Boy and NES
+# only. Each value is the game stamp computed from the tag (archive of the tag, then `compilation_inputs.role_stamps`) and
+# checked against the published 1.6.2 converters: each one's own `_compilation-inputs` gives, on every console, the very
+# same stamp. The Mega Drive, Neo Geo, CPS-1 and Super Nintendo have no entry (the release procedure above): 1.6.3
+# changes what a game does on their CPUs (the 68000 shifts, the 65816 BRK and COP), so their exports of 1.6.2 are converted
+# in full, a ROM the shared base knows starting from its qualified paths with the quick check. Their verified 1.6.2 stamps
+# are kept in docs/COMPILATION_LIBRARY.md ("Release 1.6.2 entries") and tests/test_legacy_compat.py, unlisted. The Master
+# System and Game Gear change only in the "functions" engine (no direct call to a paged address): the default banked
+# engine generates the same sources, and a functions export that diverges fails the upgrade recheck and is converted again
+# (the precedent of docs/COMPILATION_LIBRARY.md, "Validation fixes merged after these entries"). The Game Boy and the NES
+# change no game behaviour. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.2 in 1.6.3". The X68000 has no entry
+# either: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
 LEGACY_GAME_STAMPS = {
     # (the Windows converter's stamp, built with Python 3.14; the Linux converter's, built with Python 3.13: code is
     # fingerprinted as bytecode, so the two published 1.6.2 converters stamp differently; both checked with their own
     # `_compilation-inputs` against this table)
-    'cps1': ('d4e10fc37d4974cd495d666ac35bb11a29be5a79df2ed3fa8167263f044b54fb',
-        '4a0de40695a4b51350cf43eb36450211cdff13f785730f1ead61bffc4ae6ea43'),
     'gb': ('831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a',
         'dde2e590f43d5efc0dea2d34ceedee54ee908cdba37d1a1ea6535cde1d6bc1b4'),
     'gg': ('14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743',
         '0d63e09321860ce6e161b49a24535d13ddc10b5e6d281b91b195ad9472710a6d'),
-    'md': ('ad4dee96cbceb46be2c7cdf200d917586451d53c8abbca0d24c4b6e95a500b85',
-        '0de9eed2964d4261237a9099334e7bbcad2dead0dab99258674dd0c306b220b0'),
     'nes': ('fa98f9dd4c480eb16ab7e66c491cb52b02100f88631c5f398112a896e79f5ce4',
         '6618f7f293fd864e5cc6e3fec4aa89b020e2795593ba924ab30b4e13990b921a'),
-    'ng': ('aff15893e4d95019cab57539ab28f5438f74613b07e780f2f9412f19b054b838',
-        'b6d6f5a7ae69485b8b86913241a865b171dcad8cb30ab38ada9dc381b3e62142'),
     'sms': ('b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2',
         '58d4d6ee6bd59653e4815b303a8c332d593b3755419970732171e914d6b0af73'),
-    'snes': ('b6a7c7fd16250e9512258d961d7f2069d8bf6f0988a0be611530219577556d18',
-        'fa81323602399f6e839ec9a3ee3ba1e0443fe313b5916c46b8a26742bdd55452'),
 }
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw

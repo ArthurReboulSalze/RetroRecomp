@@ -210,20 +210,23 @@ keep one star until the game's report changes (its next conversion). Nothing els
 1.6.3 moves the game stamp and the host stamp of every console, and the build stamp of none (the packer is the UPX 5.3.0
 of 1.6.2). Most of what moves them is the host kit shells of the Master System, Game Gear, Game Boy and X68000, the
 shared conversion helpers and the profile registry, and none of that changes what a game is or does; three CPU
-corrections do reach what a conversion generates, and exports of 1.6.2 are meant to receive them through the upgrade
-(rebuilt from the paths already learned, rechecked on the quick routes), which is what the entries below are for. The
-later sections of this file list each change of the release; what follows is what each console's stamps do.
+corrections do change what a game does or what a conversion generates (the 68000 shifts, the 65816 BRK and COP, the Z80
+"functions" engine). The written release procedure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#legacy_game_stamps):
+list no console whose game the release really changes) decides which exports of 1.6.2 are upgraded, rebuilt from the paths
+already learned and rechecked on the quick routes, and which are converted in full: **upgraded** are the Master System, Game
+Gear, Game Boy and NES; **converted in full** are the Mega Drive, Super Nintendo, Neo Geo, CPS-1 and X68000. The later
+sections of this file list each change of the release; what follows is what each console's stamps do.
 
 | Console | Game stamp moves because | Host stamp | 1.6.2 export in 1.6.3 |
 | --- | --- | --- | --- |
-| Master System | host kit phase 4 ([below](#master-system-and-game-gear-exports-in-163-host-kit-phase-4)): the staging call in `core`, the source list in `native/CMakeLists.txt`, `console16_video.h`; the "functions" engine no longer makes a direct call to a paged address ([below](#cpu-fixes-carried-from-the-upstream-review-in-163)) | moves | **upgraded**, `upgrade.from_release` = `1.6.2`; the "functions" engine exports regenerate their calls through the dispatch |
-| Game Gear | the same two | moves | upgraded |
-| Game Boy | host kit phase 5 ([below](#game-boy-exports-in-163-host-kit-phase-5)): `gameboy_runtime` (staging, source list, and the embedded resources linked into `gbrt` on Linux), `gameboy`, `gameboy_build`, `console16_video.h` | moves | upgraded |
+| Master System | host kit phase 4 ([below](#master-system-and-game-gear-exports-in-163-host-kit-phase-4)): the staging call in `core`, the source list in `native/CMakeLists.txt`, `console16_video.h`; the "functions" engine no longer makes a direct call to a paged address ([below](#cpu-fixes-carried-from-the-upstream-review-in-163)) | moves | **upgraded**, `upgrade.from_release` = `1.6.2`; the default banked engine generates the same sources, and a "functions" export that diverges fails the recheck and is converted again |
+| Game Gear | the same two | moves | upgraded, as the Master System |
+| Game Boy | host kit phase 5 ([below](#game-boy-exports-in-163-host-kit-phase-5)): `gameboy_runtime` (staging, source list, and the embedded resources linked into `gbrt` on Linux), `gameboy`, `gameboy_build`, `console16_video.h`; no game behaviour changes | moves | upgraded |
 | NES | the shared conversion helpers in `nes`, `nes_build`, `nes_codegen` and its profile data; the generated sources are the same | moves | upgraded |
-| Mega Drive | `m68000` (ROXL and ROXR with a register count of zero, ASL.L by 31: [below](#cpu-fixes-carried-from-the-upstream-review-in-163)), `console16` (shared helpers) | moves | upgraded: rebuilt with the corrected shifts |
-| Super Nintendo | `snes_codegen` (BRK and COP), `console16` (the shared `snes_ppu_header`), `native/snes_cpu/interrupt_checks.c` | moves | upgraded: rebuilt with the corrected BRK and COP |
-| Neo Geo | `m68000`, `neogeo_build`, `neogeo_conversion`, `neogeo_persistence_checks`, `neogeo_state_checks` (shared helpers and gates), `native/neogeo_m68000_checks.c` | moves | upgraded: rebuilt with the corrected shifts |
-| CPS-1 | `m68000`, `cps1_build`, `cps1_conversion`, `neogeo_build` (shared helpers; this rollover's key line), `cps1_knowledge` | moves | upgraded: rebuilt with the corrected shifts; `GENERATOR_REVISION` stays 6, see below |
+| Mega Drive | `m68000` (ROXL and ROXR with a register count of zero, ASL.L by 31: [below](#cpu-fixes-carried-from-the-upstream-review-in-163)), `console16` (shared helpers) | moves | **converted in full once**: the 68000 shifts change what a game does; a ROM the shared base knows starts from its qualified paths with the quick check |
+| Super Nintendo | `snes_codegen` (BRK and COP), `console16` (the shared `snes_ppu_header`), `native/snes_cpu/interrupt_checks.c` | moves | **converted in full once**: BRK and COP change what a game does; a ROM the shared base knows starts from its qualified paths with the quick check |
+| Neo Geo | `m68000`, `neogeo_build`, `neogeo_conversion`, `neogeo_persistence_checks`, `neogeo_state_checks` (shared helpers and gates), `native/neogeo_m68000_checks.c` | moves | **converted in full once**: the 68000 shifts, as above |
+| CPS-1 | `m68000`, `cps1_build`, `cps1_conversion`, `neogeo_build` (shared helpers; this rollover's key line), `cps1_knowledge` | moves | **converted in full once**: the 68000 shifts, as above; `GENERATOR_REVISION` stays 6, see below |
 | Sharp X68000 | host kit phase 3 ([above](#x68000-exports-in-163-host-kit-phase-3)), `m68000`, the zeroed OPM chip | moves | **converted in full once**: no entry |
 
 Every console's game stamp also moves for reasons that touch no output: `core` and `conversion_common` (the helpers the
@@ -238,8 +241,135 @@ existed are `tests/test_conversion_common.py`, `test_conversion_gates.py`, `test
 Master System and Game Gear, Game Boy, NES, Neo Geo (Geolith and Lithogen), CPS-1 (ymfm and the MAME revision of the
 catalogue), the Mega Drive and Super Nintendo repositories (`console16.REPOSITORIES`), SDL and the X68000 pin are the same
 values in both trees (compared line by line). The corrections above are our own patches on those revisions
-([UPSTREAMS.md](UPSTREAMS.md)), so the base of qualified paths, keyed by the revisions, stays valid; the paths a conversion
-learns do not change with them. The CPS-1 generator revision is 6 (raised for the 68000 shifts and the shared helpers
+([UPSTREAMS.md](UPSTREAMS.md)), so the base of qualified paths, keyed by the revisions, stays valid: a ROM the shared base
+knows starts from its qualified paths when its export of 1.6.2 is converted in full, with the quick check, not from
+scratch. The CPS-1 generator revision is 6 (raised for the 68000 shifts and the shared helpers
+earlier in 1.6.3); the rollover of the quick-state key edits `cps1_build.py`, a pinned generator source, once more, and the
+revision is **not** raised to 7: revision 6 has not shipped, no path was qualified by the code between the two edits, and
+what a RAM path could notice (the generated files, the serialized bytes) is the same. The pins of
+`tests/cps1_generator_pins.json` follow and the comment of the revision says so.
+
+The release procedure (the rule above) replaces the entries of 1.6.1 by those of 1.6.2, and only those, in
+`LEGACY_GAME_STAMPS` (29 October 2026, the tree of this release), two per console, the Windows converter's first, **for the
+four consoles whose game 1.6.3 does not change**:
+
+| Console | Game stamp of 1.6.2, Windows (Python 3.14) | Game stamp of 1.6.2, Linux (Python 3.13) |
+| --- | --- | --- |
+| Master System | `b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2` | `58d4d6ee6bd59653e4815b303a8c332d593b3755419970732171e914d6b0af73` |
+| Game Gear | `14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743` | `0d63e09321860ce6e161b49a24535d13ddc10b5e6d281b91b195ad9472710a6d` |
+| Game Boy | `831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a` | `dde2e590f43d5efc0dea2d34ceedee54ee908cdba37d1a1ea6535cde1d6bc1b4` |
+| NES | `fa98f9dd4c480eb16ab7e66c491cb52b02100f88631c5f398112a896e79f5ce4` | `6618f7f293fd864e5cc6e3fec4aa89b020e2795593ba924ab30b4e13990b921a` |
+
+Verified the same way and **not listed** (the stamps are kept as evidence, `tests/test_legacy_compat.py` pins them
+unlisted, and [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#release-162-entries-29-october-2026-windows-and-linux)
+records them):
+
+| Console | Game stamp of 1.6.2, Windows (Python 3.14) | Game stamp of 1.6.2, Linux (Python 3.13) | Why no entry |
+| --- | --- | --- | --- |
+| Mega Drive | `ad4dee96cbceb46be2c7cdf200d917586451d53c8abbca0d24c4b6e95a500b85` | `0de9eed2964d4261237a9099334e7bbcad2dead0dab99258674dd0c306b220b0` | the 68000 shifts |
+| Super Nintendo | `b6a7c7fd16250e9512258d961d7f2069d8bf6f0988a0be611530219577556d18` | `fa81323602399f6e839ec9a3ee3ba1e0443fe313b5916c46b8a26742bdd55452` | BRK and COP |
+| Neo Geo | `aff15893e4d95019cab57539ab28f5438f74613b07e780f2f9412f19b054b838` | `b6d6f5a7ae69485b8b86913241a865b171dcad8cb30ab38ada9dc381b3e62142` | the 68000 shifts |
+| CPS-1 | `d4e10fc37d4974cd495d666ac35bb11a29be5a79df2ed3fa8167263f044b54fb` | `4a0de40695a4b51350cf43eb36450211cdff13f785730f1ead61bffc4ae6ea43` | the 68000 shifts |
+| Sharp X68000 | `699f09265a9fe722e1cedabd80d711961f8edd8e06385366eb1aa7cc1befab39` | `35980145fc8de1a9afb1b4722831bdbeafb38b097f963532579c412d5f2b2bc2` | `x68_sdk` (below) |
+
+*Why these four are upgraded.* The Game Boy and the NES change no game behaviour (host kit shell, shared helpers, the Linux
+resource linking). The Master System and Game Gear change one thing a game could notice, the "functions" engine no longer
+calling a paged address directly; the default "banked" engine generates byte-identical sources (checked on Bank Panic), and
+a "functions" export that diverges now fails the upgrade recheck and is converted again, which is the precedent written in
+COMPILATION_LIBRARY.md ("Validation fixes merged after these entries"): the upgrade rebuilds with the current generator and
+rechecks on the quick routes, so upgraded exports get the fix. *Why the others are not.* The 68000 shifts (ROXL and ROXR
+with a zero count, ASL.L by 31) and the 65816 BRK and COP change what a game does on those CPUs, and the written rule lists
+no console in that case. Their exports of 1.6.2 are converted in full once; a ROM the shared base knows still starts from
+its qualified paths, with the quick check (the base is keyed by the pinned upstream revisions, which did not move), so the
+cost is the conversion, not the exploration.
+
+- *X68000.* Its request carries `x68_sdk`, a hash of the game stamp of the tree that wrote it and of the machine base. The
+  table replaces the `engine` field of the request and nothing else, so an X68000 receipt of 1.6.0 could never be
+  recognised: an entry would be dead weight. Do not add one without teaching `request_parts` to recompute `x68_sdk` for a
+  listed stamp.
+- *Super Nintendo.* An earlier release excluded it (1.5.2: the engine changed what games do). Between 1.6.0 and 1.6.1
+  nothing specific to it changed: below `native/` only two Mega Drive files differ from the tag, and the converter modules
+  that differ are the shared ones (the packer's notice in `batch`, `core`, `packing`, `publishing`, `artwork`; the removal
+  of readers of files older than 1.6.0 in `feedback`, `freshness` and `library`; `console16_state` loses the older
+  compatibility keys). None of them changes a Super Nintendo project, and its quick-state key is the same in 1.6.0 and 1.6.1
+  ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+
+**How the stamps were computed.** The `v1.6.0` tag (commit `84d5a9e`; no listed input differs from `15da7be`, the commit
+the packaged converter was built from) exported with `git archive`, then `compilation_inputs.role_stamps(system)['game']`
+under Python 3.14.5, the Python of the packaged 1.6.0 converter (`.build/release-1.6.0/package-windows.log`) and of this
+tree. The game parts of the tag and of 1.6.1 differ in these listed inputs only: `retrorecomp.batch`, `core`, `feedback`,
+`freshness`, `library` (every console); `systems.master_system` (Master System, Game Gear); `x68000_conversion`;
+`neogeo_conversion`, `neogeo_build` (Neo Geo; the latter also CPS-1); `cps1_build`, `cps1_conversion`, `cps1_knowledge`
+(CPS-1); `console16_state` (Mega Drive, Super Nintendo, Neo Geo, CPS-1); `native/md_z80_bus.inc` and
+`native/md_boundary_checks.c` (Mega Drive). The host part differs in `artwork`, `publishing` (and `gameboy_host` for the
+Game Boy), the build part in `packing`.
+
+**Evidence, and what is not proved.** The release procedure asks for real receipts written by the released converter (two
+games per console, as for 1.5.6). None was produced for 1.6.1: no game was converted for these entries. What exists:
+
+- *Mega Drive, 3 Ninjas Kick Back*
+  (`Export/Games/Mega Drive/datas/reports/Game_3_Ninjas_Kick_Back-8cfdc448d062/conversion-report.json`), the only schema 3
+  receipt of 1.6.0 in `Export/`, written on 28 October 2026 at 07:16 by the working tree that became `15da7be`. Its **host
+  part** equals the hash of the host settings (language `en`, icon tags, online cover, covers on, the title) with the host
+  and build stamps computed from the tag: the converter that wrote it had the tag's host and build inputs, hashed under the
+  same Python. Its **game part** could not be derived again: it hashes the knowledge stamp of the player's banks as they
+  stood before that conversion, and the banks have changed since. It does not confirm the game stamp by itself. The other
+  consoles of `Export/` hold receipts of earlier releases only.
+- The method is the one that gave the 1.5.6 entries; run on `v1.5.6`, the same computation gives the three 1.5.6 quick-state
+  keys that were read from real 1.5.6 exports (Mega Drive, Neo Geo, CPS-1: [GAME_STATES.md](GAME_STATES.md#states-written-by-release-160)).
+- An entry cannot accept a wrong export: a receipt matches only if its game part is the hash of the request with `engine`
+  equal to the listed stamp, so a stamp the 1.6.0 converter did not write matches nothing and the export is converted in
+  full as before. What the table cannot show without receipts is that a matching export is equivalent to a reconversion,
+  and that is the claim above (the list of inputs that differ).
+
+A real receipt per console (the 1.5.6 procedure: `tools/campaign.py upgrade` on copies of exports converted by the 1.6.0
+tree) remains to be done if "upgraded" is to be proved console by console. An export of 1.6.0 that is upgraded is rebuilt
+and rechecked on the quick routes like any upgrade, and the report says so.
+
+**Stars of the collection.** 1.6.0 reread the scan level of Mega Drive, Super Nintendo and NES rows of a 1.5.x inventory
+in memory and wrote it back only when **Compiled games** saved the collection. A 1.6.0 player who never opened it may
+still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
+keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
+
+## Exports of 1.6.2 in 1.6.3
+
+1.6.3 moves the game stamp and the host stamp of every console, and the build stamp of none (the packer is the UPX 5.3.0
+of 1.6.2). Most of what moves them is the host kit shells of the Master System, Game Gear, Game Boy and X68000, the
+shared conversion helpers and the profile registry, and none of that changes what a game is or does; three CPU
+corrections do change what a game does or what a conversion generates (the 68000 shifts, the 65816 BRK and COP, the Z80
+"functions" engine). The written release procedure ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md#legacy_game_stamps):
+list no console whose game the release really changes) decides which exports of 1.6.2 are upgraded, rebuilt from the paths
+already learned and rechecked on the quick routes, and which are converted in full: **upgraded** are the Master System, Game
+Gear, Game Boy and NES; **converted in full** are the Mega Drive, Super Nintendo, Neo Geo, CPS-1 and X68000. The later
+sections of this file list each change of the release; what follows is what each console's stamps do.
+
+| Console | Game stamp moves because | Host stamp | 1.6.2 export in 1.6.3 |
+| --- | --- | --- | --- |
+| Master System | host kit phase 4 ([below](#master-system-and-game-gear-exports-in-163-host-kit-phase-4)): the staging call in `core`, the source list in `native/CMakeLists.txt`, `console16_video.h`; the "functions" engine no longer makes a direct call to a paged address ([below](#cpu-fixes-carried-from-the-upstream-review-in-163)) | moves | **upgraded**, `upgrade.from_release` = `1.6.2`; the default banked engine generates the same sources, and a "functions" export that diverges fails the recheck and is converted again |
+| Game Gear | the same two | moves | upgraded, as the Master System |
+| Game Boy | host kit phase 5 ([below](#game-boy-exports-in-163-host-kit-phase-5)): `gameboy_runtime` (staging, source list, and the embedded resources linked into `gbrt` on Linux), `gameboy`, `gameboy_build`, `console16_video.h`; no game behaviour changes | moves | upgraded |
+| NES | the shared conversion helpers in `nes`, `nes_build`, `nes_codegen` and its profile data; the generated sources are the same | moves | upgraded |
+| Mega Drive | `m68000` (ROXL and ROXR with a register count of zero, ASL.L by 31: [below](#cpu-fixes-carried-from-the-upstream-review-in-163)), `console16` (shared helpers) | moves | **converted in full once**: the 68000 shifts change what a game does; a ROM the shared base knows starts from its qualified paths with the quick check |
+| Super Nintendo | `snes_codegen` (BRK and COP), `console16` (the shared `snes_ppu_header`), `native/snes_cpu/interrupt_checks.c` | moves | **converted in full once**: BRK and COP change what a game does; a ROM the shared base knows starts from its qualified paths with the quick check |
+| Neo Geo | `m68000`, `neogeo_build`, `neogeo_conversion`, `neogeo_persistence_checks`, `neogeo_state_checks` (shared helpers and gates), `native/neogeo_m68000_checks.c` | moves | **converted in full once**: the 68000 shifts, as above |
+| CPS-1 | `m68000`, `cps1_build`, `cps1_conversion`, `neogeo_build` (shared helpers; this rollover's key line), `cps1_knowledge` | moves | **converted in full once**: the 68000 shifts, as above; `GENERATOR_REVISION` stays 6, see below |
+| Sharp X68000 | host kit phase 3 ([above](#x68000-exports-in-163-host-kit-phase-3)), `m68000`, the zeroed OPM chip | moves | **converted in full once**: no entry |
+
+Every console's game stamp also moves for reasons that touch no output: `core` and `conversion_common` (the helpers the
+converters share; `conversion_gates` too for the Neo Geo, CPS-1 and X68000), `systems`, `systems.specs` and the profiles
+(the registry), `path_profiles`, `paths`
+and `random_routes` (the tables read from the profiles), and the checks `host_checks.c`, `lazy_data_checks.c`,
+`presentation_checks.c` and `native/CMakeLists.txt`. The tests that pin these refactors against values taken before they
+existed are `tests/test_conversion_common.py`, `test_conversion_gates.py`, `test_path_tables_snapshot.py` and
+`test_registration_surface.py`.
+
+**The base is intact.** No pinned upstream revision moved between the `v1.6.2` tag and this tree: the engine revisions of the
+Master System and Game Gear, Game Boy, NES, Neo Geo (Geolith and Lithogen), CPS-1 (ymfm and the MAME revision of the
+catalogue), the Mega Drive and Super Nintendo repositories (`console16.REPOSITORIES`), SDL and the X68000 pin are the same
+values in both trees (compared line by line). The corrections above are our own patches on those revisions
+([UPSTREAMS.md](UPSTREAMS.md)), so the base of qualified paths, keyed by the revisions, stays valid: a ROM the shared base
+knows starts from its qualified paths when its export of 1.6.2 is converted in full, with the quick check, not from
+scratch. The CPS-1 generator revision is 6 (raised for the 68000 shifts and the shared helpers
 earlier in 1.6.3); the rollover of the quick-state key edits `cps1_build.py`, a pinned generator source, once more, and the
 revision is **not** raised to 7: revision 6 has not shipped, no path was qualified by the code between the two edits, and
 what a RAM path could notice (the generated files, the serialized bytes) is the same. The pins of
@@ -263,10 +393,11 @@ The release procedure (the rule above) replaces the entries of 1.6.1 by those of
 - *X68000.* Its request carries `x68_sdk`, a hash of the game stamp of the tree that wrote it and of the machine base, so a
   receipt of 1.6.2 could never be recognised ([history](#exports-of-160-in-161)): an entry would be dead weight, and its
   quick states of 1.6.2 are refused as well ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-162)).
-- *Quick states.* An export of 1.6.2 that is upgraded is rebuilt with the 1.6.2 compatibility key of its console, so the
-  quick states of 1.6.2 (Mega Drive, Super Nintendo, Neo Geo and CPS-1, Windows) still resume. The Master System, Game Gear
-  and Game Boy have no key of this kind and load states both ways; the NES key is unchanged
-  ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-162)).
+- *Quick states: a separate question from the export upgrade.* Every build of 1.6.3 of the Mega Drive, Super Nintendo,
+  Neo Geo and CPS-1 carries the 1.6.2 compatibility key (Windows), so a fully reconverted export accepts the quick states
+  of 1.6.2 as an upgraded one would; the key is about the serialized bytes, not about the generated game, and none of them
+  moved. The Master System, Game Gear and Game Boy have no key of this kind and load states both ways; the NES key is
+  unchanged ([GAME_STATES.md](GAME_STATES.md#states-written-by-release-162)).
 
 **How the stamps were computed.** The `v1.6.2` tag (commit `5bbfe12`, the commit the packaged converters were built from)
 exported with an archive of the tag into an empty folder, then `compilation_inputs.role_stamps(system)['game']`, under
@@ -278,18 +409,20 @@ checked against the published converters themselves on 29 October 2026: the `Ret
 `Retro-Recomp-linux-x86_64` assets of the v1.6.2 release (SHA-256 checked against its `SHA256SUMS.txt`) were run with their
 internal `_compilation-inputs` command (the Windows one hidden, with no window), and the game, host and build stamps
 recomputed from their own input fingerprints equal, on all nine consoles, the stamps of the archive of `v1.6.2` under Python
-3.14 (Windows) and 3.13 (the Linux host). Without the Linux entries a Linux export of 1.6.2 would be converted in full.
+3.14 (Windows) and 3.13 (the Linux host). Without the Linux entries a Linux export of 1.6.2 would be converted in full. The
+check covered all nine consoles, the unlisted ones included, so the stamps recorded for them are verified.
 
 **Evidence, and what is not proved.** No game was converted for these entries and `Export/` holds no receipt written by
 1.6.2 for them: the claim rests on the list of changes above and on the published converters' own stamps, not on a receipt
 per console. An entry cannot accept a wrong export: a receipt matches only if its game part is the hash of the request with
 `engine` equal to the listed stamp, so a stamp the 1.6.2 converter did not write matches nothing and the export is converted
 in full as before. What the table cannot show without receipts is that a matching export is equivalent to a reconversion.
-Unlike the entries of 1.6.1, three of the changes above do alter what is generated for some exports (the 68000 shifts of
-the Mega Drive, Neo Geo and CPS-1, the Super Nintendo BRK and COP, the Master System and Game Gear "functions" engine):
-the upgrade is how those exports receive them, and the upgrade rechecks them against the reference on the quick routes and
-says so in the report (`upgrade.from_release` = `1.6.2`). That is not a replay of the long routes, and it measures neither
-CPU fidelity, hardware fidelity, gameplay nor physical latency.
+Unlike the entries of 1.6.1, one of the changes above can alter what is generated for an upgraded export: the Master
+System and Game Gear "functions" engine. The upgrade rechecks the export against the reference on the quick routes and
+says so in the report (`upgrade.from_release` = `1.6.2`); a diverging one is converted again. That is not a replay of the
+long routes, and it measures neither CPU fidelity, hardware fidelity, gameplay nor physical latency. The consoles whose CPU
+behaviour changed (the 68000 shifts, BRK and COP) were taken out of the table rather than argued: the rule lists none of
+them.
 
 **Also in this release, host files only.**
 
