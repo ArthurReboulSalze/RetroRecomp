@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "glue.h"
+#include "glue_line.h"
 #include "winx68k.h"
 #include "prop.h"
 #include "winui.h"
@@ -277,6 +278,10 @@ static void draw_line_if_visible(void)
 {
    if (rr_glue_disp_frame != 0 || vline < CRTC_VSTART || vline >= CRTC_VEND)
       return;
+   /* The picture line was chosen when the machine line began. A game that reprograms the CRTC during the line can make a
+    * line visible that was not: VLINE is then still the "no line" marker, which indexes the line tables 4 GiB out on a
+    * 64-bit host (the 32-bit original wrapped to the byte before the table). Take the line from the CRTC as it is now. */
+   VLINE = rr_glue_line_to_draw(VLINE, vline, CRTC_VSTART, CRTC_VStep);
    if (CRTC_VStep == 1) {
       if (vline & 1)
          WinDraw_DrawLine();
@@ -323,9 +328,9 @@ void rr_glue_exec_frame(void)
          clk_line = 0;
          MFP_Int(0);
          if (vline >= CRTC_VSTART && vline < CRTC_VEND)
-            VLINE = ((vline - CRTC_VSTART) * CRTC_VStep) / 2;
+            VLINE = rr_glue_picture_line(vline, CRTC_VSTART, CRTC_VStep);
          else
-            VLINE = 0xffffffffu;
+            VLINE = RR_GLUE_NO_LINE;
          if (!(MFP[MFP_AER] & 0x40) && vline == CRTC_IntLine)
             MFP_Int(1);
          if (MFP[MFP_AER] & 0x10) {

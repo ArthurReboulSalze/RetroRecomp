@@ -87,7 +87,7 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
-| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection (Tetris v5, Pensan CD, TF4G v0.3A09) do not start on the reference; the list of games that do not convert is kept by the lead |
+| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (it runs, but makes no sound in 4,000 frames, which the conversion refuses) |
 | G13 | Y | Windows and Debian trace hashes match on the 19 sets | |
 | G14 | ? | No recorded owner decision (draft below) | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [X68000.md](X68000.md) | The interface and the older documents have not all been read for this |

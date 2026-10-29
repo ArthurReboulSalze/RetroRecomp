@@ -526,6 +526,20 @@ Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.m
 `payload.c` and `retrorecomp/x68000_conversion.py` are game inputs of the X68000: the X68000 game stamp and `x68_sdk` move; nothing
 the CPU executes changes. An export of 1.6.4 is converted in full once, as at every release.
 
+## X68000: a picture line made visible during its machine line (1.6.5)
+
+The frame loop (`native/x68000_machine/machine.c`) chooses the picture line when a machine line begins, and a line outside the CRTC's
+window gets the "no line" marker (`0xffffffff`). A game that reprograms the CRTC during that line (as it switches to its own screen mode, on two sets
+of the test collection) can make the line visible before it is drawn; the line drawing then received the marker and indexed its line
+tables 4 GiB out, which crashed the reference with a segmentation fault between frames 431 and 440 of Tetris v5 and of TF4G v0.3A09
+(the 32-bit original wrapped to the byte before the table). A line without a chosen picture line now takes the one the CRTC gives at
+that moment (`native/x68000_machine/glue_line.h`, `tests/test_x68000_picture_line.py`); a line chosen earlier is never changed, so
+the games that ran before are drawn as they were. A game that never reaches this case sees nothing different.
+
+Both sets now convert (0 interpreted opcodes on the three routes, the compressed copy replayed against the reference). The crash
+appeared only on a first start: a saved `sram.dat` changed the start-up enough to avoid it, and a conversion always starts without one.
+`glue_line.h` and `machine.c` are game files: the X68000 game stamp and `x68_sdk` move.
+
 The report's `packing.compared_on` now says when a packed copy was replayed (Neo Geo, CPS-1 and X68000:
 `unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
 executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
