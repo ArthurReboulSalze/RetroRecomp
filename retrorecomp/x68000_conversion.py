@@ -13,7 +13,8 @@ import tempfile
 import time
 from . import __version__, timings
 from .conversion_common import check_exit, resolve_scan_level, spawn, write_if_changed
-from .conversion_gates import continuation_difference, require, require_equal, require_same_file
+from .conversion_gates import (comparison_notice, continuation_difference, pack_candidate, require, require_equal,
+                               require_same_file)
 from .paths import ROOT, ASSETS, boxart_cache_directory
 from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
@@ -277,11 +278,11 @@ def route_workers(routes):
     return max(1,min(int(routes),game_cpu_share()))
 
 
-def run_routes(jobs, workers):
+def run_routes(jobs, workers, phase=None):
     """Replay independent routes side by side; results keep the input order
     and the first failure is raised as the sequential loop would have."""
     jobs=list(jobs)
-    with timings.phase('reference_runs' if any(job[4].get('reference') for job in jobs) else 'native_runs'):
+    with timings.phase(phase or ('reference_runs' if any(job[4].get('reference') for job in jobs) else 'native_runs')):
         if workers<=1 or len(jobs)<=1:
             return [replay(binary,folder,frames,events,**options) for binary,folder,frames,events,options in jobs]
         from concurrent.futures import ThreadPoolExecutor
@@ -289,6 +290,17 @@ def run_routes(jobs, workers):
             futures=[pool.submit(replay,binary,folder,frames,events,**options)
                      for binary,folder,frames,events,options in jobs]
             return [future.result() for future in futures]
+
+
+def route_liveness(folder, frames, result):
+    """What a replayed route shows of the machine being alive, read from its trace: how many different pictures,
+    audio blocks, RAM states and program counters it went through, beside the counts its report gives. It says that
+    the picture and the sound change on this route; it does not say how deep into the game the route goes."""
+    from tools.x68000_reference_check import validate_trace
+    seen=validate_trace(folder/'trace.tsv',frames)['distinct_values']
+    return {'frames':frames,'distinct_pictures':seen['video'],'distinct_audio_blocks':seen['pcm'],
+            'distinct_ram_states':seen['ram'],'distinct_program_counters':seen['PC'],
+            'nonblack_frames':result['nonblack_frames'],'nonzero_samples':result['nonzero_samples']}
 
 
 def continues(timeline, resumed, saved_at, frames):
@@ -505,22 +517,43 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 break
             atomic_json(observation,observations)
         timings.end_passes()
-        # Snapshot loading is checked in a genuinely fresh standalone process.
-        restart=checks/'restart';restart.mkdir(exist_ok=True);fresh=restart/candidate.name;shutil.copy2(candidate,fresh)
+        # The delivered file: a copy of the final build is compressed as it is published, and that compressed copy is replayed
+        # on the main route and on every exploration route against the same fresh reference (Neo Geo and CPS-1 do the same).
+        packed=work/('packed-game.exe' if os.name=='nt' else 'packed-game')
+        notice=pack_candidate(candidate,packed,emit)
+        emit(comparison_notice('X68000',notice))
+        packed_checks=checks/'packed';packed_runs=[]
+        for name,frames_,inputs,reference_folder,extra in (
+                [('main',count,event_file,checks/'reference',['--state-save-at',str(state_frame)])]+
+                [(route.name,route.frames,inputs,ref_folder,[]) for route,ref_folder,inputs in extra_routes]):
+            folder=packed_checks/name;folder.mkdir(parents=True,exist_ok=True)
+            target=folder/candidate.name;shutil.copy2(packed,target)
+            if os.name!='nt':target.chmod(0o755)
+            packed_runs.append((name,folder,reference_folder,(target,folder,frames_,inputs,dict(extra=extra))))
+        packed_results=run_routes((row[3] for row in packed_runs),workers,phase='packed_replays')
+        for (name,folder,reference_folder,_),result in zip(packed_runs,packed_results):
+            require_same_file(folder/'trace.tsv',reference_folder/'trace.tsv',
+                lambda:ConversionError('X68000 '+name+': the compressed executable differs from the fresh reference; existing export preserved.'))
+        liveness=[dict(route=name,**route_liveness(folder,frames_,result))
+                  for (name,folder,_,job),result in zip(packed_runs,packed_results) for frames_ in [job[2]]]
+        require(liveness[0]['distinct_pictures']>1,lambda:ConversionError('X68000 main route: the picture never changed.'))
+        # Snapshot loading is checked in a genuinely fresh standalone process, on the delivered file.
+        main_packed=packed_checks/'main'
+        restart=checks/'restart';restart.mkdir(exist_ok=True);fresh=restart/candidate.name;shutil.copy2(packed,fresh)
         if os.name!='nt':fresh.chmod(0o755)
         with timings.phase('state_checks'):
-            resumed=replay(fresh,restart,400,event_file,extra=['--state-load-start','--state-slot',next((checks/f'native-{attempt+1}'/'datas/games').glob('x68-*'))/'quick.rrstate'])
-        rows=(run_dir/'trace.tsv').read_text().splitlines();rest=(restart/'trace.tsv').read_text().splitlines()
+            resumed=replay(fresh,restart,400,event_file,extra=['--state-load-start','--state-slot',next((main_packed/'datas/games').glob('x68-*'))/'quick.rrstate'])
+        rows=(main_packed/'trace.tsv').read_text().splitlines();rest=(restart/'trace.tsv').read_text().splitlines()
         require(continues(rows,rest,state_frame,400),lambda:ConversionError('X68000 F9 continuation differs from its saved timeline.'))
         # Also exercise an early floppy DMA, before the game loop. A missing
         # CPU reset latch used to change one transfer byte after a cold F9.
-        boot=checks/'boot';boot.mkdir();boot_exe=boot/candidate.name;shutil.copy2(candidate,boot_exe)
+        boot=checks/'boot';boot.mkdir();boot_exe=boot/candidate.name;shutil.copy2(packed,boot_exe)
         with timings.phase('state_checks'):
             replay(boot_exe,boot,200,event_file,extra=['--state-save-at','120'])
         boot_rows=(boot/'trace.tsv').read_text().splitlines()
         require_equal(boot_rows,(checks/'reference/trace.tsv').read_text().splitlines()[:201],
                       lambda:ConversionError('X68000 early boot differs from the fresh reference.'))
-        boot_restart=checks/'boot-restart';boot_restart.mkdir();boot_exe=boot_restart/candidate.name;shutil.copy2(candidate,boot_exe)
+        boot_restart=checks/'boot-restart';boot_restart.mkdir();boot_exe=boot_restart/candidate.name;shutil.copy2(packed,boot_exe)
         boot_slot=next((boot/'datas/games').glob('*/quick.rrstate'))
         with timings.phase('state_checks'):
             replay(boot_exe,boot_restart,40,event_file,extra=['--state-load-start','--state-slot',boot_slot])
@@ -531,14 +564,14 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         fallback=actual['reference_ram']+actual['reference_ipl']
         check={'frames':count,'native_entries':total-fallback,'interpreted_opcodes':fallback,
                'interpreter_percent':100*fallback/max(1,total),'reference_match':True,'state_restart_match':True,
-               'state_frame':state_frame,'boot_frames':200,'boot_state_restart_match':True}
+               'state_frame':state_frame,'boot_frames':200,'boot_state_restart_match':True,'packed_reference_match':True}
         exploration_checks=[]
         for route,folder,result in additional:
             native_count=result['native_ram']+result['native_ipl']
             interpreted=result['reference_ram']+result['reference_ipl']
             exploration_checks.append({'route':route.name,'frames':route.frames,'native_entries':native_count,
                 'interpreted_opcodes':interpreted,'interpreter_percent':100*interpreted/max(1,native_count+interpreted),
-                'reference_match':True,'trace_sha256':digest(folder/'trace.tsv'),
+                'reference_match':True,'packed_reference_match':True,'trace_sha256':digest(folder/'trace.tsv'),
                 'automatic_disk_changes':result.get('automatic_disk_changes',0),
                 'media_events':result.get('media_events',[])})
         report={'tool':'Retro-Recomp','version':__version__,'created_utc':datetime.now(timezone.utc).isoformat(),
@@ -546,9 +579,9 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
           'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
-          'native_validation':{'passed':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
+          'native_validation':{'passed':True,'packed_reference_match':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
-          'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
+          'packed_candidate_sha256':digest(packed),'liveness':liveness,'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,
           'mouse_controls':{'enabled':mouse_game,'listed':listed,'mouse_reads':mouse_calls,
                             'mouse_code_loaded':mouse_code,'remembered':remembered},

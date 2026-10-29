@@ -458,6 +458,26 @@ writes, one scan of the two maps (8,192 bytes) and of the 128 sprites per line d
 
 The X68000 game stamp, `x68_sdk` and `RR_X68K_STATE_ABI` move (`tools/x68000_base74.py`, `native/x68000_machine/state/snapshot.c`).
 
+## X68000: saved disks, the delivered file replayed, liveness (1.6.5)
+
+Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.md):
+
+- **Saved disks (G7).** `native/x68000_reference/payload.c` prepares the game's private data at every start. A writable disk is
+  kept as the player left it (as before), but one that cannot be this disk (another size, a folder in its place, a missing
+  file) and a host copy that was changed (playlist, IPL, font ROM) no longer stop the game: they are moved to
+  `<name>.unusable-N` (never deleted) and written again from the executable. A link or a hard link in place of a file, and
+  another running copy of the game, still refuse the start. `tests/test_x68000_payload.py` covers each case.
+- **The delivered file replayed (G5).** Every X68000 conversion now compresses a copy of the final player as it is
+  published and replays that compressed copy on the main route and on every exploration route against the same fresh reference
+  (a difference refuses the export, as on Neo Geo and CPS-1); the F9 fresh-process and early-floppy-DMA checks run on that copy
+  too. The report carries `native_validation.packed_reference_match` and `packed_candidate_sha256`. The conversion takes about
+  30 to 40 seconds longer (the compressed replays run side by side within the game's share of the CPUs).
+- **Liveness (G8).** The report records, per route, the number of different pictures, audio blocks, RAM states and program
+  counters of the delivered file (`liveness`), and the conversion refuses a main route whose picture never changes.
+
+`payload.c` and `retrorecomp/x68000_conversion.py` are game inputs of the X68000: the X68000 game stamp and `x68_sdk` move; nothing
+the CPU executes changes. An export of 1.6.4 is converted in full once, as at every release.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
