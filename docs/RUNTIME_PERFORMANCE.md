@@ -1,5 +1,15 @@
 # Runtime performance without changing the output
 
+## Mega Drive on Windows — 1.6.5
+
+The Mega Drive on Windows now gets the build the Super Nintendo got on 26 October: the engine's own sources (not the generated
+cartridge code) are compiled with ThinLTO and a clang profile taken from a private 1,800-frame `--play` run, on the portable
+llvm-mingw tools (`retrorecomp/console16_optimization.py`, `CLANG_PROFILE_CONSOLES`; `RETRO_RECOMP_PGO=0` switches it off). The
+Linux build of the Mega Drive was already profile-guided with GCC. It is a compiler change: the C code, the guest clocks and the
+outputs are the same, checked by identical frame, audio and state hashes and report fields between the previous converter and
+this one. **No gain is claimed**: it has not been timed, and it does not address the open slowdown reported on the low-power Debian
+machine, which already ran the GCC profile build.
+
 ## Local follow-up — 26 October 2026
 
 Super Nintendo on Windows: three changes, one of them for every game. Per-frame host cost on a
