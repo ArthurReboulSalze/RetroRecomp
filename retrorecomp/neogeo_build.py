@@ -702,6 +702,9 @@ def convert_reference(path: Path, *, bios: Path, output: Path | None = None,
                 parents.append(canonical_parent)
             emit(f'Neo Geo: assembling {game.set_name}, strict CRC validation.')
             run([tool, game.set_name, selected_zip, container, *parents, local_bios], log=project / 'prepare.log')
+            from .neogeo import mirror_short_fixed_rom
+            if mirror_short_fixed_rom(container):
+                emit('Neo Geo: the 64 KiB fixed-graphics ROM is repeated to 128 KiB, as its chip repeats it.')
         prepared = parse_neo(container)
         actual_title = title or prepared.title
         prepare_project(project, content=container, bios=local_bios, title=actual_title,presentation=presentation)

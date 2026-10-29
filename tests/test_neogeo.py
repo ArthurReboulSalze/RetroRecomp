@@ -9,7 +9,7 @@ from unittest.mock import patch
 from zipfile import ZipFile, ZipInfo, ZIP_STORED
 import zlib
 
-from retrorecomp.neogeo import (archive_members, identify_set, read_set, parse_neo,
+from retrorecomp.neogeo import (archive_members, identify_set, read_set, parse_neo, mirror_short_fixed_rom,
     looks_like_neogeo_zip, validate_bios, combined_identity, BIOS_MEMBERS)
 from retrorecomp.systems import profile_for_path, NEOGEO, PROFILES, UnsupportedConsoleError
 
@@ -39,6 +39,52 @@ class NeoGeoInputsTests(unittest.TestCase):
         target=self.root/'authored.neo'
         target.write_bytes(header+b'\0'*sum(lengths)+trailing)
         return target
+
+    def container_with(self, fixed):
+        """A container whose regions hold distinct bytes (program, fixed, sound, no ADPCM, sprites)."""
+        regions=[bytes(range(256))*2, bytes((i*7+3)&255 for i in range(fixed)), bytes(255-(i&255) for i in range(65536)),
+                 b'', b'', bytes((i*5)&255 for i in range(256))]
+        header=bytearray(4096);header[:4]=b'NEO'
+        struct.pack_into('<6I',header,4,*(len(r) for r in regions))
+        header[44:52]=b'Authored'
+        target=self.root/'short-fixed.neo'
+        target.write_bytes(bytes(header)+b''.join(regions))
+        return target,regions
+
+    def test_a_64_kib_fixed_rom_is_repeated_to_128_kib(self):
+        """Last Hope has a 64 KiB S1: the engine indexes the region without a mask, so the staged container carries it twice."""
+        for fixed,copies in ((0x10000,2),(0x8000,4)):
+            with self.subTest(fixed=fixed):
+                target,regions=self.container_with(fixed)
+                with self.assertRaisesRegex(ValueError,'smaller than the cartridge layout'):
+                    parse_neo(target)
+                self.assertTrue(mirror_short_fixed_rom(target))
+                self.assertFalse(target.with_name(target.name+'.mirror').exists())
+                prepared=parse_neo(target)
+                data=target.read_bytes()
+                self.assertEqual(struct.unpack_from('<6I',data,4),(len(regions[0]),0x20000,65536,0,0,256))
+                body=data[4096:]
+                self.assertEqual(body,regions[0]+regions[1]*copies+regions[2]+regions[5])
+                self.assertEqual([r['bytes'] for r in prepared.members],[512,0x20000,65536,0,0,256])
+
+    def test_other_fixed_rom_sizes_and_non_containers_are_left_alone(self):
+        target,_=self.container_with(0x20000)
+        before=target.read_bytes()
+        self.assertFalse(mirror_short_fixed_rom(target))
+        self.assertEqual(target.read_bytes(),before)
+        odd,_=self.container_with(0x6000)                    # not a power of two: still refused by the layout check
+        before=odd.read_bytes()
+        self.assertFalse(mirror_short_fixed_rom(odd))
+        self.assertEqual(odd.read_bytes(),before)
+        text=self.root/'not-neo.bin';text.write_bytes(b'x'*5000)
+        self.assertFalse(mirror_short_fixed_rom(text))
+        short=self.root/'short.neo';short.write_bytes(b'NEO')
+        self.assertFalse(mirror_short_fixed_rom(short))
+        truncated,_=self.container_with(0x10000)
+        truncated.write_bytes(truncated.read_bytes()[:-5])     # sizes no longer match the file
+        before=truncated.read_bytes()
+        self.assertFalse(mirror_short_fixed_rom(truncated))
+        self.assertEqual(truncated.read_bytes(),before)
 
     def test_no_bios_chosen_says_so(self):
         # An empty BIOS field in Options reached validate_bios(None), and the player read

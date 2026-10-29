@@ -295,6 +295,7 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   outer 8 columns of a latched side change; the 304 between stay identical), on
   attract and scripted screens, not on a played game. A band that has just appeared
   stays visible for the 30 frames the latch needs.
+- **Cartridges with a 64 KiB fixed ROM** (Last Hope) convert since 1.6.5: the container carries the ROM twice, as its chip repeats it; a `.neo` file handed in directly with such a ROM is still refused.
 - **Not covered**: Neo Geo CD, physical cabinet linking, the trackball of Irritating
   Maze, mahjong panels and quiz/board sets needing other hardware, other BIOS
   revisions and regions, a distributable free BIOS.
