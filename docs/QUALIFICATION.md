@@ -44,7 +44,7 @@ x68 = Sharp X68000.
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | Y |
-| G8 | ? | ? | ? | P | P | Y | Y | Y | P |
+| G8 | ? | ? | ? | P | P | Y | Y | Y | Y |
 | G9 | P | P | P | P | Y | P | Y | Y | P |
 | G10 | Y | Y | P | Y | P | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P |
@@ -82,7 +82,7 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
 | G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
 | G7 | Y | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts. `tools/x68000_saves_check.py` on a real game (below): the game wrote to its disk, a relaunch and a second conversion found it as it was | The writes found are file time stamps of 4 to 12 bytes (below): no game was seen saving a score or a position on purpose, which needs play beyond the routes |
-| G8 | P | `liveness` in every report, per route and for the delivered file (four risk cases below); captures looked at; an authored route that takes Lemmings into its first level (`tools/x68000_play_routes.py`) | R-Type (into its game-over screen), Metal Sight (in play) and Lemmings (on its authored route) reach play; Super Hang-On stays on its title screen (a start sequence of keys and buttons did not leave it in 4,200 frames) |
+| G8 | Y | `liveness` in every report, per route and for the delivered file; captures looked at; the four risk cases below reach play, R-Type and Metal Sight on the standard routes, Lemmings and Super Hang-On on authored routes (`tools/x68000_play_routes.py`) | Scope: the four risk cases, not every set of the panel. 8 of the 84 reviewed mouse sets make no sound on any standard route and 15 show a still picture on the 4,000-frame main route, which a click or a key wakes on another route (Route rules, below) |
 | G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
@@ -102,6 +102,7 @@ The four risk cases, converted one at a time with the 1.6.5 tree (standard scan 
 | Lemmings (Imagineer) | 993 / 59 | 5,756 / 9 (10,000 frames, 72,288 mouse reads) | 1,003 / 9 | 0 | The menu, with the mouse pointer and a level name; no level reached |
 | Lemmings, authored play route (4,000 frames, quick scan) | 1,238 / 911 | | | 0 | Level 1 ("Just dig!") with its lemmings walking out and the time running: play was reached |
 | Super Hang-On (Sharp / SPS) | 74 / 3,131 | 1,939 / 8,638 (10,000 frames) | 74 / 3,131 | 0, no automatic disk change | The title screens; the game was not reached |
+| Super Hang-On, authored play route (10,000 frames, quick scan) | 2,432 / 9,083 | | | 0 | The first stage, course Africa, the bike running (score 4,310, speed 93 km): play was reached |
 
 What the games write (G7). A survey of 378 starts (the single-disk sets and the first disk of each other set, 3,000 frames of the
 qualification inputs, the fresh reference) found six sets that change their own disk: Cybermission (Login), Darius Dokomade
@@ -110,6 +111,18 @@ bytes, the time and date fields of a file's directory entry (Human68k stamps a f
 `tools/x68000_saves_check.py` converted the game, ran its player (12 bytes changed on its disk), ran it again (the disk was
 kept byte for byte), converted the game a second time and ran that new player over the same data folder (the disk was kept, and no
 second data folder appeared). The other 372 starts left their disk as it was; none of them saves a score or a position without play.
+
+Route rules (what the standard routes wake). The 84 reviewed mouse sets, each run on a fresh interpreted reference on the 4,000-frame
+main route (keys and buttons) and on the 10,000-frame mouse route (`tools/x68000_mouse_survey.py`; the reference only, no conversion):
+sound on the main route for 70, on the mouse route for 74, on at least one of them for 76 (8 sets are silent on both: Fire, Future Wars,
+Ganbare! Paichan, Giga Fight 68K, Last Tempest A, Puzzle (1991), See Through v2, Uno); a picture that still changes in the last 1,000
+frames for 69 on the main route and 80 on the mouse route, and for every set on at least one of them. The main route is silent for six
+sets that the mouse route makes speak (Pensan CD, Boyon Boyon, Get Ready, Magritte, Oh! Hajiki!, Tonkotsu Pro Roku Hachi Kei) and still
+for 15 that the mouse route moves. Carrying the first clicks of the mouse route on the main route would give sound to 75 and a moving picture
+to 81, losing Klax's sound and the picture of Tonkotsu Pro and Tower of Druaga, and it would change the main route of every listed set, so it
+is not done: the conversion looks for sound on every route it replays instead (`native_validation.sound_routes`, UPGRADES.md). A game that
+loads for a long time needs a longer route than the main one: Super Hang-On's title counts down about once a second from 99 while the game
+sets up its sound module and takes no start before it reaches 0 (about frame 8,500).
 
 A conversion took 133 to 186 seconds on the Windows build PC with these three routes (the compressed replays are 28 to 39 of
 them). Picture and sound changing is not gameplay validation, and a route that stays on a title screen proves only that the

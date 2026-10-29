@@ -33,9 +33,21 @@ def _lemmings():
     return tuple(intro + to_corner + to_button + [(2340, 2346, 'mouse', 2, 1), (2900, 2906, 'mouse', 2, 1)])
 
 
+def _super_hang_on():
+    # The title counts down from 99 about once a second while the game loads and sets its sound module up (it sends a long run of MIDI
+    # notes and SysEx): it takes no start before the counter is at 0, about frame 8,500. Then each input is tried in turn, a hundred and
+    # fifty frames apart: Enter, Space, the A and B buttons, Start and the 1 key, which brings the game to its first stage.
+    inputs = (('key', 13), ('key', 32), ('joy', 8), ('joy', 0), ('joy', 3), ('key', 49))
+    return tuple((8900 + 150 * n, 8906 + 150 * n, kind, code, 1) for n, (kind, code) in enumerate(inputs))
+
+
 ROUTES = {
     # Lemmings (Imagineer), one disk, mouse game
     '608506d617e0ecf9b416081cd520c66a2424ba5bd005f1077e4311e5197089fc': PlayRoute(
         'Lemmings (Imagineer)', 4000, _lemmings(),
         'Level 1 ("Just dig!") with its lemmings walking out and the time running, from about frame 3,000'),
+    # Super Hang-On (Sharp / SPS), two disks (the playlist of the set)
+    '01679c4b5df27b4e8aa76cd5adf7b18018f41e867cb2516193c91dcfece02270': PlayRoute(
+        'Super Hang-On (Sharp - SPS)', 10000, _super_hang_on(),
+        'The first stage, course Africa, with the bike running (score 4,310 and speed 93 km at frame 10,000)'),
 }

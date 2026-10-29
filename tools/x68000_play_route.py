@@ -27,7 +27,13 @@ def main(argv=None):
     options = parser.parse_args(argv)
     from retrorecomp.x68000 import read_input
     from tools.x68000_play_routes import ROUTES
-    source = read_input(options.rom)
+    rom = options.rom
+    if rom.suffix.casefold() != '.m3u':
+        # A disk of a multi-disk set stands for its set, grouped as the converter groups it (a playlist under --output).
+        from retrorecomp.rom_sources import disk_sets
+        rom = next((path for path in disk_sets(sorted(rom.parent.glob('*.dim')), options.output.resolve() / 'sets').paths
+                    if rom.name in [disk.name for disk in read_input(path).disks]), rom)
+    source = read_input(rom)
     route = ROUTES.get(source.sha256)
     if route is None:
         parser.error(f'No play route is written for this exact disk set ({source.sha256}).')
@@ -37,7 +43,7 @@ def main(argv=None):
     os.environ.setdefault('SDL_VIDEODRIVER', 'dummy')
     os.environ.setdefault('SDL_AUDIODRIVER', 'dummy')
     from retrorecomp.x68000_conversion import convert
-    convert(options.rom, x68_ipl=options.ipl, x68_cgrom=options.cgrom, output=output, scan_level='quick', frames=route.frames,
+    convert(rom, x68_ipl=options.ipl, x68_cgrom=options.cgrom, output=output, scan_level='quick', frames=route.frames,
             use_cover=False, online_cover=False, qualification_events=route.events, emit=print)
     report = json.loads((output / 'conversion-report.json').read_text(encoding='utf-8'))
     liveness = [row for row in report['liveness'] if row['route'] == 'main'][0]

@@ -577,6 +577,15 @@ usable picture and PCM"). A few X68000 games play no sound there, some only thro
 modelled; such a route is now accepted, the conversion log says so and the report carries `native_validation.sound_heard: false`
 (sound not validated). The picture is still required. The other machines keep their sound requirement.
 
+**The sound is looked for on every route (X68000, 1.6.5).** Measured on the 84 reviewed mouse sets (`tools/x68000_mouse_survey.py`, the
+reference only, no conversion), the 4,000-frame main route has no sound for 14 sets and a picture that stops changing for 15, because a game
+that waits for a click or a key speaks and moves only on the route that gives it one: the 10,000-frame mouse route has no sound for 10 and
+a frozen picture for 4 (other sets), and no set is frozen on both. The conversion therefore takes `native_validation.sound_heard` from all
+the routes it replays and records the routes that had sound (`sound_routes`): Pensan CD, Boyon Boyon, Get Ready, Magritte, Oh! Hajiki! and
+Tonkotsu Pro Roku Hachi Kei no longer count as silent on the standard scan level; eight sets stay silent on every route (Fire, Future Wars,
+Ganbare! Paichan, Giga Fight 68K, Last Tempest A, Puzzle (1991), See Through v2, Uno). A quick scan, which replays the main route only, is
+unchanged. No input is added to any route: the checks of the fresh reference, the compressed copy and the F9 continuation are as before.
+
 The report's `packing.compared_on` now says when a packed copy was replayed (Neo Geo, CPS-1 and X68000:
 `unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
 executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
