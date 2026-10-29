@@ -67,7 +67,8 @@ static RrOptionRows fixture_rows(void) {
 static void rows_survive_copy(void) {
     RrOptionRows a=fixture_rows(),b;
     memcpy(&b,&a,sizeof a);memset(&a,0xA5,sizeof a);
-    assert(b.count==2 && !strcmp(b.text[0],"F3 Filter: Sharp pixels") && !strncmp(b.text[1],"Audio filter: ",14));
+    assert(b.count==5 && !strcmp(b.text[0],"F3 Filter: Sharp pixels") && !strncmp(b.text[1],"Audio filter: ",14) &&
+           !strcmp(b.text[2],"Volume: 100%") && !strcmp(b.text[3],"M Sound: ON") && !strncmp(b.text[4],"Output device: ",15));
 }
 /* A key on the options page, as a host passes it after rr_options_event. */
 static int page_key(const RrOptionRows *d, int code) {
@@ -85,7 +86,7 @@ static void chords(void) {
     key(SDL_SCANCODE_F10,1);key(SDL_SCANCODE_F10,0);assert(!menu);
     open_options();
     RrOptionRows rows=fixture_rows();
-    assert(rows.count==2 && rows.keys[1]==RR_ROW_AUDIO);
+    assert(rows.count==5 && rows.keys[1]==RR_ROW_AUDIO);
     rr_options.row=1;assert(page_key(&rows,SDL_SCANCODE_RETURN)==-1 && SDL_AtomicGet(&rr_options.audio_mode)==1);
     /* Left/Right turn pages: the host receives them; - steps back. */
     SDL_Event turn;memset(&turn,0,sizeof turn);turn.type=SDL_KEYDOWN;turn.key.keysym.scancode=SDL_SCANCODE_RIGHT;
@@ -178,6 +179,71 @@ static void chords(void) {
     key(SDL_SCANCODE_ESCAPE,1);key(SDL_SCANCODE_ESCAPE,0);assert(!rr_options.capture);
     rr_remove(rr_options.file);
 }
+/* The sound controls of every console (decision D12): volume, mute, the speed hold and the output device, all in the one stage that
+ * every console's PCM goes through. */
+static void sound_controls(void) {
+    rr_options_init(L"Fixture");rr_mkdir(rr_options.dir);rr_remove(rr_options.file);rr_options_init(L"Fixture");
+    int16_t original[256],pcm[256];
+    for(int i=0;i<256;++i)original[i]=(int16_t)((i*389)%30000-15000);
+    /* The defaults leave the samples byte for byte, filter or not. */
+    memcpy(pcm,original,sizeof pcm);rr_options_audio(pcm,128,2,0,48000);assert(!memcmp(pcm,original,sizeof pcm));
+    /* 50% halves, 200% doubles and clamps, 0 is silence. */
+    SDL_AtomicSet(&rr_options.volume,50);memcpy(pcm,original,sizeof pcm);rr_options_audio(pcm,128,2,0,48000);
+    for(int i=0;i<256;++i)assert(pcm[i]==original[i]*50/100);
+    SDL_AtomicSet(&rr_options.volume,200);memcpy(pcm,original,sizeof pcm);rr_options_audio(pcm,128,2,0,48000);
+    for(int i=0;i<256;++i){int v=original[i]*2;assert(pcm[i]==(v>32767?32767:v<-32768?-32768:v));}
+    SDL_AtomicSet(&rr_options.volume,0);memcpy(pcm,original,sizeof pcm);rr_options_audio(pcm,128,2,0,48000);
+    for(int i=0;i<256;++i)assert(!pcm[i]);
+    /* Floating point output (the device format F32), mono too. */
+    float real[64];for(int i=0;i<64;++i)real[i]=(i&1)?.75f:-.25f;
+    SDL_AtomicSet(&rr_options.volume,200);rr_options_audio(real,64,1,1,48000);
+    for(int i=0;i<64;++i)assert(real[i]==((i&1)?1.0f:-.5f));
+    /* Mute and the hold are silence, whatever the volume; only the samples asked for are written. */
+    SDL_AtomicSet(&rr_options.volume,100);
+    memcpy(pcm,original,sizeof pcm);assert(rr_sound_toggle_mute() && rr_sound_muted());rr_options_audio(pcm,100,2,0,48000);
+    for(int i=0;i<200;++i)assert(!pcm[i]);
+    assert(pcm[200]==original[200]);
+    assert(!rr_sound_toggle_mute());memcpy(pcm,original,sizeof pcm);rr_options_audio(pcm,128,2,0,48000);assert(!memcmp(pcm,original,sizeof pcm));
+    SDL_AtomicSet(&rr_options.speed_held,1);rr_options_audio(pcm,128,2,0,48000);
+    for(int i=0;i<256;++i)assert(!pcm[i]);
+    SDL_AtomicSet(&rr_options.speed_held,0);
+    /* Volume and mute are kept in [Fixture.Options], 0..200. */
+    rr_sound_set_volume(80);assert(rr_ini_int(rr_options.section,L"audio_volume",-1,rr_options.file)==80);
+    rr_sound_set_volume(500);assert(rr_sound_volume()==200);
+    rr_sound_toggle_mute();assert(rr_ini_int(rr_options.section,L"audio_muted",-1,rr_options.file)==1);
+    rr_sound_load(130,1,"Some Speakers");
+    assert(rr_sound_volume()==130 && rr_sound_muted() && !strcmp(rr_sound_device(),"Some Speakers"));
+    rr_sound_load(-5,0,NULL);assert(!rr_sound_volume() && !rr_sound_muted() && !rr_sound_device()[0]);
+    rr_sound_load(100,0,"");
+    /* The options rows: Volume steps by ten and wraps, M is a key row, the device row reports its name. */
+    RrOptionRows d=fixture_rows();
+    assert(d.keys[2]==RR_ROW_VOLUME && d.keys[3]==SDL_SCANCODE_M && d.keys[4]==RR_ROW_DEVICE);
+    rr_options.row=2;rr_sound_set_volume(100);
+    assert(page_key(&d,SDL_SCANCODE_RETURN)==-1 && rr_sound_volume()==110);
+    assert(page_key(&d,SDL_SCANCODE_MINUS)==-1 && page_key(&d,SDL_SCANCODE_MINUS)==-1 && rr_sound_volume()==90);
+    rr_sound_set_volume(200);assert(page_key(&d,SDL_SCANCODE_RETURN)==-1 && !rr_sound_volume());
+    assert(page_key(&d,SDL_SCANCODE_MINUS)==-1 && rr_sound_volume()==200);
+    rr_sound_set_volume(100);
+    rr_options.row=3;assert(page_key(&d,SDL_SCANCODE_RETURN)==SDL_SCANCODE_M && page_key(&d,SDL_SCANCODE_MINUS)==-1);
+    /* The device: without the audio subsystem the cycle has only the system default; a stored name shows (ASCII only). */
+    unsigned serial=rr_sound_device_serial();
+    rr_sound_set_device("Speakers \xc3\xa9");assert(rr_sound_device_serial()==serial+1);
+    char label[100];rr_sound_device_label(label,sizeof label);assert(!strcmp(label,"Speakers \xc3\xa9"));
+    rr_options.row=4;assert(page_key(&d,SDL_SCANCODE_RETURN)==-1 && !rr_sound_device()[0]);
+    rr_sound_device_label(label,sizeof label);assert(!strcmp(label,"System default"));
+    rr_sound_set_device("Kept");rr_sound_set_volume(200);rr_options_init(L"Fixture");rr_sound_load(100,0,"");
+    assert(rr_ini_int(rr_options.section,L"audio_volume",-1,rr_options.file)==200);
+    wchar_t stored[300];rr_ini_get(rr_options.section,L"audio_device",L"?",stored,300,rr_options.file);assert(!wcscmp(stored,L"Kept"));
+    rr_remove(rr_options.file);
+    /* A preferences file that cannot be written (a read-only install) never blocks a choice: it applies, and the page says so. */
+    rr_options.file[0]=0;
+    serial=rr_sound_device_serial();
+    rr_sound_set_device("Elsewhere");
+    assert(!strcmp(rr_sound_device(),"Elsewhere") && rr_sound_device_serial()==serial+1 && !strcmp(rr_options.status,rr_tr("Config unavailable")));
+    rr_options.status[0]=0;rr_sound_set_volume(40);
+    assert(rr_sound_volume()==40 && !strcmp(rr_options.status,rr_tr("Config unavailable")));
+    assert(rr_sound_toggle_mute() && rr_sound_muted());
+}
 /* F2 pages: control pages, an optional gun page, then the options. */
 static void pages(void) {
     RrPages gun={4,1},plain={2,0};int control=-1;
@@ -202,7 +268,7 @@ static void pages(void) {
     rr_option_row(&d,SDL_SCANCODE_F3,"F3 Filter: %s",rr_option_filter_name(3));
     rr_option_row(&d,SDL_SCANCODE_F12,"%s","F12 Record fallback hints: ON");
     rr_option_shared_rows(&d);
-    assert(d.count==3 && !strcmp(d.text[0],"F3 Filter: Scanlines") && d.keys[2]==RR_ROW_AUDIO &&
+    assert(d.count==6 && !strcmp(d.text[0],"F3 Filter: Scanlines") && d.keys[2]==RR_ROW_AUDIO &&
            !strncmp(d.text[2],"Audio filter: ",14));
     rr_options.row=0;memset(&e,0,sizeof e);e.type=SDL_KEYDOWN;
     e.key.keysym.scancode=SDL_SCANCODE_DOWN;assert(rr_option_page_event(&e,&d)==-1 && rr_options.row==1);
@@ -216,14 +282,14 @@ static void pages(void) {
 static void computer_keys(void) {
     rr_options_init(L"Fixture");rr_remove(rr_options.file);rr_options_init(L"Fixture");
     RrOptionRows d=fixture_rows();
-    assert(d.count==2 && rr_options_host_fkey(SDL_SCANCODE_F3,KMOD_NONE,false));
+    assert(d.count==5 && rr_options_host_fkey(SDL_SCANCODE_F3,KMOD_NONE,false));
     rr_options_keyboard("X68000",10);d=fixture_rows();
-    assert(d.count==3 && d.keys[2]==RR_ROW_FKEYS && !strcmp(d.text[2],"F1-F10 keys: Retro-Recomp") && !rr_options.fkeys_machine);
+    assert(d.count==6 && d.keys[5]==RR_ROW_FKEYS && !strcmp(d.text[5],"F1-F10 keys: Retro-Recomp") && !rr_options.fkeys_machine);
     for(int k=SDL_SCANCODE_F1;k<=SDL_SCANCODE_F12;++k)assert(rr_options_host_fkey(k,KMOD_NONE,false));
     assert(!rr_options_host_fkey(SDL_SCANCODE_A,KMOD_LCTRL,false));
-    open_options();rr_options.row=2;assert(page_key(&d,SDL_SCANCODE_RETURN)==-1);
+    open_options();rr_options.row=5;assert(page_key(&d,SDL_SCANCODE_RETURN)==-1);
     assert(rr_options.fkeys_machine && menu==RR_OPTIONS_MENU);
-    d=fixture_rows();assert(!strcmp(d.text[2],"F1-F10 keys: X68000"));
+    d=fixture_rows();assert(!strcmp(d.text[5],"F1-F10 keys: X68000"));
     for(int k=SDL_SCANCODE_F1;k<=SDL_SCANCODE_F10;++k) {
         assert(!rr_options_host_fkey(k,KMOD_NONE,false) && rr_options_host_fkey(k,KMOD_LCTRL,false));
         assert(rr_options_host_fkey(k,KMOD_NONE,true) && !rr_options_host_fkey(k,(SDL_Keymod)(KMOD_LCTRL|KMOD_LALT),false));
@@ -253,7 +319,7 @@ int main(void) {
     SDL_SetMainReady();assert(SDL_Init(0)==0);
     pads(); /* Tk has no SDL video window: exercise exactly that lifetime. */
     assert(SDL_InitSubSystem(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER)==0);
-    sound();chords();pages();rows_survive_copy();computer_keys();
+    sound();sound_controls();chords();pages();rows_survive_copy();computer_keys();
     SDL_Window *win=SDL_CreateWindow("Options fixture",0,0,768,576,SDL_WINDOW_HIDDEN);assert(win);
     SDL_Renderer *ren=SDL_CreateRenderer(win,-1,SDL_RENDERER_SOFTWARE);assert(ren);assert(rr_menu_init(ren));
     SDL_Surface *image=SDL_CreateRGBSurfaceWithFormat(0,768,576,32,SDL_PIXELFORMAT_ARGB8888);assert(image);

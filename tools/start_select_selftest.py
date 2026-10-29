@@ -2,10 +2,10 @@
 
 No cartridge, window or sound: the fixture substitutes SDL's keyboard state,
 exactly as tools/autofire_selftest.py does, around each console's own
-declarations and reader (controls.c) or, for the 16-bit consoles and the NES, the host kit input module with the action table of the adapter.
-Game Boy's reader is checked against the generated runtime by
-gb_latency_checks.cpp; the Master System pad has no Start button (Enter pauses
-in host.c, checked by host_checks.c).
+declarations and reader or, for every console, the host kit input module with the action table of the adapter
+(the Master System and Game Gear share one table, the Game Boy's is in rrhk_gb.inc). The Game Boy's registers are checked
+against the generated runtime by gb_latency_checks.cpp; the Master System pad has no Start button (Enter pauses
+in the adapter, checked by host_checks.c).
 """
 from pathlib import Path
 import argparse
@@ -23,9 +23,19 @@ from autofire_selftest import source
 # START_KEY / SHIFT_KEY / OTHER_KEY / P2_KEY are the console's own binding
 # slots (lvalues); SHIFT_* name the action Shift serves on that console.
 SYSTEMS={
-    'gg':'''#define START_KEY controls.keys[0][CONTROL_RESET]
-#define START_MASK SMS_PAD_START
+    'gg':'''#define START_KEY keys[0][START]
+#define START_MASK bits[START]
 #define SINGLE_PLAYER 1
+''',
+    'gb':'''#define START_KEY keys[0][RR_GB_START]
+#define START_MASK bits[RR_GB_START]
+#define SHIFT_KEY keys[0][RR_GB_SELECT]
+#define SHIFT_MASK bits[RR_GB_SELECT]
+#define OTHER_KEY keys[0][RR_GB_B]
+#define OTHER_MASK bits[RR_GB_B]
+#define SINGLE_PLAYER 1
+#define P2_KEY keys[1][RR_GB_UP]
+#define P2_MASK bits[RR_GB_UP]
 ''',
     'nes':'''#define START_KEY keys[0][START]
 #define START_MASK bits[START]

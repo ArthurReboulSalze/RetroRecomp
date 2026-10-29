@@ -17,7 +17,7 @@ from . import __version__, online
 from .batch import BatchItem
 from .paths import (
     ROOT, ASSETS, APP_NAME, load_preferences, save_preferences, preferred_games_root, selected_bios_path,
-    feedback_search_paths,
+    feedback_search_paths, console_options,
 )
 from .i18n import tr, extended_default, game_boy_validation_default
 from .languages import LANGUAGE_NAMES, language_code, language_name
@@ -46,7 +46,7 @@ from .gui_queue import QueueMixin
 from .gui_conversion import ConversionMixin
 from .gui_collection import CollectionMixin
 from .gui_updates import UpdatesMixin
-from .gui_options import OptionsMixin
+from .gui_options import OptionsMixin, FIRMWARE_ROWS
 from .gui_sharing import SharingMixin
 from .gui_reports import ReportsMixin
 from .gui_account import AccountMixin
@@ -139,12 +139,29 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         self.use_cover = tk.BooleanVar(value=bool(preferences.get('use_cover', True)))
         self.overwrite = tk.BooleanVar(value=bool(preferences.get('overwrite', True)))
         self.force = tk.BooleanVar(value=False)
-        saved_bios = selected_bios_path(preferences.get('ng_bios'))
-        self.ng_bios = tk.StringVar(value=str(saved_bios) if saved_bios else '')
-        self.x68_ipl = tk.StringVar(value=preferences.get('x68_ipl', ''))
-        self.x68_cgrom = tk.StringVar(value=preferences.get('x68_cgrom', ''))
-        self.x68_ram = tk.IntVar(value=preferences.get('x68_ram', 2))
-        self.ng_bios_status = tk.StringVar(value=self.tr('ng_bios_not_checked') if saved_bios else self.tr('ng_bios_missing'))
+        # What each profile declares as an option (OptionKey): one variable per option, under the option's own
+        # name (self.ng_bios, self.x68_ipl, self.x68_ram...). A file the player supplies is shown as saved, or
+        # resolved against the export folder where FIRMWARE_ROWS says so (the Neo Geo BIOS); a firmware the
+        # window can check has a status line (self.ng_bios_status).
+        for _, key in console_options('path', 'choice', 'flag'):
+            if key.kind == 'path':
+                if FIRMWARE_ROWS.get(key.name, {}).get('resolve'):
+                    saved = selected_bios_path(preferences.get(key.name))
+                    variable = tk.StringVar(value=str(saved) if saved else '')
+                else:
+                    variable = tk.StringVar(value=preferences.get(key.name, ''))
+            elif key.kind == 'choice':
+                variable = (tk.IntVar if isinstance(key.default, int) else tk.StringVar)(
+                    value=preferences.get(key.name, key.default))
+            elif key.label and not hasattr(self, key.name):
+                variable = tk.BooleanVar(value=bool(preferences.get(key.name, key.default)))
+            else:
+                continue
+            setattr(self, key.name, variable)
+        for _, key in console_options('path'):
+            if FIRMWARE_ROWS.get(key.name, {}).get('check'):
+                setattr(self, key.name + '_status', tk.StringVar(value=self.tr(
+                    key.name + ('_not_checked' if getattr(self, key.name).get() else '_missing'))))
         feedback_folders = feedback_search_paths(preferences)
         self.feedback_paths = {profile.id: tk.StringVar(value=str(feedback_folders.get(profile.id, ''))) for profile in PROFILES}
         from .rom_sources import rom_folders
@@ -206,7 +223,7 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
             text=self.tr('brand_tagline'),
             anchor='nw', fill=COLORS['text'], font=(self.ui_font, 8), tags='brand_tagline')
         if os.name != 'nt':
-            self.app_icon = tk.PhotoImage(file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
+            self.app_icon = tk.PhotoImage(master=app, file=str(ASSETS / 'assets/Retro-Recomp-icon-64.png'))
             app.iconphoto(True, self.app_icon)
         try:
             icon_path = str(ASSETS / 'assets/Retro-Recomp.ico')

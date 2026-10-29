@@ -185,5 +185,28 @@ class StateStoreTests(unittest.TestCase):
         self.assertEqual((outcome['status'], outcome['core'], outcome['auxiliary']), (0, 42, 66))
 
 
+class ChipStorageTests(unittest.TestCase):
+    """The quick state saves fmgen's members, some of which its constructors and Reset never write (1.6.3)."""
+
+    SOURCE = (b'#include <stdio.h>\n\nextern "C" {\n\n#include "common.h"\n};\n\n'
+              b'class MyOPM : public FM::OPM\n{\npublic:\n\tMyOPM();\n\tvirtual ~MyOPM() {}\nprivate:\n'
+              b'\tvirtual void Intr(bool);\n\tint CurReg;\n\tDWORD CurCount;\n};\n\n'
+              b'MyOPM::MyOPM()\n{\n\tCurReg = 0;\n}\n\n'
+              b'void OPM_Reset(void)\n{\n\tif ( opm ) opm->Reset();\n}\n\n'
+              b'// ----------------------------------------------------------\n'
+              b'// ---------------------------- YMF288\n')
+
+    def test_the_chip_is_allocated_zeroed_so_that_no_heap_content_reaches_a_state(self):
+        from tools.x68000_base74 import adapt_fmg_wrap
+        text = adapt_fmg_wrap(self.SOURCE).decode('ascii')
+        self.assertIn('static void *operator new(size_t size) { void *p = ::operator new(size); memset(p, 0, size); return p; }', text)
+        self.assertIn('static void operator delete(void *p) { ::operator delete(p); }', text)
+        # The class-specific functions need their declarations before the class, and sit inside it.
+        self.assertLess(text.index('#include <new>'), text.index('extern "C" {'))
+        self.assertLess(text.index('#include <string.h>'), text.index('class MyOPM'))
+        self.assertLess(text.index('class MyOPM'), text.index('operator new'))
+        self.assertLess(text.index('operator new'), text.index('MyOPM();'))
+
+
 if __name__ == '__main__':
     unittest.main()

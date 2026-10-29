@@ -48,6 +48,7 @@ for _entry in (str(ROOT), str(TOOLS)):
     if _entry not in sys.path:
         sys.path.insert(0, _entry)
 import release_check
+from retrorecomp.systems import ALL_PROFILES
 
 CONSOLES = release_check.CONSOLES
 LEVELS = release_check.LEVELS
@@ -55,15 +56,37 @@ SCHEMA = 1
 DEFAULT_SEED = 160
 RISK_CASES = TOOLS / 'campaign-risk-cases.json'
 ROOT_ENV = 'RETRO_RECOMP_ROMS'
-# Folder names of a Batocera-style ROM share, one per console (override with --folder).
-DEFAULT_FOLDERS = {'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive',
-                   'snes': 'snes', 'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'}
-EXTENSIONS = {'sms': ('.sms', '.zip'), 'gg': ('.gg', '.zip'), 'gb': ('.gb', '.zip'), 'nes': ('.nes', '.zip'),
-              'md': ('.md', '.gen', '.smd', '.bin', '.zip'), 'snes': ('.sfc', '.smc', '.zip'),
-              'ng': ('.zip',), 'cps1': ('.zip',), 'x68': ('.dim', '.xdf')}
-# Conversions of these consoles prove the packed replay and the fresh-process states themselves.
-REQUIRE_PACKED = ('ng', 'cps1')
-REQUIRE_STATES = ('ng', 'cps1', 'x68')
+# Folder names of a Batocera-style ROM share (override with --folder). They are the share's own names, not the
+# profile's: a machine that is not listed is looked for in a folder named after its id.
+SHARE_FOLDERS = {'sms': 'mastersystem', 'gg': 'gamegear', 'gb': 'gb', 'nes': 'nes', 'md': 'megadrive',
+                 'snes': 'snes', 'ng': 'neogeo', 'cps1': 'fbneo', 'x68': 'x68000'}
+# Files a share keeps beside the profile's own extensions (headered and headerless Mega Drive dumps).
+SHARE_EXTRA_EXTENSIONS = {'md': ('.smd', '.bin')}
+DEFAULT_FOLDERS = {profile.id: SHARE_FOLDERS.get(profile.id, profile.id) for profile in ALL_PROFILES}
+
+
+def _share_extensions(profile) -> tuple[str, ...]:
+    """The files of a share that are games of the machine, from its profile.
+
+    A romset is a ZIP whatever the machine's own extension (Neo Geo also reads .neo); a disk machine reads its
+    disk images, not its playlists (.m3u: the disks of a set are grouped by name); a cartridge machine reads
+    its cartridge extensions and the ZIPs around them."""
+    if 'romset' in profile.media_kinds:
+        return ('.zip',)
+    own = tuple(extension for extension in profile.extensions if extension != '.m3u')
+    if 'disk' in profile.media_kinds:
+        return own
+    return own + SHARE_EXTRA_EXTENSIONS.get(profile.id, ()) + ('.zip',)
+
+
+EXTENSIONS = {profile.id: _share_extensions(profile) for profile in ALL_PROFILES}
+# Games of these consoles are sets of files in ZIPs, named by their MAME/FBNeo set.
+ROMSET_CONSOLES = tuple(profile.id for profile in ALL_PROFILES if 'romset' in profile.media_kinds)
+# Conversions of these consoles prove the packed replay (a compressed romset executable) and the fresh-process
+# states themselves: the romset machines and the disk machines, whose reports carry that evidence. A machine on
+# a plain cartridge does not (its F8/F9 is checked by the compatibility tools, not by the report).
+REQUIRE_PACKED = ROMSET_CONSOLES
+REQUIRE_STATES = tuple(profile.id for profile in ALL_PROFILES if set(profile.media_kinds) - {'cartridge'})
 REGION_ORDER = ('usa', 'world', 'europe', 'japan')
 NOT_A_GAME = re.compile(r'\b(bios)\b', re.I)
 MEASURES = ('native_code', 'cpu_fidelity', 'hardware_fidelity', 'gameplay', 'latency')
@@ -137,7 +160,7 @@ class Candidate:
                  key: str | None = None):
         self.console, self.path, self.eligible = console, path, eligible
         self.files = files or [path]
-        self.key = key or (path.stem.casefold() if console in ('ng', 'cps1') else normalize_title(path.name))
+        self.key = key or (path.stem.casefold() if console in ROMSET_CONSOLES else normalize_title(path.name))
         self.title = re.sub(r'\s*[\(\[][^\)\]]*[\)\]]', '', path.stem).strip() or path.stem
 
     def __repr__(self) -> str:
@@ -184,7 +207,7 @@ def list_candidates(console: str, folder: Path, *, arcade: dict | None = None, d
     result = []
     for path in entries:
         eligible = True
-        if console in ('ng', 'cps1'):
+        if console in ROMSET_CONSOLES:
             info = (arcade or {}).get(path.stem)
             eligible = bool(info and info['ok'] and (not info['parent'] or (folder / (info['parent'] + '.zip')).is_file()))
         result.append(Candidate(console, path, eligible=eligible))
@@ -256,7 +279,7 @@ def select_console(console: str, folder: Path, *, count: int, seed: int, risk_en
     With `random_games`, every risk case found is taken and exactly that many games are drawn at random
     beside them (`count` is then ignored)."""
     candidates = list_candidates(console, folder, arcade=arcade or (arcade_catalogue(console)
-                                 if console in ('ng', 'cps1') else None), disk_tag=disk_tag)
+                                 if console in ROMSET_CONSOLES else None), disk_tag=disk_tag)
     verify = verify or (lambda candidate: (True, {}))
     chosen, keys, rejected, unmatched = [], set(), [], []
     quota = len(risk_entries) if random_games is not None else int(count * risk_share)

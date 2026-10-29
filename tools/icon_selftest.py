@@ -74,6 +74,8 @@ def main():
     source = ROOT / ".build/native-source"
     source.mkdir(parents=True, exist_ok=True)
     import shutil
+    from retrorecomp import hostkit
+    hostkit.stage(source, 'sms')
     for file in (ASSETS / "native").iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     build = ROOT / ".build/icon-checks-build"

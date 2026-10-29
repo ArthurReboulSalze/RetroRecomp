@@ -10,6 +10,8 @@ import time
 from .paths import ROOT, ASSETS
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 from .toolchain import active as active_toolchain, describe as toolchain_description
+from .conversion_common import (check_exit, check_run_budget, convert_single, pinned_checkout, probe_environment,
+                                resolve_scan_level, spawn)
 from .core import ConversionError, run, serialized_setup, toolchain
 from .cartridge16 import read_megadrive_rom, read_snes_rom
 from . import __version__, timings
@@ -57,24 +59,25 @@ def dependencies16(system_id: str, emit):
     if not (sdl / sdl_library()).is_file():
         from .core import dependencies
         _, sdl, cmake, generator = dependencies(emit)
-    for key in (system_id,):
-        repo, revision, directory = REPOSITORIES[key]
-        checkout = ROOT / '.deps' / directory
-        if not (checkout / '.git').exists():
-            emit(f'Downloading pinned {repo} sources…')
-            run(['git', 'clone', '--no-checkout', f'https://github.com/{repo}.git', checkout], timeout=600)
-        if not any(p.name != '.git' for p in checkout.iterdir()):
-            # A --no-checkout clone has an empty index/worktree, which Git
-            # reports as staged deletions. Populate our new cache before the
-            # tracked-edit guard; never reset an existing source checkout.
-            run(['git','fetch','--depth','1','origin',revision],cwd=checkout,timeout=600)
-            run(['git','checkout','--detach',revision],cwd=checkout)
-        if run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=checkout).strip():
-            raise ConversionError(f'Dependency checkout has tracked edits: {checkout}')
-        if run(['git', 'rev-parse', 'HEAD'], cwd=checkout).strip() != revision:
-            run(['git', 'fetch', '--depth', '1', 'origin', revision], cwd=checkout, timeout=600)
-            run(['git', 'checkout', '--detach', revision], cwd=checkout)
-    engine = ROOT / '.deps' / REPOSITORIES[system_id][2]
+    repo, revision, directory = REPOSITORIES[system_id]
+    checkout = ROOT / '.deps' / directory
+
+    def git(*arguments, **options):
+        return run(['git', *arguments], cwd=checkout, **options)
+
+    def clone():
+        emit(f'Downloading pinned {repo} sources…')
+        run(['git', 'clone', '--no-checkout', f'https://github.com/{repo}.git', checkout], timeout=600)
+
+    def pin():
+        git('fetch', '--depth', '1', 'origin', revision, timeout=600)
+        git('checkout', '--detach', revision)
+    # A --no-checkout clone has an empty index/worktree, which Git reports as staged deletions. Populate our new
+    # cache before the tracked-edit guard; never reset an existing source checkout.
+    pinned_checkout(checkout, revision, git, present=(checkout / '.git').exists(), clone=clone, fill=pin,
+                    moved=lambda head: pin(),
+                    dirty=lambda: ConversionError(f'Dependency checkout has tracked edits: {checkout}'), dirty_first=True)
+    engine = checkout
     if system_id == 'md':
         run(['git', 'submodule', 'update', '--init', '--depth', '1',
              'external/m68k-recomp-core', 'external/rbengine', 'external/z80-recomp-core'], cwd=engine, timeout=600)
@@ -86,6 +89,16 @@ def dependencies16(system_id: str, emit):
     else:
         compiler = None   # the Super Nintendo analysis runs inside the converter
     return engine, compiler, sdl, cmake, generator
+
+
+def snes_ppu_header(text: str) -> str:
+    """snesrecomp's ppu.h aligns PpuPixelPrioBufs with a GNU attribute, which MSVC spells `__declspec(align(8))`.
+    The converter and the SNES self-tests stage the header through this one function, so gcc and clang keep it as it is."""
+    if os.name == 'nt' and active_toolchain() == 'msvc':
+        text = text.replace('typedef struct PpuPixelPrioBufs {',
+                            'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
+        text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
+    return text
 
 
 def _write_build(project: Path, engine: Path, system_id: str, title: str, rom) -> None:
@@ -342,12 +355,7 @@ endif()
             state_source = staged / 'runner/src' / name
             state_source.write_text(adapt(state_source.read_text(encoding='utf-8')), encoding='utf-8')
         ppu = staged / 'runner/src/snes/ppu.h'
-        text = ppu.read_text(encoding='utf-8')
-        if os.name == 'nt' and active_toolchain() == 'msvc':
-            text = text.replace('typedef struct PpuPixelPrioBufs {',
-                                'typedef struct __declspec(align(8)) PpuPixelPrioBufs {')
-            text = text.replace('} __attribute__((aligned(8))) PpuPixelPrioBufs;', '} PpuPixelPrioBufs;')
-        ppu.write_text(text, encoding='utf-8')
+        ppu.write_text(snes_ppu_header(ppu.read_text(encoding='utf-8')), encoding='utf-8')
         prefix = staged.as_posix()
         common += f'''set(SNESRECOMP_SDL_BACKEND SDL2 CACHE STRING "" FORCE)
 set(SNESRECOMP_FRAME_IMPL LLE CACHE STRING "" FORCE)
@@ -570,37 +578,30 @@ def probe16(executable: Path, directory: Path, frames: int, *, play=False, refer
         command.append('--play')
         if gun_menu:
             command.extend(('--gun-menu', gun_menu))
-    import os
-    import subprocess
-    from .core import run_process
-    env = os.environ.copy()
-    if reference:
-        env.update(GENESIS_FORCE_INTERP='1', SNESRECOMP_LLE_BOUNCE='0', RR_SNES_FORCE_INTERP='1')
-    else:
-        env.pop('GENESIS_FORCE_INTERP', None)
-        env.pop('SNESRECOMP_LLE_BOUNCE', None)
-        env.pop('RR_SNES_FORCE_INTERP', None)
-    with timings.phase('reference_runs' if reference else 'native_runs'):
-        result = run_process([str(arg) for arg in command], cwd=directory, env=env,
-            capture_output=True, text=True, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+    names = ('GENESIS_FORCE_INTERP', 'SNESRECOMP_LLE_BOUNCE', 'RR_SNES_FORCE_INTERP')
+    env = probe_environment(**dict(zip(names, ('1', '0', '1')))) if reference else probe_environment(remove=names)
+    result = spawn(command, cwd=directory, env=env, timeout=600, phase='reference_runs' if reference else 'native_runs',
+                   capture_output=True, text=True)
     (directory / f'{scenario}{"-reference" if reference else ""}.log').write_text(
         result.stdout + result.stderr, encoding='utf-8')
-    if result.returncode:
+
+    def failure(result):
         if report.exists():
             try:failed=json.loads(report.read_text(encoding='utf-8'))
             except (OSError,ValueError):failed={}
             if failed.get('coprocessor_failed'):
                 chip=failed.get('cartridge_chip','cartridge circuit').upper()
                 command=failed.get('coprocessor_failed_command',0)
-                raise ConversionError(f'{chip} validation stopped at unsupported device command ${command:02X}. '
-                                      f'Previous export preserved; see {directory}.')
+                return ConversionError(f'{chip} validation stopped at unsupported device command ${command:02X}. '
+                                       f'Previous export preserved; see {directory}.')
         if result.returncode == 7 and load_state is not None:
-            raise ConversionError(f'16-bit {scenario} probe could not restore the saved state '
-                                  f'{Path(load_state).name} of the previous scenario. See {directory}.')
+            return ConversionError(f'16-bit {scenario} probe could not restore the saved state '
+                                   f'{Path(load_state).name} of the previous scenario. See {directory}.')
         if result.returncode == 8 and save_state is not None:
-            raise ConversionError(f'16-bit {scenario} probe could not save its end state for the next scenario. '
-                                  f'See {directory}.')
-        raise ConversionError(f'16-bit {scenario} probe failed (exit {result.returncode}). See {directory}.')
+            return ConversionError(f'16-bit {scenario} probe could not save its end state for the next scenario. '
+                                   f'See {directory}.')
+        return ConversionError(f'16-bit {scenario} probe failed (exit {result.returncode}). See {directory}.')
+    check_exit(result, failure)
     data = json.loads(report.read_text(encoding='utf-8'))
     if data.get('frames') != frames:
         raise ConversionError('16-bit probe did not complete the requested frames.')
@@ -688,8 +689,7 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     from .paths import data_directory, games_root, boxart_cache_directory
     if profile is not None:
         raise ConversionError('16-bit profiles use pinned game-specific analysis, not Sega Z80 TOML files.')
-    if not 1 <= frames <= 10000 or not 1 <= passes <= 10:
-        raise ConversionError('Choose 1–10 passes and 1–10000 frames per test.')
+    check_run_budget(passes, frames, 'Choose 1–10 passes and 1–10000 frames per test.')
     rom = conversion_rom(rom_path, system_id, standard_override)
     cartridge_profile = (megadrive if system_id == 'md' else supernintendo).profile_for(rom)
     standard = (megadrive if system_id == 'md' else supernintendo).video_standard(rom, standard_override)
@@ -698,25 +698,16 @@ def convert16(rom_path: Path, *, system_id: str, title=None, output=None, profil
     # extended and thorough add a long attract sequence plus reproducible
     # pseudo-random play routes seeded from the exact ROM. The authored Mega
     # Drive replays stay Mega Drive only. The former switch means thorough.
-    from .scan_levels import LEVELS, console16_budget, legacy_level
-    level = scan_level or legacy_level(system_id, md_advanced_scan=bool(md_advanced_scan))
-    if level not in LEVELS:
-        raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import console16_budget, legacy_level
+    level = resolve_scan_level(scan_level, legacy_level(system_id, md_advanced_scan=bool(md_advanced_scan)))
     budget = console16_budget(level, frames)
     advanced = budget['advanced']
     fixed_scripts = advanced and system_id == 'md'
     if output is None:
-        from .batch import identify, convert_batch
-        item = identify(rom_path, system_id)
-        item.title = title or cartridge_profile['title']
-        item.cover = cover
-        result = convert_batch([item], games_root(), frames=frames, passes=passes,
-            language=language, boxart_dir=boxart_dir, online_cover=online_cover,
-            use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
+        return convert_single(rom_path, games_root(), title=title or cartridge_profile['title'], cover=cover,
+            identify_arguments=(system_id,), frames=frames, passes=passes, language=language, boxart_dir=boxart_dir,
+            online_cover=online_cover, use_cover=use_cover, icon_tags=icon_tags, standard_override=standard_override,
             scan_level=level, emit=emit)
-        if result['failed']:
-            raise ConversionError(result['games'][0]['message'])
-        return Path(result['games'][0]['executable'])
     started = time.perf_counter()
     from .feedback import ingest
     gameplay_feedback = ingest(system_id, rom.sha256, output, emit=emit)

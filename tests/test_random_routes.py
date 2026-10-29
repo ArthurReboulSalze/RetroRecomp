@@ -149,6 +149,21 @@ class RandomRouteTests(unittest.TestCase):
             self.assertEqual(meta['seed'], rr.route_seed('md', IDENTITY, 1))
             self.assertIsNone(meta['continues_from'])
 
+    def test_pad_tables_and_file_suffixes_come_from_the_profiles(self):
+        from retrorecomp.systems import ALL_PROFILES
+        self.assertEqual(set(rr.CONSOLES), {p.id for p in ALL_PROFILES if p.input_layout is not None})
+        self.assertNotIn('x68', rr.CONSOLES)  # it plays routes of its own
+        for profile in ALL_PROFILES:
+            layout = profile.input_layout
+            if layout is None:
+                continue
+            pad = rr.CONSOLES[profile.id]
+            self.assertEqual((pad['main'], pad['extra'], pad['select'], pad['opening']),
+                             (layout.main, layout.extra, layout.select, layout.opening))
+            self.assertEqual(pad.get('start', True), layout.start)
+            self.assertEqual(rr.SCRIPT_SUFFIXES[profile.id], layout.script_suffix)
+            self.assertIn(layout.script_format, rr.SCRIPT_WRITERS)
+
     def test_invalid_requests_are_refused(self):
         with self.assertRaises(ValueError):
             rr.long_route('x68', IDENTITY, 0)

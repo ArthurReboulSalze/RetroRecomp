@@ -66,11 +66,10 @@ static void pointer_option(RrhkUi *ui, int direction) {
     if (ui->row == 1) ui->pointer_size = (ui->pointer_size - 1 + direction + largest) % largest + 1;
     if (ui->row == 2) ui->pointer_color = (ui->pointer_color + direction + 3) % 3;
     if (ui->row == 3) ui->pointer_turbo = !ui->pointer_turbo;
-    if (!ui->ini_file[0]) return;
     const wchar_t *labels[] = {L"shape", L"size", L"color", L"turbo"};
     int values[] = {ui->pointer_shape, ui->pointer_size, ui->pointer_color, ui->pointer_turbo};
     wchar_t value[16]; swprintf(value, 16, L"%d", values[ui->row]);
-    rr_mkdir(ui->data_dir);
+    if (!rrhk_write_ready()) return;
     rr_ini_set(ui->pointer_section, labels[ui->row], value, ui->ini_file);
 }
 
@@ -94,7 +93,8 @@ static void pointer_draw(RrhkUi *ui, const RrhkMenuCtx *ctx) {
     const int rows = pointer_rows(ui);
     rr_menu_text(ren, ox, oy, unit, 14, 26, ui->machine->pointer == RRHK_POINTER_SCOPE ? "Super Scope" :
         ui->machine->pointer == RRHK_POINTER_JUSTIFIER ? "Justifier" :
-        ui->machine->pointer == RRHK_POINTER_ZAPPER ? "Zapper" : "Menacer", RR_MENU_ACCENT);
+        ui->machine->pointer == RRHK_POINTER_ZAPPER ? "Zapper" :
+        ui->machine->pointer == RRHK_POINTER_PHASER ? "Light Phaser" : "Menacer", RR_MENU_ACCENT);
     for (int i = 0; i < rows; ++i) {
         if (ui->row == i) rr_menu_box(ren, ox, oy, unit, 12, 40 + 22 * i, 232, 20, RR_MENU_SELECT, 255);
         if (i == 0) snprintf(line, sizeof line, "%s: %s", rrhk_tr("Shape", "Forme"), ui->pointer_shape ? rrhk_tr("Dot", "Point") : rrhk_tr("Cross", "Croix"));

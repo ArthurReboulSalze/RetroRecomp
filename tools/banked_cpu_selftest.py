@@ -31,6 +31,8 @@ def main():
     game = Path(report["build_directory"])
     engine, sdl, cmake, generator = dependencies()
     source = ROOT / ".build/native-source"
+    from retrorecomp import hostkit
+    hostkit.stage(source, 'sms')
     for path in (ASSETS / "native").iterdir():
         if path.is_file():
             shutil.copy2(path, source / path.name)

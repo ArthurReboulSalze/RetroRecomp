@@ -24,6 +24,8 @@ def main():
     directory.mkdir(parents=True, exist_ok=True)
     source = ROOT / '.build/native-source'
     source.mkdir(parents=True, exist_ok=True)
+    from retrorecomp import hostkit
+    hostkit.stage(source, 'sms')
     for file in (ASSETS / 'native').iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     engine, sdl, cmake, generator = dependencies()

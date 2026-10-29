@@ -307,5 +307,13 @@ int main(int argc, char **argv) {
     SDL_PauseAudioDevice(audio_device, 1);
     if (device) { burst_check(); steady_check(); }
     else { conversion_checks(); ring_checks(); cushion_checks(); float_callback_check(); cadence_checks(); reset_test(223721, 48000); burst_check(); }
-    host_audio_shutdown(); SDL_Quit(); puts("PASS: host audio checks"); return 0;
+    /* Another output device (decision D12): the same stream on a new device, its id known, the audio subsystem not started once more per reopen. */
+    SDL_AudioDeviceID before = host_audio_device_id();
+    assert(before && host_audio_reopen() && host_audio_device_id() && rr_audio.source_rate == 223721);
+    for (int i = 0; i < 3; ++i) assert(host_audio_reopen());
+    host_audio_shutdown();
+    assert(!host_audio_device_id() && !host_audio_reopen());
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);                      /* the one start of host_audio_init: the subsystem is off again */
+    assert(!(SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO));
+    SDL_Quit(); puts("PASS: host audio checks"); return 0;
 }

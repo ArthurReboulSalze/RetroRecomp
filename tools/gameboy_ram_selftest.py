@@ -8,6 +8,7 @@ from retrorecomp.platforms import build_executable, cmake_target_args
 from retrorecomp.core import run
 from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.resources import embed_resources
 from retrorecomp.paths import ASSETS
 
 def main():
@@ -25,6 +26,7 @@ def main():
          '--output-prefix', 'game', '--no-comments'], log=log, timeout=600)
     adapt_generated_project(project, 'ram-fixture', '0' * 64, 'Authored RAM fixture')
     (project / 'game_resources.rc').write_text('1 RCDATA { 0 }\n', encoding='utf-8')
+    embed_resources(project, {})   # the ELF counterpart of the .rc on Linux; nothing on Windows
     with (project / 'CMakeLists.txt').open('a', encoding='utf-8') as out:
         out.write(f'''\nadd_executable(retro_gb_ram_checks "{(ASSETS / 'native/gb_ram_checks.c').as_posix()}")
 target_link_libraries(retro_gb_ram_checks PRIVATE gbrt)

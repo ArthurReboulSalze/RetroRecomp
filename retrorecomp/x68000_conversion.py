@@ -9,12 +9,13 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 import time
 from . import __version__, timings
+from .conversion_common import check_exit, resolve_scan_level, spawn, write_if_changed
+from .conversion_gates import continuation_difference, require, require_equal, require_same_file
 from .paths import ROOT, ASSETS, boxart_cache_directory
-from .core import ConversionError, toolchain, run, run_process, executable_name
+from .core import ConversionError, toolchain, run, executable_name
 from .platforms import build_jobs, cmake_target_args, build_executable, target_id, sdl_install
 from .toolchain import describe as toolchain_description, suffix as toolchain_suffix
 from .library import atomic_json, entry_lock, file_sha256, library_root
@@ -149,7 +150,7 @@ SDK_TOOLS=('x68000_native.py','x68000_reference.py','x68000_reference_check.py',
 
 def sdk_stamp(part=None):
     """The SDK build identity; part='game' leaves out the player shell
-    (player_ui.inc and host inputs), for upgrades without rediscovery.
+    (rrhk_x68k.inc and host inputs), for upgrades without rediscovery.
 
     Every file of the SDK comes from the listed X68000 inputs (one explicit manifest, text with normalised
     line ends): nothing is globbed from native/x68000_* and a missing file is an error. The machine base
@@ -227,11 +228,7 @@ def sdk_tree(base):
     for source in sources:
         if not source.is_file():
             continue
-        destination = target/source.relative_to(ASSETS)
-        data = source.read_bytes()
-        if not destination.is_file() or destination.read_bytes() != data:
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(data)
+        write_if_changed(target/source.relative_to(ASSETS), source.read_bytes())
     return target
 
 
@@ -294,6 +291,18 @@ def run_routes(jobs, workers):
             return [future.result() for future in futures]
 
 
+def continues(timeline, resumed, saved_at, frames):
+    """Whether a fresh process that loaded the state saved at frame `saved_at` continues the timeline it was saved from.
+
+    `timeline` and `resumed` are the lines of the two traces (a header line, then one line per frame); `resumed` ran
+    `frames` frames, frame 0 being the load itself. Its frames 1 to `frames - 1` must equal the frames that follow
+    `saved_at` in the timeline, the frame number (the first column) apart: a resumed process counts from zero. Both
+    traces went through validate_trace, so they have the rows this expects.
+    """
+    columns = lambda lines: [line.split('\t')[1:] for line in lines]
+    return continuation_difference(columns(timeline), columns(resumed[2:]), saved_at + 2, frames - 1) is None
+
+
 def replay(binary, folder, frames, events, *, reference=False, observe=False, extra=()):
     from tools.x68000_reference_check import validate_trace
     folder.mkdir(parents=True,exist_ok=True)
@@ -303,11 +312,9 @@ def replay(binary, folder, frames, events, *, reference=False, observe=False, ex
     if observe:args+=['--observations',str(folder/'observations.json')]
     args+=list(map(str,extra))
     with (folder/'stdout.log').open('wb') as out,(folder/'stderr.log').open('wb') as err:
-        # No console window per validation run in the windowed converter.
-        result=run_process(args,stdout=out,stderr=err,timeout=max(360,frames//3),
-                              creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
-    if result.returncode:
-        raise ConversionError('X68000 replay failed: '+(folder/'stderr.log').read_text(errors='replace')[-2000:])
+        # No console window per validation run in the windowed converter (spawn).
+        result=spawn(args,cwd=folder,timeout=max(360,frames//3),stdout=out,stderr=err)
+    check_exit(result,lambda _:ConversionError('X68000 replay failed: '+(folder/'stderr.log').read_text(encoding='utf-8',errors='replace')[-2000:]))
     report=json.loads((folder/'result.json').read_text());validate_trace(folder/'trace.tsv',frames)
     if report.get('core_error') or report['frames']!=frames or report['hardware']['audio_errors']:
         raise ConversionError('X68000 validation returned an incomplete/error run.')
@@ -319,9 +326,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             qualification_events=None,**unused):
     if not developer_available():raise ConversionError('The X68000 converter files are missing from this installation.')
     started=time.perf_counter()
-    from .scan_levels import LEVELS, x68000_budget
-    level=scan_level or 'standard'
-    if level not in LEVELS:raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import x68000_budget
+    level=resolve_scan_level(scan_level)
     scan=x68000_budget(level)
     if unused.get('standard_override') not in (None,'native','auto'):
         raise ConversionError('X68000 timing follows its CRTC; PAL/NTSC overrides do not apply.')
@@ -468,8 +474,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             state_frame=count-800
             with timings.phase('native_runs'):
                 actual=replay(exported,run_dir,count,event_file,observe=True,extra=['--state-save-at',str(state_frame)])
-            if (run_dir/'trace.tsv').read_bytes()!=(checks/'reference/trace.tsv').read_bytes():
-                raise ConversionError('X68000 native/reference CPU, memory, image or PCM diverged; existing export preserved.')
+            require_same_file(run_dir/'trace.tsv',checks/'reference/trace.tsv',
+                lambda:ConversionError('X68000 native/reference CPU, memory, image or PCM diverged; existing export preserved.'))
             if not actual['nonzero_samples'] or not actual['nonblack_frames']:
                 raise ConversionError('X68000 validation did not produce usable picture and PCM.')
             fallback=actual['reference_ram']+actual['reference_ipl']
@@ -483,8 +489,8 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
             results=run_routes(((target,folder,route.frames,inputs,dict(observe=True))
                                 for route,ref_folder,folder,target,inputs in prepared),workers)
             for (route,ref_folder,folder,target,inputs),result in zip(prepared,results):
-                if (folder/'trace.tsv').read_bytes()!=(ref_folder/'trace.tsv').read_bytes():
-                    raise ConversionError('X68000 '+route.name+' native/reference trace diverged; existing export preserved.')
+                require_same_file(folder/'trace.tsv',ref_folder/'trace.tsv',
+                    lambda:ConversionError('X68000 '+route.name+' native/reference trace diverged; existing export preserved.'))
                 fallback+=result['reference_ram']+result['reference_ipl']
                 additional.append((route,folder,result))
             if not fallback:break
@@ -505,23 +511,21 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         with timings.phase('state_checks'):
             resumed=replay(fresh,restart,400,event_file,extra=['--state-load-start','--state-slot',next((checks/f'native-{attempt+1}'/'datas/games').glob('x68-*'))/'quick.rrstate'])
         rows=(run_dir/'trace.tsv').read_text().splitlines();rest=(restart/'trace.tsv').read_text().splitlines()
-        if any(a.split('\t')[1:]!=b.split('\t')[1:] for a,b in zip(rest[2:],rows[state_frame+2:state_frame+401])):
-            raise ConversionError('X68000 F9 continuation differs from its saved timeline.')
+        require(continues(rows,rest,state_frame,400),lambda:ConversionError('X68000 F9 continuation differs from its saved timeline.'))
         # Also exercise an early floppy DMA, before the game loop. A missing
         # CPU reset latch used to change one transfer byte after a cold F9.
         boot=checks/'boot';boot.mkdir();boot_exe=boot/candidate.name;shutil.copy2(candidate,boot_exe)
         with timings.phase('state_checks'):
             replay(boot_exe,boot,200,event_file,extra=['--state-save-at','120'])
         boot_rows=(boot/'trace.tsv').read_text().splitlines()
-        if boot_rows!=(checks/'reference/trace.tsv').read_text().splitlines()[:201]:
-            raise ConversionError('X68000 early boot differs from the fresh reference.')
+        require_equal(boot_rows,(checks/'reference/trace.tsv').read_text().splitlines()[:201],
+                      lambda:ConversionError('X68000 early boot differs from the fresh reference.'))
         boot_restart=checks/'boot-restart';boot_restart.mkdir();boot_exe=boot_restart/candidate.name;shutil.copy2(candidate,boot_exe)
         boot_slot=next((boot/'datas/games').glob('*/quick.rrstate'))
         with timings.phase('state_checks'):
             replay(boot_exe,boot_restart,40,event_file,extra=['--state-load-start','--state-slot',boot_slot])
         boot_rest=(boot_restart/'trace.tsv').read_text().splitlines()
-        if any(a.split('\t')[1:]!=b.split('\t')[1:] for a,b in zip(boot_rest[2:],boot_rows[122:161])):
-            raise ConversionError('X68000 early floppy DMA changes after F9.')
+        require(continues(boot_rows,boot_rest,120,40),lambda:ConversionError('X68000 early floppy DMA changes after F9.'))
         manifest.verify_sources()
         total=actual['native_ram']+actual['native_ipl']+actual['reference_ram']+actual['reference_ipl']
         fallback=actual['reference_ram']+actual['reference_ipl']

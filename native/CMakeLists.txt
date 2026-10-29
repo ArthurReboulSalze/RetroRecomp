@@ -54,7 +54,14 @@ set(ICON_RESOURCE)
 if(WIN32 AND EXISTS "${GAME_DIR}/game_resources.rc")
   set(ICON_RESOURCE "${GAME_DIR}/game_resources.rc")
 endif()
-add_executable(${GAME_NAME} WIN32 launcher.c host.c controls.c ui.c retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE}
+# The player shell is the host kit (docs/HOST_KIT.md): the shared shell and the Master System / Game Gear adapter, staged
+# beside this file by the converter (retrorecomp/hostkit.py).
+set(HOSTKIT_SHELL
+  hostkit/shell/rrhk_audio.c hostkit/shell/rrhk_events.c hostkit/shell/rrhk_input.c hostkit/shell/rrhk_main.c
+  hostkit/shell/rrhk_menu.c hostkit/shell/rrhk_options.c hostkit/shell/rrhk_pointer.c hostkit/shell/rrhk_ring.c
+  hostkit/shell/rrhk_timing.c hostkit/shell/rrhk_video.c)
+set(HOSTKIT_SOURCES ${HOSTKIT_SHELL} hostkit/adapters/rrhk_sms.c)
+add_executable(${GAME_NAME} WIN32 launcher.c ${HOSTKIT_SOURCES} retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE}
   "${GAME_DIR}/runtime_main.c" ${RUNTIME_SOURCES})
 set_source_files_properties("${GAME_DIR}/runtime_main.c"
   PROPERTIES COMPILE_DEFINITIONS "main=sms_backend_main")
@@ -171,14 +178,14 @@ endif()
 if(SMSRECOMP_LAZY_DATA_CHECKS AND SMSRECOMP_BANKED_AOT)
   set(LAZY_CHECK_SOURCES ${RUNTIME_SOURCES})
   list(REMOVE_ITEM LAZY_CHECK_SOURCES "${GAME_DIR}/runtime_glue.c")
-  add_executable(smsrecomp_lazy_data_checks lazy_data_checks.c ${LAZY_CHECK_SOURCES})
+  add_executable(smsrecomp_lazy_data_checks lazy_data_checks.c ${LAZY_CHECK_SOURCES} ${HOSTKIT_SOURCES} retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE})
   target_compile_definitions(smsrecomp_lazy_data_checks PRIVATE SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
   target_include_directories(smsrecomp_lazy_data_checks PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}" "${GAME_DIR}" "${GENERATED}" "${RUNNER}" "${RUNNER}/include" "${RUNNER}/video")
   target_link_libraries(smsrecomp_lazy_data_checks PRIVATE SDL2::SDL2-static ${PLATFORM_LIBS})
 endif()
 if(SMSRECOMP_PRESENTATION_CHECKS)
-  add_executable(smsrecomp_presentation_checks presentation_checks.c ui.c retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE} ${RUNTIME_SOURCES})
+  add_executable(smsrecomp_presentation_checks presentation_checks.c ${HOSTKIT_SHELL} retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE} ${RUNTIME_SOURCES})
   target_compile_definitions(smsrecomp_presentation_checks PRIVATE
     SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
   target_include_directories(smsrecomp_presentation_checks PRIVATE
@@ -199,7 +206,7 @@ if(SMSRECOMP_CPU_CHECKS AND SMSRECOMP_BANKED_AOT)
   endif()
 endif()
 if(SMSRECOMP_HOST_CHECKS)
-  add_executable(smsrecomp_host_checks host_checks.c retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE} ${RUNTIME_SOURCES})
+  add_executable(smsrecomp_host_checks host_checks.c ${HOSTKIT_SHELL} retro_menu.c ${ICON_SOURCES} ${ICON_RESOURCE} ${RUNTIME_SOURCES})
   target_compile_definitions(smsrecomp_host_checks PRIVATE
     SMS_HAVE_SDL SMSGG_HAVE_GAME_LAYOUT _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
   target_include_directories(smsrecomp_host_checks PRIVATE

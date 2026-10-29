@@ -36,14 +36,25 @@ void rrhk_turn_page(int step) {
 
 /* F2 opens on the first page from the game, help or pause, and closes F2 from any page. */
 void rrhk_toggle_settings(void) {
-    if (rrhk_pages_open(rrhk.menu)) rrhk.menu = 0;
-    else { rrhk.menu = RRHK_MENU_CONTROLS; rrhk.player = rrhk.gamepad_page = rrhk.row = 0; }
+    if (rrhk_pages_open(rrhk.menu)) rrhk_close_menu();
+    else {
+        if (rrhk.menu == RRHK_MENU_PAUSE) rrhk.parent_menu = RRHK_MENU_PAUSE;
+        rrhk.menu = RRHK_MENU_CONTROLS; rrhk.player = rrhk.gamepad_page = rrhk.row = 0;
+    }
     rrhk.capturing = 0;
 }
 
 void rrhk_menu_draw(SDL_Renderer *ren) {
-    if (!rrhk.menu) return;
     const RrhkMachine *m = rrhk.machine;
+    if (!rrhk.menu) {
+        if (rrhk.paused) {      /* F11 (X68000): the picture stays under the word */
+            int ox, oy, unit; rr_menu_layout(ren, &ox, &oy, &unit);
+            rr_menu_begin(ren, ox, oy, unit);
+            rr_menu_text(ren, ox, oy, unit, 100, 85, rr_tr("Paused"), RR_MENU_GOLD);
+            rr_menu_end(ren);
+        }
+        return;
+    }
     if (rrhk.menu == RRHK_MENU_OPTIONS) {
         rrhk_option_page_draw(ren);
         return;
@@ -57,10 +68,15 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
     snprintf(heading, sizeof(heading), rr_tr(rrhk.gamepad_page ? "Player %d - Gamepad" : "Player %d - Keyboard"), rrhk.player + 1);
     if (rrhk.menu == RRHK_MENU_CONTROLS || rrhk.menu == RRHK_MENU_PAGE)
         rrhk_menu_page_header(&ctx, rrhk.menu == RRHK_MENU_CONTROLS ? heading : rr_tr(m->page->title));
+    else if (rrhk.menu == RRHK_MENU_PAUSE) rr_menu_text(ren, ox, oy, unit, 14, RR_MENU_TITLE_LINE, "Retro-Recomp - Pause", RR_MENU_ACCENT);
     else rrhk_menu_line(&ctx, RR_MENU_TITLE_LINE, rrhk_tr("RetroRecomp - Help", "RetroRecomp - Aide"));
-    if (rrhk.menu == RRHK_MENU_HELP) {
+    if (rrhk.menu == RRHK_MENU_PAUSE) {
+        if (m->pause_page) m->pause_page(&rrhk, &ctx);
+    } else if (rrhk.menu == RRHK_MENU_HELP && m->help_page && m->help_page(&rrhk, &ctx)) {
+        /* the machine drew a whole page of its own (X68000: Tab) */
+    } else if (rrhk.menu == RRHK_MENU_HELP) {
         /* One line per function key, then the console's own controls. */
-        const char *lines[14]; int count = 0;
+        const char *lines[16]; int count = 0;
         char fire[64];
         snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(rrhk.autofire ? "ON" : "OFF"));
         lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
@@ -73,6 +89,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         lines[count++] = rr_tr("F8  Save game state");
         lines[count++] = rr_tr("F9  Load game state");
         if (m->help_lines) m->help_lines(1, lines, &count);
+        lines[count++] = rr_tr("Tab  Fast-forward | `  Max speed | M  Mute");   /* decision D12: on every console */
         lines[count++] = rr_feedback_label();
         lines[count++] = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
         int y = RR_MENU_FIRST_LINE;
@@ -97,7 +114,8 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
                 rrhk_combo_value(value, sizeof value, a - m->action_count, rrhk.gamepad_page != 0);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rrhk_combo_label(a - m->action_count), value);
             } else {
-                const char *bound = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) :
+                const char *button = rrhk.gamepad_page ? SDL_GameControllerGetStringForButton(rrhk.buttons[rrhk.player][a]) : NULL;
+                const char *bound = rrhk.gamepad_page ? (button ? button : "-") :
                     rrhk.keys[rrhk.player][a] == SDL_SCANCODE_UNKNOWN ? "-" : rr_keyboard_name(rrhk.keys[rrhk.player][a]);
                 snprintf(line, sizeof(line), "%c %s: %s", a == rrhk.row ? '>' : ' ', rr_tr(m->actions[a].name),
                          rrhk.capturing && a == rrhk.row ? rrhk_tr("Press a control...", "Appuie sur une touche...") : rr_tr(bound));
@@ -107,8 +125,9 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         rrhk_menu_line(&ctx, hint_y, rrhk_device_row() ? rr_tr("Enter: change gamepad | Delete: Automatic") :
             rrhk.row >= m->action_count ? rrhk_combo_hint(rrhk.row - m->action_count) :
             rrhk.capturing ? rr_tr("Esc: cancel binding") : rr_tr("Enter: remap | Left/Right: page"));
-        /* A binding waits for the selected player's own pad (divergence 3): say so when that player has none. */
-        if (rrhk.capturing && rrhk.gamepad_page && !rrhk.pads[rrhk.player])
+        /* A binding or a combination waits for the selected player's own pad (divergence 3): say so when that
+         * player has none. */
+        if ((rrhk.capturing || rrhk_combo_capturing_pad()) && rrhk.gamepad_page && !rrhk.pads[rrhk.player])
             snprintf(missing, sizeof missing, rr_tr("No gamepad for player %d"), rrhk.player + 1);
     } else if (rrhk.menu == RRHK_MENU_PAGE) {
         if (m->page && m->page->draw) m->page->draw(&rrhk, &ctx);

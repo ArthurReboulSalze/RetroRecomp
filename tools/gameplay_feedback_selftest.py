@@ -134,6 +134,7 @@ def gb(work):
     from retrorecomp.core import run
     from retrorecomp.gameboy import _dependencies,_known_entries,read_game_boy_rom,CPU_MATCH
     from retrorecomp.gameboy_runtime import adapt_generated_project
+    from retrorecomp.resources import embed_resources
     from retrorecomp.gameboy_coverage import write_entries
     data=bytearray(32768);data[0x100:0x103]=bytes.fromhex('c3 50 01')
     code=bytes.fromhex('f3 af e0 40 31 f0 df 3e 00 ea 00 c0 3e 02 ea 01 c0 fa 00 c0 6f fa 01 c0 67 e9')
@@ -148,6 +149,7 @@ def gb(work):
         run(command,log=folder/'build.log')
         adapt_generated_project(folder,'feedback-'+rom.sha256[:12],rom.sha256,'Authored GB feedback')
         (folder/'game_resources.rc').write_text('1 RCDATA {0}\n')
+        embed_resources(folder,{})   # the ELF counterpart of the .rc on Linux; nothing on Windows
         if force:
             # Explicit authored dispatch miss exercises real interpreter capture
             # even if the pinned compiler's static scan already found this ROM.

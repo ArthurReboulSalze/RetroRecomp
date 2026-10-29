@@ -75,9 +75,11 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # 5: cps1_build.state_config writes the compatibility key of the 1.6.1 quick states and drops the 1.6.0 one (28 October
 # 2026, 1.6.2 state-key rollover: backward compatibility is owed to the previous release only). Same reason, same cost:
 # nothing a RAM path could notice moved.
-# 6: retrorecomp.m68000 corrects ROXL/ROXR with a register count of zero (C takes X) and ASL.L by 31 (V no longer
-# undefined), 29 October 2026. A RAM path can notice it, so every qualified path waits for this revision; the shipped
-# snapshot holds no qualified CPS-1 path, so nothing is lost today.
+# 6: two changes of 1.6.3 share the revision. cps1_build writes its files and patches the pinned sources through
+# conversion_common (P5b: the shared helpers replace the local copies); its generated files are byte for byte those of
+# revision 5 (A/B on a real conversion). retrorecomp.m68000 corrects ROXL/ROXR with a register count of zero (C takes X)
+# and ASL.L by 31 (29 October 2026); a RAM path can notice that, so every qualified path waits for this revision. The
+# shipped snapshot holds no qualified CPS-1 path, so nothing is lost today.
 GENERATOR_REVISION = 6
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.

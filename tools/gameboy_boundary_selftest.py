@@ -11,6 +11,7 @@ from retrorecomp.gameboy import _dependencies
 from retrorecomp.gameboy_boundary import boundary_instruction, instruction_length
 from retrorecomp.gameboy_build import safe_body_entries
 from retrorecomp.gameboy_runtime import adapt_generated_project
+from retrorecomp.resources import embed_resources
 from retrorecomp.paths import ASSETS
 
 
@@ -26,6 +27,7 @@ def main():
          '--output-prefix', 'game', '--no-comments'], log=log, timeout=600)
     adapt_generated_project(project, 'boundary-fixture', '0' * 64, 'Authored bank fixture')
     (project / 'game_resources.rc').write_text('1 RCDATA { 0 }\n', encoding='utf-8')
+    embed_resources(project, {})   # the ELF counterpart of the .rc on Linux; nothing on Windows
     source = []
     cases = []
     for opcode in range(256):

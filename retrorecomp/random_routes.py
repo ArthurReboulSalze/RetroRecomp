@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import random
 
+from .systems.registry import all_profiles
+
 LONG_ROUTE_COUNT = 2
 LONG_ROUTE_FRAMES = 18000
 # Neutral frames at the start of a route that continues from a saved state.
@@ -45,22 +47,18 @@ DIRECTIONS = ('up', 'down', 'left', 'right')
 # Side-scrollers progress to the right; keep every direction reachable.
 DIRECTION_WEIGHTS = (1, 1, 1, 2)
 
-# Buttons a route may press, per console. ``main`` buttons are held during
-# movement and tapped; ``extra`` buttons are only used when the game declares
-# a six-button pad (Mega Drive) and are always available on the SNES pad.
-CONSOLES = {
-    'md': {'main': ('a', 'b', 'c'), 'extra': ('x', 'y', 'z'), 'select': None, 'opening': 240},
-    'snes': {'main': ('a', 'b', 'x', 'y'), 'extra': ('l', 'r'), 'select': 'select', 'opening': 240},
-    'nes': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
-    'ng': {'main': ('a', 'b', 'c', 'd'), 'extra': (), 'select': None, 'opening': 2400},
-    # CPS-1 boards show their warning screen for about ten seconds first.
-    'cps1': {'main': ('b1', 'b2', 'b3'), 'extra': ('b4', 'b5', 'b6'), 'select': None, 'opening': 720},
-    'gb': {'main': ('a', 'b'), 'extra': (), 'select': 'select', 'opening': 180},
-    # The Master System pad has no Start: menus open with the buttons. Game
-    # Gear adds Start on the console.
-    'sms': {'main': ('a', 'b'), 'extra': (), 'select': None, 'opening': 240, 'start': False},
-    'gg': {'main': ('a', 'b'), 'extra': (), 'select': None, 'opening': 240},
-}
+# Buttons a route may press, per console: the ``input_layout`` of the machine's profile (a machine without one,
+# the X68000, plays routes of its own). ``main`` buttons are held during movement and tapped; ``extra`` buttons
+# are only used when the game declares a six-button pad (Mega Drive) and are always available on the SNES pad.
+# The Master System pad has no Start: menus open with the buttons (``start`` is False); the Game Gear adds
+# Start on the console. CPS-1 boards show their warning screen for about ten seconds first (``opening``).
+_LAYOUTS = {profile.id: profile.input_layout for profile in all_profiles() if profile.input_layout is not None}
+CONSOLES = {system: {'main': layout.main, 'extra': layout.extra, 'select': layout.select,
+                     'opening': layout.opening, **({} if layout.start else {'start': False})}
+            for system, layout in _LAYOUTS.items()}
+# The format of the script each machine's host reads, and the suffix of the file (also from the profile).
+SCRIPT_FORMATS = {system: layout.script_format for system, layout in _LAYOUTS.items()}
+SCRIPT_SUFFIXES = {system: layout.script_suffix for system, layout in _LAYOUTS.items()}
 
 MD_BITS = {'up': 0x01, 'down': 0x02, 'left': 0x04, 'right': 0x08, 'b': 0x10, 'c': 0x20,
            'a': 0x40, 'start': 0x80, 'x': 0x100, 'y': 0x200, 'z': 0x400}
@@ -298,25 +296,25 @@ def sega_press(route: Route) -> list:
     return values
 
 
+def _sega_script(route: Route) -> str:
+    return '\n'.join(sega_press(route)) + '\n'
+
+
+# The writer of each script format a profile can name (``InputLayout.script_format``).
+SCRIPT_WRITERS = {'console16': console16_script, 'nes': nes_script, 'neogeo': neogeo_script,
+                  'cps1': cps1_script, 'gameboy': gameboy_script, 'sega': _sega_script}
+
+
 def script_text(route: Route) -> str:
-    if route.console in ('md', 'snes'):
-        return console16_script(route)
-    if route.console == 'nes':
-        return nes_script(route)
-    if route.console == 'ng':
-        return neogeo_script(route)
-    if route.console == 'cps1':
-        return cps1_script(route)
-    if route.console == 'gb':
-        return gameboy_script(route)
-    if route.console in ('sms', 'gg'):
-        return '\n'.join(sega_press(route)) + '\n'
-    raise ValueError(route.console)
+    writer = SCRIPT_WRITERS.get(SCRIPT_FORMATS.get(route.console))
+    if writer is None:
+        raise ValueError(route.console)
+    return writer(route)
 
 
 def write_route(route: Route, directory: Path) -> Path:
     """Write the route's script beside the other probe scripts (ASCII, LF)."""
-    suffix = '.input' if route.console == 'nes' else '.inputs' if route.console in ('ng', 'cps1') else '-inputs.txt'
+    suffix = SCRIPT_SUFFIXES.get(route.console, '-inputs.txt')
     path = Path(directory) / f'{route.name}{suffix}'
     # An authored route (snes_routes.AuthoredRoute) carries its own script text.
     path.write_text(route.script() if hasattr(route, 'script') else script_text(route),

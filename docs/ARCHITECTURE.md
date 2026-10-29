@@ -58,10 +58,10 @@ saves are written only after NVRAM changes.
 
 Generated games share the RetroRecomp SDL menu canvas in `native/retro_menu.c`:
 the 256 × 192 layout, pixel font and blue/fuchsia frame are independent of the
-console CPU backend. The Sega `ui.c`, Game Boy `gb_menu.inc` and the NES
-adapter of the host kit (`native/hostkit/adapters/rrhk_nes.c`) supply their
-own actions and labels to that canvas. Game Boy builds copy these files into
-each generated project's private runtime; the pinned upstream checkout is
+console CPU backend. The adapters of the host kit (`native/hostkit/adapters/rrhk_sms.c`
+for the Master System and Game Gear, `rrhk_nes.c`, `rrhk_x68k.inc`, `rrhk_gb.inc` for the Game Boy, and the 16-bit ones) supply their
+own actions and labels to that canvas: since 1.6.3 every console's player shell is the kit's. Game Boy builds copy the kit and its
+adapter into each generated project's private runtime, where the patched `platform_sdl.cpp` includes the adapter; the pinned upstream checkout is
 untouched. Future compiler adapters can reuse the canvas rather than exposing
 an imported runtime's settings panel.
 
@@ -301,7 +301,7 @@ the dependency itself is unchanged. See [game-state format and limits](GAME_STAT
 | Console profiles | `retrorecomp/systems/__init__.py`, `retrorecomp/systems/master_system.py` |
 | Conversion and CPU adaptations | `retrorecomp/core.py`, `retrorecomp/cpu.py`, `native/banked_*` |
 | Learning and file identity | `retrorecomp/library.py`, `native/learning.c`, `native/manifest.inc` |
-| Inputs and presentation | `native/host.c`, `native/controls.c`, `native/ui.c` |
+| Inputs and presentation | `native/hostkit/shell/rrhk_*.c` (shared), `native/hostkit/adapters/rrhk_sms.c` |
 | Video hardware | `native/video_mode4.inc`, `native/video_frame.h`, generated `runtime_video.c` |
 | Covers and icons | `retrorecomp/artwork.py`, `native/icon.c` |
 | Regeneration | `retrorecomp/batch.py`, `retrorecomp/publishing.py` |

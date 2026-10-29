@@ -1,13 +1,16 @@
 """The inputs of the stamps, as data (docs/STANDARDS.md rules 4 and 5).
 
-This module holds tables and no logic. `compilation_inputs` reads it to compute
+This module holds tables and no logic (but for the derivation of one CPU family's
+owners from the profiles). `compilation_inputs` reads it to compute
 the stamps (game, host and build) of each console's exported games.
 
 * `INPUTS` is the explicit, reviewed manifest: every converter module and every
   file that may enter a stamp, grouped by the consoles that own it. Nothing is
-  discovered on disk. A file or module that is not listed here is ignored by
-  the stamps, and a listed one that is missing is an error. A new file is
-  therefore added here, with its owners, when it is created;
+  discovered on disk. It is the only place an owner is stated (there is no
+  default scope by file name); the consoles of a CPU family come from the
+  profiles. A file or module that is not listed here is ignored by the stamps,
+  and a listed one that is missing is an error. A new file is therefore added
+  here, with its owners, when it is created;
   `tests/test_stamp_inputs.py` fails when a tracked file is neither listed nor
   declared out of the stamps, and when a listed file is not bundled in the
   executable.
@@ -18,15 +21,23 @@ the stamps (game, host and build) of each console's exported games.
   moved every console's stamp whenever a console's file list, the interface
   list or `LEGACY_GAME_STAMPS` was edited. A change of the algorithm itself
   must bump the label in `compilation_inputs` (`STAMP_LABEL`); a test pins the
-  output of the algorithm on a fixed synthetic input.
+  output of the algorithm on a fixed synthetic input. `systems/registry.py`, the
+  registration list of the machines, is one too: registering a machine moves no
+  other console's stamp.
 * The role tables (`HOST_*`, `BUILD_MODULES`) say which stamp a listed input
   feeds. See docs/UPGRADES.md.
 * `LEGACY_GAME_STAMPS` lists the game stamps of the previous release only, whose
   exports stay upgradable. Editing it never changes a stamp.
 """
 
+from .systems import ALL_PROFILES
+
 # Owner of an input that every console uses (including a console added later).
 ALL = '*'
+
+# The consoles that own the files of one CPU family: those whose profile declares the CPU. A machine with that CPU
+# joins the family by being registered (systems/registry.py), not by an edit here.
+M68000_FAMILY = tuple(profile.id for profile in ALL_PROFILES if any(cpu.arch == 'm68000' for cpu in profile.cpus))
 
 
 INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips',
@@ -46,6 +57,9 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
+                               # The registration list of the machines: a new machine adds one line there and
+                               # no other console's stamp moves (docs/NEW_MACHINE.md).
+                               'registry',
                                # The definition of the stamps: see the docstring above.
                                'compilation_inputs', 'stamp_inputs'))
 
@@ -117,9 +131,9 @@ HOST_MODULES = frozenset((
     'publishing', 'windows',
     # Converter-only shells.
     'branding', 'player_gamepad',
-    # Player shells written as patches: Game Boy platform window, menus,
-    # sound output and input; Mega Drive sound delivery.
-    'gameboy_host', 'gameboy_timing', 'megadrive_audio',
+    # Player shells written as patches: the Game Boy platform layer on the host kit (1.6.3);
+    # Mega Drive sound delivery.
+    'gameboy_host', 'megadrive_audio',
     # The host kit's file list and its copy into a game project.
     'hostkit'))
 HOST_NATIVE = frozenset((
@@ -133,25 +147,21 @@ HOST_NATIVE = frozenset((
     'display_settings.h', 'display_settings_checks.c', 'icon.c', 'icon.h', 'icon_checks.c',
     # Sound output after each machine's emulated mixer.
     'audio_filter.h', 'audio_cushion.h', 'audio_output.inc', 'audio_checks.c',
-    'gb_audio_output.inc', 'nes_audio_checks.c',
+    'nes_audio_checks.c',
     'md_audio_loop.inc', 'md_audio_resample.inc',
     # Converter-only controller bridge (never linked into games).
     'player_gamepad.c',
-    # Each machine family's shell: Master System / Game Gear, Game Boy and X68000 (the 16-bit
-    # consoles and the NES are on the host kit below).
-    'host.c', 'ui.c', 'ui.h', 'controls.c', 'controls.h',
-    'gb_menu.inc', 'gb_input_refresh.inc',
     'neogeo_ui_test.c',
-    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo, CPS-1 and
-    # the NES, and the adapter of each. Every file below native/hostkit is host-side.
+    # The host kit (docs/HOST_KIT.md): the shell shared by every console, and the adapter of each. Every file
+    # below native/hostkit is host-side.
     'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
-    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c',
-    'x68000_reference/player_ui.inc'))
+    'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc',
+    'hostkit/adapters/rrhk_sms.c', 'hostkit/adapters/rrhk_gb.inc'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
@@ -236,8 +246,6 @@ INPUTS = {
         'native/banked_emitter.inc',
         'native/banked_runtime.inc',
         'native/banked_vectors.c',
-        'native/controls.c',
-        'native/controls.h',
         'native/display_settings.h',
         'native/display_settings_checks.c',
         'native/embedded_resources.h',
@@ -249,7 +257,6 @@ INPUTS = {
         'native/gamestate.h',
         'native/gamestate.inc',
         'native/gamestate_checks.c',
-        'native/host.c',
         'native/host_checks.c',
         'native/host_control.h',
         'native/icon.c',
@@ -293,8 +300,6 @@ INPUTS = {
         'native/sms_sprite_probe.c',
         'native/state_io.h',
         'native/stereo_fir.h',
-        'native/ui.c',
-        'native/ui.h',
         'native/video_checks.c',
         'native/video_frame.h',
         'native/video_mode4.inc',
@@ -329,18 +334,17 @@ INPUTS = {
         'retrorecomp.resources',
         'retrorecomp.scan_levels',
         'retrorecomp.systems',
+        'retrorecomp.systems.specs',
         'retrorecomp.toolchain',
         'retrorecomp.windows',
     ),
     ('gb',): (
         'native/gb_audio_checks.c',
-        'native/gb_audio_output.inc',
         'native/gb_boundary_checks.c',
-        'native/gb_input_refresh.inc',
         'native/gb_latency_checks.cpp',
-        'native/gb_menu.inc',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
+        'native/hostkit/adapters/rrhk_gb.inc',
         'retrorecomp.gameboy',
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',
@@ -348,7 +352,6 @@ INPUTS = {
         'retrorecomp.gameboy_hardware',
         'retrorecomp.gameboy_host',
         'retrorecomp.gameboy_runtime',
-        'retrorecomp.gameboy_timing',
         'retrorecomp.systems.game_boy',
     ),
     ('nes',): (
@@ -530,6 +533,7 @@ INPUTS = {
         'retrorecomp.systems.neogeo',
     ),
     ('x68',): (
+        'native/hostkit/adapters/rrhk_x68k.inc',
         'native/x68000_machine/PROVENANCE.md',
         'native/x68000_machine/base74/alias/libretro/dswin.h',
         'native/x68000_machine/base74/alias/libretro/joystick.h',
@@ -592,7 +596,6 @@ INPUTS = {
         'native/x68000_reference/mouse_games.json',
         'native/x68000_reference/payload.c',
         'native/x68000_reference/payload.h',
-        'native/x68000_reference/player_ui.inc',
         'native/x68000_reference/probe.c',
         'native/x68000_reference/probe.h',
         'native/x68000_reference/reference_host.c',
@@ -648,11 +651,17 @@ INPUTS = {
         'retrorecomp.systems.cps1',
     ),
     ('sms', 'gg'): (
+        'native/hostkit/adapters/rrhk_sms.c',
         'profiles/example.sms.toml',
         'retrorecomp.cpu',
         'retrorecomp.systems.game_gear',
         'retrorecomp.systems.master_system',
         'retrorecomp.validation',
+    ),
+    # The shell every converter of these consoles shares: single-ROM path, checks, spawn layer of the probes, pinned
+    # checkouts and source patching, file writes. Game role. The X68000 converter adopted it with the gates below.
+    ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'): (
+        'retrorecomp.conversion_common',
     ),
     ('md', 'snes'): (
         'retrorecomp.guns16',
@@ -676,6 +685,7 @@ INPUTS = {
         'retrorecomp.megadrive_codegen',
     ),
     ('ng', 'x68', 'cps1'): (
+        'retrorecomp.conversion_gates',
         'retrorecomp.neogeo_codegen',
     ),
     ('md', 'snes', 'ng', 'cps1'): (
@@ -692,9 +702,9 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell and its staging module: every console that links it (phases 1 and 2). console16_video.h
-    # (rr16_video_rect) is included by the kit's video shell, so NES exports compile it too; game role.
-    ('md', 'snes', 'ng', 'cps1', 'nes'): (
+    # The host kit's shell: every console links it (phases 1 to 5). console16_video.h (rr16_video_rect) is
+    # included by the kit's video shell, so every export compiles it; game role.
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb'): (
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
@@ -708,9 +718,14 @@ INPUTS = {
         'native/hostkit/shell/rrhk_ring.c',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
+    ),
+    # Its staging module: the consoles whose projects get a copy of the kit (the X68000 compiles it from the tree).
+    # The Master System and the Game Gear get it beside the common runtime (prepare_native_source); the Game Boy gets it
+    # in the runtime folder of its project (gameboy_host).
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg', 'gb'): (
         'retrorecomp.hostkit',
     ),
-    ('md', 'ng', 'x68', 'cps1'): (
+    M68000_FAMILY: (
         'native/m68000_backend.c',
         'native/m68000_backend.h',
         'native/m68000_backend_checks.c',

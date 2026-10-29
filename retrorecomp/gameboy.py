@@ -13,7 +13,7 @@ import zlib
 from typing import Callable
 
 from . import __version__, timings
-from .artwork import ArtworkError, prepare_icon
+from .conversion_common import check_run_budget, convert_single, prepare_game_icon, resolve_scan_level
 from .core import ConversionError, dependencies, executable_name, run, serialized_setup, slug
 from .gameboy_runtime import adapt_generated_project
 from .gameboy_build import preserve_unchanged_sources, share_native_bodies, compact_generated_dispatch
@@ -279,31 +279,20 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
                      standard_override: str | None = None,
                      scan_level: str | None = None,
                      emit: Callable[[str], None] = print) -> Path:
-    from .batch import convert_batch, identify
-    from .scan_levels import LEVELS, gameboy_budget
-    level = scan_level or 'standard'
-    if level not in LEVELS:
-        raise ConversionError(f'Unknown scan level: {level!r}.')
+    from .scan_levels import gameboy_budget
+    level = resolve_scan_level(scan_level)
     scan = gameboy_budget(level)
     if output is None:
-        item = identify(rom_path)
-        if title:
-            item.title = title
-        item.cover = cover
-        record = convert_batch([item], games_root(), profile=profile,
+        return convert_single(rom_path, games_root(), title=title, cover=cover, profile=profile,
             passes=passes, frames=frames, backend=backend, language=language,
             boxart_dir=boxart_dir, online_cover=online_cover, use_cover=use_cover,
             icon_tags=icon_tags, gb_deep_validation=gb_deep_validation, scan_level=level,
             standard_override=standard_override, emit=emit)
-        if record["failed"]:
-            raise ConversionError(record["games"][0]["message"])
-        return Path(record["games"][0]["executable"])
     if profile is not None:
         raise ConversionError("Game Boy does not use Master System TOML profiles.")
     if standard_override not in (None, "dmg"):
         raise ConversionError("This Game Boy profile supports original DMG hardware only.")
-    if not 1 <= passes <= 10 or not 1 <= frames <= 10000:
-        raise ConversionError("Choose 1–10 passes and 1–10000 frames per test.")
+    check_run_budget(passes, frames, "Choose 1–10 passes and 1–10000 frames per test.")
     if not 1 <= gb_parallel_games <= 8:
         raise ConversionError("Concurrent games must be between 1 and 8.")
     compile_jobs, cpu_workers = _gb_parallelism(gb_parallel_games)
@@ -324,14 +313,11 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     if gb_deep_validation:
         emit("Game Boy deep CPU validation enabled: extra instruction-by-instruction play checks "
              "add conversion time depending on the game. Native discovery is unchanged.")
-    try:
-        artwork = prepare_icon(project, rom.path, title,
-            (boxart_dir or ROOT / "BoxArt/Game Boy").resolve(), explicit=cover,
-            online=online_cover, enabled=use_cover,
-            cache_directory=boxart_cache_directory('gb'),
-            tags=(), system_id="gb", emit=emit)
-    except (ArtworkError, OSError) as exc:
-        raise ConversionError(str(exc)) from exc
+    artwork = prepare_game_icon(project, rom.path, title,
+        boxart_dir or ROOT / "BoxArt/Game Boy", explicit=cover,
+        online=online_cover, enabled=use_cover,
+        cache_directory=boxart_cache_directory('gb'),
+        tags=(), system_id="gb", emit=emit)
     engine, compiler, sdl, cmake, generator = _dependencies(emit)
     (project / "rom.gb").write_bytes(rom.data)
     metadata = write_game_metadata(project, title, executable_name(title),

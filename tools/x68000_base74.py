@@ -251,6 +251,16 @@ def adapt_fmg_wrap(d: bytes) -> bytes:
     d = replace(d, 'private:\n\tvirtual void Intr(bool);\n\tint CurReg;\n\tDWORD CurCount;',
                 'private:\n\tvirtual void Intr(bool);\npublic:\n\tint CurReg;\n\tDWORD CurCount;')
     d = replace(d, 'MyOPM::MyOPM()\n{\n\tCurReg = 0;\n}', 'MyOPM::MyOPM()\n{\n\tCurReg = 0;\n\tCurCount = 0;\n}')
+    # `new MyOPM()` returns heap memory that fmgen only partly writes (its constructors and Reset leave members of the
+    # operators and channels untouched), and the quick state saves them: the same game and moment gave states that
+    # differed, with pieces of the process environment in them. The chip's storage is zeroed when it is allocated.
+    d = replace(d, 'class MyOPM : public FM::OPM\n{\npublic:\n\tMyOPM();',
+                'class MyOPM : public FM::OPM\n{\npublic:\n'
+                '\tstatic void *operator new(size_t size) { void *p = ::operator new(size); memset(p, 0, size); return p; }\n'
+                '\tstatic void operator delete(void *p) { ::operator delete(p); }\n'
+                '\tMyOPM();')
+    d = replace(d, 'extern "C" {\n\n#include "common.h"',
+                '#include <new>\n#include <stddef.h>\n#include <string.h>\n\nextern "C" {\n\n#include "common.h"')
     return replace(d, 'if ( opm ) opm->Reset();',
                    'if ( opm ) { opm->Reset(); opm->CurReg = 0; opm->CurCount = 0; }')
 

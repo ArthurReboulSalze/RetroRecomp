@@ -16,11 +16,13 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import time
 
 from . import __version__, path_profiles, timings as stages
-from .core import ConversionError, executable_name, run_process
+from .conversion_common import check_exit, resolve_scan_level, spawn
+from .conversion_gates import (comparison_notice, continuation_difference, pack_candidate, require,
+                               require_same_file)
+from .core import ConversionError, executable_name
 from .library import atomic_json, entry_lock, file_sha256
 from .report_schema import write_report
 from .paths import ROOT
@@ -45,14 +47,15 @@ def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list
 
 def run(executable: Path, folder: Path, name: str, frames: int, script: Path, *extra: str,
         ends_at: int | None = None) -> dict:
-    folder.mkdir(parents=True, exist_ok=True)
     report, trace = folder / (name + '.json'), folder / (name + '.csv')
-    completed = run_process([str(executable), '--headless', '--frames', str(frames), '--script', str(script),
-                                '--trace', str(trace), '--report', str(report), *extra],
-                               capture_output=True, text=True, timeout=max(300, frames // 20))
-    if completed.returncode:
-        detail = (completed.stderr or completed.stdout).strip().splitlines()[-1:] or ['no output']
-        raise ConversionError(f'CPS-1 {name} run failed ({completed.returncode}): {detail[0]}')
+    completed = spawn([str(executable), '--headless', '--frames', str(frames), '--script', str(script),
+                       '--trace', str(trace), '--report', str(report), *extra],
+                      cwd=folder, timeout=max(300, frames // 20), capture_output=True, text=True)
+
+    def failure(result):
+        detail = (result.stderr or result.stdout).strip().splitlines()[-1:] or ['no output']
+        return ConversionError(f'CPS-1 {name} run failed ({result.returncode}): {detail[0]}')
+    check_exit(completed, failure)
     result = json.loads(report.read_text(encoding='utf-8'))
     if result['frames'] != (frames if ends_at is None else ends_at) or result['save_failed']:
         raise ConversionError(f'CPS-1 {name} run ended early or could not save its state.')
@@ -115,14 +118,13 @@ def check_states(executable: Path, folder: Path, name: str, frames: int, script:
     run(executable, folder, 'load', STATE_SETTLE, script, '--load-state', str(state), ends_at=at + STATE_SETTLE)
     rows = expected.read_text(encoding='ascii').splitlines()[1:]
     resumed = (folder / 'load.csv').read_text(encoding='ascii').splitlines()[1:]
-    if resumed != rows[at:at + STATE_SETTLE]:
-        raise ConversionError('CPS-1 F9 continuation differs from its saved timeline; existing export preserved.')
+    require(continuation_difference(rows, resumed, at, STATE_SETTLE) is None,
+            lambda: ConversionError('CPS-1 F9 continuation differs from its saved timeline; existing export preserved.'))
     invalid = folder / 'invalid.rrstate'
     invalid.write_bytes(state.read_bytes()[:-17])
-    rejected = run_process([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
-                              capture_output=True, timeout=120)
-    if rejected.returncode != 4:
-        raise ConversionError('CPS-1 accepted a truncated quick state.')
+    rejected = spawn([str(executable), '--headless', '--frames', '1', '--load-state', str(invalid)],
+                     cwd=folder, timeout=120, capture_output=True)
+    require(rejected.returncode == 4, lambda: ConversionError('CPS-1 accepted a truncated quick state.'))
     return {'route': name, 'saved_at': at, 'continued_frames': STATE_SETTLE, 'fresh_process_match': True,
             'truncated_state_rejected': True, 'state_bytes': state.stat().st_size}
 
@@ -145,15 +147,12 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             boxart_dir=None, passes=3, frames=3600, scan_level=None, standard_override=None, profile=None,
             emit=print, **unused) -> Path:
     started = time.perf_counter()
-    from .scan_levels import LEVELS
     from .cps1 import read_set
     from . import cps1_catalogue
     from .cps1_build import prepare_game, build_game, player_count, YMFM_REVISION
     from .neogeo_build import GEOLITH_REV as GEOLITH_REVISION
     MAME_REVISION = cps1_catalogue.catalogue()['source']['revision']
-    level = scan_level or 'standard'
-    if level not in LEVELS:
-        raise ConversionError(f'Unknown scan level: {level!r}.')
+    level = resolve_scan_level(scan_level)
     if standard_override not in (None, 'arcade', 'auto'):
         raise ConversionError('CPS-1 timing follows its board (59.637 Hz); PAL/NTSC overrides do not apply.')
     if profile is not None:
@@ -237,9 +236,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             for (kind, name, _), result in done:
                 (reference if kind == 'reference' else results)[name] = result
             for name, count, _ in plan:
-                if results[name]['trace'].read_bytes() != reference[name]['trace'].read_bytes():
-                    raise ConversionError(f'CPS-1 {name}: native and reference CPU/RAM/image/PCM traces differ; '
-                                          'existing export preserved.')
+                require_same_file(results[name]['trace'], reference[name]['trace'], lambda: ConversionError(
+                    f'CPS-1 {name}: native and reference CPU/RAM/image/PCM traces differ; existing export preserved.'))
                 if not results[name]['nonuniform_frames']:
                     raise ConversionError(f'CPS-1 {name}: no picture was produced.')
             timings[f'routes_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
@@ -257,17 +255,15 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
         if not any(results[name]['nonzero_samples'] for name, _, _ in plan):
             raise ConversionError('CPS-1 validation produced no sound on any route.')
         phase = time.perf_counter()
-        from .packing import compact_executable
         packed = project / 'packed-game.exe' if os.name == 'nt' else project / 'packed-game'
-        shutil.copy2(executable, packed)
-        notice = compact_executable(packed, emit)
-        emit('CPS-1: comparing the ' + ('unpacked' if notice else 'compressed') + ' executable with the fresh reference.')
+        notice = pack_candidate(executable, packed, emit)
+        emit(comparison_notice('CPS-1', notice))
         final = {}
         with stages.phase('packed_replays'), ThreadPoolExecutor(max_workers=workers) as pool:
             for (name, _, _), result in zip(plan, pool.map(
                     lambda row: run(packed, checks / 'packed', row[0], row[1], scripts[row[0]]), plan)):
-                if result['trace'].read_bytes() != reference[name]['trace'].read_bytes():
-                    raise ConversionError(f'CPS-1 {name}: compressed executable differs from the reference.')
+                require_same_file(result['trace'], reference[name]['trace'], lambda: ConversionError(
+                    f'CPS-1 {name}: compressed executable differs from the reference.'))
                 final[name] = result
         timings['packed_replays'] = round(time.perf_counter() - phase, 3)
         phase = time.perf_counter()

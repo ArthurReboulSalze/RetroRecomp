@@ -101,6 +101,7 @@ static RrhkMachine machine;
 const char *rr_translate(int language,const char *english,const char *french) {(void)language;(void)french;return english;}
 const char *rr_tr(const char *english) {return english;}
 int rr_language_from_wide(const wchar_t *code) {(void)code;return 0;}
+const wchar_t *rr_language_wide(int language) {(void)language;return L"en";}
 void rr_language_set(int language) {(void)language;}
 #include "platform_io.c"
 #include "hostkit/shell/rrhk_input.c"
@@ -108,9 +109,11 @@ void rr_language_set(int language) {(void)language;}
 #define buttons rrhk.buttons
 #define pads rrhk.pads
 #define autofire rrhk.autofire
+#ifndef PLAYERS
 #define PLAYERS 2
-#define FIRST_FIRE A
-#define FIRST_MASK bits[A]
+#endif
+#define FIRST_FIRE @FIRST@
+#define FIRST_MASK bits[@FIRST@]
 #define FIRE_MASK fire_mask()
 static uint16_t bits[ACTIONS];
 static uint16_t fire_mask(void) {uint16_t n=0;for(int a=0;a<ACTIONS;++a)if(actions[a].group==RRHK_FACE)n|=bits[a];return n;}
@@ -139,85 +142,32 @@ def sixteen_bit(system, test):
 
     The table is cut from the adapter's source (the Mega Drive one in its six-button form) and the kit's
     rrhk_input.c is compiled as it is; the names keep the vocabulary of the other fixtures."""
-    text=(ASSETS/'native/hostkit/adapters'/f'rrhk_{system}.c').read_text()
-    first={'md':'#define DIRECTIONS','cps1':'#define PADS'}.get(system,'enum {')
+    adapter='rrhk_gb.inc' if system=='gb' else f'rrhk_{"sms" if system=="gg" else system}.c'
+    text=(ASSETS/'native/hostkit/adapters'/adapter).read_text()
+    first={'md':'#define DIRECTIONS','cps1':'#define PADS','sms':'#ifdef RETRO_GAME_GEAR\nenum','gg':'#ifdef RETRO_GAME_GEAR\nenum','gb':'enum { RR_GB_UP'}.get(system,'enum {')
     start=text.index(first)
-    if system=='md':
+    if system=='gb':
+        # The Game Boy table is the adapter's (the one the runtime's platform layer includes), under the fixture's names.
+        table='#define PLAYERS 1\n'+text[start:text.index('\n};',text.index('rr_gb_actions[RR_GB_ACTIONS]'))+3].replace('rr_gb_actions','actions').replace('RR_GB_ACTIONS','ACTIONS')
+    elif system in ('sms','gg'):
+        # The Master System / Game Gear table builds on the runner's pad byte and chooses the console with RETRO_GAME_GEAR.
+        table=('#define RETRO_GAME_GEAR 1\n' if system=='gg' else '')+'enum {SMS_PAD_UP=1,SMS_PAD_DOWN=2,SMS_PAD_LEFT=4,SMS_PAD_RIGHT=8,SMS_PAD_B1=16,SMS_PAD_B2=32,SMS_PAD_START=64};\n'+\
+            text[start:text.index('\n};',text.index('actions[ACTIONS]'))+3]
+    elif system=='md':
         end=text.index('#endif',text.index('actions[',start))+len('#endif')
         table='#define RR_MD_SIX_BUTTONS 1\n'+text[start:end]
     else:
         table=text[start:text.index('};',text.index('actions[',start))+2]
-    setup=SIXTEEN_BIT_SETUP.replace('@TABLE@',table).replace('@PLAYERS@','4' if system=='cps1' else '2')
+    setup=SIXTEEN_BIT_SETUP.replace('@TABLE@',table).replace('@PLAYERS@','PLAYERS' if system in ('sms','gg','gb') else '4' if system=='cps1' else '2')
+    setup=setup.replace('@FIRST@','BUTTON1' if system in ('sms','gg') else 'RR_GB_A' if system=='gb' else 'A')
     return PREAMBLE+setup+test
 
 
 def source(system, test=TEST):
     """The fixture's C source: the console's real declarations and reader, then `test`."""
-    if system in ('md','snes','ng','cps1','nes'):
+    if system in ('md','snes','ng','cps1','nes','sms','gg','gb'):
         return sixteen_bit(system, test)
-    if system in ('sms','gg'):
-        text=(ASSETS/'native/controls.c').read_text()
-        declarations=text[text.index('static SDL_Scancode default_keys'):text.index('const char *controls_text')]
-        setup='''
-static SDL_GameController *pads[2];
-#define PLAYERS 2
-#define FIRST_FIRE 4
-#define FIRST_MASK SMS_PAD_B1
-#define FIRE_MASK (SMS_PAD_B1|SMS_PAD_B2)
-#define ACTIONS 6
-#define autofire controls.autofire
-uint64_t glue_frame_count(void) {return fixture_frame;}
-static void setup(void) {memcpy(controls.keys,default_keys,sizeof default_keys);memcpy(controls.buttons,default_buttons,sizeof default_buttons);}
-static void clear_fire(void) {controls_reset_autofire();}
-static int binding(int p,int a) {return controls.buttons[p][a];}
-static void remap(int p,int a,int b) {controls.buttons[p][a]=(SDL_GameControllerButton)b;}
-static void keyboard(int p,int a,int down) {held_keys[controls.keys[p][a]]=(Uint8)down;}
-static uint16_t sample(int p,uint64_t frame) {fixture_frame=frame;return read_controls(p,pads[p],true,held_keys);}
-'''
-        return PREAMBLE+('#define RETRO_GAME_GEAR 1\n' if system=='gg' else '')+'''#include "controls.h"
-enum {SMS_PAD_UP=1,SMS_PAD_DOWN=2,SMS_PAD_LEFT=4,SMS_PAD_RIGHT=8,SMS_PAD_B1=16,SMS_PAD_B2=32,SMS_PAD_START=64};
-Controls controls;
-uint64_t glue_frame_count(void);
-'''+declarations+function(text,'read_controls')+setup+test
-    # Exercise the exact checked replacement emitted into the GB SDL runtime.
-    code=(ROOT/'retrorecomp/gameboy_host.py').read_text()
-    tree=ast.parse(code)
-    replacements=[node.args[2].value for node in ast.walk(tree) if isinstance(node,ast.Call)
-        and isinstance(node.func,ast.Name) and node.func.id=='replace_once' and len(node.args)>2
-        and isinstance(node.args[1],ast.Constant) and isinstance(node.args[1].value,str)
-        and node.args[1].value.startswith('    if (input_action_is_pressed(GB_INPUT_ACTION_START))')]
-    assert len(replacements)==1
-    upstream=(ROOT/'.deps/gb-recompiled/runtime/src/platform_sdl.cpp').read_text()
-    reader=function(upstream,'rebuild_manual_joypad_state_from_bindings')
-    marker='    if (input_action_is_pressed(GB_INPUT_ACTION_START)) g_manual_joypad_buttons &= (uint8_t)~0x08;\n}'
-    assert reader.count(marker)==1
-    reader=reader.replace(marker,replacements[0])
-    return PREAMBLE+'''
-enum {GB_INPUT_ACTION_A,GB_INPUT_ACTION_B,GB_INPUT_ACTION_SELECT,GB_INPUT_ACTION_START,GB_INPUT_ACTION_UP,GB_INPUT_ACTION_DOWN,GB_INPUT_ACTION_LEFT,GB_INPUT_ACTION_RIGHT};
-typedef int GBInputAction;
-static SDL_GameController *pads[2];
-static SDL_GameControllerButton buttons[8]={SDL_CONTROLLER_BUTTON_A,SDL_CONTROLLER_BUTTON_B,SDL_CONTROLLER_BUTTON_BACK,SDL_CONTROLLER_BUTTON_START,SDL_CONTROLLER_BUTTON_DPAD_UP,SDL_CONTROLLER_BUTTON_DPAD_DOWN,SDL_CONTROLLER_BUTTON_DPAD_LEFT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
-static bool g_keyboard_binding_pressed[8][2],g_controller_button_binding_pressed[8][2],g_controller_axis_binding_pressed[8][2];
-static uint8_t g_manual_joypad_dpad,g_manual_joypad_buttons;
-static RrAutofire g_rr_fire[2];static uint64_t g_rr_input_frame;static bool g_rr_autofire;
-'''+function(upstream,'input_action_is_pressed')+reader+'''
-#define PLAYERS 1
-#define ACTIONS 8
-#define FIRST_FIRE 0
-#define FIRST_MASK 1
-#define FIRE_MASK 3
-#define autofire g_rr_autofire
-static void setup(void) {}
-static void clear_fire(void) {memset(g_rr_fire,0,sizeof g_rr_fire);}
-static int binding(int p,int a) {(void)p;return buttons[a];}
-static void remap(int p,int a,int b) {(void)p;buttons[a]=(SDL_GameControllerButton)b;}
-static void keyboard(int p,int a,int down) {(void)p;g_keyboard_binding_pressed[a][0]=down!=0;}
-static uint16_t sample(int p,uint64_t frame) {
-    g_rr_input_frame=frame;
-    for(int a=0;a<8;++a)g_controller_button_binding_pressed[a][0]=SDL_GameControllerGetButton(pads[p],buttons[a])!=0;
-    rebuild_manual_joypad_state_from_bindings();return (uint8_t)~g_manual_joypad_buttons;
-}
-'''+test
+    raise SystemExit(f'unknown console {system}')
 
 
 def main():

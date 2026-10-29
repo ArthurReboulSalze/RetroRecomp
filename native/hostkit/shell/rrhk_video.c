@@ -28,11 +28,17 @@ void rrhk_scale2x(const uint32_t *source, uint32_t *target) {
 SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     const RrhkMachine *m = rrhk.machine;
     int w, h; SDL_GetRendererOutputSize(renderer, &w, &h);
+    SDL_Rect own;
+    if (m->game_rect && m->game_rect(w, h, rrhk.fullscreen, &own)) return own;
     int density = m->visible_height() / m->raster_height();
     int horizontal = m->visible_width() / m->display_width();
     if (horizontal > density) density = horizontal;
+    /* Scale2x doubles every pixel: from 2x up, whole pairs only. */
+    if (m->even_scale2x && rrhk.filter == 2 && density < 2 && w >= 2 * m->display_width() && h >= 2 * m->raster_height()) density = 2;
+    /* Divergence 9 (decided, D2): whole pixels, centred, in the window and in the first fullscreen mode; only the second
+     * fullscreen mode (Fit) stretches to the largest size that keeps the aspect. */
     Rr16Rect r = rr16_video_rect(w, h, m->display_width(), m->raster_height(),
-                                density, rrhk.fullscreen == 1);
+                                density, rrhk.fullscreen != 2);
     SDL_Rect rect = {r.x, r.y, r.w, r.h};
     return rect;
 }

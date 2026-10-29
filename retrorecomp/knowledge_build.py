@@ -13,10 +13,13 @@ from pathlib import Path
 
 from .knowledge import FIELDS
 from .library import GameMemory, library_root
+from .systems.registry import all_profiles
 
-# Consoles whose local learning can become shared records. Neo Geo uses its
-# own firmware-scoped builder; X68000 and CPS-1 observations stay private.
-SYSTEMS = ('sms', 'gg', 'gb', 'nes', 'md', 'snes')
+# Consoles whose local learning can become shared records: the profiles that declare a site builder of the
+# shared base (``shared_knowledge.site_builder``). Neo Geo uses its own firmware-scoped builder; X68000 and
+# CPS-1 observations stay private.
+SYSTEMS = tuple(profile.id for profile in all_profiles()
+                if profile.shared_knowledge is not None and profile.shared_knowledge.site_builder)
 
 
 def engines() -> dict:

@@ -188,7 +188,7 @@
     "credits_reference_cpu": "Referenz- und Fallback-CPU",
     "credits_own_title": "VON RETRO-RECOMP",
     "credits_own_ai": "Entworfen und geleitet von Arthur Reboul Salze, unterstützt von KI-Modellen: Astra 6 und Sol 6.1 (OpenAI), Claude Opus 5.5, Claude Sonnet 5.5 und Claude Fable 5.1 (Anthropic), GLM 5.3 Flash (Zhipu AI).",
-    "credits_own_all": "Für alle Konsolen: der Konverter und seine Oberfläche, der Lernzyklus, der native Pfade findet, Pfade pro Prozessor (Schema 3) in einer gemeinsamen Basis, ein gemeinsames Berichtsformat (v2), der gemessene Ersatz-Interpreter und die Vergleiche mit Referenz-CPUs, die gemeinsame Release-Prüfung und Prüfkampagne, das gemeinsame Host-Kit der exportierten Spiele (16-Bit-Familien und NES), die Installer und Updates.",
+    "credits_own_all": "Für alle Konsolen: der Konverter und seine Oberfläche, der Lernzyklus, der native Pfade findet, Pfade pro Prozessor (Schema 3) in einer gemeinsamen Basis, ein gemeinsames Berichtsformat (v2), der gemessene Ersatz-Interpreter und die Vergleiche mit Referenz-CPUs, die gemeinsame Release-Prüfung und Prüfkampagne, das gemeinsame Host-Kit der exportierten Spiele (alle Konsolen), die Installer und Updates.",
     "credits_own_snes": "Super Nintendo: Einbindung und Prüfung der DSP-1- und CX4-Chips sowie des Super FX (GSU), interpretiert und gezählt.",
     "credits_own_68k": "Neo Geo, Capcom CPS-1 und Sharp X68000: das Zusammenführen von nativem 68000-Code mit den oben genannten Hardware-Kernen, samt Verbindungscode und Prüfungen; CPS-1 nutzt jetzt die gemeinsame Pfadbasis.",
     "credits_license": "Einige Komponenten unterliegen nichtkommerziellen Bedingungen. Lies ihre Hinweise vor der Weiterverwendung.",
@@ -880,6 +880,16 @@
     "None": "Keiner",
     "%s (disconnected)": "%s (getrennt)",
     "No gamepad for player %d": "Kein Controller für Spieler %d",
-    "Enter: change gamepad | Delete: Automatic": "Enter: Controller wechseln | Entf: Automatisch"
+    "Enter: change gamepad | Delete: Automatic": "Enter: Controller wechseln | Entf: Automatisch",
+    "Maximum speed ON": "Höchstgeschwindigkeit AN",
+    "Maximum speed OFF": "Höchstgeschwindigkeit AUS",
+    "Sound muted": "Ton aus",
+    "Sound on": "Ton an",
+    "Volume: %s": "Lautstärke: %s",
+    "M Sound: %s": "M Ton: %s",
+    "Output device: %s": "Audioausgabe: %s",
+    "System default": "Systemstandard",
+    "` Max speed: %s": "` Höchsttempo: %s",
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Vorlauf | `  Höchsttempo | M  Stumm"
   }
 }

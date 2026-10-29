@@ -97,18 +97,40 @@ class ManifestTests(unittest.TestCase):
             if not name.startswith('retrorecomp'):
                 inputs._file_kind(name)  # every listed type is classified as text or binary
 
-    def test_the_rules_never_own_a_file_the_manifest_leaves_to_others(self):
-        # owners() is the default scope of a new file; the manifest may add consoles (the X68000 uses
-        # code generators and 68000 sources of other consoles) but must not drop the rule's consoles.
+    def test_the_manifest_is_the_only_place_an_owner_is_stated(self):
+        # There is no default scope by file name any more (the old `owners()` rules): a name's owners are the
+        # consoles whose list holds it, and every listed name has at least one.
+        self.assertFalse(hasattr(inputs, 'owners'))
         for name in inputs.manifest_names():
-            if name.startswith('retrorecomp.'):
-                leaf = name.rsplit('.', 1)[-1]
-            elif name.startswith('native/') and name.count('/') == 1:
-                leaf = Path(name).name
-            else:
-                continue
-            for system in inputs.owners(leaf):
-                self.assertIn(name, inputs.manifest_names(system), f'{name} is owned by {system} by rule')
+            owners = [system for system in CONSOLES if name in inputs.manifest_names(system)]
+            self.assertTrue(owners, name)
+
+    def test_each_profile_module_is_owned_by_at_least_the_consoles_it_defines(self):
+        from retrorecomp.systems import ALL_PROFILES
+        defined = {}
+        for profile in ALL_PROFILES:
+            defined.setdefault(type(profile).__module__, set()).add(profile.id)
+        for module, systems in defined.items():
+            owners = {system for system in CONSOLES if module in inputs.manifest_names(system)}
+            # Possibly by more: other consoles share a profile module (Neo Geo and CPS-1 link the 16-bit family's).
+            self.assertLessEqual(systems, owners, module)
+
+    def test_the_cpu_family_group_follows_the_profiles(self):
+        from retrorecomp.systems import ALL_PROFILES
+        family = tuple(profile.id for profile in ALL_PROFILES if any(cpu.arch == 'm68000' for cpu in profile.cpus))
+        self.assertEqual(family, stamp_inputs.M68000_FAMILY)
+        self.assertEqual(family, ('md', 'ng', 'x68', 'cps1'))
+        self.assertIn(family, stamp_inputs.INPUTS)
+        for name in stamp_inputs.INPUTS[family]:
+            for system in CONSOLES:
+                self.assertEqual(system in family, name in inputs.manifest_names(system), (name, system))
+
+    def test_the_registration_list_is_an_interface_module_and_the_profile_data_is_game_side(self):
+        self.assertIn('registry', stamp_inputs.INTERFACE_MODULES)
+        self.assertFalse([name for name in inputs.manifest_names() if name.endswith('systems.registry')])
+        self.assertEqual(inputs.role('retrorecomp.systems.specs'), 'game')
+        for system in CONSOLES:
+            self.assertIn('retrorecomp.systems.specs', inputs.manifest_names(system))
 
     def test_everything_listed_is_bundled_in_the_executable(self):
         from tools.prepare_publication import BUNDLED_FILES, PUBLIC_MODULES
@@ -191,7 +213,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
             (self.root / stray).write_text('stray', encoding='utf-8')
         self.assertEqual((sdk_stamp(), sdk_stamp('game')), before)
         # A listed file moves it; the player shell moves the full stamp only.
-        (self.root / 'native/x68000_reference/player_ui.inc').write_text('new menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_x68k.inc').write_text('new menu', encoding='utf-8')
         self.assertEqual(sdk_stamp('game'), before[1])
         self.assertNotEqual(sdk_stamp(), before[0])
         (self.root / 'native/x68000_reference/probe.c').write_text('new probe', encoding='utf-8')
@@ -224,7 +246,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
     def test_a_listed_file_that_changes_moves_only_its_owners(self):
         self.setUpTree()
         before = self.stamps()
-        (self.root / 'native/gb_menu.inc').write_text('new Game Boy menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_gb.inc').write_text('new Game Boy menu', encoding='utf-8')
         after = self.stamps()
         self.assertNotEqual(before['gb'][0], after['gb'][0])
         self.assertNotEqual(before['gb'][1]['host'], after['gb'][1]['host'])
@@ -252,7 +274,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
             (self.root / stray).write_text('stray', encoding='utf-8')
         self.assertEqual((abi(), core.compiler_signature(game)), before)
         # Another console's file moves neither; a shared or own file moves them.
-        (self.root / 'native/gb_menu.inc').write_text('new Game Boy menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_gb.inc').write_text('new Game Boy menu', encoding='utf-8')
         self.assertEqual((abi(), core.compiler_signature(game)), before)
         (self.root / 'native/md_prefetch.inc').write_text('new pipeline', encoding='utf-8')
         self.assertNotEqual(abi(), before[0])
