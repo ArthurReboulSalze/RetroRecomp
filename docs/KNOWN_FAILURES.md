@@ -40,7 +40,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Capcom CPS-1 | Street Fighter II World 910228 (`sf2ee`, `sf2ue`) | Refused by design | This revision needs a board-specific start-up, not handled | Refused by the catalogue; `sf2`, `sf2hf` and `sf2ce` convert | 24 October 2026 |
 | Capcom CPS-1 | Gamushara Battle! Puchi Monster (`pmonster`) | Refused by design | Marked not working in the reference description | Refused by the catalogue | 24 October 2026 |
 | Capcom CPS-1 | Bootlegs and hacks, 65 sets (for example `sf2ebbl`, `sf2rb`, `3wondersb`, `dinohunt`) | Refused by design | « Bootleg and modified sets are outside the supported CPS-1 scope » | Refused by the catalogue; the originals convert | 24 October 2026 |
-| Sharp X68000 | Pensan CD (Tanaka Yuu) | Failing (rule changed, to confirm) | It runs and shows its title screen but plays no sound at all on its route (the FM chip is set up, no key-on, no ADPCM, no MIDI in 4,000 frames); the conversion refused it for having no sound | From 1.6.5 a silent X68000 route is accepted and reported: the conversion is to be run again to confirm | 24 October 2026, cause found 29 October 2026 |
 | Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
 
@@ -64,3 +63,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 - **Super Nintendo, the seven DSP-1 HiROM cartridges** (map mode `$31`, chip type `$03`: Lock On, Super Air Diver 2, Suzuka
   8 Hours and others, 29 October 2026). They are recognised like Super Mario Kart's board; Lock On converts with zero
   interpreted 65816 and SPC700 instructions.
+- **Sharp X68000, Pensan CD** (29 October 2026). It was refused for having no sound on its routes. It is silent only on the
+  routes without the mouse (a click starts its music: 4.39 million non-zero samples on the mouse route); since 1.6.5 a silent
+  X68000 route is accepted and reported, and the game converts with zero interpreted opcodes.
