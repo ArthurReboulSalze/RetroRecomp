@@ -201,50 +201,47 @@ route by route. **Hardware fidelity** against real boards, **gameplay
 validation** (complete playthroughs) and **physical latency** are not measured
 and not claimed.
 
-### Qualified sets (24 October 2026, Windows)
+### Qualified sets (29 October 2026, Windows)
 
-The 26 sets below passed the standard scan level on 24 October 2026 (1.6.3
-engine). **Eleven of them were measured again on 29 October 2026** on the 1.6.5
-tree (converter commit `98debbb`, generator revision 8); the others keep their
-24 October figures until they are measured again. Standard scan level: attract
-and credited play routes of 3,600 frames each, every set against the fresh
+All 26 sets of the table passed the standard scan level on 29 October 2026 on the
+1.6.5 tree (local `main` at `cd5b69d` with the CPS-1 branches merged; generator
+revision 8), one conversion at a time, with an empty library and no shared base.
+They were first qualified on 24 October 2026 on the 1.6.3 engine; the 24 October
+figures are in [CPS1_LOG.md](CPS1_LOG.md). Standard scan level: attract and
+credited play routes of 3,600 frames each, every set against the fresh
 interpreted reference on each route, the compressed executable comparison and
 the fresh-process F8/F9 check, with the default DIP switches; validation routes
-drive players 1 and 2. A campaign of twelve sets: the five risk cases (`wof`
-is refused, see below), the release
-check and six sets chosen by board and by known behaviour (`kod`, `mtwins` and
-`sf2hf`, which slip a frame against MAME; `pokonyan`, an unverified graphics
-mapper; `mercs`, vertical and three players; `cworld2j`, a quiz board). The
-per-set counts are in [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-selective-requalification).
+drive players 1 and 2. The per-set native counts are in
+[CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes).
 
-| Game | Set | 68000 fallback | Z80 fallback | Measured | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 1941: Counter Attack | `1941` | 0 | 0 | 29 Oct 2026 | vertical |
-| Adventure Quiz Capcom World 2 | `cworld2j` | 0 | 0 | 29 Oct 2026 |  |
-| Captain Commando | `captcomm` | 0 | 0 | 29 Oct 2026 | 4 players |
-| Carrier Air Wing | `cawing` | 0 | 0 | 24 Oct 2026 |  |
-| Dynasty Wars | `dynwar` | 0 | 0 | 24 Oct 2026 |  |
-| Final Fight | `ffight` | 0 | 0 | 29 Oct 2026 |  |
-| Ghouls'n Ghosts | `ghouls` | 0 | 0 | 24 Oct 2026 |  |
-| Knights of the Round | `knights` | 0 | 0 | 24 Oct 2026 | 3 players |
-| Magic Sword: Heroic Fantasy | `msword` | 0 | 0 | 24 Oct 2026 |  |
-| Mega Man: The Power Battle | `megaman` | 0 | 0 | 24 Oct 2026 |  |
-| Mega Twins | `mtwins` | 0 | 0 | 29 Oct 2026 |  |
-| Mercs | `mercs` | 0 | 0 | 29 Oct 2026 | vertical, 3 players |
-| Nemo | `nemo` | 0 | 0 | 24 Oct 2026 |  |
-| Pnickies | `pnickj` | 0 | 0 | 24 Oct 2026 | graphics mapper unverified by MAME |
-| Pokonyan! Balloon | `pokonyan` | 0 | 0 | 29 Oct 2026 | graphics mapper unverified by MAME |
-| Quiz & Dragons: Capcom Quiz Game | `qad` | 0 | 0 | 24 Oct 2026 |  |
-| Quiz Tonosama no Yabou 2: Zenkoku-ban | `qtono2j` | 0 | 0 | 24 Oct 2026 |  |
-| Street Fighter II': Champion Edition | `sf2ce` | 0 | 0 | 29 Oct 2026 | code run from graphics RAM: see below |
-| Street Fighter II': Hyper Fighting | `sf2hf` | 0 | 0 | 29 Oct 2026 |  |
-| Street Fighter II: The World Warrior | `sf2` | 0 | 0 | 24 Oct 2026 |  |
-| Strider | `strider` | 0 | 0 | 29 Oct 2026 |  |
-| The King of Dragons | `kod` | 0 | 0 | 29 Oct 2026 | 3 players |
-| Three Wonders | `3wonders` | 0 | 0 | 24 Oct 2026 |  |
-| U.N. Squadron | `unsquad` | 0 | 0 | 24 Oct 2026 |  |
-| Varth: Operation Thunderstorm | `varth` | 0 | 0 | 24 Oct 2026 | vertical |
-| Willow | `willow` | 0 | 0 | 24 Oct 2026 |  |
+| Game | Set | 68000 fallback | Z80 fallback | Notes |
+| --- | --- | --- | --- | --- |
+| 1941: Counter Attack | `1941` | 0 | 0 | vertical |
+| Adventure Quiz Capcom World 2 | `cworld2j` | 0 | 0 |  |
+| Captain Commando | `captcomm` | 0 | 0 | 4 players |
+| Carrier Air Wing | `cawing` | 0 | 0 |  |
+| Dynasty Wars | `dynwar` | 0 | 0 |  |
+| Final Fight | `ffight` | 0 | 0 |  |
+| Ghouls'n Ghosts | `ghouls` | 0 | 0 |  |
+| Knights of the Round | `knights` | 0 | 0 | 3 players |
+| Magic Sword: Heroic Fantasy | `msword` | 0 | 0 |  |
+| Mega Man: The Power Battle | `megaman` | 0 | 0 |  |
+| Mega Twins | `mtwins` | 0 | 0 |  |
+| Mercs | `mercs` | 0 | 0 | vertical, 3 players |
+| Nemo | `nemo` | 0 | 0 |  |
+| Pnickies | `pnickj` | 0 | 0 | graphics mapper unverified by MAME |
+| Pokonyan! Balloon | `pokonyan` | 0 | 0 | graphics mapper unverified by MAME |
+| Quiz & Dragons: Capcom Quiz Game | `qad` | 0 | 0 |  |
+| Quiz Tonosama no Yabou 2: Zenkoku-ban | `qtono2j` | 0 | 0 |  |
+| Street Fighter II': Champion Edition | `sf2ce` | 0 | 0 | code run from graphics RAM: see below |
+| Street Fighter II': Hyper Fighting | `sf2hf` | 0 | 0 |  |
+| Street Fighter II: The World Warrior | `sf2` | 0 | 0 |  |
+| Strider | `strider` | 0 | 0 |  |
+| The King of Dragons | `kod` | 0 | 0 | 3 players |
+| Three Wonders | `3wonders` | 0 | 0 |  |
+| U.N. Squadron | `unsquad` | 0 | 0 |  |
+| Varth: Operation Thunderstorm | `varth` | 0 | 0 | vertical |
+| Willow | `willow` | 0 | 0 |  |
 
 `sf2ce` runs a short routine from graphics RAM (a loop that fills and compares
 the graphics memory, copied there by the game). On the 24 October engine the
@@ -252,13 +249,13 @@ play route left 75,546 interpreted 68000 instructions (0.06 percent); since
 1.6.4 the native code guards instructions run from graphics RAM, and the
 29 October conversion reports **zero interpreted instructions** on both routes
 (33 graphics-RAM instructions observed, kept as private build hints and never
-shared). The eleven sets converted with no 68000 or Z80 instruction interpreted
-on the routes run (the build counts the Z80 interrupt mode 0 path since 1.6.5,
-but no route met it); `wof` (QSound) was refused with the named reason
-("not supported yet: qsound"). These
-are agreement of the native code with the board model's own interpreted
-reference: they are not CPU, hardware or gameplay validation, and "zero" means
-that the routes run met no interpreted instruction, not that none exists.
+shared). The 26 sets converted with no 68000 or Z80 instruction interpreted on
+the routes run (the build counts the Z80 interrupt mode 0 path since 1.6.5, but
+no route met it); `wof` (QSound) was refused with the named reason ("not
+supported yet: qsound"). These are agreement of the native code with the board
+model's own interpreted reference: they are not CPU, hardware or gameplay
+validation, and "zero" means that the routes run met no interpreted
+instruction, not that none exists.
 
 ### Independent evidence and liveness (29 October 2026)
 
@@ -277,28 +274,54 @@ SingleStepTests/z80 corpus has to be downloaded first (the SMS and GG tool `tool
 per-frame trace: `distinct_pictures`, `picture_changes` and `last_picture_change_frame` (frames whose image hash differs from
 the previous frame's), `audible_frames` and `last_audible_frame` (frames whose sound hash is not that of silence). The
 conversion is refused when a route's picture never changes (it already required a non-uniform picture on every route and
-sound on at least one). Measured on the eleven sets of the 29 October campaign (standard level, 3,600 frames per route; each
-cell is pictures seen, or audible frames, then the last frame where the picture changed, or was audible):
+sound on at least one). Measured on the 26 sets of the table (standard level, 3,600 frames per route; each cell is the pictures seen, or the audible
+frames, then the last frame where the picture changed, or was audible):
 
 | Set | Attract: pictures / last change | Attract: audible / last | Play: pictures / last change | Play: audible / last |
 | --- | ---: | ---: | ---: | ---: |
 | `1941` | 1,765 / 3,600 | 1,456 / 3,600 | 2,376 / 3,600 | 2,434 / 3,600 |
-| `sf2ce` | 1,515 / 3,600 | 2,702 / 3,600 | 1,534 / 3,600 | 2,614 / 3,600 |
-| `ffight` | 963 / 3,599 | 1,997 / 3,600 | 1,169 / 3,600 | 2,688 / 3,600 |
+| `cworld2j` | 995 / 3,500 | 2,870 / 3,600 | 1,264 / 3,599 | 2,870 / 3,600 |
 | `captcomm` | 2,265 / 3,600 | 2,192 / 3,600 | 1,578 / 3,600 | 2,660 / 3,600 |
+| `cawing` | 2,230 / 3,600 | 1,332 / 3,600 | 2,143 / 3,600 | 2,819 / 3,600 |
+| `dynwar` | 666 / 3,599 | 0 / 0 | 1,687 / 3,588 | 2,669 / 3,600 |
+| `ffight` | 963 / 3,599 | 1,997 / 3,600 | 1,169 / 3,600 | 2,688 / 3,600 |
+| `ghouls` | 1,302 / 3,599 | 0 / 0 | 1,195 / 3,600 | 1,795 / 3,600 |
+| `knights` | 2,003 / 3,600 | 1,262 / 3,600 | 1,722 / 3,600 | 2,795 / 3,600 |
+| `msword` | 2,582 / 3,599 | 1,373 / 3,405 | 2,522 / 3,600 | 2,430 / 3,600 |
+| `megaman` | 1,978 / 3,600 | 2,104 / 3,600 | 2,604 / 3,600 | 2,873 / 3,600 |
+| `mtwins` | 1,639 / 3,600 | 0 / 0 | 2,388 / 3,600 | 2,715 / 3,600 |
+| `mercs` | 1,470 / 3,600 | 706 / 3,600 | 2,118 / 3,584 | 2,482 / 3,600 |
+| `nemo` | 2,406 / 3,600 | 2,056 / 3,600 | 2,760 / 3,600 | 2,243 / 3,600 |
+| `pnickj` | 598 / 3,594 | 533 / 3,399 | 826 / 3,593 | 2,202 / 3,600 |
+| `pokonyan` | 1,308 / 3,600 | 2,661 / 3,600 | 2,196 / 3,600 | 2,595 / 3,600 |
+| `qad` | 925 / 3,600 | 2,737 / 3,600 | 994 / 3,600 | 2,817 / 3,600 |
+| `qtono2j` | 1,709 / 3,597 | 2,967 / 3,600 | 775 / 3,599 | 2,939 / 3,600 |
+| `sf2ce` | 1,515 / 3,600 | 2,702 / 3,600 | 1,534 / 3,600 | 2,614 / 3,600 |
+| `sf2hf` | 1,540 / 3,600 | 2,661 / 3,600 | 2,290 / 3,600 | 2,600 / 3,600 |
+| `sf2` | 1,382 / 3,600 | 2,684 / 3,600 | 1,400 / 3,598 | 2,649 / 3,600 |
 | `strider` | 1,492 / 3,599 | 1,612 / 2,992 | 2,864 / 3,585 | 2,964 / 3,600 |
 | `kod` | 1,967 / 3,573 | 3,033 / 3,600 | 1,311 / 3,595 | 2,937 / 3,600 |
-| `mtwins` | 1,639 / 3,600 | 0 / 0 | 2,388 / 3,600 | 2,715 / 3,600 |
-| `sf2hf` | 1,540 / 3,600 | 2,661 / 3,600 | 2,290 / 3,600 | 2,600 / 3,600 |
-| `pokonyan` | 1,308 / 3,600 | 2,661 / 3,600 | 2,196 / 3,600 | 2,595 / 3,600 |
-| `mercs` | 1,470 / 3,600 | 706 / 3,600 | 2,118 / 3,584 | 2,482 / 3,600 |
-| `cworld2j` | 995 / 3,500 | 2,870 / 3,600 | 1,264 / 3,599 | 2,870 / 3,600 |
+| `3wonders` | 1,297 / 3,599 | 2,132 / 3,600 | 2,448 / 3,600 | 2,510 / 3,600 |
+| `unsquad` | 302 / 3,593 | 0 / 0 | 1,569 / 3,600 | 2,780 / 3,600 |
+| `varth` | 2,764 / 3,600 | 1,908 / 3,600 | 2,719 / 3,600 | 2,846 / 3,600 |
+| `willow` | 857 / 3,597 | 53 / 3,255 | 1,301 / 3,596 | 2,602 / 3,600 |
 
-On every route of these sets the picture is still changing within the last 100 frames (the longest gap is the attract route of
-`cworld2j`, last change at frame 3,500), and the sound is audible up to the last frame, except Strider's attract route (last
-audible frame 2,992) and the attract route of `mtwins`, which stays silent for its 3,600 frames while its credited play route
-is audible. This shows that pictures and sound move on the routes
-run; it does not say what they show, and the other fifteen sets of the table have not been converted with these fields yet.
+On every route of the 26 sets the picture is still changing within the last 100 frames (the longest gap is the attract route of
+`cworld2j`, last change at frame 3,500) and the credited play route is audible up to its last frame. Some attract routes are
+silent, nearly silent or stop sounding early: `dynwar`, `ghouls`, `mtwins` and `unsquad` have no audible frame
+in their attract mode, `willow` has 53, and `strider`, `msword` and `pnickj` stop sounding before the end (last audible frames
+2,992, 3,405 and 3,399); a game's attract mode may be silent, and every one of these sets is audible on its play route. This
+shows that pictures and sound move on the routes run; it does not say what they show.
+
+**Route depth (G9).** The credited play route of each of the 26 sets was replayed headless on the delivered executable (the
+same script, checked against the report's script hash) and six captures, one every 600 frames, were put on a contact sheet. The specialist agent
+inspected the 26 sheets: every set leaves the warning, title or selection screens and reaches play (a fight, a stage, a quiz
+round, a puzzle field or an adventure map) within the 3,600 frames, with its status bar or score in view; a few routes end on a
+continue screen (`dynwar`, `mercs`, `nemo`, `3wonders`, `msword`). The inspector is the specialist agent, not the owner, and
+the sheets (commercial game pictures) stay outside the repository. The extended level (one 18,000-frame pseudo-random route
+more) was run on `sf2ce`, `ffight` and `1941`: 0 interpreted instructions, every check passed, the picture changes up to the
+last frame, and the captures show `sf2ce` playing a fight, reaching Game Over, the title and a new credit, `ffight` deep in its
+first stage and `1941` looping through play and its title.
 
 **Where each gate stands for CPS-1** (the matrix itself is in [QUALIFICATION.md](QUALIFICATION.md)):
 
@@ -306,14 +329,14 @@ run; it does not say what they show, and the other fifteen sets of the table hav
 | --- | --- | --- |
 | G1 status | profile, README, COMPATIBILITY and interface all say experimental | met |
 | G2 report | the common report (v2) with separate 68000 and Z80 counters, [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-selective-requalification) | met |
-| G3 native coverage | zero interpreted 68000 and Z80 instructions on both routes of 11 sets (29 Oct); 15 sets measured on 24 Oct | partial |
+| G3 native coverage | zero interpreted 68000 and Z80 instructions on both routes of the 26 sets (29 Oct), counted per CPU in each report | met |
 | G4, G5, G6 | `final_checks[].reference_match`, `packed.replay.match`, `game_states.validation` in every conversion | met |
 | G7 saves | no non-volatile memory on the standard boards | not applicable |
-| G8 liveness | the table above (11 sets) | partial: 15 sets not measured with the fields |
-| G9 route depth | standard level, 3,600-frame attract and credited play; the 18,000-frame levels are not run on the panel | partial |
+| G8 liveness | the table above (26 sets) | met |
+| G9 route depth | the credited play route reaches play on 26 of 26 sets (captures inspected by the specialist); the 18,000-frame route ran on 3 sets | met for the routes run; the owner has not inspected the captures |
 | G10 independent CPU evidence | 68000 vectors above; no Z80 corpus yet | partial |
 | G11 independent hardware evidence | the MAME 0.289 comparison of 24 October and 27 October, measured before 1.6.4 and not repeated | partial |
-| G12 panel | 26 sets, 11 re-measured | partial |
+| G12 panel | 26 sets, all measured on 29 October; the policy for a common panel size is not decided | the owner's call |
 | G13 cross-OS witness | Final Fight, same route hashes on Windows and Debian 13 (27 October) | partial |
 | G14 owner acceptance | owner trials of 27 October reported in chat, not recorded; a draft row is in QUALIFICATION.md | open |
 | G15 honesty | the five measures separate everywhere; "zero" means the routes run | met |
@@ -349,8 +372,8 @@ MAME 0.289, not with the original boards. Results of 24 and 27 October 2026,
 ## Known limits
 
 - **Experimental**: the report says `experimental`; no CPS-1 path is qualified
-  yet. Eleven sets were requalified on the 1.6.5 tree (29 October 2026); the
-  other fifteen rows of the table keep their 24 October figures.
+  yet. The 26 sets of the table were requalified on the 1.6.5 tree (29 October
+  2026).
 - **Out of scope**: QSound boards, CPS-1.5/CPS-2, rotary-dial, serial-EEPROM and
   timekeeper boards, CPS Changer cartridges, bootlegs and hacks, sets that
   need board-specific start-up, and sets with a never-dumped part.
@@ -392,7 +415,8 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
 - 27 October 2026: CPS-1 joins the shared base of paths (experimental);
   comparison of credited play and sound with MAME 0.289.
 - 29 October 2026 (1.6.5): the Z80 interrupt mode 0 opcode is counted; eleven sets requalified; independent 68000 vectors
-  replayed through the CPS-1 generator; route liveness fields in the report.
+  replayed through the CPS-1 generator; route liveness fields in the report; the whole panel of 26 sets requalified, play-route captures
+  inspected and the 18,000-frame route run on three sets.
 - 1.6.4: code run from graphics RAM is guarded natively (`sf2ce` goes to zero
   interpreted instructions in the standard routes), quick state `CPS1S002`,
   artwork no longer searches a libretro catalogue that CPS-1 does not have.
