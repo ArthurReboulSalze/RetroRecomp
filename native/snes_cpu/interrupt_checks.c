@@ -30,8 +30,11 @@ static void check_software_interrupt(unsigned opcode, bool emulation, bool nativ
     /* Stack after the pushes [K,] PCH, PCL, P: the return address follows the signature byte. */
     const uint8_t *top = g_ram + 0x1f8;
     const uint8_t low = (uint8_t)(opcode * 8 + 2);
-    bool stacked = emulation ? (top[0] == 0x80 && top[-1] == low)
-                             : (top[0] == 0x00 && top[-1] == 0x80 && top[-2] == low);
+    /* P as it was before the interrupt: in emulation mode bits 5 and 4 read 1 (M, and X that
+     * is the B flag there: BRK sets it, COP finds it set by xf); in native mode both are 0 here. */
+    const uint8_t flags = emulation ? 0x30 : 0x00;
+    bool stacked = emulation ? (top[0] == 0x80 && top[-1] == low && top[-2] == flags)
+                             : (top[0] == 0x00 && top[-1] == 0x80 && top[-2] == low && top[-3] == flags);
     if (counted != 1 || used != cycles || cpu.pc != vector || cpu.k != 0 || cpu.sp != 0x1f8 - pushed ||
         !cpu.i || cpu.d || !stacked) {
         fprintf(stderr, "Software interrupt %02x e=%d %s: cycles %d (want %d), pc %04x (want %04x), sp %04x, k %02x\n",

@@ -193,12 +193,12 @@ revision. They are rewritten from the processor manuals. They are CPU fidelity f
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
 | 68000: `ROXL`/`ROXR` with a register count of zero (modulo 64) must copy X into C, and `ASL.L` by 31 must compute the overflow mask without a 32-bit shift | md, ng, cps1, x68 | `m68000.py` (`adapt_semantics`) | those four consoles |
-| 65816: `BRK` in native mode takes 8 cycles (7 in emulation mode) because the program bank is pushed | snes | `snes_codegen.py` | snes |
+| 65816: `BRK` in native mode takes 8 cycles (7 in emulation mode) because the program bank is pushed; `COP` follows the mode (in emulation mode no bank pushed, 7 cycles, vector $FFF4) | snes | `snes_codegen.py` (`read_core`) | snes |
 | Z80: a direct call to a paged address must go through the dispatch that checks the bank in place (the "functions" engine only; the default "banked" engine is not affected, and no game is known to trigger it) | sms, gg | `core.py` (`patched_generator_source`) | sms, gg |
 
-Each is described in the section "Exports of 1.6.2 in 1.6.3" of [UPGRADES.md](UPGRADES.md), because existing exports of
-1.6.2 are rebuilt from their learned paths. Not corrected, noted: `COP` in emulation mode is handled as native mode by the pinned
-interpreter and upstream does not handle it either; a game almost never executes it.
+Each is described in the section "CPU fixes carried from the upstream review in 1.6.3" of [UPGRADES.md](UPGRADES.md),
+because existing exports of 1.6.2 are rebuilt from their learned paths. The `COP` correction in emulation mode goes beyond
+upstream, which does not handle it either.
 
 ## Deferred
 
@@ -216,6 +216,8 @@ quiet machine, so anything that has to be timed waits for that.
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |
 | Mega-CD | segagenesisrecomp (`runner/cd/`) | Per-disc recipes; strict native execution with no counted fallback, against our rule; BIOS and disc images required. | A "new machine" decision ([NEW_MACHINE.md](NEW_MACHINE.md)). |
 | X68000: three px68k-libretro fixes (GPL, rewrite from description only) | px68k-libretro | A DMA channel START on an active channel restarts it and clears its completion and error bits; a text line should refresh only when a sprite covers it; paired-bit OR and text transparency with a given flag. Not yet checked against our base. | The next X68000 session: check each case against our base, then rewrite and list it in `provenance.json`. |
+| SNES: hardware NMI and IRQ in emulation mode | snesrecomp (`interp816_doInterrupt`), not fixed upstream either | They always push the bank, count 8 cycles and take the native vectors, even in emulation mode. Almost every game switches to native mode at reset, before any interrupt. | A game that takes an interrupt before switching to native mode, or the SNES requalification campaign. |
+| 68000: timing of register-count shifts | segagenesisrecomp (`m68k_interp.c`) | The pinned core charges a fixed estimate to every shift with a register count; results and flags are right, the clocks are approximate (the shift vectors are replayed with `timing_unchecked`). | A Mega Drive timing pass, or a game whose timing depends on long shifts. |
 | SDL 2.32.10 | libsdl-org/SDL | Modest fixes (audio format under Pipewire on Linux, Switch Pro stick calibration). Moves the stamps of every console. | The next release that touches the host anyway, or a reported Linux audio or Switch Pro problem. |
 | llvm-mingw `20261020`, CMake 4.4.5 | toolchain | Corrective versions; nothing needed. | The next toolchain change. |
 

@@ -14,7 +14,7 @@ def main():
         'c0c1','c1c1','80c1','81c1','e5ab','48e7c080','4c98000f','b109','121f',
         '2300','40c2','027cffff','4e73','4e40','4e60','4e722700','aabc','fabc','4afc',
         '7001','d280','d0b0f000','4eb900001000','4ef900001000','4e75','4e71',
-        'e370','e2b0','e3a0']      # ROXL.W D1,D0 / ROXR.L D1,D0 / ASL.L D1,D0: edge counts, X=1 (see the checks)
+        'e370','e2b0','e3a0','e270']   # ROXL.W / ROXR.L / ASL.L / ROXR.W D1,D0: edge counts, X=1 (see the checks)
     program=bytearray(b'\x4a\xfc'*(0x200000//2));bios=bytearray(b'\x4a\xfc'*(131072//2))
     for n,raw in enumerate(cases):
         data=bytes.fromhex(raw)+b'\x4e\x75';address=0x200+n*32

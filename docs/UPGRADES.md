@@ -497,6 +497,18 @@ own patches on the **same pinned revisions**: the base of qualified paths, keyed
 written from the processor's manual, not copied from the upstream change. They are **CPU fidelity** fixes only: native code,
 hardware fidelity, gameplay validation and latency are not measured by them.
 
+- **68000 (Mega Drive, Neo Geo, CPS-1, X68000): shifts at the edges.** ROXL and ROXR with a register count of zero
+  (modulo 64) now load C from X, X unchanged, as the MC68000 manual says (C was cleared); ASL.L by 31 computes its
+  overflow mask in 64 bits, so V is 0 when the sign never changes (the 32-bit shift was undefined in C and set V on
+  $FFFFFFFF). The shared core text (`m68000.adapt_semantics`) feeds the native code and the fallback interpreter of the
+  four machines. *Edited:* `retrorecomp/m68000.py` (a game input of the 68000 family). **The `md`, `ng`, `cps1` and `x68`
+  game stamps move**: exports are rebuilt from their learned paths. Host and build stamps, the quick-state keys and the
+  base do not move; `cps1_knowledge.GENERATOR_REVISION` stays 6 (already raised in 1.6.3; its comment names both causes).
+  Checked against Musashi on the Neo Geo (`tools/neogeo_m68000_selftest.py`: 672 edge comparisons with X=1 and counts 0,
+  17, 31 and 64 for ROXL.W, ROXR.W, ROXR.L and ASL.L; 98 differed before the fix), with 834 SingleStepTests vectors
+  replayed on the native and the reference paths (`tests/fixtures/m68k-shifts`, MIT), and by conversions of Blockout,
+  NAM-1975, 1941 and R-Type (0 interpreted instructions on the tested routes). The timing of register-count shifts stays
+  the pinned core's fixed estimate ([UPSTREAMS.md](UPSTREAMS.md#deferred)).
 - **Super Nintendo: BRK and COP.** A BRK in native mode now costs 8 cycles (the bank register K is stacked), 7 in emulation
   mode; COP follows the mode (in emulation mode: no K stacked, 7 cycles, vector $FFF4). One corrected source
   (`snes_codegen.read_core`) feeds both the operation bodies compiled natively and the interpreter copy of the project.

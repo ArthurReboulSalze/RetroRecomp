@@ -103,7 +103,7 @@ static void edge_registers(uint32_t d0,uint32_t d1,unsigned x) {
     m68k_set_reg(M68K_REG_SR,0x2000|(x?0x10:0));
 }
 int main(void) {
-    unsigned comparisons=0,guards=0,shift_edges=0,shift_failures=0,failed_by_op[3]={0,0,0};
+    unsigned comparisons=0,guards=0,shift_edges=0,shift_failures=0,failed_by_op[4]={0,0,0,0};
     /* Region 6 enters cartridge code through a pointer with a flagged high
      * byte: branch targets and pushed return addresses keep the 32-bit PC. */
     for(unsigned region=0;region<7;++region)for(unsigned i=0;i<sizeof instructions/sizeof *instructions;++i)
@@ -122,7 +122,7 @@ int main(void) {
      * count small): X=1, a count of 0, 64 (0 modulo 64), 17 (ROXL.W period) and 31 (ASL.L). */
     for(unsigned i=0;i<sizeof instructions/sizeof *instructions;++i) {
         unsigned op=instructions[i][0];
-        if(op!=0xe370 && op!=0xe2b0 && op!=0xe3a0)continue;
+        if(op!=0xe370 && op!=0xe2b0 && op!=0xe3a0 && op!=0xe270)continue;
         static const uint32_t d0s[]={0xffffffffu,0x80000000u,0x7fffffffu},counts[]={0,64,31,17};
         for(unsigned region=0;region<7;++region)for(unsigned x=0;x<2;++x)
         for(unsigned a=0;a<3;++a)for(unsigned b=0;b<4;++b) {
@@ -133,7 +133,7 @@ int main(void) {
             rr_ng_force_reference=0;initial(pc,0,0);edge_registers(d0s[a],counts[b],x);
             int actual=m68k_execute(1);uint32_t values[20];state(values);
             if(clocks!=actual || memcmp(result,values,sizeof result) || native_count!=1) {
-                ++shift_failures;++failed_by_op[op==0xe370?0:op==0xe2b0?1:2];
+                ++shift_failures;++failed_by_op[op==0xe370?0:op==0xe2b0?1:op==0xe3a0?2:3];
                 if(shift_failures<=4 || (op==0xe3a0 && failed_by_op[2]<=2)) {
                     fprintf(stderr,"MC68000 shift %04x D0=%08x D1=%u X=%u region %u clocks %d/%d native %u\n",op,d0s[a],counts[b],x,region,clocks,actual,native_count);
                     for(unsigned n=0;n<20;++n)if(result[n]!=values[n])fprintf(stderr,"reg %u: musashi %08x / native %08x\n",n,result[n],values[n]);
@@ -144,7 +144,7 @@ int main(void) {
         }
     }
     if(shift_failures) {
-        fprintf(stderr,"%u shift edge cases differ from Musashi (ROXL.W %u, ROXR.L %u, ASL.L %u)\n",shift_failures,failed_by_op[0],failed_by_op[1],failed_by_op[2]);
+        fprintf(stderr,"%u shift edge cases differ from Musashi (ROXL.W %u, ROXR.L %u, ASL.L %u, ROXR.W %u)\n",shift_failures,failed_by_op[0],failed_by_op[1],failed_by_op[2],failed_by_op[3]);
         return 6;
     }
     /* Stale immutable bytes must escape without running the old body. */
