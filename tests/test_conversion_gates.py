@@ -938,10 +938,10 @@ class AdoptionTests(unittest.TestCase):
                     if 'retrorecomp.' + name in inputs.manifest_names(system)}
         owners = {system for system in inputs.SYSTEMS if 'retrorecomp.conversion_gates' in inputs.manifest_names(system)}
         self.assertEqual(owners, expected, importers)
-        self.assertEqual(owners, {'ng', 'cps1'})
+        self.assertEqual(owners, {'ng', 'cps1', 'x68'})
         common = {system for system in inputs.SYSTEMS
                   if 'retrorecomp.conversion_common' in inputs.manifest_names(system)}
-        self.assertEqual(common, {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1'})
+        self.assertEqual(common, {'sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'cps1', 'x68'})
 
 
 class AbToolTests(unittest.TestCase):

@@ -519,5 +519,88 @@ class RecordedBehaviourTests(unittest.TestCase):
         self.check('convert')
 
 
+class ProcessContextTests(unittest.TestCase):
+    """What the move changes on purpose: a replay runs in the folder it writes its evidence to."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
+        (self.root / 'player.exe').write_bytes(b'authored')
+        (self.root / 'inputs.tsv').write_text('0 1 key 13 1\n', encoding='ascii')
+
+    def test_a_replay_runs_in_its_own_folder_with_no_window(self):
+        game = FakeGame()
+        folder = self.root / 'one' / 'run'
+        with fake_process(game):
+            conversion.replay(self.root / 'player.exe', folder, 4000, self.root / 'inputs.tsv')
+        self.assertEqual(game.raw, [{'cwd': folder, 'cwd_existed': True}])
+        self.assertEqual(game.calls[0]['creationflags'], 'no_window_if_windows')
+
+    def test_every_route_runs_in_its_own_folder(self):
+        game = FakeGame()
+        names = ('a', 'b', 'c')
+        jobs = [(self.root / 'player.exe', self.root / name, 300, self.root / 'inputs.tsv', {}) for name in names]
+        with fake_process(game):
+            conversion.run_routes(jobs, 3)
+        self.assertEqual(sorted(call['cwd'] for call in game.raw), sorted(self.root / name for name in names))
+
+
+class AdoptionTests(unittest.TestCase):
+    """The converter keeps no copy of what the shared helpers do: the sources name the helper, the old forms are gone."""
+
+    def source(self, name):
+        return (ROOT / 'retrorecomp' / (name + '.py')).read_text(encoding='utf-8')
+
+    def test_the_converter_calls_the_shared_helpers(self):
+        text = self.source('x68000_conversion')
+        for name in ('spawn(', 'check_exit(', 'resolve_scan_level(', 'write_if_changed(', 'require_same_file(',
+                     'require_equal(', 'require(', 'continuation_difference('):
+            self.assertIn(name, text, name)
+
+    def test_the_old_copies_are_gone(self):
+        text = self.source('x68000_conversion')
+        self.assertNotIn('run_process', text)
+        self.assertNotIn('CREATE_NO_WINDOW', text)
+        self.assertNotIn('Unknown scan level', text)
+        self.assertNotIn('LEVELS', text)
+        self.assertNotIn('.read_bytes()!=', text)
+        self.assertNotIn("a.split('\t')", text)
+
+    def test_the_budget_stays_a_clamp_not_a_refusal(self):
+        # check_run_budget refuses a number out of range; the X68000 has always brought it back into range.
+        text = self.source('x68000_conversion')
+        self.assertNotIn('check_run_budget', text)
+        self.assertIn('max(1,min(int(passes),10))', text)
+        self.assertIn('max(4000,min(int(frames),10000))', text)
+
+    def test_the_shared_modules_are_owned_by_the_x68000_too(self):
+        from retrorecomp import compilation_inputs as inputs
+        for module in ('conversion_common', 'conversion_gates'):
+            self.assertIn('retrorecomp.' + module, inputs.manifest_names('x68'))
+
+
+class ContinuationTests(unittest.TestCase):
+    """`continues` on the lines of two traces: the frame number is left out, frame 0 of the resumed run is the load."""
+
+    def lines(self, values, first=0):
+        return ['header'] + [f'{first + index}\t{value}\tx' for index, value in enumerate(values)]
+
+    def test_a_resumed_run_that_follows_the_timeline_continues_it(self):
+        timeline = self.lines(range(100))
+        resumed = self.lines([50, 51, 52, 53, 54])
+        self.assertTrue(conversion.continues(timeline, resumed, 50, 5))
+
+    def test_the_first_and_the_last_compared_frames_count_but_the_load_frame_does_not(self):
+        timeline = self.lines(range(100))
+        for position, expected in ((0, True), (1, False), (4, False)):
+            values = [50, 51, 52, 53, 54]
+            values[position] = 99
+            self.assertEqual(conversion.continues(timeline, self.lines(values), 50, 5), expected, position)
+
+    def test_the_frame_numbers_are_not_compared(self):
+        self.assertTrue(conversion.continues(self.lines(range(100)), self.lines([50, 51, 52], first=7), 50, 3))
+
+
 if __name__ == '__main__':
     unittest.main()
