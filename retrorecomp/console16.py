@@ -288,7 +288,7 @@ if(MSVC)
 endif()
 '''
     else:
-        from .snes_codegen import generate, adapt_core, adapt_bridge, adapt_frame_driver
+        from .snes_codegen import generate, read_core, adapt_core, adapt_bridge, adapt_frame_driver
         from .cartridge16 import read_snes_rom
         rom = read_snes_rom(project / 'cartridge.sfc')
         generate(engine, project, rom)
@@ -312,7 +312,7 @@ endif()
             path = staged / f'runner/src/snes/{name}.c'
             path.write_text(adapt(path.read_text(encoding='utf-8')), encoding='utf-8')
         (staged / 'runner/src/snes/interp816.c').write_text(
-            adapt_core((engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')),
+            adapt_core(read_core(engine)),
             encoding='utf-8')
         (staged / 'runner/src/snes/interp_bridge.c').write_text(
             adapt_bridge((engine / 'runner/src/snes/interp_bridge.c').read_text(encoding='utf-8')),

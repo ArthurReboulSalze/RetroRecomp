@@ -289,6 +289,7 @@ native/md_exception_checks.c tools/megadrive_exception_selftest.py
 tests/fixtures/md-exceptions/cases.json tests/fixtures/md-exceptions/LICENSE
 docs/MEGADRIVE_CPU_EXCEPTIONS.md
 native/snes_backend.c native/snes_native_steps.h native/snes_native_checks.c
+native/snes_cpu/interrupt_checks.c
 retrorecomp/snes_codegen.py retrorecomp/supernintendo.py
 retrorecomp/snes_timing.py native/snes_timing.h
 retrorecomp/snes_video.py
