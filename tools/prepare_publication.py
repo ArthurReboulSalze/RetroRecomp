@@ -59,7 +59,7 @@ native/x68000_reference/timing_checks.h native/x68000_reference/video_checks.c
 native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
 native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
-tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py
+tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
@@ -68,7 +68,7 @@ tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_liveness.py tests/test_x68000_payload.py tests/x68000_payload_harness.c
-tests/test_x68000_picture_line.py tests/x68000_picture_line_harness.c tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c tests/test_x68000_redraw_marks.py tests/x68000_redraw_marks_harness.c tests/test_x68000_text_line.py tests/x68000_text_line_harness.c
+tests/test_x68000_picture_line.py tests/test_x68000_play_routes.py tests/x68000_picture_line_harness.c tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c tests/test_x68000_redraw_marks.py tests/x68000_redraw_marks_harness.c tests/test_x68000_text_line.py tests/x68000_text_line_harness.c
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py tools/start_select_selftest.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py tools/build_splash.py
