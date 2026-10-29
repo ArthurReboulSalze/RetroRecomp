@@ -2,9 +2,10 @@
 
 The tree of 1.6.0 listed nothing for a previous release. The tree of 1.6.1 listed the previous release, 1.6.0, and
 only it. The tree of 1.6.2 listed 1.6.1 and only it. The tree of 1.6.3 lists 1.6.2 and only it: its game stamps in
-`LEGACY_GAME_STAMPS` (the Master System, Game Gear, Game Boy and NES; the Mega Drive, Neo Geo, CPS-1, Super Nintendo and
-X68000 have none, because 1.6.3 changes what a game does on their CPUs: the release procedure of
-docs/COMPILATION_LIBRARY.md; the 1.6.1 stamps are dropped) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega
+`LEGACY_GAME_STAMPS` (the Master System, Game Gear, Game Boy and NES; the Mega Drive, Neo Geo, CPS-1 and Super Nintendo
+have none, because 1.6.3 changes what a game does on their CPUs, the 68000 shifts and the 65816 BRK and COP: the release
+procedure of docs/COMPILATION_LIBRARY.md; the X68000 has none because its request carries an `x68_sdk` stamp the
+mechanism does not recompute; the 1.6.1 stamps are dropped) and its quick-state keys as `RR16_STATE_COMPAT_ABI` (Mega
 Drive, Super Nintendo, Neo Geo and CPS-1, Windows, whether or not the export is upgraded; the 1.6.1 keys are dropped). The values
 below are frozen: they were computed from the `v1.6.0`, `v1.6.1` and `v1.6.2` tags (docs/UPGRADES.md, "Exports of 1.6.2
 in 1.6.3"; docs/GAME_STATES.md, "States written by release 1.6.2"), the game stamps with Python 3.14.5 (Windows) and
