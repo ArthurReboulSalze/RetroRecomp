@@ -618,8 +618,9 @@ hardware fidelity, gameplay validation and latency are not measured by them.
   overflow mask in 64 bits, so V is 0 when the sign never changes (the 32-bit shift was undefined in C and set V on
   $FFFFFFFF). The shared core text (`m68000.adapt_semantics`) feeds the native code and the fallback interpreter of the
   four machines. *Edited:* `retrorecomp/m68000.py` (a game input of the 68000 family). **The `md`, `ng`, `cps1` and `x68`
-  game stamps move**: exports are rebuilt from their learned paths. Host and build stamps, the quick-state keys and the
-  base do not move; `cps1_knowledge.GENERATOR_REVISION` stays 6 (already raised in 1.6.3; its comment names both causes).
+  game stamps move**. Because this changes what a game does on these CPUs, their 1.6.2 exports are converted in full,
+  not upgraded (`LEGACY_GAME_STAMPS` lists no 1.6.2 entry for them; [Exports of 1.6.2 in 1.6.3](#exports-of-162-in-163)).
+  This fix moves no host or build stamp, no quick-state key and not the base; `cps1_knowledge.GENERATOR_REVISION` stays 6 (already raised in 1.6.3; its comment names both causes).
   Checked against Musashi on the Neo Geo (`tools/neogeo_m68000_selftest.py`: 672 edge comparisons with X=1 and counts 0,
   17, 31 and 64 for ROXL.W, ROXR.W, ROXR.L and ASL.L; 98 differed before the fix), with 834 SingleStepTests vectors
   replayed on the native and the reference paths (`tests/fixtures/m68k-shifts`, MIT), and by conversions of Blockout,
@@ -628,9 +629,9 @@ hardware fidelity, gameplay validation and latency are not measured by them.
 - **Super Nintendo: BRK and COP.** A BRK in native mode now costs 8 cycles (the bank register K is stacked), 7 in emulation
   mode; COP follows the mode (in emulation mode: no K stacked, 7 cycles, vector $FFF4). One corrected source
   (`snes_codegen.read_core`) feeds both the operation bodies compiled natively and the interpreter copy of the project.
-  *Edited:* `retrorecomp/snes_codegen.py`, `console16.py` (game inputs). **The `snes` game stamp moves**: SNES exports are
-  rebuilt from their learned paths, without rediscovery. Host and build stamps, the SNES quick-state key and the base do not
-  move. Checked by `tools/snes_native_selftest.py` (BRK and COP in both modes, native against the reference, LoROM and HiROM)
+  *Edited:* `retrorecomp/snes_codegen.py`, `console16.py` (game inputs). **The `snes` game stamp moves**: SNES exports of
+  1.6.2 are converted in full, not upgraded, for the same reason as the 68000 consoles. This fix moves no host or build
+  stamp, no quick-state key and not the base. Checked by `tools/snes_native_selftest.py` (BRK and COP in both modes, native against the reference, LoROM and HiROM)
   and a Super Mario World conversion (0 interpreted opcodes on the tested routes). Not changed: hardware NMI and IRQ in
   emulation mode, which behave as in native mode (rare: games switch to native mode at start).
 - **Master System and Game Gear, "functions" engine: no direct call to a paged address.** The generator no longer turns a
