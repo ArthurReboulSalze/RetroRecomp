@@ -64,7 +64,8 @@ class MegaDriveProfile(SystemProfile):
 class SnesProfile(SystemProfile):
     id = 'snes'
     name = 'Super Nintendo'
-    extensions = ('.sfc', '.smc')
+    # .fig is the Pro Fighter copier's extension: a 512-byte copier header before the image, like .smc.
+    extensions = ('.sfc', '.smc', '.fig')
     export_folder = 'Super Nintendo'
     video_modes = ('ntsc', 'pal')
     cpus = (Cpu('65816', 'main', 'instructions'), Cpu('spc700', 'sound', 'instructions'))

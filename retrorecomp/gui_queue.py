@@ -322,7 +322,7 @@ class QueueMixin:
 
     def choose_roms(self):
         paths = filedialog.askopenfilenames(title=self.tr('pick_roms'), initialdir=ROOT / 'ROMS',
-            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.md *.gen *.pce *.dim *.xdf *.m3u'),
+            filetypes=[('ROM files', '*.sms *.gg *.gb *.zip *.bin *.rom *.gbc *.gba *.nes *.sfc *.smc *.fig *.md *.gen *.pce *.dim *.xdf *.m3u'),
                        ('All files', '*.*')])
         self.import_paths(paths)
 

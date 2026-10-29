@@ -191,6 +191,21 @@ class ExtensionSetTests(unittest.TestCase):
         self.assertLessEqual({'.sms', '.gg', '.gb', '.nes', '.md', '.gen', '.sfc', '.smc', '.neo',
                               '.dim', '.xdf', '.m3u'}, own)
 
+    def test_fig_is_the_super_nintendo_copier_extension_and_no_other_machines(self):
+        # The Pro Fighter copier's extension (a 512-byte header before the image, like .smc): one machine reads it,
+        # the others keep the extensions they had.
+        self.assertIn('.fig', systems.ROM_CANDIDATE_EXTENSIONS)
+        owners = [profile.id for profile in ALL_PROFILES if '.fig' in profile.extensions]
+        self.assertEqual(owners, ['snes'])
+        self.assertIn('.fig', systems.MAX_ARCHIVED_ROM_BYTES)
+        before = {'sms': ('.sms',), 'gg': ('.gg',), 'gb': ('.gb',), 'nes': ('.nes',), 'md': ('.md', '.gen'),
+                  'snes': ('.sfc', '.smc'), 'ng': ('.neo',), 'x68': ('.dim', '.xdf', '.m3u'), 'cps1': ('.zip',)}
+        for profile in ALL_PROFILES:
+            if profile.id in before:
+                self.assertEqual(tuple(profile.extensions)[:len(before[profile.id])], before[profile.id], profile.id)
+                if profile.id != 'snes':
+                    self.assertEqual(tuple(profile.extensions), before[profile.id], profile.id)
+
 
 # --- the detection table ----------------------------------------------------------------------------
 
@@ -277,7 +292,8 @@ class DetectionTableTests(unittest.TestCase):
                 'sms-copier.sms': sms_rom(region=6, offset=512, size=0x8000 + 512),
                 'short-header.sms': sms_rom(region=6)[:0x7ff0 + 15], 'UPPER.SMS': sms_rom(region=6),
                 'game.gb': gb_rom(), 'game.nes': nes_rom(), 'game.md': md_rom(), 'game.gen': bytes(100),
-                'game.sfc': snes_rom(), 'game.smc': snes_rom(copier=True), 'md.bin': md_rom(), 'md.rom': md_rom(),
+                'game.sfc': snes_rom(), 'game.smc': snes_rom(copier=True), 'game.fig': snes_rom(copier=True),
+                'md.bin': md_rom(), 'md.rom': md_rom(),
                 'md-short.bin': md_rom()[:0x3ff], 'nes.bin': nes_rom(),
                 'nes-and-md.bin': nes_rom()[:0x100] + b'SEGA' + bytes(0x8000), 'sms.bin': sms_rom(region=4),
                 'gg.rom': sms_rom(region=6), 'snes.bin': snes_rom(), 'snes-copier.rom': snes_rom(copier=True),
@@ -289,6 +305,7 @@ class DetectionTableTests(unittest.TestCase):
         zipped(cls.root / 'z-sms.zip', [('game.sms', sms_rom(region=0))])
         zipped(cls.root / 'z-gg.zip', [('game.gg', sms_rom(region=4))])
         zipped(cls.root / 'z-md.zip', [('game.md', md_rom())])
+        zipped(cls.root / 'z-fig.zip', [('game.fig', snes_rom(copier=True))])
         zipped(cls.root / 'z-bin-nes.zip', [('game.bin', nes_rom())])
         zipped(cls.root / 'z-bin-snes.zip', [('game.bin', snes_rom())])
         zipped(cls.root / 'z-bin-sega.zip', [('game.bin', sms_rom(region=6))])
@@ -312,7 +329,8 @@ class DetectionTableTests(unittest.TestCase):
         ('plain.gg', None, 'gg'), ('sms-3ff0.sms', None, 'gg'), ('sms-copier.sms', None, 'gg'),
         ('short-header.sms', None, 'sms'), ('UPPER.SMS', None, 'gg'), ('missing.sms', None, 'sms'),
         ('game.gb', None, 'gb'), ('game.nes', None, 'nes'), ('game.md', None, 'md'), ('game.gen', None, 'md'),
-        ('game.sfc', None, 'snes'), ('game.smc', None, 'snes'), ('missing.nes', None, 'nes'),
+        ('game.sfc', None, 'snes'), ('game.smc', None, 'snes'), ('game.fig', None, 'snes'), ('z-fig.zip', None, 'snes'),
+        ('missing.nes', None, 'nes'),
         # headerless dumps, sniffed in the order NES, Mega Drive, Sega, SNES, Game Boy
         ('md.bin', None, 'md'), ('md.rom', None, 'md'), ('nes.bin', None, 'nes'), ('nes-and-md.bin', None, 'nes'),
         ('sms.bin', None, 'sms'), ('gg.rom', None, 'gg'), ('snes.bin', None, 'snes'), ('snes-copier.rom', None, 'snes'),
