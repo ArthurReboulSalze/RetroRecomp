@@ -231,7 +231,11 @@ def parent_archives(game: NeoGeoSet, catalogue: list[dict]) -> list[tuple[Path, 
     return [(parent, records)]
 
 
-def validate_bios(path: Path) -> dict:
+def validate_bios(path: Path | None) -> dict:
+    # No BIOS chosen (an empty Options field): say so, instead of failing deeper on a missing path.
+    if path is None:
+        raise ValueError('Neo Geo needs the MVS BIOS archive (neogeo.zip): choose it in Options, Neo Geo page, '
+                         'then convert again.')
     members = archive_members(path, hash_contents=True)
     by_name = {item['name']: item for item in members}
     selected = []

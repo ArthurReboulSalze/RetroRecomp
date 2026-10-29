@@ -40,6 +40,14 @@ class NeoGeoInputsTests(unittest.TestCase):
         target.write_bytes(header+b'\0'*sum(lengths)+trailing)
         return target
 
+    def test_no_bios_chosen_says_so(self):
+        # An empty BIOS field in Options reached validate_bios(None), and the player read
+        # "'NoneType' object has no attribute 'stat'" (1.6.4 installer test).
+        with self.assertRaisesRegex(ValueError, 'MVS BIOS archive'):
+            validate_bios(None)
+        with self.assertRaisesRegex(ValueError, 'MVS BIOS archive'):
+            NEOGEO.request_identity(None, {'ng_bios': ''}, {})
+
     def test_program_crc_identifies_a_renamed_zip(self):
         self.assertEqual(identify_set(self.path,self.catalogue)['set'],'authored')
 
