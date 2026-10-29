@@ -7,7 +7,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -34,8 +35,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -54,7 +60,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -81,8 +88,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -104,7 +116,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -131,8 +144,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -155,6 +173,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -190,6 +209,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -226,8 +246,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -238,7 +263,7 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s26/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s30/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
@@ -252,6 +277,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -263,6 +289,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -274,6 +312,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -298,7 +337,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -325,8 +365,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -362,6 +407,7 @@
     "X68000: independent keyboard exploration (4000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -397,6 +443,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -439,8 +486,17 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -464,6 +520,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -475,6 +532,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -488,6 +546,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -499,6 +558,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -510,6 +570,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -521,6 +582,38 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -532,6 +625,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -559,6 +653,7 @@
     "X68000: independent keyboard exploration (4000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -594,6 +689,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -636,8 +732,17 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -648,7 +753,7 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s30/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s34/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
@@ -661,6 +766,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -672,6 +778,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -685,6 +792,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -696,6 +804,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -707,6 +816,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -718,6 +828,38 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -729,6 +871,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -757,6 +900,7 @@
     "X68000: independent long-1 exploration (18000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -792,6 +936,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -837,8 +982,19 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-1 frames=18000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/long-1 frames=18000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
+    "liveness packed/long-1 frames=18000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -862,6 +1018,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -873,6 +1030,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -884,6 +1042,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-1",
       "trace_sha256": "3e5e7b255f240fb8cef5ac3ac96a7aebc65f72592175f85e37ea4649c5913ea6"
@@ -897,6 +1056,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -908,6 +1068,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -919,6 +1080,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -930,6 +1092,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-1",
       "trace_sha256": "3e5e7b255f240fb8cef5ac3ac96a7aebc65f72592175f85e37ea4649c5913ea6"
@@ -941,6 +1104,48 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 18000,
+      "frames": 18000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "long-1"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -952,6 +1157,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -976,7 +1182,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -1003,8 +1210,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks"
    ],
    "outcome": {
@@ -1020,7 +1232,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -1047,8 +1260,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks"
    ],
    "outcome": {
@@ -1065,6 +1283,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1100,6 +1319,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1136,8 +1356,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1162,6 +1387,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1173,6 +1399,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -1184,6 +1422,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -1208,7 +1447,8 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
    ],
    "library": {},
    "log": [
@@ -1235,8 +1475,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks"
    ],
    "outcome": {
@@ -1255,6 +1500,7 @@
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1295,6 +1541,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1342,8 +1589,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-2/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1368,6 +1620,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1379,6 +1632,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -1390,6 +1655,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -1419,6 +1685,7 @@
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1464,6 +1731,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1522,8 +1790,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1548,6 +1821,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1559,6 +1833,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -1570,6 +1856,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -1597,6 +1884,7 @@
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
     "X68000: no new guarded encodings; remaining interpreter use stays reported.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1632,6 +1920,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1668,8 +1957,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1694,6 +1988,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -1705,6 +2000,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -1716,6 +2023,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -1741,6 +2049,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1776,6 +2085,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 4200,
       "state_restart_match": true
@@ -1812,8 +2122,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=5000 events=inputs.tsv observe=False extra=['--state-save-at', '4200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=5000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1838,6 +2153,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 4200,
       "state_restart_match": true
@@ -1849,6 +2165,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 5000,
+      "frames": 5000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -1860,6 +2188,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -1885,6 +2214,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -1920,6 +2250,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 9200,
       "state_restart_match": true
@@ -1956,8 +2287,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=10000 events=inputs.tsv observe=False extra=['--state-save-at', '9200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=10000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -1982,6 +2318,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 9200,
       "state_restart_match": true
@@ -1993,6 +2330,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 10000,
+      "frames": 10000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2004,6 +2353,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -2029,6 +2379,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -2064,6 +2415,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2100,8 +2452,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -2126,6 +2483,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2137,6 +2495,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2148,6 +2518,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -2181,6 +2552,53 @@
    ],
    "outcome": {
     "message": "Invalid bounded X68000 qualification inputs.",
+    "raised": "ConversionError"
+   },
+   "report": null
+  },
+  "main_picture_never_changes": {
+   "builds": 1,
+   "emitted": [
+    "X68000: verifying exact disks, IPL, font ROM and machine settings.",
+    "X68000: fresh reference and discovery of RAM/IPL code.",
+    "X68000 scan level quick: 0 exploration routes besides the main route.",
+    "X68000: mouse controls off; 0 mouse reads on fresh routes.",
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
+   ],
+   "library": {},
+   "log": [
+    "enter code_generation",
+    "generate discovery rows=0 receipts=None",
+    "exit code_generation",
+    "enter compile",
+    "native.build discovery extra=['-DFAKE']",
+    "exit compile",
+    "prepare_bundle reference title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "enter native_runs",
+    "exit native_runs",
+    "enter code_generation",
+    "generate native rows=1 receipts='receipt'",
+    "exit code_generation",
+    "enter compile",
+    "build_player native machine=['-DFAKE']",
+    "exit compile",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1 frames=4000 events=inputs.tsv observe=True extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit native_runs",
+    "enter native_runs",
+    "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000"
+   ],
+   "outcome": {
+    "message": "X68000 main route: the picture never changed.",
     "raised": "ConversionError"
    },
    "report": null
@@ -2224,6 +2642,354 @@
    },
    "report": null
   },
+  "packed_executable_left_unpacked": {
+   "builds": 1,
+   "emitted": [
+    "X68000: verifying exact disks, IPL, font ROM and machine settings.",
+    "X68000: fresh reference and discovery of RAM/IPL code.",
+    "X68000 scan level standard: 2 exploration routes besides the main route.",
+    "X68000: independent mouse exploration (4000 frames).",
+    "X68000: independent keyboard exploration (4000 frames).",
+    "X68000: mouse controls off; 0 mouse reads on fresh routes.",
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the unpacked executable with the fresh reference.",
+    "X68000: validated standalone player ready (experimental profile)."
+   ],
+   "library": {
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/compilation.json": {
+     "fresh_reference_passed": true,
+     "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+     "guarded_variants": 1,
+     "mouse_controls": false,
+     "private_development_only": true,
+     "rom_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "schema": 1,
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+     "system": "x68",
+     "title": "Fake Game"
+    },
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/mmmmmmmmmmmmmmmm/converter-observations.json": {
+     "schema": 1,
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+     "truncated": false,
+     "variants": [
+      {
+       "hits": 1,
+       "pc": 8192,
+       "words": "4e71"
+      }
+     ]
+    },
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/mmmmmmmmmmmmmmmm/converter-qualification.json": {
+     "check": {
+      "boot_frames": 200,
+      "boot_state_restart_match": true,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "state_frame": 3200,
+      "state_restart_match": true
+     },
+     "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+     "observations_sha256": "<sha256>",
+     "private_only": true,
+     "schema": 1,
+     "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"
+    }
+   },
+   "log": [
+    "enter code_generation",
+    "generate discovery rows=0 receipts=None",
+    "exit code_generation",
+    "enter compile",
+    "native.build discovery extra=['-DFAKE']",
+    "exit compile",
+    "prepare_bundle reference title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "prepare_bundle reference-mouse title=Fake Game ram=2",
+    "prepare_bundle reference-<X> title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference-mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference-<X> frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "enter code_generation",
+    "generate native rows=1 receipts='receipt'",
+    "exit code_generation",
+    "enter compile",
+    "build_player native machine=['-DFAKE']",
+    "exit compile",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1 frames=4000 events=inputs.tsv observe=True extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit native_runs",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
+    "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "exit state_checks",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
+    "exit state_checks",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot-restart frames=40 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot/datas/games/boot-game/quick.rrstate'] binary=player.exe",
+    "exit state_checks",
+    "verify_sources"
+   ],
+   "outcome": {
+    "returned": "<T>/s27/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+   },
+   "report": {
+    "automatic_disk_requests": false,
+    "executable": "Fake Game",
+    "exploration_checks": [
+     {
+      "automatic_disk_changes": 0,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "route": "mouse",
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "route": "keyboard",
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     }
+    ],
+    "final_checks": [
+     {
+      "boot_frames": 200,
+      "boot_state_restart_match": true,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "state_frame": 3200,
+      "state_restart_match": true
+     },
+     {
+      "automatic_disk_changes": 0,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "route": "mouse",
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     },
+     {
+      "automatic_disk_changes": 0,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "media_events": [],
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "route": "keyboard",
+      "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
+     }
+    ],
+    "game_states": {
+     "fresh_process_verified": true,
+     "load_key": "F9",
+     "save_key": "F8",
+     "supported": true
+    },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
+    "mouse_controls": {
+     "enabled": false,
+     "listed": null,
+     "mouse_code_loaded": false,
+     "mouse_reads": 0,
+     "remembered": false
+    },
+    "native_validation": {
+     "generation": {
+      "files": 3
+     },
+     "packed_reference_match": true,
+     "passed": true,
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+    },
+    "qualification_inputs_sha256": "<sha256>",
+    "scan_level": "standard",
+    "status": "experimental",
+    "system": {
+     "id": "x68",
+     "name": "Sharp X68000"
+    },
+    "video_model": {
+     "fps": 55.46,
+     "frameskip": false,
+     "standard": "native"
+    }
+   }
+  },
+  "packed_main_trace_diverges": {
+   "builds": 1,
+   "emitted": [
+    "X68000: verifying exact disks, IPL, font ROM and machine settings.",
+    "X68000: fresh reference and discovery of RAM/IPL code.",
+    "X68000 scan level quick: 0 exploration routes besides the main route.",
+    "X68000: mouse controls off; 0 mouse reads on fresh routes.",
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
+   ],
+   "library": {},
+   "log": [
+    "enter code_generation",
+    "generate discovery rows=0 receipts=None",
+    "exit code_generation",
+    "enter compile",
+    "native.build discovery extra=['-DFAKE']",
+    "exit compile",
+    "prepare_bundle reference title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "enter native_runs",
+    "exit native_runs",
+    "enter code_generation",
+    "generate native rows=1 receipts='receipt'",
+    "exit code_generation",
+    "enter compile",
+    "build_player native machine=['-DFAKE']",
+    "exit compile",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1 frames=4000 events=inputs.tsv observe=True extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit native_runs",
+    "enter native_runs",
+    "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays"
+   ],
+   "outcome": {
+    "message": "X68000 main: the compressed executable differs from the fresh reference; existing export preserved.",
+    "raised": "ConversionError"
+   },
+   "report": null
+  },
+  "packed_route_trace_diverges": {
+   "builds": 1,
+   "emitted": [
+    "X68000: verifying exact disks, IPL, font ROM and machine settings.",
+    "X68000: fresh reference and discovery of RAM/IPL code.",
+    "X68000 scan level standard: 2 exploration routes besides the main route.",
+    "X68000: independent mouse exploration (4000 frames).",
+    "X68000: independent keyboard exploration (4000 frames).",
+    "X68000: mouse controls off; 0 mouse reads on fresh routes.",
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference."
+   ],
+   "library": {},
+   "log": [
+    "enter code_generation",
+    "generate discovery rows=0 receipts=None",
+    "exit code_generation",
+    "enter compile",
+    "native.build discovery extra=['-DFAKE']",
+    "exit compile",
+    "prepare_bundle reference title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "prepare_bundle reference-mouse title=Fake Game ram=2",
+    "prepare_bundle reference-<X> title=Fake Game ram=2",
+    "enter reference_runs",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference-mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "replay reference tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/reference-<X> frames=4000 events=inputs.tsv observe=True extra=[] binary=reference.exe",
+    "exit reference_runs",
+    "enter code_generation",
+    "generate native rows=1 receipts='receipt'",
+    "exit code_generation",
+    "enter compile",
+    "build_player native machine=['-DFAKE']",
+    "exit compile",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1 frames=4000 events=inputs.tsv observe=True extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit native_runs",
+    "enter native_runs",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
+    "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays"
+   ],
+   "outcome": {
+    "message": "X68000 mouse: the compressed executable differs from the fresh reference; existing export preserved.",
+    "raised": "ConversionError"
+   },
+   "report": null
+  },
   "passes_as_text": {
    "builds": 2,
    "emitted": [
@@ -2235,6 +3001,7 @@
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -2280,6 +3047,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2327,8 +3095,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-2/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -2353,6 +3126,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2364,6 +3138,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2375,6 +3161,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -2419,6 +3206,7 @@
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -2504,6 +3292,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2639,8 +3428,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-10/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -2665,6 +3459,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2676,6 +3471,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2687,6 +3494,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -2713,6 +3521,7 @@
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 5 fallback instructions observed; extending guarded code coverage.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -2753,6 +3562,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2789,8 +3599,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -2815,6 +3630,7 @@
       "interpreted_opcodes": 5,
       "interpreter_percent": 4.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2826,6 +3642,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2837,6 +3665,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -2862,6 +3691,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -2897,6 +3727,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2933,8 +3764,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -2945,7 +3781,7 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s40/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s44/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
@@ -2959,6 +3795,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -2970,6 +3807,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -2981,6 +3830,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -3026,6 +3876,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -3061,6 +3912,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3097,8 +3949,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -3123,6 +3980,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3134,6 +3992,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -3145,6 +4015,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -3177,6 +4048,7 @@
     "X68000: 6 fallback instructions observed; extending guarded code coverage.",
     "X68000: comparing the standalone export with the fresh reference.",
     "X68000: 6 fallback instructions observed; extending guarded code coverage.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -3257,6 +4129,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3325,8 +4198,17 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-3/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -3350,6 +4232,7 @@
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3361,6 +4244,7 @@
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3374,6 +4258,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3385,6 +4270,7 @@
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3396,6 +4282,7 @@
       "interpreter_percent": 2.4390243902439024,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3407,6 +4294,38 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -3418,6 +4337,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -3545,6 +4465,7 @@
     "X68000: replaying 2 exploration routes, 2 at a time.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -3580,6 +4501,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3622,8 +4544,17 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -3647,6 +4578,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3658,6 +4590,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3671,6 +4604,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3682,6 +4616,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3693,6 +4628,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3704,6 +4640,38 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -3715,6 +4683,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -3742,6 +4711,7 @@
     "X68000: independent keyboard exploration (4000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -3777,6 +4747,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3819,8 +4790,17 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/mouse frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/keyboard frames=4000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -3844,6 +4824,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3855,6 +4836,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3868,6 +4850,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -3879,6 +4862,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3890,6 +4874,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -3901,6 +4886,38 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -3912,6 +4929,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -3937,6 +4955,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -3972,6 +4991,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4008,8 +5028,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -4020,7 +5045,7 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s32/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s36/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
@@ -4034,6 +5059,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4045,6 +5071,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -4056,6 +5094,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -4097,6 +5136,7 @@
     "X68000: independent long-3 exploration (36000 frames).",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -4132,6 +5172,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4183,8 +5224,23 @@
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-2 frames=36000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/long-3 frames=36000 events=inputs.tsv observe=True extra=[] binary=player.exe",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/mouse frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/keyboard frames=4000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/long-1 frames=36000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/long-2 frames=36000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/long-3 frames=36000 events=inputs.tsv observe=False extra=[] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "liveness packed/mouse frames=4000",
+    "liveness packed/keyboard frames=4000",
+    "liveness packed/long-1 frames=36000",
+    "liveness packed/long-2 frames=36000",
+    "liveness packed/long-3 frames=36000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -4208,6 +5264,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -4219,6 +5276,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -4230,6 +5288,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-1",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4241,6 +5300,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-2",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4252,6 +5312,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-3",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4265,6 +5326,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4276,6 +5338,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "mouse",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -4287,6 +5350,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "keyboard",
       "trace_sha256": "1574201cbb0c07f4e116380227869d6ea81409791cd1b2520b1bfacd1b3739df"
@@ -4298,6 +5362,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-1",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4309,6 +5374,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-2",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4320,6 +5386,7 @@
       "interpreter_percent": 0.0,
       "media_events": [],
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "route": "long-3",
       "trace_sha256": "d24a0b53467f7de27c1f09d0108df3a047687b3e5bcbfbb60a7b29230801d425"
@@ -4331,6 +5398,68 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "mouse"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "keyboard"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 36000,
+      "frames": 36000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "long-1"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 36000,
+      "frames": 36000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "long-2"
+     },
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 36000,
+      "frames": 36000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "long-3"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -4342,6 +5471,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },
@@ -4367,6 +5497,7 @@
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
     "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: comparing the compressed executable with the fresh reference.",
     "X68000: validated standalone player ready (experimental profile)."
    ],
    "library": {
@@ -4402,6 +5533,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4438,8 +5570,13 @@
     "exit native_runs",
     "enter native_runs",
     "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
     "enter state_checks",
-    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
     "exit state_checks",
     "enter state_checks",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
@@ -4450,7 +5587,7 @@
     "verify_sources"
    ],
    "outcome": {
-    "returned": "<T>/s37/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
+    "returned": "<T>/s41/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
    "report": {
     "automatic_disk_requests": false,
@@ -4464,6 +5601,7 @@
       "interpreted_opcodes": 0,
       "interpreter_percent": 0.0,
       "native_entries": 120,
+      "packed_reference_match": true,
       "reference_match": true,
       "state_frame": 3200,
       "state_restart_match": true
@@ -4475,6 +5613,18 @@
      "save_key": "F8",
      "supported": true
     },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 5,
+      "route": "main"
+     }
+    ],
     "mouse_controls": {
      "enabled": false,
      "listed": null,
@@ -4486,6 +5636,7 @@
      "generation": {
       "files": 3
      },
+     "packed_reference_match": true,
      "passed": true,
      "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
     },

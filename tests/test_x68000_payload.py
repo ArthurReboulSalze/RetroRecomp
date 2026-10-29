@@ -45,6 +45,9 @@ static inline const void *rr_resource(unsigned id,size_t *size) {
 #endif
 '''
 
+# What a player's session leaves in the writable disk: other bytes, the same size.
+PLAYED = b'the player wrote it'
+
 CONTENT = {'media/disk-01.d88': b'authored disk bytes', 'media/game.m3u': b'disk-01.d88\n',
            'system/keropi/iplrom.dat': b'authored ipl bytes'}
 
@@ -130,15 +133,69 @@ class LongPathPayloadTests(unittest.TestCase):
                 self.assertEqual(handle.read(), content, name)
         self.assertEqual(sorted(os.listdir(extended(game / 'media'))), ['disk-01.d88', 'game.m3u'])
         self.assertTrue(os.path.isfile(extended(game / 'session.lock')))
-        # A second start finds the same files, keeps a writable disk the player changed and refuses a changed host file.
+        # A second start finds the same files and keeps a writable disk the player changed (a floppy keeps its size).
         with open(extended(game / 'media/disk-01.d88'), 'wb') as handle:
-            handle.write(b'the player wrote here')
+            handle.write(PLAYED)
         self.assertEqual(self.prepare(base)[0], 0)
         with open(extended(game / 'media/disk-01.d88'), 'rb') as handle:
-            self.assertEqual(handle.read(), b'the player wrote here')
-        with open(extended(game / 'media/game.m3u'), 'wb') as handle:
-            handle.write(b'changed')
-        self.assertEqual(self.prepare(base), (1, 'PREPARE-FAILED'))
+            self.assertEqual(handle.read(), PLAYED)
+
+    def written(self, game, name):
+        with open(extended(game / name), 'rb') as handle:
+            return handle.read()
+
+    def test_a_writable_disk_survives_every_start_and_a_second_build_of_the_same_game(self):
+        # The folder is named by the machine identity, which a reconversion of the same disks, IPL, font ROM and RAM
+        # keeps: the new build finds the played disk where the old one left it. The stub build is one binary, so
+        # "the second build" is the next start with the same embedded bytes.
+        base = self.folder(0)
+        game = self.game_folder(base)
+        self.assertEqual(self.prepare(base)[0], 0)
+        with open(game / 'media/disk-01.d88', 'wb') as handle:
+            handle.write(PLAYED)
+        for _ in range(3):
+            self.assertEqual(self.prepare(base)[0], 0)
+            self.assertEqual(self.written(game, 'media/disk-01.d88'), PLAYED)
+        self.assertEqual(sorted(os.listdir(game / 'media')), ['disk-01.d88', 'game.m3u'])
+
+    def test_a_writable_disk_of_another_size_is_set_aside_not_deleted_and_the_game_still_starts(self):
+        base = self.folder(0)
+        game = self.game_folder(base)
+        self.assertEqual(self.prepare(base)[0], 0)
+        for attempt, damaged in enumerate((b'', b'too short', b'x' * 5000), start=1):
+            with open(game / 'media/disk-01.d88', 'wb') as handle:
+                handle.write(damaged)
+            status, output = self.prepare(base)
+            self.assertEqual((status, output), (0, 'DIRECTORY ' + str(game)))
+            self.assertEqual(self.written(game, 'media/disk-01.d88'), CONTENT['media/disk-01.d88'])
+            self.assertEqual(self.written(game, f'media/disk-01.d88.unusable-{attempt}'), damaged)
+        self.assertEqual(sorted(os.listdir(game / 'media')),
+                         ['disk-01.d88', 'disk-01.d88.unusable-1', 'disk-01.d88.unusable-2', 'disk-01.d88.unusable-3',
+                          'game.m3u'])
+
+    def test_a_writable_disk_that_is_a_folder_or_missing_never_blocks_the_game(self):
+        base = self.folder(0)
+        game = self.game_folder(base)
+        self.assertEqual(self.prepare(base)[0], 0)
+        os.remove(game / 'media/disk-01.d88')
+        self.assertEqual(self.prepare(base)[0], 0)
+        self.assertEqual(self.written(game, 'media/disk-01.d88'), CONTENT['media/disk-01.d88'])
+        os.remove(game / 'media/disk-01.d88')
+        os.mkdir(game / 'media/disk-01.d88')
+        self.assertEqual(self.prepare(base)[0], 0)
+        self.assertEqual(self.written(game, 'media/disk-01.d88'), CONTENT['media/disk-01.d88'])
+        self.assertTrue(os.path.isdir(game / 'media/disk-01.d88.unusable-1'))
+
+    def test_a_changed_host_file_is_set_aside_and_written_again_from_the_executable(self):
+        base = self.folder(0)
+        game = self.game_folder(base)
+        self.assertEqual(self.prepare(base)[0], 0)
+        for name in ('media/game.m3u', 'system/keropi/iplrom.dat'):
+            with open(game / name, 'wb') as handle:
+                handle.write(b'changed')
+            self.assertEqual(self.prepare(base)[0], 0)
+            self.assertEqual(self.written(game, name), CONTENT[name])
+            self.assertEqual(self.written(game, name + '.unusable-1'), b'changed')
 
     def test_the_forward_slash_spelling_of_a_long_folder_works_too(self):
         base = self.folder(8)

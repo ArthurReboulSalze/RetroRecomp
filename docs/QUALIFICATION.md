@@ -28,7 +28,7 @@ owner-acceptance log. It makes no claim beyond them.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026)
+## Status matrix (27 October 2026; the X68000 column of 29 October 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -41,10 +41,10 @@ x68 = Sharp X68000.
 | G2 | P | P | P | P | P | Y | Y | Y | P |
 | G3 | Y | Y | P | P | Y | Y | Y | P | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
-| G5 | P | Y | ? | Y | Y | Y | Y | Y | P |
+| G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | P | P | Y | P | Y | - | ? |
-| G8 | ? | ? | ? | P | P | Y | Y | ? | ? |
+| G7 | - | - | P | P | Y | P | Y | - | P |
+| G8 | ? | ? | ? | P | P | Y | Y | ? | P |
 | G9 | P | P | P | P | Y | P | Y | P | P |
 | G10 | Y | Y | P | Y | P | P | P | ? | P |
 | G11 | P | P | P | P | P | P | P | P | P |
@@ -57,13 +57,51 @@ x68 = Sharp X68000.
 ### Caveats
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
-  Only ng and cps1 run G5 inside every conversion, and ng, cps1 and x68 run
-  G6 inside every conversion. Read G5 and G6 as "met per conversion" only for
-  those three.
+  Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
+  cps1 and x68 run G6 inside every conversion. Read G5 and G6 as "met per
+  conversion" only for those three.
 - G14 for NES, SNES, SMS, GG, GB, CPS-1 and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
   yet; they belong in the owner-acceptance table below when recorded.
+
+## Sharp X68000: evidence behind its column (29 October 2026)
+
+The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that
+shows it. `P` means a part is shown and the rest is named; nothing here says exact hardware, gameplay coverage or latency.
+
+| Gate | X68000 | Evidence | What is missing |
+|---|---|---|---|
+| G1 | Y | `retrorecomp/systems/x68000.py` (status `experimental`), [X68000.md](X68000.md), `tests/test_system_profiles.py` | |
+| G2 | P | Common report v2 (`report_schema.py`, `tests/test_report_schema.py`); the report carries `native_validation`, `final_checks`, `exploration_checks`, `liveness`, `packed_candidate_sha256` | Counters per device: the machine has no cartridge device, so one CPU section only; the old keys are still read by freshness and the library |
+| G3 | Y | `final_checks[].interpreted_opcodes` is 0 on the main, mouse and keyboard routes of the four risk cases (below) | Only on the routes run |
+| G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
+| G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
+| G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
+| G7 | P | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts | No real game was shown writing to its disk and finding it again after a reconversion: the disk image is written by the px68k floppy code, which the authored tests do not exercise |
+| G8 | P | `liveness` in every report, per route and for the delivered file (four risk cases below); captures looked at | Only R-Type (into its game-over screen) and Metal Sight (in play) reach play on the bounded routes; Super Hang-On and Lemmings stay on their title and menu screens, and Lemmings' audio is nearly constant (9 to 59 different audio blocks in 4,000 to 10,000 frames) |
+| G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
+| G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
+| G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
+| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection (Tetris v5, Pensan CD, TF4G v0.3A09) do not start on the reference; the list of games that do not convert is kept by the lead |
+| G13 | Y | Windows and Debian trace hashes match on the 19 sets | |
+| G14 | ? | No recorded owner decision (draft below) | Arthur's play test |
+| G15 | P | The five measures stay separate in the report and in [X68000.md](X68000.md) | The interface and the older documents have not all been read for this |
+| G16 | - | The X68000 shares no paths yet | |
+
+The four risk cases, converted one at a time with the 1.6.5 tree (standard scan level, `--no-online-cover`, an empty library;
+"pictures" is the number of different pictures of the delivered file on the route, out of 4,000 frames unless noted):
+
+| Game | Main route | Mouse route | Keyboard route | Interpreted opcodes | Seen on the captures |
+|---|---|---|---|---|---|
+| R-Type (Irem) | 1,744 pictures, 2,796 audio blocks | 2,169 / 2,829 | 1,693 / 2,845 | 0 | The game-over screen: play was reached |
+| Metal Sight (System Sacom) | 311 / 3,241 | 312 / 3,379 | 127 / 2,745 | 0, 2 automatic disk changes | In play (a mech shooter screen) |
+| Lemmings (Imagineer) | 993 / 59 | 5,756 / 9 (10,000 frames, 72,288 mouse reads) | 1,003 / 9 | 0 | The menu, with the mouse pointer and a level name; no level reached |
+| Super Hang-On (Sharp / SPS) | 74 / 3,131 | 1,939 / 8,638 (10,000 frames) | 74 / 3,131 | 0, no automatic disk change | The title screens; the game was not reached |
+
+A conversion took 133 to 186 seconds on the Windows build PC with these three routes (the compressed replays are 28 to 39 of
+them). Picture and sound changing is not gameplay validation, and a route that stays on a title screen proves only that the
+machine runs.
 
 ## Panel sizes
 
@@ -81,6 +119,19 @@ owner fills it in.
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 |  |  |  |  |  |
+
+### Draft for Arthur: Sharp X68000 play test (G14)
+
+A draft, not a record: the verdict and the notes are yours. Suggested games, each on the delivered executable and not on a
+reconversion of the day: R-Type (single disk, the control), Metal Sight (five disks: the disk changes), Lemmings (the mouse is
+captured at launch, Ctrl+Alt+M releases it), Super Hang-On (two disks, ejected after loading). For each: it starts without a
+window of errors; the controls answer (arrows, W and X, Enter; the mouse for Lemmings); the sound is the game's; F8 then F9
+restores; a disk change happens by itself where the game asks for one; and for a game that saves on its disk, save, close, start
+again and find the save, then reconvert the game and start the new executable to find it again.
+
+| Date | Console | Games tried | Verdict | Notes |
+|---|---|---|---|---|
+| (to fill) | Sharp X68000 | (to fill) | (to fill) | (to fill) |
 
 ## Running the verification campaign
 

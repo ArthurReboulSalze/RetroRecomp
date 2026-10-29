@@ -11,6 +11,11 @@ decisions of the gates on synthetic traces, exception types and messages. No ROM
 What the move changes on purpose is not in the golden but asserted on its own: the replays now run in the folder they
 write their evidence to (`ProcessContextTests`).
 Regenerate the values only on a tree known to be unchanged: `python tests/test_x68000_common.py --record`.
+
+One deliberate step in 1.6.5: `convert` now compresses a copy of the final player and replays it on every route (the packed
+replays, `liveness`), and the F9 checks load the state that compressed copy saved. The golden was recorded again on the tree with
+that step and checked against the previous one: each of the 41 earlier scenarios gives its previous log minus the new steps (and
+the state slot path), and the report and library records only gain `packed_reference_match` and `liveness`.
 """
 import contextlib
 import json
@@ -329,6 +334,10 @@ class Scenario:
             flaws = ((9, 999),)
         elif name == 'boot' and k.get('boot_diverge'):
             flaws = ((5, 999),)
+        elif folder.parent.name == 'packed' and name == 'main' and k.get('packed_diverge'):
+            flaws = ((11, 999),)
+        elif folder.parent.name == 'packed' and name != 'main' and k.get('packed_route_diverge'):
+            flaws = ((13, 999),)
         (folder / 'trace.tsv').write_text(fake_trace(frames, offset, flaws), encoding='ascii', newline='')
         if saving is not None:
             slot = folder / 'datas/games' / ('x68-fake' if name != 'boot' else 'boot-game') / 'quick.rrstate'
@@ -350,6 +359,18 @@ class Scenario:
             (folder / 'observations.json').write_text(json.dumps({'schema': 1, 'truncated': False, 'variants': variants}),
                                                       encoding='utf-8')
         return report
+
+    def pack_candidate(self, executable, packed, emit):
+        self.log.append(f'pack_candidate {Path(executable).name} -> {Path(packed).name}')
+        packed.write_bytes(Path(executable).read_bytes() + b' packed')
+        return {'notice': 'X68000: compression unavailable.'} if self.knobs.get('unpacked') else None
+
+    def route_liveness(self, folder, frames, result):
+        self.log.append(f'liveness {folder.parent.name}/{folder.name} frames={frames}')
+        pictures = 1 if self.knobs.get('static_picture') else 3
+        return {'frames': frames, 'distinct_pictures': pictures, 'distinct_audio_blocks': 2, 'distinct_ram_states': frames,
+                'distinct_program_counters': 4, 'nonblack_frames': result['nonblack_frames'],
+                'nonzero_samples': result['nonzero_samples']}
 
     def build_player(self, work, payload_dir, *, emit, machine=(), sdk=None):
         self.builds += 1
@@ -398,6 +419,8 @@ class Scenario:
             patch.object(conversion, 'machine_sources', lambda base, emit: ('-DFAKE',)),
             patch.object(conversion, 'payload', lambda *a, **k: {}),
             patch.object(conversion, 'build_player', self.build_player),
+            patch.object(conversion, 'pack_candidate', self.pack_candidate),
+            patch.object(conversion, 'route_liveness', self.route_liveness),
             patch.object(conversion, 'replay', self.replay),
             patch.object(conversion, 'write_report', lambda path, report: self.reports.append(report)),
             patch.object(conversion, 'toolchain_description', lambda: {'kind': 'fake'}),
@@ -440,7 +463,8 @@ def collect_convert(root):
             'outcome': answer, 'emitted': game.emitted, 'log': game.log, 'builds': game.builds,
             'report': None if report is None else {key: report[key] for key in (
                 'scan_level', 'final_checks', 'exploration_checks', 'mouse_controls', 'status', 'system', 'executable',
-                'automatic_disk_requests', 'qualification_inputs_sha256', 'native_validation', 'game_states', 'video_model')
+                'automatic_disk_requests', 'qualification_inputs_sha256', 'native_validation', 'game_states', 'video_model',
+                'liveness')
                 if key in report},
             'library': library}
 
@@ -468,6 +492,10 @@ def collect_convert(root):
     scenario('f9_first_compared_row_diverges', dict(f9_diverge=1))
     scenario('f9_last_compared_row_diverges', dict(f9_diverge=399))
     scenario('boot_diverges', dict(boot_diverge=True))
+    scenario('packed_main_trace_diverges', dict(packed_diverge=True))
+    scenario('packed_route_trace_diverges', dict(packed_route_diverge=True), scan_level='standard')
+    scenario('packed_executable_left_unpacked', dict(unpacked=True), scan_level='standard')
+    scenario('main_picture_never_changes', dict(static_picture=True))
     scenario('boot_f9_diverges', dict(boot_f9_diverge=30))
     scenario('boot_f9_frame_zero_is_not_compared', dict(boot_f9_diverge=0))
     scenario('boot_f9_first_compared_row_diverges', dict(boot_f9_diverge=1))
