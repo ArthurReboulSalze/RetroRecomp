@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from retrorecomp.paths import ROOT, ASSETS
 from retrorecomp.core import toolchain, run
-from retrorecomp.platforms import cmake_target_args, build_executable
+from retrorecomp.platforms import cmake_target_args, build_executable, sdl_install
 from autofire_selftest import source
 
 
@@ -119,7 +119,7 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT/'.build/start-select-selftest')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     for system,macros in SYSTEMS.items():(out/(system+'.c')).write_text(source(system,macros+TEST),encoding='utf-8')
-    cmake,generator=toolchain();sdl=ROOT/'.deps/SDL/install'
+    cmake,generator=toolchain();sdl=sdl_install()
     targets='\n'.join(f'add_executable({s} {s}.c)\ntarget_include_directories({s} PRIVATE "{(ASSETS/"native").as_posix()}")\ntarget_link_libraries({s} PRIVATE SDL2::SDL2-static)' for s in SYSTEMS)
     (out/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.20)\nproject(StartSelectChecks C)\nfind_package(SDL2 REQUIRED CONFIG)\n'+targets+'\n')
     log=out/'build.log'
