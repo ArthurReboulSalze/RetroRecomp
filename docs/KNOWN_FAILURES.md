@@ -43,9 +43,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Capcom CPS-1 | Street Fighter II World 910228 (`sf2ee`, `sf2ue`) | Refused by design | This revision needs a board-specific start-up, not handled | Refused by the catalogue; `sf2`, `sf2hf` and `sf2ce` convert | 24 October 2026 |
 | Capcom CPS-1 | Gamushara Battle! Puchi Monster (`pmonster`) | Refused by design | Marked not working in the reference description | Refused by the catalogue | 24 October 2026 |
 | Capcom CPS-1 | Bootlegs and hacks, 65 sets (for example `sf2ebbl`, `sf2rb`, `3wondersb`, `dinohunt`) | Refused by design | « Bootleg and modified sets are outside the supported CPS-1 scope » | Refused by the catalogue; the originals convert | 24 October 2026 |
-| Sharp X68000 | Tetris v5 (1991, Cyber Factory) | Failing | Start-up error on the interpreted reference, so no conversion can start | Seen in the survey of the 378 test-collection entries; cause not investigated yet | 24 October 2026 |
-| Sharp X68000 | Pensan CD (Tanaka Yuu) | Failing | Same start-up error on the reference | Same survey; not investigated yet | 24 October 2026 |
-| Sharp X68000 | TF4G v0.3A09 (1993, TNB Saisakusho) | Failing | Same start-up error on the reference (the v0.6426 version of the same title is not affected) | Same survey; not investigated yet | 24 October 2026 |
+| Sharp X68000 | Pensan CD (Tanaka Yuu) | Failing (cause found) | It runs and shows its title screen, but the conversion refuses it: "did not produce usable picture and PCM". The route plays no sound at all (the FM chip is set up, no key-on, no ADPCM, no MIDI in 4,000 frames), and the validation requires non-zero PCM | No crash; whether a silent route may be recorded instead of refused is a validation-rule decision, open | 24 October 2026, cause found 29 October 2026 |
 | Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
 
@@ -59,3 +57,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
   assembled, as the chip does; it converts with zero interpreted opcodes.
 - **Super Nintendo, Duel/Test Drive II and the Popeye translation** (29 October 2026). Their map-mode byte `$32` with no chip
   is now read as an ordinary LoROM.
+- **Sharp X68000, Tetris v5 and TF4G v0.3A09** (29 October 2026). Both crashed the reference on a first start when the game
+  reprogrammed the CRTC during a machine line: a line made visible before it was drawn indexed the line tables with the
+  "no line" marker. The line is now taken from the CRTC as it is then (`native/x68000_machine/glue_line.h`); both convert with
+  zero interpreted opcodes.
