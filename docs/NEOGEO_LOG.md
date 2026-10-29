@@ -13,6 +13,26 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Where a conversion spends its time, and the probes run side by side — 29 October 2026
+
+For 1.6.5. Read from the `timings` of 24 existing Neo Geo conversion reports (no new conversion for the reading; the PC was shared
+with other work, so the seconds are indicative and the shares are what matters). Median of the nine reports of the 1.6.5 tree,
+4 workers: code generation 15.5 s (7 %), compilation 42.0 s (19 %), profile training 30.5 s (14 %), reference runs 25.7 s (12 %),
+packed replays 26.8 s (12 %), F8/F9 state checks 24.2 s (11 %), ordinary-save checks 18.6 s (9 %), UPX packing 29.2 s (13 %),
+rest 4.1 s (2 %); total 224.8 s. Reports with 2 workers show reference runs of 48 to 63 s against 19 to 30 s with 4: the number of
+simultaneous probes matters. Puzzle Bobble 2 (an 8.5 MiB cartridge) compiled for 297 s with four jobs of a 24-CPU machine
+(total 596 s); the lead raised a game converted alone to up to eight compile jobs.
+
+- **The change.** The probes (route observation, packed replays, the F8/F9 checks' invalid-state probes) were capped at four, and at
+  one in a batch of eight, whatever the machine. They now run as many at a time as the conversion's CPU share allows: all the CPUs
+  alone, its share of a batch (`platforms.compilation_budget`, as the X68000 converter does), one per route (replays) and at most eight
+  (`neogeo_conversion.cpu_share`, `validation_workers`). A small machine is no longer oversubscribed.
+- **Proof, outputs unchanged.** `tools/ab_conversion.py` on puzzledp, the tree before and after: 390 compared files each, identical
+  except `validation_workers` of the report (4 then 5: five routes). Unit test of the share rules in `tests/test_neogeo_converter.py`.
+- **Not measured.** No timing of the gain: it is for a quiet PC. For a batch of eight on a 24-CPU machine each game now runs three
+  probes at a time (it ran one), so the machine is filled by the replays; the gain for a batch is for the same quiet-PC measurement.
+- **Not done.** A shorter profile training run (about 4 % of the time) is not proposed without a speed measurement of the game.
+
 ## Last Hope converts: a 64 KiB fixed-graphics ROM is repeated — 29 October 2026
 
 For 1.6.5. A real conversion of `lasthope` (NG:DEV.TEAM, bootleg AES to MVS conversion) stopped in 2 s at the container check
