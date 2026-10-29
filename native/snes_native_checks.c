@@ -79,6 +79,7 @@ int main(void) {
     cart.type = FIXTURE_CART_TYPE; cart.rom = cartridge; cart.romSize = sizeof cartridge;
     cart.romImageSize = FIXTURE_IMAGE_BYTES;
     machine.cart = &cart;
+    rr_snes_native_bind();
     unsigned cases = 0;
     for (unsigned mode = 0; mode < 32; ++mode) {
         Interp816 cpu = {0}; cpu.read = read_byte; cpu.write = write_byte;
@@ -121,12 +122,14 @@ int main(void) {
     uint8_t *mirror = cart_getRomPtr(&cart, cpu.k, cpu.pc);
     uint8_t saved = *mirror; *mirror = 0xa9;
     compare(cpu, false); ++cases; *mirror = saved;
-    /* Mapping and both image/storage lengths must match the generated map. */
+    /* Mapping and both image/storage lengths must match the generated map. The board is checked
+     * when the cartridge is bound, so each change is followed by a new bind. */
     cpu.k = 0; cpu.pc = 0x8000;
     cart.type = cart.type == CART_LOROM ? CART_HIROM : CART_LOROM;
-    compare(cpu, false); ++cases; cart.type = FIXTURE_CART_TYPE;
-    ++cart.romImageSize; compare(cpu, false); ++cases; --cart.romImageSize;
-    ++cart.romSize; compare(cpu, false); ++cases; --cart.romSize;
+    rr_snes_native_bind(); compare(cpu, false); ++cases; cart.type = FIXTURE_CART_TYPE;
+    ++cart.romImageSize; rr_snes_native_bind(); compare(cpu, false); ++cases; --cart.romImageSize;
+    ++cart.romSize; rr_snes_native_bind(); compare(cpu, false); ++cases; --cart.romSize;
+    rr_snes_native_bind();
     cpu.k=0x7e;cpu.pc=0x100;memcpy(g_ram+0x100,"\xa9\x34\x12\xea",4);
     mutate_fetch=true;compare(cpu,false);++cases;
     cpu.k=0;cpu.pc=0x8000;compare(cpu,false);++cases;mutate_fetch=false;
@@ -140,8 +143,32 @@ int main(void) {
         g_ram[cpu.pc]^=1;if(rr_snes_native_lookup(&cpu))return 7;
         ++cpu.pc;if(rr_snes_native_lookup(&cpu))return 6;
     }
+    /* The direct WRAM table must answer like the exact (PC, opcode) list: the authored
+     * observations are $7E:2000 with two opcodes, $00:0300 and $7E:0300 (the same WRAM byte under
+     * two banks, one opcode each). Operands are live; the fetched opcode must agree. */
+    {
+        static const struct { uint8_t bank; uint16_t pc; uint8_t opcode; bool native; } cases_ram[] = {
+            {0x7e,0x2000,0xa9,true}, {0x7e,0x2000,0xea,true}, {0x7e,0x2000,0xa5,false},
+            {0x00,0x0300,0xa9,true}, {0x00,0x0300,0xea,false},
+            {0x7e,0x0300,0xea,true}, {0x7e,0x0300,0xa9,false},
+            {0x80,0x0300,0xa9,false}, {0x7f,0x2000,0xa9,false}, {0x7e,0x2001,0xa9,false},
+        };
+        for (unsigned n = 0; n < sizeof cases_ram / sizeof *cases_ram; ++n) {
+            cpu.k = cases_ram[n].bank; cpu.pc = cases_ram[n].pc;
+            int32_t at = cpu_wram_offset(cpu.k, cpu.pc);
+            g_ram[at] = cases_ram[n].opcode; g_ram[at + 1] = 0x34; g_ram[at + 2] = 0x12; g_ram[at + 3] = 0xea;
+            const RrSnesNativeOp *found = rr_snes_native_lookup(&cpu);
+            if ((found != NULL) != cases_ram[n].native) return 10 + n;
+            if (found && found->opcode != cases_ram[n].opcode) return 30 + n;
+            /* A fetched opcode that differs from the live byte never selects the operation. */
+            if (rr_snes_native_lookup_fetched(((uint32_t)cpu.k << 16) | cpu.pc, (uint8_t)(cases_ram[n].opcode ^ 1))) return 50 + n;
+            if ((rr_snes_native_lookup_fetched(((uint32_t)cpu.k << 16) | cpu.pc, cases_ram[n].opcode) != NULL) !=
+                cases_ram[n].native) return 70 + n;
+        }
+    }
     printf("{\"instruction_state_bus_comparisons\":%u,\"ram_guards\":\"passed\","
            "\"rom_mutation_guard\":\"passed\",\"mapping_and_size_guards\":\"passed\","
-           "\"mirrored_storage\":\"passed\",\"guarded_positions_checked\":4096,\"passed\":true}\n", cases);
+           "\"mirrored_storage\":\"passed\",\"guarded_positions_checked\":4096,"
+           "\"wram_table_cases\":\"passed\",\"passed\":true}\n", cases);
     return cases != 16551;
 }

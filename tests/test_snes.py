@@ -83,9 +83,12 @@ class SnesNativeTests(unittest.TestCase):
         for mapping, cart in (('lorom', 'CART_LOROM'), ('hirom', 'CART_HIROM')):
             with self.subTest(mapping=mapping):
                 text = snes_codegen.native_source(source_fixture(), rom, mapping=mapping)
-                self.assertIn('g_snes->cart->type != ' + cart, text)
-                self.assertIn('g_snes->cart->romSize != 131072u', text)
-                self.assertIn('g_snes->cart->romImageSize != 98304u', text)
+                # Checked once, when the loaded cartridge is bound, not at every instruction.
+                self.assertIn('cart->type == ' + cart, text)
+                self.assertIn('cart->romSize == 131072u', text)
+                self.assertIn('cart->romImageSize == 98304u', text)
+                self.assertIn('bool rr_snes_native_bind(void)', text)
+                self.assertNotIn('g_snes->cart->type', text.split('static const RrSnesNativeOp *rr_sn_lookup')[1])
         with self.assertRaises(ConversionError):
             snes_codegen.native_source(source_fixture(), rom, mapping='exhirom')
 
@@ -125,6 +128,20 @@ class SnesNativeTests(unittest.TestCase):
         self.assertIn('rr_sn_ram[i].op->opcode==fetched',source)
         self.assertEqual(source.count('{8257792,&rr_sn_entry_a9}'),1)
         self.assertNotIn('{8448,&rr_sn_entry_ea}',source)
+
+    def test_wram_code_has_a_direct_table_and_keeps_the_search_for_shared_bytes(self):
+        guarded = snes_codegen.native_source(source_fixture(), bytes(range(256)),
+            [{'address': 0x7e0100, 'bytes': 'a93412ea'}])
+        # One load for the ordinary case; another bank or a second opcode on the same WRAM byte,
+        # and cartridge RAM, go to the exact (PC, opcode) search.
+        self.assertIn('rr_sn_wram_entry[offset]', guarded)
+        self.assertIn('return rr_sn_ram_search(pc, fetched);', guarded)
+        self.assertIn('((entry >> 8) & 0xffu) == (pc >> 16)', guarded)
+        self.assertIn('rr_sn_ram_mapped(pc)', guarded)
+        plain = snes_codegen.native_source(source_fixture(), bytes(range(256)))
+        self.assertNotIn('rr_sn_wram_entry', plain)
+        self.assertNotIn('rr_sn_ram_search', plain)
+        self.assertIn('if (!mapped) return NULL;', plain)
 
 
 class SnesMemoryTests(unittest.TestCase):

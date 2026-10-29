@@ -48,6 +48,7 @@ int main(void) {
     cart.type = FIXTURE_CART_TYPE; cart.rom = cartridge; cart.romSize = sizeof cartridge;
     cart.romImageSize = FIXTURE_IMAGE_BYTES;
     machine.cart = &cart;
+    rr_snes_native_bind();
     for (unsigned opcode = 0; opcode < 3; opcode += 2)
         for (unsigned emulation = 0; emulation < 2; ++emulation)
             for (unsigned native = 0; native < 2; ++native)

@@ -105,26 +105,96 @@ static const RrSnesNativeOp rr_sn_entry_{opcode:02x} = {{0x{opcode:02x}, rr_sn_o
                   and type(op) is int and 0<=op<=255})
     ram_table = ('static const struct { uint32_t pc; const RrSnesNativeOp *op; } '
         'rr_sn_ram[] = {' + ','.join(f'{{{pc},&rr_sn_entry_{op:02x}}}' for pc,op in ram) + '};\n') if ram else ''
-    ram_lookup = f'''if (!mapped) {{
-        uint8_t bytes[4];
-        if (!rr_snes_read_ram_code(pc, bytes)) return NULL;
-        unsigned lo=0,hi={len(ram)}u;
-        while(lo<hi) {{ unsigned mid=lo+(hi-lo)/2;
-            if(rr_sn_ram[mid].pc<pc) lo=mid+1; else hi=mid;
-        }}
-        for (unsigned i = lo; i < {len(ram)}u && rr_sn_ram[i].pc == pc; ++i)
-            /* Only the observed operation is static. Its operands and M/X
-             * widths are read by the compiled body through the timed bus. */
-            if (bytes[0] == rr_sn_ram[i].op->opcode)
-                return fetched<0 || rr_sn_ram[i].op->opcode==fetched ? rr_sn_ram[i].op : NULL;
-        return NULL;
-    }}''' if ram else 'if (!mapped) return NULL;'
+    operations = ('static const RrSnesNativeOp *const rr_sn_ops[256] = {' +
+                  ','.join(f'&rr_sn_entry_{opcode:02x}' for opcode in range(256)) + '};\n')
+    # The exact PC and opcode of a RAM instruction are looked up in a table indexed by the WRAM
+    # byte it sits at (one load for the ordinary case). An entry holds the first bank and opcode
+    # seen there; a WRAM byte reached under another bank (the low-bank mirrors) or with a second
+    # observed opcode is flagged shared and sent to the binary search over `rr_sn_ram`, so both
+    # paths give the same answer for every PC. Cartridge RAM code always takes the search.
+    ram_search = f'''static const RrSnesNativeOp *rr_sn_ram_search(uint32_t pc, int fetched) {{
+    uint8_t bytes[4];
+    if (!rr_snes_read_ram_code(pc, bytes)) return NULL;
+    unsigned lo=0,hi={len(ram)}u;
+    while(lo<hi) {{ unsigned mid=lo+(hi-lo)/2;
+        if(rr_sn_ram[mid].pc<pc) lo=mid+1; else hi=mid;
+    }}
+    for (unsigned i = lo; i < {len(ram)}u && rr_sn_ram[i].pc == pc; ++i)
+        /* Only the observed operation is static. Its operands and M/X
+         * widths are read by the compiled body through the timed bus. */
+        if (bytes[0] == rr_sn_ram[i].op->opcode)
+            return fetched<0 || rr_sn_ram[i].op->opcode==fetched ? rr_sn_ram[i].op : NULL;
+    return NULL;
+}}
+static uint32_t rr_sn_wram_entry[0x20000];
+static bool rr_sn_wram_filled;
+static bool rr_sn_ram_mapped(uint32_t pc) {{
+    for (unsigned n = 0; n < 4; ++n) {{
+        uint8_t bank = (uint8_t)(pc >> 16); uint16_t address = (uint16_t)(pc + n);
+        if (cpu_wram_offset(bank, address) < 0 &&
+            rr_snes_cart_ram_offset(g_snes ? g_snes->cart : NULL, bank, address) < 0) return false;
+    }}
+    return true;
+}}
+static void rr_sn_wram_fill(void) {{
+    if (rr_sn_wram_filled) memset(rr_sn_wram_entry, 0, sizeof rr_sn_wram_entry);
+    rr_sn_wram_filled = true;
+    for (unsigned i = 0; i < {len(ram)}u; ++i) {{
+        uint32_t pc = rr_sn_ram[i].pc;
+        int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
+        if (offset < 0 || !rr_sn_ram_mapped(pc)) continue;
+        uint32_t entry = 0x10000u | ((pc >> 16) << 8) | rr_sn_ram[i].op->opcode;
+        if (!rr_sn_wram_entry[offset]) rr_sn_wram_entry[offset] = entry;
+        else if ((rr_sn_wram_entry[offset] & 0xffffu) != (entry & 0xffffu)) rr_sn_wram_entry[offset] |= 0x20000u;
+    }}
+}}
+''' if ram else ''
+    ram_lookup = '''if (!mapped) {
+        int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)pc);
+        if (offset >= 0) {
+            uint32_t entry = rr_sn_wram_entry[offset];
+            if (!entry) return NULL;
+            uint8_t live = g_ram[offset];
+            if (((entry >> 8) & 0xffu) == (pc >> 16) && (entry & 0xffu) == live)
+                return fetched<0 || live==fetched ? rr_sn_ops[live] : NULL;
+            if (!(entry & 0x20000u)) return NULL;
+        }
+        return rr_sn_ram_search(pc, fetched);
+    }''' if ram else 'if (!mapped) return NULL;'
+    fill = 'rr_sn_wram_fill();' if ram else ''
+    if cart_type == 'CART_SUPERFX':
+        rom_ptr = '''/* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
+     * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
+     * ($40-$5F) views; the fetched-opcode check below still rejects a byte the
+     * GSU bus replaced while the coprocessor owns ROM. */
+    uint8_t b = bank & 0x7f;
+    if (b < 0x40 && adr >= 0x8000)
+        return &rr_sn_cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % rr_sn_cart->romSize];
+    if (b >= 0x40 && b < 0x60)
+        return &rr_sn_cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % rr_sn_cart->romSize];
+    return NULL;'''
+    else:
+        rom_ptr = 'return cart_getRomPtr(rr_sn_cart, bank, adr);'
     return ('/* Generated ROM-PC operation map. LakeSnes/snesrecomp notices retained. */\n'
-        '#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
+        '#include <string.h>\n#include "types.h"\n#include "cpu_state.h"\n#include "snes/snes.h"\n'
         '#include "snes/cart.h"\n#include "snes_cart.h"\nextern Snes *g_snes;\nextern uint8_t g_ram[0x20000];\n' +
-        '\n'.join(functions) + tables + '\n' + mapping + ram_table + f'''
-static bool rr_sn_enabled;
-void rr_snes_native_set_enabled(bool enabled) {{ rr_sn_enabled = enabled; }}
+        '\n'.join(functions) + tables + '\n' + mapping + ram_table + operations + f'''
+{ram_search}static bool rr_sn_enabled, rr_sn_bound, rr_sn_active;
+static Cart *rr_sn_cart;
+/* The cartridge is loaded once, before the first instruction: its board, storage and image
+ * length are checked here, once, not at every instruction. Call again after any change. */
+bool rr_snes_native_bind(void) {{
+    Cart *cart = g_snes ? g_snes->cart : NULL;
+    rr_sn_bound = false; rr_sn_cart = NULL;
+    if (cart && cart->type == {cart_type} && cart->romSize == {len(bus_rom)}u &&
+        cart->romImageSize == {len(rom)}u) {{
+        rr_sn_cart = cart; rr_sn_bound = true;
+        {fill}
+    }}
+    rr_sn_active = rr_sn_enabled && rr_sn_bound;
+    return rr_sn_bound;
+}}
+void rr_snes_native_set_enabled(bool enabled) {{ rr_sn_enabled = enabled; rr_sn_active = enabled && rr_sn_bound; }}
 bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
     for (unsigned n = 0; n < 4; ++n) {{
         int32_t offset = cpu_wram_offset((uint8_t)(pc >> 16), (uint16_t)(pc + n));
@@ -139,25 +209,13 @@ bool rr_snes_read_ram_code(uint32_t pc, uint8_t bytes[4]) {{
     return true;
 }}
 static uint8_t *rr_sn_rom_ptr(uint8_t bank, uint16_t adr) {{
-    /* The pinned loader gives Super FX boards no ROM pointer: the CPU reads ROM
-     * through the GSU bus. Code lookup uses the same LoROM ($00-$3F) and linear
-     * ($40-$5F) views; the fetched-opcode check below still rejects a byte the
-     * GSU bus replaced while the coprocessor owns ROM. */
-    if (g_snes->cart->type != CART_SUPERFX) return cart_getRomPtr(g_snes->cart, bank, adr);
-    uint8_t b = bank & 0x7f;
-    if (b < 0x40 && adr >= 0x8000)
-        return &g_snes->cart->rom[(((uint32_t)b << 15) | (adr & 0x7fffu)) % g_snes->cart->romSize];
-    if (b >= 0x40 && b < 0x60)
-        return &g_snes->cart->rom[(((uint32_t)(b - 0x40) << 16) | adr) % g_snes->cart->romSize];
-    return NULL;
+    {rom_ptr}
 }}
 static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
-    if (!rr_sn_enabled || !g_snes || !g_snes->cart || g_snes->cart->type != {cart_type} ||
-        g_snes->cart->romSize != {len(bus_rom)}u ||
-        g_snes->cart->romImageSize != {len(rom)}u) return NULL;
+    if (!rr_sn_active) return NULL;
     uint8_t *mapped = rr_sn_rom_ptr((uint8_t)(pc>>16), (uint16_t)pc);
     {ram_lookup}
-    size_t offset = (size_t)(mapped - g_snes->cart->rom);
+    size_t offset = (size_t)(mapped - rr_sn_cart->rom);
     if (offset >= {len(bus_rom)}u) return NULL;
     const RrSnesNativeOp *operation = rr_sn_pages[offset >> 8][offset & 255u];
     /* A modified cartridge byte never selects another compiled operation. */

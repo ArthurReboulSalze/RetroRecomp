@@ -40,7 +40,9 @@ def main():
         ','.join(map(str, mirrored_rom(rom))) + '};\n', encoding='ascii')
     source = read_core(engine)
     guards = [{'address': 0x7e0100, 'bytes': 'a93412ea'}] + [
-        {'address':0x7e1000+4*n,'bytes':'a93412ea'} for n in reversed(range(4096))]
+        {'address':0x7e1000+4*n,'bytes':'a93412ea'} for n in reversed(range(4096))] + [
+        {'address': address, 'bytes': raw} for address, raw in (
+            (0x7e2000, 'a93412ea'), (0x7e2000, 'ea3412ea'), (0x000300, 'a93412ea'), (0x7e0300, 'ea3412ea'))]
     (project / 'snes_native_ops.inc').write_text(native_source(source, rom, guards), encoding='utf-8')
     (project / 'snes_hirom_ops.inc').write_text(native_source(source, rom, guards, mapping='hirom'), encoding='utf-8')
     (project / 'interp816.c').write_text(adapt_core(source), encoding='utf-8')
