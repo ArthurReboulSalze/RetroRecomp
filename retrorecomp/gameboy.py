@@ -466,7 +466,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         "generated_build": {"shared_bodies": shared_bodies, "dispatch": compact_dispatch,
                             "bank_boundaries": boundary, "reuse_identical_sources": True},
         "writable_native_helpers": {"guard": "live instruction signature per added instruction; data operands remain live",
-            "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers; unknown/changed code keeps fallback"},
+            "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers; other single WRAM/HRAM instructions (loads, 8/16-bit arithmetic, rotates, stack; not CB-prefixed, HALT, STOP or RST) run natively from their live bytes, one instruction at a time, checked against the reference CPU; unknown/changed code keeps fallback"},
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
             "mode": validation_mode, "scenarios": cpu_checks,

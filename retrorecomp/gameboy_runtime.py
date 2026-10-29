@@ -163,8 +163,12 @@ static void rr_gb_feedback(GBContext *ctx) {
     source = game.read_text(encoding='utf-8')
     source = replace_once(source, '#include "game_internal.h"',
                           '#include "game_internal.h"\n#include "gb_ram_helpers.h"')
+    # Order: the guarded multi-instruction helpers, the upstream stub, then the
+    # remaining single opcodes (rr_gb_try_ram_instruction); only what all of
+    # them decline reaches the interpreter.
     source = replace_once(source, 'if (gbrt_try_execute_ram_stub(ctx, addr)) {',
-                          'if (rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr)) {')
+                          'if (rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||\n'
+                          '            rr_gb_try_ram_instruction(ctx, addr)) {')
     source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
                           '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
     game.write_text(source, encoding='utf-8')

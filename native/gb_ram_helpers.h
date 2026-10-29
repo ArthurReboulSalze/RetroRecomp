@@ -1,8 +1,14 @@
 /* Ahead-of-time bodies for small writable-memory helpers.
  * The live instruction signature is checked before EACH added instruction;
- * a DMA source operand stays live. No
+ * a DMA source operand stays live. The multi-instruction helpers use no
  * opcode decoder, cached RAM assumption, loop batching or interpreter call.
  * A changed helper, HALT bug or WRAM bus owned by DMA takes the usual fallback.
+ * rr_gb_try_ram_instruction (below) is the one decoder here: a single
+ * instruction read live from WRAM/HRAM, executed with the interpreter's own
+ * helpers and timing, never batched; it only receives what the helpers and the
+ * upstream RAM stub declined. It is a native executor of writable code, not
+ * ahead-of-time translation of it, and is checked opcode by opcode against the
+ * interpreter (native/gb_ram_checks.c).
  */
 #ifndef RETRO_GB_RAM_HELPERS_H
 #define RETRO_GB_RAM_HELPERS_H
@@ -109,6 +115,163 @@ static inline uint8_t rr_gb_try_interrupt_dma_helper(GBContext* ctx, uint16_t ad
         return 1;
     }
     return 0;
+}
+
+/* One writable-memory instruction, executed natively with its live bytes.
+ *
+ * The upstream RAM stub covers a subset of the SM83 opcodes; any other opcode
+ * located in WRAM or HRAM (a routine copied from the cartridge and patched, a
+ * trampoline) used to start an interpreter session that then kept interpreting
+ * the ROM code it jumped to. These are the remaining non-prefixed, non-branch
+ * opcodes, written after the pinned interpreter case by case: same helpers,
+ * same operand reads, same cycle split. The opcode and its operands are read
+ * live at every execution (self-modifying operands are normal), so nothing is
+ * cached; the instruction must lie wholly inside WRAM or HRAM, and the HALT
+ * bug and WRAM during OAM DMA decline exactly like the upstream stub. HALT,
+ * STOP, the CB prefix, RST and the illegal opcodes stay with the reference. */
+static inline uint8_t rr_gb_ram_get8(GBContext* ctx, unsigned index) {
+    switch (index) {
+        case 0: return ctx->b;  case 1: return ctx->c;
+        case 2: return ctx->d;  case 3: return ctx->e;
+        case 4: return ctx->h;  case 5: return ctx->l;
+        default: return ctx->a;
+    }
+}
+
+static inline void rr_gb_ram_set8(GBContext* ctx, unsigned index, uint8_t value) {
+    switch (index) {
+        case 0: ctx->b = value; break;  case 1: ctx->c = value; break;
+        case 2: ctx->d = value; break;  case 3: ctx->e = value; break;
+        case 4: ctx->h = value; break;  case 5: ctx->l = value; break;
+        default: ctx->a = value; break;
+    }
+}
+
+static inline uint8_t rr_gb_ram_final_read8(GBContext* ctx, uint16_t address, uint8_t* cycles) {
+    const uint8_t value = gbrt_timed_bus_read8(ctx, address, (uint8_t)(*cycles - 1u));
+    *cycles = 0;
+    return value;
+}
+
+static inline void rr_gb_ram_final_write8(GBContext* ctx, uint16_t address, uint8_t value,
+                                          uint8_t* cycles) {
+    gbrt_timed_bus_write8(ctx, address, value, (uint8_t)(*cycles - 1u));
+    *cycles = 0;
+}
+
+static inline void rr_gb_ram_alu8(GBContext* ctx, unsigned operation, uint8_t value) {
+    switch (operation) {
+        case 0: gb_add8(ctx, value); break;  case 1: gb_adc8(ctx, value); break;
+        case 2: gb_sub8(ctx, value); break;  case 3: gb_sbc8(ctx, value); break;
+        case 4: gb_and8(ctx, value); break;  case 5: gb_xor8(ctx, value); break;
+        case 6: gb_or8(ctx, value); break;   default: gb_cp8(ctx, value); break;
+    }
+}
+
+/* Length in bytes of an opcode handled here, 0 for the others. */
+static inline unsigned rr_gb_ram_length(uint8_t op) {
+    if (op == 0x08 || op == 0x01 || op == 0x11 || op == 0x21 || op == 0x31) return 3;
+    if (op == 0x36 || op == 0xC6 || op == 0xCE || op == 0xD6 || op == 0xDE ||
+        op == 0xE6 || op == 0xEE || op == 0xF6 || op == 0xFE) return 2;
+    if (op >= 0x41 && op <= 0xBF && op != 0x76) return 1;
+    switch (op) {
+        case 0x02: case 0x0A: case 0x12: case 0x1A:
+        case 0x03: case 0x13: case 0x23: case 0x33: case 0x0B: case 0x1B: case 0x2B: case 0x3B:
+        case 0x09: case 0x19: case 0x29: case 0x39: case 0x34: case 0x35:
+        case 0x07: case 0x0F: case 0x17: case 0x1F: case 0x27: case 0x2F: case 0x37: case 0x3F:
+        case 0xC1: case 0xD1: case 0xE1: case 0xF1: case 0xC5: case 0xD5: case 0xE5: case 0xF5:
+        case 0xF9: case 0xF3: case 0xFB:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static inline uint8_t rr_gb_try_ram_instruction(GBContext* ctx, uint16_t addr) {
+    if (!ctx || ctx->halt_bug) return 0;
+    const bool wram = addr >= 0xC000 && addr < 0xFE00;
+    const bool hram = addr >= 0xFF80 && addr <= 0xFFFE;
+    if ((!wram && !hram) || (wram && ctx->dma.active)) return 0;
+    const uint8_t op = gb_read8(ctx, addr);
+    const unsigned length = rr_gb_ram_length(op);
+    if (!length || (wram ? addr + length > 0xFE00u : addr + length > 0xFFFFu)) return 0;
+    uint8_t cycles = 4;
+    ctx->pc = (uint16_t)(addr + length);
+    if (op >= 0x41 && op <= 0x7F) {                 /* LD r,r' / LD r,(HL) / LD (HL),r */
+        const unsigned dst = (op >> 3) & 7u, src = op & 7u;
+        if (dst == 6) { cycles = 8; rr_gb_ram_final_write8(ctx, ctx->hl, rr_gb_ram_get8(ctx, src), &cycles); }
+        else if (src == 6) { cycles = 8; rr_gb_ram_set8(ctx, dst, rr_gb_ram_final_read8(ctx, ctx->hl, &cycles)); }
+        else rr_gb_ram_set8(ctx, dst, rr_gb_ram_get8(ctx, src));
+    } else if (op >= 0x80 && op <= 0xBF) {          /* ALU A,r / ALU A,(HL) */
+        uint8_t value;
+        if ((op & 7u) == 6) { cycles = 8; value = rr_gb_ram_final_read8(ctx, ctx->hl, &cycles); }
+        else value = rr_gb_ram_get8(ctx, op & 7u);
+        rr_gb_ram_alu8(ctx, (op >> 3) & 7u, value);
+    } else {
+        switch (op) {
+        case 0x01: ctx->bc = gb_read16(ctx, (uint16_t)(addr + 1)); cycles = 12; break;
+        case 0x11: ctx->de = gb_read16(ctx, (uint16_t)(addr + 1)); cycles = 12; break;
+        case 0x21: ctx->hl = gb_read16(ctx, (uint16_t)(addr + 1)); cycles = 12; break;
+        case 0x31: ctx->sp = gb_read16(ctx, (uint16_t)(addr + 1)); cycles = 12; break;
+        case 0x08: gb_write16(ctx, gb_read16(ctx, (uint16_t)(addr + 1)), ctx->sp); cycles = 20; break;
+        case 0xF9: ctx->sp = ctx->hl; cycles = 8; break;
+        case 0x02: cycles = 8; rr_gb_ram_final_write8(ctx, ctx->bc, ctx->a, &cycles); break;
+        case 0x12: cycles = 8; rr_gb_ram_final_write8(ctx, ctx->de, ctx->a, &cycles); break;
+        case 0x0A: cycles = 8; ctx->a = rr_gb_ram_final_read8(ctx, ctx->bc, &cycles); break;
+        case 0x1A: cycles = 8; ctx->a = rr_gb_ram_final_read8(ctx, ctx->de, &cycles); break;
+        case 0x36: {
+            const uint8_t value = gb_read8(ctx, (uint16_t)(addr + 1));
+            cycles = 12; rr_gb_ram_final_write8(ctx, ctx->hl, value, &cycles); break;
+        }
+        case 0x34: case 0x35: {                     /* INC (HL) / DEC (HL) */
+            const uint16_t target = ctx->hl;
+            uint8_t value = gbrt_timed_bus_read8(ctx, target, 7);
+            value = op == 0x34 ? gb_inc8(ctx, value) : gb_dec8(ctx, value);
+            gbrt_timed_bus_rmw_write8(ctx, target, value);
+            cycles = 0; break;
+        }
+        case 0x03: gbrt_timed_inc16(ctx, &ctx->bc); cycles = 0; break;
+        case 0x13: gbrt_timed_inc16(ctx, &ctx->de); cycles = 0; break;
+        case 0x23: gbrt_timed_inc16(ctx, &ctx->hl); cycles = 0; break;
+        case 0x33: gbrt_timed_inc16(ctx, &ctx->sp); cycles = 0; break;
+        case 0x0B: gbrt_timed_dec16(ctx, &ctx->bc); cycles = 0; break;
+        case 0x1B: gbrt_timed_dec16(ctx, &ctx->de); cycles = 0; break;
+        case 0x2B: gbrt_timed_dec16(ctx, &ctx->hl); cycles = 0; break;
+        case 0x3B: gbrt_timed_dec16(ctx, &ctx->sp); cycles = 0; break;
+        case 0x09: gb_add16(ctx, ctx->bc); cycles = 8; break;
+        case 0x19: gb_add16(ctx, ctx->de); cycles = 8; break;
+        case 0x29: gb_add16(ctx, ctx->hl); cycles = 8; break;
+        case 0x39: gb_add16(ctx, ctx->sp); cycles = 8; break;
+        case 0x07: gb_rlca(ctx); break;
+        case 0x0F: gb_rrca(ctx); break;
+        case 0x17: gb_rla(ctx); break;
+        case 0x1F: gb_rra(ctx); break;
+        case 0x27: gb_daa(ctx); break;
+        case 0x2F: ctx->a = (uint8_t)~ctx->a; ctx->f_n = 1; ctx->f_h = 1; break;
+        case 0x37: ctx->f_n = 0; ctx->f_h = 0; ctx->f_c = 1; break;
+        case 0x3F: ctx->f_n = 0; ctx->f_h = 0; ctx->f_c = !ctx->f_c; break;
+        case 0xC6: case 0xCE: case 0xD6: case 0xDE: case 0xE6: case 0xEE: case 0xF6: case 0xFE:
+            cycles = 8;
+            rr_gb_ram_alu8(ctx, (op >> 3) & 7u, gb_read8(ctx, (uint16_t)(addr + 1)));
+            break;
+        case 0xC1: ctx->bc = gbrt_timed_pop16(ctx); cycles = 0; break;
+        case 0xD1: ctx->de = gbrt_timed_pop16(ctx); cycles = 0; break;
+        case 0xE1: ctx->hl = gbrt_timed_pop16(ctx); cycles = 0; break;
+        case 0xF1: {
+            const uint16_t af = gbrt_timed_pop16(ctx);
+            ctx->af = af & 0xFFF0; gb_unpack_flags(ctx); cycles = 0; break;
+        }
+        case 0xC5: gbrt_timed_push16(ctx, ctx->bc); cycles = 0; break;
+        case 0xD5: gbrt_timed_push16(ctx, ctx->de); cycles = 0; break;
+        case 0xE5: gbrt_timed_push16(ctx, ctx->hl); cycles = 0; break;
+        case 0xF5: gb_pack_flags(ctx); gbrt_timed_push16(ctx, ctx->af & 0xFFF0); cycles = 0; break;
+        case 0xF3: ctx->ime = 0; ctx->ime_pending = 0; break;
+        case 0xFB: ctx->ime_pending = 1; break;
+        default: return 0;
+        }
+    }
+    if (cycles) gb_tick(ctx, cycles);
+    return 1;
 }
 
 static inline bool rr_gb_store_helper_matches(GBContext* ctx, uint16_t start) {
