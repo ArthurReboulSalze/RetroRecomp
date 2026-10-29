@@ -128,9 +128,6 @@ def main() -> None:
         data = urllib.request.urlopen(url(group), timeout=180).read()
         hashes[group] = hashlib.sha256(data).hexdigest()
         tests = [t for i, t in enumerate(decode(data)) if keep(group, i, t) and fits(t, image)]
-        for t in tests:
-            if int(t['name'].split()[-1], 16) & 0x20:
-                t['timing_unchecked'] = 1                # register count: see 'excluded'
         counts[group] = len(tests)
         chosen += [{'group': group, **t} for t in tests]
     fixture = {
@@ -142,8 +139,7 @@ def main() -> None:
                      'a multiple of the ROX period, plus every 2nd other one; immediate-count forms every 4th; '
                      'memory forms and trace-bit vectors excluded; code windows must fit the harness image. See tools/build_m68000_shift_fixture.py.',
         'excluded': 'Memory-operand shifts, trace-bit vectors, everything outside the seven groups, odd-address and bus errors. '
-                    'Register-count vectors carry timing_unchecked: results, flags, queue and bus addresses are '
-                    'compared, clocks are not (the pinned core charges a fixed estimate for a register count).',
+                    'Register-count vectors are compared with their clocks (6 + 2n, 8 + 2n for a long, n the count modulo 64).',
         'source_sha256': hashes, 'counts': counts, 'tests': chosen}
     out = ROOT / 'tests/fixtures/m68k-shifts/cases.json'
     out.parent.mkdir(parents=True, exist_ok=True)
