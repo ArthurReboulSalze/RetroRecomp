@@ -342,30 +342,7 @@ def dependencies(emit: Callable[[str], None] = print) -> tuple[Path, Path, Path,
     parser_source = replace_once(parser_source,
         "size_t off = (size_t)bank * SMS_BANK_SIZE + slot_off;",
         "size_t off = ((size_t)bank * SMS_BANK_SIZE + slot_off) % rom->size;")
-    generator_source = (engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8")
-    generator_source = replace_once(generator_source,
-        '    fprintf(o,"        do {\\n");',
-        '''    fprintf(o,"        int sms_block_first = 1;\\n        do {\\n");
-    fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
-    fprintf(o,"            sms_block_first = 0;\\n");''')
-    generator_source = replace_once(generator_source,
-        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
-        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
-    generator_source = replace_once(generator_source, "write_dispatch(path, pfx, fl);", "write_dispatch(path, pfx, fl, rom);")
-    generator_source = replace_once(generator_source,
-        '            fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);',
-        '''            int bank = fl->items[vidx[0]].bank;
-            int physical = ((bank >= 0) ? bank : (a >> 14)) % rom->num_banks;
-            if (a < 0x0400)
-                fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);
-            else
-                fprintf(d,"    case 0x%04X: if ((sms_slot_bank(addr) %% %d) == %d) { %s(); return; } break;\\n", a, rom->num_banks, physical, fl->items[vidx[0]].name);''')
-    generator_source = replace_once(generator_source,
-        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X)){\\n", a, a);',
-        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X) %% %d){\\n", a, a, rom->num_banks);')
-    generator_source = replace_once(generator_source, "int rb = (b >= 0) ? b : (a >> 14);",
-        "int rb = ((b >= 0) ? b : (a >> 14)) % rom->num_banks;")
-    generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
+    generator_source = patched_generator_source((engine / "recompiler/src/code_generator.c").read_text(encoding="utf-8"))
     main_source = (engine / "recompiler/src/main_sms.c").read_text(encoding="utf-8")
     main_source = replace_once(main_source, '    bool flat_step = false;', '''    bool flat_step = false;
     bool banked_step = false;''')
@@ -427,6 +404,45 @@ def replace_once(source: str, old: str, new: str) -> str:
     if source.count(old) != 1:
         raise ConversionError(f"L'interface du moteur a changé ; adaptation nécessaire : {old[:90]!r}")
     return source.replace(old, new, 1)
+
+
+def patched_generator_source(generator_source: str) -> str:
+    """The pinned Z80 generator with our patches applied (the text the unit test checks)."""
+    generator_source = replace_once(generator_source,
+        '    fprintf(o,"        do {\\n");',
+        '''    fprintf(o,"        int sms_block_first = 1;\\n        do {\\n");
+    fprintf(o,"            if (!sms_block_first) s->r = (uint8_t)((s->r & 0x80) | ((s->r + 2) & 0x7f));\\n");
+    fprintf(o,"            sms_block_first = 0;\\n");''')
+    generator_source = replace_once(generator_source,
+        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
+        "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")
+    generator_source = replace_once(generator_source, "write_dispatch(path, pfx, fl);", "write_dispatch(path, pfx, fl, rom);")
+    generator_source = replace_once(generator_source,
+        '            fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);',
+        '''            int bank = fl->items[vidx[0]].bank;
+            int physical = ((bank >= 0) ? bank : (a >> 14)) % rom->num_banks;
+            if (a < 0x0400)
+                fprintf(d,"    case 0x%04X: %s(); return;\\n", a, fl->items[vidx[0]].name);
+            else
+                fprintf(d,"    case 0x%04X: if ((sms_slot_bank(addr) %% %d) == %d) { %s(); return; } break;\\n", a, rom->num_banks, physical, fl->items[vidx[0]].name);''')
+    generator_source = replace_once(generator_source,
+        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X)){\\n", a, a);',
+        'fprintf(d,"    case 0x%04X: switch (sms_slot_bank(0x%04X) %% %d){\\n", a, a, rom->num_banks);')
+    generator_source = replace_once(generator_source, "int rb = (b >= 0) ? b : (a >> 14);",
+        "int rb = ((b >= 0) ? b : (a >> 14)) % rom->num_banks;")
+    # A call or jump to a paged address (>= $0400) must never become a direct C
+    # call: one bank variant seen by the static walk does not prove which bank
+    # is mapped when the code runs. Only the fixed first KiB may be called
+    # directly; every other target goes through call_by_address, whose dispatch
+    # checks the bank mapped in the slot (sms_slot_bank).
+    generator_source = replace_once(generator_source,
+        "static const char *name_for_target(uint16_t T){",
+        """static const char *name_for_target(uint16_t T){
+    /* Retro-Recomp: only the fixed first KiB may be called directly; the rest
+     * dispatches on the bank mapped at run time (call_by_address). */
+    if (T >= 0x0400) return NULL;""")
+    generator_source += "\n" + (ASSETS / "native/banked_emitter.inc").read_text(encoding="utf-8")
+    return generator_source
 
 
 def prepare_reference_irq(glue: str) -> str:
