@@ -103,7 +103,6 @@ def kit_platform(source: str, title: str) -> str:
     """The pinned runtime/src/platform_sdl.cpp with its shell removed and the kit adapter included."""
     for line in ('#include "imgui.h"\n', '#include "backends/imgui_impl_sdl2.h"\n', '#include "backends/imgui_impl_sdlrenderer2.h"\n'):
         source = replace_once(source, line, '')
-    source = replace_once(source, '#include <vector>\n', '#include <algorithm>\n#include <vector>\n')
     # The state: lines of the window, the controllers and the sound go; the persistence and the pictures stay.
     source = cut(source, block_start(source, 'SDL State'), '/* Joypad state - exported for gbrt.c to access */', STATE)
     # The rest of the file, in order. Controllers, labels and the menu helpers.

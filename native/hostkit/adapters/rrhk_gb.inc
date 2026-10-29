@@ -154,7 +154,8 @@ static void rr_gb_pause(bool paused) { (void)paused; }
 
 /* The sound of the frame: the samples the APU produced, 44.1 kHz stereo; `capacity` counts int16 values, the result frames. */
 static size_t rr_gb_audio(int16_t *pcm, size_t capacity) {
-    const size_t frames = std::min(g_rr_pcm.size() / 2, capacity / 2);
+    size_t frames = g_rr_pcm.size() / 2;
+    if (frames > capacity / 2) frames = capacity / 2;
     memcpy(pcm, g_rr_pcm.data(), frames * 2 * sizeof(int16_t));
     g_rr_pcm.erase(g_rr_pcm.begin(), g_rr_pcm.begin() + (ptrdiff_t)(frames * 2));
     return frames;

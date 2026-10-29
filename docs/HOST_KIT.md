@@ -180,9 +180,9 @@ frame/audio hashing, and the command line (`--headless --frames --report
 --trace --capture --input-script --save-state --save-at --load-state
 --capture-every`, with machine extras forwarded to the adapter).
 
-Machines that own their loop today (the Game Boy upstream platform, the NES
-upstream runner) keep the loop and call kit functions (`rrhk_menu_event`,
-`rrhk_present`, `rrhk_audio_push`) instead of `rrhk_main`; a libretro-shaped
+Machines that own their loop (the Master System and Game Gear guest, the Game Boy upstream platform, the NES
+upstream runner) keep the loop and call the kit's functions instead of `rrhk_main`: the driven mode (`rrhk_open`,
+`rrhk_frame_done`, `rrhk_close`, phases 4 and 5); a libretro-shaped
 core is wrapped by a small `rrhk_libretro_machine()` helper so future
 libretro-shaped machines provide a core and a short action table only
 (`hosts.md:298-303`).
@@ -241,15 +241,15 @@ section 8.
 | --- | --- | --- | --- |
 | 1 | Stick dead zone 12000 (SMS/GG, X68000) vs 16000 (NES, 16-bit); GB threshold upstream, unknown | 16000 for all (D1). The single kit threshold removes the GB fork | `host-divergences.md:12-22`; `hosts.md:127` |
 | 2 | `rr_autofire` (SMS/GG, GB, NES, 16-bit) vs unconditional parity pulse with global clears (X68000) | `rr_autofire` semantics on every FACE-group action, per button, each new press starts on, guest frames (D4). **Applied to the X68000 in phase 3** (decided 28 October 2026, "same rules on every machine", maintainer, which settles open question 5): both game buttons are FACE actions, the key or mouse button bound to one of them is that button and is released with it, the unconditional pulse is gone | `host-divergences.md:24-34`; `hosts.md:128,230` |
-| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Decided on 28 October 2026 (Arthur, D9)**: the selected player's pad only, for every console. The kit shell applies one guard; the `capture_any_pad` setting is gone. The same rule covers the gamepad Quit/Restart combinations of F2 (1.6.3: the kit sets `capture_guard`/`capture_from` in `game_options.h` from the selected player's pad; same rules on every machine, Arthur, 28 October 2026). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES: the NES changed; the X68000 took any connected pad before phase 3, and SMS/GG applied it to their combinations in phase 4: they already guarded the button bindings); Game Boy follows when it migrates | `host-divergences.md:36-46` |
+| 3 | F2 gamepad capture: selected-player guard (SMS/GG, 16-bit) vs any connected pad (NES, X68000); GB unknown | **Decided on 28 October 2026 (Arthur, D9)**: the selected player's pad only, for every console. The kit shell applies one guard; the `capture_any_pad` setting is gone. The same rule covers the gamepad Quit/Restart combinations of F2 (1.6.3: the kit sets `capture_guard`/`capture_from` in `game_options.h` from the selected player's pad; same rules on every machine, Arthur, 28 October 2026). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES: the NES changed; the X68000 took any connected pad before phase 3, and SMS/GG applied it to their combinations in phase 4: they already guarded the button bindings); applied to the Game Boy in phase 5 | `host-divergences.md:36-46` |
 | 4 | Audio open flags and sample counts differ per family | One callback-ring output (D5) with one open-flag policy (format change allowed with retry, as SMS/GG/NES/GB today) and one requested period, fixed when the output is unified and re-measured before adoption; device negotiation changes land outside "unchanged" phases | `host-divergences.md:48-61`; `hosts.md:307-308,487-489` |
 | 5 | Callback ring (SMS, GB, NES, MD runtime) vs `SDL_QueueAudio` push (SNES, NG, CPS-1, X68000) | Callback ring for all (D5). Machine source rates and channel layouts stay machine-specific | `host-divergences.md:63-68`; `hosts.md:131,187-191` |
 | 6 | D3D11 driver hint, joystick thread, per-monitor DPI, renderer info line only on SMS/GG | The SMS/GG Windows set for every family (D3); POSIX keeps the vsync hint. **Applied in phase 4** (`rrhk_main.c`: the hints before `SDL_Init`, the renderer line after the renderer is made) | `host-divergences.md:70-81`; `hosts.md:132` |
 | 7 | Vsync: X68000 always requests it; others not on Windows, hint on POSIX | Within the single SMS/GG hint set (see row 4 sources): not requested on Windows, actual renderer state printed; POSIX hint kept; the X68000 always-on exception disappears; re-measured before adoption | `host-divergences.md:83-93`; `hosts.md:133,307-308` |
 | 8 | Window position/size remembered only by SMS/GG, session-scope, not ini-persisted | Remembered for every family on Windows (D3), adopting the SMS/GG mechanism (restore at startup and when returning from fullscreen, save at shutdown). Persisting across runs is not claimed (open question 7) | `host-divergences.md:95-107`; `hosts.md:134,309` |
 | 9 | Windowed scaling: integer+centred (SMS/GG) vs stretch/fit (NES, 16-bit, X68000); GB integer path patched upstream | Integer scale, centred, for all in windowed mode (D2); stretch only in a declared fullscreen mode. **Opening window = the largest integer multiple of the machine's native picture that fits the usable display area** (at most 85% of `SDL_GetDisplayUsableBounds`, at least 1x; a remembered window rectangle (D3) wins); a machine whose opening size is already an exact multiple of its picture keeps it | `host-divergences.md:109-120`; `hosts.md:135` |
-| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | **Decided on 28 October 2026 (Arthur, D11)**: Automatic (first free player, plug order) stays the default, and each player's gamepad page of F2 gets a "Gamepad" row (Automatic, each connected controller, None) that pins a controller to that player or leaves the player without one; kept per player as `device` and `name` in the gamepad section of the preferences. The kit owns hot-plug and slot assignment (`hosts.md:312`); the SMS/GG first-player toggle and pad swap were replaced by this row when SMS/GG migrated (phase 4: they are no longer machine capabilities). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES, X68000, and since phase 4 SMS/GG); Game Boy follows when it migrates | `host-divergences.md:122-132` |
-| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit (the X68000's "Rapid fire" retired in phase 3, the SMS/GG toast with its "Tir auto" wording in phase 4); Game Boy follows when it migrates (the GB status line retires with it) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
+| 10 | Pad slot policy: slot memory + swap + first-player preference (SMS) vs first free slot (others); GB policy upstream | **Decided on 28 October 2026 (Arthur, D11)**: Automatic (first free player, plug order) stays the default, and each player's gamepad page of F2 gets a "Gamepad" row (Automatic, each connected controller, None) that pins a controller to that player or leaves the player without one; kept per player as `device` and `name` in the gamepad section of the preferences. The kit owns hot-plug and slot assignment (`hosts.md:312`); the SMS/GG first-player toggle and pad swap were replaced by this row when SMS/GG migrated (phase 4: they are no longer machine capabilities). Applied to the consoles on the kit (Mega Drive, SNES, Neo Geo, CPS-1, NES, X68000, and since phase 4 SMS/GG); applied to the Game Boy in phase 5 | `host-divergences.md:122-132` |
+| 11 | Autofire feedback: SMS/GG toast, 16-bit/GB status lines, X68000 "Rapid fire", NES silent | **Decided on 28 October 2026 (Arthur, D10)**: one short shared pop-up on every console, "Autofire ON" / "Autofire OFF" (about 1.8 s), the two catalogue entries that already exist in the eight languages (`assets/locales/*.json`, section `runtime`; games draw the five Latin ones). F6 is the shell's key on every kit console, the NES included. Applied to the consoles on the kit (the X68000's "Rapid fire" retired in phase 3, the SMS/GG toast with its "Tir auto" wording in phase 4); Applied to the Game Boy in phase 5 (its status line retired) | `host-divergences.md:134-144`; `hosts.md:137,315-316` |
 | 12 | F8/F9: deferred to a safe CPU/state boundary (SMS/GG, 16-bit) vs executed from the event path (GB, NES, X68000 next frame) | Always deferred to a safe frame/CPU boundary (D6): the kit requests the operation and services it after `state_ready()` / the machine's safe boundary; GB, NES and X68000 stop executing it from the event path | `host-divergences.md:146-156`; `hosts.md:138,273-274` |
 | 13 | Gun pages: `[LightPhaser]` 1..5 default 1; `[NES.Zapper]` 1..8 default 3; `[<Console>.Gun]` 1..12 default 3 + SNES turbo | One gun/pointer page, one mapping and one reticle in the kit, with per-machine size ranges and rows; ranges stay as today; sections rename to `[<Console>.Pointer]` through the mapping | `host-divergences.md:158-168`; `hosts.md:139,172-174,331`; `ini-migration.md:208-212,302-306` |
 | 14 | Preference layouts: French sections/keys (SMS/GG), numeric English (NES, 16-bit), `[X68000] p0_key0`, flat GB file | English sections and keys for all (D7), per section 4; old keys read when the new one is absent; nothing deleted | `host-divergences.md:170-178`; `hosts.md:140`; `ini-migration.md:174-240` |
@@ -263,8 +263,8 @@ section 8.
 
 ## 4. Preferences: one English layout, old keys still read
 
-Files: Windows and POSIX use `datas/Retro-Recomp.ini`; Game Boy additionally
-uses `datas/Retro-Recomp-GameBoy.ini`; POSIX reads the same logical keys
+Files: Windows and POSIX use `datas/Retro-Recomp.ini`; Game Boy used to add
+`datas/Retro-Recomp-GameBoy.ini` (since 1.6.3 it is only read, as the former file of that console: phase 5); POSIX reads the same logical keys
 through `native/platform_io.c` with a lock-and-rename writer
 (`ini-migration.md:4-7,13-14`).
 
@@ -370,7 +370,7 @@ These stay behind capabilities in the adapter (`hosts.md:156-199`):
   SMS/GG migrates.
 * **Pages and options with no other owner**: CPS-1 DIP switch page, Neo Geo F5
   enhanced mode and F11 AES/MVS restart, NES and SMS/GG sprite flicker
-  reduction, Game Boy palette, Neo Geo boot cover (`hosts.md:179-183`).
+  reduction, Game Boy palette (F5, adapter `rrhk_gb.inc`), Neo Geo boot cover (`hosts.md:179-183`).
 * **Picture geometry**: CPS-1 rotated vertical monitors and non-square pixels,
   Mega Drive interlace row density, SMS VDP left-border blanking crop
   (`hosts.md:184-186`).
@@ -414,6 +414,13 @@ compile the kit from the common runtime folder: `core.prepare_native_source` sta
 `core.py`. `native/host.c`, `controls.c/.h` and `ui.c/.h` are removed from the host stamp of every console (they were owned
 by all of them). See [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-exports-in-163-host-kit-phase-4).
 
+Phase 5 (1.6.3) adds the Game Boy to the owners of the shell files, of `console16_video.h` and of `retrorecomp.hostkit`; the
+adapter `rrhk_gb.inc` is a host file owned by the Game Boy alone. The Game Boy compiles the kit inside the runtime library of its
+project: `gameboy_host.adapt_shell` stages it (`hostkit.stage(project, "gb")`, adapter included but not listed as a source: the patched
+`platform_sdl.cpp` includes it) and `gameboy_runtime` lists the shell in its CMake file, both game role (the stamp of the Game Boy
+moves once). `gb_menu.inc`, `gb_audio_output.inc`, `gb_input_refresh.inc` and `gameboy_timing.py` are gone from the stamps. See
+[UPGRADES.md](UPGRADES.md#game-boy-exports-in-163-host-kit-phase-5).
+
 Status after phase 1: the stamp inputs are explicit lists, so every kit file is
 listed in `retrorecomp/stamp_inputs.py` (host role, owned by Mega Drive, SNES,
 Neo Geo and CPS-1; each adapter by its own console) and `retrorecomp/hostkit.py`
@@ -455,7 +462,7 @@ Order (`hosts.md:426-461`), with the stamp effect of each phase
 | 2 | NES | Proves the kit on a second, non-16-bit-shaped loop (upstream runner). **Done in 1.6.2**, see "Phase 2" below |
 | 3 | X68000 | Already MIT, already on the shared headers, libretro-shaped; resolves divergences 2, 3, 5 and 7. **Done in 1.6.3**, see "Phase 3" below |
 | 4 | Master System / Game Gear | Largest single shell; French ini legacy table, guest-driven input refresh, reset unwinding, window rect, the Windows hint set. **Done in 1.6.3**, see "Phase 4" below |
-| 5 | Game Boy | Kit functions called from the patched upstream code, never the loop owner |
+| 5 | Game Boy | Kit functions called from the patched upstream code, never the loop owner. **Done in 1.6.3**, see "Phase 5" below |
 | 6 | all | Core flag day (state container with legacy magics, battery container, CLI/script/report, one OS layer), one planned requalification campaign; new machines can adopt shell and core from the first day after phase 1 |
 
 Phases 2-5 touch disjoint files and can run in parallel after phase 1;
@@ -794,11 +801,118 @@ pad, hot unplug during a menu, audio open failures, a real display (vsync, windo
 in the A/B pictures (the placement is checked by arithmetic only), Linux (the same sources; the adapter defines `rr_resource` for the kit's icon routine
 there, and nothing was built on Linux in this phase).
 
+### Phase 5: the Game Boy (1.6.3)
+
+`gb_menu.inc` (345 lines), `gb_audio_output.inc` (73), `gb_input_refresh.inc` (45) and `gameboy_timing.py` are gone, and the
+patched `platform_sdl.cpp` of the pinned runtime (4,209 lines upstream, with some eighty text patches on top of it in 1.6.2) is now about 1,100 lines: its
+window, ImGui settings panel, bindings, controller handling, preferences file, sound device and pacing are cut out
+(`gameboy_host.kit_platform`: named cuts, each failing if the pinned file moved) and the Game Boy runs the shell of the other consoles
+with `native/hostkit/adapters/rrhk_gb.inc`, which the patched platform file includes (one translation unit, like the X68000: the adapter
+sees the runtime's statics and types). What stays upstream's, and is not the player's business: the input scripts and their recording,
+the screenshots of selected frames, the battery, clock and state files (atomic writes, injected faults), the display palette of a
+frame and the benchmark/headless mode; `gb_platform_*` of `platform_sdl.h` is unchanged for the generated main, which keeps its loop.
+
+The loop is driven like the Master System's: the generated main calls `gb_platform_poll_events` once per slice (what it does is the
+scripted input and a live sample of the pads), `gb_platform_render_frame` (or the partial-slice presents) to hand the picture over,
+and `gb_platform_vsync(cycles)` at the end of each frame or paced slice: that is the kit's `rrhk_frame_done()`, with the machine's
+`frame_seconds` set to the cycles just run (`cycles / 4,194,304`, as upstream paced them). It presents the picture with the chosen
+filter, plays the sound of the frame, reads the events, runs a menu as a loop of its own (the guest does not run meanwhile), services
+F8/F9 and the restart combinations at the frame boundary and waits for the deadline. A quit asked there ends the loop at the next
+slice (`gb_platform_poll_events` and `gb_platform_wait_while_menu` say so). A cartridge's JOYP read asks the host for fresh input, at
+most once a millisecond, as before (`refresh_input`, the guest side is unchanged).
+
+New per-machine fields of `RrhkMachine`: `audio_channels` (the ring takes interleaved stereo; the NES stays mono), `audio_margin_ms`
+(the start margin of the ring: 10 ms for the Game Boy as before, 30 ms for the NES) and `even_scale2x` (Scale2x shows the picture at an even whole
+multiple from 2x up, the rule the Master System, Game Gear and Game Boy had; the Master System and Game Gear keep their own
+`game_rect`). `rrhk_ring.c` is the Game Boy's callback ring too (its own `gb_audio_output.inc` is gone); a driven machine that does not
+open its own sound device now starts SDL's audio subsystem. `rrhk_input.c` reads the language and the autofire from the machine's
+former preferences when the kit's keys are absent (`settings_loaded` sets the values they start from).
+
+What stays the adapter's own: the action table (up, down, left, right, A, B, Start, Select, and the host's own Pause/Menu row, key P and
+the Guide button, as the Game Boy had them), the F5 palette (monochrome or classic green; a Game Boy Color game keeps its own colours),
+the Pause menu text, the pad word to the JOYP registers and the joypad interrupt, the former preferences, the state functions (slot 1 of
+the runtime's own state file, between two frames) and the sound of the APU (44.1 kHz stereo).
+
+Divergences, for this family:
+
+| # | Status for the Game Boy |
+| --- | --- |
+| 1 stick 16000 | decided (D1): the upstream threshold was already 16000; the stick is now the kit's (left stick as the direction pad), not a per-axis binding |
+| 2 autofire | decided (D4): the Game Boy already used `rr_autofire` on A and B by guest frame (cycles / 70,224); the kit's rule is the same (the register sequences of a script with F6, held keys and buttons are identical). **Opposite directions now cancel in the pad word** (they were both sent to the cartridge) |
+| 3 F2 pad capture | decided (D9), applied: the Game Boy took any connected pad; it takes the selected player's pad only, in the bindings and in the quit and restart combinations |
+| 4 audio open flags and period | **pending**: the ring opens as before (44,100 Hz, 256 samples, format and sample-count change allowed, 10 ms margin); the NES keeps its 30 ms |
+| 5 callback ring | decided (D5): it was one, its own; it is now the kit's ring (`rrhk_ring.c`, extended to stereo). Differences: 8,192 frames instead of 16,384, the backlog trimmed at the kit's limit, no volume, mute or output-device choice (they had no page: see "Retired" below), no audio statistics. The Master System and Game Gear stereo ring is the one duplicate left |
+| 6, 7, 8 Windows set, vsync, window rectangle | decided (D3): the Game Boy already had the Direct3D 11 hint and the joystick thread; the vsync hint, the renderer line and the window position and size kept across fullscreen toggles are new for it |
+| 9 integer scaling | decided (D2): the window opens at 5x (800 x 720), an exact multiple, as before; whole pixels, centred, Fit stretches; **below 1x the picture now fits the window instead of being cropped to 1x**; Scale2x keeps its even rule (`even_scale2x`) |
+| 10 pad slots | decided (D11), applied: the Game Boy opened the first controller it found; Automatic by default and a Gamepad row (`[GameBoy.Gamepad.Player1] device`, `name`); one player |
+| 11 autofire notice | decided (D10), applied: "Autofire ON" / "Autofire OFF" instead of the status line |
+| 12 F8/F9 deferred | decided (D6), applied: the Game Boy saved and loaded from the event path after a slice, which could be in the middle of a frame; it now acts after a completed frame (`state_ready` is the frame boundary). The state file, its path (`datas/games/<game>/<game>.state1`) and its format are the runtime's, unchanged: it is **not byte-identical** to the file the former host wrote at the same iteration (7 of 220,784 bytes differ: the frame-done flag and the cycle counter of the frame), and each host loads the other's |
+| 13 gun page | not applicable |
+| 14, 15 preference layout, autofire key | decided (D7), applied: `[GameBoy.Keyboard.Player1]`, `[GameBoy.Gamepad.Player1]` (numeric values, English action names `Up`, `Down`, `Left`, `Right`, `A`, `B`, `Start`, `Select`, `Pause`), `[GameBoy.Video] filter`, `display_mode` and `palette` (0 classic green, 1 monochrome), `[Manettes] autofire`, `[Interface] language`. The flat `datas/Retro-Recomp-GameBoy.ini` of 1.6.2 and before (`video.*`, `ui.language`, `input.autofire`, `keyboard.<action>.0`, `controller.<action>.0`) is read where the kit's key is absent, never written and never deleted; the second binding of an action, the axis bindings and the `audio.*` and `savestate.slot` keys are not read |
+| 16 title texts | decided (D8), applied: the window is first titled "<game> \| Native code" and says "Interpreter fallback" as soon as the guest uses it (the former host looked every 60 frames) |
+| 17 latency line | decided (D8), applied: the renderer line and the ring's closing line end with "physical latency unmeasured" (the Game Boy printed none) |
+| 18 diagnostic tags | **pending**: the `[SDL]` lines of the former platform layer are gone, `[host]` is the kit's; the `[AUTO]` and `[SDL]` lines of the retained persistence and screenshot code are upstream's and unchanged |
+| 19 ini writers | decided: the shared ini layer (the former flat writer is gone) |
+| 21 help language lookup | decided: the catalogue; the F2, help and pause pages are the kit's drawing |
+
+**Retired, by "same rules on every machine"** (the upstream shell had them behind default keys that no page or document listed, and no other
+console has them): the fast-forward key (Tab, the right trigger) and the maximum-speed toggle (backquote, the left trigger), the mute key
+(M) with the volume and the output-device choice of the upstream settings panel, the slots of the upstream state keys (F8/F9 use slot 1
+only, as the Game Boy already did), the second keyboard and gamepad binding of each action (the right and left shoulders were also A
+and B) and the ImGui overlay and panel. Whether the kit should offer a fast-forward or a mute key to every console is **open question 10**.
+ImGui is still compiled into the runtime library of the project, where nothing calls it any more; its notice stays in the game's legal text.
+
+Measurements (Windows, llvm-mingw, offscreen SDL, virtual clock and modelled audio device, `tools/hostkit_ab.py build-gb`): the project of
+a conversion made with the tree before this phase (host of 1.6.2) against the same project with the host of this tree (and, for the
+second game, against a conversion made with this tree). The harness logs the joypad registers the cartridge is handed at the start of
+every slice (`G` lines).
+
+* Kirby's Block Ball (USA, Europe) (MBC1, battery), script `play` (every key and button, the sticks around the threshold, 60 timed keys,
+  the four filters and four display modes with a picture each after the notices are gone; 3,386 iterations): the **joypad registers are
+  identical** (166 changes), and so are the 9 pictures taken after the notices, the battery file and the fallback record. Of the 3,386
+  pictures 2,138 are identical and 1,248 differ in eight runs of 156 pictures: the notice after each F3 and F4 (the kit's status line, the old
+  host's box). **Intended differences in this run**: the left and right shoulders no longer press B and A (the script leaves them out, because
+  the game would diverge), opposite directions (script `opposite`: `f0` against `ff`), the first title line, the preferences file
+  (`[GameBoy.Video] filter=0 display_mode=1` in `Retro-Recomp.ini` against the flat file), the delays of the pacing (`D` lines).
+* Sound of the same run: the **non-silent stereo samples are identical, in order, over the whole run** (1,733,700 frames compared; the old
+  host handed 216 more at the end) and each side has one recovery of the start reserve (515 silent samples) at a different moment: the
+  model's two clocks beat differently with the kit's whole-frame submission, which is not a measurement of a real device. The ring of the
+  kit raised its reserve twice (+5 ms) on this run.
+* `autofire` (F6, held keys and buttons; 578 iterations): the register sequences are **identical** (72 changes); the pictures differ by the
+  two notices only. `states` (F9 with nothing saved, F8, F9, F8; 794 iterations): the pictures after a load and after nothing are identical,
+  the state file differs in 7 bytes as said above, and the states cross over (script `load`: a state of either host loaded by either host
+  shows the same continuation, except one picture 190 frames after the load of the new host's state by the old one, an animation phase).
+* Super Mario Land (MBC1, a conversion with this tree against the former host): the same results (3,385 iterations, registers identical,
+  1,248 pictures in the eight notice runs, 2,385,450 non-silent frames identical, one reserve recovery on each side).
+* Preferences: a file of 1.6.2 (`video.filter=3`, `display_mode=2`, `palette=green`, `ui.language=fr`, `input.autofire=1`, `keyboard.a.0=key:4`)
+  gives scanlines, fit, classic green, French, autofire on and A on the A key; reading writes nothing; once `Retro-Recomp.ini` holds the
+  keys they win (`tools/gameboy_display_selftest.py`).
+* Pad slots (`tools/hostkit_ab.py pads`, one player: `one`, `capture`, `combo`, and the Game Boy's `gb-replug` and `gb-persist`): every
+  probe on the right player (or on nobody: a pad that is not the player's drives nothing), a pinned pad that is unplugged leaves the
+  player without a pad and gets it back on hot-plug, a second run on the preferences keeps the pinned pad, the F2 binding says "No gamepad
+  for player 1", the quit combination is captured from player 1's pad only.
+* Mega Drive (Blockout) and Master System (Bank Panic), regression of the shared shell: the kit of `main` against this one, the full
+  battery of 3,694 iterations (Mega Drive) and the scripts `play`, `autofire`, `states` (3,614, 740, 904 iterations, Master System):
+  **identical** (pictures, window log, states, preferences, pad words).
+* ROM-free: `tools/gameboy_latency_selftest.py` (the adapter against authored pads, clock, scripts, menu and APU samples),
+  `tools/gameboy_display_selftest.py` (settings and files), `tools/nes_audio_selftest.py` (the ring, now with a stereo case),
+  `tools/autofire_selftest.py` and `tools/start_select_selftest.py` (the Game Boy is now one of the kit consoles there; the second needs
+  `RETRO_RECOMP_TOOLCHAIN=msvc`, the llvm-mingw linker not finding the Visual Studio SDL), `tools/gameboy_boundary_selftest.py`,
+  `gameboy_hardware_selftest.py` and `gameboy_ram_selftest.py`, all passing; two real conversions (Kirby's Block Ball, Super Mario Land)
+  with the tree validate their exports as before. The adapter also builds with the Visual Studio toolchain (`tools/gameboy_latency_selftest.py` under
+  `RETRO_RECOMP_TOOLCHAIN=msvc`: it caught a `std::min` that the Windows `min` macro breaks).
+
+Not covered, as for the other phases: a Game Boy Color game (the palette option is hidden for one), a game with an RTC or a rumble
+cartridge, menus driven by a pad, hot unplug during a menu, audio open failures, a real display (vsync, window position) and a real
+sound device (the reserve and start timing are measured on a virtual clock only), Linux (the same sources, not built there in this phase).
+
 ## 8. Open questions
 
-1. **Game Boy upstream rows**: the exact behaviour of divergences 1, 3, 5, 8
-   and 9 needs the upstream `platform_sdl.cpp`, absent from the survey
-   checkout (`host-divergences.md:285-286`; `hosts.md:538-540`).
+1. ~~**Game Boy upstream rows**: the exact behaviour of divergences 1, 3, 5, 8
+   and 9 needed the upstream `platform_sdl.cpp`, absent from the survey
+   checkout (`host-divergences.md:285-286`; `hosts.md:538-540`). **Read in phase 5** (1.6.3): the stick threshold was
+   already 16000, the capture took any pad, the sound was already a callback ring, the window rectangle was not kept
+   and the placement was integer; see the table of "Phase 5".~~
 2. ~~**F2 capture rule** for all families~~ **Settled on 28 October 2026
    (Arthur): the selected player's pad only**, for every console (D9). On the
    kit it is applied, SMS/GG and the X68000 included (phases 3 and 4); Game Boy takes it when it migrates.
@@ -827,6 +941,9 @@ there, and nothing was built on Linux in this phase).
 9. **Product docs to update when the kit lands**: `docs/UPGRADES.md` (shell
    table), `docs/CONTROLS.md`, `docs/COMPILATION_LIBRARY.md`, and the local
    `PROJECT_STATE.md` (`hosts.md:549-551`).
+10. **Fast-forward and mute on every console**: the Game Boy upstream shell had a fast-forward key, a maximum-speed toggle, a mute key
+    and a volume (retired in phase 5, see its table). Whether the kit offers them to every console is a new feature, not a
+    migration, and is the maintainer's call.
 
 The kit's own effort estimates stay in the local plan (`hosts.md:513-531`);
 they are not part of this public contract.

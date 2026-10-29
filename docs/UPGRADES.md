@@ -406,6 +406,45 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
   1.6.3 (it reads its own keys). Every window now keeps whole pixels in the window mode too ([HOST_KIT.md](HOST_KIT.md), divergence 9): a Mega Drive,
   Super Nintendo, Neo Geo, CPS-1, NES or X68000 export no longer stretches its picture to the window.
 
+## Game Boy exports in 1.6.3 (host kit phase 5)
+
+1.6.3 moves the player shell of the Game Boy onto the host kit, the last console to move ([HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163)):
+the window, menus, bindings, controllers, sound device and pacing of the pinned runtime's `platform_sdl.cpp` are replaced by the shared shell
+and the adapter `native/hostkit/adapters/rrhk_gb.inc`, which the patched platform file includes. `gb_menu.inc`, `gb_audio_output.inc`,
+`gb_input_refresh.inc` and `retrorecomp/gameboy_timing.py` leave the stamps; `native/hostkit/adapters/rrhk_gb.inc` joins them (host).
+
+*Stamps* (from the tree of the tag `v1.6.2`, from the tree this phase started on (`d7a15c3`) and from this tree, `compilation_inputs.role_stamps`, Python 3.14):
+
+| | game | host | build |
+| --- | --- | --- | --- |
+| Game Boy, 1.6.2 | `831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a` | `e0774f929efa44df3008d132e955584a6a0bba525b6780362f64106ee11aa332` | `a95276b71c11e78625c3d29ba0d915c131f6c40e5da9d093093212e6acf21e78` |
+| Game Boy, before phase 5 | `e4c34929f604d05cbe67169ef51afa2833a64133e5def5ff584492c5b831a35a` | `ed43b3b0bcb22fd410d3d248114915019568f1c02cfa1935fefaebbda4fe8468` | unchanged |
+| Game Boy, 1.6.3 | `3bf96fc61783d4fcab9b8d0ce94978b538a97297401645339ba229016c34e641` | `d05d23beb298661d00b2a6cb67e8ddc7978ce7405fd6914210c80e9c978d3ea3` | unchanged |
+
+- *Game stamp of the Game Boy: moves.* `gameboy_runtime.py` (game role) stages the kit and lists its shell in the project's CMake file, and
+  the Game Boy now owns `console16_video.h` (the kit's video shell includes it). **What a conversion generates is unchanged**: the generated
+  sources, the learned paths, the guest runtime and the guest side of the JOYP refresh are produced by code this phase did not touch (two
+  conversions, Kirby's Block Ball and Super Mario Land, with the tree before and after run the same guest and validate as before). The
+  1.6.2 game stamp above is the candidate for `LEGACY_GAME_STAMPS` at the release, by the procedure of the other consoles (build-only
+  evidence, not entered in this phase).
+- *Quick-state key: none.* The Game Boy has no key of this kind: its state file is the runtime's, unchanged. A state written by an
+  export of 1.6.2 loads in an export of 1.6.3 and the reverse (checked both ways on two games); the two files differ by seven bytes of
+  frame-boundary bookkeeping, because the new host takes the state between two frames (decision D6) where the old one took it in the middle
+  of one when the slice ended there.
+- *Host stamps: move* for every console (the shell gained the stereo ring, three per-machine fields and the audio start-up rule of a driven
+  machine; the Game Boy's shell files left every host stamp). *Build stamps: unchanged.* The game stamps of the other eight consoles are
+  unchanged (checked against the tree this phase started on). Learned paths do not move.
+- *Behaviour.* The Game Boy follows every rule decided for the other consoles (stick 16000, one autofire behaviour with the shared notice,
+  F2 capture from the selected player's pad, the Gamepad row, F8/F9 at a frame boundary, the Windows hint set, whole-pixel placement,
+  one set of window titles, the callback ring of the kit). **Preferences:** the new English keys are written to
+  `datas/Retro-Recomp.ini` (`[GameBoy.Keyboard.Player1]`, `[GameBoy.Gamepad.Player1]`, `[GameBoy.Video]`); the flat
+  `datas/Retro-Recomp-GameBoy.ini` of 1.6.2 and before is read where the kit's key is absent (display mode, filter, palette, language,
+  autofire, the first binding of the eight buttons) and is never written or deleted, so settings of 1.6.2 keep their meaning; a game of
+  1.6.2 does not see a binding changed afterwards in 1.6.3 (it reads its own file). **Retired** (they had no page and no mention in the
+  documents): the fast-forward and maximum-speed keys, the mute key, the second binding of each action (the shoulders were also A and
+  B), the volume and output-device choice. Opposite directions cancel in the pad word instead of both reaching the cartridge. The
+  start-up reserve, the 256-sample period and the 10 ms margin of the sound are the Game Boy's own, as before.
+
 ## UPX 5.3.0 (packing, a build input)
 
 1.6.2 bundles UPX 5.3.0 (released on 28 October 2026) instead of 5.2.1: `assets/tools/upx.exe` and
@@ -436,7 +475,7 @@ The same categories apply to every machine:
 | Shared menu core (identical everywhere) | `retro_menu.c/.h`, `game_options.h`, `autofire.h`, `retro_keyboard.h` |
 | On-screen text and fonts | `runtime_catalog.inc`, `runtime_i18n.h`, `font6x10.h`, `font10x20.h` |
 | Presentation | `scale2x.h`, `scanlines.h`, `scanline_sdl.h`, `xbr_filter.h`, `xbr_sdl.h`, `display_settings.h`, `icon.c/.h` |
-| Sound output after the emulated mixer | `audio_filter.h`, `audio_cushion.h`, `audio_output.inc`, `gb_audio_output.inc`, `hostkit/shell/rrhk_ring.c`, `md_audio_loop.inc`, `md_audio_resample.inc`, `megadrive_audio.py` |
+| Sound output after the emulated mixer | `audio_filter.h`, `audio_cushion.h`, `audio_output.inc`, `hostkit/shell/rrhk_ring.c`, `md_audio_loop.inc`, `md_audio_resample.inc`, `megadrive_audio.py` |
 | Artwork, metadata, publishing | `artwork.py`, `cover_*.py`, `metadata.py`, `languages.py`, `publishing.py`, `windows.py`, `licenses/*.md`, `THIRD_PARTY_NOTICES.md`, application icons |
 | Checks of the above | `game_options_checks.c`, `language_checks.c`, `xbr_checks.c`, `display_settings_checks.c`, `icon_checks.c`, `audio_checks.c`, `nes_audio_checks.c` |
 
@@ -445,7 +484,7 @@ Each machine family has one shell for its window, menus and input:
 | Machine | Shell (host) | Entry used by discovery and validation (game) |
 | --- | --- | --- |
 | Master System, Game Gear | the host kit, staged beside the common runtime: the shell and `hostkit/adapters/rrhk_sms.c` (with `audio_output.inc`) | `launcher.c` and the Z80 runtime |
-| Game Boy | `gb_menu.inc`, `gb_input_refresh.inc`, `gameboy_host.py`, `gameboy_timing.py` | `game_main.c`, `gameboy_runtime.py` |
+| Game Boy | the host kit, staged in the project's runtime: the shell, `hostkit/adapters/rrhk_gb.inc` (included by the patched `platform_sdl.cpp`) and `gameboy_host.py` | `game_main.c`, `gameboy_runtime.py` |
 | Mega Drive, SNES, Neo Geo, CPS-1, NES | the host kit: `native/hostkit/shell/rrhk_*.c` (shared) and `native/hostkit/adapters/rrhk_<machine>.c`, copied by `hostkit.py` | `console16_main.c`, `neogeo_main.c`, `cps1_main.c`, machine adapters; for the NES, the runner adapted by `nes_runtime.py` |
 | Sharp X68000 | the host kit, compiled from the tree: the shell and `hostkit/adapters/rrhk_x68k.inc`, included by the frontend | `x68000_reference/reference_host.c` (frame loop, reports, states, disks) and the SDK |
 
@@ -457,7 +496,8 @@ file. Since 1.2.8 the Game Boy shell patches live in `gameboy_host.py`,
 separate from the runtime patches in `gameboy_runtime.py`; the guest-side
 JOYP refresh hook moved from `gameboy_timing.py` to
 `gameboy_runtime.adapt_input_refresh_hook`. The generated Game Boy project is
-byte-identical before and after that split.
+byte-identical before and after that split. (Since 1.6.3 `gameboy_timing.py` is gone: the Game Boy shell is the host kit and its
+adapter.)
 
 The modules that read the paths (`knowledge.py`, `path_profiles.py`, `feedback.py`,
 `neogeo_knowledge.py`, `snes_knowledge.py`) are game-side, `knowledge.py`,

@@ -58,10 +58,10 @@ saves are written only after NVRAM changes.
 
 Generated games share the RetroRecomp SDL menu canvas in `native/retro_menu.c`:
 the 256 × 192 layout, pixel font and blue/fuchsia frame are independent of the
-console CPU backend. The Game Boy `gb_menu.inc` and the adapters of the host kit (`native/hostkit/adapters/rrhk_sms.c`
-for the Master System and Game Gear, `rrhk_nes.c`, `rrhk_x68k.inc`) supply their
-own actions and labels to that canvas. Game Boy builds copy these files into
-each generated project's private runtime; the pinned upstream checkout is
+console CPU backend. The adapters of the host kit (`native/hostkit/adapters/rrhk_sms.c`
+for the Master System and Game Gear, `rrhk_nes.c`, `rrhk_x68k.inc`, `rrhk_gb.inc` for the Game Boy, and the 16-bit ones) supply their
+own actions and labels to that canvas: since 1.6.3 every console's player shell is the kit's. Game Boy builds copy the kit and its
+adapter into each generated project's private runtime, where the patched `platform_sdl.cpp` includes the adapter; the pinned upstream checkout is
 untouched. Future compiler adapters can reuse the canvas rather than exposing
 an imported runtime's settings panel.
 
