@@ -64,6 +64,13 @@ BUILT_IN_TREE = {'generation.json': {'compiler', 'log'},
 # A quick state (.rrstate) holds the key of the code that wrote it at bytes 96 to 160 of its header (64 hex digits,
 # derived from the converter's code like the game stamp): masked, so that the rest of the state is compared.
 STATE_KEY = slice(96, 160)
+# An X68000 quick state (magic RRX68KS1) is not the same bytes twice, even from one tree: its checksum (bytes 160 to 167)
+# follows, and the padding of an array of 72-byte device records (one window of the file) holds uninitialised memory,
+# where pieces of the converter's environment text (the PATH) have been seen. A converter of 1.6.2 compared with itself
+# differs there. Masked, the rest of the state (19 MB of RAM, video and devices) is compared as it is.
+X68_STATE_MAGIC = b'RRX68KS1'
+X68_STATE_CHECKSUM = slice(160, 168)
+X68_STATE_PADDING = slice(17184896, 17186640)
 # A state key derived from the game stamp (so from the converter's code), written into a header.
 STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
@@ -229,6 +236,11 @@ def fingerprint(path: Path, normaliser: Normaliser) -> str:
                                      ensure_ascii=False).encode('utf-8'))
         except ValueError:
             pass
+    if path.suffix.lower() == '.rrstate' and data.startswith(X68_STATE_MAGIC):
+        data = bytearray(data)
+        for window in (X68_STATE_CHECKSUM, X68_STATE_PADDING):
+            data[window] = bytes(len(data[window]))
+        data = bytes(data)
     if path.suffix.lower() == '.rrstate' and len(data) >= STATE_KEY.stop:
         data = data[:STATE_KEY.start] + b'\0' * (STATE_KEY.stop - STATE_KEY.start) + data[STATE_KEY.stop:]
     if path.suffix.lower() in TEXT_SUFFIXES and b'\0' not in data[:4096]:

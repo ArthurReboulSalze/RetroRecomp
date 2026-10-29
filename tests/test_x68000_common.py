@@ -638,12 +638,46 @@ class AbToolTests(unittest.TestCase):
         self.assertNotIn('discovery/build/cache.txt', gathered[0]['projects'][names[0]])
         self.assertIn(f'{"m" * 16}/qa-<X>/reference/result.json', gathered[0]['projects'][names[0]])
 
+    def test_an_x68000_state_is_compared_without_its_checksum_and_its_uninitialised_padding(self):
+        from tools import ab_conversion as ab
+        normaliser = ab.Normaliser({})
+        size = ab.X68_STATE_PADDING.stop + 4096
+        base = bytearray(b'RRX68KS1' + bytes(size - 8))
+        paths = []
+        for name, changes in (('one', {}), ('two', {164: 9, ab.X68_STATE_PADDING.start + 100: 7, ab.X68_STATE_PADDING.stop - 1: 1}),
+                              ('other', {ab.X68_STATE_PADDING.stop + 10: 1}), ('key', {100: 5})):
+            data = bytearray(base)
+            for position, value in changes.items():
+                data[position] = value
+            path = self.root / (name + '.rrstate')
+            path.write_bytes(bytes(data))
+            paths.append(ab.fingerprint(path, normaliser))
+        one, two, other, key = paths
+        self.assertEqual(one, two)
+        self.assertNotEqual(one, other)
+        self.assertEqual(one, key)   # bytes 96 to 160 are the key of the code that wrote it: masked as for every console
+
+    def test_the_digest_of_a_reference_module_and_the_sdk_stamp_of_a_discovery_build_do_not_count(self):
+        from tools import ab_conversion as ab
+        normaliser = ab.Normaliser({})
+        prints = []
+        for name, key, value in (('reference-build.json', 'module_sha256', '1'), ('reference-build.json', 'module_sha256', '2'),
+                                 ('ready.json', 'sdk', '1'), ('ready.json', 'sdk', '2'),
+                                 ('reference-build.json', 'source_identity', '1'), ('reference-build.json', 'source_identity', '2')):
+            path = self.root / (key + value) / name
+            path.parent.mkdir()
+            path.write_text(json.dumps({key: value, 'stage': 'x'}), encoding='utf-8')
+            prints.append(ab.fingerprint(path, normaliser))
+        self.assertEqual(prints[0], prints[1])
+        self.assertEqual(prints[2], prints[3])
+        self.assertNotEqual(prints[4], prints[5])
+
     def test_a_real_difference_in_a_file_is_still_found(self):
         from tools import ab_conversion as ab
         one, two = self.root / 'a', self.root / 'b'
         self.workspace(one, '0123456789ab', 'abcd1234')
         base_two = self.workspace(two, 'ba9876543210', 'wxyz_987')
-        (base_two / 'discovery/ready.json').write_text('{"sdk": "y"}', encoding='utf-8')
+        (base_two / 'discovery/ready.json').write_text('{"executable": "y"}', encoding='utf-8')
         side = self.root / 'side'
         side.mkdir()
         problems = ab.compare(*(ab.gather(tree, side, self.root / 'out') for tree in (one, two)))
