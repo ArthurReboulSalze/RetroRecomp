@@ -68,7 +68,7 @@ tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_payload.py tests/x68000_payload_harness.c
-tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c
+tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c tests/test_x68000_redraw_marks.py tests/x68000_redraw_marks_harness.c
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py tools/start_select_selftest.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py tools/build_splash.py
