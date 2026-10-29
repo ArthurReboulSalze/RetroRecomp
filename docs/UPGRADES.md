@@ -390,6 +390,31 @@ fails on the previous code. The X68000 **game stamp** moves (`payload.c` is a ga
 stamp `x68_sdk` that its request carries, so a receipt of 1.6.3 is never recognised, with or without a table; the host and build
 stamps do not move. Nothing the CPU executes changes: this is a Windows file-system fix.
 
+## X68000: DMA channel restart and moved-sprite redraw (1.6.5)
+
+Two defects of the machine base (`tools/x68000_base74.py` adapts the pinned hissorii/px68k files at build time), both found while
+checking the deferred px68k-libretro fixes of [UPSTREAMS.md](UPSTREAMS.md#deferred) against our own base.
+
+- **DMA start on a busy channel.** A CCR START on a channel that was still active, or whose completion or error flags the game had
+  not acknowledged, ended in an operation timing error (CER `0x02`, ERR and COC set, ACT cleared). It now restarts the channel with
+  ACT, COC, BTC, NDT and ERR cleared, as MAME's HD63450 does. Count errors, software abort and the other error codes are unchanged.
+  Games that re-arm their ADPCM channel early are the ones that notice (the libretro fork reports one such game).
+  `tests/test_x68000_dmac.py` (with `tests/x68000_dmac_harness.c`) runs the adapted `dmac.c` on authored bus bytes and fails on the
+  previous code.
+- **Redraw lines of a moved sprite.** Lines of the picture are redrawn only when marked, and a write to a sprite register marked
+  sixteen lines from `Y + BG_VLINE - 16 - v`. The line drawing selects a sprite row for the lines whose background row,
+  `((line << s1) >> s2) - v`, lies in `[Y + BG_VLINE - 16, Y + BG_VLINE - 1]`: the marks sat two `v` lines too high or too low
+  whenever the background's vertical start differs from the display's, and covered too few or too many lines when their line counts
+  differ, so a part of a moved sprite stayed on screen. The marks now come from the same mapping.
+  `tests/test_x68000_sprite_dirty.py` (with `tests/x68000_sprite_dirty_harness.c`) asks the real `BG_DrawLine` which lines show an
+  authored sprite and checks that the register write marked them; the previous code left 2 of 16 lines unmarked at a 2-line start
+  offset and 32 of 64 with a 256-line background on a 512-line display.
+
+Both changes live in `tools/x68000_base74.py`, a game input of the X68000 (`stamp_inputs.py`) that `RR_X68K_STATE_ABI` also hashes: the
+X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier builds are refused (as at every release), and an
+X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
+says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from

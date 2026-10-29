@@ -140,6 +140,15 @@ def adapt_tvram(d: bytes) -> bytes:
 
 def adapt_dmac(d: bytes) -> bytes:
     d = replace(d, 'DMA[ch].CSR |= 0x10;', 'DMA[ch].CSR |= 0x90;')
+    # A start (CCR START) on a channel that is still active, or whose completion or error flags were not
+    # acknowledged, restarts the channel with those flags cleared. The pinned base ended it with an operation
+    # timing error (CER 0x02), which stops a game that re-arms its ADPCM channel before the previous transfer
+    # was acknowledged. MAME's HD63450 (BSD) also restarts and clears the completion and error flags; the
+    # change was written from that behaviour and from the published description of the libretro fix (docs/UPSTREAMS.md).
+    start_error = re.compile(rb'if \( DMA\[ch\]\.CSR&0xf8 \) \{[^\n]*\n\t*DMAERR\(ch,0x02\)\n\t*break;\n\t*\}\n')
+    d, count = start_error.subn(b'DMA[ch].CSR &= 0x07;\t/* restart: clear ACT, COC, BTC, NDT and ERR */\n', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: DMA start timing error')
     return replace(d, '\t\tBusErrFlag = 0;\n\t\tswitch ( ((DMA[ch].OCR>>4)&3)+((DMA[ch].DCR>>1)&4) ) {',
                    '\t\tBusErrFlag = 0;\n'
                    '\t\t/* Word/long operands on a 16-bit port must be even. */\n'
@@ -148,6 +157,43 @@ def adapt_dmac(d: bytes) -> bytes:
                    '\t\t\t\tif (DMA[ch].MAR & 1) { DMAERR(ch, 0x05) break; }\n'
                    '\t\t\t\tif (DMA[ch].DAR & 1) { DMAERR(ch, 0x06) break; }\n\t\t\t}\n\t\t}\n'
                    '\t\tswitch ( ((DMA[ch].OCR>>4)&3)+((DMA[ch].DCR>>1)&4) ) {')
+
+
+SPRITE_DIRTY = b'''/* Retro-Recomp: mark every screen line a sprite at `y` covers. Sprite_DrawLineMcr draws a row of the sprite on a
+ * line when the line's background row lies in [y + BG_VLINE - 16, y + BG_VLINE - 1]; WinDraw_DrawLine gives that row as
+ * ((line << s1) >> s2) - v, with v the vertical start difference between the background and the display. The pinned
+ * base marked sixteen lines from y + BG_VLINE - 16 - v, which are the wrong lines whenever v is not zero and too few
+ * when the background and the display have different line counts, leaving part of a moved sprite on screen. */
+static void rr_sprite_dirty(unsigned y, int s1, int s2, long v)
+{
+	long low = (long)(y & 0x3ff) + BG_VLINE - 16 + v, high = low + 15, first, last, line;
+	if (high < 0) return;
+	if (low < 0) low = 0;
+	if (s1 >= s2) {
+		first = (low + (1L << (s1 - s2)) - 1) >> (s1 - s2);
+		last = high >> (s1 - s2);
+	} else {
+		first = low << (s2 - s1);
+		last = ((high + 1) << (s2 - s1)) - 1;
+	}
+	for (line = first; line <= last && line < 1024; ++line)
+		TextDirtyLine[line] = 1;
+}
+
+'''
+
+
+def adapt_bg(d: bytes) -> bytes:
+    d = replace(d, 'void FASTCALL BG_Write(DWORD adr, BYTE data)\n{\n',
+                SPRITE_DIRTY.decode('ascii') + 'void FASTCALL BG_Write(DWORD adr, BYTE data)\n{\n')
+    portable = re.compile(rb'\t\t\tWORD t0, t, \*pw;\n.*?\t\t\tif \(t != t0\) \{\n\t\t\t\tUPDATE_TDL\(t\);\n\t\t\t\}\n', re.DOTALL)
+    d, count = portable.subn(b'\t\t\tWORD *pw = (WORD *)(Sprite_Regs + (adr & 0x3f8) + 2);\n'
+                             b'\t\t\trr_sprite_dirty(*pw, s1, s2, v);\n'
+                             b'\t\t\tSprite_Regs[adr] = data;\n'
+                             b'\t\t\trr_sprite_dirty(*pw, s1, s2, v);\n', d)
+    if count != 1:
+        raise ValueError('74ddbb3 anchor differs: sprite dirty-line marking')
+    return d
 
 
 def adapt_adpcm(d: bytes) -> bytes:
@@ -327,7 +373,7 @@ def adapt_crtc_h(d: bytes) -> bytes:
 ADAPT = {
     'x68k/mem_wrap.c': adapt_mem_wrap, 'x68k/crtc.h': adapt_crtc_h, 'x68k/disk_d88.c': adapt_d88,
     'x68k/crtc.c': adapt_crtc, 'x68k/mfp.c': adapt_mfp, 'x68k/gvram.c': adapt_gvram,
-    'x68k/tvram.c': adapt_tvram, 'x68k/dmac.c': adapt_dmac, 'x68k/adpcm.c': adapt_adpcm,
+    'x68k/tvram.c': adapt_tvram, 'x68k/dmac.c': adapt_dmac, 'x68k/adpcm.c': adapt_adpcm, 'x68k/bg.c': adapt_bg,
     'x68k/irqh.c': adapt_irqh, 'x68k/fdd.c': adapt_fdd, 'x68k/fdc.c': adapt_fdc, 'x68k/disk_dim.c': adapt_dim,
     'x68k/disk_xdf.c': adapt_xdf, 'x68k/disk_d88.h': adapt_d88_header,
     'fmgen/fmg_wrap.cpp': adapt_fmg_wrap, 'fmgen/opm.h': adapt_opm_h, 'fmgen/opm.cpp': adapt_opm,
