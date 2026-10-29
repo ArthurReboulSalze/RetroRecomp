@@ -1,6 +1,7 @@
 """Execute the real frontend callbacks using SDL virtual controllers/events."""
 from pathlib import Path
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -67,7 +68,12 @@ endif()
                 result.stdout + result.stderr, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         executable = build_executable(build, 'controls')
-        result = subprocess.run([str(executable)], capture_output=True, text=True, encoding="utf-8", timeout=30)
+        # Only SDL's virtual controllers: a real pad plugged into the test machine would join the enumeration and
+        # shift every port the checks count (seen with a Bluetooth controller during the 1.6.4 installer test).
+        real_pads_off = {name: '0' for name in ('SDL_JOYSTICK_HIDAPI', 'SDL_JOYSTICK_RAWINPUT', 'SDL_XINPUT_ENABLED',
+                                                'SDL_JOYSTICK_WGI', 'SDL_DIRECTINPUT_ENABLED')}
+        result = subprocess.run([str(executable)], capture_output=True, text=True, encoding="utf-8", timeout=30,
+                                env={**os.environ, **real_pads_off})
         (work / 'result.log').write_text(result.stdout + result.stderr, encoding='utf-8')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         report = json.loads(result.stdout.splitlines()[-1])
