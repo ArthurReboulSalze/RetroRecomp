@@ -269,6 +269,15 @@ that depends on it. The second is a defect of the pinned base itself, found with
 in Gardis Light 2.10, which is in our test collection and has not been converted again for this change. The reproducer shows 2 of 16 lines left unmarked at a 2-line start offset, and 32 of 64 with a 256-line background on a 512-line display.
 Both are described in [UPGRADES.md](UPGRADES.md#x68000-dma-channel-restart-and-moved-sprite-redraw-165).
 
+And one 68000 fix for the Mega Drive:
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md, cps1 and x68 (the module is in their stamp groups; their output is unchanged) |
+
+It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
+and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
@@ -285,7 +294,6 @@ quiet machine, so anything that has to be timed waits for that.
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |
 | Mega-CD | segagenesisrecomp (`runner/cd/`) | Per-disc recipes; strict native execution with no counted fallback, against our rule; BIOS and disc images required. | A "new machine" decision ([NEW_MACHINE.md](NEW_MACHINE.md)). |
 | X68000: paired-bit OR in the graphic layer, and text transparency tested at one priority (px68k-libretro pull request 228, GPL, rewrite from description only) | px68k-libretro | The first part changes a behaviour the pull request itself calls unsure in other emulators (it picks one of the two likeliest readings of the documents); the second turns the text transparency test on at one priority so that a game's water composites. Neither has a reference here: the two games it names are not in our test collection, and no document of the machine settles the first. Not adopted. | A game of the collection that shows the problem, or a document of the machine that gives the behaviour; then write it from that, list it in `provenance.json`, and add a reproducer like `tests/test_x68000_sprite_dirty.py`. |
-| 68000: timing of register-count shifts | segagenesisrecomp (`m68k_interp.c`) | The pinned core charges a fixed estimate to every shift with a register count; results and flags are right, the clocks are approximate (the shift vectors are replayed with `timing_unchecked`). | A Mega Drive timing pass, or a game whose timing depends on long shifts. |
 | llvm-mingw `20261020`, CMake 4.4.5 | toolchain | Corrective versions; nothing needed. | The next toolchain change. |
 
 ## How to record a review

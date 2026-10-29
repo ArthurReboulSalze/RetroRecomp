@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from retrorecomp import megadrive
+from retrorecomp import megadrive, m68000, megadrive_codegen
 from retrorecomp.megadrive_codegen import translated_body, operation_name, jump_table_entries
 from retrorecomp.core import ConversionError
 
@@ -229,6 +229,64 @@ class JumpTableDiscoveryTests(unittest.TestCase):
             self.assertEqual(jump_table_entries(data, {0x604}), set())
         data[0xffc:0x1000] = bytes.fromhex('4ef90000')
         self.assertEqual(jump_table_entries(data, {0xffc}), set())
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PINNED = ROOT / '.deps/segagenesisrecomp/runner/m68k_interp.c'
+ANCHOR = '        int reg_count = (ins->src_ea >= 0);\n'
+HOOK = 'rr_md_arithmetic_phase((sz == M68K_SIZE_L ? 8u : 6u) + 2u * (g_cpu.D[ins->src_ea] & 63u), 0, 1);'
+
+
+@unittest.skipUnless(PINNED.is_file(), 'pinned segagenesisrecomp sources are not cached')
+class ShiftTimingAdaptationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'))
+
+    def test_the_hook_is_added_once_before_the_shift_and_only_for_a_register_count(self):
+        adapted = megadrive_codegen.adapt_shift_timing(self.source)
+        self.assertEqual(adapted.count(HOOK), 1)
+        start = adapted.index(ANCHOR)
+        self.assertLess(start, adapted.index(HOOK))
+        self.assertLess(adapted.index(HOOK), adapted.index('do_shift(ins->mnemonic', start))
+        self.assertIn('if (reg_count)\n            ' + HOOK, adapted)
+
+    def test_the_other_machines_text_is_untouched(self):
+        for prefix in ('rr_ng', 'rr_cps1', 'rr_x68k'):
+            self.assertNotIn('2u * (g_cpu.D[ins->src_ea] & 63u)',
+                             m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'), hook_prefix=prefix))
+
+    def test_the_neogeo_cps1_and_x68000_generators_never_get_the_hook(self):
+        # Their stamp groups include megadrive_codegen, but they only import write_changed / the decoder tool: the hook is
+        # applied by megadrive_codegen's generate_steps and adapt_interpreter alone.
+        hook = 'rr_md_arithmetic_phase((sz == M68K_SIZE_L'
+        for name in ('retrorecomp/neogeo_codegen.py', 'retrorecomp/cps1_codegen.py', 'tools/x68000_native.py'):
+            text = (ROOT / name).read_text(encoding='utf-8')
+            self.assertNotIn('adapt_shift_timing', text, name)
+            self.assertNotIn(hook, text, name)
+        for prefix in ('rr_ng', 'rr_cps1', 'rr_x68k'):
+            self.assertNotIn(hook, m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'), hook_prefix=prefix), prefix)
+        self.assertIn(hook, megadrive_codegen.adapt_shift_timing(self.source))
+
+    def test_a_changed_upstream_fails_loudly(self):
+        with self.assertRaises(ConversionError):
+            megadrive_codegen.adapt_shift_timing(self.source.replace(ANCHOR, ANCHOR.replace('>= 0', '> 0'), 1))
+
+
+class ShiftFixtureClockTests(unittest.TestCase):
+    def test_every_register_count_vector_is_replayed_with_its_clocks(self):
+        fixture = json.loads((ROOT / 'tests/fixtures/m68k-shifts/cases.json').read_text(encoding='utf-8'))
+        self.assertFalse([t['name'] for t in fixture['tests'] if 'timing_unchecked' in t])
+        counted = 0
+        for test in fixture['tests']:
+            opcode = int(test['name'].split()[-1], 16)
+            if not opcode & 0x20:
+                continue
+            count = test['initial'][f'd{(opcode >> 9) & 7}'] & 63
+            expected = (8 if test['group'].endswith('.l') else 6) + 2 * count
+            self.assertEqual(test['length'], expected, test['name'])
+            counted += 1
+        self.assertGreater(counted, 400)
 
 
 if __name__ == '__main__':
