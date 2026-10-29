@@ -56,6 +56,9 @@ STAMP_DERIVED = {'game', 'request'}
 # Digests of things built inside the tree (the NES emitter binary, its log with its path): they differ between two trees
 # by construction, as a run of one tree against itself shows. The generated sources they produced are compared.
 BUILT_IN_TREE = {'generation.json': {'compiler', 'log'},
+                 # The X68000: the digest of the machine module built into a reference bundle, and the SDK stamp of the
+                 # discovery build (derived from the converter's code, like the game stamp).
+                 'reference-build.json': {'module_sha256'}, 'ready.json': {'sdk'},
                  # The digests of the executables a Neo Geo build compared (reference, native, packed or unpacked).
                  'native-validation.json': {'reference_sha256', 'native_sha256', 'packed_sha256', 'unpacked_sha256'}}
 # A quick state (.rrstate) holds the key of the code that wrote it at bytes 96 to 160 of its header (64 hex digits,
