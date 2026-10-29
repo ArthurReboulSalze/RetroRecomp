@@ -488,8 +488,13 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
                 actual=replay(exported,run_dir,count,event_file,observe=True,extra=['--state-save-at',str(state_frame)])
             require_same_file(run_dir/'trace.tsv',checks/'reference/trace.tsv',
                 lambda:ConversionError('X68000 native/reference CPU, memory, image or PCM diverged; existing export preserved.'))
-            if not actual['nonzero_samples'] or not actual['nonblack_frames']:
-                raise ConversionError('X68000 validation did not produce usable picture and PCM.')
+            if not actual['nonblack_frames']:
+                raise ConversionError('X68000 validation did not produce a usable picture.')
+            # X68000 only (decision of 29 October 2026): a route that plays no sound is accepted and reported; a few
+            # games play only through an external Roland MIDI module, which is not modelled.
+            sound_heard=bool(actual['nonzero_samples'])
+            if not sound_heard:
+                emit('X68000: no sound on the validated route; accepted and reported (sound not validated).')
             fallback=actual['reference_ram']+actual['reference_ipl']
             additional=[]
             prepared=[]
@@ -579,7 +584,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
           'target':target_id(),'rom':source.metadata(),'machine':manifest.local_record(),'source_identity':manifest.sha256,'qualification_directory':str(checks),
           'source_rom':str(source.path),'executable':executable_name(title),'build_executable':str(candidate),'toolchain':toolchain_description(),
           'embedded_rom':True,'static_sdl':True,'linked_machine_runtime':True,'no_external_firmware_required_after_export':True,
-          'native_validation':{'passed':True,'packed_reference_match':True,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
+          'native_validation':{'passed':True,'packed_reference_match':True,'sound_heard':sound_heard,'scope':'fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes','generation':generation},
           'native_coverage':'observed exact RAM/text-VRAM/SCSI-ROM/IPL encodings with live word guards','final_checks':[check,*exploration_checks],
           'packed_candidate_sha256':digest(packed),'liveness':liveness,'qualification_inputs_sha256':digest(event_file),'automatic_disk_requests':automatic_disk_changes(source),
           'exploration_checks':exploration_checks,'scan_level':level,

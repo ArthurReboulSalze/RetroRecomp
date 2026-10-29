@@ -16,6 +16,9 @@ One deliberate step in 1.6.5: `convert` now compresses a copy of the final playe
 replays, `liveness`), and the F9 checks load the state that compressed copy saved. The golden was recorded again on the tree with
 that step and checked against the previous one: each of the 41 earlier scenarios gives its previous log minus the new steps (and
 the state slot path), and the report and library records only gain `packed_reference_match` and `liveness`.
+A second deliberate step (29 October 2026, X68000 only): a route with no sound is accepted and reported instead of refused. The
+golden was recorded again: only `silent_player` changes (it now returns the player, with the message that says so), and the reports
+gain `native_validation.sound_heard`.
 """
 import contextlib
 import json

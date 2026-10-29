@@ -314,7 +314,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -627,7 +628,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -873,7 +875,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -1159,7 +1162,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "extended",
@@ -1424,7 +1428,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -1657,7 +1662,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -1858,7 +1864,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2025,7 +2032,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2190,7 +2198,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2355,7 +2364,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2520,7 +2530,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -2872,7 +2883,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -3163,7 +3175,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3496,7 +3509,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3667,7 +3681,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -3832,7 +3847,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -4017,7 +4033,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -4339,7 +4356,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -4422,9 +4440,57 @@
     "X68000: fresh reference and discovery of RAM/IPL code.",
     "X68000 scan level quick: 0 exploration routes besides the main route.",
     "X68000: mouse controls off; 0 mouse reads on fresh routes.",
-    "X68000: comparing the standalone export with the fresh reference."
+    "X68000: comparing the standalone export with the fresh reference.",
+    "X68000: no sound on the validated route; accepted and reported (sound not validated).",
+    "X68000: comparing the compressed executable with the fresh reference.",
+    "X68000: validated standalone player ready (experimental profile)."
    ],
-   "library": {},
+   "library": {
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/compilation.json": {
+     "fresh_reference_passed": true,
+     "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+     "guarded_variants": 1,
+     "mouse_controls": false,
+     "private_development_only": true,
+     "rom_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "schema": 1,
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+     "system": "x68",
+     "title": "Fake Game"
+    },
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/mmmmmmmmmmmmmmmm/converter-observations.json": {
+     "schema": 1,
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+     "truncated": false,
+     "variants": [
+      {
+       "hits": 1,
+       "pc": 8192,
+       "words": "4e71"
+      }
+     ]
+    },
+    "x68/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk/mmmmmmmmmmmmmmmm/converter-qualification.json": {
+     "check": {
+      "boot_frames": 200,
+      "boot_state_restart_match": true,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "state_frame": 3200,
+      "state_restart_match": true
+     },
+     "game": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+     "observations_sha256": "<sha256>",
+     "private_only": true,
+     "schema": 1,
+     "sdk": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "source_identity": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"
+    }
+   },
    "log": [
     "enter code_generation",
     "generate discovery rows=0 receipts=None",
@@ -4446,13 +4512,93 @@
     "exit compile",
     "enter native_runs",
     "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/native-1 frames=4000 events=inputs.tsv observe=True extra=['--state-save-at', '3200'] binary=player.exe",
-    "exit native_runs"
+    "exit native_runs",
+    "enter native_runs",
+    "exit native_runs",
+    "pack_candidate player.exe -> packed-game.exe",
+    "enter packed_replays",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main frames=4000 events=inputs.tsv observe=False extra=['--state-save-at', '3200'] binary=player.exe",
+    "exit packed_replays",
+    "liveness packed/main frames=4000",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/restart frames=400 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/packed/main/datas/games/x68-fake/quick.rrstate'] binary=player.exe",
+    "exit state_checks",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot frames=200 events=inputs.tsv observe=False extra=['--state-save-at', '120'] binary=player.exe",
+    "exit state_checks",
+    "enter state_checks",
+    "replay native tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot-restart frames=40 events=inputs.tsv observe=False extra=['--state-load-start', '--state-slot', 'tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/qa-<X>/boot/datas/games/boot-game/quick.rrstate'] binary=player.exe",
+    "exit state_checks",
+    "verify_sources"
    ],
    "outcome": {
-    "message": "X68000 validation did not produce usable picture and PCM.",
-    "raised": "ConversionError"
+    "returned": "<T>/s19/tree/.build/x68/<os>/aaaaaaaaaaaa/mmmmmmmmmmmmmmmm/native/player.exe"
    },
-   "report": null
+   "report": {
+    "automatic_disk_requests": false,
+    "executable": "Fake Game",
+    "exploration_checks": [],
+    "final_checks": [
+     {
+      "boot_frames": 200,
+      "boot_state_restart_match": true,
+      "frames": 4000,
+      "interpreted_opcodes": 0,
+      "interpreter_percent": 0.0,
+      "native_entries": 120,
+      "packed_reference_match": true,
+      "reference_match": true,
+      "state_frame": 3200,
+      "state_restart_match": true
+     }
+    ],
+    "game_states": {
+     "fresh_process_verified": true,
+     "load_key": "F9",
+     "save_key": "F8",
+     "supported": true
+    },
+    "liveness": [
+     {
+      "distinct_audio_blocks": 2,
+      "distinct_pictures": 3,
+      "distinct_program_counters": 4,
+      "distinct_ram_states": 4000,
+      "frames": 4000,
+      "nonblack_frames": 3,
+      "nonzero_samples": 0,
+      "route": "main"
+     }
+    ],
+    "mouse_controls": {
+     "enabled": false,
+     "listed": null,
+     "mouse_code_loaded": false,
+     "mouse_reads": 0,
+     "remembered": false
+    },
+    "native_validation": {
+     "generation": {
+      "files": 3
+     },
+     "packed_reference_match": true,
+     "passed": true,
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": false
+    },
+    "qualification_inputs_sha256": "<sha256>",
+    "scan_level": "quick",
+    "status": "experimental",
+    "system": {
+     "id": "x68",
+     "name": "Sharp X68000"
+    },
+    "video_model": {
+     "fps": 55.46,
+     "frameskip": false,
+     "standard": "native"
+    }
+   }
   },
   "standard_clean_parallel": {
    "builds": 1,
@@ -4685,7 +4831,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -4931,7 +5078,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "standard",
@@ -5096,7 +5244,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",
@@ -5473,7 +5622,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "thorough",
@@ -5638,7 +5788,8 @@
      },
      "packed_reference_match": true,
      "passed": true,
-     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes"
+     "scope": "fresh same-machine CPU/RAM/video/PCM reference; bounded joystick, mouse and keyboard routes",
+     "sound_heard": true
     },
     "qualification_inputs_sha256": "<sha256>",
     "scan_level": "quick",

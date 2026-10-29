@@ -540,6 +540,11 @@ Both sets now convert (0 interpreted opcodes on the three routes, the compressed
 appeared only on a first start: a saved `sram.dat` changed the start-up enough to avoid it, and a conversion always starts without one.
 `glue_line.h` and `machine.c` are game files: the X68000 game stamp and `x68_sdk` move.
 
+**A silent route is accepted (X68000 only).** A main route whose sound is all zero used to refuse the conversion ("did not produce
+usable picture and PCM"). A few X68000 games play no sound there, some only through an external Roland MIDI module that will not be
+modelled; such a route is now accepted, the conversion log says so and the report carries `native_validation.sound_heard: false`
+(sound not validated). The picture is still required. The other machines keep their sound requirement.
+
 The report's `packing.compared_on` now says when a packed copy was replayed (Neo Geo, CPS-1 and X68000:
 `unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
 executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
