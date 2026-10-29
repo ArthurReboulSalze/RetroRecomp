@@ -468,6 +468,9 @@ class QueueMixin:
                 else:
                     text = self.tr('fallback', percent=result['interpreter_percent'],
                                    comparison=self.tr('vdp_equal' if comparison else 'vdp_different'))
+                if result.get('ram_one_by_one_instructions'):
+                    # Game Boy: WRAM/HRAM code run one instruction at a time is counted apart, never shown as native.
+                    text += ' · ' + self.tr('ram_one_by_one', count=result['ram_one_by_one_instructions'])
             text += ' · ' + self.video_display(item, result)
             self.detail.set(text)
         else:

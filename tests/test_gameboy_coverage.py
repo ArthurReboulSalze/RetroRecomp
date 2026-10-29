@@ -70,6 +70,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_probe_requires_completion_and_records_banked_fallback(self):
         log = ('[LIMIT] Reached frame limit 1200\n'
+               '[RR-RAM] ram_stub_instructions=3 ram_stub_cycles=24 ram_single_step_instructions=5 ram_single_step_cycles=44\n'
                '[INTERP] Fallback inventory: sites=1 dropped=0 complete=yes\n'
                '[INTERP] Fallback site #1 00A:4567 reason=address_not_compiled entries=2 instructions=2 cycles=32\n'
                '[INTERP] Summary: fallbacks=2 interpreter_entries=2 interpreter_instructions=2 interpreter_cycles=32')
@@ -77,6 +78,12 @@ class CoverageTests(unittest.TestCase):
             result = _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
         self.assertEqual(result['fallback_details'][0]['bank'], 10)
         self.assertEqual(result['interpreter_cycles'], 32)
+        # WRAM/HRAM code run one instruction at a time is counted apart from the interpreter, and required.
+        self.assertEqual((result['ram_stub_instructions'], result['ram_stub_cycles'],
+                          result['ram_single_step_instructions'], result['ram_single_step_cycles']), (3, 24, 5, 44))
+        with patch('retrorecomp.gameboy.run', return_value=log.replace('[RR-RAM]', '[RR-OTHER]')):
+            with self.assertRaises(ConversionError):
+                _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
         with patch('retrorecomp.gameboy.run', return_value=log.replace('[LIMIT] Reached frame limit 1200', '')):
             with self.assertRaises(ConversionError):
                 _probe(self.root / 'game.exe', self.root, 1200, self.root / 'trace')
@@ -157,7 +164,9 @@ class CoverageTests(unittest.TestCase):
             discovered = {(2, 0x4567)} if scenario.name == 'play_r' else {(0, 0x150)}
             write_entries(trace, discovered)
             cycles = 8 if scenario.name == 'play_r' and len(generations) == 1 else 0
-            return dict(scenario=scenario.name, interpreter_cycles=cycles, fallback_sites=int(cycles > 0))
+            return dict(scenario=scenario.name, interpreter_cycles=cycles, fallback_sites=int(cycles > 0),
+                        ram_stub_instructions=0, ram_stub_cycles=0, ram_single_step_instructions=0,
+                        ram_single_step_cycles=0)
 
         def fake_compare(exe, build, frames, scenario):
             comparisons.append((scenario.name, frames))
@@ -211,11 +220,18 @@ class WritableCodeHookTests(unittest.TestCase):
         from retrorecomp.paths import ASSETS
         runtime = Path(gameboy_runtime.__file__).read_text(encoding='utf-8')
         header = (ASSETS / 'native/gb_ram_helpers.h').read_text(encoding='utf-8')
-        # Guarded helpers first, then the pinned stub, then the remaining single opcodes.
-        self.assertEqual(runtime.count('rr_gb_try_ram_instruction(ctx, addr)'), 1)
-        self.assertIn('rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||', runtime)
-        self.assertLess(runtime.index('rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||'),
-                        runtime.index('rr_gb_try_ram_instruction(ctx, addr)'))
+        # The counted dispatch entry (helpers, then the stub, then the single instruction) is the only hook.
+        self.assertEqual(runtime.count('rr_gb_try_ram_dispatch(ctx, addr)'), 1)
+        self.assertNotIn('rr_gb_try_ram_instruction(ctx, addr)', runtime)
+        self.assertLess(header.index('rr_gb_try_store_helper(ctx, addr)) return 1;'),
+                        header.index('gbrt_try_execute_ram_stub(ctx, addr)) {'))
+        self.assertLess(header.index('gbrt_try_execute_ram_stub(ctx, addr)) {'),
+                        header.index('rr_gb_try_ram_instruction(ctx, addr)) {'))
+        for field in ('rr_ram_stub_instructions', 'rr_ram_stub_cycles', 'rr_ram_single_step_instructions',
+                      'rr_ram_single_step_cycles'):
+            self.assertEqual(runtime.count(f'uint64_t {field};'), 1, field)
+            self.assertEqual(header.count(f'ctx->{field}'), 1, field)
+        self.assertIn('[RR-RAM] ram_stub_instructions', runtime)
         self.assertEqual(header.count('static inline uint8_t rr_gb_try_ram_instruction('), 1)
         self.assertEqual(header.count('static inline unsigned rr_gb_ram_length('), 1)
         # What the executor declines (prefix, HALT, STOP, RST, branches) stays with the reference.

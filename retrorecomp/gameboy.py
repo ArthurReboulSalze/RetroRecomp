@@ -37,6 +37,8 @@ SUMMARY = re.compile(r"\[INTERP\] Summary: fallbacks=(\d+) interpreter_entries=(
                      r"interpreter_instructions=(\d+) interpreter_cycles=(\d+)")
 INVENTORY = re.compile(r"\[INTERP\] Fallback inventory: sites=(\d+) dropped=(\d+) complete=(yes|no)")
 CPU_MATCH = re.compile(r"\[DIFF\] Matched generated and interpreter execution for (\d+) steps / (\d+) frames")
+RAM_STEPS = re.compile(r"\[RR-RAM\] ram_stub_instructions=(\d+) ram_stub_cycles=(\d+) "
+                      r"ram_single_step_instructions=(\d+) ram_single_step_cycles=(\d+)")
 FALLBACK_SITE = re.compile(r"\[INTERP\] Fallback site #\d+ ([0-9A-Fa-f]+):([0-9A-Fa-f]+) "
                           r"reason=(\w+) entries=(\d+) instructions=(\d+) cycles=(\d+)")
 
@@ -133,12 +135,20 @@ def _probe(executable: Path, build: Path, frames: int, trace: Path,
         fallback = entries = instructions = cycles = 0
     else:
         raise ConversionError("Game Boy interpreter use could not be measured.")
+    steps = RAM_STEPS.search(output)
+    if not steps:
+        raise ConversionError("Game Boy writable-code instruction counts could not be measured.")
+    stub_instructions, stub_cycles, single_instructions, single_cycles = map(int, steps.groups())
     sites = [{"bank": int(bank, 16), "address": address.upper(), "reason": reason,
               "entries": int(count), "instructions": int(ops), "cycles": int(ticks)}
              for bank, address, reason, count, ops, ticks in FALLBACK_SITE.findall(output)]
     return {"scenario": scenario.name, "input_script": scenario.input_script,
             "frames": frames, "interpreter_handoffs": fallback,
             "interpreter_entries": entries, "interpreter_instructions": instructions,
+            # WRAM/HRAM code run one instruction at a time (upstream stub; Retro-Recomp's single-instruction
+            # executor): not native code, not an interpreter session, counted apart from both.
+            "ram_stub_instructions": stub_instructions, "ram_stub_cycles": stub_cycles,
+            "ram_single_step_instructions": single_instructions, "ram_single_step_cycles": single_cycles,
             "interpreter_cycles": cycles, "interpreter_percent": None,
             "fallback_sites": int(inventory.group(1)), "fallback_sites_dropped": int(inventory.group(2)),
             "fallback_details": sites,
@@ -412,11 +422,17 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
             found = read_entries(scenario_trace, len(rom.data))
             reached |= found
             observed_entries.update(found)
+            steps = check['ram_stub_instructions'] + check['ram_single_step_instructions']
             emit(f"Game Boy {scenario.name}: {check['interpreter_cycles']} fallback cycles, "
-                 f"{check['fallback_sites']} sites in {frames} tested frames.")
+                 f"{check['fallback_sites']} sites in {frames} tested frames"
+                 + (f"; {steps} WRAM/HRAM instructions executed one by one (counted apart)." if steps else "."))
         write_entries(trace_out, observed_entries)
         if all(check['interpreter_cycles'] == 0 for check in final_checks):
-            emit('Game Boy: zero fallback cycles across all tested scenarios.')
+            steps = max(check['ram_stub_instructions'] + check['ram_single_step_instructions']
+                        for check in final_checks)
+            emit('Game Boy: zero interpreter cycles across all tested scenarios'
+                 + (f", but up to {steps} WRAM/HRAM instructions per scenario run one by one: "
+                    "native ROM code is not the whole story here." if steps else "."))
             break
         if number == passes:
             break
@@ -466,7 +482,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         "generated_build": {"shared_bodies": shared_bodies, "dispatch": compact_dispatch,
                             "bank_boundaries": boundary, "reuse_identical_sources": True},
         "writable_native_helpers": {"guard": "live instruction signature per added instruction; data operands remain live",
-            "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers; other single WRAM/HRAM instructions (loads, 8/16-bit arithmetic, rotates, stack; not CB-prefixed, HALT, STOP or RST) run natively from their live bytes, one instruction at a time, checked against the reference CPU; unknown/changed code keeps fallback"},
+            "scope": "WRAM/HRAM store-and-increment, unrolled copies, LCD-safe copy/fill and HRAM interrupt/DMA page-selection helpers (named routines, live signature); unknown/changed code keeps fallback. Other WRAM/HRAM code is executed one instruction at a time from its live bytes by two counted executors, the pinned runtime's RAM stub and a single-instruction executor (loads, 8/16-bit arithmetic, rotates, stack; checked against the reference CPU; not CB-prefixed, HALT, STOP or RST, which stay in the interpreter). That is neither native code nor an interpreter session: each scenario of final_checks reports its instructions and cycles apart (ram_stub_*, ram_single_step_*), and the native-code claim of the report is false while they are not zero"},
         "final_checks": final_checks, "history": checks,
         "native_validation": {"passed": True, "cpu_differential": cpu_checks[0]['result'],
             "mode": validation_mode, "scenarios": cpu_checks,

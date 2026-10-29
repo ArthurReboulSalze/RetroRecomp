@@ -296,6 +296,7 @@
     "size": "{value} KB",
     "fallback": "Fallback: {percent:g}% der getesteten Takte · {comparison}",
     "fallback_cycles": "Fallback: bis zu {cycles} interpretierte Takte je Testlauf · Hardware ungeprüft",
+    "ram_one_by_one": "{count} RAM-Befehle einzeln ausgeführt (nicht nativ)",
     "vdp_equal": "VDP-Vergleich stimmt überein",
     "vdp_different": "VDP-Unterschiede zu prüfen",
     "pick_roms": "ROMs aller Konsolen hinzufügen",

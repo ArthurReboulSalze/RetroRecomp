@@ -699,5 +699,63 @@ class Registration(unittest.TestCase):
             registry.unregister('zz')
 
 
+class RamSingleStepTests(unittest.TestCase):
+    """Game Boy: WRAM/HRAM code run one instruction at a time is counted apart, and is never reported as native only."""
+
+    @staticmethod
+    def counted(report, stub=0, single=0):
+        for rows in (report['final_checks'], report['history']):
+            for row in rows:
+                row.update(ram_stub_instructions=stub, ram_stub_cycles=stub * 8,
+                           ram_single_step_instructions=single, ram_single_step_cycles=single * 6)
+        return report
+
+    def test_the_counts_reach_the_report_and_make_the_native_claim_false(self):
+        report = read_report(self.counted(gb_report(), stub=3, single=5))
+        scenario = report['cpus'][0]['scenarios'][0]
+        self.assertEqual(scenario['ram_single_step'], {'stub_instructions': 3, 'stub_cycles': 24,
+                                                       'single_step_instructions': 5, 'single_step_cycles': 30})
+        # Not an interpreter session: the interpreter figures stay at zero.
+        self.assertEqual(scenario['interpreted'], 0)
+        self.assertFalse(report['cpus'][0]['fallback_present'])
+        self.assertTrue(report['cpus'][0]['ram_single_step_present'])
+        native = report['validation']['native_code']
+        self.assertTrue(native['ram_single_step_present'])
+        self.assertIs(native['zero_fallback_on_tested_scenarios'], False)
+        self.assertNotIn('only', native['claim'].replace('one at a time', ''))
+        self.assertIn('not native code', native['claim'])
+        summary = fallback_summary(report)
+        self.assertEqual(summary['interpreter_cycles'], 0)
+        self.assertEqual((summary['ram_one_by_one_instructions'], summary['ram_one_by_one_cycles']), (8, 54))
+
+    def test_zero_counts_keep_the_native_claim_and_other_writers_are_unchanged(self):
+        report = read_report(self.counted(gb_report()))
+        native = report['validation']['native_code']
+        self.assertIs(report['cpus'][0]['ram_single_step_present'], False)
+        self.assertIs(native['zero_fallback_on_tested_scenarios'], True)
+        self.assertEqual(native['claim'], 'native code on the tested scenarios only')
+        self.assertEqual(fallback_summary(report)['ram_one_by_one_instructions'], 0)
+        # An older Game Boy report (no counts) and a writer that does not count them: not measured, no new summary keys.
+        for old in (read_report(gb_report()), read_report(sms_report(cycles=0))):
+            self.assertIsNone(old['cpus'][0]['ram_single_step_present'])
+            self.assertIsNone(old['validation']['native_code']['ram_single_step_present'])
+            self.assertNotIn('ram_one_by_one_instructions', fallback_summary(old))
+
+    def test_a_library_entry_with_such_instructions_is_not_a_clean_game(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from retrorecomp.compiled_games import game_from_report
+        with tempfile.TemporaryDirectory() as folder:
+            for label, report, expected in (('clean', self.counted(gb_report()), False),
+                                            ('stub', self.counted(gb_report(), stub=1), True),
+                                            ('single', self.counted(gb_report(), single=2), True)):
+                path = Path(folder) / f'{label}.json'
+                path.write_text(json.dumps(report), encoding='utf-8')
+                game = game_from_report(path, Path(folder))
+                self.assertIs(game.tested_fallback, expected, label)
+                self.assertEqual(game.status, 'fallback' if expected else 'no_hints', label)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -204,14 +204,21 @@ upstream, which does not handle it either.
 
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
-| Game Boy: the pinned runtime's RAM stub (`gbrt_try_execute_ram_stub`) covers only part of the SM83 opcodes. Any other opcode executed from WRAM or HRAM (for example `LD HL,nn`, `LD A,(DE)`, `INC BC`, `ADD A,n` in a routine a game copies from its cartridge and patches) started an interpreter session that went on interpreting the ROM code the routine jumped to (Donkey Kong Land: 6,350 sessions, 3,160,836 interpreted cycles in 6,000 frames). The remaining non-prefixed, non-branch opcodes now run natively from their live bytes, one instruction at a time, after the helpers and the stub have declined. Written from the interpreter's own cases (same helpers, operand reads and cycle split), not copied from another project | gb | `native/gb_ram_helpers.h` (`rr_gb_try_ram_instruction`), hooked by `gameboy_runtime.py` (`adapt_generated_project`, the `game.c` dispatch) | gb |
+| Game Boy: the pinned runtime's RAM stub (`gbrt_try_execute_ram_stub`) covers only part of the SM83 opcodes. Any other opcode executed from WRAM or HRAM (for example `LD HL,nn`, `LD A,(DE)`, `INC BC`, `ADD A,n` in a routine a game copies from its cartridge and patches) started an interpreter session that went on interpreting the ROM code the routine jumped to (Donkey Kong Land: 6,350 sessions, 3,160,836 interpreted cycles in 6,000 frames). The remaining non-prefixed, non-branch opcodes are now executed **one instruction at a time from their live bytes by a counted executor** (`rr_gb_try_ram_instruction`, behind `rr_gb_try_ram_dispatch`), after the guarded helpers and the stub have declined, and the ROM routine they jump to runs as native code again. The executor is not native code and not ahead-of-time translation: it is a per-opcode switch, written after the interpreter's own cases (same helpers, operand reads and cycle split), cheaper than an interpreter session. It and the upstream stub, which was never counted, are counted: instructions and guest cycles of each, per probe, in the conversion report | gb | `native/gb_ram_helpers.h` (`rr_gb_try_ram_instruction`, `rr_gb_try_ram_dispatch`), hooked and given its host-only counters by `gameboy_runtime.py` (`adapt_generated_project`: the `game.c` dispatch, the `GBContext` fields, the `[RR-RAM]` line of the summary); read by `gameboy.py` (`_probe`) and `report_schema.py` | gb |
 
-The pinned compiler and runtime are untouched (the cached checkout must stay clean); the hook is a `replace_once` on the generated
-`game.c`. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
-(177 opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects). The change is a
+The pinned compiler and runtime are untouched (the cached checkout must stay clean); every hook is a `replace_once` on the generated
+project. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
+(177 opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects), and checks the
+counters. **Counting.** `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`, `ram_single_step_instructions`
+and `ram_single_step_cycles` for each probe; the schema-2 report carries them as `cpus[].scenarios[].ram_single_step` with a
+`ram_single_step_present` flag, and while that flag is true the report's `native_code.zero_fallback_on_tested_scenarios` is false and its
+claim says that some WRAM/HRAM instructions run one at a time by counted executors, not as native code (the interpreter figures stay
+what they are: sessions, instructions and cycles of the interpreter). The window adds "N RAM instructions executed one by one (not native)"
+to the line of a finished conversion, and the library lists such a game as a game with fallback. The guarded multi-instruction helpers
+(named routines checked by a live signature: store-and-increment, copies, DMA page selection) are not counted, as before. The change is a
 statement about CPU fidelity of writable-memory code only; it says nothing about hardware fidelity, gameplay validation or physical
 latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST`, illegal opcodes, code spanning
-two memory regions) stay counted as before. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
+two memory regions) stay counted as interpreter use. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
 ## Deferred
 

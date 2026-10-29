@@ -6,9 +6,12 @@
  * rr_gb_try_ram_instruction (below) is the one decoder here: a single
  * instruction read live from WRAM/HRAM, executed with the interpreter's own
  * helpers and timing, never batched; it only receives what the helpers and the
- * upstream RAM stub declined. It is a native executor of writable code, not
- * ahead-of-time translation of it, and is checked opcode by opcode against the
- * interpreter (native/gb_ram_checks.c).
+ * upstream RAM stub declined. It is NOT native code and NOT ahead-of-time
+ * translation: it is a one-instruction-at-a-time executor of writable code,
+ * cheaper than an interpreter session and returning to native ROM code at
+ * once, and it is counted (rr_gb_try_ram_dispatch) and reported as such, like
+ * the upstream stub. It is checked opcode by opcode against the interpreter
+ * (native/gb_ram_checks.c).
  */
 #ifndef RETRO_GB_RAM_HELPERS_H
 #define RETRO_GB_RAM_HELPERS_H
@@ -117,7 +120,8 @@ static inline uint8_t rr_gb_try_interrupt_dma_helper(GBContext* ctx, uint16_t ad
     return 0;
 }
 
-/* One writable-memory instruction, executed natively with its live bytes.
+/* One writable-memory instruction, executed on its own from its live bytes (counted, see
+ * rr_gb_try_ram_dispatch).
  *
  * The upstream RAM stub covers a subset of the SM83 opcodes; any other opcode
  * located in WRAM or HRAM (a routine copied from the cartridge and patched, a
@@ -303,5 +307,27 @@ static inline uint8_t rr_gb_try_store_helper(GBContext* ctx, uint16_t addr) {
     /* Keep the dispatch entry point compatible with already generated code. */
     return rr_gb_try_interrupt_dma_helper(ctx, addr) || rr_gb_try_dma_page_helper(ctx, addr) ||
            rr_gb_try_copy_helper(ctx, addr);
+}
+
+/* The dispatch entry used by the generated game (and by the checks): the guarded multi-instruction
+ * helpers, then the upstream RAM stub, then rr_gb_try_ram_instruction. The last two execute one
+ * instruction of writable code per call from a per-opcode switch: that is not native code, so every
+ * instruction they run is counted, each in its own pair of counters (instructions and guest cycles), and the
+ * conversion report shows them beside the interpreter figures (never added to them, never hidden). The counters
+ * are host-only fields of the context, outside every saved state. */
+static inline uint8_t rr_gb_try_ram_dispatch(GBContext* ctx, uint16_t addr) {
+    if (rr_gb_try_store_helper(ctx, addr)) return 1;
+    const uint64_t before = ctx ? ctx->total_cycles : 0;
+    if (gbrt_try_execute_ram_stub(ctx, addr)) {
+        ctx->rr_ram_stub_instructions++;
+        ctx->rr_ram_stub_cycles += ctx->total_cycles - before;
+        return 1;
+    }
+    if (rr_gb_try_ram_instruction(ctx, addr)) {
+        ctx->rr_ram_single_step_instructions++;
+        ctx->rr_ram_single_step_cycles += ctx->total_cycles - before;
+        return 1;
+    }
+    return 0;
 }
 #endif

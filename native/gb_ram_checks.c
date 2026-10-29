@@ -75,8 +75,7 @@ static void dma_page_checks(void) {
 }
 void gb_dispatch(GBContext* ctx, uint16_t addr) {
     ctx->pc = addr;
-    assert(rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||
-           rr_gb_try_ram_instruction(ctx, addr));
+    assert(rr_gb_try_ram_dispatch(ctx, addr));
 }
 
 static GBContext* setup(uint16_t base, unsigned entry, uint16_t target,
@@ -337,7 +336,40 @@ static void instruction_guard_checks(void) {
     gb_context_destroy(ctx); checks += 2;
 }
 
+/* The instructions the stub and the single-instruction executor run are counted, each in its own pair. */
+static void counter_checks(void) {
+    GBContext* ctx = gb_context_create(NULL); assert(ctx);
+    /* LD HL,nn (executor, 12) ; LD A,n (upstream stub, 8) ; ADD A,B (executor, 4) ; JP nn (stub, 16 plus its jump). */
+    static const uint8_t code[] = {0x21, 0x34, 0x12, 0x3E, 0x05, 0x80, 0xC3, 0x00, 0x20};
+    for (unsigned i = 0; i < sizeof(code); ++i) gb_write8(ctx, 0xC300 + i, code[i]);
+    assert(ctx->rr_ram_stub_instructions == 0 && ctx->rr_ram_single_step_instructions == 0);
+    const uint16_t starts[] = {0xC300, 0xC303, 0xC305};
+    const uint64_t cycles[] = {12, 8, 4};
+    const unsigned stub[] = {0, 1, 0};
+    uint64_t single_cycles = 0, stub_cycles = 0, single = 0, stubs = 0;
+    for (unsigned i = 0; i < 3; ++i) {
+        const uint64_t before = ctx->total_cycles;
+        ctx->pc = starts[i];
+        assert(rr_gb_try_ram_dispatch(ctx, starts[i]));
+        assert(ctx->total_cycles - before == cycles[i]);
+        if (stub[i]) { ++stubs; stub_cycles += cycles[i]; } else { ++single; single_cycles += cycles[i]; }
+        assert(ctx->rr_ram_single_step_instructions == single && ctx->rr_ram_single_step_cycles == single_cycles);
+        assert(ctx->rr_ram_stub_instructions == stubs && ctx->rr_ram_stub_cycles == stub_cycles);
+    }
+    assert(ctx->hl == 0x1234 && ctx->a == 5);
+    /* A guarded multi-instruction helper counts in neither pair; a declined opcode changes nothing. */
+    GBContext* helper = setup(0xD09B, 0, 0xC100, 0, 0);
+    assert(rr_gb_try_ram_dispatch(helper, 0xD09B));
+    assert(helper->rr_ram_stub_instructions == 0 && helper->rr_ram_single_step_instructions == 0);
+    gb_write8(ctx, 0xC400, 0xCB);
+    ctx->pc = 0xC400;
+    assert(!rr_gb_try_ram_dispatch(ctx, 0xC400));
+    assert(ctx->rr_ram_single_step_instructions == single && ctx->rr_ram_stub_instructions == stubs);
+    gb_context_destroy(helper); gb_context_destroy(ctx); checks += 12;
+}
+
 int main(void) {
+    counter_checks();
     guard_checks(); differential_checks(); dma_guard_checks(); dma_differential_checks();
     dma_sequence_checks(); copy_differential_checks(); dma_page_checks();
     instruction_guard_checks(); instruction_differential_checks();

@@ -67,6 +67,14 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     source = replace_once(source,
         'bool persistence_load_failed; /**< Invalid persisted data was rejected; automatic overwrite is suppressed */',
         'bool persistence_load_failed; /**< Invalid persisted data was rejected; automatic overwrite is suppressed */\n    bool eram_dirty; /**< Battery RAM changed since load/save; host-only state */\n    bool rtc_dirty; /**< RTC advanced or was written since load/save */')
+    # Counters of the writable-code executors (rr_gb_try_ram_dispatch): host-only, outside every saved state.
+    source = replace_once(source,
+        '    uint64_t total_interpreter_cycles; /**< Total cycles executed in interpreter sessions */',
+        '    uint64_t total_interpreter_cycles; /**< Total cycles executed in interpreter sessions */\n'
+        '    uint64_t rr_ram_stub_instructions; /**< WRAM/HRAM instructions run one by one by the upstream RAM stub (host-only) */\n'
+        '    uint64_t rr_ram_stub_cycles; /**< Guest cycles of those instructions */\n'
+        '    uint64_t rr_ram_single_step_instructions; /**< WRAM/HRAM instructions run one by one by rr_gb_try_ram_instruction (host-only) */\n'
+        '    uint64_t rr_ram_single_step_cycles; /**< Guest cycles of those instructions */')
     header.write_text(source, encoding="utf-8")
 
     runtime_cpu = project / "runtime/src/gbrt.c"
@@ -165,10 +173,11 @@ static void rr_gb_feedback(GBContext *ctx) {
                           '#include "game_internal.h"\n#include "gb_ram_helpers.h"')
     # Order: the guarded multi-instruction helpers, the upstream stub, then the
     # remaining single opcodes (rr_gb_try_ram_instruction); only what all of
-    # them decline reaches the interpreter.
+    # them decline reaches the interpreter. The stub and the single opcodes run
+    # one instruction at a time: rr_gb_try_ram_dispatch counts them, and the
+    # report shows them apart from the interpreter.
     source = replace_once(source, 'if (gbrt_try_execute_ram_stub(ctx, addr)) {',
-                          'if (rr_gb_try_store_helper(ctx, addr) || gbrt_try_execute_ram_stub(ctx, addr) ||\n'
-                          '            rr_gb_try_ram_instruction(ctx, addr)) {')
+                          'if (rr_gb_try_ram_dispatch(ctx, addr)) {')
     source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
                           '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
     game.write_text(source, encoding='utf-8')
@@ -194,6 +203,15 @@ static void rr_gb_feedback(GBContext *ctx) {
         '    rr_feedback_start(!headless_mode && !benchmark_mode);\n'
         '    GBContext* ctx = gb_context_create(&runtime_config);')
     source = diagnostic_limit_snapshot(source)
+    # The counted one-by-one execution of writable code is printed with the interpreter summary, also when
+    # no interpreter session happened (the probe reads this line in every case).
+    source = replace_once(source, '''    fprintf(stderr,
+            "[INTERP] Fallback inventory: sites=%u''', '''    fprintf(stderr,
+            "[RR-RAM] ram_stub_instructions=%llu ram_stub_cycles=%llu ram_single_step_instructions=%llu ram_single_step_cycles=%llu\\n",
+            (unsigned long long)ctx->rr_ram_stub_instructions, (unsigned long long)ctx->rr_ram_stub_cycles,
+            (unsigned long long)ctx->rr_ram_single_step_instructions, (unsigned long long)ctx->rr_ram_single_step_cycles);
+    fprintf(stderr,
+            "[INTERP] Fallback inventory: sites=%u''')
     source = replace_once(source, '''        while (!ctx->frame_done) {
             bool smooth_lcd_transitions''',
         '''        while (!ctx->frame_done) {

@@ -51,9 +51,13 @@ missing, because the old readers take a null for a value)::
     scan          {'level', 'enabled', 'scenario_frames', 'routes': [...]}
     cpus          [{'id': 'main' | 'audio', 'arch', 'role', 'unit': 'instructions',
                     'original_unit': 'instructions' | 'cycles', 'mode',
-                    'reported_label', 'fallback_present',
+                    'reported_label', 'fallback_present', 'ram_single_step_present',
                     'scenarios': [{'name', 'frames', 'native', 'interpreted',
-                                   'interpreted_percent', 'cycles', ...}]}]
+                                   'interpreted_percent', 'cycles', ...,
+                                   'ram_single_step': {'stub_instructions', 'stub_cycles',
+                                                       'single_step_instructions', 'single_step_cycles'}
+                                                      (Game Boy: WRAM/HRAM code run one instruction at a
+                                                       time; neither native nor interpreted)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
     validation    {'native_code', 'cpu_fidelity', 'hardware_fidelity',
@@ -181,6 +185,14 @@ def _main_scenario(writer, row):
     elif writer == 'gameboy':
         interpreted = _count(row.get('interpreter_instructions'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
+        if 'ram_stub_instructions' in row or 'ram_single_step_instructions' in row:
+            # WRAM/HRAM code run one instruction at a time (the runtime's RAM stub; the single-instruction
+            # executor): neither native code nor an interpreter session, so counted in its own field.
+            extra['ram_single_step'] = {
+                'stub_instructions': _count(row.get('ram_stub_instructions')),
+                'stub_cycles': _count(row.get('ram_stub_cycles')),
+                'single_step_instructions': _count(row.get('ram_single_step_instructions')),
+                'single_step_cycles': _count(row.get('ram_single_step_cycles'))}
     elif writer == 'nes':
         cycles = {'native': _count(row.get('native_cycles')), 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('cycles')), 'interpreted_rom': _count(row.get('interpreter_rom_cycles')),
@@ -222,11 +234,27 @@ def _fallback_state(scenarios):
     return None
 
 
+def _ram_single_step_state(scenarios):
+    """True when any scenario ran WRAM/HRAM code one instruction at a time, False when every one measured none,
+    else None (a writer that does not count it)."""
+    counts = []
+    for scenario in scenarios:
+        step = scenario.get('ram_single_step')
+        if isinstance(step, dict):
+            counts.append([step.get('stub_instructions'), step.get('single_step_instructions')])
+    if any(v is not None and v > 0 for pair in counts for v in pair):
+        return True
+    if counts and len(counts) == len(scenarios) and all(all(v is not None for v in pair) for pair in counts):
+        return False
+    return None
+
+
 def _cpus(shape, data, rows):
     main = {'id': 'main', 'arch': shape.main_arch, 'role': 'main', 'unit': 'instructions',
             'original_unit': shape.main_unit, 'mode': None, 'reported_label': None,
             'scenarios': [_main_scenario(shape.writer, row) for row in rows]}
     main['fallback_present'] = _fallback_state(main['scenarios'])
+    main['ram_single_step_present'] = _ram_single_step_state(main['scenarios'])
     cpus = [main]
     if shape.audio_arch and ('audio_cpu' in data or any(key in row for row in rows for key in _AUDIO_KEYS)):
         label = data.get('audio_cpu')
@@ -400,14 +428,23 @@ def _validation(shape, data, rows, cpus, devices):
     if scope.get('hardware_specification_checks') is not None:
         evidence.append({'kind': 'hardware_specification_checks', 'count': scope['hardware_specification_checks']})
     coverage = data.get('native_coverage')
+    ram_states = [cpu.get('ram_single_step_present') for cpu in cpus]
+    ram = True if any(state is True for state in ram_states) else None if any(
+        state is None for state in ram_states) else False
+    # The interpreter figure stays what it is; code run one instruction at a time is a third thing, and while it
+    # is present the zero-fallback and native-only claims are false.
+    zero = None if present is None else not present and ram is not True
     return {
         'native_code': {
             'fallback_present': present,
-            'zero_fallback_on_tested_scenarios': None if present is None else not present,
+            'ram_single_step_present': ram,
+            'zero_fallback_on_tested_scenarios': zero,
             'scenarios_checked': len(rows),
             'coverage': _copy(coverage) if isinstance(coverage, dict) else None,
             'coverage_note': coverage if isinstance(coverage, str) else None,
-            'claim': 'native code on the tested scenarios only'},
+            'claim': ('native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by '
+                      'counted executors (not native code)' if ram else
+                      'native code on the tested scenarios only')},
         'cpu_fidelity': _cpu_fidelity(shape, data, rows),
         'hardware_fidelity': {'validated': hardware, 'evidence': evidence,
                               'claim': _claim(hardware, 'validated, as the writer reports')},
@@ -728,6 +765,11 @@ def _cpu(report, role):
     return next((cpu for cpu in report['cpus'] if cpu.get('role') == role), None)
 
 
+def _ram_total(scenario, *keys):
+    step = scenario.get('ram_single_step')
+    return sum((step.get(key) or 0) for key in keys) if isinstance(step, dict) else 0
+
+
 def fallback_summary(report, *, lenient=False) -> dict:
     """The interpreter fallback of a report, in the figures the batch result and the window show.
 
@@ -754,7 +796,7 @@ def fallback_summary(report, *, lenient=False) -> dict:
     scenarios = main['scenarios'] if main else []
     percents = [s['interpreted_percent'] for s in scenarios if s['interpreted_percent'] is not None]
     device = report['devices'][0] if report['devices'] else None
-    return {
+    summary = {
         'conversion_stage': report['system'].get('status'),
         'main_interpreted_opcodes': max((s['interpreted'] or 0 for s in scenarios), default=0),
         'device': None if not device else {
@@ -768,3 +810,11 @@ def fallback_summary(report, *, lenient=False) -> dict:
         'interpreter_cycles': max(((s['cycles'] or {}).get('interpreted') or 0 for s in scenarios), default=0),
         'reference_vdp_trace_match': report['legacy'].get('reference_vdp_trace_match'),
     }
+    if any('ram_single_step' in scenario for scenario in scenarios):
+        # Game Boy: WRAM/HRAM instructions run one at a time (the runtime's stub and the single-instruction executor),
+        # counted apart from the interpreter, a maximum over the scenarios like the other figures. The keys exist
+        # only for a writer that counts them.
+        summary['ram_one_by_one_instructions'] = max(
+            _ram_total(s, 'stub_instructions', 'single_step_instructions') for s in scenarios)
+        summary['ram_one_by_one_cycles'] = max(_ram_total(s, 'stub_cycles', 'single_step_cycles') for s in scenarios)
+    return summary

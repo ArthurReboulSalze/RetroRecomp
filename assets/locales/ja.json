@@ -296,6 +296,7 @@
     "size": "{value} KB",
     "fallback": "フォールバック：テストしたサイクルの{percent:g}% · {comparison}",
     "fallback_cycles": "フォールバック：シナリオごとに最大{cycles}サイクル · ハードウェア未検証",
+    "ram_one_by_one": "RAM上の命令{count}個を1つずつ実行（ネイティブではない）",
     "vdp_equal": "VDP比較一致",
     "vdp_different": "VDPの差異を要調査",
     "pick_roms": "各機種のROMを追加",

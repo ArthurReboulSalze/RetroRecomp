@@ -296,6 +296,7 @@
     "size": "{value} KB",
     "fallback": "Fallback: {percent:g}% dei cicli testati · {comparison}",
     "fallback_cycles": "Fallback: fino a {cycles} cicli interpretati per scenario · hardware non verificato",
+    "ram_one_by_one": "{count} istruzioni in RAM eseguite una alla volta (non native)",
     "vdp_equal": "Confronto VDP identico",
     "vdp_different": "Differenze VDP da esaminare",
     "pick_roms": "Aggiungi ROM di qualsiasi console",
