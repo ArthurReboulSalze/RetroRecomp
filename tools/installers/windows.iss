@@ -54,7 +54,9 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#PayloadDir}\Retro-Recomp.exe"; DestDir: "{app}"; Flags: restartreplace
+; ignoreversion: a reinstall of the same version (a rebuilt pre-release, a repair) must replace the converter too;
+; without it Inno Setup keeps an installed file whose version resource is the same and replaces only the base.
+Source: "{#PayloadDir}\Retro-Recomp.exe"; DestDir: "{app}"; Flags: restartreplace ignoreversion
 ; The base of paths of this release, read only like the copy the built-in update lays.
 Source: "{#PayloadDir}\Retro-Recomp-base.zip"; DestDir: "{app}"; Attribs: readonly; Flags: overwritereadonly uninsremovereadonly
 Source: "{#PayloadDir}\LICENSE.txt"; DestDir: "{app}"
