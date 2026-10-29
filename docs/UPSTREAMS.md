@@ -217,8 +217,15 @@ for code a game runs from its RAM, described after the table.
 
 The two Z80 fixes are described in [UPGRADES.md](UPGRADES.md#master-system-and-game-gear-the-functions-engine-164-lot-f). The second one is not a defect of the pin: it makes our
 two engines agree on a convention that was ours to choose (the reference CPU follows it since the sampling change of 1.6.x,
-`prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons (Action Fighter: a
-`RET` goes to an address other than the one the generated call stack expects) keep failing it; the banked engine converts them.
+`prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons keep failing it; the banked
+engine converts them. **Causes found on 29 October 2026** (first divergent write of the native run against its own interpreter twin, same
+VDP, audio and memory; CPU fidelity against the project's reference only):
+
+| Cause | Games | Status |
+|---|---|---|
+| A `RET` pops an address other than the one the generated C call stack expects: Action Fighter pushes `$0677`, jumps into a shared tail that ends in `ret nz` (`$0693`), and the Z80 continues at `$0677` while the generated function returns to its caller (frame 2530) | Action Fighter | proved; a general fix would compare the popped address with the one the caller pushed and dispatch to it, which is a change of the call model, not a patch |
+| A repeating block instruction (`LDIR` at `$087B`) interrupted before it ends: the generated body sets the X and Y flags from the last byte copied, the Z80 and our corrected reference set them from the high byte of the PC while it repeats, so the AF pushed by the interrupt differs (`$64` against `$4C`) | Alex Kidd: High-Tech World (frame 69), Alex Kidd: The Lost Stars (frame 64, same bit pattern) | proved on the first divergent write; a general, small CPU-fidelity patch of the block instructions of the generator is possible |
+| The interrupt is accepted at another instruction boundary than in the reference (one to a few instructions earlier or later): Sonic Spinball (Game Gear) pushes `$0562` instead of `$0566` in an `ei; ld a,(nn); cp b; jr nz` wait loop, Super Columns breaks a clear loop one iteration earlier, Sonic Triple Trouble takes it before a write the reference makes first | Sonic Spinball (Game Gear; the Master System edition passes), Super Columns, Sonic Triple Trouble | first divergence located, boundary rule not yet isolated (the tick placement around `EI` and the sampling patch of 1.6.4 are the places to read) |
 
 The pinned compiler and runtime are untouched (the cached checkout must stay clean); every hook is a `replace_once` on the generated
 project. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter

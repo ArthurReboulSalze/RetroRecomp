@@ -130,7 +130,7 @@ Defaults (full tables and the shared shortcuts are in [CONTROLS.md](CONTROLS.md)
 - **F2** pages: player 1 keyboard and gamepad, player 2 keyboard and gamepad, then the options; a **Light Phaser** page sits
   after the control pages. Each gamepad page ends with a *Gamepad* row (Automatic, a connected controller, or None). Shift+F1
   or the held restart combination restarts; the second player has no gun of its own.
-- **F5, sprite flicker reduction** (Master System only). Off by default, which keeps the console's eight sprites per line. When
+- **F5, sprite flicker reduction** (Master System and, since 1.6.5, Game Gear). Off by default, which keeps the console's eight sprites per line. When
   on, sprites beyond the eighth are drawn and confirmed rapid sprite-list reversals are stabilised (at least 75 % of sprite
   identities matching, 95 % of pairwise priorities agreeing, two reversals within four frames). Collision and overflow flags
   still use the original eight. It changes presentation only, no ROM patch, no frame blending, and can change which character is
@@ -196,7 +196,9 @@ uses Bank Panic (Europe). Factory Panic and OutRun belong to the compilation lib
   validated. A region label is a default timing choice, not proof of the console a cartridge was played on.
 - RAM code beyond what the converter has seen still runs in the counted interpreter; up to 4,096 RAM windows are learned per
   ROM. Zero fallback is a result on tested routes, never a general promise. A strict conversion refuses any fallback.
-- The functions engine fails the reference check on the six games listed above; do not treat it as supported for them.
+- The functions engine fails the reference check on the six games listed above; do not treat it as supported for them. Their causes
+  (a `RET` to another address, block-instruction flags while repeating, an interrupt accepted at another instruction boundary) are in
+  [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164). Sonic Spinball passes on the Master System and fails on the Game Gear.
 - Sprite flicker reduction is a display enhancement, not console behaviour.
 - The stereo audio ring of the Master System and Game Gear is the one duplicate of the host kit's ring still left; merging
   needs its own measurement ([HOST_KIT.md](HOST_KIT.md)).
