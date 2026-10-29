@@ -549,6 +549,15 @@ Three changes toward the "supported" gates of [QUALIFICATION.md](QUALIFICATION.m
 `payload.c` and `retrorecomp/x68000_conversion.py` are game inputs of the X68000: the X68000 game stamp and `x68_sdk` move; nothing
 the CPU executes changes. An export of 1.6.4 is converted in full once, as at every release.
 
+## X68000: evidence tools for the saved disk and the play routes (1.6.5)
+
+Two developer tools, not part of a conversion and not read by it, for the gates G7 and G8 of [QUALIFICATION.md](QUALIFICATION.md):
+`tools/x68000_saves_check.py` converts a game, runs its player, runs it again and runs the player of a second conversion over the same
+data folder, and checks that the disk the game wrote is kept each time; `tools/x68000_play_route.py` converts a game with an authored
+input script as its main route (`tools/x68000_play_routes.py`, one exact disk set each, numbers only: Lemmings reaches its first
+level) and keeps the last picture of the delivered file. `retrorecomp/x68000_conversion.py` names the check of an input script
+(`valid_qualification_events`), the same rule as before. The X68000 game stamp moves with that module.
+
 ## X68000: a picture line made visible during its machine line (1.6.5)
 
 The frame loop (`native/x68000_machine/machine.c`) chooses the picture line when a machine line begins, and a line outside the CRTC's

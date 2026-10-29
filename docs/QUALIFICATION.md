@@ -43,7 +43,7 @@ x68 = Sharp X68000.
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | P | P | Y | P | Y | - | P |
+| G7 | - | - | P | P | Y | P | Y | - | Y |
 | G8 | ? | ? | ? | P | P | Y | Y | Y | P |
 | G9 | P | P | P | P | Y | P | Y | Y | P |
 | G10 | Y | Y | P | Y | P | P | P | P | P |
@@ -81,8 +81,8 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G4 | Y | A fresh interpreted reference per conversion, trace equality (`native_validation.reference_match`, `tests/test_x68000_conversion.py`) | |
 | G5 | Y | The compressed copy is replayed on every route against the same reference (`packed_reference_match`, `packed_candidate_sha256`, `retrorecomp/x68000_conversion.py`); R-Type, Metal Sight, Lemmings and Super Hang-On matched on 3 routes each | The published file is compressed again by `publishing.py` (UPX is deterministic: the SHA-256 recorded in the report equals the published one on the run checked) |
 | G6 | Y | F9 in a fresh process and the early floppy DMA, now on the compressed copy (`state_checks`) | |
-| G7 | P | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts | No real game was shown writing to its disk and finding it again after a reconversion: the disk image is written by the px68k floppy code, which the authored tests do not exercise |
-| G8 | P | `liveness` in every report, per route and for the delivered file (four risk cases below); captures looked at | Only R-Type (into its game-over screen) and Metal Sight (in play) reach play on the bounded routes; Super Hang-On and Lemmings stay on their title and menu screens, and Lemmings' audio is nearly constant (9 to 59 different audio blocks in 4,000 to 10,000 frames) |
+| G7 | Y | `tests/test_x68000_payload.py`: a played disk survives every start and a second build of the same machine identity; a disk of another size, a missing one or a folder in its place is moved to `<name>.unusable-N` and replaced from the executable; a changed host file is treated the same way; the game always starts. `tools/x68000_saves_check.py` on a real game (below): the game wrote to its disk, a relaunch and a second conversion found it as it was | The writes found are file time stamps of 4 to 12 bytes (below): no game was seen saving a score or a position on purpose, which needs play beyond the routes |
+| G8 | P | `liveness` in every report, per route and for the delivered file (four risk cases below); captures looked at; an authored route that takes Lemmings into its first level (`tools/x68000_play_routes.py`) | R-Type (into its game-over screen), Metal Sight (in play) and Lemmings (on its authored route) reach play; Super Hang-On stays on its title screen (a start sequence of keys and buttons did not leave it in 4,200 frames) |
 | G9 | P | 4,000-frame main route, mouse (10,000 frames for mouse games) and keyboard routes; 18,000 and 36,000 frames at the extended and thorough levels | Not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
@@ -100,7 +100,16 @@ The four risk cases, converted one at a time with the 1.6.5 tree (standard scan 
 | R-Type (Irem) | 1,744 pictures, 2,796 audio blocks | 2,169 / 2,829 | 1,693 / 2,845 | 0 | The game-over screen: play was reached |
 | Metal Sight (System Sacom) | 311 / 3,241 | 312 / 3,379 | 127 / 2,745 | 0, 2 automatic disk changes | In play (a mech shooter screen) |
 | Lemmings (Imagineer) | 993 / 59 | 5,756 / 9 (10,000 frames, 72,288 mouse reads) | 1,003 / 9 | 0 | The menu, with the mouse pointer and a level name; no level reached |
+| Lemmings, authored play route (4,000 frames, quick scan) | 1,238 / 911 | | | 0 | Level 1 ("Just dig!") with its lemmings walking out and the time running: play was reached |
 | Super Hang-On (Sharp / SPS) | 74 / 3,131 | 1,939 / 8,638 (10,000 frames) | 74 / 3,131 | 0, no automatic disk change | The title screens; the game was not reached |
+
+What the games write (G7). A survey of 378 starts (the single-disk sets and the first disk of each other set, 3,000 frames of the
+qualification inputs, the fresh reference) found six sets that change their own disk: Cybermission (Login), Darius Dokomade
+Tatakaemasuka, F-1 Fastest Lap (Michael Company), Hoippuru X68K, Sekizui Hansha De Acchoo v613.61 and Twin Soul. Each changes 4 to 12
+bytes, the time and date fields of a file's directory entry (Human68k stamps a file it opens for writing). On Cybermission,
+`tools/x68000_saves_check.py` converted the game, ran its player (12 bytes changed on its disk), ran it again (the disk was
+kept byte for byte), converted the game a second time and ran that new player over the same data folder (the disk was kept, and no
+second data folder appeared). The other 372 starts left their disk as it was; none of them saves a score or a position without play.
 
 A conversion took 133 to 186 seconds on the Windows build PC with these three routes (the compressed replays are 28 to 39 of
 them). Picture and sound changing is not gameplay validation, and a route that stays on a title screen proves only that the

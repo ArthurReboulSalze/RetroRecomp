@@ -292,6 +292,14 @@ def run_routes(jobs, workers, phase=None):
             return [future.result() for future in futures]
 
 
+def valid_qualification_events(events, count):
+    """Whether `events` (begin frame, end frame, kind, code, value) are a bounded input script for a route of `count` frames."""
+    return not(len(events)>4096 or any(len(e)!=5 or type(e[0]) is not int or type(e[1]) is not int or
+        not 0<=e[0]<e[1]<=count or e[2] not in ('key','joy','joy2','mouse') or
+        type(e[3]) is not int or not 0<=e[3]<(320 if e[2]=='key' else 4 if e[2]=='mouse' else 16) or
+        type(e[4]) is not int or (not -32768<=e[4]<=32767 if e[2]=='mouse' else e[4] not in (0,1)) for e in events))
+
+
 def route_liveness(folder, frames, result):
     """What a replayed route shows of the machine being alive, read from its trace: how many different pictures,
     audio blocks, RAM states and program counters it went through, beside the counts its report gives. It says that
@@ -385,10 +393,7 @@ def convert(path, *, x68_ipl=None,x68_cgrom=None,x68_ram=2,title=None,output=Non
         count=max(4000,min(int(frames),10000))
         event_file=work/'inputs.tsv'
         events=cases()[2].events if qualification_events is None else tuple(qualification_events)
-        if len(events)>4096 or any(len(e)!=5 or type(e[0]) is not int or type(e[1]) is not int or
-            not 0<=e[0]<e[1]<=count or e[2] not in ('key','joy','joy2','mouse') or
-            type(e[3]) is not int or not 0<=e[3]<(320 if e[2]=='key' else 4 if e[2]=='mouse' else 16) or
-            type(e[4]) is not int or (not -32768<=e[4]<=32767 if e[2]=='mouse' else e[4] not in (0,1)) for e in events):
+        if not valid_qualification_events(events,count):
             raise ConversionError('Invalid bounded X68000 qualification inputs.')
         event_file.write_text(''.join(' '.join(map(str,event))+'\n' for event in events),encoding='ascii')
         # Every conversion starts with an unlearned, fresh CPU reference.
