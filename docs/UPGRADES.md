@@ -360,6 +360,19 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
 - *X68000 quick-state key: moves.* `RR_X68K_STATE_ABI` hashes `reference_host.c`. A quick state written by an X68000 export
   of 1.6.2 is refused by the export of 1.6.3, as between any two releases ([GAME_STATES.md](GAME_STATES.md)). The state file
   layout, its host auxiliary block and its media section are unchanged.
+- *X68000 quick states carry no heap content.* `new MyOPM()` (the FM chip of the pinned fmgen) returned storage that fmgen's
+  constructors and `Reset` only partly write, and the serializer saves those members: up to 512 bytes of the 5,207-byte OPM
+  section of a 19.4 MB state (4 to 16 bytes in each operator) took whatever the heap held, so two states of one game and moment
+  could differ in a window of about 1.7 KB, with leftovers of the process (environment text among them) inside. The chip is
+  now allocated zeroed (`tools/x68000_base74.py`, `adapt_fmg_wrap`: a class-specific `operator new`); the layout and the size
+  of the state are unchanged. Stamps moved by this change alone: the X68000 game stamp (and its engine stamp) and the SDK stamp;
+  the X68000 host and build stamps and every stamp of the other eight consoles are unchanged. The X68000 quick-state key moves
+  too (`RR_X68K_STATE_ABI` hashes `tools/x68000_base74.py`), which the release already needs (above). Nothing else of the X68000 payload
+  depends on uninitialised memory (the only bytes that follow the chip's initial storage are the ones above, measured by filling
+  it with `0xA5`). The writers of the other consoles were read for the same pattern: they write field by field or from zeroed
+  static objects, except that the NES state header (`nes_machine_state.inc`, two padding bytes of an automatic `= {0}` struct)
+  and the CPS-1 Z80 block (`cps1_machine.c`, a struct copy) dump structs whose padding is zero in practice and not by guarantee;
+  they are left alone, because fixing them would move those consoles' state keys.
 - *Host stamps: move* for the Mega Drive, Super Nintendo, Neo Geo, CPS-1, NES and X68000 (the shell gained twelve
   per-machine fields and hooks, all optional). *Game and build stamps of the other eight consoles: unchanged* (checked
   against the tree of the tag). Learned paths do not move.
