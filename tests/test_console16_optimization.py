@@ -114,7 +114,7 @@ class HardwareOptimizationTests(unittest.TestCase):
                 self.assertEqual((record['profile_guided'], record['training_frames']), (False, 0))
                 self.assertNotIn('compiler_profile', record)
 
-    def test_clang_profile_only_for_snes_on_the_portable_toolchain(self):
+    def test_clang_profile_only_for_snes_and_md_on_the_portable_toolchain(self):
         from retrorecomp import console16_optimization as module
         folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, folder, True)
@@ -123,14 +123,19 @@ class HardwareOptimizationTests(unittest.TestCase):
         with patch.object(module.os, 'name', 'nt'), patch('retrorecomp.toolchain.active', return_value='llvm'), \
                 patch('retrorecomp.toolchain.tools_directory', return_value=folder):
             self.assertEqual(module.clang_profile('snes'), folder / 'llvm-mingw/bin/llvm-profdata.exe')
-            self.assertIsNone(module.clang_profile('md'))
+            self.assertEqual(module.clang_profile('md'), folder / 'llvm-mingw/bin/llvm-profdata.exe')
+            for other in ('ng', 'cps1', 'x68', 'sms', 'gg', 'gb', 'nes'):
+                self.assertIsNone(module.clang_profile(other), other)
             self.assertIsNone(module.clang_profile(None))
             with patch.dict(module.os.environ, {'RETRO_RECOMP_PGO': '0'}):
                 self.assertIsNone(module.clang_profile('snes'))
+                self.assertIsNone(module.clang_profile('md'))
             with patch('retrorecomp.toolchain.active', return_value='msvc'):
                 self.assertIsNone(module.clang_profile('snes'))
+                self.assertIsNone(module.clang_profile('md'))
         with patch.object(module.os, 'name', 'posix'):
             self.assertIsNone(module.clang_profile('snes'))
+            self.assertIsNone(module.clang_profile('md'))
 
     def test_unsupported_compiler_keeps_ordinary_build(self):
         project, built, modes, invoke = self.exercise(available=False)
