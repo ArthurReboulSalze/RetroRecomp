@@ -240,7 +240,19 @@ class WindowsPackingTests(unittest.TestCase):
                          [('-9', '--compress-resources=0', '--compress-icons=0', str(game)), ('-t', str(game))])
         self.assertEqual({Path(call.args[0][0]) for call in run.call_args_list}, {ASSETS / 'assets/tools/upx.exe'})
         for call in run.call_args_list:
-            self.assertEqual((call.kwargs['timeout'], call.kwargs['creationflags']), (120, subprocess.CREATE_NO_WINDOW))
+            self.assertEqual((call.kwargs['timeout'], call.kwargs['creationflags']),
+                             (packing.LINUX_TIMEOUT, subprocess.CREATE_NO_WINDOW))
+
+    def test_the_limit_grows_with_the_executable(self):
+        # A fixed 120 s stopped a large NES game packed while other conversions ran (1.6.5).
+        with tempfile.TemporaryDirectory() as folder:
+            small, large = Path(folder) / 'small.exe', Path(folder) / 'large.exe'
+            small.write_bytes(b'MZ')
+            with large.open('wb') as stream:
+                stream.truncate(78_000_000)
+            self.assertEqual(packing.upx_timeout(small), packing.LINUX_TIMEOUT)
+            self.assertEqual(packing.upx_timeout(large), 780)
+            self.assertEqual(packing.upx_timeout(Path(folder) / 'missing.exe'), packing.LINUX_TIMEOUT)
 
 
 @unittest.skipUnless(platform.system() == 'Linux' and platform.machine() == 'x86_64' and shutil.which('cc'),

@@ -16,7 +16,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 
 | Machine | Game (set or title) | Kind | What happens | What was tried | Since |
 |---|---|---|---|---|---|
-| NES | Dragon Warrior IV | Set aside | The conversion fails on the 1.6.5 tree and on 1.6.4 alike | Several sessions of investigation without a result; the dump may be bad | 29 October 2026 |
 | Game Boy | Paperboy 2 | Failing | The discovery probes reach their 600-second limit; nothing is added to the shared knowledge and the game is not qualified | Bank-boundary, RAM-helper and selector fixes of the same campaign did not help; cause (CPU, mapper or other) not found. Not replayed since 1.6.4 | 10 October 2026 |
 | Game Boy | Spiritual Warfare | Failing | Same symptom: probes at the 600-second limit, game not qualified | Same attempts; not replayed since 1.6.4 | 10 October 2026 |
 | Game Boy | The Ren & Stimpy Show: Veediots! | Failing | Same symptom: probes at the 600-second limit, game not qualified | Same attempts; not replayed since 1.6.4 | 10 October 2026 |
@@ -25,6 +24,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Mega Drive | Boxing Legends of the Ring (USA) | Failing | The game reaches the 68000 `RESET` instruction, whose board wiring is not modelled, and the conversion stops | Cause found in the 24 October campaign ([MEGADRIVE.md](MEGADRIVE.md), known limits); no `RESET` emulation tried. Not replayed on 1.6.5 | 24 October 2026 |
 | Mega Drive | Dragon's Revenge (USA) | Failing | Same cause: the `RESET` instruction is reached | Same; no `RESET` emulation tried. Not replayed on 1.6.5 | 24 October 2026 |
 | Mega Drive | Barkley Shut Up and Jam! (USA) | Failing | An opcode the decoder does not accept is reached in the cartridge header area, and the conversion stops | Located in the 24 October campaign; whether it is real code or data read as code is not checked. Not replayed on 1.6.5 | 24 October 2026 |
+| NES | Famicom Disk System images | Refused by design | Disk images are not a supported medium ([NES.md](NES.md)) | Outside the machine's scope; the upstream's FDS work is deferred ([UPSTREAMS.md](UPSTREAMS.md#deferred)) | Always |
 | Neo Geo | Fight Fever (`fightfev`) | Failing (bad input) | The conversion stops at once: the split cartridge needs a separate parent archive for `060-s1.s1` | The test archive's `060-s1.s1` has CRC `7f012104` instead of the expected `d62a72e9`, and the parent is absent: another dump should convert (not tried) | 24 October 2026, confirmed 29 October 2026 |
 | Neo Geo | Last Hope (`lasthope`, NG:DEV.TEAM AES-to-MVS) | Failing (cause found) | All ten CRCs match, but assembly stops: the 64 KiB fix ROM is smaller than the cartridge layout (at least `0x20000`, `rr_ng_container_valid`) | Repair in progress for 1.6.5: mirror the 64 KiB S1 to 128 KiB as the hardware repeats it | 29 October 2026 |
 | Capcom CPS-1 | QSound boards, 18 sets (`wof`, `dino`, `punisher`, `slammast`, `mbomberj` and their clones) | Refused by design | « not supported yet: qsound » (Kabuki-encrypted Z80 and QSound DSP not handled) | `wof` converted on 29 October 2026: refused with its reason; the others are refused by the catalogue | 24 October 2026 |
@@ -40,3 +40,10 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Sharp X68000 | TF4G v0.3A09 (1993, TNB Saisakusho) | Failing | Same start-up error on the reference (the v0.6426 version of the same title is not affected) | Same survey; not investigated yet | 24 October 2026 |
 | Sharp X68000 | Hard-disk and SCSI/SASI images | Refused by design | The profile accepts floppy media only (`.dim`, `.xdf`, `.m3u`) | Documented limit of [X68000.md](X68000.md) | 1.1.9 |
 | Sharp X68000 | Sets of more than ten disks | Refused by design | The set is left as separate files, not queued as one game | Documented limit | 1.3.0 |
+
+## Taken off this page
+
+- **NES, Dragon Warrior IV** (29 October 2026). Listed as set aside the same day, then found: the conversion itself succeeds
+  (9 min 27 s, zero interpreted cycles on the final paths); what stopped it was the fixed 120-second limit of the UPX packing of
+  its large executable while other conversions shared the CPUs. Since 1.6.5 the limit grows with the file
+  ([UPGRADES.md](UPGRADES.md)).

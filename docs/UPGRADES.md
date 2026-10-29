@@ -498,6 +498,10 @@ The report's `packing.compared_on` now says when a packed copy was replayed (Neo
 `unpacked build executable and a packed copy replayed against the reference`); other machines keep `unpacked build
 executable`. `retrorecomp/batch.py` and `retrorecomp/packing.py` change, which moves the game stamps of the machines that own them.
 
+The time allowed to one UPX pass on Windows was a fixed 120 seconds. It stopped Dragon Warrior IV (a 512 KiB NES board, a large
+executable) after every check had passed, while other conversions shared the CPUs. The limit now grows with the file on Windows and
+Linux alike (`packing.upx_timeout`: 10 seconds per MB, never below 300); it only exists to stop a packer that hangs.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from

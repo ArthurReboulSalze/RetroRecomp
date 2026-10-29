@@ -27,6 +27,19 @@ UPX_LINUX = "assets/tools/upx-amd64_linux"
 UPX_LINUX_SHA256 = "39bbf81cb4c56ce3e2e13a1755a31ec4970e33f061db8e214e9fac59354fc9aa"
 # Large Mega Drive and Super Nintendo ELFs take longer than PEs to pack at -9.
 LINUX_TIMEOUT = 300
+# The limit only stops a packer that hangs. A fixed 120 s stopped Dragon Warrior IV (a 512 KiB NES board, a large
+# executable) on Windows while other conversions shared the CPUs (1.6.5): the limit now grows with the file, 10 s
+# per MB, never below LINUX_TIMEOUT.
+SECONDS_PER_MB = 10
+
+
+def upx_timeout(path: Path) -> int:
+    """Seconds allowed to one UPX pass (pack or test) on `path`."""
+    try:
+        size = Path(path).stat().st_size
+    except OSError:
+        size = 0
+    return max(LINUX_TIMEOUT, SECONDS_PER_MB * -(-size // 1_000_000))
 # UPX 5.2.0 and 5.2.1 can reject, with "compressed data violation", their own default (NRV) packing of a
 # large ELF at `upx -t` and `upx -d` although the data are valid and the packed program runs (upx/upx
 # issue 18937: the test unpacks each block in place with too little slack; fixed in UPX 5.3.0, the bundled
@@ -111,7 +124,7 @@ def _compact_executable(path: Path, emit=None) -> dict | None:
                  ("-t", str(path))):
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,
-                                    timeout=120, creationflags=flags)
+                                    timeout=upx_timeout(path), creationflags=flags)
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise RuntimeError(f"UPX could not compact or verify {path.name}: {exc}") from exc
         if result.returncode:
@@ -143,11 +156,12 @@ def _upx_attempt(tool: Path, path: Path) -> str | None:
     """Pack then test `path` in place: None when both passed, else why not. A packer
     that cannot even start (OSError) is an installation fault and stays an error."""
     for args in (("-9", "-q", str(path)), ("-t", "-q", str(path))):
+        limit = upx_timeout(path)
         try:
             result = subprocess.run((str(tool), *args), capture_output=True, text=True,
-                                    timeout=LINUX_TIMEOUT)
+                                    timeout=limit)
         except subprocess.TimeoutExpired:
-            return f"UPX {args[0]} timed out after {LINUX_TIMEOUT} s"
+            return f"UPX {args[0]} timed out after {limit} s"
         except OSError as exc:
             raise RuntimeError(f"UPX could not compact or verify {path.name}: {exc}") from exc
         if result.returncode:
