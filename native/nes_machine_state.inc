@@ -68,16 +68,21 @@ bool rr_nes_state_save(void *buffer, size_t size) {
     if (!buffer || size != rr_nes_state_size()) { state_error = "Could not create quick state"; return false; }
     uint8_t *bytes = (uint8_t *)buffer;
     memset(bytes, 0, size);
-    RrStateHeader header = {0};
+    /* Every byte of the file is defined: the header's compiler padding is
+     * zeroed explicitly (`= {0}` does not promise it) and every member is
+     * copied byte for byte into a zeroed record. */
+    RrStateHeader header;
+    memset(&header, 0, sizeof header);
     memcpy(header.magic, "RRNESST1", 8);
     memcpy(header.abi, RR_NES_STATE_ABI, 65);
     memcpy(header.rom, RR_NES_ROM_SHA, 65);
     header.bytes = (uint32_t)size; header.pal = RR_NES_PAL; header.gun = RR_NES_ZAPPER;
     RrMachineState *s = (RrMachineState *)calloc(1, sizeof(*s));
     if (!s) { state_error = "Not enough memory to save"; return false; }
-    s->processor = cpu; s->machine = hw; s->cart = hw_cart; s->video = ppu;
+    memcpy(&s->processor, &cpu, sizeof(cpu)); memcpy(&s->machine, &hw, sizeof(hw));
+    memcpy(&s->cart, &hw_cart, sizeof(hw_cart)); memcpy(&s->video, &ppu, sizeof(ppu));
     s->cart.prg = s->cart.chr = NULL;
-    s->gun = zapper; s->frame_done = hw_frame_done; s->dma_stalls = hw_dma_stalls;
+    memcpy(&s->gun, &zapper, sizeof(zapper)); s->frame_done = hw_frame_done; s->dma_stalls = hw_dma_stalls;
     rr_nes_ppu_aux_save(s->ppu_aux);
     memcpy(s->image, hw_frame_index, sizeof(s->image));
     size_t pos = sizeof(header);

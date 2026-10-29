@@ -49,6 +49,11 @@ def check(executable: Path, frames: int=180, *, save_after: int | None=None,
         run([exe,'--frames',str(save_after+frames),'--hash-out',folder/'full.hash',
              '--wav-out',folder/'full.wav','--quick-save',saved,
              '--quick-save-frame',str(save_after-1),*full_input])
+        # Every byte of a state is defined: the same run saved by a second process gives the same file.
+        again=folder/'datas/states/again.rrstate'
+        run([exe,'--frames',str(save_after+frames),'--hash-out',folder/'again.hash','--wav-out',folder/'again.wav',
+             '--quick-save',again,'--quick-save-frame',str(save_after-1),*full_input])
+        assert again.read_bytes()==saved.read_bytes(), 'Two saves of one run differ'
         run([exe,'--frames',str(frames),'--hash-out',folder/'resume.hash',
              '--wav-out',folder/'resume.wav','--quick-load',saved,*resumed_input])
         full=(folder/'full.hash').read_text().splitlines()[save_after:]
@@ -79,7 +84,7 @@ def check(executable: Path, frames: int=180, *, save_after: int | None=None,
         return {'executable':str(executable),'saved_after_frames':save_after,
                 'input_sha256':hashlib.sha256(script.read_bytes()).hexdigest() if script else None,
                 'resumed_frames':frames,'state_bytes':len(original),'rejected_state_cases':6,
-                'cpu_memory_hardware_match':True,'pcm_match':True,'lazy_io':True,'corruption_rejected':True}
+                'two_saves_identical':True,'cpu_memory_hardware_match':True,'pcm_match':True,'lazy_io':True,'corruption_rejected':True}
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('executables',nargs='+',type=Path)
