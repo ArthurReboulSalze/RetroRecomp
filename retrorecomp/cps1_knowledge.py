@@ -93,7 +93,11 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # qualified by the code between the edits, and the edit changes nothing a RAM path could notice (the generated files are
 # the same; the CPS-1 quick state of 1.6.4 is another format, magic CPS1S002, and the 1.6.3 key is not carried): the
 # revision is not raised an eighth time, the pins follow.
-GENERATOR_REVISION = 7
+# 8: the Z80 interrupt mode 0 opcode supplied by the interrupting device runs on the reference core and is now counted as
+# an interpreted Z80 instruction (it was not, unlike on the Neo Geo; 1.6.5). The generated code and the RAM paths are the
+# same; the revision is raised because the pin covers the whole generator. The shipped snapshot holds no qualified CPS-1
+# path, so nothing is lost today.
+GENERATOR_REVISION = 8
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',

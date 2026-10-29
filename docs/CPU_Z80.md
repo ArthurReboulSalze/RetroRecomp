@@ -128,7 +128,7 @@ conversion checks each zero-fallback claim against a strict run of the same scen
 | A RAM variant not yet observed, or one whose operation bytes changed | all | counted; the next pass compiles the new variant. On the Mega Drive, a changed opcode fetch continues from the byte already consumed, in the right semantic family, and the whole instruction's nominal cycles belong to that counted escape: no prefix, operand or access is replayed |
 | Prefix chains longer than the four-byte guard window; uploads never seen | Mega Drive | counted fallback |
 | An interrupt that puts an opcode on the data bus (IM 0) | Mega Drive | $FF is handled natively as `RST $38` (13 T-states, R incremented once); any other value is a counted escape |
-| An interrupt that puts an opcode on the data bus (IM 0) | Neo Geo | every IM 0 interrupt runs its supplied opcode on the reference core and is counted |
+| An interrupt that puts an opcode on the data bus (IM 0) | Neo Geo, CPS-1 | every IM 0 interrupt runs its supplied opcode on the reference core and is counted (CPS-1 since 1.6.5; the YM2151 interrupt supplies `$FF`, so it only arises when a sound ROM selects IM 0) |
 | Code not reached by the static walk | Master System, Game Gear ("functions" engine) | counted hybrid-interpreter calls and cycles |
 
 Not causes of interpretation, but limits of the same engines: mappers other than the Sega mapper are not converted by the
@@ -158,7 +158,7 @@ the model does not reproduce the electrical bus-request, bus-grant, refresh or H
 
 **Neo Geo and CPS-1.** Word reads are made explicitly low byte first, so the order does not depend on the C compiler. The
 interrupt and NMI entry, the `EI` delay, `HALT` and the refresh register keep the canonical schedule. External IM 0 opcodes
-run on the reference core (counted on the Neo Geo).
+run on the reference core (counted on the Neo Geo and, since 1.6.5, on the CPS-1).
 
 **Fixes carried as our own patches.** The pins do not move, so the base of qualified paths stays valid; the game stamps of
 the machines concerned move and their exports are rebuilt ([UPGRADES.md](UPGRADES.md)). All are CPU fidelity fixes.

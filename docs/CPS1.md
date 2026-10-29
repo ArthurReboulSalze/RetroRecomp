@@ -72,7 +72,7 @@ playthroughs and physical latency are not claimed.
 | Main CPU | MC68000 at 10 or 12 MHz ([CPU_68000.md](CPU_68000.md)); program ROM up to 4 MiB | **Native code**: the whole program ROM is swept (every even offset that decodes legally) into guarded native steps; each step is checked against its live code words. **Reference**: Musashi from the pinned Geolith copy, with every instruction interpreted. **Counted interpreter** for anything not covered |
 | Work RAM | 64 KiB at `0xFF0000` | Code the game copies or builds there is observed in one pass and becomes guarded native code in the next |
 | Graphics RAM | `0x900000` to `0x92FFFF` (CPS-A/B registers, tile layers, sprites, palette) | Since 1.6.4, code run from it is guarded like work-RAM code (see [Known limits](#known-limits) and [UPGRADES.md](UPGRADES.md#cps-1-code-run-from-graphics-ram-is-guarded-natively-164-lot-h)) |
-| Sound CPU | Z80 at 3.579545 MHz ([CPU_Z80.md](CPU_Z80.md)); ROM `0x0000`-`0x7FFF` plus a switched 16 KiB window at `0x8000`-`0xBFFF` (two banks), RAM `0xD000`-`0xD7FF` | **Native code** at every byte position of the sound ROM, banks included; guarded Z80 RAM variants. **Reference**: the Z80 core of the pinned Geolith copy. Two sound latches written by the 68000 are time-stamped and replayed when the Z80 reaches them |
+| Sound CPU | Z80 at 3.579545 MHz ([CPU_Z80.md](CPU_Z80.md)); ROM `0x0000`-`0x7FFF` plus a switched 16 KiB window at `0x8000`-`0xBFFF` (two banks), RAM `0xD000`-`0xD7FF` | **Native code** at every byte position of the sound ROM, banks included; guarded Z80 RAM variants. **Reference**: the Z80 core of the pinned Geolith copy; the opcode an IM 0 interrupt supplies runs there and, since 1.6.5, is counted as interpreted. Two sound latches written by the 68000 are time-stamped and replayed when the Z80 reaches them |
 | Video | CPS-A and CPS-B: three scroll layers (8x8, 16x16 and 32x32 tiles), sprites, star fields on some boards, row scroll, palette; 30 CPS-B board configurations and 58 graphics mappers in the catalogue; 8 MHz pixel clock, 512x262 total, 384x224 visible, about 59.637 Hz | Reference board model in C adapted from MAME's driver ([cps1_machine.c](../native/cps1_machine.c)). The frame is rendered whole at the start of VBLANK and coloured when it ends, as MAME presents it. Graphics ROM bank mapping, priorities and sprite order follow MAME |
 | FM sound | YM2151 at 3.579545 MHz, output 55,930 Hz | ymfm (BSD-3-Clause) behind `native/cps1_opm.cpp`; the chip's IRQ goes to the Z80 |
 | PCM sound | OKI MSM6295 at 1 MHz, sample rate 7,576 Hz or 6,061 Hz by pin 7 (the Z80 switches it) | Model adapted from MAME's OKI code (`native/cps1_oki.c`), interpolated linearly at the YM2151 rate; the host mixes mono and resamples to 48 kHz |
@@ -123,7 +123,7 @@ is counted in the conversion report (`knowledge`).
   (`knowledge.cores`): a new revision of the CPS-1 recompiler makes them wait
   again until a conversion of the new engine reaches them. The record has its
   own format number (1), and an unknown one is ignored alone. The engine
-  revision includes `cps1_knowledge.GENERATOR_REVISION` (7 in the 1.6.4 tree).
+  revision includes `cps1_knowledge.GENERATOR_REVISION` (7 in the 1.6.4 tree, 8 since the IM 0 count of 1.6.5).
 - CPS-1 paths travel in version 3 exchange files and in line 3 of the shared
   base only. The shared paths are stored apart
   (`datas/knowledge/qualified-v3.json.gz` and `imported-v3.json.gz`); the other

@@ -28,6 +28,7 @@ YMFM_FILES = ('ymfm.h', 'ymfm_fm.h', 'ymfm_fm.ipp', 'ymfm_opm.h', 'ymfm_opm.cpp'
 MUSASHI_DISPATCH = ('\t\t\tREG_IR = m68ki_read_imm_16();\n\t\t\tm68ki_instruction_jump_table[REG_IR]();\n'
                     '\t\t\tUSE_CYCLES(CYC_INSTRUCTION[REG_IR]);')
 Z80_DISPATCH = '    const uint8_t opcode = nextb(z);\n    cyc += exec_opcode(z, opcode);'
+Z80_IM0_DISPATCH = '      cyc += exec_opcode(z, z->irq_data);'
 
 
 def sources() -> tuple[Path, Path]:
@@ -88,6 +89,11 @@ def z80_core(geolith: Path, *, native: bool) -> str:
         rr_cps1_z80_note_fallback(z->pc);
         const uint8_t opcode=nextb(z);cyc+=exec_opcode(z,opcode);
     }''', 'Z80 dispatch')
+    # IM 0 runs the opcode the interrupting device supplies instead of fetching it: always the reference core,
+    # so it is counted as interpreted, like the Neo Geo does.
+    source = _replace_once(source, Z80_IM0_DISPATCH,
+        '      extern uint64_t rr_cps1_interpreted_z80;\n      ++rr_cps1_interpreted_z80;\n' + Z80_IM0_DISPATCH,
+        'Z80 IM 0 dispatch')
     source = _replace_once(source, 'static unsigned exec_opcode(z80* const z, uint8_t opcode);',
         '#include "cps1_z80_native.h"\nstatic int rr_cps1_z80_try(z80*,unsigned*);\n'
         'static unsigned exec_opcode(z80* const z, uint8_t opcode);', 'Z80 declarations')

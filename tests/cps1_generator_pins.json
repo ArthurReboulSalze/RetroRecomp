@@ -1,7 +1,7 @@
 {
- "revision": 7,
+ "revision": 8,
  "sources": {
-  "retrorecomp/cps1_build.py": "2f06a605726505f9f4a393f2e6fb8b990c5c803a1c7245286c71cdc34b1d9ad8",
+  "retrorecomp/cps1_build.py": "83575a2438e7593c532d272ea0bd050a2346555f37ec6f4e880fb0031b1c5cea",
   "retrorecomp/cps1_codegen.py": "2ed8d26ad28b5c2386701ba58c1fc8c6b434bbbb95be036fd9584ae0aa013faf",
   "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
   "retrorecomp/megadrive_z80.py": "211d24dc6962b6a3c4fbe51ee8100e9736d69de89a73b44a448caecb61803046",
