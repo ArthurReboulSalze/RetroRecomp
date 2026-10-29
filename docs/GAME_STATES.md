@@ -439,7 +439,9 @@ hardware fidelity.
 Decided on 29 October 2026: F8/F9 quick states need not survive an update. From 1.6.5 no compatibility key
 (`RR16_STATE_COMPAT_ABI` or a console's own) is listed for the previous release; a quick state written by an earlier
 release is refused cleanly by the key check, with its message, and nothing is lost but that state. Cartridge saves
-(battery SRAM, EEPROM, memory cards) are not quick states and keep working across updates. In 1.6.5 the Mega Drive and
+(battery SRAM, EEPROM, memory cards) are not quick states; keeping them across an update is wanted but not required,
+decided case by case: what is required is that a save the new export cannot use never crashes or blocks the game (it
+is refused or set aside, and the game creates a new one). In 1.6.5 the Mega Drive and
 Super Nintendo keys move because `native/video_mode4.inc` and `native/video_checks.c` left the all-consoles group
 (their serialized bytes did not change), the NES state becomes `RRNESST2` and the CPS-1 key moves with its generator.
 
