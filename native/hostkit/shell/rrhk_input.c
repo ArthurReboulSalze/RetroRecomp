@@ -227,8 +227,13 @@ void rrhk_open_pads(void) {
     memcpy(rrhk.pads, now, sizeof now);
 }
 
+/* The slots are emptied too: a driven machine (SMS/GG) closes and opens the shell again on every restart, after
+ * SDL_Quit, and the next rrhk_open_pads must never see a freed controller. */
 void rrhk_close_pads(void) {
-    for (int p = 0; p < rrhk.machine->table_players; ++p) if (rrhk.pads[p]) SDL_GameControllerClose(rrhk.pads[p]);
+    for (int p = 0; p < rrhk.machine->table_players; ++p) if (rrhk.pads[p]) {
+        SDL_GameControllerClose(rrhk.pads[p]);
+        rrhk.pads[p] = NULL;
+    }
 }
 
 /* Only a change made on the Gamepad row is written; the default (automatic) leaves the file as it was. */
