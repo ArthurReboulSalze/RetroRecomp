@@ -44,9 +44,9 @@ x68 = Sharp X68000.
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
 | G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | P |
-| G8 | ? | ? | ? | P | P | Y | Y | ? | P |
+| G8 | ? | ? | ? | P | P | Y | Y | P | P |
 | G9 | P | P | P | P | Y | P | Y | P | P |
-| G10 | Y | Y | P | Y | P | P | P | ? | P |
+| G10 | Y | Y | P | Y | P | P | P | P | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | P | P |
 | G13 | P | P | P | P | P | P | P | P | Y |
@@ -55,6 +55,10 @@ x68 = Sharp X68000.
 | G16 | Y | Y | Y | Y | Y | Y | Y | - | - |
 
 ### Caveats
+
+- CPS-1, G8 and G10 (29 October 2026): G8 is partial because the route liveness fields (pictures and sound moving on each
+  route) were measured on 11 of the 26 sets; G10 is partial because the 68000 vectors are replayed through the CPS-1 generator
+  and the Z80 corpus is not. Evidence: [CPS1.md](CPS1.md#independent-evidence-and-liveness-29-october-2026).
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
   Only ng, cps1 and (since 1.6.5) x68 run G5 inside every conversion, and ng,
@@ -119,6 +123,7 @@ owner fills it in.
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 |  |  |  |  |  |
+| _Draft, to fill (CPS-1)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete. The owner trials of 27 October 2026 were reported in chat and are not recorded here._ |
 
 ### Draft for Arthur: Sharp X68000 play test (G14)
 

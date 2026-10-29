@@ -148,8 +148,8 @@ is counted in the conversion report (`knowledge`).
 | Native | `native/cps1_machine.c/.h` (board model), `cps1_native.c/.h` and `cps1_z80_native.h` (guarded native steps), `cps1_oki.c/.h`, `cps1_opm.cpp/.h` (ymfm wrapper), `cps1_host.c/.h`, `cps1_main.c`, `cps1_m68kconf.h`, `cps1_probe.c` (headless reference runner) |
 | Host kit | `native/hostkit/adapters/rrhk_cps1.c` (actions, DIP page, players 3 and 4); the shared shell is described in [HOST_KIT.md](HOST_KIT.md) |
 | Data | `assets/cps1-catalogue.json` (built by `tools/build_cps1_catalogue.py`); licences in `licenses/cps1-machine.md` and `licenses/cps1-ymfm.md` |
-| Tools | `tools/cps1_release_check.py` (release check at the Standard level, wraps `tools/release_check.py`) |
-| Tests | `tests/test_cps1.py`, `test_cps1_board.py`, `test_cps1_codegen.py`, `test_cps1_integration.py`, `test_cps1_knowledge.py`, `cps1_generator_pins.json` (pins of the generator sources) |
+| Tools | `tools/cps1_release_check.py` (release check at the Standard level, wraps `tools/release_check.py`); `tools/cps1_vector_selftest.py` with `native/cps1_vector_checks.c` (independent 68000 vectors through the CPS-1 generator, a developer harness that builds no game) |
+| Tests | `tests/test_cps1.py`, `test_cps1_board.py`, `test_cps1_codegen.py`, `test_cps1_integration.py`, `test_cps1_knowledge.py`, `test_cps1_liveness.py`, `test_cps1_vectors.py`, `cps1_generator_pins.json` (pins of the generator sources) |
 
 ## Controls and options
 
@@ -189,9 +189,9 @@ across releases: [GAME_STATES.md](GAME_STATES.md) and
 
 ## Qualification
 
-The gates are in [QUALIFICATION.md](QUALIFICATION.md). In its matrix of 27
-October 2026, CPS-1 meets G1, G2, G4, G5, G6 and G15, is partial on G3, G9, G11,
-G12 and G13, unknown on G8, G10 and G14, and G7 and G16 do not apply. Every
+The gates are in [QUALIFICATION.md](QUALIFICATION.md). In its matrix, CPS-1 meets G1, G2, G4, G5, G6 and G15, is partial on G3, G8, G9,
+G10, G11, G12 and G13 (G8 and G10 since 29 October 2026, see below), unknown on
+G14, and G7 and G16 do not apply. Every
 conversion runs the fresh-reference comparison (G4), the packed replay (G5) and
 the fresh-process state check (G6) itself.
 
@@ -260,6 +260,65 @@ are agreement of the native code with the board model's own interpreted
 reference: they are not CPU, hardware or gameplay validation, and "zero" means
 that the routes run met no interpreted instruction, not that none exists.
 
+### Independent evidence and liveness (29 October 2026)
+
+Two gates of the "supported" checklist got evidence on the 1.6.5 tree. Both are CPU or activity evidence, not hardware
+fidelity, gameplay or latency.
+
+**Independent CPU evidence (G10), 68000.** The SingleStepTests vector fixtures of the repository (834 shift, 2,089 prefetch
+and 864 exception vectors, MIT, generated with MAME) are replayed through the CPS-1 generator path by
+`tools/cps1_vector_selftest.py`: the translated steps agree with every one of them on registers, SR, PC, written bytes and
+clocks, and the Musashi reference differs from the vectors in a few named groups (division and `CHK` flags, `CHK` clocks,
+one line-F frame). The numbers, the two authored trace vectors that neither path delivers and the limits are in
+[CPU_68000.md](CPU_68000.md#tests-and-vectors). **The Z80 sound CPU has no independent vector replay yet**: the
+SingleStepTests/z80 corpus has to be downloaded first (the SMS and GG tool `tools/fetch_z80_vectors.py` caches a sample).
+
+**Liveness (G8).** Since 1.6.5 each route of the conversion report carries `final_checks[].liveness`, read from the route's
+per-frame trace: `distinct_pictures`, `picture_changes` and `last_picture_change_frame` (frames whose image hash differs from
+the previous frame's), `audible_frames` and `last_audible_frame` (frames whose sound hash is not that of silence). The
+conversion is refused when a route's picture never changes (it already required a non-uniform picture on every route and
+sound on at least one). Measured on the eleven sets of the 29 October campaign (standard level, 3,600 frames per route; each
+cell is pictures seen, or audible frames, then the last frame where the picture changed, or was audible):
+
+| Set | Attract: pictures / last change | Attract: audible / last | Play: pictures / last change | Play: audible / last |
+| --- | ---: | ---: | ---: | ---: |
+| `1941` | 1,765 / 3,600 | 1,456 / 3,600 | 2,376 / 3,600 | 2,434 / 3,600 |
+| `sf2ce` | 1,515 / 3,600 | 2,702 / 3,600 | 1,534 / 3,600 | 2,614 / 3,600 |
+| `ffight` | 963 / 3,599 | 1,997 / 3,600 | 1,169 / 3,600 | 2,688 / 3,600 |
+| `captcomm` | 2,265 / 3,600 | 2,192 / 3,600 | 1,578 / 3,600 | 2,660 / 3,600 |
+| `strider` | 1,492 / 3,599 | 1,612 / 2,992 | 2,864 / 3,585 | 2,964 / 3,600 |
+| `kod` | 1,967 / 3,573 | 3,033 / 3,600 | 1,311 / 3,595 | 2,937 / 3,600 |
+| `mtwins` | 1,639 / 3,600 | 0 / 0 | 2,388 / 3,600 | 2,715 / 3,600 |
+| `sf2hf` | 1,540 / 3,600 | 2,661 / 3,600 | 2,290 / 3,600 | 2,600 / 3,600 |
+| `pokonyan` | 1,308 / 3,600 | 2,661 / 3,600 | 2,196 / 3,600 | 2,595 / 3,600 |
+| `mercs` | 1,470 / 3,600 | 706 / 3,600 | 2,118 / 3,584 | 2,482 / 3,600 |
+| `cworld2j` | 995 / 3,500 | 2,870 / 3,600 | 1,264 / 3,599 | 2,870 / 3,600 |
+
+On every route of these sets the picture is still changing within the last 100 frames (the longest gap is the attract route of
+`cworld2j`, last change at frame 3,500), and the sound is audible up to the last frame, except Strider's attract route (last
+audible frame 2,992) and the attract route of `mtwins`, which stays silent for its 3,600 frames while its credited play route
+is audible. This shows that pictures and sound move on the routes
+run; it does not say what they show, and the other fifteen sets of the table have not been converted with these fields yet.
+
+**Where each gate stands for CPS-1** (the matrix itself is in [QUALIFICATION.md](QUALIFICATION.md)):
+
+| Gate | Evidence for CPS-1 | State |
+| --- | --- | --- |
+| G1 status | profile, README, COMPATIBILITY and interface all say experimental | met |
+| G2 report | the common report (v2) with separate 68000 and Z80 counters, [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-selective-requalification) | met |
+| G3 native coverage | zero interpreted 68000 and Z80 instructions on both routes of 11 sets (29 Oct); 15 sets measured on 24 Oct | partial |
+| G4, G5, G6 | `final_checks[].reference_match`, `packed.replay.match`, `game_states.validation` in every conversion | met |
+| G7 saves | no non-volatile memory on the standard boards | not applicable |
+| G8 liveness | the table above (11 sets) | partial: 15 sets not measured with the fields |
+| G9 route depth | standard level, 3,600-frame attract and credited play; the 18,000-frame levels are not run on the panel | partial |
+| G10 independent CPU evidence | 68000 vectors above; no Z80 corpus yet | partial |
+| G11 independent hardware evidence | the MAME 0.289 comparison of 24 October and 27 October, measured before 1.6.4 and not repeated | partial |
+| G12 panel | 26 sets, 11 re-measured | partial |
+| G13 cross-OS witness | Final Fight, same route hashes on Windows and Debian 13 (27 October) | partial |
+| G14 owner acceptance | owner trials of 27 October reported in chat, not recorded; a draft row is in QUALIFICATION.md | open |
+| G15 honesty | the five measures separate everywhere; "zero" means the routes run | met |
+| G16 shared knowledge | no CPS-1 path is qualified; the sharing is withdrawable | not applicable |
+
 ### Reference games and risk cases
 
 - **Release check**: `1941` (0 interpreted opcodes on 68000 and Z80).
@@ -308,6 +367,10 @@ MAME 0.289, not with the original boards. Results of 24 and 27 October 2026,
   reference does.
 - **Sound**: the OKI is interpolated linearly at the YM2151 rate; MAME resamples
   it with its own filter.
+- **Trace and reference differences**: the Musashi reference is built without trace support (no post-instruction trace
+  exception on either path), and differs from the MAME-made vectors on the flags of `DIVU`/`DIVS`/`CHK`; the translated
+  steps follow the vectors there ([CPU_68000.md](CPU_68000.md#tests-and-vectors)). A game that reached such a case would
+  show as a native/reference difference and be refused.
 - **Players**: validation drives players 1 and 2 only, with the default DIP
   switches; the third and fourth players and other switches are not exercised by
   conversions.
@@ -328,6 +391,8 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
   players 3 and 4, DIP switches,, qualification of 26 sets.
 - 27 October 2026: CPS-1 joins the shared base of paths (experimental);
   comparison of credited play and sound with MAME 0.289.
+- 29 October 2026 (1.6.5): the Z80 interrupt mode 0 opcode is counted; eleven sets requalified; independent 68000 vectors
+  replayed through the CPS-1 generator; route liveness fields in the report.
 - 1.6.4: code run from graphics RAM is guarded natively (`sf2ce` goes to zero
   interpreted instructions in the standard routes), quick state `CPS1S002`,
   artwork no longer searches a libretro catalogue that CPS-1 does not have.
