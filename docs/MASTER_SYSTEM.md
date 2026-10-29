@@ -71,9 +71,9 @@ Both engines read the same ROM and share the VDP, PSG, memory and input runtime.
 
 In the converter, the checkbox **Extended native coverage - Sega profiles** (options page of the Master System and the Game
 Gear, on by default) selects the banked engine; unchecked selects functions. On the command line `--backend banked` is the
-default. Functions still fails the reference check on Action Fighter, Alex Kidd: The Lost
-Stars, Super Columns, Sonic Spinball and Sonic Triple Trouble (1.6.4 work); the banked engine converts them. Alex Kidd in
-Miracle World and Factory Panic now convert with functions; 9 of 15 games tried pass its reference check from an empty learning state
+default. Functions still fails the reference check on Alex Kidd: The Lost
+Stars, Sonic Spinball (Game Gear) and Sonic Triple Trouble (1.6.5 work; Action Fighter, High-Tech World and Super Columns pass); the banked engine converts them. Alex Kidd in
+Miracle World and Factory Panic now convert with functions; 11 of 15 games tried pass its reference check from an empty learning state
 (1.6.5; Aladdin, which passed after earlier conversions in 1.6.4, does not from an empty state, with or without the 1.6.5 patch).
 
 ## Engine and upstream
@@ -98,6 +98,7 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | HALT: the interrupt that ends it pushes the address after the HALT, and a handler that drops the halted frame ends the function | 1.6.4 | `core.patched_generator_source` | functions engine only |
 | Interrupt acceptance: /INT sampled at one instruction boundary and accepted at the next; a VDP port access that changes /INT brings the next sync to the next instruction; a `RET` that unwinds every generated frame continues at the popped address | 1.6.4 | `core.prepare_functions_irq` on the pinned `runner/glue.c` | functions engine only |
 | Repeating block instructions that go on: X and Y from the high byte of the instruction address, H and P from B for the input and output groups (the flags an interrupt between two iterations pushes) | 1.6.5 | `core.patched_generator_source` | functions engine only |
+| `RET` that pops an address the function pushed itself, and tail jumps whose callee returns below the function's own return slot: continue at the popped address as a nested call (entry SP kept per function, bounded nesting) | 1.6.5 | `core.patched_generator_source` | functions engine only |
 | Local copies of the reference CPU and the shared headers: WZ and Q latches, SCF/CCF X/Y flags, `BIT (HL)` without write-back, IM/RETI aliases, OTDR timing, IM0 IRQ, H-counter reads at CPU time | 0.10.0 and later | `retrorecomp/cpu.py` (`prepare_cpu_headers`, `prepare_reference`) | both engines |
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 
@@ -198,7 +199,7 @@ uses Bank Panic (Europe). Factory Panic and OutRun belong to the compilation lib
   validated. A region label is a default timing choice, not proof of the console a cartridge was played on.
 - RAM code beyond what the converter has seen still runs in the counted interpreter; up to 4,096 RAM windows are learned per
   ROM. Zero fallback is a result on tested routes, never a general promise. A strict conversion refuses any fallback.
-- The functions engine fails the reference check on the six games listed above; do not treat it as supported for them. Their causes
+- The functions engine fails the reference check on the games listed above; do not treat it as supported for them. Their causes
   (a `RET` to another address, a `jp` to a paged address compiled as a `goto`) are in
   [UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164). Sonic Spinball passes on the Master System and fails on the Game Gear.
 - Sprite flicker reduction is a display enhancement, not console behaviour.

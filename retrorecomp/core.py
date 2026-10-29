@@ -430,6 +430,43 @@ def patched_generator_source(generator_source: str) -> str:
     fprintf(o,"            }\\n");
     /* post-body tick: this iteration's effect already ran (see sms_tick_post) */
 ''')
+    # A RET that pops a slot the function pushed itself ("push continuation; jump; ret", "push de; ret"): the generated RET was
+    # `sp += 2; return;`, which resumes the CALLER, while the Z80 continues at the popped address. Each function now keeps its entry
+    # SP (the slot of its own return address). A RET with SP below it pops a local address: the continuation runs as a nested call
+    # (a function entry, or the counted hybrid interpreter), whose own RET pops the real return address, then this function returns
+    # with the SP its caller expects. A RET at the entry SP is the ordinary return, one above it unwinds several frames (the call
+    # sites already propagate that). The nesting is bounded (256): beyond it the old behaviour applies.
+    generator_source = replace_once(generator_source,
+        '        "#include \\"%s_funcs.h\\"\\n\\n", pfx, pfx);',
+        '''        "#include \\"%s_funcs.h\\"\\n"
+        "static uint16_t rr_ret_nest;\\n"
+        "/* A tail jump to another function: if the callee returned with SP below this function's own return slot, it consumed\\n"
+        " * a continuation this function pushed, so the Z80 continues there (the popped address) and not in the caller. */\\n"
+        "#define RR_TAIL(call) do { call; if ((int16_t)(g_z80.sp - _esp) < 2 && rr_ret_nest < 256) { "
+        "uint16_t _p = sms_read16((uint16_t)(g_z80.sp - 2)); rr_ret_nest++; call_by_address(_p); rr_ret_nest--; } return; } while (0)\\n\\n", pfx, pfx);''')
+    generator_source = replace_once(generator_source,
+        '        if (nm) fprintf(o,"%s(); return; }\\n", nm);\n        else    fprintf(o,"call_by_address(0x%04X); return; }\\n", T);',
+        '        if (nm) fprintf(o,"RR_TAIL(%s()); }\\n", nm);\n        else    fprintf(o,"RR_TAIL(call_by_address(0x%04X)); }\\n", T);')
+    generator_source = replace_once(generator_source,
+        '        if (nm) fprintf(o,"        %s(); return;\\n", nm);\n        else    fprintf(o,"        call_by_address(0x%04X); return;\\n", T);',
+        '        if (nm) fprintf(o,"        RR_TAIL(%s());\\n", nm);\n        else    fprintf(o,"        RR_TAIL(call_by_address(0x%04X));\\n", T);')
+    generator_source = replace_once(generator_source,
+        '                    fprintf(o,"        call_by_address(%s); return;\\n", idx);            /* tail jump */',
+        '                    fprintf(o,"        RR_TAIL(call_by_address(%s));\\n", idx);            /* tail jump */')
+    generator_source = replace_once(generator_source,
+        '    fprintf(o,"    sms_enter(0x%04X);\\n", fe->addr);',
+        '    fprintf(o,"    sms_enter(0x%04X);\\n    uint16_t _esp = s->sp; (void)_esp;\\n", fe->addr);')
+    generator_source = replace_once(generator_source,
+        '            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");',
+        '''            fprintf(o,"        if ((int16_t)(s->sp - _esp) < 0 && rr_ret_nest < 256) { uint16_t _p = sms_read16(s->sp); "
+                      "s->sp = (uint16_t)(s->sp + 2); rr_ret_nest++; call_by_address(_p); rr_ret_nest--; return; }\\n");
+            fprintf(o,"        s->sp = (uint16_t)(s->sp + 2); return;\\n");''')
+    generator_source = replace_once(generator_source,
+        '            fprintf(o,"        if (%s) { s->cyc += 6; s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));',
+        '''            fprintf(o,"        if (%s) { s->cyc += 6; "
+                      "if ((int16_t)(s->sp - _esp) < 0 && rr_ret_nest < 256) { uint16_t _p = sms_read16(s->sp); "
+                      "s->sp = (uint16_t)(s->sp + 2); rr_ret_nest++; call_by_address(_p); rr_ret_nest--; return; } "
+                      "s->sp = (uint16_t)(s->sp + 2); return; }\\n", cond(cc));''')
     generator_source = replace_once(generator_source,
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl){",
         "static void write_dispatch(const char *path, const char *pfx, const FuncList *fl, const SmsRom *rom){")

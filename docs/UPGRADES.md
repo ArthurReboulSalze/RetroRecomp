@@ -233,6 +233,15 @@ reference CPU with it (CPU fidelity on the project's own tested routes, nothing 
 generates the same sources (checked byte for byte on Bank Panic and Factory Panic); 13 of the 15 games tried give the same video trace
 with and without the change, from an empty learning state (the other two are High-Tech World and The Lost Stars, which the change targets). The game stamp of both consoles moves with `core`.
 
+A second change of the same engine: a `RET` that pops an address the routine pushed itself ("push continuation; jump; ret") now
+continues at that address, as the Z80 does, instead of resuming the caller (each generated function keeps its entry SP; a tail jump
+whose callee returned below it does the same; nesting bounded at 256). Action Fighter and Super Columns pass the comparison with the
+reference CPU with it; the 9 games that passed still pass with the same demo trace, and the banked sources are byte-identical on Bank Panic
+and Factory Panic. Cost, functions engine only: one load and one local store per function entry and one compare per `RET`;
+nothing per ordinary instruction. The route "play" of three passing games (High-Tech World, Shinobi World, Factory Panic) is not
+part of the gate and already differs from the reference in a clean learning state (from frame 3032 for Shinobi World, with or without
+this change); it differs from the earlier run after that frame.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

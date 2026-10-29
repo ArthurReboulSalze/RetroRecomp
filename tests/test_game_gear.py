@@ -103,6 +103,25 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertLess(body.index('sms_block_pc >> 8'), body.index('sms_tick_post'))
         self.assertLess(body.index('emit_block_body(o, op, "            ");'), body.index('sms_block_pc >> 8'))
 
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_a_ret_below_the_entry_stack_slot_continues_at_the_popped_address(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        # Every function keeps its entry SP once, right after the entry record.
+        self.assertEqual(text.count('uint16_t _esp = s->sp; (void)_esp;'), 1)
+        self.assertEqual(text.count('static uint16_t rr_ret_nest;'), 1)
+        # RET and RET cc: a pop below the entry slot dispatches the popped address (bounded nesting), else the old return.
+        cf = text.index('static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){')
+        body = text[cf:text.index('case Z80_CF_JUMP:', cf)]
+        self.assertEqual(body.count('(int16_t)(s->sp - _esp) < 0 && rr_ret_nest < 256'), 2)
+        self.assertEqual(body.count('call_by_address(_p); rr_ret_nest--; return;'), 2)
+        self.assertEqual(body.count('s->sp = (uint16_t)(s->sp + 2); return;'), 2)
+        # Tail jumps go through RR_TAIL (a callee that returned below this function's own return slot consumed a pushed continuation).
+        self.assertEqual(text.count('#define RR_TAIL(call)'), 1)
+        self.assertIn('(int16_t)(g_z80.sp - _esp) < 2 && rr_ret_nest < 256', text)
+        self.assertNotIn('call_by_address(0x%04X); return;', text)
+        self.assertEqual(text.count('RR_TAIL(call_by_address(0x%04X))'), 2)
+        self.assertEqual(text.count('RR_TAIL(call_by_address(%s))'), 1)
+
 
 class FunctionsInterruptContractTests(unittest.TestCase):
     """Only the "functions" runner samples /INT at one boundary and accepts it at the next."""
