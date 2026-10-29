@@ -108,10 +108,12 @@ void rrhk_load_bindings(void) {
         }
     }
     for (int p = 0; p < m->players(); ++p) load_choice(p);
+    /* A machine that read its former preferences in settings_loaded (Game Boy: its own file) has set the language and the
+     * autofire these start from; the kit's keys win when present. */
     wchar_t language[12];
-    rr_ini_get(L"Interface", L"language", L"en", language, 12, rrhk.read_file);
+    rr_ini_get(L"Interface", L"language", rr_language_wide(rrhk.language), language, 12, rrhk.read_file);
     rrhk.language = rr_language_from_wide(language); rr_language_set(rrhk.language);
-    rrhk.autofire = rr_ini_int(autofire_section(), L"autofire", 0, rrhk.read_file) != 0;
+    rrhk.autofire = rr_ini_int(autofire_section(), L"autofire", rrhk.autofire != 0, rrhk.read_file) != 0;
     /* A machine that read its former keys in settings_loaded has set the values these start from; the kit's keys win when present. */
     rrhk.pointer_shape = rr_ini_int(rrhk.pointer_section, L"shape", rrhk.pointer_shape, rrhk.read_file) == 1;
     rrhk.pointer_size = rr_ini_int(rrhk.pointer_section, L"size", rrhk.pointer_size, rrhk.read_file);

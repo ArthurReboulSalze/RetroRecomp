@@ -239,11 +239,10 @@ static void rr_gb_feedback(GBContext *ctx) {
     source += ('if(MSVC AND GBRECOMP_GENERATED_COMPILE_JOBS GREATER 1)\n'
                '    target_compile_options(game PRIVATE "/MP${GBRECOMP_GENERATED_COMPILE_JOBS}")\n'
                'endif()\n')
-    cmake.write_text(source, encoding="utf-8")
+    from .gameboy_host import kit_cmake
+    cmake.write_text(kit_cmake(source), encoding="utf-8")   # the host kit's shell, beside the platform layer
     from .feedback import stage
     stage(project, 'gb', rom_sha256, target='gbrt')
-    from .gameboy_timing import adapt_timing
-    adapt_timing(project)
     adapt_input_refresh_hook(project)
     from .gameboy_hardware import adapt_hardware
     adapt_hardware(project)
@@ -252,7 +251,7 @@ static void rr_gb_feedback(GBContext *ctx) {
 
 
 def adapt_input_refresh_hook(project: Path) -> None:
-    """Guest side of the host's low-latency input refresh (gameboy_timing):
+    """Guest side of the host's low-latency input refresh (the Game Boy adapter, rrhk_gb.inc):
     a JOYP read with no scripted pad asks the host for fresh input."""
     path = project / 'runtime/include/gbrt.h'
     source = path.read_text(encoding='utf-8')

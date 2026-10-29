@@ -116,9 +116,45 @@ static void resets(void) {
     puts("PASS: pause/reset/load flush, silence while empty, underrun recovery, bounded catch-up keeps newest samples.");
 }
 
+/* The Game Boy's source: interleaved 44.1 kHz stereo and a 10 ms start margin. Left and right keep their order and their own
+ * samples (S16 and F32), the period starts at the margin, and a backlog trims the same way as for a mono source. */
+static void stereo(void) {
+    assert(rrhk_ring_open(44100u, 2, 10)); /* Remains paused during virtual-clock tests. */
+    assert(rrhk_ring.source == 2 && rrhk_ring.margin == 10);
+    for (unsigned format = 0; format < 2; ++format) {
+        reset(256, format ? AUDIO_F32SYS : AUDIO_S16SYS);
+        rrhk_ring.rate = 44100u; rrhk_ring.keep = (21u + 10u) * 44u + 256u; rrhk_ring.limit = rrhk_ring.keep + 926u;
+        clock_us = 1000000;
+        int16_t input[2 * 1500];
+        for (unsigned i = 0; i < 1500; ++i) { input[2 * i] = sample(i); input[2 * i + 1] = (int16_t)~sample(i); }
+        rrhk_ring_submit(input, 1000);
+        /* 256 frames at 44.1 kHz and the margin: 5805 us and 10 ms, rounded up. */
+        assert(rrhk_ring.deadline == 1000000 + 5805 + 10000);
+        float out[2 * 256]; int16_t *wide = (int16_t *)out;
+        clock_us = rrhk_ring.deadline;
+        rrhk_ring_callback(NULL, (Uint8 *)out, (int)sizeof(out) / (format ? 1 : 2));
+        for (unsigned i = 0; i < 256; ++i) {
+            if (format) { assert(out[2 * i] == sample(i) / 32768.0f && out[2 * i + 1] == (int16_t)~sample(i) / 32768.0f); }
+            else assert(wide[2 * i] == sample(i) && wide[2 * i + 1] == (int16_t)~sample(i));
+        }
+        assert(rrhk_ring.played == 256 && rrhk_ring.fill == 744 && !rrhk_ring.missing);
+        /* A backlog beyond the limit keeps the newest frames, whole pairs. */
+        rrhk_ring_clear();
+        rrhk_ring_submit(input, 1500); rrhk_ring_submit(input, 1500); rrhk_ring_submit(input, 1500);
+        assert(rrhk_ring.fill == SDL_min(rrhk_ring.keep, 4500u) && rrhk_ring.dropped == 4500u - rrhk_ring.fill);
+        /* The newest pairs: the tail of the second block, then the whole third one (every block is the same 1500 frames). */
+        const unsigned first = 1500 - (rrhk_ring.fill - 1500);
+        assert(rrhk_ring.pcm[rrhk_ring.read * 2] == input[2 * first] && rrhk_ring.pcm[rrhk_ring.read * 2 + 1] == input[2 * first + 1]);
+    }
+    rrhk_ring_close();
+    puts("PASS: stereo source (Game Boy): order and channels exact in S16 and F32, 10 ms start margin, backlog keeps the newest pairs.");
+}
+
 int main(void) {
     SDL_SetMainReady(); SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
     assert(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER) == 0);
-    assert(rrhk_ring_open(48000u)); /* Remains paused during virtual-clock tests. */
-    schedules(); resets(); rrhk_ring_close(); SDL_Quit(); return 0;
+    assert(rrhk_ring_open(48000u, 1, 0)); /* Remains paused during virtual-clock tests. */
+    schedules(); resets(); rrhk_ring_close();
+    stereo();
+    SDL_Quit(); return 0;
 }

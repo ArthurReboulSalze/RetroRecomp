@@ -10,10 +10,13 @@ other console backends retain their own audio implementations.
 
 ## Game Boy output
 
-`retrorecomp/gameboy_timing.py` adapts the pinned Game Boy host and includes
-`native/gb_audio_output.inc`. The APU, its 44.1 kHz PCM, saved state layout,
-CPU clock and input handling remain unchanged. This is a host output change
-for all newly generated Game Boy games, not a cartridge-specific patch.
+Since 1.6.3 the Game Boy's sound output is the host kit's callback ring (`native/hostkit/shell/rrhk_ring.c`, extended to
+interleaved stereo and a 10 ms start margin); the adapter `rrhk_gb.inc` hands it the samples the APU produced during each frame.
+Before, `native/gb_audio_output.inc` held the same design (a deadline start, the adaptive reserve, 256-sample periods) for this
+console alone. The APU, its 44.1 kHz PCM, saved state layout, CPU clock and input handling remain unchanged. The volume, mute
+and output-device choice of the upstream settings panel are gone with the panel. This is a host output change
+for all newly generated Game Boy games, not a cartridge-specific patch; the measurements below were taken on the former
+output, and the A/B run of the kit's ring is in [HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163).
 
 The callback starts one actual device period plus 10 ms after the first PCM,
 including at a sample boundary inside a block. SDL is asked for 256 frames;

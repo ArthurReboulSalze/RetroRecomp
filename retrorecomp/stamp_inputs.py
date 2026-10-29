@@ -131,9 +131,9 @@ HOST_MODULES = frozenset((
     'publishing', 'windows',
     # Converter-only shells.
     'branding', 'player_gamepad',
-    # Player shells written as patches: Game Boy platform window, menus,
-    # sound output and input; Mega Drive sound delivery.
-    'gameboy_host', 'gameboy_timing', 'megadrive_audio',
+    # Player shells written as patches: the Game Boy platform layer on the host kit (1.6.3);
+    # Mega Drive sound delivery.
+    'gameboy_host', 'megadrive_audio',
     # The host kit's file list and its copy into a game project.
     'hostkit'))
 HOST_NATIVE = frozenset((
@@ -147,16 +147,13 @@ HOST_NATIVE = frozenset((
     'display_settings.h', 'display_settings_checks.c', 'icon.c', 'icon.h', 'icon_checks.c',
     # Sound output after each machine's emulated mixer.
     'audio_filter.h', 'audio_cushion.h', 'audio_output.inc', 'audio_checks.c',
-    'gb_audio_output.inc', 'nes_audio_checks.c',
+    'nes_audio_checks.c',
     'md_audio_loop.inc', 'md_audio_resample.inc',
     # Converter-only controller bridge (never linked into games).
     'player_gamepad.c',
-    # Each machine family's shell: Game Boy (every other console is on the host kit below).
-    'gb_menu.inc', 'gb_input_refresh.inc',
     'neogeo_ui_test.c',
-    # The host kit (docs/HOST_KIT.md): the shell shared by Mega Drive, SNES, Neo Geo, CPS-1, the NES, the
-    # X68000, the Master System and the Game Gear, and the adapter of each. Every file below native/hostkit
-    # is host-side.
+    # The host kit (docs/HOST_KIT.md): the shell shared by every console, and the adapter of each. Every file
+    # below native/hostkit is host-side.
     'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
@@ -164,7 +161,7 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_video.c',
     'hostkit/adapters/rrhk_md.c', 'hostkit/adapters/rrhk_snes.c', 'hostkit/adapters/rrhk_ng.c',
     'hostkit/adapters/rrhk_cps1.c', 'hostkit/adapters/rrhk_nes.c', 'hostkit/adapters/rrhk_x68k.inc',
-    'hostkit/adapters/rrhk_sms.c'))
+    'hostkit/adapters/rrhk_sms.c', 'hostkit/adapters/rrhk_gb.inc'))
 HOST_FILES = frozenset(('THIRD_PARTY_NOTICES.md',))
 HOST_PREFIXES = ('licenses/', 'assets/Retro-Recomp-icon-', 'assets/Retro-Recomp.ico',
                  'assets/tag-shooting.png')
@@ -343,13 +340,11 @@ INPUTS = {
     ),
     ('gb',): (
         'native/gb_audio_checks.c',
-        'native/gb_audio_output.inc',
         'native/gb_boundary_checks.c',
-        'native/gb_input_refresh.inc',
         'native/gb_latency_checks.cpp',
-        'native/gb_menu.inc',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
+        'native/hostkit/adapters/rrhk_gb.inc',
         'retrorecomp.gameboy',
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',
@@ -357,7 +352,6 @@ INPUTS = {
         'retrorecomp.gameboy_hardware',
         'retrorecomp.gameboy_host',
         'retrorecomp.gameboy_runtime',
-        'retrorecomp.gameboy_timing',
         'retrorecomp.systems.game_boy',
     ),
     ('nes',): (
@@ -708,9 +702,9 @@ INPUTS = {
         'retrorecomp.gun16_runtime',
         'retrorecomp.systems.console16',
     ),
-    # The host kit's shell: every console that links it (phases 1 to 4). console16_video.h (rr16_video_rect) is
+    # The host kit's shell: every console links it (phases 1 to 5). console16_video.h (rr16_video_rect) is
     # included by the kit's video shell, so every export compiles it; game role.
-    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg'): (
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb'): (
         'native/console16_video.h',
         'native/hostkit/hostkit.h',
         'native/hostkit/hostkit_internal.h',
@@ -726,8 +720,9 @@ INPUTS = {
         'native/hostkit/shell/rrhk_video.c',
     ),
     # Its staging module: the consoles whose projects get a copy of the kit (the X68000 compiles it from the tree).
-    # The Master System and the Game Gear get it beside the common runtime (prepare_native_source).
-    ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg'): (
+    # The Master System and the Game Gear get it beside the common runtime (prepare_native_source); the Game Boy gets it
+    # in the runtime folder of its project (gameboy_host).
+    ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg', 'gb'): (
         'retrorecomp.hostkit',
     ),
     M68000_FAMILY: (

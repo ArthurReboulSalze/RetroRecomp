@@ -196,17 +196,21 @@ Game Boy has one player and no gun. Arrows move, **W/X** are A/B,
 **Enter** is cartridge Start and either **Shift** is cartridge Select.
 These letter bindings follow the active keyboard layout. On a controller, the
 D-pad/left stick moves, the two primary face buttons are A/B, Start and
-Back are cartridge Start/Select, and the Guide button opens pause. Game Boy
-uses the same RetroRecomp menu layout as the Sega profiles. F3 cycles all four
+Back are cartridge Start/Select, and the Guide button opens pause. Since
+1.6.3 Game Boy runs the same player shell as every other console (the host kit):
+F2 has the keyboard and gamepad pages of player 1 with the Quit and Restart
+combinations and the Gamepad row, then the options; the Pause/Menu action
+(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles all four
 filters, including Scale2x and scanlines; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.
-F6 toggles autofire for held keyboard/gamepad A/B, F7 changes menu language,
-and F8/F9 use one quick state. P pauses, F2 maps controls, F1 opens help
+F6 toggles autofire for held keyboard/gamepad A/B (with the shared "Autofire ON/OFF" notice), F7 changes menu language,
+and F8/F9 use one quick state, taken between two frames. P pauses, F2 maps controls, F1 opens help
 and Shift+F1 restarts. Enter selects a binding inside F2. Escape closes a menu or quits.
 Fallback stays visible in the window title and pause menu, with no overlay
-in fullscreen. Game Boy settings use a separate shared INI file.
+in fullscreen. The upstream fast-forward, maximum-speed and mute keys and the
+second binding of each button (the shoulders) no longer exist.
 
 Master System defaults:
 
@@ -280,8 +284,8 @@ the automatically cropped left hardware border.
 The last F4 mode and F3 filter are saved when changed and restored on the next
 launch. Settings are shared by games of the same console. Master System,
 Game Gear, NES, Mega Drive and SNES use distinct video sections in their shared
-`datas/Retro-Recomp.ini`; Game Boy uses `datas/Retro-Recomp-GameBoy.ini`, including
-its monochrome/green palette. Reading settings creates no folders or files.
+`datas/Retro-Recomp.ini` (Game Boy since 1.6.3, `[GameBoy.Video]`, with its
+monochrome/green palette; the `datas/Retro-Recomp-GameBoy.ini` of earlier releases is only read). Reading settings creates no folders or files.
 Older Sega `[Video] filtre` entries remain readable until an explicit change.
 
 Scanlines use one gap per original console raster row. Fractional fullscreen
@@ -312,7 +316,7 @@ and Shift+F1 to restart.
 
 The setting is shared through `Manettes/autofire` in `datas/Retro-Recomp.ini`
 (the X68000 keeps `X68000/autofire`);
-Game Boy keeps its own persistent `input.autofire` setting. Existing games need
+since 1.6.3 the Game Boy writes it there too and reads its former `input.autofire` setting while that key is absent. Existing games need
 regeneration to receive these input changes.
 
 Starting with 0.10.6, catalogue-selected Light Phaser games use the mouse on
