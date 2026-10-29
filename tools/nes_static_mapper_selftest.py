@@ -49,7 +49,8 @@ target_link_libraries({target} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
             for name in ('dynamic', f'static{mapper}'):
                 text = run([build_executable(project / 'build', f'{name}_{pal}{zapper}'), str(mapper)], timeout=240)
                 traces.append(text.splitlines())
-            if len(traces[0]) != 2800 or traces[0] != traces[1]:
+            # 2,800 checkpoints, then 24 cycles around each of four vblanks from each of four alignments
+            if len(traces[0]) != 2800 + 4 * 4 * 24 or traces[0] != traces[1]:
                 first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
                 raise RuntimeError(f'Static mapper mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, checkpoint={first}')
             result = dict(pal=pal, zapper=zapper, mapper=mapper, checkpoints=2800, identical=True)

@@ -16,6 +16,27 @@ def _write(path: Path, data: bytes) -> None:
         path.write_bytes(data)
 
 
+def _pal_ticks() -> str:
+    """run_tick(1) through run_tick(15) of a PAL cycle with the deferred PPU clock.
+
+    A dot falls on the ticks where (cycles * 16 + align + k) % 5 is 0 and a half dot where it is 2; since 16 % 5 is 1 the
+    phase of a cycle is (cycles + align) % 5, and the ticks repeat with it. The edges are only counted, in the three runs
+    the two samples cut them into (the NMI sample at tick 5 and the IRQ sample at tick 9 come before the edge of their
+    own tick, as in run_tick), so what the CPU, the APU and the cartridge see is the same as tick by tick."""
+    groups = ((1, 4), (5, 8), (9, 15))
+    tables = [', '.join(str(sum(1 for k in range(first, last + 1) if (phase + k) % 5 in (0, 2)))
+                        for phase in range(5)) for first, last in groups]
+    return ('static void run_ticks_1_to_15_pal(void)\n{\n'
+            f'    static const uint8_t before_nmi[5] = {{ {tables[0]} }};\n'
+            f'    static const uint8_t before_irq[5] = {{ {tables[1]} }};\n'
+            f'    static const uint8_t to_end[5] = {{ {tables[2]} }};\n'
+            '    unsigned phase = (unsigned)((hw.cycles + hw.pal_bus_pending + hw.align) % 5);\n'
+            '    rr_ppu_edges(before_nmi[phase]); sample_nmi();      /* 5 */\n'
+            '    rr_ppu_edges(before_irq[phase]); apu_sample_irq();  /* 9 */\n'
+            '    rr_ppu_edges(to_end[phase]);\n'
+            '}\n')
+
+
 def _machine(source: str, *, fast_ppu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
@@ -32,7 +53,11 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
     source = source.replace('hw.cycles++;', 'hw.cycles++; hw.pal_bus_pending = 0;')
     source = replace_once(source, 'static inline void run_tick_0(void)\n{',
                           'static inline void run_tick_0(void)\n{\n    if (RR_NES_PAL) { run_tick(0); return; }')
+    # PAL has no unrolled tick sequence; with the deferred clock (below) it has a counted one.
     source = replace_once(source, 'if (hw.tick == 1) run_ticks_1_to_11();',
+                          'if (RR_NES_PAL ? (hw.tick == 1 && rr_ppu_lazy) : hw.tick == 1) {\n'
+                          '            if (RR_NES_PAL) run_ticks_1_to_15_pal(); else run_ticks_1_to_11();\n'
+                          '        }' if fast_ppu else
                           'if (!RR_NES_PAL && hw.tick == 1) run_ticks_1_to_11();')
     source = replace_once(source, 'while (hw.tick < 12)', 'while (hw.tick < RR_CPU_DIV)')
     source = replace_once(source, '    apu_power_on();',
@@ -65,6 +90,7 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
             '    if (rr_ppu_lazy) { if (q == 0 || q == 2) rr_ppu_edges(1); }\n'
             '    else if (q == 0) ppu_dot();\n    else if (q == 2) ppu_half_dot();')
         source = replace_once(source, 'static void run_ticks_1_to_11(void)\n{\n',
+            _pal_ticks() +
             'static void run_ticks_1_to_11(void)\n{\n'
             '    if (rr_ppu_lazy) {\n'
             '        unsigned odd = hw.align & 1;\n'

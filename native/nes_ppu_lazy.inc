@@ -5,7 +5,8 @@
  * Deferred PPU clocking. Between register accesses the CPU sees the PPU only
  * through /NMI (vblank) and the frame-complete flag, and on some boards
  * through the cartridge: an IRQ counter watching PPU addresses, a CPU-clocked
- * device, or MMC5. Those boards, PAL and the Zapper keep the eager clock.
+ * device, or MMC5. Those boards and the Zapper keep the eager clock; PAL
+ * defers like NTSC, its edges following the rational 16:5 phase.
  * Elsewhere every edge still runs, in order and unchanged, but late: just
  * before a register or cartridge access, the dot that can change vblank, or
  * the end of the frame. */
@@ -481,7 +482,7 @@ void rr_ppu_lazy_reset(void)
      * Up to 256 KiB of PRG ROM, only RAM accesses can observe it, and those
      * synchronize; the A12 hook still runs on every deferred dot. */
     bool mmc1 = (RR_NES_MAPPER == 1 || RR_NES_MAPPER == 155) && hw_cart.prg_slots <= 64;
-    rr_ppu_lazy = !RR_NES_PAL && !RR_NES_ZAPPER && (!hw_cart.watch_ppu_addr || mmc1) && !hw_cart.watch_cpu &&
+    rr_ppu_lazy = !RR_NES_ZAPPER && (!hw_cart.watch_ppu_addr || mmc1) && !hw_cart.watch_cpu &&
                   RR_NES_MAPPER != 5;
     /* CHR latches (MMC2/4), nametable ROM, CHR enables and cartridge
      * mirroring overrides keep the full VRAM path. */
@@ -489,8 +490,16 @@ void rr_ppu_lazy_reset(void)
                    RR_NES_MAPPER != 93 && RR_NES_MAPPER != 95 && RR_NES_MAPPER != 185 && RR_NES_MAPPER != 207;
     rr_ppu_chr_wrap = hw_cart.chr_ram && hw_cart.chr_len ? hw_cart.chr_len : 0;
     unsigned k = hw.tick;
-    while ((hw.align + k) & 1u) k++;
-    rr_ppu_next_dot = ((hw.align + k) & 3u) == 0;
+    if (RR_NES_PAL) {
+        /* run_tick: a dot at phase 0 and a half dot at phase 2 of the 5-tick PPU period,
+         * counted from the cycle the next tick belongs to. */
+        uint64_t phase = (hw.cycles + hw.pal_bus_pending) * 16u + hw.align + k;
+        while (phase % 5u != 0 && phase % 5u != 2) phase++;
+        rr_ppu_next_dot = phase % 5u == 0;
+    } else {
+        while ((hw.align + k) & 1u) k++;
+        rr_ppu_next_dot = ((hw.align + k) & 3u) == 0;
+    }
     rr_ppu_room = rr_ppu_lazy ? rr_ppu_compute_room() : 1u;
 }
 

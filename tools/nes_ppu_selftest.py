@@ -27,9 +27,9 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 include("{baseline.as_posix()}/cyc.cmake")
 list(REMOVE_ITEM NESRECOMP_CYC_SOURCES "${{NESRECOMP_CYC_DIR}}/cyc_host.c" "${{NESRECOMP_CYC_DIR}}/hw_machine.c" "${{NESRECOMP_CYC_DIR}}/hw_ppu.c" "${{NESRECOMP_CYC_DIR}}/hw_apu.c")
 '''
-    # The Zapper keeps the eager PPU clock; without it, mappers 0 and 2 also
-    # exercise the deferred clock (nes_ppu_lazy.inc).
-    configs = ((0, 1), (1, 1), (0, 0))
+    # The Zapper keeps the eager PPU clock; without it, mappers 0, 1 and 2 also
+    # exercise the deferred clock (nes_ppu_lazy.inc), in NTSC and PAL.
+    configs = ((0, 1), (1, 1), (0, 0), (1, 0))
     for pal, zapper in configs:
         config = f'{pal}{zapper}'
         source += f'''add_library(common{config} OBJECT ${{NESRECOMP_CYC_SOURCES}} "{ROOT.as_posix()}/native/platform_io.c")
@@ -57,13 +57,23 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
                 text = run([build_executable(project / 'build', f'{variant}{config}'), str(mapper)], timeout=240)
                 (project / f'{variant}-{config}-{mapper}.txt').write_text(text, encoding='ascii')
                 traces.append(text.splitlines())
-            if len(traces[0]) != 2800 or traces[0] != traces[1]:
+            # 2,800 checkpoints, then 24 cycles around each of four vblanks from each of four alignments
+            expected = 2800 + 4 * 4 * 24
+            if len(traces[0]) != expected or traces[0] != traces[1]:
                 first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
                 raise RuntimeError(f'PPU mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, checkpoint={first}; traces in {project}')
-            result = dict(pal=pal, zapper=zapper, mapper=mapper, alignments=4, checkpoints=2800,
+            result = dict(pal=pal, zapper=zapper, mapper=mapper, alignments=4, checkpoints=2800, vblank_cycles=expected - 2800,
                           hidden_ppu_apu_frame_bus_pcm_match=True)
             print(json.dumps(result), flush=True)
             results.append(result)
+        # Which boards run the deferred clock: mappers 0, 1 and 2 without the Zapper, in NTSC and PAL; the others
+        # (an IRQ counter on the PPU address, a CPU-clocked device, MMC5) and every Zapper build keep the eager one.
+        for mapper in (0, 1, 2, 4, 5, 69, 85, 153):
+            text = run([build_executable(project / 'build', f'optimized{config}'), str(mapper), 'engaged'], timeout=240).strip()
+            expected = 'deferred' if mapper in (0, 1, 2) and not zapper else 'eager'
+            if text != expected:
+                raise RuntimeError(f'Clock mode: PAL={pal}, Zapper={zapper}, mapper={mapper}: {text}, expected {expected}')
+        print(json.dumps(dict(pal=pal, zapper=zapper, deferred_mappers=[0, 1, 2] if not zapper else [])), flush=True)
         # Host-only extra sprites (F5): deferred (Zapper off) and eager clocks.
         text = run([build_executable(project / 'build', f'optimized{config}'), '0', 'extra'], timeout=240)
         if 'PASS' not in text:

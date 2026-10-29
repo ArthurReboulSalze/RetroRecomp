@@ -10,6 +10,32 @@ outputs are the same, checked by identical frame, audio and state hashes and rep
 this one. **No gain is claimed**: it has not been timed, and it does not address the open slowdown reported on the low-power Debian
 machine, which already ran the GCC profile build.
 
+## NES — 1.6.5
+
+Three changes to the NES runtime, none of them timed: the host cost is for the maintainer to measure on a quiet machine, and
+none is claimed here as a gain.
+
+- **MMC1: the bank tables are rebuilt on a change of PPU address line A12 only when the change can matter** (4 KiB CHR mode
+  with registers 0 and 1 differing in bits 2 to 4). It was a rebuild at every change, several times per scanline. The same
+  condition was taken upstream later; here it is carried on the pinned revision ([UPSTREAMS.md](UPSTREAMS.md)).
+- **The cartridge's mapper number is a compile-time constant on every toolchain** (it was for GNU C on Linux only), so the
+  per-cycle mapper tests fold on Windows too.
+- **The deferred PPU clock also runs in PAL** (the boards that defer in NTSC, without the Zapper: NROM, UxROM, CNROM, AxROM,
+  MMC1 up to 256 KiB and the like; the FME-7 of Mr. Gimmick keeps the direct clock because of its CPU-clocked IRQ counter). PAL
+  dots and half dots fall at phases 0 and 2 of a 5-tick period over 16 ticks per CPU cycle; the edges are counted, in three
+  runs per phase around the two sampling ticks (/NMI at 5, /IRQ at 9), and executed in order before anything can observe them,
+  as in NTSC.
+
+Checks: `tools/nes_mmc1_selftest.py` (13 boards), `tools/nes_static_mapper_selftest.py` (constant against run-time mapper, eight
+mappers, NTSC and PAL) and `tools/nes_ppu_selftest.py`, which now has a PAL configuration without the Zapper, asserts which mappers
+run the deferred clock, hashes the CPU and follows four vblanks from each alignment (it fails when /NMI is sampled on the wrong side
+of the vblank dot, which the 2,800 earlier checkpoints did not catch). Real conversions with `tools/ab_conversion.py`, the tree
+before the change against the tree after it with the same empty library: identical generated sources, reports and evidence (frame,
+audio and state hashes): for the MMC1 change, The Legend of Zelda, Metroid, Dragon Warrior IV (up to its packing step) and
+Balloon Fight (mapper 0, control); for the constant mapper, Metroid (MMC1) and Kirby's Adventure (MMC3); for the PAL deferral,
+Asterix (UxROM), Elite (MMC1) and Mr. Gimmick (FME-7, direct clock) with Balloon Fight as the NTSC witness. Only the changed
+sources and, for PAL and the constant mapper, the compressed size differ.
+
 ## Local follow-up — 26 October 2026
 
 Super Nintendo on Windows: three changes, one of them for every game. Per-frame host cost on a
@@ -68,8 +94,8 @@ synchronized before RAM accesses and RAM-code guards.
 
 Deferred runs take unrolled 8-dot background tiles, sprite-slot fetches and
 prefetch tiles. When no sprite unit can output during a tile, they use a
-background-only pixel. PAL, the Zapper and the other boards keep the eager
-clock but share the visible-scanline dot pair. MSVC builds apply link-time code
+background-only pixel. The Zapper and the other boards keep the eager
+clock but share the visible-scanline dot pair; PAL defers since 1.6.5 (below). MSVC builds apply link-time code
 generation to the small machine core only, not to the generated 6502 code.
 
 Checks:
