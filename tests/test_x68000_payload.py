@@ -71,14 +71,17 @@ class LongPathPayloadTests(unittest.TestCase):
             'cmake_minimum_required(VERSION 3.20)\n'
             'project(PayloadFixtures LANGUAGES C)\n'
             'set(CMAKE_C_STANDARD 11)\n'
-            f'add_executable(payload-test "{ROOT.as_posix()}/tests/x68000_payload_harness.c" "{source}/payload.c")\n'
+            # platform_io.c holds the POSIX file helpers (Windows has them inline in platform_io.h).
+            f'add_executable(payload-test "{ROOT.as_posix()}/tests/x68000_payload_harness.c" "{source}/payload.c"'
+            f' "{ROOT.as_posix()}/native/platform_io.c")\n'
             # The stubs come first: the real embedded_resources.h in native/ needs SDL.
             f'target_include_directories(payload-test PRIVATE "{stubs.as_posix()}" "{source}" "{ROOT.as_posix()}/native")\n'
             'if(MSVC)\n'
             'target_compile_options(payload-test PRIVATE /W4 /WX /utf-8)\n'
             'target_compile_definitions(payload-test PRIVATE _CRT_SECURE_NO_WARNINGS)\n'
             'else()\n'
-            'target_compile_options(payload-test PRIVATE -Wall -Wextra -Werror)\n'
+            # payload.c keeps the project's compact one-line style, which GCC's misleading-indentation check rejects.
+            'target_compile_options(payload-test PRIVATE -Wall -Wextra -Werror -Wno-misleading-indentation)\n'
             'endif()\n', encoding='utf-8')
         cmake, generator = toolchain()
         for command in (
