@@ -33,6 +33,28 @@ class ChipTests(unittest.TestCase):
             self.assertEqual(support_stage(self.rom(mode,kind,sub)),'supported')
         for mode,kind in ((0x23,0x35),(0x20,0x16),(0x20,0x43)):
             with self.assertRaises(ConversionError):support_stage(self.rom(mode,kind))
+    def test_exlorom_mode_byte_without_a_chip_is_an_ordinary_lorom_but_no_circuit_board_is(self):
+        # Duel: Test Drive II and a Popeye translation carry $32 with chip type 0 and no RAM.
+        for kind in (0, 1, 2):
+            with self.subTest(kind=kind):
+                rom = self.rom(0x32, kind, ram=int(kind != 0))
+                self.assertEqual(identify(rom.data), 'none')
+                self.assertEqual((rom.mapping, support_stage(rom)), ('lorom', 'supported'))
+        # The S-DD1 boards (Star Ocean $45, Street Fighter Alpha 2 $43) and every other chip type stay refused,
+        # as does an image above 4 MiB.
+        for kind in (0x43, 0x45, 0x03, 0x05, 0x13, 0x35, 0xf6, 0xf9, 0xe3):
+            with self.subTest(kind=kind):
+                with self.assertRaises(ConversionError):
+                    support_stage(self.rom(0x32, kind))
+        big = self.rom(0x32, 0)
+        big.data = big.data + bytes(0x400000)
+        with self.assertRaises(ConversionError):
+            support_stage(big)
+        # Other mode bytes that were refused before are still refused.
+        for mode in (0x22, 0x23, 0x33, 0x3a):
+            with self.subTest(mode=mode):
+                with self.assertRaises(ConversionError):
+                    support_stage(self.rom(mode, 0))
     def test_dsp1_battery_window_does_not_become_code_or_overlap_ports(self):
         rom=self.rom(0x31,5,ram=1);memory=layout_bytes(rom.data,rom.mapping)
         self.assertEqual((memory['bytes'],memory['battery']),(2048,True))
