@@ -57,6 +57,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     for source_name, destination in (
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
+        ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -189,6 +190,14 @@ static void rr_gb_feedback(GBContext *ctx) {
     source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
                           '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
     game.write_text(source, encoding='utf-8')
+
+    # The generated bodies call gb_tick (defined in gbrt.c) after nearly every instruction. gb_tick_fast.h runs the
+    # ordinary case in the caller, exactly as gb_tick does, and hands every other case to the real gb_tick; the
+    # include comes first so that every generated source sees it (tools/gameboy_tick_selftest.py compares the two).
+    internal = project / 'game_internal.h'
+    source = internal.read_text(encoding='utf-8')
+    source = replace_once(source, '#include "game.h"\n', '#include "game.h"\n#include "gb_tick_fast.h"\n')
+    internal.write_text(source, encoding='utf-8')
 
     # Cross-body guest jumps/calls must not consume the host C stack. The
     # emitter has already set PC and performed the timed guest stack/bus work.

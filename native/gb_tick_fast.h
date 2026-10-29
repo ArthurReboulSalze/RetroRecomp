@@ -10,7 +10,7 @@
  * The ordinary case (DMG, which is the only model these exports run):
  *   - not CGB double speed, no instruction limit, no trace, none of the test switches that change how the runtime ticks
  *     (benchmark fast tick, forced scalar timer, eager audio);
- *   - no real-time clock running, no OAM DMA pending or active, no serial transfer in progress;
+ *   - no real-time clock ticking (a cartridge of type 0x0F or 0x10 with the clock not halted), no OAM DMA pending or active, no serial transfer in progress;
  *   - no TIMA reload in progress and, when the timer runs, no edge of its input inside these cycles (an edge is the
  *     one place where the arithmetic differs from a plain addition to DIV);
  *   - the audio pending state is consistent with single speed.
@@ -46,13 +46,26 @@ static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
             cycles == 0u || ctx->cgb_double_speed ||
             gbrt_benchmark_fast_tick_enabled || gbrt_instruction_limit > 0 || gbrt_trace_enabled ||
             gbrt_force_scalar_timer || gbrt_force_eager_audio ||
-            ctx->rtc.active || ctx->dma.pending || ctx->dma.active || ctx->serial_transfer.active ||
+            (ctx->rtc.active && ctx->rom && ctx->rom_size > 0x147 && (ctx->rom[0x147] == 0x0F || ctx->rom[0x147] == 0x10)) ||
+            ctx->dma.pending || ctx->dma.active || ctx->serial_transfer.active ||
             ctx->tima_reload_pending ||
             ((tac & 0x04u) && cycles >= rr_gb_tick_timer_period(tac) -
                                            ((uint32_t)ctx->div_counter & (rr_gb_tick_timer_period(tac) - 1u))))) {
+#ifdef RR_GB_TICK_STATS
+        ++rr_gb_tick_slow_calls;
+        rr_gb_tick_why[0] += cycles == 0u; rr_gb_tick_why[1] += ctx->cgb_double_speed != 0;
+        rr_gb_tick_why[2] += gbrt_benchmark_fast_tick_enabled || gbrt_instruction_limit > 0 || gbrt_trace_enabled;
+        rr_gb_tick_why[3] += gbrt_force_scalar_timer || gbrt_force_eager_audio;
+        rr_gb_tick_why[4] += ctx->rtc.active && ctx->rom && ctx->rom_size > 0x147; rr_gb_tick_why[5] += ctx->dma.pending || ctx->dma.active;
+        rr_gb_tick_why[6] += ctx->serial_transfer.active != 0; rr_gb_tick_why[7] += ctx->tima_reload_pending != 0;
+        rr_gb_tick_why[8] += (tac & 0x04u) != 0;
+#endif
         gb_tick(ctx, cycles);
         return;
     }
+#ifdef RR_GB_TICK_STATS
+    ++rr_gb_tick_fast_calls;
+#endif
 
     /* gb_tick: double speed bookkeeping (single speed: the remainder is read, then cleared). */
     const uint8_t previous_system_cycle_remainder = ctx->cgb_system_cycle_remainder & 1u;

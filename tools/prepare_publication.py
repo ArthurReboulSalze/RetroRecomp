@@ -214,6 +214,7 @@ tests/fixtures/presentation/mode4_reference.inc
 docs/RUNTIME_PERFORMANCE.md
 native/retro_menu.c native/retro_menu.h native/retro_keyboard.h
 native/gb_ram_helpers.h native/gb_ram_checks.c tools/gameboy_ram_selftest.py
+native/gb_tick_fast.h native/gb_tick_checks.c tools/gameboy_tick_selftest.py
 native/nes_dense_codegen.inc native/nes_live_codegen.inc native/nes_ram.inc
 native/nes_audio_checks.c tools/nes_audio_selftest.py
 native/nes_dense_checks.c tools/nes_native_selftest.py

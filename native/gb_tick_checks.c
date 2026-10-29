@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "gbrt.h"
+static unsigned long rr_gb_tick_fast_calls, rr_gb_tick_slow_calls, rr_gb_tick_why[9];   /* counted by the header, test builds only */
+#define RR_GB_TICK_STATS 1
 #include "gb_tick_fast.h"
 
 static unsigned checks;
@@ -53,6 +56,8 @@ static void compare_full(GBContext* a, GBContext* b, unsigned scenario, unsigned
     memcpy(ca, a, sizeof(GBContext)); memcpy(cb, b, sizeof(GBContext));
     /* Pointers that differ by allocation, not by state; their contents are compared below. */
     ca->ppu = cb->ppu = NULL; ca->apu = cb->apu = NULL;
+    ca->wram = cb->wram = NULL; ca->vram = cb->vram = NULL; ca->oam = cb->oam = NULL;
+    ca->hram = cb->hram = NULL; ca->io = cb->io = NULL;
     if (memcmp(ca, cb, sizeof(GBContext)) != 0) {
         const unsigned char* pa = (const unsigned char*)ca;
         const unsigned char* pb = (const unsigned char*)cb;
@@ -63,6 +68,12 @@ static void compare_full(GBContext* a, GBContext* b, unsigned scenario, unsigned
         assert(0);
     }
     free(ca); free(cb);
+    /* The memory blocks are allocated apart from the context (sizes as in gb_context_create). */
+    assert(memcmp(a->wram, b->wram, 0x1000u * 8u) == 0);
+    assert(memcmp(a->vram, b->vram, 0x2000u * 2u) == 0);
+    assert(memcmp(a->oam, b->oam, 0xA0u) == 0);
+    assert(memcmp(a->hram, b->hram, 0x7Fu) == 0);
+    assert(memcmp(a->io, b->io, 0x80u + 1u) == 0);
     assert(a->ppu && b->ppu);
     if (memcmp(a->ppu, b->ppu, sizeof(GBPPU)) != 0) {
         fprintf(stderr, "scenario %u op %u: PPU state differs\n", scenario, op);
@@ -90,7 +101,7 @@ static void run_scenario(unsigned scenario, unsigned operations) {
     audio_owner[0] = a; audio_owner[1] = b;
     audio_hash[0] = audio_hash[1] = 1469598103934665603ull;
     audio_samples[0] = audio_samples[1] = 0;
-    a->on_audio_sample = on_audio; b->on_audio_sample = on_audio;
+    a->callbacks.on_audio_sample = on_audio; b->callbacks.on_audio_sample = on_audio;
     /* Bring up the sound unit and the LCD the way a game does, then let the stream do the rest. */
     static const struct { uint16_t reg; uint8_t value; } boot[] = {
         {0xFF26, 0x80}, {0xFF24, 0x77}, {0xFF25, 0xFF}, {0xFF12, 0xF3}, {0xFF14, 0x87}, {0xFF40, 0x91},
@@ -130,6 +141,8 @@ static void run_scenario(unsigned scenario, unsigned operations) {
 }
 
 /* The slow-path conditions hand the call to the real gb_tick untouched: each of these must give the same state. */
+static uint8_t rtc_rom[0x200] = {[0x147] = 0x10};   /* MBC3+TIMER+RAM+BATTERY header byte only */
+
 static void slow_condition_checks(void) {
     for (unsigned flavour = 0; flavour < 6; ++flavour) {
         GBContext* a = gb_context_create(NULL);
@@ -137,7 +150,7 @@ static void slow_condition_checks(void) {
         assert(a && b);
         audio_owner[0] = a; audio_owner[1] = b;
         audio_hash[0] = audio_hash[1] = 1469598103934665603ull; audio_samples[0] = audio_samples[1] = 0;
-        a->on_audio_sample = on_audio; b->on_audio_sample = on_audio;
+        a->callbacks.on_audio_sample = on_audio; b->callbacks.on_audio_sample = on_audio;
         gb_write8(a, 0xFF26, 0x80); gb_write8(b, 0xFF26, 0x80);
         gb_write8(a, 0xFF40, 0x91); gb_write8(b, 0xFF40, 0x91);
         gb_write8(a, 0xFF07, 5); gb_write8(b, 0xFF07, 5);
@@ -146,7 +159,7 @@ static void slow_condition_checks(void) {
         case 1: a->dma.active = b->dma.active = 1; a->dma.cycles_remaining = b->dma.cycles_remaining = 640; break;
         case 2: a->dma.pending = b->dma.pending = 1; a->dma.startup_delay = b->dma.startup_delay = 8; break;
         case 3: a->serial_transfer.active = b->serial_transfer.active = 1; break;
-        case 4: a->rtc.active = b->rtc.active = 1; break;
+        case 4: a->rtc.active = b->rtc.active = 1; a->rom = b->rom = rtc_rom; a->rom_size = b->rom_size = sizeof(rtc_rom); break;
         default: a->div_counter = b->div_counter = 0x000C; break;   /* an input edge of the 16-cycle timer inside the tick */
         }
         for (unsigned op = 0; op < 600; ++op) {
@@ -156,6 +169,7 @@ static void slow_condition_checks(void) {
             compare_cheap(a, b, 1000 + flavour, op);
         }
         compare_full(a, b, 1000 + flavour, 600);
+        a->rom = b->rom = NULL; a->rom_size = b->rom_size = 0;   /* the array is not heap memory */
         gb_context_destroy(a); gb_context_destroy(b);
     }
 }
@@ -163,6 +177,11 @@ static void slow_condition_checks(void) {
 int main(void) {
     for (unsigned scenario = 0; scenario < 48; ++scenario) run_scenario(scenario, 6000);
     slow_condition_checks();
+    fprintf(stderr, "inline path %lu calls, handed to gb_tick %lu\n", rr_gb_tick_fast_calls, rr_gb_tick_slow_calls);
+    fprintf(stderr, "why slow: zero %lu dbl %lu dbg %lu force %lu rtc %lu dma %lu serial %lu reload %lu timer-on %lu\n",
+            rr_gb_tick_why[0], rr_gb_tick_why[1], rr_gb_tick_why[2], rr_gb_tick_why[3], rr_gb_tick_why[4],
+            rr_gb_tick_why[5], rr_gb_tick_why[6], rr_gb_tick_why[7], rr_gb_tick_why[8]);
+    assert(rr_gb_tick_fast_calls > rr_gb_tick_slow_calls);   /* the streams force DMA, serial and timer edges often; the inline path must still be the majority */
     printf("{\"checks\":%u,\"inline_tick_matches_gb_tick\":true,\"scenarios\":48}\n", checks);
     return 0;
 }
