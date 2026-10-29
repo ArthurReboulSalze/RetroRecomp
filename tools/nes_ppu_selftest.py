@@ -57,10 +57,12 @@ target_link_libraries({name} PRIVATE ${{NESRECOMP_CYC_LIBRARIES}})
                 text = run([build_executable(project / 'build', f'{variant}{config}'), str(mapper)], timeout=240)
                 (project / f'{variant}-{config}-{mapper}.txt').write_text(text, encoding='ascii')
                 traces.append(text.splitlines())
-            if len(traces[0]) != 2800 or traces[0] != traces[1]:
+            # 2,800 checkpoints, then 24 cycles around each of four vblanks from each of four alignments
+            expected = 2800 + 4 * 4 * 24
+            if len(traces[0]) != expected or traces[0] != traces[1]:
                 first = next((i for i, pair in enumerate(zip(*traces)) if pair[0] != pair[1]), -1)
                 raise RuntimeError(f'PPU mismatch: PAL={pal}, Zapper={zapper}, mapper={mapper}, checkpoint={first}; traces in {project}')
-            result = dict(pal=pal, zapper=zapper, mapper=mapper, alignments=4, checkpoints=2800,
+            result = dict(pal=pal, zapper=zapper, mapper=mapper, alignments=4, checkpoints=2800, vblank_cycles=expected - 2800,
                           hidden_ppu_apu_frame_bus_pcm_match=True)
             print(json.dumps(result), flush=True)
             results.append(result)

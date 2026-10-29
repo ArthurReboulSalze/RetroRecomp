@@ -110,11 +110,37 @@ int main(int argc,char **argv){
             rr_nes_apu_save(audio_state);
             /* Observing the machine first runs any deferred PPU edges. */
             uint64_t hw_hash=cyc_hw_state_hash();
-            printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
-                (unsigned long long)cyc_cycle_count(),(unsigned long long)hash_bytes(&ppu,sizeof(ppu)),
+            /* The CPU's interrupt inputs and edges show when /NMI and /IRQ were sampled. */
+            printf("%u %u %u %llu %016llx %016llx %016llx %016llx %016llx %016llx %016llx\n",RR_NES_PAL,align,iteration,
+                (unsigned long long)cyc_cycle_count(),(unsigned long long)hash_bytes(&cpu,sizeof(cpu)),
+                (unsigned long long)hash_bytes(&ppu,sizeof(ppu)),
                 (unsigned long long)hash_bytes(hw_frame_index,sizeof(hw_frame_index)),
                 (unsigned long long)hw_hash,(unsigned long long)cyc_mem_state_hash(),(unsigned long long)sound,
                 (unsigned long long)hash_bytes(audio_state,rr_nes_apu_size()));
+        }
+    }
+    /* /NMI is sampled at one tick of each CPU cycle and the PPU sets vblank at one dot. Where that dot falls in the
+     * cycle depends on the clock alignment and on the frame (the frame is not a whole number of CPU cycles), so
+     * this follows four vblanks from each alignment and prints the CPU and PPU state of the cycles around each, to
+     * hold a deferred clock to the tick by tick one where /NMI is sampled just before or just after the dot. */
+    {
+        const unsigned frame=(RR_PRERENDER+1u)*341u;
+        for(unsigned align=0;align<4;align++){
+            cyc_power_on((uint8_t)align);cyc_run_power_on();
+            cpu_write(0x2001,0,0);cpu_write(0x2000,0x80,0);
+            for(unsigned vblank=0;vblank<4;vblank++){
+                rr_ppu_sync();
+                unsigned position=ppu.scanline*341u+ppu.dot;
+                unsigned dots=(241u*341u+1u+frame-position)%frame;
+                unsigned cycles=(unsigned)((unsigned long long)dots*RR_PPU_DIV/RR_CPU_DIV);
+                for(unsigned k=0;k+8<cycles;k++)(void)cpu_read(0,0);
+                for(unsigned k=0;k<24;k++){
+                    (void)cpu_read(0,0);rr_ppu_sync();
+                    printf("N %u %u %u %016llx %016llx\n",align,vblank,k,(unsigned long long)hash_bytes(&cpu,sizeof(cpu)),
+                        (unsigned long long)hash_bytes(&ppu,sizeof(ppu)));
+                }
+                cpu_read(0x2002,0); /* clear the flag: the next vblank is a new edge */
+            }
         }
     }
     free(audio_state);return 0;
