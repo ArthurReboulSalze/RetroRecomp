@@ -9,8 +9,11 @@ folder), B the tree after it (default: `HEAD`, also checked out detached, so tha
 Each side converts the same ROM with the batch command (`--jobs 1 --no-shared-base --no-online-cover --keep-build`,
 the default scan level unless `--scan-level` is given), into its own output folder, with its own EMPTY learning library
 (`RETRO_RECOMP_LIBRARY_DIR`) and its own `Export/datas` (a fresh tree has none): nothing the player has learned, no
-cover, no shared base, so the two runs start from the same state. The pinned engines (`.deps`) and the portable compiler
-(`Export/datas/tools`) are shared read-only through links to the main checkout, never copied or written. The tool never
+cover, no shared base, so the two runs start from the same state. The pinned engines (each folder of `.deps`) and the
+portable compiler (`Export/datas/tools`) are shared through links to the main checkout. Each tree's `.deps` is a real
+folder: the folders a tree builds or patches itself (`recompiler-*`, the setup lock) are its own, so A and B never share a
+translator source or a CMake cache. Before a tree is removed, every link in it, at any depth, is detached, and a tree
+that still holds one is left in place (a recursive removal through a junction empties what it points at). The tool never
 writes into the main checkout's `Export`.
 
 It compares, between A and B:
@@ -120,6 +123,40 @@ def unlink(target: Path) -> None:
         pass
 
 
+# What a tree builds or patches itself: never shared with the main checkout or with the other side.
+OWN_DEPS = ('recompiler-', 'shared-setup', 'setup.log')
+
+
+def link_deps(deps: Path, target: Path) -> None:
+    """`target` as a real folder with one link per shared folder of `deps`, and copies of its small files."""
+    if target.exists() or target.is_symlink():
+        return
+    target.mkdir(parents=True)
+    for entry in deps.iterdir():
+        if entry.name.startswith(OWN_DEPS):
+            continue
+        if entry.is_dir():
+            link(entry, target / entry.name)
+        elif entry.is_file():
+            shutil.copy2(entry, target / entry.name)
+
+
+def is_link(path: Path) -> bool:
+    return path.is_symlink() or (os.name == 'nt' and os.path.isjunction(path))
+
+
+def links_in(tree: Path) -> list[Path]:
+    """Every link under `tree` (not followed), deepest first."""
+    found = []
+    for folder, names, _ in os.walk(tree, followlinks=False):
+        for name in list(names):
+            path = Path(folder) / name
+            if is_link(path):
+                found.append(path)
+                names.remove(name)
+    return sorted(found, key=lambda path: len(str(path)), reverse=True)
+
+
 def prepare_tree(spec: str, label: str, work: Path, deps: Path, tools: Path | None) -> tuple[Path, bool]:
     """(tree, created): a folder to convert with. A git ref becomes a detached worktree under `work`."""
     given = Path(spec)
@@ -128,15 +165,18 @@ def prepare_tree(spec: str, label: str, work: Path, deps: Path, tools: Path | No
     else:
         tree, created = work / label, True
         git('worktree', 'add', '--detach', tree, spec)
-    link(deps, tree / '.deps')
+    link_deps(deps, tree / '.deps')
     if tools is not None:
         link(tools, tree / 'Export/datas/tools')
     return tree, created
 
 
 def release_tree(tree: Path, created: bool, keep: bool = False) -> None:
-    for path in (tree / '.deps', tree / 'Export/datas/tools'):
+    for path in links_in(tree):
         unlink(path)
+    if links_in(tree):
+        print(f'ab_conversion: links remain in {tree}; the tree is left in place.', file=sys.stderr)
+        return
     if created and not keep:
         run(['git', 'worktree', 'remove', '--force', tree], cwd=REPO, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL)
@@ -332,7 +372,8 @@ def main(argv=None) -> int:
     parser.add_argument('--x68-cgrom', type=Path, help='the X68000 font ROM (read in place), for an X68000 game')
     parser.add_argument('--keep-work', action='store_true',
                         help='keep the working folder and the checked-out trees (they hold copies of the ROM in the '
-                             'kept builds; remove a tree with `git worktree remove --force`)')
+                             'kept builds; detach every link in a tree, at any depth, before removing it: a recursive removal '
+                             'through a junction empties what it points at)')
     options = parser.parse_args(argv)
     rom = options.rom.resolve()
     if not rom.is_file():
