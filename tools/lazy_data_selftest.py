@@ -28,6 +28,8 @@ def main():
     run([build_executable(recompiler_build(), 'SmsRecomp'), '--game', directory / 'game.toml', '--banked-step'], log=log)
     # Keep the fixture's staged source separate from an active batch build.
     source = directory / 'native-source'; source.mkdir(parents=True, exist_ok=True)
+    from retrorecomp import hostkit
+    hostkit.stage(source, 'sms')
     for file in (ASSETS / 'native').iterdir():
         if file.is_file(): shutil.copy2(file, source / file.name)
     build = directory / 'build-isolated'

@@ -145,14 +145,15 @@ static const uint32_t *x_pixels(void) { return xa.argb; }
 static int x_width(void) { return width ? (int)width : 768; }
 static int x_height(void) { return height ? (int)height : 576; }
 
-/* The picture keeps the aspect ratio of the machine; Pixel mode is the largest whole multiple of the picture's own
- * pixel grid (the rule of the former X68000 host, not yet the common integer rule: HOST_KIT.md divergence 9). */
+/* The picture keeps the aspect ratio of the machine. In the window and in Pixel mode it is the largest whole multiple of the
+ * picture's own pixel grid, centred (the common integer rule, HOST_KIT.md divergence 9, applied to the window in phase 4: the
+ * window used to stretch to the aspect-correct fit); only Fit mode fills the output. */
 static bool x_game_rect(int rw, int rh, int mode, SDL_Rect *rect) {
    SDL_Rect dst;
    if (!width || !height) return false;
    dst.x = 0; dst.y = 0; dst.w = rw; dst.h = (int)round(rw / aspect_ratio);
    if (dst.h > rh) { dst.h = rh; dst.w = (int)round(rh * aspect_ratio); }
-   if (mode == 1) {
+   if (mode != 2) {
       int scale = SDL_min(rw / (int)width, rh / (int)height);
       if (scale >= 1) { dst.w = (int)width * scale; dst.h = (int)height * scale; }
    }

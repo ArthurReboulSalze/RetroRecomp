@@ -158,8 +158,9 @@ In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
 the pages: player 1 keyboard, player 1 gamepad, player 2 keyboard, player 2
 gamepad. Up/Down selects a row, and Enter begins capture. Press the desired key
 or the selected player's controller button. Esc cancels capture; D restores
-that player's defaults for the input type. C on a Master System gamepad page
-swaps controller assignments.
+that player's defaults for the input type. On each gamepad page the last row,
+Gamepad, chooses the controller of that player ([pad slots](HOST_KIT.md): Automatic
+by default, a connected controller, or None).
 
 Game Gear has one player and no gun. Arrows and W/X control the game; **Enter**
 is the cartridge Start button (S before 1.5.0). On a gamepad, A/B are the two
@@ -222,12 +223,20 @@ combination (Start+Select by default); it has no separate Select/Reset row.
 Earlier `select` entries for either player are ignored without rewriting the
 INI. J2 binding details appear only on its mapping page.
 
-The first controller is J1 and the next J2; swapping supports one gamepad for
-J2 while J1 uses the keyboard. Settings are shared in `datas/Retro-Recomp.ini`.
-Disconnecting one controller keeps the other assigned to its player.
+Since 1.6.3 the Master System and the Game Gear run on the common host kit, with the same pad rules as the other
+consoles: controllers go to players in plug order (Automatic), and each player's Gamepad row in F2 can pin a
+controller to that player or leave the player on the keyboard (None); the first-player preference and the C swap of earlier
+releases are gone. The stick threshold is 16000 like everywhere else, opposite directions cancel, autofire
+(F6) follows the common rule and shows the common "Autofire ON / OFF" notice, and F2 captures a pad press only from the
+selected player's own controller. The Start/Menu key (Enter by default) or button of any player opens the Pause menu; F1 and F2
+opened from it come back to it. Settings are shared in `datas/Retro-Recomp.ini` under
+`[MasterSystem.*]` and `[GameGear.*]` sections (keyboard and gamepad bindings per player, `[MasterSystem.Pointer]`
+for the Light Phaser reticle, `device` and `name` of each pinned controller); the French sections of earlier
+releases (`[Clavier]`, `[Manette]`, `[Video]`, `[LightPhaser]`, and `SMSRecomp.ini` while no `Retro-Recomp.ini` exists)
+are still read where the new key is absent and never deleted or rewritten.
 Defaults live in memory. Starting a game, opening a menu or reading an INI
-creates no files; only a changed setting creates/updates the shared INI.
-Legacy settings can be read in place and are copied only on an explicit edit.
+creates no files; only a changed setting creates/updates the shared INI
+(a legacy `SMSRecomp.ini` is copied first, on the first write).
 
 On Master System, **F5** switches sprite flicker reduction on/off immediately.
 The initial default retains the console's eight sprites per scanline. When

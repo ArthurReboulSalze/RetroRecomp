@@ -4,7 +4,8 @@ Master System and Game Gear exports synthesize the PSG from guest CPU cycles.
 The host output is a separate stage: reducing its delay must not change the
 console clock, PAL/NTSC frame pacing, PSG state, input polling or saved states.
 This implementation is in `native/audio_output.inc` and is included by the
-shared Sega host. Game Boy has a separate output path described below; the
+Master System / Game Gear adapter of the host kit (`native/hostkit/adapters/rrhk_sms.c`), unchanged by the move to the kit.
+Game Boy has a separate output path described below; the
 other console backends retain their own audio implementations.
 
 ## Game Boy output

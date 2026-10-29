@@ -33,8 +33,10 @@ SDL_Rect rrhk_game_rect(SDL_Renderer *renderer) {
     int density = m->visible_height() / m->raster_height();
     int horizontal = m->visible_width() / m->display_width();
     if (horizontal > density) density = horizontal;
+    /* Divergence 9 (decided, D2): whole pixels, centred, in the window and in the first fullscreen mode; only the second
+     * fullscreen mode (Fit) stretches to the largest size that keeps the aspect. */
     Rr16Rect r = rr16_video_rect(w, h, m->display_width(), m->raster_height(),
-                                density, rrhk.fullscreen == 1);
+                                density, rrhk.fullscreen != 2);
     SDL_Rect rect = {r.x, r.y, r.w, r.h};
     return rect;
 }

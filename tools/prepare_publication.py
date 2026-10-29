@@ -198,10 +198,10 @@ retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrore
 tests/test_nes_ram.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
-native/controls.c native/controls.h native/host.c native/host_checks.c
+native/host_checks.c
 native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
-native/manifest.inc native/paths.c native/paths.h native/ui.c native/ui.h
+native/manifest.inc native/paths.c native/paths.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
 native/scale2x.h native/planar_rows.h native/stereo_fir.h
 native/nes_sprite_shift.h native/nes_sprite_extra.inc
@@ -267,7 +267,7 @@ native/hostkit/shell/rrhk_main.c native/hostkit/shell/rrhk_menu.c native/hostkit
 native/hostkit/shell/rrhk_pointer.c native/hostkit/shell/rrhk_ring.c native/hostkit/shell/rrhk_timing.c
 native/hostkit/shell/rrhk_video.c
 native/hostkit/adapters/rrhk_md.c native/hostkit/adapters/rrhk_snes.c native/hostkit/adapters/rrhk_ng.c
-native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
+native/hostkit/adapters/rrhk_cps1.c native/hostkit/adapters/rrhk_nes.c native/hostkit/adapters/rrhk_x68k.inc native/hostkit/adapters/rrhk_sms.c tools/hostkit_ab.py tools/hostkit_ab/hooks.c tests/test_hostkit.py
 native/scanline_sdl.h native/display_settings.h
 native/display_settings_checks.c tools/display_settings_selftest.py
 tools/gameboy_display_selftest.py

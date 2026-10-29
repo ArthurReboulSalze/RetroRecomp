@@ -92,6 +92,9 @@ const RrhkMachine *rrhk_adapter(void) {
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = RR16_WIDTH, .max_height = RR16_HEIGHT, .frame_seconds = RR16_FRAME_SECONDS,
+            /* Most games are 320 wide and the engine says 256 until its first frame: the window opens for 320 x 240, the larger of the
+             * NTSC (224) and PAL (240) pictures. */
+            .open_width = 320, .open_height = 240,
             .pointer = RR16_GUN, .own_audio = true,
             .reset = rr16_reset, .run_frame = rr16_frame, .pause = rr16_pause,
             .pixels = rr16_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
