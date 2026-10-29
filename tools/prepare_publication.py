@@ -230,6 +230,7 @@ native/m68000_backend_checks.c tools/m68000_backend_selftest.py
 retrorecomp/neogeo.py retrorecomp/neogeo_build.py retrorecomp/systems/neogeo.py
 retrorecomp/neogeo_catalogue.py retrorecomp/neogeo_conversion.py
 retrorecomp/neogeo_state_checks.py retrorecomp/neogeo_knowledge.py
+retrorecomp/neogeo_optimization.py
 retrorecomp/neogeo_persistence_checks.py
 tests/test_neogeo_converter.py tools/build_neogeo_knowledge.py
 assets/neogeo-catalogue.json
@@ -245,7 +246,7 @@ tools/neogeo_campaign.py
 tools/neogeo_campaign_review.py
 native/neogeo_m68000_checks.c native/neogeo_z80_checks.c
 native/neogeo_host.c native/neogeo_host.h native/neogeo_state.c native/neogeo_state_validate.c native/neogeo_ym_state.inc
-native/neogeo_ui_test.c native/neogeo_controls_checks.c native/neogeo_fixmask.h native/neogeo_fixmask_checks.c tools/neogeo_fixmask_selftest.py tests/test_neogeo_fixmask.py
+native/neogeo_ui_test.c native/neogeo_controls_checks.c native/neogeo_fixmask.h native/neogeo_fixmask_checks.c tools/neogeo_fixmask_selftest.py tests/test_neogeo_fixmask.py tests/test_neogeo_optimization.py
 native/neogeo_persistence.c native/neogeo_persistence.h native/neogeo_persistence_checks.c
 native/neogeo_path_io.h
 tools/neogeo_persistence_selftest.py
