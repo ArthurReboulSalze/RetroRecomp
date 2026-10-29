@@ -9,7 +9,9 @@ from retrorecomp import hostkit
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / 'native/hostkit'
-FAMILIES = ('md', 'snes', 'ng', 'cps1', 'nes', 'sms')
+FAMILIES = ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gb')
+# An adapter the platform file of its runtime includes (one translation unit) is staged, not compiled by itself.
+INCLUDED = {'gb': 'hostkit/adapters/rrhk_gb.inc'}
 
 
 class StagingTests(unittest.TestCase):
@@ -19,13 +21,15 @@ class StagingTests(unittest.TestCase):
                 project = Path(folder)
                 listed = hostkit.stage(project, family)
                 self.assertEqual(listed, hostkit.sources(family))
-                self.assertEqual(len(listed), len(hostkit.SHELL) + 1)
+                included = INCLUDED.get(family)
+                self.assertEqual(len(listed), len(hostkit.SHELL) + (0 if included else 1))
                 adapters = [name for name in listed if '/adapters/' in name]
-                self.assertEqual(adapters, [f'hostkit/adapters/rrhk_{family}.c'])
-                for name in (*listed, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h'):
+                self.assertEqual(adapters, [] if included else [f'hostkit/adapters/rrhk_{family}.c'])
+                staged = [*listed, *([included] if included else [])]
+                for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h'):
                     self.assertEqual((project / name).read_bytes(), (KIT / name.split('/', 1)[1]).read_bytes())
                 self.assertEqual(sorted(path.relative_to(project).as_posix() for path in (project / 'hostkit').rglob('*')
-                                        if path.is_file()), sorted([*listed, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h']))
+                                        if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h']))
 
     def test_an_unchanged_file_keeps_its_timestamp(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -67,8 +71,9 @@ class ContentTests(unittest.TestCase):
 
     def test_every_adapter_defines_the_entry_the_game_calls(self):
         for family in FAMILIES:
-            text = (KIT / f'adapters/rrhk_{family}.c').read_text(encoding='utf-8')
+            text = (KIT / f'adapters/rrhk_{family}.{"inc" if family in INCLUDED else "c"}').read_text(encoding='utf-8')
             entry = {'nes': 'int cyc_sdl_main(const char *title, int scale)',
+                     'gb': 'bool gb_platform_init(int scale)',
                      'sms': 'bool host_init(int width, int height, int x, int y, int crop_w, int crop_h, int scale'}.get(
                 family, 'int rr16_sdl_main(const char *title, int scale)')
             self.assertIn(entry, text)
@@ -123,6 +128,29 @@ class ContentTests(unittest.TestCase):
         shell = (KIT / 'shell/rrhk_input.c').read_text(encoding='utf-8')
         for name in ('"auto"', '"none"', 'L"device"', 'L"name"'):
             self.assertIn(name, shell)
+
+
+class GameBoyTests(unittest.TestCase):
+    """The Game Boy (phase 5): the runtime's platform file keeps the loop and calls the kit; its adapter is included by it."""
+
+    def test_the_platform_file_includes_the_adapter_and_the_build_compiles_the_shell(self):
+        from retrorecomp import gameboy_host
+        self.assertEqual(gameboy_host.ADAPTER, 'hostkit/adapters/rrhk_gb.inc')
+        self.assertEqual(inputs.role('native/hostkit/adapters/rrhk_gb.inc'), 'host')
+        cmake = gameboy_host.kit_cmake('')
+        for name in hostkit.sources('gb'):
+            self.assertIn(name, cmake, name)
+        self.assertNotIn('rrhk_gb', cmake)
+
+    def test_the_former_shell_is_gone(self):
+        for name in ('gb_menu.inc', 'gb_audio_output.inc', 'gb_input_refresh.inc'):
+            self.assertFalse((ROOT / 'native' / name).exists(), name)
+        self.assertFalse((ROOT / 'retrorecomp/gameboy_timing.py').exists())
+
+    def test_the_adapter_plays_through_the_stereo_ring_and_is_driven(self):
+        text = (KIT / 'adapters/rrhk_gb.inc').read_text(encoding='utf-8')
+        for setting in ('audio_model = RRHK_AUDIO_RING', 'audio_channels = 2', 'audio_rate = 44100u', 'driven = true', 'host_pause = '):
+            self.assertIn(setting, text)
 
 
 if __name__ == '__main__':

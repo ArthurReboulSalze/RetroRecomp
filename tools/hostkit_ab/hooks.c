@@ -186,10 +186,14 @@ Uint64 rrab_GetPerformanceFrequency(void) { return 1000000; }
 Uint64 rrab_GetPerformanceCounter(void) { return virtual_us++; }
 Uint64 rrab_GetTicks64(void) { return virtual_us / 1000; }
 Uint32 rrab_GetTicks(void) { return (Uint32)(virtual_us / 1000); }
+static void audio_advance(void);
 void rrab_Delay(Uint32 ms) {
     init();
     if (events_log) fprintf(events_log, "D %u %u\n", iteration, ms);
     virtual_us += (Uint64)ms * 1000;
+#ifdef RRAB_GB
+    audio_advance();      /* the Game Boy host before the kit never touched its device while it ran: time passing plays the periods */
+#endif
 }
 
 /* audio device model: whole periods leave the queue at the period boundaries of the virtual clock */
@@ -201,6 +205,11 @@ static void audio_advance(void) {
             audio_next_period += audio_period_us;
             audio_callback(audio_userdata, block, (int)audio_period_bytes);
             fprintf(events_log, "A b %u %016llx\n", iteration, (unsigned long long)fnv(14695981039346656037ull, block, audio_period_bytes));
+            if (getenv("RRAB_AUDIO_DUMP")) {   /* the samples the device was handed, for a comparison that ignores where the periods fall */
+                static FILE *dump;
+                if (!dump) { char dump_name[1200]; snprintf(dump_name, sizeof dump_name, "%s/audio.raw", getenv("RRAB_OUT")); dump = fopen(dump_name, "wb"); }
+                if (dump) fwrite(block, 1, audio_period_bytes, dump);
+            }
             continue;
         }
         Uint32 take = audio_queue < audio_period_bytes ? audio_queue : audio_period_bytes;
@@ -338,6 +347,22 @@ void rrab_phaser(int x, int y, bool trigger) {
     init(); fprintf(events_log, "X %u %d %d %d\n", iteration, x, y, trigger);
     lightphaser_pointer(x, y, trigger);
 }
+#elif defined(RRAB_GB)
+/* The Game Boy: the generated loop runs slices of the machine; what the host handed the cartridge is the joypad registers at
+ * the start of each slice (direction nibble then button nibble, active low), logged when they change. */
+extern uint8_t g_joypad_dpad, g_joypad_buttons;
+extern void gb_run_cycles(void *ctx, uint32_t budget);
+static unsigned gb_dpad = 0xff, gb_buttons = 0xff;
+void rrab_gb_run_cycles(void *ctx, uint32_t budget) {
+    init();
+    if (g_joypad_dpad != gb_dpad || g_joypad_buttons != gb_buttons) {
+        gb_dpad = g_joypad_dpad; gb_buttons = g_joypad_buttons;
+        fprintf(events_log, "G %u %02x %02x\n", iteration, gb_dpad, gb_buttons);
+    }
+    gb_run_cycles(ctx, budget);
+}
+SDL_Window *rrab_GetKeyboardFocus(void) { return SDL_GetWindowFromID(1); }
+SDL_Window *rrab_GetMouseFocus(void) { return SDL_GetWindowFromID(1); }
 #elif !defined(RRAB_NES)
 extern bool rr16_frame(uint16_t p1, uint16_t p2);
 bool rrab_frame(uint16_t p1, uint16_t p2) {

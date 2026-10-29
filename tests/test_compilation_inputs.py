@@ -90,23 +90,22 @@ class CompilationInputTests(unittest.TestCase):
         before = after
         self.write('native/hostkit/shell/rrhk_menu.c', 'new shared menus')
         after = self.stamps()
-        for system in ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg'):
+        for system in ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb'):
             self.assertNotEqual(before[system], after[system])
-        self.assertEqual(before['gb'], after['gb'])
 
     def test_host_kit_edits_are_host_side_and_scoped_by_adapter(self):
         """Rebuilt, never rediscovered: the kit's files feed the host stamp and nothing else."""
         def role_stamps():
             return {s: inputs.role_stamps(s) for s in ('sms', 'gg', 'gb', 'nes', 'md', 'snes', 'ng', 'x68', 'cps1')}
-        shared = ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg')
-        staged = ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg')   # their projects get a copy of the kit (retrorecomp.hostkit)
+        shared = ('md', 'snes', 'ng', 'cps1', 'nes', 'x68', 'sms', 'gg', 'gb')
+        staged = ('md', 'snes', 'ng', 'cps1', 'nes', 'sms', 'gg', 'gb')   # their projects get a copy of the kit (retrorecomp.hostkit)
         kit = [name for name in inputs.manifest_names() if name.startswith('native/hostkit/')]
         self.assertTrue(kit)
         for name in kit:
             self.assertEqual(inputs.role(name), 'host', name)
         shell = [name for name in kit if '/adapters/' not in name]
         # The Master System and the Game Gear share one adapter.
-        files = {'x68': 'rrhk_x68k.inc', 'gg': 'rrhk_sms.c'}
+        files = {'x68': 'rrhk_x68k.inc', 'gg': 'rrhk_sms.c', 'gb': 'rrhk_gb.inc'}
         adapters = {system: name for system in shared for name in kit if name.endswith(files.get(system, f'rrhk_{system}.c'))}
         self.assertEqual(set(adapters), set(shared))
         for name in shell:
@@ -205,7 +204,7 @@ class InputRoleTests(unittest.TestCase):
     def test_every_machine_shell_is_host_and_every_entry_is_game(self):
         shells = ('native/retro_menu.c', 'native/game_options.h', 'native/runtime_catalog.inc',
                   'native/hostkit/adapters/rrhk_sms.c',                          # Master System / Game Gear
-                  'native/gb_menu.inc', 'retrorecomp.gameboy_host',                 # Game Boy
+                  'native/hostkit/adapters/rrhk_gb.inc', 'retrorecomp.gameboy_host',                 # Game Boy
                   'native/hostkit/shell/rrhk_main.c', 'native/hostkit/adapters/rrhk_md.c',   # Mega Drive, SNES, Neo Geo, CPS-1
                   'native/hostkit/shell/rrhk_ring.c', 'native/hostkit/adapters/rrhk_nes.c',  # NES
                   'retrorecomp.hostkit',

@@ -125,6 +125,8 @@ typedef struct RrhkMachine {
     int audio_model;               /* RRHK_AUDIO_QUEUE (default) or RRHK_AUDIO_RING */
     unsigned audio_rate;           /* ring: source rate of the mono 16-bit PCM */
     bool (*audio_enable)(unsigned rate);   /* ring: the machine starts producing sound; false closes the device */
+    unsigned audio_channels;       /* ring: 1 (default, mono) or 2 (interleaved stereo; `audio` and the ring count frames) */
+    unsigned audio_margin_ms;      /* ring: margin before a period may start, on top of the adaptive reserve; 0: 30 ms (the NES) */
 
     /* behaviours the kit keeps per machine until HOST_KIT.md settles them. Settled on 28 October 2026 and
      * therefore no longer settings: F2 pad capture takes the selected player's pad only (divergence 3) and F6
@@ -196,6 +198,8 @@ typedef struct RrhkMachine {
     bool (*help_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* true: drew the whole help page */
     /* Master System, Game Gear (phase 4). */
     void (*pause_page)(RrhkUi *ui, const RrhkMenuCtx *ctx);   /* the body of the Pause menu (RRHK_MENU_PAUSE) */
+    /* Game Boy (phase 5). */
+    bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Master System, Game Gear and Game Boy rule) */
 } RrhkMachine;
 
 /* The loop of every windowed game: returns the process exit status. */

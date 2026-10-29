@@ -17,7 +17,7 @@ void rrhk_audio_open(RrhkRun *run) {
     if (m->audio_model == RRHK_AUDIO_RING) {
         run->audio = 0;
         run->audio_playing = false;
-        if (!run->video_clock_test && rrhk_ring_open(m->audio_rate)) {
+        if (!run->video_clock_test && rrhk_ring_open(m->audio_rate, m->audio_channels, m->audio_margin_ms)) {
             if (!m->audio_enable || m->audio_enable(m->audio_rate)) { rrhk_ring_start(); run->audio = rrhk_ring_device(); }
             else rrhk_ring_close();
         }

@@ -78,7 +78,10 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->driven = m->driven;
     SDL_SetMainReady();
     set_hints();
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | (m->driven ? SDL_INIT_TIMER : SDL_INIT_AUDIO)) != 0) {
+    /* A driven machine that opens its own sound device (Master System, Game Gear) starts no audio subsystem; one that plays
+     * through the kit's ring (Game Boy) does, with the timer. */
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER |
+                 (m->driven && m->own_audio ? SDL_INIT_TIMER : SDL_INIT_AUDIO | (m->driven ? SDL_INIT_TIMER : 0))) != 0) {
         fprintf(stderr, "[host] SDL: %s\n", SDL_GetError());
         return false;
     }

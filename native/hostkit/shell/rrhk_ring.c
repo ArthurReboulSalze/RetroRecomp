@@ -1,9 +1,10 @@
 /* Callback-ring audio output (HOST_KIT.md decision D5, the model of the NES host): the machine's
- * mono 16-bit PCM at its own rate is kept in order in a ring and the device callback converts it
- * to the device format (S16 or F32, any channel count). No guest execution, allocation or clock
- * correction in the callback. The adaptive reserve (audio_cushion.h) sets when a device period
- * may start. This file is the NES host's former nes_audio_output.inc, unchanged in its logic;
- * a machine selects it with audio_model = RRHK_AUDIO_RING. */
+ * 16-bit PCM at its own rate, mono (the NES) or interleaved stereo (the Game Boy), is kept in order
+ * in a ring and the device callback converts it to the device format (S16 or F32, two channels).
+ * No guest execution, allocation or clock correction in the callback. The adaptive reserve
+ * (audio_cushion.h) sets when a device period may start. This file is the NES host's former
+ * nes_audio_output.inc, unchanged in its logic for a mono source; a machine selects it with
+ * audio_model = RRHK_AUDIO_RING. */
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
@@ -19,13 +20,13 @@
 #define RRHK_RING_FREQUENCY SDL_GetPerformanceFrequency
 #endif
 #define RRHK_RING_FRAMES 8192u
-#define RRHK_RING_MARGIN_MS 30u
+#define RRHK_RING_MARGIN_MS 30u        /* the start margin of a machine that states none (RrhkMachine.audio_margin_ms) */
 
 static struct {
     SDL_AudioDeviceID id;
     SDL_AudioSpec spec;
-    int16_t pcm[RRHK_RING_FRAMES];
-    uint32_t rate, read, write, fill, keep, limit, peak;
+    int16_t pcm[RRHK_RING_FRAMES * 2];     /* frames of `source` interleaved channels */
+    uint32_t rate, source, margin, read, write, fill, keep, limit, peak;
     uint64_t deadline, produced, played, dropped, missing, startup_silence;
     bool started;
     RrAudioCushion cushion;
@@ -53,9 +54,15 @@ static void SDLCALL rrhk_ring_callback(void *unused, Uint8 *stream, int bytes) {
     uint32_t first = SDL_min(take, RRHK_RING_FRAMES - rrhk_ring.read);
     for (unsigned part = 0; part < 2; ++part) {
         uint32_t frames = part ? take - first : first;
-        const int16_t *source = rrhk_ring.pcm + (part ? 0 : rrhk_ring.read);
+        const int16_t *source = rrhk_ring.pcm + (part ? 0 : rrhk_ring.read) * rrhk_ring.source;
         Uint8 *output = stream + (part ? first : 0) * stride;
-        if (rrhk_ring.spec.format == AUDIO_F32SYS) {
+        if (rrhk_ring.source == 2) {
+            /* Interleaved stereo from the machine to the two device channels. */
+            if (rrhk_ring.spec.format == AUDIO_F32SYS) {
+                float *target = (float *)output;
+                for (uint32_t i = 0; i < frames * 2u; ++i) target[i] = source[i] / 32768.0f;
+            } else memcpy(output, source, frames * 2u * sizeof(*source));
+        } else if (rrhk_ring.spec.format == AUDIO_F32SYS) {
             float *target = (float *)output;
             for (uint32_t i = 0; i < frames; ++i) {
                 float sample = source[i] / 32768.0f;
@@ -83,6 +90,7 @@ static void SDLCALL rrhk_ring_callback(void *unused, Uint8 *stream, int bytes) {
     } else rr_cushion_clean(&rrhk_ring.cushion, take, rrhk_ring.rate);
 }
 
+/* `count` frames of the machine's PCM: that many samples when it is mono, twice as many int16 values when it is stereo. */
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
     if (!rrhk_ring.id || !count) return;
     SDL_LockAudioDevice(rrhk_ring.id);
@@ -92,7 +100,7 @@ void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
         uint64_t frequency = RRHK_RING_FREQUENCY();
         rrhk_ring.deadline = RRHK_RING_COUNTER() +
             ((uint64_t)rrhk_ring.spec.samples * frequency + rrhk_ring.rate - 1) / rrhk_ring.rate +
-            (frequency * (RRHK_RING_MARGIN_MS + (uint32_t)rr_cushion_ms(&rrhk_ring.cushion)) + 999u) / 1000u;
+            (frequency * (rrhk_ring.margin + (uint32_t)rr_cushion_ms(&rrhk_ring.cushion)) + 999u) / 1000u;
     }
     rrhk_ring.produced += count;
     /* Normal PAL/NTSC bursts must never discard a whole guest frame. Only
@@ -104,14 +112,14 @@ void rrhk_ring_submit(const int16_t *pcm, uint32_t count) {
         rrhk_ring.read = (rrhk_ring.read + old) % RRHK_RING_FRAMES;
         rrhk_ring.fill -= old;
         discard -= old;
-        pcm += discard; count -= discard;
+        pcm += discard * rrhk_ring.source; count -= discard;
         rrhk_ring.dropped += old + discard;
         /* A device that stalled while playing: same jitter evidence as a gap. */
         if (rrhk_ring.started) rr_cushion_gap(&rrhk_ring.cushion);
     }
     uint32_t first = SDL_min(count, RRHK_RING_FRAMES - rrhk_ring.write);
-    memcpy(rrhk_ring.pcm + rrhk_ring.write, pcm, first * sizeof(*pcm));
-    if (count > first) memcpy(rrhk_ring.pcm, pcm + first, (count - first) * sizeof(*pcm));
+    memcpy(rrhk_ring.pcm + rrhk_ring.write * rrhk_ring.source, pcm, first * rrhk_ring.source * sizeof(*pcm));
+    if (count > first) memcpy(rrhk_ring.pcm, pcm + first * rrhk_ring.source, (count - first) * rrhk_ring.source * sizeof(*pcm));
     rrhk_ring.write = (rrhk_ring.write + count) % RRHK_RING_FRAMES;
     rrhk_ring.fill += count;
     rrhk_ring.peak = SDL_max(rrhk_ring.peak, rrhk_ring.fill);
@@ -137,12 +145,14 @@ void rrhk_ring_close(void) {
     rrhk_ring.id = 0;
 }
 
-/* Opens the device paused at the machine's rate. The caller starts it with rrhk_ring_start()
- * once the machine produces sound. */
-bool rrhk_ring_open(unsigned rate) {
+/* Opens the device paused at the machine's rate. `channels` is 1 or 2 (0: mono), `margin_ms` the start margin
+ * (0: 30 ms). The caller starts it with rrhk_ring_start() once the machine produces sound. */
+bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms) {
     SDL_AudioSpec want = {0}, have = {0};
     memset(&rrhk_ring, 0, sizeof(rrhk_ring));
     rrhk_ring.rate = rate;
+    rrhk_ring.source = channels == 2 ? 2 : 1;
+    rrhk_ring.margin = margin_ms ? margin_ms : RRHK_RING_MARGIN_MS;
     want.freq = (int)rate; want.format = AUDIO_S16SYS;
     want.channels = 2; want.samples = 256; want.callback = rrhk_ring_callback;
     rrhk_ring.id = SDL_OpenAudioDevice(NULL, 0, &want, &have,
@@ -155,7 +165,7 @@ bool rrhk_ring_open(unsigned rate) {
     rrhk_ring.spec = have;
     /* One PAL frame + output period + reserve, plus one catch-up frame.
      * The callback deadline, not this exceptional limit, controls startup. */
-    rrhk_ring.keep = rate * (21u + RRHK_RING_MARGIN_MS) / 1000u + have.samples;
+    rrhk_ring.keep = rate * (21u + rrhk_ring.margin) / 1000u + have.samples;
     rrhk_ring.limit = SDL_min(RRHK_RING_FRAMES, rrhk_ring.keep + rate * 21u / 1000u);
     rrhk_ring.keep = SDL_min(rrhk_ring.keep, rrhk_ring.limit);
     return true;

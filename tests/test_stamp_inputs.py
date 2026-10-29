@@ -246,7 +246,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
     def test_a_listed_file_that_changes_moves_only_its_owners(self):
         self.setUpTree()
         before = self.stamps()
-        (self.root / 'native/gb_menu.inc').write_text('new Game Boy menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_gb.inc').write_text('new Game Boy menu', encoding='utf-8')
         after = self.stamps()
         self.assertNotEqual(before['gb'][0], after['gb'][0])
         self.assertNotEqual(before['gb'][1]['host'], after['gb'][1]['host'])
@@ -274,7 +274,7 @@ class ReproducibleTests(WorkTree, unittest.TestCase):
             (self.root / stray).write_text('stray', encoding='utf-8')
         self.assertEqual((abi(), core.compiler_signature(game)), before)
         # Another console's file moves neither; a shared or own file moves them.
-        (self.root / 'native/gb_menu.inc').write_text('new Game Boy menu', encoding='utf-8')
+        (self.root / 'native/hostkit/adapters/rrhk_gb.inc').write_text('new Game Boy menu', encoding='utf-8')
         self.assertEqual((abi(), core.compiler_signature(game)), before)
         (self.root / 'native/md_prefetch.inc').write_text('new pipeline', encoding='utf-8')
         self.assertNotEqual(abi(), before[0])

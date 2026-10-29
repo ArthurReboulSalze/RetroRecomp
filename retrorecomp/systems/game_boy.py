@@ -16,6 +16,7 @@ class GameBoyProfile(SystemProfile):
     video_modes = ("dmg",)
     cpus = (Cpu("sm83", "main", "cycles"),)
     quick_state_family = "gb"
+    host_adapter = "adapters/rrhk_gb.inc"
     capabilities = Capabilities(battery=True)
     feedback_kinds = frozenset({2})
     option_keys = (OptionKey("gb_deep_validation", label="gb_deep_validation", hint="tip_gb_deep_validation",

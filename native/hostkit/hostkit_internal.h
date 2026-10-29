@@ -126,7 +126,7 @@ void rrhk_audio_pace(RrhkRun *run, Uint64 now);
 void rrhk_audio_close(RrhkRun *run);
 
 /* ring.c: the callback-ring output (RRHK_AUDIO_RING). */
-bool rrhk_ring_open(unsigned rate);
+bool rrhk_ring_open(unsigned rate, unsigned channels, unsigned margin_ms);
 void rrhk_ring_start(void);
 void rrhk_ring_submit(const int16_t *pcm, uint32_t count);
 void rrhk_ring_clear(void);
