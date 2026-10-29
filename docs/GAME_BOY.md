@@ -67,7 +67,10 @@ the cartridge, and the Guide button for the pause menu. Shared Game Boy
 settings written with the old default keys by a release before 1.6.0 keep them
 (they are no longer migrated). Custom mappings remain available. Since 1.6.3 the whole
 shell is the host kit's ([HOST_KIT.md](HOST_KIT.md)): one binding per action (the shoulders are not a second A/B),
-the Gamepad row of F2, no fast-forward, mute or volume keys.
+the Gamepad row of F2. The fast-forward (Tab held, right trigger), maximum-speed (backquote, left trigger) and mute (M) keys, the volume
+and the output-device choice of the former player came back in 1.6.3 as features of the shell, with their former keys, on every console
+([CONTROLS.md](CONTROLS.md#speed-and-sound)); the settings of a 1.6.2 export (`audio.muted`, `audio.volume_percent`, `audio.device_name`
+of `Retro-Recomp-GameBoy.ini`) are read where the new keys are absent.
 
 Shift+F1 resets; F3 cycles sharp pixels, Scale2x, scanlines and xBR smooth;
 F4 cycles window, integer pixel-perfect fullscreen and aspect-fit fullscreen.

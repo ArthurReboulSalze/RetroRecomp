@@ -232,6 +232,42 @@ X68000 too, without asking again**.
   of waiting silently (Esc still leaves). Keyboard and pad keep working together, and the stick, autofire and pointer
   rules are unchanged. This policy replaces the SMS/GG first-player toggle and pad swap, which went away when SMS/GG moved to the kit (phase 4, 1.6.3).
 
+* <a id="d12"></a>**D12 — The Game Boy's former sound and speed controls, on every console** (29 October 2026, maintainer: "same rules on
+  every machine" means harmonising up, never removing a feature; this settles open question 10). Phase 5 had retired five things the
+  upstream Game Boy shell offered behind keys no page listed; they are kit features, with their former keys and behaviour, on the nine
+  consoles:
+  * **Fast-forward**: **Tab held** or the **right trigger** (a pad a player holds; past the stick threshold, D1): 250% of the machine's
+    speed. **Maximum speed**: **backquote** (`SDL_SCANCODE_GRAVE`) or the **left trigger** toggles 500% until pressed again. Both ran at
+    those ratios upstream (`GB_FAST_FORWARD_SPEED_PERCENT` 250, `GB_MAX_SHORTCUT_SPEED_PERCENT` 500), and the maximum wins over the hold.
+    Only the pacing changes: the deadline of each guest frame is divided by the speed, the picture of every frame is still presented,
+    the machine runs the same frames in the same order, autofire counts guest frames (D4), a quick state still waits for its safe
+    boundary (D6) and the driven machines (Master System, Game Gear, Game Boy) are paced from the same call. A menu or a pause stops the
+    machine at any speed. **Sound meanwhile is dropped**, as upstream played it only at 100%: the shell takes what the machine
+    produced and throws it away (kit ring and queue), the machine is told to hold its own output through its `pause` hook (Mega Drive
+    engine playback, the Master System and Game Gear device, the Neo Geo and CPS-1 resamplers) and the stage below also silences
+    whatever still arrives; the output is cleared at each change of speed, so that it starts again clean at 100%.
+  * **Mute**: **M** toggles, kept. **Volume**: 0 to 200% (100% is the machine's sound as it is), a row of the options page. **Output
+    device**: a row of the options page, the system default or one of the devices SDL lists (the upstream panel's combo); a device
+    that cannot be opened falls back to the default with a line on stderr, and a device unplugged while in use is replaced by the
+    default. All of it acts on what reaches the device, never on the machine, so the guest's own sound state is unchanged.
+  * **Keys**: Tab, backquote and M are in no machine's default controls (checked on the nine action tables) and in no kit key; a key a
+    player has bound to a control keeps that control (the shortcut is then off), they are not offered while a binding is being
+    captured, nor to a machine that has the keyboard (`keyboard_pad` false: the X68000 in full guest typing, where the options rows
+    remain), and a Tab pressed in a menu does not start a hold. The X68000 keeps its **F5** fast loading (unthrottled, silent, one
+    picture in eight) as it is, and the Tab help page; in game-shortcut mode its keyboard is not passed to the guest, so the three
+    keys are free there. Documented in the F1 help of every console (one line) and in [CONTROLS.md](CONTROLS.md#speed-and-sound).
+  * **Where**: one sound stage, `rrhk_options_audio` (volume, mute, hold, then the audio filter), which every output already called
+    for the audio filter: the kit's ring (NES, Game Boy), the kit's queue (Super Nintendo, Neo Geo, CPS-1, X68000), the Master System
+    and Game Gear output (`audio_output.inc`) and, since 1.6.3, the Mega Drive engine's callback (`megadrive_audio.py`; this also makes
+    the audio-filter row, offered there and never applied, work on the Mega Drive). The device is asked of the kit by every opener
+    (`rrhk_audio_device()`); the machines that own their device reopen it through `RrhkMachine.audio_reopen` (Mega Drive, Master
+    System, Game Gear) and attach the stage through `sound_ready`. Preferences: `audio_volume`, `audio_muted` and `audio_device` in
+    `[<Console>.Options]`; the Game Boy's flat file of 1.6.2 (`audio.volume_percent`, `audio.muted`, `audio.device_name`) is read
+    where they are absent.
+  * **Not restored**: the upstream speed slider (10 to 500%, not kept between runs), the audio latency setting and the second binding
+    of each button: it needs a second key and button per action in the contract (`RrhkAction`, the binding pages and the preferences),
+    which is a contract change and a divergence of its own; it stays retired, and no other console has it.
+
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
 documented before the phase that moves the family), and they are tracked in
@@ -260,6 +296,7 @@ section 8.
 | 19 | At least eight distinct ini writer paths | One kit ini layer: table-driven readers/writers; a write touches only the key being set and never deletes other sections; POSIX keeps lock-and-rename | `host-divergences.md:227-245`; `hosts.md:145`; `ini-migration.md:13-14,360-362` |
 | 20 | Dead second renderer block in the X68000 shell, unreachable | Removed when the X68000 shell moves; zero behaviour change, covered by the unchanged proof | `host-divergences.md:247-257`; `hosts.md:146` |
 | 21 | Help language lookup: inline `TR(en,fr)` pairs (SMS/GG), `tr()`+`rr_tr()` mix (NES, 16-bit), catalogue only (X68000, GB partly) | One lookup: the shared catalogue for everything; the inline pairs retire; rendered help must stay pixel-identical per language (EN, FR, IT, ES, DE) | `host-divergences.md:259-274`; `hosts.md:147,315-316,490-495` |
+| 22 | Fast-forward, maximum speed, mute, volume and output device: the Game Boy upstream shell only (behind keys no page listed), none elsewhere | **Decided on 29 October 2026 (maintainer, D12)**: kit features with the Game Boy's former keys and behaviour on every console; see D12 above, and the measurements in "Sound and speed controls: A/B" after phase 5 | `docs/CONTROLS.md` |
 
 ## 4. Preferences: one English layout, old keys still read
 
@@ -308,6 +345,10 @@ color=0                    ; 0 red, 1 green, 2 white
 turbo=1                    ; SNES Super Scope only
 
 [<Console>.Options]
+audio_filter=0             ; 0 off, 1 light, 2 soft
+audio_volume=100           ; D12: 0..200 percent
+audio_muted=0              ; D12: 0|1
+audio_device=              ; D12: the output device by the name SDL lists it, empty for the system default
 fkeys_machine=0            ; only computer-like F-key machines, e.g. X68000
 
 [<Console>.Runtime]
@@ -841,7 +882,7 @@ Divergences, for this family:
 | 2 autofire | decided (D4): the Game Boy already used `rr_autofire` on A and B by guest frame (cycles / 70,224); the kit's rule is the same (the register sequences of a script with F6, held keys and buttons are identical). **Opposite directions now cancel in the pad word** (they were both sent to the cartridge) |
 | 3 F2 pad capture | decided (D9), applied: the Game Boy took any connected pad; it takes the selected player's pad only, in the bindings and in the quit and restart combinations |
 | 4 audio open flags and period | **pending**: the ring opens as before (44,100 Hz, 256 samples, format and sample-count change allowed, 10 ms margin); the NES keeps its 30 ms |
-| 5 callback ring | decided (D5): it was one, its own; it is now the kit's ring (`rrhk_ring.c`, extended to stereo). Differences: 8,192 frames instead of 16,384, the backlog trimmed at the kit's limit, no volume, mute or output-device choice (they had no page: see "Retired" below), no audio statistics. The Master System and Game Gear stereo ring is the one duplicate left |
+| 5 callback ring | decided (D5): it was one, its own; it is now the kit's ring (`rrhk_ring.c`, extended to stereo). Differences: 8,192 frames instead of 16,384, the backlog trimmed at the kit's limit, no volume, mute or output-device choice in this phase (D12 gives them back to every console), no audio statistics. The Master System and Game Gear stereo ring is the one duplicate left |
 | 6, 7, 8 Windows set, vsync, window rectangle | decided (D3): the Game Boy already had the Direct3D 11 hint and the joystick thread; the vsync hint, the renderer line and the window position and size kept across fullscreen toggles are new for it |
 | 9 integer scaling | decided (D2): the window opens at 5x (800 x 720), an exact multiple, as before; whole pixels, centred, Fit stretches; **below 1x the picture now fits the window instead of being cropped to 1x**; Scale2x keeps its even rule (`even_scale2x`) |
 | 10 pad slots | decided (D11), applied: the Game Boy opened the first controller it found; Automatic by default and a Gamepad row (`[GameBoy.Gamepad.Player1] device`, `name`); one player |
@@ -859,7 +900,7 @@ Divergences, for this family:
 console has them): the fast-forward key (Tab, the right trigger) and the maximum-speed toggle (backquote, the left trigger), the mute key
 (M) with the volume and the output-device choice of the upstream settings panel, the slots of the upstream state keys (F8/F9 use slot 1
 only, as the Game Boy already did), the second keyboard and gamepad binding of each action (the right and left shoulders were also A
-and B) and the ImGui overlay and panel. Whether the kit should offer a fast-forward or a mute key to every console is **open question 10**.
+and B) and the ImGui overlay and panel. The fast-forward, maximum-speed, mute, volume and output-device features **came back the same day as kit features of every console (D12)**: see D12 in section 3. The second binding of each action stays retired.
 ImGui is still compiled into the runtime library of the project, where nothing calls it any more; its notice stays in the game's legal text.
 
 Measurements (Windows, llvm-mingw, offscreen SDL, virtual clock and modelled audio device, `tools/hostkit_ab.py build-gb`): the project of
@@ -906,6 +947,46 @@ Not covered, as for the other phases: a Game Boy Color game (the palette option 
 cartridge, menus driven by a pad, hot unplug during a menu, audio open failures, a real display (vsync, window position) and a real
 sound device (the reserve and start timing are measured on a virtual clock only), Linux (the same sources, not built there in this phase).
 
+### Sound and speed controls: A/B (1.6.3, decision D12)
+
+Measured on 29 October 2026 (Windows, llvm-mingw, offscreen SDL, `tools/hostkit_ab.py` with its virtual clock and modelled audio
+device, which hashes every block the device callback is handed; ROMs read in place and never copied outside the kept builds, which were
+deleted). Each game was converted with the tree of `main` (27434da) and with this tree (`tools/ab_conversion.py`, quick scan), and the
+two harness executables were built from the same kept project. The two conversions differ only in the host files, the host stamp and the
+size of the executable (the Game Boy and Master System traces, reports and generated sources are identical, so no game stamp moves).
+For the Mega Drive the engine's own audio callback is built against the harness too (`--also native/audio.c`).
+
+* **With the new keys untouched, nothing changes.** Mega Drive Blockout, the whole battery (3,694 iterations: both players' keys, pads, the
+  filters and display modes, every language, every F2 page, states, preferences): the window log, **all 5,477 callback blocks of the
+  engine's sound, the pad words, the state file and the preferences are identical**; 3,639 of the 3,694 pictures are identical and the 55
+  that differ are the five help pages and the five options pages (ten intervals, one per language), which are meant to differ. Master
+  System Bank Panic (scripts `play`, `autofire`, `states`: 3,614, 740 and 904 iterations) and Game Boy Kirby's Block Ball (3,386, 579 and
+  794 iterations): **identical** in pictures, pad bytes and joypad registers, callback blocks, states and preferences (the Game Boy `states`
+  run differs in one line of stderr, the run folder's name); the `ui` scripts differ only in the help, Pause-help and options pictures.
+* **Fast-forward** (Mega Drive, Master System, Game Boy; the same scripts on the three): Tab held for 200 iterations slept 1,010 ms of
+  virtual time instead of 3,000 (Mega Drive and Game Boy; 1,412 against 3,800 on the Master System, whose frame is 16.67 ms), the
+  maximum speed 213 ms for 100 iterations against 1,500 (316 against 1,900); the harness sleeps whole milliseconds, so the ratios (2.7 to 3.0
+  and 6.0 to 7.0) are not the ideal 2.5 and 5. The **right trigger** and **left trigger** of a virtual pad do the same. Every callback block
+  inside the windows is silent (the few at the edges are the tail of the ring emptied at the change). **Identical guest state after the same
+  guest frame count**: a quick state taken at iteration 780 (Mega Drive) or 1,060 (Master System, Game Boy) after Tab held, mute toggled
+  twice and the maximum speed toggled on and off is byte for byte the state of the plain run (206,953, 450,897 and 220,784 bytes), and the
+  pictures of the iterations that show no notice are identical.
+* **Mute**: the run with M pressed twice has, in the callback blocks, one stretch of zeros (Mega Drive 159,744 samples, Master System
+  193,536, Game Boy 147,968) and **every other sample equal to the plain run's**: the machine's sound state (the ring, the bridge) was not
+  touched. **Volume** 50% (preferences seeded with `audio_volume=50`): every sample of 1.28 million (Mega Drive), 2.1 million (Master
+  System) and 1.6 million (Game Boy) equals the plain run's sample times 50%, rounded toward zero; the pictures are identical.
+* ROM-free: `tools/game_options_selftest.py` (volume, mute, hold, F32, persistence, the rows and the device cycle, in C and C++),
+  `nes_audio_selftest.py`, `autofire_selftest.py`, `start_select_selftest.py` (msvc), `gameboy_latency_selftest.py` and
+  `gameboy_display_selftest.py` (the Game Boy's 1.6.2 `audio.*` keys reach the kit's controls), `tests/test_hostkit.py`.
+* A Game Boy conversion made at a path of more than about 200 characters cannot write its battery file (`.sav.tmp-v1`, 260-character limit),
+  which changes what the discovery plays see: keep the `--work` folder of `ab_conversion.py` short (the first Game Boy comparison of this
+  work, in a deep folder, showed 8 more observed ROM entries on the side with the short path; both sides at a short path are identical).
+
+Not covered: a real output device (the harness ignores the device name; the enumeration, the reopen on another device, the fallback to the
+default and the replacement of an unplugged device are checked by reading and by the C checks only), Linux, the Super Nintendo, Neo Geo,
+CPS-1 and X68000 queue output and the NES ring (they call the same stage; the NES and Game Boy share the ring, checked by
+`nes_audio_selftest.py`), a gamepad with its triggers on a real device, and the Game Gear (the Master System adapter, one source).
+
 ## 8. Open questions
 
 1. ~~**Game Boy upstream rows**: the exact behaviour of divergences 1, 3, 5, 8
@@ -941,9 +1022,9 @@ sound device (the reserve and start timing are measured on a virtual clock only)
 9. **Product docs to update when the kit lands**: `docs/UPGRADES.md` (shell
    table), `docs/CONTROLS.md`, `docs/COMPILATION_LIBRARY.md`, and the local
    `PROJECT_STATE.md` (`hosts.md:549-551`).
-10. **Fast-forward and mute on every console**: the Game Boy upstream shell had a fast-forward key, a maximum-speed toggle, a mute key
-    and a volume (retired in phase 5, see its table). Whether the kit offers them to every console is a new feature, not a
-    migration, and is the maintainer's call.
+10. ~~**Fast-forward and mute on every console**~~ **Settled on 29 October 2026 (maintainer, D12)**: the Game Boy's fast-forward (Tab held,
+    right trigger), maximum-speed toggle (backquote, left trigger), mute (M), volume and output-device choice are kit features of every
+    console, with the Game Boy's former keys and behaviour. The second binding of each action stays retired (it is a contract change).
 
 The kit's own effort estimates stay in the local plan (`hosts.md:513-531`);
 they are not part of this public contract.
