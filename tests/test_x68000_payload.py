@@ -147,6 +147,15 @@ class LongPathPayloadTests(unittest.TestCase):
         with open(extended(self.game_folder(base) / 'system/keropi/iplrom.dat'), 'rb') as handle:
             self.assertEqual(handle.read(), CONTENT['system/keropi/iplrom.dat'])
 
+    def test_a_long_folder_with_a_parent_segment_is_normalised_first(self):
+        # The extended-length form skips Win32's own normalisation, so "sub/.." must be resolved before the prefix.
+        base = self.folder(8)
+        os.makedirs(extended(Path(base) / 'sub'))
+        status, output = self.prepare(base + 'sub' + os.sep + '..' + os.sep)
+        self.assertEqual(status, 0, output)
+        with open(extended(self.game_folder(base) / 'system/keropi/iplrom.dat'), 'rb') as handle:
+            self.assertEqual(handle.read(), CONTENT['system/keropi/iplrom.dat'])
+
     def test_a_short_folder_is_prepared_as_before(self):
         base = self.folder(0)
         game = self.game_folder(base)

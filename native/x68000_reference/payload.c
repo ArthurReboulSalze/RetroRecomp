@@ -21,19 +21,17 @@ static int game_lock=-1;
  * see the prefixed copy; every path kept or returned stays as given, and a short path is used as it is. */
 #define OS_PATH_LONG 240
 #define OS_PATH_CAPACITY 4112
-static int is_separator(wchar_t c) {return c==L'\\'||c==L'/';}
+/* The path is made absolute and normalised by GetFullPathNameW first (".", "..", "/", trailing dots and spaces), as the
+ * short form is normalised by Win32 itself: the prefixed form skips that step, and a short relative path can grow past
+ * MAX_PATH once made absolute. */
 static const wchar_t *os_path(const wchar_t *path,wchar_t *out) {
     wchar_t full[4096];size_t at=0;
-    if(wcslen(path)<OS_PATH_LONG||!wcsncmp(path,L"\\\\?\\",4)||!wcsncmp(path,L"\\\\.\\",4))return path;
-    int unc=is_separator(path[0])&&is_separator(path[1]);
-    if(!unc&&!(path[0]&&path[1]==L':'&&is_separator(path[2]))){
-        DWORD n=GetFullPathNameW(path,4096,full,NULL);if(!n||n>=4096)return NULL;path=full;
-        unc=is_separator(path[0])&&is_separator(path[1]);
-    }
-    if(unc){wmemcpy(out,L"\\\\?\\UNC\\",8);at=8;path+=2;}
+    if(!wcsncmp(path,L"\\\\?\\",4)||!wcsncmp(path,L"\\\\.\\",4))return path;
+    DWORD n=GetFullPathNameW(path,4096,full,NULL);if(!n||n>=4096)return NULL;
+    if(n<OS_PATH_LONG)return path;
+    if(full[0]==L'\\'&&full[1]==L'\\'){wmemcpy(out,L"\\\\?\\UNC\\",8);at=8;}
     else{wmemcpy(out,L"\\\\?\\",4);at=4;}
-    size_t length=wcslen(path);if(length>=4096)return NULL;
-    for(size_t i=0;i<=length;i++)out[at+i]=path[i]==L'/'?L'\\':path[i];
+    wmemcpy(out+at,full+(at==8?2:0),n-(at==8?2:0)+1);
     return out;
 }
 static FILE *os_fopen(const wchar_t *path,const wchar_t *mode) {
