@@ -11,7 +11,7 @@ import hashlib
 from pathlib import Path
 import re
 
-from .core import ConversionError, module_fingerprint
+from .core import ConversionError, module_fingerprint, replace_once
 from .megadrive_codegen import _masked, write_changed
 from .library import atomic_json
 
@@ -172,6 +172,48 @@ const RrSnesNativeOp *rr_snes_native_lookup_fetched(uint32_t pc,uint8_t opcode) 
 ''')
 
 
+def correct_software_interrupts(source: str) -> str:
+    """Give BRK and COP the 65816 manual's stack, cycles and vector in both modes.
+
+    The pinned interpreter counts a native-mode BRK as 7 cycles (the manual says 8:
+    K is stacked, one cycle more than in emulation mode) and runs COP as if the CPU
+    were always in native mode (in emulation mode COP does not stack K, takes 7
+    cycles and vector $FFF4, not $FFE4). The operation bodies compiled natively and
+    the interpreter copy written into the project both come from this one corrected
+    text, so the two stay equal. Written from the manual, not from the upstream fix.
+    """
+    brk = '        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n'
+    source = replace_once(source, brk,
+        brk + '        if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles\n')
+    return replace_once(source,
+        '      interp816_readOpcode(cpu);\n'
+        '      interp816_pushByte(cpu, cpu->k);\n'
+        '      interp816_pushWord(cpu, cpu->pc);\n'
+        '      interp816_pushByte(cpu, interp816_getFlags(cpu));\n'
+        '      cpu->cyclesUsed++; // native mode: 1 extra cycle\n'
+        '      cpu->i = true;\n'
+        '      cpu->d = false;\n'
+        '      cpu->k = 0;\n'
+        '      cpu->pc = interp816_readWord(cpu, 0xffe4, 0xffe5);\n',
+        '      interp816_readOpcode(cpu);\n'
+        '      if(!cpu->e) interp816_pushByte(cpu, cpu->k);\n'
+        '      interp816_pushWord(cpu, cpu->pc);\n'
+        '      interp816_pushByte(cpu, interp816_getFlags(cpu));\n'
+        '      if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles\n'
+        '      cpu->i = true;\n'
+        '      cpu->d = false;\n'
+        '      cpu->k = 0;\n'
+        '      cpu->pc = cpu->e\n'
+        '          ? interp816_readWord(cpu, 0xfff4, 0xfff5)\n'
+        '          : interp816_readWord(cpu, 0xffe4, 0xffe5);\n')
+
+
+def read_core(engine: Path) -> str:
+    """The pinned interpreter source with the BRK/COP correction: what both readers use."""
+    return correct_software_interrupts(
+        (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8'))
+
+
 def adapt_core(source: str) -> str:
     source = source.replace('#include "interp816.h"',
                             '#include "interp816.h"\n#include "snes_native_steps.h"', 1)
@@ -250,7 +292,7 @@ def adapt_frame_driver(source: str) -> str:
 def generate(engine: Path, project: Path, rom) -> dict:
     if not rom.data or len(rom.data) % 256:
         raise ConversionError('SNES native ROM map requires complete 256-byte pages.')
-    source = (engine / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
+    source = read_core(engine)
     from .supernintendo import read_ram_variants,read_ram_opcodes
     ram = read_ram_variants(rom)
     opcodes=read_ram_opcodes(rom)

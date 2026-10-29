@@ -452,6 +452,8 @@ INPUTS = {
     ('snes',): (
         'native/snes_backend.c',
         'native/hostkit/adapters/rrhk_snes.c',
+        # Below native/ in a folder of its own: the save-state key hashes the files directly below native/.
+        'native/snes_cpu/interrupt_checks.c',
         'native/snes_battery.c',
         'native/snes_battery.h',
         'native/snes_bus.h',

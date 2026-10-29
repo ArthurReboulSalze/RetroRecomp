@@ -39,6 +39,33 @@ class SnesNativeTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             snes_codegen.cycle_costs(source_fixture().replace('2,2,2', '2,2', 1))
 
+    PINNED = Path(__file__).resolve().parents[1] / '.deps/snesrecomp'
+    BRK_CYCLE = 'if(!cpu->e) cpu->cyclesUsed++; // native mode: K is stacked, 8 cycles'
+
+    @unittest.skipUnless((PINNED / 'runner/src/snes/interp816.c').is_file(), 'pinned engine checkout not present')
+    def test_brk_and_cop_cost_the_extra_cycle_in_native_mode_in_both_readers(self):
+        raw = (self.PINNED / 'runner/src/snes/interp816.c').read_text(encoding='utf-8')
+        self.assertNotIn(self.BRK_CYCLE, snes_codegen.operation_bodies(raw)[0x00])
+        source = snes_codegen.read_core(self.PINNED)
+        self.assertEqual(snes_codegen.cycle_costs(source)[0x00], 7)
+        bodies = snes_codegen.operation_bodies(source)
+        # Native body (what generate() compiles) and adapted copy (what console16 writes).
+        self.assertEqual(bodies[0x00].count(self.BRK_CYCLE), 1)
+        self.assertEqual(bodies[0x02].count(self.BRK_CYCLE), 1)
+        self.assertIn('if(!cpu->e) interp816_pushByte(cpu, cpu->k);', bodies[0x02])
+        self.assertIn('0xfff4', bodies[0x02])
+        adapted = snes_codegen.adapt_core(source)
+        self.assertEqual(adapted.count(self.BRK_CYCLE), 2)
+        compiled = snes_codegen.native_source(source, bytes(range(256)))
+        self.assertEqual(compiled.count(self.BRK_CYCLE), 2)
+
+    def test_software_interrupt_correction_fails_loudly_when_the_engine_moves(self):
+        brk = ('        interp816_pushByte(cpu, interp816_getFlags(cpu) | (cpu->e ? 0x10 : 0));\n')
+        for source in ('', 'changed', brk, brk * 2):
+            with self.subTest(source=source[:12], copies=source.count(brk)):
+                with self.assertRaises(ConversionError):
+                    snes_codegen.correct_software_interrupts(source)
+
     def test_mirroring_repeats_the_last_block_without_modifying_the_source(self):
         blocks = [bytes([n]) * 0x8000 for n in range(7)]
         for count, expected in ((1, [0]), (3, [0, 1, 2, 2]),
