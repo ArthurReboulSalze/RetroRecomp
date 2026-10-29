@@ -447,6 +447,28 @@ conversions succeed, and the only differences are the ones that come from the bu
 packed executable. Every frame, audio, state, RAM, VRAM, FM, PSG and Z80 hash, every counter of the reports (so the counted interpreter fallback of
 the 68000 and of the Z80 is the same as before) and every generated source are identical. That is a check of equal outputs; the speed is not measured (a quiet-PC measurement is the lead's).
 
+## Neo Geo: a 64 KiB fixed-graphics ROM is repeated, and the native game gets a clang profile (1.6.5)
+
+Two changes of the Neo Geo converter, both in the game stamp of the Neo Geo.
+
+- **A 64 KiB fixed-graphics ROM (S1) is repeated up to 128 KiB when the cartridge is assembled** (`neogeo.mirror_short_fixed_rom`,
+  called by `neogeo_build.convert_reference` right after the preparation tool). Last Hope (NG:DEV.TEAM) is the first such cartridge
+  seen: its conversion stopped at the container check ("NEO program/fixed graphics are smaller than the cartridge layout") and now
+  converts, with zero interpreted opcodes on the main and sound CPUs. The reference engine indexes the fix region with 12-bit
+  tile numbers and no mask, so a shorter region would be read past its end; the chip's unused address line repeats its contents,
+  so tile n above 2048 is tile n - 2048. A ROM of 128 KiB or more is not touched: **every other game keeps the bytes of its
+  container**, checked on nam1975 by an A/B conversion of the tree before and after (`tools/ab_conversion.py`: every generated and
+  adapted source, the report and the evidence under `checks/` identical).
+- **The native game is built with ThinLTO and a clang profile on Windows** with the portable llvm-mingw tools
+  (`neogeo_optimization.py`, [NEOGEO.md](NEOGEO.md)): the same C is laid out and inlined differently, the outputs are identical
+  (A/B on nam1975, puzzledp and mslug3), and the conversion takes about a minute longer.
+
+**What moves.** The Neo Geo game stamp (`neogeo`, `neogeo_build` and `neogeo_optimization` are converter modules of its stamp
+groups): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry. The CPS-1 game stamp moves too, because it
+shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build` is edited and its fingerprint is hashed): the
+release carries the 1.6.4 key as the compatibility key (it replaces `STATE_ABI_163`), so the quick states of 1.6.4 on Windows keep
+loading once the game is converted again; the state files themselves are unchanged. The host stamp does not move for these two changes.
+
 ## X68000: exact redraw marks for the background and the sprites (1.6.5)
 
 The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background

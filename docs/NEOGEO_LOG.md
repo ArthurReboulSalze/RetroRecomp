@@ -13,6 +13,28 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Last Hope converts: a 64 KiB fixed-graphics ROM is repeated — 29 October 2026
+
+For 1.6.5. A real conversion of `lasthope` (NG:DEV.TEAM, bootleg AES to MVS conversion) stopped in 2 s at the container check
+("NEO program/fixed graphics are smaller than the cartridge layout"), although the archive identified (all ten CRCs match the
+catalogue): its S1 is 65,536 bytes and the check wants at least 0x20000 and a multiple of it. That check protects the engine:
+Geolith indexes the fix region with 12-bit tile numbers and no mask (`fixdata[tnum << 5]` in `geo_lspc.c`), so a 64 KiB region
+would be read past its end from tile 2048. The chip's unused address line repeats its contents (MAME wraps the tile code the
+same way), so `neogeo.mirror_short_fixed_rom` repeats a power-of-two fixed ROM from 16 KiB to 64 KiB up to 128 KiB in the
+container staged for the conversion, right after the preparation tool; a caller's file is never rewritten, and a ROM of 128 KiB
+or more is left alone, so no other game changes. Containers given directly as `.neo` files keep the old check.
+
+- **Result.** `lasthope` converts (3 min 18 s): zero interpreted opcodes on the main and sound CPUs, the whole native/reference
+  validation and the state and save checks pass; its title, menu, copyright text and high-score table (all fix layer) show
+  correctly in a headless capture. Native code, CPU agreement and the picture on three captures are what this shows; no
+  playthrough, no hardware comparison.
+- **Control.** `tools/ab_conversion.py` on nam1975, tree before and after: identical except by construction (see the entry
+  above for what that means). Synthetic container tests in `tests/test_neogeo.py` (64 and 32 KiB, 128 KiB and damaged sizes
+  untouched).
+- **Not done.** The mahjong and quiz sets of the maintainer's `fbneo` folder (`bakatono`, `janshin`, `quizdais`, `quizdai2`)
+  and `ironclad` convert with zero interpreted opcodes; `fightfev` still stops because its `060-s1.s1` (CRC `7f012104`) is not
+  the catalogue's (`d62a72e9`).
+
 ## A clang profile for the native game on Windows — 29 October 2026
 
 For 1.6.5 (branch work, not released). The Neo Geo was the one console of the 16-bit group built without a profile on
