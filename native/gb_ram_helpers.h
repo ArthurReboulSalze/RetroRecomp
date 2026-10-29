@@ -134,8 +134,9 @@ static inline uint8_t rr_gb_try_interrupt_dma_helper(GBContext* ctx, uint16_t ad
  * same operand reads, same cycle split. The opcode and its operands are read
  * live at every execution (self-modifying operands are normal), so nothing is
  * cached; the instruction must lie wholly inside WRAM or HRAM, and the HALT
- * bug and WRAM during OAM DMA decline exactly like the upstream stub. HALT,
- * STOP, the CB prefix, RST and the illegal opcodes stay with the reference. */
+ * bug and WRAM during OAM DMA decline exactly like the upstream stub. The CB prefix (rotates and
+ * shifts, BIT, RES, SET on a register or (HL)) is handled with the interpreter's cycle split for
+ * (HL). HALT, STOP, RST and the illegal opcodes stay with the reference. */
 static inline uint8_t rr_gb_ram_get8(GBContext* ctx, unsigned index) {
     switch (index) {
         case 0: return ctx->b;  case 1: return ctx->c;
@@ -179,7 +180,7 @@ static inline void rr_gb_ram_alu8(GBContext* ctx, unsigned operation, uint8_t va
 static inline unsigned rr_gb_ram_length(uint8_t op) {
     if (op == 0x08 || op == 0x01 || op == 0x11 || op == 0x21 || op == 0x31) return 3;
     if (op == 0x36 || op == 0xC6 || op == 0xCE || op == 0xD6 || op == 0xDE ||
-        op == 0xE6 || op == 0xEE || op == 0xF6 || op == 0xFE) return 2;
+        op == 0xE6 || op == 0xEE || op == 0xF6 || op == 0xFE || op == 0xCB) return 2;
     if (op >= 0x41 && op <= 0xBF && op != 0x76) return 1;
     switch (op) {
         case 0x02: case 0x0A: case 0x12: case 0x1A:
@@ -274,6 +275,37 @@ static inline uint8_t rr_gb_try_ram_instruction(GBContext* ctx, uint16_t addr) {
         case 0xF5: gb_pack_flags(ctx); gbrt_timed_push16(ctx, ctx->af & 0xFFF0); cycles = 0; break;
         case 0xF3: ctx->ime = 0; ctx->ime_pending = 0; break;
         case 0xFB: ctx->ime_pending = 1; break;
+        case 0xCB: {                                /* CB prefix: rotates and shifts, BIT, RES, SET */
+            const uint8_t cb = gb_read8(ctx, (uint16_t)(addr + 1));
+            const unsigned reg = cb & 7u, bit = (cb >> 3) & 7u;
+            const bool memory = reg == 6, test = cb >= 0x40 && cb < 0x80, modify = memory && !test;
+            const uint16_t target = ctx->hl;
+            cycles = memory ? (test ? 12 : 16) : 8;
+            uint8_t value;
+            if (memory) {
+                value = gbrt_timed_bus_read8(ctx, target, (uint8_t)(modify ? cycles - 5u : cycles - 1u));
+                if (!modify) cycles = 0;
+            } else {
+                value = rr_gb_ram_get8(ctx, reg);
+            }
+            if (cb < 0x40) {
+                switch (bit) {
+                case 0: value = gb_rlc(ctx, value); break;  case 1: value = gb_rrc(ctx, value); break;
+                case 2: value = gb_rl(ctx, value); break;   case 3: value = gb_rr(ctx, value); break;
+                case 4: value = gb_sla(ctx, value); break;  case 5: value = gb_sra(ctx, value); break;
+                case 6: value = gb_swap(ctx, value); break; default: value = gb_srl(ctx, value); break;
+                }
+            } else if (test) {
+                gb_bit(ctx, (uint8_t)bit, value);
+            } else if (cb < 0xC0) {
+                value = (uint8_t)(value & ~(1u << bit));
+            } else {
+                value = (uint8_t)(value | (1u << bit));
+            }
+            if (modify) { gbrt_timed_bus_rmw_write8(ctx, target, value); cycles = 0; }
+            else if (!memory && !test) rr_gb_ram_set8(ctx, reg, value);
+            break;
+        }
         default: return 0;
         }
     }

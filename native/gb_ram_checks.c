@@ -252,14 +252,20 @@ static void instruction_differential_checks(void) {
     static const uint16_t stacks[] = {0xC800, 0xDFFE, 0xC002, 0xFF90, 0xFFFE, 0x8002};
     static const unsigned phases[] = {0, 3, 77, 251};
     static const uint16_t bases[] = {0xC030, 0xFDFD, 0xFF80, 0xFFFC};
-    unsigned opcodes = 0;
-    for (unsigned op = 0; op < 256; ++op) {
+    unsigned opcodes = 0, cb_opcodes = 0;
+    /* The CB prefix is one opcode of the executor and 256 instructions: each second byte is checked on its own. */
+    for (unsigned entry = 0; entry < 256 + 256; ++entry) {
+        const unsigned op = entry < 256 ? entry : 0xCB;
         const unsigned length = rr_gb_ram_length((uint8_t)op);
         if (!length) continue;
-        ++opcodes;
+        if (entry < 256) ++opcodes;
+        else ++cb_opcodes;
+        if (entry < 256 && op == 0xCB) continue;   /* covered by the second pass */
+        const unsigned rounds = entry < 256 ? 24 : 8;
         for (unsigned b = 0; b < sizeof(bases) / sizeof(*bases); ++b)
-        for (unsigned round = 0; round < 24; ++round) {
+        for (unsigned round = 0; round < rounds; ++round) {
             uint8_t bytes[3] = {(uint8_t)op, (uint8_t)instruction_random(), (uint8_t)instruction_random()};
+            if (entry >= 256) bytes[1] = (uint8_t)(entry - 256);
             if (length == 3 && (round & 1)) {
                 const uint16_t value = pointers[instruction_random() % (sizeof(pointers) / sizeof(*pointers))];
                 bytes[1] = (uint8_t)value; bytes[2] = (uint8_t)(value >> 8);
@@ -288,7 +294,7 @@ static void instruction_differential_checks(void) {
             gb_context_destroy(native); gb_context_destroy(reference); ++checks;
         }
     }
-    assert(opcodes == 177);
+    assert(opcodes == 178 && cb_opcodes == 256);   /* 177 plain opcodes and the CB prefix with its 256 second bytes */
 }
 
 static GBContext* instruction_declined_setup(uint16_t address, uint8_t opcode) {
@@ -301,7 +307,7 @@ static GBContext* instruction_declined_setup(uint16_t address, uint8_t opcode) {
 static void instruction_guard_checks(void) {
     /* Opcodes that stay with the upstream stub or the reference are declined untouched. */
     static const uint8_t declined[] = {0x00, 0x10, 0x18, 0x20, 0x40, 0x76, 0xC0, 0xC2, 0xC3, 0xC7,
-                                       0xC9, 0xCB, 0xCD, 0xD3, 0xD9, 0xE9, 0xEF, 0xFF};
+                                       0xC9, 0xCD, 0xD3, 0xD9, 0xE9, 0xEF, 0xFF};
     for (unsigned i = 0; i < sizeof(declined); ++i) {
         GBContext* ctx = instruction_declined_setup(0xC200, declined[i]);
         assert(!rr_gb_try_ram_instruction(ctx, 0xC200));
@@ -311,7 +317,8 @@ static void instruction_guard_checks(void) {
     /* An instruction must lie wholly in WRAM or HRAM. */
     static const struct { uint16_t address; uint8_t opcode; } straddling[] = {
         {0xFDFE, 0x21}, {0xFDFF, 0x36}, {0xFDFF, 0xC6}, {0xFFFE, 0x36}, {0xFFFD, 0x01},
-        {0x7FFF, 0x3C}, {0x9000, 0x41}, {0xFE00, 0x41}, {0xFF00, 0xC1}, {0xFFFF, 0x41}};
+        {0x7FFF, 0x3C}, {0x9000, 0x41}, {0xFE00, 0x41}, {0xFF00, 0xC1}, {0xFFFF, 0x41},
+        {0xFDFF, 0xCB}, {0xFFFE, 0xCB}, {0xFFFF, 0xCB}};
     for (unsigned i = 0; i < sizeof(straddling) / sizeof(*straddling); ++i) {
         GBContext* ctx = instruction_declined_setup(straddling[i].address, straddling[i].opcode);
         assert(!rr_gb_try_ram_instruction(ctx, straddling[i].address));
@@ -361,7 +368,7 @@ static void counter_checks(void) {
     GBContext* helper = setup(0xD09B, 0, 0xC100, 0, 0);
     assert(rr_gb_try_ram_dispatch(helper, 0xD09B));
     assert(helper->rr_ram_stub_instructions == 0 && helper->rr_ram_single_step_instructions == 0);
-    gb_write8(ctx, 0xC400, 0xCB);
+    gb_write8(ctx, 0xC400, 0xC7);
     ctx->pc = 0xC400;
     assert(!rr_gb_try_ram_dispatch(ctx, 0xC400));
     assert(ctx->rr_ram_single_step_instructions == single && ctx->rr_ram_stub_instructions == stubs);
