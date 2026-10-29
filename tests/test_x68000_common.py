@@ -602,5 +602,53 @@ class ContinuationTests(unittest.TestCase):
         self.assertTrue(conversion.continues(self.lines(range(100)), self.lines([50, 51, 52], first=7), 50, 3))
 
 
+class AbToolTests(unittest.TestCase):
+    """`tools/ab_conversion.py` reads an X68000 workspace and lines up what the stamp and `mkdtemp` name differently."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name).resolve()
+
+    def workspace(self, tree, stamp, qa):
+        base = tree / '.build/x68/win' / stamp
+        for relative, text in ((f'{"m" * 16}/qa-{qa}/reference/result.json', '{"frames": 4000}'),
+                               (f'{"m" * 16}/native/generated.h', f'/* {tree.as_posix()}/.build/x68/win/{stamp}/qa-{qa} */'),
+                               ('discovery/ready.json', '{"sdk": "x"}')):
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding='utf-8')
+        (base / 'discovery/build').mkdir()
+        (base / 'discovery/build/cache.txt').write_text('skipped', encoding='utf-8')
+        return base
+
+    def test_two_workspaces_that_differ_only_by_stamp_folder_and_random_names_are_identical(self):
+        from tools import ab_conversion as ab
+        one, two = self.root / 'a', self.root / 'b'
+        self.workspace(one, '0123456789ab', 'abcd1234')
+        self.workspace(two, 'ba9876543210', 'wxyz_987')
+        self.assertEqual([path.name for path in ab.kept_builds(one)], ['0123456789ab'])
+        side = self.root / 'side'
+        side.mkdir()
+        gathered = [ab.gather(tree, side, self.root / 'out') for tree in (one, two)]
+        self.assertEqual(ab.compare(*gathered), [])
+        names = sorted(gathered[0]['projects'])
+        self.assertEqual(names, ['x68/win/<stamp>'])
+        self.assertIn('discovery/ready.json', gathered[0]['projects'][names[0]])
+        self.assertNotIn('discovery/build/cache.txt', gathered[0]['projects'][names[0]])
+        self.assertIn(f'{"m" * 16}/qa-<X>/reference/result.json', gathered[0]['projects'][names[0]])
+
+    def test_a_real_difference_in_a_file_is_still_found(self):
+        from tools import ab_conversion as ab
+        one, two = self.root / 'a', self.root / 'b'
+        self.workspace(one, '0123456789ab', 'abcd1234')
+        base_two = self.workspace(two, 'ba9876543210', 'wxyz_987')
+        (base_two / 'discovery/ready.json').write_text('{"sdk": "y"}', encoding='utf-8')
+        side = self.root / 'side'
+        side.mkdir()
+        problems = ab.compare(*(ab.gather(tree, side, self.root / 'out') for tree in (one, two)))
+        self.assertEqual(problems, ['x68/win/<stamp>: differs: discovery/ready.json'])
+
+
 if __name__ == '__main__':
     unittest.main()

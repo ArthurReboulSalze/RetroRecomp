@@ -1,6 +1,7 @@
 """A/B proof of a converter refactor: one real conversion with two trees, compared byte for byte.
 
     python tools/ab_conversion.py ROM --a REF_OR_DIR [--b REF_OR_DIR] [--work DIR] [--keep-work]
+                                  [--ng-bios ARCHIVE] [--x68-ipl FILE --x68-cgrom FILE]
 
 A is the tree before the change (a git ref such as `v1.6.2`, checked out as a detached worktree, or an existing
 folder), B the tree after it (default: `HEAD`, also checked out detached, so that B is what was committed).
@@ -12,8 +13,8 @@ cover, no shared base, so the two runs start from the same state. The pinned eng
 writes into the main checkout's `Export`.
 
 It compares, between A and B:
-  * every file of each kept build folder (`.build/<game>`; for Neo Geo `.build/ng-*`, for CPS-1 `.build/cps1/<set>-*`)
-    that is a source or a data file: SHA-256 of the bytes, with
+  * every file of each kept build folder (`.build/<game>`; for Neo Geo `.build/ng-*`, for CPS-1 `.build/cps1/<set>-*`,
+    for the X68000 `.build/x68/<toolchain>/<stamp>`) that is a source or a data file: SHA-256 of the bytes, with
     the tree and output paths replaced by placeholders in text files (CMake files name their folder) - this covers
     every `generated/` folder and every adapted host source;
   * `conversion-report.json` without its volatile keys (creation time, timings, wall times, stamps, version) and with
@@ -63,6 +64,11 @@ STATE_KEY = slice(96, 160)
 # A state key derived from the game stamp (so from the converter's code), written into a header.
 STAMP_TEXT = re.compile(rb'(STATE_ABI ")[0-9a-f]{64}(")')
 REPORT = 'conversion-report.json'
+# What the X68000 names after the converter's code or at random: the folder of a workspace is the start of the SDK stamp
+# (`.build/x68/<toolchain>/<stamp12>`), and every run makes its evidence folder with `tempfile.mkdtemp` (`qa-xxxxxxxx`,
+# `reference-xxxxxxxx`). Replaced by placeholders in names and texts, so that the two trees line up.
+X68_STAMP_FOLDER = re.compile(rb'(x68[/\\]+(?:win|linux)(?:-llvm)?[/\\]+)[0-9a-f]{12}')
+RANDOM_FOLDER = re.compile(rb'\b(qa|reference)-[a-z0-9_]{8}\b')
 
 
 def run(command, **kwargs) -> subprocess.CompletedProcess:
@@ -144,7 +150,8 @@ def kept_builds(tree: Path) -> list[Path]:
     """The game folders the conversion kept under `.build` (they hold the ROM copy, or data made from it).
 
     A folder with `rom.*` (Sega, Game Boy, NES), a 16-bit project (`md-*`, `snes-*`), a Neo Geo project (`ng-*`, with
-    its cartridge and BIOS copies) and a CPS-1 project (`cps1/<set>-<sha>`)."""
+    its cartridge and BIOS copies), a CPS-1 project (`cps1/<set>-<sha>`) and an X68000 workspace
+    (`x68/<toolchain>/<stamp12>`)."""
     root = tree / '.build'
     if not root.is_dir():
         return []
@@ -152,6 +159,10 @@ def kept_builds(tree: Path) -> list[Path]:
              if path.is_dir() and (any(path.glob('rom.*')) or path.name.startswith(('ng-', 'md-', 'snes-')))]
     if (root / 'cps1').is_dir():
         found += [path for path in (root / 'cps1').iterdir() if path.is_dir()]
+    if (root / 'x68').is_dir():
+        # One workspace per toolchain and SDK stamp: the discovery build, the machine tree and the game's folder.
+        found += [stamp for toolchain in (root / 'x68').iterdir() if toolchain.is_dir()
+                  for stamp in toolchain.iterdir() if stamp.is_dir()]
     return sorted(found)
 
 
@@ -171,12 +182,17 @@ class Normaliser:
     def text(self, value: str) -> str:
         for form, token in self.pairs:
             value = value.replace(form, token)
-        return value
+        return self.names(value.encode('utf-8')).decode('utf-8')
 
     def data(self, value: bytes) -> bytes:
         for form, token in self.pairs:
             value = value.replace(form.encode('utf-8'), token.encode('utf-8'))
-        return value
+        return self.names(value)
+
+    @staticmethod
+    def names(value: bytes) -> bytes:
+        """The X68000's stamp folder and random evidence folders replaced by placeholders (a no-op elsewhere)."""
+        return RANDOM_FOLDER.sub(rb'\1-<X>', X68_STAMP_FOLDER.sub(rb'\1<stamp>', value))
 
     def json(self, value, top=True, context=()):
         if isinstance(value, dict):
@@ -234,7 +250,9 @@ def gather(tree: Path, side: Path, output: Path) -> dict:
     projects = {}
     for project in kept_builds(tree):
         # The folder name carries the game and revision, not the tree: it is the same on both sides.
-        projects[project.relative_to(tree / '.build').as_posix()] = project_files(project, normaliser)
+        name = normaliser.names(project.relative_to(tree / '.build').as_posix().encode('utf-8')).decode('utf-8')
+        files = project_files(project, normaliser)
+        projects[name] = {normaliser.names(key.encode('utf-8')).decode('utf-8'): value for key, value in files.items()}
     reports = {}
     for path in sorted(output.rglob(REPORT)):
         reports[path.relative_to(output).as_posix()] = normaliser.json(json.loads(path.read_text(encoding='utf-8')))
@@ -290,6 +308,8 @@ def main(argv=None) -> int:
     parser.add_argument('--scan-level', choices=('quick', 'standard', 'extended', 'thorough'),
                         help='default: the converter default')
     parser.add_argument('--ng-bios', type=Path, help='the Neo Geo BIOS archive (read in place), for a Neo Geo game')
+    parser.add_argument('--x68-ipl', type=Path, help='the X68000 IPL ROM (read in place), for an X68000 game')
+    parser.add_argument('--x68-cgrom', type=Path, help='the X68000 font ROM (read in place), for an X68000 game')
     parser.add_argument('--keep-work', action='store_true',
                         help='keep the working folder and the checked-out trees (they hold copies of the ROM in the '
                              'kept builds; remove a tree with `git worktree remove --force`)')
@@ -306,6 +326,10 @@ def main(argv=None) -> int:
     extra = ['--scan-level', options.scan_level] if options.scan_level else []
     if options.ng_bios:
         extra += ['--ng-bios', options.ng_bios.resolve()]
+    if options.x68_ipl and options.x68_cgrom:
+        extra += ['--x68-ipl', options.x68_ipl.resolve(), '--x68-cgrom', options.x68_cgrom.resolve()]
+    elif options.x68_ipl or options.x68_cgrom:
+        parser.error('--x68-ipl and --x68-cgrom go together')
     results, trees, failed = {}, [], False
     try:
         for label, spec in (('a', options.a), ('b', options.b)):
