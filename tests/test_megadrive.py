@@ -256,6 +256,24 @@ class ShiftTimingAdaptationTests(unittest.TestCase):
             self.assertNotIn('2u * (g_cpu.D[ins->src_ea] & 63u)',
                              m68000.adapt_semantics(PINNED.read_text(encoding='utf-8'), hook_prefix=prefix))
 
+    def test_reset_is_executed_for_the_mega_drive_only(self):
+        # Supervisor RESET changes nothing but the PC and the clocks; user mode keeps the privilege violation.
+        raw = PINNED.read_text(encoding='utf-8')
+        halt = 'g_m68ki_bad_pc = ins->addr; g_m68ki_bad_op = ins->words[0];\n        return M68KI_HALT_UNIMPL;'
+        shared = m68000.adapt_semantics(raw)
+        start = shared.index('    case MN_RESET:')
+        self.assertIn(halt, shared[start:start + 400])
+        adapted = megadrive_codegen.adapt_reset(shared)
+        body = adapted[adapted.index('    case MN_RESET:'):][:500]
+        self.assertIn('rr_md_instruction_exception(next_pc, 8, ins->addr, 34)', body)
+        self.assertNotIn('HALT_UNIMPL', body)
+        self.assertIn('return M68KI_OK;', body)
+        for prefix in ('rr_ng', 'rr_cps1', 'rr_x68k'):
+            other = m68000.adapt_semantics(raw, hook_prefix=prefix)
+            self.assertIn(halt, other[other.index('    case MN_RESET:'):][:500], prefix)
+        with self.assertRaises(ConversionError):
+            megadrive_codegen.adapt_reset(adapted)
+
     def test_the_neogeo_cps1_and_x68000_generators_never_get_the_hook(self):
         # Their stamp groups include megadrive_codegen, but they only import write_changed / the decoder tool: the hook is
         # applied by megadrive_codegen's generate_steps and adapt_interpreter alone.

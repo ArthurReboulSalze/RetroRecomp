@@ -240,13 +240,31 @@ def adapt_shift_timing(source: str) -> str:
         '            rr_md_arithmetic_phase((sz == M68K_SIZE_L ? 8u : 6u) + 2u * (g_cpu.D[ins->src_ea] & 63u), 0, 1);\n')
 
 
+def adapt_reset(source: str) -> str:
+    """Execute the supervisor RESET instruction, counted as a native instruction.
+
+    On the Mega Drive the 68000 RESET output reaches no part of the console: it pulses the cartridge
+    port's reset line (!VRES), which only some cartridges' own mapping circuits use. The instruction
+    therefore changes nothing but the program counter and the clocks (132, one prefetch read, the
+    manual's figure, from the pinned table). The cartridge-port pulse is not modelled and no cartridge
+    circuit of this converter reacts to it. A user-mode RESET still takes the privilege violation.
+    """
+    from .gun16_runtime import replace
+    return replace(source,
+        '        /* External RESET wiring is a separate board feature. */\n'
+        '        g_m68ki_bad_pc = ins->addr; g_m68ki_bad_op = ins->words[0];\n'
+        '        return M68KI_HALT_UNIMPL;\n',
+        '        /* The RESET output reaches only the cartridge port (!VRES); nothing in the console reacts. */\n'
+        '        return M68KI_OK;\n')
+
+
 def generate_steps(engine: Path, project: Path, rom, addresses: set[int], ram_variants=(),
                    *, follow_flow=True) -> dict:
     write_changed(project / 'm68000_state_helpers.h',
                   (ASSETS / 'native/m68000_state_helpers.h').read_text(encoding='utf-8'))
     from .megadrive_hardware import bank_mapper
     mapper = bank_mapper(rom) is not None
-    source = adapt_shift_timing(adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8')))
+    source = adapt_reset(adapt_shift_timing(adapt_semantics((engine / 'runner/m68k_interp.c').read_text(encoding='utf-8'))))
     bodies, names = operation_bodies(source), mnemonic_names(engine)
     helper = source[source.index('static uint32_t szmask('):source.index('static uint8_t *s_exec_cov')]
     helper = helper[:helper.rfind('/* =====')]  # remove coverage section heading
@@ -389,7 +407,7 @@ def write_changed(path: Path, source: str) -> None:
 def adapt_interpreter(source: str) -> str:
     from .megadrive_memory import runtime_source
     source = runtime_source(source, 'interpreter')
-    source = adapt_shift_timing(adapt_semantics(source))
+    source = adapt_reset(adapt_shift_timing(adapt_semantics(source)))
     source = source.replace('#include "m68k_interp.h"',
         '#include "m68k_interp.h"\n#include "retro_md_game.h"\n#include "md_native_steps.h"\n'
         '#include "md_exception_decode.h"\n#include "md_bus_scheduler.h"\nunsigned rr_md_exception_cycles, rr_md_trace_suppressed;\n'
