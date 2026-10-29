@@ -126,6 +126,7 @@ docs/ARCHITECTURE.md docs/STANDARDS.md docs/AGENTS_GUIDE.md docs/HOST_KIT.md doc
 tests/test_machine_registry.py docs/BUILDING.md docs/COMPATIBILITY.md docs/BOXART.md docs/AUDIO.md
 docs/RUNTIME_FEEDBACK.md
 docs/INDEX.md tools/check_doc_links.py tools/status_lint.py tests/test_doc_links.py tests/test_status_lint.py
+docs/UPSTREAMS.md retrorecomp/upstreams.py tools/check_upstreams.py tests/test_upstreams.py
 docs/CONTROLS.md docs/ROADMAP.md docs/RELEASE_NOTES.md docs/SYSTEM_PROFILES.md docs/GAME_GEAR.md docs/GAME_BOY.md docs/NES.md
 MEDIAS/RetroRecomp_logo.png MEDIAS/RetroRecomp_ban.png
 MEDIAS/RetroRecomp_logo_outlined.png MEDIAS/RetroRecomp_cartridge_rr.png MEDIAS/RetroRecomp_consoles.png
