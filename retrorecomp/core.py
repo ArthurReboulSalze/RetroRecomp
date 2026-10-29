@@ -418,8 +418,8 @@ def patched_generator_source(generator_source: str) -> str:
     # A repeating block instruction that goes on (BC or B not exhausted, no CPIR/CPDR match) leaves the flags of the NMOS repeat
     # cycle: X and Y from the high byte of the instruction's address (the PC is wound back to it) and, for INIR/INDR/OTIR/OTDR, H
     # and P adjusted from B. An interrupt accepted between two iterations pushes AF with them. The banked emitter and the corrected
-    # reference (retrorecomp/cpu.py) already follow this rule, checked against independent vectors; the address is the one the
-    # generated function recorded before the loop, because the handler of an accepted interrupt changes g_dbg_pc.
+    # reference (retrorecomp/cpu.py) already follow this rule, checked against independent vectors; the address is read once
+    # from g_dbg_pc before the loop (the runner also restores g_dbg_pc after an accepted interrupt, see prepare_functions_irq).
     generator_source = replace_once(generator_source,
         "    /* post-body tick: this iteration's effect already ran (see sms_tick_post) */\n",
         '''    fprintf(o,"            if (%s) {\\n", contc);
