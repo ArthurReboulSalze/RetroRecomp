@@ -20,6 +20,7 @@ the machine page).
 - [27 October 2026: credited play and sound compared with MAME](#27-october-2026-credited-play-and-sound-compared-with-mame)
 - [29 October 2026 (1.6.4): graphics RAM and quick states](#29-october-2026-164-graphics-ram-and-quick-states)
 - [29 October 2026 (1.6.5 tree): selective requalification](#29-october-2026-165-tree-selective-requalification)
+- [29 October 2026 (1.6.5 tree): independent vectors and route liveness](#29-october-2026-165-tree-independent-vectors-and-route-liveness)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -166,3 +167,24 @@ frames), in instructions retired:
   (not repeated on this tree), hardware fidelity, complete playthroughs,
   physical latency and any speed. "Zero" means that the routes run met no
   interpreted instruction.
+
+## 29 October 2026 (1.6.5 tree): independent vectors and route liveness
+
+Two pieces of evidence for the gates of the "supported" checklist, on branch `spec/cps1-165c` (tree of `main` at `8212d95`
+plus the changes of that branch). Both are CPU or activity evidence; hardware fidelity, gameplay and latency stay unmeasured.
+
+- **Independent 68000 vectors** (`tools/cps1_vector_selftest.py`, about two minutes, Windows, llvm-mingw): the three
+  SingleStepTests fixtures (834 shift, 2,171 prefetch including the 82 authored cases, 864 exception vectors) ran once
+  through the CPS-1 translated steps and once through Musashi interpreting every instruction. Every vector ran as a native
+  step. Native versus vector: 834/834, 2,169/2,171 and 864/864 on registers, SR, PC and written bytes, and the same counts on
+  clocks; the two exceptions are the authored vectors that set the trace bit, which neither path delivers (Musashi built
+  without trace). Musashi versus vector: 834/834, 2,091/2,171 and 858/864 on state; 834/834, 2,151/2,171 and 838/864 on
+  clocks. The groups where the reference differs: `DIVU`, `DIVS`, `CHK`, one line-F frame, and 5 authored division cases.
+  Detail and limits: [CPU_68000.md](CPU_68000.md#tests-and-vectors).
+- **Route liveness** (new `final_checks[].liveness` fields): the eleven sets of the requalification were converted again
+  with the fields; 0 interpreted 68000 and Z80 instructions and every check passed again, as in the campaign above. Per set
+  and route, the distinct pictures, the last frame where the picture changed, the audible frames and the last audible frame
+  are in the table of [CPS1.md](CPS1.md#independent-evidence-and-liveness-29-october-2026). The `mtwins` attract route is
+  silent for its 3,600 frames; its play route is audible.
+- Not done: the Z80 vector replay (the SingleStepTests/z80 corpus is not cached on this machine and has to be downloaded);
+  the fifteen other sets of the table were not converted with the liveness fields.

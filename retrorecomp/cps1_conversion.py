@@ -29,6 +29,44 @@ from .paths import ROOT
 from .toolchain import describe as toolchain_description
 
 STATE_SETTLE = 600   # frames continued after a quick state is loaded
+FNV_BASIS, FNV_PRIME, FNV_MASK = 14695981039346656037, 1099511628211, (1 << 64) - 1   # the hashes of native/cps1_main.c
+
+
+def silent_sound_hash(samples: int) -> int:
+    """The per-frame sound hash of `samples` samples that are all zero (cps1_main.c hashes each sample, xor then multiply)."""
+    value = FNV_BASIS
+    for _ in range(samples):
+        value = (value * FNV_PRIME) & FNV_MASK
+    return value
+
+
+def route_liveness(trace: Path) -> dict:
+    """Picture and sound activity of one route, read from its per-frame trace (frame, cpu, ram, image, sound, samples).
+
+    A picture change is a frame whose image hash differs from the previous frame's; a frame is audible when its sound hash
+    is not the hash of silence. This is evidence that the route reached a moving picture and sound (gate G8), nothing
+    more: it says nothing about what the picture shows or about play."""
+    silence, images, previous = {}, set(), None
+    row = {'frames': 0, 'distinct_pictures': 0, 'picture_changes': 0, 'last_picture_change_frame': 0,
+           'audible_frames': 0, 'last_audible_frame': 0}
+    for line in trace.read_text(encoding='ascii').splitlines():
+        fields = line.split(',')
+        if len(fields) != 6 or not fields[0].isdigit():   # the first line names the columns
+            continue
+        frame, image, sound, samples = int(fields[0]), fields[3], fields[4], int(fields[5])
+        row['frames'] += 1
+        images.add(image)
+        if previous is not None and image != previous:
+            row['picture_changes'] += 1
+            row['last_picture_change_frame'] = frame
+        previous = image
+        if samples not in silence:
+            silence[samples] = f'{silent_sound_hash(samples):016x}'
+        if sound != silence[samples]:
+            row['audible_frames'] += 1
+            row['last_audible_frame'] = frame
+    row['distinct_pictures'] = len(images)
+    return row
 
 
 def routes(identity: str, *, frames: int, level: str, six_buttons: bool) -> list[tuple[str, int, str]]:
@@ -241,6 +279,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
                     f'CPS-1 {name}: native and reference CPU/RAM/image/PCM traces differ; existing export preserved.'))
                 if not results[name]['nonuniform_frames']:
                     raise ConversionError(f'CPS-1 {name}: no picture was produced.')
+                if not route_liveness(Path(results[name]['trace']))['picture_changes']:
+                    raise ConversionError(f'CPS-1 {name}: the picture never changed during the route; the game is stuck.')
             timings[f'routes_{attempt + 1}'] = round(time.perf_counter() - phase, 3)
             fallback = sum(results[name]['interpreted_68000'] + results[name]['interpreted_z80'] for name, _, _ in plan)
             if not fallback:
@@ -302,7 +342,8 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'interpreter_percent': round(100 * native['interpreted_68000'] / max(1, main), 6),
             'reference_match': True, 'cpu_hash': native['cpu_hash'], 'ram_hash': native['ram_hash'],
             'image_hash': native['image_hash'], 'pcm_hash': native['pcm_hash'],
-            'nonzero_samples': native['nonzero_samples'], 'trace_sha256': file_sha256(native['trace']),
+            'nonzero_samples': native['nonzero_samples'], 'liveness': route_liveness(Path(native['trace'])),
+            'trace_sha256': file_sha256(native['trace']),
             'script_sha256': hashlib.sha256(text.encode('ascii')).hexdigest()})
     native_coverage = all(not row['interpreted_opcodes'] and not row['audio_interpreted_opcodes'] for row in checks_rows)
     from .systems.cps1 import CPS1
