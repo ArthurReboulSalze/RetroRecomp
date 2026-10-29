@@ -13,6 +13,30 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## A clang profile for the native game on Windows — 29 October 2026
+
+For 1.6.5 (branch work, not released). The Neo Geo was the one console of the 16-bit group built without a profile on
+Windows; the Super Nintendo already trains a clang profile (ThinLTO, `console16_optimization.py`).
+
+- **What changes.** `retrorecomp/neogeo_optimization.py`: the native project is built instrumented (the engine's sources and
+  the host; the generated cartridge translation `steps/` stays in ordinary objects), the conversion's own `play` route
+  (5,400 frames for the NAM receipt, 7,200 for other cartridges: boot, demo, credit, Start, play) runs in a private folder,
+  the counters are merged into `hardware-profile.profdata` and the game is rebuilt with them. The profile only chooses code
+  layout and inlining. A failed training run or build leaves an ordinary build (a message, nothing fatal);
+  `RETRO_RECOMP_PGO=0` turns it off; MSVC and Linux are unchanged. The conversion runs its whole validation on the
+  optimised executable. Conversion cost on the kept nam1975 project: about 50 s more (instrumented build, 36 s of
+  training, final build); the executable shrinks from 15.5 to 14.9 MiB.
+- **Proof, outputs unchanged.** `tools/ab_conversion.py` converted nam1975, puzzledp and mslug3 with the tree before (main
+  at 1.6.5 preparation) and after: 391, 388 and 396 compared files each (every generated and adapted source, the conversion
+  report without its volatile keys, and all the evidence under `checks/`: frame images, traces, hashes, audio, saved
+  states), identical except the files that differ by construction: `hardware-optimization.json` and
+  `hardware-profile.profdata` (only in the new tree), `CMakeLists.txt` (the appended profile block) and
+  `packed.size_ratio` of the report (the executable bytes). On the kept nam1975 project the two executables also gave
+  identical report fields (64), PCM and saved state on the attract, play and actions routes.
+- **What is not measured here.** No timing: the gain is measured by the maintainer on a quiet PC. The Super Nintendo
+  gained between 45 % and 94 % of the cost of its heaviest scenes from the same technique, but that says nothing
+  for the Neo Geo before it is measured.
+
 ## Edge mask checked on three converted exports, AES help line — 29 October 2026
 
 After release 1.6.4, for 1.6.5.

@@ -123,6 +123,11 @@ The pinned checkouts are never edited; our changes are made in the adapter copy:
   eight-bit Z80 bank selection, and the sound command latch while the sound NMI
   is masked (an unacknowledged command survives masking);
 - cheaper sprite-row decoding and release link-time optimisation (same results, checked against the unmodified scalar renderer);
+- on Windows with the portable llvm-mingw tools, a clang profile for the engine and the host (ThinLTO): the converter builds the
+  game instrumented, runs the conversion's own `play` route in a private folder, merges the counters and rebuilds with
+  them (`retrorecomp/neogeo_optimization.py`, as the Super Nintendo does). The cartridge translation stays in ordinary
+  objects. The profile only chooses code layout and inlining; where training fails the game is built without it, and
+  `RETRO_RECOMP_PGO=0` turns it off. Outputs are identical (see [log](NEOGEO_LOG.md));
 - the fix-layer routine notes its two edge tiles for the edge mask.
 
 Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
@@ -135,7 +140,7 @@ Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
   `neogeo_build.py` (project preparation, reference and native builds, state
   key, AES capability), `neogeo_codegen.py` (68000), `neogeo_z80.py` (sound),
   `neogeo_conversion.py` (the conversion and the packed-route checks),
-  `neogeo_validation.py` (routes and the comparison), `neogeo_knowledge.py`
+  `neogeo_validation.py` (routes and the comparison), `neogeo_optimization.py` (Windows clang profile of the native build), `neogeo_knowledge.py`
   (numeric, BIOS-scoped hints of the shared bank), `neogeo_state_checks.py`,
   `neogeo_persistence_checks.py`, `random_routes.py` and `scan_levels.py`.
 - **Native** (`native/`): `neogeo_main.c` (machine loop, modes, CLI), `neogeo_host.c/.h`
