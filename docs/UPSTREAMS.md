@@ -278,6 +278,24 @@ And one 68000 fix for the Mega Drive:
 It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
 and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).
 
+One more patch of 1.6.5 is a speed change with no change of result, on the NES. The pinned `hw_mapper.c` rebuilds the MMC1 bank tables
+(`mmc1_apply`) at every change of PPU address line A12, which happens several times per scanline. A12 only chooses between CHR register 0
+and 1 for the board's CPU-side signals (SxROM: the outer 256 KiB PRG bank, the work RAM bank and its enable), which the function derives
+from bits 2 to 4 of that register; the PRG and CHR windows always use their own registers. The staged copy now rebuilds only when the 4 KiB
+CHR mode is on and the two registers differ in those bits (`nes_machine._mmc1_a12`), and still records the pin. The upstream took the same
+condition later (nesrecomp `67691b9`); the pin does not move. Proof: `tools/nes_mmc1_selftest.py` compares the original and the patched
+machine step by step (a digest of the PRG and CHR windows, mirroring, work RAM bank and enables, and the pin after each of 15,165
+register writes and A12 changes) on 13 boards (128 KiB to 512 KiB, CHR ROM or RAM, 8 to 32 KiB of work RAM, submappers 0, 3, 5 and 7,
+mapper 155) and fails with a mask of bits 2-3 only. Real conversions with `tools/ab_conversion.py` (tree before the change against tree
+after it, same empty library) give identical generated sources, reports and evidence (frame, audio and state hashes): The Legend of Zelda
+(MMC1, 8 KiB CHR RAM; 472 files compared), Metroid (MMC1; 466), Dragon Warrior IV (512 KiB MMC1, the board where A12 selects the outer PRG
+bank; 874 files compared; both trees stopped at the same point, the then 120-second limit of the UPX packing of the large executable under load, after the checks; the limit grows with the file since 1.6.5) and Balloon Fight as a control (mapper 0; 400). The only file that differs in
+each is the patched `hw_mapper.c` (and the new check file). The gain is not measured yet.
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| MMC1: a PPU A12 change rebuilds the bank tables only when CHR registers 0 and 1 differ in bits 2-4 in 4 KiB mode | nes | `nes_machine.py` (`_mmc1_a12`, applied to the staged `hw_mapper.c`) | nes |
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
@@ -288,7 +306,6 @@ quiet machine, so anything that has to be timed waits for that.
 | SNES: idle detector with hash buckets | snesrecomp (`interp_bridge.c`) | Same behaviour, faster lookup instead of a linear scan per instruction. Needs a timing measurement. | Next SNES performance pass, with an A/B comparison of frame fingerprints. |
 | SNES: APU advance by blocks | snesrecomp | State of the SPC700/DSP and the sound must be proven equal before any timing. | Same pass. |
 | SNES: revision bump | snesrecomp, about 200 commits | One anchor really breaks (`snes_chips.py`, `dsp1()`); CMake defaults would silently switch to a different native mode on Windows x64; little gain on the code we run. | The planned SNES requalification campaign; it brings DSP-1 compile-time HLE and transactional state loading. |
-| NES: MMC1 without table rebuild on a no-effect A12 change | nesrecomp (`hw_mapper.c`) | Gain not isolated yet. | NES performance pass, A/B on two MMC1 games. |
 | NES: larger known-cartridge database | nesrecomp (195 entries to 3,825) | Its record structure changes and the provenance must be written down. | Before widening NES compatibility. |
 | NES: Famicom Disk System | nesrecomp, about thirty commits | Needs a bump (18 anchors break), a player-supplied BIOS, a Disk action in the host kit and a full NES requalification. Upstream excluded the FDS from its own validation. | A decision to support the FDS. |
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |

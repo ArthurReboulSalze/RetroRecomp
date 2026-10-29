@@ -341,6 +341,23 @@ void rr_nes_interp_fetched(uint16_t pc, uint8_t op, uint64_t before, bool rom, u
 '''
 
 
+def _mmc1_a12(source: str) -> str:
+    """MMC1: a PPU A12 change rebuilds the bank tables only when it can change them.
+
+    A12 picks CHR register 0 or 1 for the board's CPU-side signals (SxROM: the outer 256 KiB PRG
+    bank, the work RAM bank and its enable), which `mmc1_apply` derives from bits 2 to 4 of that
+    register only; the PRG and CHR windows always use their own registers, and in 8 KiB CHR mode
+    register 0 serves both phases. Where those bits are equal the rebuild produces the tables it
+    already holds, so it is skipped; the pin is still recorded for the next CPU write. This is the
+    condition of the upstream's later change (nesrecomp 67691b9), carried here without moving the pin."""
+    return replace_once(source,
+        '        if (hw_cart.m.a12!=a12) { hw_cart.m.a12=(uint8_t)a12; mmc1_apply(); }',
+        '        if (hw_cart.m.a12!=a12) {\n'
+        '            hw_cart.m.a12=(uint8_t)a12;\n'
+        '            if ((hw_cart.m.ctrl & MMC1_CTRL_CHR_4K) && ((hw_cart.m.chr0 ^ hw_cart.m.chr1) & 0x1C)) mmc1_apply();\n'
+        '        }')
+
+
 _MACHINE_STRUCTS = {'Cpu6502', 'HwMachine', 'HwCart', 'HwPpu', 'HwVrc6Audio', 'HwNamco', 'HwRambo', 'HwJaleco',
                     'HwFme7', 'Hw5B', 'NesCartInfo', 'NesEeprom', 'NesBarcode', 'Mmc5State', 'Mmc5Pulse',
                     'RrZapper', 'RrStateHeader', 'RrMachineState'}
@@ -366,7 +383,7 @@ def _state_layouts(transformed: dict[str, bytes]) -> dict[str, str]:
 
 
 def prepare_machine(project: Path, engine: Path, *, fast_ppu: bool = True,
-                    fast_audio: bool = True) -> Path:
+                    fast_audio: bool = True, fast_mmc1: bool = True) -> Path:
     from .feedback import stage
     project.mkdir(parents=True, exist_ok=True)
     stage(project, 'nes', '0'*64, cmake=False)
@@ -412,6 +429,8 @@ static inline void rr_ppu_sync(void) { if (rr_ppu_due) rr_ppu_flush(); }
                     '        if (hue > 13) level = 1;')
                 data = text.encode('utf-8')
             elif name == 'runner/cyc/hw_mapper.c':
+                if fast_mmc1:
+                    data = _mmc1_a12(data.decode('utf-8')).encode('utf-8')
                 data += b'\n#include "nes_mapper_state.inc"\n' + (ASSETS / 'native/nes_ram.inc').read_bytes()
             elif name == 'runner/cyc/hw.h':
                 text = data.decode('utf-8')

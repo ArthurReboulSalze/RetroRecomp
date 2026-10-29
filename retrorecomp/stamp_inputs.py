@@ -407,6 +407,7 @@ INPUTS = _resolve({
         'native/nes_live_codegen.inc',
         'native/nes_machine_checks.c',
         'native/nes_machine_state.inc',
+        'native/nes_mmc1_checks.c',
         'native/nes_mapper_state.inc',
         'native/nes_ppu_checks.c',
         'native/nes_ppu_fast.inc',
