@@ -431,6 +431,25 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: the supervisor RESET instruction is executed (1.6.5)
+
+A cartridge that executes the 68000 `RESET` instruction (opcode `$4E70`, supervisor mode) used to stop the conversion: the pinned
+core halted on it as unimplemented, and the demo probe failed. Boxing Legends of the Ring runs it at boot (at `$30C`, in its second
+frame). On the Mega Drive the 68000's RESET output reaches no part of the console (the processor is not reset by it); it pulses the
+cartridge port's reset line, which only some cartridges' own mapping circuits use. The instruction is therefore executed as a
+native instruction that changes nothing but the program counter and takes its 132 clocks (the manual's figure, one prefetch read).
+The pulse itself is not modelled, and no cartridge circuit of this converter reacts to it; a user-mode `RESET` still takes the
+privilege violation. *Edited:* `retrorecomp/megadrive_codegen.py` (`adapt_reset`, applied to the native bodies and to the reference
+path; `m68000.py` is untouched, so Neo Geo, CPS-1 and X68000 keep their own handling). It is a **CPU fidelity** fix; the other four
+measures are not moved. **The `md`, `cps1` and `x68` game stamps move** (the module is in their stamp groups; their output is
+unchanged), together with the shift-clock change above, and a Mega Drive game that never executes `RESET` generates the same code:
+a conversion of Blockout compared with the tree before the change (`tools/ab_conversion.py`) differs only in the generation
+identity, the text of the reference interpreter and the step analysis derived from it, with every frame, audio and state hash and
+every report field identical. Checked by the manual total of `RESET` on both paths (`tools/megadrive_cycles_selftest.py`: 132
+clocks, program counter advanced by two) and by a conversion of Boxing Legends of the Ring, which now succeeds (0 interpreted 68000
+instructions and 0 interpreted Z80 cycles on its demo and play routes; the picture and the sound change during them). Gameplay
+beyond those routes is not validated. Dragon's Revenge, which was listed for the same instruction, has not been converted again.
+
 ## Mega Drive on Windows: ThinLTO and a clang profile (1.6.5)
 
 On Windows with the portable llvm-mingw tools, a Mega Drive game is now built twice, like a Super Nintendo game since 1.6.4: a

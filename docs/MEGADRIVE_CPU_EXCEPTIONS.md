@@ -18,7 +18,8 @@ fallback. This work does not complete the Mega Drive hardware profile.
 - Privilege checks precede operand access, including postincrement MOVE to SR.
   MOVE **from** SR remains available in user mode on MC68000; the later 68010
   restriction is not applied. User-mode RESET takes the privilege vector;
-  supervisor RESET's external-device wiring remains unsupported.
+  supervisor RESET changes nothing but the program counter and takes 132 clocks (since 1.6.5; the pulse it puts on the
+  cartridge port's reset line is not modelled, and no cartridge circuit of this converter reacts to it).
 - Illegal, privilege and TRAP entry cost 34 clocks. Zero divide costs 38 plus
   its effective-address cost. Immediate SR/CCR operations cost 20 clocks;
   MOVE to SR costs 12 plus its effective-address cost; MOVE from SR costs 6 to
