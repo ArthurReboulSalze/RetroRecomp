@@ -443,7 +443,8 @@ release is refused cleanly by the key check, with its message, and nothing is lo
 decided case by case: what is required is that a save the new export cannot use never crashes or blocks the game (it
 is refused or set aside, and the game creates a new one). In 1.6.5 the Mega Drive and
 Super Nintendo keys move because `native/video_mode4.inc` and `native/video_checks.c` left the all-consoles group
-(their serialized bytes did not change), the NES state becomes `RRNESST2` and the CPS-1 key moves with its generator.
+(their serialized bytes did not change), the NES state becomes `RRNESST2`, the CPS-1 key moves with its generator, and
+the Neo Geo key moves with `neogeo_build` (the Windows 1.6.3 compatibility key `STATE_ABI_163` is removed).
 
 ## States written by release 1.6.3
 

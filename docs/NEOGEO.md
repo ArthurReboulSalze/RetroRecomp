@@ -224,10 +224,9 @@ without touching the machine. Only a successful F8 creates the directory; a miss
 F9 creates nothing. A state keeps its clock mode: the standard version-2 state of the
 previous qualified ABI loads as standard; press F5 afterwards to compare.
 
-**Between releases.** The quick states of 1.6.3 load on Windows through
-`neogeo_build.STATE_ABI_163` (the state files did not change); a state written by a
-Linux 1.6.3 export is refused cleanly. Only the previous release is supported
-([GAME_STATES.md](GAME_STATES.md)). Every export of 1.6.3 is converted in full once.
+**Between releases.** From 1.6.5 quick states need not survive an update: no
+compatibility key is listed, and a quick state of 1.6.4 or earlier is refused cleanly
+([GAME_STATES.md](GAME_STATES.md)). Memory cards and scores are not quick states.
 
 ### Ordinary scores and memory card
 

@@ -409,23 +409,16 @@ class StateCompatibilityTests(unittest.TestCase):
     def own_key(text):
         return re.search(r'#define RR16_STATE_ABI "([0-9a-f]{64})"', text).group(1)
 
-    def test_the_states_of_release_1_6_3_are_accepted_by_the_neo_geo_whose_key_moved(self):
-        from retrorecomp import neogeo_build
-        self.assertEqual(neogeo_build.STATE_ABI_163, NEO_GEO_STATE_ABI_163)
-        text = self.configs()['ng']
-        # Exactly one compatibility line, and it is the key of 1.6.3, which is not the build's own key.
-        self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), 1)
-        self.assertIn(f'#define RR16_STATE_COMPAT_ABI "{NEO_GEO_STATE_ABI_163}"\n', text)
-        self.assertNotEqual(self.own_key(text), NEO_GEO_STATE_ABI_163)
-
-    def test_the_mega_drive_and_super_nintendo_list_no_compatibility_key(self):
+    def test_the_mega_drive_super_nintendo_and_neo_geo_list_no_compatibility_key(self):
         # Decision of 29 October 2026 (from 1.6.5): quick states need not survive an update. 1.6.5 moved
         # native/video_mode4.inc and native/video_checks.c out of the all-consoles group, which changes what these keys
         # hash (the serialized bytes did not change); no compatibility key is listed, so a quick state of an earlier
         # release is refused cleanly (docs/GAME_STATES.md). Cartridge saves are not quick states and are unaffected.
+        # The Neo Geo key moved again in 1.6.5 (neogeo_build edited): its 1.6.3 key is no longer listed either.
         texts = self.configs()
         self.assertNotEqual(self.own_key(texts['md']), MD_STATE_ABI_163)
-        for system in ('md', 'snes'):
+        self.assertNotEqual(self.own_key(texts['ng']), NEO_GEO_STATE_ABI_163)
+        for system in ('md', 'snes', 'ng'):
             self.assertNotIn('RR16_STATE_COMPAT_ABI', texts[system], system)
 
     def test_the_cps1_state_changed_so_the_states_of_1_6_3_are_refused(self):
@@ -486,9 +479,9 @@ class StateCompatibilityTests(unittest.TestCase):
 
 
 class NeoGeoStateKeyPlatformTests(unittest.TestCase):
-    """The key of 1.6.3 is a Windows key: a Linux build writes none (its own key also hashes its target)."""
+    """No compatibility line on either platform from 1.6.5 (it was a Windows-only 1.6.3 key until 1.6.4)."""
 
-    def test_the_neo_geo_compatibility_line_is_written_on_windows_only(self):
+    def test_the_neo_geo_writes_no_compatibility_line_on_any_platform(self):
         from retrorecomp import neogeo_build
         real = os
 
@@ -499,7 +492,7 @@ class NeoGeoStateKeyPlatformTests(unittest.TestCase):
             def __getattr__(self, attribute):
                 return getattr(real, attribute)
 
-        for name, listed in (('nt', True), ('posix', False)):
+        for name, listed in (('nt', False), ('posix', False)):
             with self.subTest(name=name), \
                     patch('retrorecomp.neogeo.parse_neo', return_value=SimpleNamespace(sha256='a' * 64)), \
                     patch('retrorecomp.neogeo.validate_bios', return_value={'sha256': 'b' * 64}), \
