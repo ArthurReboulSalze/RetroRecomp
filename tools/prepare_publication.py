@@ -37,7 +37,7 @@ native/x68000_machine/base74/x11/mmsystem.h native/x68000_machine/base74/x11/mou
 native/x68000_machine/base74/x11/prop.h native/x68000_machine/base74/x11/status.h
 native/x68000_machine/base74/x11/timer.h native/x68000_machine/base74/x11/windows.h
 native/x68000_machine/base74/x11/windraw.h native/x68000_machine/base74/x11/winui.h
-native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/glue.h
+native/x68000_machine/base74/x11/winx68k.h native/x68000_machine/glue.h native/x68000_machine/glue_line.h
 native/x68000_machine/input.c native/x68000_machine/libretro_api.c native/x68000_machine/machine.c
 native/x68000_machine/provenance.json native/x68000_machine/PROVENANCE.md
 native/x68000_machine/state/legacy_stub.c native/x68000_machine/state/rr_state.c
@@ -68,7 +68,7 @@ tests/test_x68000_media.py tests/test_x68000_native.py tests/test_x68000_native_
 tests/test_x68000_program.py tests/test_x68000_programs.py tests/test_x68000_reference.py
 tests/test_x68000_reference_check.py tests/test_x68000_state.py tests/test_x68000_controls.py
 tests/x68000_controls_harness.c tests/x68000_menu_harness.c tests/test_x68000_liveness.py tests/test_x68000_payload.py tests/x68000_payload_harness.c
-tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c tests/test_x68000_redraw_marks.py tests/x68000_redraw_marks_harness.c tests/test_x68000_text_line.py tests/x68000_text_line_harness.c
+tests/test_x68000_picture_line.py tests/x68000_picture_line_harness.c tests/test_x68000_dmac.py tests/test_x68000_sprite_dirty.py tests/x68000_base_harness.py tests/x68000_dmac_harness.c tests/x68000_sprite_dirty_harness.c tests/test_x68000_redraw_marks.py tests/x68000_redraw_marks_harness.c tests/test_x68000_text_line.py tests/x68000_text_line_harness.c
 native/autofire.h tools/autofire_selftest.py tests/test_autofire.py tools/start_select_selftest.py
 native/game_options.h native/audio_filter.h native/audio_cushion.h
 native/player_gamepad.c retrorecomp/player_gamepad.py tools/build_player_gamepad.py tools/build_splash.py
