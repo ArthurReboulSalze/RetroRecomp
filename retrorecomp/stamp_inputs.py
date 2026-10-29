@@ -541,6 +541,8 @@ INPUTS = _resolve({
         'native/neogeo_code_view.inc',
         'native/neogeo_controls_checks.c',
         'native/neogeo_decode.c',
+        'native/neogeo_fixmask.h',
+        'native/neogeo_fixmask_checks.c',
         'native/neogeo_host.c',
         'native/neogeo_host.h',
         'native/neogeo_input.h',

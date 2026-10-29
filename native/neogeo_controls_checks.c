@@ -10,6 +10,7 @@ static const Uint8 *mock_keyboard(int *size) {if(size)*size=SDL_NUM_SCANCODES;re
 #include "hostkit/adapters/rrhk_ng.c"
 #include "neogeo_input.h"
 static uint32_t test_pixels[320*224];
+RrNgFixMask rr_ng_fix_mask;   /* the adapter's view reads the detector the engine owns */
 bool rr16_init(bool h) {(void)h;return true;}
 void rr16_reset(void) {}
 bool rr16_frame(uint16_t a,uint16_t b) {(void)a;(void)b;return true;}
