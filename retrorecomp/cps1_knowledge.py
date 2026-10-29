@@ -80,6 +80,10 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # revision 5 (A/B on a real conversion). retrorecomp.m68000 corrects ROXL/ROXR with a register count of zero (C takes X)
 # and ASL.L by 31 (29 October 2026); a RAM path can notice that, so every qualified path waits for this revision. The
 # shipped snapshot holds no qualified CPS-1 path, so nothing is lost today.
+# Still 6 (29 October 2026, 1.6.3 state-key rollover): cps1_build.state_config now writes the compatibility key of the
+# 1.6.2 quick states and drops the 1.6.1 one, which edits a pinned generator source again. Revision 6 has not shipped,
+# so no path was qualified by the code between the edits, and the edit changes nothing a RAM path could notice (the
+# serialized bytes and the generated files are the same): the revision is not raised a seventh time, the pins follow.
 GENERATOR_REVISION = 6
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.

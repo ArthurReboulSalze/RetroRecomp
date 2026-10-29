@@ -79,8 +79,9 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 stamps of the release before the one being built, never those of older releases, and the quick-state keys
 (`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
 table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES.md](UPGRADES.md#exports-of-160-in-161)); the
-tree of 1.6.2 lists those of 1.6.1 (eight consoles, the X68000 apart: see
-[UPGRADES.md](UPGRADES.md#exports-of-161-in-162), with the evidence and what it does not prove), and each release after
+tree of 1.6.2 listed those of 1.6.1 ([UPGRADES.md](UPGRADES.md#exports-of-161-in-162)); the tree of 1.6.3 lists those of 1.6.2,
+two per console (the Windows converter's and the Linux converter's), eight consoles, the X68000 apart: see
+[UPGRADES.md](UPGRADES.md#exports-of-162-in-163), with the evidence and what it does not prove, and each release after
 replaces them, proving each one build-only with a real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no

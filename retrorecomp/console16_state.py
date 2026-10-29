@@ -95,12 +95,12 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 '''
 
 
-# State keys written by release 1.6.1 (Mega Drive and Super Nintendo, Windows), computed from the v1.6.1 tag by the same
-# code that reproduces the documented 1.5.6 key from its tag (docs/GAME_STATES.md, "States written by release 1.6.1").
-# 1.6.2 adds strings to the runtime catalogue, a native file both consoles own, which their keys hash; the serialized
-# layout did not change.
-MD_STATE_ABI_161 = 'fb6d191a2b8c3975e4a69560fb204ad1e79c8726bb55f448e15e2d201550c959'
-SNES_STATE_ABI_161 = '366aa5f94b8c57080255e2540bc513bc8e875e8b03fc8fb02bef344b2c05ddf1'
+# State keys written by release 1.6.2 (Mega Drive and Super Nintendo, Windows), computed from the v1.6.2 tag by the same
+# code that reproduces the documented 1.5.6 key from its tag (docs/GAME_STATES.md, "States written by release 1.6.2").
+# 1.6.3 moves the host files of the host kit (the shell, the options menu, the sound output, the runtime catalogue) that
+# both consoles list as native files and their keys hash; the serialized layout did not change.
+MD_STATE_ABI_162 = '7943c469d11b059b7cf2a6ff4597dc2809d25cd5b093752d837c2a4d8c661948'
+SNES_STATE_ABI_162 = 'b9fbf76dc2cc49459420ff111d143c64c72cd72b440a1264d91b38be21bcb5c4'
 
 
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
@@ -131,8 +131,8 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
     # `#define RR16_STATE_COMPAT_ABI "<key>"` (native/console16_state.c accepts the keys a build defines, next to
     # RR16_STATE_ABI, and nothing else). The release that follows a release adds that release's key and drops the
     # older ones (docs/GAME_STATES.md). Mega Drive and Super Nintendo, Windows only: the key of a Linux build also hashes
-    # its target, and no Linux 1.6.1 key was recorded.
+    # its target, and no Linux 1.6.2 key was recorded.
     if os.name == 'nt':
-        key = MD_STATE_ABI_161 if system_id == 'md' else SNES_STATE_ABI_161
+        key = MD_STATE_ABI_162 if system_id == 'md' else SNES_STATE_ABI_162
         text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(key)}\n'
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')

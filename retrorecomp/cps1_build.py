@@ -292,9 +292,9 @@ def pack(board: Path) -> bytes:
     return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
 
 
-# State key written by release 1.6.1 (Windows), computed from the v1.6.1 tag; the serialized bytes did not change since
-# (docs/GAME_STATES.md, "States written by release 1.6.1").
-LEGACY_STATE_ABI_161 = 'f745f993a28521fa17dbe84332964b677a3ab35f5bbb77b7f7c1fcb95cd902ee'
+# State key written by release 1.6.2 (Windows), computed from the v1.6.2 tag; the serialized bytes did not change since
+# (docs/GAME_STATES.md, "States written by release 1.6.2").
+LEGACY_STATE_ABI_162 = 'b24053cfe60639a1a464f74e63d155dcb351ac0713796e554937edd65821d8e9'
 
 
 def state_config(game_set, title: str) -> str:
@@ -316,8 +316,8 @@ def state_config(game_set, title: str) -> str:
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n'
             # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release
             # that follows it (docs/GAME_STATES.md); the keys of older releases are never kept. Windows only: the key
-            # of a Linux build also hashes its target, and no Linux 1.6.1 key was recorded.
-            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_161)}\n' if os.name == 'nt' else ''))
+            # of a Linux build also hashes its target, and no Linux 1.6.2 key was recorded.
+            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_162)}\n' if os.name == 'nt' else ''))
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,

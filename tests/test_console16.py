@@ -49,10 +49,10 @@ class Console16Tests(unittest.TestCase):
         return path
 
     def test_md_state_config_accepts_the_key_of_the_previous_release_on_windows_only(self):
-        # Only the previous release's key may ever be listed (docs/GAME_STATES.md): 1.6.1's, written on Windows (the key
-        # of a Linux build also hashes its target, and no Linux 1.6.1 key was recorded).
+        # Only the previous release's key may ever be listed (docs/GAME_STATES.md): 1.6.2's, written on Windows (the key
+        # of a Linux build also hashes its target, and no Linux 1.6.2 key was recorded).
         from retrorecomp.console16 import REPOSITORIES
-        from retrorecomp.console16_state import MD_STATE_ABI_161, write_config
+        from retrorecomp.console16_state import MD_STATE_ABI_162, write_config
         rom = read_megadrive_rom(self.source('state.md', md()))
         (self.root/'retro_md_game.h').write_text('#define RR_MD_PAL 0\n')
         import os
@@ -67,7 +67,7 @@ class Console16Tests(unittest.TestCase):
                 write_config(self.root, rom, 'md', 'Test', REPOSITORIES)
             text = (self.root/'retro16_state_config.h').read_text()
             self.assertRegex(text, r'#define RR16_STATE_ABI "[0-9a-f]{64}"')
-            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{MD_STATE_ABI_161}"\n' in text, listed, name)
+            self.assertEqual(f'#define RR16_STATE_COMPAT_ABI "{MD_STATE_ABI_162}"\n' in text, listed, name)
             self.assertEqual(text.count('RR16_STATE_COMPAT_ABI'), int(listed), name)
 
     def test_bundled_compiler_fingerprint_needs_no_source_file(self):
