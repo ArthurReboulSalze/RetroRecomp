@@ -336,5 +336,17 @@ def adapt_semantics(source: str, *, hook_prefix: str = 'rr_md') -> str:
         er=save;write_ea_ex(ins,ins->src_ea,M68K_SIZE_B,&er,val,1);''')
     source = replace(source,'        discover(tgt);\n        push32(fall);',
         '        discover(tgt);\n        rr_md_prefetch_target(tgt);\n        push32(fall);')
+    # MC68000 PRM, shift/rotate with a register count of zero (modulo 64):
+    # X is unchanged and C is cleared, except ROXL/ROXR which load C from X.
+    source = replace(source,
+        '    } else if (reg_count && cnt == 0) {                        /* count 0: preserve X, C=0 */\n'
+        '        g_cpu.SR &= ~0x0Fu;\n',
+        '    } else if (reg_count && cnt == 0) {                        /* count 0: preserve X, C=0 */\n'
+        '        g_cpu.SR &= ~0x0Fu;\n'
+        '        if ((mn == MN_ROXL || mn == MN_ROXR) && (g_cpu.SR & SR_X)) g_cpu.SR |= SR_C;\n')
+    # ASL.L by 31 tests 32 top bits: 1u << 32 is undefined in C, so the mask is 64-bit.
+    source = replace(source,
+        'uint32_t allm = (uint32_t)((1u << (cnt + 1)) - 1u);',
+        'uint32_t allm = (uint32_t)((UINT64_C(1) << (cnt + 1)) - 1u);')
     result = adapt_cycle_estimates(source)
     return result if hook_prefix == 'rr_md' else result.replace('rr_md_', hook_prefix + '_')

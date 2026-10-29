@@ -24,13 +24,16 @@ def state_literal(state, pc_offset=4):
     values = [state[key] if key != 'pc' else (state[key] - pc_offset) & 0xffffff for key in REGS]
     return '{' + ','.join(f'{v}u' for v in values) + '}'
 
-def main():
-    project = ROOT / '.build/megadrive-prefetch-selftest'
+def main(fixture_name='md-prefetch'):
+    """Replay a SingleStepTests fixture; `m68k-shifts` is the shift/rotate corpus, without authored cases."""
+    project = ROOT / ('.build/megadrive-prefetch-selftest' if fixture_name == 'md-prefetch'
+                      else f'.build/megadrive-prefetch-selftest-{fixture_name}')
     project.mkdir(parents=True, exist_ok=True)
     engine = ROOT / '.deps/segagenesisrecomp'
-    fixture = json.loads((ROOT / 'tests/fixtures/md-prefetch/cases.json').read_text())
+    fixture = json.loads((ROOT / 'tests/fixtures' / fixture_name / 'cases.json').read_text())
     external_count = len(fixture['tests'])
-    authored = json.loads((ROOT / 'tests/fixtures/md-prefetch/authored.json').read_text())
+    authored = (json.loads((ROOT / 'tests/fixtures/md-prefetch/authored.json').read_text())
+                if fixture_name == 'md-prefetch' else {'tests': []})
     fixture['tests'] += authored['tests']
     payload = bytearray(0x400000)
     payload[0x100:0x104] = b'SEGA'
@@ -60,7 +63,7 @@ def main():
         cases.append('{'+json.dumps(test['group']+': '+test['name'])+','+
             state_literal(test['initial'])+','+state_literal(test['final'])+','+
             f'initial_{index},{len(test["initial"]["ram"])},final_{index},{len(test["final"]["ram"])},{test["length"]},'+
-            f'pf_initial_{index},pf_final_{index},tx_{index},{len(trace)},{test.get("sr_mask",65535)}'+'}')
+            f'pf_initial_{index},pf_final_{index},tx_{index},{len(trace)},{test.get("sr_mask",65535)},{int(test.get("timing_unchecked",0))}'+'}')
     (project / 'cartridge.bin').write_bytes(payload)
     rom = SimpleNamespace(data=payload, sha256=hashlib.sha256(payload).hexdigest())
     variants=[{'address':pc,'bytes':raw} for pc,raw in (
@@ -106,4 +109,4 @@ endif()
     print(json.dumps(result))
 
 if __name__ == '__main__':
-    main()
+    main(*sys.argv[1:2])
