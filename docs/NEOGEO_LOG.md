@@ -13,6 +13,35 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Edge mask checked on three converted exports, AES help line — 29 October 2026
+
+After release 1.6.4, for 1.6.5.
+
+- **The coloured edge mask is confirmed on Joy Joy Kid, Puzzle Bobble 2 and
+  Ghostlop.** Each was converted once with the current converter (zero
+  interpreted instructions on the main and sound CPUs). The picture shown by the
+  host (software renderer, dummy video, scale 3) was captured at fixed frames in
+  a fresh process and set against the engine's raw 320x224 frame for the same
+  guest frame, both runs with standard clocks and the same RTC seed. Result: the
+  only differing pixels are the outer 8 columns of a latched side (grey `133`
+  to black on both sides for Joy Joy Kid and Puzzle Bobble 2; orange `b03600` to
+  black on the right side only for Ghostlop, 26 of 28 tile rows); the 304 columns
+  between are identical on every capture (Joy Joy Kid 600 to 3,600, Puzzle Bobble 2
+  600 to 3,600, Ghostlop 3,600 to 6,000 with a deterministic input script). Frames where the
+  raw edge is already black (the fade-in of Joy Joy Kid at 600 and 3,000, the
+  attract mode of Ghostlop to 3,600) show no change: no false positive, and the
+  latch needs its 30 frames, so a band that has just appeared stays visible that long.
+  Not covered: other screens of these games, and a pad played by a person.
+- **A trap of the method.** Comparing a windowed run with a headless one differed
+  inside the picture until both used `--standard`: the windowed host starts in
+  enhanced mode (the fresh-install default), the headless run in standard clocks.
+- **The AES help line.** The help page said "Shift/Back: Select" in AES, a line
+  borrowed from the Super Nintendo, while the host drives no Select or Coin line
+  in AES (`rr_ng_host_coin_bits` returns 0). It now lists only "Enter / pad Start:
+  cartridge Start", an existing catalogue string translated in all eight
+  languages. A line saying that Shift/Back does nothing in AES would need a new
+  catalogue string, which moves the stamps of every 16-bit console (lead's call).
+
 ## Fix-layer edge masks, BIOS messages and the AES firmware — 29 October 2026
 
 Release 1.6.4, lot NGE.
@@ -32,7 +61,8 @@ Release 1.6.4, lot NGE.
   a saved state. The rule was judged on a sample of 118 games and is a display
   heuristic, not a hardware fact. 2020 Super Baseball (band grey to black) and
   Puzzle De Pon! (byte for byte identical) were checked on real conversions; Joy
-  Joy Kid, Puzzle Bobble 2 and Ghostlop are not yet checked on converted exports.
+  Joy Kid, Puzzle Bobble 2 and Ghostlop were not yet checked on converted exports
+  at release time (done afterwards, see the entry above).
   ROM-free check: `tools/neogeo_fixmask_selftest.py`.
 - **AES needs `neo-epo.bin` in the BIOS archive.** The console AES mode (F11)
   exists only when the archive chosen at conversion also holds the AES export
