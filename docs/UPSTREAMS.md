@@ -280,7 +280,7 @@ register writes and A12 changes) on 13 boards (128 KiB to 512 KiB, CHR ROM or RA
 mapper 155) and fails with a mask of bits 2-3 only. Real conversions with `tools/ab_conversion.py` (tree before the change against tree
 after it, same empty library) give identical generated sources, reports and evidence (frame, audio and state hashes): The Legend of Zelda
 (MMC1, 8 KiB CHR RAM; 472 files compared), Metroid (MMC1; 466), Dragon Warrior IV (512 KiB MMC1, the board where A12 selects the outer PRG
-bank; 874 files compared, packing apart: see below) and Balloon Fight as a control (mapper 0; 400). The only file that differs in
+bank; 874 files compared; both trees stopped at the same point, the 120-second limit of the UPX packing of the large executable under load, after the checks) and Balloon Fight as a control (mapper 0; 400). The only file that differs in
 each is the patched `hw_mapper.c` (and the new check file). The gain is not measured yet.
 
 | Fix | Consoles | Our file | Game stamp that moves |
