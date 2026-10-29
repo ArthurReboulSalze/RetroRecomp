@@ -128,16 +128,21 @@ static void enhanced_sprite_checks(void) {
     g_vdp.vram[0x3801 + (32 + 18) * 2] = 0x10;
     to_line(0); complete();
     assert(output[10 * 256 + 144] == 0xFFFF0000u);
-    /* Game Gear retains its hardware sprite limit even if the host requests
-     * the SMS enhancement. Neither a reset nor a snapshot mutates the choice. */
+    /* The Game Gear VDP has the same eight-sprite line limit: the option draws the ninth sprite there too, keeps the
+     * original overflow flag, and the hardware limit comes back as soon as the option is off. */
     g_vdp.is_gg = true;
     g_vdp.vram[0x3801 + (32 + 18) * 2] = 0;
     g_vdp.cram[2] = 15; g_vdp.cram[3] = 0;
     g_vdp.cram[36] = 0xF0; g_vdp.cram[37] = 0;
     g_vdp.vram[0x3F91] = 2;
     to_line(0); complete();
+    assert(output[10 * 256 + 144] == 0xFF00FF00u);
+    assert((vdp_status_read() & 0x40) == 0x40);
+    smsrecomp_video_set_sprite_flicker_reduction(0);
+    to_line(0); complete();
     assert(output[10 * 256 + 144] == 0xFFFF0000u);
-    puts("PASS: optional extra sprites, unchanged overflow/collision, sprite/background priorities, Game Gear isolation.");
+    smsrecomp_video_set_sprite_flicker_reduction(1);
+    puts("PASS: optional extra sprites, unchanged overflow/collision, sprite/background priorities, Game Gear enhancement and limit.");
 
     fixture();
     for (int i = 0; i < 12; ++i) {

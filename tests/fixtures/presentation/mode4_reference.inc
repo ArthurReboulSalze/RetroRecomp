@@ -36,7 +36,7 @@ static void mode4_line_reference(uint32_t *pixels, int y, int hs, int vs, bool s
         if (row >= height) continue;
         if (++count > 8) {
             if (status) g_vdp.status |= 0x40;
-            if (!reduce_sprite_flicker || g_vdp.is_gg) break;
+            if (!reduce_sprite_flicker) break;
         }
         int sx = g_vdp.vram[(sat + 128 + i * 2) & 0x3FFF] - ((r0 & 8) ? 8 : 0);
         int tile = g_vdp.vram[(sat + 129 + i * 2) & 0x3FFF];
