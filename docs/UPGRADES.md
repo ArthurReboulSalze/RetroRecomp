@@ -496,8 +496,8 @@ Two changes of the Neo Geo converter, both in the game stamp of the Neo Geo.
   (`neogeo_optimization.py`, [NEOGEO.md](NEOGEO.md)): the same C is laid out and inlined differently, the outputs are identical
   (A/B on nam1975, puzzledp and mslug3), and the conversion takes about a minute longer.
 
-**What moves.** The Neo Geo game stamp (`neogeo`, `neogeo_build` and `neogeo_optimization` are converter modules of its stamp
-groups): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry. The CPS-1 game stamp moves too, because it
+**What moves.** The Neo Geo game stamp (`neogeo`, `neogeo_build`, `neogeo_conversion` (the probes now run side by side, schedule
+only) and `neogeo_optimization` are converter modules of its stamp groups): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry. The CPS-1 game stamp moves too, because it
 shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build` is edited and its fingerprint is hashed): from
 1.6.5 no compatibility key is carried, so a quick state of 1.6.4 is refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge
 saves are kept. The host stamp does not move for these two changes.

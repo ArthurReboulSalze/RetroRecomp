@@ -104,13 +104,26 @@ def record_candidate_validation(project,candidate,notice,checks):
     return validation
 
 
+def cpu_share(parallel_games=1) -> int:
+    """Host CPUs one conversion may keep busy with its own probes: all of them when it converts alone, its share of a
+    batch otherwise (`platforms.compilation_budget`; `parallel_games` also covers a caller that set no budget), at most
+    eight (a probe is a single-threaded game process)."""
+    from .platforms import available_cpus, game_cpu_share
+    return max(1,min(8,game_cpu_share(),available_cpus()//max(1,parallel_games)))
+
+
+def validation_workers(routes: int, parallel_games=1) -> int:
+    """Routes of one conversion replayed together: its CPU share, never more than its routes. Only the schedule changes:
+    every route and check is the same run with the same inputs, so the report fields and hashes do not move."""
+    return max(1,min(int(routes),cpu_share(parallel_games)))
+
+
 def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, cover=None,
              use_cover=True, online_cover=True, boxart_dir=None, icon_tags=True,
              language='en', passes=3, frames=3600, backend='banked', standard_override=None,
              publish_result=True, profile=None, ng_qualification_routes=None, ng_parallel_games=1,
              scan_level=None, emit=print, _rejected=None) -> Path:
     started=time.perf_counter()
-    workers=max(1,min(4,8//max(1,ng_parallel_games)))
     from .scan_levels import neogeo_budget
     level=resolve_scan_level(scan_level)
     scan=neogeo_budget(level)
@@ -145,6 +158,8 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
         ng_qualification_routes=plans
         emit(f'Neo Geo scan level {level}: {scan["route_count"]} reproducible pseudo-random routes of '
              f'{scan["route_frames"]} frames, with a credit, join the qualification routes.')
+    workers=validation_workers(len(extended_routes(game.set_name,ng_qualification_routes,aes=True)),ng_parallel_games)
+    check_workers=cpu_share(ng_parallel_games)
     presentation={'rom_path':path,'export_identity':game.sha256,'cover':cover,
         'use_cover':use_cover,'online_cover':online_cover,'boxart_dir':boxart_dir,'emit':emit,
         'feedback_output':output}
@@ -192,10 +207,10 @@ def _convert(path: Path, *, ng_bios=None, bios=None, title=None, output=None, co
     mode_jobs=min(workers,2) if console_available else 1
     with stages.phase('state_checks'), ThreadPoolExecutor(max_workers=mode_jobs) as pool:
         mvs=pool.submit(check_states,packed,project/'state-checks',warmups=warmups,
-            input_script=state_script,require_native=False,workers=max(1,workers//mode_jobs))
+            input_script=state_script,require_native=False,workers=max(1,check_workers//mode_jobs))
         aes=pool.submit(check_states,packed,project/'aes-state-checks',warmups=(30,4500),
             input_script=project/'native-discovery/aes-play.inputs',require_native=False,
-            workers=max(1,workers//mode_jobs),mode='aes') if console_available else None
+            workers=max(1,check_workers//mode_jobs),mode='aes') if console_available else None
         states=mvs.result()
         if aes:states['aes']=aes.result()
     timings['state_checks']=round(time.perf_counter()-phase,3);phase=time.perf_counter()

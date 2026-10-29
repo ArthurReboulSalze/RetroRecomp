@@ -53,7 +53,8 @@ the qualification routes reach, translates it, and compares every route with the
 packed executable that will be delivered: CPU registers and clocks, RAM, image
 and PCM must agree. It then checks fresh-process quick states, damaged-state
 rejection and ordinary saves, for MVS and, where available, AES. No comparison
-is waived because the game is in the shared bank. The report keeps both
+is waived because the game is in the shared bank. The probes of a conversion run as many at a time as its
+CPU share allows (one per route, at most eight; a batch keeps its per-game share), which changes the schedule and nothing else. The report keeps both
 interpreter counters, the internal agreement and the limits apart
 (`retrorecomp/report_schema.py`).
 **Options → Neo Geo → Discovery scan**: the qualification routes are the
