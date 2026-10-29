@@ -696,6 +696,10 @@
     "interpreter_handoffs": 0,
     "interpreter_instructions": 0,
     "interpreter_percent": null,
+    "ram_single_step_cycles": 0,
+    "ram_single_step_instructions": 0,
+    "ram_stub_cycles": 0,
+    "ram_stub_instructions": 0,
     "scenario": "boot",
     "trace_entries_bytes": 0
    }
@@ -766,11 +770,15 @@
     "interpreter_handoffs": 0,
     "interpreter_instructions": 0,
     "interpreter_percent": null,
+    "ram_single_step_cycles": 0,
+    "ram_single_step_instructions": 0,
+    "ram_stub_cycles": 0,
+    "ram_stub_instructions": 0,
     "scenario": "play_r",
     "trace_entries_bytes": 0
    }
   },
-  "gb_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything",
+  "gb_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything",
   "nes_probe": {
    "calls": [
     {
@@ -930,7 +938,7 @@
     "raised": "ConversionError"
    }
   },
-  "nes_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace --hash-out <T>/work/boot-native.hash --wav-out <T>/work/boot-native.wav\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --interp-only --hash-out <T>/work/boot-reference.hash --wav-out <T>/work/boot-reference.wav --input <T>/play.inputs\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nx"
+  "nes_validation_log": "\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\n[LIMIT] Reached frame limit 30\n[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace --input <T>/play.inputs\n[LIMIT] Reached frame limit 30\n[RR-RAM] ram_stub_instructions=0 ram_stub_cycles=0 ram_single_step_instructions=0 ram_single_step_cycles=0\n[INTERP] Fallback inventory: sites=0 dropped=0 complete=yes\n[INTERP] No interpreter fallback recorded.\n\n> <T>/game.exe --headless --limit-frames 30 --report-interpreter-hotspots --trace-entries <T>/work/entries.trace\nanything\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --input <T>/play.inputs --miss-log <T>/work/seed.trace --hash-out <T>/work/boot-native.hash --wav-out <T>/work/boot-native.wav\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30 --interp-only --hash-out <T>/work/boot-reference.hash --wav-out <T>/work/boot-reference.wav --input <T>/play.inputs\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nmode=native frames=30 cycles=1000 native_cycles=900\ninterpreted: ROM 50 and RAM 20\n$2000-$7FFF 10\n\n> <T>/work/nes-probe-X/game.exe --frames 30\nx"
  },
  "single_rom": {
   "gb/current/Custom title": {
