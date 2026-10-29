@@ -574,7 +574,7 @@ STRINGS = {
     'size': ('{value} KB', '{value} Ko'),
     'fallback': ('Fallback: {percent:g}% of tested cycles · {comparison}', 'Secours : {percent:g} % des cycles testés · {comparison}'),
     'fallback_cycles': ('Fallback: up to {cycles} interpreter cycles per tested scenario · hardware unverified', 'Secours : jusqu’à {cycles} cycles interprétés par scénario testé · matériel non validé'),
-    'ram_one_by_one': ('{count} RAM instructions executed one by one (not native)', '{count} instructions en RAM exécutées une à une (non natives)'),
+    'ram_one_by_one': ('{count} RAM and high-memory instructions executed one by one (not native)', '{count} instructions en RAM et en mémoire haute exécutées une à une (non natives)'),
     'vdp_equal': ('VDP comparison matches', 'comparaison VDP identique'),
     'vdp_different': ('VDP differences to investigate', 'écarts VDP à examiner'),
     'pick_roms': ('Add ROMs from any console', 'Ajouter des ROMs de toutes consoles'),

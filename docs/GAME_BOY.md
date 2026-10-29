@@ -126,7 +126,8 @@ high-memory stub (`rr_gb_try_highmem_dispatch`). The executor runs one instructi
 opcode by opcode against the interpreter by `tools/gameboy_ram_selftest.py` (177 opcodes, 24 random states, four placements in WRAM
 and HRAM). **That is not native code and not ahead-of-time translation**: it is a per-opcode switch, cheaper than an interpreter
 session, and the ROM routine a trampoline jumps to is native again. `CB`-prefixed opcodes, `HALT`, `STOP`, `RST`, illegal opcodes and
-code spanning two regions still reach the interpreter.
+code spanning two regions still reach the interpreter, except `RST 00` to `RST 38` run from `0xFF00-0xFF7F`, which the pinned
+high-memory stub executes itself (counted in its own pair).
 
 Counting. The executor, the RAM stub and the high-memory stub each count instructions and guest cycles per probe
 (`ram_stub_*`, `ram_single_step_*`, `highmem_stub_*`); the report (schema 2) lists them in
@@ -140,7 +141,7 @@ OAM-DMA wait routine by its bytes and runs it as one helper (its instruction cou
 Donkey Kong Land was the case: trampolines copied from the cartridge into WRAM and patched (`LD HL,nn; CALL/JP`) started interpreter
 sessions (6,350 sessions and 3,160,836 interpreted cycles in the 6,000-frame boot probe, 388 sessions and 141,688 cycles in the varied
 probe). With 1.6.4 the interpreter figures are zero in all four probes, the deep CPU comparisons still match, and the one-by-one
-instructions are reported beside them. Wario Land II still has a reported RAM fallback and **was not re-run** for 1.6.4. Details:
+instructions are reported beside them. Wario Land II was re-run for 1.6.5 work on 29 October 2026 (standard scan level, 1,200 frames per probe, empty converter library, one conversion, 610 s): interpreter sessions remain, at three writable-RAM addresses (`D80A`, `D807`, `D83A`, reason `page_not_compiled`), between 165,472 and 278,064 interpreter cycles per scenario, and 87,048 to 106,761 instructions run one by one beside them (`highmem_stub_*` is zero). The deep CPU comparisons match. Not comparable with the 6,000-frame probes of the other cartridges above. Details:
 [journal](GAME_BOY_LOG.md#broader-cartridge-cases--9-october-2026) and "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
 ## In the project
@@ -295,10 +296,10 @@ all gameplay, certify hardware fidelity or measure physical latency.
   Game Boy.
 - **Cold build time** is high for large cartridges: in the parallel batch Wario Land II took about 24 minutes and Pokemon Yellow's
   corrected cold conversion about 23, mostly compiling large generated C files over two passes. Bundled observations avoid
-  rediscovery and another pass but not the first C build. Wario Land II still reports RAM fallback and was not re-run for 1.6.4.
+  rediscovery and another pass but not the first C build. Wario Land II still reports RAM fallback (re-run on 29 October 2026 on an empty library: 610 s of conversion, 438 s of them the C build).
 - **Existing exports** are not replaced; regenerating a cartridge uses the new compiler and runtime adaptations.
-- **Window string.** The window says "RAM instructions executed one by one" although the count also includes `0xFF00-0xFF7F`
-  high-memory instructions; the wording is open.
+- **Window string.** The window says "RAM and high-memory instructions executed one by one (not native)" (in the eight languages
+  since 1.6.5): the count is the sum of the one-by-one executor, the RAM stub and the `0xFF00-0xFF7F` stub, as a maximum over the scenarios.
 
 ## History
 
