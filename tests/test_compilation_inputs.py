@@ -119,9 +119,9 @@ class CompilationInputTests(unittest.TestCase):
                 self.assertEqual(before[system]['build'], after[system]['build'], name)
             for system in set(before) - set(shared):
                 self.assertEqual(before[system], after[system], name)
-        for system, name in adapters.items():
+        for name in sorted(set(adapters.values())):     # one file may serve two consoles
             before = role_stamps()
-            self.write(name, 'a new line of the adapter')
+            self.write(name, 'a new line of the adapter ' + name)
             after = role_stamps()
             for other in before:
                 if adapters.get(other) == name:
