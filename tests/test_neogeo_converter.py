@@ -300,4 +300,21 @@ class NeoGeoConverterTests(unittest.TestCase):
         self.assertEqual(choose_cover(names,'kof99',"The King of Fighters '99"),names[1])
 
 
+    def test_probe_workers_follow_the_cpu_share_and_never_exceed_the_routes(self):
+        """Only the schedule of the validation moves: a conversion alone uses its CPUs (at most eight, one per route), a batch
+        keeps its share, a small machine is not oversubscribed (the previous cap was four whatever the machine)."""
+        from retrorecomp.neogeo_conversion import cpu_share,validation_workers
+        def workers(cpus,budget,routes,games=1):
+            with patch('retrorecomp.platforms.available_cpus',return_value=cpus),                 patch('retrorecomp.platforms.game_cpu_share',return_value=budget if budget is not None else cpus):
+                return validation_workers(routes,games),cpu_share(games)
+        self.assertEqual(workers(24,None,6),(6,8))          # alone on 24 CPUs: one worker per route, checks use eight
+        self.assertEqual(workers(24,None,12),(8,8))         # never more than eight
+        self.assertEqual(workers(4,None,6),(4,4))           # a 4 CPU machine is as before
+        self.assertEqual(workers(2,None,6),(2,2))           # a 2 CPU machine is no longer oversubscribed
+        self.assertEqual(workers(24,3,6,8),(3,3))           # eight games at once on 24 CPUs: three each
+        self.assertEqual(workers(24,None,6,8),(3,3))        # a caller that set no budget still gets its share
+        self.assertEqual(workers(8,1,6,8),(1,1))            # a full batch on 8 CPUs: one each, as before
+        self.assertEqual(workers(24,None,1),(1,8))          # a single route is one worker
+        self.assertEqual(workers(1,None,5),(1,1))
+
 if __name__=='__main__':unittest.main()
