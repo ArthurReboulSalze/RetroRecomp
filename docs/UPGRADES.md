@@ -447,8 +447,9 @@ a conversion of Blockout compared with the tree before the change (`tools/ab_con
 identity, the text of the reference interpreter and the step analysis derived from it, with every frame, audio and state hash and
 every report field identical. Checked by the manual total of `RESET` on both paths (`tools/megadrive_cycles_selftest.py`: 132
 clocks, program counter advanced by two) and by a conversion of Boxing Legends of the Ring, which now succeeds (0 interpreted 68000
-instructions and 0 interpreted Z80 cycles on its demo and play routes; the picture and the sound change during them). Gameplay
-beyond those routes is not validated. Dragon's Revenge, which was listed for the same instruction, has not been converted again.
+instructions and 0 interpreted Z80 cycles on its demo and play routes; the picture and the sound change during them). Dragon's Revenge, listed for the same instruction,
+also converts now (same result on its demo and play routes: 0 interpreted 68000 instructions, 0 interpreted Z80 cycles). Gameplay beyond those
+routes is not validated for either.
 
 ## Mega Drive on Windows: ThinLTO and a clang profile (1.6.5)
 
