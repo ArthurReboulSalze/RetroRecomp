@@ -638,14 +638,14 @@ class AbToolTests(unittest.TestCase):
         self.assertNotIn('discovery/build/cache.txt', gathered[0]['projects'][names[0]])
         self.assertIn(f'{"m" * 16}/qa-<X>/reference/result.json', gathered[0]['projects'][names[0]])
 
-    def test_an_x68000_state_is_compared_without_its_checksum_and_its_uninitialised_padding(self):
+    def test_an_x68000_state_is_compared_without_its_checksum_and_nothing_else_of_the_payload(self):
         from tools import ab_conversion as ab
         normaliser = ab.Normaliser({})
-        size = ab.X68_STATE_PADDING.stop + 4096
+        size = 17186640 + 4096
         base = bytearray(b'RRX68KS1' + bytes(size - 8))
         paths = []
-        for name, changes in (('one', {}), ('two', {164: 9, ab.X68_STATE_PADDING.start + 100: 7, ab.X68_STATE_PADDING.stop - 1: 1}),
-                              ('other', {ab.X68_STATE_PADDING.stop + 10: 1}), ('key', {100: 5})):
+        # The window of the OPM section that carried heap garbage before 1.6.3 is compared like the rest of the payload.
+        for name, changes in (('one', {}), ('two', {164: 9}), ('other', {17184896 + 100: 7}), ('key', {100: 5})):
             data = bytearray(base)
             for position, value in changes.items():
                 data[position] = value

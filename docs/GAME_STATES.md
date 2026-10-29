@@ -121,6 +121,15 @@ not machine save data. On load, queued host sound is cleared and pacing and
 autofire phases restart; current physical inputs remain current. Interpreter
 and execution counters stay cumulative, so rewinding cannot hide fallback use.
 
+**Nothing uninitialised is written (X68000, 1.6.3).** Every byte of a quick state is a value of the machine: two states of
+the same game at the same moment are byte-identical. Up to 1.6.2 an X68000 state was not: the FM chip (`new MyOPM()` in the
+pinned fmgen) was allocated from the heap without being cleared, fmgen's constructors and `Reset` leave members of its
+operators and channels untouched, and the serializer saved them, so a window of about 1.7 KB of the OPM section held
+leftovers of the process's heap, pieces of its environment text among them (the `PATH`). The chip's storage is now zeroed
+when it is allocated (`tools/x68000_base74.py`, `adapt_fmg_wrap`); the layout and the size of the state do not change, and
+the X68000 state key moves (X68000 states are refused between releases, as the tables below show). The other consoles' state
+writers were read for the same pattern ([UPGRADES.md](UPGRADES.md#x68000-exports-in-163-host-kit-phase-3)).
+
 ## Validation and limits
 
 `python tools/gamestate_selftest.py` uses an authored ROM, without SDL video,
