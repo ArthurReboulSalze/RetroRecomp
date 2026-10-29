@@ -78,6 +78,11 @@ that converts a real game needs the player's own ROM, outside the repository.
 - **A new machine** follows [NEW_MACHINE.md](NEW_MACHINE.md): experimental
   profile first, then the checklist in [QUALIFICATION.md](QUALIFICATION.md).
   `tests/test_machine_registry.py` lists the registries a new machine must join.
+- **Upstream pins are tracked in one place.** Each machine declares its upstreams in
+  `retrorecomp/upstreams.py`; [UPSTREAMS.md](UPSTREAMS.md) has the table, the rules
+  (bump a pin or carry a fix as our patch) and the review record;
+  `python -B tools/check_upstreams.py` shows where each upstream stands.
+  `tests/test_upstreams.py` fails when a pin is missing from the page.
 - Text files are LF (`.gitattributes`). A user-visible string is translated in
   the eight interface languages; characters must exist in the font subsets
   (`tests/test_languages.py` checks this).
@@ -88,4 +93,4 @@ that converts a real game needs the player's own ROM, outside the repository.
 [README](../README.md) · [CONTRIBUTING](../CONTRIBUTING.md) ·
 [INDEX.md](INDEX.md) · [STANDARDS.md](STANDARDS.md) ·
 [HOST_KIT.md](HOST_KIT.md) · [COMPILATION_LIBRARY.md](COMPILATION_LIBRARY.md) ·
-[UPGRADES.md](UPGRADES.md)
+[UPGRADES.md](UPGRADES.md) · [UPSTREAMS.md](UPSTREAMS.md)

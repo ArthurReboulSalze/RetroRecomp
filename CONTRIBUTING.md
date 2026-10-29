@@ -31,6 +31,9 @@ never ROM bytes.
 - A file is published only if it is on the explicit list in
   `tools/prepare_publication.py` (and, under `docs/`, un-ignored in
   `.gitignore`).
+- Pinned upstream repositories (revisions, licences, how to check them and when to move a pin) are
+  tracked in [docs/UPSTREAMS.md](docs/UPSTREAMS.md); a new machine declares its upstreams in
+  `retrorecomp/upstreams.py`.
 - Coding assistants: [docs/AGENTS_GUIDE.md](docs/AGENTS_GUIDE.md) is the short
   map and list of pitfalls.
 

@@ -71,6 +71,7 @@ docs/*
 !docs/RUNTIME_FEEDBACK.md
 !docs/COMPILED_GAMES.md
 !docs/UPGRADES.md
+!docs/UPSTREAMS.md
 !docs/BUILDING.md
 !docs/INSTALLING.md
 !docs/LINUX.md

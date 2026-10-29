@@ -128,7 +128,7 @@ alignments, lengths, caps: reuse the shapes of the CPU, add one only for a new k
 `LEGACY_FIELDS` (schema 1 is closed) or to `SHARED_SYSTEMS` (see "Experimental, then supported"). Gate: G16 later.
 
 **5. Recompiler and runtime.** The machine's own `<module>_conversion.py` (+ `_codegen`, `_build`), pinned engine revision, build through
-`toolchain.py`. Reuse by CPU below. The counters of the interpreter fallback are per CPU and per cartridge device, in one unit
+`toolchain.py`. Reuse by CPU below. Declare the machine's upstream repositories (engine, reference CPU, libraries, test vectors) in `retrorecomp/upstreams.py` (`MACHINE_UPSTREAMS[<id>]`, or a reason in `NO_UPSTREAM`; an upstream another machine already uses is listed under it too) and add its rows to the two tables of [UPSTREAMS.md](UPSTREAMS.md); `tests/test_upstreams.py` fails otherwise. The module is an interface module of the stamps, so declaring moves no stamp. The counters of the interpreter fallback are per CPU and per cartridge device, in one unit
 (`Cpu.unit`), never added across CPUs. Gates: G3, G4, G10.
 
 **6. Host kit.** If the machine fits the 16-bit contract: `native/hostkit/adapters/rrhk_<id>.c` (action table, players, the
@@ -197,7 +197,7 @@ status and CPU declarations; `ROM_CANDIDATE_EXTENSIONS`; the derived lists (`sca
 (`SYSTEMS`, `SYSTEM_SECTIONS`, `PROFILES`, `SOURCE_BOUNDS`); `report_schema._SHAPES` equal to the profile's CPUs; the stamp manifest (profile
 module listed, stamps computable, kit adapter for `rr16`); the firmware options in the command line, preferences and window; the tab and scan
 note in `i18n` and in the six locale files; the tab in `gui_options.py`; `status_lint`, README, COMPATIBILITY, the QUALIFICATION column,
-`PUBLIC_FILES`; `release_check`, `campaign`, risk cases, `std_baseline`. Registries a machine may decline (random routes, artwork,
+`PUBLIC_FILES`; `release_check`, `campaign`, risk cases, `std_baseline`; `tests/test_upstreams.py` checks that the machine declares its upstreams and that each pin is on the [UPSTREAMS.md](UPSTREAMS.md) page. Registries a machine may decline (random routes, artwork,
 memory view) are listed in `DECLINED` with the reason, in the same change. Only for `supported`: Linux witness, shared knowledge, four risk
 cases, no failed gate. Synthetic profiles prove each gap is found.
 
