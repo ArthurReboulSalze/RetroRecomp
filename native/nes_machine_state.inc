@@ -1,7 +1,9 @@
 /* Included in the staged hw_machine.c. Snapshots contain no cartridge ROM,
  * pointers, native dispatch addresses, or host input/audio/window handles.
- * Chip layouts are deliberately ABI-bound; incompatible generations fail
- * before touching the running machine. This is a local quick-state format. */
+ * Every structure is written field by field (nes_state_main.inc, generated from
+ * the definitions below and the engine's), so no compiler padding reaches the
+ * file and every byte of it is defined. Incompatible generations fail before
+ * touching the running machine. This is a local quick-state format. */
 #include "nes_state_abi.h"
 #include "retro_nes_config.h"
 #include "cpu6502.h"
@@ -49,6 +51,7 @@ typedef struct {
     int32_t dma_stalls;
     uint16_t image[256 * 240];
 } RrMachineState;
+#include "nes_state_main.inc"
 static const char *state_error = "";
 const char *rr_nes_state_error(void) { return state_error; }
 static uint32_t state_crc(const uint8_t *data, size_t size) {
@@ -60,20 +63,24 @@ static uint32_t state_crc(const uint8_t *data, size_t size) {
     return ~crc;
 }
 size_t rr_nes_state_size(void) {
-    return sizeof(RrStateHeader) + sizeof(RrMachineState) + hw_cart.chr_ram_len +
+    return rr_size_RrStateHeader() + rr_size_RrMachineState() + hw_cart.chr_ram_len +
            rr_nes_apu_size() + rr_nes_mapper_audio_size();
+}
+static bool cart_info_equal(const NesCartInfo *a, const NesCartInfo *b) {
+    uint8_t x[128], y[128];
+    if (rr_size_NesCartInfo() > sizeof x) return false;
+    rr_ser_NesCartInfo(x, a); rr_ser_NesCartInfo(y, b);
+    return memcmp(x, y, rr_size_NesCartInfo()) == 0;
 }
 bool rr_nes_state_save(void *buffer, size_t size) {
     rr_ppu_sync();
     if (!buffer || size != rr_nes_state_size()) { state_error = "Could not create quick state"; return false; }
     uint8_t *bytes = (uint8_t *)buffer;
-    memset(bytes, 0, size);
-    /* Every byte of the file is defined: the header's compiler padding is
-     * zeroed explicitly (`= {0}` does not promise it) and every member is
-     * copied byte for byte into a zeroed record. */
+    /* Every byte of the file is written by a field serialiser, one after the
+     * other: the cursor must end exactly at `size`. Nothing is zero-filled first. */
     RrStateHeader header;
     memset(&header, 0, sizeof header);
-    memcpy(header.magic, "RRNESST1", 8);
+    memcpy(header.magic, "RRNESST2", 8);
     memcpy(header.abi, RR_NES_STATE_ABI, 65);
     memcpy(header.rom, RR_NES_ROM_SHA, 65);
     header.bytes = (uint32_t)size; header.pal = RR_NES_PAL; header.gun = RR_NES_ZAPPER;
@@ -85,13 +92,14 @@ bool rr_nes_state_save(void *buffer, size_t size) {
     memcpy(&s->gun, &zapper, sizeof(zapper)); s->frame_done = hw_frame_done; s->dma_stalls = hw_dma_stalls;
     rr_nes_ppu_aux_save(s->ppu_aux);
     memcpy(s->image, hw_frame_index, sizeof(s->image));
-    size_t pos = sizeof(header);
-    memcpy(bytes + pos, s, sizeof(*s)); pos += sizeof(*s); free(s);
-    memcpy(bytes + pos, hw_cart.chr + hw_cart.chr_ram_base, hw_cart.chr_ram_len); pos += hw_cart.chr_ram_len;
-    rr_nes_apu_save(bytes + pos); pos += rr_nes_apu_size();
-    rr_nes_mapper_audio_save(bytes + pos);
-    header.checksum = state_crc(bytes + sizeof(header), size - sizeof(header));
-    memcpy(bytes, &header, sizeof(header));
+    const size_t head = rr_size_RrStateHeader();
+    uint8_t *cursor = rr_ser_RrMachineState(bytes + head, s); free(s);
+    memcpy(cursor, hw_cart.chr + hw_cart.chr_ram_base, hw_cart.chr_ram_len); cursor += hw_cart.chr_ram_len;
+    rr_nes_apu_save(cursor); cursor += rr_nes_apu_size();
+    rr_nes_mapper_audio_save(cursor); cursor += rr_nes_mapper_audio_size();
+    if (cursor != bytes + size) { state_error = "Could not create quick state"; return false; }
+    header.checksum = state_crc(bytes + head, size - head);
+    rr_ser_RrStateHeader(bytes, &header);
     state_error = "Quick state saved";
     return true;
 }
@@ -100,15 +108,15 @@ bool rr_nes_state_load(const void *buffer, size_t size) {
     if (!buffer || size != rr_nes_state_size()) return false;
     const uint8_t *bytes = (const uint8_t *)buffer;
     RrStateHeader h;
-    memcpy(&h, bytes, sizeof(h));
-    if (memcmp(h.magic, "RRNESST1", 8) || memcmp(h.abi, RR_NES_STATE_ABI, 65) ||
+    const size_t head = rr_size_RrStateHeader();
+    rr_de_RrStateHeader(bytes, &h);
+    if (memcmp(h.magic, "RRNESST2", 8) || memcmp(h.abi, RR_NES_STATE_ABI, 65) ||
             memcmp(h.rom, RR_NES_ROM_SHA, 65) || h.pal != RR_NES_PAL || h.gun != RR_NES_ZAPPER ||
-            h.bytes != size || h.checksum != state_crc(bytes + sizeof(h), size - sizeof(h))) return false;
-    RrMachineState *s = (RrMachineState *)malloc(sizeof(*s));
+            h.bytes != size || h.checksum != state_crc(bytes + head, size - head)) return false;
+    RrMachineState *s = (RrMachineState *)calloc(1, sizeof(*s));
     if (!s) return false;
-    memcpy(s, bytes + sizeof(h), sizeof(*s));
-    bool valid = !s->cart.prg && !s->cart.chr &&
-        memcmp(&s->cart.info, &hw_cart.info, sizeof(hw_cart.info)) == 0 &&
+    rr_de_RrMachineState(bytes + head, s);
+    bool valid = cart_info_equal(&s->cart.info, &hw_cart.info) &&
         s->cart.prg_len == hw_cart.prg_len && s->cart.prg_slots == hw_cart.prg_slots &&
         s->cart.chr_len == hw_cart.chr_len && s->cart.chr_pages == hw_cart.chr_pages &&
         s->cart.chr_ram_base == hw_cart.chr_ram_base && s->cart.chr_ram_len == hw_cart.chr_ram_len &&
@@ -126,7 +134,7 @@ bool rr_nes_state_load(const void *buffer, size_t size) {
             s->cart.chr_off[i] < hw_cart.chr_pages * 1024 + hw_cart.chr_ram_len;
     }
     for (size_t i = 0; i < 256 * 240; i++) valid &= s->image[i] < 512;
-    size_t pos = sizeof(h) + sizeof(*s) + hw_cart.chr_ram_len + rr_nes_apu_size();
+    size_t pos = head + rr_size_RrMachineState() + hw_cart.chr_ram_len + rr_nes_apu_size();
     valid &= rr_nes_mapper_audio_check(bytes + pos);
     if (!valid) { free(s); return false; }
     /* All checks complete. No partial restore is visible on any failure. */
@@ -134,7 +142,7 @@ bool rr_nes_state_load(const void *buffer, size_t size) {
     cpu = s->processor; hw = s->machine; hw_cart = s->cart; ppu = s->video;
     zapper = s->gun; hw_frame_done = s->frame_done != 0; hw_dma_stalls = s->dma_stalls;
     rr_nes_ppu_aux_load(s->ppu_aux); memcpy(hw_frame_index, s->image, sizeof(s->image));
-    pos = sizeof(h) + sizeof(*s); free(s);
+    pos = head + rr_size_RrMachineState(); free(s);
     memcpy(hw_cart.chr + hw_cart.chr_ram_base, bytes + pos, hw_cart.chr_ram_len); pos += hw_cart.chr_ram_len;
     rr_nes_apu_load(bytes + pos); pos += rr_nes_apu_size();
     rr_nes_mapper_audio_load(bytes + pos);

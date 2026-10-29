@@ -197,8 +197,8 @@ native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
 retrorecomp/gameboy_hardware.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
-retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/systems/nes.py tests/test_nes.py
-tests/test_nes_ram.py
+retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/nes_state_layout.py retrorecomp/systems/nes.py tests/test_nes.py
+tests/test_nes_ram.py tests/test_nes_state_layout.py
 native/CMakeLists.txt native/banked_cpu_checks.c native/banked_dispatch.c
 native/banked_emitter.inc native/banked_runtime.inc native/banked_vectors.c
 native/host_checks.c

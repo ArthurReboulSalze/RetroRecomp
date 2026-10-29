@@ -280,13 +280,26 @@ evidence; it does not certify every gameplay path or host display timing.
 
 **F8 saves and F9 loads**, including after closing and reopening the game.
 One slot lives in `datas/states/<game-slug>-<rom-sha12>.rrstate`, around
-322–334 KiB for the checked configurations. It captures CPU, RAM, PPU,
+266–270 KiB for the checked configurations (the header says `RRNESST2`). It captures CPU, RAM, PPU,
 mapper, CHR RAM, APU and mapper audio, including VRC7, and Zapper sensor state.
 The format binds the exact ROM, video mode and runtime ABI, with CRC32
 corruption checks. It excludes ROM, native addresses and host pointers.
+Every structure is written field by field, one after the other, in little-endian
+order and with fixed-size types, so no compiler padding reaches the file and every
+byte of it is defined by construction. `retrorecomp/nes_state_layout.py` writes
+these serialisers from the struct definitions of the staged engine (CPU, bus,
+cartridge, PPU, APU, audio and the VRC7 chip): a pointer, a bit-field or a type
+whose size depends on the compiler stops the staging instead of being copied,
+and the few members left out (host pointers, the queued host audio) are listed
+there with the reason. The ABI key is a hash of the staged engine, the state
+sources and these serialisers; it does not depend on the folder the game is
+built in, so two builds of the same game in different folders have the same key.
 Compatible recompilation can retain a slot; changed machine code/layout may
 invalidate it. A failed or incompatible load leaves the running state intact.
 Queued host audio is discarded; fallback counters remain cumulative.
+
+States written before 1.6.5 (`RRNESST1`, a raw copy of the structures) are
+refused cleanly, not misread: the layout and the key both changed.
 
 Invalid magic, ABI, ROM identity, region, payload and truncated states are
 rejected without rewriting the valid or rejected file. Opening/closing a game or
@@ -456,12 +469,11 @@ The risk cases that campaigns should always include (`tools/campaign-risk-cases.
 - Open bus, unobserved RAM opcodes and unsupported memory windows retain counted interpreter
   fallback; the Zelda case (2.91 %, below `$8000`) predates the guarded-RAM work.
 - Mapper 40 has no retail qualification; the X1-017 IRQ circuitry is not modelled.
-- The runtime ABI string of the quick state hashes the staged engine files, and one of them
-  (`cyc.cmake`) contains the path of the project folder; the state key is therefore not
-  reproducible across build folders. A slot stays valid for the executable that wrote it.
-- The quick state writes the engine's cartridge, PPU and machine structures as raw memory images
-  (pointers cleared); their padding is zero because the buffer is cleared at allocation, not
-  because it is serialised field by field.
+- A quick state holds one slot per game and is tied to the ABI key of the build that wrote it:
+  a game rebuilt with changed machine code or layout refuses the old slot (cleanly, nothing is
+  misread). States of releases before 1.6.5 (`RRNESST1`) are always refused.
+- The quick state does not carry the queued host audio or any host pointer; the audio output
+  restarts empty after a load.
 - Famicom Disk System images are not supported.
 - All scripted paths are startup and input scripts, not complete playthroughs. Native coverage,
   CPU differential, hardware fidelity, gameplay and physical latency remain separate evidence
