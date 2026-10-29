@@ -202,9 +202,9 @@ endif()
     if mapper is not None:
         if not 0 <= mapper <= 4095:
             raise ValueError('Invalid compiled NES mapper identity.')
-        cmake += f'''if(UNIX AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    set_property(SOURCE ${{NESRECOMP_CYC_SOURCES}} APPEND PROPERTY COMPILE_DEFINITIONS RR_NES_STATIC_MAPPER={mapper})
-endif()
+        # The cartridge's mapper number is fixed at load, and the loader refuses any other: the engine reads it
+        # as a constant, whatever the compiler (it was GNU C on Linux only before 1.6.5).
+        cmake += f'''set_property(SOURCE ${{NESRECOMP_CYC_SOURCES}} APPEND PROPERTY COMPILE_DEFINITIONS RR_NES_STATIC_MAPPER={mapper})
 '''
     (project / 'CMakeLists.txt').write_text(cmake, encoding='utf-8')
     from .feedback import stage
