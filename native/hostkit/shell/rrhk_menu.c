@@ -76,7 +76,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         /* the machine drew a whole page of its own (X68000: Tab) */
     } else if (rrhk.menu == RRHK_MENU_HELP) {
         /* One line per function key, then the console's own controls. */
-        const char *lines[14]; int count = 0;
+        const char *lines[16]; int count = 0;
         char fire[64];
         snprintf(fire, sizeof(fire), rr_tr("F6  Autofire: %s"), rr_tr(rrhk.autofire ? "ON" : "OFF"));
         lines[count++] = rr_tr("F1  Help | Shift+F1 Restart");
@@ -89,6 +89,7 @@ void rrhk_menu_draw(SDL_Renderer *ren) {
         lines[count++] = rr_tr("F8  Save game state");
         lines[count++] = rr_tr("F9  Load game state");
         if (m->help_lines) m->help_lines(1, lines, &count);
+        lines[count++] = rr_tr("Tab  Fast-forward | `  Max speed | M  Mute");   /* decision D12: on every console */
         lines[count++] = rr_feedback_label();
         lines[count++] = rrhk_tr("Esc  Quit (close menus first)", "Echap  Quitter (fermer les menus)");
         int y = RR_MENU_FIRST_LINE;

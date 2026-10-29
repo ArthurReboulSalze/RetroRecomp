@@ -20,6 +20,7 @@ void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, 
     (void)pcm; (void)frames; (void)channels; (void)floating; (void)rate;
 }
 void rrhk_options_audio_reset(void) {}
+const char *rrhk_audio_device(void) { return NULL; }
 
 static int16_t sample(uint64_t index) { return (int16_t)(index * 173u + 19u); }
 static void reset(unsigned period, SDL_AudioFormat format) {

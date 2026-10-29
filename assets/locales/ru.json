@@ -880,6 +880,16 @@
     "None": "Нет",
     "%s (disconnected)": "%s (отключён)",
     "No gamepad for player %d": "Нет геймпада для игрока %d",
-    "Enter: change gamepad | Delete: Automatic": "Enter: сменить геймпад | Delete: Авто"
+    "Enter: change gamepad | Delete: Automatic": "Enter: сменить геймпад | Delete: Авто",
+    "Maximum speed ON": "Макс. скорость ВКЛ",
+    "Maximum speed OFF": "Макс. скорость ВЫКЛ",
+    "Sound muted": "Звук выключен",
+    "Sound on": "Звук включён",
+    "Volume: %s": "Громкость: %s",
+    "M Sound: %s": "M Звук: %s",
+    "Output device: %s": "Устройство вывода: %s",
+    "System default": "По умолчанию",
+    "` Max speed: %s": "` Макс. скорость: %s",
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  Ускорение | `  Макс. | M  Без звука"
   }
 }

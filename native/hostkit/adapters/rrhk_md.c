@@ -58,6 +58,21 @@ static void timing_report(FILE *file, Uint64 frequency) {
         (double)wait / frequency, (double)pull / frequency, (unsigned long long)calls, (unsigned long long)stretches);
 }
 
+/* The engine's sound is its own device (own_audio). The kit's sound stage (volume, mute, audio filter, decision D12) runs on what
+ * the engine's callback gives the device, and the output the player chose is the one the engine opens (megadrive_audio.py). */
+extern void (*rr_md_audio_stage)(void *pcm, unsigned frames, int channels, int floating, int rate);
+extern const char *rr_md_audio_device_name;
+extern int rr_md_audio_reopen(void);
+void rrhk_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate);
+static void sound_ready(void) {
+    rr_md_audio_device_name = rrhk_audio_device();
+    rr_md_audio_stage = rrhk_options_audio;
+}
+static bool audio_reopen(void) {
+    rr_md_audio_device_name = rrhk_audio_device();
+    return rr_md_audio_reopen() != 0;
+}
+
 static void help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
     (void)ui;
     if (RR16_GUN) {
@@ -104,6 +119,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .pointer_input = pointer_input,
             .page = RR16_GUN ? &rrhk_pointer_page : NULL,
             .help_controls = help_controls, .timing_report = timing_report,
+            .sound_ready = sound_ready, .audio_reopen = audio_reopen,
         };
     }
     return &machine;

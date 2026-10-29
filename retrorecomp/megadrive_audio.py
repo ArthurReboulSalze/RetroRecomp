@@ -20,11 +20,17 @@ def output(source: str) -> str:
  * synchronization. The existing SDL device lock protects callback counters. */
 static int rr_md_audio_timed;
 static Uint64 rr_md_audio_lock_ticks,rr_md_audio_pull_ticks,rr_md_audio_pulls;
+/* The host kit's sound stage (volume, mute, audio filter) runs on what the device is given, and the host asks for the
+ * output device by name: both are set by the host adapter, NULL until it does. */
+void (*rr_md_audio_stage)(void *pcm,unsigned frames,int channels,int floating,int rate);
+const char *rr_md_audio_device_name;
+static int rr_md_psg_rate,rr_md_device_rate;
 static void genesis_audio_callback(void *user, Uint8 *stream, int len)''')
     replace('    rab_pull(&s_bridge, (int16_t *)stream, frames);',
         '''    Uint64 started=rr_md_audio_timed?SDL_GetPerformanceCounter():0;
     rab_pull(&s_bridge, (int16_t *)stream, frames);
-    if(started) {rr_md_audio_pull_ticks+=SDL_GetPerformanceCounter()-started;++rr_md_audio_pulls;}''')
+    if(started) {rr_md_audio_pull_ticks+=SDL_GetPerformanceCounter()-started;++rr_md_audio_pulls;}
+    if(rr_md_audio_stage) rr_md_audio_stage(stream,(unsigned)frames,2,0,rr_md_device_rate);''')
     replace('int audio_init(int psg_sample_rate)\n{',
         '''int audio_init(int psg_sample_rate)
 {
@@ -43,6 +49,7 @@ static void genesis_audio_callback(void *user, Uint8 *stream, int len)''')
         '    cfg.preroll_ms = 25.0;\n'
         '    if (cfg.ring_ms < 230.0) cfg.ring_ms = 230.0; /* room for the adaptive reserve */')
     replace('    s_bridge_ready   = 1;',
+        '    rr_md_device_rate = got.freq; rr_md_psg_rate = psg_sample_rate;\n'
         '    s_bridge_ready   = 1;\n'
         '    rr_md_target_base = s_bridge.cfg.target_ms; rr_md_high_base = s_bridge.cfg.em_high_ms;\n'
         '    memset(&rr_md_cushion, 0, sizeof(rr_md_cushion));')
@@ -55,7 +62,15 @@ static void genesis_audio_callback(void *user, Uint8 *stream, int len)''')
         s_prev_underruns = bst.underrun_events;
     }''')
     replace('int audio_init(int psg_sample_rate)\n{',
-        '''static RrAudioCushion rr_md_cushion;
+        '''/* The device the host asked for, or the system default when there is none or it cannot be opened. */
+static SDL_AudioDeviceID rr_md_audio_open(const SDL_AudioSpec *want, SDL_AudioSpec *have) {
+    SDL_AudioDeviceID id = rr_md_audio_device_name ?
+        SDL_OpenAudioDevice(rr_md_audio_device_name, 0, want, have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE) : 0;
+    if (rr_md_audio_device_name && !id)
+        fprintf(stderr, "[host] audio device '%s' cannot be opened: %s; using the system default\\n", rr_md_audio_device_name, SDL_GetError());
+    return id ? id : SDL_OpenAudioDevice(NULL, 0, want, have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+}
+static RrAudioCushion rr_md_cushion;
 static double rr_md_target_base, rr_md_high_base;
 static void rr_md_apply_cushion(void) {
     SDL_LockAudioDevice(s_dev);
@@ -65,7 +80,15 @@ static void rr_md_apply_cushion(void) {
 }
 int audio_init(int psg_sample_rate)
 {''')
+    replace('    s_dev = SDL_OpenAudioDevice(NULL, 0, &want, &got,\n                                SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);',
+            '    s_dev = rr_md_audio_open(&want, &got);')
     source+='''
+/* The player chose another output device: the engine's sound closed and opened again on it, from an empty ring. */
+int rr_md_audio_reopen(void) {
+    if(!s_dev) return 0;
+    audio_close();
+    return audio_init(rr_md_psg_rate)==0;
+}
 void rr_md_audio_delivery_timing(uint64_t *wait,uint64_t *pull,uint64_t *calls,uint64_t *stretches) {
     if(s_dev)SDL_LockAudioDevice(s_dev);
     *wait=rr_md_audio_lock_ticks;*pull=rr_md_audio_pull_ticks;*calls=rr_md_audio_pulls;

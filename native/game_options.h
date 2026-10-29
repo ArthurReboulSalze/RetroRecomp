@@ -25,6 +25,12 @@ static struct {
     wchar_t file[32768], dir[32768], section[64];
     SDL_atomic_t audio_mode;
     SDL_atomic_t audio_epoch;
+    /* Sound controls of every console (docs/HOST_KIT.md, decision D12): the volume in percent (0..200), the mute, the
+     * speed hold (the speed is not 100%: the sound is dropped by the producers and silent here) and the output device
+     * asked for ("" is the system default). The device name is written by the main thread only; the serial moves when
+     * it changes. The three numbers are read by the audio callback. */
+    SDL_atomic_t volume, muted, speed_held, device_serial;
+    char device[256];
     int key[3], pad, row, capture, armed, pending_key[3], count;
     Uint32 pending_pad;
     SDL_JoystickID capture_pad;
@@ -72,6 +78,7 @@ static void rr_options_init(const wchar_t *console) {
     memset(&rr_options, 0, sizeof rr_options);
     memset(&rr_options_dsp, 0, sizeof rr_options_dsp);
     rr_options_audio_epoch = 0;
+    SDL_AtomicSet(&rr_options.volume, 100);
     rr_options.focused = 1;
     rr_options.pad = (int)RR_OPTIONS_QUIT_PAD; rr_options.rpad = (int)RR_OPTIONS_RESTART_PAD;
     for (int i = 0; i < 4; ++i) rr_options.pads[i].id = -1;
@@ -114,10 +121,96 @@ static bool rr_options_store(const wchar_t *entry, int value) {
     return ok;
 }
 
-/* Called only by the PCM consumer. Mode is the sole cross-thread field. */
+/* ---- The sound controls of every console: volume, mute, output device (decision D12) ----
+ * They are kept in `[<Console>.Options]` as audio_volume (0..200), audio_muted (0 or 1) and audio_device (the name SDL gives
+ * the device, empty for the system default). Every console's output goes through rr_options_audio below. */
+#define RR_VOLUME_MAX 200
+#define RR_VOLUME_STEP 10
+#define RR_DEVICE_MAX 16
+static bool rr_options_store_text(const wchar_t *entry, const char *utf8) {
+    wchar_t text[300];
+    bool ok = rr_from_utf8(utf8, text, 300) && rr_options.file[0] && rr_mkdir(rr_options.dir) &&
+        rr_ini_set(rr_options.section, entry, text, rr_options.file);
+    snprintf(rr_options.status, sizeof rr_options.status, "%s", rr_tr(ok ? "Settings saved" : "Config unavailable"));
+    return ok;
+}
+/* The values read at start (by the host, from the preferences or from the machine's former file). */
+static void rr_sound_load(int volume, int muted, const char *device) {
+    SDL_AtomicSet(&rr_options.volume, volume < 0 ? 0 : volume > RR_VOLUME_MAX ? RR_VOLUME_MAX : volume);
+    SDL_AtomicSet(&rr_options.muted, muted != 0);
+    snprintf(rr_options.device, sizeof rr_options.device, "%s", device ? device : "");
+}
+static int rr_sound_volume(void) {return SDL_AtomicGet(&rr_options.volume);}
+static bool rr_sound_muted(void) {return SDL_AtomicGet(&rr_options.muted) != 0;}
+static void rr_sound_set_volume(int volume) {
+    volume = volume < 0 ? 0 : volume > RR_VOLUME_MAX ? RR_VOLUME_MAX : volume;
+    if (rr_options_store(L"audio_volume", volume)) SDL_AtomicSet(&rr_options.volume, volume);
+}
+static bool rr_sound_toggle_mute(void) {
+    const int muted = !rr_sound_muted();
+    if (rr_options_store(L"audio_muted", muted)) SDL_AtomicSet(&rr_options.muted, muted);
+    return rr_sound_muted();
+}
+/* The output devices SDL lists now (none before the audio subsystem is started), at most RR_DEVICE_MAX. */
+static int rr_sound_devices(char names[][256]) {
+    if (!(SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO)) return 0;
+    int total = SDL_GetNumAudioDevices(0), count = 0;
+    for (int i = 0; i < total && count < RR_DEVICE_MAX; ++i) {
+        const char *name = SDL_GetAudioDeviceName(i, 0);
+        if (name && name[0]) snprintf(names[count++], 256, "%s", name);
+    }
+    return count;
+}
+static const char *rr_sound_device(void) {return rr_options.device;}
+static unsigned rr_sound_device_serial(void) {return (unsigned)SDL_AtomicGet(&rr_options.device_serial);}
+static void rr_sound_set_device(const char *name) {
+    if (!rr_options_store_text(L"audio_device", name)) return;
+    snprintf(rr_options.device, sizeof rr_options.device, "%s", name);
+    SDL_AtomicAdd(&rr_options.device_serial, 1);
+}
+/* The next (or previous) choice of the cycle: the system default, then each device SDL lists. */
+static void rr_sound_cycle_device(int step) {
+    char names[RR_DEVICE_MAX][256];
+    const int count = rr_sound_devices(names);
+    int position = 0;
+    for (int i = 0; i < count && rr_options.device[0]; ++i) if (!strcmp(names[i], rr_options.device)) position = i + 1;
+    position = ((position + step) % (count + 1) + count + 1) % (count + 1);
+    rr_sound_set_device(position ? names[position - 1] : "");
+}
+/* The name on the options page: ASCII only, as the menu font has nothing else. */
+static void rr_sound_device_label(char *out, size_t size) {
+    const char *name = rr_options.device[0] ? rr_options.device : rr_tr("System default");
+    size_t n = 0;
+    for (; *name && n + 1 < size; ++name) out[n++] = (unsigned char)*name >= 32 && (unsigned char)*name < 127 ? *name : '?';
+    out[n] = 0;
+}
+
+/* The volume of the host sound, in percent: 100 leaves the samples as they are (byte for byte), more or less scales them
+ * and clamps, 0 is silence. A multiplication in integers for 16-bit samples, in floating point for the device format F32. */
+static void rr_audio_gain(void *pcm, unsigned frames, int channels, int floating, int volume) {
+    const unsigned count = frames * (unsigned)channels;
+    if (floating) {
+        const float gain = volume / 100.0f;
+        for (unsigned i = 0; i < count; ++i) ((float *)pcm)[i] = SDL_clamp(((float *)pcm)[i] * gain, -1.0f, 1.0f);
+    } else {
+        for (unsigned i = 0; i < count; ++i)
+            ((int16_t *)pcm)[i] = (int16_t)SDL_clamp((int32_t)((int16_t *)pcm)[i] * volume / 100, -32768, 32767);
+    }
+}
+
+/* Called only by the PCM consumer. The mode, the volume, the mute and the hold are the cross-thread fields: the sound
+ * stage runs on every console's output, before the audio filter (the order of the former Game Boy callback). Silence
+ * resets the filter, which starts again from the first sample that follows. */
 static void rr_options_audio(void *pcm, unsigned frames, int channels, int floating, int rate) {
     int epoch = SDL_AtomicGet(&rr_options.audio_epoch);
     if (epoch != rr_options_audio_epoch) {rr_options_dsp.ready = 0; rr_options_audio_epoch = epoch;}
+    const int volume = SDL_AtomicGet(&rr_options.volume);
+    if (volume <= 0 || SDL_AtomicGet(&rr_options.muted) || SDL_AtomicGet(&rr_options.speed_held)) {
+        memset(pcm, 0, (size_t)frames * (size_t)channels * (floating ? sizeof(float) : sizeof(int16_t)));
+        rr_options_dsp.ready = 0;
+        return;
+    }
+    if (volume != 100) rr_audio_gain(pcm, frames, channels, floating, volume);
     rr_audio_filter(pcm, frames, channels, floating, rate,
         SDL_AtomicGet(&rr_options.audio_mode), &rr_options_dsp);
 }
@@ -268,12 +361,14 @@ static const char *rr_combo_hint(int index) {
  * computers, the function-key choice. Each host builds its rows. */
 #define RR_ROW_AUDIO (-1)
 #define RR_ROW_FKEYS (-2)
+#define RR_ROW_VOLUME (-3)
+#define RR_ROW_DEVICE (-4)
 /* The rows hold their own text and no pointer, so a host can build them in a
  * function and return the struct by value (a pointer to text[i] would point
  * into the callee's frame once copied, which GCC does not hide as MSVC does). */
-typedef struct { char text[10][80]; int keys[10], count; } RrOptionRows;
+typedef struct { char text[14][80]; int keys[14], count; } RrOptionRows;
 static void rr_option_row(RrOptionRows *d, int key, const char *format, const char *value) {
-    if (d->count >= 10) return;
+    if (d->count >= 14) return;
     snprintf(d->text[d->count], sizeof d->text[0], rr_tr(format), value);
     d->keys[d->count] = key; ++d->count;
 }
@@ -283,6 +378,12 @@ static void rr_option_shared_rows(RrOptionRows *d) {
     char text[80];
     snprintf(text, sizeof text, "%s: %s", rr_tr("Audio filter"), rr_tr(modes[SDL_AtomicGet(&rr_options.audio_mode)]));
     rr_option_row(d, RR_ROW_AUDIO, "%s", text);
+    char value[100];
+    snprintf(value, sizeof value, "%d%%", rr_sound_volume());
+    rr_option_row(d, RR_ROW_VOLUME, "Volume: %s", value);
+    rr_option_row(d, SDL_SCANCODE_M, "M Sound: %s", rr_tr(rr_sound_muted() ? "OFF" : "ON"));
+    rr_sound_device_label(value, sizeof value);
+    rr_option_row(d, RR_ROW_DEVICE, "Output device: %s", value);
     if (rr_options.fkeys) {
         snprintf(text, sizeof text, rr_tr("F1-F%d keys: %s"), rr_options.fkeys,
             rr_options.fkeys_machine ? rr_options.machine : "Retro-Recomp");
@@ -333,6 +434,12 @@ static int rr_option_page_event(const SDL_Event *e, const RrOptionRows *d) {
         if (rr_options_store(L"audio_filter", mode)) SDL_AtomicSet(&rr_options.audio_mode, mode);
         return -1;
     }
+    if (d->keys[*row] == RR_ROW_VOLUME) {
+        int volume = rr_sound_volume() + (back ? -RR_VOLUME_STEP : RR_VOLUME_STEP);
+        rr_sound_set_volume(volume < 0 ? RR_VOLUME_MAX : volume > RR_VOLUME_MAX ? 0 : volume);
+        return -1;
+    }
+    if (d->keys[*row] == RR_ROW_DEVICE) {rr_sound_cycle_device(back ? -1 : 1); return -1;}
     if (d->keys[*row] == RR_ROW_FKEYS) {
         if (rr_options_store(L"fkeys_machine", !rr_options.fkeys_machine)) rr_options.fkeys_machine = !rr_options.fkeys_machine;
         return -1;

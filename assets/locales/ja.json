@@ -880,6 +880,16 @@
     "None": "なし",
     "%s (disconnected)": "%s (未接続)",
     "No gamepad for player %d": "プレイヤー%dのパッドがありません",
-    "Enter: change gamepad | Delete: Automatic": "Enter: パッド変更 | Delete: 自動"
+    "Enter: change gamepad | Delete: Automatic": "Enter: パッド変更 | Delete: 自動",
+    "Maximum speed ON": "最高速度オン",
+    "Maximum speed OFF": "最高速度オフ",
+    "Sound muted": "ミュート",
+    "Sound on": "ミュート解除",
+    "Volume: %s": "音量：%s",
+    "M Sound: %s": "M 音声：%s",
+    "Output device: %s": "出力デバイス：%s",
+    "System default": "システム既定",
+    "` Max speed: %s": "` 最高速度：%s",
+    "Tab  Fast-forward | `  Max speed | M  Mute": "Tab  早送り | `  最高速度 | M  ミュート"
   }
 }

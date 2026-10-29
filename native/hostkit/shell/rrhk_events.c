@@ -44,6 +44,60 @@ static bool pause_pressed(const SDL_Event *event, SDL_Scancode key) {
     return false;
 }
 
+/* The sound and speed keys of every console (decision D12), the Game Boy host's former keys: Tab held is the fast-forward,
+ * the backquote key toggles the maximum speed, M mutes. A key a player has bound to a control stays that control; the
+ * keys are not offered to a machine that has the keyboard (the X68000's full guest typing), and a menu with text entry
+ * never gets them. The same holds for the triggers: the right one held is the fast-forward, the left one toggles the maximum
+ * speed (a trigger is no button of any control). */
+enum { HOLD_KEY = 1, HOLD_TRIGGER = 2 };
+static bool trigger_down[2][RRHK_MAX_PLAYERS];     /* [0] right, [1] left: past the threshold since the last event */
+
+static bool key_bound(SDL_Scancode key) {
+    const RrhkMachine *m = rrhk.machine;
+    for (int p = 0; p < m->table_players; ++p) for (int a = 0; a < m->action_count; ++a) if (rrhk.keys[p][a] == key) return true;
+    return false;
+}
+
+static bool sound_keys_open(void) {
+    const RrhkMachine *m = rrhk.machine;
+    if (rrhk.capturing || (m->keyboard_pad && !m->keyboard_pad())) return false;
+    return !rrhk.menu || rrhk.menu == RRHK_MENU_HELP || rrhk.menu == RRHK_MENU_PAUSE || rrhk.menu == RRHK_MENU_OPTIONS;
+}
+
+static void toggle_max_speed(void) {
+    rrhk.max_speed = !rrhk.max_speed;
+    rrhk_notice(rr_tr(rrhk.max_speed ? "Maximum speed ON" : "Maximum speed OFF"), 1800);
+}
+
+static void toggle_mute(void) {
+    const bool muted = rrhk_sound_toggle_mute();
+    rrhk_notice(rr_tr(muted ? "Sound muted" : "Sound on"), 1800);
+}
+
+/* The speed events that come before everything else, so that a key released in a menu or a lost window never stays held. */
+static void speed_event(const SDL_Event *event) {
+    if (event->type == SDL_KEYUP && event->key.keysym.scancode == SDL_SCANCODE_TAB) rrhk.fast_hold &= ~HOLD_KEY;
+    else if (event->type == SDL_KEYDOWN && !event->key.repeat && event->key.keysym.scancode == SDL_SCANCODE_TAB &&
+             !rrhk.menu && sound_keys_open() && !key_bound(SDL_SCANCODE_TAB)) rrhk.fast_hold |= HOLD_KEY;
+    else if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        rrhk.fast_hold = 0;
+        memset(trigger_down, 0, sizeof trigger_down);
+    } else if (event->type == SDL_CONTROLLERAXISMOTION &&
+               (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)) {
+        const int p = event_player(event->caxis.which), side = event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
+        if (p < 0) return;
+        const bool down = event->caxis.value > 16000;      /* the stick threshold of decision D1 */
+        const bool pressed = down && !trigger_down[side][p];
+        trigger_down[side][p] = down;
+        if (!side) {
+            bool any = false;
+            for (int q = 0; q < RRHK_MAX_PLAYERS; ++q) any = any || trigger_down[0][q];
+            if (!any) rrhk.fast_hold &= ~HOLD_TRIGGER;
+            else if (!rrhk.menu && sound_keys_open()) rrhk.fast_hold |= HOLD_TRIGGER;
+        } else if (pressed && !rrhk.menu && sound_keys_open()) toggle_max_speed();
+    }
+}
+
 /* Help (F1) and Pause: open it, or go back to the menu it was opened from. Opening one while the Pause menu is up remembers it. */
 void rrhk_toggle_menu(int kind) {
     rrhk.capturing = 0;
@@ -60,6 +114,10 @@ void rrhk_poll_events(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        speed_event(&event);
+        /* The output device the sound plays on went away: the loop opens the one asked for again (or the default). */
+        if (event.type == SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture && event.adevice.which &&
+            event.adevice.which == rrhk_audio_device_id(run)) run->device_lost = true;
         /* A computer's own shortcuts and the guest keyboard come first (X68000). */
         if (m->event && m->event(&event, &run->running)) continue;
         if (rrhk_options_event(&event, &rrhk.menu, rrhk.capturing != 0)) continue;
@@ -75,11 +133,12 @@ void rrhk_poll_events(RrhkRun *run) {
             continue;
         }
         SDL_Scancode key = event.type == SDL_KEYDOWN && !event.key.repeat ? event.key.keysym.scancode : SDL_SCANCODE_UNKNOWN;
+        bool from_row = false;
         /* An option row behaves as its function key. */
         if (rrhk.menu == RRHK_MENU_OPTIONS) {
             int chosen = rrhk_option_page_event(&event);
             if (chosen < 0) continue;
-            if (chosen > 0) key = (SDL_Scancode)chosen;
+            if (chosen > 0) { key = (SDL_Scancode)chosen; from_row = true; }
         }
         /* Left/Right, Tab, LB/RB or the D-pad turn the F2 pages and B
          * closes them; on a page the D-pad and A choose rows. */
@@ -145,6 +204,8 @@ void rrhk_poll_events(RrhkRun *run) {
                 rr_ini_set(L"Interface", L"language", rr_language_wide(rrhk.language), rrhk.ini_file);
         } else if (key == SDL_SCANCODE_F8 || key == SDL_SCANCODE_F9) {
             run->pending_state = key == SDL_SCANCODE_F9 ? 2 : 1;
+        } else if ((key == SDL_SCANCODE_M || key == SDL_SCANCODE_GRAVE) && (from_row || (sound_keys_open() && !key_bound(key)))) {
+            if (key == SDL_SCANCODE_M) toggle_mute(); else toggle_max_speed();
         } else if (rrhk.menu == RRHK_MENU_PAGE) {
             if (m->page && m->page->key) m->page->key(&rrhk, key);
         } else if (rrhk.menu == RRHK_MENU_CONTROLS) {

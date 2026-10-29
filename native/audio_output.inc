@@ -15,6 +15,11 @@
 #define RR_AUDIO_JITTER_MS 3u
 #define RR_AUDIO_TAPS 256u
 #define RR_AUDIO_PHASES 128u
+/* The host may ask for an output device by name (RR_HOST_AUDIO_DEVICE) and tell that the speed is not 100%
+ * (RR_HOST_AUDIO_HELD: the sound is dropped, not converted nor played). */
+#ifndef RR_HOST_AUDIO_DEVICE
+#define RR_HOST_AUDIO_DEVICE() ((const char *)NULL)
+#endif
 #ifndef RR_AUDIO_COUNTER
 #define RR_AUDIO_COUNTER SDL_GetPerformanceCounter
 #define RR_AUDIO_FREQUENCY SDL_GetPerformanceFrequency
@@ -33,6 +38,14 @@ static struct {
     float coefficients[RR_AUDIO_PHASES][RR_AUDIO_TAPS];
     RrAudioCushion cushion;
 } rr_audio;
+
+/* The device the player asked for, or the system default when there is none or it cannot be opened. */
+static SDL_AudioDeviceID audio_open_device(const SDL_AudioSpec *want, SDL_AudioSpec *have, int flags) {
+    const char *name = RR_HOST_AUDIO_DEVICE();
+    SDL_AudioDeviceID id = name ? SDL_OpenAudioDevice(name, 0, want, have, flags) : 0;
+    if (name && !id) fprintf(stderr, "[host] audio device '%s' cannot be opened: %s; using the system default\n", name, SDL_GetError());
+    return id ? id : SDL_OpenAudioDevice(NULL, 0, want, have, flags);
+}
 
 static uint32_t audio_ms_frames(uint32_t ms) {
     return (uint32_t)(((uint64_t)rr_audio.device.freq * ms + 999u) / 1000u);
@@ -173,13 +186,13 @@ bool host_audio_init(uint32_t rate) {
     memset(&rr_audio, 0, sizeof(rr_audio));
     /* Consume in the backend's native format/period. WASAPI usually requests
      * float PCM: forcing S16 makes SDL stage another converted output block. */
-    audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &rr_audio.device,
+    audio_device = audio_open_device(&want, &rr_audio.device,
         SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE | SDL_AUDIO_ALLOW_FORMAT_CHANGE);
     if (!audio_device) return false;
     if (rr_audio.device.format != AUDIO_S16SYS && rr_audio.device.format != AUDIO_F32SYS) {
         SDL_CloseAudioDevice(audio_device);
         /* Less common formats retain SDL's established conversion fallback. */
-        audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &rr_audio.device,
+        audio_device = audio_open_device(&want, &rr_audio.device,
             SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
         if (!audio_device) return false;
     }
@@ -204,6 +217,9 @@ bool host_audio_init(uint32_t rate) {
 
 void host_audio_submit(const int16_t *samples, size_t count) {
     if (!audio_device || !samples || !count) return;
+#ifdef RR_HOST_AUDIO_HELD
+    if (RR_HOST_AUDIO_HELD()) return;
+#endif
     /* Conversion stays on the producer thread. A short causal FIR avoids
      * SDL_AudioStream's future-sample padding at the PSG's ~223 kHz rate. */
     if (rr_audio.source_rate == (uint32_t)rr_audio.device.freq) {
@@ -232,6 +248,14 @@ void host_audio_submit(const int16_t *samples, size_t count) {
         }
     }
     audio_push(output, pending);
+}
+
+/* The player chose another output device: the same stream on the new one, from an empty ring. false: none could be opened. */
+bool host_audio_reopen(void) {
+    if (!audio_device) return false;
+    const uint32_t rate = rr_audio.source_rate;
+    SDL_CloseAudioDevice(audio_device); audio_device = 0;
+    return host_audio_init(rate);
 }
 
 void host_audio_shutdown(void) {
