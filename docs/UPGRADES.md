@@ -535,6 +535,37 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
   1.6.3 (it reads its own keys). Every window now keeps whole pixels in the window mode too ([HOST_KIT.md](HOST_KIT.md), divergence 9): a Mega Drive,
   Super Nintendo, Neo Geo, CPS-1, NES or X68000 export no longer stretches its picture to the window.
 
+## Game Boy exports in 1.6.4 (writable-memory code)
+
+The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
+their live bytes, with a counted executor** (`native/gb_ram_helpers.h`, `rr_gb_try_ram_instruction`;
+[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-164)). That is not native code and not ahead-of-time translation: it is
+a per-opcode switch, cheaper than an interpreter session. What changes for a game that runs such code (Donkey Kong Land: a trampoline
+block copied from the cartridge into WRAM, operands patched at run time) is that the ROM routine the trampoline jumps to runs as native
+code again instead of staying inside an interpreter session. What a conversion generates is unchanged (the generated C files are the
+same); the adapted runtime header, the dispatch of `game.c` and three context counters change.
+
+*Counted, apart from the interpreter.* The executor and the upstream RAM stub (which was never counted) each count their instructions and
+guest cycles in every probe: `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`,
+`ram_single_step_instructions`, `ram_single_step_cycles`; the schema-2 report shows them as `cpus[].scenarios[].ram_single_step`, with
+`ram_single_step_present`. While they are not zero the report's `native_code.zero_fallback_on_tested_scenarios` is false and its claim
+reads "native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by counted executors (not native code)"; the
+window appends "N RAM instructions executed one by one (not native)" in the eight languages, and the library marks the game as one with
+fallback. The interpreter figures keep their meaning (sessions, instructions, cycles of the interpreter). The guarded multi-instruction
+helpers (named routines checked by a live signature) are not counted, as before. A report of 1.6.3 has no such counts: the flag reads
+"not measured", never "zero".
+
+*Stamps* (`compilation_inputs.role_stamps('gb')`, Python 3.14, from the tree of the tag `v1.6.3` and from this tree; to be recomputed at the
+release): the game stamp moves; host and build stamps of the Game Boy and every stamp of the other eight consoles are unchanged. Learned
+paths do not move, and no quick-state key exists for the Game Boy (the counters are host-only context fields, outside every saved state).
+
+An export of 1.6.3 is therefore rebuilt from its learned paths and rechecked on the quick routes. Donkey Kong Land goes, in the
+6,000-frame probes, from 3,160,836 interpreter cycles in the boot probe and 141,688 in the varied probe to zero interpreter cycles in all
+four, and its deep CPU comparisons still match; the RAM instructions run one at a time are reported beside that figure (see the
+conversion report of a game of this release). That is native ROM code plus counted one-by-one execution on the tested scenarios, a
+CPU-fidelity agreement with the project's own reference on 240 frames per scenario, and nothing about hardware fidelity, gameplay or
+latency.
+
 ## Game Boy exports in 1.6.3 (host kit phase 5)
 
 1.6.3 moves the player shell of the Game Boy onto the host kit, the last console to move ([HOST_KIT.md](HOST_KIT.md#phase-5-the-game-boy-163)):

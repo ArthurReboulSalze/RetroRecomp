@@ -168,6 +168,18 @@ comparison of the entire serialized state after 180 resumed frames. Eight have
 zero fallback cycles in that longer probe. Donkey Kong Land and Wario Land II
 still execute some writable RAM code through the reported interpreter.
 
+*Follow-up, Retro-Recomp 1.6.4.* For Donkey Kong Land the cause was a block of small trampolines that the game copies from its
+cartridge into WRAM and patches (`LD HL,nn; CALL/JP ...`). Its opcodes (`LD rr,nn`, `LD A,(DE)`, `INC BC`, `ADD A,n`, `LD r,r'`) were not in
+the pinned runtime's RAM stub, so each entry started an interpreter session that then kept interpreting the ROM routine it jumped to
+(6,350 sessions and 3,160,836 interpreted cycles in a 6,000-frame boot probe, 388 sessions and 141,688 cycles in the varied probe).
+WRAM/HRAM instructions outside the stub are now executed one at a time from their live bytes by a counted executor
+(`rr_gb_try_ram_instruction`, checked opcode by opcode against the interpreter by `tools/gameboy_ram_selftest.py`). **That is not native
+code**: it is a per-opcode switch, cheaper than an interpreter session, and the ROM routine the trampoline jumps to is native again. The
+executor and the upstream RAM stub (never counted before) each count their instructions and cycles per probe; the conversion report shows
+them beside the interpreter figures (`ram_stub_*`, `ram_single_step_*`), and while they are not zero the report does not claim
+zero fallback or native code only. The deep CPU comparisons match. `CB`-prefixed opcodes, `HALT`, `STOP` and `RST` executed from RAM
+still use the reported interpreter. Wario Land II was not re-run for this note.
+
 These cases improved the common runtime in two ways. A guarded native helper
 handles a small writable store/increment routine, checking all live bytes and
 the normal DMA/HALT boundaries; 5,777 authored CPU/memory/timing checks pass.

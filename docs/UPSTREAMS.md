@@ -206,17 +206,33 @@ Defects of the Z80 "functions" engine (Master System and Game Gear), found on Al
 which that engine could not convert: the run ended early or the conversion stopped at the comparison with the reference
 CPU. Both convert with the default "banked" engine, which is not affected. The pin does not move. They are CPU fidelity
 fixes only; they change the share of native code only where a game stopped at the first affected frame and now goes on,
-so that more of it is reached and compiled. Interpreter fallback stays counted per CPU.
+so that more of it is reached and compiled. Interpreter fallback stays counted per CPU. The last row is a Game Boy fix
+for code a game runs from its RAM, described after the table.
 
 | Fix | Consoles | Our file | Game stamp that moves |
 |---|---|---|---|
 | Z80 HALT in the generated function: the interrupt that ends it pushes the address after the HALT (the runner pushed the HALT's own address), and a handler that drops the halted frame (SP above its value at the HALT) now ends the function, as a call site already does, instead of letting the next `RET` unwind the whole C stack and end the run | sms, gg ("functions" engine only) | `core.py` (`patched_generator_source`) | sms, gg |
 | Z80 interrupt acceptance in the runner of the "functions" engine: /INT is sampled at one instruction boundary and accepted at the next (including the boundary after the handler's own `RET`), as the reference CPU and the banked engine do, instead of at the boundary where the VDP made it visible, one instruction earlier (another pushed address, other registers seen by the handler, another cycle count in a polling loop); a VDP port access that raises or clears /INT brings the next sync to the next instruction instead of the next scanline; and a `RET` that unwinds every generated frame (a game that reloads SP and returns into its main code) continues at the address it popped instead of ending the run | sms, gg ("functions" engine only) | `core.py` (`prepare_functions_irq`, applied to the pinned `runner/glue.c`) | sms, gg |
+| Game Boy: the pinned runtime's RAM stub (`gbrt_try_execute_ram_stub`) covers only part of the SM83 opcodes. Any other opcode executed from WRAM or HRAM (for example `LD HL,nn`, `LD A,(DE)`, `INC BC`, `ADD A,n` in a routine a game copies from its cartridge and patches) started an interpreter session that went on interpreting the ROM code the routine jumped to (Donkey Kong Land: 6,350 sessions, 3,160,836 interpreted cycles in 6,000 frames). The remaining non-prefixed, non-branch opcodes are now executed **one instruction at a time from their live bytes by a counted executor** (`rr_gb_try_ram_instruction`, behind `rr_gb_try_ram_dispatch`), after the guarded helpers and the stub have declined, and the ROM routine they jump to runs as native code again. The executor is not native code and not ahead-of-time translation: it is a per-opcode switch, written after the interpreter's own cases (same helpers, operand reads and cycle split), cheaper than an interpreter session. It and the upstream stub, which was never counted, are counted: instructions and guest cycles of each, per probe, in the conversion report | gb | `native/gb_ram_helpers.h` (`rr_gb_try_ram_instruction`, `rr_gb_try_ram_dispatch`), hooked and given its host-only counters by `gameboy_runtime.py` (`adapt_generated_project`: the `game.c` dispatch, the `GBContext` fields, the `[RR-RAM]` line of the summary); read by `gameboy.py` (`_probe`) and `report_schema.py` | gb |
 
-Both are described in the 1.6.4 notes of [UPGRADES.md](UPGRADES.md). The second one is not a defect of the pin: it makes our
+The two Z80 fixes are described in the 1.6.4 notes of [UPGRADES.md](UPGRADES.md). The second one is not a defect of the pin: it makes our
 two engines agree on a convention that was ours to choose (the reference CPU follows it since the sampling change of 1.6.x,
 `prepare_reference_irq`). Games that still fail the comparison with the "functions" engine for other reasons (Action Fighter: a
 `RET` goes to an address other than the one the generated call stack expects) keep failing it; the banked engine converts them.
+
+The pinned compiler and runtime are untouched (the cached checkout must stay clean); every hook is a `replace_once` on the generated
+project. `tools/gameboy_ram_selftest.py` builds the adapted runtime and compares every handled opcode with the pinned interpreter
+(177 opcodes, 24 random states at each of four placements, WRAM and HRAM, memory, flags, cycles and timed bus effects), and checks the
+counters. **Counting.** `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`, `ram_single_step_instructions`
+and `ram_single_step_cycles` for each probe; the schema-2 report carries them as `cpus[].scenarios[].ram_single_step` with a
+`ram_single_step_present` flag, and while that flag is true the report's `native_code.zero_fallback_on_tested_scenarios` is false and its
+claim says that some WRAM/HRAM instructions run one at a time by counted executors, not as native code (the interpreter figures stay
+what they are: sessions, instructions and cycles of the interpreter). The window adds "N RAM instructions executed one by one (not native)"
+to the line of a finished conversion, and the library lists such a game as a game with fallback. The guarded multi-instruction helpers
+(named routines checked by a live signature: store-and-increment, copies, DMA page selection) are not counted, as before. The change is a
+statement about CPU fidelity of writable-memory code only; it says nothing about hardware fidelity, gameplay validation or physical
+latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST`, illegal opcodes, code spanning
+two memory regions) stay counted as interpreter use. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
 ## Deferred
 
