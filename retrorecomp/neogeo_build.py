@@ -18,9 +18,10 @@ from . import hostkit
 from .platforms import build_executable, cmake_target_args, build_jobs, sdl_install, sdl_library
 
 GEOLITH_REV = '2dc88e3fa72ff404213a65d6eb5bb33baa687f73'
-# State key written by release 1.6.2 (Windows), computed from the v1.6.2 tag; the state files did not change since
-# (docs/GAME_STATES.md, "States written by release 1.6.2").
-STATE_ABI_162 = '0d361a5f02f0f6838bf555dce0b89dd8fa1dce8cd23045fd2811653fec0720df'
+# State key written by release 1.6.3 (Windows), computed from the v1.6.3 tag; the state files did not change since
+# (docs/GAME_STATES.md, "States written by release 1.6.3"). The key of this tree moves only because this very rollover
+# edits this module, whose fingerprint the key hashes.
+STATE_ABI_163 = 'b04f023a36534c86af7527d56e532b4f4e4a458aa1e5b70fa6656e18ede9ee18'
 LITHOGEN_REV = 'ef0f9bd94e31689def44b49e0f8351e0206b622d'
 
 
@@ -589,10 +590,10 @@ def state_config(content: Path,bios: Path,title: str) -> str:
         abi.update(target_id().encode())
     # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release that
     # follows it (docs/GAME_STATES.md); the keys of older releases are never kept. Windows only: the key of a Linux
-    # build also hashes its target, and no Linux 1.6.2 key was recorded.
+    # build also hashes its target, and no Linux 1.6.3 key was recorded.
     return '#pragma once\n#include "neogeo_host.h"\n#define RR16_STATE_SYSTEM 3\n#define RR16_STATE_PAL 0\n'+\
         '#define RR16_STATE_ROM (rr_ng_aes()?'+json.dumps(aes_identity(cart.sha256,firmware))+':'+json.dumps(identity)+')\n#define RR16_STATE_ABI '+json.dumps(abi.hexdigest())+\
-        ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(STATE_ABI_162) if os.name=='nt' else '')+\
+        ('\n#define RR16_STATE_COMPAT_ABI '+json.dumps(STATE_ABI_163) if os.name=='nt' else '')+\
         '\n#define RR16_STATE_NAME '+json.dumps(Path(executable_name(title)).stem if os.name=='nt' else executable_name(title))+'\n'
 
 

@@ -88,6 +88,11 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # loop there): `cps1_codegen` generates them from the library's `m68k_gfx` observations and `cps1_machine.c`/`cps1_native.c`
 # look them up. A work-RAM path is unchanged, but the pin covers the whole generator, so every qualified path waits
 # for this revision. The shipped snapshot holds no qualified CPS-1 path, so nothing is lost today.
+# Still 7 (29 October 2026, 1.6.4 state-key rollover): cps1_build.state_config no longer writes the compatibility key of
+# the 1.6.2 quick states, which edits a pinned generator source once more. Revision 7 has not shipped, no path was
+# qualified by the code between the edits, and the edit changes nothing a RAM path could notice (the generated files are
+# the same; the CPS-1 quick state of 1.6.4 is another format, magic CPS1S002, and the 1.6.3 key is not carried): the
+# revision is not raised an eighth time, the pins follow.
 GENERATOR_REVISION = 7
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.

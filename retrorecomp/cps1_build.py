@@ -294,9 +294,8 @@ def pack(board: Path) -> bytes:
     return b'CPZ1' + len(raw).to_bytes(4, 'little') + zlib.compress(raw, 9)
 
 
-# State key written by release 1.6.2 (Windows), computed from the v1.6.2 tag; the serialized bytes did not change since
-# (docs/GAME_STATES.md, "States written by release 1.6.2").
-LEGACY_STATE_ABI_162 = 'b24053cfe60639a1a464f74e63d155dcb351ac0713796e554937edd65821d8e9'
+# No compatibility key is listed in the tree of 1.6.4 (docs/GAME_STATES.md, "States written by release 1.6.3"): the quick
+# state changed (magic CPS1S002, every structure written field by field), so a state of 1.6.3 is refused cleanly.
 
 
 def state_config(game_set, title: str) -> str:
@@ -315,11 +314,11 @@ def state_config(game_set, title: str) -> str:
     stem = Path(executable_name(title)).stem if os.name == 'nt' else executable_name(title)
     return ('#pragma once\n#define RR16_STATE_SYSTEM 4\n#define RR16_STATE_PAL 0\n'
             f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
-            f'#define RR16_STATE_NAME {json.dumps(stem)}\n'
-            # The previous release's state key is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` by the release
-            # that follows it (docs/GAME_STATES.md); the keys of older releases are never kept. Windows only: the key
-            # of a Linux build also hashes its target, and no Linux 1.6.2 key was recorded.
-            + (f'#define RR16_STATE_COMPAT_ABI {json.dumps(LEGACY_STATE_ABI_162)}\n' if os.name == 'nt' else ''))
+            # The previous release's state key is added after this line as `#define RR16_STATE_COMPAT_ABI "<key>"` by
+            # the release that follows it when the serialized bytes did not change (docs/GAME_STATES.md, Windows only:
+            # the key of a Linux build also hashes its target); the keys of older releases are never kept. None in the
+            # tree of 1.6.4: the quick state changed.
+            f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
 
 
 def prepare_game(project: Path, game_set, game: dict, *, title: str, observations: dict | None = None,

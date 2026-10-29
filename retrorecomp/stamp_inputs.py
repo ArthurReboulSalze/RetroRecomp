@@ -94,33 +94,17 @@ BUILD_MODULES = frozenset(('toolchain', 'packing'))
 # Release procedure: replace the entries with those of the release being left
 # (one real receipt per console, proved build-only); never add them to the
 # older ones. The table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the stamps of 1.6.0; the tree of 1.6.2
-# listed those of 1.6.1; the entries of 1.6.2 are the ones below.
-# Release 1.6.2 (tag v1.6.2, commit 5bbfe12; Python 3.14.5 for the Windows converter and 3.13.5 for the Linux one, the
-# Pythons of the packaged converters), declared on 29 October 2026 for the Master System, Game Gear, Game Boy and NES
-# only. Each value is the game stamp computed from the tag (archive of the tag, then `compilation_inputs.role_stamps`) and
-# checked against the published 1.6.2 converters: each one's own `_compilation-inputs` gives, on every console, the very
-# same stamp. The Mega Drive, Neo Geo, CPS-1 and Super Nintendo have no entry (the release procedure above): 1.6.3
-# changes what a game does on their CPUs (the 68000 shifts, the 65816 BRK and COP), so their exports of 1.6.2 are converted
-# in full, a ROM the shared base knows starting from its qualified paths with the quick check. Their verified 1.6.2 stamps
-# are kept in docs/COMPILATION_LIBRARY.md ("Release 1.6.2 entries") and tests/test_legacy_compat.py, unlisted. The Master
-# System and Game Gear change only in the "functions" engine (no direct call to a paged address): the default banked
-# engine generates the same sources, and a functions export that diverges fails the upgrade recheck and is converted again
-# (the precedent of docs/COMPILATION_LIBRARY.md, "Validation fixes merged after these entries"). The Game Boy and the NES
-# change no game behaviour. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.2 in 1.6.3". The X68000 has no entry
-# either: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
-LEGACY_GAME_STAMPS = {
-    # (the Windows converter's stamp, built with Python 3.14; the Linux converter's, built with Python 3.13: code is
-    # fingerprinted as bytecode, so the two published 1.6.2 converters stamp differently; both checked with their own
-    # `_compilation-inputs` against this table)
-    'gb': ('831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a',
-        'dde2e590f43d5efc0dea2d34ceedee54ee908cdba37d1a1ea6535cde1d6bc1b4'),
-    'gg': ('14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743',
-        '0d63e09321860ce6e161b49a24535d13ddc10b5e6d281b91b195ad9472710a6d'),
-    'nes': ('fa98f9dd4c480eb16ab7e66c491cb52b02100f88631c5f398112a896e79f5ce4',
-        '6618f7f293fd864e5cc6e3fec4aa89b020e2795593ba924ab30b4e13990b921a'),
-    'sms': ('b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2',
-        '58d4d6ee6bd59653e4815b303a8c332d593b3755419970732171e914d6b0af73'),
-}
+# listed those of 1.6.1; the tree of 1.6.3 listed those of 1.6.2 (Master System, Game Gear, Game Boy and NES).
+# The tree of 1.6.4 lists NONE (decision of the maintainer, 29 October 2026): 1.6.4 is a structural release, a full
+# reconversion of every console. SDL 2.32.10 is linked into every game (`core.SDL_REV`) and the registry refactor moves
+# every game stamp; on top of that six consoles change in their own way (the NES and CPS-1 quick-state bytes, the CPS-1
+# graphics-RAM code, the Master System and Game Gear "functions" engine, the Game Boy writable-memory executor and
+# counting, the X68000 payload paths), and the release procedure lists no console in that case. The game stamps of
+# release 1.6.3 (tag v1.6.3, commit bb2aa95; Windows with Python 3.14.5, Linux with Python 3.13.5), computed for all nine
+# consoles, are kept as evidence in docs/COMPILATION_LIBRARY.md ("Release 1.6.3 entries") and tests/test_legacy_compat.py,
+# unlisted. Evidence and limits: docs/UPGRADES.md, "Exports of 1.6.3 in 1.6.4". The X68000 would have no entry in any
+# case: its request carries an SDK stamp (`x68_sdk`) derived from the game stamp, which this mechanism does not recompute.
+LEGACY_GAME_STAMPS: dict[str, tuple[str, ...]] = {}
 
 # Host (the player shell) versus game: see docs/UPGRADES.md. Host inputs draw
 # the window, menus, options, bindings, on-screen text, fonts, filters, icons

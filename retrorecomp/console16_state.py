@@ -95,12 +95,11 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 '''
 
 
-# State keys written by release 1.6.2 (Mega Drive and Super Nintendo, Windows), computed from the v1.6.2 tag by the same
-# code that reproduces the documented 1.5.6 key from its tag (docs/GAME_STATES.md, "States written by release 1.6.2").
-# 1.6.3 moves the host files of the host kit (the shell, the options menu, the sound output, the runtime catalogue) that
-# both consoles list as native files and their keys hash; the serialized layout did not change.
-MD_STATE_ABI_162 = '7943c469d11b059b7cf2a6ff4597dc2809d25cd5b093752d837c2a4d8c661948'
-SNES_STATE_ABI_162 = 'b9fbf76dc2cc49459420ff111d143c64c72cd72b440a1264d91b38be21bcb5c4'
+# No compatibility key is listed in the tree of 1.6.4 (docs/GAME_STATES.md, "States written by release 1.6.3"): the key of
+# the Mega Drive and of the Super Nintendo is the very same value in 1.6.3 and 1.6.4 (it hashes their listed native files,
+# the layout versions, the pinned revisions and, for the Super Nintendo, the fingerprints of the snes_* modules, none of
+# which moved), so the states of 1.6.3 match the build's own `RR16_STATE_ABI`. tests/test_legacy_compat.py pins that
+# value: a later edit that moves the key must add the 1.6.3 key here as `MD_STATE_ABI_163` / `SNES_STATE_ABI_163`.
 
 
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
@@ -127,12 +126,9 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
             '\n#define RR16_STATE_ROM '+json.dumps(rom.sha256)+
             '\n#define RR16_STATE_ABI '+json.dumps(digest.hexdigest())+
             '\n#define RR16_STATE_NAME '+json.dumps(slug(title),ensure_ascii=True)+'\n')
-    # Quick states of the PREVIOUS release only resume in this build: the key that release wrote is added here as
-    # `#define RR16_STATE_COMPAT_ABI "<key>"` (native/console16_state.c accepts the keys a build defines, next to
-    # RR16_STATE_ABI, and nothing else). The release that follows a release adds that release's key and drops the
-    # older ones (docs/GAME_STATES.md). Mega Drive and Super Nintendo, Windows only: the key of a Linux build also hashes
-    # its target, and no Linux 1.6.2 key was recorded.
-    if os.name == 'nt':
-        key = MD_STATE_ABI_162 if system_id == 'md' else SNES_STATE_ABI_162
-        text += f'#define RR16_STATE_COMPAT_ABI {json.dumps(key)}\n'
+    # Quick states of the PREVIOUS release only resume in this build. When the key of that release is not the build's own
+    # (the key moved), it is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` (native/console16_state.c accepts the
+    # keys a build defines, next to RR16_STATE_ABI, and nothing else), Windows only: the key of a Linux build also hashes
+    # its target. The release that follows adds its predecessor's key and drops the older ones (docs/GAME_STATES.md). The
+    # tree of 1.6.4 adds none for the Mega Drive and the Super Nintendo: their key did not move since 1.6.3.
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')
