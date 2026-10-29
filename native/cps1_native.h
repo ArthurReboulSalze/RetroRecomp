@@ -53,9 +53,10 @@ static inline void rr_cps1_relocate_instruction(M68KInstr *ins,uint32_t pc) {
     ins->addr=pc;
 }
 typedef struct { M68KInstr instruction; M68kiStatus (*execute)(const M68KInstr*,uint32_t*); } RrCps1NativeStep;
-enum { RR_CPS1_CODE_ROM=1, RR_CPS1_CODE_RAM=3 };
+enum { RR_CPS1_CODE_ROM=1, RR_CPS1_CODE_RAM=3, RR_CPS1_CODE_GFX=4 };
 const RrCps1NativeStep *rr_cps1_native_lookup(uint32_t region,uint32_t offset);
 const RrCps1NativeStep *rr_cps1_ram_native_lookup(uint32_t pc,uint32_t offset,unsigned available);
+const RrCps1NativeStep *rr_cps1_gfx_native_lookup(uint32_t pc,uint32_t offset,unsigned available);
 /* Board code view: mapping and host bytes (big-endian words) of a PC. */
 const uint8_t *rr_cps1_code_bytes(uint32_t address,uint32_t *region,uint32_t *offset,unsigned *available);
 int rr_cps1_code_word(uint32_t pc,uint16_t *word);

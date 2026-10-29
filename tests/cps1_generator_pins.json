@@ -1,8 +1,8 @@
 {
- "revision": 6,
+ "revision": 7,
  "sources": {
-  "retrorecomp/cps1_build.py": "f7ca0ac6f8183f244c014978a8ad73293a8d0642c7b5494a9a38c34e158323f1",
-  "retrorecomp/cps1_codegen.py": "c49d0b0bcc4257f167048e15496f78b40a1e30cb0a94067178fb2aa0a7c9446b",
+  "retrorecomp/cps1_build.py": "e176c4dd7a1a6e84524a26e101b0471483c170ecfbd6be1ed98ca248811612e2",
+  "retrorecomp/cps1_codegen.py": "2ed8d26ad28b5c2386701ba58c1fc8c6b434bbbb95be036fd9584ae0aa013faf",
   "retrorecomp/m68000.py": "e3d3efbe1cee279379af22da8f8b6294769cffeb297d4fd754ea3389c6f24cf0",
   "retrorecomp/megadrive_z80.py": "211d24dc6962b6a3c4fbe51ee8100e9736d69de89a73b44a448caecb61803046",
   "retrorecomp/neogeo_codegen.py": "c0f8efcad5e5bdec9bb7775867233a9eb32f451497250a63667d94d89e72ffd7",

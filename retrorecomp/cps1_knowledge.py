@@ -18,8 +18,8 @@ bytes are turned into numbers about the player's own ROM images, exactly as Neo 
 
 A player with the same romset rebuilds the bytes from the ROMs they supplied and gets the same instructions.
 An observation whose bytes are not in those images (code unpacked or generated at run time, or run from
-graphics RAM as Street Fighter II' Champion Edition does, which the translator does not cover yet) cannot be tied
-to a ROM and **stays private**: it is counted, never shared.
+graphics RAM as Street Fighter II' Champion Edition does; the native code guards it like work-RAM code, from the
+player's private observations) cannot be tied to a ROM and **stays private**: it is counted, never shared.
 
 Promotion. A record is made only from the fresh reference runs of a conversion that then passed every check
 (`promote`, `cps1_conversion`): never from feedback rows, never from the hints the conversion was offered.
@@ -84,7 +84,11 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # 1.6.2 quick states and drops the 1.6.1 one, which edits a pinned generator source again. Revision 6 has not shipped,
 # so no path was qualified by the code between the edits, and the edit changes nothing a RAM path could notice (the
 # serialized bytes and the generated files are the same): the revision is not raised a seventh time, the pins follow.
-GENERATOR_REVISION = 6
+# 7: the 68000 native code also guards instructions run from graphics RAM (Street Fighter II' Champion Edition runs a
+# loop there): `cps1_codegen` generates them from the library's `m68k_gfx` observations and `cps1_machine.c`/`cps1_native.c`
+# look them up. A work-RAM path is unchanged, but the pin covers the whole generator, so every qualified path waits
+# for this revision. The shipped snapshot holds no qualified CPS-1 path, so nothing is lost today.
+GENERATOR_REVISION = 7
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the
 # multiply/divide timing out of it), so it decides what a RAM path becomes like the CPS-1 files do.
 NATIVE_INPUTS = ('native/cps1_native.c', 'native/cps1_native.h', 'native/cps1_z80_native.h',
@@ -325,7 +329,11 @@ def translate(images: dict, fresh: dict, lengths) -> tuple[list, list, dict]:
             z80_untied += 1
             continue
         z80_rows.add((address, match.start(), 4, key[0]))
-    counts = {'m68k_ram': {'observed': len(windows), 'tied': len(ram_rows),
+    # Code run from graphics RAM is built at run time: it has no place in a ROM image to point at, so it stays
+    # private (counted here, guarded in the player's own build through the library's observations).
+    gfx = {(row.get('offset'), row.get('words')) for row in fresh.get('m68k_gfx', ()) if isinstance(row, dict)}
+    counts = {'m68k_gfx': {'observed': len(gfx), 'tied': 0, 'private': len(gfx)},
+              'm68k_ram': {'observed': len(windows), 'tied': len(ram_rows),
                            'private': untranslatable + not_in_rom,
                            'untranslatable': untranslatable, 'not_in_program_rom': not_in_rom},
               'z80_ram': {'observed': len(z80_seen), 'tied': len(z80_rows), 'private': z80_odd + z80_untied,

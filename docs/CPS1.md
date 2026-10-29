@@ -94,11 +94,19 @@ DIP switches; validation routes drive players 1 and 2.
 | Varth: Operation Thunderstorm | `varth` | 0 | 0 | vertical |
 | Willow | `willow` | 0 | 0 |  |
 
-Street Fighter II': Champion Edition runs part of its code from graphics
-RAM, which native code does not cover yet: those instructions are
-interpreted, counted and reported. No set needed learned RAM code, so there
-was nothing to share when this table was made; the channel exists since the
-shared paths below.
+Street Fighter II': Champion Edition runs a short routine from graphics RAM
+(a loop that fills and compares the graphics memory, copied there by the
+game; the table counts it as interpreted because it was made before 1.6.4).
+Since 1.6.4 the native code guards instructions run from graphics RAM like
+work-RAM code: the first pass observes them, the second pass translates them
+(each instruction still guarded by its live words), and the conversion
+reports zero interpreted instructions for the set in the Standard-level
+routes (native code only; CPU, hardware and gameplay measures stay separate).
+Those observations are private build hints of the player's library
+(`m68k_gfx`): they cannot be tied to a ROM image, so they are counted and
+never shared. No set needed learned work-RAM code, so there was nothing to
+share when this table was made; the channel exists since the shared paths
+below.
 
 ## Shared paths (27 October 2026, experimental)
 

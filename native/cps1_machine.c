@@ -953,8 +953,11 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
 /* ------------------------------------------------- native code view/fallback */
 
 /* Side-effect-free code mapping for the native guards. Program ROM is
- * immutable; work RAM code is guarded per variant; GFX RAM and every other
- * space stay interpreted (and counted). */
+ * immutable; work RAM and GFX RAM code is guarded per variant (GFX RAM holds
+ * host-order words, so its bytes are a big-endian copy of the next few
+ * words); every other space stays interpreted (and counted). */
+#define CODE_GFX 4
+#define CODE_WINDOW_BYTES 16u
 const uint8_t *rr_cps1_code_bytes(uint32_t address, uint32_t *region, uint32_t *offset, unsigned *available)
 {
     address &= 0xffffffu;
@@ -968,11 +971,29 @@ const uint8_t *rr_cps1_code_bytes(uint32_t address, uint32_t *region, uint32_t *
         *region = 3; *offset = address & 0xffffu; *available = 0x10000u - *offset;
         return M.ram + *offset;
     }
+    if (address >= 0x900000u && address < 0x900000u + GFXRAM_BYTES) {
+        /* One window for the caller's current instruction: code_word() never touches it. */
+        static uint8_t window[CODE_WINDOW_BYTES];
+        const uint32_t base = address - 0x900000u;
+        unsigned count = GFXRAM_BYTES - base;
+        if (count > CODE_WINDOW_BYTES) count = CODE_WINDOW_BYTES;
+        for (unsigned n = 0; n < count / 2; n++) {
+            const uint16_t value = M.gfxram[base / 2 + n];
+            window[2 * n] = (uint8_t)(value >> 8); window[2 * n + 1] = (uint8_t)value;
+        }
+        *region = CODE_GFX; *offset = base; *available = count;
+        return window;
+    }
     return NULL;
 }
 
 int rr_cps1_code_word(uint32_t pc, uint16_t *word)
 {
+    pc &= 0xffffffu;
+    if (pc >= 0x900000u && pc < 0x900000u + GFXRAM_BYTES && !(pc & 1)) {
+        *word = M.gfxram[(pc - 0x900000u) / 2];
+        return 1;
+    }
     uint32_t region, offset; unsigned available;
     const uint8_t *bytes = rr_cps1_code_bytes(pc, &region, &offset, &available);
     if (!bytes || available < 2) return 0;
@@ -1001,12 +1022,13 @@ int rr_cps1_z80_code_byte(uint16_t pc, uint8_t *byte)
 #define MISS_SLOTS 8192
 #define RAM_VARIANTS 4096
 typedef struct { uint32_t pc; uint16_t word; uint64_t count; } miss_t;
-typedef struct { uint16_t offset, count; uint16_t words[8]; } ram_variant_t;
+/* offset: work RAM offset, or GFX RAM offset (up to 0x2ffff) in gfx_variants. */
+typedef struct { uint32_t offset; uint16_t count; uint16_t words[8]; } ram_variant_t;
 typedef struct { uint16_t pc; uint8_t bytes[4]; } z80_variant_t;
 static miss_t m68k_misses[MISS_SLOTS], z80_misses[MISS_SLOTS];
-static ram_variant_t ram_variants[RAM_VARIANTS];
+static ram_variant_t ram_variants[RAM_VARIANTS], gfx_variants[RAM_VARIANTS];
 static z80_variant_t z80_variants[RAM_VARIANTS];
-static unsigned ram_variant_count, z80_variant_count, misses_truncated;
+static unsigned ram_variant_count, gfx_variant_count, z80_variant_count, misses_truncated;
 uint64_t rr_cps1_interpreted_68k, rr_cps1_interpreted_z80, rr_cps1_native_z80;
 int rr_cps1_force_z80_reference;
 /* Qualification runs record every miss; ordinary play only counts them (and
@@ -1033,7 +1055,7 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
     if (rr_feedback_enabled()) {
         uint32_t region, offset; unsigned available;
         const uint8_t *bytes = rr_cps1_code_bytes(pc, &region, &offset, &available);
-        if (bytes && available >= 2)
+        if (bytes && available >= 2 && region != CODE_GFX)
             rr_feedback_note(region == 3 ? RR_FB_CPS1_RAM : RR_FB_CPS1_ROM, offset, 0, bytes,
                              region == 3 ? (available < 16 ? available & ~1u : 16) : 2);
     }
@@ -1042,14 +1064,18 @@ void rr_cps1_note_instruction(uint32_t pc, int native)
     uint16_t word = 0;
     rr_cps1_code_word(pc, &word);
     note_miss(m68k_misses, pc & 0xffffffu, word);
-    if ((pc & 0xffffffu) < 0xff0000u || (pc & 1)) return;
+    const uint32_t code = pc & 0xffffffu;
+    const int gfx = code >= 0x900000u && code < 0x900000u + GFXRAM_BYTES;
+    if ((code < 0xff0000u && !gfx) || (pc & 1)) return;
     ram_variant_t value = {0};
-    value.offset = (uint16_t)(pc & 0xffffu);
+    value.offset = gfx ? code - 0x900000u : code & 0xffffu;
     for (unsigned n = 0; n < 8 && rr_cps1_code_word(pc + 2 * n, &value.words[n]); n++) value.count++;
-    for (unsigned n = 0; n < ram_variant_count; n++)
-        if (ram_variants[n].offset == value.offset && ram_variants[n].count == value.count &&
-            !memcmp(ram_variants[n].words, value.words, value.count * 2)) return;
-    if (ram_variant_count < RAM_VARIANTS) ram_variants[ram_variant_count++] = value;
+    ram_variant_t *table = gfx ? gfx_variants : ram_variants;
+    unsigned *count = gfx ? &gfx_variant_count : &ram_variant_count;
+    for (unsigned n = 0; n < *count; n++)
+        if (table[n].offset == value.offset && table[n].count == value.count &&
+            !memcmp(table[n].words, value.words, value.count * 2)) return;
+    if (*count < RAM_VARIANTS) table[(*count)++] = value;
     else misses_truncated = 1;
 }
 
@@ -1104,8 +1130,14 @@ void cps1_fallback_report(FILE *file)
         }
     fprintf(file, "],\"m68k_ram\":[");
     for (unsigned n = 0; n < ram_variant_count; n++) {
-        fprintf(file, "%s{\"offset\":%u,\"words\":\"", n ? "," : "", ram_variants[n].offset);
+        fprintf(file, "%s{\"offset\":%u,\"words\":\"", n ? "," : "", (unsigned)ram_variants[n].offset);
         for (unsigned w = 0; w < ram_variants[n].count; w++) fprintf(file, "%04x", ram_variants[n].words[w]);
+        fputs("\"}", file);
+    }
+    fprintf(file, "],\"m68k_gfx\":[");
+    for (unsigned n = 0; n < gfx_variant_count; n++) {
+        fprintf(file, "%s{\"offset\":%u,\"words\":\"", n ? "," : "", (unsigned)gfx_variants[n].offset);
+        for (unsigned w = 0; w < gfx_variants[n].count; w++) fprintf(file, "%04x", gfx_variants[n].words[w]);
         fputs("\"}", file);
     }
     fprintf(file, "],\"z80_ram\":[");
