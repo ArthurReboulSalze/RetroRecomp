@@ -192,6 +192,29 @@ Reference and risk cases ([`tools/campaign-risk-cases.json`](../tools/campaign-r
 - Super Mario RPG (SA-1): must be refused with an explicit circuit-support error.
 - Super Scope 6 (CRC32 B141EA99) for the gun, NTSC only.
 
+### Interpreter-fallback survey (29 October 2026)
+
+A read-only survey of the 36 conversion reports of the maintainer's Super Nintendo exports (versions 0.21.0 to 1.6.4) and
+one reconversion with the 1.6.4 tree found **no unexplained interpreted 65816 or SPC700 opcode**:
+
+- 35 reports show 0 interpreted 65816 opcodes and 0 interpreted SPC700 opcodes on every final scenario. The 36th, Mega Man
+  X2 (1.1.6), predates the separate device line: its 107,817,178 "interpreted" figure is the CX4 device, which a current
+  conversion reports on its own `cartridge_device` line, with the 65816 at 0.
+- Secret of Mana (USA), reconverted from an empty library at the Standard level, is the cartridge with the most
+  cartridge-resident code (the game logic lives in WRAM from `$7E:8000`). Before learning, the demo ran 14,434,154
+  interpreted 65816 opcodes and 4,646,680 interpreted SPC700 opcodes; after one learning pass (7,512 RAM variants at 7,308
+  addresses, 69,796 SPC700 opcode variants) both scenarios ran at 0, and the native run equals the internal reference. The
+  exported game, replayed on two pseudo-random routes of 6,000 frames that no scan level has run (indices 2 and 3), executed 0
+  interpreted opcodes and added no RAM site. Scripted random input stays near the first screens, so this says nothing about
+  unvisited game modes.
+- So RAM-resident code is the only class that can reach the interpreter on an ordinary cartridge, and it does so by design:
+  a RAM instruction is native only where a scan observed it (see "What is native, what is counted"). A path no scan has
+  visited stays counted, never hidden. Nothing here is a hardware-fidelity, gameplay or latency claim.
+- Open, not fixed: the learned set is capped at 16,384 variants per cartridge, keyed by address and four bytes although the
+  native table uses only address and opcode (Earthworm Jim: 81 variants at 2 addresses; Secret of Mana: 9,208 variants at
+  8,725 address and opcode pairs in the maintainer's library). Past the cap, the highest addresses are dropped when the
+  library is read, and the overflow counter is only in the scenario reports, not in the conversion log.
+
 Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](SNES_SUPERFX.md); the DSP-1/CX4 release
 1.0.0 campaign, the live-RAM guards, bus, DMA/HDMA, PPU and cartridge-decoder work in [SNES_LOG.md](SNES_LOG.md).
 
