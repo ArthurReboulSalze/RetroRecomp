@@ -55,9 +55,11 @@ missing, because the old readers take a null for a value)::
                     'scenarios': [{'name', 'frames', 'native', 'interpreted',
                                    'interpreted_percent', 'cycles', ...,
                                    'ram_single_step': {'stub_instructions', 'stub_cycles',
-                                                       'single_step_instructions', 'single_step_cycles'}
-                                                      (Game Boy: WRAM/HRAM code run one instruction at a
-                                                       time; neither native nor interpreted)}]}]
+                                                       'single_step_instructions', 'single_step_cycles',
+                                                       'highmem_stub_instructions', 'highmem_stub_cycles'}
+                                                      (Game Boy: WRAM/HRAM and 0xFF00-0xFF7F code run one
+                                                       instruction at a time by the generated dispatch;
+                                                       neither native nor interpreted)}]}]
     devices       [{'id', 'kind': 'cartridge_coprocessor', 'unit', 'mode',
                     'failed', 'fallback_present', 'scenarios': [...]}]
     validation    {'native_code', 'cpu_fidelity', 'hardware_fidelity',
@@ -185,14 +187,19 @@ def _main_scenario(writer, row):
     elif writer == 'gameboy':
         interpreted = _count(row.get('interpreter_instructions'))
         cycles = {'native': None, 'interpreted': _count(row.get('interpreter_cycles')), 'total': None}
-        if 'ram_stub_instructions' in row or 'ram_single_step_instructions' in row:
-            # WRAM/HRAM code run one instruction at a time (the runtime's RAM stub; the single-instruction
-            # executor): neither native code nor an interpreter session, so counted in its own field.
+        if ('ram_stub_instructions' in row or 'ram_single_step_instructions' in row
+                or 'highmem_stub_instructions' in row):
+            # Code run one instruction at a time by the generated dispatch (the runtime's RAM stub; the
+            # single-instruction executor; the runtime's stub for 0xFF00-0xFF7F): neither native code nor an
+            # interpreter session, so counted in its own field. A stub the pinned interpreter calls inside a
+            # session is part of that session's figures, not of this one.
             extra['ram_single_step'] = {
                 'stub_instructions': _count(row.get('ram_stub_instructions')),
                 'stub_cycles': _count(row.get('ram_stub_cycles')),
                 'single_step_instructions': _count(row.get('ram_single_step_instructions')),
-                'single_step_cycles': _count(row.get('ram_single_step_cycles'))}
+                'single_step_cycles': _count(row.get('ram_single_step_cycles')),
+                'highmem_stub_instructions': _count(row.get('highmem_stub_instructions')),
+                'highmem_stub_cycles': _count(row.get('highmem_stub_cycles'))}
     elif writer == 'nes':
         cycles = {'native': _count(row.get('native_cycles')), 'interpreted': _count(row.get('interpreter_cycles')),
                   'total': _count(row.get('cycles')), 'interpreted_rom': _count(row.get('interpreter_rom_cycles')),
@@ -241,7 +248,8 @@ def _ram_single_step_state(scenarios):
     for scenario in scenarios:
         step = scenario.get('ram_single_step')
         if isinstance(step, dict):
-            counts.append([step.get('stub_instructions'), step.get('single_step_instructions')])
+            counts.append([step.get('stub_instructions'), step.get('single_step_instructions'),
+                           step.get('highmem_stub_instructions')])
     if any(v is not None and v > 0 for pair in counts for v in pair):
         return True
     if counts and len(counts) == len(scenarios) and all(all(v is not None for v in pair) for pair in counts):
@@ -442,8 +450,8 @@ def _validation(shape, data, rows, cpus, devices):
             'scenarios_checked': len(rows),
             'coverage': _copy(coverage) if isinstance(coverage, dict) else None,
             'coverage_note': coverage if isinstance(coverage, str) else None,
-            'claim': ('native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by '
-                      'counted executors (not native code)' if ram else
+            'claim': ('native ROM code on the tested scenarios; some WRAM/HRAM and 0xFF00-0xFF7F instructions run one '
+                      'at a time by counted executors (not native code)' if ram else
                       'native code on the tested scenarios only')},
         'cpu_fidelity': _cpu_fidelity(shape, data, rows),
         'hardware_fidelity': {'validated': hardware, 'evidence': evidence,
@@ -815,6 +823,8 @@ def fallback_summary(report, *, lenient=False) -> dict:
         # counted apart from the interpreter, a maximum over the scenarios like the other figures. The keys exist
         # only for a writer that counts them.
         summary['ram_one_by_one_instructions'] = max(
-            _ram_total(s, 'stub_instructions', 'single_step_instructions') for s in scenarios)
-        summary['ram_one_by_one_cycles'] = max(_ram_total(s, 'stub_cycles', 'single_step_cycles') for s in scenarios)
+            _ram_total(s, 'stub_instructions', 'single_step_instructions', 'highmem_stub_instructions')
+            for s in scenarios)
+        summary['ram_one_by_one_cycles'] = max(
+            _ram_total(s, 'stub_cycles', 'single_step_cycles', 'highmem_stub_cycles') for s in scenarios)
     return summary

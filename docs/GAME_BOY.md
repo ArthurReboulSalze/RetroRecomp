@@ -175,10 +175,19 @@ the pinned runtime's RAM stub, so each entry started an interpreter session that
 WRAM/HRAM instructions outside the stub are now executed one at a time from their live bytes by a counted executor
 (`rr_gb_try_ram_instruction`, checked opcode by opcode against the interpreter by `tools/gameboy_ram_selftest.py`). **That is not native
 code**: it is a per-opcode switch, cheaper than an interpreter session, and the ROM routine the trampoline jumps to is native again. The
-executor and the upstream RAM stub (never counted before) each count their instructions and cycles per probe; the conversion report shows
-them beside the interpreter figures (`ram_stub_*`, `ram_single_step_*`), and while they are not zero the report does not claim
-zero fallback or native code only. The deep CPU comparisons match. `CB`-prefixed opcodes, `HALT`, `STOP` and `RST` executed from RAM
-still use the reported interpreter. Wario Land II was not re-run for this note.
+executor, the upstream RAM stub and the upstream stub for code run from 0xFF00-0xFF7F (a per-opcode executor too; the last two were never
+counted before) each count their instructions and cycles per probe; the conversion report shows them beside the interpreter figures
+(`ram_stub_*`, `ram_single_step_*`, `highmem_stub_*`), and while they are not zero the report does not claim zero fallback or native code
+only. The deep CPU comparisons match. `CB`-prefixed opcodes, `HALT`, `STOP` and `RST` executed from RAM still use the reported interpreter.
+Wario Land II was not re-run for this note.
+
+*What the counts cover, exactly.* They cover the generated game's dispatch, where the three executors above run one instruction per call.
+When the generated code does enter an interpreter session, the pinned interpreter calls the same stubs itself; the instructions they run
+there belong to the session: its loop counts one instruction per iteration whether a stub or its own switch executed it, and their cycles are
+part of the session's cycles, so they appear in the interpreter figures (already shown as interpreter use) and are not counted a second time
+in the `ram_stub_*` or `highmem_stub_*` fields (`tools/gameboy_ram_selftest.py` checks both). The upstream HRAM stub is not counted: it
+recognises the complete OAM-DMA wait routine by its bytes and runs it as one helper, like the guarded multi-instruction helpers of this
+section, which are not counted either (the wait loop is batched into one call, so its instruction count would be a count of calls).
 
 These cases improved the common runtime in two ways. A guarded native helper
 handles a small writable store/increment routine, checking all live bytes and

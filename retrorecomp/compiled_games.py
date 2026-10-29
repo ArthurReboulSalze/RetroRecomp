@@ -230,7 +230,7 @@ def game_from_report(path, folder=None, *, source=''):
         ('interpreter_percent', 'interpreter_cycles', 'main_interpreted_opcodes', 'interpreted_opcodes',
          'audio_interpreted_opcodes', 'coprocessor_instructions',
          # Game Boy: WRAM/HRAM instructions run one at a time are counted code, not native code (never hidden).
-         'ram_stub_instructions', 'ram_single_step_instructions'))
+         'ram_stub_instructions', 'ram_single_step_instructions', 'highmem_stub_instructions'))
         for check in checks if isinstance(check, dict))
     title = data.get('title') or (Path(name).stem if name.lower().endswith('.exe') else name)
     return Game(str(target.resolve()), system, identity, str(title), str(Path(path).resolve()),

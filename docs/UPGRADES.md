@@ -400,18 +400,22 @@ block copied from the cartridge into WRAM, operands patched at run time) is that
 code again instead of staying inside an interpreter session. What a conversion generates is unchanged (the generated C files are the
 same); the adapted runtime header, the dispatch of `game.c` and three context counters change.
 
-*Counted, apart from the interpreter.* The executor and the upstream RAM stub (which was never counted) each count their instructions and
-guest cycles in every probe: `final_checks` and `history` carry `ram_stub_instructions`, `ram_stub_cycles`,
-`ram_single_step_instructions`, `ram_single_step_cycles`; the schema-2 report shows them as `cpus[].scenarios[].ram_single_step`, with
+*Counted, apart from the interpreter.* The executor, the upstream RAM stub and the upstream stub for code run from 0xFF00-0xFF7F (the last
+two were never counted) each count their instructions and guest cycles in every probe: `final_checks` and `history` carry
+`ram_stub_instructions`, `ram_stub_cycles`, `ram_single_step_instructions`, `ram_single_step_cycles`, `highmem_stub_instructions`,
+`highmem_stub_cycles`; the schema-2 report shows them as `cpus[].scenarios[].ram_single_step`, with
 `ram_single_step_present`. While they are not zero the report's `native_code.zero_fallback_on_tested_scenarios` is false and its claim
-reads "native ROM code on the tested scenarios; some WRAM/HRAM instructions run one at a time by counted executors (not native code)"; the
+reads "native ROM code on the tested scenarios; some WRAM/HRAM and 0xFF00-0xFF7F instructions run one at a time by counted executors (not native code)"; the
 window appends "N RAM instructions executed one by one (not native)" in the eight languages, and the library marks the game as one with
-fallback. The interpreter figures keep their meaning (sessions, instructions, cycles of the interpreter). The guarded multi-instruction
-helpers (named routines checked by a live signature) are not counted, as before. A report of 1.6.3 has no such counts: the flag reads
+fallback. The interpreter figures keep their meaning (sessions, instructions, cycles of the interpreter). The counts cover the generated
+dispatch only: stubs the pinned interpreter calls inside a session are part of that session (its instruction and cycle counts). The
+guarded multi-instruction helpers (named routines checked by a live signature) and the upstream HRAM stub (the OAM-DMA wait routine matched
+by its bytes) are not counted, as before. A report of 1.6.3 has no such counts: the flag reads
 "not measured", never "zero".
 
 *Stamps* (`compilation_inputs.role_stamps('gb')`, Python 3.14, from the tree of the tag `v1.6.3` and from this tree; to be recomputed at the
-release): the game stamp moves; host and build stamps of the Game Boy and every stamp of the other eight consoles are unchanged. Learned
+release): this change moves the Game Boy game stamp only; its host and build stamps and the other eight consoles' stamps are untouched by it
+(they move for other reasons of the release: [Exports of 1.6.3 in 1.6.4](#exports-of-163-in-164)). Learned
 paths do not move, and no quick-state key exists for the Game Boy (the counters are host-only context fields, outside every saved state).
 
 An export of 1.6.3 is therefore rebuilt from its learned paths and rechecked on the quick routes. Donkey Kong Land goes, in the

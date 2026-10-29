@@ -703,18 +703,20 @@ class RamSingleStepTests(unittest.TestCase):
     """Game Boy: WRAM/HRAM code run one instruction at a time is counted apart, and is never reported as native only."""
 
     @staticmethod
-    def counted(report, stub=0, single=0):
+    def counted(report, stub=0, single=0, highmem=0):
         for rows in (report['final_checks'], report['history']):
             for row in rows:
                 row.update(ram_stub_instructions=stub, ram_stub_cycles=stub * 8,
-                           ram_single_step_instructions=single, ram_single_step_cycles=single * 6)
+                           ram_single_step_instructions=single, ram_single_step_cycles=single * 6,
+                           highmem_stub_instructions=highmem, highmem_stub_cycles=highmem * 4)
         return report
 
     def test_the_counts_reach_the_report_and_make_the_native_claim_false(self):
-        report = read_report(self.counted(gb_report(), stub=3, single=5))
+        report = read_report(self.counted(gb_report(), stub=3, single=5, highmem=2))
         scenario = report['cpus'][0]['scenarios'][0]
         self.assertEqual(scenario['ram_single_step'], {'stub_instructions': 3, 'stub_cycles': 24,
-                                                       'single_step_instructions': 5, 'single_step_cycles': 30})
+                                                       'single_step_instructions': 5, 'single_step_cycles': 30,
+                                                       'highmem_stub_instructions': 2, 'highmem_stub_cycles': 8})
         # Not an interpreter session: the interpreter figures stay at zero.
         self.assertEqual(scenario['interpreted'], 0)
         self.assertFalse(report['cpus'][0]['fallback_present'])
@@ -726,7 +728,23 @@ class RamSingleStepTests(unittest.TestCase):
         self.assertIn('not native code', native['claim'])
         summary = fallback_summary(report)
         self.assertEqual(summary['interpreter_cycles'], 0)
-        self.assertEqual((summary['ram_one_by_one_instructions'], summary['ram_one_by_one_cycles']), (8, 54))
+        self.assertEqual((summary['ram_one_by_one_instructions'], summary['ram_one_by_one_cycles']), (10, 62))
+
+    def test_highmem_stub_alone_counts_and_a_missing_figure_is_not_a_zero(self):
+        report = read_report(self.counted(gb_report(), highmem=1))
+        native = report['validation']['native_code']
+        self.assertIs(report['cpus'][0]['ram_single_step_present'], True)
+        self.assertIs(native['zero_fallback_on_tested_scenarios'], False)
+        self.assertEqual(fallback_summary(report)['ram_one_by_one_instructions'], 1)
+        # A row written before the high-memory figure existed: the other two being zero proves nothing about it.
+        data = self.counted(gb_report())
+        for rows in (data['final_checks'], data['history']):
+            for row in rows:
+                row.pop('highmem_stub_instructions', None)
+                row.pop('highmem_stub_cycles', None)
+        partial = read_report(data)
+        self.assertIsNone(partial['cpus'][0]['ram_single_step_present'])
+        self.assertIsNone(partial['validation']['native_code']['ram_single_step_present'])
 
     def test_zero_counts_keep_the_native_claim_and_other_writers_are_unchanged(self):
         report = read_report(self.counted(gb_report()))
@@ -749,7 +767,8 @@ class RamSingleStepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             for label, report, expected in (('clean', self.counted(gb_report()), False),
                                             ('stub', self.counted(gb_report(), stub=1), True),
-                                            ('single', self.counted(gb_report(), single=2), True)):
+                                            ('single', self.counted(gb_report(), single=2), True),
+                                            ('highmem', self.counted(gb_report(), highmem=1), True)):
                 path = Path(folder) / f'{label}.json'
                 path.write_text(json.dumps(report), encoding='utf-8')
                 game = game_from_report(path, Path(folder))
