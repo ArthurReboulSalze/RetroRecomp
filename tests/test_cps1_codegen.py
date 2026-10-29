@@ -56,6 +56,12 @@ class PinnedAdaptationTests(unittest.TestCase):
         self.assertIn('#include "cps1_z80_steps.inc"', native)
         self.assertEqual(native.count('if(!rr_cps1_z80_try(z,&cyc))'), 1)
 
+    def test_z80_im0_supplied_opcode_is_counted(self):
+        native = cps1_build.z80_core(GEOLITH, native=True)
+        self.assertEqual(native.count('++rr_cps1_interpreted_z80;\n      cyc += exec_opcode(z, z->irq_data);'), 1)
+        self.assertEqual(native.count('exec_opcode(z, z->irq_data)'), 1)
+        self.assertNotIn('rr_cps1_interpreted_z80', cps1_build.z80_core(GEOLITH, native=False))
+
 
 RELOCATE_HARNESS = r'''#include "cps1_native.h"
 #include <stdio.h>
