@@ -30,6 +30,10 @@ class PathSpec:
     # Sources a record must name, and those that must carry a SHA-256 (the identity of its key).
     required_sources: tuple[str, ...] = ()
     hashed_sources: tuple[str, ...] = ()
+    # The bounds of each (CPU family, memory map) the machine introduces, as ``(cpu, map, fields)`` where the fields
+    # are those of ``path_profiles.Profile`` (roles, caps, windows...). A map two machines share (the Master System
+    # and the Game Gear) is declared by one of them, once; ``sections`` says which maps a machine uses.
+    shapes: tuple[tuple[str, str, dict], ...] = ()
 
 
 @dataclass(frozen=True)

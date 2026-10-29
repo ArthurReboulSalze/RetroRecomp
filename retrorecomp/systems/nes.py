@@ -20,7 +20,10 @@ class NesProfile(SystemProfile):
     feedback_kinds = frozenset({3, 4})
     option_keys = (OptionKey("nes_advanced_scan"),)
     path_spec = PathSpec(order=3, sections=(("mos6502", "nes"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
-                         required_sources=("rom",))
+                         required_sources=("rom",),
+                         shapes=(("mos6502", "nes", dict(roles=("rom",), caps={"nes_rows": 65536, "opcode_ptr": 65536},
+                                                         unit=0x1000, pc_window=(0x8000, 0xffff),
+                                                         windows=((0, 0x2000), (0x6000, 0x10000)), guard="first")),))
     report_shape = ReportShape("nes", "host_audio")
     catalogues = Catalogues(libretro="libretro-thumbnails/Nintendo_-_Nintendo_Entertainment_System",
                             screenscraper=3, thegamesdb=7, wikidata=("Q172742",), cover_references=True)

@@ -12,16 +12,15 @@ runs that discover and validate a game never use the shell.
 from pathlib import Path
 
 from .paths import ASSETS
+from .systems.registry import all_profiles
 
 HEADERS = ('hostkit.h', 'hostkit_internal.h')
 SHELL = tuple(f'shell/rrhk_{name}.c' for name in
               ('audio', 'events', 'input', 'main', 'menu', 'options', 'pointer', 'ring', 'timing', 'video'))
-ADAPTERS = {'md': 'adapters/rrhk_md.c', 'snes': 'adapters/rrhk_snes.c',
-            'ng': 'adapters/rrhk_ng.c', 'cps1': 'adapters/rrhk_cps1.c', 'nes': 'adapters/rrhk_nes.c',
-            'sms': 'adapters/rrhk_sms.c', 'gg': 'adapters/rrhk_sms.c',
-            # An adapter that is included by the platform file of the runtime it belongs to (one translation unit)
-            # is staged but not compiled by itself.
-            'gb': 'adapters/rrhk_gb.inc'}
+# The adapter file of each machine on the kit, below native/hostkit: the profile's `host_adapter` (the Master
+# System and the Game Gear share one; an adapter an engine's own platform file includes, `.inc`, is staged but
+# not compiled by itself). A new machine adds no line here.
+ADAPTERS = {profile.id: profile.host_adapter for profile in all_profiles() if profile.host_adapter}
 
 
 def sources(family: str) -> list[str]:

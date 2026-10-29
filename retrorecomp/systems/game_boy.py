@@ -25,7 +25,9 @@ class GameBoyProfile(SystemProfile):
     parallel_games_option = "gb_parallel_games"
     options_tab = "options_game_boy"
     path_spec = PathSpec(order=2, sections=(("sm83", "gb"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
-                         required_sources=("rom",))
+                         required_sources=("rom",),
+                         shapes=(("sm83", "gb", dict(roles=("rom",), caps={"gb_offsets": 65536, "gb_rows": 65536},
+                                                     unit=0x4000, pc_window=(0, 0x7fff))),))
     report_shape = ReportShape("gameboy", "generated_build")
     catalogues = Catalogues(libretro="libretro-thumbnails/Nintendo_-_Game_Boy", screenscraper=9, thegamesdb=4,
                             wikidata=("Q186437",), cover_references=True)

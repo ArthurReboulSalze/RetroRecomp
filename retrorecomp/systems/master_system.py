@@ -49,8 +49,11 @@ class MasterSystemProfile(SystemProfile):
     converter_publishes = True
     options_tab = "options_master_system"
     host_adapter = "adapters/rrhk_sms.c"
+    # The Z80 map of the Master System and the Game Gear is declared once, here (the Game Gear lists the section).
     path_spec = PathSpec(order=0, sections=(("z80", "sms"),), source_bounds=(("rom", CARTRIDGE_BOUNDS),),
-                         required_sources=("rom",))
+                         required_sources=("rom",),
+                         shapes=(("z80", "sms", dict(roles=("rom",), caps={"sega5": 65536, "window4": 4096},
+                                                     pc_below=0xbf01)),))
     report_shape = ReportShape("core", "strict_checks")
     catalogues = Catalogues(libretro="libretro-thumbnails/Sega_-_Master_System_-_Mark_III", screenscraper=2,
                             thegamesdb=35, wikidata=("Q209868",), cover_references=True)

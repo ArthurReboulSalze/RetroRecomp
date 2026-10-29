@@ -27,7 +27,14 @@ class Cps1Profile(SystemProfile):
     # The paths schema lists CPS-1 (7) before the X68000 (8); the documents list them the other way round.
     path_spec = PathSpec(order=7, sections=(('m68k', 'cps1'), ('z80', 'cps1-sound')),
                          source_bounds=(('maincpu', (0x1000, 0x400000)), ('audiocpu', (0x8000, 0x100000))),
-                         required_sources=('maincpu', 'audiocpu'), hashed_sources=('maincpu', 'audiocpu'))
+                         required_sources=('maincpu', 'audiocpu'), hashed_sources=('maincpu', 'audiocpu'),
+                         shapes=(('m68k', 'cps1', dict(roles=('maincpu',), caps={'insn': 4096},
+                                                       windows=((0xff0000, 0x1000000),), contained=True,
+                                                       length=(2, 16), length_align=2, offset_align=2,
+                                                       address_align=2)),
+                                 ('z80', 'cps1-sound', dict(roles=('audiocpu',), caps={'insn_masked': 4096},
+                                                            windows=((0xd000, 0xd800),), length=(4, 4),
+                                                            guard='mask'))))
     report_shape = ReportShape('cps1_conversion', 'native_analysis')
     # No box-art repository was ever chosen for the arcade board; its own catalogue names the sets.
     catalogues = Catalogues(local_catalogue='assets/cps1-catalogue.json')
@@ -37,6 +44,7 @@ class Cps1Profile(SystemProfile):
                                script_suffix='.inputs')
     shared_knowledge = SharedKnowledge('experimental', withdrawable=True)
     host_adapter = 'adapters/rrhk_cps1.c'
+    stamp_groups = ('megadrive_codegen', 'megadrive_z80', 'conversion_gates', 'neogeo_codegen', 'neogeo_build')
     # A romset ZIP whose program ROMs are in the catalogue (by CRC, never by name), or any ZIP when chosen.
     identify = Identify(path_order=20)
 
