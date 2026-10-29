@@ -94,6 +94,14 @@ Adaptations we carry on the generated project:
   C stack (Pokemon Yellow exposed the overflow).
 - **Battery RAM** is flushed on exit only after a changed value (upstream flushed every cartridge with external RAM), so a launch and
   quit stays file-free.
+- **Inline ordinary case of `gb_tick` (1.6.5).** `gb_tick` advances the clock after nearly every instruction and runs a large general
+  sequence. `native/gb_tick_fast.h`, included by the runtime file `gbrt.c`, runs the ordinary case in the caller (single speed, no OAM DMA,
+  serial transfer, ticking real-time clock, TIMA reload or timer edge in these cycles, none of the test switches) with the same effects in the
+  same order, and calls the real `gb_tick` for every other case before changing anything. It reaches the ticks issued by the runtime's own
+  functions (timed jumps, calls, returns, stack and bus accesses), measured as about nine tenths of all calls on Super Mario Land; the
+  generated bodies keep calling the real `gb_tick` (inlining it there reached about a tenth of the calls and raised the C build time by 5 to
+  24 percent). It is a speed change only: `tools/gameboy_tick_selftest.py` compares both on random operation streams, field by field. The speed
+  gain is not measured here.
 - **Input refresh.** A JOYP read with no scripted pad asks the host for fresh input (`adapt_input_refresh_hook`).
 - **Build reductions** (`gameboy_build.py`; the generated instruction bodies and `/O2` are kept): regular dispatch pages use immutable
   native-function tables, trivial entry wrappers call their shared body directly, custom/native replacement hooks stay, function
@@ -151,8 +159,8 @@ instructions are reported beside them. Wario Land II kept interpreter sessions a
 | Profile | `retrorecomp/systems/game_boy.py` (extensions, options `gb_deep_validation` and `gb_parallel_games`, path shape `sm83`/`gb`, library layout `gb`) |
 | Converter | `retrorecomp/gameboy.py` (pipeline, passes, report), `gameboy_coverage.py` (probe and CPU-validation scenarios), `gameboy_runtime.py` (adaptations of the generated project), `gameboy_boundary.py`, `gameboy_build.py`, `gameboy_hardware.py`, `gameboy_host.py` (platform layer on the host kit) |
 | Shared converter code used | `scan_levels.py` (`gameboy_budget`), `random_routes.py`, `path_profiles.py` (CPU-keyed `rom_entries`), `report_schema.py` |
-| Native | `native/gb_ram_helpers.h`, `gb_ram_checks.c`, `gb_boundary_checks.c`, `gb_audio_checks.c`, `gb_latency_checks.cpp`; the adapter `native/hostkit/adapters/rrhk_gb.inc` |
-| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py` |
+| Native | `native/gb_ram_helpers.h`, `gb_ram_checks.c`, `gb_boundary_checks.c`, `gb_audio_checks.c`, `gb_latency_checks.cpp`, `gb_tick_fast.h`, `gb_tick_checks.c`; the adapter `native/hostkit/adapters/rrhk_gb.inc` |
+| Self-tests (build C, need a compiler, no ROM) | `tools/gameboy_ram_selftest.py`, `gameboy_boundary_selftest.py`, `gameboy_display_selftest.py`, `gameboy_hardware_selftest.py`, `gameboy_latency_selftest.py`, `gameboy_tick_selftest.py` |
 | Unit tests | `tests/test_game_boy.py`, `test_gameboy_build.py`, `test_gameboy_coverage.py` |
 | Stamps | The role and owners of each file are in `retrorecomp/stamp_inputs.py`; editing a Game Boy game file moves the Game Boy game stamp (there is no Game Boy quick-state key) |
 

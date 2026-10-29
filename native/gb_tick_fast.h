@@ -1,16 +1,21 @@
-/* Inline "idle" path of gb_tick for the generated Game Boy code.
+/* Inline "idle" path of gb_tick for the Game Boy runtime.
  *
- * The generated bodies call gb_tick(ctx, n) after nearly every instruction. gb_tick is defined in gbrt.c, so each call
- * crosses a translation unit and runs the full general sequence (double speed, RTC, OAM DMA, serial, timer, PPU,
- * interrupts, audio). This header does exactly what gb_tick does for the ordinary case, in the caller, and hands every
- * other case to the real gb_tick before touching anything. It is a speed change only: the same state, the same order of
- * effects, the same cycles. tools/gameboy_tick_selftest.py checks it against the real gb_tick on random operation
- * streams, field by field.
+ * Most ticks of a running game are issued by the runtime's own functions (timed jumps, calls, returns, stack and bus
+ * accesses in gbrt.c), the rest by the generated bodies. gb_tick is a large general function (double speed, RTC, OAM DMA,
+ * serial, timer, PPU, interrupts, audio). This header does exactly what gb_tick does for the ordinary case, in the caller,
+ * and hands every other case to the real gb_tick before touching anything. It is a speed change only: the same state, the
+ * same order of effects, the same cycles. tools/gameboy_tick_selftest.py checks it against the real gb_tick on random
+ * operation streams, field by field.
+ *
+ * It is included by gbrt.c (adapted in gameboy_runtime.py, which keeps the definition of gb_tick itself out of the macro).
+ * The generated sources keep calling the real gb_tick: measured on three games, inlining it into every generated body
+ * reached only about a tenth of the ticks and raised the C build time by 5 to 24 percent.
  *
  * The ordinary case (DMG, which is the only model these exports run):
  *   - not CGB double speed, no instruction limit, no trace, none of the test switches that change how the runtime ticks
  *     (benchmark fast tick, forced scalar timer, eager audio);
- *   - no real-time clock ticking (a cartridge of type 0x0F or 0x10 with the clock not halted), no OAM DMA pending or active, no serial transfer in progress;
+ *   - no real-time clock ticking (a cartridge of type 0x0F or 0x10 with the clock not halted), no OAM DMA pending or
+ *     active, no serial transfer in progress;
  *   - no TIMA reload in progress and, when the timer runs, no edge of its input inside these cycles (an edge is the
  *     one place where the arithmetic differs from a plain addition to DIV);
  *   - the audio pending state is consistent with single speed.
@@ -143,7 +148,7 @@ static inline void rr_gb_tick(GBContext* ctx, uint32_t cycles) {
     if (ctx->ime_pending) { ctx->ime = 1; ctx->ime_pending = 0; }
 }
 
-/* Every call of the generated code goes through the inline path. The inline function above calls the real gb_tick
+/* Every later call in the including file goes through the inline path. The inline function above calls the real gb_tick
  * before this line, so the macro does not apply to it. */
 #define gb_tick(ctx, cycles) rr_gb_tick((ctx), (cycles))
 

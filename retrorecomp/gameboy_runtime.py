@@ -82,6 +82,14 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
 
     runtime_cpu = project / "runtime/src/gbrt.c"
     source = runtime_cpu.read_text(encoding="utf-8")
+    # The runtime's own functions (timed jumps, calls, returns, stack and bus accesses) call gb_tick for most of the
+    # ticks of a running game. gb_tick_fast.h runs the ordinary case of gb_tick inline in those callers, with the same
+    # effects in the same order, and hands every other case to the real gb_tick; the definition of gb_tick below keeps
+    # its own name. The generated sources keep calling the real gb_tick: inlining it into every body costs build time.
+    source = replace_once(source, '#include "gbrt.h"\n#include "gbrt_data_mod.h"',
+        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gbrt_data_mod.h"')
+    source = replace_once(source, 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;',
+        '#undef gb_tick\nvoid gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;')
     source = replace_once(source,
         '''    /* Save RAM before destroying if available */
     if (ctx->eram && ctx->callbacks.save_battery_ram && !ctx->persistence_load_failed) {
@@ -190,14 +198,6 @@ static void rr_gb_feedback(GBContext *ctx) {
     source = replace_once(source, '        if (ctx->single_step_mode) break;\n    }\n}',
                           '        if (ctx->single_step_mode || gbrt_generated_safepoint(ctx)) break;\n    }\n}')
     game.write_text(source, encoding='utf-8')
-
-    # The generated bodies call gb_tick (defined in gbrt.c) after nearly every instruction. gb_tick_fast.h runs the
-    # ordinary case in the caller, exactly as gb_tick does, and hands every other case to the real gb_tick; the
-    # include comes first so that every generated source sees it (tools/gameboy_tick_selftest.py compares the two).
-    internal = project / 'game_internal.h'
-    source = internal.read_text(encoding='utf-8')
-    source = replace_once(source, '#include "game.h"\n', '#include "game.h"\n#include "gb_tick_fast.h"\n')
-    internal.write_text(source, encoding='utf-8')
 
     # Cross-body guest jumps/calls must not consume the host C stack. The
     # emitter has already set PC and performed the timed guest stack/bus work.
