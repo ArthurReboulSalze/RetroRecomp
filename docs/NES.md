@@ -151,6 +151,12 @@ Adjacent dot/half-dot calls are paired only when no CPU, APU or NMI event falls
 between them. Every pixel, latch transition and mapper event remains clocked;
 there is no frame skipping or simplified PPU mode.
 
+A game is compiled for one cartridge, and the loader refuses any other mapper number, so the engine
+reads that number as a constant (`RR_NES_STATIC_MAPPER`) on every toolchain, GNU C and clang, MSVC
+included; before 1.6.5 only the Linux GNU build did. The per-cycle mapper tests then fold at compile
+time. `tools/nes_static_mapper_selftest.py` compares the constant and the run-time number on the PPU,
+APU and bus checkpoints of eight mappers, NTSC and PAL. The gain is not measured yet.
+
 GNU builds profile the hardware through a private native runner, then
 link the native game with profile-guided optimization and interprocedural
 optimization when available. Training covers 240 boot frames and 600 input
@@ -357,6 +363,7 @@ same engine's internal CPU and bus; they do not certify physical hardware.
 | `python tools/nes_guarded_selftest.py` | Authored RAM guards and PPU-driven mapper fetch comparisons (mappers 0, 5, 69, 1, 153, 155): all 256 opcodes, changed operands, RAM mirrors, RAM/ROM and RAM/register boundaries, NMI/IRQ, OAM and DMC DMA, pending reset, changed-opcode rejection |
 | `python tools/nes_windows_selftest.py` | Lower-ROM selection, protected cartridge RAM (mappers 40, 69, 21, 22, 23, 25, 80, 207, 82, 552), bank boundaries, DMC/OAM DMA, pending IRQ/NMI/reset; altered ROM fetches must keep visible fallback and must not pollute upper-address ROM seeds |
 | `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: three configurations (NTSC with Zapper, PAL with Zapper, NTSC without Zapper), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
+| `python tools/nes_static_mapper_selftest.py` | The machine with the cartridge's mapper number as a compile-time constant against the run-time number, 2,800 checkpoints for each of eight mappers, NTSC without the Zapper and PAL with it; also checks that a constant-mapper build refuses another mapper |
 | `python tools/nes_mmc1_selftest.py` | The MMC1 with the PPU A12 table rebuild skipped against the original, step by step on 13 authored boards (bank tables, mirroring, work RAM bank and enables after each of 15,165 register writes and A12 changes) |
 | `python tools/nes_machine_selftest.py` | Authored NTSC/PAL fixtures: clock/APU behaviour, beam-driven Zapper detection, snapshot round trips, mapper audio, corrupted-state rejection without mutation |
 | `python tools/nes_audio_selftest.py` | The host kit's callback-ring output and authored PCM timelines, silently |
