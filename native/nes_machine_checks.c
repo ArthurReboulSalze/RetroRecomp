@@ -99,6 +99,10 @@ static void state_checks(void) {
     rr_nes_zapper_aim(150,120,true,false); rr_nes_zapper_pixel(150,120,0x30);
     size_t size=rr_nes_state_size(); uint8_t *saved=malloc(size), *bad=malloc(size);
     CHECK(saved && bad); CHECK(rr_nes_state_save(saved,size));
+    /* Every byte of a state is defined: the header's two padding bytes are zero, and
+     * a second save over a buffer of other bytes is identical to the first. */
+    CHECK(saved[138]==0 && saved[139]==0);
+    memset(bad,0xA5,size); CHECK(rr_nes_state_save(bad,size)); CHECK(!memcmp(saved,bad,size));
     uint64_t before=cyc_hw_state_hash(), mem=cyc_mem_state_hash(); Cpu6502 c=cpu;
     uint8_t gun=rr_nes_zapper_read(1);
     cyc_run_frame(); uint64_t after=cyc_hw_state_hash(), mem_after=cyc_mem_state_hash(), pcm=audio_hash();

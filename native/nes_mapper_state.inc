@@ -9,8 +9,9 @@ typedef struct {
 size_t rr_nes_mapper_audio_size(void) { return hw_cart.mapper == 85 ? sizeof(RrVrc7State) : 0; }
 void rr_nes_mapper_audio_save(uint8_t *buffer) {
     if (hw_cart.mapper != 85) return;
-    RrVrc7State s = {0};
-    s.chip = *vrc7_opll;
+    RrVrc7State s;
+    memset(&s, 0, sizeof(s));   /* padding included */
+    memcpy(&s.chip, vrc7_opll, sizeof(s.chip));
     s.chip.conv = NULL; /* The fixed-rate VRC7 core does not use a converter. */
     for (int i = 0; i < 18; i++) {
         s.patch[i] = (uint8_t)(vrc7_opll->slot[i].patch - vrc7_opll->patch);

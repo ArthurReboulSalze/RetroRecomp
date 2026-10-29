@@ -830,7 +830,7 @@ uint64_t cps1_cpu_hash(void)
 
 /* ------------------------------------------------------------- quick states */
 
-#define STATE_MAGIC "CPS1S001"
+#define STATE_MAGIC "CPS1S002"
 unsigned cps1_m68k_state_bytes(void);
 void cps1_m68k_state_get(void *dst);
 void cps1_m68k_state_set(const void *src);
@@ -849,25 +849,105 @@ static void get(reader_t *r, void *data, size_t size)
     r->used += size;
 }
 
-/* Fields in a fixed order; host pointers (ROM, callbacks, audio buffer) are
- * never written and are kept from the running machine on load. */
-#define STATE_FIELDS(X) \
+/* Every byte of a state is defined by construction: arrays of plain integers
+ * are written as they are, and every structure (the Z80, the sound-latch queue,
+ * the OKI voices, the 68000 register block) is written field by field in
+ * little-endian order or as a bounded range of fields, so neither compiler
+ * padding, unused bit-field bits nor host pointers ever reach the file (the
+ * rule of the X68000 state, native/x68000_machine/state/rr_state.h). */
+static void put_le(writer_t *w, uint64_t value, unsigned bytes)
+{
+    uint8_t buffer[8];
+    for (unsigned n = 0; n < bytes; n++) buffer[n] = (uint8_t)(value >> (8 * n));
+    put(w, buffer, bytes);
+}
+static uint64_t get_le(reader_t *r, unsigned bytes)
+{
+    uint8_t buffer[8] = {0};
+    uint64_t value = 0;
+    get(r, buffer, bytes);
+    for (unsigned n = 0; n < bytes; n++) value |= (uint64_t)buffer[n] << (8 * n);
+    return value;
+}
+
+/* Z80 registers and flags, 34 bytes; callbacks stay those of the running machine. */
+static void z80_state_put(writer_t *w, const z80 *z)
+{
+    const uint16_t words[] = {z->pc, z->sp, z->ix, z->iy, z->mem_ptr, z->af, z->bc, z->de, z->hl,
+                              z->a_f_, z->b_c_, z->d_e_, z->h_l_};
+    for (size_t n = 0; n < sizeof words / sizeof words[0]; n++) put_le(w, words[n], 2);
+    const uint8_t bytes[] = {z->i, z->r, z->iff_delay, z->interrupt_mode, z->irq_data, z->irq_pending, z->nmi_pending,
+                             (uint8_t)((z->iff1 ? 1 : 0) | (z->iff2 ? 2 : 0) | (z->halted ? 4 : 0))};
+    put(w, bytes, sizeof bytes);
+}
+static void z80_state_get(reader_t *r, z80 *z)
+{
+    uint16_t words[13];
+    uint8_t bytes[8];
+    for (size_t n = 0; n < sizeof words / sizeof words[0]; n++) words[n] = (uint16_t)get_le(r, 2);
+    get(r, bytes, sizeof bytes);
+    if (r->bad || bytes[3] > 2 || (bytes[7] & ~7u)) { r->bad = 1; return; }
+    z->pc = words[0]; z->sp = words[1]; z->ix = words[2]; z->iy = words[3]; z->mem_ptr = words[4];
+    z->af = words[5]; z->bc = words[6]; z->de = words[7]; z->hl = words[8];
+    z->a_f_ = words[9]; z->b_c_ = words[10]; z->d_e_ = words[11]; z->h_l_ = words[12];
+    z->i = bytes[0]; z->r = bytes[1]; z->iff_delay = bytes[2]; z->interrupt_mode = bytes[3];
+    z->irq_data = bytes[4]; z->irq_pending = bytes[5]; z->nmi_pending = bytes[6];
+    z->iff1 = (bytes[7] & 1) != 0; z->iff2 = (bytes[7] & 2) != 0; z->halted = (bytes[7] & 4) != 0;
+}
+static void latch_queue_put(writer_t *w, const latch_event *queue)
+{
+    for (int n = 0; n < LATCH_QUEUE; n++) {
+        put_le(w, queue[n].time, 8); put_le(w, queue[n].which, 1); put_le(w, queue[n].value, 1);
+    }
+}
+static void latch_queue_get(reader_t *r, latch_event *queue)
+{
+    for (int n = 0; n < LATCH_QUEUE; n++) {
+        queue[n].time = get_le(r, 8); queue[n].which = (uint8_t)get_le(r, 1); queue[n].value = (uint8_t)get_le(r, 1);
+    }
+}
+static void oki_voices_put(writer_t *w, const cps1_oki_voice *voice)
+{
+    for (int n = 0; n < 4; n++) {
+        put_le(w, voice[n].playing, 1); put_le(w, voice[n].base, 4); put_le(w, voice[n].sample, 4);
+        put_le(w, voice[n].count, 4); put_le(w, (uint32_t)voice[n].signal, 4);
+        put_le(w, (uint32_t)voice[n].step, 4); put_le(w, (uint32_t)voice[n].volume, 4);
+    }
+}
+static void oki_voices_get(reader_t *r, cps1_oki_voice *voice)
+{
+    for (int n = 0; n < 4; n++) {
+        voice[n].playing = (uint8_t)get_le(r, 1); voice[n].base = (uint32_t)get_le(r, 4);
+        voice[n].sample = (uint32_t)get_le(r, 4); voice[n].count = (uint32_t)get_le(r, 4);
+        voice[n].signal = (int32_t)(uint32_t)get_le(r, 4); voice[n].step = (int32_t)(uint32_t)get_le(r, 4);
+        voice[n].volume = (int32_t)(uint32_t)get_le(r, 4);
+    }
+}
+
+/* Plain integers and integer arrays in a fixed order (structures and pointers
+ * go through the helpers above or stay out); host pointers (ROM, callbacks,
+ * audio buffer) are never written and are kept from the running machine on load. */
+#define STATE_FIELDS_BEFORE_QUEUE(X) \
     X(M.ram) X(M.gfxram) X(M.cps_a) X(M.cps_b) X(M.buffered_obj) X(M.palette) X(M.ports) \
     X(M.frame) X(M.line) X(M.frame_number) X(M.lines_run) X(M.m68k_cycles) X(M.m68k_target) \
-    X(M.z80_ram) X(M.latch) X(M.sound_bank) X(M.latch_queue) X(M.latch_count) X(M.z80_clock) \
-    X(M.opm_samples) X(M.oki.command) X(M.oki.pin7) X(M.oki.voice) X(M.oki_base_clock) \
-    X(M.oki_base_samples) X(M.oki_samples) X(M.oki_level) X(M.oki_previous) X(M.irq2)
+    X(M.z80_ram) X(M.latch) X(M.sound_bank)
+#define STATE_FIELDS_BEFORE_VOICES(X) \
+    X(M.latch_count) X(M.z80_clock) X(M.opm_samples) X(M.oki.command) X(M.oki.pin7)
+#define STATE_FIELDS_AFTER_VOICES(X) \
+    X(M.oki_base_clock) X(M.oki_base_samples) X(M.oki_samples) X(M.oki_level) X(M.oki_previous) X(M.irq2)
 
 size_t cps1_state_save(uint8_t *buffer, size_t capacity)
 {
     writer_t w = {buffer, capacity, 0, 0};
     put(&w, STATE_MAGIC, 8);
 #define SAVE(field) put(&w, &field, sizeof field);
-    STATE_FIELDS(SAVE)
+    STATE_FIELDS_BEFORE_QUEUE(SAVE)
+    latch_queue_put(&w, M.latch_queue);
+    STATE_FIELDS_BEFORE_VOICES(SAVE)
+    oki_voices_put(&w, M.oki.voice);
+    STATE_FIELDS_AFTER_VOICES(SAVE)
 #undef SAVE
-    z80 cpu = M.cpu;
-    cpu.read_byte = NULL; cpu.write_byte = NULL; cpu.port_in = NULL; cpu.port_out = NULL; cpu.userdata = NULL;
-    put(&w, &cpu, sizeof cpu);
+    z80_state_put(&w, &M.cpu);
     uint32_t context_size = cps1_m68k_state_bytes();
     put(&w, &context_size, sizeof context_size);
     uint8_t *context = malloc(context_size);
@@ -909,14 +989,16 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     get(&r, &frame_number, sizeof frame_number); get(&r, &lines_run, sizeof lines_run);
     get(&r, &m68k_cycles, sizeof m68k_cycles); get(&r, &m68k_target, sizeof m68k_target);
     get(&r, z80_ram, sizeof z80_ram); get(&r, latch, sizeof latch); get(&r, &sound_bank, sizeof sound_bank);
-    get(&r, queue, sizeof queue); get(&r, &latch_count, sizeof latch_count); get(&r, &z80_clock, sizeof z80_clock);
+    latch_queue_get(&r, queue);
+    get(&r, &latch_count, sizeof latch_count); get(&r, &z80_clock, sizeof z80_clock);
     get(&r, &opm_samples, sizeof opm_samples); get(&r, &oki.command, sizeof oki.command);
-    get(&r, &oki.pin7, sizeof oki.pin7); get(&r, oki.voice, sizeof oki.voice);
+    get(&r, &oki.pin7, sizeof oki.pin7);
+    oki_voices_get(&r, oki.voice);
     get(&r, &oki_base_clock, sizeof oki_base_clock); get(&r, &oki_base_samples, sizeof oki_base_samples);
     get(&r, &oki_samples, sizeof oki_samples); get(&r, &oki_level, sizeof oki_level);
     get(&r, &oki_previous, sizeof oki_previous); get(&r, &irq2, sizeof irq2);
-    z80 cpu;
-    get(&r, &cpu, sizeof cpu);
+    z80 cpu = M.cpu;                            /* keeps the callbacks of the running machine */
+    z80_state_get(&r, &cpu);
     uint32_t context_size = 0, opm_size = 0;
     get(&r, &context_size, sizeof context_size);
     if (r.bad || context_size != cps1_m68k_state_bytes() || r.used + context_size > size) return 0;
@@ -939,8 +1021,6 @@ int cps1_state_load(const uint8_t *buffer, size_t size)
     M.z80_clock = z80_clock; M.opm_samples = opm_samples;
     M.oki = oki; M.oki_base_clock = oki_base_clock; M.oki_base_samples = oki_base_samples;
     M.oki_samples = oki_samples; M.oki_level = oki_level; M.oki_previous = oki_previous; M.irq2 = irq2;
-    cpu.read_byte = M.cpu.read_byte; cpu.write_byte = M.cpu.write_byte;
-    cpu.port_in = M.cpu.port_in; cpu.port_out = M.cpu.port_out; cpu.userdata = M.cpu.userdata;
     M.cpu = cpu;
     cps1_m68k_state_set(context);
 #ifdef CPS1_NATIVE

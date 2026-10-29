@@ -69,10 +69,12 @@ def musashi_core(geolith: Path, *, native: bool) -> str:
     # the clocks of an SR write that unmasks an interrupt inside its handler.
     # Quick states keep the register block only: the cycle tables and host
     # callbacks after it are this process's addresses, never the saved ones.
+    # The block ends with the last integer field (`mmu_sr`), so the compiler's
+    # padding before the first pointer is never part of a state.
     return (core + '\nvoid cps1_m68k_use_cycles(int cycles) { USE_CYCLES(cycles); }\n'
             'int cps1_m68k_instruction_cycles(void) { return CYC_INSTRUCTION[REG_IR]; }\n'
             '#include <stddef.h>\n#include <string.h>\n'
-            'unsigned cps1_m68k_state_bytes(void) { return (unsigned)offsetof(m68ki_cpu_core, cyc_instruction); }\n'
+            'unsigned cps1_m68k_state_bytes(void) { return (unsigned)(offsetof(m68ki_cpu_core, mmu_sr) + sizeof m68ki_cpu.mmu_sr); }\n'
             'void cps1_m68k_state_get(void *dst) { memcpy(dst, &m68ki_cpu, cps1_m68k_state_bytes()); }\n'
             'void cps1_m68k_state_set(const void *src) { memcpy(&m68ki_cpu, src, cps1_m68k_state_bytes()); }\n')
 
