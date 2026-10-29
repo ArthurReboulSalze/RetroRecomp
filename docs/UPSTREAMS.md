@@ -194,10 +194,10 @@ revision. They are rewritten from the processor manuals. They are CPU fidelity f
 |---|---|---|---|
 | 68000: `ROXL`/`ROXR` with a register count of zero (modulo 64) must copy X into C, and `ASL.L` by 31 must compute the overflow mask without a 32-bit shift | md, ng, cps1, x68 | `m68000.py` (`adapt_semantics`) | those four consoles |
 | 65816: `BRK` in native mode takes 8 cycles (7 in emulation mode) because the program bank is pushed | snes | `snes_codegen.py` | snes |
-| Z80: a direct call to a paged address must go through the dispatch that checks the bank in place (the "functions" engine only; the default "banked" engine is not affected, and no game is known to trigger it) | sms, gg | `core.py` (generator patch) | sms, gg |
+| Z80: a direct call to a paged address must go through the dispatch that checks the bank in place (the "functions" engine only; the default "banked" engine is not affected, and no game is known to trigger it) | sms, gg | `core.py` (`patched_generator_source`) | sms, gg |
 
-Each is described in the 1.6.3 section of [UPGRADES.md](UPGRADES.md), because existing exports of 1.6.2 are rebuilt
-from their learned paths. Not corrected, noted: `COP` in emulation mode is handled as native mode by the pinned
+Each is described in the section "Exports of 1.6.2 in 1.6.3" of [UPGRADES.md](UPGRADES.md), because existing exports of
+1.6.2 are rebuilt from their learned paths. Not corrected, noted: `COP` in emulation mode is handled as native mode by the pinned
 interpreter and upstream does not handle it either; a game almost never executes it.
 
 ## Deferred
