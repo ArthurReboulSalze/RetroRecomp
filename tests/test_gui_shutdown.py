@@ -9,6 +9,13 @@ from tools.gui_patching import patch_gui
 
 
 class ShutdownTests(unittest.TestCase):
+    def setUp(self):
+        # Closing saves the preferences: never into the real Export/datas of the source tree, where the maintainer's
+        # own Retro-Recomp keeps its settings (a close without this patch wrote "{}" there on every suite run).
+        saving = patch_gui('save_preferences')
+        saving.start()
+        self.addCleanup(saving.stop)
+
     def application(self):
         application = Application.__new__(Application)
         application.updating = False
