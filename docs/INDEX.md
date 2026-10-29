@@ -84,6 +84,7 @@ private evidence under `.build/` that is not published.
 
 ## Local documents (not in the repository)
 
+- `SPECIALISTS.md` — the machine specialist agents (one per machine or shared engine), their files in `.claude/agents/` and what stays with the lead session.
 - `PROJECT_STATE.md` — resume point: the current release cycle and the previous one. Older sections are archived under `history/state/`, indexed by period in its `README.md`.
 - `history/x68000/README.md` — the closed X68000 development stages (blocks 1 to 9, GPL-free plan, porting notes).
 - Studies: `AMIGA_NEOGEO_RESEARCH.md`, `AUTO_EXPLORATION.md`, `CPS1_RESEARCH.md`, `LEGACY_32BIT_STUDY.md`, `LINUX_PORT_PLAN.md`, `LLM_GAMEPLAY_FEASIBILITY.md`, `MEGADRIVE_SNES_RESEARCH.md`, `NEOGEO_PLAN.md`, `SHARP_X68000_RESEARCH.md`, `research/ONLINE_DISCUSSION_2026-09-27.txt`.
