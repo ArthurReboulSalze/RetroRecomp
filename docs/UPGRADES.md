@@ -431,6 +431,22 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive on Windows: ThinLTO and a clang profile (1.6.5)
+
+On Windows with the portable llvm-mingw tools, a Mega Drive game is now built twice, like a Super Nintendo game since 1.6.4: a
+first build with clang's instrumentation and ThinLTO runs a private 1,800-frame `--play` training run, then the engine's own
+sources (never the generated cartridge steps) are rebuilt with that profile. It changes how fast the same C runs, not what it does;
+`RETRO_RECOMP_PGO=0` switches it off, Visual Studio keeps the ordinary build, and a training run that fails builds without the
+profile. *Edited:* `retrorecomp/console16_optimization.py` (`CLANG_PROFILE_CONSOLES = ('snes', 'md')`), shared by the Mega Drive
+and the Super Nintendo: it is a **game** input of both, so the **`md` and `snes` game stamps move** (nothing else: no host or
+build stamp, no native file, no quick-state key, not the base). The Super Nintendo build is unchanged. The conversion runs one
+training pass and one more build per game; no gain is claimed or timed here. Checked by one conversion each of Blockout, Sonic The
+Hedgehog and Gunstar Heroes (USA) with `tools/ab_conversion.py`, the tree of 1.6.5 before the change against this one: all six
+conversions succeed, and the only differences are the ones that come from the build itself: the profile file
+(`hardware-profile.profdata`, only in the new tree), `hardware-optimization.json` (`profile_guided`) and the size ratio of the
+packed executable. Every frame, audio, state, RAM, VRAM, FM, PSG and Z80 hash, every counter of the reports (so the counted interpreter fallback of
+the 68000 and of the Z80 is the same as before) and every generated source are identical. That is a check of equal outputs; the speed is not measured (a quiet-PC measurement is the lead's).
+
 ## X68000: exact redraw marks for the background and the sprites (1.6.5)
 
 The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background

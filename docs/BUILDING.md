@@ -128,13 +128,13 @@ are absent, and `RETRO_RECOMP_TOOLCHAIN=llvm` or `msvc` forces one of the two
 (the two never share a build folder; switching rebuilds). Source usage keeps the
 list below.
 
-With the portable tools, a Super Nintendo game is built twice: once with clang's
+With the portable tools, a Super Nintendo game (since 1.6.5 a Mega Drive game too) is built twice: once with clang's
 instrumentation and ThinLTO, run for 1,800 frames of the standard play route
 (a private training run, nothing of it is kept but a 400 KB profile in the build
 folder), then again with that profile and ThinLTO. It is the clang counterpart
 of the Linux profile-guided build and changes how fast the same code runs, not
 what it does (`RETRO_RECOMP_PGO=0` switches it off; Visual Studio and the other
-consoles keep the ordinary build). Measured on a Ryzen 9 3900X: 44 to 57 % less host time per frame
+consoles keep the ordinary build). The Mega Drive gain is not measured yet. Measured on a Ryzen 9 3900X: 44 to 57 % less host time per frame
 in Super FX gameplay and in F-Zero, see [SNES_SUPERFX.md](SNES_SUPERFX.md#host-cost-26-october-2026).
 
 - Python 3.11 or newer for source usage (release built with 3.14.5).

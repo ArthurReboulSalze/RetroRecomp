@@ -1,8 +1,8 @@
 """Optimize the hardware code of 16-bit consoles without changing guest execution or checks.
 
 Linux (GCC, LTO and profile guided): every console of this module.
-Windows (portable llvm-mingw): the Super Nintendo only, ThinLTO and a clang instrumentation
-profile, `clang_profile()`; RETRO_RECOMP_PGO=0 turns it off.
+Windows (portable llvm-mingw): the Super Nintendo and the Mega Drive, ThinLTO and a clang
+instrumentation profile, `clang_profile()`; RETRO_RECOMP_PGO=0 turns it off.
 """
 from pathlib import Path
 import json
@@ -20,6 +20,8 @@ from .platforms import build_executable, build_jobs, cmake_target_args
 # reaches its first level near frame 1,500); measured, 600 frames give half the gain of 1,800.
 TRAINING_FRAMES = 600
 CLANG_TRAINING_FRAMES = 1800
+# The consoles whose Windows build uses the clang profile. It changes how fast the same C runs, never what it does.
+CLANG_PROFILE_CONSOLES = ('snes', 'md')
 
 CMAKE = r'''
 # Keep large cartridge translations in ordinary objects. Cross-file
@@ -80,8 +82,8 @@ endif()
 
 def clang_profile(system_id=None):
     """llvm-profdata of the portable toolchain when this conversion uses ThinLTO and a clang
-    profile (Windows, llvm-mingw, Super Nintendo), else None."""
-    if os.name != 'nt' or system_id != 'snes' or os.environ.get('RETRO_RECOMP_PGO', '1').strip() == '0':
+    profile (Windows, llvm-mingw, Super Nintendo and Mega Drive), else None."""
+    if os.name != 'nt' or system_id not in CLANG_PROFILE_CONSOLES or os.environ.get('RETRO_RECOMP_PGO', '1').strip() == '0':
         return None
     from . import toolchain
     if toolchain.active() != toolchain.LLVM:
