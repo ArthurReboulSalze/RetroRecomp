@@ -457,6 +457,25 @@ compatibility key above still applies. Verified with a ROM-free check of the det
 (`tools/neogeo_fixmask_selftest.py`) and with real conversions; the rule is a display heuristic judged on the maintainer's
 dumps, not a hardware fact.
 
+## Mega Drive: the clocks of register-count shifts (1.6.5)
+
+A Mega Drive shift or rotate with its count in a register (`LSL.W D1,D0` and the seven other mnemonics) was charged the pinned
+core's estimate for a count of four, whatever the count. It is now charged what the MC68000 manual gives: `6 + 2n` clocks for a
+byte or a word, `8 + 2n` for a long, `n` being the count modulo 64 read before the shift. The immediate-count and memory forms
+keep their figures. The time is set in `retrorecomp/megadrive_codegen.py` (`adapt_shift_timing`), for the native bodies and for
+the reference path alike, through the bus hook that `MULU` and `DIVU` already use (the prefetch read first, then the internal
+clocks); the shared `m68000.py` is not touched, and Neo Geo, CPS-1 and X68000 already charged this time. It is a **CPU
+fidelity** fix about clocks; the other four measures are not moved by it. *Edited:* `retrorecomp/megadrive_codegen.py` (a game
+input). **The `md` game stamp moves**; no host or build stamp, no native file, no quick-state key, not the base. Because it
+changes the clocks a game runs on, the Mega Drive exports of 1.6.4 are converted in full, not upgraded (`LEGACY_GAME_STAMPS`
+must list no 1.6.4 entry for the Mega Drive; it is empty today). Checked with the 834 SingleStepTests shift vectors replayed with their clocks on the
+native and the reference paths (they cover `ROXL`, `ROXR` and `ASL.L`; the other mnemonics share the line but have no vector of
+their own yet), and by one conversion of Blockout compared with the tree before the change (`tools/ab_conversion.py`): both
+succeed, 0 interpreted 68000 instructions and 0 interpreted Z80 cycles on the demo and the play routes in both, native and
+reference runs equal. The frame, RAM, VRAM, FM, Z80 and sequence hashes, the instruction set learned in the first pass and the
+generated step sources differ, as expected, because a different count of clocks moves where the interrupts fall (Blockout
+has seven register-count shifts); that is a change of clocks, not a regression, and no measure of play or latency is made by it.
+
 ## Exports of 1.6.2 in 1.6.3
 
 1.6.3 moves the game stamp and the host stamp of every console, and the build stamp of none (the packer is the UPX 5.3.0

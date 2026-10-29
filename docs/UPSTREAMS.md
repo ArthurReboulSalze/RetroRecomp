@@ -242,6 +242,15 @@ statement about CPU fidelity of writable-memory code only; it says nothing about
 latency. Instructions that still reach the interpreter (`CB`-prefixed opcodes, `HALT`, `STOP`, `RST` outside the 0xFF00-0xFF7F stub, which
 executes `RST 00` to `RST 38`, illegal opcodes, code spanning two memory regions) stay counted as interpreter use. See "Game Boy exports in 1.6.4" in [UPGRADES.md](UPGRADES.md).
 
+## Fixes carried as our own patches in 1.6.5
+
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| 68000: a register-count shift or rotate (`Dx,Dy`) is charged `6 + 2n` clocks (byte, word) or `8 + 2n` (long), `n` the count modulo 64, instead of the pinned estimate for a count of four. Written from the Motorola manual; the other three 68000 machines already charged this time | md | `megadrive_codegen.py` (`adapt_shift_timing`; `m68000.py` untouched) | md |
+
+It is a CPU fidelity fix (clocks), checked by the 834 SingleStepTests shift vectors replayed with their clocks on the native
+and the reference paths (the independent vectors cover `ROXL`, `ROXR` and `ASL.L`). Described in [UPGRADES.md](UPGRADES.md).
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
@@ -258,7 +267,6 @@ quiet machine, so anything that has to be timed waits for that.
 | Mega Drive: revision bump | segagenesisrecomp, 106 commits | 6 anchors break, including the divide and clear helpers in `m68000.py`, which Neo Geo and CPS-1 share. The rest duplicates what we have. | A Mega-CD decision (below). |
 | Mega-CD | segagenesisrecomp (`runner/cd/`) | Per-disc recipes; strict native execution with no counted fallback, against our rule; BIOS and disc images required. | A "new machine" decision ([NEW_MACHINE.md](NEW_MACHINE.md)). |
 | X68000: three px68k-libretro fixes (GPL, rewrite from description only) | px68k-libretro | A DMA channel START on an active channel restarts it and clears its completion and error bits; a text line should refresh only when a sprite covers it; paired-bit OR and text transparency with a given flag. Not yet checked against our base. | The next X68000 session: check each case against our base, then rewrite and list it in `provenance.json`. |
-| 68000: timing of register-count shifts | segagenesisrecomp (`m68k_interp.c`) | The pinned core charges a fixed estimate to every shift with a register count; results and flags are right, the clocks are approximate (the shift vectors are replayed with `timing_unchecked`). | A Mega Drive timing pass, or a game whose timing depends on long shifts. |
 | llvm-mingw `20261020`, CMake 4.4.5 | toolchain | Corrective versions; nothing needed. | The next toolchain change. |
 
 ## How to record a review
