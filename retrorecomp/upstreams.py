@@ -158,7 +158,7 @@ PX68K_HISSORII = Upstream(
 # --- shared ------------------------------------------------------------------------------------------------------
 SDL = Upstream(
     'SDL', 'libsdl-org/SDL', 'release-2.32.x', 'SDL2 window, audio and input library linked into every export', 'zlib',
-    'the SDL2 library built from source and linked into the games (release 2.32.8)',
+    'the SDL2 library built from source and linked into the games (release 2.32.10)',
     _py('retrorecomp/core.py', 'SDL_REV'), checkout='SDL', shared_by=('*',))
 LLVM_MINGW = Upstream(
     'llvm-mingw', 'mstorsjo/llvm-mingw', 'master', 'portable Windows C toolchain downloaded by the converter',
