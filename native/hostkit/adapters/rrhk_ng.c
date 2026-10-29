@@ -11,6 +11,7 @@
 #include "retro_menu.h"
 #include "retro_keyboard.h"
 #include "display_settings.h"
+#include "neogeo_fixmask.h"
 #include "hostkit/hostkit.h"
 
 enum { A, B, C, D, START, COIN, UP, DOWN, LEFT, RIGHT, ACTIONS };
@@ -87,6 +88,14 @@ static void before_frame(const RrhkAudioProbe *audio, uint64_t input_frame) {
 static void before_present(SDL_Renderer *renderer) { rr_ng_ui_test_present(renderer); }
 static int players(void) { return 2; }
 
+/* The picture shown: the frame itself, but for the 8-pixel band of a fix-layer edge mask the detector has latched as a
+ * coloured overscan band (neogeo_fixmask.h), painted black in a copy. rr16_pixels() - what the validation hashes, the
+ * reference runs and the checks read - is never touched. */
+static const uint32_t *view_pixels(void) {
+    static uint32_t view[RR16_WIDTH * RR16_HEIGHT];
+    return rr_ng_fixmask_view(&rr_ng_fix_mask, rr16_pixels(), view);
+}
+
 /* Only the explicit test event harness calls this read-only observation. */
 void rr_ng_ui_snapshot(FILE *file, const char *label, void *window) {
     const RrhkUi *ui = rrhk_ui();
@@ -119,7 +128,7 @@ const RrhkMachine *rrhk_adapter(void) {
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,
             .max_width = RR16_WIDTH, .max_height = RR16_HEIGHT, .frame_seconds = RR16_FRAME_SECONDS,
             .reset = rr16_reset, .run_frame = rr16_frame, .pause = rr16_pause,
-            .pixels = rr16_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
+            .pixels = view_pixels, .visible_width = rr16_visible_width, .visible_height = rr16_visible_height,
             .raster_height = rr16_raster_height, .display_width = rr16_visible_width,
             .audio = rr16_audio, .interpreted = rr16_interpreted, .audio_interpreted = rr16_audio_interpreted,
             .state_path = rr16_state_path, .state_ready = rr16_state_ready, .state_file = rr16_state_file,

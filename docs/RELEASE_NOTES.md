@@ -28,6 +28,13 @@
 - **CPS-1 games reconvert again.** A CPS-1 conversion that looked for box art
   online, with no saved image yet, stopped with an internal error, so older
   CPS-1 exports could not be reconverted. It now goes on without a cover.
+- **No more coloured band on the edges of some Neo Geo games.** A few games
+  leave the coloured edge mask of the BIOS on screen, meant to sit in the
+  arcade monitor's overscan (2020 Super Baseball, Joy Joy Kid, Puzzle
+  Bobble 2, Ghostlop). It is now shown black, as most games already do. The
+  picture stays 320 columns wide and no game is cropped; only the display
+  changes, the checks against the reference are the same. The rule reads the
+  video chip, not a list of games, and was judged on a sample of 118 games.
 - **Long folders on Windows.** A Sharp X68000 game placed in a folder deeper
   than 260 characters now prepares its data instead of failing.
 - **SDL 2.32.10.** The window, sound and controller library linked into every

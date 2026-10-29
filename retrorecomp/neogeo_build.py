@@ -226,7 +226,15 @@ void geo_exec(void) {''',count=1)
                     (p & 0x07) ^ fpix, y);''',
         '''                pentry = (packed_row[((p & 8) ^ ftile)>>3] >>
                     (((p & 7) ^ fpix)*4)) & 15u;''',count=1)
-    write_changed(engine/'geo_lspc.c',source+'\n#include "neogeo_lspc_state.inc"\n')
+    # Display only: the three fix-layer routines note the tile they draw in the two edge columns (the BIOS overscan mask
+    # some games leave coloured); the host paints a detected coloured band black in its own view (native/neogeo_fixmask.h).
+    # Neither the picture nor any saved state changes.
+    source=_replace(source,'#include "neogeo_sprite_decode.h"','#include "neogeo_sprite_decode.h"\n#include "neogeo_fixmask.h"',count=1)
+    source=_replace(source,'        uint8_t *tdata = &fixdata[tnum << 5];\n',
+        '        uint8_t *tdata = &fixdata[tnum << 5];\n'
+        '        if ((x == 0 || x == LSPC_FIXTILES_H - 1) && !(line & 7))\n'
+        '            rr_ng_fixmask_note(&rr_ng_fix_mask, x != 0, line >> 3, entry, tdata, &palette[poffset]);\n',count=3)
+    write_changed(engine/'geo_lspc.c',source+'\nRrNgFixMask rr_ng_fix_mask;\n#include "neogeo_lspc_state.inc"\n')
     source=(geo/'src/ymfm/ymfm_opn.c').read_text(encoding='utf-8')
     write_changed(engine/'ymfm/ymfm_opn.c',source+'\n#include "neogeo_ym_state.inc"\n')
     # NEO-ZMC does not expose memory after the selected M1/SM1 chip. Mirror
@@ -367,7 +375,7 @@ static int rr_ng_z80_try(z80 *z,unsigned *cycles) {
                  'neogeo_input.h', 'console16_video.h', 'neogeo_host.c', 'neogeo_host.h',
                  'neogeo_state.c', 'neogeo_state_validate.c', 'neogeo_ui_test.c', 'neogeo_ym_state.inc', 'neogeo_lspc_state.inc',
                  'neogeo_persistence.c', 'neogeo_persistence.h',
-                 'neogeo_path_io.h', 'neogeo_sprite_decode.h',
+                 'neogeo_path_io.h', 'neogeo_sprite_decode.h', 'neogeo_fixmask.h',
                  'console16_state.c', 'console16_state.h',
                  'platform_io.c', 'platform_io.h', 'embedded_resources.h', 'retro_console16.h', 'retro_menu.c', 'retro_menu.h', 'font6x10.h', 'font10x20.h', 'runtime_i18n.h', 'runtime_catalog.inc', 'retro_keyboard.h',
                  'display_settings.h', 'autofire.h', 'game_options.h', 'audio_filter.h', 'audio_cushion.h', 'scanline_sdl.h', 'scanlines.h', 'xbr_sdl.h',

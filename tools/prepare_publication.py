@@ -242,7 +242,7 @@ tools/neogeo_campaign.py
 tools/neogeo_campaign_review.py
 native/neogeo_m68000_checks.c native/neogeo_z80_checks.c
 native/neogeo_host.c native/neogeo_host.h native/neogeo_state.c native/neogeo_state_validate.c native/neogeo_ym_state.inc
-native/neogeo_ui_test.c native/neogeo_controls_checks.c
+native/neogeo_ui_test.c native/neogeo_controls_checks.c native/neogeo_fixmask.h native/neogeo_fixmask_checks.c tools/neogeo_fixmask_selftest.py tests/test_neogeo_fixmask.py
 native/neogeo_persistence.c native/neogeo_persistence.h native/neogeo_persistence_checks.c
 native/neogeo_path_io.h
 tools/neogeo_persistence_selftest.py

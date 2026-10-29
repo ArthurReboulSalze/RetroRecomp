@@ -439,6 +439,24 @@ the generated code differs only by one added lookup function (`cps1_step_index.c
 other consoles. `cps1_knowledge.GENERATOR_REVISION` goes from 6 to 7: no CPS-1 path was qualified yet, so nothing is lost.
 `retrorecomp/m68000.py` is not touched: the Mega Drive, Neo Geo and X68000 generated code does not move.
 
+## Neo Geo: a coloured edge mask is painted black on screen (1.6.4, lot NGE)
+
+A Neo Geo export shows all 320 LSPC columns. The BIOS draws a solid fix tile (0x0020) in fix columns 0 and 39 as an overscan
+mask: most games keep it black, but a few (2020 Super Baseball, Joy Joy Kid, Puzzle Bobble 2, Ghostlop) leave it grey or
+orange and the picture shows a bright 8-pixel band. The picture stays 320 columns wide and is never cropped; what changes is
+only what is displayed. The engine's fix-layer routines (`neogeo_build`, the patched `geo_lspc.c`) note the two edge tiles of
+each visible tile row, `native/neogeo_fixmask.h` decides per side and per frame (at least 26 of the 28 rows hold one solid tile
+of one palette, the colour is not near black, and it differs visibly from the neighbouring picture column), a latch turns the
+band on after 30 matching frames and off after 120 others, and the host kit's Neo Geo view (`rrhk_ng.c`, `.pixels`) paints a
+latched band black in a copy. `rr16_pixels()` is not touched, so the validation hashes, the reference comparisons and the image
+dump read the same pixels as before. There is no per-game list and nothing enters a saved state. Files: the game side
+(`native/neogeo_fixmask.h`, `native/neogeo_fixmask_checks.c`, `native/neogeo_main.c`, `retrorecomp/neogeo_build`) moves the Neo
+Geo game stamp, the host side (`native/hostkit/adapters/rrhk_ng.c`) its host stamp; both already move in this release. The Neo
+Geo quick-state key moves again only because `neogeo_build` is hashed; the state files are unchanged and the 1.6.3
+compatibility key above still applies. Verified with a ROM-free check of the detector and the latch
+(`tools/neogeo_fixmask_selftest.py`) and with real conversions; the rule is a display heuristic judged on the maintainer's
+dumps, not a hardware fact.
+
 ## Exports of 1.6.2 in 1.6.3
 
 1.6.3 moves the game stamp and the host stamp of every console, and the build stamp of none (the packer is the UPX 5.3.0

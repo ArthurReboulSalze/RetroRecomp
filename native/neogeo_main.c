@@ -28,6 +28,7 @@
 #include "ng_game.h"
 #include "miniz.h"
 #include "neogeo_host.h"
+#include "neogeo_fixmask.h"
 #include "console16_state.h"
 #include "neogeo_persistence.h"
 int rr16_sdl_main(const char *title,int scale);
@@ -179,6 +180,8 @@ static void step_frame(void) {
     rr_ng_persist_activity(pad[0]!=0xff || pad[1]!=0xff || coin || start);
     pcm_frame_hash=14695981039346656037ull;pcm_frame_samples=0;audio_count=0;
     geo_exec();++frame;
+    /* Display only: which edge columns hold a coloured overscan mask (neogeo_fixmask.h). The picture is not touched. */
+    rr_ng_fixmask_frame(&rr_ng_fix_mask,video+320*24);
     uint64_t hash=0;
     if(frame_diagnostics) {
         hash=rr16_video_hash(video+320*24,320,320,224,224);
@@ -228,6 +231,7 @@ void rr_ng_host_frame(uint16_t p1,uint16_t p2) {
 }
 uint32_t rr_ng_frame_index(void) {return frame;}
 void rr_ng_restore_frame(uint32_t value) {
+    rr_ng_fixmask_reset(&rr_ng_fix_mask);
     frame=value;input_pos=0;audio_count=0;
     pad[0]=pad[1]=0xff;coin=start=0;
     /* A loaded game is already visible; don't re-cover it because its scene
