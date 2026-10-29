@@ -9,7 +9,7 @@ from PIL import Image
 
 from retrorecomp.artwork import prepare_icon
 from retrorecomp.batch import identify
-from retrorecomp.core import ROOT, patched_generator_source, read_game_gear_rom
+from retrorecomp.core import ROOT, patched_generator_source, prepare_runtime, read_game_gear_rom, read_rom
 from retrorecomp.systems import profile_for_path
 
 
@@ -74,6 +74,55 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertLess(text.index(guard) - function, 400)
         # The two call sites are the only users of name_for_target.
         self.assertEqual(text.count('name_for_target(T)'), 2)
+
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_halt_pushes_the_next_address_and_ends_the_function_when_the_handler_drops_it(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        # Only the function emitter's HALT changes; the banked emitter never reaches emit_op for a HALT.
+        self.assertNotIn('fprintf(o,"        sms_halt();\\n");', text)
+        halt = text.index('static void emit_op(FILE *o, const Z80Insn *in){')
+        body = text[halt:text.index('switch (in->prefix){', halt)]
+        for needed in ('uint16_t _hsp = s->sp;', 'g_dbg_pc = (uint16_t)(g_dbg_pc + 1);', 'sms_halt();',
+                       'if ((int16_t)(s->sp - _hsp) > 0) return;'):
+            self.assertEqual(body.count(needed), 1, needed)
+        self.assertLess(body.index('_hsp = s->sp'), body.index('sms_halt();'))
+        self.assertLess(body.index('sms_halt();'), body.index('(int16_t)(s->sp - _hsp)'))
+
+
+class FunctionsInterruptContractTests(unittest.TestCase):
+    """Only the "functions" runner samples /INT at one boundary and accepts it at the next."""
+
+    engine = ROOT / '.deps/smsggrecomp'
+
+    @unittest.skipUnless((engine / 'runner/glue.c').is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_the_contract_is_applied_to_the_functions_runner_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            glue = {}
+            for name, functions in (('banked', False), ('functions', True)):
+                game = Path(temp) / name
+                game.mkdir()
+                path = Path(temp) / f'{name}.sms'
+                path.write_bytes(bytes(8192))
+                prepare_runtime(game, read_rom(path), 'Authored fixture', self.engine, functions=functions)
+                glue[name] = (game / 'runtime_glue.c').read_text(encoding='utf-8')
+        self.assertNotIn('g_irq_armed', glue['banked'])
+        text = glue['functions']
+        self.assertEqual(text.count('static bool g_irq_armed;'), 1)
+        self.assertIn('while (g_irq_armed && g_z80.iff1 && !g_z80.ei_block) {', text)
+        self.assertEqual(text.count('g_dbg_pc = interrupted;'), 2)
+        self.assertIn('g_irq_armed = vdp_irq_asserted() && g_z80.iff1;', text)
+        self.assertIn('(vdp_irq_asserted() || g_irq_armed) ? g_z80.cyc + 1', text)
+        # The interpreter fallback samples from its own first instruction and the reset clears the flag.
+        self.assertEqual(text.count('g_irq_armed = false;'), 3)
+        # A RET that unwinds every generated frame continues at the address it popped, with a guard.
+        self.assertIn('next = sms_read16((uint16_t)(g_z80.sp - 2));', text)
+        self.assertIn('else if (++idle > 100000) break;', text)
+        self.assertNotIn('next = sms_read16', glue['banked'])
+        # A VDP port access brings the next sync to the next instruction; the banked runner keeps its own port code.
+        self.assertEqual(text.count('if (p >= 0x80 && p < 0xC0) sms_io_deadline();'), 2)
+        self.assertIn('static uint8_t sms_io_in_body(uint8_t p){', text)
+        self.assertIn('static void sms_io_out_body(uint8_t p, uint8_t v){', text)
+        self.assertNotIn('_body', glue['banked'])
 
 
 if __name__ == '__main__':
