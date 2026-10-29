@@ -236,6 +236,17 @@ void rrab_PauseAudioDevice(SDL_AudioDeviceID dev, int pause) {
 void rrab_ClearQueuedAudio(SDL_AudioDeviceID dev) { (void)dev; audio_queue = 0; fprintf(events_log, "A c %u\n", iteration); }
 void rrab_CloseAudioDevice(SDL_AudioDeviceID dev) { (void)dev; audio_open_flag = 0; fprintf(events_log, "A x %u\n", iteration); }
 
+/* The usable area of the display is the one of a desktop of 1920 x 1080 with a task bar (RRAB_DISPLAY=WxH overrides it): the
+ * offscreen driver's own display is not a measure of anything, and the opening size of a window depends on it. */
+int rrab_GetDisplayUsableBounds(int index, SDL_Rect *rect) {
+    (void)index;
+    const char *text = getenv("RRAB_DISPLAY");
+    int w = 1920, h = 1040;
+    if (text) sscanf(text, "%dx%d", &w, &h);
+    rect->x = 0; rect->y = 0; rect->w = w; rect->h = h;
+    return 0;
+}
+
 /* A title equal to the current one changes nothing and is not logged. */
 void rrab_SetWindowTitle(SDL_Window *window, const char *title) {
     init();

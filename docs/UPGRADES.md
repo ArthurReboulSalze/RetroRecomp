@@ -380,10 +380,10 @@ repository: no staging call, `retrorecomp.hostkit` is not one of its inputs).
 | --- | --- | --- | --- |
 | Master System, 1.6.2 | `b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2` | `2850d1e1d883a22316cf339392391901ccf186315f0b9bd170cff80b32f5521f` | `61b3ff1284fcf75b79309f140d5c68ed04fb0cc038c443a9176606d9bfd96b9e` |
 | Master System, before phase 4 | `6f6624c302d304e014d4c39594c5d6052d12d48a1403b1b995404768462829ad` | `b5eb5b92abbcffc3b6f9bc4947732b32100a7335cfb1d01f890dea7076698149` | unchanged |
-| Master System, 1.6.3 | `1b4765ba8c29a21f45c9307aff566854be012fb2bb77adbddbd4c4e20dcb65d0` | `09079160b8f64ea2c6f65a35cac01000dba1a44144a275f8e8588fb271c0a3e8` | unchanged |
+| Master System, 1.6.3 | `1b4765ba8c29a21f45c9307aff566854be012fb2bb77adbddbd4c4e20dcb65d0` | `4313934b46e394b8f167e14d3f14e53c63af84b58ea6484f46196f1dab06b55a` | unchanged |
 | Game Gear, 1.6.2 | `14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743` | `65142a4a567014d54340db35ddd33a96abe3028d36a352f137908fce31ddb696` | `99adc3982e7e8255bc3ebcb7fad103a94814dd218893a78549f2c5e0a72d5fbb` |
 | Game Gear, before phase 4 | `23ab9843540311e258ebaebf69676f26170147ed142bab4a018254a4c776068d` | `f3e2d3f7644ddeaa7e0049f111b4d74d9e4dad48a50096fc52afce237d1c9558` | unchanged |
-| Game Gear, 1.6.3 | `420edf15cd4e548cffe07cf662e3675346006d838a95ce1a805490e9e4e4f90e` | `4afc2bc461e534fc4e0553e4b55c813b952031f1e5dfc26fe9815fafb7a3f6d7` | unchanged |
+| Game Gear, 1.6.3 | `420edf15cd4e548cffe07cf662e3675346006d838a95ce1a805490e9e4e4f90e` | `d89b2f71f96de1240403d6909b70852433d117a45bc0dcedda53dbf67dce2835` | unchanged |
 
 - *Game stamp: moves, as it already had since the tag (for every console).* This phase edits `retrorecomp/core.py` (the staging call;
   owned by every console), `native/CMakeLists.txt` (the source list; owned by every console, used by these two), the two profiles

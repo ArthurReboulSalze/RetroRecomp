@@ -148,6 +148,7 @@ typedef struct RrhkMachine {
     bool driven;
     int host_pause;                   /* 1 + the index of a host-side Pause/Menu action (its `bit` is 0), 0: none */
     bool minimum_window;              /* the window cannot be made smaller than the picture it opened with */
+    int open_width, open_height;      /* the machine's usual picture when it only reports it after its first frame (Mega Drive: 320 x 240); 0: what it reports at open */
     bool state_deferred;              /* state_file only requests; the machine reports the outcome with rrhk_state_done */
     const wchar_t *legacy_ini;        /* the machine's former preferences file name, beside the executable (read until the first write) */
     void (*window_icon)(SDL_Window *window);   /* NULL: the shared embedded icon */

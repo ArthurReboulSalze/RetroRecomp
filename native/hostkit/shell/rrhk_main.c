@@ -52,6 +52,23 @@ static void set_hints(void) {
 #endif
 }
 
+/* The size the window opens with (decision D2: whole pixels; the opening window is the largest integer multiple of the machine's
+ * native picture that fits comfortably, 85% of the display's usable area, at least 1x). A machine whose picture is already an
+ * exact multiple of the `scale` asked for (every other console, the Master System and Game Gear included) opens as it always did.
+ * A remembered window position and size (D3) still wins, in open_run. */
+static void opening_size(const RrhkMachine *m, int scale, int *width, int *height) {
+    const int reported_w = m->display_width(), reported_h = m->raster_height();
+    const int native_w = m->open_width ? m->open_width : reported_w, native_h = m->open_height ? m->open_height : reported_h;
+    *width = reported_w * scale; *height = reported_h * scale;
+    if (native_w <= 0 || native_h <= 0 || (*width % native_w == 0 && *height % native_h == 0 && *width / native_w == *height / native_h)) return;
+    SDL_Rect usable;
+    int k = scale;
+    if (SDL_GetDisplayUsableBounds(0, &usable) == 0 && usable.w > 0 && usable.h > 0)
+        k = SDL_min(usable.w * 85 / 100 / native_w, usable.h * 85 / 100 / native_h);
+    if (k < 1) k = 1;
+    *width = native_w * k; *height = native_h * k;
+}
+
 /* Everything before the first iteration. false: no window, and nothing is left open. */
 static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     RrhkRun *r = &run;
@@ -80,8 +97,10 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     if (m->state_path) m->state_path(r->state_path, 32768);
     if (scale < 1) scale = 3;
     snprintf(r->caption, sizeof(r->caption), "%s | %s", title, "Native code");
+    int open_w, open_h;
+    opening_size(m, scale, &open_w, &open_h);
     r->win = SDL_CreateWindow(r->caption, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        m->display_width() * scale, m->raster_height() * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+        open_w, open_h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
         (r->test_frames ? SDL_WINDOW_HIDDEN : 0));
     if (r->win) {
         if (m->window_icon) m->window_icon(r->win); else rr_set_window_icon(r->win);

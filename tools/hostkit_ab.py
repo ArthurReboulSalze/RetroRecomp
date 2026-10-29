@@ -61,7 +61,7 @@ SDL_CALLS = ('PollEvent', 'GetKeyboardState', 'GetMouseState', 'GetWindowFlags',
              'GetPerformanceCounter', 'GetTicks64', 'Delay', 'OpenAudioDevice', 'QueueAudio',
              'GetQueuedAudioSize', 'PauseAudioDevice', 'ClearQueuedAudio', 'CloseAudioDevice',
              'LockAudioDevice', 'UnlockAudioDevice', 'SetWindowTitle', 'SetWindowFullscreen', 'ShowCursor',
-             'RenderPresent', 'GetTicks')
+             'RenderPresent', 'GetTicks', 'GetDisplayUsableBounds')
 # The X68000 host also reads the captured mouse; its frontend answers the core through libretro callbacks.
 X68_SDL_CALLS = (*SDL_CALLS, 'GetRelativeMouseState', 'SetRelativeMouseMode')
 # The Master System / Game Gear host waits for events in its menus and asks which window has the focus.
