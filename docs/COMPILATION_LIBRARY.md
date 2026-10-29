@@ -79,8 +79,10 @@ are bytecode, and the Linux converter is built with Python 3.13 (not checked wit
 stamps of the release before the one being built, never those of older releases, and the quick-state keys
 (`RR16_STATE_COMPAT_ABI`, [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)) follow the same rule. The
 table was empty in the tree of 1.6.0; the tree of 1.6.1 listed the entries of 1.6.0 ([UPGRADES.md](UPGRADES.md#exports-of-160-in-161)); the
-tree of 1.6.2 lists those of 1.6.1 (eight consoles, the X68000 apart: see
-[UPGRADES.md](UPGRADES.md#exports-of-161-in-162), with the evidence and what it does not prove), and each release after
+tree of 1.6.2 listed those of 1.6.1 ([UPGRADES.md](UPGRADES.md#exports-of-161-in-162)); the tree of 1.6.3 lists those of 1.6.2,
+two per console (the Windows converter's and the Linux converter's), for the Master System, Game Gear, Game Boy and NES
+only, because 1.6.3 changes what a game does on the 68000 and 65816 of the other consoles ([below](#release-162-entries-29-october-2026-windows-and-linux);
+[UPGRADES.md](UPGRADES.md#exports-of-162-in-163), with the evidence and what it does not prove), and each release after
 replaces them, proving each one build-only with a real receipt of a real export. A player coming from an older release
 reconverts. The rest of this section, and the entries sections below, are the dated record of how the lists of 1.4.1,
 1.5.1, 1.5.2 and 1.5.6 were made and checked (a method that stays valid for the previous release); those lists are no
@@ -299,6 +301,39 @@ identical to 1.6.0's apart from the version text, the host shell and the state k
 were upgraded for real. The evidence, the list of files that differ and why, is in [UPGRADES.md](UPGRADES.md#exports-of-156-in-160);
 the quick states in [GAME_STATES.md](GAME_STATES.md#states-written-by-release-156). No entry for the Super Nintendo, the Neo
 Geo (its 1.5.6 receipt hashes the whole bank) or the X68000.
+
+#### Release 1.6.2 entries (29 October 2026, Windows and Linux)
+
+The rule applied to the release after 1.6.2: the stamps below were computed for all nine consoles and verified, then the
+release procedure (below) decided which are listed. The game stamp of `v1.6.2` (commit `5bbfe12`) is the one of an archive of
+the tag under Python 3.14.5 (Windows) and 3.13.5 (the Linux build host, Hermès), and equals, on all nine consoles, the stamp
+that the published `Retro-Recomp.exe` and `Retro-Recomp-linux-x86_64` of v1.6.2 (SHA-256 checked against `SHA256SUMS.txt`)
+give with their own `_compilation-inputs`.
+
+| Console | Windows | Linux | Listed in 1.6.3 |
+| --- | --- | --- | --- |
+| Master System | `b4e9d8b926b55189f2369ea20e6e99123a2ef3b8bbe12ad9a2455c8a9e35f4b2` | `58d4d6ee6bd59653e4815b303a8c332d593b3755419970732171e914d6b0af73` | yes |
+| Game Gear | `14ae3fcbdaf43b121500a121128bcae88161279b350a745952ff17e44ae65743` | `0d63e09321860ce6e161b49a24535d13ddc10b5e6d281b91b195ad9472710a6d` | yes |
+| Game Boy | `831c25068b495316b763e46ee05a62f4ca4b9a1abbb92692c68979c559406b9a` | `dde2e590f43d5efc0dea2d34ceedee54ee908cdba37d1a1ea6535cde1d6bc1b4` | yes |
+| NES | `fa98f9dd4c480eb16ab7e66c491cb52b02100f88631c5f398112a896e79f5ce4` | `6618f7f293fd864e5cc6e3fec4aa89b020e2795593ba924ab30b4e13990b921a` | yes |
+| Mega Drive | `ad4dee96cbceb46be2c7cdf200d917586451d53c8abbca0d24c4b6e95a500b85` | `0de9eed2964d4261237a9099334e7bbcad2dead0dab99258674dd0c306b220b0` | no |
+| Super Nintendo | `b6a7c7fd16250e9512258d961d7f2069d8bf6f0988a0be611530219577556d18` | `fa81323602399f6e839ec9a3ee3ba1e0443fe313b5916c46b8a26742bdd55452` | no |
+| Neo Geo | `aff15893e4d95019cab57539ab28f5438f74613b07e780f2f9412f19b054b838` | `b6d6f5a7ae69485b8b86913241a865b171dcad8cb30ab38ada9dc381b3e62142` | no |
+| CPS-1 | `d4e10fc37d4974cd495d666ac35bb11a29be5a79df2ed3fa8167263f044b54fb` | `4a0de40695a4b51350cf43eb36450211cdff13f785730f1ead61bffc4ae6ea43` | no |
+| Sharp X68000 | `699f09265a9fe722e1cedabd80d711961f8edd8e06385366eb1aa7cc1befab39` | `35980145fc8de1a9afb1b4722831bdbeafb38b097f963532579c412d5f2b2bc2` | no (its request carries `x68_sdk`) |
+
+*Listed.* The Master System and Game Gear change one thing in 1.6.3 that a game could notice: the "functions" engine no longer
+turns a call or jump at or above $0400 into a direct C call; the default banked engine generates byte-identical sources
+(checked on Bank Panic). The precedent is "Validation fixes merged after these entries" above: an upgrade rebuilds with the
+current generator and rechecks on the quick routes, and a `functions` export that diverges fails that recheck and is
+converted again. The Game Boy and the NES change no game behaviour (host kit shell, shared helpers, the Linux linking of the
+Game Boy's embedded resources). *Not listed.* The 68000 shifts (ROXL and ROXR with a register count of zero, ASL.L by 31:
+Mega Drive, Neo Geo, CPS-1) and the 65816 BRK and COP (Super Nintendo) change what a game does on those CPUs, and the
+release procedure lists no console in that case: their exports of 1.6.2 are converted in full, and a ROM the shared base
+knows still starts from its qualified paths with the quick check (the base is keyed by the pinned upstream revisions,
+which did not move). No receipt of 1.6.2 was produced for any of these entries. The quick-state keys follow another rule
+([GAME_STATES.md](GAME_STATES.md#states-written-by-release-162)): the 1.6.2 keys of the Mega Drive, Super Nintendo, Neo
+Geo and CPS-1 are accepted by every 1.6.3 build of those consoles, upgraded or reconverted.
 
 **Release procedure.** Before each release: replace the `LEGACY_GAME_STAMPS` entries by those of the release being left
 (the previous release only; nothing older is kept), and list none for a console when the release really changes
