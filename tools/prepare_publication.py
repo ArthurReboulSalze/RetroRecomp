@@ -222,7 +222,7 @@ native/nes_guarded_checks.c tools/nes_guarded_selftest.py
 native/nes_windows_checks.c tools/nes_windows_selftest.py
 native/retro_nes.h native/nes_machine_state.inc native/nes_mapper_state.inc native/nes_state.c
 native/nes_machine_checks.c tools/nes_machine_selftest.py
-native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py tools/nes_static_mapper_selftest.py
+native/nes_ppu_fast.inc native/nes_ppu_lazy.inc native/nes_ppu_checks.c tools/nes_ppu_selftest.py native/nes_mmc1_checks.c tools/nes_mmc1_selftest.py native/nes_ram_sweep_checks.c tools/nes_ram_sweep_selftest.py tools/nes_static_mapper_selftest.py
 tools/nes_state_selftest.py
 retrorecomp/nes_machine.py retrorecomp/nes_catalog.py retrorecomp/nes_optimization.py
 retrorecomp/cartridge16.py retrorecomp/console16.py retrorecomp/megadrive.py retrorecomp/megadrive_codegen.py retrorecomp/systems/console16.py
