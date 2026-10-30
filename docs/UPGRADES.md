@@ -706,6 +706,9 @@ again once, as at every release; a quick state can now be taken during an LCD-of
 first 3,600) used to count as one frame; it now counts as the frames it lasts. The probes of N frames therefore cover fewer cycles
 at the start, frame-anchored scripts meet other guest cycles, and the counts, the observed entries and the step counts of the reports move
 a little (Super Mario Land: 8,232 translated functions before, 8,211 after; nothing becomes interpreted). Existing observations stay valid.
+Outside the boot, a frame boundary moves only when the LCD is off at the instant the frame's cycles reach 70,224 (a span that starts
+at line n of a frame and lasts more than about 65,664 - 456 n cycles): the effect is one more host frame showing the same picture,
+never a change of the emulated state.
 
 *Hot path: modified (one comparison).* The test is made only while the LCD is off, in the function that adds the cycles of a tick,
 and in its inline copy. Not timed.

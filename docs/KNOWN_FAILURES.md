@@ -17,7 +17,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Machine | Game (set or title) | Kind | What happens | What was tried | Since |
 |---|---|---|---|---|---|
 | Game Boy | Spiritual Warfare (Unl) | Failing | The start-up probe never ends (100 % CPU); the export finishes frame 1 then runs into illegal code (thousands of `0xDD` opcodes) | Replayed alone on 29 October 2026: reproducible. The header says "ROM only, 32 KiB" for a 256 KiB file: an unlicensed custom mapper is likely, not proven | 10 October 2026 |
-| Game Boy | The Ren & Stimpy Show: Veediots! | Failing | The probe with inputs hangs between frames 215 and 216: the game turns the screen off and never back on, and a frame only ends at VBlank, so no frame ends again | Replayed alone on 29 October 2026: reproducible and deterministic. A general fix is planned: end a frame after 70,224 cycles while the screen is off | 10 October 2026 |
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
 | Mega Drive | Barkley Shut Up and Jam! (USA) | Failing (cause found) | After 42 frames the game jumps to `$0000`: at `$EB8` it requests the Z80 bus (`MOVE.W #$0100,$A11100`), tests the grant once (`BTST #0,$A11100`, `BNE.W` to `$0000`) and assumes it at once; our bus arbiter grants it one slice late (about 188 master clocks instead of at most about 90) | Real code, not data read as code; traced to the slice approximation of `native/md_z80_bus.inc` (not proven). A dedicated arbiter change is planned (authored reproducer first, then a 13-game A/B) | 24 October 2026, cause found 29 October 2026 |
@@ -69,3 +68,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 - **Super Nintendo, `.fig` copier dumps** (30 October 2026). A `.fig` file whose size is whole 32 KiB blocks after a 512-byte
   copier header is now read as a Super Nintendo cartridge (an interleaved image is refused with its reason); Mario no Super
   Picross converts with zero interpreted instructions.
+- **Game Boy, The Ren & Stimpy Show: Veediots!** (30 October 2026). It turns the screen off and waits; a frame only ended at
+  vblank, so no frame ended again. While the LCD is off a frame now ends after 70,224 cycles (a host frame: the emulated
+  state does not change); it converts with zero interpreter cycles.
