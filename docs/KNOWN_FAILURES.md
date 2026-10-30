@@ -28,7 +28,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Super Nintendo | DSP-2 and DSP-4 (Dungeon Master, Top Gear 3000) | Refused by design | Only the DSP-1 is modelled | Outside the current scope | Always |
 | Super Nintendo | Other chips, 4 (F1 ROC II, Metal Combat, Villgust) | Refused by design | Chip types `$F6` and `$25` and others, not handled | Outside the current scope | Always |
 | Super Nintendo | ExHiROM or more than 4 MiB, 4 (Dragon Quest III, Tales of Phantasia, Wizardry VI) | Refused by design | Map mode not handled | Outside the current scope | Always |
-| Super Nintendo | `.fig` copier dumps (4 seen) | Refused by design | The file type is not read (`.sfc`, `.smc`, `.bin` and `.rom` only) | Renaming to `.smc` after checking the dump is not interleaved should work; not tried | 29 October 2026 |
 | Super Nintendo | Headers with a zero checksum (Power Drive Europe and four prototypes) | Refused by design | The header check wants a non-zero checksum | A specific rule is possible, not made | 29 October 2026 |
 | Neo Geo | Fight Fever (`fightfev`) | Failing (bad input) | The conversion stops at once: the split cartridge needs a separate parent archive for `060-s1.s1` | The test archive's `060-s1.s1` has CRC `7f012104` instead of the expected `d62a72e9`, and the parent is absent: another dump should convert (not tried) | 24 October 2026, confirmed 29 October 2026 |
 | Capcom CPS-1 | QSound boards, 18 sets (`wof`, `dino`, `punisher`, `slammast`, `mbomberj` and their clones) | Refused by design | « not supported yet: qsound » (Kabuki-encrypted Z80 and QSound DSP not handled) | `wof` converted on 29 October 2026: refused with its reason; the others are refused by the catalogue | 24 October 2026 |
@@ -67,3 +66,6 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
   X68000 route is accepted and reported, and the game converts with zero interpreted opcodes.
 - **Game Boy, Paperboy 2** (29 October 2026). Replayed alone on the 1.6.5 tree, it converts in 152 seconds with zero interpreter
   cycles; the 600-second probe limit it hit in the October campaign no longer applies.
+- **Super Nintendo, `.fig` copier dumps** (30 October 2026). A `.fig` file whose size is whole 32 KiB blocks after a 512-byte
+  copier header is now read as a Super Nintendo cartridge (an interleaved image is refused with its reason); Mario no Super
+  Picross converts with zero interpreted instructions.

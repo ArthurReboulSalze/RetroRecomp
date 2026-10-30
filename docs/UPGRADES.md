@@ -207,7 +207,7 @@ in memory and wrote it back only when **Compiled games** saved the collection. A
 still have a file whose rows say Standard for games converted deeper by 1.5.x; 1.6.1 no longer rereads it, so those rows
 keep one star until the game's report changes (its next conversion). Nothing else depends on that star.
 
-## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5, in preparation)
+## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in
 `[GameGear.Video] reduce_sprite_flicker`; the Game Gear VDP has the same eight-sprite line limit). The renderer change is in
@@ -217,7 +217,7 @@ ROM patch, collision and overflow flags keep using the original eight sprites, a
 renderer still agree on every scene (`tools/pixel_optimization_selftest.py`, `tools/video_selftest.py`).
 
 Stamps (computed with the tree of 1.6.4 and the tree of this change): the **game stamp of the Master System and the Game Gear moves**
-(renderer) and so does their **host stamp** (adapter), so their exports are rebuilt with the upgrade path. In the same change
+(renderer) and so does their **host stamp** (adapter); like every export of 1.6.4, they are converted again in full once. In the same change
 `native/video_mode4.inc` and `native/video_checks.c`, which only the Master System and the Game Gear use, move from the group
 owned by every console to the group of those two (`retrorecomp/stamp_inputs.py`): the manifest of the seven other consoles loses
 two files, so **their game stamp moves once** (host and build stamps do not), and later edits of these two files move only the
