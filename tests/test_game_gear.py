@@ -109,15 +109,20 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         # Every function keeps its entry SP once, right after the entry record.
         self.assertEqual(text.count('uint16_t _esp = s->sp; (void)_esp;'), 1)
         self.assertEqual(text.count('static uint16_t rr_ret_nest;'), 1)
-        # RET and RET cc: a pop below the entry slot dispatches the popped address (bounded nesting), else the old return.
+        # RET and RET cc: a pop below the entry slot dispatches the popped address (RR_LOCAL: bounded nesting, then the counted
+        # interpreter, never the plain return).
         cf = text.index('static void emit_cf(FILE *o, const Z80Insn *in, uint16_t addr){')
         body = text[cf:text.index('case Z80_CF_JUMP:', cf)]
-        self.assertEqual(body.count('(int16_t)(s->sp - _esp) < 0 && rr_ret_nest < 256'), 2)
-        self.assertEqual(body.count('call_by_address(_p); rr_ret_nest--; return;'), 2)
+        self.assertEqual(body.count('(int16_t)(s->sp - _esp) < 0) { uint16_t _p = sms_read16(s->sp); '), 2)
+        self.assertEqual(body.count('RR_LOCAL(_p); return;'), 2)
+        self.assertEqual(text.count('#define RR_LOCAL(p)'), 1)
+        self.assertIn('else { rr_ret_deep++; sms_dispatch_miss(p); }', text)
+        self.assertIn('if (rr_ret_nest < 256) { rr_ret_nest++; call_by_address(p); rr_ret_nest--; }', text)
         self.assertEqual(body.count('s->sp = (uint16_t)(s->sp + 2); return;'), 2)
         # Tail jumps go through RR_TAIL (a callee that returned below this function's own return slot consumed a pushed continuation).
         self.assertEqual(text.count('#define RR_TAIL(call)'), 1)
-        self.assertIn('(int16_t)(g_z80.sp - _esp) < 2 && rr_ret_nest < 256', text)
+        self.assertIn('if ((int16_t)(g_z80.sp - _esp) < 2) { ', text)
+        self.assertIn('uint16_t _p = sms_read16((uint16_t)(g_z80.sp - 2)); RR_LOCAL(_p); } return; } while (0)', text)
         self.assertNotIn('call_by_address(0x%04X); return;', text)
         self.assertEqual(text.count('RR_TAIL(call_by_address(0x%04X))'), 2)
         self.assertEqual(text.count('RR_TAIL(call_by_address(%s))'), 1)
@@ -129,7 +134,9 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         body = text[function:text.index('/* ---- call target', function)]
         # The address of the jump is recorded by emit_cf; only a target in the same 16 KiB slot stays a goto.
         self.assertEqual(text.count('rr_cf_addr = addr;'), 1)
-        self.assertEqual(body.count('if (tr_has(T) && ((rr_cf_addr ^ T) & 0xC000) == 0){'), 1)
+        self.assertEqual(body.count('if (tr_has(T) && (T < 0x0400 || ((rr_cf_addr ^ T) & 0xC000) == 0)){'), 1)
+        # A label is emitted only for the targets that stay direct (a label nothing jumps to is a compiler warning).
+        self.assertEqual(text.count('have=(lt < 0x0400 || ((tr.insns[k].addr ^ lt) & 0xC000) == 0);'), 1)
         self.assertLess(text.index('static uint16_t rr_cf_addr;'), function)
 
 
@@ -158,6 +165,9 @@ class FunctionsInterruptContractTests(unittest.TestCase):
         self.assertIn('(vdp_irq_asserted() || g_irq_armed) ? g_z80.cyc + 1', text)
         # The interpreter fallback samples from its own first instruction and the reset clears the flag.
         self.assertEqual(text.count('g_irq_armed = false;'), 3)
+        # The count of RET continuations beyond the nesting bound is printed with the other [exec] counters (functions only).
+        self.assertEqual(text.count('[exec] ret_nest_overflow: %u'), 1)
+        self.assertNotIn('ret_nest_overflow', glue['banked'])
         # A RET that unwinds every generated frame continues at the address it popped, with a guard.
         self.assertIn('next = sms_read16((uint16_t)(g_z80.sp - 2));', text)
         self.assertIn('else if (++idle > 100000) break;', text)
