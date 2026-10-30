@@ -260,6 +260,8 @@ native/cps1_machine.c native/cps1_machine.h native/cps1_oki.c native/cps1_oki.h
 native/cps1_opm.cpp native/cps1_opm.h native/cps1_m68kconf.h native/cps1_probe.c
 native/cps1_native.c native/cps1_native.h native/cps1_z80_native.h
 native/cps1_vector_checks.c tools/cps1_vector_selftest.py tests/test_cps1_vectors.py tests/test_cps1_liveness.py
+native/cps1_z80_vector_checks.c tools/cps1_z80_vector_selftest.py tests/test_cps1_z80_vectors.py
+tools/cps1_mame_compare.py tests/test_cps1_mame_compare.py
 retrorecomp/cps1_codegen.py tests/test_cps1_codegen.py
 native/cps1_host.c native/cps1_host.h native/cps1_main.c retrorecomp/cps1_conversion.py
 retrorecomp/cps1_knowledge.py tests/test_cps1_knowledge.py tests/cps1_generator_pins.json
