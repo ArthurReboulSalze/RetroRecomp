@@ -16,9 +16,8 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 
 | Machine | Game (set or title) | Kind | What happens | What was tried | Since |
 |---|---|---|---|---|---|
-| Game Boy | Paperboy 2 | Failing | The discovery probes reach their 600-second limit; nothing is added to the shared knowledge and the game is not qualified | Bank-boundary, RAM-helper and selector fixes of the same campaign did not help; cause (CPU, mapper or other) not found. Not replayed since 1.6.4 | 10 October 2026 |
-| Game Boy | Spiritual Warfare | Failing | Same symptom: probes at the 600-second limit, game not qualified | Same attempts; not replayed since 1.6.4 | 10 October 2026 |
-| Game Boy | The Ren & Stimpy Show: Veediots! | Failing | Same symptom: probes at the 600-second limit, game not qualified | Same attempts; not replayed since 1.6.4 | 10 October 2026 |
+| Game Boy | Spiritual Warfare (Unl) | Failing | The start-up probe never ends (100 % CPU); the export finishes frame 1 then runs into illegal code (thousands of `0xDD` opcodes) | Replayed alone on 29 October 2026: reproducible. The header says "ROM only, 32 KiB" for a 256 KiB file: an unlicensed custom mapper is likely, not proven | 10 October 2026 |
+| Game Boy | The Ren & Stimpy Show: Veediots! | Failing | The probe with inputs hangs between frames 215 and 216: the game turns the screen off and never back on, and a frame only ends at VBlank, so no frame ends again | Replayed alone on 29 October 2026: reproducible and deterministic. A general fix is planned: end a frame after 70,224 cycles while the screen is off | 10 October 2026 |
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
 | Mega Drive | Barkley Shut Up and Jam! (USA) | Failing (cause found) | After 42 frames the game jumps to `$0000`: at `$EB8` it requests the Z80 bus (`MOVE.W #$0100,$A11100`), tests the grant once (`BTST #0,$A11100`, `BNE.W` to `$0000`) and assumes it at once; our bus arbiter grants it one slice late (about 188 master clocks instead of at most about 90) | Real code, not data read as code; traced to the slice approximation of `native/md_z80_bus.inc` (not proven). A dedicated arbiter change is planned (authored reproducer first, then a 13-game A/B) | 24 October 2026, cause found 29 October 2026 |
@@ -66,3 +65,5 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 - **Sharp X68000, Pensan CD** (29 October 2026). It was refused for having no sound on its routes. It is silent only on the
   routes without the mouse (a click starts its music: 4.39 million non-zero samples on the mouse route); since 1.6.5 a silent
   X68000 route is accepted and reported, and the game converts with zero interpreted opcodes.
+- **Game Boy, Paperboy 2** (29 October 2026). Replayed alone on the 1.6.5 tree, it converts in 152 seconds with zero interpreter
+  cycles; the 600-second probe limit it hit in the October campaign no longer applies.
