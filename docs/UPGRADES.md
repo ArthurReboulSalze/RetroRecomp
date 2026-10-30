@@ -502,6 +502,22 @@ shares `neogeo_build`. The Neo Geo quick-state key moves as well (`neogeo_build`
 1.6.5 no compatibility key is carried, so a quick state of 1.6.4 is refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge
 saves are kept. The host stamp does not move for these two changes.
 
+## Neo Geo: an attract route that reaches the BIOS restart (1.6.5)
+
+Every Neo Geo cartridge except the NAM-1975 receipt (its historic routes are kept) now replays one more route, `long-attract`: attract
+mode with no credit for at least 7,200 frames (`neogeo_validation.BIOS_RESTART_FRAMES`; the 9,000-frame routes that eleven sets already had
+are kept, Metal Slug's 5,400 becomes 7,200). Without a credit the BIOS restarts after about 4,200 to 5,400 frames and runs a routine it copies
+into work RAM (about 8.3 million instructions); the 3,600-frame attract route and a game started at about 2,400 never reached it, so six
+exports measured on a longer route (Breakers Revenge, Rage of the Dragons, Matrimelee, Metal Slug 4, Prehistoric Isle 2, Strikers 1945
+Plus) ran the same nine instruction sites of it, 2,319 instructions, in the counted interpreter. The conversion now observes those RAM
+variants and translates them. Nothing in a saved state or a save changes.
+
+**What moves.** The Neo Geo game stamp (`neogeo_validation` is a converter module of its stamp groups, and the route table is part of
+what a conversion learns from): a Neo Geo export of 1.6.4 is **converted in full once**, with no table entry, as for the other 1.6.5
+Neo Geo changes. The host stamp and the quick-state key do not move for this change. The report of a converted game lists one more route.
+Cost: one more route replays on the reference and on the packed game; for most cartridges it is not longer than the `play` route, so a
+conversion alone waits no longer, and a batch adds about a tenth of its replay work (not timed).
+
 ## X68000: exact redraw marks for the background and the sprites (1.6.5)
 
 The machine redraws a screen line only when it is marked, and the pinned base marked **every** line on any write to a background
