@@ -441,6 +441,46 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
+
+The 68000 now sees the grant of the Z80 bus (`$A11100` bit 0) at the end of the sound CPU's machine cycle in progress when it
+wrote BUSREQ, also when the sound CPU already stands ahead (its last instruction of a line retires beyond the line), and as soon as
+that date has passed, not only after the 68000 has caught up to the sound CPU's clock. Barkley Shut Up and Jam! (USA), which does
+not loop on the bit and stopped converting, now converts. The sound CPU resumes after the release as before. Details and the
+ROM-free reproducer: [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md#busack-after-a-line-end--2026-10-30-165).
+*Edited:* `native/md_z80_bus.inc` and `retrorecomp/megadrive_bus.py` (game inputs of the Mega Drive only). **The `md` game stamp
+moves**, and with the native file the Mega Drive quick-state key; no state field is added. Because a game that polls the bit can
+now see the grant one poll earlier, the Mega Drive exports of 1.6.4 are converted in full, not upgraded. **Cost:** one compare and
+one store per sound-CPU access, I/O cycle and instruction end, one condition per arbiter loop, and a scan of at most eight entries
+per BUSREQ write; nothing on the 68000's instructions or bus accesses; not timed.
+
+Checked by `tools/ab_conversion.py` on 13 games against the tree before the change. All 26 conversions succeed, keep 0 interpreted
+68000 instructions and 0 interpreted Z80 cycles on their final demo and play routes, and their native and reference runs agree.
+Blockout gives identical outputs (only the changed sources, the clang profile built from them and the packed size ratio differ).
+In the 12 others the sound, the Z80 and 68000 state and, for some, the picture sequence change. For each of them both executables
+were replayed with a per-frame trace and a per-frame hash of the arbiter's events: on both routes, the first frame that differs is
+the first frame whose arbiter events differ, and the first differing event is a 68000 read of `$A11100` that the previous rule
+answered "not granted" and that is now "granted", made after the end of the sound CPU's cycle following the request:
+
+| Game | Demo: frame, read / sound CPU (master clocks) | Play: frame, read / sound CPU |
+|---|---|---|
+| Sonic The Hedgehog 2 (USA) | 682, 637 / 615 | 1337, 1463 / 1440 |
+| Sonic The Hedgehog 3 (USA) | 279, 269 / 255 (ahead after the line end) | 279, same |
+| Gunstar Heroes (USA) | 808, 3525 / 3420 | 431, 638 / 615 |
+| Streets of Rage 2 (USA) | 153, 2726 / 2700 | 153, same |
+| Mortal Kombat II (USA) | 1178, 1665 / 1650 | 977, 2355 / 2355 |
+| Street Fighter II' Plus - Champion Edition (Japan) | 531, 3169 / 3150 | 332, 3184 / 3165 |
+| Super Street Fighter II (USA) | 471, 590 / 585 | 332, 745 / 720 |
+| Comix Zone (USA) | 49, 3157 / 3135 | 49, same |
+| Thunder Force IV (Japan) | 708, 3387 / 3360 | 346, 3520 / 3495 |
+| Contra - Hard Corps (USA) | 2759, 1886 / 1860 | 875, 2511 / 2490 |
+| Earthworm Jim (USA) | 1709, 3510 / 3420 | 1989, 218 / 225 (ahead after the line end) |
+| Ecco the Dolphin (USA) | 116, 2921 / 2895 | 116, same |
+
+The previous rule recorded the grant only once the 68000 had been run up to the sound CPU's clock, and that run can end one
+instruction later, so a poll made there was answered "not granted". These are differences of the bus model observed by the
+game, explained frame by frame; they are not measurements on a console and say nothing about play beyond these routes.
+
 ## Mega Drive: the supervisor RESET instruction is executed (1.6.5)
 
 A cartridge that executes the 68000 `RESET` instruction (opcode `$4E70`, supervisor mode) used to stop the conversion: the pinned

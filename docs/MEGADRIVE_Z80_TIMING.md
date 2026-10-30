@@ -1,5 +1,38 @@
 # Mega Drive Z80 machine-cycle placement
 
+## BUSACK after a line end — 2026-10-30 (1.6.5)
+
+Barkley Shut Up and Jam! (USA) waits for the Z80 bus without a loop: `MOVE.W #$0100,$A11100`, `BTST #0,$A11100`, then a
+`BNE.W` whose target is address 0. When the grant was not visible to that `BTST`, about 112 master clocks after the write,
+the 68000 ran the vector table as code and the conversion stopped (it was listed in KNOWN_FAILURES.md).
+
+**Cause.** The last sound-CPU instruction of a line is allowed to retire beyond the line while the 68000 stops at the
+line end. At the next line the sound CPU can therefore stand several machine cycles ahead (210 master clocks in Barkley's
+frame 43). BUSACK was dated where the sound CPU stood (`rr_local_ack_time = boundary` in `rr_bus_slice`), not at the end of
+the machine cycle that was in progress when the 68000 wrote BUSREQ. It was also recorded only after the 68000 had caught up
+to the sound CPU's clock, so a poll during that catch-up could not see it. A trace of the game's own frame showed the request
+at 22, the sound CPU at 210 and the `BTST` at 162.
+
+**Change** (`native/md_z80_bus.inc`). The clocks at which the latest sound-CPU machine cycles ended are kept: where the next
+access, I/O cycle or instruction starts, so internal clocks lengthen the cycle they follow, the convention of the literal
+cases in `native/md_bus_checks.c`. They move with each line change (`retrorecomp/megadrive_bus.py`) and are dropped when a
+deferred replay goes back before them. BUSACK is dated at the first of them at or after the request, and it is recorded as
+soon as the sound CPU stands on a completed cycle at or after a pending request, before the 68000 catches up (which it then
+does exactly as before). The sound CPU itself resumes after the release as before; its cycles between that date and where it
+stood were already executed. That remains an approximation: a 68000 write to sound RAM during the grant is not seen by reads
+the sound CPU made in that interval.
+
+**Evidence.** `tools/megadrive_boundary_selftest.py PROJECT --output DIR --busack` (authored, ROM-free, in
+`native/md_boundary_checks.c`): a `LD A,($1000); JP` loop behind 0 to 22 NOPs straddles the line end, and the 68000 writes
+BUSREQ from about 140 master clocks before the line change to 190 after it, in the four scheduling modes (1,196 cases, 744 with
+the sound CPU ahead at the line start). Before the change: 44 grants later than the request plus one cycle and the Z80 clock
+wait (75 master clocks), the worst 152, and 4 `BTST` without the grant (sound CPU ahead by 180, request at 28, grant at 180).
+After: none, worst 59. The full boundary comparison still requires the four modes to agree on all 32,840 programs; 810 of its
+sweep programs (the 68000 polls for the grant) now see the grant at an earlier poll or clock, none of its 72 fixed programs
+changes. `megadrive_bus`, `_z80_`, `_z80_resume_`, `_dma_` and `_interrupt_` self-tests give byte-identical results. Barkley
+Shut Up and Jam! (USA) now converts: 0 interpreted 68000 instructions and 0 interpreted Z80 cycles on its demo and play routes
+(3,600 frames each), native and reference equal. These are CPU-timing and bus-model checks, not a measurement on a console.
+
 ## Changed code during a suspended fetch — 2026-10-11
 
 Side-effect-free opcode peeks cannot guarantee that the later bus fetch returns
