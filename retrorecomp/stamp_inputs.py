@@ -391,6 +391,8 @@ INPUTS = _resolve({
         'native/gb_latency_checks.cpp',
         'native/gb_ram_checks.c',
         'native/gb_ram_helpers.h',
+        'native/gb_tick_checks.c',
+        'native/gb_tick_fast.h',
         'retrorecomp.gameboy',
         'retrorecomp.gameboy_boundary',
         'retrorecomp.gameboy_build',

@@ -57,6 +57,7 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
     for source_name, destination in (
         ('embedded_resources.h', project / 'runtime/include/embedded_resources.h'),
         ('gb_ram_helpers.h', project / 'runtime/include/gb_ram_helpers.h'),
+        ('gb_tick_fast.h', project / 'runtime/include/gb_tick_fast.h'),
     ):
         copyfile(ASSETS / 'native' / source_name, destination)
 
@@ -81,6 +82,23 @@ def adapt_generated_project(project: Path, storage_id: str, rom_sha256: str, tit
 
     runtime_cpu = project / "runtime/src/gbrt.c"
     source = runtime_cpu.read_text(encoding="utf-8")
+    # The runtime's own functions (timed jumps, calls, returns, stack and bus accesses and the HALT loop of
+    # gb_run_cycles, which issues most of the calls while a game waits for vblank) call gb_tick. gb_tick_fast.h runs the
+    # ordinary case of gb_tick inline in those callers, with the same effects in the same order, and hands every other
+    # case to the real gb_tick. The macro is off around the definition of gb_tick and around gb_handle_interrupts (four
+    # ticks of a cold path, kept as real calls to limit the growth of the code), and back on for gb_run_cycles. It exists
+    # only when the runtime is built without its performance counters, as the header itself does. The CGB HDMA stall of
+    # gbrt.c stays a real call too. The generated sources keep calling the real gb_tick: inlining it into every body adds
+    # about 400 bytes at each of thousands of call sites.
+    source = replace_once(source, '#include "gbrt.h"\n#include "gbrt_data_mod.h"',
+        '#include "gbrt.h"\n#include "gb_tick_fast.h"\n#include "gbrt_data_mod.h"')
+    source = replace_once(source, 'void gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;',
+        '#undef gb_tick\nvoid gb_tick(GBContext* ctx, uint32_t cycles) {\n    static uint32_t last_log = 0;')
+    source = replace_once(source, 'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {',
+        '#ifndef GBRT_ENABLE_PERFORMANCE_COUNTERS\n#define gb_tick(ctx, cycles) rr_gb_tick((ctx), (cycles))\n#endif\n'
+        'uint32_t gb_run_cycles(GBContext* ctx, uint32_t max_cycles) {')
+    source = replace_once(source, 'gb_tick(ctx, ctx->cgb_double_speed ? 64u : 32u);',
+        '(gb_tick)(ctx, ctx->cgb_double_speed ? 64u : 32u);')
     source = replace_once(source,
         '''    /* Save RAM before destroying if available */
     if (ctx->eram && ctx->callbacks.save_battery_ram && !ctx->persistence_load_failed) {
