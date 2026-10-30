@@ -62,6 +62,8 @@ def scrub(value, key=None):
             return '<sha256>'
         if key == 'executable':
             value = re.sub(r'\.exe$', '', value)
+        # The compressed copy the conversion replays is packed-game.exe on Windows, packed-game elsewhere.
+        value = re.sub(r'packed-game\.exe\b', 'packed-game', value)
         value = re.sub(r'(qa|reference)-[a-z0-9_]{8}', r'\1-<X>', value)
         value = re.sub(r"No such file or directory: '.*'", "No such file or directory: '<path>'", value)
         return re.sub(r'[/\\]x68[/\\](win|linux)(-llvm)?[/\\]', '/x68/<os>/', value)
@@ -546,7 +548,8 @@ class RecordedBehaviourTests(unittest.TestCase):
     maxDiff = None
 
     def check(self, name):
-        self.assertEqual(collect(name), GOLDEN[name])
+        # The golden is recorded on one system: both sides go through the same scrub.
+        self.assertEqual(scrub(collect(name)), scrub(GOLDEN[name]))
 
     def test_a_replay_spawns_and_judges_as_before(self):
         self.check('replay')
