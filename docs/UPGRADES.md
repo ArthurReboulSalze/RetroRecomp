@@ -561,6 +561,37 @@ the inline path are caught. Because the runtime itself now uses the inline path,
 comparison step counts; and the final executables of Tetris and Super Mario Land, run for 3,600 frames on three input scripts with
 `--dump-state`, write state files identical byte for byte (registers, cycles, WRAM, HRAM, PPU mode, RTC).
 
+## Game Boy: a frame lasts 70,224 cycles with the LCD off (1.6.5)
+
+With the LCD off the Game Boy has no vblank, and the runtime completed a frame only at vblank: a game that keeps the screen off
+while it waits for a key never completed another frame. In the windowed export the loop already ran in slices of 70,224 cycles and
+showed the last picture, but the frame counter, the clock of frame-anchored input scripts and the limit of headless runs advance only at a
+completed frame, so every headless probe and every scripted route stopped there. The Ren & Stimpy Show: Veediots! did so at the end
+of frame 215 of the probe (screen off at cycle 16,201,199, never on again, 30 million instructions without a frame).
+`gb_add_cycles` (and its copy in `native/gb_tick_fast.h`) now ends the frame when the frame's cycles reach 70,224 while the LCD is
+off; the host shows the picture the PPU kept. This is a **change of the frame count, not of the emulation**.
+
+*What moves.* The Game Boy **game stamp** only (it already moves in 1.6.5): `retrorecomp/gameboy_runtime.py` (one more
+`replace_once` on `gbrt.c`) and `native/gb_tick_fast.h`. No host or build stamp, no quick-state key. An export of 1.6.4 is converted
+again once, as at every release; a quick state can now be taken during an LCD-off span (the frame is complete there).
+
+*What it changes in a conversion.* The LCD-off span of the boot (several frames, 15 more in Tetris and 39 more in Super Mario Land over the
+first 3,600) used to count as one frame; it now counts as the frames it lasts. The probes of N frames therefore cover fewer cycles
+at the start, frame-anchored scripts meet other guest cycles, and the counts, the observed entries and the step counts of the reports move
+a little (Super Mario Land: 8,232 translated functions before, 8,211 after; nothing becomes interpreted). Existing observations stay valid.
+
+*Hot path: modified (one comparison).* The test is made only while the LCD is off, in the function that adds the cycles of a tick,
+and in its inline copy. Not timed.
+
+*Proof.* `tools/gameboy_tick_selftest.py` checks that the real tick and the inline tick end the frame at the same cycle, for four tick
+sizes, and uses the frame reset of the host loop in its random streams (a mutation of the threshold is caught). At the same total of
+cycles the full `--dump-state` of Tetris (3,600 frames before, 3,615 after) and of Super Mario Land (3,600 and 3,639) is identical without
+`completed_frames`. Veediots now converts alone in 105 s with zero interpreter cycles and matching CPU comparisons (it stopped
+at the first input probe before); Tetris, Super Mario Land and Wario Land II convert on both sides with matching CPU comparisons and
+unchanged interpreter figures. Spiritual Warfare (an unlicensed cartridge whose header says ROM only, 32 KiB, for 256 KiB) now also
+completes its probes, with 1,029,772 interpreter cycles at four sites and the program running garbage: it is not a game that works,
+and a refusal for an inconsistent header would be a separate decision.
+
 ## Game Boy exports in 1.6.4 (writable-memory code)
 
 The Game Boy runtime now executes the WRAM/HRAM instructions that the pinned RAM stub does not cover **one instruction at a time, from
