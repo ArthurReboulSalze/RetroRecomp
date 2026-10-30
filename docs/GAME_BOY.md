@@ -104,6 +104,15 @@ Adaptations we carry on the generated project:
   bodies, which keep calling the real `gb_tick` since forcing the inline there would add about 400 bytes at each of thousands of call sites
   per source file. The code of `gbrt.c` grows by roughly 44 KB. It is a speed change only: `tools/gameboy_tick_selftest.py` compares both on random operation streams, field by field. The speed
   gain is not measured here.
+- **A frame lasts 70,224 cycles with the LCD off (1.6.5).** The PPU completes a frame only at vblank, so with the LCD off no frame ever
+  completed: a game that waits for a key with the screen off (The Ren & Stimpy Show: Veediots!, at the end of frame 215 of the probe)
+  stopped every headless probe and every frame-anchored input script, since the frame counter and the script clock advance only at a
+  completed frame. The runtime now ends the frame when the frame's cycles reach 70,224 while the LCD is off (`gb_add_cycles`, and its copy in
+  `gb_tick_fast.h`); the picture is the last one, as the PPU keeps it, which is also what the windowed loop already showed during an
+  LCD-off span. Only the counting of frames moves: at the same total of cycles the full state is identical (Tetris and Super Mario
+  Land, `--dump-state`, without `completed_frames`). The consequence for a conversion is that the boot's LCD-off span now counts as
+  several frames (15 more in Tetris, 39 more in Super Mario Land over the first 3,600), so the probes of N frames cover fewer cycles
+  at the start and their counts and observed entries differ a little from those of 1.6.4.
 - **Input refresh.** A JOYP read with no scripted pad asks the host for fresh input (`adapt_input_refresh_hook`).
 - **Build reductions** (`gameboy_build.py`; the generated instruction bodies and `/O2` are kept): regular dispatch pages use immutable
   native-function tables, trivial entry wrappers call their shared body directly, custom/native replacement hooks stay, function
