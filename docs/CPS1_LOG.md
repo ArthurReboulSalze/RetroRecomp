@@ -22,6 +22,7 @@ the machine page).
 - [29 October 2026 (1.6.5 tree): selective requalification](#29-october-2026-165-tree-selective-requalification)
 - [29 October 2026 (1.6.5 tree): independent vectors and route liveness](#29-october-2026-165-tree-independent-vectors-and-route-liveness)
 - [29 October 2026 (1.6.5 tree): the whole panel, routes, captures and long routes](#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes)
+- [30 October 2026 (1.6.5 tree): Z80 vectors, MAME again and a Linux witness](#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness)
 
 ## 24 October 2026: sprite order and the first qualified sets
 
@@ -242,3 +243,105 @@ fresh-process F8/F9 check with the truncated state rejected. Instructions retire
   title.
 - Not measured: the comparison with MAME (still the 24 and 27 October figures), the Z80 vectors, Linux, hardware fidelity,
   complete playthroughs, physical latency and speed. The wall times of the conversions (50 to 260 s) are not timings.
+
+## 30 October 2026 (1.6.5 tree): Z80 vectors, MAME again and a Linux witness
+
+Branch `spec/cps1-165d` on local `main` (`8da49bf` at the end). Three pieces of evidence for the gates of the "supported"
+checklist. All are CPU or picture agreement with a reference; none is hardware fidelity, gameplay or latency.
+
+**Independent Z80 vectors** (`tools/cps1_z80_vector_selftest.py`, Windows, llvm-mingw, about 30 seconds with the corpus cached):
+the pinned SingleStepTests/z80 sample (`ebe1875`, 32 vectors per family, 1,604 families, 51,328 vectors; fetched once by
+`tools/fetch_z80_vectors.py` into `.deps/z80-vectors`) through the CPS-1 translated Z80 bodies and the patched Geolith core
+(native), and through the same core interpreting every instruction (reference), on a flat bus whose ports answer from the vector.
+38,433 vectors lie in the sound ROM windows, 1,615 in sound RAM (each one native step), 11,280 outside the code map (each
+one interpreted and counted once). Native versus reference: identical on all 51,328, state and clock. Against the vectors,
+both: 50,429 of 51,328 on the state, 51,200 on the clock. Differences by family (state, clock, differing fields; P and Q not
+compared):
+
+| Family | State | Clock | Fields |
+| --- | ---: | ---: | --- |
+| `37` | 4 | 0 | f 4 |
+| `3f` | 7 | 0 | f 7 |
+| `dd 22` | 32 | 0 | wz 32 |
+| `dd 2a` | 32 | 0 | wz 32 |
+| `dd 37` | 12 | 0 | f 12 |
+| `dd 3f` | 17 | 0 | f 17 |
+| `dd e9` | 32 | 0 | wz 32 |
+| `ed 40` | 32 | 0 | f 30, wz 32 |
+| `ed 48` | 32 | 0 | f 27, wz 32 |
+| `ed 4d` | 16 | 0 | iff1 16 |
+| `ed 4e` | 18 | 32 | im 18 |
+| `ed 50` | 32 | 0 | f 21, wz 32 |
+| `ed 57` | 23 | 0 | f 23 |
+| `ed 58` | 32 | 0 | f 23, wz 32 |
+| `ed 5f` | 23 | 0 | f 23 |
+| `ed 60` | 32 | 0 | f 24, wz 32 |
+| `ed 68` | 32 | 0 | f 25, wz 32 |
+| `ed 6e` | 20 | 32 | im 20 |
+| `ed 70` | 32 | 0 | f 24, wz 32 |
+| `ed 77` | 0 | 32 | - |
+| `ed 78` | 23 | 0 | f 23 |
+| `ed 7f` | 0 | 32 | - |
+| `ed a3` | 32 | 0 | ports 32 |
+| `ed ab` | 32 | 0 | f 12, wz 32, ports 32 |
+| `ed b0` | 26 | 0 | f 26 |
+| `ed b1` | 25 | 0 | f 25 |
+| `ed b2` | 31 | 0 | f 31 |
+| `ed b3` | 32 | 0 | f 27, ports 32 |
+| `ed b8` | 20 | 0 | f 20 |
+| `ed b9` | 32 | 0 | f 25, wz 32 |
+| `ed ba` | 30 | 0 | f 30 |
+| `ed bb` | 32 | 0 | f 28, ports 32 |
+| `fd 22` | 32 | 0 | wz 32 |
+| `fd 2a` | 32 | 0 | wz 32 |
+| `fd 37` | 11 | 0 | f 11 |
+| `fd 3f` | 17 | 0 | f 17 |
+| `fd e9` | 32 | 0 | wz 32 |
+
+Totals by field over the vectors: flags 535, WZ 480, ports 128, IM 38, IFF1 16; no written byte differs. Which side is right in each
+case was not investigated (the oracle is JSMoo). They are the Geolith core's: it is also the Neo Geo's sound core, whose own
+conversions were not replayed here.
+
+**MAME 0.289 again** (`tools/cps1_mame_compare.py`, 26 sets, attract and credited play routes of 3,600 frames, one frame in ten, delivered
+game against MAME, MAME's input reads replaced frame by frame; the frame of a read is derived from MAME's machine time, the game's
+line 0 falling 22 of 262 lines after MAME's vertical blank starts; identical frames over compared frames):
+
+| Set | Attract | Credited play | First different frame |
+| --- | ---: | ---: | ---: |
+| `1941` | 360/360 | 360/360 |  |
+| `cworld2j` | not comparable | not comparable |  |
+| `captcomm` | 360/360 | 360/360 |  |
+| `cawing` | 360/360 | 360/360 |  |
+| `dynwar` | 360/360 | 360/360 |  |
+| `ffight` | 360/360 | 360/360 |  |
+| `ghouls` | 360/360 | 360/360 |  |
+| `knights` | 360/360 | 360/360 |  |
+| `msword` | 360/360 | 360/360 |  |
+| `megaman` | 360/360 | 360/360 |  |
+| `mtwins` | 360/360 | 360/360 |  |
+| `mercs` | not comparable | not comparable |  |
+| `nemo` | 360/360 | 360/360 |  |
+| `pnickj` | 360/360 | 360/360 |  |
+| `pokonyan` | 360/360 | 360/360 |  |
+| `qad` | 360/360 | 360/360 |  |
+| `qtono2j` | 360/360 | 360/360 |  |
+| `sf2ce` | 360/360 | 360/360 |  |
+| `sf2hf` | 360/360 | 154/360 | 1510 |
+| `sf2` | 360/360 | 360/360 |  |
+| `strider` | 360/360 | 360/360 |  |
+| `kod` | 360/360 | 360/360 |  |
+| `3wonders` | 360/360 | 360/360 |  |
+| `unsquad` | 360/360 | 360/360 |  |
+| `varth` | 360/360 | 360/360 |  |
+| `willow` | 360/360 | 360/360 |  |
+
+Two sets are not comparable (PAL dumps missing from the romsets). `sf2hf` differs from frame 1,505 on isolated whole pictures (86,016
+pixels, every pixel); against MAME's frame one before or after, other frames differ instead (offset test at step 1): a one-frame
+slip, independent of the input phase between 5 and 40 lines. The King of Dragons and Mega Twins no longer slip. Sound not repeated.
+
+**Linux witness** (Debian 13, Hermès, Python 3.13.5, gcc 14.2; one conversion of `sf2ce`, standard level, in a folder apart that
+was removed afterwards; the ROM was copied for the run and deleted): 0 interpreted 68000 and Z80 instructions, 129,196,735 native
+68000 and 40,478,778 native Z80 instructions over both routes, the reference comparison, the packed replay and the fresh-process state
+check passed, and the CPU, RAM, image and sound hashes and the trace hashes of both routes are **identical** to the Windows conversion
+(attract `3bbf4e1b9e913170` image, play `58d38aebe87defe0`). The conversion took 237 seconds
+(Windows 138 s), the first 147 seconds including a build of SDL; these are wall times on a shared machine, not timings.

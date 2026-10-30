@@ -148,8 +148,8 @@ is counted in the conversion report (`knowledge`).
 | Native | `native/cps1_machine.c/.h` (board model), `cps1_native.c/.h` and `cps1_z80_native.h` (guarded native steps), `cps1_oki.c/.h`, `cps1_opm.cpp/.h` (ymfm wrapper), `cps1_host.c/.h`, `cps1_main.c`, `cps1_m68kconf.h`, `cps1_probe.c` (headless reference runner) |
 | Host kit | `native/hostkit/adapters/rrhk_cps1.c` (actions, DIP page, players 3 and 4); the shared shell is described in [HOST_KIT.md](HOST_KIT.md) |
 | Data | `assets/cps1-catalogue.json` (built by `tools/build_cps1_catalogue.py`); licences in `licenses/cps1-machine.md` and `licenses/cps1-ymfm.md` |
-| Tools | `tools/cps1_release_check.py` (release check at the Standard level, wraps `tools/release_check.py`); `tools/cps1_vector_selftest.py` with `native/cps1_vector_checks.c` (independent 68000 vectors through the CPS-1 generator, a developer harness that builds no game) |
-| Tests | `tests/test_cps1.py`, `test_cps1_board.py`, `test_cps1_codegen.py`, `test_cps1_integration.py`, `test_cps1_knowledge.py`, `test_cps1_liveness.py`, `test_cps1_vectors.py`, `cps1_generator_pins.json` (pins of the generator sources) |
+| Tools | `tools/cps1_release_check.py` (release check at the Standard level, wraps `tools/release_check.py`); `tools/cps1_z80_vector_selftest.py` with `native/cps1_z80_vector_checks.c` (independent Z80 vectors), `tools/cps1_mame_compare.py` (picture comparison with a local MAME 0.289, pads replaced at the 68000's input reads); `tools/cps1_vector_selftest.py` with `native/cps1_vector_checks.c` (independent 68000 vectors through the CPS-1 generator, a developer harness that builds no game) |
+| Tests | `tests/test_cps1.py`, `test_cps1_board.py`, `test_cps1_codegen.py`, `test_cps1_integration.py`, `test_cps1_knowledge.py`, `test_cps1_liveness.py`, `test_cps1_vectors.py`, `test_cps1_z80_vectors.py`, `test_cps1_mame_compare.py`, `cps1_generator_pins.json` (pins of the generator sources) |
 
 ## Controls and options
 
@@ -267,8 +267,13 @@ and 864 exception vectors, MIT, generated with MAME) are replayed through the CP
 `tools/cps1_vector_selftest.py`: the translated steps agree with every one of them on registers, SR, PC, written bytes and
 clocks, and the Musashi reference differs from the vectors in a few named groups (division and `CHK` flags, `CHK` clocks,
 one line-F frame). The numbers, the two authored trace vectors that neither path delivers and the limits are in
-[CPU_68000.md](CPU_68000.md#tests-and-vectors). **The Z80 sound CPU has no independent vector replay yet**: the
-SingleStepTests/z80 corpus has to be downloaded first (the SMS and GG tool `tools/fetch_z80_vectors.py` caches a sample).
+[CPU_68000.md](CPU_68000.md#tests-and-vectors). **Independent CPU evidence (G10), Z80.** The 51,328 vectors of the pinned SingleStepTests/z80 sample (the one the Master System and
+Game Gear use) are replayed by `tools/cps1_z80_vector_selftest.py` through the CPS-1 Z80 bodies and the patched Geolith core. The
+native and the interpreted path agree on every vector; both agree with the oracle on 98.2 percent of them for the state and 99.7
+percent for the clock. The differences are named in [CPU_Z80.md](CPU_Z80.md#tests-and-vectors) (flags, WZ, the port address of the block
+output instructions, a few undocumented opcodes): they are the Geolith core's, not the translation's, and they are the reason G10 stays
+partial. Carrying our own corrections, as the Mega Drive and the Master System do, would change generated code and the stamps of the
+machines that share this core: it has not been done.
 
 **Liveness (G8).** Since 1.6.5 each route of the conversion report carries `final_checks[].liveness`, read from the route's
 per-frame trace: `distinct_pictures`, `picture_changes` and `last_picture_change_frame` (frames whose image hash differs from
@@ -334,10 +339,10 @@ first stage and `1941` looping through play and its title.
 | G7 saves | no non-volatile memory on the standard boards | not applicable |
 | G8 liveness | the table above (26 sets) | met |
 | G9 route depth | the credited play route reaches play on 26 of 26 sets (captures inspected by the specialist); the 18,000-frame route ran on 3 sets | met for the routes run; the owner has not inspected the captures |
-| G10 independent CPU evidence | 68000 vectors above; no Z80 corpus yet | partial |
-| G11 independent hardware evidence | the MAME 0.289 comparison of 24 October and 27 October, measured before 1.6.4 and not repeated | partial |
+| G10 independent CPU evidence | 68000: 3,787 of 3,787 vectors; Z80: 51,328 vectors, 98.2 percent of the state, differences named | partial |
+| G11 independent hardware evidence | MAME 0.289, picture, repeated on the 1.6.5 tree (30 October): 23 sets identical on every compared frame of both routes, one slips; sound not repeated | partial |
 | G12 panel | 26 sets, all measured on 29 October; the policy for a common panel size is not decided | the owner's call |
-| G13 cross-OS witness | Final Fight, same route hashes on Windows and Debian 13 (27 October) | partial |
+| G13 cross-OS witness | Final Fight (27 October) and Street Fighter II' Champion Edition (30 October, 1.6.5 tree): the same route hashes on Windows and Debian 13 | partial: two sets of 26 |
 | G14 owner acceptance | owner trials of 27 October reported in chat, not recorded; a draft row is in QUALIFICATION.md | open |
 | G15 honesty | the five measures separate everywhere; "zero" means the routes run | met |
 | G16 shared knowledge | no CPS-1 path is qualified; the sharing is withdrawable | not applicable |
@@ -353,9 +358,22 @@ first stage and `1941` looping through play and its title.
 
 ### Comparison with MAME
 
-A development check, not part of each conversion; it measures agreement with
-MAME 0.289, not with the original boards. Results of 24 and 27 October 2026,
-**measured before 1.6.4** (full detail in [CPS1_LOG.md](CPS1_LOG.md)):
+A development check, not part of each conversion; it measures agreement with MAME 0.289, not with the original boards.
+`tools/cps1_mame_compare.py` replays a set's credited play (or attract) route on the delivered game and in a local MAME 0.289, which
+saves the raw screen every ten frames; MAME's reads of the input ports are replaced by the values of the route, frame by frame, so
+both sides read each value in the same frame.
+
+**Repeated on the 1.6.5 tree (30 October 2026)**, on the 26 sets, 3,600 frames per route, one frame in ten compared pixel for
+pixel (details in [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness)):
+
+- 24 of the 26 sets can be compared (Adventure Quiz Capcom World 2 and Mercs need PAL dumps `q522b.1a` and `c628` that the
+  romsets lack, as before). On the attract route all 24 match MAME on all 360 compared frames. On the credited play route 23
+  match on all 360; Street Fighter II' Hyper Fighting (`sf2hf`) matches until frame 1,505 and then differs on isolated whole
+  pictures (the same picture appears one frame earlier or later), the interrupt-sampling limit below.
+- The King of Dragons and Mega Twins, which slipped in the earlier run, now match on every frame: the earlier run applied the
+  pad change at a different point of the frame than the game does. Sound was not compared again.
+
+**Earlier results of 24 and 27 October 2026**, measured on earlier engines and not repeated:
 
 - Attract modes of six sets (ffight, ghouls, sf2, captcomm, strider, megaman)
   match pixel for pixel on every compared frame (one in 30 over 9,000 frames).
@@ -382,8 +400,8 @@ MAME 0.289, not with the original boards. Results of 24 and 27 October 2026,
   never count as qualification evidence.
 - **Interrupt sampling**: the 68000 samples its interrupt lines 4 cycles before
   the end of an instruction, as measured on MAME 0.289 traces. A game's main
-  loop can still move by a frame against its input reads (three sets slip by one
-  frame in the MAME comparison).
+  loop can still move by a frame against its input reads (`sf2hf` slips by one
+  frame in the 30 October comparison with MAME).
 - **Timing model**: the frame is rendered whole at the start of VBLANK;
   mid-frame register writes and 68000 bus waits are not modelled, and the
   native 68000 steps use Musashi's clock table with prefetch disabled, as the
@@ -417,6 +435,8 @@ Short list; the dated measurements are in [CPS1_LOG.md](CPS1_LOG.md).
 - 29 October 2026 (1.6.5): the Z80 interrupt mode 0 opcode is counted; eleven sets requalified; independent 68000 vectors
   replayed through the CPS-1 generator; route liveness fields in the report; the whole panel of 26 sets requalified, play-route captures
   inspected and the 18,000-frame route run on three sets.
+- 30 October 2026 (1.6.5): independent Z80 vectors replayed through the CPS-1 path, the comparison with MAME repeated on the 26
+  sets with a tool kept in the repository, and a Linux witness (Street Fighter II' Champion Edition, identical route hashes).
 - 1.6.4: code run from graphics RAM is guarded natively (`sf2ce` goes to zero
   interpreted instructions in the standard routes), quick state `CPS1S002`,
   artwork no longer searches a libretro catalogue that CPS-1 does not have.
