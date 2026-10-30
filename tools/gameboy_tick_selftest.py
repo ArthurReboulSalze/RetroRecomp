@@ -1,4 +1,4 @@
-"""Compare the inline gb_tick path of the generated Game Boy code with the real gb_tick of the pinned runtime."""
+"""Compare the inline path of gb_tick (native/gb_tick_fast.h, included by the runtime file gbrt.c) with the real gb_tick."""
 from pathlib import Path
 import json
 import sys

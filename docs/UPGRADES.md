@@ -511,7 +511,8 @@ every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_
   shifts, `BIT`, `RES`, `SET`, on a register or `(HL)`) with the interpreter's own helpers and cycle split (8, 12 for `BIT n,(HL)`,
   16 for the other `(HL)` forms). Wario Land II's interpreter sessions fall to zero; those instructions are counted as one-by-one
   executor instructions, not native code. `retrorecomp/gameboy.py` changes its scope text. Reviewed against the pinned interpreter;
-  `tools/gameboy_ram_selftest.py` compares all 256 second bytes at four placements.
+  `tools/gameboy_ram_selftest.py` compares all 256 second bytes at four placements. The runtime's `gb_tick` also gets an inline
+  ordinary case, described in [the next section](#game-boy-the-ordinary-case-of-gb_tick-runs-inline-in-the-runtime-165).
 - **NES.** The MMC1 bank tables are rebuilt on a PPU A12 change only when that change can alter them
   ([UPSTREAMS.md](UPSTREAMS.md)); generated sources and evidence are identical. The quick-state key is now independent of the build
   folder (`RRNESST2`).
@@ -523,6 +524,42 @@ every release. Quick states of 1.6.4 are refused cleanly ([GAME_STATES.md](GAME_
   gain not measured yet.
 - **CPS-1.** `IM 0` on the sound Z80 is counted (generator revision 8); independent 68000 vectors are replayed through the CPS-1
   generator and each route's liveness is recorded, a frozen route being refused.
+
+## Game Boy: the ordinary case of gb_tick runs inline in the runtime (1.6.5)
+
+`gb_tick` advances the clock of a Game Boy export after nearly every instruction and runs a large general sequence (double speed,
+real-time clock, OAM DMA, serial, timer, PPU synchronisation, interrupts, audio). `native/gb_tick_fast.h`, included by the runtime file
+`gbrt.c`, now runs the ordinary case in the caller, with the same effects in the same order, and calls the real `gb_tick` for every
+other case before it changes anything: a ticking real-time clock (cartridge type `0x0F` or `0x10`), OAM DMA pending or active, a serial
+transfer, a TIMA reload or a timer edge inside the cycles, double speed, and the runtime's test switches. It is a **speed change
+only**: native code, CPU fidelity, hardware fidelity and gameplay validation are not touched, and physical latency stays unmeasured.
+
+*What moves.* The Game Boy **game stamp** (a new game file, `native/gb_tick_fast.h`, and the runtime patch in
+`retrorecomp/gameboy_runtime.py`; the Game Boy game stamp already moves in 1.6.5 for the `CB` prefix executor above). No host stamp, no
+build stamp, no quick-state key, no change of what a conversion generates: the generated C sources are the same. An export of 1.6.4 is
+converted again once, as at every release. The patch is four `replace_once` on the private runtime copy (the include, the macro off
+around the definition of `gb_tick` and around `gb_handle_interrupts`, back on for `gb_run_cycles`, and the CGB HDMA stall kept as a
+real call); it exists only when the runtime is built without its performance counters, which is the export build.
+
+*Hot path: modified.* This is a per-tick change. For 87.0 percent of the 54.0 million calls of `gb_tick` counted on Super Mario Land
+(3,600 frames, title screen without input) it replaces a call to the large general function by the ordinary case in the caller: a test
+of conditions on fields `gb_tick` already reads, then the same effects. Where the calls are: 40 million happen while the CPU is halted
+(the HALT loop of `gb_run_cycles` steps by 4 cycles while the PPU's next-event deadline is one dot, in mode 3), the others come from the
+timed jumps, calls, returns, stack and bus accesses of `gbrt.c`; 1.3 percent are handed to the real `gb_tick` (a timer edge) and 11.7
+percent are direct calls of the generated bodies, which keep calling the real function (forcing the inline there would add about 400
+bytes at each of thousands of call sites per source file; the compiler does not inline it on its own). The code of `gbrt.c` grows by about
+44 KB (41,728 to 85,810 bytes); the generated sources do not change. **The speed gain is not measured**: speed is measured on a quiet PC,
+by the lead, with Arthur's agreement; nothing here is a timing.
+
+*Proof.* `tools/gameboy_tick_selftest.py` (with `native/gb_tick_checks.c`) applies 48 random operation streams of 6,000 operations (ticks
+of 1 to 456 cycles, writes to the timer, LCD, interrupt, DMA, serial and sound registers, reads, IME changes) to two contexts, one ticking
+through the real `gb_tick` and the other through the inline path, and compares them field by field: 309,660 comparisons, the whole context,
+the five memory blocks, the PPU, the audio output and registers `FF10`-`FF4B`, plus six cases that must take the real path. Five mutations of
+the inline path are caught. Because the runtime itself now uses the inline path, an independent check was added: `tools/ab_conversion.py`
+(reference `af885a0` against the branch) on Tetris, Super Mario Land and Wario Land II gives kept build folders that differ only in
+`runtime/include/gb_tick_fast.h` (new) and `runtime/src/gbrt.c`, and reports with identical cycles, interpreter and one-by-one counts and CPU
+comparison step counts; and the final executables of Tetris and Super Mario Land, run for 3,600 frames on three input scripts with
+`--dump-state`, write state files identical byte for byte (registers, cycles, WRAM, HRAM, PPU mode, RTC).
 
 ## Game Boy exports in 1.6.4 (writable-memory code)
 

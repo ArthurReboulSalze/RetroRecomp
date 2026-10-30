@@ -8,7 +8,8 @@
  * same order of effects, the same cycles. tools/gameboy_tick_selftest.py checks it against the real gb_tick on random
  * operation streams, field by field.
  *
- * It is included by gbrt.c (adapted in gameboy_runtime.py, which keeps the definition of gb_tick itself out of the macro).
+ * It is included by gbrt.c (adapted in gameboy_runtime.py, which keeps the macro off around the definition of gb_tick and
+ * around the four ticks of gb_handle_interrupts, and keeps the CGB HDMA stall a real call).
  * The generated sources keep calling the real gb_tick: on Super Mario Land (3,600 frames, 54.0 million calls) they issue
  * 11.7 percent of them, and forcing the inline there would add about 400 bytes (the size of one inlined copy in gbrt.c)
  * at each of the thousands of call sites of every generated source file. In the same run 87.0 percent of all calls take
