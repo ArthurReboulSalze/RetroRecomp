@@ -1,3 +1,164 @@
+# RetroRecomp v1.6.5 — More games convert, stricter CPS-1 and X68000 checks, speed-ups with identical outputs
+
+- **Games that did not convert and now do.** Each was investigated, its cause
+  found and fixed in the converter, and taken off the new
+  [KNOWN_FAILURES.md](KNOWN_FAILURES.md) list. "Converts" means the conversion
+  and its checks against the reference pass, with the interpreter counts the
+  report shows; it says nothing about gameplay.
+  - NES: Dragon Warrior IV. The conversion itself already passed; the time
+    allowed to the executable packer (a fixed 120 seconds) ran out on its large
+    executable while other conversions shared the CPUs. The limit now grows with
+    the file (10 seconds per MB, never below 300), on Windows and on Linux.
+  - Super Nintendo: Duel: Test Drive II and the Popeye translation (a LoROM
+    header with map mode `$32` and no chip is an ordinary LoROM); the seven
+    DSP-1 HiROM cartridges (map mode `$31`, chip type `$03`: Lock On, Super Air
+    Diver 2, Suzuka 8 Hours and others, now recognised like Super Mario Kart's
+    board; Lock On was converted as proof); and Mario no Super Picross, because
+    `.fig` copier dumps (Pro Fighter, 512-byte header) are now read.
+    Interleaved images are refused with their own message.
+  - Mega Drive: Boxing Legends of the Ring and Dragon's Revenge, which execute
+    the 68000 `RESET` instruction early, and Barkley Shut Up and Jam!, which
+    tests the sound CPU's bus grant once (see Mega Drive below).
+  - Neo Geo: Last Hope, whose 64 KiB fixed-graphics ROM is now repeated to
+    128 KiB when the cartridge is assembled, as the chip does.
+  - Sharp X68000: Tetris v5 and TF4G v0.3A09 (the reference crashed on a first
+    start when the game reprogrammed the CRTC during a machine line), and
+    Pensan CD (it was refused for having no sound on its routes).
+  - Game Boy: Paperboy 2 converts alone in 152 seconds with zero interpreter
+    cycles (replayed on this release; the October campaign had hit a probe
+    time limit); The Ren & Stimpy Show: Veediots!, which turns the screen off
+    and waits (see Game Boy below).
+  The other entries of that page stay open, with what was tried.
+- **Master System and Game Gear.** The optional "functions" engine gets three
+  repairs: a repeating block instruction (`LDIR`, `OTIR` and the others) leaves
+  the Z80 repeat-cycle flags between iterations; a `RET` that pops an address
+  the routine pushed itself continues there; a jump across a 16 KiB slot goes
+  through the bank-checking dispatch. 12 of the 15 games tried pass its
+  reference check from an empty learning state (9 in 1.6.4); three still fail
+  (Alex Kidd: The Lost Stars, Sonic Spinball, Aladdin). The default engine
+  generates the same sources as before. The **Game Gear** gains **F5**, the
+  sprite flicker reduction the Master System has had since 0.25.0 (off by
+  default, presentation only); until now F5 answered "Config unavailable" there.
+- **Mega Drive.** The 68000 `RESET` instruction is executed (program counter
+  and its 132 clocks, nothing else; the pulse on the cartridge port is not
+  modelled) instead of halting the conversion. Shifts and rotates with the count
+  in a register are charged the manual's time (`6 + 2n` clocks for a byte or a
+  word, `8 + 2n` for a long) instead of the estimate for a count of four, so a
+  game that uses them sees its interrupts fall at different instants. On
+  Windows the engine is now built with ThinLTO and a clang profile, as the Super
+  Nintendo has been since 1.6.4: outputs identical, 43 % less host time per frame on Sonic. The sound
+  CPU's bus grant (BUSACK) is now dated at the end of the Z80's current machine
+  cycle instead of up to one slice later, and the latest cycle ends travel with a
+  quick state; a 13-game A/B shows every change as a grant seen earlier, bounded by
+  that cycle end. It stays a model of the arbiter, not a hardware measurement.
+- **Super Nintendo.** The cartridge is checked once when it is bound and code in
+  work RAM is found through a direct table: outputs identical on four games, 3 %
+  less host time per frame on Secret of Mana. The conversion log says when a run goes past the 16,384-variant
+  limit of RAM code observations. A survey of 36 exports found no unexplained
+  65816 or SPC700 fallback (RAM code is counted by design).
+- **NES.** Three speed-ups with identical generated sources and evidence on the
+  games compared (18 % less host time per frame on Metroid, 8 % on Mr. Gimmick in PAL): the MMC1 bank tables are rebuilt on a change
+  of PPU address line A12 only when it can matter; the cartridge's mapper number
+  is a compile-time constant on every toolchain (it was on Linux GNU C only); the
+  deferred PPU clock also runs in PAL. At the end of a run the converter now
+  completes the RAM routines it saw by following them through the RAM image, so a
+  path the run did not take is already a guarded entry (the guard still checks the
+  opcode live; an entry that is not translated stays a counted fallback). The
+  quick state is written field by field (`RRNESST2`).
+- **Game Boy.** The one-by-one executor of writable-memory code now runs the `CB`
+  prefix (rotates, shifts, `BIT`, `RES`, `SET`): on Wario Land II the interpreter
+  instructions fall to zero in the probes recorded. Those instructions are **not**
+  native code and stay counted as one-by-one instructions (the window line now
+  reads "RAM and high-memory instructions executed one by one", in the eight
+  languages). The ordinary case of the per-tick clock function now runs inline in
+  the runtime: outputs identical on Tetris, Super Mario Land and Wario Land II
+  (reports, counters and final state files), 15 % less host time per frame on Super Mario Land. While the LCD is
+  off, a frame now ends after 70,224 cycles: a host frame only (the emulated LY,
+  STAT, interrupts, timers and sound are untouched); frame counts and the frames
+  of scripted routes move a little at boot, nothing becomes interpreted.
+- **Neo Geo.** Every cartridge replays one more route, an attract mode of at
+  least 7,200 frames that reaches the BIOS restart. Six exports measured on a long
+  route ran 2,319 instructions of that routine in the counted interpreter; the
+  conversion now observes and translates them. One set, Twinkle Star Sprites,
+  still runs about 0.4 % of a long route in the interpreter (cause not fixed). On
+  Windows the native game is built with ThinLTO and a clang profile (identical
+  outputs on three games; a conversion takes about a minute longer), and the
+  probes of a conversion run side by side. The AES help line lists only Start.
+- **Capcom CPS-1 (experimental).** More evidence, no change of status. The panel
+  of 26 sets was converted again on this tree: 0 interpreted 68000 and Z80
+  instructions on both routes, every check passed. The report records, per route,
+  the number of different pictures and audible frames, and a conversion refuses a
+  route whose picture never changes. The Z80 `IM 0` supplied opcode is counted as
+  interpreted, as on the Neo Geo. Independent vectors are replayed through the
+  CPS-1 generator (3,787 68000 vectors, native steps agree; 51,328 Z80 vectors,
+  native and interpreted identical, 98.2 % of the state agreeing with the oracle;
+  the differences of the Z80 core are named). Against MAME, 24 of 26 sets are
+  comparable and 23 give an identical picture on the credited play route (MAME is
+  not hardware). Gates G3, G8 and G9 of [QUALIFICATION.md](QUALIFICATION.md) move
+  to `Y`; the play routes were inspected by the specialist agent, not by the
+  owner.
+- **Sharp X68000 (experimental).** Every conversion now replays the compressed
+  player that is delivered against the reference (as Neo Geo and CPS-1 do), and
+  the report records the liveness of each route. A disk that cannot be the
+  game's, or a changed host copy, is set aside (`<name>.unusable-N`, never
+  deleted) and rewritten, so the game always starts; a game's written disk is
+  kept across restarts and across a second conversion (shown on Cybermission). A
+  silent main route is accepted and reported (`sound_heard: false`) instead of
+  refused, and the sound is looked for on every route the conversion replays.
+  Two fixes of the machine base (a DMA start on a busy channel restarts it; a
+  moved sprite marks the lines it covers) and two redraw speed-ups (exact redraw
+  marks for the background and the sprites; the text line copied in runs) with
+  identical frame, audio and state outputs on R-Type and Puyo Puyo, gain not
+  measured. Gates G3, G5, G7, G8 and G9 of its column move; it stays
+  experimental, and the games reached on authored routes (Lemmings' first level,
+  Super Hang-On's first stage) are evidence for those gates, not gameplay
+  validation.
+- **Conversion on Windows.** A game converted alone compiles with up to eight
+  jobs (its share of the CPUs) instead of four; a batch keeps its per-game budget
+  and Linux keeps two. Compiler parallelism only, outputs unchanged.
+- **Packing record.** `packing.compared_on` in the report says when a packed
+  copy was replayed against the reference (Neo Geo, CPS-1, X68000) instead of
+  always "unpacked build executable".
+- **A/B conversion tool.** `tools/ab_conversion.py`, which compares two trees on a
+  real game, now gives each tree its own `.deps`, so the two never share a
+  patched translator source or a build cache.
+- **Documentation.** [KNOWN_FAILURES.md](KNOWN_FAILURES.md) lists the games that
+  do not convert, are set aside or are refused by design, with what was tried.
+  The documents are reorganised along two axes, processors and machines: five
+  menus in [INDEX.md](INDEX.md), one page per processor family, one page per
+  machine on a common template with its dated journal in a `*_LOG` companion. The
+  README is shorter.
+
+**Measured speed.** Host time per frame, 1.6.4 against 1.6.5, on a quiet PC (one pinned core of a Ryzen 9 3900X,
+best of three, the same cartridge converted by each): Mega Drive Sonic 0.57, NES Metroid 0.82 and Mr. Gimmick 0.92,
+Game Boy Super Mario Land 0.85, Super Nintendo Secret of Mana 0.97, X68000 R-Type unchanged; the Neo Geo was not
+measured. Details in [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md).
+
+These are native-code and CPU-fidelity changes, speed changes with identical
+outputs, and evidence for the "supported" gates; none of them is a measure of
+hardware fidelity, gameplay validation or physical latency.
+
+**Your exports and quick states.** 1.6.5 moves the game stamp of every console,
+so every export of 1.6.4, on Windows and on Linux, is converted in full once; a
+game the shared base knows still starts from its qualified paths with the quick
+check. F8/F9 quick states written by an earlier release are no longer kept compatible:
+from 1.6.5 no compatibility key is carried, so a quick state of 1.6.4 is refused
+cleanly, with a message, wherever the state's key moved (nothing is lost but that
+state). Cartridge saves (battery SRAM, EEPROM, memory cards)
+are kept; a save the new export cannot use is set aside and never crashes or
+blocks the game. Exports older than 1.6.4 are converted in full. The details and
+the evidence are in [UPGRADES.md](UPGRADES.md).
+
+**Windows security warning.** RetroRecomp is not signed with a paid
+code-signing certificate yet. On first launch Windows may show "Windows
+protected your PC": it means *unknown publisher*, not *virus found*; choose
+**More info → Run anyway**. The source is public and `SHA256SUMS.txt` lists
+every file of the release. Converted games are built on your PC and cannot be
+signed: with Smart App Control on (Windows 11), Windows may block them. An
+antivirus alert on RetroRecomp files is a false positive: please report it.
+
+---
+
 # RetroRecomp v1.6.4 — Less interpreter on four games, a new machine no longer touches the others, SDL 2.32.10
 
 - **Less interpreter use, and every bit of it counted.**
