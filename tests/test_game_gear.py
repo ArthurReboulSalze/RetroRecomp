@@ -128,6 +128,23 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertEqual(text.count('RR_TAIL(call_by_address(%s))'), 1)
 
     @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_bit_hl_reads_wz_and_wz_is_kept_like_the_banked_emitter(self):
+        text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
+        # BIT n,(HL): X and Y from the high byte of WZ, not H.
+        self.assertIn('z80_bit(s, %d, sms_read8(ea), (uint8_t)(s->wz >> 8));', text)
+        self.assertNotIn('z80_bit(s, %d, sms_read8(ea), (uint8_t)(z80_hl(s) >> 8));', text)
+        # The banked emitter's WZ rules run for every instruction but the repeating block operations (per iteration).
+        self.assertEqual(text.count('static void banked_wz(FILE *o, const Z80Insn *in);'), 1)
+        self.assertIn('if (!(in->prefix == Z80_PFX_ED && (in->opcode & 0xF4) == 0xB0)) banked_wz(o, in);', text)
+        self.assertEqual(text.count('rr_block_wz(o, op);'), 1)   # the repeating loop only: the banked emitter shares emit_block
+        # Jumps, calls and returns: JP/CALL and JP cc/CALL cc always, JR cc / DJNZ / RET cc only when taken, RET pops it.
+        self.assertEqual(text.count('rr_wz_taken = 1; emit_jump_target('), 2)
+        self.assertEqual(text.count('fprintf(o,"        s->wz = 0x%04X;\\n", in->target);'), 4)
+        self.assertEqual(text.count('s->wz = sms_read16(s->sp);'), 2)
+        # A repeating block instruction sets WZ to its address + 1 while it goes on.
+        self.assertIn('s->wz = (uint16_t)(sms_block_pc + 1);', text)
+
+    @unittest.skipUnless(pinned.is_file(), 'pinned smsggrecomp sources are not downloaded')
     def test_a_jump_across_a_slot_is_dispatched_not_a_goto(self):
         text = patched_generator_source(self.pinned.read_text(encoding='utf-8'))
         function = text.index('static void emit_jump_target(FILE *o, uint16_t T, const char *condexpr, int extra){')

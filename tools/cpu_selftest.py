@@ -74,6 +74,24 @@ def main():
     assert native[2] == reference[2] == 0xBB, (native[2], reference[2])
     assert bank_report["reference_final_ram_match"] is True and bank_report["reference_vdp_trace_match"] is True
     print("PASS: a jump into a slot paged by a call runs the new bank's bytes (native RAM equals the reference).")
+    # 3. BIT n,(HL) takes its X and Y flags from the high byte of WZ (MEMPTR), here the return address of the RET just before it
+    #    ($2803, high byte $28 = X and Y), not from H ($C1). Expected F = Z|H|P|X|Y = $7C (it would be $54 with H).
+    wz_data = bytearray([0xC9] * 16384)
+    wz_data[:3] = bytes.fromhex("C3 00 01")
+    wz_data[0x100:0x107] = bytes.fromhex("F3 31 F0 DF C3 00 28")
+    # $2800: CALL $0200; XOR A (A and carry clear: the reset values of the two CPUs differ); LD HL,$C100; BIT 0,(HL); PUSH AF; POP BC;
+    # LD A,C; LD ($C000),A; HALT; JP $280F     $0200: RET
+    wz_data[0x2800:0x2800 + 19] = bytes.fromhex("CD 00 02 AF 21 00 C1 CB 46 F5 C1 79 32 00 C0 76 C3 0F 28")
+    wz_rom = directory / "BIT_HL_after_RET_test.sms"
+    wz_rom.write_bytes(wz_data)
+    wz_exe = convert(wz_rom, title="CPU_BIT_WZ_Test", output=directory / "wz-output", backend="functions", passes=1, frames=3, online_cover=False)
+    wz_report = json.loads((wz_exe.parent / "conversion-report.json").read_text())
+    wz_build = Path(wz_report["build_directory"])
+    native = (wz_build / "checks/pass1_demo/frame.png.ram").read_bytes()
+    reference = (wz_build / "checks/reference/frame.png.ram").read_bytes()
+    assert native[0] == reference[0] == 0x7C, (native[0], reference[0])
+    assert wz_report["reference_final_ram_match"] is True and wz_report["reference_vdp_trace_match"] is True
+    print("PASS: BIT n,(HL) after a RET takes X and Y from WZ (native flags equal the reference).")
     # Execute an authored RAM loop that cannot be compiled from ROM. A frame
     # limit exits from inside its interpreter call, exercising the in-flight
     # tally and strict rejection rather than only completed fallback routines.
