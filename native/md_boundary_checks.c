@@ -225,8 +225,213 @@ static Result run(unsigned test,int mode) {
     r.z80_trace=events_hash(z80_events,z80_count);r.main_trace=events_hash(main_events,main_count);
     r.z80_events=z80_count;r.main_events=main_count;return r;
 }
+/* BUSACK after a line end (Barkley Shut Up and Jam! waits for the Z80 bus
+ * with MOVE.W #$100,$A11100; BTST #0,$A11100; BNE and no retry loop). The
+ * last sound-CPU instruction of a line may retire beyond the line while the
+ * 68000 stops at it, so at the next line the sound CPU can stand several
+ * machine cycles ahead. A request written early in that line must be granted
+ * at the end of the machine cycle in progress then (cycles end where the next
+ * access or instruction starts, the convention of md_bus_checks.c), not where
+ * the sound CPU now stands. The Z80 loop is LD A,($1000); JP 0 (cycles of at
+ * most 4 T, 60 master clocks), behind 0 to 22 NOPs so that its instruction
+ * straddles the line end at every phase. The 68000 runs from the start of
+ * the first line behind 112 to 124 NOPs, so that its write lands from about
+ * 140 master clocks before the line change to 190 after it, as in the game,
+ * whose MOVE.W began before the line change. Every BTST (about 112 master clocks after the write)
+ * must see the grant, and BUSACK may follow the request by at most one cycle
+ * plus the wait for the next Z80 clock (75 master clocks). Authored. */
+#define ACK_Z80_PAD 23u
+#define ACK_PAD_FIRST 112u
+#define ACK_PAD 13u
+#define ACK_BOUND 75
+/* A quick state taken at the line change (machine section saved and loaded, which resets the arbiter, then
+ * the sound CPU's clock set from its debt as at a frame start) must give the uninterrupted result in every
+ * case; the same round trip with the kept cycle ends dropped must not, or the check would prove nothing. */
+#ifdef RR_Z80_CYCLE_ENDS
+#define ACK_VARIANTS 3
+#else
+#define ACK_VARIANTS 1
+#endif
+static unsigned busack_latency(void) {
+    unsigned cases=0,late=0,unseen=0,ahead=0;int64_t worst=0;char first[200]="";
+    unsigned state_differs[3]={0,0,0},state_points=0;
+    for(unsigned z80_pad=0;z80_pad<ACK_Z80_PAD;++z80_pad)
+    for(unsigned pad=0;pad<ACK_PAD;++pad)
+    for(int mode=0;mode<4;++mode)
+    for(int variant=0;variant<ACK_VARIANTS;++variant) {
+        static int64_t base_request,base_ack;static int base_seen;
+        repeat_boundaries=mode==1;host_only_boundaries=mode==2;lazy_boundaries=mode==3;
+        rr16_reset();GenesisMachine *m=&g_machine;
+        g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
+        rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
+        m->bus.z80_reset_off=1;m->bus.z80_busreq=m->bus.z80_reset_pending=0;
+        rr_md_z80_bus_reset();z80_own_reset(&m->z80);
+        m->z80.read_byte=read_byte;m->z80.write_byte=write_byte;
+        m->z80.sp=0x1ff0;m->z80.ix=0x1100;m->z80.iy=0x1200;
+        memset(m->bus.z80_ram,0,sizeof m->bus.z80_ram);memset(g_ram,0,sizeof g_ram);
+        unsigned z=z80_pad;                                    /* NOPs, then the loop */
+        m->bus.z80_ram[z]=0x3a;m->bus.z80_ram[z+1]=0x00;m->bus.z80_ram[z+2]=0x10;   /* LD A,($1000) */
+        m->bus.z80_ram[z+3]=0xc3;m->bus.z80_ram[z+4]=(uint8_t)z;m->bus.z80_ram[z+5]=0; /* JP loop */
+        uint16_t code[160];unsigned n=0;
+        for(unsigned i=0;i<ACK_PAD_FIRST+pad;++i)code[n++]=0x4e71;
+        code[n++]=0x33fc;code[n++]=0x0100;code[n++]=0x00a1;code[n++]=0x1100; /* MOVE.W #$100,$A11100 */
+        code[n++]=0x0839;code[n++]=0x0000;code[n++]=0x00a1;code[n++]=0x1100; /* BTST #0,$A11100 */
+        code[n++]=0x56c2;                                                    /* SNE D2: $FF if not granted */
+        code[n++]=0x60fe;                                                    /* BRA * */
+        for(unsigned i=0;i<n;++i)gbus_write16(&m->bus,0xff0100+i*2,code[i]);
+        g_cpu.D[2]=0x55;
+        m->bus.z80_ram[0x38]=0xed;m->bus.z80_ram[0x39]=0x4d;
+        m->bus.z80_bank=0x1c0;g_audio_cycle_counter=rr_vdp_cpu_origin=0;
+        switches=events=z80_count=main_count=0;g_mem_write_trace_fn=NULL;rr_md_lazy_rollback_trace=rollback;
+        direct_step=1;
+        /* Line one, sixteen host slices; both CPUs run. */
+        rr_md_cpu_stopped=0;
+        for(unsigned part=0;part<16;++part)
+            rr_bus_slice(m,part*3420u/16u,(part+1u)*3420u/16u,0,0);
+        /* The line change of machine_run_frame: line-relative clocks move by a line. */
+        rr_lazy_close();
+        rr_z80_time-=3420;rr_z80_limit-=3420;rr_z80_grant-=3420;
+        rr_local_request_time-=3420;rr_local_ack_time-=3420;
+#ifdef RR_Z80_CYCLE_ENDS
+        rr_md_z80_cycle_shift(3420);
+#endif
+        int64_t overrun=rr_z80_time;
+#ifdef RR_Z80_CYCLE_ENDS
+        if(variant) {
+            /* A quick state is taken only between retired instructions with no pending handshake. */
+            if(rr_md_bus_busy())continue;
+            if(variant==1)++state_points;
+            size_t size=machine_rb_save(NULL,0);void *state=malloc(size);
+            CHECK(state && machine_rb_save(state,size)==size && machine_rb_load(state,size));free(state);
+            if(variant==2) { RrMdZ80Cycles none;memset(&none,0,sizeof none);rr_md_z80_cycles_set(&none); }
+            CHECK(!rr_z80_busy);rr_z80_time=(int64_t)m->z80_cycle_debt*MASTER_PER_Z80;
+        }
+#endif
+        /* Line two: the 68000's line origin moves; its clock runs on. */
+        unsigned before=3420u/7u,fraction=3420u%7u;
+        rr_vdp_cpu_origin=before;
+        for(unsigned part=0;part<16;++part)
+            rr_bus_slice(m,part*3420u/16u,(part+1u)*3420u/16u,before,fraction);
+        int seen=(g_cpu.D[2]&0xffu)==0;
+        if(variant) {
+            /* A grant held before the state is restored as stable ownership (dates 0): only its answer counts. */
+            int dated=base_request>=0;
+            if(seen!=base_seen || (dated && (rr_local_request_time!=base_request || rr_local_ack_time!=base_ack))) {
+                if(variant==1 && state_differs[1]<12)
+                    fprintf(stderr,"busack state case: z80 pad %u, 68000 pad %u, mode %d: uninterrupted request %lld ack %lld %s; after the state request %lld ack %lld %s\n",
+                            z80_pad,ACK_PAD_FIRST+pad,mode,(long long)base_request,(long long)base_ack,base_seen?"granted":"not granted",
+                            (long long)rr_local_request_time,(long long)rr_local_ack_time,seen?"granted":"not granted");
+                ++state_differs[variant];
+            }
+            continue;
+        }
+        base_request=rr_local_request_time;base_ack=rr_local_ack_time;base_seen=seen;
+        ++cases;if(overrun>0)++ahead;
+        int64_t latency=rr_local_ack_time-rr_local_request_time;
+        if(!m->bus.z80_busreq || !rr_local_ack)latency=INT64_MAX;
+        if(latency>worst)worst=latency;
+        if(latency>ACK_BOUND)++late;
+        if(!seen)++unseen;
+        if(latency>ACK_BOUND || !seen) {
+            char line[200];
+            snprintf(line,sizeof line,"z80 pad %u, 68000 pad %u, mode %d: sound CPU ahead by %lld, request %lld, ack %lld, BTST %s",
+                     z80_pad,ACK_PAD_FIRST+pad,mode,(long long)overrun,(long long)rr_local_request_time,(long long)rr_local_ack_time,
+                     seen?"granted":"not granted");
+            fprintf(stderr,"busack case: %s\n",line);
+            if(!first[0])snprintf(first,sizeof first,"%s",line);
+        }
+    }
+    fprintf(stderr,"busack: %u cases (%u with the sound CPU ahead at the line start), %u late (> %d master), %u BTST without grant, worst %lld%s%s\n",
+            cases,ahead,late,ACK_BOUND,unseen,(long long)worst,first[0]?"; first: ":"",first);
+    fprintf(stderr,"busack state at the line change: %u valid state points, %u differ after a save and load, %u when the cycle ends are dropped\n",
+            state_points,state_differs[1],state_differs[2]);
+    printf("{\"busack_cases\":%u,\"busack_sound_cpu_ahead\":%u,\"busack_late\":%u,\"busack_btst_not_granted\":%u,\"busack_worst_master\":%lld,"
+           "\"busack_state_points\":%u,\"busack_state_round_trip_differs\":%u,\"busack_state_without_cycle_ends_differs\":%u}\n",
+           cases,ahead,late,unseen,(long long)worst,state_points,state_differs[1],state_differs[2]);
+    return (ahead?0u:1u)+late+unseen+(state_differs[1]?1u:0u)+(ACK_VARIANTS>2 && !state_differs[2]?1u:0u);
+}
+/* BUSACK within a line, the table of the first reproducer. A cycle ends where the next access, I/O cycle or
+ * instruction starts (internal clocks lengthen the cycle they follow, the convention of md_bus_checks.c), so
+ * each program has its own bound: its longest cycle, plus the wait for the next Z80 clock (15). The BTST,
+ * about 112 master clocks after the write, must see the grant when that bound is shorter. The bank-window
+ * read (a WAIT-extended cycle that BUSREQ cannot cut, md_bus_checks.c) has no bound of its own; it must not
+ * be granted before the request. The IM 1 entry (7 T) is raised at line clock 600. Authored. */
+#define INLINE_Z80 10u
+#define INLINE_PAD 32u
+#define INLINE_SLICINGS 3u
+static const struct { uint8_t code[16]; int bound; const char *name; } inline_z80[INLINE_Z80]={
+    {{0x00,0xc3,0,0},4*15+15,"NOP; JP 0"},
+    {{0x7c,0xbd,0x28,0x00,0xc3,0,0},8*15+15,"LD A,H; CP L; JR Z (Barkley's driver at $091D)"},
+    {{0x21,0,0x10,0x34,0xc3,3,0},4*15+15,"INC (HL)"},
+    {{0x21,0,0x10,0x11,0,0x11,0x01,0,0x01,0xed,0xb0,0xc3,0,0},10*15+15,"LDIR of 256 bytes"},
+    {{0xe3,0xe3,0xc3,0,0},5*15+15,"EX (SP),HL"},
+    {{0xdd,0x34,0,0xc3,0,0},8*15+15,"INC (IX+0)"},
+    {{0xf3,0x76},4*15+15,"DI; HALT"},
+    {{0x23,0x23,0xc3,0,0},6*15+15,"INC HL"},
+    {{0x3a,0,0x80,0xc3,0,0},-1,"LD A,($8000): bank window, WAIT"},
+    {{0xed,0x56,0xfb,0x76,0xc3,2,0},7*15+15,"IM 1; EI; HALT, interrupt entry"},
+};
+static unsigned busack_inline(void) {
+    unsigned cases=0,late=0,unseen=0,early=0;int64_t worst=0;
+    for(unsigned program=0;program<INLINE_Z80;++program)
+    for(unsigned pad=0;pad<INLINE_PAD;++pad)
+    for(unsigned slicing=0;slicing<INLINE_SLICINGS;++slicing)
+    for(int mode=0;mode<4;++mode) {
+        repeat_boundaries=mode==1;host_only_boundaries=mode==2;lazy_boundaries=mode==3;
+        rr16_reset();GenesisMachine *m=&g_machine;
+        g_cpu.SR=0x2700;g_cpu.A[7]=0xffff00;
+        rr_md_portable_restart(1);rr_md_portable_arm(0xff0100);rr_md_cpu_stopped=1;
+        m->bus.z80_reset_off=1;m->bus.z80_busreq=m->bus.z80_reset_pending=0;
+        rr_md_z80_bus_reset();z80_own_reset(&m->z80);
+        m->z80.read_byte=read_byte;m->z80.write_byte=write_byte;
+        m->z80.sp=0x1ff0;m->z80.ix=0x1100;m->z80.iy=0x1200;
+        memset(m->bus.z80_ram,0,sizeof m->bus.z80_ram);memset(g_ram,0,sizeof g_ram);
+        memcpy(m->bus.z80_ram,inline_z80[program].code,16);
+        uint16_t code[64];unsigned n=0;
+        for(unsigned i=0;i<pad;++i)code[n++]=0x4e71;                          /* NOP padding moves the write */
+        code[n++]=0x33fc;code[n++]=0x0100;code[n++]=0x00a1;code[n++]=0x1100; /* MOVE.W #$100,$A11100 */
+        code[n++]=0x0839;code[n++]=0x0000;code[n++]=0x00a1;code[n++]=0x1100; /* BTST #0,$A11100 */
+        code[n++]=0x56c2;                                                    /* SNE D2: $FF if not granted */
+        code[n++]=0x60fe;                                                    /* BRA * */
+        for(unsigned i=0;i<n;++i)gbus_write16(&m->bus,0xff0100+i*2,code[i]);
+        g_cpu.D[2]=0x55;rr_md_cpu_stopped=0;
+        m->bus.z80_ram[0x38]=0xed;m->bus.z80_ram[0x39]=0x4d;
+        m->bus.z80_bank=0x1c0;g_audio_cycle_counter=rr_vdp_cpu_origin=0;
+        switches=events=z80_count=main_count=0;g_mem_write_trace_fn=NULL;rr_md_lazy_rollback_trace=rollback;
+        direct_step=1;
+        unsigned step=slicing==1?97u:slicing==2?7u:0u;
+        for(unsigned begin=0,part=0;begin<3420;++part) {
+            unsigned end=step?begin+step:(part+1u)*3420u/16u;if(end>3420)end=3420;
+            rr_bus_slice(m,begin,end,0,0);
+            if(program==INLINE_Z80-1u && begin<600 && end>=600)z80_gen_int(&m->z80,0xff);
+            begin=end;
+        }
+        ++cases;
+        int64_t latency=rr_local_ack_time-rr_local_request_time;
+        int seen=(g_cpu.D[2]&0xffu)==0,bound=inline_z80[program].bound;
+        if(!m->bus.z80_busreq || !rr_local_ack)latency=INT64_MAX;
+        if(latency<0)++early;
+        if(bound>=0 && latency>worst)worst=latency;
+        if(bound>=0 && latency>bound)++late;
+        if(bound>=0 && bound<112 && !seen)++unseen;
+        if(latency<0 || (bound>=0 && latency>bound) || (bound>=0 && bound<112 && !seen))
+            fprintf(stderr,"busack inline case: %s, pad %u, slicing %u, mode %d: request %lld, ack %lld, BTST %s\n",
+                    inline_z80[program].name,pad,slicing,mode,(long long)rr_local_request_time,(long long)rr_local_ack_time,
+                    seen?"granted":"not granted");
+    }
+    fprintf(stderr,"busack inline: %u cases, %u beyond their program's bound, %u BTST without grant where required, %u granted before the request, worst %lld\n",
+            cases,late,unseen,early,(long long)worst);
+    printf("{\"busack_inline_cases\":%u,\"busack_inline_late\":%u,\"busack_inline_btst_not_granted\":%u,\"busack_inline_early\":%u,\"busack_inline_worst_master\":%lld}\n",
+           cases,late,unseen,early,(long long)worst);
+    return late+unseen+early;
+}
 int main(int argc,char **argv) {
     CHECK(rr16_init(true));nested_fibers();unsigned original_switches=0,reduced_switches=0;
+    if(!(argc>1 && !strcmp(argv[1],"--sweep"))) {
+        /* Both BUSACK sweeps run to the end before the verdict. */
+        unsigned bad=busack_inline();bad+=busack_latency();CHECK(!bad);
+        if(argc>1 && !strcmp(argv[1],"--busack")) { rr16_shutdown();return 0; }
+    }
     unsigned iterations=argc>1 && !strcmp(argv[1],"--benchmark")?16u:1u;
     uint64_t original_ticks=0,previous_ticks=0,reduced_ticks=0,deferred_ticks=0;
     unsigned previous_switches=0,deferred_switches=0;uint64_t rollbacks=rr_md_lazy_rollbacks;
