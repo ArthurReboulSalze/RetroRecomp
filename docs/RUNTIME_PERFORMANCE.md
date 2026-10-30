@@ -1,5 +1,27 @@
 # Runtime performance without changing the output
 
+## Measured on 30 October 2026 — 1.6.4 against 1.6.5
+
+Host cost per frame on a Ryzen 9 3900X, one pinned core, a quiet PC: the same cartridge converted by the converter of
+1.6.4 and by the tree of 1.6.5, each executable copied alone, run headless from boot on its conversion's play route, one
+warm-up run dropped, then best of three with the two versions interleaved. The figure is the wall time of the whole process
+divided by the frames, start-up included.
+
+| Machine | Game | Frames | 1.6.4 | 1.6.5 | 1.6.5 / 1.6.4 |
+|---|---|---|---|---|---|
+| NES | Metroid | 2,400 | 2.74 ms | 2.24 ms | 0.82 |
+| NES (PAL) | Mr. Gimmick | 2,400 | 6.98 ms | 6.42 ms | 0.92 |
+| Super Nintendo | Secret of Mana | 2,400 | 6.21 ms | 6.02 ms | 0.97 |
+| Game Boy | Super Mario Land | 2,400 | 0.62 ms | 0.53 ms | 0.85 |
+| Mega Drive | Sonic The Hedgehog | 2,400 | 4.32 ms | 2.47 ms | 0.57 |
+| Sharp X68000 | R-Type | 4,000 | 0.61 ms | 0.62 ms | 1.00 (no change measured) |
+
+The Neo Geo pair was not measured: Windows Defender quarantined the 1.6.4 executable of Puzzle De Pon! R during the run
+(a machine-learning detection, `Program:Win32/Contebrew.A!ml`, the same one it raised on a Neo Geo export the day before;
+a false positive). The Mega Drive figure keeps its ThinLTO and clang profile build for the release. These are host costs on
+the measured routes, not gameplay qualification, hardware fidelity or latency; every pair was also compared for identical
+outputs when the change was made (sections below).
+
 ## Mega Drive on Windows — 1.6.5
 
 The Mega Drive on Windows now gets the build the Super Nintendo got on 26 October: the engine's own sources (not the generated
