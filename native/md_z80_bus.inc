@@ -336,6 +336,18 @@ static void rr_z80_cycle_drop_after(int64_t time) {
 void rr_md_z80_cycle_shift(int64_t master) {
     for(unsigned i=0;i<RR_Z80_CYCLE_ENDS;++i)rr_z80_cycle_end[i]-=master;
 }
+/* Machine snapshot (megadrive_bus.py): the ring travels with a quick state. */
+void rr_md_z80_cycles_get(RrMdZ80Cycles *cycles) {
+    memcpy(cycles->end,rr_z80_cycle_end,sizeof cycles->end);
+    cycles->head=rr_z80_cycle_head;cycles->count=rr_z80_cycle_count;
+}
+int rr_md_z80_cycles_valid(const RrMdZ80Cycles *cycles) {
+    return cycles->count<=RR_Z80_CYCLE_ENDS; /* head is any value: it is read modulo the ring */
+}
+void rr_md_z80_cycles_set(const RrMdZ80Cycles *cycles) {
+    memcpy(rr_z80_cycle_end,cycles->end,sizeof rr_z80_cycle_end);
+    rr_z80_cycle_head=cycles->head;rr_z80_cycle_count=cycles->count;
+}
 static int64_t rr_z80_ack_time(int64_t request,int64_t boundary) {
     /* Newest first; the ends grow with time, so stop below the request. */
     int64_t found=boundary;

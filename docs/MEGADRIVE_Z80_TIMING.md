@@ -27,7 +27,14 @@ the sound CPU made in that interval.
 BUSREQ from about 140 master clocks before the line change to 190 after it, in the four scheduling modes (1,196 cases, 744 with
 the sound CPU ahead at the line start). Before the change: 44 grants later than the request plus one cycle and the Z80 clock
 wait (75 master clocks), the worst 152, and 4 `BTST` without the grant (sound CPU ahead by 180, request at 28, grant at 180).
-After: none, worst 59. The full boundary comparison still requires the four modes to agree on all 32,840 programs; 810 of its
+After: none, worst 59. The same run also checks quick states: at the 460 line changes where a state may be taken (no
+instruction in flight, no pending handshake), saving and loading the machine section gives exactly the uninterrupted request,
+grant and `BTST` answer; dropping the kept cycle ends changes 8 of them. A state of Barkley saved at the end of frame 42 and
+loaded gives frames 43 to 60 identical to the uninterrupted run. A second table checks BUSACK within a line (3,840 cases): `NOP`,
+Barkley's `LD A,H; CP L; JR Z`, `INC (HL)`, a 256-byte `LDIR`, `EX (SP),HL`, `INC (IX+0)`, `DI; HALT`, `INC HL`, a bank-window
+read (a WAIT-extended cycle) and an IM 1 interrupt entry (7 T). Each program's bound is its longest cycle under the convention
+above (4 T to 10 T, the `LDIR` write lengthened by its repeat) plus one Z80 clock; none is exceeded (worst 149 master clocks, the
+`LDIR`), no grant precedes its request, and the `BTST` sees the grant wherever that bound is shorter than its own delay. The full boundary comparison still requires the four modes to agree on all 32,840 programs; 810 of its
 sweep programs (the 68000 polls for the grant) now see the grant at an earlier poll or clock, none of its 72 fixed programs
 changes. `megadrive_bus`, `_z80_`, `_z80_resume_`, `_dma_` and `_interrupt_` self-tests give byte-identical results. Barkley
 Shut Up and Jam! (USA) now converts: 0 interpreted 68000 instructions and 0 interpreted Z80 cycles on its demo and play routes

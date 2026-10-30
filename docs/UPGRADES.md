@@ -448,8 +448,11 @@ wrote BUSREQ, also when the sound CPU already stands ahead (its last instruction
 that date has passed, not only after the 68000 has caught up to the sound CPU's clock. Barkley Shut Up and Jam! (USA), which does
 not loop on the bit and stopped converting, now converts. The sound CPU resumes after the release as before. Details and the
 ROM-free reproducer: [MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md#busack-after-a-line-end--2026-10-30-165).
-*Edited:* `native/md_z80_bus.inc` and `retrorecomp/megadrive_bus.py` (game inputs of the Mega Drive only). **The `md` game stamp
-moves**, and with the native file the Mega Drive quick-state key; no state field is added. Because a game that polls the bit can
+*Edited:* `native/md_z80_bus.inc`, `retrorecomp/megadrive_bus.py` and `native/md_boundary_checks.c` (its reproducer), all game
+inputs of the Mega Drive only. **The `md` game stamp moves**, and with the native files the Mega Drive quick-state key. A quick
+state now also carries the sound CPU's eight latest machine-cycle ends (72 bytes after the machine section's tail), so the first
+BUSACK after F9 is dated as in an uninterrupted run; the machine section grows by those bytes and a state of an earlier build is
+refused cleanly (quick states are not carried over in 1.6.5). Because a game that polls the bit can
 now see the grant one poll earlier, the Mega Drive exports of 1.6.4 are converted in full, not upgraded. **Cost:** one compare and
 one store per sound-CPU access, I/O cycle and instruction end, one condition per arbiter loop, and a scan of at most eight entries
 per BUSREQ write; nothing on the 68000's instructions or bus accesses; not timed.

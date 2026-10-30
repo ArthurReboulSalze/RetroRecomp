@@ -315,7 +315,24 @@ def machine(source):
         '    uint32_t unlimited_sprites; /* game-set sprite-limit bypass (status flags) */\n'
         '    uint32_t main_clock; /* replaces old zeroed alignment padding */')
     source = replace(source, '} MachineRbTail;',
-        '} MachineRbTail;\n_Static_assert(sizeof(MachineRbTail)==24,"machine tail layout changed");')
+        '} MachineRbTail;\n_Static_assert(sizeof(MachineRbTail)==24,"machine tail layout changed");\n'
+        '/* The sound CPU\'s latest machine-cycle ends (md_z80_bus.inc): a state taken at a frame end keeps\n'
+        ' * them, so the BUSACK of the next frame is dated as in an uninterrupted run. */\n'
+        'typedef struct RrMdZ80Cycles { int64_t end[8]; uint32_t head,count; } RrMdZ80Cycles;\n'
+        '_Static_assert(sizeof(RrMdZ80Cycles)==72,"sound-CPU cycle tail layout changed");\n'
+        'void rr_md_z80_cycles_get(RrMdZ80Cycles *cycles);\n'
+        'int rr_md_z80_cycles_valid(const RrMdZ80Cycles *cycles);\n'
+        'void rr_md_z80_cycles_set(const RrMdZ80Cycles *cycles);')
+    source = replace(source, '    size_t need = sizeof(GenesisMachine) + sizeof(MachineRbTail);',
+        '    size_t need = sizeof(GenesisMachine) + sizeof(MachineRbTail) + sizeof(RrMdZ80Cycles);')
+    source = replace(source, '    memcpy(o, &t, sizeof t);\n    o += sizeof t;',
+        '    memcpy(o, &t, sizeof t);\n    o += sizeof t;\n'
+        '    RrMdZ80Cycles cycles;memset(&cycles,0,sizeof cycles);rr_md_z80_cycles_get(&cycles);\n'
+        '    memcpy(o,&cycles,sizeof cycles);o+=sizeof cycles;')
+    source = replace(source, '    memcpy(&t, i, sizeof t);\n    i += sizeof t;',
+        '    memcpy(&t, i, sizeof t);\n    i += sizeof t;\n'
+        '    RrMdZ80Cycles cycles;memcpy(&cycles,i,sizeof cycles);i+=sizeof cycles;\n'
+        '    rr_md_z80_cycles_set(&cycles); /* after machine_wire_pointers, which cleared them */')
     source = replace(source, '    t.pending_stall = gvdp_rb_pending_stall();',
         '    t.main_clock=0x80000000u | (rr_main_debt<<3) | rr_main_fraction;\n'
         '    t.pending_stall = gvdp_rb_pending_stall();')
@@ -325,6 +342,9 @@ def machine(source):
     uint32_t clock=clock_tail.main_clock;
     if((clock && !(clock&0x80000000u)) || (clock&7u)==7u ||
        ((clock&0x7fffffffu)>>3)>65536u) { free(expanded);return 0; }
+    RrMdZ80Cycles cycle_tail;
+    memcpy(&cycle_tail,(const uint8_t *)src+sizeof(GenesisMachine)+sizeof(MachineRbTail),sizeof cycle_tail);
+    if(!rr_md_z80_cycles_valid(&cycle_tail)) { free(expanded);return 0; }
     const uint8_t *i = (const uint8_t *)src;''')
     source = replace(source, '    g_snd_line = t.snd_line;',
         '    g_snd_line = t.snd_line;\n'

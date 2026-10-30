@@ -151,7 +151,8 @@ pinned revisions; a state of another cartridge, mode or build is refused, except
 rule is in [GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). The state holds the 68000 and Z80
 state, the scheduler, RAM, VDP including its FIFO and DMA, FM and PSG chip state, controller latches, YM timer phases,
 the gun protocol, the two-word prefetch queue, the cartridge RAM with its lanes and overlay register, the bank-page
-registers and the serial EEPROM phase with its staged page and remaining write time. Host fibers and pointers are never
+registers, the serial EEPROM phase with its staged page and remaining write time, and the sound CPU's latest machine-cycle
+ends that date BUSACK (since 1.6.5). Host fibers and pointers are never
 written: loading rebuilds the instruction fiber at the stored guest PC, and a save waits for the instruction in flight
 to retire. Details and every release's key: [GAME_STATES.md](GAME_STATES.md#mega-drive-and-super-nintendo).
 
