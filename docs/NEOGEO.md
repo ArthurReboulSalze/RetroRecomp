@@ -290,6 +290,11 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   experimental at cartridge level. A pointer with a flagged high byte keeps its full
   PC (the reference CPU does too, so `BSR` pushes `0x8004e806` on Gowcaizer); this is
   reference agreement, not proof of real 68000 behaviour, and CPS-1 shares the pattern.
+- **Measured fallback.** Beyond the routes of a conversion, a 18,000-frame pseudo-random route on copies of 20 exports found zero
+  fallback in 13 sets and fallback in 7 ([log](NEOGEO_LOG.md)). Six of them ran the same nine instruction sites of a routine the BIOS copies
+  into work RAM when it restarts a game left without a credit: every cartridge now replays an attract route of at least 7,200 frames
+  (1.6.5) so that it is observed and translated. Twinkle Star Sprites still runs about 1.4 million instructions (0.4 %) of its second
+  megabyte of program ROM in the counted interpreter on that route; its conversion routes never play a versus game.
 - **Edge mask**: a display heuristic, checked on converted exports of 2020 Super
   Baseball, Puzzle De Pon!, Joy Joy Kid, Puzzle Bobble 2 and Ghostlop (only the
   outer 8 columns of a latched side change; the 304 between stay identical), on
