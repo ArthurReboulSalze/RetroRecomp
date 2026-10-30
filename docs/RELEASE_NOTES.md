@@ -131,8 +131,8 @@
 
 **Measured speed.** Host time per frame, 1.6.4 against 1.6.5, on a quiet PC (one pinned core of a Ryzen 9 3900X,
 best of three, the same cartridge converted by each): Mega Drive Sonic 0.57, NES Metroid 0.82 and Mr. Gimmick 0.92,
-Game Boy Super Mario Land 0.85, Super Nintendo Secret of Mana 0.97, X68000 R-Type unchanged; the Neo Geo was not
-measured. Details in [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md).
+Game Boy Super Mario Land 0.85, Super Nintendo Secret of Mana 0.97, X68000 R-Type unchanged, Neo Geo Puzzle De Pon! R
+0.83, Master System and Game Gear Sonic unchanged. Details in [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md).
 
 These are native-code and CPU-fidelity changes, speed changes with identical
 outputs, and evidence for the "supported" gates; none of them is a measure of

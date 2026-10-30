@@ -15,10 +15,13 @@ divided by the frames, start-up included.
 | Game Boy | Super Mario Land | 2,400 | 0.62 ms | 0.53 ms | 0.85 |
 | Mega Drive | Sonic The Hedgehog | 2,400 | 4.32 ms | 2.47 ms | 0.57 |
 | Sharp X68000 | R-Type | 4,000 | 0.61 ms | 0.62 ms | 1.00 (no change measured) |
+| Neo Geo | Puzzle De Pon! R | 7,200 | 1.79 ms | 1.49 ms | 0.83 |
+| Master System | Sonic The Hedgehog | 2,400 | 0.18 ms | 0.18 ms | 0.99 (no change measured) |
+| Game Gear | Sonic The Hedgehog | 2,400 | 0.18 ms | 0.18 ms | 1.00 (no change measured) |
 
-The Neo Geo pair was not measured: Windows Defender quarantined the 1.6.4 executable of Puzzle De Pon! R during the run
-(a machine-learning detection, `Program:Win32/Contebrew.A!ml`, the same one it raised on a Neo Geo export the day before;
-a false positive). The Mega Drive figure keeps its ThinLTO and clang profile build for the release. These are host costs on
+The Neo Geo, Master System and Game Gear pairs were measured the same day in a second run (Windows Defender, which had
+quarantined the first Neo Geo 1.6.4 executable as `Program:Win32/Contebrew.A!ml`, a false positive, was off for it); the
+Master System and Game Gear rows check that the shared Mode 4 renderer change of 1.6.5 costs nothing. The Mega Drive figure keeps its ThinLTO and clang profile build for the release. These are host costs on
 the measured routes, not gameplay qualification, hardware fidelity or latency; every pair was also compared for identical
 outputs when the change was made (sections below).
 
