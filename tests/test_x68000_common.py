@@ -346,7 +346,7 @@ class Scenario:
             slot = folder / 'datas/games' / ('x68-fake' if name != 'boot' else 'boot-game') / 'quick.rrstate'
             slot.parent.mkdir(parents=True, exist_ok=True)
             slot.write_bytes(b'state')
-        report = {'frames': frames, 'hardware': {'audio_errors': 0}, 'nonzero_samples': 0 if k.get('silent') else 5,
+        report = {'frames': frames, 'hardware': {'audio_errors': 0}, 'nonzero_samples': 0 if (k.get('silent') or (k.get('silent_main') and not reference and name.startswith('native-'))) else 5,
                   'nonblack_frames': 3, 'reference_ram': 0, 'reference_ipl': 0, 'native_ram': 100, 'native_ipl': 20,
                   'fps': 55.46, 'automatic_disk_changes': 0, 'media_events': []}
         if not reference and name.startswith('native-'):
@@ -490,6 +490,8 @@ def collect_convert(root):
     scenario('native_trace_diverges', dict(native_diverge=True))
     scenario('route_trace_diverges', dict(route_diverge=True), scan_level='standard')
     scenario('silent_player', dict(silent=True))
+    scenario('silent_main_route_sound_on_the_others', dict(silent_main=True), scan_level='standard')
+    scenario('silent_main_route_quick_scan', dict(silent_main=True))
     scenario('f9_continuation_diverges', dict(f9_diverge=17))
     scenario('f9_frame_zero_is_not_compared', dict(f9_diverge=0))
     scenario('f9_first_compared_row_diverges', dict(f9_diverge=1))

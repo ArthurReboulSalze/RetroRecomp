@@ -59,7 +59,7 @@ native/x68000_reference/timing_checks.h native/x68000_reference/video_checks.c
 native/x68000_reference/video_checks.h native/x68000_native/CMakeLists.txt
 native/x68000_native/decode.c native/x68000_native/guard_checks.c native/x68000_native/observe.c
 native/x68000_native/observe.h tools/x68000_native.py tools/x68000_reference.py
-tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py
+tools/x68000_reference_check.py tools/x68000_base74.py tools/x68000_state_hardware.py tools/x68000_play_route.py tools/x68000_play_routes.py tools/x68000_saves_check.py tools/x68000_mouse_survey.py
 retrorecomp/x68000_scan.py retrorecomp/x68000_program.py
 tools/x68000_fixtures.py tools/x68000_fixture_disk.py tools/x68000_programs.py
 tools/x68000_hardware_check.py tools/x68000_native_check.py tools/x68000_session_check.py
