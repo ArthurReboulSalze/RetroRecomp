@@ -16,6 +16,7 @@ class NesProfile(SystemProfile):
     video_modes = ("ntsc", "pal")
     cpus = (Cpu("6502", "main", "cycles"),)
     quick_state_family = "nes"
+    stamp_groups = ('conversion_gates',)
     capabilities = Capabilities(guns=("zapper",), battery=True)
     feedback_kinds = frozenset({3, 4})
     option_keys = (OptionKey("nes_advanced_scan"),)

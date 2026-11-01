@@ -430,6 +430,7 @@ INPUTS = _resolve({
         'retrorecomp.nes',
         'retrorecomp.nes_build',
         'retrorecomp.nes_catalog',
+        'retrorecomp.nes_checks',
         'retrorecomp.nes_codegen',
         'retrorecomp.nes_machine',
         'retrorecomp.nes_optimization',

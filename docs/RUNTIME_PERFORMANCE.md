@@ -48,7 +48,7 @@ none is claimed here as a gain.
 - **The deferred PPU clock also runs in PAL** (the boards that defer in NTSC, without the Zapper: NROM, UxROM, CNROM, AxROM,
   MMC1 up to 256 KiB and the like; the FME-7 of Mr. Gimmick keeps the direct clock because of its CPU-clocked IRQ counter). PAL
   dots and half dots fall at phases 0 and 2 of a 5-tick period over 16 ticks per CPU cycle; the edges are counted, in three
-  runs per phase around the two sampling ticks (/NMI at 5, /IRQ at 9), and executed in order before anything can observe them,
+  runs per phase around the two sampling ticks (/NMI at 6, /IRQ at 9), and executed in order before anything can observe them,
   as in NTSC.
 
 Checks: `tools/nes_mmc1_selftest.py` (13 boards), `tools/nes_static_mapper_selftest.py` (constant against run-time mapper, eight

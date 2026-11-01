@@ -21,9 +21,9 @@ def _pal_ticks() -> str:
 
     A dot falls on the ticks where (cycles * 16 + align + k) % 5 is 0 and a half dot where it is 2; since 16 % 5 is 1 the
     phase of a cycle is (cycles + align) % 5, and the ticks repeat with it. The edges are only counted, in the three runs
-    the two samples cut them into (the NMI sample at tick 5 and the IRQ sample at tick 9 come before the edge of their
+    the two samples cut them into (the NMI sample at tick 6 and the IRQ sample at tick 9 come before the edge of their
     own tick, as in run_tick), so what the CPU, the APU and the cartridge see is the same as tick by tick."""
-    groups = ((1, 4), (5, 8), (9, 15))
+    groups = ((1, 5), (6, 8), (9, 15))
     tables = [', '.join(str(sum(1 for k in range(first, last + 1) if (phase + k) % 5 in (0, 2)))
                         for phase in range(5)) for first, last in groups]
     return ('static void run_ticks_1_to_15_pal(void)\n{\n'
@@ -31,7 +31,7 @@ def _pal_ticks() -> str:
             f'    static const uint8_t before_irq[5] = {{ {tables[1]} }};\n'
             f'    static const uint8_t to_end[5] = {{ {tables[2]} }};\n'
             '    unsigned phase = (unsigned)((hw.cycles + hw.pal_bus_pending + hw.align) % 5);\n'
-            '    rr_ppu_edges(before_nmi[phase]); sample_nmi();      /* 5 */\n'
+            '    rr_ppu_edges(before_nmi[phase]); sample_nmi();      /* 6 */\n'
             '    rr_ppu_edges(before_irq[phase]); apu_sample_irq();  /* 9 */\n'
             '    rr_ppu_edges(to_end[phase]);\n'
             '}\n')
@@ -41,7 +41,7 @@ def _machine(source: str, *, fast_ppu: bool = True) -> str:
     source = replace_once(source, '#include "hw_internal.h"',
                           '#include "hw_internal.h"\n#include "retro_nes.h"')
     source = replace_once(source, 'if (k == 4) sample_nmi();',
-                          'if (k == (RR_NES_PAL ? 5u : 4u)) sample_nmi();')
+                          'if (k == (RR_NES_PAL ? 6u : 4u)) sample_nmi();')
     source = replace_once(source, 'else if (k == 7) apu_sample_irq();',
                           'else if (k == (RR_NES_PAL ? 9u : 7u)) apu_sample_irq();')
     source = replace_once(source, 'unsigned q = (hw.align + k) & 3;',

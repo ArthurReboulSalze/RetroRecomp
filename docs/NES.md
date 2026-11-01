@@ -154,6 +154,23 @@ The palette remains an approximation. Timing references:
 [PPU variants](https://www.nesdev.org/wiki/PPU_variants),
 [APU frame counter](https://www.nesdev.org/wiki/APU_Frame_Counter).
 
+**PAL constants checked against NESdev (1 November 2026).** Our own reading of the NESdev pages (cycle reference chart, APU
+frame counter, DMC, noise, CPU variants, PPU OAM, PPU registers, CPU interrupts), compared with what the engine's later PAL
+commit states; nothing copied. Agrees: the 16:5 ratio, 312 lines of 341 dots and no odd-frame skip; the master clock
+(26.601712 MHz on the NESdev page; the half hertz of a derivation from the PAL subcarrier is inside its tolerance and is
+not worth moving the audio samples); the frame-counter steps (CPU cycles 8313, 16627, 24939, 33252 to 33254 for the 4-step
+frame interrupt, 41565 and 41566 for the 5-step sequence); the sixteen DMC and the sixteen noise periods; the OAM refresh
+from line 265 to 310; the swapped red and green emphasis bits; the register-read completion tick (9). One difference found
+and changed: **/NMI is sampled at tick 6 of the 16-tick CPU cycle**, not 5. The 2A07's M2 duty cycle is 19/32 against the
+2A03's 15/24, so M2 stays low 6.5 master clocks instead of 4.5, and both interrupt lines are polled during phi2; the IRQ
+sample had been moved by the same two clocks (tick 7 to 9), the NMI sample had only been scaled (4 x 16/12 = 5.33, taken
+as 5). In the authored vblank sweep of `tools/nes_ppu_selftest.py` this changes 2 of the 16 alignment and vblank cases (the
+NMI is seen one CPU cycle later), and nothing on three PAL games over their scenarios (Asterix, Mr. Gimmick, Parodius: frame,
+audio and state evidence identical). It is derived from the documented duty cycle, not measured on a console. Not settled by
+any source we have: the 2A07's DMA details (NESdev says only that it "fixes" the extra controller reads, and that the
+mechanism is not understood; ours removes the DMC halt-cycle re-reads on $4016/$4017), the PAL vblank-clear timing (NESdev
+lists it as unconfirmed on a PAL NES) and fine 2C07 register races.
+
 ### Linux runtime performance
 
 The settled PPU path caches only conditions invalidated by register accesses.
@@ -317,6 +334,14 @@ Queued host audio is discarded; fallback counters remain cumulative.
 States written before 1.6.5 (`RRNESST1`, a raw copy of the structures) are
 refused cleanly, not misread: the layout and the key both changed.
 
+Since 1.6.6 every conversion also checks F8/F9 in a fresh process on the file it delivers, and says so in its report
+(`game_states.fresh_process_verified` and `validation`): a start and a missing load create no file, two saves of one run are
+identical, a state loaded in another process continues with the same CPU, memory, hardware, picture and sound for 180 frames, and
+six damaged states are refused without touching either file. A cartridge whose first frames change its battery RAM may leave its
+battery file after a start (the one file a start may create); the check removes it between processes so that each starts from a
+new cartridge. The report's `ordinary_saves` says whether the cartridge has a battery and where the game keeps it; that the file
+is written, read back and kept across a launch and a rebuild is checked on an authored cartridge by `tools/nes_saves_check.py`.
+
 Invalid magic, ABI, ROM identity, region, payload and truncated states are
 rejected without rewriting the valid or rejected file. Opening/closing a game or
 attempting F9 with no state creates no directory. Only edited settings, F8, or
@@ -372,13 +397,15 @@ same engine's internal CPU and bus; they do not certify physical hardware.
 | `python tools/nes_native_selftest.py` | All 256 opcodes of authored fixtures across CPU slots, mapper modes (default 0, 1, 2, 3, 4, 5, 7, 9, 11, 26, 66, 69, 71, 78: fourteen families), PAL and NTSC, flag/alignment variants, page crossings, boundary operands, wrapping PC, NMI and IRQ |
 | `python tools/nes_guarded_selftest.py` | Authored RAM guards and PPU-driven mapper fetch comparisons (mappers 0, 5, 69, 1, 153, 155): all 256 opcodes, changed operands, RAM mirrors, RAM/ROM and RAM/register boundaries, NMI/IRQ, OAM and DMC DMA, pending reset, changed-opcode rejection |
 | `python tools/nes_windows_selftest.py` | Lower-ROM selection, protected cartridge RAM (mappers 40, 69, 21, 22, 23, 25, 80, 207, 82, 552), bank boundaries, DMC/OAM DMA, pending IRQ/NMI/reset; altered ROM fetches must keep visible fallback and must not pollute upper-address ROM seeds |
-| `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: three configurations (NTSC with Zapper, PAL with Zapper, NTSC without Zapper), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
+| `python tools/nes_ppu_selftest.py` | Optimized PPU and APU clocks against the original staged path on authored activity: four configurations (NTSC and PAL, each with and without the Zapper; the PAL one without it runs the deferred clock), the CPU's interrupt state, and four vblanks from each alignment (where the NMI is sampled), mappers 0, 1, 2, 4, 5, 69, 85 and 153, 2,800 checkpoints each, plus the extra-sprite check; hidden PPU fields, framebuffer, bus/memory state and PCM |
 | `python tools/nes_static_mapper_selftest.py` | The machine with the cartridge's mapper number as a compile-time constant against the run-time number, 2,800 checkpoints for each of eight mappers, NTSC without the Zapper and PAL with it; also checks that a constant-mapper build refuses another mapper |
 | `python tools/nes_ram_sweep_selftest.py` | The end-of-run completion of RAM routines on authored code in internal RAM and in cartridge RAM: executed entries, the fall-through past a taken branch, a never-taken branch, `JSR`/`JMP` targets, and what must not be added (data after a jump or a return, an illegal opcode, an address outside the windows); a second sweep changes nothing |
 | `python tools/nes_mmc1_selftest.py` | The MMC1 with the PPU A12 table rebuild skipped against the original, step by step on 13 authored boards (bank tables, mirroring, work RAM bank and enables after each of 15,165 register writes and A12 changes) |
 | `python tools/nes_machine_selftest.py` | Authored NTSC/PAL fixtures: clock/APU behaviour, beam-driven Zapper detection, snapshot round trips, mapper audio, corrupted-state rejection without mutation |
 | `python tools/nes_audio_selftest.py` | The host kit's callback-ring output and authored PCM timelines, silently |
-| `python tools/nes_state_selftest.py <game.exe>` | Needs a generated game. Saves, closes, relaunches and compares continued CPU/memory/video/hardware hashes and PCM; checks lazy file creation; opens no game window. `--save-after 1800 --frames 180 --input <schedule.input>` resumes a held two-player input schedule in a fresh process |
+| `python tools/nes_saves_check.py` | Battery saves on an authored cartridge (MMC1, battery RAM, a program that counts its launches): the first launch saves 1, the second 2, a second conversion over the same export keeps the file, the new build saves 3; the conversion's probes leave no file beside the export |
+| `python tools/nes_route_captures.py ROM EXE` | The last picture of each route of a converted game (the routes are written again from the ROM at the same scan level), to see whether a route reached play; headless |
+| `python tools/nes_state_selftest.py <game.exe>` | The check a conversion runs on the file it delivers (`retrorecomp/nes_checks.py`). Needs a generated game. Saves, closes, relaunches and compares continued CPU/memory/video/hardware hashes and PCM; checks lazy file creation; opens no game window. `--save-after 1800 --frames 180 --input <schedule.input>` resumes a held two-player input schedule in a fresh process |
 | `python tools/nes_state_cross.py A.exe B.exe` | Needs two builds of one game. A quick state written by one build must continue identically in the other (for example Visual Studio and portable-toolchain builds) |
 
 The Python suite (`tests/test_nes*.py` and the rest of `python -B -m unittest discover -s tests -q`)

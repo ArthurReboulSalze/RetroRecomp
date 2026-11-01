@@ -91,11 +91,20 @@ class NesProfileTests(unittest.TestCase):
         executable = self.root / 'game.exe'
         executable.write_bytes(b'fixture executable')
         seed = self.root / 'seeds.trace'
-        with patch('retrorecomp.nes.run', return_value='mode=native frames=1 cycles=100 native_cycles=100 (100.0%)'):
+        trace_line = ('0 trace=0000000000000000 mem=AAAA PC=8000 A=00 X=00 Y=00 S=FD P=24 int=00 cycles=100 '
+                      'hw=1111111111111111 pic=A1 snd=B1 aud=0')
+
+        def answer(text):
+            # The exported game writes its frame trace beside the output; the stand-in does the same.
+            def fake(*arguments, **options):
+                (self.root / 'boot-native.hash').write_text(trace_line + '\n', encoding='ascii')
+                return text
+            return fake
+        with patch('retrorecomp.nes.run', side_effect=answer('mode=native frames=1 cycles=100 native_cycles=100 (100.0%)')):
             self.assertEqual(_probe(executable, self.root, 'boot', 1, seed)['interpreter_cycles'], 0)
         output = ('mode=native frames=1 cycles=100 native_cycles=90 (90.0%)\n'
                   '  interpreted: ROM 2 (2.0%)  RAM 3 (3.0%)  $2000-$7FFF 4 (4.0%)\n')
-        with patch('retrorecomp.nes.run', return_value=output):
+        with patch('retrorecomp.nes.run', side_effect=answer(output)):
             result = _probe(executable, self.root, 'boot', 1, seed)
             self.assertEqual(result['interpreter_cycles'], 9)
             self.assertEqual(result['non_dispatch_cycles'], 1)

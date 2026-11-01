@@ -87,6 +87,47 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--quick-save-frame") && i + 1 < argc) quick_frame = atol(argv[++i]);
         else if (!strcmp(argv[i], "--headless")) headless = true;''')
     host = '#define SDL_MAIN_HANDLED\n#include "runtime_feedback.h"\n' + host
+    # The hash trace of a headless run also carries, for each frame, the hash of the rendered picture, the hash of the
+    # frame's sound and whether any sample was not zero: the liveness of a route (G8) and the packed replay (G5) read them.
+    # Asking for the trace turns the audio on (the samples are read and counted, and written only with --wav-out).
+    host = replace_once(host, 'static void write_hash_line(FILE *f, long frame) {',
+        'static uint64_t rr_frame_sound = 14695981039346656037ULL;\n'
+        'static unsigned rr_frame_audible;\n'
+        'static uint64_t rr_fnv(uint64_t hash, const void *data, size_t size) {\n'
+        '    for (const unsigned char *p = (const unsigned char *)data; size--; p++) hash = (hash ^ *p) * 1099511628211ULL;\n'
+        '    return hash;\n'
+        '}\n'
+        'static void write_hash_line(FILE *f, long frame) {')
+    host = replace_once(host, '"hw=%016llX\\n",', '"hw=%016llX pic=%016llX snd=%016llX aud=%u\\n",')
+    host = replace_once(host, '            (unsigned long long)cyc_hw_state_hash());\n}',
+        '            (unsigned long long)cyc_hw_state_hash(),\n'
+        '            (unsigned long long)rr_fnv(14695981039346656037ULL, cyc_frame_index(), 256 * 240 * sizeof(uint16_t)),\n'
+        '            (unsigned long long)rr_frame_sound, rr_frame_audible);\n}')
+    host = replace_once(host, '    if (wav_out) {\n        if (!cyc_audio_enable(WAV_RATE)) {',
+                        '    if (wav_out || hash_out) {\n        if (!cyc_audio_enable(WAV_RATE)) {')
+    host = replace_once(host, '        } else if ((wav_f = fopen(wav_out, "wb")) != NULL) {',
+                        '        } else if (wav_out && (wav_f = fopen(wav_out, "wb")) != NULL) {')
+    host = replace_once(host, """        if (hash_f) write_hash_line(hash_f, frame);
+        if (wav_f) {
+            int16_t pcm[4096];
+            size_t n;
+            while ((n = cyc_audio_read(pcm, 4096)) > 0) {
+                fwrite(pcm, sizeof(int16_t), n, wav_f);
+                wav_samples += (uint32_t)n;
+            }
+        }""", """        rr_frame_sound = 14695981039346656037ULL;
+        rr_frame_audible = 0;
+        if (hash_f || wav_f) {
+            int16_t pcm[4096];
+            size_t n;
+            while ((n = cyc_audio_read(pcm, 4096)) > 0) {
+                rr_frame_sound = rr_fnv(rr_frame_sound, pcm, n * sizeof(int16_t));
+                for (size_t i = 0; i < n && !rr_frame_audible; i++) rr_frame_audible = pcm[i] != 0;
+                if (wav_f) fwrite(pcm, sizeof(int16_t), n, wav_f);
+                wav_samples += (uint32_t)n;
+            }
+        }
+        if (hash_f) write_hash_line(hash_f, frame);""")
     host = replace_once(host, '    AccCoinDriver drv;', '''
     rr_feedback_start(!headless && cyc_run_native);
     if (quick_load && !retro_quick_file(quick_load, true)) {

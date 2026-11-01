@@ -362,6 +362,10 @@ with two reads in one C expression, so their order is not defined; the Master Sy
 are already two ordered reads (`megadrive_z80_timing.py`), the pinned `runner/z80_recomp.c` is copied into the project but not in its
 sources, and `GENESIS_Z80_RECOMP` is never defined. Nothing to patch; `tests/test_megadrive.py` fails if the build starts compiling it.
 
+| Fix | Consoles | Our file | Game stamp that moves |
+|---|---|---|---|
+| NES PAL: /NMI is sampled at tick 6 of the 16-tick CPU cycle, not 5 (the 2A07's M2 stays low 6.5 master clocks against the 2A03's 4.5, and both lines are polled during phi2; the IRQ sample was already moved by the same two clocks). Derived from the NESdev duty cycle and checked against the later PAL commit of the pinned upstream without copying it; no console measurement. Three PAL games give identical frame, audio and state evidence; the authored vblank sweep detects the NMI one cycle later in 2 of 16 cases | nes | `nes_machine.py` (`_machine`, `_pal_ticks`) | nes |
+
 ## Deferred
 
 Upstream work that is worth having but not taken yet, with the event that brings it back. Time measurements need a
