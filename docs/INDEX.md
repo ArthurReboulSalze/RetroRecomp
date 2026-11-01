@@ -57,6 +57,7 @@ sound processor in the project: its YM2151 and ADPCM are part of the reference m
 - [AUDIO.md](AUDIO.md) — audio output per console.
 - [VIDEO.md](VIDEO.md) — video presentation and timing: filters, scanlines, display modes.
 - [COMPATIBILITY.md](COMPATIBILITY.md) — compatibility and evidence per console profile.
+- [KNOWN_FAILURES.md](KNOWN_FAILURES.md) — games known not to convert, or refused by design, with what was tried.
 - [CREDITS.md](CREDITS.md) — animated credits and module playback.
 - [SCREENSHOTS.md](SCREENSHOTS.md) — the converter's windows in pictures.
 
