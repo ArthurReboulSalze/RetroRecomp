@@ -299,10 +299,10 @@ the run's logs were not kept. The likely cause, not proved from those logs, is t
 same afternoon: Windows Defender deleting UPX's temporary file (a false positive), which `main` now answers by publishing such a
 game unpacked.
 
-Other changes of the NES in 1.6.6 that move the same stamp and are described in [NES.md](NES.md) and
-[RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md): the cartridge's mapper number a constant on every toolchain, the MMC1
-A12 rebuild skipped when it cannot matter, the deferred PPU clock in PAL, and the completion of RAM routines at the end of a
-run (more guarded entries for games that run code from cartridge RAM, never fewer).
+The NES speed-ups and the completion of RAM routines (the mapper number a constant on every toolchain, the MMC1 A12 rebuild
+skipped when it cannot matter, the deferred PPU clock in PAL, the RAM routines completed at the end of a run) are not changes of this
+release: they shipped in 1.6.5 (`git tag --contains` gives `v1.6.5` for each; see
+[Other machines whose game stamp moves in 1.6.5](#other-machines-whose-game-stamp-moves-in-165) and [NES.md](NES.md)).
 
 ## Mega Drive: 2,895 more independent 68000 vectors (1.6.6)
 

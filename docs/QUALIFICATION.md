@@ -28,7 +28,7 @@ owner-acceptance log. It makes no claim beyond them.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000 and CPS-1 columns of 1 November 2026)
+## Status matrix (27 October 2026; the X68000, CPS-1, NES and Game Boy columns, and G5 and G8 of the Master System, Game Gear, Super Nintendo and Neo Geo, of 1 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -38,14 +38,14 @@ x68 = Sharp X68000.
 | Gate | sms | gg | gb | nes | md | snes | ng | cps1 | x68 |
 |---|---|---|---|---|---|---|---|---|---|
 | G1 | P | P | P | Y | Y | P | Y | Y | Y |
-| G2 | P | P | P | P | P | Y | Y | Y | Y |
-| G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
-| G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
-| G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
-| G6 | P | P | P | Y | Y | Y | Y | Y | Y |
-| G7 | - | - | P | P | Y | P | Y | - | Y |
-| G8 | P | P | ? | P | P | Y | Y | Y | Y |
-| G9 | P | P | P | P | Y | P | Y | Y | Y |
+| G2 | P | P | P | Y | P | Y | Y | Y | Y |
+| G3 | Y | Y | P | Y | Y | Y | Y | Y | Y |
+| G4 | Y | Y | P | Y | Y | Y | Y | Y | Y |
+| G5 | P | P | Y | Y | Y | Y | Y | Y | Y |
+| G6 | P | P | Y | Y | Y | Y | Y | Y | Y |
+| G7 | - | - | Y | Y | Y | P | Y | - | Y |
+| G8 | P | P | P | Y | P | P | P | Y | Y |
+| G9 | P | P | P | Y | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | P |
@@ -64,16 +64,32 @@ x68 = Sharp X68000.
   the perimeter he owns is converted and validated": 26 of 26); the two boards and the 20 mappers the panel does not cover are noted in
   [CPS1.md](CPS1.md#panel-coverage). G14 is `P`: the owner accepted the exit from the experimental status on the evidence, and the play
   trial list is still to do on the 1.6.6 executable (see *Owner acceptance*). G16 is `P`: the paths are numeric, rechecked and retried
-  without hints, but no CPS-1 path is qualified yet and CPS-1 stays in the experimental tier of the shared base. G13 stays `P`
+  without hints, but no CPS-1 path is qualified yet and CPS-1 stays in the experimental tier of the shared base (a tier of the base, not the machine's status). G13 stays `P`
   (three sets of 26 on Debian 13; interactive play on Linux not witnessed).
 
 - X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
   four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
 
 - The G5 and G6 rows say "met" where the check exists as a campaign step.
-  Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md and nes run G5 inside every conversion, and ng,
-  cps1, x68 and (since 1.6.6) nes run G6 inside every conversion. Read G5 and G6 as "met per
-  conversion" only for those.
+  Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md, nes and gb run G5 inside every conversion (sms and gg too, but only
+  with the banked engine, see below), and ng, cps1, x68 and (since 1.6.6) nes and gb run G6 inside every conversion. Read G5 and G6
+  as "met per conversion" only for those.
+- Game Boy (1 November 2026): G5 and G6 `Y` per conversion, G7 `Y`, G8 `P`. G5: after the lockstep comparisons the compressed copy is
+  replayed on the same routes and must give the same verdict line (`retrorecomp/gameboy_delivery.py`; [UPGRADES.md](UPGRADES.md#game-boy-the-packed-replay-and-the-liveness-record-166-gates-g5-and-g8)).
+  G6: every conversion checks the quick states in a fresh process, and `tools/gameboy_states_check.py` does it on an authored
+  cartridge and on Super Mario Land. G7: `tools/gameboy_saves_check.py` on six cartridges written for it ([GAME_BOY.md](GAME_BOY.md)).
+  G8 is `P`: the liveness record exists on every conversion, but no campaign of captures was inspected for the Game Boy.
+- NES (1 November 2026): G2, G3, G4, G7, G8 and G9 moved from `P` to `Y` on the evidence of the section *Nintendo NES: evidence behind
+  its column* below (campaign of eight games at the thorough level, delivered-file checks, captures). G9 `Y` rests on pictures
+  looked at by the specialist agent, not by the owner. G12, G13 and G15 stay `P`, G14 stays `?`.
+- Master System and Game Gear (1 November 2026): G5 is `P` for both. The replay of the compressed copy exists only with the banked
+  engine (the "functions" engine records liveness only), and what is recorded for it is synthetic tests
+  (`tests/test_sega_evidence.py`) and runs on three games, not a result per console ([UPGRADES.md](UPGRADES.md#master-system-and-game-gear-evidence-about-the-delivered-file-166)).
+  The Game Gear was `Y` before; nothing recorded separated the two consoles, which share the engine and the adapter.
+- Super Nintendo and Neo Geo (1 November 2026): G8 moved from `Y` to `P`. The Super Nintendo has a liveness check for the cartridges
+  with a coprocessor only (`supernintendo.validate_device_liveness`), none for an ordinary cartridge; the Neo Geo has no liveness record
+  yet (`retrorecomp/neogeo_conversion.py` uses `deliver_packed` and `replay_routes`, not `liveness_summary`). See the section
+  *Shared evidence helper*.
 - G14 for NES, SNES, SMS, GG, GB and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
@@ -81,7 +97,8 @@ x68 = Sharp X68000.
 
 ## Shared evidence helper: G5 and G8 (`retrorecomp/delivery_evidence.py`)
 
-Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and the liveness record (G8) through one module, so a machine
+Neo Geo, CPS-1 and the X68000 produce the packed replay (G5) and, apart from the Neo Geo, the liveness record (G8) through one
+module, and since 1.6.6 so do the Master System and Game Gear, the Game Boy, the Mega Drive and the NES, so a machine
 that joins them gives the same evidence in the same shape ([STANDARDS.md](STANDARDS.md) rules 1 and 7). The module
 reads rows a machine already writes; it never runs a game.
 
@@ -116,21 +133,19 @@ game carries `pic=` (the hash of the rendered 256 x 240 picture), `snd=` (the ha
 sample was not zero), the liveness record of each route is read from it, the delivered copy is replayed on every route and its
 trace and PCM compared with the fresh reference, and the machine is in the `conversion_gates` group.
 
-Machines that do not use it yet, what each already writes per frame, and the smallest change to feed it (a plan, not a
+The machine that does not use it yet for ordinary cartridges, what it already writes per frame, and the smallest change to feed it (a plan, not a
 record: nothing below runs yet):
 
 | Machine | Per-frame data today | Missing | Smallest change |
 |---|---|---|---|
-| Game Boy | Nothing per frame: the probe reads stdout (`[LIMIT]`, interpreter inventory) and `--trace-entries`; the CPU comparison is the upstream's `--differential` | A picture hash and a sound hash per frame | A `--frame-trace` flag added to the runtime in `gameboy_runtime.py` (one line per frame: frame, LCD framebuffer hash, APU block hash and non-zero count); adapter in `gameboy.py` |
-| Mega Drive | Done in 1.6.6 (`retrorecomp/megadrive_evidence.py`, called from `console16.convert16`). The conversion replays the compressed copy on every route with `--trace` and reads the trace as `FrameRow(frame, frame_hash, sound=audio_hash, audible=fm_nonzero + psg_nonzero > 0, pc=pc)`; the comparison with the fresh reference is `reference_differences`. `final_checks[].liveness` holds the eight keys of the delivered file's run; `native_validation.packed_reference_match` and `packed_candidate_sha256` are written by the delivered file. Only a frozen `play` route is refused: the attract route presses no button and the long and authored routes may sit in a menu | A per-frame RAM hash (the RAM hash is final only) | |
 | Super Nintendo | The same `--trace` without the Mega Drive columns (frame hash, counters, audio hash); the report already holds `last_picture_change_frame`, `last_audible_frame`, `last_device_frame`, `visible_frames`, `pcm_nonzero`, which `validate_device_liveness` reads for device cartridges only | The trace carries no audible flag and the conversion does not request it; the report has no counts of pictures or audible frames, so an ordinary cartridge has no liveness record | Pass `--trace`, add the non-zero count of the frame's PCM to the trace line (one column, shared with the Mega Drive adapter); keep `validate_device_liveness` and its windowed rule (picture, device and sound all quiet for the last quarter of the run) for the device cartridges and give an ordinary cartridge `frozen_route` on the same record |
 
 The packed replay (G5) needs, for each of these, a callback that starts the compressed copy with the same arguments as the
 probe that made the reference and compares the same fields (Mega Drive and Super Nintendo: `reference_differences`;
-Master System and Game Gear: `compare_execution`; NES: the `.hash` lines and the PCM; Game Boy: the `--differential`
-verdict), and the group `conversion_gates` in the machine's `stamp_groups`.
+Master System and Game Gear: `compare_execution`; NES: the `.hash` lines and the PCM; Game Boy: the verdict line of the
+build), and the group `conversion_gates` in the machine's `stamp_groups`.
 
-## Sharp X68000: evidence behind its column (29 October 2026)
+## Sharp X68000: evidence behind its column (29 October 2026, status of 1 November 2026)
 
 The X68000 stays **experimental**. This is what each gate rests on today and what is still missing, with the file that
 shows it. `P` means a part is shown and the rest is named; nothing here says exact hardware, gameplay coverage or latency.
@@ -148,7 +163,7 @@ shows it. `P` means a part is shown and the rest is named; nothing here says exa
 | G9 | Y | The four risk cases were converted at the extended level (main, mouse, keyboard and one 18,000-frame pseudo-random route), 0 interpreted opcodes on every route, the compressed copy matching the reference on the four routes (table below); play is reached on the delivered file for R-Type and Metal Sight (standard and long routes), for Super Hang-On (long route, and its authored route) and for Lemmings (authored route; its standard and long routes stay on the menu) | Inspected by the specialist agent, not by the owner; four games, not the 84 mouse sets; the thorough level (36,000 frames) was not run; not full games |
 | G10 | P | Musashi as the reference, 20 authored CPU guards (`native/x68000_native/guard_checks.c`, `tools/x68000_native_check.py`) | No independent vectors replayed through the X68000 generator |
 | G11 | P | Authored video, audio, timing, session and disk vectors (`tools/x68000_*_check.py`) | No external emulator or hardware comparison |
-| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (it runs, but makes no sound in 4,000 frames, which the conversion refuses) |
+| G12 | P | 19 sets converted on Windows and Debian; 418 images of the test collection give 33 multi-disk sets and 84 mouse sets reviewed | Three entries of the test collection stopped the reference: Tetris v5 and TF4G v0.3A09 (a crash of the frame loop, fixed in 1.6.5, both convert now) and Pensan CD (silent on the routes without the mouse; since 1.6.5 a silent route is accepted and reported, and it converts with zero interpreted opcodes) |
 | G13 | Y | Windows and Debian trace hashes match on the 19 sets | |
 | G14 | ? | No recorded owner decision (draft below) | Arthur's play test |
 | G15 | P | The five measures stay separate in the report and in [X68000.md](X68000.md) | The interface and the older documents have not all been read for this |
@@ -226,13 +241,13 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 | G13 | P | Final Fight (27 October), Street Fighter II' Champion Edition (30 October) and 1941 (1 November) give the same CPU, RAM, image, sound and trace hashes on Windows and Debian 13 | Three sets of 26 |
 | G14 | P | Exit from the experimental status accepted by the owner on 1 November 2026 on the evidence of 1.6.6 (row below) | The owner's play trial list, on the 1.6.6 executable |
 | G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
-| G16 | P | Numeric paths, rechecked by every conversion, a failing conversion starts again without them; the sharing can be withdrawn in one line | No CPS-1 path is qualified yet; CPS-1 stays in the experimental tier of the shared base (schema 3 only) |
+| G16 | P | Numeric paths, rechecked by every conversion, a failing conversion starts again without them; the sharing can be withdrawn in one line | No CPS-1 path is qualified yet; CPS-1 stays in the experimental tier of the shared base (schema 3 only; a tier of the base, not the machine's status) |
 
 ## Nintendo NES: evidence behind its column (1 November 2026)
 
 The NES is **supported within its validated cartridge and peripheral scope**. This is what each gate rests on, with the file or
-measure that shows it and what is still missing. `Y` here is the letter the evidence supports; the status matrix above keeps
-the letters of 27 October until the lead changes them. Nothing here says exact hardware, gameplay coverage or latency.
+measure that shows it and what is still missing. `Y` here is the letter the evidence supports; the status matrix above carries these
+letters since 1 November 2026. Nothing here says exact hardware, gameplay coverage or latency.
 
 Two trees gave the evidence. The campaign (G3, G4, G9) ran on the 1.6.6 tree before the delivered-file checks existed
 (the converter of 30 October plus the PAL NMI change); the delivered-file checks (G5 to G8) ran on the tree that has them, on
