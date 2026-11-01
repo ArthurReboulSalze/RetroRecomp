@@ -222,6 +222,23 @@ Stamps (computed with the tree of 1.6.5 and the tree of this change): only the *
 console and nothing else); host and build stamps and the other eight consoles do not move. An X68000 export of 1.6.5 is converted
 again in full once, like the other experimental exports of a release that changes the converter.
 
+## Neo Geo and CPS-1: the sound CPU's Z80 is corrected (1.6.6)
+
+The Z80 of Geolith, which plays the sound of the Neo Geo and of the CPS-1, is corrected in the converter's copy (19 strict replacements,
+[UPSTREAMS.md](UPSTREAMS.md#fixes-carried-as-our-own-patches-in-166)): the WZ and flags of `IN r,(C)`, the X and Y flags of `LD A,I`, `LD A,R`
+and of the repeating block instructions, the WZ of `LD IX/IY,(nn)`, the port address and flags of `OUTI` and `OUTD`, IFF1 after `RETI`, and the
+undocumented `ED` encodings. They are CPU fidelity corrections checked against 51,328 independent vectors (51,260 states and all clocks agree now,
+50,429 and 51,200 before). On conversions of `sf2ce`, `ffight`, `nam1975` and `mslug3` with `tools/ab_conversion.py`, the picture and sound hashes
+of every route are identical before and after; the Z80 and hardware hashes (registers and memory of the sound CPU) differ only where a game reads
+what was corrected (`LD A,R` in `nam1975`, `LD IX,(nn)` and `IN r,(C)` in `mslug3`).
+
+Stamps (computed with the tree of 1.6.5 and the tree of this change): the **Neo Geo and CPS-1 game stamps move**
+(`retrorecomp/neogeo_z80.py` is a game input of both, and `cps1_knowledge.GENERATOR_REVISION` goes to 9); host and build stamps, and the other
+seven consoles, do not move. A Neo Geo or CPS-1 export of 1.6.5 is converted again in full once. **Quick states**: the Neo Geo key hashes the
+fingerprint of `neogeo_z80` (`neogeo_conversion.py`), so a Neo Geo state of 1.6.5 is refused cleanly; the CPS-1 key does not hash that module
+and the 34-byte Z80 block of its state did not change, so **a CPS-1 state of 1.6.5 still loads** (it continues with the corrected core, from the
+registers it saved).
+
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 
 Game Gear exports gain the **F5** sprite flicker reduction that the Master System has had since 0.25.0 (off by default, saved in

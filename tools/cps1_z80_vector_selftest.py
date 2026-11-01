@@ -42,7 +42,9 @@ NO_SLOT = 0xffffffff
 # instruction left): carrying Q costs a store per Z80 instruction and a state field, and has not been done. The clock agrees on all.
 BASELINE = {'corpus_revision': 'ebe1875d48f374bcfd4b505d8eb8ee751568b5f7', 'samples_per_family': 32, 'cases': 51328,
             'native_state': 51260, 'native_clock': 51328,
-            'field_failures': {'f': 68, 'memory': 0, 'ports': 0}}
+            'field_failures': {'f': 68, 'memory': 0, 'ports': 0},
+            # the families that still differ, with their number of vectors: all of them SCF and CCF and their DD/FD duplicates
+            'families': {'37': 4, '3f': 7, 'dd 37': 12, 'dd 3f': 17, 'fd 37': 11, 'fd 3f': 17}}
 
 
 def window(case: dict) -> bytes:
@@ -149,7 +151,9 @@ def problems(result: dict) -> list[str]:
         found.append(f"the native and interpreted paths differ on {cases - totals['paths_equal']} vector(s) of state and {cases - totals['paths_clock_equal']} of clock")
     if (result['corpus_revision'], result['samples_per_family'], cases) == (BASELINE['corpus_revision'], BASELINE['samples_per_family'],
                                                                          BASELINE['cases']):
-        if totals['native_state'] != BASELINE['native_state'] or totals['native_clock'] != BASELINE['native_clock']                 or result['field_failures']['native'] != BASELINE['field_failures']:
+        differing = {f['family']: f['cases'] - f['native_state'] for f in result['families'] if f['native_state'] != f['cases']}
+        if (totals['native_state'] != BASELINE['native_state'] or totals['native_clock'] != BASELINE['native_clock']
+                or result['field_failures']['native'] != BASELINE['field_failures'] or differing != BASELINE['families']):
             found.append('the differences with the vectors changed from the pinned baseline '
                          f"(state {totals['native_state']}, clock {totals['native_clock']}, fields {result['field_failures']['native']}); "
                          'review them, then update BASELINE and the CPU_Z80.md page')

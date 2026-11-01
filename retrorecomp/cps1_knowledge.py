@@ -99,7 +99,7 @@ LONGEST_INSTRUCTION = 10          # 68000: five words
 # path, so nothing is lost today.
 # 9: the pinned Geolith Z80 is corrected in the converter's copy (`neogeo_z80.FIXES`: WZ of the IX/IY loads and of IN r,(C), X and Y
 # of IN r,(C), LD A,I, LD A,R and of the repeating block instructions, the port address and flags of OUTI/OUTD, CPIR/CPDR WZ, RETI
-# restoring IFF1, the undocumented ED encodings), so the translated Z80 bodies change for those opcodes (30 October 2026, 1.6.5). No
+# restoring IFF1, the undocumented ED encodings), so the translated Z80 bodies change for those opcodes (1 November 2026, 1.6.6). No
 # CPS-1 path was qualified, so nothing is lost today.
 GENERATOR_REVISION = 9
 # native/md_prefetch.inc is the source of the generated cps1_arithmetic.c (cps1_codegen._semantics cuts the

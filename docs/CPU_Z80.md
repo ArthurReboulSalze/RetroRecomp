@@ -226,7 +226,9 @@ the clock count with the vector, and the two paths with each other. P and Q are 
   oracle on the state and all 51,328 on the clock**, native and interpreted alike. The core is also the Neo Geo's sound core.
 - 68 vectors remain: the X and Y flags of `SCF` and `CCF` and of their `DD`/`FD` duplicates, which on the original chip come from the
   flags the previous instruction left (the Q latch). Carrying Q would add a store after every Z80 instruction, on a hot path, and a
-  field to the saved state: it has not been done. The tool pins these figures (any change fails it until this page is updated).
+  field to the saved state: it has not been done. The classic approximation (X and Y of A or F) was measured: it fixes the `DD`/`FD`
+  duplicates but is worse for the documented opcodes (18 vectors against 11), so it is not taken. The tool pins these figures and the six
+  families concerned (any change fails it until this page is updated).
   The table per family is in
   [CPS1_LOG.md](CPS1_LOG.md#30-october-2026-165-tree-z80-vectors-mame-again-and-a-linux-witness) (figures before the corrections).
   Interrupt acceptance, the YM2151 and OKI lines and the board are not covered. The oracle is JSMoo, not silicon.
