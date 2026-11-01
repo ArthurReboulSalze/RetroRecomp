@@ -119,6 +119,13 @@
   had removed UPX's temporary file while it packed freshly built Neo Geo and NES
   games. A missing or altered UPX is still an error; games that pack and pass are
   byte for byte what they were.
+- **Compress games (option).** **Options > Common > Compress games** (on by
+  default) and `--no-compress` on `convert` and `batch` publish the games
+  without UPX compression: 3 to 4 times larger, the same program. It exists
+  because Windows Defender sometimes mistakes a freshly built compressed game
+  for a threat (a false positive). The log and the report say the game was
+  published uncompressed and why; the packed replay of Neo Geo, CPS-1 and the
+  X68000 then replays the unpacked file.
 
 **Speed.** No comparison of the host time per frame of 1.6.6 with 1.6.5 is
 recorded yet, and the host time of the SA-1 titles was not measured.

@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from .batch import identify
+from .packing import set_compression
 from .paths import APP_NAME, save_preferences
 from .systems import get_profile
 from .gui_common import INTERFACE_PREFERENCES
@@ -263,6 +264,7 @@ class CollectionMixin:
 
     def begin_reconvert(self, chosen, level=None):
         options = self.preferences()
+        set_compression(options.get('compress_games', True))   # the option, for the games published by this reconversion
         use_shared = options.pop('use_shared_base', False)
         # Games converted at once per console (run_limited below), as in the queue.
         per_console=options.get('console_jobs') or {}

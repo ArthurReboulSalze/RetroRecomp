@@ -207,6 +207,10 @@ def main() -> int:
     build.add_argument("--boxart-dir", type=Path, help="Box art folder (default: BoxArt beside Retro-Recomp.exe).")
     build.add_argument("--no-online-cover", action="store_true", help="Use local box art only, without network access.")
     build.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
+    build.add_argument('--compress', action=argparse.BooleanOptionalAction, default=None,
+        help="Compress the published games with UPX (default: the 'Compress games' option saved in Options, on unless turned off). "
+             "--no-compress publishes them unpacked: 3 to 4 times larger, the same program; it exists because Windows Defender "
+             "sometimes mistakes a freshly built compressed game for a threat (a false positive).")
     build.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
     add_machine_options(build, developer=True)
     batch = sub.add_parser("batch", help="Convert several ROMs to a shared games folder.")
@@ -238,6 +242,10 @@ def main() -> int:
         help="Bring the shared base up to date before the batch (default: the option saved in Options). Its qualified "
              "paths apply either way, so a known game takes the quick check instead of a discovery.")
     batch.add_argument("--no-icon-tags", action="store_true", help="Keep box art icons without automatic peripheral badges.")
+    batch.add_argument('--compress', action=argparse.BooleanOptionalAction, default=None,
+        help="Compress the published games with UPX (default: the 'Compress games' option saved in Options, on unless turned off). "
+             "--no-compress publishes them unpacked: 3 to 4 times larger, the same program; it exists because Windows Defender "
+             "sometimes mistakes a freshly built compressed game for a threat (a false positive).")
     batch.add_argument("--keep-build", action="store_true", help="Keep each game's build folder under .build after publication (developer checks read it); also RETRO_RECOMP_KEEP_BUILD=1.")
     inspect = sub.add_parser("inspect", help="Identify a ROM without modifying it.")
     inspect.add_argument("rom", type=Path)
@@ -352,6 +360,10 @@ def main() -> int:
                 parser.error("--passes must be 1–10; --frames must be 1–10000.")
             if args.command == 'batch' and not 1 <= args.jobs <= 8:
                 parser.error("--jobs must be 1–8.")
+            # The player's option "Compress games" (UPX), for this process: the flag, else the saved preference.
+            from retrorecomp import packing
+            packing.set_compression(args.compress if args.compress is not None
+                                    else packing.compression_from_preferences(load_preferences()))
             if args.command == "batch":
                 paths = []
                 for source in [*args.roms, *args.rom_dir]:

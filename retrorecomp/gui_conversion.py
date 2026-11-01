@@ -11,6 +11,7 @@ from tkinter import messagebox, ttk
 
 from . import online
 from .batch import convert_batch
+from .packing import set_compression
 from .publishing import is_pending
 from .paths import (
     APP_NAME, save_preferences, save_game_language, selected_bios_path, data_directory, console_options,
@@ -54,6 +55,7 @@ class ConversionMixin:
             use_cover=self.use_cover.get(),
             online_cover=self.online.get(), icon_tags=self.icon_tags.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
+            compress_games=self.compress_games.get(),
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
             discoveries_waiting=self.discoveries_waiting,
             overwrite=self.overwrite.get(), force=self.force.get(),
@@ -111,6 +113,7 @@ class ConversionMixin:
             return
         try:
             options = self.preferences()
+            set_compression(options.get('compress_games', True))   # the option, for the games published by this batch
             if (not 1 <= options['passes'] <= 10 or not 1 <= options['frames'] <= 10000
                     or not 1 <= options['jobs'] <= 8):
                 raise ValueError(self.tr('invalid_limits'))

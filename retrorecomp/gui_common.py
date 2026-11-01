@@ -105,6 +105,8 @@ BUSY_SEND_RETRY = 30   # seconds a waiting send waits again behind an import, ex
 # test_gui_state.InterfacePreferences checks the list against `preferences()`.
 INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_revision', 'custom_output',
                          'system_mode', 'platform', 'feedback_paths', 'rom_paths', 'send_after_batch',
+                         # Read by packing.set_compression before the batch (the window), never by a converter.
+                         'compress_games',
                          'startup_update_check', 'last_update_check', 'discoveries_waiting',
                          # Games converted at once per console: the window cuts the queue by it.
                          'console_jobs')

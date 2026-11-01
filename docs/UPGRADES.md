@@ -100,6 +100,7 @@ releases follow, newest first (1.6.5, then 1.6.4 and before).
 | [CPS-1 leaves the experimental status](#cps-1-leaves-the-experimental-status-166) | CPS-1 (it already moves for the Z80 corrections: no extra conversion) | none | no key changes |
 | [Sharp X68000: D88 images, floppy format read from the content, fuller report](#sharp-x68000-d88-images-floppy-format-read-from-the-content-fuller-report-166) | Sharp X68000 | none | not stated |
 | [Windows: a game UPX cannot pack is published unpacked](#windows-a-game-upx-cannot-pack-is-published-unpacked-166) | none | build stamp of every console (`retrorecomp/packing.py`) | none |
+| [Option "Compress games": publish without UPX](#option-compress-games-publish-without-upx-166) | none | build stamp of every console (`retrorecomp/packing.py`) | none |
 
 Taken together, the sections give the game stamp of **every console** a move between 1.6.5 and 1.6.6, through the first line (the
 shared `core`); no section that states its host stamps moves one, and the build stamp of every console moves through the packing
@@ -459,6 +460,31 @@ reason in the conversion log and the report (`packing.packed` false, `packing.un
 most likely removed the file). A missing or altered UPX, or an original that cannot be put back, is still an error. Games that
 pack and pass are byte for byte what they were. `retrorecomp/packing.py` is a build input of every console: the build stamps move,
 no game stamp, no quick-state key.
+
+## Option "Compress games": publish without UPX (1.6.6)
+
+A global option, **Options > Common > Compress games** (preference `compress_games`, on by default: today's behaviour), and the
+switch `--compress` / `--no-compress` of `convert` and `batch` (without a switch, the saved option applies). It exists because
+Windows Defender's machine-learning detection (`Program:Win32/Contebrew.A!ml`, a false positive) sometimes flags a freshly built,
+UPX-packed game; an unpacked game is 3 to 4 times larger and the same program. With the option off `packing.compact_executable`
+does not run UPX: the executable is published exactly as built and validated, the conversion log says "Published uncompressed:
+the player turned the "Compress games" option off" and the report has `packing.packed` false with that text as
+`packing.unpacked_reason`. The gate G5 copy follows without any change to `conversion_gates` or `delivery_evidence`
+(`pack_candidate` calls `compact_executable`): the Neo Geo, CPS-1 and X68000 packed replay replays an unpacked copy,
+`DeliveredFile.kind` is `unpacked` and the comparison line says "unpacked"; `packing_record` then says in `compared_on` that the
+delivered file replayed is not compressed. The window and the command line set the option for the process before a conversion starts
+(`packing.set_compression`); a conversion never reads the preferences file itself. The option is an interface preference that no
+converter receives (`INTERFACE_PREFERENCES`), so it is not part of a game's request signature: a game that is up to date is not
+rebuilt because the option changed (**Force regeneration** or `--force` publishes it again).
+
+Stamps (computed with the tree of the commit before and the tree of this change, `compilation_inputs.role_stamps` of the nine
+consoles): only the **build stamp of every console moves**, because `retrorecomp/packing.py` is a build input of every console (it
+already moves for the Windows fallback above: the two changes are summed in the row, not twice). The host stamps and the game
+stamps do not move. The new interface strings are in `retrorecomp/i18n.py` (an interface module) and in `assets/locales/*.json`
+(`assets/locales/` is declared out of every stamp), and `retrorecomp/gui*.py` and `RetroRecomp.py` are out of the stamps too.
+`conversion_gates` and `delivery_evidence` are not edited, so the consoles that share them keep their game stamps. No quick-state
+key moves. A build change rebuilds an export without rediscovery; an export of 1.6.5 keeps its packed file until it is converted
+again.
 
 ## Game Gear: F5 sprite flicker reduction, and two files change group (1.6.5)
 

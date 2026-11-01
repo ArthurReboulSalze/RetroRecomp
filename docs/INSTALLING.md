@@ -83,7 +83,11 @@ them anyway; Smart App Control has to be turned off (Windows Security > App &
 browser control) to play them.
 
 If your antivirus flags a file, please tell us: it is a false positive (often
-caused by executable compression) that we will report to the vendor.
+caused by executable compression) that we will report to the vendor. Windows
+Defender in particular sometimes flags a freshly built compressed game. If that
+happens, turn off **Options > Common > Compress games** (or add `--no-compress`
+to `batch` or `convert`) and convert the game again with **Force regeneration**:
+it is then published uncompressed, the same program, 3 to 4 times larger.
 
 Uninstall through Windows Settings or the Start menu entry. Games, `datas`
 (settings, library, discoveries, covers) are always kept. The uninstaller then

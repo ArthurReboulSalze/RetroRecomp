@@ -549,6 +549,8 @@
     "tip_account_shop": "RR-Münzen kommen mit bestätigten Pfaden, aber auch mit Umwandlungen, Analysetiefe, Erkundung und hilfreichen Meldungen. Gib sie im Shop deiner Kontoseite aus: Titel, Namensstile, Konsolen-Abzeichen, Anstecker, Porträtrahmen und Kopfleisten-Themen. Was du ausrüstest, erscheint hier und in der Rangliste.",
     "use_shared_base": "Gemeinsame Basis nutzen",
     "tip_use_shared_base": "Vor jedem Durchgang die Pfade abrufen, die andere Spieler für genau diese ROMs gefunden haben. Sie leiten die Erkundung und werden immer erneut geprüft; stammen sie aus einem mindestens so langen Scan wie deinem, ersetzt eine Schnellprüfung die Erkundung.",
+    "compress_games": "Spiele komprimieren",
+    "compress_games_note": "Komprimierte Spiele sind kleiner, aber Windows Defender hält ein frisch erstelltes komprimiertes Spiel manchmal fälschlich für eine Bedrohung (ein Fehlalarm). Deaktiviere diese Option, um Spiele unkomprimiert zu veröffentlichen: dasselbe Programm, 3- bis 4-mal größer. Gilt für die nächsten Umwandlungen.",
     "send_after_batch": "Neue Entdeckungen nach den Durchgängen senden (höchstens alle 15 Minuten)",
     "tip_send_after_batch": "Nach einem Durchgang im Hintergrund senden, was die gemeinsame Basis noch nicht von dir erhalten hat: nur Zahlen, nie ROM-Inhalte. Gesendet wird höchstens alle 15 Minuten; ein noch wartender Versand geht beim Schließen des Fensters oder beim nächsten Start. Schlägt es fehl, wird es nach dem nächsten Durchgang erneut versucht.",
     "shared_received": "Gemeinsame Basis: Pfade anderer Spieler für {games} dieser Spiele ({records} Beiträge, {observations} Beobachtungen). Jede Konvertierung prüft sie erneut.",

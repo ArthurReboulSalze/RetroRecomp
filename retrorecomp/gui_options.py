@@ -161,10 +161,15 @@ class OptionsMixin:
                                      ('use_shared_base', self.use_shared_base, 'tip_use_shared_base'),
                                      ('startup_update_check', self.check_at_startup, 'tip_startup_update_check'),
                                      ('overwrite', self.overwrite, 'tip_overwrite'),
-                                     ('force', self.force, 'tip_force')):
+                                     ('force', self.force, 'tip_force'),
+                                     ('compress_games', self.compress_games, 'compress_games_note')):
             control = checkbox(shared, key, variable, hint)
             if key == 'icon_tags':
                 self.icon_tags_control = control
+            if key == 'compress_games':
+                # Why the option exists, in plain sight (not only in the hint): Windows Defender.
+                ttk.Label(shared, text=self.tr('compress_games_note'), style='Muted.TLabel', wraplength=760,
+                          justify='left').pack(anchor='w', padx=(24, 0), pady=(0, 8))
 
         limits = ttk.Frame(common)
         limits.grid(row=4, column=0, sticky='w', pady=(12, 0))
