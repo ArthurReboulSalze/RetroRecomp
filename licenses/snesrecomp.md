@@ -512,7 +512,7 @@ the paragraph above, and it came back clean.
   transfers can populate PPU destinations through the existing DMA engine.
 - Retro-Recomp (1.6.6): the decompression engine above is compiled into the Super Nintendo games whose cartridge carries an
   S-DD1. Andreas Naive's public-domain notice, quoted above, stays with this file; the credit is a courtesy he asks for and
-  is kept here and in the credits window. The adapter only counts the sessions it runs (`rr_sdd1_dma_sessions`,
+  is kept in this file, which the Super Nintendo row of [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) points to. The adapter only counts the sessions it runs (`rr_sdd1_dma_sessions`,
   `rr_sdd1_dma_bytes`, `rr_sdd1_cpu_blocks`, in `retrorecomp/snes_chips.py`) and adds no decompression code of its own.
   A second copy of this section that said "review required" came from an earlier revision of the notice and was removed:
   the review it asked for is the paragraph "This is therefore not a constraint...".

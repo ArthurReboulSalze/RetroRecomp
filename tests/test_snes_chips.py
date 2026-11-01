@@ -143,7 +143,11 @@ class ChipTests(unittest.TestCase):
         adapted = adapt_cart(self.PINNED_CART.read_text(encoding='utf-8'))
         sa1 = adapted[adapted.index('case CART_SA1:'):]
         self.assertEqual(adapted.count('cart_sync_coprocessors(cart, g_cpu.master_cycles);'), 2)
-        self.assertEqual(adapted.count('rr_snes_sa1_note('), 2)
+        # The lateness is measured before the synchronisation (the catch-up the access forces) and the lead after it.
+        self.assertEqual(adapted.count('rr_snes_sa1_before('), 2)
+        self.assertEqual(adapted.count('rr_snes_sa1_after('), 2)
+        for body in (sa1[:sa1.index('sa1_cpu_read')], sa1[sa1.index('case CART_SA1:', 10):]):
+            self.assertLess(body.index('rr_snes_sa1_before('), body.index('cart_sync_coprocessors(cart, g_cpu.master_cycles)'))
         self.assertIn('sa1_cpu_read(cart->sa1, bank, adr, 0xff)', sa1)
     PINNED_SA1 = Path(__file__).resolve().parents[1] / '.deps/snesrecomp/runner/src/snes/sa1.c'
     @unittest.skipUnless(PINNED_SA1.is_file(), 'pinned engine checkout not present')
@@ -157,6 +161,11 @@ class ChipTests(unittest.TestCase):
         self.assertIn('sa1->cpu->irqWanted = irq;', adapted)
         self.assertIn('if (irq) sa1->interrupt_vector_kind = 2;', adapted)
         self.assertEqual(adapted.count('irqWanted = true'), 0)
+        # The NMI is an edge: requested when the (enabled, flagged) line rises, flagged when CCNT bit 4 rises.
+        self.assertIn('rr_nmi_edge = rr_nmi_line && !sa1->io.rr_nmi_line;', adapted)
+        self.assertIn('if (sa1->io.sa1_nmi && !rr_was_nmi) sa1->io.sa1_nmi_flag = true;', adapted)
+        self.assertIn('bool rr_nmi_line;', adapted)
+        self.assertEqual(adapted.count('nmiWanted = true'), 1)
         with self.assertRaises(ConversionError):
             sa1(source.replace('sa1->cpu->irqWanted = true;', 'changed'))
 if __name__=='__main__':unittest.main()

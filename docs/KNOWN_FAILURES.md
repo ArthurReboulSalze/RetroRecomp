@@ -20,8 +20,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 | Game Boy | Game Boy Color-only cartridges (header flag `0xC0`) | Refused by design | The converter refuses the cartridge (the profile is DMG only); Color-compatible cartridges are accepted and run as DMG | Outside the machine's scope | 0.12.0 |
 | Mega Drive | Virtua Racing (USA) | Refused by design | The cartridge declares the SVP coprocessor (`SV` at `$1C8`), not handled; the conversion stops before compiling | Nothing to try on the 68000 or Z80 side: the SVP is a capability of its own | 24 October 2026 |
 | NES | Famicom Disk System images | Refused by design | Disk images are not a supported medium ([NES.md](NES.md)) | Outside the machine's scope; the upstream's FDS work is deferred ([UPSTREAMS.md](UPSTREAMS.md#deferred)) | Always |
-| Super Nintendo | SA-1 cartridges, 15 (for example Super Mario RPG, Kirby Super Star, Kirby's Dream Land 3) | Refused by design | The SA-1 coprocessor is not handled; the converter names it and stops | Outside the current scope | Always |
-| Super Nintendo | S-DD1 cartridges, 3 (Star Ocean, Street Fighter Alpha 2) | Refused by design | S-DD1 decompression chip, not handled | Outside the current scope | Always |
+| Super Nintendo | Star Ocean (S-DD1, 6 MiB; two files, one ROM) | Failing | The converter refuses it (images above 4 MiB). Lifting the limit on a trial copy, it converts, shows its splash, then a blank screen | Probable cause, not yet confirmed: the S-DD1 decompression on a CPU read (`sdd1_cpu_read` in the pinned `cart.c`) is not reachable from `cpu_read8` (no `CART_SDD1` branch there: the read falls back to the raw bytes of the memory window). Not fixed; the 4 MiB limit stays until it is | 1 November 2026 |
 | Super Nintendo | SPC7110 (Super Power League 4) | Refused by design | SPC7110 chip, not handled | Outside the current scope | Always |
 | Super Nintendo | DSP-2 and DSP-4 (Dungeon Master, Top Gear 3000) | Refused by design | Only the DSP-1 is modelled | Outside the current scope | Always |
 | Super Nintendo | Other chips, 4 (F1 ROC II, Metal Combat, Villgust) | Refused by design | Chip types `$F6` and `$25` and others, not handled | Outside the current scope | Always |
@@ -41,6 +40,7 @@ counts (the five measures stay separate: native code, CPU fidelity, hardware fid
 
 ## Taken off this page
 
+- **Super Nintendo, the SA-1 cartridges and Street Fighter Alpha 2** (1 November 2026, release 1.6.6). The SA-1 (map `$23`, chip type `$34` or `$35`) and the S-DD1 (map `$32`, chip type `$43` or `$45`, up to 4 MiB) are no longer refused: the SA-1 core runs as a counted interpreted device, the S-DD1 as a command model ([SNES.md](SNES.md)). Only the SA-1 cartridges named in [SNES.md](SNES.md) have been played; the others are recognised, not proved. Star Ocean stays listed above.
 - **NES, Dragon Warrior IV** (29 October 2026). Listed as set aside the same day, then found: the conversion itself succeeds
   (9 min 27 s, zero interpreted cycles on the final paths); what stopped it was the fixed 120-second limit of the UPX packing of
   its large executable while other conversions shared the CPUs. Since 1.6.5 the limit grows with the file

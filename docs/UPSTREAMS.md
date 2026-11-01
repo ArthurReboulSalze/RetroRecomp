@@ -254,15 +254,18 @@ executes `RST 00` to `RST 38`, illegal opcodes, code spanning two memory regions
 
 ## Patches carried in 1.6.6 (Super Nintendo)
 
-Both change no pinned revision and are applied by fail-closed replacements on the staged copy (`snes_codegen.adapt_bridge`,
+None of them changes a pinned revision; they are applied by fail-closed replacements on the staged copy (`snes_codegen.adapt_bridge`,
 `snes_cart.adapt_cart`):
 
 | Patch | Our file | Why |
 |---|---|---|
 | The per-game fast-forwards of the pinned bridge are switched off in every build: the Super Mario RPG wait loop at `$C0:84B2` (`s_d9ff`, on unless `SNESRECOMP_NO_D9FF` is set) and the vblank-wait skip at fixed addresses of Star Ocean and Super Mario RPG (`s_vff_ok`, on unless `SNESRECOMP_NO_VBLANK_FF` is set) | `snes_codegen.py` (`adapt_bridge`) | Arthur's decision of 1 November 2026: no code for one title. The pinned `sa1.c` was validated upstream on that one cartridge. Neither engaged in the three SA-1 titles' routes |
 | The SA-1's IRQ request follows its flags: `sa1_request_interrupt` assigns `irqWanted` (a level) instead of only setting it | `snes_chips.py` (`sa1`) | The pinned core latched the request and never withdrew it: the `RTI` of a handler that had cleared its flag took a second IRQ whose vector was read from the ROM, and the SA-1 left its loop (authored cartridge, `tools/snes_sa1_selftest.py`) |
+| The SA-1's NMI is an edge: `sa1_request_interrupt` requests it once, when the (enabled and flagged) line rises, and the flag is raised only on the 0 to 1 write of bit 4 of `$2200` | `snes_chips.py` (`sa1`) | The pinned core re-armed `nmiWanted` before every instruction while the flag stayed set, so the handler never reached the instruction that clears it and the SA-1 looped on its NMI. On hardware the NMI is edge-triggered. The authored cartridge has an S-CPU to SA-1 NMI case that failed before the fix (`fail_sa1_nmi_once`) |
 | The S-DD1 counts its decompression DMA sessions, bytes asked and CPU-read blocks (`rr_sdd1_*`) | `snes_chips.py` (`sdd1`) | So the report can say the chip worked; no decompression code is touched. The duplicate, outdated S-DD1 section of `licenses/snesrecomp.md` ("review required") is removed |
-| The S-CPU reaches the SA-1 at the master clock of its own bus cycle (`cart_sync_coprocessors(cart, g_cpu.master_cycles)` in the `CART_SA1` cases of `cart_read` and `cart_write`) instead of the clock of the end of the previous instruction | `snes_cart.py` (`adapt_cart`) | Measured on Super Mario RPG: with the pinned clock the SA-1 stood behind the S-CPU by more than 32 master clocks at 3 % of the accesses and by more than 8,192 at 17 of them; the figures are in the conversion report (`sa1_behind_buckets`) |
+| The S-CPU reaches the SA-1 at the master clock of its own bus cycle (`cart_sync_coprocessors(cart, g_cpu.master_cycles)` in the `CART_SA1` cases of `cart_read` and `cart_write`) instead of the clock of the end of the previous instruction | `snes_cart.py` (`adapt_cart`) | Measured on Super Mario RPG with the pinned clock (the end of the previous instruction), taken after the SA-1 had been synced to that clock: the SA-1 stood behind the S-CPU by more than 32 master clocks at 3 % of the accesses and by more than 8,192 at 17 of them. The counters that remain (`sa1_behind_buckets`, `sa1_behind_max`) are taken before each sync, which is the real granularity; `sa1_synced_behind_max` is the remainder after it and `sa1_ahead_max` how far an instruction ran past the target: both are measurements on a cartridge, not bounds |
+
+Noted, not carried: the pinned bridge has a special case for the SA-1 in the absolute SPC700 timeline (`interp_bridge_use_absolute_apu_timeline(frame_timeline_active, is_sa1, mapped_extended_frame)` returns `frame_timeline_active && (is_sa1 || mapped_extended_frame)`). In our hosts the port time is valid from power-on and the extended frame timing is on, so the SA-1 case changes nothing; if a host stops providing either, the SA-1 would follow a different timeline from the other boards.
 
 ## Fixes carried as our own patches in 1.6.5
 

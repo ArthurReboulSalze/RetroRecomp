@@ -30,6 +30,22 @@ class SnesNativeTests(unittest.TestCase):
         self.assertNotIn('interp816_readOpcode(cpu)', source)
         self.assertEqual(source.count('static void rr_sn_op_'), 256)
 
+    def test_the_sa1_boards_memory_pointer_is_range_checked_before_it_is_subtracted_from_the_rom(self):
+        # sa1_cpu_memory_ptr may aim at the SA-1's I-RAM or BW-RAM: subtracting it from the ROM base is undefined, so the
+        # SA-1 board's lookup compares the addresses first. Other boards keep the plain subtraction (no cost on the hot path).
+        sa1 = snes_codegen.native_source(source_fixture(), bytes(0x8000), mapping='lorom')
+        self.assertNotIn('uintptr_t', sa1)
+        header = bytearray(0x8000)
+        header[0x7fd5:0x7fd7] = bytes((0x23, 0x35))
+        header[0x7fdc:0x7fe0] = bytes.fromhex('cb ed 34 12')
+        header[0x7fc0:0x7fd5] = b'RR SA1 FIXTURE'.ljust(21, b' ')
+        header[0x7ffc:0x7ffe] = bytes((0, 0x80))
+        header[0x7fd7] = 5
+        text = snes_codegen.native_source(source_fixture(), bytes(header), mapping='lorom')
+        self.assertIn('CART_SA1', text)
+        self.assertIn('if (rr_at < rr_base || rr_at - rr_base >= 32768u) return NULL;', text)
+        self.assertNotIn('(size_t)(mapped - rr_sn_cart->rom)', text)
+
     def test_missing_operation_rejected(self):
         text = source_fixture().replace('case 0xff:', 'case 0xfe:')
         with self.assertRaises(ConversionError):

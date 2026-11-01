@@ -263,11 +263,21 @@ What the work found and changed (all in the staged copy, none in the pinned chec
 - **The S-CPU reaches the SA-1 at the clock of its own bus cycle.** The pinned `cart_read` and `cart_write` synchronise the
   SA-1 to the clock of the end of the previous instruction. Measured on Super Mario RPG over 36.8 million accesses, the SA-1
   then stood behind the S-CPU by more than 32 master clocks at 3.3 % of them, by more than 8,192 at 17 of them (at most
-  540,172). With the bus-cycle clock it is never behind, and ahead by at most 24 clocks (one instruction); the report carries
-  the histogram (`sa1_behind_buckets`).
+  540,172): that is a statement about the old clock only. With the bus-cycle clock the SA-1 is run up to the clock of the
+  access, a whole instruction at a time, so it can end up to one instruction past it. The report counts both sides, each at
+  a different point: `sa1_behind_buckets` and `sa1_behind_max` are taken before each sync (how far behind the SA-1 was when
+  the S-CPU came to it: the real granularity of the scheme), `sa1_synced_behind_max` after it (zero by construction, kept
+  as a check that the sync ran) and `sa1_ahead_max` how far the last instruction ran past the target. The figures are
+  measurements on one authored cartridge and on the played routes, not bounds: no worst case is claimed for another game. On the
+  final tree, Super Bomberman - Panic Bomber W (Japan) reports a largest gap before a sync of 16,944 master clocks (the S-CPU
+  had not touched the coprocessor for that long) and at most 22 clocks past the target after it.
 - **The SA-1's IRQ request follows its flags.** The pinned core latched the request and never withdrew it: after a handler
   cleared its flag, the `RTI` took a second IRQ whose vector was read from the ROM (the S-CPU's), and the SA-1 never returned
   to its loop. Found by the authored cartridge below; it concerns every game that interrupts the SA-1 from the S-CPU.
+- **The SA-1's NMI is an edge.** The pinned core re-armed its NMI before every instruction while the flag stayed set, so the
+  handler never reached the instruction that clears it. On hardware the NMI is edge-triggered: it is now requested once, on the
+  rise of the line (the 0 to 1 write of bit 4 of `$2200`). The authored cartridge has an S-CPU to SA-1 NMI case that failed
+  before the fix (and a second edge that must run the handler again).
 - **Two fast-forwards the pinned bridge carries for single cartridges are off in every build** (a Super Mario RPG wait loop and
   a vblank wait at fixed addresses of Star Ocean and Super Mario RPG): no per-game code. They did not engage in the routes
   above (the SA-1 counts are identical with and without). A battle of Super Mario RPG was not reached by any scripted route,
@@ -279,8 +289,9 @@ What the work found and changed (all in the staged copy, none in the pinned chec
 An authored cartridge written for the purpose (`tools/snes_sa1_selftest.py`, NTSC and PAL) checks, against the processor
 manuals and the register documentation rather than against the engine: a counter loop in I-RAM at one instruction per ten
 master clocks (1,422,555 against 1,424,427 expected over 40 frames), a message and an IRQ from the S-CPU to the SA-1 and back
-with the flags cleared and each handler run once, BW-RAM written by each CPU and read by the other, the coprocessor never
-behind and at most 14 clocks ahead, native equal to the interpreted reference, the BW-RAM saved across two processes (a
+with the flags cleared and each handler run once, BW-RAM written by each CPU and read by the other, the coprocessor caught
+up at every sync (behind by at most 48 master clocks when the S-CPU came to it, ahead by at most 12 and 14 after it in NTSC and PAL: measurements on this
+cartridge, not bounds), native equal to the interpreted reference, the BW-RAM saved across two processes (a
 damaged file or a file for another cartridge refused untouched) and a quick state restored in a fresh process.
 
 **S-DD1.** Street Fighter Alpha 2 (USA; map `$32`, type `$43`, 4 MiB, no RAM) is the reference board and converts with zero

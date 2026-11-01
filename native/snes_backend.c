@@ -51,13 +51,18 @@ static uint64_t ram_observation_overflows;
 static unsigned ram_variant_count;
 /* SA-1 board: how far behind the S-CPU the coprocessor stood (master clocks) each time the S-CPU reached it. */
 static uint64_t sa1_sync_samples;
-static int64_t sa1_behind_max, sa1_ahead_max;
+static int64_t sa1_behind_max, sa1_ahead_max, sa1_synced_behind_max;
 /* Samples by lateness: not late, 1-32, 33-512, 513-8192, over 8192 master clocks. */
 static uint64_t sa1_behind_bucket[5];
-void rr_snes_sa1_note(int64_t behind) {
+/* Before the synchronisation: how far the SA-1 had fallen behind since the last one (the catch-up the S-CPU's access
+ * forces); after it: how far it stands ahead (it runs whole instructions) and, by construction never, behind. */
+void rr_snes_sa1_before(int64_t behind) {
     ++sa1_sync_samples;
     ++sa1_behind_bucket[behind <= 0 ? 0 : behind <= 32 ? 1 : behind <= 512 ? 2 : behind <= 8192 ? 3 : 4];
     if (behind > sa1_behind_max) sa1_behind_max = behind;
+}
+void rr_snes_sa1_after(int64_t behind) {
+    if (behind > sa1_synced_behind_max) sa1_synced_behind_max = behind;
     if (-behind > sa1_ahead_max) sa1_ahead_max = -behind;
 }
 void debug_on_wram_write_byte(uint32_t addr, uint8_t old_val, uint8_t val) {}
@@ -118,7 +123,7 @@ bool rr16_init(bool headless) {
     headless_mode = headless;
     ram_variant_count=0;ram_observation_overflows=0;
     rr_sdd1_dma_sessions=rr_sdd1_dma_bytes=rr_sdd1_cpu_blocks=0;
-    sa1_sync_samples=0;sa1_behind_max=sa1_ahead_max=0;memset(sa1_behind_bucket,0,sizeof sa1_behind_bucket);
+    sa1_sync_samples=0;sa1_behind_max=sa1_ahead_max=sa1_synced_behind_max=0;memset(sa1_behind_bucket,0,sizeof sa1_behind_bucket);
     memset(ram_observation_slots,0,sizeof ram_observation_slots);
     const char *reference = getenv("RR_SNES_FORCE_INTERP");
     bool native = !reference || reference[0] != '1';
@@ -255,9 +260,10 @@ void rr16_report_details(FILE *file) {
         cart->cx4 || cart->superfx || cart->sa1 ? "interpreted" : cart->dsp1 || cart->sdd1 ? "command_model" : "not_run",chip.hash,
         chip_interpreted(),cart->cx4 ? cx4_locked(cart->cx4) : cart->dsp1 ? dsp1_hle_failed(cart->dsp1) : 0,
         interpreted);
-    if(cart->sa1)fprintf(file,",\"sa1_sync_samples\":%llu,\"sa1_behind_max\":%lld,\"sa1_ahead_max\":%lld,"
-        "\"sa1_behind_buckets\":[%llu,%llu,%llu,%llu,%llu]",
-        (unsigned long long)sa1_sync_samples,(long long)sa1_behind_max,(long long)sa1_ahead_max,
+    if(cart->sa1)fprintf(file,",\"sa1_sync_samples\":%llu,\"sa1_behind_max\":%lld,\"sa1_synced_behind_max\":%lld,"
+        "\"sa1_ahead_max\":%lld,\"sa1_behind_buckets\":[%llu,%llu,%llu,%llu,%llu]",
+        (unsigned long long)sa1_sync_samples,(long long)sa1_behind_max,(long long)sa1_synced_behind_max,
+        (long long)sa1_ahead_max,
         (unsigned long long)sa1_behind_bucket[0],(unsigned long long)sa1_behind_bucket[1],
         (unsigned long long)sa1_behind_bucket[2],(unsigned long long)sa1_behind_bucket[3],
         (unsigned long long)sa1_behind_bucket[4]);

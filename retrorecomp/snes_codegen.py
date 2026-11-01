@@ -162,6 +162,15 @@ static void rr_sn_wram_fill(void) {{
         return rr_sn_ram_search(pc, fetched);
     }''' if ram else 'if (!mapped) return NULL;'
     fill = 'rr_sn_wram_fill();' if ram else ''
+    if cart_type == 'CART_SA1':
+        # The SA-1 board's memory pointer may aim at its I-RAM or its BW-RAM, which are other objects than the ROM:
+        # the range is checked before the subtraction (subtracting pointers of two objects is undefined).
+        offset_code = f'''uintptr_t rr_base = (uintptr_t)rr_sn_cart->rom, rr_at = (uintptr_t)mapped;
+    if (rr_at < rr_base || rr_at - rr_base >= {len(bus_rom)}u) return NULL;
+    size_t offset = (size_t)(rr_at - rr_base);'''
+    else:
+        offset_code = f'''size_t offset = (size_t)(mapped - rr_sn_cart->rom);
+    if (offset >= {len(bus_rom)}u) return NULL;'''
     # The SA-1 core is the same Interp816 with the coprocessor as its memory: the main CPU's hooks must skip it.
     sa1_cpu = ('bool rr_snes_is_sa1_cpu(const Interp816 *cpu) {\n'
                '    return g_snes && g_snes->cart && g_snes->cart->sa1 && cpu->mem == (void *)g_snes->cart->sa1;\n'
@@ -219,8 +228,7 @@ static const RrSnesNativeOp *rr_sn_lookup(uint32_t pc, int fetched) {{
     if (!rr_sn_active) return NULL;
     uint8_t *mapped = rr_sn_rom_ptr((uint8_t)(pc>>16), (uint16_t)pc);
     {ram_lookup}
-    size_t offset = (size_t)(mapped - rr_sn_cart->rom);
-    if (offset >= {len(bus_rom)}u) return NULL;
+    {offset_code}
     const RrSnesNativeOp *operation = rr_sn_pages[offset >> 8][offset & 255u];
     /* A modified cartridge byte never selects another compiled operation. */
     return *mapped == operation->opcode && (fetched<0 || fetched==operation->opcode) ? operation : NULL;

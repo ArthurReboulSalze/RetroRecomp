@@ -67,15 +67,19 @@ def ram_offset(memory, address):
 def adapt_cart(source):
     source = replace(source, '#include "cart.h"', '#include "cart.h"\n#include "snes_cart.h"\n#include "cpu_state.h"\n'
                      '#include "snes_native_steps.h"')
-    # SA-1 board: how far behind the S-CPU the coprocessor stands when the S-CPU reaches it (reported per run).
+    # SA-1 board: how far behind the S-CPU the coprocessor stands when the S-CPU reaches it, before and after the
+    # synchronisation (reported per run).
     source = replace(source, '''    case CART_SA1:
       cart_sync_coprocessors(cart, cart_master_clock(cart));
       return sa1_cpu_read(cart->sa1, bank, adr, 0xff);''', '''    case CART_SA1:
       /* The S-CPU reaches the SA-1 at the master clock of THIS bus cycle (cart_master_clock is the clock of
        * the end of the previous instruction: the SA-1 stood up to thousands of clocks behind). */
+#if RR_SN_SA1
+      rr_snes_sa1_before((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
       cart_sync_coprocessors(cart, g_cpu.master_cycles);
 #if RR_SN_SA1
-      rr_snes_sa1_note((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+      rr_snes_sa1_after((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
 #endif
       return sa1_cpu_read(cart->sa1, bank, adr, 0xff);''')
     source = replace(source, '''    case CART_SA1:
@@ -83,9 +87,12 @@ def adapt_cart(source):
       sa1_cpu_write(cart->sa1, bank, adr, val);''', '''    case CART_SA1:
       /* The S-CPU reaches the SA-1 at the master clock of THIS bus cycle (cart_master_clock is the clock of
        * the end of the previous instruction: the SA-1 stood up to thousands of clocks behind). */
+#if RR_SN_SA1
+      rr_snes_sa1_before((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+#endif
       cart_sync_coprocessors(cart, g_cpu.master_cycles);
 #if RR_SN_SA1
-      rr_snes_sa1_note((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
+      rr_snes_sa1_after((int64_t)g_cpu.master_cycles - (int64_t)sa1_master_clock(cart->sa1));
 #endif
       sa1_cpu_write(cart->sa1, bank, adr, val);''')
     old = '''      if ((((bank >= 0x70 && bank < 0x7e) || bank >= 0xf0)) &&

@@ -23,7 +23,9 @@ void rr_snes_native_set_enabled(bool enabled);
 bool rr_snes_native_bind(void);
 #if RR_SN_SA1
 bool rr_snes_is_sa1_cpu(const Interp816 *cpu);
-void rr_snes_sa1_note(int64_t behind);
+/* How far behind the S-CPU the SA-1 stood (master clocks, negative: ahead) when the S-CPU reached it, before and after the sync. */
+void rr_snes_sa1_before(int64_t behind);
+void rr_snes_sa1_after(int64_t behind);
 #endif
 void rr16_snes_note_native(void);
 void rr16_snes_note_interpreted(uint32_t pc);
