@@ -298,7 +298,7 @@ def _collect_cps1(game, report: dict | None, outcome: dict) -> None:
     program and sound images of the player's own romset), made by `cps1_conversion` from the fresh reference runs
     of a conversion that passed, so no ROM is read here. It is shared only when the library's record is the one
     the qualified report was built with: same romset, same images, same engine revision. The machine is
-    experimental; that label changes nothing here."""
+    in the experimental tier of the base; the status label changes nothing here."""
     from . import cps1_knowledge
     omitted = outcome['omitted']
     if not report:

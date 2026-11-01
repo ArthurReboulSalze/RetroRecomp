@@ -222,6 +222,24 @@ Stamps (computed with the tree of 1.6.5 and the tree of this change): only the *
 console and nothing else); host and build stamps and the other eight consoles do not move. An X68000 export of 1.6.5 is converted
 again in full once, like the other experimental exports of a release that changes the converter.
 
+## CPS-1 leaves the experimental status (1.6.6)
+
+The CPS-1 profile is `supported` (owner's decision of 1 November 2026, on the evidence in [QUALIFICATION.md](QUALIFICATION.md); his own play
+trial of the 1.6.6 executable is still to do). What changes for a player and for the files:
+
+- **Reports.** A CPS-1 conversion whose final routes interpreted no 68000 and no Z80 instruction now writes `status: completed` (the
+  Neo Geo rule); one that interpreted some keeps `experimental` as its stage, and the window then says "Created · experimental". The
+  schema 2 field `knowledge.machine_status` says `supported`.
+- **Interface.** The CPS-1 note in Options no longer says "experimental", and the Knowledge pop-up lists CPS-1 with the shared consoles (its
+  paths still count only for the engine revision that validated them), in the eight languages. The X68000 keeps its experimental labels.
+- **Linux.** The profile is `witnessed` (three sets give the same route hashes on Debian 13), so the Linux converter no longer refuses CPS-1.
+  Interactive play, sound and pads on Linux were not witnessed.
+- **Shared base.** Nothing moves: CPS-1 stays in the experimental tier (schema 3 only, line 3 of the base, withdrawable with
+  `path_profiles.EXPERIMENTAL_SHARED`); the status label is not read by any sharing code.
+- **Stamps.** `retrorecomp/systems/cps1.py` is a game input of the CPS-1, so its game stamp moves; it moves already in 1.6.6 for the Z80
+  corrections below, so this adds no conversion. Host and build stamps and the other eight consoles do not move (checked against the tree
+  just before this change). No quick-state key changes.
+
 ## Neo Geo and CPS-1: the sound CPU's Z80 is corrected (1.6.6)
 
 The Z80 of Geolith, which plays the sound of the Neo Geo and of the CPS-1, is corrected in the converter's copy (19 strict replacements,

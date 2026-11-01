@@ -260,10 +260,13 @@ class DualWrite(unittest.TestCase):
             self.assertEqual(write_report(path, {**gb_report(), 'status': None})['status'], 'supported')
             self.assertEqual(write_report(path, {**neogeo_report(), 'status': 'experimental'})['status'],
                              'experimental')
-            # The experimental machines say so even when their writer left it out.
+            # The status of the profile is written even when the writer left it out (CPS-1 is supported since 1.6.6).
             cps1 = FIXTURES['cps1 completed']()
             cps1.pop('status', None)
-            self.assertEqual(write_report(path, cps1)['status'], 'experimental')
+            self.assertEqual(write_report(path, cps1)['status'], 'supported')
+            x68 = FIXTURES['x68 zero fallback']()
+            x68.pop('status', None)
+            self.assertEqual(write_report(path, x68)['status'], 'experimental')
 
     def test_write_report_fills_the_target_and_the_time_and_replaces_the_file_atomically(self):
         with tempfile.TemporaryDirectory() as folder:

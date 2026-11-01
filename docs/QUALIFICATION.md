@@ -28,7 +28,7 @@ owner-acceptance log. It makes no claim beyond them.
 | G15 | Honesty | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 | G16 | Shared-knowledge safety | [STANDARDS.md](STANDARDS.md#supported-checklist) |
 
-## Status matrix (27 October 2026; the X68000 column of 1 November 2026)
+## Status matrix (27 October 2026; the X68000 and CPS-1 columns of 1 November 2026)
 
 `Y` met, `P` partial, `N` no, `?` unknown, `-` not applicable. Consoles:
 sms = Master System, gg = Game Gear, gb = Game Boy, nes = Nintendo NES,
@@ -48,17 +48,24 @@ x68 = Sharp X68000.
 | G9 | P | P | P | P | Y | P | Y | Y | Y |
 | G10 | Y | Y | P | Y | P | P | P | Y | P |
 | G11 | P | P | P | P | P | P | P | P | P |
-| G12 | Y | P | Y | P | Y | Y | Y | P | P |
+| G12 | Y | P | Y | P | Y | Y | Y | Y | P |
 | G13 | P | P | P | P | P | P | P | P | Y |
-| G14 | ? | ? | ? | ? | Y | ? | Y | ? | ? |
+| G14 | ? | ? | ? | ? | Y | ? | Y | P | ? |
 | G15 | P | P | P | P | P | P | Y | Y | P |
-| G16 | Y | Y | Y | Y | Y | Y | Y | - | - |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | - |
 
 ### Caveats
 
 - CPS-1 (29 October 2026): G3, G8 and G9 moved from `P` to `Y` on the evidence of the section below (26 sets, one tree). G9 `Y`
   rests on captures inspected by the specialist agent, not by the owner. G10 is `Y` since 1.6.6 (both CPUs replay independent vectors; the Z80 core is corrected in the converter's copy and only the `SCF`/`CCF` X and Y flags
   remain). G11 and G13 stay `P` with fresher evidence (1 November).
+
+- CPS-1 (1 November 2026): the profile is `supported`. G12 moved from `P` to `Y` on the owner's choice of criterion 1 ("every set of
+  the perimeter he owns is converted and validated": 26 of 26); the two boards and the 20 mappers the panel does not cover are noted in
+  [CPS1.md](CPS1.md#panel-coverage). G14 is `P`: the owner accepted the exit from the experimental status on the evidence, and the play
+  trial list is still to do on the 1.6.6 executable (see *Owner acceptance*). G16 is `P`: the paths are numeric, rechecked and retried
+  without hints, but no CPS-1 path is qualified yet and CPS-1 stays in the experimental tier of the shared base. G13 stays `P`
+  (three sets of 26 on Debian 13; interactive play on Linux not witnessed).
 
 - X68000 (1 November 2026): G2 and G9 moved from `P` to `Y` on the evidence of the section below (1.6.6 tree). G9 `Y` rests on the
   four risk cases and on captures inspected by the specialist agent, not by the owner; the thorough level (36,000 frames) was not run.
@@ -67,7 +74,7 @@ x68 = Sharp X68000.
   Only ng, cps1, (since 1.6.5) x68 and (since 1.6.6) md run G5 inside every conversion, and ng,
   cps1 and x68 run G6 inside every conversion. Read G5 and G6 as "met per
   conversion" only for those three.
-- G14 for NES, SNES, SMS, GG, GB, CPS-1 and X68 means "no recorded owner
+- G14 for NES, SNES, SMS, GG, GB and X68 means "no recorded owner
   decision found", not proof that none exists. X68000 and CPS-1 owner trials
   were reported in chat on 27 October 2026 and are not written in a document
   yet; they belong in the owner-acceptance table below when recorded.
@@ -192,15 +199,15 @@ A conversion took 133 to 186 seconds on the Windows build PC with these three ro
 them). Picture and sound changing is not gameplay validation, and a route that stays on a title screen proves only that the
 machine runs.
 
-## Capcom CPS-1: evidence behind its column (29 October 2026)
+## Capcom CPS-1: evidence behind its column (29 October 2026, status of 1 November 2026)
 
-CPS-1 stays **experimental**. Each gate with the file or measure that shows it and what is still missing; nothing here says
+CPS-1 is **supported** since 1.6.6, on the owner's decision of 1 November 2026 taken on this evidence; his own play trial is still to do. Each gate with the file or measure that shows it and what is still missing; nothing here says
 hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](CPS1.md#qualification), dated measurements in
 [CPS1_LOG.md](CPS1_LOG.md#29-october-2026-165-tree-the-whole-panel-routes-captures-and-long-routes).
 
 | Gate | CPS-1 | Evidence | What is missing |
 |---|---|---|---|
-| G1 | Y | `retrorecomp/systems/cps1.py` (status `experimental`), README, COMPATIBILITY, the interface | |
+| G1 | Y | `retrorecomp/systems/cps1.py` (status `supported`), README, COMPATIBILITY, INDEX, the interface; `tools/status_lint.py` shows 0 contradictions | |
 | G2 | Y | Common report v2 with separate 68000 and Z80 counters (`report_schema.py`) | |
 | G3 | Y | `final_checks[].interpreted_opcodes` and `audio_interpreted_opcodes` are 0 on both routes of the 26 sets of the table (29 October, one tree) | Only on the routes run |
 | G4 | Y | A fresh interpreted reference per route in every conversion (`final_checks[].reference_match`) | |
@@ -211,11 +218,11 @@ hardware fidelity, gameplay coverage or latency. Details and tables: [CPS1.md](C
 | G9 | Y | The credited play route of each of the 26 sets reaches play (six captures per set, replayed on the delivered file, inspected); the 18,000-frame route ran on `sf2ce`, `ffight` and `1941` | Inspected by the specialist agent, not by the owner; not full games |
 | G10 | Y | 68000: the three SingleStepTests fixtures through the CPS-1 generator, the native steps agree with 3,787 of 3,787 vectors and 80 of 82 authored cases (`tools/cps1_vector_selftest.py`). Z80: 51,328 vectors through the CPS-1 Z80 bodies and the Geolith core corrected in the converter's copy since 1.6.6, native and interpreted identical, 51,260 states (99.87 percent) and all 51,328 clocks agree with the oracle (`tools/cps1_z80_vector_selftest.py`, `neogeo_z80.FIXES`) | The X and Y flags of `SCF`/`CCF` (the Q latch is not carried: a store per Z80 instruction and a state field); the CPS-1 Musashi reference differs from the 68000 vectors in a few groups (division and `CHK` flags, trace), where the translated steps follow the vectors |
 | G11 | P | MAME 0.289 on the 1.6.5 tree (`tools/cps1_mame_compare.py`, 30 October and 1 November): 24 sets comparable, the picture of the attract route identical on all of them, of the credited play route on 23; the sound within 0.42 dB (median level) and 0.99 (averaged spectra) on the 24 | `sf2hf` slips by a frame; two sets need PAL dumps the romsets lack; MAME is not hardware; the waveforms are not claimed equal (OKI interpolation) |
-| G12 | P | 26 sets, all measured on one tree | The panel size policy is not decided |
+| G12 | Y | The owner chose criterion 1 (1 November 2026): every set of the perimeter that he owns is converted and validated, 26 of 26 (the perimeter has 129 sets) | Not covered by the panel and noted in [CPS1.md](CPS1.md#panel-coverage): the boards `CPS_B_17` (`sf2ua`) and `CPS_B_21_BT5` (`varthj`), 20 of the 45 mappers (seen in sets the collection lacks) |
 | G13 | P | Final Fight (27 October), Street Fighter II' Champion Edition (30 October) and 1941 (1 November) give the same CPU, RAM, image, sound and trace hashes on Windows and Debian 13 | Three sets of 26 |
-| G14 | ? | No recorded owner decision (draft row below) | Arthur's play test |
+| G14 | P | Exit from the experimental status accepted by the owner on 1 November 2026 on the evidence of 1.6.6 (row below) | The owner's play trial list, on the 1.6.6 executable |
 | G15 | Y | The five measures stay separate in the report and in [CPS1.md](CPS1.md) | |
-| G16 | - | No CPS-1 path is qualified; the sharing can be withdrawn | |
+| G16 | P | Numeric paths, rechecked by every conversion, a failing conversion starts again without them; the sharing can be withdrawn in one line | No CPS-1 path is qualified yet; CPS-1 stays in the experimental tier of the shared base (schema 3 only) |
 
 ## Panel sizes
 
@@ -223,7 +230,7 @@ No common panel size exists today. The panel sizes noted by the 27 October
 2026 inventory are: Neo Geo 24+10, Mega Drive 24+8, Super Nintendo DSP-1/CX4
 8, Super FX 9, NES 8+10+8+6, Game Boy 606, Master System 258, CPS-1 26,
 X68000 19. Whether G12 needs a common threshold is a policy decision that has
-not been recorded.
+not been recorded; for CPS-1 the owner chose, on 1 November 2026, "every set of the perimeter he owns".
 
 ## Owner acceptance
 
@@ -233,7 +240,8 @@ owner fills it in.
 | Date | Console | Games tried | Verdict | Notes |
 |---|---|---|---|---|
 |  |  |  |  |  |
-| _Draft, to fill (CPS-1)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete. The owner trials of 27 October 2026 were reported in chat and are not recorded here._ |
+| 1 November 2026 | Capcom CPS-1 | none (decision on the evidence, no game played for this row) | Exit from the experimental status validated by Arthur on the basis of the 1.6.6 evidence | The play trial list of `CPS1_ACCEPTATION.md` is still to do on the 1.6.6 executable. The owner trials of 27 October 2026 were reported in chat and are not recorded here. |
+| _Draft, to fill (CPS-1 trial)_ | Capcom CPS-1 | _suggested: `1941` (vertical), `sf2ce`, `ffight`, `captcomm` (four players), `strider`, `mercs` (vertical, three players)_ | _verdict_ | _Prepared 29 October 2026 for the owner to complete on the 1.6.6 executable._ |
 
 ### Checklist for Arthur: Sharp X68000 play test (G14)
 
