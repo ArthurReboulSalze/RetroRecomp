@@ -71,9 +71,9 @@ Both engines read the same ROM and share the VDP, PSG, memory and input runtime.
 
 In the converter, the checkbox **Extended native coverage - Sega profiles** (options page of the Master System and the Game
 Gear, on by default) selects the banked engine; unchecked selects functions. On the command line `--backend banked` is the
-default. Functions still fails the reference check on Alex Kidd: The Lost
-Stars and Sonic Spinball (Game Gear) (1.6.5 work; Action Fighter, High-Tech World, Super Columns and Sonic Triple Trouble pass); the banked engine converts them. Alex Kidd in
-Miracle World and Factory Panic now convert with functions; 12 of 15 games tried pass its reference check from an empty learning state
+default. Functions still fails the reference check on Aladdin and Sonic Spinball
+(Game Gear) (1.6.6 work; Action Fighter, High-Tech World, Super Columns, Sonic Triple Trouble and Alex Kidd: The Lost Stars pass); the banked engine converts them. Alex Kidd in
+Miracle World and Factory Panic now convert with functions; 13 of 15 games tried pass its reference check from an empty learning state
 (1.6.5; Aladdin, which passed after earlier conversions in 1.6.4, does not from an empty state, with or without the 1.6.5 patch).
 
 ## Engine and upstream
@@ -100,6 +100,8 @@ Our patches on that copy (all CPU-fidelity changes; the pin does not move):
 | Repeating block instructions that go on: X and Y from the high byte of the instruction address, H and P from B for the input and output groups (the flags an interrupt between two iterations pushes) | 1.6.5 | `core.patched_generator_source` | functions engine only |
 | `RET` that pops an address the function pushed itself, and tail jumps whose callee returns below the function's own return slot: continue at the popped address as a nested call (entry SP kept per function, bounded nesting) | 1.6.5 | `core.patched_generator_source` | functions engine only |
 | Jumps that cross a 16 KiB slot inside one generated function go through the bank-checking dispatch instead of a `goto` (the bank of the other slot may have changed since the static walk) | 1.6.5 | `core.patched_generator_source` | functions engine only |
+| WZ kept in the generated code (`BIT n,(HL)` takes X and Y from it, as the Z80 and the banked engine do) | 1.6.6 | `core.patched_generator_source` | functions engine only |
+| Word bus reads: low byte, then high byte, in two statements (`sms_read16` of the staged header) | 1.6.6 | `cpu.prepare_cpu_headers` | both engines |
 | Local copies of the reference CPU and the shared headers: WZ and Q latches, SCF/CCF X/Y flags, `BIT (HL)` without write-back, IM/RETI aliases, OTDR timing, IM0 IRQ, H-counter reads at CPU time | 0.10.0 and later | `retrorecomp/cpu.py` (`prepare_cpu_headers`, `prepare_reference`) | both engines |
 | Mode-4 scanline renderer in place of the end-of-frame snapshot | 0.10.9 | `native/video_mode4.inc` (via `prepare_runtime`) | both engines, new conversions |
 

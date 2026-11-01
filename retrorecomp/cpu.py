@@ -15,6 +15,14 @@ def prepare_cpu_headers(game: Path, engine: Path) -> None:
         '    uint8_t q;             /* previous flag-producing result (NMOS Q latch) */\n'
         '    uint8_t p;             /* preceding LD A,I/R, for interrupt PV quirk */\n'
         '    uint64_t cyc;')
+    # A word read is two bus reads: C leaves the order of two reads in one expression unspecified, and a read that has an effect
+    # (a VDP or port register in the low area, a mapper in the high one) must happen low byte first. The upstream carries the same
+    # correction on a side branch (z80-recomp-core 4dfc5fc, "Sequence Z80 word bus reads"), written the same way.
+    state = replace(state,
+        '    return (uint16_t)(sms_read8(a) | (sms_read8((uint16_t)(a+1))<<8));',
+        '    uint8_t lo = sms_read8(a);\n'
+        '    uint8_t hi = sms_read8((uint16_t)(a + 1u));\n'
+        '    return (uint16_t)((uint16_t)lo | ((uint16_t)hi << 8));')
     (game / 'sms_runtime.h').write_text(state, encoding='utf-8')
     # Existing runner/test includes use both historical spellings.
     (game / 'include').mkdir(exist_ok=True)

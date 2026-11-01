@@ -249,6 +249,17 @@ Spinball, which fails later). From an empty learning state 12 of the 15 games tr
 
 Interpreter share per pass (demo route, `main` before these changes -> this branch, from an empty learning state; native code is 100 minus this): the first pass is within 0.2 points for 14 of the 15 games (Lost Stars 61.9 -> 32.6 %); the last pass is equal or lower for every game that passes (Super Columns 59.6 -> 12.1, Action Fighter 34.1 -> 6.3, Shinobi World 19.0 -> 8.7; High-Tech World 0.222 -> 0.333). It is higher for the games that still fail (Aladdin, Sonic Spinball, Triple Trouble before it passed), where the run beyond the first divergence is no longer the same run. The main loop of Aladdin and Spinball is entered through a dispatch miss in the first pass (99 % interpreted, with or without this change).
 
+## Master System and Game Gear: WZ in the functions engine, ordered word reads (1.6.6, in preparation)
+
+Two changes of the Z80 code of the Master System and the Game Gear. (1) The "functions" engine keeps the internal WZ register as the
+banked engine does, and `BIT n,(HL)` takes its X and Y flags from it (they came from H): Alex Kidd: The Lost Stars passes the comparison
+with the reference CPU with it (13 of the 15 games tried pass from an empty learning state, 12 before; the other 14 give the same video
+trace and the same interpreter share, pass by pass). Cost, functions engine only: one `s->wz` store per memory, I/O, index, 16-bit
+arithmetic, jump, call and return instruction. (2) A word read of the shared runtime header reads the low byte, then the high byte, in two
+statements (it was two reads in one C expression, whose order is not defined); it applies to both engines. The generated sources of the
+banked engine are byte-identical on Bank Panic and Factory Panic apart from that header and the version resource. The game stamp of both
+consoles moves (`core` and `cpu` are in their group); the host stamp does not.
+
 ## Exports of 1.6.3 in 1.6.4
 
 1.6.4 is a structural release with a full reconversion of every console (decision of the maintainer, 29 October 2026). It

@@ -157,6 +157,25 @@ class Z80GeneratorPatchTests(unittest.TestCase):
         self.assertLess(text.index('static uint16_t rr_cf_addr;'), function)
 
 
+class WordReadOrderTests(unittest.TestCase):
+    """A word bus read is two statements, low byte first (C leaves two reads in one expression unordered)."""
+
+    engine = ROOT / '.deps/smsggrecomp'
+
+    @unittest.skipUnless((engine / 'external/z80-recomp-core/include/sms_runtime.h').is_file(), 'pinned smsggrecomp sources are not downloaded')
+    def test_the_staged_header_reads_the_low_byte_first(self):
+        from retrorecomp.cpu import prepare_cpu_headers
+        with tempfile.TemporaryDirectory() as temp:
+            game = Path(temp)
+            prepare_cpu_headers(game, self.engine)
+            text = (game / 'sms_runtime.h').read_text(encoding='utf-8')
+        function = text[text.index('static inline uint16_t sms_read16(uint16_t a){'):]
+        function = function[:function.index('\n}')]
+        self.assertLess(function.index('uint8_t lo = sms_read8(a);'), function.index('uint8_t hi = sms_read8((uint16_t)(a + 1u));'))
+        self.assertEqual(function.count('sms_read8('), 2)
+        self.assertNotIn('sms_read8(a) |', function)
+
+
 class FunctionsInterruptContractTests(unittest.TestCase):
     """Only the "functions" runner samples /INT at one boundary and accepts it at the next."""
 
