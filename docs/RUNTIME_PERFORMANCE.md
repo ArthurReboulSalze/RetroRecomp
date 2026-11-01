@@ -1,5 +1,24 @@
 # Runtime performance without changing the output
 
+## Measured on 1 November 2026 — 1.6.5 against 1.6.6
+
+Same method as the 1.6.4 / 1.6.5 comparison below (one pinned core, best of three, interleaved, whole process divided by
+the frames). A is the 1.6.5 executable built for that comparison, B the same cartridge converted by the 1.6.6 tree.
+
+| Machine | Game | Frames | 1.6.5 | 1.6.6 | 1.6.6 / 1.6.5 |
+|---|---|---|---|---|---|
+| Super Nintendo | Secret of Mana | 2,400 | 6.00 ms | 5.79 ms | 0.96 |
+| Master System | Sonic The Hedgehog | 2,400 | 0.18 ms | 0.18 ms | 0.98 |
+| Game Gear | Sonic The Hedgehog | 2,400 | 0.18 ms | 0.18 ms | 0.99 |
+| Game Boy | Super Mario Land | 2,400 | 0.53 ms | 0.54 ms | 1.00 |
+| Neo Geo | Puzzle De Pon! R | 7,200 | 1.44 ms | 1.44 ms | 1.00 |
+| NES | Metroid | 2,400 | 2.25 ms | 2.26 ms | 1.01 |
+| NES (PAL) | Mr. Gimmick | 2,400 | 6.43 ms | 6.50 ms | 1.01 |
+
+No regression beyond the noise of the method. R-Type (X68000) and Sonic The Hedgehog (Mega Drive) were not measured:
+Windows Defender quarantined the 1.6.6 copies while the run started them (`Program:Win32/Contebrew.A!ml`, a false
+positive; see the "Compress games" option of 1.6.6). The SA-1 titles have no 1.6.5 counterpart (refused before 1.6.6).
+
 ## Measured on 30 October 2026 — 1.6.4 against 1.6.5
 
 Host cost per frame on a Ryzen 9 3900X, one pinned core, a quiet PC: the same cartridge converted by the converter of

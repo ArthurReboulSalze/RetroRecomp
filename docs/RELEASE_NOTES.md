@@ -127,8 +127,11 @@
   published uncompressed and why; the packed replay of Neo Geo, CPS-1 and the
   X68000 then replays the unpacked file.
 
-**Speed.** No comparison of the host time per frame of 1.6.6 with 1.6.5 is
-recorded yet, and the host time of the SA-1 titles was not measured.
+**Speed.** No regression: host time per frame of 1.6.6 against 1.6.5 on a quiet PC (one pinned core of a Ryzen 9
+3900X, best of three, the same cartridge converted by each): Secret of Mana 0.96, Sonic (Master System) 0.98, Sonic
+(Game Gear) 0.99, Super Mario Land and Puzzle De Pon! R 1.00, Metroid 1.01, Mr. Gimmick (PAL) 1.01. R-Type and Sonic
+(Mega Drive) were not measured (Windows Defender quarantined the 1.6.6 copies during the run, a false positive), and
+the host time of the SA-1 titles was not measured. Details in [RUNTIME_PERFORMANCE.md](RUNTIME_PERFORMANCE.md).
 
 These are native-code and CPU-fidelity changes, evidence about the delivered
 file, and evidence for the "supported" gates; none of them is a measure of
