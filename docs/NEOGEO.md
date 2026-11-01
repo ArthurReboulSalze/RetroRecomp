@@ -300,6 +300,10 @@ observations enter the shared bank ([COMPILATION_LIBRARY.md](COMPILATION_LIBRARY
   experimental at cartridge level. A pointer with a flagged high byte keeps its full
   PC (the reference CPU does too, so `BSR` pushes `0x8004e806` on Gowcaizer); this is
   reference agreement, not proof of real 68000 behaviour, and CPS-1 shares the pattern.
+- **Deferred: the second megabyte of 2 MiB cartridges.** A program ROM of at most 2 MiB has a constant window at `0x200000`, which the static
+  sweep does not cover (only the first megabyte is swept). Sweeping it would remove the interpreter use of Twinkle Star Sprites (0.4 %), at about
+  +15 to +35 % of the conversion time on the 18 exports of that size; decided against for now, with the event that brings it back in
+  [UPSTREAMS.md](UPSTREAMS.md#deferred).
 - **Measured fallback.** Beyond the routes of a conversion, a 18,000-frame pseudo-random route on copies of 20 exports found zero
   fallback in 13 sets and fallback in 7 ([log](NEOGEO_LOG.md)). Six of them ran the same nine instruction sites of a routine the BIOS copies
   into work RAM when it restarts a game left without a credit: every cartridge now replays an attract route of at least 7,200 frames
