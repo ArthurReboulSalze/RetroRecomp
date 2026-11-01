@@ -13,6 +13,26 @@ hardware fidelity, gameplay validation and physical latency. A result of one is
 never read as a result of another. `.build/...` names are the maintainer's private
 evidence folders; they are not part of the repository.
 
+## Independent Z80 vectors replayed through the Neo Geo generator — 1 November 2026
+
+For 1.6.6 (gate G10, CPU evidence), on the tree after the 19 corrections of the Geolith Z80 core (`neogeo_z80.FIXES`, from the CPS-1 work). The
+CPS-1 replay already used the Neo Geo Z80 adaptation (`neogeo_z80.adapt_source`), so the core is the same; what is specific to the Neo Geo is the
+generator of the translated bodies (`neogeo_z80.generate`: one guarded body per opcode form found in the M1 and SM1 ROMs, lookups by physical
+offset, observed variants for the sound RAM at `0xf800`) and its dispatch. `tools/neogeo_z80_vector_selftest.py` builds a synthetic cartridge
+(authored, no game) whose M1 ROM is the image holding one 4-byte slot per opcode form of the vectors, runs `prepare_project` and the generator on
+it, and links `native/neogeo_z80_vector_checks.c` (a flat 64 KiB bus, ports answered from the vector, `rr_ng_force_z80_reference` for the interpreted
+path). Corpus, vectors file, report and judging rules, with the pinned baseline, are the CPS-1 tool's, imported.
+
+- **Result (Windows, llvm-mingw, about two minutes).** 51,328 vectors: 49,685 ran as native steps below `0xf800`, 1,643 through RAM variants,
+  0 outside; every one ran as exactly one native step. Native versus vector: 51,260 on state and 51,328 on clocks; reference versus vector the
+  same; native versus reference: 51,328 on state and on clocks. The 68 vectors that differ are the CPS-1 ones: the X and Y flags of `SCF` and
+  `CCF` and their `DD`/`FD` duplicates (4, 7, 12, 17, 11 and 17 vectors), which need the Q latch of the original chip. The tool's pinned baseline
+  (corpus revision, 32 vectors per family, field failures, the six families) passes unchanged.
+- **Limits.** Flat bus: no board, no YM2610, no command latch or NMI mask; vectors in the sound RAM window run through an observed variant created
+  for them; P and Q are not compared; the oracle is JSMoo, not hardware.
+- **Files.** `tools/neogeo_z80_vector_selftest.py`, `native/neogeo_z80_vector_checks.c` (declared out of the stamps beside the other harnesses),
+  `tests/test_neogeo_z80_vectors.py` (the cartridge, the slots and variants, the shared baseline, no compiler).
+
 ## Independent 68000 vectors replayed through the Neo Geo generator — 1 November 2026
 
 For 1.6.6 (gate G10, CPU evidence). The CPS-1 replay of 1.6.5 (`tools/cps1_vector_selftest.py`) already used the Neo Geo front end of
