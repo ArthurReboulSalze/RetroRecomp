@@ -94,7 +94,7 @@ Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026):
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P | P | Y | Y | Y | ? | - | P | P | Y | P | P | P | ? | P | Y |
+| P | P | Y | Y | Y | P | - | P | P | Y | P | P | P | ? | P | Y |
 
 **The 18 October 2026 qualification, included in 1.1.3,** adds twelve exact cartridges: Sonic, Sonic 2, Tails Adventures, GG
 Aleste, Gunstar Heroes, Dynamite Headdy, OutRun, Super Columns, Vampire / Master of Darkness, Wonder Boy: The Dragon's Trap,

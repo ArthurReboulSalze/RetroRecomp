@@ -42,7 +42,7 @@ x68 = Sharp X68000.
 | G3 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G4 | Y | Y | P | P | Y | Y | Y | Y | Y |
 | G5 | P | Y | ? | Y | Y | Y | Y | Y | Y |
-| G6 | ? | ? | P | Y | Y | Y | Y | Y | Y |
+| G6 | P | P | P | Y | Y | Y | Y | Y | Y |
 | G7 | - | - | P | P | Y | P | Y | - | Y |
 | G8 | P | P | ? | P | P | Y | Y | Y | Y |
 | G9 | P | P | P | P | Y | P | Y | Y | Y |

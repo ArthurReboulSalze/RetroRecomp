@@ -171,9 +171,9 @@ Status from [QUALIFICATION.md](QUALIFICATION.md) (matrix of 27 October 2026; `Y`
 
 | G1 | G2 | G3 | G4 | G5 | G6 | G7 | G8 | G9 | G10 | G11 | G12 | G13 | G14 | G15 | G16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P | P | Y | Y | P | ? | - | P | P | Y | P | Y | P | ? | P | Y |
+| P | P | Y | Y | P | P | - | P | P | Y | P | Y | P | ? | P | Y |
 
-G6 (fresh-process states) is unknown, G8 (liveness) is partial (every conversion records it, see [QUALIFICATION.md](QUALIFICATION.md#shared-evidence-helper-g5-and-g8-retrorecomp-delivery_evidencepy)) and G14 has no recorded owner decision. Panel size: 258 cartridges.
+G6 (fresh-process states) is partial (`tools/sega_states_selftest.py`: a fresh process resumes a saved state on the banked engine, damaged states are refused; run on Bank Panic, not on a panel, and the "functions" engine has no quick states), G8 (liveness) is partial (every conversion records it, see [QUALIFICATION.md](QUALIFICATION.md#shared-evidence-helper-g5-and-g8-retrorecomp-delivery_evidencepy)) and G14 has no recorded owner decision. Panel size: 258 cartridges.
 
 The five measures, kept apart:
 
