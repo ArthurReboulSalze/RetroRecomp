@@ -556,6 +556,16 @@ X68000 game stamp and the SDK stamp `x68_sdk` move, the quick states of earlier 
 X68000 export is converted in full once, with no table entry. Only games that reach one of the two cases look different or behave differently. This
 says nothing about hardware fidelity: neither case was compared with a real machine, and no gameplay validation changes.
 
+## Mega Drive: 2,895 more independent 68000 vectors (1.6.6)
+
+A new fixture, `tests/fixtures/m68k-groups`, holds SingleStepTests vectors for 85 instruction groups the other fixtures do not
+have, replayed through the Mega Drive generator by `tools/megadrive_groups_selftest.py`. **No export changes and no stamp moves:**
+the fixture, its builder and its self-test are development files, and the harness (`native/md_prefetch_checks.c`) only gained a
+mode that lists every failing vector instead of stopping at the first. 2,315 of the vectors agree on every check, and 580 differ
+in the ways [CPU_68000.md](CPU_68000.md#what-the-groups-fixture-found-since-166) lists (final state in 51, total clocks in 83, bus
+layout in 446); nothing was adapted for them in this release. The three other replays (`md-prefetch`, `m68k-shifts`,
+`md-exceptions`) pass as before.
+
 ## Mega Drive: the delivered file is replayed and its liveness recorded (1.6.6)
 
 The conversion of a Mega Drive game now does what Neo Geo, CPS-1 and the X68000 do (`retrorecomp/delivery_evidence.py`, the

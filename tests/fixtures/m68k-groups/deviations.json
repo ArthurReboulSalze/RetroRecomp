@@ -1,0 +1,139 @@
+{
+ "ABCD": {
+  "bus": 19,
+  "state": 2
+ },
+ "ADD.b": {
+  "bus": 2
+ },
+ "ADD.l": {
+  "bus": 10,
+  "clocks": 5
+ },
+ "ADDA.l": {
+  "clocks": 8
+ },
+ "ADDX.b": {
+  "bus": 17
+ },
+ "ADDX.l": {
+  "bus": 4
+ },
+ "ADDX.w": {
+  "bus": 7
+ },
+ "AND.b": {
+  "bus": 1
+ },
+ "AND.l": {
+  "bus": 8,
+  "clocks": 6
+ },
+ "ANDItoCCR": {
+  "bus": 44
+ },
+ "BCHG": {
+  "clocks": 4
+ },
+ "BCLR": {
+  "bus": 3,
+  "clocks": 3
+ },
+ "BSET": {
+  "bus": 2,
+  "clocks": 1
+ },
+ "BTST": {
+  "bus": 2,
+  "clocks": 2
+ },
+ "CLR.l": {
+  "bus": 15
+ },
+ "CMPA.w": {
+  "clocks": 25
+ },
+ "EOR.b": {
+  "bus": 3
+ },
+ "EOR.l": {
+  "bus": 15,
+  "clocks": 7
+ },
+ "EORItoCCR": {
+  "bus": 40
+ },
+ "LINK": {
+  "bus": 31,
+  "state": 6
+ },
+ "MOVEP.l": {
+  "bus": 26
+ },
+ "MOVEP.w": {
+  "bus": 16
+ },
+ "MOVEtoCCR": {
+  "bus": 23
+ },
+ "NBCD": {
+  "state": 18
+ },
+ "NEG.l": {
+  "bus": 14
+ },
+ "NEGX.b": {
+  "state": 1
+ },
+ "NEGX.l": {
+  "bus": 17
+ },
+ "NOT.l": {
+  "bus": 15
+ },
+ "OR.b": {
+  "bus": 1
+ },
+ "OR.l": {
+  "bus": 13,
+  "clocks": 3
+ },
+ "OR.w": {
+  "bus": 2
+ },
+ "ORItoCCR": {
+  "bus": 40
+ },
+ "RTR": {
+  "state": 18
+ },
+ "SBCD": {
+  "bus": 16,
+  "state": 2
+ },
+ "SUB.b": {
+  "bus": 1
+ },
+ "SUB.l": {
+  "bus": 4,
+  "clocks": 5
+ },
+ "SUBA.l": {
+  "clocks": 12
+ },
+ "SUBX.b": {
+  "bus": 20
+ },
+ "SUBX.l": {
+  "bus": 9
+ },
+ "SUBX.w": {
+  "bus": 6
+ },
+ "Scc": {
+  "clocks": 2
+ },
+ "UNLINK": {
+  "state": 4
+ }
+}
