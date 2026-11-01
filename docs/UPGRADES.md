@@ -669,6 +669,25 @@ The time allowed to one UPX pass on Windows was a fixed 120 seconds. It stopped 
 executable) after every check had passed, while other conversions shared the CPUs. The limit now grows with the file on Windows and
 Linux alike (`packing.upx_timeout`: 10 seconds per MB, never below 300); it only exists to stop a packer that hangs.
 
+## Super Nintendo: the SA-1 boards, and no Super Mario RPG shortcut (1.6.6)
+
+The Super Nintendo game stamp moves (`snes_codegen.py`, `snes_cart.py`, `snes_chips.py`, `supernintendo.py` and the native SNES
+files change), so every Super Nintendo export of 1.6.5 is converted again once, as at every release. Quick states of
+the previous release are refused cleanly ([GAME_STATES.md](GAME_STATES.md)); cartridge saves are kept. What changes for a player:
+
+- **The pinned engine's wait-loop shortcut for one title is off.** In a Super Mario RPG battle the loop at `$C0:84B2` is executed
+  instruction by instruction, as the interpreter would; the cycle count is the same, the host does more work there. No other
+  cartridge is affected (the shortcut checked that cartridge's bytes).
+- **The vblank-wait fast-forward at fixed addresses of Star Ocean and Super Mario RPG is off too** (no engagement seen in
+  the routes run; a second per-game shortcut of the same engine).
+- **SA-1 cartridges are accepted** (map `$23`, type `$34` or `$35`, up to 4 MiB); the SA-1 program is a counted interpreted
+  device, like the Super FX GSU, and its BW-RAM is the battery file (type `$35`) and part of the quick state. The S-CPU
+  reaches it at the clock of its own bus cycle and its IRQ follows its flags (only SA-1 boards run that code).
+- **S-DD1 cartridges are accepted up to 4 MiB** (map `$32`, type `$43` or `$45`; Street Fighter Alpha 2). Star Ocean (6 MiB)
+  stays refused. The report counts the chip's decompression sessions.
+- **Cost:** about 35-155 thousand SA-1 instructions are interpreted per frame in the three SA-1 titles proved; host time was
+  not measured (to be timed on a quiet PC).
+
 ## Other machines whose game stamp moves in 1.6.5
 
 Each of these changes a game input of its machine, so the game stamp moves and an export of 1.6.4 is converted again once, as at

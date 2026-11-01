@@ -510,30 +510,12 @@ the paragraph above, and it came back clean.
   CPU-visible register window.
 - Added DMA-register spying and per-channel decompressed byte feeding so S-DD1
   transfers can populate PPU destinations through the existing DMA engine.
-
-## S-DD1 decompression implementation
-
-`runner/src/snes/sdd1.{c,h}` was extracted from the StarOceanSNESRecomp vendored
-runner copy and adapted into the shared runner cartridge/DMA layer.
-
-- Immediate source: https://github.com/SupraBT/StarOceanSNESRecomp
-- Declared source lineage in that file: bsnes-plus / Andreas Naive S-DD1
-  decompression research
-- Additional public lineage: Snes9x S-DD1 decompressor by Brad Jorsch, with
-  research by Andreas Naive and John Weidman
-- License status: review required before treating this as generally
-  redistributable framework code. The known public lineage includes
-  non-commercial and GPL-family emulator code, so downstream distribution must
-  satisfy the applicable original license terms.
-
-### Derivation / modifications
-
-- Wired the chip through `Cart` as `CART_SDD1`, including reset, saveload, and
-  cart read/write dispatch.
-- Added S-DD1 MMC resolution for `$C0-$FF` ROM windows and the `$4800-$4807`
-  CPU-visible register window.
-- Added DMA-register spying and per-channel decompressed byte feeding so S-DD1
-  transfers can populate PPU destinations through the existing DMA engine.
+- Retro-Recomp (1.6.6): the decompression engine above is compiled into the Super Nintendo games whose cartridge carries an
+  S-DD1. Andreas Naive's public-domain notice, quoted above, stays with this file; the credit is a courtesy he asks for and
+  is kept here and in the credits window. The adapter only counts the sessions it runs (`rr_sdd1_dma_sessions`,
+  `rr_sdd1_dma_bytes`, `rr_sdd1_cpu_blocks`, in `retrorecomp/snes_chips.py`) and adds no decompression code of its own.
+  A second copy of this section that said "review required" came from an earlier revision of the notice and was removed:
+  the review it asked for is the paragraph "This is therefore not a constraint...".
 
 ## LakeSnes — 65816 CPU core
 

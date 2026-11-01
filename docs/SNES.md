@@ -1,9 +1,10 @@
 # Super Nintendo
 
 **Status: supported within the standard-cartridge profile.** Ordinary LoROM and HiROM cartridges up to 4 MiB, PAL and
-NTSC, two pads, Super Scope, cartridge saves and F8/F9 quick states. Boards with a DSP-1, a CX4 or a Super FX (GSU)
-are supported too; the CX4 and the GSU stay counted interpreted devices, apart from the native 65816 and SPC700 code.
-Other enhancement circuits and extended mappings are refused with a clear message. The dated evidence behind this
+NTSC, two pads, Super Scope, cartridge saves and F8/F9 quick states. Boards with a DSP-1, a CX4, a Super FX (GSU), an
+SA-1 or an S-DD1 are supported too (SA-1 and S-DD1 since 1.6.6); the CX4, the GSU and the SA-1 stay counted interpreted
+devices, apart from the native 65816 and SPC700 code. Other enhancement circuits and extended mappings are refused with a
+clear message. The dated evidence behind this
 page is in [SNES_LOG.md](SNES_LOG.md).
 
 Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-of-the-machine) ·
@@ -24,10 +25,10 @@ Contents: [At a glance](#at-a-glance) · [Structure of the machine](#structure-o
 | How a new cartridge is handled | Analysed from its own ROM. There is no allowlist: a catalogue entry (eleven exact ROMs in `supernintendo.PROFILES`) only supplies optional settings, and compilation knowledge is bound to the full SHA-256 and the engine revision |
 | Interpreter fallback | Always counted and shown: the window title reports it, H explains it, the report keeps it per CPU and per device |
 
-Refused with an explicit message: SA-1, S-DD1, SPC7110, DSP-2/3/4 and other custom circuitry (`snes_chips.identify`),
-extended mappings and images above 4 MiB (`supernintendo.validate_cartridge`), ordinary cartridge RAM above 128 KiB, and DSP-1
-firmware-dump commands. A credible SA-1 header is recognised and refused with a circuit-support error rather than
-being mistaken for an invalid ROM.
+Refused with an explicit message: SPC7110, DSP-2/3/4 and other custom circuitry (`snes_chips.identify`), SA-1 headers other
+than map `$23` with type `$34` or `$35`, S-DD1 headers other than map `$32` with type `$43` or `$45`, extended mappings and
+images above 4 MiB (`supernintendo.validate_cartridge`: Star Ocean, 6 MiB, is refused because it converts and then stays on a
+blank screen, see [Known limits](#known-limits)), ordinary cartridge RAM above 128 KiB, and DSP-1 firmware-dump commands.
 
 ## Structure of the machine
 
@@ -40,6 +41,8 @@ being mistaken for an invalid ROM.
 | DMA and HDMA | Eight channels, HDMA from line 0 | Run on the guest bus timeline (byte-level arbitration, refresh holds, parked-CPU handling). The renderer replays recorded PPU writes and never charges that replay as CPU time |
 | Memory | 128 KiB work RAM; cartridge ROM (mirrored like the loader's power-of-two storage); cartridge RAM, battery or volatile (ordinary boards up to 128 KiB; Super FX Game Pak RAM from the extended header, 64 KiB by default) | Decoded by one checked cartridge decoder shared by the CPU fast path and the bus; holes return the CPU data latch (open bus) |
 | DSP-1 | Maths coprocessor on LoROM or HiROM boards (HiROM: map `$31`, cartridge type `$05` with battery RAM or `$03` without; the DSP-1 window is `$00-$1F:$6000-$7FFF`) | Firmware-free command model (alias decode, camera and raster projection); each command is counted. Commands that dump firmware stop validation. Timing is command modelling, not electrical timing |
+| SA-1 | Second 65816 at 10.74 MHz (one SA-1 cycle per two master clocks) with 2 KiB of I-RAM, BW-RAM (8-64 KiB here, the battery for type `$35`), the Super MMC, a timer, DMA and character conversion, multiply/divide, and a mailbox and IRQ in both directions with the S-CPU | The SA-1 core of the pinned engine (the `interp816` 65816 core with its own bus), a counted interpreted device on its own `cartridge_device` line, like the GSU. The S-CPU reaches it at the clock of its own bus cycle (see below). BW-RAM is the battery file and is part of quick states |
+| S-DD1 | Decompression chip on the DMA path (map `$32`, types `$43` and `$45`; Street Fighter Alpha 2 is the reference board) | The decompression engine of the pinned engine (public domain, [licence notice](../licenses/snesrecomp.md)); it is not a processor: the report counts the DMA sessions it ran and the bytes it was asked for (`sdd1_dma_sessions`, `sdd1_dma_bytes`) |
 | CX4 | HG51B-based coprocessor (Mega Man X2 is the reference board) | Existing instruction core with synthesised constants. Its instructions stay interpreted and are counted on their own device line |
 | Super FX (GSU) | MARIO chip, GSU-1 and GSU-2 boards, map `$20`, types `$13`-`$15` and `$1A` | Instruction-level core of the pinned engine, a counted interpreted device. Static recompilation of GSU code is not done: see [SNES_SUPERFX.md](SNES_SUPERFX.md) |
 | Controllers | Two pads (auto-read and manual `$4016` strobe), Super Scope on port 2 | Host kit adapter. Super Scope: [GUNS_16BIT.md](GUNS_16BIT.md). The Justifier uses another serial protocol and is catalogued only |
@@ -47,7 +50,7 @@ being mistaken for an invalid ROM.
 ### What is native, what is counted
 
 Three counters are kept apart and never summed. The 65816 figure counts interpreted **opcodes** of the main CPU only. The
-SPC700 figure is cycle-based. Each cartridge device (GSU, CX4, DSP-1) has its own line, `cartridge_device` in the report,
+SPC700 figure is cycle-based. Each cartridge device (GSU, CX4, SA-1, DSP-1, S-DD1) has its own line, `cartridge_device` in the report,
 with interpreted instructions per scenario and per frame; a GSU runs tens of millions of them per scenario and would
 swamp both CPU percentages if it were added to them. A native 65816 or SPC700 path therefore cannot hide interpreted
 device work, and no zero-total-fallback claim is made for CX4 or Super FX games.
@@ -72,6 +75,13 @@ The adaptations (PAL and NTSC timing, bus phases, DMA/HDMA, PPU ports, display, 
 ahead, deferred items, planned revision bump), is [UPSTREAMS.md](UPSTREAMS.md). The CPU patch is the one of 1.6.3: in native mode `BRK` takes 8 cycles
 (7 in emulation mode) and `COP` follows the mode (no bank pushed in emulation mode, 7 cycles, vector `$FFF4`), in
 `snes_codegen.py` (`correct_software_interrupts`). There is no SNES patch in 1.6.4.
+
+**No per-game code (1.6.6).** The pinned bridge (`interp_bridge.c`) carries one shortcut written for a single cartridge: a
+byte-verified fast-forward of the `LDA $D9 / BEQ` wait loop at `$C0:84B2` of Super Mario RPG (battle, vertical timer 216), on
+unless the environment variable `SNESRECOMP_NO_D9FF` is set. Retro-Recomp ships no code for one title, so the adapter
+(`snes_codegen.adapt_bridge`) turns the switch off in every build, whatever the environment says, and fails closed if the pinned
+text moves; a test pins both (`tests/test_snes.py`). Cost: the loop is executed instruction by instruction in a battle, which
+the SA-1 numbers of [SNES_LOG.md](SNES_LOG.md) and [UPGRADES.md](UPGRADES.md) state.
 
 ## In the project
 
@@ -189,7 +199,9 @@ Reference and risk cases ([`tools/campaign-risk-cases.json`](../tools/campaign-r
 - Star Fox (Super FX, old header, default 64 KiB RAM) and Super Mario World 2 - Yoshi's Island (GSU-2, 2 MiB, battery RAM).
 - Pilotwings (DSP-1): the camera and raster projection commands it exposed are now covered.
 - Mega Man X2 (CX4): instructions stay interpreted and are reported on their own device line.
-- Super Mario RPG (SA-1): must be refused with an explicit circuit-support error.
+- Super Mario RPG (SA-1): the reference board of the SA-1 work (since 1.6.6); the other 14 SA-1 cartridges of the maintainer's
+  library are recognised, three are proved (below).
+- Street Fighter Alpha 2 (S-DD1): the reference board of the S-DD1; Star Ocean (6 MiB) stays refused.
 - Super Scope 6 (CRC32 B141EA99) for the gun, NTSC only.
 
 ### Interpreter-fallback survey (29 October 2026)
@@ -228,6 +240,63 @@ pseudo-random routes (no scan level has run them): 109,558 and 60,081 DSP-1 comm
 65816 and SPC700 opcodes. The device is counted apart (`command_model`); this is no hardware-fidelity, gameplay or latency claim,
 and the six other cartridges were recognised but not converted here.
 
+### SA-1 and S-DD1 (1 November 2026, release 1.6.6)
+
+**SA-1.** The 15 SA-1 cartridges of the maintainer's library (map `$23`, type `$35` twelve times, `$34` three times; 1-4 MiB;
+BW-RAM 8-64 KiB) were refused before; the pinned engine already carries the chip (`sa1.c`, ported from ares). Three are
+proved, each converted at the Standard level from an empty library, then replayed (the exported game, not a conversion) on two
+pseudo-random routes of 6,000 frames that no scan level has run. The SA-1 is a counted interpreted device: its instructions
+are never in the 65816 percentage.
+
+| Cartridge | Board | Interpreted 65816 / SPC700 after one learning pass | SA-1 instructions per frame (scan / long routes) | Picture and sound | Published file |
+|---|---|---|---|---|---|
+| Super Mario RPG (USA) | `$23/$35`, 4 MiB, 32 KiB BW-RAM with battery | 0 / 0, also on the long routes | 47.7 k, 55.5 k / 42 k | 1,056 and 1,020 visible frames, then 5,632 and 5,749; sound on | native equals reference, fresh-process quick state, 8 invalid files refused |
+| Kirby Super Star (USA) | `$23/$35`, 4 MiB, 8 KiB with battery | 0 / 0, also on the long routes | 35.7 k, 34.3 k / 35 k | 1,032 and 1,011, then 5,627 and 5,565; sound on | same |
+| Super Bomberman: Panic Bomber W (Japan) | `$23/$34`, 1 MiB, 8 KiB without battery | 0 / 0, also on the long routes | 147.6 k, 145.4 k / 155 k | 1,030 and 863, then 5,516 and 5,516; sound on | same |
+
+Panic Bomber W runs three times the SA-1 instructions of the other two; no host time was measured for any of them. The
+battery file of a real export is written by the first process and read back by the second (32,880 and 8,304 bytes for the
+first two, bound to the SA-1 board, the BW-RAM is part of the quick state), a damaged file is refused and left as it is.
+
+What the work found and changed (all in the staged copy, none in the pinned checkout, see [UPSTREAMS.md](UPSTREAMS.md)):
+
+- **The S-CPU reaches the SA-1 at the clock of its own bus cycle.** The pinned `cart_read` and `cart_write` synchronise the
+  SA-1 to the clock of the end of the previous instruction. Measured on Super Mario RPG over 36.8 million accesses, the SA-1
+  then stood behind the S-CPU by more than 32 master clocks at 3.3 % of them, by more than 8,192 at 17 of them (at most
+  540,172). With the bus-cycle clock it is never behind, and ahead by at most 24 clocks (one instruction); the report carries
+  the histogram (`sa1_behind_buckets`).
+- **The SA-1's IRQ request follows its flags.** The pinned core latched the request and never withdrew it: after a handler
+  cleared its flag, the `RTI` took a second IRQ whose vector was read from the ROM (the S-CPU's), and the SA-1 never returned
+  to its loop. Found by the authored cartridge below; it concerns every game that interrupts the SA-1 from the S-CPU.
+- **Two fast-forwards the pinned bridge carries for single cartridges are off in every build** (a Super Mario RPG wait loop and
+  a vblank wait at fixed addresses of Star Ocean and Super Mario RPG): no per-game code. They did not engage in the routes
+  above (the SA-1 counts are identical with and without). A battle of Super Mario RPG was not reached by any scripted route,
+  so its cost was not measured; the work they skipped is native S-CPU instructions bounded by the clock (at most about 20,000
+  per frame for a two-instruction loop), and the SA-1's count follows the master clock, not the S-CPU's.
+- **The main CPU's hooks skip the SA-1's core** (it is the same `interp816` as the main CPU's): its instructions would
+  otherwise have been counted as the main CPU's and looked up in the main CPU's ROM map.
+
+An authored cartridge written for the purpose (`tools/snes_sa1_selftest.py`, NTSC and PAL) checks, against the processor
+manuals and the register documentation rather than against the engine: a counter loop in I-RAM at one instruction per ten
+master clocks (1,422,555 against 1,424,427 expected over 40 frames), a message and an IRQ from the S-CPU to the SA-1 and back
+with the flags cleared and each handler run once, BW-RAM written by each CPU and read by the other, the coprocessor never
+behind and at most 14 clocks ahead, native equal to the interpreted reference, the BW-RAM saved across two processes (a
+damaged file or a file for another cartridge refused untouched) and a quick state restored in a fresh process.
+
+**S-DD1.** Street Fighter Alpha 2 (USA; map `$32`, type `$43`, 4 MiB, no RAM) is the reference board and converts with zero
+interpreted 65816 and SPC700 opcodes. The scan runs 57 and 78 decompression DMA sessions (126,368 and 169,376 bytes); the long
+routes run 825 and 1,498 (1,490,624 and 2,469,586 bytes); a frame of its attract mode (the score ranking, with the portraits)
+shows clean decompressed graphics. The published file passes the same checks as above. The decompressor is the pinned engine's
+(public domain, attribution in [the licence notice](../licenses/snesrecomp.md)); native and reference share it, so this finds
+no decompression error of its own and the picture is the evidence.
+
+**Not proved, not claimed.** Hardware fidelity of the SA-1 (bus contention between the two CPUs for ROM and BW-RAM, the exact
+cycle placement) and of the S-DD1 (the chip's DMA timing); an independent comparison for either (upstream compared one
+cartridge, Super Mario RPG, with another emulator for 600 frames); the 12 other SA-1 cartridges, converted by nobody here;
+battles and long play; host time per frame. Star Ocean (6 MiB, the only S-DD1 cartridge above 4 MiB) converts, then shows the
+translation's splash and stays on a blank screen while its music plays (force blank on, NMI off, display layers off after four
+decompressions, the S-CPU in its script loop at `$C0:6C1E-6C2A`): not understood, so it stays refused.
+
 Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](SNES_SUPERFX.md); the DSP-1/CX4 release
 1.0.0 campaign, the live-RAM guards, bus, DMA/HDMA, PPU and cartridge-decoder work in [SNES_LOG.md](SNES_LOG.md).
 
@@ -237,7 +306,12 @@ Evidence by topic: Super FX qualification, gates and costs in [SNES_SUPERFX.md](
   [SNES_SUPERFX.md](SNES_SUPERFX.md)) is estimated at 25-35 working days and is not planned: the GSU is 7-27 % of host
   frame time. Open there: battery proof for Stunt Race FX and Yoshi's Island at game level, Doom 5- against 9-frame pacing,
   the Dirt Trax FX two-controller route, Stunt Race FX modes no authored route enters.
-- **Not supported:** SA-1, S-DD1, SPC7110, DSP-2/3/4, extended mappings, images above 4 MiB, DSP-1 firmware-dump commands.
+- **SA-1 and S-DD1** (1.6.6): three SA-1 cartridges and one S-DD1 cartridge are proved on bounded routes; the other
+  eleven SA-1 cartridges of the library are only recognised; bus contention between the SA-1 and the S-CPU, cycle placement
+  inside an SA-1 instruction and the S-DD1's DMA timing are not modelled or not qualified; no battle of Super Mario RPG was
+  reached; the SA-1 interpreter's host cost is not measured (about 35-155 thousand instructions per frame on the three
+  proved titles). Star Ocean (S-DD1, 6 MiB) stays refused: it converts and shows a blank screen after its splash.
+- **Not supported:** SPC7110, DSP-2/3/4, extended mappings, images above 4 MiB (Star Ocean), DSP-1 firmware-dump commands.
   Recognition of a circuit is not product qualification.
 - **PPU and bus timing:** instruction-internal and parked-CPU phases, DMA launch and release dividers, DMA/HDMA collision
   arbitration, active-display OAM/CGRAM fetch collisions, mid-line blanking and size changes during object fetch, uncommon
@@ -267,3 +341,8 @@ Earlier stages in short (full text and counts in [SNES_LOG.md](SNES_LOG.md)):
   Japanese prototype), both in the Super FX work.
 - **1.6.3:** the `BRK` and `COP` correction.
 - **1.6.4:** no SNES patch; the quick-state key did not move.
+- **1.6.5:** the cartridge is checked once at bind and WRAM code is found through a direct table (speed-ups, identical
+  outputs); the HiROM DSP-1 board without RAM (map `$31`, type `$03`), the ordinary LoROM with mode byte `$32` and the Pro
+  Fighter `.fig` dumps are accepted; the interpreter-fallback survey (no unexplained interpreted instruction).
+- **1.6.6:** SA-1 boards (a second 65816, counted as a device) and S-DD1 boards up to 4 MiB; the S-CPU reaches the SA-1 at
+  the clock of its own bus cycle; the SA-1's IRQ follows its flags; the pinned bridge's per-game fast-forwards are off.
