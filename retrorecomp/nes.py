@@ -280,6 +280,8 @@ def _probe(exe: Path, work: Path, scenario: str, frames: int, seed: Path,
                 (work / f'{scenario}-{kind}.{suffix}').unlink(missing_ok=True)
         command += ['--wav-out', work / f'{scenario}-native.wav']
     output = _run_probe(command, work)
+    if not trace.is_file():
+        raise ConversionError(f'NES {scenario} probe wrote no frame trace.')
     summary, interpreted = SUMMARY.search(output), INTERPRETED.search(output)
     if not summary or int(summary[1]) != frames:
         raise ConversionError(f'NES {scenario} probe did not complete {frames} frames.\n{output[-1000:]}')
