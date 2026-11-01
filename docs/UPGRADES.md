@@ -501,6 +501,8 @@ header (`native/md_exception_decode.h`, which already held the reserved words `$
   The decoder had read the 32-bit displacement of the 68020 and made it three words long. The validator still refuses it as
   speculative code (the tools skip it), so no scan translates it; the change is the length and the target the reference path and
   the X68000 table of instruction lengths see.
+  A `$6xFF` that a game really takes is not an address error here: the error is not modelled, and the reference path goes on
+  at the odd address, as it did before for any odd program counter (not a regression).
 
 *Edited:* `native/md_exception_decode.h` (moved to the 68000 family of the stamp manifest, so that it moves the stamps of all four
 machines, which it did not do for the Neo Geo, CPS-1 and X68000 before), `native/x68000_native/decode.c` (its table of lengths now
@@ -514,6 +516,11 @@ its decoding), on 25 hand-written byte sequences, and on the four real decoding 
 bytes; every one of those fails on the previous header (`LEA D0,A0` came out as `LEA`, `MOVEC` as `MOVEC`, `BKPT #0` as `PEA`, the
 `$60FF` branch three words long). The Mega Drive, Neo Geo, CPS-1 and 68000 backend self-tests still pass. This is a CPU fidelity
 change of what the decoder accepts; it is not a statement about any game's behaviour.
+
+**Conversions compared (A/B, `tools/ab_conversion.py`):** around the header alone (Blockout, `ab-md-166.log`), the generated
+sources are identical; only `md_exception_decode.h` itself, the clang profile data and the compression ratio (0.2642 against
+0.2641) differ. On three games (Blockout, Sonic The Hedgehog, Gunstar Heroes) with the G5/G8 change added, the exports differ
+only by the profile data and the compression ratio, apart from the new evidence keys and files.
 
 ## Mega Drive: BUSACK at the end of the sound CPU's machine cycle (1.6.5)
 

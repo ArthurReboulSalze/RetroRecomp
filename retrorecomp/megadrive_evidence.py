@@ -51,7 +51,9 @@ def trace_rows(trace: Path) -> Iterator[FrameRow]:
         pc = fields[column['pc']] if 'pc' in column else None
         audible = None
         if 'fm_nonzero' in column and 'psg_nonzero' in column:
-            audible = int(fields[column['fm_nonzero']]) + int(fields[column['psg_nonzero']]) > 0
+            sound_counts = (fields[column['fm_nonzero']], fields[column['psg_nonzero']])
+            if all(count.isdigit() for count in sound_counts):
+                audible = sum(map(int, sound_counts)) > 0
         yield FrameRow(int(fields[column['frame']]), fields[column['frame_hash']], sound=sound, audible=audible, pc=pc)
 
 
