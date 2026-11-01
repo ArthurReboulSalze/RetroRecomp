@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import retrorecomp
 from retrorecomp import compiled_games, freshness, knowledge_build, online, report_schema
+from retrorecomp.delivery_evidence import DeliveredFile
 from retrorecomp.report_schema import (KNOWLEDGE_KEYS, MEASURES, OPTIONAL_ON_DISK, REQUIRED_KEYS, V2_ONLY_KEYS,
                                        ReportShapeError, fallback_summary, legacy_view, read_report,
                                        with_schema_v2, write_report)
@@ -48,6 +49,10 @@ def report_keys(module):
                     if key is None:       # **({'cartridge_device': device} if ... else {})
                         keys |= {k.value for d in ast.walk(value) if isinstance(d, ast.Dict) for k in d.keys
                                  if isinstance(k, ast.Constant)}
+                        # **delivered.report_fields(): the keys the delivered file names (delivery_evidence)
+                        if (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
+                                and value.func.attr == 'report_fields'):
+                            keys |= set(DeliveredFile.REPORT_KEYS)
                     elif isinstance(key, ast.Constant):
                         keys.add(key.value)
         if isinstance(node, ast.Assign):

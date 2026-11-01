@@ -901,15 +901,15 @@ class AdoptionTests(unittest.TestCase):
     def test_the_converters_call_the_shared_helpers(self):
         for module, names in (('console16', ('spawn(', 'check_exit(', 'probe_environment(', 'check_run_budget(',
                                               'resolve_scan_level(', 'convert_single(', 'pinned_checkout(')),
-                              ('neogeo_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'pack_candidate(',
-                                                     'comparison_notice(')),
+                              ('neogeo_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'deliver_packed(',
+                                                     'replay_routes(')),
                               ('neogeo_state_checks', ('spawn(', 'check_exit(', 'continuation_difference(', 'require(',
                                                        'require_equal(')),
                               ('neogeo_persistence_checks', ('spawn(', 'check_exit(')),
                               ('neogeo_build', ('spawn(', 'check_exit(', 'pinned_checkout(', 'replace_counted(',
                                                 'pack_candidate(')),
-                              ('cps1_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'pack_candidate(',
-                                                   'comparison_notice(', 'require_same_file(', 'continuation_difference(')),
+                              ('cps1_conversion', ('spawn(', 'check_exit(', 'resolve_scan_level(', 'deliver_packed(',
+                                                   'replay_packed(', 'require_same_file(', 'continuation_difference(')),
                               ('cps1_build', ('replace_counted(', 'write_if_changed('))):
             text = self.source(module)
             for name in names:
